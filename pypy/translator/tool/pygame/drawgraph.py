@@ -193,7 +193,7 @@ def splitline(line, re_word = re.compile(r'[^\s"]\S*|["]["]|["].*?[^\\]["]')):
 
 
 class GraphRenderer:
-    MARGIN = 0.2
+    MARGIN = 0.6
     SCALEMIN = 3
     SCALEMAX = 100
     FONTCACHE = {}

@@ -25,7 +25,7 @@ KEYS = dict([
     for ident in dir(pygame.locals) if ident.startswith('K_')
 ])
 
-KEYS['plus'] = ('=', '+')
+KEYS['plus'] = ('=', '+', '.')
 KEYS['quit'] = ('q', 'escape')
 KEYS['help'] = ('h', '?', 'f1')
 
@@ -103,7 +103,7 @@ class GraphDisplay(Display):
     HELP_MSG = """
     Key bindings:
 
-        + or =          Zoom in
+        +, = or .       Zoom in
         -               Zoom out
         1               Zoom to fit
         0               Actual size
