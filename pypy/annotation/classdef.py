@@ -138,6 +138,7 @@ class ClassDef:
         bump = True
         attach_flat = None
         # don't bump if the only cause is rev diff discrepancies
+        # and they don't imply any change in our expanded type structure
         if was_here and len(subclass_attrs) == 1 and s_value is not None:
             old_attr = subclass_attrs[0]
             wasgeneralenough = old_attr.s_value.contains(s_value)
