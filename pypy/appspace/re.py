@@ -1,3 +1,16 @@
+# From CPython
+def escape(pattern):
+    "Escape all non-alphanumeric characters in pattern."
+    s = list(pattern)
+    for i in range(len(pattern)):
+        c = pattern[i]
+        if not ("a" <= c <= "z" or "A" <= c <= "Z" or "0" <= c <= "9"):
+            if c == "\000":
+                s[i] = "\\000"
+            else:
+                s[i] = "\\" + c
+    return ''.join(s)
+
 class Pattern:
     def __init__(self, pattern, flags):
         print 'regex', pattern
