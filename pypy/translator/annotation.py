@@ -10,7 +10,6 @@ class Annotator:
 
     def __init__(self, flowgraph):
         self.flowgraph = flowgraph
-        self.simplify_hooks = []
 
     def build_types(self, input_arg_types):
         input_ann = AnnotationSet()
@@ -65,8 +64,6 @@ class Annotator:
 
     def simplify(self):
         self.simplify_calls()
-        for hook in self.simplify_hooks:
-            hook(self)
 
     #__________________________________________________
 
@@ -133,6 +130,18 @@ class Annotator:
 
     def consider_op_newslice(self,op,annotations):
         annotations.set_type(op.result, slice)
+
+    def consider_op_getitem(self, op, annotations):
+        arg1,arg2 = op.args
+        type1 = annotations.get_type(arg1)
+        type2 = annotations.get_type(arg2)
+        if type1 in (list, tuple) and type2 is slice:
+            annotations.set_type(op.result, type1)
+
+    # XXX: this shouldn't be here...
+    def consider_op_getslice(self, op, annotations):
+        tp = annotations.get_type(op.args[0])
+        annotations.set_type(op.result, tp)
 
     def consider_const(self,to_var,const,annotations):
         if getattr(const, 'dummy', False):

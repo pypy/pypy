@@ -24,6 +24,24 @@ def transform_allocate(self):
                                     (new_op,) +
                                     operations[i+2:])
 
+def transform_slice(self):
+    for block, ann in self.annotated.iteritems():
+        operations = block.operations
+        n_op = len(operations)
+        for i in range(0, n_op-1):
+            op1 = operations[i]
+            op2 = operations[i+1]
+            if (op1.opname == 'newslice' and
+                ann.get_type(op1.args[2]) is type(None) and
+                op2.opname == 'getitem' and
+                op1.result is op2.args[1]):
+                new_op = SpaceOperation('getslice',
+                                         (op2.args[0], op1.args[0], op1.args[1]),
+                                         op2.result)
+                block.operations = (operations[:i] +
+                                    (new_op,) +
+                                    operations[i+2:])
+
 def transform_graph(ann):
-    ann.simplify_hooks.append(transform_allocate)
-    ann.simplify()
+    transform_allocate(ann)
+    transform_slice(ann)

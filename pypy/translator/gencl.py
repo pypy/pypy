@@ -65,6 +65,7 @@ class Op:
         table = {
             (bool,): "(not %s)",
             (int,): "(zerop %s)",
+            (list,): "(zerop (length %s))",
         }
         self.gen.emit_typecase(table, arg1)
         print "))"
@@ -75,6 +76,7 @@ class Op:
         table = {
             (bool,): "%s",
             (int,): "(not (zerop %s))",
+            (list,): "(not (zerop (length %s)))",
         }
         self.gen.emit_typecase(table, arg1)
         print ")"
@@ -109,6 +111,7 @@ class Op:
         print "(setq", s(result), "(funcall", s(iterator), "))"
     builtin_map = {
         pow: "expt",
+        range: "python-range",
     }
     def op_simple_call(self):
         func = self.args[0]
@@ -119,12 +122,21 @@ class Op:
         if func not in self.builtin_map:
             self.op_default()
             return
+        # XXX: generalize this later
+        if func is range:
+            annset = self.gen.cur_annset()
+            annset.set_type(self.result, list)
+            self.gen.reflow()
         s = self.str
         args = self.args[1:]
         print "(setq", s(self.result), "(", self.builtin_map[func],
         for arg in args:
             print s(arg),
         print "))"
+    def op_getslice(self):
+        s = self.str
+        result, (seq, start, end) = self.result, self.args
+        print "(setq", s(result), "(python-slice", s(seq), s(start), s(end), "))"
 
 
 class GenCL:
@@ -136,8 +148,14 @@ class GenCL:
     def annotate(self, input_arg_types):
         ann = Annotator(self.fun)
         ann.build_types(input_arg_types)
+        ann.simplify()
         transform_graph(ann)
         self.ann = ann
+    def cur_annset(self):
+        return self.ann.annotated[self.cur_block]
+    def reflow(self):
+        # XXX: I know, I know. This is WRONG. -- sanxiyn
+        self.ann.build_annotations(self.cur_annset())
     def str(self, obj):
         if isinstance(obj, Variable):
             return obj.name
@@ -247,10 +265,11 @@ class GenCL:
         bool: "boolean",
         int: "fixnum",
         type(''): "string", # hack, 'str' is in the namespace!
+        list: "vector",
     }
     def emit_typecase(self, table, *args):
         argreprs = tuple(map(self.str, args))
-        annset = self.ann.annotated[self.cur_block]
+        annset = self.cur_annset()
         argtypes = tuple(map(annset.get_type, args))
         if argtypes in table:
             trans = table[argtypes]
@@ -279,4 +298,17 @@ prelude = """\
       (if (< i (length seq))
           (let ((v (elt seq i))) (incf i) (list v t))
           (list nil nil)))))
+(defun python-slice (seq start end)
+  (let ((l (length seq)))
+    (if (not start) (setf start 0))
+    (if (not end) (setf end l))
+    (if (minusp start) (incf start l))
+    (if (minusp end) (incf end l))
+    (subseq seq start end)))
+; temporary
+(defun python-range (end)
+  (let ((a (make-array end)))
+    (loop for i below end
+          do (setf (elt a i) i))
+    a))
 """

@@ -103,5 +103,9 @@ class GenCLTestCase(test.IntTestCase):
         cl_builtinusage = make_cl_func(t.builtinusage)
         self.assertEquals(cl_builtinusage(), 4)
 
+    def test_slice(self):
+        cl_half = make_cl_func(t.half_of_n)
+        self.assertEquals(cl_half(10), 5)
+
 if __name__ == '__main__':
     test.main()
