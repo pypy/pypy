@@ -15,6 +15,11 @@ class TestImport(testit.AppTestCase):
       import a
       self.assert_('a' in sys.modules)
 
+   def test_import_bare_dir_fails(self):
+      def imp():
+         import impsubdir
+      self.assertRaises(ImportError,imp)
+
    def test_import_pkg(self):
       import sys
       sys.path.append('impsubdir')
