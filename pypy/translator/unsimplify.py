@@ -46,9 +46,9 @@ def remove_double_links(translator, graph):
             double_links = []
             seen = {}
             for link in block.exits:
-                seen[link.target] = True
                 if link.target in seen:
                     double_links.append(link)
+                seen[link.target] = True
             for link in double_links[:-1]:
                 insert_empty_block(translator, link)
     traverse(visit, graph)
