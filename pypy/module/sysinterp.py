@@ -68,7 +68,6 @@ w_initialpath = space.newlist([space.wrap(''), space.wrap(appdir)] +
                        [space.wrap(p) for p in cpy_sys.path if p!= srcdir])
 
 # XXX - Replace with appropriate PyPy version numbering
-w_hexversion = space.wrap(cpy_sys.hexversion)
 w_platform   = space.wrap(cpy_sys.platform)
 w_maxint     = space.wrap(cpy_sys.maxint)
 w_byteorder  = space.wrap(cpy_sys.byteorder)
