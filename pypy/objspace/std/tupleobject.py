@@ -46,3 +46,10 @@ def tuple_iter(space, w_tuple):
     return iterobject.W_SeqIterObject(w_tuple)
 
 StdObjSpace.iter.register(tuple_iter, W_TupleObject)
+
+def tuple_add(space, w_tuple1, w_tuple2):
+    items1 = w_tuple1.wrappeditems
+    items2 = w_tuple2.wrappeditems
+    return W_TupleObject(items1 + items2)
+
+StdObjSpace.add.register(tuple_add, W_TupleObject, W_TupleObject)
