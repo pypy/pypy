@@ -49,7 +49,7 @@ cmathmodule
 collectionsmodule - Raymond Hettinger has an ASPN recipe (which has a 'deque' drop-in replacement):
 		  http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/259179
 
-cryptmodule
+cryptmodule - see http://home.clear.net.nz/pages/c.evans/sw/
 
 datetimemodule - already exists
 
