@@ -1,7 +1,7 @@
 #
 #  
 #
-import autopath, sys
+import autopath, sys, threading, pdb
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.translator.translator import Translator
@@ -31,6 +31,15 @@ def analyse(entry_point=entry_point):
 
 if __name__ == '__main__':
 
+    options = {'-text': False,
+               '-no-c': False,
+               '-c':    False,
+               '-o':    False,
+               }
+    for arg in sys.argv[1:]:
+        assert arg in options, "unknown option %r" % (arg,)
+        options[arg] = True
+
     def about(x):
         """ interactive debugging helper """
         from pypy.objspace.flow.model import Block, flatten
@@ -59,37 +68,52 @@ if __name__ == '__main__':
         display = GraphDisplay(TranslatorLayout(t))
         display.run()
 
-    def debug():
-        import traceback
-        exc, val, tb = sys.exc_info()
-        print >> sys.stderr
-        traceback.print_exception(exc, val, tb)
-        print >> sys.stderr
+    def debug(got_error):
+        if got_error:
+            import traceback
+            exc, val, tb = sys.exc_info()
+            print >> sys.stderr
+            traceback.print_exception(exc, val, tb)
+            print >> sys.stderr
 
-        block = getattr(val, '__annotator_block', None)
-        if block:
+            block = getattr(val, '__annotator_block', None)
+            if block:
+                print '-'*60
+                about(block)
+                print '-'*60
+
+            print >> sys.stderr
+            th = threading.Thread(target=pdb.post_mortem, args=(tb,))
+        else:
             print '-'*60
-            about(block)
-            print '-'*60
-        
-        print >> sys.stderr
-        import threading
-        import pdb
-        t = threading.Thread(target=pdb.post_mortem, args=(tb,))
-        t.start()
-        run_server()
-        import pygame
-        pygame.quit()
+            print 'Done.'
+            print
+            th = threading.Thread(target=pdb.set_trace, args=())
+        th.start()
+        if options['-text']:
+            th.join()
+        else:
+            run_server()
+            import pygame
+            pygame.quit()
 
     try:
         analyse()
         t.frozen = True
         print '-'*60
-        print 'Generating C code...'
-        t.ccompile()
-        ep = sys.modules['entry_point_1']
-        ep.entry_point()
+        if options['-no-c']:
+            print 'Not generating C code.'
+        elif options['-c']:
+            print 'Generating C code without compiling it...'
+            filename = t.ccompile(really_compile=False)
+            print 'Written %s.' % (filename,)
+        else:
+            print 'Generating and compiling C code...'
+            c_entry_point = t.ccompile()
+            if not options['-o']:
+                print 'Running!'
+                c_entry_point()
     except:
-        debug()
+        debug(True)
     else:
-        run_server()
+        debug(False)
