@@ -332,24 +332,25 @@ class TestItem:
         return id(self.module) ^ id(self.cls)
 
     # credit: adapted from Python's unittest.TestCase.run
-    def run(self, test_runner=None):
+    def run(self, test_runner=lambda callable: callable()):
         """
         Run this TestItem and return a corresponding TestResult object.
-        
+
         If the test item corresponds to a class method, the setUp and
         tearDown methods of the associated class are called before and
         after the invocation of the test method, repectively.
 
-        If the optional argument test_runner is None, the test function
+        If the optional argument test_runner is absent, the test function
         or method is merely called with no arguments. Else, test_runner
         must be a callable accepting one argument. Instead of only calling
         the test callable, the test_runner object will be called with the
         test function/method as its argument.
         """
         if self._isfunction:
+            # use the test function directly
             test = self.callable
         else:
-            # make the test callable a bound method
+            # turn the test callable, an unbound method, into a bound method
             cls_object = self.cls()
             test = getattr(cls_object, self.callable.__name__)
 
@@ -365,10 +366,7 @@ class TestItem:
             return Error(msg=str(exc), item=self)
 
         try:
-            if test_runner is None:
-                test()
-            else:
-                test_runner(test)
+            test_runner(test)
             result = Success(msg='success', item=self)
         except KeyboardInterrupt:
             raise
