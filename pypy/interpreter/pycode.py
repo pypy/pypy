@@ -22,8 +22,13 @@ from appfile import AppFile
 # no appfile neede, yet
 #appfile = AppFile(__name__, ["interpreter"])
 
-class PyCode:
-    """Represents a code object, in the way we need it.
+class PyBaseCode:
+    def __init__(self):
+        self.co_filename = ""
+        self.co_name = ""
+        
+class PyByteCode(PyBaseCode):
+    """Represents a code object for Python functions.
 
     Public fields:
     to be done
@@ -42,8 +47,6 @@ class PyCode:
         self.co_freevars = None
         self.co_cellvars = None
         # The rest doesn't count for hash/cmp
-        self.co_filename = ""
-        self.co_name = ""
         self.co_firstlineno = 0 #first source line number
         self.co_lnotab = "" # string (encoding addr<->lineno mapping)
         
@@ -62,3 +65,10 @@ class PyCode:
             value = getattr(code, name)
             setattr(self, name, value)
 
+    def eval_code(self, space, w_globals, w_locals):
+        frame = pypy.interpreter.pyframe.PyFrame(space, self,
+                                             w_globals, w_locals)
+        ec = space.getexecutioncontext()
+        w_ret = ec.eval_frame(frame)
+        return w_ret
+    

@@ -26,14 +26,13 @@ StdObjSpace.unwrap.register(function_unwrap, W_FuncObject)
 
 def func_call(space, w_function, w_arguments, w_keywords):
     ec = space.getexecutioncontext()
-    bytecode = space.unwrap(w_function.w_code)
+    somecode = space.unwrap(w_function.w_code)
     w_locals = space.newdict([])
-    frame = pypy.interpreter.pyframe.PyFrame(space, bytecode,
-                                             w_function.w_globals, w_locals)
-    frame.setargs(w_arguments, w_keywords,
+    w_globals = w_function.w_globals
+    w_locals = buildargs(w_arguments, w_keywords,
                   w_defaults = w_function.w_defaultarguments,
                   w_closure = w_function.w_closure)
-    w_result = ec.eval_frame(frame)
-    return w_result
+    w_ret = somecode.eval_code(space, w_globals, w_locals)
+    return w_ret
 
 StdObjSpace.call.register(func_call, W_FuncObject, W_ANY, W_ANY)

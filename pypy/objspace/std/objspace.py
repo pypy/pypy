@@ -81,9 +81,9 @@ class StdObjSpace(ObjSpace):
         import sliceobject
         return sliceobject.W_SliceObject(w_start, w_end, w_step)
 
-    def newfunction(self, w_code, w_globals, w_defaultarguments, w_closure=None):
+    def newfunction(self, code, w_globals, w_defaultarguments, w_closure=None):
         import funcobject
-        return funcobject.W_FuncObject(w_code, w_globals,
+        return funcobject.W_FuncObject(code, w_globals,
                                        w_defaultarguments, w_closure)
 
     def newmodule(self, w_name):
