@@ -944,8 +944,9 @@ def len__String(space, w_str):
     return space.wrap(len(w_str._value))
 
 def str__String(space, w_str):
-    return w_str
-
+    if type(w_str) is W_StringObject:
+        return w_str
+    return W_StringObject(space, w_str._value)
 
 def iter__String(space, w_list):
     from pypy.objspace.std import iterobject
