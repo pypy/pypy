@@ -1,7 +1,9 @@
 from pypy.objspace.std.objspace import *
-from dicttype import W_DictType
+from dicttype import W_DictType, _no_object
 from stringobject import W_StringObject
 from pypy.interpreter.extmodule import make_builtin_func
+
+applicationfile = StdObjSpace.AppFile(__name__)
 
 class _NoValueInCell: pass
 
@@ -157,6 +159,32 @@ def dict_has_key__Dict_ANY(space, w_self, w_lookup):
             return space.newbool(1)
     else:
         return space.newbool(0)
+
+def dict_clear__Dict(space, w_self):
+    w_self.data = []
+
+def dict_update__Dict_Dict(space, w_self, w_other):
+    w_self.space.gethelper(applicationfile).call("dict_update", [w_self, w_other])
+    
+def dict_popitem__Dict(space, w_self):
+    w_item = w_self.space.gethelper(applicationfile).call("dict_popitem", [w_self])
+    return w_item
+    
+def dict_get__Dict_ANY_ANY(space, w_self, w_key, w_default):
+    w_value = w_self.space.gethelper(applicationfile).call("dict_get", [w_self, w_key, w_default])
+    return w_value
+    
+def dict_setdefault__Dict_ANY_ANY(space, w_self, w_key, w_default):
+    w_value = w_self.space.gethelper(applicationfile).call("dict_setdefault", [w_self, w_key, w_default])
+    return w_value
+
+def dict_pop__Dict_ANY_ANY(space, w_self, w_key, w_default):
+    default = space.unwrap(w_default)
+    if default is _no_object:
+        w_value = w_self.space.gethelper(applicationfile).call("dict_pop", [w_self, w_key])
+    else:
+        w_value = w_self.space.gethelper(applicationfile).call("dict_pop", [w_self, w_key, w_default])
+    return w_value
     
 
 register_all(vars(), W_DictType)
