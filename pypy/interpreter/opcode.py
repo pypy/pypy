@@ -314,8 +314,9 @@ def BUILD_CLASS(f):
     w_methodsdict = f.valuestack.pop()
     w_bases       = f.valuestack.pop()
     w_name        = f.valuestack.pop()
-    w_newclass = f.space.gethelper(appfile).call(
-        "build_class", [w_methodsdict, w_bases, w_name])
+    w_metaclass   = f.space.w_type  # XXX do the correct thing here
+    w_newclass    = f.space.call_function(w_metaclass,
+                                          w_name, w_bases, w_methodsdict)
     f.valuestack.push(w_newclass)
 
 def STORE_NAME(f, varindex):

@@ -30,10 +30,6 @@ def prepare_raise(etype, value, traceback):
               "strings (deprecated), not %s"%(type(etype).__name__,)
     return etype, value, traceback
 
-def build_class(methods, bases, name):
-    import new
-    return new.classobj(name, bases, methods)
-
 def print_expr(x):
     import sys
     try:
