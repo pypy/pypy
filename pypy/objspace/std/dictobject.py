@@ -63,8 +63,7 @@ class W_DictObject(W_Object):
                 self.insert(entry.hash, entry.w_key, entry.w_value)
 
     def non_empties(self):
-        return [(entry.hash, entry.w_key, entry.w_value)
-                for entry in self.data if entry.w_value is not None]
+        return [entry for entry in self.data if entry.w_value is not None]
         
     def lookdict(self, lookup_hash, w_lookup):
 #        assert isinstance(lookup_hash, r_uint)
@@ -111,8 +110,8 @@ registerimplementation(W_DictObject)
 
 def unwrap__Dict(space, w_dict):
     result = {}
-    for hash, w_key, w_value in w_dict.non_empties():
-        result[space.unwrap(w_key)] = space.unwrap(w_value)
+    for entry in w_dict.non_empties():
+        result[space.unwrap(entry.w_key)] = space.unwrap(entry.w_value)
     return result
 
 def init__Dict(space, w_dict, w_args, w_kwds):
@@ -184,12 +183,12 @@ def eq__Dict_Dict(space, w_left, w_right):
     dataright = w_right.non_empties()
     if len(dataleft) != len(dataright):
         return space.w_False
-    for hash, w_key, w_value in dataleft:
+    for entry in dataleft:
         try:
-            w_rightval = space.getitem(w_right, w_key)
+            w_rightval = space.getitem(w_right, entry.w_key)
         except OperationError:
             return space.w_False
-        if not space.is_true(space.eq(w_value, w_rightval)):
+        if not space.is_true(space.eq(entry.w_value, w_rightval)):
             return space.w_False
     return space.w_True
         
@@ -203,15 +202,15 @@ def lt__Dict_Dict(space, w_left, w_right):
         return space.w_False
 
     # Same size
-    for hash, w_key, w_value in dataleft:
+    for entry in dataleft:
         # This is incorrect, but we need to decide what comparisons on
         # dictionaries of equal size actually means
         # The Python language specification is silent on the subject
         try:
-            w_rightval = space.getitem(w_right, w_key)
+            w_rightval = space.getitem(w_right, entry.w_key)
         except OperationError:
             return space.w_True
-        if space.is_true(space.lt(w_value, w_rightval)):
+        if space.is_true(space.lt(entry.w_value, w_rightval)):
             return space.w_True
     # The dictionaries are equal. This is correct.
     return space.w_False
