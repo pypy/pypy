@@ -16,6 +16,9 @@ class Test_r_int(unittest.TestCase):
         self.binary_test(lambda x, y: x - y)
     def test__mul__(self):
         self.binary_test(lambda x, y: x * y)
+        x = 3; y = [2]
+        self.assertEquals(x*y, r_int(x)*y)
+        self.assertEquals(y*x, y*r_int(x))
     def test__div__(self):
         self.binary_test(lambda x, y: x // y)
     def test__mod__(self):
@@ -73,6 +76,9 @@ class Test_r_uint(unittest.TestCase):
         self.binary_test(lambda x, y: x - y)
     def test__mul__(self):
         self.binary_test(lambda x, y: x * y)
+        x = 3; y = [2]
+        self.assertEquals(x*y, r_uint(x)*y)
+        self.assertEquals(y*x, y*r_uint(x))
     def test__div__(self):
         self.binary_test(lambda x, y: x // y)
     def test__mod__(self):

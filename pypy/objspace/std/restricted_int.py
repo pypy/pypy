@@ -37,11 +37,10 @@ class r_int(int):
     
     def __mul__(self, other):
         x = int(self)
+        if not isinstance(other, (int, long)):
+            return x * other
         y = int(other)
-        res = x * y
-        if not isinstance(res, (int, long)):
-            res = r_int(res)
-        return res
+        return r_int(x * y)
     __rmul__ = __mul__
 
     def __div__(self, other):
@@ -177,11 +176,10 @@ class r_uint(long):
     
     def __mul__(self, other):
         x = long(self)
+        if not isinstance(other, (int, long)):
+            return x * other
         y = long(other)
-        res = x * y
-        if not isinstance(res, (int, long)):
-            res = r_uint(res)
-        return res
+        return r_uint(x * y)
     __rmul__ = __mul__
 
     def __div__(self, other):
