@@ -38,7 +38,7 @@ for fn in builtin_module_names:
 # The following built-in modules are not written in PyPy, so we
 # steal them from Python.
 for fn in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
-           'itertools', 'math', 
+           'itertools', 'math', '_codecs',
            '_random', '_sre', 'time', '_socket', 'errno',
            'marshal', 'struct', 'binascii', 'parser']:
     if fn not in builtin_modules:
@@ -69,6 +69,7 @@ w_initialpath = space.newlist([space.wrap(''), space.wrap(appdir)] +
 w_hexversion = space.wrap(cpy_sys.hexversion)
 w_platform   = space.wrap(cpy_sys.platform)
 w_maxint     = space.wrap(cpy_sys.maxint)
+w_byteorder  = space.wrap(cpy_sys.byteorder)
 
 w_stdin  = space.wrap(cpy_sys.stdin)
 w_stdout = space.wrap(cpy_sys.stdout)
