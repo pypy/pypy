@@ -1,0 +1,95 @@
+
+General ideas of what PyPy should achieve for us
+
+- Python interpreter written in python
+    - loads bytecode
+    - delegates/dispatches to ObjectSpaces to implement operations
+      on the objects
+    - there can be more than one ObjectSpace
+        - for example: BorrowingObjectSpace (from CPython)
+    - define/implement a class that emulates the Python 
+      Execution Frame
+
+- use the main-loop of the interpreter to do a lot of
+  things (e.g. do type inference during running the bytecode 
+  or not even run the bytecodes, but interpret various attributes of the code) 
+
+- working together, producing something real
+
+- saving interpreter state to an image (following the smalltalk model)
+  process-migration / persistence
+
+- looking at the entire code base (living in an image), browsing 
+  objects interactively 
+
+- interactive environment, trying code snippets, introspection
+
+- deploying python made easy, integrate version control systems
+
+- integrate the various technologies on the web site, issue tracking,
+  Wiki...
+
+- seperate exception handling from the mainline code, avoid peppering
+  your code with try :-), put exception handling into objects.
+
+- import python code from the version control store directly, give
+  imported code also a time dimension 
+
+- combining python interpreters from multiple machines (cluster) into a
+  virtual sandbox (agent space?) 
+
+- get a smaller (maybe faster) python with very few C-code
+
+- (hoping for Psyc) to render fast code from Python code (instead of
+  hard-c)
+
+- go to a higher level python core (and write out/generate interpreters
+  in different languages), e.g. the former P-to-C resolved the evalframe-loop
+  but still called into the Python-C-library which is statically coded
+
+- very far fetched: PyPython becomes a/the reference implementation
+ 
+- have enough flexibility to make a separate stackless obsolete
+
+- have a language that is high-level/easy enough to program
+  but with the same performance as statically compiled languages
+  (e.g. C++)
+
+
+what is the difference between a compiler and an interpreter
+------------------------------------------------------------
+
+f = bytecode interpreter
+p = program
+a = arguments
+
+c = compiler
+
+assert f(p, a) == c(p)(a) == r
+
+
+-  architecture overview
+    * byte code interp loop
+      plan how the interp loop should look like from a hi level
+      map that structure in descriptions that can be used to generate interpreters/compilers
+      define the frame structure
+
+    * define a object/type model that maps into python data structures
+      wrap cpython objects into the new object model so we can continue
+      to use cpython modules
+    
+    * rewrite c python modules and the builtin object library in python
+      optimzation for a potential global python optimizer, until that
+      exists it will be slower than the corresponding cpython implementation
+
+- import the cpython distribution so we can use parts of it in our
+  repository, make it easy to follow the cpython development
+
+- finish the python to byte code compiler in python project (this is
+  already part of the cpython distribution, needs a python lexer)
+
+- doing other things than interpreting byte code from the python interp
+  loop, for example generate C code, implement other object spaces in our
+  terminlogy other far fetched things with execution
+
+- how to enter c ysystem calls into the python object space (ctypes)

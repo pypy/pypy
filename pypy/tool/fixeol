@@ -1,0 +1,25 @@
+#! /usr/bin/env python
+import os
+
+def fixpyfiles(ignored, dirname, fnames):
+    numpyfiles = 0
+    for fname in fnames:
+        if fname.endswith('.py'):
+            # change end-of-line style of each .py file to 'native'
+            fname = os.path.join(dirname, fname)
+            os.system('svn propset svn:eol-style native %s' % fname)
+            numpyfiles += 1
+    if numpyfiles:
+        # ignore '*.pyc' in any directory containing .py files
+        g = os.popen('svn propget svn:ignore %s' % dirname)
+        content = g.readlines()
+        g.close()
+        if '*.pyc\n' not in content:
+            content.append('*.pyc\n')
+            g = open('svn-ignore.tmp', 'w')
+            g.writelines(content)
+            g.close()
+            os.system('svn propset svn:ignore -F svn-ignore.tmp %s' % dirname)
+            os.unlink('svn-ignore.tmp')
+
+os.path.walk(os.curdir, fixpyfiles, None)
