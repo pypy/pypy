@@ -40,7 +40,7 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=False):
                                           llvmfile.purebasename),
                 "as %s.s -o %s.o" % (llvmfile.purebasename,
                                      llvmfile.purebasename)]
-    ops2 = ["gcc -c -fPIC -I/usr/include/python %s.c" % pyxfile.purebasename,
+    ops2 = ["gcc -c -fPIC -I/usr/include/python2.3 %s.c" % pyxfile.purebasename,
            "gcc -shared %s.o %s.o -o %s.so" % (llvmfile.purebasename,
                                                modname, modname)]
     try:

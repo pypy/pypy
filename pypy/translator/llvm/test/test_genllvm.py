@@ -11,7 +11,7 @@ from pypy.objspace.flow.model import Constant, Variable
 from pypy.translator.llvm.test import llvmsnippet
 
 def setup_module(mod): 
-    mod.llvm_found = 0 #is_on_path("llvm-as")
+    mod.llvm_found = is_on_path("llvm-as")
 
 def compile_function(function, annotate):
     t = Translator(function)
