@@ -1,0 +1,28 @@
+=========================
+StandardObjectSpace
+=========================
+
+The StandardObjectSpace is the direct equivalent of CPython's object library (the "Objects/" subdirectory in the distribution). It is an implementation of the common Python types in a lower-level language.
+
+The StandardObjectSpace defines an abstract parent class, W_Object, and a bunch of subclasses like W_IntObject, W_ListObject, and so on. A wrapped object (a "black box" for the interpreter main loop) is thus an instance of one of these classes. When the main loop invokes an operation, say the addition, between two wrapped objects w1 and w2, the StandardObjectSpace does some internal dispatching (similar to "Object/abstract.c" in CPython) and invokes a method of the proper W_XyzObject class that can do the operation. The operation itself is done with the primitives allowed by RestrictedPython. The result is constructed as a wrapped object again. For example, compare the following implementation of integer addition with the function "int_add()" in "Object/intobject.c": ::
+
+    def int_int_add(space, w_int1, w_int2):
+        x = w_int1.intval
+        y = w_int2.intval
+        try:
+            z = x + y
+        except OverflowError:
+            raise FailedToImplement(space.w_OverflowError,
+                                    space.wrap("integer addition"))
+        return W_IntObject(z)
+
+Why such a burden just for integer objects? Why did we have to wrap them into W_IntObject instances? For them it seems it would have been sufficient just to use plain Python integers. But this argumentation fails just like it fails for more complex kind of objects. Wrapping them just like everything else is the cleanest solution. You could introduce case testing wherever you use a wrapped object, to know if it is a plain integer or an instance of (a subclass of) W_Object. But that makes the whole program more complicated. The equivalent in CPython would be to use PyObject* pointers all around except when the object is an integer (after all, integers are directly available in C too). You could represent small integers as odd-valuated pointers. But it puts extra burden on the whole C code, so the CPython team avoided it.
+
+In our case it is a later optimization that we could make. We just don't want to make it now (and certainly not hard-coded at this level -- it could be introduced by the C translators that we will eventually write). So in summary: wrapping integers as instances is the simple path, while using plain integers instead is the complex path, not the other way around.
+
+Note that the current StandardObjectSpace_ implementation uses MultiMethod_ dispatch instead of the complex rules of "Object/abstract.c". I think that this can be translated to a different low-level dispatch implementation that would be binary compatible with CPython's (basically the PyTypeObject structure and its function pointers). If compatibility is not required it will be more straightforwardly converted into some efficient multimethod code.
+
+---------------------------------------------------------------------------
+
+.. _StandardObjectSpace: stdobjspace.html
+.. _MultiMethod: multimethod.html
