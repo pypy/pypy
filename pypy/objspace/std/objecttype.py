@@ -53,11 +53,29 @@ def object_getattr__ANY_ANY(space, w_obj, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('__class__'))):
         return w_type
 
+    # 1) look for descriptor
+    # 2) if data descriptor, call it
+    # 3) check __dict__
+    # 4) if present, return that
+    # 5) if descriptor found in 2), call that
+    # 6) raise AttrbuteError
+
+    w_descr = None
+
+    from typeobject import W_TypeObject
+    if isinstance(w_type, W_TypeObject):  # XXX must always be true at some point
+        try:
+            w_descr = w_type.lookup(w_attr)
+        except KeyError:
+            pass
+        else:
+            if space.is_data_descr(w_descr):
+                return space.get(w_descr, w_obj, w_type) # XXX 3rd arg is wrong
+    
     try:
         w_dict = space.getdict(w_obj)
     except OperationError, e:
-        # catch TypeError("unsupported type for getdict")
-        if not e.match(space, space.w_TypeError):
+        if not e.match(space, space.w_TypeError): # 'unsupported type for getdict'
             raise
     else:
         if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
@@ -65,21 +83,13 @@ def object_getattr__ANY_ANY(space, w_obj, w_attr):
         try:
             w_value = space.getitem(w_dict, w_attr)
         except OperationError, e:
-            # catch KeyErrors
             if not e.match(space, space.w_KeyError):
                 raise
         else:
             return w_value  # got a value from 'obj.__dict__[attr]'
 
-    # XXX implement lookup as a multimethod?
-    from typeobject import W_TypeObject
-    if isinstance(w_type, W_TypeObject):  # XXX must always be true at some point
-        try:
-            w_value = w_type.lookup(w_attr)
-        except KeyError:
-            pass
-        else:
-            return space.get(w_value, w_obj, w_type) # XXX 3rd arg is wrong
+    if w_descr is not None:
+        return space.get(w_descr, w_obj, w_type)
         
     raise OperationError(space.w_AttributeError, w_attr)
 

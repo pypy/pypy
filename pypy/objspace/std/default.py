@@ -67,6 +67,9 @@ def contains__ANY_ANY(space, w_iterable, w_lookfor):
 def get__ANY_ANY_ANY(space, w_descr, w_inst, w_cls):
     return w_descr
 
+def is_data_descr__ANY(space, w_descr):
+    return 0
+
 def issubtype__ANY_ANY(space, w_one, w_two):
     # XXX -- mwh
     return space.newbool(0)
