@@ -29,7 +29,6 @@ def map(function, *collections):
           else:
               return res
           idx = idx + 1
-          #print idx
 
 def filter(function, collection):
     res = []
@@ -99,27 +98,26 @@ def isinstance(obj, klass_or_tuple):
 def range(x, y=None, step=1):
     "docstring"
 
+    if y is None:
+            start = 0
+            stop = x
+    else:
+            start = x
+            stop = y
+
     if step == 0:
         raise ValueError, 'range() arg 3 must not be zero'
 
-    if y is None:
-        start = 0
-        stop = x
-    else:
-        start = x
-        stop = y
-    
-    if (stop <= start and step > 0) or (stop >= start and step < 0):
-            return []
-    else:
-        howmany = abs((stop - start)/step)
-        if abs(step) != 1:
-            howmany += 1
-                
-        if howmany == 0:
-            return []
-        else:
-            arr = [None] * int(howmany)
+    elif (stop <= start and step > 0) or (stop >= start and step < 0):
+        return []   # easy, no work for us.
+
+    elif step > 0:
+        howmany = (stop - start + step - 1)/step
+
+    else:  # step must be < 0
+        howmany = (start - stop - step  - 1)/-step
+       
+    arr = [None] * howmany
 
     i = start
     n = 0
