@@ -21,7 +21,7 @@ class VariableHistoryGraphLayout(GraphLayout):
 
     def __init__(self, translator, name, info, caused_by, history, func_names):
         self.links = {}
-        self.func_by_name = {}
+        self.linkinfo = {}
         self.translator = translator
         self.func_names = func_names
         dotgen = DotGen('binding')
@@ -45,23 +45,23 @@ class VariableHistoryGraphLayout(GraphLayout):
 
     def createlink(self, position_key, wording='Caused by a call from'):
         fn, block, pos = position_key
-        fn_name = self.func_names.get(fn, fn.func_name)
-        basename = fn_name
+        basename = self.func_names.get(fn, fn.func_name)
+        linkname = basename
         n = 1
-        while fn_name in self.links:
+        while self.linkinfo.get(linkname, position_key) != position_key:
             n += 1
-            fn_name = '%s_%d' % (basename, n)
-        self.func_by_name[fn_name] = fn
+            linkname = '%s_%d' % (basename, n)
+        self.linkinfo[linkname] = position_key
         # It would be nice to get the block name somehow
         blockname = block.__class__.__name__
-        self.links[fn_name] = '%s, %s, position %r' % (basename, blockname,
+        self.links[linkname] = '%s, %s, position %r' % (basename, blockname,
                                                        pos)
-        return '%s %s' % (wording, fn_name)
+        return '%s %s' % (wording, linkname)
 
     def followlink(self, funcname):
-        func = self.func_by_name[funcname]
+        fn, block, pos = self.linkinfo[funcname]
         # It would be nice to focus on the block
-        return FlowGraphLayout(self.translator, [func], self.func_names)
+        return FlowGraphLayout(self.translator, [fn], self.func_names)
 
 
 class FlowGraphLayout(GraphLayout):
