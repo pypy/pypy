@@ -87,6 +87,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.sys.setbuiltinmodule(w_exceptions, 'exceptions')
 
     def setup_exceptions(self, for_builtins):
+        """NOT_RPYTHON"""
         ## hacking things in
         from pypy.module import exceptionsinterp as ex
         def call(w_type, w_args):

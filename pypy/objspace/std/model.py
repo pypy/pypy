@@ -10,6 +10,7 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 class StdTypeModel:
 
     def __init__(self):
+        """NOT_RPYTHON: inititialization only"""
         # All the Python types that we want to provide in this StdObjSpace
         class result:
             from pypy.objspace.std.objecttype import object_typedef

@@ -76,6 +76,7 @@ class MultiMethodTable:
             return True
 
     def signatures(self):
+        """NOT_RPYTHON"""
         result = []
         def enum_keys(types_so_far, node):
             for type, subnode in node.items():
