@@ -13,7 +13,6 @@ class TrivialObjSpace(ObjSpace):
 
     def initialize(self):
         import __builtin__, types
-        self.builtin = __builtin__
         self.w_builtins.update(__builtin__.__dict__)
         for n, c in self.w_builtins.iteritems():
             if isinstance(c, types.ClassType) and issubclass(c, Exception):
@@ -21,7 +20,8 @@ class TrivialObjSpace(ObjSpace):
         self.w_None = None
         self.w_True = True
         self.w_False = False
-        self.w_sys = sys
+        self.make_builtins()
+        self.make_sys()
 
     # general stuff
     def wrap(self, x):
@@ -172,9 +172,9 @@ def %(_name)s(self, *args):
             raise NoValue
 
     def newfunction(self, code, globals, defaultarguments, closure=None):
-        assert hasattr(code.co_name)
-        assert hasattr(code.build_arguments)
-        assert hasattr(code.eval_code)
+        assert hasattr(code, co_name)
+        assert hasattr(code, build_arguments)
+        assert hasattr(code, eval_code)
         class nufun(object):
             def __init__(self, space, code, globals, defaultarguments, closure):
                 self.space = space
