@@ -80,6 +80,7 @@ class FlowExecutionContext(ExecutionContext):
         ExecutionContext.__init__(self, space)
         self.code = code
         self.w_globals = w_globals = space.wrap(globals)
+        self.crnt_offset = -1
         if closure is None:
             self.closure = None
         else:
