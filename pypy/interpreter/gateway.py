@@ -589,11 +589,16 @@ def appdef(source, applevel=applevel):
 app2interp = appdef   # backward compatibility
 
 
-# app2interp_temp is used for testing mainly
+# the following two will probably get merged into one
 class applevel_temp(applevel):
     def getwdict(self, space):
         return self._builddict(space)   # no cache
 
-def app2interp_temp(func):
+class applevelinterp_temp(applevelinterp):
+    def getwdict(self, space):
+        return self._builddict(space)   # no cache
+
+# app2interp_temp is used for testing mainly
+def app2interp_temp(func, applevel_temp=applevel_temp):
     """ NOT_RPYTHON """
     return appdef(func, applevel_temp)

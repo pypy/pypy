@@ -77,6 +77,14 @@ class TestGateway:
         g3 = gateway.app2interp_temp(app_g3)
         assert self.space.eq_w(g3(self.space, w('foo'), w('bar')), w('foobar'))
         
+    def test_app2interp2(self):
+    	"""same but using transformed code"""
+        w = self.space.wrap
+        def noapp_g3(a, b):
+            return a+b
+        g3 = gateway.app2interp_temp(noapp_g3, gateway.applevelinterp_temp)
+        assert self.space.eq_w(g3(self.space, w('foo'), w('bar')), w('foobar'))
+        
     def test_interp2app(self):
         space = self.space
         w = space.wrap
