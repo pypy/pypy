@@ -117,6 +117,7 @@ static PyObject *this_module_globals;
 #define MOVE(x, y)             y = x;
 
 #define INITCHK(expr)          if (!(expr)) return;
+#define REGISTER_GLOBAL(name)  Py_INCREF(name); PyModule_AddObject(m, #name, name);
 
 
 /*** classes ***/

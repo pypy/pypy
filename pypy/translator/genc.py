@@ -54,6 +54,7 @@ class GenC:
                                #   objects
         self.globaldecl = []
         self.pendingfunctions = []
+        self.initglobals = []
         self.gen_source()
 
     def nameof(self, obj):
@@ -92,6 +93,7 @@ class GenC:
         name = self.uniquename('g_object')
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*)&PyBaseObject_Type, ""))'%name)
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_module(self, value):
@@ -101,6 +103,7 @@ class GenC:
         name = self.uniquename('mod%s'%value.__name__)
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyImport_Import("%s"))'%(name, value.__name__))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
         
 
@@ -112,6 +115,7 @@ class GenC:
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = '
                              'PyInt_FromLong(%d))' % (name, value))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_long(self, value):
@@ -123,6 +127,7 @@ class GenC:
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = '
                              'PyLong_FromLong(%d))' % (name, value))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_str(self, value):
@@ -142,6 +147,7 @@ class GenC:
             s = '"%s"' % value
         self.initcode.append('INITCHK(%s = PyString_FromStringAndSize('
                              '%s, %d))' % (name, s, len(value)))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_function(self, func):
@@ -154,6 +160,7 @@ class GenC:
         self.initcode.append('INITCHK(%s = PyCFunction_New('
                              '&ml_%s, NULL))' % (name, name))
         self.initcode.append('\t%s->ob_type = &PyGenCFunction_Type;' % name)
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.pendingfunctions.append(func)
         return name
 
@@ -167,6 +174,7 @@ class GenC:
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
                              '&ml_%s, NULL))' % (name, name))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.pendingfunctions.append(func)
         return name
 
@@ -179,12 +187,13 @@ class GenC:
             ob = self.nameof(meth.im_self)
             func = self.nameof(meth.im_func)
             typ = self.nameof(meth.im_class)
-            us = self.uniquename('gmeth_'+meth.im_func.__name__)
-            self.globaldecl.append('static PyObject* %s;'%(us,))
+            name = self.uniquename('gmeth_'+meth.im_func.__name__)
+            self.globaldecl.append('static PyObject* %s;'%(name,))
             self.initcode.append(
                 'INITCHK(%s = gencfunc_descr_get(%s, %s, %s))'%(
-                us, func, ob, typ))
-            return us
+                name, func, ob, typ))
+            self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
+            return name
 
     def should_translate_attr(self, pbc, attr):
         ann = self.translator.annotator
@@ -211,6 +220,7 @@ class GenC:
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(SETUP_INSTANCE(%s, %s))' % (
             name, cls))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.latercode.append(initinstance())
         return name
 
@@ -223,6 +233,7 @@ class GenC:
         self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
                              'PyEval_GetBuiltins(), "%s"))' % (
             name, func.__name__))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_classobj(self, cls):
@@ -264,6 +275,7 @@ class GenC:
         self.initcode.append('\t\t"s(%s){}", "%s"%s))'
                              %("O"*len(basenames), cls.__name__, baseargs))
         
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.latercode.append(initclassobj())
         return name
 
@@ -318,6 +330,7 @@ class GenC:
         args.insert(0, '%d' % len(tup))
         args = ', '.join(args)
         self.initcode.append('INITCHK(%s = PyTuple_Pack(%s))' % (name, args))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_list(self, lis):
@@ -329,6 +342,7 @@ class GenC:
                 yield '\tPyList_SET_ITEM(%s, %d, %s);' % (name, i, item)
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyList_New(%d))' % (name, len(lis)))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.latercode.append(initlist())
         return name
 
@@ -346,6 +360,7 @@ class GenC:
                                name, self.nameof(k), self.nameof(dic[k])))
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyDict_New())' % (name,))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.latercode.append(initdict())
         return name
 
@@ -361,6 +376,7 @@ class GenC:
         self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
                              '((PyTypeObject*) %s)->tp_dict, "%s"))' %
                                 (name, cls, md.__name__))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
     nameof_getset_descriptor  = nameof_member_descriptor
     nameof_method_descriptor  = nameof_member_descriptor
@@ -391,6 +407,8 @@ class GenC:
         # footer
         print >> f, self.C_INIT_HEADER % info
         for codeline in self.initcode:
+            print >> f, '\t' + codeline
+        for codeline in self.initglobals:
             print >> f, '\t' + codeline
         print >> f, self.C_INIT_FOOTER % info
 
