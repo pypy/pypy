@@ -111,13 +111,15 @@ def gt__Tuple_Tuple(space, w_tuple1, w_tuple2):
     # No more items to compare -- compare sizes
     return space.newbool(len(items1) > len(items2))
 
-def app_repr__Tuple(t):
-    if len(t) == 1:
-        return "(" + repr(t[0]) + ",)"
-    else:
-        return "(" + ", ".join([repr(x) for x in t]) + ')'
+app = gateway.applevel("""
+    def repr__Tuple(t):
+        if len(t) == 1:
+            return "(" + repr(t[0]) + ",)"
+        else:
+            return "(" + ", ".join([repr(x) for x in t]) + ')'
+""") 
 
-repr__Tuple = gateway.app2interp(app_repr__Tuple)
+repr__Tuple = app.interphook('repr__Tuple') 
 
 def hash__Tuple(space, w_tuple):
     # silly-ish, but _correct_, while lacking it would be WRONG

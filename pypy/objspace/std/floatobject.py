@@ -56,23 +56,25 @@ def int__Float(space, w_value):
 def float_w__Float(space, w_float):
     return w_float.floatval
 
-def app_repr__Float(f):
-    r = "%.17g"%f
-    for c in r:
-        if c not in '-0123456789':
-            return r
-    else:
-        return r + '.0'    
-repr__Float = gateway.app2interp(app_repr__Float)
+app = gateway.applevel(''' 
+    def repr__Float(f):
+        r = "%.17g"%f
+        for c in r:
+            if c not in '-0123456789':
+                return r
+        else:
+            return r + '.0'    
 
-def app_str__Float(f):
-    r = "%.12g"%f
-    for c in r:
-        if c not in '-0123456789':
-            return r
-    else:
-        return r + '.0'    
-str__Float = gateway.app2interp(app_str__Float)
+    def str__Float(f):
+        r = "%.12g"%f
+        for c in r:
+            if c not in '-0123456789':
+                return r
+        else:
+            return r + '.0'    
+''') 
+repr__Float = app.interphook('repr__Float') 
+str__Float = app.interphook('str__Float') 
 
 def lt__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval

@@ -243,20 +243,19 @@ def delattr__Type_ANY(space, w_type, w_name):
 # ____________________________________________________________
 
 
-def app_abstract_mro(klass):
-    # abstract/classic mro
-    mro = []
-    def fill_mro(klass):
-        if klass not in mro:
-            mro.append(klass)
-        assert isinstance(klass.__bases__, tuple)
-        for base in klass.__bases__:
-            fill_mro(base)
-    fill_mro(klass)
-    return mro
-
-abstract_mro = gateway.app2interp(app_abstract_mro)
-    
+abstract_mro = gateway.appdef("""
+    abstract_mro(klass):
+        # abstract/classic mro
+        mro = []
+        def fill_mro(klass):
+            if klass not in mro:
+                mro.append(klass)
+            assert isinstance(klass.__bases__, tuple)
+            for base in klass.__bases__:
+                fill_mro(base)
+        fill_mro(klass)
+        return mro
+""") 
 
 def get_mro(space, klass):
     if isinstance(klass, W_TypeObject):
