@@ -1,6 +1,5 @@
 """
-A quick hack to capture the stdout/stderr output of Unix processes.
-Does not work on Windows.
+A quick hack to capture stdout/stderr.
 """
 
 import os, sys

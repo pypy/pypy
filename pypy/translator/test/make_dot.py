@@ -198,7 +198,7 @@ def make_dot(fun, udir, target='ps'):
     psdest = dest.newext(target)
     out = exec_cmd('dot -T%s %s' % (target, str(dest)))
     psdest.write(out)
-    print "wrote", psdest
+    #print "wrote", psdest
     return psdest
 
 if __name__ == '__main__':
