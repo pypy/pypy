@@ -219,6 +219,7 @@ def %(_name)s(self, *args):
             args = (callable.im_self,) + args
             callable = callable.im_func
         if isinstance(callable, types.FunctionType):
+            raise Exception, "shouldn't get here, methinks"
             bytecode = callable.func_code
             ec = self.getexecutioncontext()
             w_globals = self.wrap(callable.func_globals)
@@ -229,7 +230,4 @@ def %(_name)s(self, *args):
             frame.setargs(args, kwds, w_defaults)
             return ec.eval_frame(frame)
         else:
-            try:
-                return apply(callable, args, kwds or {})
-            except:
-                raise OperationError(*sys.exc_info()[:2])
+            return apply(callable, args, kwds or {})
