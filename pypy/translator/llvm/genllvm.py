@@ -18,8 +18,11 @@ from pypy.translator.test import snippet as test
 from pypy.translator.llvm.test import llvmsnippet as test2
 
 
-from pypy.translator.llvm.representation import *
+from pypy.translator.llvm import representation, funcrepr, typerepr, seqrepr
+from pypy.translator.llvm import classrepr
 
+from pypy.translator.llvm.representation import LLVMRepr, TmpVariableRepr
+from pypy.translator.llvm.funcrepr import EntryFunctionRepr
 
 debug = True
 
@@ -44,9 +47,10 @@ class LLVMGenerator(object):
         self.annotator = self.translator.annotator
         self.global_counts = {}
         self.local_counts = {}
-        self.repr_classes = [eval(s)
-                             for s in dir(sys.modules.get(self.__module__))
-                             if "Repr" in s]
+        self.repr_classes = []
+        for mod in [representation, funcrepr, typerepr, seqrepr, classrepr]:
+            self.repr_classes += [getattr(mod, s)
+                                  for s in dir(mod) if "Repr" in s]
         self.llvm_reprs = {}
         self.depth = 0
         self.entryname = self.translator.functions[0].__name__
@@ -160,3 +164,8 @@ def traverse_dependencies(l_repr, seen_reprs):
     yield l_repr
 
 
+t = Translator(test2.two_exceptions)
+a = t.annotate([int])
+a.simplify()
+## t.view()
+f = llvmcompile(t)

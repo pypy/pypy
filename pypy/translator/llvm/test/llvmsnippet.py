@@ -272,6 +272,7 @@ def tuple_f3(i):
 def two_exceptions(n):
     lst = range(10)
     try:
+        lst[n] += 1
         lst[n]
     except IndexError:
         return 2

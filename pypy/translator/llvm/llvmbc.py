@@ -128,6 +128,9 @@ class BasicBlock(object):
                                     l_target.llvmtype())
         self.instructions.append(s)
 
+    def unwind(self):
+        self.instructions.append("unwind")
+
     def __str__(self):
         s = [self.label + ":\n"]
         for ins in self.instructions:
@@ -144,6 +147,19 @@ class TryBasicBlock(BasicBlock):
         self.instructions = []
         self.finalized = False
 
+    def spaceop(self, l_target, opname, l_args):
+        if l_target.llvmtype() == "void":
+            s = "invoke void %%std.%s.exc(" % opname
+        else:
+            s = "%s = invoke %s %%std.%s.exc(" % (l_target.llvmname(),
+                                                  l_target.llvmtype(), opname)
+        s += ", ".join([a.typed_name() for a in l_args]) + ")"
+        s += "\n\t\tto label %%%s.%i\n\t\texcept label %%%s" % \
+             (self.label, len(self.llvmblocks), self.exceptblock)        
+        self.instructions.append(s)
+        self.llvmblocks.append(self.instructions)
+        self.instructions = []
+
     def invoke(self, l_target, l_func, l_args):
         if l_target.llvmtype() == "void":
             s = "invoke void %s(" % l_func.llvmname()
@@ -153,24 +169,27 @@ class TryBasicBlock(BasicBlock):
             s = "%s = invoke %s %s(" % (l_target.llvmname(),
                                         l_target.llvmtype(), l_func.llvmname())
         s += ", ".join([a.typed_name() for a in l_args]) + ")"
-        s += "\n\t\tto label %s.%i\n\t\texcept label %s" % \
+        s += "\n\t\tto label %%%s.%i\n\t\texcept label %%%s" % \
              (self.label, len(self.llvmblocks), self.exceptblock)
         self.instructions.append(s)
         self.llvmblocks.append(self.instructions)
         self.instructions = []
+
+    call = invoke
 
     def invoke_void(self, l_func, l_args):
         s = "call %s %s(" % (l_func.rettype(), l_func.llvmname())
         s += ", ".join([a.typed_name() for a in l_args]) + ")"
-        s += "\n\t\tto label %s.%i\n\t\texcept label %s" % \
+        s += "\n\t\tto label %%%s.%i\n\t\texcept label %%%s" % \
              (self.label, len(self.llvmblocks), self.exceptblock)
         self.instructions.append(s)
         self.llvmblocks.append(self.instructions)
         self.instructions = []
 
+    call_void = invoke_void
+
     def __str__(self):
         if not self.finalized:
-            self.uncond_branch(self.regularblock)
             self.llvmblocks.append(self.instructions)
             self.instructions = []
             self.finalized = True
