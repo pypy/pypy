@@ -16,6 +16,7 @@ class TypeDef:
         self.base = __base
         self.hasdict = '__dict__' in rawdict or (__base and __base.hasdict)
         self.rawdict = rawdict
+        self.acceptable_as_base_class = True
 
 
 unique_interplevel_subclass_cache = Cache()

@@ -34,6 +34,11 @@ class W_TypeObject(W_Object):
                     raise OperationError(space.w_TypeError,
                                 space.wrap("instance layout conflicts in "
                                                     "multiple inheritance"))
+            if not instancetypedef.acceptable_as_base_class:
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("type '%s' is not an "
+                                                "acceptable base class" %
+                                                instancetypedef.name))
             w_self.instancetypedef = instancetypedef
             w_self.hasdict = False
             hasoldstylebase = False

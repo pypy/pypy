@@ -15,3 +15,4 @@ def descr__new__(space, w_booltype, w_obj=None):
 bool_typedef = StdTypeDef("bool", int_typedef,
     __new__ = newmethod(descr__new__),
     )
+bool_typedef.acceptable_as_base_class = False
