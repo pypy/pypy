@@ -3,24 +3,24 @@ def prepare_raise0():
     return sys.exc_info()
     
 def prepare_raise(etype, value, traceback):
-    import types
+#    import types
     # XXX we get an infinite loop if this import fails:
     #    import types -> IMPORT_NAME -> import_name -> raise ImportError
     #    -> RAISE_VARARGS -> prepare_raise -> import types ...
-    if not isinstance(traceback, (types.NoneType, types.TracebackType)):
-        raise TypeError, "raise: arg 3 must be traceback or None"
+#    if not isinstance(traceback, (types.NoneType, types.TracebackType)):
+#        raise TypeError, "raise: arg 3 must be traceback or None"
     while isinstance(etype, tuple):
         etype = etype[0]
     if type(etype) is str:
         # warn
         pass
-    elif isinstance(etype, types.ClassType):
+    elif isinstance(etype, type) and issubclass(etype, Exception):
         if value is None:
             value = ()
         elif not isinstance(value, tuple):
             value = (value,)
         value = etype(*value)
-    elif isinstance(etype, types.InstanceType):
+    elif isinstance(etype, Exception):
         if value is not None:
             raise TypeError, "instance exception may not have a separate value"
         value = etype
