@@ -64,10 +64,7 @@ class TestStringObject(testit.AppTestCase):
     def test_format_string(self):
         self.assertEquals('23', '%s' % '23')
         self.assertEquals("'23'", '%r' % '23')
-        """ unclear behavior requirement, so, both commented for now...:
-            self.assertEquals('23', '%d' % '23') ...or...:
-            self.assertRaises(TypeError, '%d'.__mod__, ((23,),)) ...?
-        """
+        self.assertRaises(TypeError, '%d'.__mod__, "23")
 
     def test_format_float(self):
         self.assertEquals('23', '%d' % 23.456)

@@ -1012,7 +1012,11 @@ def app_mod__String_ANY(format, values):
                 if c=='s':
                     pieces.append(str(value)) 
                 elif c=='d':
-                    pieces.append(str(int(value)))
+                    try:
+                        inter = value.__int__
+                    except AttributeError:
+                        raise TypeError, "an integer argument is required"
+                    pieces.append(str(inter()))
                 elif c=='x':
                     pieces.append(hex(int(value)))
                 elif c=='r':
