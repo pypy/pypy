@@ -737,6 +737,9 @@ def app_str_translate__String_String_String(s, table, deletechars=''):
     remaining characters have been mapped through the given translation table, 
     which must be a string of length 256"""
 
+    if len(table) < 256:
+        raise ValueError("translation table must be 256 characters long")
+
     L =  [ table[ord(s[i])] for i in range(len(s)) if s[i] not in deletechars ]
     return ''.join(L)
 
