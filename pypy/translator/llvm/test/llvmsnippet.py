@@ -189,6 +189,11 @@ class BBB(AAA):
     def get(self):
         return 5
 
+class CCC(BBB):
+    def __init__(self):
+        AAA.__init__(self)
+        BBB.__init__(self)
+
 def attribute_from_base_class():
     a = AAA()
     b = BBB()
@@ -199,6 +204,11 @@ def method_of_base_class():
     b = BBB()
     return a.get() + AAA.get(b) + b.get() + b.g()
 
+def direct_call_of_virtual_method():
+    a = AAA()
+    b = BBB()
+    c = CCC()
+    return a.get() + b.get() + c.get()
 
 #string snippets
 def string_f1(i):

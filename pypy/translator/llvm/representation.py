@@ -583,7 +583,7 @@ class ClassRepr(TypeRepr):
             print "ClassRepr.setup()", id(self), hex(id(self)), self.setup_done
             print len(ClassRepr.l_classes)
         gen = self.gen
-        if self.classdef.basedef is not None:
+        if self.classdef.basedef is not None: #get attributes from base classes
             self.l_base = gen.get_repr(self.classdef.basedef)
             self.dependencies.add(self.l_base)
             attribs = self.l_base.attributes
@@ -592,6 +592,7 @@ class ClassRepr(TypeRepr):
         meth = []
         if debug:
             print "attributes", self.classdef.attrs
+        #get attributes of this class and decide wether they are methods
         for key, attr in self.classdef.attrs.items():
             if debug:
                 print key, attr, attr.sources, attr.s_value,
@@ -642,7 +643,7 @@ class ClassRepr(TypeRepr):
             self.dependencies.update(l_args)
             # XXX
             if isinstance(l_init, VirtualMethodRepr):
-                l_init = l_init.l_funcs[l_init.classes.index(self.classdef)]
+                l_init = l_init.l_funcs[l_init.l_classes.index(self)]
             lblock.call_void(l_init, [l_target] + l_args)
 
     def t_op_getattr(self, l_target, args, lblock, l_func):
@@ -694,7 +695,13 @@ class ClassRepr(TypeRepr):
         else:
             raise CompileError, ("setattr called with unknown attribute %s" % \
                                  args[1].value)
-        
+
+    def iter_subclasses(self):
+        for cls, classdef in self.classdef.subdefs.iteritems():
+            l_cls = self.gen.get_repr(classdef)
+            yield l_cls
+            for l_c in l_cls.iter_subclasses():
+                yield l_c
 
 class BuiltinFunctionRepr(LLVMRepr):
     def get(obj, gen):
@@ -722,17 +729,21 @@ class BuiltinFunctionRepr(LLVMRepr):
 class FunctionRepr(LLVMRepr):
     l_functions = {}
     def get(obj, gen):
+        name = None
         if isinstance(obj, annmodel.SomePBC) and \
                  len(obj.prebuiltinstances) == 1:
             obj = obj.prebuiltinstances.keys()[0]
         elif isinstance(obj, Constant):
             obj = obj.value
         if isinstance(obj, MethodType):
-            obj = obj.class_.__dict__[obj.__name__]
+            name = obj.im_class.__name__ + "." + obj.im_func.__name__
+            obj = obj.im_func
         if isinstance(obj, FunctionType):
             if (obj, gen) in FunctionRepr.l_functions:
                 return FunctionRepr.l_functions[(obj, gen)]
-            l_func = FunctionRepr(obj.__name__, obj, gen)
+            if name is None:
+                name = obj.__name__
+            l_func = FunctionRepr(gen.get_global_tmp(name), obj, gen)
             FunctionRepr.l_functions[(obj, gen)] = l_func
             return l_func
         return None
@@ -744,7 +755,7 @@ class FunctionRepr(LLVMRepr):
         self.gen = gen
         self.func = function
         self.translator = gen.translator
-        self.name = "%" + name
+        self.name = name
         self.graph = self.translator.getflowgraph(self.func)
         self.annotator = gen.translator.annotator
         self.blocknum = {}
@@ -888,9 +899,6 @@ class FunctionRepr(LLVMRepr):
     def get_functions(self):
         return str(self.llvm_func)
 
-    def llvmname(self):
-        return self.name
-
     def llvmtype(self):
         assert self.llvmfuncdef().count(self.name) == 1
         return self.llvmfuncdef().replace(self.name + "(", "(") + "*"
@@ -905,8 +913,87 @@ class FunctionRepr(LLVMRepr):
         l_func.dependencies.update(l_args)
         lblock.call(l_target, l_args[0], l_args[1:])
 
+class EntryFunctionRepr(LLVMRepr):
+    def get(obj, gen):
+        return None
+    get = staticmethod(get)
+
+    def __init__(self, name, function, gen):
+        self.gen = gen
+        self.function = function
+        self.name = name
+        self.dependencies = sets.Set()
+        self.branch_added = False
+
+    def setup(self):
+        self.l_function = self.gen.get_repr(self.function)
+        self.dependencies.add(self.l_function)
+        lblock = llvmbc.BasicBlock("entry")
+        lblock.instruction("%tmp = load bool* %Initialized.0__")
+        lblock.instruction("br bool %tmp, label %real_entry, label %init")
+        self.llvm_func = llvmbc.Function(self.llvmfuncdef(), lblock)
+        self.init_block = llvmbc.BasicBlock("init")
+        self.init_block.instruction("store bool true, bool* %Initialized.0__")
+        real_entry = llvmbc.BasicBlock("real_entry")
+        l_ret = self.gen.get_local_tmp(self.l_function.retvalue.type, self)
+        self.l_function.op_simple_call(
+            l_ret, [self.function] + self.l_function.l_args, real_entry, self)
+        real_entry.ret(l_ret)
+        self.llvm_func.basic_block(real_entry)
+        self.llvm_func.basic_block(self.init_block)
+        
+    def cfuncdef(self):
+        a = self.l_function.translator.annotator
+        retv = self.l_function.graph.returnblock.inputargs[0]
+        rettype_c = C_SIMPLE_TYPES[a.binding(retv).__class__]
+        args = self.l_function.graph.startblock.inputargs
+        argtypes_c = [C_SIMPLE_TYPES[a.binding(v).__class__] for v in args]
+        fd = "%s %s(%s)" % (rettype_c, self.name[1:],
+                            ", ".join(argtypes_c))
+        return fd
+
+    def llvmfuncdef(self):
+        s = "%s %s(" % (self.l_function.retvalue.llvmtype(), self.name)
+        s += ", ".join([a.typed_name() for a in self.l_function.l_args]) + ")"
+        return s
+
+    def get_pyrex_source(self):
+        name = self.name[1:]
+        args = self.l_function.graph.startblock.inputargs
+        self.pyrex_source = ["cdef extern %s\n" %
+                             (self.cfuncdef())]
+        self.pyrex_source += ["def wrap_%s(" % name]
+        t = []
+        for i, a in enumerate(args):
+            t += ["%s" % a]
+        t = ", ".join(t)
+        self.pyrex_source += t + "):\n\treturn %s(%s)\n\n" % (name, t)
+        self.pyrex_source = "".join(self.pyrex_source)
+        return self.pyrex_source
+
+    def rettype(self):
+        return self.l_function.retvalue.llvmtype()
+
+    def get_functions(self):
+        if not self.branch_added:
+            self.init_block.uncond_branch("%real_entry")
+        return str(self.llvm_func)
+
+    def get_globals(self):
+        return "%Initialized.0__ = internal global bool false"
+
+    def llvmtype(self):
+        assert self.llvmfuncdef().count(self.name) == 1
+        return self.llvmfuncdef().replace(self.name + "(", "(") + "*"
+
+    def op_simple_call(self, l_target, args, lblock, l_func):
+        self.l_function.op_simple_call(l_target, [self.function] + args,
+                                       lblock, l_func)
+
 class VirtualMethodRepr(LLVMRepr):
     # Really stupid implementation of virtual functions:
+    # Do a switch on the id of the class of the object and cast the object
+    # to the appropriate class
     # Should be replaced by function pointers
     def get(obj, gen):
         if isinstance(obj, annmodel.SomePBC) and \
@@ -920,27 +1007,37 @@ class VirtualMethodRepr(LLVMRepr):
         if debug:
             print "VirtualMethodRepr: %s" % prebuiltinstances
         self.gen = gen
-        self.classes = prebuiltinstances.values()
-        commonbase = reduce(lambda a, b: a.commonbase(b), self.classes)
-        self.commonbase_index = self.classes.index(commonbase)
-        self.commonbase = commonbase
+        classes = prebuiltinstances.values()
+        self.commonbase = reduce(lambda a, b: a.commonbase(b), classes)
         self.funcs = prebuiltinstances.keys()
         self.name = "%" + self.funcs[0].__name__ + ".virtual"
+        self.attribute = self.funcs[0].__name__
         self.dependencies = sets.Set()
 
     def setup(self):
-        cbi = self.commonbase_index
-        self.l_funcs = [self.gen.get_repr(f) for f in self.funcs]
-        self.dependencies.update(self.l_funcs)
-        self.retvalue = self.l_funcs[cbi].retvalue
-        self.l_classes = [self.gen.get_repr(c) for c in self.classes]
+        self.l_commonbase = self.gen.get_repr(self.commonbase)
+        self.l_classes = [self.l_commonbase] + \
+                         list(self.l_commonbase.iter_subclasses())
         self.dependencies.update(self.l_classes)
-        self.l_commonbase = self.l_classes[self.commonbase_index]
+        self.l_funcs = []
+        #find appropriate method for every class
+        for l_cls in self.l_classes:
+            for classdef in l_cls.classdef.getmro():
+                if classdef.cls.__dict__.has_key(self.attribute):
+                    self.l_funcs.append(self.gen.get_repr(
+                        classdef.cls.__dict__[self.attribute]))
+                    break
+            else:
+                raise CompileError, "Couldn't find method %s for %s" % \
+                      (self.attribute, l_cls.classdef.cls)
+        self.dependencies.update(self.l_funcs)
+        self.retvalue = self.l_funcs[0].retvalue
         self.type_numbers = [id(l_c) for l_c in self.l_classes]
         self.l_args = [self.gen.get_repr(ar)
-                       for ar in self.l_funcs[cbi].graph.startblock.inputargs]
+                       for ar in self.l_funcs[0].graph.startblock.inputargs]
         l_retvalue = self.retvalue
         self.dependencies.update(self.l_args)
+        #create function
         entryblock = llvmbc.BasicBlock("entry")
         l_ptr = self.gen.get_local_tmp(PointerTypeRepr("uint", self.gen), self)
         l_type = self.gen.get_local_tmp(self.gen.get_repr(
@@ -960,26 +1057,40 @@ class VirtualMethodRepr(LLVMRepr):
             l_tmp_ret = self.gen.get_local_tmp(l_retvalue.type, self)
             self.l_funcs[i].op_simple_call(
                 l_tmp_ret, [self.l_funcs[i], l_tmp] + 
-                self.l_funcs[cbi].graph.startblock.inputargs[1:], lblock, self)
+                self.l_funcs[0].graph.startblock.inputargs[1:], lblock, self)
             lblock.ret(l_tmp_ret)
         self.llvm_func = lfunc
 
     def op_simple_call(self, l_target, args, lblock, l_func):
+        name = self.name[1:-8]
         l_args = [self.gen.get_repr(arg) for arg in args]
-        self.dependencies.update(l_args)
+        l_func.dependencies.update(l_args)
+        # call the method directly if no subclass of the class of args[1] has
+        # a special version of this method defined
+        for l_cls in l_args[1].type.iter_subclasses():
+            if l_cls.classdef.cls.__dict__.has_key(name):
+                break
+        else:
+            for clsdef in l_args[1].type.classdef.getmro():
+                if clsdef.cls.__dict__.has_key(name):
+                    l_method = self.gen.get_repr(clsdef.cls.__dict__[name])
+                    args[0] = l_method
+                    print l_method.llvmname(), l_method
+                    l_method.op_simple_call(l_target, args, lblock, l_func)
+                    return
         if l_args[1].llvmtype() != self.l_args[0].llvmtype():
             l_tmp = self.gen.get_local_tmp(self.l_args[0].type, l_func)
+            l_func.dependencies.add(l_tmp)
             lblock.cast(l_tmp, l_args[1])
             l_args[1] = l_tmp
-            lblock.call(l_target, l_args[0], l_args[1:])
         lblock.call(l_target, l_args[0], l_args[1:])
+        return
         
     def get_functions(self):
         return str(self.llvm_func)
 
     def llvmfuncdef(self):
-        cbi  = self.commonbase_index
-        s = "%s %s(" % (self.l_funcs[cbi].retvalue.llvmtype(), self.name)
+        s = "%s %s(" % (self.l_funcs[0].retvalue.llvmtype(), self.name)
         return s + ", ".join([a.typed_name() for a in self.l_args]) + ")"
 
     def rettype(self):
@@ -997,13 +1108,6 @@ class BoundMethodRepr(LLVMRepr):
         self.dependencies = sets.Set([l_self, l_class, l_func])
 
     def t_op_simple_call(self, l_target, args, lblock, l_func):
-        if self.l_self.llvmtype() != self.l_class.llvmname():
-            l_tmp = self.gen.get_local_tmp(self.l_class, l_func)
-            lblock.cast(l_tmp, self.l_self)
-            self.l_func.op_simple_call(l_target,
-                                       [self.l_func, l_tmp] + args[1:],
-                                       lblock, l_func)
-        else:
-            self.l_func.op_simple_call(l_target,
-                                       [self.l_func, self.l_self] + args[1:],
-                                       lblock, l_func)
+        self.l_func.op_simple_call(l_target,
+                                   [self.l_func, self.l_self] + args[1:],
+                                   lblock, l_func)

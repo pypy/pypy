@@ -211,6 +211,10 @@ class TestClass(object):
     def test_attribute_from_base_class(self):
         f = compile_function(llvmsnippet.attribute_from_base_class, [])
         assert f() == 4
+
+    def test_direct_call_of_virtual_method(self):
+        f = compile_function(llvmsnippet.direct_call_of_virtual_method, [])
+        assert f() == 14
     
 class TestString(object):
     def setup_method(self, method):

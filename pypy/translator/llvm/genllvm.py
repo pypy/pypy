@@ -20,6 +20,7 @@ from pypy.translator.llvm.test import llvmsnippet as test2
 
 from pypy.translator.llvm.representation import *
 
+
 debug = True
 
 
@@ -48,12 +49,16 @@ class LLVMGenerator(object):
                              if "Repr" in s]
         self.llvm_reprs = {}
         self.depth = 0
-        self.l_entrypoint = self.get_repr(
-            Constant(self.translator.functions[0]))
+        self.entryname = self.translator.functions[0].__name__
+        self.l_entrypoint = EntryFunctionRepr("%__entry__" + self.entryname,
+                                              self.translator.functions[0],
+                                              self)
+        self.local_counts[self.l_entrypoint] = 0
+        self.l_entrypoint.setup()
 
     def compile(self, optimize=False):
         from pypy.tool.udir import udir
-        name = self.l_entrypoint.llvmname()[1:]
+        name = self.entryname
         llvmfile = udir.join('%s.ll' % name)
         f = llvmfile.open('w')
         self.write(f)
@@ -64,7 +69,7 @@ class LLVMGenerator(object):
         f.close()
         mod = build_llvm_module.make_module_from_llvm(llvmfile, pyxfile,
                                                       optimize)
-        return getattr(mod, "wrap_%s" % name)
+        return getattr(mod, "wrap_%s" % self.l_entrypoint.llvmname()[1:])
 
     def get_global_tmp(self, used_by=None):
         used_by = (used_by or "unknown")
@@ -140,3 +145,4 @@ def traverse_dependencies(l_repr, seen_reprs):
         for l_dep1 in traverse_dependencies(l_dep, seen_reprs):
             yield l_dep1
     yield l_repr
+
