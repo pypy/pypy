@@ -61,9 +61,9 @@
 
 /*** conversions ***/
 
-#define convert_io(x,r,err)   if (!(r=PyInt_FromLong(x))) goto err;
-#define convert_so(c,l,r,err) if (!(r=PyString_FromStringAndSize(c,l)))goto err;
-#define convert_vo(r)         r = Py_None; Py_INCREF(r);
+#define CONVERT_io(x,r,err)   if (!(r=PyInt_FromLong(x))) goto err;
+#define CONVERT_so(c,l,r,err) if (!(r=PyString_FromStringAndSize(c,l)))goto err;
+#define CONVERT_vo(r)         r = Py_None; Py_INCREF(r);
 
 /*#define convert_oi(x,r,err)   if ((r=PyInt_AsLong(x)) == -1             \
  *                                  && PyErr_Occurred()) goto err;
@@ -71,15 +71,15 @@
 
 /*** tests ***/
 
-#define caseFalse_i(n, err)    if (n) goto err;
-#define caseTrue_i(n, err)     if (!n) goto err;
-#define case0_i(n, err)        if (n != 0) goto err;
-#define case1_i(n, err)        if (n != 1) goto err;
+#define CASE_False_i(n, err)    if (n) goto err;
+#define CASE_True_i(n, err)     if (!n) goto err;
+#define CASE_0_i(n, err)        if (n != 0) goto err;
+#define CASE_1_i(n, err)        if (n != 1) goto err;
 
-#define caseFalse_o(o, err)    if (!(PyInt_Check(o) && !PyInt_AS_LONG(o))) goto err;
-#define caseTrue_o(o, err)     if (!(PyInt_Check(o) && PyInt_AS_LONG(o))) goto err;
-#define case0_o(o, err) if (!(PyInt_Check(o) && PyInt_AS_LONG(o)==0)) goto err;
-#define case1_o(o, err) if (!(PyInt_Check(o) && PyInt_AS_LONG(o)==1)) goto err;
+#define CASE_False_o(o, err)    if (!(PyInt_Check(o) && !PyInt_AS_LONG(o))) goto err;
+#define CASE_True_o(o, err)     if (!(PyInt_Check(o) && PyInt_AS_LONG(o))) goto err;
+#define CASE_0_o(o, err) if (!(PyInt_Check(o) && PyInt_AS_LONG(o)==0)) goto err;
+#define CASE_1_o(o, err) if (!(PyInt_Check(o) && PyInt_AS_LONG(o)==1)) goto err;
 
 
 /*** misc ***/
@@ -95,25 +95,51 @@
 		}                                       \
 	}
 
-#define INSTANTIATE(cls, r, err)    if (!(r=cls##_new())) goto err;
+/* a few built-in functions */
+
+#define CALL_len_oi(o,r,err)  if ((r=PyObject_Size(o))<0) goto err;
+#define CALL_pow_iii(x,y,r)   { int i=y; r=1; while (--i>=0) r*=x; } /*slow*/
+
+
+/*** macros used directly by genc_op.py ***/
+
+#define OP_NEWLIST(len, r, err)        if (!(r=PyList_New(len))) goto err;
+#define OP_NEWLIST_SET(r, i, o)        PyList_SET_ITEM(r, i, o); Py_INCREF(o);
+#define OP_NEWTUPLE(len, r, err)       if (!(r=PyTuple_New(len))) goto err;
+#define OP_NEWTUPLE_SET(r, i, o)       PyTuple_SET_ITEM(r, i, o); Py_INCREF(o);
+
+#define OP_CALL_PYOBJ(args, r, err)    if (!(r=PyObject_CallFunction args)) \
+						goto err;
+
+#define OP_INSTANTIATE(cls, r, err)    if (!(r=cls##_new())) goto err;
 #define ALLOC_INSTANCE(cls, r, err)                             \
 		if (!(r=PyType_GenericAlloc(&cls##_Type.type, 0))) goto err;
 #define SETUP_TYPE(cls)                         \
 		PyType_Ready(&cls##_Type.type); \
 		cls##_typenew();
 
-#define GET_ATTR_py(fld, r)   r=fld; Py_INCREF(r);
-#define SET_ATTR_py(fld, v)   { PyObject* o=fld; fld=v;         \
-                                Py_INCREF(v); Py_XDECREF(o); }
+#define OP_GETINSTATTR(cls, o, f, r)    r=((cls##_Object*) o)->f;
+#define OP_GETINSTATTR_o(cls, o, f, r)  r=((cls##_Object*) o)->f; Py_INCREF(r);
+#define OP_GETCLASSATTR(cls, o, f, r)   r=((cls##_TypeObject*)(o->ob_type))->f;
+#define OP_GETCLASSATTR_o(cls, o, f, r) r=((cls##_TypeObject*)(o->ob_type))->f;\
+								  Py_INCREF(r);
+#define OP_SETINSTATTR(cls, o, f, v)    ((cls##_Object*) o)->f=v;
+#define OP_SETINSTATTR_o(cls, o, f, v)  { PyObject* tmp;                    \
+					  OP_GETINSTATTR(cls, o, f, tmp)    \
+					  OP_SETINSTATTR(cls, o, f, v)      \
+					  Py_INCREF(v); Py_XDECREF(tmp);    \
+					}
+#define OP_INITCLASSATTR(cls, f, v)     cls##_Type.f=v;
+#define OP_INITCLASSATTR_o(cls, f, v)   cls##_Type.f=v; Py_INCREF(v);
 
-#define GET_ATTR_cls(fld, r)  r=fld; Py_INCREF(r);
-#define SET_ATTR_cls(fld, v)  fld=v; Py_INCREF(v);  /* initialization only */
+#define OP_DUMMYREF(r)                  r = Py_None; Py_INCREF(r);
 
-/* a few built-in functions */
+#define MOVE(x, y)                      y = x;
 
-#define CALL_len_oi(o,r,err)  if ((r=PyObject_Size(o))<0) goto err;
-#define CALL_pow_iii(x,y,r)   { int i=y; r=1; while (--i>=0) r*=x; } /*slow*/
-
+#define OP_CCALL_v(fn, args, err)       if (fn args < 0) goto err;
+#define OP_CCALL(fn, args, r, err)      if ((r=fn args) == NULL) goto err;
+#define OP_CCALL_i(fn, args, r, err)    if ((r=fn args) == -1 &&            \
+                                            PyErr_Occurred()) goto err;
 
 /************************************************************/
  /***  The rest is produced by genc.py                     ***/

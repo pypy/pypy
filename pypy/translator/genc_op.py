@@ -81,21 +81,6 @@ class LoKnownAnswer(LoOptimized):
     def optimized_result(self, typer):
         return self.known_answer
 
-class LoNewList(LoC):
-    can_fail = True
-    cost     = 3
-    # self.args: [input PyObjects.., output PyObject]
-    def writestr(self, *stuff):
-        content = stuff[:-2]
-        result = stuff[-2]
-        err = stuff[-1]
-        ls = ['if (!(%s = PyList_New(%d))) goto %s;' % (
-            result, len(content), err)]
-        for i in range(len(content)):
-            ls.append('PyList_SET_ITEM(%s, %d, %s); Py_INCREF(%s);' % (
-                result, i, content[i], content[i]))
-        return '\n'.join(ls)
-
 class LoCallFunction(LoC):
     can_fail = True
     cost     = 3
@@ -106,24 +91,21 @@ class LoCallFunction(LoC):
         err = stuff[-1]
         format = '"' + 'O' * len(args) + '"'
         args = (func, format) + args
-        return ('if (!(%s = PyObject_CallFunction(%s)))'
-                ' goto %s;' % (result, ', '.join(args), err))
+        return ('OP_CALL_PYOBJ((%s), %s, %s)' % (', '.join(args), result, err))
 
 class LoInstantiate(LoC):
     can_fail = True
     llclass  = PARAMETER
     # self.args: [output PyObject instance]
     def writestr(self, res, err):
-        return 'INSTANTIATE(%s, %s, %s)' % (
-            self.llclass.name, res, err)
+        return 'OP_INSTANTIATE(%s, %s, %s)' % (self.llclass.name, res, err)
 
 class LoAllocInstance(LoC):
     can_fail = True
     llclass  = PARAMETER
     # self.args: [output PyObject instance]
     def writestr(self, res, err):
-        return 'ALLOC_INSTANCE(%s, %s, %s)' % (
-            self.llclass.name, res, err)
+        return 'ALLOC_INSTANCE(%s, %s, %s)' % (self.llclass.name, res, err)
 
 class LoConvertTupleItem(LoOptimized):
     source_r = PARAMETER   # tuple-of-hltypes, one per item of the input tuple
@@ -159,17 +141,20 @@ class LoConvertTupleItem(LoOptimized):
 class LoNewTuple(LoC):
     can_fail = True
     cost     = 3
+    macro    = 'OP_NEWTUPLE'
     # self.args: [input PyObjects.., output PyObject]
     def writestr(self, *stuff):
         args   = stuff[:-2]
         result = stuff[-2]
         err    = stuff[-1]
-        ls = ['if (!(%s = PyTuple_New(%d))) goto %s;' %
-              (result, len(args), err)]
-        for i, a in zip(range(len(args)), args):
-            ls.append('PyTuple_SET_ITEM(%s, %d, %s); Py_INCREF(%s);' %
-                      (result, i, a, a))
+        ls = ['%s(%d, %s, %s)' % (self.macro, len(args), result, err)]
+        for i in range(len(args)):
+            ls.append('%s_SET(%s, %d, %s)' % (self.macro, result, i, args[i]))
         return '\n'.join(ls)
+
+class LoNewList(LoNewTuple):
+    macro    = 'OP_NEWLIST'
+    # self.args: [input PyObjects.., output PyObject]
 
 class LoGetAttr(LoC):
     cost = 1
@@ -177,23 +162,18 @@ class LoGetAttr(LoC):
     # self.args: [PyObject instance, result..]
     def writestr(self, inst, *result):
         ls = []
-        llclass = self.fld.llclass
         if self.fld.is_class_attr:
-            for src, dstname in zip(self.fld.llvars, result):
-                fldexpr = '((%s_TypeObject*)(%s->ob_type))->%s' % (
-                    llclass.name, inst, src.name)
-                if src.type == 'PyObject*':
-                    ls.append('GET_ATTR_cls(%s, %s)' % (fldexpr, dstname))
-                else:
-                    ls.append('%s = %s;' % (dstname, fldexpr))
+            macro = 'OP_GETCLASSATTR'
         else:
-            for src, dstname in zip(self.fld.llvars, result):
-                fldexpr = '((%s_Object*) %s)->%s' % (llclass.name, inst,
-                                                     src.name)
-                if src.type == 'PyObject*':
-                    ls.append('GET_ATTR_py(%s, %s)' % (fldexpr, dstname))
-                else:
-                    ls.append('%s = %s;' % (dstname, fldexpr))
+            macro = 'OP_GETINSTATTR'
+        llclass = self.fld.llclass
+        for src, dstname in zip(self.fld.llvars, result):
+            if src.type == 'PyObject*':
+                typecode = '_o'
+            else:
+                typecode = ''
+            ls.append('%s%s(%s, %s, %s, %s)' % (
+                macro, typecode, llclass.name, inst, src.name, dstname))
         return '\n'.join(ls)
 
 class LoGetAttrMethod(LoGetAttr):
@@ -215,12 +195,12 @@ class LoSetAttr(LoC):
         assert len(value) == len(self.fld.llvars)
         ls = []
         for srcname, dst in zip(value, self.fld.llvars):
-            fldexpr = '((%s_Object*) %s)->%s' % (self.llclass.name, inst,
-                                                 dst.name)
             if dst.type == 'PyObject*':
-                ls.append('SET_ATTR_py(%s, %s)' % (fldexpr, srcname))
+                typecode = '_o'
             else:
-                ls.append('%s = %s;' % (fldexpr, srcname))
+                typecode = ''
+            ls.append('OP_SETINSTATTR%s(%s, %s, %s, %s)' % (
+                typecode, self.llclass.name, inst, dst.name, srcname))
         return '\n'.join(ls)
 
 class LoInitClassAttr(LoC):
@@ -233,11 +213,12 @@ class LoInitClassAttr(LoC):
         ls = []
         # setting class attributes is only used for initialization
         for srcname, dst in zip(value, self.fld.llvars):
-            fldexpr = '%s_Type.%s' % (self.llclass.name, dst.name)
             if dst.type == 'PyObject*':
-                ls.append('SET_ATTR_cls(%s, %s)' % (fldexpr, srcname))
+                typecode = '_o'
             else:
-                ls.append('%s = %s;' % (fldexpr, srcname))
+                typecode = ''
+            ls.append('OP_INITCLASSATTR%s(%s, %s, %s)' % (
+                typecode, self.llclass.name, dst.name, srcname))
         return '\n'.join(ls)
 
 class LoConvertBoundMethod(LoOptimized):
@@ -277,8 +258,7 @@ class LoDummyResult(LoC):
         ls = []
         for a in self.args:
             if a.type == 'PyObject*':
-                ls.append('%s = Py_None; Py_INCREF(%s); /* dummy */' % (
-                    a.name, a.name))
+                ls.append('OP_DUMMYREF(%s)' % a.name)
         return '\n'.join(ls)
 
 # ____________________________________________________________
@@ -287,7 +267,7 @@ class LoMove(LoC):
     cost = 1
     # self.args: [input LLVar, output LLVar]
     def writestr(self, x, y):
-        return '%s = %s;' % (y, x)
+        return 'MOVE(%s, %s)' % (x, y)
 
 class LoGoto(LoC):
     cost = 0
@@ -335,11 +315,6 @@ ERROR_RETVAL = {
     'int':       '-1',
     }
 
-ERROR_CHECK = {
-    None:        '< 0',
-    'int':       '== -1 && PyErr_Occurred()',
-    }
-
 class LoCallPyFunction(LoC):
     can_fail  = True
     hlrettype = PARAMETER
@@ -351,17 +326,19 @@ class LoCallPyFunction(LoC):
         args = [a.name for a in self.args[1:R]]
         err = self.errtarget
         if L == 0:  # no return value
-            return 'if (%s(%s) %s) goto %s;' % (
-                funcptr, ', '.join(args), ERROR_CHECK[None], err)
+            return 'OP_CCALL_v(%s, (%s), %s)' % (funcptr, ', '.join(args), err)
         else:
             # the return value is the first return LLVar:
             retvar = self.args[R]
             # if there are several return LLVars, the extra ones are passed
             # in by reference as output arguments
             args += ['&%s' % a.name for a in self.args[R+1:]]
-            return ('if ((%s = %s(%s)) %s) goto %s;' % (
-                retvar.name, funcptr, ', '.join(args),
-                ERROR_CHECK.get(retvar.type, '== NULL'), err))
+            if retvar.type == 'int':
+                typecode = '_i'
+            else:
+                typecode = ''
+            return 'OP_CCALL%s(%s, (%s), %s, %s)' % (
+                typecode, funcptr, ', '.join(args), retvar.name, err)
 
 class LoReturn(LoC):
     cost = 1

@@ -59,7 +59,7 @@ class CannotConvert(Exception):
 #       ...}
 #       This dict contains the known signatures of each space operation.
 #       Special opnames:
-#         'caseXXX'    v : fails (i.e. jump to errlabel) if v is not XXX
+#         'CASE_XXX'    v : fails (i.e. jump to errlabel) if v is not XXX
 #
 #   rawoperations = {
 #       'opname': subclass-of-LLOp,
@@ -189,12 +189,12 @@ class LLFunction(LLTyper):
         # exits
         if block.exits:
             for exit in block.exits[:-1]:
-                # generate | caseXXX v elselabel
+                # generate | CASE_XXX v elselabel
                 #          |   copy output vars to next block's input vars
                 #          |   jump to next block
                 #          | elselabel:
                 elselabel = '%s_not%s' % (self.blockname[block], exit.exitcase)
-                self.operation('case%s' % exit.exitcase,
+                self.operation('CASE_%s' % exit.exitcase,
                                [block.exitswitch],
                                errlabel = elselabel)
                 self.goto(exit)

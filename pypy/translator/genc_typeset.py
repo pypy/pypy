@@ -39,7 +39,7 @@ class CTypeSet:
         self.bindings = bindings
         self.conversion_cache = {}
         self.conversion_errors = {}
-        self.lloperations = {'convert': self.conversion_cache}
+        self.lloperations = {'CONVERT': self.conversion_cache}
         self.parse_operation_templates()
 
     # __________ methods required by LLFunction __________
