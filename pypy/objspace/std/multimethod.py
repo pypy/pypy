@@ -1,4 +1,5 @@
 
+from pypy.tool.compile import compile2
 
 class FailedToImplement(Exception):
     pass
@@ -252,7 +253,7 @@ class Installer:
         source = '\n'.join(bodylines)
         #print source
         #print "*"*60
-        exec compile(source, '', 'exec') in miniglobals
+        exec compile2(source) in miniglobals
         func = miniglobals[funcname]
         self.to_install.append((target, funcname, func, source, fallback))
         return func

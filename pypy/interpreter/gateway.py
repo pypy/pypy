@@ -16,6 +16,7 @@ from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import W_Root,ObjSpace, BaseWrappable, Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.tool.cache import Cache 
+from pypy.tool.compile import compile2 
 # internal non-translatable parts: 
 from pypy.tool.getpy import py  # XXX from interpreter/ we get py.py 
 
@@ -278,7 +279,7 @@ class BuiltinCodeSignature(Signature):
             # Python 2.2 SyntaxError without newline: Bug #501622
             setfastscope += '\n'
             d = {}
-            exec compile(setfastscope, '', 'exec') in self.miniglobals, d
+            exec compile2(setfastscope) in self.miniglobals, d
             d['setfastscope'] = d['setfastscope_UWS_%s' % label]
             del d['setfastscope_UWS_%s' % label]
 
@@ -287,7 +288,7 @@ class BuiltinCodeSignature(Signature):
                 def _run_UWS_%s(self):
                     return self.box.func(%s)
                 \n""" % (label, ','.join(self.run_args))
-            exec compile(source, '', 'exec') in self.miniglobals, d
+            exec compile2(source) in self.miniglobals, d
             d['_run'] = d['_run_UWS_%s' % label]
             del d['_run_UWS_%s' % label]
             frame_cls = type("BuiltinFrame_UWS_%s" % label, (BuiltinFrame,), d)

@@ -4,6 +4,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root, BaseWrappable
 from pypy.interpreter.function import Function
 from pypy.interpreter.gateway import BuiltinCode
 from pypy.interpreter.argument import Arguments
+from pypy.tool.compile import compile2 
 
 def raiseattrerror(space, w_obj, name): 
     w_type = space.type(w_obj) 
@@ -588,8 +589,7 @@ for targetname, specialname, checkerspec in [
         DescrOperation.%(targetname)s = %(targetname)s
         del %(targetname)s 
         \n""" % locals() 
-    exec compile(source, '', 'exec')
-
+    exec compile2(source) 
 
 # add default operation implementations for all still missing ops 
 

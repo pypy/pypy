@@ -2,6 +2,7 @@ from pypy.interpreter import eval, function, gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.objspace.std.model import MultiMethod, FailedToImplement
+from pypy.tool.compile import compile2
 
 __all__ = ['StdTypeDef', 'newmethod', 'gateway',
            'GetSetProperty', 'Member',
@@ -239,7 +240,7 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
                       return w_res
 """        % (prefix, wrapper_sig, renaming, expr,
               multimethod.operatorsymbol, ', '.join(solid_arglist))
-    exec compile(code, '', 'exec') in miniglobals 
+    exec compile2(code, '', 'exec') in miniglobals 
     return miniglobals["%s_perform_call" % prefix]
 
 def wrap_trampoline_in_gateway(func, methname, multimethod):

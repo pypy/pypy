@@ -6,6 +6,7 @@ from pypy.interpreter.gateway import interp2app, ObjSpace, Arguments, W_Root
 from pypy.interpreter.baseobjspace import BaseWrappable, Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.tool.cache import Cache
+from pypy.tool.compile import compile2
 import new
 
 class TypeDef:
@@ -123,7 +124,7 @@ def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
         miniglobals[cls_name] = cls
         check = "isinstance(obj, %s)" % cls_name
         expected = "%s.typedef.name" % cls_name
-   
+    
     source = """if 1: 
         def descr_typecheck_%(name)s(space, w_obj, %(extra)s):
             obj = %(unwrap)s
@@ -137,7 +138,7 @@ def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
                  'expected': expected,
                  'unwrap': unwrap,
                  'extra': ', '.join(extraargs)} 
-    exec compile(source, '', 'exec') in miniglobals 
+    exec compile2(source) in miniglobals
     return miniglobals['descr_typecheck_%s' % func.__name__]    
 
 
