@@ -2,56 +2,77 @@ from objspace import *
 from stringobject import W_StringObject
 
 
+class _NoValueInCell: pass
+
+class Cell:
+    def __init__(self,w_value=_NoValueInCell):
+        self.w_value = w_value
+
+    def get(self):
+        if self.is_empty():
+            raise OperatioError(w_SystemError)
+        return self.w_value
+
+    def set(self,w_value):
+        self.w_value = w_value
+
+    def make_empty(self):
+        if self.is_empty():
+            raise OperatioError(w_SystemError)
+        self.w_value = _NoValueInCell
+
+    def is_empty(self):
+        return self.w_value is _NoValueInCell
+    
+
 class W_DictObject:
     delegate_once = {}
 
     def __init__(self, list_pairs_w):
-        self.data = list_pairs_w
+        self.data = [ (w_key,Cell(w_value)) for w_key,w_value in list_pairs_w ]
+
+    def non_empties(self):
+        return [  (w_key,cell) for w_key,cell in self.data if not cell.is_empty()]
 
 
 def dict_is_true(space, w_dict):
-    return not not w_dict.data
+    return not not w_dict.non_empties()
 
 StdObjSpace.is_true.register(dict_is_true, W_DictObject)
 
 def dict_unwrap(space, w_dict):
     result = {}
-    for w_key, w_value in w_dict.data:
-        result[space.unwrap(w_key)] = space.unwrap(w_value)
+    for w_key, cell in w_dict.non_empties():
+        result[space.unwrap(w_key)] = space.unwrap(cell.get())
     return result
 
 StdObjSpace.unwrap.register(dict_unwrap, W_DictObject)
 
 def getitem_dict_any(space, w_dict, w_lookup):
-    data = w_dict.data
-    for w_key, w_value in data:
+    data = w_dict.non_empties()
+    for w_key, cell in data:
         if space.is_true(space.eq(w_lookup, w_key)):
-            return w_value
+            return cell.get()
     raise OperationError(space.w_KeyError, w_lookup)
 
 StdObjSpace.getitem.register(getitem_dict_any, W_DictObject, W_ANY)
 
 def setitem_dict_any_any(space, w_dict, w_newkey, w_newvalue):
     data = w_dict.data
-    for i in range(len(data)):
-        w_key, w_value = data[i]
+    for w_key,cell in data:
         if space.is_true(space.eq(w_newkey, w_key)):
-            # replace existing value
-            data[i] = w_key, w_newvalue
-            #print 'dict replace %s:' % w_newkey, data
+            cell.set(w_newvalue)
             return
-    # add new (key,value) pair
-    data.append((w_newkey, w_newvalue))
-    #print 'dict append %s:' % w_newkey, data
+    # add new (key,Cell(value)) pair
+    data.append((w_newkey, Cell(w_newvalue)))
 
 StdObjSpace.setitem.register(setitem_dict_any_any, W_DictObject, W_ANY, W_ANY)
 
 def delitem_dict_any(space, w_dict, w_lookup):
-    data = w_dict.data
-    for i in range(len(data)):
-        w_key, w_value = data[i]
+    data = w_dict.non_empties()
+    for w_key,cell in data:
         if space.is_true(space.eq(w_lookup, w_key)):
-            del data[i]
+            cell.make_empty()
             return
     raise OperationError(space.w_KeyError, w_lookup)
     
