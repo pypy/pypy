@@ -51,21 +51,34 @@ class W_StringObject(W_Object):
         else:
             return W_StringObject(w_self.space, "")
 
-    def split(w_self, w_by=None):
+    def splitByWhitespace(w_self):
         res = []
         inword = 0
         for ch in w_self.value:
-            if ch==w_by.value or w_by is None and ch.isspace():
+            if ch.isspace():
                 if inword:
                     inword = 0
-                elif w_by is not None:
-                    res.append('')
             else:
                 if inword:
                     res[-1] += ch
                 else:
                     res.append(ch)
                     inword = 1
+        for i in range(len(res)):
+            res[i] = W_StringObject(w_self.space, res[i])
+        return W_ListObject(w_self.space, res)
+
+    def split(w_self, w_by=None):
+        if w_by is None: return w_self.splitByWhiteSpace
+        res = []
+        start = 0
+        while 1:
+            next = w_self.value.find(w_by.value, start)
+            if next < 0:
+                res.append(w_self.value[start:])
+                break
+            res.append(w_self.value[start:next])
+            start = next + len(w_by.value)
         for i in range(len(res)):
             res[i] = W_StringObject(w_self.space, res[i])
         return W_ListObject(w_self.space, res)
