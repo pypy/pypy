@@ -7,9 +7,6 @@ from pypy.interpreter.pycode import PyByteCode
 
 import __builtin__ as _b
 
-##compile.__doc__ = _b.compile.__doc__
-
-
 class Builtin(BuiltinModule):
     __pythonname__ = '__builtin__'
 
