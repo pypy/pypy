@@ -359,6 +359,25 @@ class AnnonateTestCase(testit.IntTestCase):
         # this example used to trigger an AssertionError
         a.build_types(snippet.somepbc_simplify, [])
 
+    def test_builtin_methods(self):
+        a = RPythonAnnotator()
+        iv = a.bookkeeper.immutablevalue
+        # this checks that some built-in methods are really supported by
+        # the annotator (it doesn't check that they operate property, though)
+        for example, methname, s_example in [
+            ('', 'join',    annmodel.SomeString()),
+            ([], 'append',  annmodel.SomeList({})),
+            ([], 'reverse', annmodel.SomeList({})),
+            ([], 'insert',  annmodel.SomeList({})),
+            ([], 'pop',     annmodel.SomeList({})),
+            ]:
+            constmeth = getattr(example, methname)
+            s_constmeth = iv(constmeth)
+            self.assert_(isinstance(s_constmeth, annmodel.SomeBuiltin))
+            s_meth = s_example.getattr(iv(methname))
+            self.assert_(isinstance(s_constmeth, annmodel.SomeBuiltin))
+
+
 def g(n):
     return [0,1,2,n]
 
