@@ -41,8 +41,12 @@ class PyPyConsole(code.InteractiveConsole):
             # XXX insert exception info into the application-level sys.last_xxx
             operationerr.print_detailed_traceback(self.space)
         else:
-            if sys.stdout.softspace:
-                print
+            try:
+                if sys.stdout.softspace:
+                    print
+            except AttributeError:
+                # Don't crash if user defined stdout doesn't have softspace
+                pass
 
     def runsource(self, source, ignored_filename="<input>", symbol="single"):
         hacked_filename = '<inline>\n'+source
