@@ -1,3 +1,32 @@
+"""
+Unit testing framework for PyPy.
+
++------------+ 1                                    1 +----------+
+| TestResult |----------------------------------------| TestItem |
+| (abstract) |                                        +----------+
++------------+                                             | *
+    A                                                      |
+    -                                                      |
+    |                                                      | 1
+    +----------------------------+-----------+        +-----------+
+    |                            |           |        | TestSuite |
++-------------------------+ +---------+ +---------+   +-----------+
+| TestResultWithTraceback | | Success | | Skipped |         A
+| (abstract)              | +---------+ +---------+         |
++-------------------------+                                 | loaded by
+    A          A                                            |
+    -          -                                      +------------+
+    |          |                                      | TestCase   |
+    |          |                                      | (abstract) |
++-------+ +---------+                                 +------------+
+| Error | | Failure |                                       A
++-------+ +---------+                                       -
+                                                            |
+                                                            |
+                                                       concrete test
+                                                       case classes
+
+"""
 # for Python 2.2 compatibilty
 from __future__ import generators
 
@@ -405,7 +434,7 @@ class TestSuite:
         for item in self.items:
             result = item.run()
             key = classify(result)
-            self.last_results.setdefault(key, []).append(result)
+            self.last_resuaalts.setdefault(key, []).append(result)
             yield result
 
     def run(self):
@@ -459,4 +488,4 @@ if __name__ == '__main__':
     # used to avoid subtle problems with class matching after different
     # import statements
     from pypy.tool import newtest
-    newtest.main(do_selftest=True)
+    newtest.main(do_selftest=False)
