@@ -43,6 +43,11 @@ class PyFrame(eval.Frame):
         self.w_f_trace = None
         self.last_instr = -1
         self.f_back = None
+        self.f_lineno = self.code.co_firstlineno
+        
+        # For tracing
+        self.instr_lb = 0
+        self.instr_ub = -1
         
     def getfastscope(self):
         "Get the fast locals as a list."
@@ -73,8 +78,8 @@ class PyFrame(eval.Frame):
                             while True:
                                 # fetch and dispatch the next opcode
                                 # dispatch() is abstract, see pyopcode.
-                                executioncontext.bytecode_trace(self)
                                 self.last_instr = self.next_instr
+                                executioncontext.bytecode_trace(self)
                                 self.dispatch()
                         # catch asynchronous exceptions and turn them
                         # into OperationErrors
@@ -129,7 +134,23 @@ class PyFrame(eval.Frame):
     def fget_f_lineno(space, w_self):
         "Returns the line number of the instruction currently being executed."
         self = space.interpclass_w(w_self)
-        return space.wrap(self.get_last_lineno())
+        if self.w_f_trace is None:
+            return space.wrap(self.get_last_lineno())
+        else:
+            return space.wrap(self.f_lineno)
+
+##     def fset_f_lineno(space, w_self, w_f_lineo):
+##         "Returns the line number of the instruction currently being executed."
+##         f_lineo = space.int_w(w_f_lineo)
+
+##         self = space.interpclass_w(w_self)
+##         if self.self.w_f_trace is None:
+##             raise OperationError(self.space.w_ValueError, space.wrap("f_lineo can only be set by a trace function."))
+
+##         if f_lineo < self.code.co_firstlineno:
+##             raise OperationError(self.space.w_ValueError, space.wrap("line %d comes before the current code." % f_lineo))
+
+##         self.f_lineno = f_lineo
 
     def get_last_lineno(self):
         "Returns the line number of the instruction currently being executed."
