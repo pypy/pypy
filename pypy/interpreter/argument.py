@@ -14,6 +14,8 @@ class Arguments:
 
     ###  Construction  ###
 
+    blind_arguments = 0
+
     def __init__(self, space, args_w=[], kwds_w={}):
         assert isinstance(args_w, list)  # I keep forgetting the 'space'
         assert isinstance(kwds_w, dict)  # argument so hopefully this helps
@@ -50,7 +52,9 @@ class Arguments:
 
     def prepend(self, w_firstarg):
         "Return a new Arguments with a new argument inserted first."
-        return Arguments(self.space, [w_firstarg] + self.args_w, self.kwds_w)
+        args =  Arguments(self.space, [w_firstarg] + self.args_w, self.kwds_w)
+        args.blind_arguments = self.blind_arguments + 1
+        return args
 
     def join(self, other):
         "Return a new Arguments combining the content of two Arguments."
@@ -99,8 +103,11 @@ class Arguments:
         input_argcount = len(scope_w)
 
         # check that no keyword argument conflicts with these
+        # note that for this purpose we ignore the first blind_arguments,
+        # which were put into place by prepend().  This way, keywords do
+        # not conflict with the hidden extra argument bound by methods.
         if kwds_w:
-            for name in argnames[:input_argcount]:
+            for name in argnames[self.blind_arguments:input_argcount]:
                 if name in kwds_w:
                     self.raise_argerr_multiple_values(fnname, name)
 
