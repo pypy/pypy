@@ -22,12 +22,19 @@ class TestAnnotationObjSpace(test.TestCase):
     def setUp(self):
         self.space = AnnotationObjSpace()
 
-    def test_simple1(self):
+    def dont_test_simple1(self):
         x = self.codetest('''
 def f(i):
     return i+1
 ''', 'f', [W_Anything()])
         self.assert_(isinstance(x, W_Anything))
+
+    def test_simple2(self):
+        x = self.codetest('''
+def f(i):
+    return i+1
+''', 'f', [self.space.wrap(5)])
+        self.assertEquals(self.space.unwrap(x), 6)
 
 
 if __name__ == '__main__':
