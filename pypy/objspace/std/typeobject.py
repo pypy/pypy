@@ -60,16 +60,17 @@ class W_TypeObject(W_Object):
             return w_obj
         if not space.is_true(space.issubtype(w_subtype, w_self)):
             raise OperationError(space.w_TypeError,
-                "%s.__new__(%s): %s is not a subtype of %s" % (
-                    w_self.name, w_subtype.name, w_subtype.name, w_self.name))
+                space.wrap("%s.__new__(%s): %s is not a subtype of %s" % (
+                    w_self.name, w_subtype.name, w_subtype.name, w_self.name)))
         if w_self.instancetypedef is not w_subtype.instancetypedef:
             raise OperationError(space.w_TypeError,
-                "%s.__new__(%s) is not safe, use %s.__new__()" % (
-                    w_self.name, w_subtype.name, w_subtype.name))
+                space.wrap("%s.__new__(%s) is not safe, use %s.__new__()" % (
+                    w_self.name, w_subtype.name, w_subtype.name)))
         if w_self.instancetypedef is not w_obj.typedef:
             raise OperationError(space.w_TypeError,
-                "%s.__new__(): got an object of type %s instead of %s" % (
-                    w_self.name, space.type(w_obj).name, w_self.name))
+                space.wrap("%s.__new__(): got an object of type %s "
+                           "instead of %s" % (
+                    w_self.name, space.type(w_obj).name, w_self.name)))
         # stuff extra attributes into w_obj
         w_obj.w__class__ = w_subtype
         if w_subtype.needs_new_dict:
