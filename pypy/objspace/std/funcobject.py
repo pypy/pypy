@@ -25,9 +25,7 @@ StdObjSpace.unwrap.register(function_unwrap, W_FuncObject)
 
 
 def func_call(space, w_function, w_arguments, w_keywords):
-    ec = space.getexecutioncontext()
     somecode = space.unwrap(w_function.w_code)
-    w_locals = space.newdict([])
     w_globals = w_function.w_globals
     w_locals = somecode.build_arguments(space, w_arguments, w_keywords,
                   w_defaults = w_function.w_defaultarguments,
