@@ -33,24 +33,26 @@ def make_testcase_class(space, tc_w):
 
 
 class WrappedFunc(object):
+
     def __init__(self, testCase, testMethod):
         self.testCase = testCase
         self.testMethod = testMethod
+
     def __call__(self):
         from pypy.interpreter import executioncontext
         from pypy.interpreter import pyframe
-        s = self.testCase.space
-        w = s.wrap
+        space = self.testCase.space
+        w = space.wrap
 
         w_tc_attr = 'tc-attr-hacky-thing'
-        if hasattr(s, w_tc_attr):
-            w_tc = getattr(s, w_tc_attr)
+        if hasattr(space, w_tc_attr):
+            w_tc = getattr(space, w_tc_attr)
         else:
-            w_tc = make_testcase_class(s, self.testCase)
-            setattr(s, w_tc_attr, w_tc)
+            w_tc = make_testcase_class(space, self.testCase)
+            setattr(space, w_tc_attr, w_tc)
 
-        w_f = wrap_func(s, self.testMethod.im_func)
-        s.call_function(w_f, w_tc)
+        w_f = wrap_func(space, self.testMethod.im_func)
+        space.call_function(w_f, w_tc)
 
 
 class IntTestCase(unittest.TestCase):
