@@ -719,5 +719,10 @@ failed:
 }
 #endif
 
-/************************************************************/
-/***  The rest is produced by genc.py                     ***/
+static PyObject* skipped(PyObject* self, PyObject* args)
+{
+	PyErr_Format(PyExc_AssertionError,
+		     "calling the skipped function '%s'",
+		     (((PyCFunctionObject *)self) -> m_ml -> ml_name));
+	return NULL;
+}

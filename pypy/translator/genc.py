@@ -79,13 +79,12 @@ class GenC:
             return name
 
     def uniquename(self, basename):
-        name = basename
-        i = 0
-        while name in self.seennames:
-            i += 1
-            name = '%s_%d' % (basename, i)
-        self.seennames[name] = True
-        return name
+        n = self.seennames.get(basename, 0)
+        self.seennames[basename] = n+1
+        if n == 0:
+            return basename
+        else:
+            return self.uniquename('%s_%d' % (basename, n))
 
     def nameof_object(self, value):
         if type(value) is not object:
@@ -130,6 +129,22 @@ class GenC:
         self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
+    def nameof_float(self, value):
+        name = 'gfloat_%s' % value
+        name = (name.replace('-', 'minus')
+                    .replace('.', 'dot'))
+        chrs = [c for c in name if ('a' <= c <='z' or
+                                    'A' <= c <='Z' or
+                                    '0' <= c <='9' or
+                                    '_' == c )]
+        name = ''.join(chrs)
+        name = self.uniquename(name)
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('INITCHK(%s = '
+                             'PyFloat_FromFloat(%r))' % (name, value))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
+        return name
+
     def nameof_str(self, value):
         chrs = [c for c in value if ('a' <= c <='z' or
                                      'A' <= c <='Z' or
@@ -150,11 +165,29 @@ class GenC:
         self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
+    def skipped_function(self, func):
+        # debugging only!  Generates a placeholder for missing functions
+        # that raises an exception when called.
+        name = self.uniquename('gskippedfunc_' + func.__name__)
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globaldecl.append('static PyMethodDef ml_%s = { "%s", &skipped, METH_VARARGS };' % (name, name))
+        self.initcode.append('INITCHK(%s = PyCFunction_New('
+                             '&ml_%s, NULL))' % (name, name))
+        self.initcode.append('\tPy_INCREF(%s);' % name)
+        self.initcode.append('\tPyCFunction_GET_SELF(%s) = %s;' % (name, name))
+        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
+        return name
+
     def nameof_function(self, func):
         if self.translator.frozen:
             if func not in self.translator.flowgraphs:
                 print "NOT GENERATING", func
-                return self.nameof(None)
+                return self.skipped_function(func)
+        else:
+            if func.func_doc and func.func_doc.startswith('NOT_RPYTHON'):
+                print "skipped", func
+                return self.skipped_function(func)
+            print "nameof", func
         name = self.uniquename('gfunc_' + func.__name__)
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
@@ -198,7 +231,10 @@ class GenC:
     def should_translate_attr(self, pbc, attr):
         ann = self.translator.annotator
         if ann is None:
-            return "good luck" # True
+            if attr.startswith('_'):
+                return False   # ignore _xyz and __xyz__ attributes
+            else:
+                return "probably"   # True
         if attr in ann.getpbcattrs(pbc):
             return True
         classdef = ann.getuserclasses().get(pbc.__class__)
@@ -348,7 +384,8 @@ class GenC:
 
     def nameof_dict(self, dic):
         assert dic is not __builtins__
-        assert '__builtins__' not in dic, 'It seems to be a globals dict'
+        assert '__builtins__' not in dic, 'Seems to be the globals of %s' % (
+            dic.get('__name__', '?'),)
         name = self.uniquename('g%ddict' % len(dic))
         def initdict():
             for k in dic:
@@ -383,6 +420,16 @@ class GenC:
     nameof_getset_descriptor  = nameof_member_descriptor
     nameof_method_descriptor  = nameof_member_descriptor
     nameof_wrapper_descriptor = nameof_member_descriptor
+
+    def nameof_file(self, fil):
+        import sys
+        if fil is sys.stdin:
+            return 'PySys_GetObject("stdin")'
+        if fil is sys.stdout:
+            return 'PySys_GetObject("stdout")'
+        if fil is sys.stderr:
+            return 'PySys_GetObject("stderr")'
+        raise Exception, 'Cannot translate an already-open file: %r' % (fil,)
 
     def gen_source(self):
         f = self.f
