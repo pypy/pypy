@@ -963,7 +963,7 @@ def app_mod__String_ANY(format, values):
                     j = format.find(')', i+1)
                     if j == -1:
                         raise ValueError, "incomplete format string"
-                    if index != -1:
+                    if index >= 0:
                         raise TypeError, "format string mismatch"
                     name = format[i+1:j]
                     value = values[name]
