@@ -74,6 +74,10 @@ class SomeObject:
     caused_by_merge = property(caused_by_merge, set_caused_by_merge)
     del set_caused_by_merge
 
+class SomeNone(SomeObject):
+    "Stands for None."
+    knowntype = type(None)
+    const = None
 
 class SomeInteger(SomeObject):
     "Stands for an object which is known to be an integer."
@@ -246,6 +250,8 @@ def immutablevalue(x):
         if isinstance(x, Cache) and not x.frozen:
             x.freeze()
         result = SomePrebuiltConstant({x: True}) # pre-built inst:
+    elif x is None:
+        result = SomeNone()
     else:
         result = SomeObject()
     result.const = x
