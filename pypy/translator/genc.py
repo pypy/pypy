@@ -61,6 +61,12 @@ class GenC:
             'Py_False = False',
             'Py_True  = True',
             ]
+        # just a few predefined names which cannot be reused.
+        # I think this should come from some external file,
+        # if we want to be complete
+        self.reserved_names = {}
+        for each in 'typedef static void'.split():
+            self.reserved_names[each] = 1
         self.latercode = []    # list of generators generating extra lines
                                #   for later in initxxx() -- for recursive
                                #   objects
@@ -703,7 +709,7 @@ class GenC:
                     else:
                         fmt = "%s_%d"
                     # don't use zero
-                    if len(thesenames) == 0:
+                    if len(thesenames) == 0 and v.name not in self.reserved_names:
                         fmt = fmt[:-3]
                         thesenames[v.name] = ret = fmt % name
                     else:
