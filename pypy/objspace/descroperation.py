@@ -321,6 +321,8 @@ def _cmp(space, w_obj1, w_obj2):
 
 # regular methods def helpers
 
+from pypy.tool.hack import func_with_new_name
+
 def _make_binop_impl(symbol, specialnames):
     left, right = specialnames
     def binop_impl(space, w_obj1, w_obj2):
@@ -343,7 +345,7 @@ def _make_binop_impl(symbol, specialnames):
             return w_res
         raise OperationError(space.w_TypeError,
                 space.wrap("unsupported operand type(s) for %s" % symbol))
-    return binop_impl
+    return func_with_new_name(binop_impl, "binop_%s_impl"%left.strip('_'))
 
 def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
@@ -374,7 +376,8 @@ def _make_comparison_impl(symbol, specialnames):
         res = space.unwrap(w_res)
         return space.wrap(op(res, 0))
 
-    return comparison_impl
+    return func_with_new_name(comparison_impl, 'comparison_%s_impl'%left.strip('_'))
+
 
 def _make_inplace_impl(symbol, specialnames):
     specialname, = specialnames
@@ -391,7 +394,7 @@ def _make_inplace_impl(symbol, specialnames):
         # XXX fix the error message we get here
         return getattr(space, noninplacespacemethod)(w_lhs, w_rhs)
 
-    return inplace_impl
+    return func_with_new_name(inplace_impl, 'inplace_%s_impl'%specialname.strip('_'))
 
 def _make_unaryop_impl(symbol, specialnames):
     specialname, = specialnames
@@ -401,7 +404,7 @@ def _make_unaryop_impl(symbol, specialnames):
             raise OperationError(space.w_TypeError,
                    space.wrap("operand does not support unary %s" % symbol))
         return space.get_and_call_function(w_impl, w_obj)
-    return unaryop_impl
+    return func_with_new_name(unaryop_impl, 'unaryop_%s_impl'%specialname.strip('_'))
     
 
 # add regular methods
