@@ -30,6 +30,8 @@ class ConstPredicate(Predicate):
 
 class ANN:
     add = Predicate('add', 3)
+    len = Predicate('len', 2)
+    getitem = Predicate('getitem', 3)
     neg = Predicate('neg', 2)
     constant = ConstPredicate
     type = Predicate('type', 2)
@@ -85,6 +87,7 @@ immutable_types = {
     tuple: 'tuple',
     str: 'str',
     bool: 'bool',
+    slice: 'slice',
     types.FunctionType: 'function',
     }
 

@@ -6,6 +6,10 @@ from model import immutable_types, blackholevalue, basicannotations
 QUERYARG = QueryArgument()
 
 
+class IDontKnow(Exception):
+    pass
+
+
 class AnnotationSet:
     """An annotation set is a (large) family of Annotations."""
 
@@ -108,15 +112,6 @@ class AnnotationSet:
     def findall(self, checkann):
         """ list all matching annotations."""
         return list(self._annmatches(checkann))
-
-    def queryconstant(self, cell):
-        "Return the list of all 'x' such that ANN.constant(x)[cell] is set."
-        cell = self.normalized(cell)
-        result = []
-        for ann in self.annlist:
-            if isinstance(ann.predicate, ConstPredicate) and ann.args[0] is cell:
-                result.append(ann.predicate.value)
-        return result
 
     def record(self, recfunc, *args):
         """ invoke the given 'recording' function by passing it a new 
@@ -232,6 +227,28 @@ class AnnotationSet:
         else:
             return None
 
+    def get_del(self, *querylist):
+        """Like get() but kills the matching annotation."""
+        resultlist = list(self.match(*querylist))
+        assert len(resultlist) <= 1, "Confusing annotations..."
+        if resultlist:
+            matchanns, matchvalue = resultlist[0]
+            self.kill(*matchanns)
+            return matchvalue
+        else:
+            return None
+
+    def getconstant(self, cell):
+        """If cell is a constant, return its value; otherwise, raise IDontKnow.
+        Also accepts a None for convenience."""
+        if not cell:
+            raise IDontKnow
+        cell = self.normalized(cell)
+        for ann in self.annlist:
+            if isinstance(ann.predicate, ConstPredicate) and ann.args[0] is cell:
+                return ann.predicate.value
+        raise IDontKnow, cell
+
     def set(self, ann):
         """Insert the annotation into the AnnotationSet."""
         self.normalizeann(ann)
@@ -259,6 +276,12 @@ class AnnotationSet:
         self.set(ANN.constant(knowntype)[typeval])
         if knowntype in immutable_types:
             self.set(ANN.immutable[someval])
+
+    def copytype(self, oldcell, newcell):
+        for typecell in self.query(ANN.type[oldcell, QUERYARG]):
+            self.set(ANN.type[newcell, typecell])
+        if self.findfirst(ANN.immutable[oldcell]):
+            self.set(ANN.immutable[newcell])
 
     def newconstant(self, value):
         cell = SomeValue()

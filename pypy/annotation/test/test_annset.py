@@ -3,7 +3,7 @@ import autopath
 from pypy.tool import test
 
 from pypy.annotation.model import ANN, SomeValue, blackholevalue
-from pypy.annotation.annset import AnnotationSet, QUERYARG
+from pypy.annotation.annset import AnnotationSet, QUERYARG, IDontKnow
 
 
 c1,c2,c3,c4 = SomeValue(), SomeValue(), SomeValue(), SomeValue()
@@ -89,15 +89,13 @@ class TestAnnotationSet(test.IntTestCase):
         c = a.newconstant(42)
         self.assertSameSet(a, [ANN.constant(42)[c]])
 
-    def test_queryconstant(self):
+    def test_getconstant(self):
         lst = [
             ANN.constant(42)[c1],
         ]
         a = AnnotationSet(lst)
-        vlist = a.queryconstant(c1)
-        self.assertEquals(vlist, [42])
-        vlist = a.queryconstant(c2)
-        self.assertEquals(vlist, [])
+        self.assertEquals(a.getconstant(c1), 42)
+        self.assertRaises(IDontKnow, a.getconstant, c2)
 
     def test_query_blackholevalue(self):
         lst = [
@@ -299,6 +297,17 @@ class TestAnnotationSet(test.IntTestCase):
         ]
         a = AnnotationSet(lst)
         a.delete(ANN.add[c1, c3, ...])
+        self.assertSameSet(a, lst[1:])
+
+    def test_get_del(self):
+        lst = [
+            ANN.add[c1, c3, c2],
+            ANN.type[c1, c4],
+            ANN.constant(int)[c4],
+        ]
+        a = AnnotationSet(lst)
+        c = a.get_del(ANN.add[c1, c3, QUERYARG])
+        self.assertSameCells(a, c, c2)
         self.assertSameSet(a, lst[1:])
 
 
