@@ -191,11 +191,15 @@ class GraphDisplay(Display):
         
         y = self.height - totalh
         self.status_bar_height = totalh + 16
-        self.screen.fill(bgcolor, (0, y-16, self.width, self.status_bar_height))
+        block = pygame.Surface((self.width, self.status_bar_height), SWSURFACE | SRCALPHA)
+        block.fill(bgcolor)
+        sy = 16
         for img in lines:
             w, h = img.get_size()
-            self.screen.blit(img, ((self.width-w)//2, y-8))
-            y += h
+            block.blit(img, ((self.width-w)//2, sy-8))
+            sy += h
+        block.set_alpha(int(255 * 0.75))
+        self.screen.blit(block, (0, y-16))
 
     def notifymousepos(self, pos):
         word = self.viewer.at_position(pos)
