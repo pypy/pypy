@@ -98,23 +98,48 @@ class TestTypeObject(testit.AppTestCase):
         else:
             raise AssertionError, "this multiple inheritance should fail"
 
+    def skip_test_metaclass(self):
+        class OuterMetaClass(type):
+            pass
+
+        class HasOuterMetaclass(object):
+            __metaclass__ = OuterMetaClass
+
+        self.assertEquals(type(HasOuterMetaclass), OuterMetaClass)
+        self.assertEquals(type(HasOuterMetaclass), HasOuterMetaclass.__metaclass__)
+
+        class HasInnerMetaclass(object):
+            class __metaclass__(type):
+                pass
+
+        self.assertEquals(type(HasInnerMetaclass), HasInnerMetaclass.__metaclass__)
+
+        class __metaclass__(type):
+            pass
+
+        class HasImplicitMetaclass:
+            pass
+
+        self.assertEquals(type(HasImplicitMetaclass), __metaclass__)
+
     def test_mro(self):
-        class A(object):
+        class A_mro(object):
             a = 1
 
-        class B(A):
+        class B_mro(A_mro):
             b = 1
             class __metaclass__(type):
                 def mro(self):
                     return [self, object]
 
-        self.assertEquals(B.__bases__, (A,))
-        self.assertEquals(B.__mro__, (B, object))
-        self.assertEquals(B.mro(), [B, object])
-        self.assertEquals(B.b, 1)
-        self.assertEquals(B().b, 1)
-        self.assertEquals(getattr(B, 'a', None), None)
-        self.assertEquals(getattr(B(), 'a', None), None)
+        #self.assertEquals(type(B_mro), B_mro.__metaclass__)
+        self.assertEquals(B_mro.__bases__, (A_mro,))
+        self.assertEquals(B_mro.__mro__, (B_mro, object))
+        self.assertEquals(B_mro.mro(), [B_mro, object])
+        self.assertEquals(B_mro.b, 1)
+        self.assertEquals(B_mro().b, 1)
+        self.assertEquals(getattr(B_mro, 'a', None), None)
+        self.assertEquals(getattr(B_mro(), 'a', None), None)
 
 
 if __name__ == '__main__':

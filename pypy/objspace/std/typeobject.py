@@ -15,7 +15,9 @@ class W_TypeObject(W_Object):
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
         w_self.ensure_static__new__()
-        w_self.mro_w = compute_C3_mro(w_self)   # XXX call type(w_self).mro()
+
+        #compute_C3_mro(w_self)   # XXX call type(w_self).mro()
+        w_self.mro_w = compute_C3_mro(w_self)
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
         else:
@@ -31,6 +33,14 @@ class W_TypeObject(W_Object):
             w_self.instancetypedef = instancetypedef
         if forcedict and not w_self.lookup('__dict__'):
             w_self.dict_w['__dict__'] = space.wrap(default_dict_descr)
+        if overridetypedef is None:
+            w_type = space.type(w_self)
+            if not space.is_true(space.is_(w_type, space.w_type)):
+                mro_func = w_type.lookup('mro')
+                mro_func_args = Arguments(space, [w_self])
+                w_mro = space.call_args(mro_func, mro_func_args)
+                w_self.mro_w = space.unpackiterable(w_mro)
+
 
     def ensure_static__new__(w_self):
         # special-case __new__, as in CPython:
