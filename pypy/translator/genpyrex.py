@@ -4,6 +4,7 @@ generate Pyrex files from the flowmodel.
 """
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
+from pypy.objspace.flow.model import mkentrymap
 from pypy.translator.annotation import Annotator
 
 class Op:
@@ -167,7 +168,7 @@ class GenPyrex:
 
     def gen_graph(self):
         fun = self.functiongraph
-        #self.entrymap = fun.mkentrymap()
+        self.entrymap = mkentrymap(fun)
         currentlines = self.lines
         self.lines = []
         self.indent += 1 
@@ -258,9 +259,9 @@ class GenPyrex:
         blockids = self.blockids
         blockids.setdefault(block, len(blockids))
 
-        #the label is only, if there are more, then are multiple references to the block
-        #XXX if len(self.entrymap[block]) > 1:
-        self.putline('cinline "Label%s:"' % blockids[block])
+        #the label is only written if there are multiple refs to the block
+        if len(self.entrymap[block]) > 1:
+            self.putline('cinline "Label%s:"' % blockids[block])
         for op in block.operations:
             opg = Op(op, self, block)
             self.putline(opg())

@@ -22,6 +22,7 @@ class Link:
         self.args = args           # mixed list of var/const
         self.target = target       # block
         self.exitcase = exitcase   # this is a concrete value
+        self.prevblock = None      # the block this Link is an exit of
 
 class Block:
 
@@ -41,6 +42,8 @@ class Block:
 
     def closeblock(self, *exits):
         assert self.exits == [], "block already closed"
+        for exit in exits:
+            exit.prevblock = self
         self.exits = exits
 
 class Variable:
@@ -153,4 +156,13 @@ def flattenobj(*args):
                 yield atom
         except: yield arg
 
-
+def mkentrymap(funcgraph):
+    "Returns a dict mapping Blocks to lists of Links."
+    startlink = Link(funcgraph.getargs(), funcgraph.startblock)
+    result = {funcgraph.startblock: [startlink]}
+    def visit(link):
+        if isinstance(link, Link):
+            lst = result.setdefault(link.target, [])
+            lst.append(link)
+    traverse(visit, funcgraph)
+    return result

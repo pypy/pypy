@@ -113,7 +113,8 @@ class FlowExecutionContext(ExecutionContext):
                 block.dead = True
                 block.operations = ()
                 outputargs = block.framestate.getoutputargs(newstate)
-                block.exits = (Link(outputargs, newblock),)
+                block.exits = []
+                block.closeblock(Link(outputargs, newblock))
             newblock.patchframe(frame, self)
             self.joinpoints[next_instr] = newblock
 
