@@ -130,7 +130,7 @@ class StdObjSpace(ObjSpace):
                             base = done[b.__name__]
                             newtype = self.call_function(
                                 self.w_type,
-                                w(k),
+                                w(v),
                                 self.newtuple([base]),
                                 self.newdict([]))
                             setattr(self,

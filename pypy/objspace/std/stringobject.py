@@ -55,9 +55,9 @@ join              def str_join__String_ANY(space, w_self, w_list):
 ljust             def str_ljust__String_ANY(space, w_self, w_arg):
 lower             OK
 lstrip            def str_lstrip__String(space, w_self):
-replace           *Tomek
-rfind             OK, nur noch tests
-rindex            OK, nur noch tests
+replace           OK
+rfind             OK
+rindex            OK
 rjust             def str_rjust__String_ANY(space, w_self, w_arg):
 rstrip            def str_rstrip__String(space, w_self):
 split             def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
@@ -68,7 +68,7 @@ swapcase          OK
 title             def str_title__String(space, w_self):
 translate
 upper             def str_upper__String(space, w_self):
-zfill             *Tomek
+zfill             OK
 """
 
 from pypy.objspace.std.objspace import *
@@ -405,6 +405,7 @@ def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=N
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
     res = _find(self, sub, start, end, 1)
 
+    print space.w_ValueError
     if res == -1:
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.index"))
