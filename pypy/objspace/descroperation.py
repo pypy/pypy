@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter.baseobjspace import ObjSpace, NoValue
+from pypy.interpreter.function import Function
 
 class Object:
     def descr__getattribute__(space, w_obj, w_name):
@@ -21,17 +22,39 @@ class Object:
         
 class DescrOperation:
 
-    def getdict(self, w_obj):
-        if isinstance(w_obj, Wrappable):
-            descr = self.lookup(w_obj, '__dict__')
-            if descr is None:
-                return None 
-            return #w_dict 
+    def getdict(space, w_obj):
+        w_descr = space.lookup(w_obj, '__dict__')
+        if w_descr is None:
+            return None 
+        return space.get_and_call_function(w_descr, w_obj)
+
+    def is_data_descr(space, w_obj):
+        # XXX check this logic
+        return (space.lookup(w_obj, '__set__') is not None and
+                space.lookup(w_obj, '__get__') is not None)
+
+    def get_and_call(space, w_descr, w_obj, w_args, w_kwargs):
+        if isinstance(w_descr, Function):  # wrapped Function actually
+            # special-case Functions to avoid infinite recursion
+            args_w = space.unpacktuple(w_args)
+            args_w = [w_obj] + args_w
+            w_args = space.newtuple(args_w)
+            return w_descr.call(w_args, w_kwargs)
         else:
-            try:
-                return w_obj.__dict__
-            except AttributeError:
-                return None 
+            w_impl = space.get(w_descr, w_obj, space.type(w_obj))
+            return space.call(w_impl, w_args, w_kwargs)
+
+    def get_and_call_function(space, w_descr, w_obj, *args_w, **kwargs_w):
+        if isinstance(w_descr, Function):  # wrapped Function actually
+            # special-case Functions to avoid infinite recursion
+            args_w = [w_obj] + list(args_w)
+            w_args = space.newtuple(args_w)
+            w_kwargs = space.newdict([(space.wrap(key), w_item)
+                                      for key, w_item in kwargs_w])
+            return w_descr.call(w_args, w_kwargs)
+        else:
+            w_impl = space.get(w_descr, w_obj, space.type(w_obj))
+            return space.call_function(w_impl, *args_w, **kwargs_w)
 
     def call(space, w_obj, w_args, w_kwargs):
         print "call %r, %r, %r" %(w_obj, w_args, w_kwargs)
@@ -65,7 +88,7 @@ class DescrOperation:
         w_descr = space.lookup(w_obj,'__getattribute__')
         try:
             return space.get_and_call_function(w_descr,w_obj,w_name)
-        except OperatioError,e:
+        except OperationError,e:
             if not e.match(space,space.w_AttributeError):
                 raise
         w_descr = space.lookup(w_obj,'__getattr__')
@@ -107,6 +130,18 @@ class DescrOperation:
                    space.wrap("object is not iter()-able"))
         return space.get_and_call_function(w_descr,w_obj)
 
+    def next(space,w_obj):
+        w_descr = space.lookup(w_obj,'next')
+        if w_descr is None:
+            raise OperationError(space.w_TypeError,
+                   space.wrap("iterator has no next() method"))
+        try:
+            return space.get_and_call_function(w_descr,w_obj)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            raise NoValue
+
     def getitem(space,w_obj,w_key):
         w_descr = space.lookup(w_obj,'__getitem__')
         if w_descr is None:
@@ -142,12 +177,12 @@ class DescrOperation:
         if w_left_impl is not None:
             w_res = space.get_and_call_function(w_left_impl,w_obj1,w_obj2,
                                                 w_obj3)
-            if _check_notimplemented(w_res):
+            if _check_notimplemented(space,w_res):
                 return w_res
         if w_right_impl is not None:
            w_res = space.get_and_call_function(w_right_impl,w_obj2,w_obj1,
                                                 w_obj3)
-           if _check_notimplemented(w_res):
+           if _check_notimplemented(space,w_res):
                return w_res
 
         raise OperationError(space.w_TypeError,
@@ -163,12 +198,12 @@ class DescrOperation:
 # helpers
 
 def _check_notimplemented(space,w_obj):
-    return not space.is_true(space.is_(w_res,space.w_NotImplemented))
+    return not space.is_true(space.is_(w_obj,space.w_NotImplemented))
 
 def _invoke_binop(space,w_impl,w_obj1,w_obj2):
     if w_impl is not None:
         w_res = space.get_and_call_function(w_impl,w_obj1,w_obj2)
-        if _check_notimplemented(w_res):
+        if _check_notimplemented(space,w_res):
             return w_res
     return None
 
@@ -195,10 +230,10 @@ def _cmp(space,w_obj1,w_obj2):
             w_left_impl,w_right_impl = w_right_impl,w_left_impl
             do_neg1,do_neg2 = do_neg2,do_neg1
 
-    w_res = _invoke_binop(w_left_impl,w_obj1,w_obj2)
+    w_res = _invoke_binop(space,w_left_impl,w_obj1,w_obj2)
     if w_res is not None:
         return _conditional_neg(space,w_res,do_neg1)
-    w_res = _invoke_binop(w_right_impl,w_obj2,w_obj1)
+    w_res = _invoke_binop(space,w_right_impl,w_obj2,w_obj1)
     if w_res is not None:
         return _conditional_neg(space,w_res,do_neg2)
     raise OperationError(space.w_TypeError,
@@ -220,10 +255,10 @@ def _make_binop_impl(symbol,specialnames):
                 w_obj1,w_obj2 = w_obj2,w_obj1
                 w_left_impl,w_right_impl = w_right_impl,w_left_impl
 
-        w_res = _invoke_binop(w_left_impl,w_obj1,w_obj2)
+        w_res = _invoke_binop(space,w_left_impl,w_obj1,w_obj2)
         if w_res is not None:
             return w_res
-        w_res = _invoke_binop(w_right_impl,w_obj2,w_obj1)
+        w_res = _invoke_binop(space,w_right_impl,w_obj2,w_obj1)
         if w_res is not None:
             return w_res
         raise OperationError(space.w_TypeError,
@@ -247,10 +282,10 @@ def _make_comparison_impl(symbol,specialnames):
                 w_obj1,w_obj2 = w_obj2,w_obj1
                 w_left_impl,w_right_impl = w_right_impl,w_left_impl
 
-        w_res = _invoke_binop(w_left_impl,w_obj1,w_obj2)
+        w_res = _invoke_binop(space,w_left_impl,w_obj1,w_obj2)
         if w_res is not None:
             return w_res
-        w_res = _invoke_binop(w_right_impl,w_obj2,w_obj1)
+        w_res = _invoke_binop(space,w_right_impl,w_obj2,w_obj1)
         if w_res is not None:
             return w_res
         w_res = _cmp(space,w_first,w_second)
@@ -269,7 +304,7 @@ def _make_inplace_impl(symbol,specialnames):
         if w_impl is None:
             raise OperationError(space.w_TypeError,
                     space.wrap("operands do not support inplace %s" % symbol))
-        space.get_and_call_function(w_impl,w_lhs,w_rhs)
+        return space.get_and_call_function(w_impl,w_lhs,w_rhs)
     return inplace_impl
 
 def _make_unaryop_impl(symbol,specialnames):
@@ -279,7 +314,7 @@ def _make_unaryop_impl(symbol,specialnames):
         if w_impl is None:
             raise OperationError(space.w_TypeError,
                    space.wrap("operand does not support unary %s" % symbol))
-        space.get_and_call_function(w_impl,w_obj)
+        return space.get_and_call_function(w_impl,w_obj)
     return unaryop_impl
     
 

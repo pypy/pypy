@@ -6,7 +6,7 @@
 
 from pypy.interpreter import pyframe, gateway
 from pypy.interpreter.baseobjspace import *
-from pypy.objspace.descroperation import DescrOperation
+from pypy.objspace.descroperation import DescrOperation, Object
 import operator, types, new, sys
 import __builtin__ as cpy_builtin
 
@@ -68,7 +68,7 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
         from pypy.interpreter.typedef import TypeDef
 
         self.object_typedef = TypeDef('object', 
-            __getattribute__ = interp2app(descroperation.object_getattribute),
+            __getattribute__ = gateway.interp2app(Object.descr__getattribute__.im_func),
             )
  
         self.w_None = None
@@ -104,7 +104,7 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
 
     # general stuff
     def wrap(self, x):
-        if isinstance(x, Wrappable):
+        if hasattr(type(x), '__wrap__'):
             return x.__wrap__(self)
         else:
             return x
@@ -115,8 +115,11 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
         return w
 
     def is_(self, w_obj1, w_obj2):
-        return self.unwrap(w_obj1) is self.unwrap(w_obj2) 
+        return self.unwrap(w_obj1) is self.unwrap(w_obj2)
 
+    def unpacktuple(self, w_tuple):
+        assert isinstance(w_tuple, tuple)
+        return list(w_tuple)
 
     def reraise(self):
         #import traceback
@@ -162,9 +165,7 @@ def %(name)s(self, x, *args):
     is_true   = operator.truth
     # 'is_true' is not called 'truth' because it returns a *non-wrapped* boolean
 
-    for _name in ('id', 'repr', 'str', 'type',
-                  'pow', 'divmod', 'hash', 'setattr', 'delattr', 'hex',
-                  'oct', 'ord', 'getattr'):
+    for _name in ('id', 'type', 'ord'):
         _auto(_name, _name, locals())
 
 #    for _name in ('id', 'type', 'iter', 'repr', 'str', 'len',
@@ -234,42 +235,42 @@ def %(name)s(self, x, *args):
                 return start, stop
         return None
 
-    def getitem(self, w_obj, w_index):
-        obj = self.unwrap(w_obj)
-        index = self.unwrap(w_index)
-        sindex = self.old_slice(index)
-        try:
-            if sindex is None:
-                return self.wrap(obj[index])
-            else:
-                return self.wrap(operator.getslice(obj, sindex[0], sindex[1]))
-        except:
-            self.reraise()
+##    def getitem(self, w_obj, w_index):
+##        obj = self.unwrap(w_obj)
+##        index = self.unwrap(w_index)
+##        sindex = self.old_slice(index)
+##        try:
+##            if sindex is None:
+##                return self.wrap(obj[index])
+##            else:
+##                return self.wrap(operator.getslice(obj, sindex[0], sindex[1]))
+##        except:
+##            self.reraise()
 
-    def setitem(self, w_obj, w_index, w_value):
-        obj = self.unwrap(w_obj)
-        index = self.unwrap(w_index)
-        value = self.unwrap(w_value)
-        sindex = self.old_slice(index)
-        try:
-            if sindex is None:
-                obj[index] = value
-            else:
-                operator.setslice(obj, sindex[0], sindex[1], value)
-        except:
-            self.reraise()
+##    def setitem(self, w_obj, w_index, w_value):
+##        obj = self.unwrap(w_obj)
+##        index = self.unwrap(w_index)
+##        value = self.unwrap(w_value)
+##        sindex = self.old_slice(index)
+##        try:
+##            if sindex is None:
+##                obj[index] = value
+##            else:
+##                operator.setslice(obj, sindex[0], sindex[1], value)
+##        except:
+##            self.reraise()
 
-    def delitem(self, w_obj, w_index):
-        obj = self.unwrap(w_obj)
-        index = self.unwrap(w_index)
-        sindex = self.old_slice(index)
-        try:
-            if sindex is None:
-                del obj[index]
-            else:
-                operator.delslice(obj, sindex[0], sindex[1])
-        except:
-            self.reraise()
+##    def delitem(self, w_obj, w_index):
+##        obj = self.unwrap(w_obj)
+##        index = self.unwrap(w_index)
+##        sindex = self.old_slice(index)
+##        try:
+##            if sindex is None:
+##                del obj[index]
+##            else:
+##                operator.delslice(obj, sindex[0], sindex[1])
+##        except:
+##            self.reraise()
 
     # misc
     #def next(self, w):
@@ -357,6 +358,27 @@ def %(name)s(self, x, *args):
                     return cls.__dict__[name]
             return None
 
+    def get_and_call(self, w_descr, w_obj, w_args, w_kwargs):
+        if isinstance(w_descr, Wrappable):
+            return DescrOperation.get_and_call(self, w_descr, w_obj,
+                                               w_args, w_kwargs)
+        else:
+            try:
+                impl = w_descr.__get__(w_obj, type(w_obj))
+                return impl(*w_args, **w_kwargs)
+            except:
+                self.reraise()
+
+    def get_and_call_function(self, w_descr, w_obj, *args_w, **kwargs_w):
+        if isinstance(w_descr, Wrappable):
+            return DescrOperation.get_and_call_function(self, w_descr, w_obj,
+                                                        *args_w, **kwargs_w)
+        else:
+            try:
+                impl = w_descr.__get__(w_obj, type(w_obj))
+                return impl(*args_w, **kwargs_w)
+            except:
+                self.reraise()
 
 
 for m in ObjSpace.MethodTable:

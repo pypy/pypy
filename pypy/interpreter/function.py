@@ -165,6 +165,13 @@ class Function(Wrappable):
         else:
             return wrap(Method(space, wrap(self), None, w_cls))
 
+    def descr_function_call(self, *args_w, **kwds_w):
+        # XXX refactor to avoid unwrapping and rewrapping all around
+        space = self.space
+        return self.call(space.newtuple(args_w),
+                         space.newdict([(space.wrap(key), w_item)
+                                        for key, w_item in kwds_w]))
+
 
 class Method(Wrappable): 
     """A method is a function bound to a specific instance or class."""
@@ -192,3 +199,10 @@ class Method(Wrappable):
                 raise OperationError(self.space.w_TypeError,
                                      self.space.wrap(msg))
         return self.space.call(self.w_function, w_args, w_kwds)
+
+    def descr_method_call(self, *args_w, **kwds_w):
+        # XXX refactor to avoid unwrapping and rewrapping all around
+        space = self.space
+        return self.call(space.newtuple(args_w),
+                         space.newdict([(space.wrap(key), w_item)
+                                        for key, w_item in kwds_w]))
