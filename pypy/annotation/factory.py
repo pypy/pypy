@@ -156,7 +156,9 @@ class ClassDef:
         self.instancefactories = {}
         self.cls = cls
         self.subdefs = {}
-        assert len(cls.__bases__) <= 1, "single inheritance only right now"
+        assert (len(cls.__bases__) <= 1 or
+                cls.__bases__[1:] == (object,),   # for baseobjspace.Wrappable
+                "single inheritance only right now: %r" % (cls,))
         if cls.__bases__:
             base = cls.__bases__[0]
         else:
