@@ -16,7 +16,7 @@ def readlisp(s):
     else:
         return int(s)
 
-def make_cl_func(func, cl, path):
+def _make_cl_func(func, cl, path):
     fun = FlowObjSpace().build_flow(func)
     gen = GenCL(fun)
     out = gen.emitcode()
