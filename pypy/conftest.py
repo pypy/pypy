@@ -1,7 +1,6 @@
 import py
 from pypy.interpreter.gateway import app2interp_temp 
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std import StdObjSpace
 from pypy.tool import pytestsupport
 
 #
