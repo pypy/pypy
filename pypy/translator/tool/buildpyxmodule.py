@@ -1,6 +1,7 @@
 import autopath
 from pypy.tool.udir import udir
 
+import py
 from py.process import cmdexec 
 from py import path 
 from pypy.translator.genpyrex import GenPyrex
