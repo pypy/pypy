@@ -53,7 +53,9 @@ def get_unique_interplevel_subclass(cls):
                     self.w__class__ = w_subtype
                     self.w__dict__ = space.newdict([])
 
-        body = dict(User_InsertNameHere.__dict__.items())
+        body = dict([(key, value)
+                     for key, value in User_InsertNameHere.__dict__.items()
+                     if not key.startswith('_')])
         subcls = type(name, (cls,), body)
         unique_interplevel_subclass_cache[cls] = subcls
         return subcls
