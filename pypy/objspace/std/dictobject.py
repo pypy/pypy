@@ -112,24 +112,6 @@ def iter__Dict(space, w_dict):
     w_keys = dict_keys__Dict(space, w_dict)
     return iterobject.W_SeqIterObject(space, w_keys)
     
-
-##def getattr_dict(space, w_dict, w_attr):
-##    if space.is_true(space.eq(w_attr, space.wrap('copy'))):
-##        w_builtinfn = make_builtin_func(space, W_DictObject.copy)
-##        return W_InstMethObject(space, w_dict, w_builtinfn)
-##    if space.is_true(space.eq(w_attr, space.wrap('items'))):
-##        w_builtinfn = make_builtin_func(space, W_DictObject.items)
-##        return W_InstMethObject(space, w_dict, w_builtinfn)
-##    if space.is_true(space.eq(w_attr, space.wrap('keys'))):
-##        w_builtinfn = make_builtin_func(space, W_DictObject.keys)
-##        return W_InstMethObject(space, w_dict, w_builtinfn)
-##    if space.is_true(space.eq(w_attr, space.wrap('values'))):
-##        w_builtinfn = make_builtin_func(space, W_DictObject.values)
-##        return W_InstMethObject(space, w_dict, w_builtinfn)
-##    raise FailedToImplement(space.w_AttributeError)
-
-##StdObjSpace.getattr.register(getattr_dict, W_DictObject, W_ANY)
-
 def eq__Dict_Dict(space, w_left, w_right):
     if len(w_left.data) != len(w_right.data):
         return space.newbool(0)
