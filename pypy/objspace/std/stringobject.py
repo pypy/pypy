@@ -31,7 +31,7 @@ __mul__
 __ne__            def ne__String_String(space, w_str1, w_str2):
 __new__
 __reduce__
-__repr__          def repr__String(space, w_str): #fake
+__repr__          def repr__String(space, w_str):
 __rmul__
 __setattr__
 __str__           def str__String(space, w_str):
@@ -123,10 +123,6 @@ def _islower(ch):
     o = ord(ch)
     return (o>=97 and o<=122)
     
-def _isreadable(ch): #following CPython string_repr 
-    o = ord(ch)
-    return (o>=32 and o <127) 
-
 def _is_generic(self, fun): 
     space = w_self.space   
     v = space.unwrap(w_self)
@@ -902,76 +898,30 @@ def iter__String(space, w_list):
     return iterobject.W_SeqIterObject(space, w_list)
 
 
-#for comparison and understandiong of the underlying algorithm the unrestricted implementation 
-#def repr__String(space, w_str):
-#    u_str = space.unwrap(w_str)
-#
-#    quote = '\''
-#    if '\'' in u_str and not '"' in u_str:
-#        quote = '"'
-#
-#    u_repr = quote
-#
-#    for i in range(len(u_str)):
-#        c = u_str[i]
-#        if c == '\\' or c == quote:  u_repr+= '\\'+c
-#        elif c == '\t': u_repr+= '\\t'
-#        elif c == '\r': u_repr+= '\\r'
-#        elif c == '\n': u_repr+= '\\n'
-#        elif not _isreadable(c) :
-#            u_repr+=  '\\' + hex(ord(c))[-3:]
-#        else:
-#            u_repr += c
-#
-#    u_repr += quote
-#
-#    return space.wrap(u_repr)
-    
-def repr__String(space, w_str):
-    u_str = space.unwrap(w_str)
+def app_repr__String(s):
     quote = '\''
-    if '\'' in u_str and not '"' in u_str:
+    if quote in s and not '"' in s:
         quote = '"'
 
-    buflen = 2
-    for i in range(len(u_str)):
-        c = u_str[i]
-        if c in quote+"\\\r\t\n" : 
-            buflen+= 2
-        elif _isreadable(c) : 
-            buflen+= 1
-        else:
-            buflen+= 4
-            
-    buf = [' ']* buflen
-    
-    buf[0] = quote
-    j=1
-    for i in range(len(u_str)):
-        #print buflen-j
-        c = u_str[i]
-        if c in quote+"\\\r\t\n" :
-            buf[j]= '\\' 
-            j+=1
-            if c == quote or c=='\\':  buf[j] = c
-            elif c == '\t': buf[j] = 't'
-            elif c == '\r': buf[j] = 'r'
-            elif c == '\n': buf[j] = 'n'
-            j +=1
-        elif not _isreadable(c) :
-            buf[j]= '\\' 
-            j+=1
-            for x in hex(ord(c))[-3:]:
-                buf[j] = x 
-                j+=1
-        else:
-            buf[j] = c 
-            j+=1
-        
-    buf[j] = quote
+    repr = quote
 
-    return space.wrap("".join(buf))
-    
+    for i in range(len(s)):
+        c = s[i]
+        if c == '\\' or c == quote:  repr += '\\'+c
+        elif c == '\t': repr+= '\\t'
+        elif c == '\r': repr+= '\\r'
+        elif c == '\n': repr+= '\\n'
+        elif not chr(32) <= c < chr(127) :
+            repr +=  '\\' + hex(ord(c))[-3:]
+        else:
+            repr += c
+
+    repr += quote
+
+    return repr
+
+repr__String = gateway.app2interp(app_repr__String)
+
     
 def ord__String(space, w_str):
     return space.wrap(ord(space.unwrap(w_str)))
