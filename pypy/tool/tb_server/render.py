@@ -5,6 +5,7 @@ from std.magic import dyncode
 
 import traceback
 import cgi
+import urllib
 
 views = TBRequestHandler.views
 
@@ -18,15 +19,22 @@ class URL(object):
         for name,value in zip(self.attrs, urlparse(string, 'http')):
             setattr(self, name, value)
         self.__dict__.update(kw)
+        self.query = cgi.parse_qs(self.query)
 
+    def link_with_options(self, *kw):
+        nq = self.query.copy()
+        nq.update(kw)
+        query = urllib.urlencode(nq)
+        from urlparse import urlunparse
+        return urlunparse(self.scm, self.netloc, self.path,
+                          self.params, query, self.fragment)
 
 class Renderer:
     def render(self, path):
         url = URL(path)
         args = url.path.split('/')[2:]
-        query = cgi.parse_qs(url.query)
         try:
-            inner = self.render_self(args, query)
+            inner = self.render_self(url, args)
         except:
             import sys, traceback
             lines = traceback.format_exception(*sys.exc_info())
@@ -49,32 +57,45 @@ class TracebackView(Renderer):
         views[self.name] = self
         self.exc = exc
         
-    def render_self(self, args, query):
-        lines = html.pre()
+    def render_self(self, url, args):
+        lines = html.div()
+        opts = {}
+        for k in url.query:
+            ent, opt = k.split(':')
+            val = int(url.query[k][0])
+            opts.setdefault(ent, {})[opt] = val
+            
+        i = 0
         for tb in dyncode.listtb(self.exc[2]):
-            filename = tb.tb_frame.f_code.co_filename 
-            lineno = tb.tb_lineno
-            name = tb.tb_frame.f_code.co_name
-            link = '/file' + filename + '?line=' + str(lineno) + '#' + str(lineno)
-            lines.append('  File "%s", line %d, in %s\n'%(
-                html.a(filename, href=link).to_unicode().encode('utf-8'),
-                lineno, name))
-            lines.append('        '+dyncode.getline(filename, lineno).lstrip())
-        lines.append(xml.escape(
-            ''.join(traceback.format_exception_only(self.exc[0], self.exc[1]))))
+            lines.append(self.render_tb(url, tb, i,
+                                        **opts.get('entry' + str(i), {})))
+            
+        lines.append(html.pre(xml.escape(
+            ''.join(traceback.format_exception_only(self.exc[0], self.exc[1])))))
         return lines
 
+    def render_tb(self, url, tb, i, showlocals=0):
+        lines = html.pre()
+        filename = tb.tb_frame.f_code.co_filename 
+        lineno = tb.tb_lineno
+        name = tb.tb_frame.f_code.co_name
+        link = '/file' + filename + '?line=' + str(lineno) + '#' + str(lineno)
+        lines.append('  File "%s", line %d, in %s\n'%(
+            html.a(filename, href=link).to_unicode().encode('utf-8'),
+            lineno, name))
+        lines.append('        '+dyncode.getline(filename, lineno).lstrip())
+        return lines
+        
 
 def ln(lineno):
     return html.a(name=str(lineno))
 
 class FileSystemView(Renderer):
-    def render_self(self, args, query):        
+    def render_self(self, url, args):
         fname = '/' + '/'.join(args)
         lines = html.table()
         i = 1
-        print query
-        hilite = int(query.get('line', [-1])[0])
+        hilite = int(url.query.get('line', [-1])[0])
         for line in open(fname):
             if i == hilite:
                 kws = {'style': 'font-weight: bold;'}
