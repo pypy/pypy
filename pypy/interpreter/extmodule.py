@@ -18,6 +18,7 @@ class ExtModule(Module):
         
         # to build the dictionary of the module we get all the objects
         # accessible as 'self.xxx'. Methods are bound.
+        contents = {}
         for cls in self.__class__.__mro__:
             for name in cls.__dict__:
                 # ignore names in '_xyz'
@@ -31,9 +32,11 @@ class ExtModule(Module):
 
                     # ignore tricky class-attrs we can't send from interp to app-level 
                     if name in ('__metaclass__','__module__',):
-                        continue  
-                    space.call_method(self.w_dict, 'setdefault', 
-                                      space.wrap(name), space.wrap(value))
+                        continue
+                    contents.setdefault(space.wrap(name), space.wrap(value))
+        w_contents = space.newdict(contents.items())
+        space.call_method(w_contents, 'update', self.w_dict)
+        self.w_dict = w_contents
         gateway.export_values(space, self.__dict__, self.w_dict)
 
     __metaclass__ = InitializedClass
