@@ -612,7 +612,9 @@ class complex(object):
     This is equivalent to (real + imag*1j) where imag defaults to 0."""
     PREC_REPR = 17
     PREC_STR = 12
-    
+
+    # XXX this class is not well tested
+
     def __init__(self, real=0.0, imag=None):
         if isinstance(real, str) and imag is not None:
             msg = "complex() can't take second arg if first is a string"
@@ -635,9 +637,9 @@ class complex(object):
 
     def __setattr__(self, name, value):
         if name in ('real', 'imag'):
-            raise TypeError, "readonly attribute"
+            raise AttributeError, "readonly attribute"
         else:
-            raise TypeError, "'complex' object has no attribute %s" % name 
+            raise AttributeError, "'complex' object has no attribute %s" % name
 
     def _makeComplexFromString(self, string):
         import re
@@ -675,11 +677,7 @@ class complex(object):
         # compare equal must have the same hash value, so that
         # hash(x + 0*j) must equal hash(x).
 
-        combined = hashreal + 1000003 * hashimag
-        if combined == -1:
-            combined = -2
-
-        return combined
+        return hashreal + 1000003 * hashimag
 
 
     def __add__(self, other):
@@ -701,9 +699,7 @@ class complex(object):
         return other.__sub__(self)
 
     def __mul__(self, other):
-        if other.__class__ != complex:
-            return complex(other*self.real, other*self.imag)
-
+        self, other = self.__coerce__(other)
         real = self.real*other.real - self.imag*other.imag
         imag = self.real*other.imag + self.imag*other.real
         return complex(real, imag)
@@ -711,33 +707,21 @@ class complex(object):
     __rmul__ = __mul__
 
     def __div__(self, other):
-        if other.__class__ != complex:
-            return complex(self.real/other, self.imag/other)
-
-        if other.real < 0:
-            abs_breal = -other.real
-        else: 
-            abs_breal = other.real
-      
-        if other.imag < 0:
-            abs_bimag = -other.imag
-        else:
-            abs_bimag = other.imag
-
-        if abs_breal >= abs_bimag:
+        self, other = self.__coerce__(other)
+        if abs(other.real) >= abs(other.imag):
             # divide tops and bottom by other.real
-            if abs_breal == 0.0:
-                real = imag = 0.0
-            else:
+            try:
                 ratio = other.imag / other.real
-                denom = other.real + other.imag * ratio
-                real = (self.real + self.imag * ratio) / denom
-                imag = (self.imag - self.real * ratio) / denom
+            except ZeroDivisionError:
+                raise ZeroDivisionError, "complex division"
+            denom = other.real + other.imag * ratio
+            real = (self.real + self.imag * ratio) / denom
+            imag = (self.imag - self.real * ratio) / denom
         else:
             # divide tops and bottom by other.imag
+            assert other.imag != 0.0
             ratio = other.real / other.imag
             denom = other.real * ratio + other.imag
-            assert other.imag != 0.0
             real = (self.real * ratio + self.imag) / denom
             imag = (self.imag * ratio - self.real) / denom
 
@@ -747,51 +731,43 @@ class complex(object):
         self, other = self.__coerce__(other)
         return other.__div__(self)
 
-
     def __floordiv__(self, other):
-        return self / other
-        
-        
-    def __truediv__(self, other):
-        return self / other
-        
+        div, mod = self.__divmod__(other)
+        return div
+
+    def __rfloordiv__(self, other):
+        self, other = self.__coerce__(other)
+        return other.__floordiv__(self)
+
+    __truediv__ = __div__
+    __rtruediv__ = __rdiv__
 
     def __mod__(self, other):
-        import warnings, math 
-        warnings.warn("complex divmod(), // and % are deprecated", DeprecationWarning)
+        div, mod = self.__divmod__(other)
+        return mod
 
-        if other.real == 0. and other.imag == 0.:
-            raise ZeroDivisionError, "complex remainder"
-
-        div = self/other # The raw divisor value.
-        div = complex(math.floor(div.real), 0.0)
-        mod = self - div*other
-
-        if mod.__class__ == complex:
-            return mod
-        else:
-            return complex(mod)
-
+    def __rmod__(self, other):
+        self, other = self.__coerce__(other)
+        return other.__mod__(self)
 
     def __divmod__(self, other):
+        self, other = self.__coerce__(other)
+
         import warnings, math
         warnings.warn("complex divmod(), // and % are deprecated", DeprecationWarning)
 
-        if other.real == 0. and other.imag == 0.:
+        try:
+            div = self/other # The raw divisor value.
+        except ZeroDivisionError:
             raise ZeroDivisionError, "complex remainder"
-
-        div = self/other # The raw divisor value.
         div = complex(math.floor(div.real), 0.0)
         mod = self - div*other
         return div, mod
 
 
-    def __pow__(self, other):
+    def __pow__(self, other, mod=None):
+        a, b = self.__coerce__(other)
         import math
-        if other.__class__ != complex:
-            other = complex(other, 0)
-                    
-        a, b = self, other
 
         if b.real == 0. and b.imag == 0.:
             real = 1.
@@ -810,8 +786,14 @@ class complex(object):
             real = len*math.cos(phase)
             imag = len*math.sin(phase)
 
-        return complex(real, imag)
+        result = complex(real, imag)
+        if mod is not None:
+            result %= mod
+        return result
 
+    def __rpow__(self, other, mod=None):
+        self, other = self.__coerce__(other)
+        return other.__pow__(self, mod)
 
     def __neg__(self):
         return complex(-self.real, -self.imag)
@@ -832,20 +814,11 @@ class complex(object):
 
 
     def __coerce__(self, other):
-        typ = type(other)
-        
-        if typ is int: 
-            return self, complex(float(other))
-        elif typ is long: 
-            return self, complex(float(other))
-        elif typ is float: 
-            return self, complex(other)
-        elif other.__class__ == complex:
+        if isinstance(other, complex):
             return self, other
-        elif typ is complex: 
-            return self, complex(other.real, other.imag)
-            
-        raise TypeError, "number %r coercion failed" % typ
+        if isinstance(other, (int, long, float)):
+            return self, complex(other)
+        raise TypeError, "number %r coercion failed" % (type(other),)
 
 
     def conjugate(self):
@@ -888,81 +861,6 @@ class complex(object):
 
     def __float__(self):
         raise TypeError, "can't convert complex to float; use e.g. float(abs(z))"
-
-
-    def _unsupportedOp(self, other, op):
-        selfTypeName = type(self).__name__
-        otherTypeName = type(other).__name__
-        args = (op, selfTypeName, otherTypeName)
-        msg = "unsupported operand type(s) for %s: '%s' and '%s'" % args
-        raise TypeError, msg
-
-
-    def __and__(self, other):
-        self._unsupportedOp(self, other, "&")
-
-
-    def __or__(self, other):
-        self._unsupportedOp(self, other, "|")
-
-
-    def __xor__(self, other):
-        self._unsupportedOp(self, other, "^")
-
-
-    def __rshift__(self, other):
-        self._unsupportedOp(self, other, ">>")
-
-
-    def __lshift__(self, other):
-        self._unsupportedOp(self, other, "<<")
-
-
-    def __iand__(self, other):
-        self._unsupportedOp(self, other, "&=")
-
-
-    def __ior__(self, other):
-        self._unsupportedOp(self, other, "|=")
-
-
-    def __ixor__(self, other):
-        self._unsupportedOp(self, other, "^=")
-
-
-    def __irshift__(self, other):
-        self._unsupportedOp(self, other, ">>=")
-
-
-    def __ilshift__(self, other):
-        self._unsupportedOp(self, other, "<<=")
-
-
-    # augmented assignment operations
-    
-    def __iadd__(self, other):
-        return self + other
-    
-
-    def __isub__(self, other):
-        return self - other
-    
-
-    def __imul__(self, other):
-        return self * other
-    
-
-    def __idiv__(self, other):
-        return self / other
-    
-
-#    def __new__(self, ...):
-#        pass
-
-
-# test mod, divmod
-
-# add radd, rsub, rmul, rdiv...
 
 
 # ________________________________________________________________________
