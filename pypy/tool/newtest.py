@@ -68,6 +68,26 @@ class TestItem:
         # removing trailing newline(s) but not the indentation
         self.source = ''.join(lines).rstrip()
 
+    def __eq__(self, other):
+        """
+        Return true if this and the other item compare equal. This doesn't
+        necessarily mean that they are the same object.
+        """
+        if self is other:
+            return True
+        # If module, cls and unbound method are the same, the files must
+        # also be equal. For the methods, we compare the names, not the
+        # methods themselves; see
+        # http://mail.python.org/pipermail/python-list/2002-September/121655.html
+        # for an explanation.
+        if (self.module is other.module) and (self.cls is other.cls) and \
+          (self.method.__name__ == other.method.__name__):
+            return True
+        return False
+
+    def __ne__(self, other):
+        return not (self == other)
+
     def run(self, pretest=None, posttest=None):
         """
         Run this TestItem and return a corresponding TestResult object.
@@ -223,7 +243,7 @@ class TestSuite:
 
 
 def main(ignore_selftest=True):
-    # ignore dummy unit tests
+    # possibly ignore dummy unit tests
     if ignore_selftest:
         filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
     else:
