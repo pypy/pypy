@@ -34,9 +34,9 @@ class Node:
 
     def descr_edges(self):
         l = []
+        style = self.linestyle()
         for node,name in self.edges:
             if node in self.allnodes:
-                style = node.linestyle()
                 l.append('edge [style=%s, label="%s"]; %s -> %s;' % (style, name, self, node))
             else:
                 pass
@@ -46,7 +46,9 @@ class Node:
         return "solid"
 
     def get_data(self):
-        return "\\n".join(self.data)
+        l = self.data[:]
+        l.insert(0, "%s" % self.obj.__class__.__name__)
+        return "\\n".join(l)
 
     def __str__(self):
         return self.name
@@ -82,6 +84,9 @@ class NodeConditionalBranch(Node):
         name = self.name
         data = self.get_data()
         return '%(name)s [shape=box, label="%(data)s"];' % locals()
+
+    def linestyle(self):
+        return 'dashed'
 
 class NodeEndBranch(Node):
     def descr_node(self):
