@@ -9,7 +9,7 @@ making it run fast.
 # ______________________________________________________________________
 # Module imports
 
-from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
+from pypy.interpreter.baseobjspace import ObjSpace, Wrappable, W_Root
 from pypy.interpreter.gateway import interp2app, applevel
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter.typedef import TypeDef
@@ -27,10 +27,10 @@ import PyTokenizer, PyGrammar, DFAParser
 pygrammar = DFAParser.addAccelerators(PyGrammar.grammarObj)
 
 # ______________________________________________________________________
-# ParserError exception
+# InternalParserError exception
 
-class ParserError (Exception):
-    """Class ParserError
+class InternalParserError (Exception):
+    """Class InternalParserError
     Exception class for parser errors (I assume).
     """
 
@@ -57,6 +57,11 @@ class STType (Wrappable):
         Convert the ST object into a tuple representation.
         """
         return _st2tuple(self.tup, line_info)
+
+    def descr_totuple(self, line_info = 0): 
+        return self.space.wrap(self.totuple(line_info))
+       
+    descr_totuple.unwrap_spec=['self', int]
 
     # ____________________________________________________________
     def tolist (self, line_info = 0):
@@ -119,6 +124,7 @@ modcompile = app.interphook("modcompile")
 
 STType.typedef = TypeDef("parser.st", 
     compile = interp2app(STType.descr_compile), 
+    totuple = interp2app(STType.descr_totuple), 
 ) 
 
 # ______________________________________________________________________
@@ -144,12 +150,12 @@ def _validateChildren (dfa, children):
                 next_state = states[arc_state]
                 break
         if next_state == None:
-            raise ParserError("symbol %d should be in %s" %
+            raise InternalParserError("symbol %d should be in %s" %
                               (ilabel, str(arcs)))
         else:
             crnt_state = next_state
     if crnt_state[2] != 1:
-        raise ParserError("incomplete sequence of children (ended with %s)" %
+        raise InternalParserError("incomplete sequence of children (ended with %s)" %
                           str(child[0]))
 
 # ______________________________________________________________________
@@ -184,19 +190,23 @@ def _seq2st (seqobj):
             node = ((symbol_no, seqobj[1], 0), [])
             line_no = 0
         else:
-            raise ParserError("terminal nodes must have 2 or 3 entries")
+            raise InternalParserError("terminal nodes must have 2 or 3 entries")
     return node, line_no
 
 # ______________________________________________________________________
 
-def sequence2st (seqObj):
+def sequence2st (space, w_seqObj):
     """sequence2st()
     Do some basic checking on the input sequence and wrap in a STType.
     """
-    tup = _seq2st(seqObj)[0]
-    if tup[0][0] not in (file_input, eval_input):
-        raise ParserError("parse tree does not use a valid start symbol")
-    return STType(space, tup)
+    try: 
+        seqObj = space.unwrap(w_seqObj) 
+        tup = _seq2st(seqObj)[0]
+        if tup[0][0] not in (file_input, eval_input):
+            raise InternalParserError("parse tree does not use a valid start symbol")
+        return STType(space, tup)
+    except InternalParserError, e: 
+        reraise(space, e) 
 
 sequence2ast = sequence2st
 tuple2ast = sequence2st
@@ -321,8 +331,16 @@ def _doParse (space, source, start):
         return STType(space, DFAParser.parsetok(tokenizer, pygrammar, start))
     except SyntaxError: 
         raise OperationError(space.w_SyntaxError) 
-    except ParserError: 
-        raise OperationError(space.w_RuntimeError) 
+    except InternalParserError, e: 
+        reraise(space, e) 
+
+def reraise(space, e): 
+    w_ParserError = space.sys.getmodule('parser').get('ParserError') 
+    if e.args: 
+        w_msg = space.wrap(e.args[0])
+    else: 
+        w_msg = space.wrap("unknown") 
+    raise OperationError(w_ParserError, w_msg) 
 
 # ______________________________________________________________________
 

@@ -55,6 +55,17 @@ class ObjSpace(object):
     def __repr__(self):
         return self.__class__.__name__
 
+    def setbuiltinmodule(self, name, importname=None): 
+        """ load a lazy pypy/module and put it into sys.modules"""
+        if importname is None: 
+            importname = name 
+        Module = __import__("pypy.module.%s" % importname, 
+                            None, None, ["Module"]).Module
+        w_name = self.wrap(name) 
+        w_mod = self.wrap(Module(self, w_name)) 
+        w_modules = self.sys.get('modules')
+        self.setitem(w_modules, w_name, w_mod) 
+
     def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."
 
@@ -70,6 +81,8 @@ class ObjSpace(object):
         w_builtin = self.wrap(self.builtin)
         self.setitem(w_modules, w_name, w_builtin) 
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin) 
+
+        self.setbuiltinmodule('parser') 
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():
