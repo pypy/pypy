@@ -2,6 +2,7 @@ from py.__impl__.magic import exprinfo
 import py
 py.magic.autopath()
 from pypy.objspace.std import StdObjSpace
+from pypy.interpreter.gateway import app2interp, interp2app
 
 class AppRunnerFrame:
 
@@ -28,6 +29,26 @@ class AppRunnerFrame:
     def is_true(self, w_value):
         return self.space.is_true(w_value)
 
+def build_pytest_assertion(space): 
+    def app_getmyassertion():
+        class MyAssertionError(AssertionError):
+            def __init__(self, *args):
+                AssertionError.__init__(self, *args) 
+                self.inspect_assertion()
+        return MyAssertionError 
+    getmyassertion = app2interp(app_getmyassertion)
+    w_myassertion = getmyassertion(space) 
+
+    def inspect_assertion(space, w_self): 
+        pass 
+        #print w_self 
+        #print "got to interp-level inspect_assertion" 
+
+    w_inspect_assertion = space.wrap(interp2app(inspect_assertion))
+    space.setattr(w_myassertion, 
+                  space.wrap('inspect_assertion'), 
+                  w_inspect_assertion)
+    return w_myassertion 
 
 def test():
     space = StdObjSpace()
