@@ -31,7 +31,8 @@ def prepare_raise(etype, value, traceback):
     return etype, value, traceback
 
 def build_class(methods, bases, name):
-    return classobj(name, bases, methods)
+    import new
+    return new.classobj(name, bases, methods)
 
 def print_expr(x):
     import sys
