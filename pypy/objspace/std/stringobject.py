@@ -973,7 +973,7 @@ app = gateway.applevel(r'''
         L =  [ table[ord(s[i])] for i in range(len(s)) if s[i] not in deletechars ]
         return ''.join(L)
 
-    def contains__String_ANY(self, sub):
+    def contains__String_String(self, sub):
         return self.find(sub) >= 0
 
     def repr__String(s):
@@ -1017,7 +1017,7 @@ app = gateway.applevel(r'''
 str_translate__String_ANY_ANY = app.interphook('str_translate__String_ANY_ANY') 
 str_decode__String_ANY_ANY = app.interphook('str_decode__String_ANY_ANY') 
 mod__String_ANY = app.interphook('mod__String_ANY') 
-contains__String_ANY = app.interphook('contains__String_ANY') 
+contains__String_String = app.interphook('contains__String_String') 
 repr__String = app.interphook('repr__String') 
 
 # register all methods
