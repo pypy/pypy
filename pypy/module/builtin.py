@@ -65,87 +65,77 @@ class Builtin(BuiltinModule):
 
     ####essentially implemented by the objectspace
     def abs(self, w_val):
-        pass
+        return self.space.abs(w_val)
     abs = appmethod(abs)
 
-
+    #XXX
     def chr(self, w_val):
-        pass
+        return self.space.chr(w_val)
     chr = appmethod(chr)
 
 
-    def delattr(self, w_val):
-        pass
+    def delattr(self, w_object, w_name):
+        return self.space.delattr(w_object, w_name)
     delattr = appmethod(delattr)
 
 
-    def getattr(self, w_val):
-        pass
+    def getattr(self, w_object, w_name):
+        return self.space.getattr(w_object, w_name)
     getattr = appmethod(getattr)
 
 
-    def hash(self, w_val):
-        pass
+    def hash(self, w_object):
+        return self.space.hash(w_object)
     hash = appmethod(hash)
 
-
+    #XXX
     def hex(self, w_val):
-        pass
+        return self.space.hex(w_val)
     hex = appmethod(hex)
 
 
-    def id(self, w_val):
-        pass
+    def id(self, w_object):
+        return self.space.id(w_object)
     id = appmethod(id)
 
-
-    def isinstance(self, w_val):
-        pass
+    #XXX
+    def isinstance(self, w_object, w_class-or-type-or-tuple):
+        return self.space.isinstance(w_object, w_class-or-type-or-tuple)
     isinstance = appmethod(isinstance)
 
-
+    #built-in name and object space name do not match
     def issubclass(self, w_val):
-        pass
+        return self.space.issubtype(w_val)
     issubclass = appmethod(issubclass)
 
-
-    def iter(self, w_val):
-        pass
+    #XXX the is also the second form of iter, we don't have implemented
+    def iter(self, w_collection):
+        return self.space.iter(w_collection)
     iter = appmethod(iter)
 
-
-    def len(self, w_val):
-        pass
-    len = appmethod(len)
-
-
-    def eon(self, w_val):
-        pass
-    eon = appmethod(eon)
-
-
+    #XXX
     def ord(self, w_val):
-        pass
+        return self.space.ord(w_val)
     ord = appmethod(ord)
 
 
     def pow(self, w_val):
-        pass
+        return self.space.pow(w_val)
     pow = appmethod(pow)
 
 
-    def repr(self, w_val):
-        pass
+    def repr(self, w_object):
+        return self.space.repr(w_object)
     repr = appmethod(repr)
 
 
-    def setattr(self, w_val):
-        pass
+    def setattr(self, w_object, w_name, w_val):
+        return self.space.setattr(w_object, w_name, w_val)
     setattr = appmethod(setattr)
 
-
+    #XXX
     def unichr(self, w_val):
-        pass
+        return self.space.unichr(w_val)
     unichr = appmethod(unichr)
 
 
