@@ -729,6 +729,10 @@ class Exc3(Exception):
     def m(self):
         return 1
 
+class Exc4(Exc3):
+    def m(self):
+        return 1
+
 class Sp:
     def o(self):
         raise Exc3
@@ -745,10 +749,32 @@ class Mod:
             return e.m()
         return 0
 
+class Mod3:
+    def __init__(self, s):
+        self.s = s
+
+    def p(self):
+        s = self.s
+        try:
+            s.o()
+        except Exc4, e1:
+            return e1.m()
+        except Exc3, e2:
+            try:
+                return e2.m()
+            except Exc4, e3:
+                return e3.m()
+        return 0
+
+
 mod = Mod(Sp())
+mod3 = Mod3(Sp())
 
 def exc_deduction_our_exc_plus_others():
     return mod.p()
+
+def exc_deduction_our_excs_plus_others():
+    return mod3.p()
 
 
 class BltinCode:

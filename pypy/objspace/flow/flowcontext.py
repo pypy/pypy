@@ -196,11 +196,11 @@ class FlowExecutionContext(ExecutionContext):
             w_condition,)
 
     def guessexception(self, *classes):
-        outcome = self.guessbool(Constant(last_exception),
+        outcome = self.guessbool(Constant(last_exception, last_exception=True),
                                  cases = [None] + list(classes),
                                  replace_last_variable_except_in_first_case = [
-                                     Constant(last_exception),   # exc. class
-                                     Constant(last_exc_value)])  # exc. value
+                                     Constant(last_exception, last_exception=True),   # exc. class
+                                     Constant(last_exc_value, last_exc_value=True)])  # exc. value
         if outcome is None:
             w_exc_cls, w_exc_value = None, None
         else:

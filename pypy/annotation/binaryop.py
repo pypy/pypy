@@ -36,6 +36,10 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             return obj1
         else:
             result = SomeObject()
+            is_type_of1 = getattr(obj1, 'is_type_of', None)
+            is_type_of2 = getattr(obj2, 'is_type_of', None)
+            if is_type_of1 and is_type_of1 == is_type_of2:
+                result.is_type_of = is_type_of1
             # try to preserve the origin of SomeObjects
             if obj1 == result:
                 return obj1
@@ -292,7 +296,16 @@ class __extend__(pairtype(SomePBC, SomePBC)):
                 if isclassdef(classdef):
                     classdef = classdef.commonbase(d[x])
             d[x] = classdef
-        return SomePBC(d)
+        result =  SomePBC(d)
+        is_type_of1 = getattr(pbc1, 'is_type_of', None)
+        is_type_of2 = getattr(pbc2, 'is_type_of', None)
+        if is_type_of1 and is_type_of1 == is_type_of2:
+            result.is_type_of = is_type_of1
+        return result
+
+class __extend__(pairtype(SomeImpossibleValue, SomeImpossibleValue)):
+    def union((imp1, imp2)):
+        return SomeImpossibleValue(benign=imp1.benign and imp2.benign)
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):

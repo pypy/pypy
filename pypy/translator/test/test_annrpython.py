@@ -115,12 +115,10 @@ class TestAnnonateTestCase:
         assert s.knowntype == int
 
     def test_lists(self):
-        fun = self.make_fun(snippet.poor_man_rev_range)
         a = RPythonAnnotator()
-        a.build_types(fun, [int])
+        end_cell = a.build_types(snippet.poor_man_rev_range, [int])
         # result should be a list of integers
-        assert a.gettype(fun.getreturnvar()) == list
-        end_cell = a.binding(fun.getreturnvar())
+        assert end_cell.knowntype == list
         assert end_cell.s_item.knowntype == int
 
     def test_factorial(self):
@@ -487,6 +485,11 @@ class TestAnnonateTestCase:
     def test_exc_deduction_our_exc_plus_others(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.exc_deduction_our_exc_plus_others, [])
+        assert isinstance(s, annmodel.SomeInteger)
+
+    def test_exc_deduction_our_excs_plus_others(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.exc_deduction_our_excs_plus_others, [])
         assert isinstance(s, annmodel.SomeInteger)
 
     def test_slice_union(self):

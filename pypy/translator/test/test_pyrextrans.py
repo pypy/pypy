@@ -108,8 +108,7 @@ class TestNoTypePyrexGenTestCase:
 class TestTypedTestCase:
 
     def getcompiled(self, func):
-        t = Translator(func) 
-        t.simplify()
+        t = Translator(func, simplifying=True) 
         # builds starting-types from func_defs 
         argstypelist = []
         if func.func_defaults:

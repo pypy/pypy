@@ -164,6 +164,11 @@ class FlowObjSpace(ObjSpace):
         from pypy.objspace.flow import specialcase
         specialcase.setup(self)
 
+    def exception_match(self, w_exc_type, w_check_class):
+        self.executioncontext.crnt_block.exc_handler = True
+        return ObjSpace.exception_match(self, w_exc_type, w_check_class)
+
+
     def build_flow(self, func, constargs={}):
         """
         """
@@ -322,7 +327,7 @@ class FlowObjSpace(ObjSpace):
                 # one specified by 'outcome', and not a subclass of it,
                 # unless 'outcome' is Exception.
                 if outcome is not Exception:
-                    w_exc_cls = Constant(outcome)
+                    w_exc_cls = Constant(outcome, last_exception=True)
                 raise OperationError(w_exc_cls, w_exc_value)
 
 # ______________________________________________________________________

@@ -10,7 +10,6 @@ from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
 from pypy.objspace.flow.model import last_exception, last_exc_value
 
-
 class AnnotatorError(Exception):
     pass
 
@@ -217,7 +216,8 @@ class RPythonAnnotator:
             if graph.hasonlyexceptionreturns(): 
                 # XXX for functions with exceptions what to 
                 #     do anyway? 
-                return self.bookkeeper.immutablevalue(None)
+                #return self.bookkeeper.immutablevalue(None)
+                return annmodel.SomeImpossibleValue(benign=True)
             return annmodel.SomeImpossibleValue()
 
     def reflowfromposition(self, position_key):
@@ -354,19 +354,32 @@ class RPythonAnnotator:
                    and issubclass(link.exitcase, Exception):
                 last_exception_object = annmodel.SomeObject()
                 last_exc_value_object = annmodel.SomeObject()
-                last_exc_value_vars = last_exception_object.is_type_of = []
+                last_exc_value_vars = []
                 in_except_block = True
+                last_exception_unknown = True
+                last_exception_unused = True
                 
             cells = []
             renaming = dict(zip(link.args,link.target.inputargs))
             for a,v in zip(link.args,link.target.inputargs):
                 if a == Constant(last_exception):
                     assert in_except_block
+                    assert last_exception_unknown
                     cells.append(last_exception_object)
+                    last_exception_unused = False
                 elif a == Constant(last_exc_value):
                     assert in_except_block
                     cells.append(last_exc_value_object)
                     last_exc_value_vars.append(v)
+                elif isinstance(a, Constant) and a.has_flag('last_exception'):
+                    assert in_except_block
+                    assert last_exception_unused
+                    if last_exception_unknown:
+                        cell = last_exception_object = self.bookkeeper.immutablevalue(a.value)
+                    else:
+                        cell = last_exception_object
+                    cells.append(cell)
+                    last_exception_unknown = False
                 else:
                     cell = self.binding(a)
                     if link.exitcase is True and knownvars is not None and a in knownvars \
@@ -381,6 +394,9 @@ class RPythonAnnotator:
                         cell = annmodel.SomeObject()
                         cell.is_type_of = renamed_is_type_of
                     cells.append(cell)
+
+            if in_except_block:
+                last_exception_object.is_type_of = last_exc_value_vars
 
             self.addpendingblock(fn, link.target, cells)
         if block in self.notify:

@@ -137,7 +137,11 @@ class FlowGraphDotGen(DotGen):
             shape = "octagon"
 
         iargs = " ".join(map(repr, block.inputargs))
-        data = "%s(%s)\\ninputargs: %s\\n\\n" % (name, block.__class__.__name__, iargs)
+        if block.exc_handler:
+            eh = 'EH'
+        else:
+            eh = ''
+        data = "%s(%s %s)\\ninputargs: %s\\n\\n" % (name, block.__class__.__name__, eh, iargs)
         if block.operations and self.func:
             maxoffs = max([op.offset for op in block.operations])
             if maxoffs >= 0:
