@@ -80,7 +80,9 @@ class TestW_DictObject(test.TestCase):
         self.assertNotEqual_w(wd1, wd4)
 
 class Test_DictObject(test.AppTestCase):
-    
+
+    def setUp(self):
+        self.space = test.objspace('std')
         
     def test_clear(self):
         d = {1:2, 3:4}
