@@ -56,5 +56,14 @@ class GenCLTestCase(test.IntTestCase):
         self.assertEquals(cl_perfect(24), False)
         self.assertEquals(cl_perfect(28), True)
 
+    #___________________________________
+    def my_bool(x):
+        return not not x
+    def test_bool(self):
+        cl_bool = self.cl_func(self.my_bool)
+        self.assertEquals(cl_bool(0), False)
+        self.assertEquals(cl_bool(42), True)
+        self.assertEquals(cl_bool(True), True)
+
 if __name__ == '__main__':
     test.main()

@@ -1,32 +1,27 @@
 """
-Glue script putting together the pieces of the translator.
+Glue script putting together the various pieces of the translator.
 Can also be used for interactive testing of the translator, when run as:
 
     python -i translator.py
 
 Example:
 
-    def f1(x):
-        total = 0
-        for i in range(1, x+1):
-            total = total + i
-        return total
+    t = Translator(func)
+    t.gv()                             # control flow graph
 
-    t = Translator(f1)
-    t.gv()    # show the control flow graph -- requires 'dot' and 'gv'
-    
-    t.simplify()
-    t.gv()
-    print t.pyrex()
-    
-    a = t.annotate([int])   # the list is the input args types
-    print t.pyrex()
-    
-    a.simplify()            # simplifications done by the Annotator
-    print t.pyrex()
+    print t.source()                   # original source
+    print t.pyrex()                    # pyrex translation
+    print t.cl()                       # common lisp translation
 
-    f = t.compile()
-    print f(10)
+    t.simplify()                       # flow graph simplification
+    a = t.annotate([int])              # pass the list of args types
+    a.simplify()                       # simplification by annotator
+
+    f = t.compile()                    # pyrex compilation
+    assert f(arg) == func(arg)
+
+Some functions will be provided for the benefit of interactive testing.
+Currently there are my_bool and my_range.
 """
 
 import autopath
@@ -97,18 +92,16 @@ class Translator:
 
 
 if __name__ == '__main__':
-    def f1(x):
-        total = 0
-        for i in range(1, x+1):
-            total = total + i
-        return total
+    def my_bool(x):
+        return not not x
 
-    def f2(x):
-        total = 0
-        while x > 0:
-            total = total + x
-            x = x - 1
-        return total
+    def my_range(i):
+        lst = []
+        while i > 0:
+            i = i - 1
+            lst.append(i)
+        lst.reverse()
+        return lst
 
     print __doc__
 

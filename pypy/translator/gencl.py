@@ -9,6 +9,7 @@ if not isinstance(bool, type):
 
 class Op:
     def __init__(self, gen, op):
+        self.gen = gen
         self.str = gen.str
         self.opname = op.opname
         self.args = op.args
@@ -17,7 +18,9 @@ class Op:
         if self.opname in self.binary_ops:
             self.op_binary(self.opname)
         else:
-            self.op_default()
+            default = self.op_default
+            meth = getattr(self, "op_" + self.opname, default)
+            meth()
     binary_ops = {
         "add": "+",
         "inplace_add": "+", # weird, but it works
@@ -25,13 +28,19 @@ class Op:
         "lt": "<",
         "eq": "=",
     }
-    def op_default(self):
-        print "; Op", self.opname, "is missing"
     def op_binary(self, op):
         s = self.str
         result, (arg1, arg2) = self.result, self.args
         cl_op = self.binary_ops[op]
         print "(setq", s(result), "(", cl_op, s(arg1), s(arg2), "))"
+    def op_not_(self):
+        s = self.str
+        result, (arg1,) = self.result, self.args
+        print "(setq", s(result), "(not"
+        self.gen.emit_truth_test(arg1)
+        print "))"
+    def op_default(self):
+        print "; Op", self.opname, "is missing"
 
 class GenCL:
     def __init__(self, fun):
