@@ -1,4 +1,4 @@
-from pypy.objspace.std.objspace import *
+from pypy.objspace.std.objspace import MultiMethod, StdObjSpace, W_ANY
 from typeobject import W_TypeObject
 
 
@@ -6,9 +6,16 @@ class W_StringType(W_TypeObject):
 
     typename = 'str'
 
-    str_join  = MultiMethod('join', 2)
-    str_split = MultiMethod('split', 2)
+    str_join    = MultiMethod('join', 2)
+    str_split   = MultiMethod('split', 2)
 
+    str_isdigit = MultiMethod('isdigit', 1)
+    str_isalpha = MultiMethod('isalpha', 1)
+    str_isspace = MultiMethod('isspace', 1)
+    str_isupper = MultiMethod('isupper', 1)
+    str_islower = MultiMethod('islower', 1)
+    str_istitle = MultiMethod('istitle', 1)
+    str_isalnum = MultiMethod('isalnum', 1)
 
 # XXX we'll worry about the __new__/__init__ distinction later
 def stringtype_new(space, w_stringtype, w_args, w_kwds):

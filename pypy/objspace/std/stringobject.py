@@ -30,56 +30,56 @@ class W_StringObject(W_Object):
     def hash(w_self):
         return W_IntObject(self, self._value.hash())
 
-    def _char_isspace(ch):
-        return ord(ch) in (9, 10, 11, 12, 13, 32)  
+def _isspace(ch):
+    return ord(ch) in (9, 10, 11, 12, 13, 32)  
 
-    def is_generic(w_self, fun): 
-        space = w_self.space   
-        v = w_self._value
-        if v.len == 0:
-            return space.w_False
-        if v.len == 1:
-            c = v.charat(0)
-            return space.newbool(fun(c))
-        else:
-            res = 1
-            for idx in range(v.len):
-                if not fun(v.charat(idx)):
-                    return space.w_False
-            return space.w_True
+def _isdigit(ch):
+    o = ord(ch)
+    return o >= 48 and o <= 57
 
-    def isspace(w_self):
-       return is_generic(w_self, _char_isspace)
-   ## XXX fixme
+def _isalpha(ch):
+    o = ord(ch)
+    return (o>=97 and o<=122) or (o>=65 and o<=90)
 
-##    def isdigit(w_self):
-##        pass
+def _isalnum(ch):
+    o = ord(ch)
+    return (o>=97 and o<=122) \
+        or (o>=65 and o<=90) \
+        or (o>=48 and o<=57)
 
-##    def isupper(w_self):
-##        pass
 
-##    def isupper(w_self):
-##        pass
-    
-##    def islower(w_self):
-##        pass
+def _is_generic(w_self, fun): 
+    space = w_self.space   
+    v = w_self._value
+    if v.len == 0:
+        return space.w_False
+    if v.len == 1:
+        c = v.charat(0)
+        return space.newbool(fun(c))
+    else:
+        res = 1
+        for idx in range(v.len):
+            if not fun(v.charat(idx)):
+                return space.w_False
+        return space.w_True
 
-##    def istitle(w_self):
-##        pass
+def str_isspace(space, w_self):
+    return _is_generic(w_self, _isspace)
 
-##    def isalnum(w_self):
-##        pass
+def str_isdigit(space, w_self):
+    return _is_generic(w_self, _isdigit)
 
-##    def isalpha(w_self):
-##        pass
+def str_isalpha(space, w_self):
+    return _is_generic(w_self, _isalpha)
 
-##    isspace = implmethod().register(isspace)
-##    isdigit = implmethod().register(isdigit)
-##    isupper = implmethod().register(isupper)
-##    islower = implmethod().register(islower)
-##    istitle = implmethod().register(istitle)
-##    isalnum = implmethod().register(isalnum)
-##    isalpha = implmethod().register(isalpha)
+def str_isalnum(space, w_self):
+    return _is_generic(w_self, _isalnum)
+
+def str_isupper(space, w_self):
+    return _is_generic(w_self, _isupper)
+
+def str_islower(space, w_self):
+    return _is_generic(w_self, _islower)
 
 
 def str_splitByWhitespace(space, w_self, w_none):
@@ -123,6 +123,9 @@ W_StringType.str_split.register(str_splitByWhitespace,
 #We should erase the W_NoneObject, but register takes always
 #the same number of parameters. So you have to call split with
 #None as parameter instead of calling it without any parameter
+
+W_StringType.str_isspace.register(str_isspace, W_StringObject)
+W_StringType.str_isdigit.register(str_isdigit, W_StringObject)
 
 
 def str_join(space, w_self, w_list):
