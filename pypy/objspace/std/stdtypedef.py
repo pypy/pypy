@@ -1,4 +1,5 @@
 from pypy.interpreter import eval, function, gateway
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import attrproperty, attrproperty_w
 from pypy.objspace.std.multimethod import MultiMethod, FailedToImplement
