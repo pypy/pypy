@@ -748,7 +748,7 @@ def str_zfill__String_ANY(space, w_self, w_width):
     return space.wrap("".join(buf))
     
     
-def app_str_translate__String_String_String(s, table, deletechars=''):
+def app_str_translate__String_ANY_ANY(s, table, deletechars=''):
     """charfilter - unicode handling is not implemented
     
     Return a copy of the string where all characters occurring 
@@ -762,7 +762,7 @@ def app_str_translate__String_String_String(s, table, deletechars=''):
     L =  [ table[ord(s[i])] for i in range(len(s)) if s[i] not in deletechars ]
     return ''.join(L)
 
-str_translate__String_String_String = gateway.app2interp(app_str_translate__String_String_String)
+str_translate__String_ANY_ANY = gateway.app2interp(app_str_translate__String_ANY_ANY)
 
 
 def str_w__String(space, w_str):
@@ -956,10 +956,10 @@ def iter__String(space, w_list):
     from pypy.objspace.std import iterobject
     return iterobject.W_SeqIterObject(space, w_list)
 
-def app_contains__String_String(self, sub):
+def app_contains__String_ANY(self, sub):
     return self.find(sub) >= 0
 
-contains__String_String = gateway.app2interp(app_contains__String_String)
+contains__String_ANY = gateway.app2interp(app_contains__String_ANY)
 
 def app_repr__String(s):
     quote = "'"
