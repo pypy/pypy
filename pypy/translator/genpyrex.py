@@ -162,6 +162,7 @@ class GenPyrex:
         self.ops = ops  
         self.oparity = oparity
         self.annotator = None
+        self.namecache = {}
 
     def annotate(self, input_arg_types):
         a = RPythonAnnotator()
@@ -280,8 +281,17 @@ class GenPyrex:
         return '%s__%x' % (name, id(cls))#self._hackname(cls)
     
     def getfunctionname(self,func):
-        assert inspect.isfunction(func) or inspect.ismethod(func)
-        return '%s__%x' % (func.__name__, id(func))#self._hackname(func)
+        # NB. the purpose of the cache is not performance, but to ensure that
+        # two methods that compare equal get the same name.
+        if inspect.ismethod(func) and func.im_self is None:
+            func = func.im_func  # consider unbound methods as plain functions
+        try:
+            return self.namecache[func]
+        except KeyError:
+            assert inspect.isfunction(func) or inspect.ismethod(func)
+            name = '%s__%x' % (func.__name__, id(func))#self._hackname(func)
+            self.namecache[func] = name
+            return name
     
     def getvarname(self,var):
         assert inspect.isclass(var)
@@ -295,7 +305,9 @@ class GenPyrex:
             import types
             if isinstance(obj.value,(types.ClassType,type)):
                 fff=self.getclassname(obj.value)
-            elif isinstance(obj.value,(types.FunctionType,type)):
+            elif isinstance(obj.value,(types.FunctionType,
+                                       types.MethodType,
+                                       type)):
                 fff=self.getfunctionname(obj.value)
             elif isinstance(obj.value, types.BuiltinFunctionType):
                 fff=str(obj.value.__name__)
@@ -389,7 +401,10 @@ class GenPyrex:
                 list_methods=delay_methods.get(cls,[])
                 for py_fun in list_methods:
                     # XXX!
-                    fun = self.annotator.translator.flowgraphs[py_fun]
+                    try:
+                        fun = self.annotator.translator.flowgraphs[py_fun]
+                    except KeyError:
+                        continue  # method present in class but never called
                     hackedargs = ', '.join([var.name for var in fun.getargs()])
                     self.putline("def %s(%s):" % (py_fun.__name__, hackedargs))
                     self.indent += 1

@@ -19,6 +19,14 @@ def entry_point(space):
 
 # __________  Main  __________
 
+def analyse(entry_point=entry_point):
+    t = Translator(entry_point, verbose=True, simplifying=True)
+    space = StdObjSpace()
+    a = t.annotate([annmodel.immutablevalue(space)])
+    a.simplify()
+    return t
+
+
 if __name__ == '__main__':
 
     def about(x):
@@ -53,12 +61,7 @@ if __name__ == '__main__':
         else:
             display.run()
 
-    t = Translator(entry_point, verbose=True, simplifying=True)
-    space = StdObjSpace()
-    try:
-        a = t.annotate([annmodel.immutablevalue(space)])
-        a.simplify()
-    except:
+    def debug():
         import traceback
         exc, val, tb = sys.exc_info()
         print >> sys.stderr
@@ -75,11 +78,12 @@ if __name__ == '__main__':
         print >> sys.stderr
         import pdb
         pdb.post_mortem(tb)
+
+    try:
+        t = analyse()
+        print '-'*60
+        t.compile()
+    except:
+        debug()
     else:
-##        print '-'*60
-##        src = t.pyrex()
-##        g = open('code.pyx', 'w')
-##        g.write(src)
-##        print 'Wrote', g.name
-##        g.close()
         run_server()
