@@ -181,6 +181,26 @@ class TestBuiltinApp(test.AppTestCase):
     def test_divmod(self):
         self.assertEquals(divmod(15,10),(1,5))
 
+    def test_callable(self):
+        class Call:
+            def __call__(self, a):
+                return a+2
+        self.failIf(not callable(Call()),
+                    "Builtin function 'callable' misreads callable object")
+        self.assert_(callable(int),
+                    "Builtin function 'callable' misreads int")
+
+    def test_uncallable(self):
+        class NoCall:
+            pass
+        a = NoCall()
+        self.failIf(callable(a),
+                    "Builtin function 'callable' misreads uncallable object")
+        a.__call__ = lambda: "foo"
+        self.failIf(callable(a), 
+                    "Builtin function 'callable' tricked by instance-__call__")
+
+
         
 class TestInternal(test.IntTestCase):
 
@@ -216,25 +236,6 @@ class TestInternal(test.IntTestCase):
     def test_xrange(self):
         self.assert_(hasattr(self.space.builtin, 'xrange'))
         self.assertEquals(self.space.builtin.xrange(3).stop, 3)
-
-    def test_callable(self):
-        class Call:
-            def __call__(self, a):
-                return a+2
-        self.failIf(not callable(Call()),
-                    "Builtin function 'callable' misreads callable object")
-        self.assert_(callable(int),
-                    "Builtin function 'callable' misreads int")
-
-    def test_uncallable(self):
-        class NoCall:
-            pass
-        a = NoCall()
-        self.failIf(callable(a),
-                    "Builtin function 'callable' misreads uncallable object")
-        a.__call__ = lambda: "foo"
-        self.failIf(callable(a), 
-                    "Builtin function 'callable' tricked by instance-__call__")
 
 
 if __name__ == '__main__':
