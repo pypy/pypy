@@ -41,6 +41,7 @@ class ObjSpace(object):
             return self.generalcache[key]
         except KeyError:
             return self.generalcache.setdefault(key, builder(key, self))
+    loadfromcache.translated_version = lambda s, k, b: s.generalcache[k]
 
     def make_builtins(self, for_builtins):
         # initializing builtins may require creating a frame which in
