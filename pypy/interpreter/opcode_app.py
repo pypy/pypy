@@ -14,20 +14,21 @@ def prepare_raise(etype, value, traceback):
     if type(etype) is str:
         # warn
         pass
+    elif isinstance(etype, Exception):
+        if value is not None:
+            raise TypeError, "instance exception may not have a separate value"
+        value = etype
+        etype = value.__class__
     elif isinstance(etype, type) and issubclass(etype, Exception):
         if value is None:
             value = ()
         elif not isinstance(value, tuple):
             value = (value,)
         value = etype(*value)
-    elif isinstance(etype, Exception):
-        if value is not None:
-            raise TypeError, "instance exception may not have a separate value"
-        value = etype
-        etype = value.__class__
     else:
-        raise TypeError, "exceptions must be classes, instances, or " \
-              "strings (deprecated), not %s"%(type(etype).__name__,)
+        raise TypeError, ("exceptions must be instances or subclasses of "
+                          "Exception or strings (deprecated), not %s" %
+                          (type(etype).__name__,))
     return etype, value, traceback
 
 def print_expr(x):
