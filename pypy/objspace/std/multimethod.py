@@ -12,7 +12,7 @@ class W_ANY:
 
 # This file defines three major classes:
 #
-#   MultiMethod is the class you instanciate explicitly.
+#   MultiMethod is the class you instantiate explicitly.
 #   It is essentially just a collection of registered functions.
 #   If xxx is a MultiMethod, StdObjSpace.xxx is xxx again,
 #   and space.xxx is a BoundMultiMethod.
@@ -22,10 +22,13 @@ class W_ANY:
 #   statically known type. It is obtained by the syntax
 #   W_XxxType.yyy, where W_XxxType is the static type class,
 #   or explicitly by calling 'xxx.slice(typeclass, arg_position)'.
-#   Its dispatch table is always a subset of the dispatch table of
-#   the original MultiMethod; a new function registered in either
-#   one may be automatically registered in the other one to keep
-#   them in sync.
+#   Its dispatch table is always a subset of the original MultiMethod's
+#   dispatch table.
+#
+#   The registration of a new function to a MultiMethod will be propagated
+#   to all of its matching UnboundMultiMethod instances.  The registration of
+#   a function directly to an UnboundMultiMethod will register the function
+#   to its base MultiMethod and invoke the same behavior.
 #
 #   BoundMultiMethod is a MultiMethod or UnboundMultiMethod which
 #   has been bound to a specific object space. It is obtained by
@@ -50,10 +53,12 @@ class AbstractMultiMethod(object):
     def register(self, function, *types):
         assert len(types) == self.arity
         functions = self.dispatch_table.setdefault(types, [])
-        if function not in functions:
-            functions.append(function)
-            self.cache_table.clear()
-            self.adjust_dispatch_arity(types)
+        if function in functions:
+            return False
+        functions.append(function)
+        self.cache_table.clear()
+        self.adjust_dispatch_arity(types)
+        return True
 
     def adjust_dispatch_arity(self, types):
         width = len(types)
@@ -304,11 +309,13 @@ class MultiMethod(AbstractMultiMethod):
             return m
 
     def register(self, function, *types):
-        AbstractMultiMethod.register(self, function, *types)
+        if not AbstractMultiMethod.register(self, function, *types):
+            return False
         # register the function into unbound versions that match
         for m in self.unbound_versions.values():
             if m.match(types):
                 AbstractMultiMethod.register(m, function, *types)
+        return True
 
 
 class DelegateMultiMethod(MultiMethod):
@@ -318,8 +325,10 @@ class DelegateMultiMethod(MultiMethod):
         self.key = object()
 
     def register(self, function, *types):
-        AbstractMultiMethod.register(self, function, *types)
+        if not AbstractMultiMethod.register(self, function, *types):
+            return False
         self.key = object()   # change the key to force recomputation
+        return True
 
     def postprocessresult(self, allowedtypes, result):
         # add delegation from a class to the *first* immediate parent class
@@ -380,10 +389,12 @@ class UnboundMultiMethod(AbstractMultiMethod):
         #print basemultimethod.operatorsymbol, typeclass, self.dispatch_table
 
     def register(self, function, *types):
-        AbstractMultiMethod.register(self, function, *types)
+        if not AbstractMultiMethod.register(self, function, *types):
+            return False
         # propagate the function registeration to the base multimethod
         # and possibly other UnboundMultiMethods
         self.basemultimethod.register(function, *types)
+        return True
 
     def match(self, types):
         # check if the 'types' signature statically corresponds to the
