@@ -31,20 +31,19 @@ class FlowObjSpace(ObjSpace):
         #self.make_sys()
 
     def loadfromcache(self, key, builder, cache):
-        try:
-            return cache[key] 
-        except KeyError:
-            # this method is overloaded to allow the space to switch to
-            # "concrete mode" when building the object that goes into
-            # the cache.  In concrete mode, only Constants are allowed.
+        # when populating the caches, the flow space switches to
+        # "concrete mode".  In this mode, only Constants are allowed
+        # and no SpaceOperation is recorded.
+        def my_builder(key, stuff):
             previous_ops = self.executioncontext.crnt_ops
             self.executioncontext.crnt_ops = flowcontext.ConcreteNoOp()
             self.concrete_mode += 1
             try:
-                return cache.setdefault(key, builder(key, self))
+                return builder(key, stuff)
             finally:
                 self.executioncontext.crnt_ops = previous_ops
                 self.concrete_mode -= 1
+        return super(FlowObjSpace, self).loadfromcache(key, my_builder, cache)
 
     def newdict(self, items_w):
         if self.concrete_mode:

@@ -34,8 +34,8 @@ def wrap_exception(space):
 
 def fake_type(cpy_type, ignored=None):
     assert type(cpy_type) is type
-    if cpy_type in _fake_type_cache:
-        return _fake_type_cache[cpy_type]
+    if cpy_type in _fake_type_cache.content:
+        return _fake_type_cache.content[cpy_type]
     assert not _fake_type_cache.frozen 
     print 'faking %r'%(cpy_type,)
     kw = {}
@@ -70,7 +70,7 @@ def fake_type(cpy_type, ignored=None):
         return w_obj.val
     StdObjSpace.unwrap.register(fake_unwrap, W_Fake)
     W_Fake.typedef.fakedcpytype = cpy_type
-    _fake_type_cache[cpy_type] = W_Fake
+    _fake_type_cache.content[cpy_type] = W_Fake
     return W_Fake
 
 # ____________________________________________________________
@@ -105,6 +105,6 @@ class CPythonFakeFrame(eval.Frame):
 def fake_builtin_callable(space, val):
     return Function(space, CPythonFakeCode(val))
 
-_fake_type_cache[type(len)] = fake_builtin_callable
-_fake_type_cache[type(list.append)] = fake_builtin_callable
-_fake_type_cache[type(type(None).__repr__)] = fake_builtin_callable
+_fake_type_cache.content[type(len)] = fake_builtin_callable
+_fake_type_cache.content[type(list.append)] = fake_builtin_callable
+_fake_type_cache.content[type(type(None).__repr__)] = fake_builtin_callable

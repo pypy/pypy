@@ -131,6 +131,9 @@ class PyCode(eval.Code):
             code.co_cellvars = space.unwrap(w_cellvars)
         return space.wrap(code)
 
+def _really_enhanceclass(key, stuff):
+    return type("Mixed", key, {})
+
 def enhanceclass(baseclass, newclass, cache=Cache()):
     # this is a bit too dynamic for RPython, but it looks nice
     # and I assume that we can easily change it into a static
@@ -138,11 +141,5 @@ def enhanceclass(baseclass, newclass, cache=Cache()):
     if issubclass(newclass, baseclass):
         return newclass
     else:
-        try:
-            return cache[baseclass, newclass]
-        except KeyError:
-            assert not cache.frozen 
-            class Mixed(newclass, baseclass):
-                pass
-            cache[baseclass, newclass] = Mixed
-            return Mixed
+        return cache.getorbuild((newclass, baseclass),
+                                _really_enhanceclass, None)

@@ -74,20 +74,20 @@ class AbstractMultiMethod(object):
             self.cache_table.clear()
             self.compilation_cache_table.clear()
             self.cache_delegator_key = delegate.key
+        return self.cache_table.getorbuild(argclasses,
+                                           self.do_compile_calllist,
+                                           delegate)
+
+    def do_compile_calllist(self, argclasses, delegate):
+        calllist = []
+        self.internal_buildcalllist(argclasses, delegate, calllist)
+        calllist = tuple(calllist)
         try:
-            return self.cache_table[argclasses]
+            result = self.compilation_cache_table[calllist]
         except KeyError:
-            assert not self.cache_table.frozen 
-            calllist = []
-            self.internal_buildcalllist(argclasses, delegate, calllist)
-            calllist = tuple(calllist)
-            try:
-                result = self.compilation_cache_table[calllist]
-            except KeyError:
-                result = self.internal_compilecalllist(calllist)
-                self.compilation_cache_table[calllist] = result
-            self.cache_table[argclasses] = result
-            return result
+            result = self.internal_compilecalllist(calllist)
+            self.compilation_cache_table[calllist] = result
+        return result
 
     def internal_compilecalllist(self, calllist):
         source, glob = self.internal_sourcecalllist(calllist)

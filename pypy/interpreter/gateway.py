@@ -202,9 +202,9 @@ class Gateway(Wrappable):
             cache = self.getcache(space) 
             for value in self.staticglobals.itervalues():
                 if isinstance(value, Gateway):
-                    if value in cache: 
+                    if value in cache.content: 
                         # yes, we share its w_globals
-                        fn = cache[value] 
+                        fn = cache.content[value] 
                         w_globals = fn.w_func_globals
                         break
             else:
@@ -218,11 +218,11 @@ class Gateway(Wrappable):
     def _build_function(self, space, w_globals):
         cache = self.getcache(space) 
         try: 
-            return cache[self] 
+            return cache.content[self] 
         except KeyError: 
             defs = self.getdefaults(space)  # needs to be implemented by subclass
             fn = Function(space, self.code, w_globals, defs, forcename = self.name)
-            cache[self] = fn 
+            cache.content[self] = fn 
             return fn
 
     def get_method(self, obj):
