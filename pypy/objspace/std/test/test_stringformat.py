@@ -80,6 +80,18 @@ class TestStringObject(testit.AppTestCase):
         self.assertEquals('<(1, 2)-(3, 4)>', '<%s-%s>' % ((1,2), (3,4)))
 
     def test_format_dict(self):
+
+        # I'll just note that the first of these two completely
+        # contradicts what CPython's documentation says:
+
+        #     When the right argument is a dictionary (or other
+        #     mapping type), then the formats in the string
+        #     \emph{must} include a parenthesised mapping key into
+        #     that dictionary inserted immediately after the
+        #     \character{\%} character.
+
+        # It is what CPython *does*, however.  All software sucks.
+        
         self.assertEquals('<{1: 2}>', '<%s>' % {1:2})
         self.assertEquals('<{1: 2}-{3: 4}>', '<%s-%s>' % ({1:2}, {3:4}))
 
