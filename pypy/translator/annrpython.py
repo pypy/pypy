@@ -255,6 +255,7 @@ class RPythonAnnotator:
                 #import traceback, sys
                 #traceback.print_tb(sys.exc_info()[2])
                 self.annotated[block] = False   # failed, hopefully temporarily
+                import sys
                 self.why_not_annotated[block] = sys.exc_info()[2]
             except Exception, e:
                 # hack for debug tools only
