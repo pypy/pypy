@@ -1,7 +1,7 @@
 # ______________________________________________________________________
 import sys, operator
 import pypy
-from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter.baseobjspace import ObjSpace, NoValue
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.wrapper import *
@@ -87,6 +87,11 @@ class FlowObjSpace(ObjSpace):
         return g
 
     # ____________________________________________________________
+    def do_operation(self, name, *args_w):
+        spaceop = SpaceOperation(name, args_w, W_Variable())
+        self.executioncontext.crnt_ops.append(spaceop)
+        return spaceop.result
+    
     def is_true(self, w_obj):
         try:
             obj = self.unwrap(w_obj)
@@ -96,6 +101,15 @@ class FlowObjSpace(ObjSpace):
             return bool(obj)
         context = self.getexecutioncontext()
         return context.guessbool(w_obj)
+
+    def next(self, w_iter):
+        w_tuple = self.do_operation("next_and_flag", w_iter)
+        w_flag = self.do_operation("getitem", w_tuple, W_Constant(1))
+        context = self.getexecutioncontext()
+        if context.guessbool(w_flag):
+            return self.do_operation("getitem", w_tuple, W_Constant(0))
+        else:
+            raise NoValue
 
 # ______________________________________________________________________
 
@@ -129,9 +143,7 @@ def make_op(name, symbol, arity, specialnames):
                 else:
                     return self.wrap(result)
 
-        spaceop = SpaceOperation(name, args_w, W_Variable())
-        self.executioncontext.crnt_ops.append(spaceop)
-        return spaceop.result
+        return self.do_operation(name, *args_w)
 
     setattr(FlowObjSpace, name, generic_operator)
 

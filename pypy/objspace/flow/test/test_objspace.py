@@ -76,5 +76,13 @@ class TestFlowOjSpace(test.TestCase):
                           "    return total\n",
                           'f')
 
+    def test_simple_for(self):
+        x = self.codetest("def f(lst):\n"
+                          "    total = 0\n"
+                          "    for i in lst:\n"
+                          "        total += i\n"
+                          "    return total\n",
+                          'f')
+
 if __name__ == '__main__':
     test.main()
