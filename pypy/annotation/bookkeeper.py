@@ -3,6 +3,7 @@ The Bookkeeper class.
 """
 
 from types import FunctionType, ClassType, MethodType
+from types import BuiltinMethodType
 from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef
 from pypy.interpreter.miscutils import getthreadlocals
@@ -174,9 +175,15 @@ class Bookkeeper:
             # flow into __init__() if the class has got one
             init = getattr(cls, '__init__', None)
             if init is not None and init != object.__init__:
-                attrdef = classdef.find_attribute('__init__')
-                attrdef.getvalue()
-                self.pycall(init, s_instance, *args)
+                # don't record the access of __init__ on the classdef
+                # because it is not a dynamic attribute look-up, but
+                # merely a static function call
+                if hasattr(init, 'im_func'):
+                    init = init.im_func
+                else:
+                    assert isinstance(init, BuiltinMethodType)
+                s_init = self.immutablevalue(init)
+                s_init.simple_call(s_instance, *args)
             else:
                 assert not args, "no __init__ found in %r" % (cls,)
             return s_instance
