@@ -3,7 +3,7 @@ import autopath
 import sys, os, re
 import pygame
 from pygame.locals import *
-from pypy.translator.tool.make_dot import make_dot_graphs
+from drawgraph import GraphRenderer, build_layout
 
 
 class Display(object):
@@ -17,159 +17,10 @@ class Display(object):
         self.height = h
         self.screen = pygame.display.set_mode((w, h), HWSURFACE|RESIZABLE)
 
-class GraphViewer(object):
-    FONT = os.path.join(autopath.this_dir, 'cyrvetic.ttf')
-    xscale = 1
-    yscale = 1
-    offsetx = 0
-    offsety = 0
-
-    def __init__(self, xdotfile, pngfile):
-        pygame.init()
-        g = open(str(pngfile), 'rb')
-        try:
-            self.bkgnd = pygame.image.load(pngfile)
-        except Exception, e:
-            print >> sys.stderr, '* Pygame cannot load "%s":' % pngfile
-            print >> sys.stderr, '* %s: %s' % (e.__class__.__name__, e)
-            print >> sys.stderr, '* Trying with pngtopnm.'
-            import os
-            g = os.popen("pngtopnm '%s'" % pngfile, 'r')
-            w, h, data = decodepixmap(g)
-            g.close()
-            self.bkgnd = pygame.image.fromstring(data, (w, h), "RGB")
-        self.width, self.height = self.bkgnd.get_size()
-        self.font = pygame.font.Font(self.FONT, 18)
-
-        # compute a list of  (rect, originalw, text, name)
-        # where text is some text from the graph,
-        #       rect is its position on the screen,
-        #       originalw is its real (dot-computed) size on the screen,
-        #   and name is XXX
-        self.positions = []
-        g = open(xdotfile, 'rb')
-        lines = g.readlines()
-        g.close()
-        self.parse_xdot_output(lines)
-
-    def render(self, dpy):
-        ox = -self.offsetx
-        oy = -self.offsety
-        dpy.screen.blit(self.bkgnd, (ox, oy))
-        # gray off-bkgnd areas
-        gray = (128, 128, 128)
-        if ox > 0:
-            dpy.screen.fill(gray, (0, 0, ox, dpy.height))
-        if oy > 0:
-            dpy.screen.fill(gray, (0, 0, dpy.width, oy))
-        w = dpy.width - (ox + self.width)
-        if w > 0:
-            dpy.screen.fill(gray, (dpy.width-w, 0, w, dpy.height))
-        h = dpy.height - (oy + self.height)
-        if h > 0:
-            dpy.screen.fill(gray, (0, dpy.height-h, dpy.width, h))
-
-    def at_position(self, (x, y), re_nonword=re.compile(r'(\W+)')):
-        """Compute (word, text, name) where word is the word under the cursor,
-        text is the complete line, and name is XXX.  All three are None
-        if no text is under the cursor."""
-        x += self.offsetx
-        y += self.offsety
-        for (rx,ry,rw,rh), originalw, text, name in self.positions:
-            if rx <= x < rx+originalw and ry <= y < ry+rh:
-                dx = x - rx
-                # scale dx to account for small font mismatches
-                dx = int(float(dx) * rw / originalw)
-                words = [s for s in re_nonword.split(text) if s]
-                segment = ''
-                word = ''
-                for word in words:
-                    segment += word
-                    img = self.font.render(segment, 1, (255, 0, 0))
-                    w, h = img.get_size()
-                    if dx < w:
-                        break
-                return word, text, name
-        return None, None, None
-
-    def getzones(self, re_nonword=re.compile(r'(\W+)')):
-        for (rx,ry,rw,rh), originalw, text, name in self.positions:
-            words = [s for s in re_nonword.split(text) if s]
-            segment = ''
-            dx1 = 0
-            for word in words:
-                segment += word
-                img = self.font.render(segment, 1, (255, 0, 0))
-                w, h = img.get_size()
-                dx2 = int(float(w) * originalw / rw)
-                if word.strip():
-                    yield (rx+dx1, ry, dx2-dx1, rh), word
-                dx1 = dx2
-
-    def parse_xdot_output(self, lines):
-        for i in range(len(lines)):
-            if lines[i].endswith('\\\n'):
-                lines[i+1] = lines[i][:-2] + lines[i+1]
-                lines[i] = ''
-        for line in lines:
-            self.parse_xdot_line(line)
-
-    def parse_xdot_line(self, line,
-            re_bb   = re.compile(r'\s*graph\s+[[]bb=["]0,0,(\d+),(\d+)["][]]'),
-            re_text = re.compile(r"\s*T" + 5*r"\s+(-?\d+)" + r"\s+-"),
-            matchtext = ' _ldraw_="'):
-        match = re_bb.match(line)
-        if match:
-            self.xscale = float(self.width-12) / int(match.group(1))
-            self.yscale = float(self.height-12) / int(match.group(2))
-            return
-        p = line.find(matchtext)
-        if p < 0:
-            return
-        p += len(matchtext)
-        line = line[p:]
-        while 1:
-            match = re_text.match(line)
-            if not match:
-                break
-            x = 10+int(float(match.group(1)) * self.xscale)
-            y = self.height-2-int(float(match.group(2)) * self.yscale)
-            n = int(match.group(5))
-            end = len(match.group())
-            text = line[end:end+n]
-            line = line[end+n:]
-            if text:
-                img = self.font.render(text, 1, (255, 0, 0))
-                w, h = img.get_size()
-                align = int(match.group(3))
-                if align == 0:
-                    x -= w//2
-                elif align > 0:
-                    x -= w
-                rect = x, y-h, w, h
-                originalw = int(float(match.group(4)) * self.xscale)
-                self.positions.append((rect, originalw, text, 'XXX'))
-
-
-
-def decodepixmap(f):
-    sig = f.readline().strip()
-    assert sig == "P6"
-    while 1:
-        line = f.readline().strip()
-        if not line.startswith('#'):
-            break
-    wh = line.split()
-    w, h = map(int, wh)
-    sig = f.readline().strip()
-    assert sig == "255"
-    data = f.read()
-    f.close()
-    return w, h, data
-
 
 class GraphDisplay(Display):
     STATUSBARFONT = os.path.join(autopath.this_dir, 'VeraMoBd.ttf')
+    SCALE = 60
 
     def __init__(self, translator, functions=None):
         super(GraphDisplay, self).__init__()
@@ -182,15 +33,13 @@ class GraphDisplay(Display):
             for var in self.annotator.bindings:
                 self.variables_by_name[var.name] = var
 
-        graphs = []
         functions = functions or self.translator.functions
-        for func in functions:
-            graph = self.translator.getflowgraph(func)
-            graphs.append((graph.name, graph))
-        xdotfile = make_dot_graphs(functions[0].__name__, graphs, target='xdot')
-        pngfile = make_dot_graphs(functions[0].__name__, graphs, target='png')
-        self.viewer = GraphViewer(str(xdotfile), str(pngfile))
-        self.viewer.offsetx = (self.viewer.width - self.width) // 2
+        graphs = [self.translator.getflowgraph(func) for func in functions]
+        layout = build_layout(graphs)
+        self.viewer = GraphRenderer(self.screen, layout, self.SCALE)
+        # center horizonally
+        self.viewer.setoffset((self.viewer.width - self.width) // 2, 0)
+        self.sethighlight()
         self.statusbarinfo = None
         self.must_redraw = True
 
@@ -229,18 +78,26 @@ class GraphDisplay(Display):
             y += h
 
     def notifymousepos(self, pos):
-        word, text, name = self.viewer.at_position(pos)
+        word = self.viewer.at_position(pos)
         if word in self.variables_by_name:
             var = self.variables_by_name[word]
             s_value = self.annotator.binding(var)
             info = '%s: %s' % (var.name, s_value)
             self.setstatusbar(info)
+            self.sethighlight(word)
+
+    def sethighlight(self, word=None):
+        self.viewer.highlightwords = {}
+        for name in self.variables_by_name:
+            self.viewer.highlightwords[name] = ((128,0,0), None)
+        if word:
+            self.viewer.highlightwords[word] = ((255,255,80), (128,0,0))
 
     def run(self):
         dragging = None
         while 1:
             if self.must_redraw:
-                self.viewer.render(self)
+                self.viewer.render()
                 if self.statusbarinfo:
                     self.drawstatusbar()
                 pygame.display.flip()
@@ -252,8 +109,12 @@ class GraphDisplay(Display):
                 if pygame.event.peek([MOUSEMOTION]):
                     continue
                 if dragging:
-                    self.viewer.offsetx -= (event.pos[0] - dragging[0])
-                    self.viewer.offsety -= (event.pos[1] - dragging[1])
+                    dx = event.pos[0] - dragging[0]
+                    dy = event.pos[1] - dragging[1]
+                    if event.buttons[2]:   # right mouse button
+                        self.viewer.shiftscale(1.003 ** dy)
+                    else:
+                        self.viewer.shiftoffset(-2*dx, -2*dy)
                     dragging = event.pos
                     self.must_redraw = True
                 else:
