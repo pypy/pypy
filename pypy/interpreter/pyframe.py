@@ -5,6 +5,14 @@ from pypy.interpreter import eval, baseobjspace, gateway
 from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
+import opcode
+
+# Define some opcodes used
+g = globals()
+for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY
+POP_BLOCK END_FINALLY'''.split():
+    g[op] = opcode.opmap[op]
+HAVE_ARGUMENT = opcode.HAVE_ARGUMENT
 
 import __future__
 compiler_flags = 0
@@ -80,6 +88,7 @@ class PyFrame(eval.Frame):
                                 # dispatch() is abstract, see pyopcode.
                                 self.last_instr = self.next_instr
                                 executioncontext.bytecode_trace(self)
+                                self.next_instr = self.last_instr
                                 self.dispatch()
                         # catch asynchronous exceptions and turn them
                         # into OperationErrors
@@ -139,19 +148,123 @@ class PyFrame(eval.Frame):
         else:
             return space.wrap(self.f_lineno)
 
-##     def fset_f_lineno(space, w_self, w_f_lineo):
-##         "Returns the line number of the instruction currently being executed."
-##         f_lineo = space.int_w(w_f_lineo)
+    def fset_f_lineno(space, w_self, w_new_lineno):
+        "Returns the line number of the instruction currently being executed."
+        try:
+            new_lineno = space.int_w(w_new_lineno)
+        except OperationError, e:
+            raise OperationError(space.w_ValueError, space.wrap("lineno must be an integer"))
+            
+        self = space.interpclass_w(w_self)
+        if self.w_f_trace is None:
+            raise OperationError(space.w_ValueError, space.wrap("f_lineo can only be set by a trace function."))
 
-##         self = space.interpclass_w(w_self)
-##         if self.self.w_f_trace is None:
-##             raise OperationError(self.space.w_ValueError, space.wrap("f_lineo can only be set by a trace function."))
+        if new_lineno < self.code.co_firstlineno:
+            raise OperationError(space.w_ValueError, space.wrap("line %d comes before the current code." % new_lineno))
+        code = self.code.co_code
+        addr = 0
+        line = self.code.co_firstlineno
+        new_lasti = -1
+        offset = 0
+        lnotab = self.code.co_lnotab
+        for offset in xrange(0, len(lnotab), 2):
+            addr += ord(lnotab[offset])
+            line += ord(lnotab[offset + 1])
+            if line >= new_lineno:
+                new_lasti = addr
+                new_lineno = line
+                break
 
-##         if f_lineo < self.code.co_firstlineno:
-##             raise OperationError(self.space.w_ValueError, space.wrap("line %d comes before the current code." % f_lineo))
+        if new_lasti == -1:
+            raise OperationError(space.w_ValueError, space.wrap("line %d comes after the current code." % new_lineno))
 
-##         self.f_lineno = f_lineo
+        # Don't jump to a line with an except in it.
+        if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
+            raise OperationError(space.w_ValueError, space.wrap("can't jump to 'except' line as there's no exception"))
+            
 
+        # Don't jump into or out of a finally block.
+        f_lasti_setup_addr = -1
+        new_lasti_setup_addr = -1
+        blockstack = Stack()
+        addr = 0
+        while addr < len(code):
+            op = ord(code[addr])
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
+                blockstack.push([addr, False])
+            elif op == POP_BLOCK:
+                setup_op = ord(code[blockstack.top()[0]])
+                if setup_op == SETUP_FINALLY:
+                    blockstack.top()[1] = True
+                else:
+                    blockstack.pop()
+            elif op == END_FINALLY:
+                if not blockstack.empty():
+                    setup_op = ord(code[blockstack.top()[0]])
+                    if setup_op == SETUP_FINALLY:
+                        blockstack.pop()
+
+            if addr == new_lasti or addr == self.last_instr:
+                for setup_addr, in_finally in blockstack:
+                    if in_finally:
+                        if addr == new_lasti:
+                            new_lasti_setup_addr = setup_addr
+                        if addr == self.last_instr:
+                            f_lasti_setup_addr = setup_addr
+                        break
+                    
+            if op >= HAVE_ARGUMENT:
+                addr += 3
+            else:
+                addr += 1
+                
+        assert blockstack.empty()
+
+        if new_lasti_setup_addr != f_lasti_setup_addr:
+            raise OperationError(space.w_ValueError, space.wrap("can't jump into or out of a 'finally' block %d -> %d"%(f_lasti_setup_addr, new_lasti_setup_addr)))
+
+        if new_lasti < self.last_instr:
+            min_addr = new_lasti
+            max_addr = self.last_instr
+        else:
+            min_addr = self.last_instr
+            max_addr = new_lasti
+
+        delta_iblock = min_delta_iblock = 0
+        addr = min_addr
+        while addr < max_addr:
+            op = ord(code[addr])
+
+            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY):
+                delta_iblock += 1;
+            elif op == POP_BLOCK:
+                delta_iblock -= 1
+                if delta_iblock < min_delta_iblock:
+                    min_delta_iblock = delta_iblock
+
+            if op >= opcode.HAVE_ARGUMENT:
+                addr += 3
+            else:
+                addr += 1
+
+        f_iblock = self.blockstack.depth()
+        min_iblock = f_iblock + min_delta_iblock
+        if new_lasti > self.last_instr:
+            new_iblock = f_iblock + delta_iblock
+        else:
+            new_iblock = f_iblock - delta_iblock
+
+        if new_iblock > min_iblock:
+            raise OperationError(space.w_ValueError, space.wrap("can't jump into the middle of a block"))
+
+        while f_iblock > new_iblock:
+            block = self.blockstack.pop()
+            block.cleanup(self)
+            f_iblock -= 1
+            
+        self.f_lineno = new_lineno
+        self.last_instr = new_lasti
+            
     def get_last_lineno(self):
         "Returns the line number of the instruction currently being executed."
         return pytraceback.offset2lineno(self.code, self.next_instr-1)
