@@ -151,7 +151,14 @@ def pow__Long_Long_Long(space, w_long1, w_long2, w_long3):
     x = w_long1.longval
     y = w_long2.longval
     z = w_long3.longval
-    t = pow(x, y, z)
+    try:
+        t = pow(x, y, z)
+    except TypeError, e:
+        raise OperationError(space.w_TypeError,
+                             space.wrap(e.args[0]))
+    except ValueError, e:
+        raise OperationError(space.w_ValueError,
+                             space.wrap(e.args[0]))
     return W_LongObject(space, t)
 
 def neg__Long(space, w_long1):
