@@ -1,30 +1,29 @@
 import re, types, __builtin__
-from pypy.objspace.flow.model import Variable, Constant
+from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.annotation import model as annmodel
 from pypy.translator.typer import LLConst
+from pypy.translator import genc_op
 
 
 class CRepr:
     "A possible representation of a flow-graph variable as C-level variables."
 
-    def __init__(self, impl, err_check=None, parse_code=None):
+    def __init__(self, impl, parse_code=None, name=None):
         self.impl = impl   # list [(C type, prefix for variable name)]
-        self.err_check = err_check  # condition to check for error return value
         self.parse_code = parse_code  # character(s) for PyArg_ParseTuple()
+        self.name = name or '<C %s>' % ' + '.join(self.impl)
 
     def __repr__(self):
-        if hasattr(self, 'const'):
-            return '<C:= %r>' % (self.const,)
-        else:
-            return '<C: %s>' % ' + '.join(self.impl)
+        return self.name
 
 
 class CTypeSet:
     "A (small) set of C types that typer.LLFunction can manipulate."
 
-    R_VOID   = CRepr([])
-    R_INT    = CRepr(['int'],       err_check='< 0',     parse_code='i')
-    R_OBJECT = CRepr(['PyObject*'], err_check='== NULL', parse_code='O')
+    R_VOID     = CRepr([])
+    R_INT      = CRepr(['int'],       parse_code='i')
+    R_OBJECT   = CRepr(['PyObject*'], parse_code='O')
+    #R_DONTCARE = CRepr([])   # for uninitialized variables
 
     REPR_BY_CODE = {
         'v': R_VOID,
@@ -32,12 +31,23 @@ class CTypeSet:
         'o': R_OBJECT,
         }
 
+    rawoperations = {
+        'goto'   : genc_op.LoGoto,
+        'move'   : genc_op.LoMove,
+        'copy'   : genc_op.LoCopy,
+        'incref' : genc_op.LoIncref,
+        'decref' : genc_op.LoDecref,
+        'xdecref': genc_op.LoXDecref,
+        'comment': genc_op.LoComment,
+        'return' : genc_op.LoReturn,
+        }
+
     def __init__(self, genc, bindings):
         self.genc = genc
         self.bindings = bindings
         self.r_constants = {}
         self.r_tuples = {}
-        self.lloperations = {'convert': {}, 'release': {}}
+        self.lloperations = {'convert': {}}
         self.parse_operation_templates()
 
     # __________ methods required by LLFunction __________
@@ -60,6 +70,8 @@ class CTypeSet:
                 return self.tuple_representation(items_r)
             # fall-back
             return self.R_OBJECT
+        #if isinstance(var, UndefinedConstant):
+        #    return self.R_DONTCARE
         if isinstance(var, Constant):
             return self.constant_representation(var.value)
         raise TypeError, var
@@ -74,17 +86,7 @@ class CTypeSet:
             sig = (self.R_OBJECT,) * len(hltypes)
             if sig in opnewlist:
                 return False
-            def writer(*stuff):
-                content = stuff[:-2]
-                result = stuff[-2]
-                err = stuff[-1]
-                ls = ['if (!(%s = PyList_New(%d))) goto %s;' % (
-                    result, len(content), err)]
-                for i in range(len(content)):
-                    ls.append('PyList_SET_ITEM(%s, %d, %s); Py_INCREF(%s);' % (
-                        result, i, content[i], content[i]))
-                return '\n'.join(ls)
-            opnewlist[sig] = writer, True
+            opnewlist[sig] = genc_op.LoNewList
             return True   # retry
         if opname == 'OP_NEWTUPLE':
             opnewtuple = self.lloperations.setdefault('OP_NEWTUPLE', {})
@@ -92,27 +94,19 @@ class CTypeSet:
             sig = tuple(hltypes[:-1]) + (rt,)
             if sig in opnewtuple:
                 return False
-            opnewtuple[sig] = 'copy', False
+            opnewtuple[sig] = genc_op.LoCopy
+            # Note that we can use LoCopy to virtually build a tuple because
+            # the tuple representation 'rt' is just the collection of all the
+            # representations for the input args.
             return True   # retry
         if opname == 'OP_SIMPLE_CALL' and hltypes:
             opsimplecall = self.lloperations.setdefault('OP_SIMPLE_CALL', {})
             sig = (self.R_OBJECT,) * len(hltypes)
             if sig in opsimplecall:
                 return False
-            def writer(func, *stuff):
-                args = stuff[:-2]
-                result = stuff[-2]
-                err = stuff[-1]
-                format = '"' + 'O' * len(args) + '"'
-                args = (func, format) + args
-                return ('if (!(%s = PyObject_CallFunction(%s)))'
-                        ' goto %s;' % (result, ', '.join(args), err))
-            opsimplecall[sig] = writer, True
+            opsimplecall[sig] = genc_op.LoCallFunction
             return True   # retry
         return False
-
-    def knownanswer(self, llname):
-        return getattr(llname, 'known_answer', None)
 
     # ____________________________________________________________
 
@@ -127,26 +121,13 @@ class CTypeSet:
                 items_r = [self.constant_representation(x) for x in value]
                 return self.tuple_representation(items_r)
             # a constant doesn't need any C variable to be encoded
-            r = self.r_constants[key] = CRepr([])
+            r = self.r_constants[key] = CRepr([], name='<const %r>' % (value,))
             r.const = value
-            # returning a constant
-            def writer():
-                return 'return 0;'
-            self.lloperations['return'][r,] = writer, False
-            def writer():
-                return 'return -1;'
-            self.lloperations['returnerr'][r,] = writer, False
-            
+
             # but to convert it to something more general like an int or
             # a PyObject* we need to revive its value, which is done by
             # new conversion operations that we define now
-            conv = self.lloperations['convert']
             if isinstance(value, int):
-                # can convert the constant to a C int
-                def writer(z):
-                    return '%s = %d;' % (z, value)
-                conv[r, self.R_INT] = writer, False
-                writer.known_answer = [LLConst(self.R_INT, '%d' % value)]
                 # can convert the constant to a PyObject*
                 if value >= 0:
                     name = 'g_IntObj_%d' % value
@@ -154,6 +135,10 @@ class CTypeSet:
                     name = 'g_IntObj_minus%d' % abs(value)
                 self.can_convert_to_pyobj(r, 'PyInt_FromLong(%d)' % value,
                                           name)
+                # can convert the constant to a C int
+                self.register_conv(r, self.R_INT, genc_op.LoKnownAnswer.With(
+                    known_answer = [LLConst(self.R_INT, '%d' % value)],
+                    ))
             elif isinstance(value, str):
                 # can convert the constant to a PyObject*
                 self.can_convert_to_pyobj(r,
@@ -172,23 +157,10 @@ class CTypeSet:
                     sig.append(self.gethltype(v))
                 hltype = self.gethltype(llfunc.graph.getreturnvar())
                 sig.append(hltype)
-                if len(hltype.impl) == 0:   # no return value
-                    def writer(*stuff):
-                        args = stuff[:-1]
-                        err = stuff[-1]
-                        return 'if (%s(%s) < 0) goto %s;' % (
-                            llfunc.name, ', '.join(args), err)
-                elif len(hltype.impl) == 1:  # one LLVar for the return value
-                    def writer(*stuff):
-                        args = stuff[:-2]
-                        result = stuff[-2]
-                        err = stuff[-1]
-                        return ('if ((%s = %s(%s)) %s) goto %s;' % (
-                            result, llfunc.name, ', '.join(args),
-                            hltype.err_check, err))
-                else:
-                    XXX("to do")
-                ops[tuple(sig)] = writer, True
+                ops[tuple(sig)] = genc_op.LoCallPyFunction.With(
+                    llfunc = llfunc,
+                    hlrettype = hltype,
+                    )
             elif (isinstance(value, types.BuiltinFunctionType) and
                   value is getattr(__builtin__, value.__name__, None)):
                 # a function from __builtin__: can convert to PyObject*
@@ -202,38 +174,33 @@ class CTypeSet:
                 opname = 'CALL_' + value.__name__
                 if opname in self.lloperations:
                     ops = self.lloperations.setdefault('OP_SIMPLE_CALL', {})
-                    for sig, ll in self.lloperations[opname].items():
+                    for sig, llopcls in self.lloperations[opname].items():
                         sig = (r,) + sig
-                        ops[sig] = ll
+                        ops[sig] = llopcls
             elif (isinstance(value, (type, types.ClassType)) and
                   value in self.genc.llclasses):
                 # a user-defined class
                 ops = self.lloperations.setdefault('OP_SIMPLE_CALL', {})
                 # XXX do __init__
                 sig = (r, self.R_OBJECT)
-                def writer(res, err):
-                    return 'INSTANTIATE(%s, %s, %s)' % (
-                        self.genc.llclasses[value].name, res, err)
-                ops[sig] = writer, True
+                ops[sig] = genc_op.LoInstantiate.With(
+                    llclass = self.genc.llclasses[value],
+                    )
                 # OP_ALLOC_INSTANCE used by the constructor function xxx_new()
                 ops = self.lloperations.setdefault('OP_ALLOC_INSTANCE', {})
                 sig = (r, self.R_OBJECT)
-                def writer(res, err):
-                    return 'ALLOC_INSTANCE(%s, %s, %s)' % (
-                        self.genc.llclasses[value].name, res, err)
-                ops[sig] = writer, True
+                ops[sig] = genc_op.LoAllocInstance.With(
+                    llclass = self.genc.llclasses[value],
+                    )
             else:
                 print "// XXX not implemented: constant", key
             return r
 
     def can_convert_to_pyobj(self, r, initexpr, globalname):
-        conv = self.lloperations['convert']
-        def writer(z):
-            return '%s = %s; Py_INCREF(%s);' % (z, globalname, z)
-        conv[r, self.R_OBJECT] = writer, False
-        llconst = LLConst('PyObject*', globalname, initexpr,
-                          to_declare = bool(initexpr))
-        writer.known_answer = [llconst]
+        self.register_conv(r, self.R_OBJECT, genc_op.LoKnownAnswer.With(
+            known_answer = [LLConst('PyObject*', globalname, initexpr,
+                                    to_declare = bool(initexpr))],
+            ))
 
     def tuple_representation(self, items_r):
         # a tuple is implemented by several C variables or fields
@@ -245,50 +212,34 @@ class CTypeSet:
             impl = []
             for r in items_r:
                 impl += r.impl
-            rt = CRepr(impl)
-            if items_r:
-                rt.err_check = items_r[0].err_check
+            name = '<(%s)>' % ', '.join([str(r) for r in items_r])
+            rt = CRepr(impl, name=name)
             self.r_tuples[items_r] = rt
-            # can convert the tuple to a PyTupleObject only if each item can be
+
+            # we can convert any item in the tuple to obtain another tuple
+            # representation.
             conv = self.lloperations['convert']
-            also_using = []
-            for r in items_r:
-                if r == self.R_OBJECT:
-                    continue
-                if (r, self.R_OBJECT) not in conv:
-                    break
-                llname, can_fail = conv[r, self.R_OBJECT]
-                also_using.append(llname)
-            else:
-                def writer(*args):
-                    content = args[:-2]
-                    result = args[-2]
-                    err = args[-1]
-                    ls = ['{',
-                          'PyObject* o;',
-                          'if (!(%s = PyTuple_New(%d))) goto %s;' % (
-                                result, len(items_r), err)]
-                    j = 0
-                    for i in range(len(items_r)):
-                        r = items_r[i]
-                        if r == self.R_OBJECT:
-                            o = content[j]
-                            j = j+1
-                            ls.append('Py_INCREF(%s);' % o)
-                        else:
-                            o = 'o'
-                            llname, can_fail = conv[r, self.R_OBJECT]
-                            k = len(r.impl)
-                            args = content[j:j+k] + (o,)
-                            j = j+k
-                            if can_fail:
-                                args += (err,)
-                            ls.append(llname(*args))
-                        ls.append('PyTuple_SET_ITEM(%s, %d, %s);' %
-                                  (result, i, o))
-                    return '\n'.join(ls).replace('\n', '\n\t') + '\n}'
-                writer.also_using = also_using
-                conv[rt, self.R_OBJECT] = writer, True
+            for i in range(len(items_r)):
+                r = items_r[i]
+                for r_from, r_to in conv.keys():
+                    if r_from == r:
+                        target_r = list(items_r)
+                        target_r[i] = r_to
+                        rt_2 = self.tuple_representation(target_r)
+                        self.register_conv(rt, rt_2,
+                                           genc_op.LoConvertTupleItem.With(
+                            source_r = items_r,
+                            target_r = target_r,
+                            index    = i,
+                            ))
+
+            # a tuple containing only PyObject* can easily be converted to
+            # a PyTupleObject.  (For other kinds of tuple the conversion is
+            # indirect: all items can probably be converted, one by one, to
+            # PyObject*, and the conversions will be chained automatically.)
+            if items_r == (self.R_OBJECT,) * len(items_r):
+                self.register_conv(rt, self.R_OBJECT, genc_op.LoNewTuple)
+
             return rt
 
     def parse_operation_templates(self):
@@ -307,11 +258,50 @@ class CTypeSet:
         can_fail = formalargs.replace(' ','').endswith(',err')
         ops = self.lloperations.setdefault(opname, {})
         assert sig not in ops, llname
-        # the operation's low-level name is a callable that will
-        # produce the correct macro call
-        def writer(*args):
-            return llname + '(' + ', '.join(args) + ')'
-        ops.setdefault(sig, (writer, can_fail))
+        ops.setdefault(sig, genc_op.LoStandardOperation.With(
+            can_fail = can_fail,
+            llname   = llname,
+            ))
+
+    def register_conv(self, r_from, r_to, convopcls):
+        conv = self.lloperations['convert']
+        if r_from == r_to:
+            return
+        prevconvopcls = conv.get((r_from, r_to))
+        if prevconvopcls is not None:
+            if convert_length(prevconvopcls) > convert_length(convopcls):
+                # only replace a conversion with another if the previous one
+                # was a longer chain of conversions
+                del conv[r_from, r_to]
+            else:
+                return
+        #print 'conv: %s\t->\t%s' % (r_from, r_to)
+        convitems = conv.items()   # not iteritems()!
+        conv[r_from, r_to] = convopcls
+        # chain the conversion with any other possible conversion
+        for (r_from_2, r_to_2), convopcls_2 in convitems:
+            if r_to == r_from_2:
+                self.register_conv(r_from, r_to_2, genc_op.LoConvertChain.With(
+                    r_from         = r_from,
+                    r_middle       = r_to,
+                    r_to           = r_to_2,
+                    convert_length = convert_length(convopcls) +
+                                     convert_length(convopcls_2),
+                    ))
+            if r_to_2 == r_from:
+                self.register_conv(r_from_2, r_to, genc_op.LoConvertChain.With(
+                    r_from         = r_from_2,
+                    r_middle       = r_to_2,
+                    r_to           = r_to,
+                    convert_length = convert_length(convopcls_2) +
+                                     convert_length(convopcls),
+                    ))
+
+def convert_length(convopcls):
+    if issubclass(convopcls, genc_op.LoConvertChain):
+        return convopcls.convert_length
+    else:
+        return 1
 
 def c_str(s):
     "Return the C expression for the string 's'."
@@ -331,12 +321,3 @@ def manglestr(s):
                 c = '_%02x' % ord(c)
         l.append(c)
     return ''.join(l)
-
-def consts_used(writer):
-    "Enumerate the global constants that a writer function uses."
-    result = getattr(writer, 'known_answer', [])
-    if hasattr(writer, 'also_using'):
-        result = list(result)
-        for w in writer.also_using:
-            result += consts_used(w)
-    return result

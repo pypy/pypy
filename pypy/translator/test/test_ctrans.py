@@ -96,7 +96,8 @@ class TypedTestCase(testit.IntTestCase):
                 if isinstance(spec, tuple):
                     spec = spec[0] # use the first type only for the tests
                 argstypelist.append(spec)
-        t.annotate(argstypelist) 
+        a = t.annotate(argstypelist)
+        a.simplify()
         return t.ccompile()
 
     def test_set_attr(self):

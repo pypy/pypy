@@ -51,6 +51,13 @@
 #define OP_DELATTR_oov(x,y,err)     if ((PyObject_SetAttr(x,y,NULL))<0)goto err;
 #define OP_NEWSLICE_oooo(x,y,z,r,err)  if (!(r=PySlice_New(x,y,z)))    goto err;
 
+/* temporary hack */
+#define OP_GETITEM_ooi(x,y,r,err)   {                           \
+  PyObject* o = PyObject_GetItem(x,y);                          \
+  if (!o) goto err;                                             \
+  if ((r=PyInt_AsLong(o)) == -1 && PyErr_Occurred()) goto err;  \
+}
+
 
 /*** conversions ***/
 
@@ -58,9 +65,9 @@
 #define convert_so(c,l,r,err) if (!(r=PyString_FromStringAndSize(c,l)))goto err;
 #define convert_vo(r)         r = Py_None; Py_INCREF(r);
 
-#define convert_oi(x,r,err)   if ((r=PyInt_AsLong(x)) == -1             \
-                                  && PyErr_Occurred()) goto err;
-
+/*#define convert_oi(x,r,err)   if ((r=PyInt_AsLong(x)) == -1             \
+ *                                  && PyErr_Occurred()) goto err;
+ * -- should be done differently */
 
 /*** tests ***/
 
@@ -76,11 +83,6 @@
 
 
 /*** misc ***/
-
-#define return_i(n)             return n;
-#define return_o(o)             return o;
-#define returnerr_i()           return -1;
-#define returnerr_o()           return NULL;
 
 #define OP_EXCEPTION_ov(x)    /* XXX exceptions not implemented */
 

@@ -37,7 +37,7 @@ from pypy.translator.annrpython import RPythonAnnotator
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.genpyrex import GenPyrex
 from pypy.translator.gencl import GenCL
-from pypy.translator.genc import GenC
+from pypy.translator.genc import GenC, uniquemodulename
 from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring
 from pypy.translator.tool.buildpyxmodule import make_module_from_c
 from pypy.objspace.flow import FlowObjSpace
@@ -220,13 +220,13 @@ class Translator:
         """Returns compiled function, compiled using the C generator.
         """
         from pypy.tool.udir import udir
-        name = self.entrypoint.func_name
+        name = uniquemodulename(self.entrypoint.func_name)
         cfile = udir.join('%s.c' % name)
         f = cfile.open('w')
         GenC(f, self, name)
         f.close()
         mod = make_module_from_c(cfile)
-        return getattr(mod, name)
+        return getattr(mod, self.entrypoint.func_name)
 
     def call(self, *args):
         """Calls underlying Python function."""

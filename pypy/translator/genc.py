@@ -4,27 +4,36 @@ Generate a C source file from the flowmodel.
 """
 from __future__ import generators
 import autopath, os
-from pypy.translator.typer import LLFunction, LLOp, LLConst
+from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
+from pypy.objspace.flow.model import FunctionGraph, Block, Link
+from pypy.translator.typer import LLFunction, LLOp, LLVar, LLConst
 from pypy.translator.classtyper import LLClass
-from pypy.translator.genc_typeset import CTypeSet, consts_used
+from pypy.translator.genc_typeset import CTypeSet
+from pypy.translator.genc_op import ERROR_RETVAL
 
 # ____________________________________________________________
 
+def uniquemodulename(name, SEEN={}):
+    # never reuse the same module name within a Python session!
+    i = 0
+    while True:
+        i += 1
+        result = '%s_%d' % (name, i)
+        if result not in SEEN:
+            SEEN[result] = True
+            return result
+
+
 class GenC:
+    MODNAMES = {}
 
     def __init__(self, f, translator, modname=None):
         self.f = f
         self.translator = translator
-        self.modname = modname or translator.functions[0].__name__
+        self.modname = (modname or
+                        uniquemodulename(translator.functions[0].__name__))
         if translator.annotator:
             bindings = translator.annotator.bindings.copy()
-            # for simplicity, force the entry point's return type to be
-            # 'PyObject*'
-            try:
-                entrypoint = translator.functions[0]
-                del bindings[translator.flowgraphs[entrypoint].getreturnvar()]
-            except KeyError:
-                pass
         else:
             bindings = {}
         self.typeset = CTypeSet(self, bindings)
@@ -33,6 +42,7 @@ class GenC:
         self.llfunctions = {}; self.functionslist = []
         self.build_llclasses()
         self.build_llfunctions()
+        self.build_llentrypoint()
         self.gen_source()
 
     def gen_source(self):
@@ -64,7 +74,7 @@ class GenC:
         # entry point
         print >> f, self.C_SEP
         print >> f, self.C_ENTRYPOINT_HEADER % info
-        self.gen_entrypoint(self.translator.functions[0])
+        self.gen_entrypoint()
         print >> f, self.C_ENTRYPOINT_FOOTER % info
 
         # footer
@@ -104,18 +114,49 @@ class GenC:
             self.functionslist.append(llfunc)
             n += 1
 
+    def build_llentrypoint(self):
+        # create a LLFunc that calls the entry point function and returns
+        # whatever it returns, but converted to PyObject*.
+        main = self.translator.functions[0]
+        llmain = self.llfunctions[main]
+        inputargs = llmain.graph.getargs()
+        b = Block(inputargs)
+        v1 = Variable()
+        b.operations.append(SpaceOperation('simple_call',
+                                           [Constant(main)] + inputargs,
+                                           v1))
+        # finally, return v1
+        graph = FunctionGraph('entry_point', b)
+        b.closeblock(Link([v1], graph.returnblock))
+        llfunc = LLFunction(self.typeset, graph.name, graph)
+        self.functionslist.append(llfunc)
+
+    def get_llfunc_header(self, llfunc):
+        llargs, llret = llfunc.ll_header()
+        if len(llret) == 0:
+            retlltype = None
+        elif len(llret) == 1:
+            retlltype = llret[0].type
+        else:
+            # if there is more than one return LLVar, only the first one is
+            # returned and the other ones are returned via ptr output args
+            retlltype = llret[0].type
+            llargs += [LLVar(a.type+'*', 'output_'+a.name) for a in llret[1:]]
+        return llargs, retlltype
+
     def cfunction_header(self, llfunc):
-        llargs, rettype = llfunc.ll_header()
+        llargs, rettype = self.get_llfunc_header(llfunc)
         l = ['%s %s' % (a.type, a.name) for a in llargs]
         l = l or ['void']
         return 'static %s %s(%s)' % (rettype or 'int',
                                      llfunc.name,
                                      ', '.join(l))
 
-    def gen_entrypoint(self, func):
+    def gen_entrypoint(self):
         f = self.f
-        llfunc = self.llfunctions[func]
-        llargs, rettype = llfunc.ll_header()
+        llfunc = self.functionslist[-1]
+        llargs, rettype = self.get_llfunc_header(llfunc)
+        assert llfunc.name == 'entry_point', llfunc.name
         assert rettype == 'PyObject*', rettype
         l = []
         l2 = []
@@ -132,20 +173,22 @@ class GenC:
         l.insert(0, '"' + ''.join(formatstr) + '"')
         print >> f, '\tif (!PyArg_ParseTuple(args, %s))' % ', '.join(l)
         print >> f, '\t\treturn NULL;'
-        print >> f, '\treturn %s(%s);' % (llfunc.name, ', '.join(l2))
+        print >> f, '\treturn entry_point(%s);' % (', '.join(l2))
 
     def gen_cfunction(self, llfunc):
         f = self.f
 
         # generate the body of the function
-        body = list(llfunc.ll_body())
+        llargs, rettype = self.get_llfunc_header(llfunc)
+        error_retval = LLConst(rettype, ERROR_RETVAL[rettype])
+        body = list(llfunc.ll_body([error_retval]))
 
         # print the declaration of the new global constants needed by
         # the current function
         to_declare = []
         for line in body:
             if isinstance(line, LLOp):
-                for a in line.args + consts_used(line.name):
+                for a in line.using():
                     if isinstance(a, LLConst) and a.to_declare:
                         to_declare.append(a)
                         if a.initexpr:
@@ -163,11 +206,10 @@ class GenC:
         print >> f, '{'
 
         # collect and print all the local variables from the body
-        llargs, rettype = llfunc.ll_header()
-        lllocals = llargs[:]
+        lllocals = []
         for line in body:
             if isinstance(line, LLOp):
-                lllocals += line.args
+                lllocals += line.using()
         seen = {}
         for a in llargs:
             seen[a] = True
@@ -181,66 +223,15 @@ class GenC:
         # print the body
         for line in body:
             if isinstance(line, LLOp):
-                writer = line.name
-                if isinstance(writer, str):   # special low-level operation
-                    meth = getattr(self, 'lloperation_' + writer)
-                    code = meth(line)
-                else:
-                    # line.name is actually not a string, but a callable that
-                    # generates the C code.
-                    args = [a.name for a in line.args]
-                    if line.errtarget:
-                        args.append(line.errtarget)
-                    code = writer(*args)
+                code = line.write()
                 if code:
                     for codeline in code.split('\n'):
                         print >> f, '\t' + codeline
-
             elif line:  # label
                 print >> f, '   %s:' % line
             else:  # empty line
                 print >> f
         print >> f, '}'
-
-    def lloperation_move(self, line):
-        vx, vy = line.args
-        return '%s = %s;' % (vy.name, vx.name)
-
-    def lloperation_goto(self, line):
-        return 'goto %s;' % line.errtarget
-
-    def lloperation_copy(self, line):
-        ls = []
-        assert len(line.args) % 2 == 0
-        half = len(line.args) // 2
-        for i in range(half):
-            vx = line.args[i]
-            vy = line.args[half+i]
-            ls.append('%s = %s;' % (vy.name, vx.name))
-            if vy.type == 'PyObject*':
-                ls.append('Py_INCREF(%s);' % vy.name)
-        return ' '.join(ls)
-
-    def lloperation_incref(self, line):
-        ls = []
-        for a in line.args:
-            if a.type == 'PyObject*':
-                ls.append('Py_INCREF(%s);' % a.name)
-        return ' '.join(ls)
-
-    def lloperation_decref(self, line):
-        ls = []
-        for a in line.args:
-            if a.type == 'PyObject*':
-                ls.append('Py_DECREF(%s);' % a.name)
-        return ' '.join(ls)
-
-    def lloperation_xdecref(self, line):
-        ls = []
-        for a in line.args:
-            if a.type == 'PyObject*':
-                ls.append('Py_XDECREF(%s);' % a.name)
-        return ' '.join(ls)
 
     def gen_cclass(self, llclass):
         f = self.f

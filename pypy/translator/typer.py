@@ -3,7 +3,7 @@ Graph-to-low-level transformer for C/Assembler code generators.
 """
 
 from __future__ import generators
-from pypy.objspace.flow.model import Constant, Variable, Block, Link, traverse
+from pypy.objspace.flow.model import Variable, Block, Link, traverse
 from pypy.translator.simplify import remove_direct_loops
 
 
@@ -20,12 +20,20 @@ class LLConst(LLVar):
         self.initexpr = initexpr
         self.to_declare = to_declare
 
-class LLOp:
-    "A low-level operation."
-    def __init__(self, name, args, errtarget=None):
-        self.name = name    # low-level operation name
-        self.args = args    # list of LLVars
+class LLOp(object):
+    "A low-level operation.  Must be subclassed, one subclass per operation."
+    can_fail = False  # boolean attribute: should an errtarget be generated?
+
+    def __init__(self, args, errtarget=None):
+        self.args = args            # list of LLVars
         self.errtarget = errtarget  # label to jump to in case of error
+
+    def optimize(self, typer):
+        """If the operation can be statically optimized, this method can
+        return a list [new-llvars-for-result] and optionally generate
+        replacement operations by calling typer.operation() or
+        typer.convert()."""
+        return None
 
 class TypingError(Exception):
     pass
@@ -43,32 +51,32 @@ class TypingError(Exception):
 #
 #   lloperations = {
 #       'opname': {
-#           (tuple-of-hltypes): (low-level-name, flag-can-fail),
+#           (tuple-of-hltypes): subclass-of-LLOp,
 #           ... },
 #       ...}
 #       This dict contains the known signatures of each space operation.
 #       Special opnames:
-#         'convert' x y : convert some x to y
-#         'caseXXX'   z : fails (i.e. jump to errlabel) if z is not XXX
-#         'return'    z : z is the return value of the function
-#         'returnerr' z : same, but return an error code instead of z's content
+#         'convert' v w : convert some v to w
+#         'caseXXX'   v : fails (i.e. jump to errlabel) if v is not XXX
 #
-#       Low-level-only operation names:
+#   rawoperations = {
+#       'opname': subclass-of-LLOp,
+#       ...}
+#       Low-level-only operations on raw LLVars (as opposed to llopeerations,
+#       which are on flow.model.Variables as found in SpaceOperations):
 #         'goto'          : fails unconditionally (i.e. jump to errlabel)
 #         'move'    x y   : raw copy of the LLVar x to the LLVar y
 #         'copy' x1 x2.. y1 y2...: raw copy x1 to y1, x2 to y2, etc. and incref
 #         'incref'  x y...: raw incref of the LLVars x, y, etc.
 #         'decref'  x y...: raw decref of the LLVars x, y, etc.
 #         'xdecref' x y...: raw xdecref of the LLVars x, y, etc.
+#         'comment'       : comment (text is in errtarget)
+#         'return'  x y...: return the value stored in the LLVars
 #
 #   def typingerror(self, opname, hltypes):
 #       Called when no match is found in lloperations.  This function must
 #       either extend lloperations and return True to retry, or return
 #       False to fail.
-#
-#   def knownanswer(self, llname):
-#       Optionally returns a list of LLVars that give the well-known, constant
-#       answer to the low-level operation name 'llname'; else return None.
 # ____________________________________________________________
 
 
@@ -79,8 +87,8 @@ class LLTyper:
         self.gethltype    = typeset.gethltype
         self.represent    = typeset.represent
         self.lloperations = typeset.lloperations
+        self.rawoperations= typeset.rawoperations
         self.typingerror  = typeset.typingerror
-        self.knownanswer  = typeset.knownanswer
         self.hltypes = {}
         self.llreprs = {}
 
@@ -123,26 +131,17 @@ class LLFunction(LLTyper):
         v = self.graph.getreturnvar()
         self.makevar(v)
         llret = self.llreprs[v]
-        if len(llret) == 0:
-            retlltype = None
-        elif len(llret) == 1:
-            retlltype = llret[0].type
-        else:
-            XXX("to do")
-        return llrepr, retlltype
+        return llrepr, llret
 
-    def ll_body(self):
+    def ll_body(self, error_retvals):
         """
         Get the body by flattening and low-level-izing the flow graph.
         Enumerates low-level operations: LLOps with labels inbetween (strings).
         """
         self.blockname = {}
-        v = self.graph.getreturnvar()
-        self.makevar(v)
-        sig = (self.hltypes[v],)
-        llname, can_fail = self.lloperations['returnerr'][sig]
-        assert not can_fail
-        self.release_root = ReleaseNode(None, LLOp(llname, []), None)
+        llreturn = self.rawoperations['return']
+        assert not llreturn.can_fail
+        self.release_root = ReleaseNode(None, llreturn(error_retvals), None)
         allblocks = []
         
         # collect all blocks
@@ -156,7 +155,7 @@ class LLFunction(LLTyper):
 
         # generate an incref for each input argument
         for v in self.graph.getargs():
-            yield LLOp('incref', self.llreprs[v])
+            yield self.rawoperations['incref'](self.llreprs[v])
 
         # generate the body of each block
         for block in allblocks:
@@ -165,7 +164,7 @@ class LLFunction(LLTyper):
             yield ''   # empty line
 
         # generate the code to handle errors
-        for op in self.release_root.error_code():
+        for op in self.release_root.error_code(self.rawoperations):
             yield op
 
     def generate_block(self, block):
@@ -198,13 +197,16 @@ class LLFunction(LLTyper):
         elif hasattr(block, 'exc_type'):
             XXX("to do")
         else:
-            self.operation('return', block.inputargs)
+            llreturn = self.rawoperations['return']
+            assert not llreturn.can_fail
+            llrepr = self.llreprs[block.inputargs[0]]
+            self.blockops.append(llreturn(llrepr))
         return self.blockops
 
     # __________ Type checking and conversion routines __________
 
     def mark_release(self, v):
-        llop = LLOp('decref', self.llreprs[v])
+        llop = self.rawoperations['decref'](self.llreprs[v])
         # make a new node for the release tree
         self.to_release = ReleaseNode(v, llop, self.to_release)
 
@@ -236,7 +238,7 @@ class LLFunction(LLTyper):
         llsigs = self.lloperations.get(opname, {})
         for sig in variants(tuple(args_t), directions):
             if sig in llsigs:
-                llname, can_fail = llsigs[sig]
+                llopcls = llsigs[sig]
                 break
         else:
             retry = self.typingerror(opname, tuple(args_t))
@@ -250,52 +252,66 @@ class LLFunction(LLTyper):
                 except RuntimeError:   # infinite recursion
                     pass
             raise TypingError([opname] + args_t)
-        # check for some operations that have an existing well-known answer
-        # that doesn't involve side-effects, so that we can just provide
-        # this answer and not generate any LLOp.
-        if result:
-            if llname == 'copy':
-                # patch self.llreprs and we're done
-                llrepr = []
-                for v in args:
-                    llrepr += self.llreprs[v]
-                self.llreprs[result] = llrepr
-                return
-            llrepr = self.knownanswer(llname)
-            if llrepr is not None:
-                # patch self.llreprs and we're done
-                self.llreprs[result] = llrepr
-                return
         # convert input args to temporary variables
         llargs = []
         for v, v_t, s_t in zip(args, args_t, sig):
             if v_t != s_t:
-                tmp = Variable()
-                self.makevar(tmp, hltype=s_t)
-                self.operation('convert', [v], tmp)
-                v = tmp
-            llargs += self.llreprs[v]
+                llargs += self.convert(v_t, self.llreprs[v], s_t)
+            else:
+                llargs += self.llreprs[v]
         # generate an error label if the operation can fail
-        if can_fail and errlabel is None:
+        if llopcls.can_fail and errlabel is None:
             errlabel = self.to_release.getlabel()
         # case-by-case analysis of the result variable
         if result:
             if args_t[-1] == sig[-1]:
                 # the result has the correct type
-                llargs += self.llreprs[result]
-                self.blockops.append(LLOp(llname, llargs, errlabel))
-                self.mark_release(result)
+                tmp = result
             else:
                 # the result has to be converted
                 tmp = Variable()
                 self.makevar(tmp, hltype=sig[-1])
-                llargs += self.llreprs[tmp]
-                self.blockops.append(LLOp(llname, llargs, errlabel))
+            llargs += self.llreprs[tmp]
+            llop = llopcls(llargs, errlabel)
+            constantllreprs = llop.optimize(self)
+            if constantllreprs is not None:
+                # the result is a constant: patch the llrepr of result,
+                # i.e. replace its LLVars with the given constants which
+                # will be used by the following operations.
+                assert len(constantllreprs) == len(self.llreprs[tmp])
+                diffs = []
+                interesting = False
+                for x, y in zip(constantllreprs, self.llreprs[tmp]):
+                    if x != y:
+                        diffs.append('%s = %s;' % (y.name, x.name))
+                        interesting = interesting or not isinstance(x, LLConst)
+                self.llreprs[tmp] = list(constantllreprs)
+                if interesting:
+                    llcomment = self.rawoperations['comment']
+                    self.blockops.append(llcomment([], '%s: %s' % (
+                        opname, ' '.join(diffs))))
+            else:
+                # common case: emit the LLOp.
                 self.mark_release(tmp)
+                self.blockops.append(llop)
+            if tmp is not result:
                 self.operation('convert', [tmp], result)
         else:
             # no result variable
-            self.blockops.append(LLOp(llname, llargs, errlabel))
+            self.blockops.append(llopcls(llargs, errlabel))
+
+    def convert(self, inputtype, inputrepr, outputtype, outputrepr=None):
+        tmpin = Variable()
+        self.makevar(tmpin, hltype=inputtype)
+        tmpout = Variable()
+        self.makevar(tmpout, hltype=outputtype)
+        self.llreprs[tmpin] = inputrepr
+        if outputrepr is None:
+            outputrepr = self.llreprs[tmpout]
+        else:
+            self.llreprs[tmpout] = outputrepr
+        self.operation('convert', [tmpin], tmpout)
+        return self.llreprs[tmpout]
 
     def goto(self, exit):
         # generate the exit.args -> target.inputargs copying operations
@@ -316,9 +332,10 @@ class LLFunction(LLTyper):
             # the order of the move operations
             current_refcnt = {}
             needed_refcnt = {}
+            llmove = self.rawoperations['move']
             for v, w in zip(exitargs, exit.target.inputargs):
                 for x, y in zip(self.llreprs[v], self.llreprs[w]):
-                    self.blockops.append(LLOp('move', [x, y]))
+                    self.blockops.append(llmove([x, y]))
                     needed_refcnt.setdefault(x, 0)
                     needed_refcnt[x] += 1
             # list all variables that go out of scope: by default
@@ -330,17 +347,20 @@ class LLFunction(LLTyper):
             # now adjust all reference counters: first increfs, then decrefs
             # (in case a variable to decref points to the same objects than
             #  another variable to incref).
+            llincref = self.rawoperations['incref']
             for x, needed in needed_refcnt.items():
                 current_refcnt.setdefault(x, 0)
                 while current_refcnt[x] < needed:
-                    self.blockops.append(LLOp('incref', [x]))
+                    self.blockops.append(llincref([x]))
                     current_refcnt[x] += 1
+            lldecref = self.rawoperations['decref']
             for x, needed in needed_refcnt.items():
                 while current_refcnt[x] > needed:
-                    self.blockops.append(LLOp('decref', [x]))
+                    self.blockops.append(lldecref([x]))
                     current_refcnt[x] -= 1
             # finally jump to the target block
-            self.blockops.append(LLOp('goto', [], self.blockname[exit.target]))
+            llgoto = self.rawoperations['goto']
+            self.blockops.append(llgoto([], self.blockname[exit.target]))
         finally:
             self.to_release = to_release_copy
             # after a call to goto() we are back to generating ops for
@@ -387,13 +407,14 @@ class ReleaseNode:
             yield self
             self = self.parent
 
-    def error_code(self):
+    def error_code(self, rawoperations):
         N = len(self.accessible_children)
         for i in range(N):
             if i > 0:
-                yield LLOp('goto', [], self.getlabel())
+                llgoto = rawoperations['goto']
+                yield llgoto([], self.getlabel())
             node = self.accessible_children[~i]
-            for op in node.error_code():
+            for op in node.error_code(rawoperations):
                 yield op
         if self.label:
             yield self.label
