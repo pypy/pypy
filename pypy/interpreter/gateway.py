@@ -73,6 +73,8 @@ class BuiltinCodeSignature(Signature):
                         #"print scope_w"
                         ] + setfastscope
         setfastscope = '\n  '.join(setfastscope)
+        # Python 2.2 SyntaxError without newline: Bug #501622
+        setfastscope += '\n'
         d = {}
         exec setfastscope in globals(),d
         exec """
