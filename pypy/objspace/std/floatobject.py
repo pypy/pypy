@@ -175,6 +175,8 @@ def div__Float_Float(space, w_float1, w_float2):
 	# no overflow
     return W_FloatObject(space, z)
 
+truediv__Float_Float = div__Float_Float
+
 def floordiv__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval

@@ -211,14 +211,16 @@ def divmod__Int_Int(space, w_int1, w_int2):
     m = x % y
     return space.wrap((z,m))
 
+old_style_div = 1 / 2 == 1 // 2
 def div__Int_Int(space, w_int1, w_int2):
     # Select the proper div
-    if 1 / 2 == 1 // 2:
+    if old_style_div:
         return _floordiv(space, w_int1, w_int2)
     else:
         return _truediv(space, w_int1, w_int2)
 
 floordiv__Int_Int = _floordiv
+truediv__Int_Int = _truediv
 
 # helper for pow()
 def _impl_int_int_pow(space, iv, iw, iz=None):

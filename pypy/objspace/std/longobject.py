@@ -107,6 +107,8 @@ def div__Long_Long(space, w_long1, w_long2):
     z = x / y
     return W_LongObject(space, z)
 
+truediv__Long_Long = div__Long_Long
+
 def floordiv__Long_Long(space, w_long1, w_long2):
     x = w_long1.longval
     y = w_long2.longval
