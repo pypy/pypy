@@ -127,10 +127,10 @@ class W_KnownKeysContainer(W_Object):
 
 class W_ConstantIterator(W_Object):
 
-    def __init__(self, seq, start=0):
+    def __init__(self, seq, start=0, changed=False):
         self.seq = seq
         self.start = start
-        self.changed = False
+        self.changed = changed
 
     def argsrepr(self):
         return "%r, %r, chg=%r" % (self.seq, self.start,self.changed)
@@ -138,8 +138,10 @@ class W_ConstantIterator(W_Object):
     def __eq__(self,other):
         return self is other
 
-    def clone(self):
-        return W_ConstantIterator(self.seq, self.start)
+    def clone(self, changed=None):
+        if changed is None:
+            changed = self.changed
+        return W_ConstantIterator(self.seq, self.start, changed)
 
     def next(self):
         try:
@@ -290,7 +292,7 @@ def union(r1, r2):
     """Return the union of two wrappers."""
     if r1 is r2:
         if isinstance(r1,W_ConstantIterator):
-            if r1.changed: return r1.clone()
+            if r1.changed: return r1.clone(changed=False)
         return r1
     if r1 is None:
         return r2
