@@ -25,5 +25,19 @@ class TestStdObjectSpace(testsupport.TestCase):
                             self.space.newstring,
                             [w(-1)])
 
+    def test_newlist(self):
+        w = self.space.wrap
+        l = range(10)
+        w_l = self.space.newlist([w(i) for i in l])
+        self.assertEqual_w(w_l, w(l))
+
+    def test_newdict(self):
+        w = self.space.wrap
+        items = [(0, 1), (3, 4)]
+        items_w = [(w(k), w(v)) for (k, v) in items]
+        d = dict(items)
+        w_d = self.space.newdict(items_w)
+        self.assertEqual_w(w_d, w(d))
+        
 if __name__ == '__main__':
     testsupport.main()

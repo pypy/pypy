@@ -65,6 +65,10 @@ class StdObjSpace(ObjSpace):
         if isinstance(x, str):
             import stringobject
             return stringobject.W_StringObject(self, x)
+        if isinstance(x, dict):
+            items_w = [(self.wrap(k), self.wrap(v)) for (k, v) in x.iteritems()]
+            import dictobject
+            return dictobject.W_DictObject(self, items_w)
         #if isinstance(x, float):
         #    import floatobject
         #    return floatobject.W_FloatObject(self, x)

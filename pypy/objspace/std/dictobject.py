@@ -33,6 +33,10 @@ class W_DictObject(W_Object):
         W_Object.__init__(w_self, space)
         w_self.data = [ (w_key,Cell(w_value)) for w_key,w_value in list_pairs_w ]
 
+    def __repr__(w_self):
+        """ representation for debugging purposes """
+        return "%s(%s)" % (w_self.__class__.__name__, w_self.data)
+
     def non_empties(self):
         return [ (w_key,cell) for w_key,cell in self.data if not cell.is_empty()]
 
@@ -139,3 +143,19 @@ def getattr_dict(space, w_dict, w_attr):
     raise FailedToImplement(space.w_AttributeError)
 
 StdObjSpace.getattr.register(getattr_dict, W_DictObject, W_ANY)
+
+def eq_dict_dict(space, w_left, w_right):
+    if len(w_left.data) != len(w_right.data):
+        return self.newbool(0)
+    for w_k, cell in w_left.data:
+        try:
+            w_v = space.getitem(w_right, w_k)
+        except OperationError:
+            return self.newbool(0)
+        r = space.is_true(space.eq(cell.w_value, w_v))
+        if not r:
+            return r
+    return space.newbool(1)
+        
+
+StdObjSpace.eq.register(eq_dict_dict, W_DictObject, W_DictObject)
