@@ -2,6 +2,9 @@ import autopath
 from pypy.tool import test
 
 class FloatTestCase(test.AppTestCase):
+    def setUp(self):
+        self.space = test.objspace('std')
+
     def test_float_callable(self):
         self.assertEquals(0.125, float(0.125))
 

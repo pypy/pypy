@@ -45,6 +45,8 @@ class TestW_IterObject(test.TestCase):
         self.body0(w_iter)
 
 class TestW_IterObjectApp(test.AppTestCase):
+    def setUp(self):
+        self.space = test.objspace('std')
 
     def test_user_iter(self):
         class C:

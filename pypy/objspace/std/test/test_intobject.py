@@ -7,7 +7,8 @@ from pypy.tool import test
 class TestW_IntObject(test.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        # only run when testing StdObjSpace
+        test.objspace('std')
 
     def tearDown(self):
         pass
@@ -287,6 +288,9 @@ class TestW_IntObject(test.TestCase):
         self.assertEquals(self.space.unwrap(result), hex(x))
 
 class AppIntTest(test.AppTestCase):
+    def setUp(self):
+        self.space = test.objspace('std')
+
     def test_int_callable(self):
         self.assertEquals(42, int(42))
 

@@ -2,6 +2,8 @@ import autopath
 from pypy.tool import test
 
 class TestUserObject(test.AppTestCase):
+    def setUp(self):
+        self.space = test.objspace('std')
 
     def test_emptyclass(self):
         class empty: pass

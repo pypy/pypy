@@ -6,7 +6,7 @@ from pypy.objspace.std.restricted_int import *
 class Test_r_int(test.TestCase):
 
     def setUp(self):
-        pass
+        space = test.objspace('std')
 
     def tearDown(self):
         pass
@@ -63,10 +63,10 @@ class Test_r_int(test.TestCase):
                     cmp = f(left(larg), right(rarg))
                     self.assertEquals(res, cmp)
                     
-class Test_r_uint(unittest.TestCase):
+class Test_r_uint(test.TestCase):
 
     def setUp(self):
-        pass
+        space = test.objspace('std')
 
     def tearDown(self):
         pass

@@ -19,6 +19,9 @@ class TestInstMethObject(test.TestCase):
         
 
 class TestInstMethObjectApp(test.AppTestCase):
+    def setUp(self):
+        self.space = test.objspace('std')
+
     def test_callBound(self):
         boundMethod = [1,2,3].__len__
         self.assertEquals(boundMethod(), 3)

@@ -35,6 +35,9 @@ class TestW_SliceObject(test.TestCase):
                             w_slice.indices, w(10))
 
 class Test_SliceObject(test.AppTestCase):
+    def setUp(self):
+        self.space = test.objspace('std')
+
     def test_new(self):
         def cmp_slice(sl1, sl2):
             for attr in "start", "stop", "step":

@@ -5,7 +5,7 @@ from pypy.tool import test
 class TestW_NoneObject(test.TestCase):
 
     def setUp(self):
-        self.space = test.objspace()
+        self.space = test.objspace('std')
 
     def tearDown(self):
         pass

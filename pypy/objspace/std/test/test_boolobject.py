@@ -5,7 +5,7 @@ from pypy.tool import test
 class TestW_BoolObject(test.TestCase):
 
     def setUp(self):
-        self.space = test.objspace()
+        self.space = test.objspace('std')
         self.true = self.space.w_True
         self.false = self.space.w_False
         self.wrap = self.space.wrap

@@ -1,10 +1,12 @@
 import autopath
 from pypy.tool import test
 from pypy.objspace.ann.objspace import W_Object, W_Anything, W_Integer, W_Constant
-from pypy.objspace.ann.objspace import AnnotationObjSpace
 from pypy.interpreter import baseobjspace, pyframe
 
 class TestAnnotationObjSpace(test.TestCase):
+
+    def setUp(self):
+        self.space = test.objspace('ann')
 
     def codetest(self, source, functionname, args_w):
         """Compile and run the given code string, and then call its function
@@ -19,9 +21,6 @@ class TestAnnotationObjSpace(test.TestCase):
         w_func = self.space.wrap(func)
         w_kwds = self.space.newdict([])
         return self.space.call(w_func, w_args, w_kwds)
-
-    def setUp(self):
-        self.space = test.objspace('ann')
 
     def test_any2any(self):
         x = self.codetest("def f(i):\n"
