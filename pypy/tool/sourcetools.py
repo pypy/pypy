@@ -50,8 +50,7 @@ class NiceCompile(object):
         """ instance NiceCompile (src, args) -- formats src with args
             and returns a code object ready for exec. Instead of <string>,
             the code object has correct co_filename and line numbers.
-            Note that this is meant for function definitions, only.
-            The statemens may be left aligned.
+            Indentation is automatically corrected.
         """
         if self.srctext:
             p = self.srctext.index(src)
@@ -63,7 +62,7 @@ class NiceCompile(object):
             content = line.strip()
             if content and not content.startswith('#'):
                 break
-        # see if firstline is indented
+        # see if first line is indented
         if line and line[0].isspace():
             # fake a block
             prelines -= 1
