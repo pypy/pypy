@@ -171,10 +171,16 @@ class AppTestCaseMethod(py.test.Item):
         self.w_teardown = w_teardown 
 
     def run(self, driver):      
+        space = self.space
         try: 
-            self.space.call_function(self.w_setup) 
+            space.call_function(self.w_setup) 
             try: 
-                self.execute() 
+                try: 
+                    self.execute() 
+                except OperationError, e:
+                    if e.match(space, space.w_KeyboardInterrupt):
+                        raise KeyboardInterrupt
+                    raise  
             finally: 
                 self.space.call_function(self.w_teardown) 
         except OperationError, e: 
