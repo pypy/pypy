@@ -7,6 +7,7 @@ from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeFunction, SomeMethod
+from pypy.annotation.model import SomeBuiltin
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
 
@@ -25,7 +26,10 @@ for opname in BINARY_OPERATIONS:
 class __extend__(pairtype(SomeObject, SomeObject)):
 
     def union((obj1, obj2)):
-        return SomeObject()
+        if obj1 == obj2:
+            return obj1
+        else:
+            return SomeObject()
 
     def inplace_add((obj1, obj2)):
         return pair(obj1, obj2).add()   # default
@@ -159,6 +163,16 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
     def union((ins1, ins2)):
         basedef = ins1.classdef.commonbase(ins2.classdef)
         return SomeInstance(basedef)
+
+
+class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
+
+    def union((bltn1, bltn2)):
+        if bltn1.analyser != bltn2.analyser:
+            return SomeObject()
+        else:
+            s_self = unionof(bltn1.s_self, bltn2.s_self)
+            return SomeBuiltin(bltn1.analyser, s_self)
 
 
 class __extend__(pairtype(SomeFunction, SomeFunction)):

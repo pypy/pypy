@@ -34,8 +34,9 @@ class __extend__(SomeObject):
         # a corresponding method to handle it
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            if hasattr(obj, 'method_' + attr):
-                return SomeBuiltin(getattr(obj, 'method_' + attr))
+            analyser = getattr(obj.__class__, 'method_' + attr, None)
+            if analyser is not None:
+                return SomeBuiltin(analyser, obj)
         return SomeObject()
 
     def classattribute(obj, classdef):
@@ -115,11 +116,13 @@ class __extend__(SomeInstance):
 
 class __extend__(SomeBuiltin):
 
-    def call(meth, args, kwds):
+    def call(bltn, args, kwds):
         # decode the arguments and forward the analysis of this builtin
         arglist = decode_simple_call(args, kwds)
         if arglist is not None:
-            return meth.analyser(*arglist)
+            if bltn.s_self is not None:
+                arglist.insert(0, bltn.s_self)
+            return bltn.analyser(*arglist)
         else:
             return SomeObject()
 
