@@ -1,169 +1,7 @@
 #!/bin/env python
 # -*- coding: LATIN-1 -*-
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\translator\\geninterplevel.py'
-## function    'test_exceptions'
-## firstlineno 1253
-##SECTION##
-# global declarations
-# global object gfunc_test_exceptions
-# global object gbltinmethod_keys
-# global object g48dict
-# global object gs_keys
-
-def test_exceptions(space, *args_w):
-    """ enumerate all exceptions """
-    kwlist = []
-    _args_w = args_w
-    defaults_w = ()
-    funcname = "test_exceptions"
-    PyArg_ParseMini(space, funcname, 0, 0, _args_w, defaults_w)
-    return fastf_test_exceptions(space, )
-f_test_exceptions = globals().pop("test_exceptions")
-
-def test_exceptions(space, ):
-    """ enumerate all exceptions """
-
-    w_0=w_0=w_1=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            _tup = space.newtuple([])
-            w_0 = space.call(gbltinmethod_keys, _tup)
-            w_1 = w_0
-            goto = 2
-
-        if goto == 2:
-            return w_1
-fastf_test_exceptions = globals().pop("test_exceptions")
-
-# global declarations
-# global object gs_MemoryError
-# global object gcls_MemoryError
-# global object gcls_StandardError
-# global object gcls_Exception
-# global object gs___module__
-# global object gs_pypy_appspace__exceptions
-# global object gs___doc__
-# global object gs_Exception
-# global object gs_StandardError
-# global object gs_ImportError
-# global object gcls_ImportError
-# global object gs_RuntimeError
-# global object gcls_RuntimeError
-# global object gs_UnicodeTranslateError
-# global object gcls_UnicodeTranslateError
-# global object gcls_UnicodeError
-# global object gcls_ValueError
-# global object gs_ValueError
-# global object gs_UnicodeError
-# global object gs_KeyError
-# global object gcls_KeyError
-# global object gcls_LookupError
-# global object gs_LookupError
-# global object gs_SyntaxWarning
-# global object gcls_SyntaxWarning
-# global object gcls_Warning
-# global object gs_Warning
-# global object gs_StopIteration
-# global object gcls_StopIteration
-# global object gs_PendingDeprecationWarning
-# global object gcls_PendingDeprecationWarning
-# global object gs_EnvironmentError
-# global object gcls_EnvironmentError
-# global object gs_SyntaxError
-# global object gcls_SyntaxError
-# global object gs_OSError
-# global object gcls_OSError
-# global object gs_DeprecationWarning
-# global object gcls_DeprecationWarning
-# global object gs_FloatingPointError
-# global object gcls_FloatingPointError
-# global object gcls_ArithmeticError
-# global object gs_ArithmeticError
-# global object gs_ReferenceError
-# global object gcls_ReferenceError
-# global object gs_NameError
-# global object gcls_NameError
-# global object gs_OverflowWarning
-# global object gcls_OverflowWarning
-# global object gs_IOError
-# global object gcls_IOError
-# global object gs_FutureWarning
-# global object gcls_FutureWarning
-# global object gs_SystemExit
-# global object gcls_SystemExit
-# global object gs_EOFError
-# global object gcls_EOFError
-# global object gs___file__
-# global object gs_D___pypy__dist__pypy__appspace__
-# global object gs_TabError
-# global object gcls_TabError
-# global object gcls_IndentationError
-# global object gs_IndentationError
-# global object gs_ZeroDivisionError
-# global object gcls_ZeroDivisionError
-# global object gs_UnicodeEncodeError
-# global object gcls_UnicodeEncodeError
-# global object gs_SystemError
-# global object gcls_SystemError
-# global object gs___name__
-# global object gs_AssertionError
-# global object gcls_AssertionError
-# global object gs_UnicodeDecodeError
-# global object gcls_UnicodeDecodeError
-# global object gs_TypeError
-# global object gcls_TypeError
-# global object gs_IndexError
-# global object gcls_IndexError
-# global object gs_RuntimeWarning
-# global object gcls_RuntimeWarning
-# global object gs_KeyboardInterrupt
-# global object gcls_KeyboardInterrupt
-# global object gs_UserWarning
-# global object gcls_UserWarning
-# global object gs_TaskletExit
-# global object gcls_TaskletExit
-# global object gs_UnboundLocalError
-# global object gcls_UnboundLocalError
-# global object gs_NotImplementedError
-# global object gcls_NotImplementedError
-# global object gs_AttributeError
-# global object gcls_AttributeError
-# global object gs_OverflowError
-# global object gcls_OverflowError
-# global object gs_WindowsError
-# global object gcls_WindowsError
-# global object gs___init__
-# global object gfunc_UnicodeDecodeError___init__
-# global object gs___str__
-# global object gfunc_UnicodeDecodeError___str__
-# global object gfunc_UnicodeEncodeError___init__
-# global object gfunc_UnicodeEncodeError___str__
-# global object gfunc_SystemExit___init__
-# global object gfunc_SyntaxError___init__
-# global object gfunc_SyntaxError___str__
-# global object gs_filename
-# global object gs_lineno
-# global object gs_msg
-# global object gs__emptystr_
-# global object gs_offset
-# global object gs_print_file_and_line
-# global object gs_text
-# global object gfunc_EnvironmentError___init__
-# global object gfunc_EnvironmentError___str__
-# global object gfunc_KeyError___str__
-# global object gfunc_UnicodeTranslateError___init__
-# global object gfunc_UnicodeTranslateError___str__
-# global object gs___getitem__
-# global object gfunc_Exception___getitem__
-# global object gfunc_Exception___init__
-# global object gfunc_Exception___str__
-
-##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__getitem__'
 ## firstlineno 5
 ##SECTION##
@@ -194,7 +32,7 @@ def __getitem__(space, w_self_1, w_idx_3):
 fastf_Exception___getitem__ = globals().pop("__getitem__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 9
 ##SECTION##
@@ -225,7 +63,7 @@ def __init__(space, w_self_1, w_args_2):
 fastf_Exception___init__ = globals().pop("__init__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 13
 ##SECTION##
@@ -297,7 +135,7 @@ def __str__(space, w_self_1):
 fastf_Exception___str__ = globals().pop("__str__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 41
 ##SECTION##
@@ -355,7 +193,7 @@ def __init__(space, w_self_3, w_args_1):
 fastf_UnicodeTranslateError___init__ = globals().pop("__init__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 51
 ##SECTION##
@@ -422,7 +260,7 @@ def __str__(space, w_self_1):
 fastf_UnicodeTranslateError___str__ = globals().pop("__str__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 69
 ##SECTION##
@@ -488,9 +326,9 @@ def __str__(space, w_self_1):
 fastf_KeyError___str__ = globals().pop("__str__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__init__'
-## firstlineno 94
+## firstlineno 91
 ##SECTION##
 def __init__(space, *args_w):
     kwlist = ["self"]
@@ -585,9 +423,9 @@ def __init__(space, w_self_3, w_args_1):
 fastf_EnvironmentError___init__ = globals().pop("__init__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__str__'
-## firstlineno 108
+## firstlineno 105
 ##SECTION##
 # global declarations
 # global object gs_errno
@@ -642,130 +480,9 @@ def __str__(space, w_self_1):
 fastf_EnvironmentError___str__ = globals().pop("__str__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__init__'
-## firstlineno 128
-##SECTION##
-# global declaration
-# global object gi_5
-
-def __init__(space, *args_w):
-    kwlist = ["self"]
-    w_args_1 = space.newtuple(list(args_w[1:]))
-    _args_w = args_w[:1]
-    defaults_w = ()
-    funcname = "__init__"
-    w_self_3, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
-    return fastf_UnicodeEncodeError___init__(space, w_self_3, w_args_1)
-f_UnicodeEncodeError___init__ = globals().pop("__init__")
-
-def __init__(space, w_self_3, w_args_1):
-
-    w_argc_0=w_argc_0=w_2=w_4=v5=w_12=w_self_6=w_args_7=w_argc_8=None
-    w_9=w_9=w_10=w_11=w_13=w_14=w_15=w_16=w_17=w_18=w_19=w_20=w_21=None
-    w_22=w_22=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_argc_0 = space.len(w_args_1)
-            w_2 = space.setattr(w_self_3, gs_args, w_args_1)
-            w_4 = space.eq(w_argc_0, gi_5)
-            v5 = space.is_true(w_4)
-            if v5 == True:
-                (w_self_6, w_args_7, w_argc_8, w_9, w_10, w_11) = (w_self_3,
-                 w_args_1, w_argc_0, w_2, w_4, v5)
-                goto = 2
-            else:
-                assert v5 == False
-                w_12 = space.w_None
-                goto = 3
-
-        if goto == 2:
-            w_13 = space.getitem(w_args_7, gi_0)
-            w_14 = space.setattr(w_self_6, gs_encoding, w_13)
-            w_15 = space.getitem(w_args_7, gi_1)
-            w_16 = space.setattr(w_self_6, gs_object, w_15)
-            w_17 = space.getitem(w_args_7, gi_2)
-            w_18 = space.setattr(w_self_6, gs_start, w_17)
-            w_19 = space.getitem(w_args_7, gi_3)
-            w_20 = space.setattr(w_self_6, gs_end, w_19)
-            w_21 = space.getitem(w_args_7, gi_4)
-            w_22 = space.setattr(w_self_6, gs_reason, w_21)
-            w_12 = space.w_None
-            goto = 3
-
-        if goto == 3:
-            return w_12
-fastf_UnicodeEncodeError___init__ = globals().pop("__init__")
-
-##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
-## function    '__str__'
-## firstlineno 139
-##SECTION##
-# global declarations
-# global object gs_encoding
-# global object gs_encoding_
-# global object gbltinmethod_join_3
-
-def __str__(space, *args_w):
-    kwlist = ["self"]
-    _args_w = args_w
-    defaults_w = ()
-    funcname = "__str__"
-    w_self_1, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
-    return fastf_UnicodeEncodeError___str__(space, w_self_1)
-f_UnicodeEncodeError___str__ = globals().pop("__str__")
-
-def __str__(space, w_self_1):
-
-    w_0=w_0=w_2=w_3=w_4=w_5=w_6=w_7=w_8=w_9=w_10=w_11=w_12=w_13=w_14=None
-    w_15=w_15=w_16=w_17=w_18=w_19=w_res_20=w_21=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_0 = space.getattr(w_self_1, gs_object)
-            _tup = space.newtuple([w_0])
-            w_2 = space.call(space.w_str, _tup)
-            w_3 = space.add(gs_object_, w_2)
-            w_4 = space.getattr(w_self_1, gs_end)
-            _tup = space.newtuple([w_4])
-            w_5 = space.call(space.w_str, _tup)
-            w_6 = space.add(gs_end_, w_5)
-            w_7 = space.getattr(w_self_1, gs_encoding)
-            _tup = space.newtuple([w_7])
-            w_8 = space.call(space.w_str, _tup)
-            w_9 = space.add(gs_encoding_, w_8)
-            w_10 = space.getattr(w_self_1, gs_args)
-            _tup = space.newtuple([w_10])
-            w_11 = space.call(space.w_str, _tup)
-            w_12 = space.add(gs_args_, w_11)
-            w_13 = space.getattr(w_self_1, gs_start)
-            _tup = space.newtuple([w_13])
-            w_14 = space.call(space.w_str, _tup)
-            w_15 = space.add(gs_start_, w_14)
-            w_16 = space.getattr(w_self_1, gs_reason)
-            _tup = space.newtuple([w_16])
-            w_17 = space.call(space.w_str, _tup)
-            w_18 = space.add(gs_reason_, w_17)
-            w_19 = space.newlist([w_3, w_6, w_9, w_12, w_15, w_18])
-            _tup = space.newtuple([w_19])
-            w_res_20 = space.call(gbltinmethod_join_3, _tup)
-            w_21 = w_res_20
-            goto = 2
-
-        if goto == 2:
-            return w_21
-fastf_UnicodeEncodeError___str__ = globals().pop("__str__")
-
-##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
-## function    '__init__'
-## firstlineno 179
+## firstlineno 149
 ##SECTION##
 def __init__(space, *args_w):
     kwlist = ["self"]
@@ -840,9 +557,9 @@ def __init__(space, w_self_3, w_args_1):
 fastf_SyntaxError___init__ = globals().pop("__init__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__str__'
-## firstlineno 191
+## firstlineno 161
 ##SECTION##
 # global declaration
 # global object gbltinmethod_join_2
@@ -879,9 +596,9 @@ def __str__(space, w_self_1):
 fastf_SyntaxError___str__ = globals().pop("__str__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__init__'
-## firstlineno 205
+## firstlineno 175
 ##SECTION##
 # global declaration
 # global object gs_code
@@ -966,9 +683,9 @@ def __init__(space, w_self_4, w_args_1):
 fastf_SystemExit___init__ = globals().pop("__init__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__init__'
-## firstlineno 240
+## firstlineno 210
 ##SECTION##
 def __init__(space, *args_w):
     kwlist = ["self"]
@@ -1022,9 +739,9 @@ def __init__(space, w_self_3, w_args_1):
 fastf_UnicodeDecodeError___init__ = globals().pop("__init__")
 
 ##SECTION##
-## filename    'd:\\pypy\\dist\\pypy\\appspace\\_exceptions.py'
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
 ## function    '__str__'
-## firstlineno 251
+## firstlineno 221
 ##SECTION##
 # global declaration
 # global object gbltinmethod_join_4
@@ -1082,6 +799,285 @@ def __str__(space, w_self_1):
 fastf_UnicodeDecodeError___str__ = globals().pop("__str__")
 
 ##SECTION##
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
+## function    '__init__'
+## firstlineno 270
+##SECTION##
+# global declaration
+# global object gi_5
+
+def __init__(space, *args_w):
+    kwlist = ["self"]
+    w_args_1 = space.newtuple(list(args_w[1:]))
+    _args_w = args_w[:1]
+    defaults_w = ()
+    funcname = "__init__"
+    w_self_3, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    return fastf_UnicodeEncodeError___init__(space, w_self_3, w_args_1)
+f_UnicodeEncodeError___init__ = globals().pop("__init__")
+
+def __init__(space, w_self_3, w_args_1):
+
+    w_argc_0=w_argc_0=w_2=w_4=v5=w_12=w_self_6=w_args_7=w_argc_8=None
+    w_9=w_9=w_10=w_11=w_13=w_14=w_15=w_16=w_17=w_18=w_19=w_20=w_21=None
+    w_22=w_22=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_argc_0 = space.len(w_args_1)
+            w_2 = space.setattr(w_self_3, gs_args, w_args_1)
+            w_4 = space.eq(w_argc_0, gi_5)
+            v5 = space.is_true(w_4)
+            if v5 == True:
+                (w_self_6, w_args_7, w_argc_8, w_9, w_10, w_11) = (w_self_3,
+                 w_args_1, w_argc_0, w_2, w_4, v5)
+                goto = 2
+            else:
+                assert v5 == False
+                w_12 = space.w_None
+                goto = 3
+
+        if goto == 2:
+            w_13 = space.getitem(w_args_7, gi_0)
+            w_14 = space.setattr(w_self_6, gs_encoding, w_13)
+            w_15 = space.getitem(w_args_7, gi_1)
+            w_16 = space.setattr(w_self_6, gs_object, w_15)
+            w_17 = space.getitem(w_args_7, gi_2)
+            w_18 = space.setattr(w_self_6, gs_start, w_17)
+            w_19 = space.getitem(w_args_7, gi_3)
+            w_20 = space.setattr(w_self_6, gs_end, w_19)
+            w_21 = space.getitem(w_args_7, gi_4)
+            w_22 = space.setattr(w_self_6, gs_reason, w_21)
+            w_12 = space.w_None
+            goto = 3
+
+        if goto == 3:
+            return w_12
+fastf_UnicodeEncodeError___init__ = globals().pop("__init__")
+
+##SECTION##
+## filename    '/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.py'
+## function    '__str__'
+## firstlineno 281
+##SECTION##
+# global declarations
+# global object gs_encoding
+# global object gs_encoding_
+# global object gbltinmethod_join_3
+
+def __str__(space, *args_w):
+    kwlist = ["self"]
+    _args_w = args_w
+    defaults_w = ()
+    funcname = "__str__"
+    w_self_1, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    return fastf_UnicodeEncodeError___str__(space, w_self_1)
+f_UnicodeEncodeError___str__ = globals().pop("__str__")
+
+def __str__(space, w_self_1):
+
+    w_0=w_0=w_2=w_3=w_4=w_5=w_6=w_7=w_8=w_9=w_10=w_11=w_12=w_13=w_14=None
+    w_15=w_15=w_16=w_17=w_18=w_19=w_res_20=w_21=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_0 = space.getattr(w_self_1, gs_object)
+            _tup = space.newtuple([w_0])
+            w_2 = space.call(space.w_str, _tup)
+            w_3 = space.add(gs_object_, w_2)
+            w_4 = space.getattr(w_self_1, gs_end)
+            _tup = space.newtuple([w_4])
+            w_5 = space.call(space.w_str, _tup)
+            w_6 = space.add(gs_end_, w_5)
+            w_7 = space.getattr(w_self_1, gs_encoding)
+            _tup = space.newtuple([w_7])
+            w_8 = space.call(space.w_str, _tup)
+            w_9 = space.add(gs_encoding_, w_8)
+            w_10 = space.getattr(w_self_1, gs_args)
+            _tup = space.newtuple([w_10])
+            w_11 = space.call(space.w_str, _tup)
+            w_12 = space.add(gs_args_, w_11)
+            w_13 = space.getattr(w_self_1, gs_start)
+            _tup = space.newtuple([w_13])
+            w_14 = space.call(space.w_str, _tup)
+            w_15 = space.add(gs_start_, w_14)
+            w_16 = space.getattr(w_self_1, gs_reason)
+            _tup = space.newtuple([w_16])
+            w_17 = space.call(space.w_str, _tup)
+            w_18 = space.add(gs_reason_, w_17)
+            w_19 = space.newlist([w_3, w_6, w_9, w_12, w_15, w_18])
+            _tup = space.newtuple([w_19])
+            w_res_20 = space.call(gbltinmethod_join_3, _tup)
+            w_21 = w_res_20
+            goto = 2
+
+        if goto == 2:
+            return w_21
+fastf_UnicodeEncodeError___str__ = globals().pop("__str__")
+
+##SECTION##
+## filename    'geninterplevel.py'
+## function    'test_exceptions'
+## firstlineno 1253
+##SECTION##
+# global declarations
+# global object gfunc_test_exceptions
+# global object gbltinmethod_keys
+# global object g46dict
+# global object gs_keys
+
+def test_exceptions(space, *args_w):
+    """ enumerate all exceptions """
+    kwlist = []
+    _args_w = args_w
+    defaults_w = ()
+    funcname = "test_exceptions"
+    PyArg_ParseMini(space, funcname, 0, 0, _args_w, defaults_w)
+    return fastf_test_exceptions(space, )
+f_test_exceptions = globals().pop("test_exceptions")
+
+def test_exceptions(space, ):
+    """ enumerate all exceptions """
+
+    w_0=w_0=w_1=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            _tup = space.newtuple([])
+            w_0 = space.call(gbltinmethod_keys, _tup)
+            w_1 = w_0
+            goto = 2
+
+        if goto == 2:
+            return w_1
+fastf_test_exceptions = globals().pop("test_exceptions")
+
+# global declarations
+# global object gs_MemoryError
+# global object gcls_MemoryError
+# global object gcls_StandardError
+# global object gcls_Exception
+# global object gs___module__
+# global object gs_pypy_appspace__exceptions
+# global object gs___doc__
+# global object gs_Exception
+# global object gs_StandardError
+# global object gs_ImportError
+# global object gcls_ImportError
+# global object gs_RuntimeError
+# global object gcls_RuntimeError
+# global object gs_UnicodeTranslateError
+# global object gcls_UnicodeTranslateError
+# global object gcls_UnicodeError
+# global object gcls_ValueError
+# global object gs_ValueError
+# global object gs_UnicodeError
+# global object gs_KeyError
+# global object gcls_KeyError
+# global object gcls_LookupError
+# global object gs_LookupError
+# global object gs_StopIteration
+# global object gcls_StopIteration
+# global object gs_SyntaxWarning
+# global object gcls_SyntaxWarning
+# global object gcls_Warning
+# global object gs_Warning
+# global object gs_EnvironmentError
+# global object gcls_EnvironmentError
+# global object gs_OSError
+# global object gcls_OSError
+# global object gs_DeprecationWarning
+# global object gcls_DeprecationWarning
+# global object gs_FloatingPointError
+# global object gcls_FloatingPointError
+# global object gcls_ArithmeticError
+# global object gs_ArithmeticError
+# global object gs_ReferenceError
+# global object gcls_ReferenceError
+# global object gs_NameError
+# global object gcls_NameError
+# global object gs_OverflowWarning
+# global object gcls_OverflowWarning
+# global object gs_IOError
+# global object gcls_IOError
+# global object gs_FutureWarning
+# global object gcls_FutureWarning
+# global object gs_ZeroDivisionError
+# global object gcls_ZeroDivisionError
+# global object gs_SystemExit
+# global object gcls_SystemExit
+# global object gs_EOFError
+# global object gcls_EOFError
+# global object gs___file__
+# global object gs__home_arigo_svn_pypy_dist_pypy_a
+# global object gs_TabError
+# global object gcls_TabError
+# global object gcls_IndentationError
+# global object gcls_SyntaxError
+# global object gs_SyntaxError
+# global object gs_IndentationError
+# global object gs_UnicodeEncodeError
+# global object gcls_UnicodeEncodeError
+# global object gs_SystemError
+# global object gcls_SystemError
+# global object gs___name__
+# global object gs_AssertionError
+# global object gcls_AssertionError
+# global object gs_UnicodeDecodeError
+# global object gcls_UnicodeDecodeError
+# global object gs_TypeError
+# global object gcls_TypeError
+# global object gs_IndexError
+# global object gcls_IndexError
+# global object gs_RuntimeWarning
+# global object gcls_RuntimeWarning
+# global object gs_KeyboardInterrupt
+# global object gcls_KeyboardInterrupt
+# global object gs_UserWarning
+# global object gcls_UserWarning
+# global object gs_PendingDeprecationWarning
+# global object gcls_PendingDeprecationWarning
+# global object gs_UnboundLocalError
+# global object gcls_UnboundLocalError
+# global object gs_NotImplementedError
+# global object gcls_NotImplementedError
+# global object gs_AttributeError
+# global object gcls_AttributeError
+# global object gs_OverflowError
+# global object gcls_OverflowError
+# global object gs___init__
+# global object gfunc_UnicodeDecodeError___init__
+# global object gs___str__
+# global object gfunc_UnicodeDecodeError___str__
+# global object gfunc_UnicodeEncodeError___init__
+# global object gfunc_UnicodeEncodeError___str__
+# global object gfunc_SyntaxError___init__
+# global object gfunc_SyntaxError___str__
+# global object gs_filename
+# global object gs_lineno
+# global object gs_msg
+# global object gs__emptystr_
+# global object gs_offset
+# global object gs_print_file_and_line
+# global object gs_text
+# global object gfunc_SystemExit___init__
+# global object gfunc_EnvironmentError___init__
+# global object gfunc_EnvironmentError___str__
+# global object gfunc_KeyError___str__
+# global object gfunc_UnicodeTranslateError___init__
+# global object gfunc_UnicodeTranslateError___str__
+# global object gs___getitem__
+# global object gfunc_Exception___getitem__
+# global object gfunc_Exception___init__
+# global object gfunc_Exception___str__
+
+##SECTION##
 #*************************************************************
 
 def inittest_exceptions_1(space):
@@ -1091,10 +1087,38 @@ def inittest_exceptions_1(space):
 
     from pypy.interpreter.gateway import interp2app
     m.gfunc_test_exceptions = space.wrap(interp2app(f_test_exceptions))
-    m.g48dict = space.newdict([])
+    m.g46dict = space.newdict([])
     m.gs_keys = space.wrap('keys')
-    m.gbltinmethod_keys = space.getattr(g48dict, gs_keys)
-    from pypy.translator.geninterplevel import PyArg_ParseMini
+    m.gbltinmethod_keys = space.getattr(g46dict, gs_keys)
+    def PyArg_ParseMini(space, name, minargs, maxargs, args_w, defaults_w):
+        err = None
+        if len(args_w) < minargs:
+            txt = "%s() takes at least %d argument%s (%d given)"
+            plural = ['s', ''][minargs == 1]
+            err = (name, minargs, plural, len(args_w))
+        if len(args_w) > maxargs:
+            plural = ['s', ''][maxargs == 1]
+            if minargs == maxargs:
+                if minargs == 0:
+                    txt = '%s() takes no arguments (%d given)'
+                    err = (name, len(args_w))
+                elif minargs == 1:
+                    txt = '%s() takes exactly %d argument%s (%d given)'
+                    err = (name, maxargs, plural, len(args_w))
+            else:
+                txt = '%s() takes at most %d argument%s (%d given)'
+                err = (name, maxargs, plural, len(args_w))
+        if err:
+            w_txt = space.wrap(txt)
+            w_tup = space.wrap(err)
+            w_txt = space.mod(w_txt, w_tup)
+            raise OperationError(space.w_TypeError, w_txt)
+    
+        # finally, we create the result ;-)
+        res_w = args_w + defaults_w[len(args_w) - minargs:]
+        assert len(res_w) == maxargs
+        return res_w
+    
     m.PyArg_ParseMini = PyArg_ParseMini
     from pypy.interpreter.error import OperationError
     m.OperationError = OperationError
@@ -1125,7 +1149,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_MemoryError, _bases, _dic])
     m.gcls_MemoryError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_MemoryError, gcls_MemoryError)
+    space.setitem(g46dict, gs_MemoryError, gcls_MemoryError)
     m.gs_ImportError = space.wrap('ImportError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1134,7 +1158,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_ImportError, _bases, _dic])
     m.gcls_ImportError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_ImportError, gcls_ImportError)
+    space.setitem(g46dict, gs_ImportError, gcls_ImportError)
     m.gs_RuntimeError = space.wrap('RuntimeError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1143,7 +1167,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_RuntimeError, _bases, _dic])
     m.gcls_RuntimeError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_RuntimeError, gcls_RuntimeError)
+    space.setitem(g46dict, gs_RuntimeError, gcls_RuntimeError)
     m.gs_UnicodeTranslateError = space.wrap('UnicodeTranslateError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1168,7 +1192,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_UnicodeError])
     _args = space.newtuple([gs_UnicodeTranslateError, _bases, _dic])
     m.gcls_UnicodeTranslateError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_UnicodeTranslateError, gcls_UnicodeTranslateError)
+    space.setitem(g46dict, gs_UnicodeTranslateError, gcls_UnicodeTranslateError)
     m.gs_KeyError = space.wrap('KeyError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1185,7 +1209,16 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_LookupError])
     _args = space.newtuple([gs_KeyError, _bases, _dic])
     m.gcls_KeyError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_KeyError, gcls_KeyError)
+    space.setitem(g46dict, gs_KeyError, gcls_KeyError)
+    m.gs_StopIteration = space.wrap('StopIteration')
+    _dic = space.newdict([])
+    space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
+    _doc = space.wrap("""Signal the end from iterator.next().""")
+    space.setitem(_dic, gs___doc__, _doc)
+    _bases = space.newtuple([gcls_Exception])
+    _args = space.newtuple([gs_StopIteration, _bases, _dic])
+    m.gcls_StopIteration = space.call(space.w_type, _args)
+    space.setitem(g46dict, gs_StopIteration, gcls_StopIteration)
     m.gs_SyntaxWarning = space.wrap('SyntaxWarning')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1202,25 +1235,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_Warning])
     _args = space.newtuple([gs_SyntaxWarning, _bases, _dic])
     m.gcls_SyntaxWarning = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_SyntaxWarning, gcls_SyntaxWarning)
-    m.gs_StopIteration = space.wrap('StopIteration')
-    _dic = space.newdict([])
-    space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
-    _doc = space.wrap("""Signal the end from iterator.next().""")
-    space.setitem(_dic, gs___doc__, _doc)
-    _bases = space.newtuple([gcls_Exception])
-    _args = space.newtuple([gs_StopIteration, _bases, _dic])
-    m.gcls_StopIteration = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_StopIteration, gcls_StopIteration)
-    m.gs_PendingDeprecationWarning = space.wrap('PendingDeprecationWarning')
-    _dic = space.newdict([])
-    space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
-    _doc = space.wrap("""Base class for warnings about features which will be deprecated in the future.""")
-    space.setitem(_dic, gs___doc__, _doc)
-    _bases = space.newtuple([gcls_Warning])
-    _args = space.newtuple([gs_PendingDeprecationWarning, _bases, _dic])
-    m.gcls_PendingDeprecationWarning = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_PendingDeprecationWarning, gcls_PendingDeprecationWarning)
+    space.setitem(g46dict, gs_SyntaxWarning, gcls_SyntaxWarning)
     m.gs_EnvironmentError = space.wrap('EnvironmentError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1229,17 +1244,8 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_EnvironmentError, _bases, _dic])
     m.gcls_EnvironmentError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_EnvironmentError, gcls_EnvironmentError)
-    m.gs_SyntaxError = space.wrap('SyntaxError')
-    _dic = space.newdict([])
-    space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
-    _doc = space.wrap("""Invalid syntax.""")
-    space.setitem(_dic, gs___doc__, _doc)
-    _bases = space.newtuple([gcls_StandardError])
-    _args = space.newtuple([gs_SyntaxError, _bases, _dic])
-    m.gcls_SyntaxError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_SyntaxError, gcls_SyntaxError)
-    space.setitem(g48dict, gs_LookupError, gcls_LookupError)
+    space.setitem(g46dict, gs_EnvironmentError, gcls_EnvironmentError)
+    space.setitem(g46dict, gs_LookupError, gcls_LookupError)
     m.gs_OSError = space.wrap('OSError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1248,7 +1254,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_EnvironmentError])
     _args = space.newtuple([gs_OSError, _bases, _dic])
     m.gcls_OSError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_OSError, gcls_OSError)
+    space.setitem(g46dict, gs_OSError, gcls_OSError)
     m.gs_DeprecationWarning = space.wrap('DeprecationWarning')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1257,8 +1263,8 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_Warning])
     _args = space.newtuple([gs_DeprecationWarning, _bases, _dic])
     m.gcls_DeprecationWarning = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_DeprecationWarning, gcls_DeprecationWarning)
-    space.setitem(g48dict, gs_UnicodeError, gcls_UnicodeError)
+    space.setitem(g46dict, gs_DeprecationWarning, gcls_DeprecationWarning)
+    space.setitem(g46dict, gs_UnicodeError, gcls_UnicodeError)
     m.gs_FloatingPointError = space.wrap('FloatingPointError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1275,7 +1281,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_ArithmeticError])
     _args = space.newtuple([gs_FloatingPointError, _bases, _dic])
     m.gcls_FloatingPointError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_FloatingPointError, gcls_FloatingPointError)
+    space.setitem(g46dict, gs_FloatingPointError, gcls_FloatingPointError)
     m.gs_ReferenceError = space.wrap('ReferenceError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1284,7 +1290,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_ReferenceError, _bases, _dic])
     m.gcls_ReferenceError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_ReferenceError, gcls_ReferenceError)
+    space.setitem(g46dict, gs_ReferenceError, gcls_ReferenceError)
     m.gs_NameError = space.wrap('NameError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1293,7 +1299,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_NameError, _bases, _dic])
     m.gcls_NameError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_NameError, gcls_NameError)
+    space.setitem(g46dict, gs_NameError, gcls_NameError)
     m.gs_OverflowWarning = space.wrap('OverflowWarning')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1302,7 +1308,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_Warning])
     _args = space.newtuple([gs_OverflowWarning, _bases, _dic])
     m.gcls_OverflowWarning = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_OverflowWarning, gcls_OverflowWarning)
+    space.setitem(g46dict, gs_OverflowWarning, gcls_OverflowWarning)
     m.gs_IOError = space.wrap('IOError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1311,8 +1317,8 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_EnvironmentError])
     _args = space.newtuple([gs_IOError, _bases, _dic])
     m.gcls_IOError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_IOError, gcls_IOError)
-    space.setitem(g48dict, gs_ValueError, gcls_ValueError)
+    space.setitem(g46dict, gs_IOError, gcls_IOError)
+    space.setitem(g46dict, gs_ValueError, gcls_ValueError)
     m.gs_FutureWarning = space.wrap('FutureWarning')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1321,7 +1327,16 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_Warning])
     _args = space.newtuple([gs_FutureWarning, _bases, _dic])
     m.gcls_FutureWarning = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_FutureWarning, gcls_FutureWarning)
+    space.setitem(g46dict, gs_FutureWarning, gcls_FutureWarning)
+    m.gs_ZeroDivisionError = space.wrap('ZeroDivisionError')
+    _dic = space.newdict([])
+    space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
+    _doc = space.wrap("""Second argument to a division or modulo operation was zero.""")
+    space.setitem(_dic, gs___doc__, _doc)
+    _bases = space.newtuple([gcls_ArithmeticError])
+    _args = space.newtuple([gs_ZeroDivisionError, _bases, _dic])
+    m.gcls_ZeroDivisionError = space.call(space.w_type, _args)
+    space.setitem(g46dict, gs_ZeroDivisionError, gcls_ZeroDivisionError)
     m.gs_SystemExit = space.wrap('SystemExit')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1330,8 +1345,8 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_Exception])
     _args = space.newtuple([gs_SystemExit, _bases, _dic])
     m.gcls_SystemExit = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_SystemExit, gcls_SystemExit)
-    space.setitem(g48dict, gs_Exception, gcls_Exception)
+    space.setitem(g46dict, gs_SystemExit, gcls_SystemExit)
+    space.setitem(g46dict, gs_Exception, gcls_Exception)
     m.gs_EOFError = space.wrap('EOFError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1340,12 +1355,20 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_EOFError, _bases, _dic])
     m.gcls_EOFError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_EOFError, gcls_EOFError)
-    space.setitem(g48dict, gs_StandardError, gcls_StandardError)
+    space.setitem(g46dict, gs_EOFError, gcls_EOFError)
+    space.setitem(g46dict, gs_StandardError, gcls_StandardError)
     m.gs___file__ = space.wrap('__file__')
-    m.gs_D___pypy__dist__pypy__appspace__ = space.wrap('D:\\pypy\\dist\\pypy\\appspace\\_exceptions.pyc')
-    space.setitem(g48dict, gs___file__, gs_D___pypy__dist__pypy__appspace__)
+    m.gs__home_arigo_svn_pypy_dist_pypy_a = space.wrap('/home/arigo/svn/pypy/dist/pypy/appspace/_exceptions.pyc')
+    space.setitem(g46dict, gs___file__, gs__home_arigo_svn_pypy_dist_pypy_a)
     m.gs_TabError = space.wrap('TabError')
+    _dic = space.newdict([])
+    space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
+    _doc = space.wrap("""Invalid syntax.""")
+    space.setitem(_dic, gs___doc__, _doc)
+    m.gs_SyntaxError = space.wrap('SyntaxError')
+    _bases = space.newtuple([gcls_StandardError])
+    _args = space.newtuple([gs_SyntaxError, _bases, _dic])
+    m.gcls_SyntaxError = space.call(space.w_type, _args)
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
     _doc = space.wrap("""Improper indentation.""")
@@ -1361,16 +1384,8 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_IndentationError])
     _args = space.newtuple([gs_TabError, _bases, _dic])
     m.gcls_TabError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_TabError, gcls_TabError)
-    m.gs_ZeroDivisionError = space.wrap('ZeroDivisionError')
-    _dic = space.newdict([])
-    space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
-    _doc = space.wrap("""Second argument to a division or modulo operation was zero.""")
-    space.setitem(_dic, gs___doc__, _doc)
-    _bases = space.newtuple([gcls_ArithmeticError])
-    _args = space.newtuple([gs_ZeroDivisionError, _bases, _dic])
-    m.gcls_ZeroDivisionError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_ZeroDivisionError, gcls_ZeroDivisionError)
+    space.setitem(g46dict, gs_TabError, gcls_TabError)
+    space.setitem(g46dict, gs_SyntaxError, gcls_SyntaxError)
     m.gs_UnicodeEncodeError = space.wrap('UnicodeEncodeError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1379,7 +1394,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_UnicodeError])
     _args = space.newtuple([gs_UnicodeEncodeError, _bases, _dic])
     m.gcls_UnicodeEncodeError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_UnicodeEncodeError, gcls_UnicodeEncodeError)
+    space.setitem(g46dict, gs_UnicodeEncodeError, gcls_UnicodeEncodeError)
     m.gs_SystemError = space.wrap('SystemError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1391,10 +1406,10 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_SystemError, _bases, _dic])
     m.gcls_SystemError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_SystemError, gcls_SystemError)
+    space.setitem(g46dict, gs_SystemError, gcls_SystemError)
     m.gs___name__ = space.wrap('__name__')
-    space.setitem(g48dict, gs___name__, gs_pypy_appspace__exceptions)
-    space.setitem(g48dict, gs_IndentationError, gcls_IndentationError)
+    space.setitem(g46dict, gs___name__, gs_pypy_appspace__exceptions)
+    space.setitem(g46dict, gs_IndentationError, gcls_IndentationError)
     m.gs_AssertionError = space.wrap('AssertionError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1403,7 +1418,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_AssertionError, _bases, _dic])
     m.gcls_AssertionError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_AssertionError, gcls_AssertionError)
+    space.setitem(g46dict, gs_AssertionError, gcls_AssertionError)
     m.gs_UnicodeDecodeError = space.wrap('UnicodeDecodeError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1412,7 +1427,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_UnicodeError])
     _args = space.newtuple([gs_UnicodeDecodeError, _bases, _dic])
     m.gcls_UnicodeDecodeError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_UnicodeDecodeError, gcls_UnicodeDecodeError)
+    space.setitem(g46dict, gs_UnicodeDecodeError, gcls_UnicodeDecodeError)
     m.gs_TypeError = space.wrap('TypeError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1421,7 +1436,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_TypeError, _bases, _dic])
     m.gcls_TypeError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_TypeError, gcls_TypeError)
+    space.setitem(g46dict, gs_TypeError, gcls_TypeError)
     m.gs_IndexError = space.wrap('IndexError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1430,7 +1445,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_LookupError])
     _args = space.newtuple([gs_IndexError, _bases, _dic])
     m.gcls_IndexError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_IndexError, gcls_IndexError)
+    space.setitem(g46dict, gs_IndexError, gcls_IndexError)
     m.gs_RuntimeWarning = space.wrap('RuntimeWarning')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1439,7 +1454,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_Warning])
     _args = space.newtuple([gs_RuntimeWarning, _bases, _dic])
     m.gcls_RuntimeWarning = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_RuntimeWarning, gcls_RuntimeWarning)
+    space.setitem(g46dict, gs_RuntimeWarning, gcls_RuntimeWarning)
     m.gs_KeyboardInterrupt = space.wrap('KeyboardInterrupt')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1448,8 +1463,8 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_KeyboardInterrupt, _bases, _dic])
     m.gcls_KeyboardInterrupt = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_KeyboardInterrupt, gcls_KeyboardInterrupt)
-    space.setitem(g48dict, gs___doc__, space.w_None)
+    space.setitem(g46dict, gs_KeyboardInterrupt, gcls_KeyboardInterrupt)
+    space.setitem(g46dict, gs___doc__, space.w_None)
     m.gs_UserWarning = space.wrap('UserWarning')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1458,16 +1473,16 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_Warning])
     _args = space.newtuple([gs_UserWarning, _bases, _dic])
     m.gcls_UserWarning = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_UserWarning, gcls_UserWarning)
-    m.gs_TaskletExit = space.wrap('TaskletExit')
+    space.setitem(g46dict, gs_UserWarning, gcls_UserWarning)
+    m.gs_PendingDeprecationWarning = space.wrap('PendingDeprecationWarning')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
-    _doc = space.wrap("""Request to exit from a tasklet.""")
+    _doc = space.wrap("""Base class for warnings about features which will be deprecated in the future.""")
     space.setitem(_dic, gs___doc__, _doc)
-    _bases = space.newtuple([gcls_SystemExit])
-    _args = space.newtuple([gs_TaskletExit, _bases, _dic])
-    m.gcls_TaskletExit = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_TaskletExit, gcls_TaskletExit)
+    _bases = space.newtuple([gcls_Warning])
+    _args = space.newtuple([gs_PendingDeprecationWarning, _bases, _dic])
+    m.gcls_PendingDeprecationWarning = space.call(space.w_type, _args)
+    space.setitem(g46dict, gs_PendingDeprecationWarning, gcls_PendingDeprecationWarning)
     m.gs_UnboundLocalError = space.wrap('UnboundLocalError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1476,9 +1491,9 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_NameError])
     _args = space.newtuple([gs_UnboundLocalError, _bases, _dic])
     m.gcls_UnboundLocalError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_UnboundLocalError, gcls_UnboundLocalError)
-    space.setitem(g48dict, gs_ArithmeticError, gcls_ArithmeticError)
-    space.setitem(g48dict, gs_Warning, gcls_Warning)
+    space.setitem(g46dict, gs_UnboundLocalError, gcls_UnboundLocalError)
+    space.setitem(g46dict, gs_ArithmeticError, gcls_ArithmeticError)
+    space.setitem(g46dict, gs_Warning, gcls_Warning)
     m.gs_NotImplementedError = space.wrap('NotImplementedError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1487,7 +1502,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_RuntimeError])
     _args = space.newtuple([gs_NotImplementedError, _bases, _dic])
     m.gcls_NotImplementedError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_NotImplementedError, gcls_NotImplementedError)
+    space.setitem(g46dict, gs_NotImplementedError, gcls_NotImplementedError)
     m.gs_AttributeError = space.wrap('AttributeError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1496,7 +1511,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_StandardError])
     _args = space.newtuple([gs_AttributeError, _bases, _dic])
     m.gcls_AttributeError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_AttributeError, gcls_AttributeError)
+    space.setitem(g46dict, gs_AttributeError, gcls_AttributeError)
     m.gs_OverflowError = space.wrap('OverflowError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
@@ -1505,16 +1520,7 @@ def inittest_exceptions_1(space):
     _bases = space.newtuple([gcls_ArithmeticError])
     _args = space.newtuple([gs_OverflowError, _bases, _dic])
     m.gcls_OverflowError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_OverflowError, gcls_OverflowError)
-    m.gs_WindowsError = space.wrap('WindowsError')
-    _dic = space.newdict([])
-    space.setitem(_dic, gs___module__, gs_pypy_appspace__exceptions)
-    _doc = space.wrap("""MS-Windows OS system call failed.""")
-    space.setitem(_dic, gs___doc__, _doc)
-    _bases = space.newtuple([gcls_OSError])
-    _args = space.newtuple([gs_WindowsError, _bases, _dic])
-    m.gcls_WindowsError = space.call(space.w_type, _args)
-    space.setitem(g48dict, gs_WindowsError, gcls_WindowsError)
+    space.setitem(g46dict, gs_OverflowError, gcls_OverflowError)
     m.gs___init__ = space.wrap('__init__')
     m.gfunc_UnicodeDecodeError___init__ = space.wrap(interp2app(f_UnicodeDecodeError___init__))
     space.setattr(gcls_UnicodeDecodeError, gs___init__, gfunc_UnicodeDecodeError___init__)
@@ -1525,8 +1531,6 @@ def inittest_exceptions_1(space):
     space.setattr(gcls_UnicodeEncodeError, gs___init__, gfunc_UnicodeEncodeError___init__)
     m.gfunc_UnicodeEncodeError___str__ = space.wrap(interp2app(f_UnicodeEncodeError___str__))
     space.setattr(gcls_UnicodeEncodeError, gs___str__, gfunc_UnicodeEncodeError___str__)
-    m.gfunc_SystemExit___init__ = space.wrap(interp2app(f_SystemExit___init__))
-    space.setattr(gcls_SystemExit, gs___init__, gfunc_SystemExit___init__)
     m.gfunc_SyntaxError___init__ = space.wrap(interp2app(f_SyntaxError___init__))
     space.setattr(gcls_SyntaxError, gs___init__, gfunc_SyntaxError___init__)
     m.gfunc_SyntaxError___str__ = space.wrap(interp2app(f_SyntaxError___str__))
@@ -1544,6 +1548,8 @@ def inittest_exceptions_1(space):
     space.setattr(gcls_SyntaxError, gs_print_file_and_line, space.w_None)
     m.gs_text = space.wrap('text')
     space.setattr(gcls_SyntaxError, gs_text, space.w_None)
+    m.gfunc_SystemExit___init__ = space.wrap(interp2app(f_SystemExit___init__))
+    space.setattr(gcls_SystemExit, gs___init__, gfunc_SystemExit___init__)
     m.gfunc_EnvironmentError___init__ = space.wrap(interp2app(f_EnvironmentError___init__))
     space.setattr(gcls_EnvironmentError, gs___init__, gfunc_EnvironmentError___init__)
     m.gfunc_EnvironmentError___str__ = space.wrap(interp2app(f_EnvironmentError___str__))
@@ -1585,8 +1591,8 @@ def inittest_exceptions_1(space):
     m.gs_strerror_ = space.wrap('strerror=')
     m.gs_filename_ = space.wrap('filename=')
     m.gbltinmethod_join_1 = space.getattr(gs__, gs_join)
-    m.gbltinmethod_join_2 = space.getattr(gs__, gs_join)
     m.gs_code = space.wrap('code')
+    m.gbltinmethod_join_2 = space.getattr(gs__, gs_join)
     m.gs_encoding = space.wrap('encoding')
     m.gs_encoding_ = space.wrap('encoding=')
     m.gbltinmethod_join_3 = space.getattr(gs__, gs_join)

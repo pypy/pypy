@@ -47,6 +47,9 @@ def main_(argv=None):
     space = None
     try:
         space = option.objspace()
+        assert 'pypy.tool.udir' not in sys.modules, (
+            "running py.py should not import pypy.tool.udir, which is\n"
+            "only for testing or translating purposes.")
         go_interactive = Options.interactive
         banner = ''
         space.setitem(space.sys.w_dict,space.wrap('executable'),space.wrap(argv[0]))

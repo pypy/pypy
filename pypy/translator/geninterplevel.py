@@ -24,7 +24,7 @@ XXX open questions:
 """
 
 from __future__ import generators
-import autopath, os, sys, exceptions
+import autopath, os, sys, exceptions, inspect
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import last_exception, last_exc_value
@@ -889,7 +889,7 @@ class GenRpy:
         print >> f, '    defaults_w = (%s)' % tupstr(name_of_defaults)
 
         theargs = [arg for arg in fast_args if arg != varname]
-        txt = ('from pypy.translator.geninterplevel import PyArg_ParseMini\n'
+        txt = inspect.getsource(PyArg_ParseMini) + ('\n'
                'm.PyArg_ParseMini = PyArg_ParseMini\n'
                'from pypy.interpreter.error import OperationError\n'
                'm.OperationError = OperationError')
@@ -1291,7 +1291,7 @@ if __name__ == "__main__":
     gen.use_fast_call = True
     import pypy.appspace.generated as tmp
     pth = os.path.dirname(tmp.__file__)
-    ftmpname = "d:/tmp/look.py"
+    ftmpname = "/tmp/look.py"
     fname = os.path.join(pth, gen.modname+".py")
     gen.gen_source(fname, ftmpname)
 
