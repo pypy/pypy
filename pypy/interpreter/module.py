@@ -3,6 +3,7 @@ Module objects.
 """
 
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import OperationError
 
 class Module(Wrappable):
     """A module."""
@@ -34,3 +35,34 @@ class Module(Wrappable):
         space.setitem(self.w_dict, space.wrap('__name__'), w_name)
         if w_doc is not None:
             space.setitem(self.w_dict, space.wrap('__doc__'), w_doc)
+
+    def descr_module__getattr__(self, w_attr):
+        space = self.space
+        attr = space.str_w(w_attr)
+        # ______ for the 'sys' module only _____ XXX generalize
+        if self is space.sys:
+            if attr == 'exc_type':
+                operror = space.getexecutioncontext().sys_exc_info()
+                if operror is None:
+                    return space.w_None
+                else:
+                    return operror.w_type
+            if attr == 'exc_value':
+                operror = space.getexecutioncontext().sys_exc_info()
+                if operror is None:
+                    return space.w_None
+                else:
+                    return operror.w_value
+            if attr == 'exc_traceback':
+                operror = space.getexecutioncontext().sys_exc_info()
+                if operror is None:
+                    return space.w_None
+                else:
+                    return space.wrap(operror.application_traceback)
+        # produce a nice error message that shows the name of the module
+        try:
+            name = space.str_w(self.w_name)
+        except OperationError:
+            name = '?'
+        msg = "'%s' module has no attribute '%s'" % (name, attr)
+        raise OperationError(space.w_AttributeError, space.wrap(msg))
