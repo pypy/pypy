@@ -314,6 +314,8 @@ class __builtin__(ExtModule):
         return self.space.id(w_object)
 
     def app_sum(self, sequence, total=0):
+        # must forbid "summing" strings, per specs of built-in 'sum'
+        if isinstance(total, str): raise TypeError
         for item in sequence:
             total = total + item
         return total
@@ -393,17 +395,18 @@ class __builtin__(ExtModule):
            3.  if function is not None, and there are several collections,
                repeatedly call the function with one argument from each
                collection.  If the collections have different lengths,
-               shorter ones are padded with None"""
+               shorter ones are padded with None
+        """
 
         if len(collections) == 0:
             raise TypeError, "map() requires at least one sequence"
 
         elif len(collections) == 1:
-           #it's the most common case, so make it faster
-           if function is None:
-              return collections[0]
-           else:
-              return [function(x) for x in collections[0]]
+            #it's the most common case, so make it faster
+            if function is None:
+                return list(collections[0])
+            else:
+                return [function(x) for x in collections[0]]
         else:
            res = []
            idx = 0   
