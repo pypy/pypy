@@ -151,6 +151,9 @@ def pack_float(number,size,le):
         e += bias
         mantissa = int(2**prec *(man) +0.5)   
         res=[]
+        if mantissa >> prec :
+            mantissa = 0
+            e += 1
         
         for i in range(size-2):
             res += [ mantissa & 0xff]
