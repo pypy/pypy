@@ -1,8 +1,6 @@
 import autopath
 
 import py
-from py.process import cmdexec 
-from py import path 
 from pypy.translator.genpyrex import GenPyrex
 
 import os, sys, inspect, re
@@ -11,7 +9,7 @@ from pypy.translator.tool import stdoutcapture
 debug = 0
 
 def make_module_from_pyxstring(name, dirpath, string):
-    dirpath = path.local(dirpath)
+    dirpath = py.path.local(dirpath)
     pyxfile = dirpath.join('%s.pyx' % name) 
     i = 0
     while pyxfile.check():
@@ -50,7 +48,7 @@ def make_module_from_c(cfile, include_dirs=None):
         include_dirs = []
 
     dirpath = cfile.dirpath()
-    lastdir = path.local()
+    lastdir = py.path.local()
     os.chdir(str(dirpath))
     try:
         modname = cfile.purebasename
