@@ -21,10 +21,10 @@ Example:
     f = t.compile()                    # pyrex compilation
     assert f(arg) == func(arg)
 
-Some functions will be provided for the benefit of interactive testing.
-Currently there are my_bool and my_range, plus the ones defined in
-test.snippet.
+Some functions are provided for the benefit of interactive testing.
+Try dir(test) for list of current snippets.
 """
+
 
 import autopath
 
@@ -111,19 +111,7 @@ class Translator:
 
 
 if __name__ == '__main__':
-    from pypy.translator.test.snippet import *
-
-    def my_bool(x):
-        return not not x
-
-    def my_range(i):
-        lst = []
-        while i > 0:
-            i = i - 1
-            lst.append(i)
-        lst.reverse()
-        return lst
-
+    from pypy.translator.test import snippet as test
     print __doc__
 
     # 2.3 specific -- sanxiyn

@@ -38,6 +38,7 @@ class Op:
         "le": "<=",
         "eq": "=",
         "gt": ">",
+        "and_": "logand",
         "getitem": "elt",
     }
     def op_binary(self, op):

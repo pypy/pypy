@@ -88,10 +88,17 @@ class GenCLTestCase(test.IntTestCase):
         self.assertEquals(f4(0, 2, 3), 3)
         f5 = make_cl_func(t.int_id)
         self.assertEquals(f5(3), 3)
+        f6 = make_cl_func(t.time_waster)
+        self.assertEquals(f6(30), 3657)
 
     def test_string(self):
         cl_greet = make_cl_func(t.greet, [str])
         self.assertEquals(cl_greet("world"), "helloworld")
+
+    def test_string2(self):
+        cl_stringmaker = make_cl_func(t.nested_whiles)
+        self.assertEquals(cl_stringmaker(111, 114),
+                          "...!...!...!...!...!")
 
 if __name__ == '__main__':
     test.main()
