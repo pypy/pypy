@@ -101,15 +101,6 @@ class W_StringObject(W_Object):
 
 registerimplementation(W_StringObject)
 
-# string-to-unicode delegation
-import fake
-def delegate__String(space, w_str):
-    return space.wrap(unicode(space.unwrap(w_str)))
-# XXX needs to change when we stop faking unicode!
-delegate__String.result_class = fake.fake_type(unicode)
-delegate__String.priority = PRIORITY_CHANGE_TYPE
-delegate__String.can_fail = True
-
 
 def _isspace(ch):
     return ord(ch) in (9, 10, 11, 12, 13, 32)  

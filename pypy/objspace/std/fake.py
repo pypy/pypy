@@ -51,16 +51,6 @@ def fake_type(cpy_type):
         base = basestring_typedef
     else:
         base = None
-    if cpy_type is unicode:
-        # XXX no hacks here, oh no, none at all.  well maybe a
-        # XXX little one...
-        def uni_cmp(space, w_uni, w_other):
-            try:
-                return space.wrap(cmp(space.unwrap(w_uni),
-                                      space.unwrap(w_other)))
-            except:
-                wrap_exception(space)
-        kw['__cmp__'] = gateway.interp2app(uni_cmp)
     class W_Fake(W_Object):
         typedef = StdTypeDef(
             cpy_type.__name__, base, **kw)
@@ -70,14 +60,6 @@ def fake_type(cpy_type):
     def fake_unwrap(space, w_obj):
         return w_obj.val
     StdObjSpace.unwrap.register(fake_unwrap, W_Fake)
-    if cpy_type is unicode:
-        # more unicode hacks!
-        def fake_ord(space, w_uni):
-            try:
-                return space.wrap(ord(w_uni.val))
-            except:
-                wrap_exception(space)
-        StdObjSpace.MM.ord.register(fake_ord, W_Fake)
     W_Fake.__name__ = 'W_Fake(%s)'%(cpy_type.__name__)
     W_Fake.typedef.fakedcpytype = cpy_type
     # XXX obviously this entire file is something of a hack, but it
@@ -100,4 +82,4 @@ def fake_type(cpy_type):
         setattr(W_Fake, "call_args", call_args)
     _fake_type_cache[cpy_type] = W_Fake
     return W_Fake
-        
+
