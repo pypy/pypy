@@ -8,6 +8,7 @@ from pypy.interpreter.argument import Arguments
 
 class AppTestFunctionIntrospection: 
     def test_attributes(self):
+        globals()['__name__'] = 'mymodulename'
         def f(): pass
         assert hasattr(f, 'func_code')
         assert f.func_defaults == None
@@ -16,6 +17,7 @@ class AppTestFunctionIntrospection:
         #self.assertEquals(f.func_closure, None)  XXX
         assert f.func_doc == None
         assert f.func_name == 'f'
+        assert f.__module__ == 'mymodulename'
 
     def test_code_is_ok(self):
         def f(): pass
@@ -45,6 +47,13 @@ class AppTestFunctionIntrospection:
         assert f.func_doc == 'good bye'
         del f.func_doc
         assert f.func_doc == None
+
+    def test_write_module(self):
+        def f(): "hello"
+        f.__module__ = 'ab.c'
+        assert f.__module__ == 'ab.c'
+        del f.__module__
+        assert f.__module__ is None
 
 class AppTestFunction: 
     def test_simple_call(self):

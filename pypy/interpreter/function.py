@@ -104,11 +104,11 @@ class Function(Wrappable):
                 self.w_module = space.w_None
         return self.w_module
         
-    def fset___module__(space, w_self, w_module ):
+    def fset___module__(space, w_self, w_module):
         self = space.interpclass_w(w_self)
-        self.w_module = space.w_module
+        self.w_module = w_module
     
-    def fdel___module__(space, w_self, w_module ):
+    def fdel___module__(space, w_self):
         self = space.interpclass_w(w_self)
         self.w_module = space.w_None
 
