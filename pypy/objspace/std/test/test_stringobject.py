@@ -114,5 +114,20 @@ class TestW_StringObject(test.TestCase):
         w_slice = space.newslice(w(1), w_None, w(2))
         self.assertEqual_w(space.getitem(w_str, w_slice), w('el'))
 
+class TestStringObject(test.AppTestCase):
+    def test_split(self):
+        self.assertEquals("".split(), [])
+        self.assertEquals("a".split(), ['a'])
+        self.assertEquals("a b c".split(), ['a','b','c'])
+
+    def test_split_splitchar(self):
+        self.assertEquals("/a/b/c".split('/'), ['','a','b','c'])
+
+    def test_ljust(self):
+        self.assertEquals("abc".ljust(5), "abc  ")
+            
+    def _notimpl_test_split_maxsplit(self):
+        self.assertEquals("/a/b/c".split('/', 2), ['','a','b/c'])
+
 if __name__ == '__main__':
     test.main()
