@@ -20,6 +20,9 @@ def cl_detect():
     elif is_on_path("lisp"):
         if is_on_path("cmuclinvoke.sh"):
             return "cmuclinvoke.sh"
+    elif is_on_path("sbcl"):
+        if is_on_path("sbclinvoke.sh"):
+            return "sbclinvoke.sh"
     return None
 
 def is_on_path(name):

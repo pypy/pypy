@@ -111,11 +111,13 @@ class GenCL:
             if isinstance(node, BasicBlock):
                 blocklist.append(node)
         startblock.visit(collect_block)
-        varlist = []
+        varlist = {}
         for block in blocklist:
             tag = len(self.blockref)
             self.blockref[block] = tag
-            varlist.extend(block.getlocals())
+            for var in block.getlocals():
+                varlist[var] = None
+        varlist = varlist.keys()
         print "(",
         for var in varlist:
             if var in arglist:
