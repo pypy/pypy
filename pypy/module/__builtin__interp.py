@@ -197,8 +197,20 @@ def load_part(w_path, prefix, partname, w_parent, tentative):
         w_exc = space.call_function(space.w_ImportError, w_failing)
         raise OperationError(space.w_ImportError, w_exc)
 
-def compile(str_, filename, startstr,
-            supplied_flags=0, dont_inherit=0):
+def compile(w_str_, w_filename, w_startstr,
+            w_supplied_flags=None, w_dont_inherit=None):
+    if space.is_true(space.isinstance(w_str_, space.w_unicode)):
+        str_ = space.unwrap(w_str_)
+    else:
+        str_ = space.str_w(w_str_)
+    filename = space.str_w(w_filename)
+    startstr = space.str_w(w_startstr)
+    supplied_flags = 0
+    if not space.is_w(w_supplied_flags, space.w_None):
+        supplied_flags = space.int_w(w_supplied_flags)
+    dont_inherit = 0
+    if not space.is_w(w_dont_inherit, space.w_None):
+        dont_inherit = space.int_w(w_dont_inherit)
     #print (str_, filename, startstr, supplied_flags, dont_inherit)
     # XXX we additionally allow GENERATORS because compiling some builtins
     #     requires it. doesn't feel quite right to do that here.
@@ -223,14 +235,15 @@ def compile(str_, filename, startstr,
         raise OperationError(space.w_TypeError,space.wrap(str(e)))
     return space.wrap(PyCode(space)._from_code(c))
 #
-compile.unwrap_spec = [str,str,str,int,int]
+#compile.unwrap_spec = [str,str,str,int,int]
 
 
 def eval(w_source, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
     w = space.wrap
 
-    if space.is_true(space.isinstance(w_source, space.w_str)):
-        w_codeobj = compile(space.str_w(w_source).lstrip(' \t'), "<string>", "eval")
+    if (space.is_true(space.isinstance(w_source, space.w_str)) or
+        space.is_true(space.isinstance(w_source, space.w_unicode))):
+        w_codeobj = compile(space.call_method(w_source, 'lstrip', space.wrap(' \t')), space.wrap("<string>"), space.wrap("eval"), space.w_None, space.w_None)
     elif isinstance(space.interpclass_w(w_source), PyCode):
         w_codeobj = w_source
     else:
