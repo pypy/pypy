@@ -341,6 +341,21 @@ class AnnonateTestCase(testit.IntTestCase):
         self.assertEquals(s, annmodel.SomeInteger(nonneg=True)) 
         #self.assertEquals(s.__class__, annmodel.SomeInteger) 
 
+    def test_is_and_knowntype_data(self): 
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.is_and_knowntype, [bool])
+        #a.simplify()
+        #a.translator.view()
+        self.assert_(isinstance(s, annmodel.SomeNone))
+
+    def test_isinstance_and_knowntype_data(self): 
+        a = RPythonAnnotator()
+        x = annmodel.SomePBC({snippet.apbc: True}) 
+        s = a.build_types(snippet.isinstance_and_knowntype, [x]) 
+        #a.simplify()
+        #a.translator.view()
+        self.assertEquals(s, x) 
+
 def g(n):
     return [0,1,2,n]
 

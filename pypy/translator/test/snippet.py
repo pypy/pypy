@@ -492,7 +492,7 @@ def flow_usertype_info(ob):
 
 def flow_identity_info(x=object, y=object):
     if x is None:
-        if None is y:
+        if y is None:
             return (x, y)
         else:
             return (x, None)
@@ -623,3 +623,16 @@ def preserve_pbc_attr_on_instance(cond):
     else: 
         x = apbc 
     return x.answer 
+
+
+def is_and_knowntype(x): 
+    if x is None: 
+        return x 
+    else: 
+        return None 
+
+def isinstance_and_knowntype(x): 
+    if isinstance(x, APBC): 
+        return x
+    else: 
+        return apbc 

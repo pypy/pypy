@@ -98,40 +98,24 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             return SomeBool()
 
     def is_((obj1, obj2)):
-        const = None
-        vararg = None
-        if obj1.is_constant():
-            const = obj1
-            var = obj2
-            vararg = 1
+        # XXX assumption: for "X is Y" we for simplification 
+        #     assume that X is possibly variable and Y constant 
+        #     (and not the other way round) 
+        r = SomeBool()
         if obj2.is_constant():
-            if const is not None:
-                return immutablevalue(obj1.const is obj2.const)
-            # we are in the case "SomeXXX is None" here 
-            if obj2.const is None and obj1.__class__ != SomeObject: 
-                return immutablevalue(False) 
-            const = obj2
-            var = obj1
-            vararg = 0
-        if const is not None:
-            # XXX HACK HACK HACK
-            # XXX HACK HACK HACK
-            # XXX HACK HACK HACK
-            # XXX HACK HACK HACK
-            # XXX HACK HACK HACK
-            fn, block, i = getbookkeeper().position_key
-            annotator = getbookkeeper().annotator
-            op = block.operations[i]
-            assert op.opname == "is_" 
-            assert len(op.args) == 2
-            assert annotator.binding(op.args[vararg]) is var
-            assert annotator.binding(op.args[1-vararg]).const is const.const
-            r = SomeBool()
-            r.knowntypedata = (op.args[vararg], const)
-            return r
-            
-        return SomeBool()
-
+            if obj1.is_constant(): 
+                r.const = obj1.const is obj2.const 
+        # XXX HACK HACK HACK
+        # XXX HACK HACK HACK
+        # XXX HACK HACK HACK
+        fn, block, i = getbookkeeper().position_key
+        annotator = getbookkeeper().annotator
+        op = block.operations[i]
+        assert op.opname == "is_" 
+        assert len(op.args) == 2
+        assert annotator.binding(op.args[0]) == obj1 
+        r.knowntypedata = (op.args[0], obj2)
+        return r
 
 class __extend__(pairtype(SomeInteger, SomeInteger)):
     # unsignedness is considered a rare and contagious disease
@@ -153,8 +137,16 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 class __extend__(pairtype(SomeBool, SomeBool)):
 
     def union((boo1, boo2)):
-        return SomeBool()
-
+        s = SomeBool() 
+        if getattr(boo1, 'const', -1) == getattr(boo2, 'const', -2): 
+            s.const = boo1.const 
+        if hasattr(boo1, 'knowntypedata') and \
+           hasattr(boo2, 'knowntypedata') and \
+           boo1.knowntypedata[0] == boo2.knowntypedata[0]: 
+            s.knowntypedata = (
+                boo1.knowntypedata[0], 
+                unionof(boo1.knowntypedata[1], boo2.knowntypedata[1]))
+        return s 
 
 class __extend__(pairtype(SomeString, SomeString)):
 

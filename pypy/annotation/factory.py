@@ -268,6 +268,8 @@ class CallableFactory:
         assert isinstance(func, FunctionType), "expected function, got %r"%func
         # do we need to specialize this function in several versions?
         x = getattr(func, '_specialize_', False)
+        #if not x: 
+        #    x = 'argtypes'
         if x:
             if x == 'argtypes':
                 key = short_type_name(args)
