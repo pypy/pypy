@@ -4,19 +4,15 @@ Generate a C source file from the flowmodel.
 """
 from __future__ import generators
 import autopath, os, sys, __builtin__, marshal, zlib
-from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.objspace.flow.model import FunctionGraph, Block, Link
-from pypy.objspace.flow.model import last_exception, last_exc_value
-from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
-from pypy.translator.simplify import remove_direct_loops
-from pypy.interpreter.pycode import CO_VARARGS
-from pypy.annotation import model as annmodel
+from pypy.objspace.flow.model import Variable, Constant
 from types import FunctionType, CodeType, InstanceType, ClassType
 
-from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
-     c_string, uniquemodulename, C_IDENTIFIER, NameManager
+from pypy.translator.gensupp import builtin_base, uniquemodulename
+from pypy.translator.gensupp import NameManager
 
 from pypy.objspace.std.restricted_int import r_int, r_uint
+
+from pypy.translator.genc_funcdef import FunctionDef, USE_CALL_TRACE
 
 # ____________________________________________________________
 
@@ -70,7 +66,8 @@ class GenC:
         self.globaldecl = []
         self.globalobjects = []
         self.pendingfunctions = []
-        self.currentfunc = None
+        self.funcdefs = {}
+        self.allfuncdefs = []
         self.debugstack = ()  # linked list of nested nameof()
         self.gen_source()
 
@@ -179,6 +176,14 @@ class GenC:
         self.initcode.append('  raise NotImplementedError')
         return name
 
+    def getfuncdef(self, func):
+        if func not in self.funcdefs:
+            funcdef = FunctionDef(func, self)
+            self.funcdefs[func] = funcdef
+            self.allfuncdefs.append(funcdef)
+            self.pendingfunctions.append(funcdef)
+        return self.funcdefs[func]
+
     def nameof_function(self, func, progress=['-\x08', '\\\x08',
                                               '|\x08', '/\x08']):
         printable_name = '(%s:%d) %s' % (
@@ -197,9 +202,8 @@ class GenC:
             p = progress.pop(0)
             sys.stderr.write(p)
             progress.append(p)
-        name = self.uniquename('gfunc_' + func.__name__)
-        self.pendingfunctions.append(func)
-        return name
+        funcdef = self.getfuncdef(func)
+        return funcdef.get_globalobject()
 
     def nameof_staticmethod(self, sm):
         # XXX XXX XXXX
@@ -455,12 +459,14 @@ class GenC:
             'entrypoint': self.nameof(self.translator.functions[0]),
             }
         # header
+        if USE_CALL_TRACE:
+            print >> f, '#define USE_CALL_TRACE'
         print >> f, self.C_HEADER
 
         # function implementations
         while self.pendingfunctions:
-            func = self.pendingfunctions.pop()
-            self.gen_cfunction(func)
+            funcdef = self.pendingfunctions.pop()
+            self.gen_cfunction(funcdef)
             # collect more of the latercode after each function
             while self.latercode:
                 gen, self.debugstack = self.latercode.pop()
@@ -470,7 +476,12 @@ class GenC:
                 self.debugstack = ()
             self.gen_global_declarations()
 
-        # after all the functions: global object table
+        # after all the ff_xxx() functions we generate the pyff_xxx() wrappers
+        for funcdef in self.allfuncdefs:
+            if funcdef.wrapper_name is not None:
+                funcdef.gen_wrapper(f)
+
+        # global object table
         print >> f, self.C_OBJECT_TABLE
         for name in self.globalobjects:
             if not name.startswith('gfunc_'):
@@ -479,11 +490,13 @@ class GenC:
 
         # global function table
         print >> f, self.C_FUNCTION_TABLE
-        for name in self.globalobjects:
-            if name.startswith('gfunc_'):
-                print >> f, ('\t{&%s, {"%s", (PyCFunction)f_%s, '
+        for funcdef in self.allfuncdefs:
+            if funcdef.globalobject_name is not None:
+                print >> f, ('\t{&%s, {"%s", (PyCFunction)%s, '
                              'METH_VARARGS|METH_KEYWORDS}},' % (
-                    name, name[6:], name[6:]))
+                    funcdef.globalobject_name,
+                    funcdef.base_name,
+                    funcdef.wrapper_name))
         print >> f, self.C_TABLE_END
 
         # frozen init bytecode
@@ -534,292 +547,24 @@ class GenC:
         del source
         return marshal.dumps(co)
     
-    def gen_cfunction(self, func):
+    def gen_cfunction(self, funcdef):
 ##         print 'gen_cfunction (%s:%d) %s' % (
 ##             func.func_globals.get('__name__', '?'),
 ##             func.func_code.co_firstlineno,
 ##             func.__name__)
 
-        f = self.f
-        localscope = self.namespace.localScope()
-        body = list(self.cfunction_body(func, localscope))
-        name_of_defaults = [self.nameof(x, debug=('Default argument of', func))
-                            for x in (func.func_defaults or ())]
-        self.gen_global_declarations()
+        # compute the whole body
+        body = list(funcdef.cfunction_body())
 
-        # print header
-        cname = self.nameof(func)
-        assert cname.startswith('gfunc_')
-        f_name = 'f_' + cname[6:]
+        # generate the source now
+        self.gen_global_declarations() #.. before the body where they are needed
+        funcdef.gen_cfunction(self.f, body)
 
-        # collect all the local variables
-        graph = self.translator.getflowgraph(func)
-        localslst = []
-        def visit(node):
-            if isinstance(node, Block):
-                localslst.extend(node.getvariables())
-        traverse(visit, graph)
-        localnames = [self.expr(a, localscope) for a in uniqueitems(localslst)]
-
-        # collect all the arguments
-        if func.func_code.co_flags & CO_VARARGS:
-            vararg = graph.getargs()[-1]
-            positional_args = graph.getargs()[:-1]
-        else:
-            vararg = None
-            positional_args = graph.getargs()
-        min_number_of_args = len(positional_args) - len(name_of_defaults)
-
-        fast_args = [self.expr(a, localscope) for a in positional_args]
-        if vararg is not None:
-            vararg = self.expr(vararg, localscope)
-            fast_args.append(vararg)
-        fast_name = 'fast' + f_name
-
-        fast_set = dict(zip(fast_args, fast_args))
-
-        declare_fast_args = [('PyObject *' + a) for a in fast_args]
-        if declare_fast_args:
-            declare_fast_args = 'TRACE_ARGS ' + ', '.join(declare_fast_args)
-        else:
-            declare_fast_args = 'TRACE_ARGS_VOID'
-        fast_function_header = ('static PyObject *\n'
-                                '%s(%s)' % (fast_name, declare_fast_args))
-
-        print >> f, fast_function_header + ';'  # forward
-        print >> f
-
-        print >> f, 'static PyObject *'
-        print >> f, '%s(PyObject* self, PyObject* args, PyObject* kwds)' % (
-            f_name,)
-        print >> f, '{'
-        print >> f, '\tFUNCTION_HEAD(%s, %s, args, %s, __FILE__, __LINE__ - 2)' % (
-            c_string('%s(%s)' % (cname, ', '.join(name_of_defaults))),
-            cname,
-            '(%s)' % (', '.join(map(c_string, name_of_defaults) + ['NULL']),),
-        )
-
-        kwlist = ['"%s"' % name for name in
-                      func.func_code.co_varnames[:func.func_code.co_argcount]]
-        kwlist.append('0')
-        print >> f, '\tstatic char* kwlist[] = {%s};' % (', '.join(kwlist),)
-
-        if fast_args:
-            print >> f, '\tPyObject *%s;' % (', *'.join(fast_args))
-        print >> f
-
-        print >> f, '\tFUNCTION_CHECK()'
-
-        # argument unpacking
-        if vararg is not None:
-            print >> f, '\t%s = PyTuple_GetSlice(args, %d, INT_MAX);' % (
-                vararg, len(positional_args))
-            print >> f, '\tif (%s == NULL)' % (vararg,)
-            print >> f, '\t\tFUNCTION_RETURN(NULL)'
-            print >> f, '\targs = PyTuple_GetSlice(args, 0, %d);' % (
-                len(positional_args),)
-            print >> f, '\tif (args == NULL) {'
-            print >> f, '\t\tERR_DECREF(%s)' % (vararg,)
-            print >> f, '\t\tFUNCTION_RETURN(NULL)'
-            print >> f, '\t}'
-            tail = """{
-\t\tERR_DECREF(args)
-\t\tERR_DECREF(%s)
-\t\tFUNCTION_RETURN(NULL);
-\t}
-\tPy_DECREF(args);""" % vararg
-        else:
-            tail = '\n\t\tFUNCTION_RETURN(NULL)'
-        for i in range(len(name_of_defaults)):
-            print >> f, '\t%s = %s;' % (
-                self.expr(positional_args[min_number_of_args+i], localscope),
-                name_of_defaults[i])
-        fmt = 'O'*min_number_of_args
-        if min_number_of_args < len(positional_args):
-            fmt += '|' + 'O'*(len(positional_args)-min_number_of_args)
-        lst = ['args', 'kwds',
-               '"%s:%s"' % (fmt, func.__name__),
-               'kwlist',
-               ]
-        lst += ['&' + self.expr(a, localscope) for a in positional_args]
-        print >> f, '\tif (!PyArg_ParseTupleAndKeywords(%s))' % ', '.join(lst),
-        print >> f, tail
-
-        call_fast_args = list(fast_args)
-        if call_fast_args:
-            call_fast_args = 'TRACE_CALL ' + ', '.join(call_fast_args)
-        else:
-            call_fast_args = 'TRACE_CALL_VOID'
-        print >> f, '\treturn %s(%s);' % (fast_name, call_fast_args)
-        print >> f, '}'
-        print >> f
-
-        print >> f, fast_function_header
-        print >> f, '{'
-
-        fast_locals = [arg for arg in localnames if arg not in fast_set]
-        if fast_locals:
-            print >> f, '\tPyObject *%s;' % (', *'.join(fast_locals),)
-            print >> f
-        
-        # generate an incref for each input argument
-        for v in positional_args:
-            print >> f, '\tPy_INCREF(%s);' % self.expr(v, localscope)
-
-        # print the body
-        for line in body:
-            if line.endswith(':'):
-                if line.startswith('err'):
-                    fmt = '\t%s'
-                else:
-                    fmt = '    %s\n'
-            elif line:
-                fmt = '\t%s\n'
-            else:
-                fmt = '%s\n'
-            f.write(fmt % line)
-        print >> f, '}'
-
+        # this is only to keep the RAM consumption under control
+        funcdef.clear()
         if not self.translator.frozen:
-            # this is only to keep the RAM consumption under control
-            del self.translator.flowgraphs[func]
+            del self.translator.flowgraphs[funcdef.func]
             Variable.instances.clear()
-
-    def expr(self, v, localscope):
-        if isinstance(v, Variable):
-            return localscope.localname(v.name)
-        elif isinstance(v, Constant):
-            return self.nameof(v.value,
-                               debug=('Constant in the graph of', self.currentfunc))
-        else:
-            raise TypeError, "expr(%r)" % (v,)
-
-    def cfunction_body(self, func, localscope):
-        graph = self.translator.getflowgraph(func)
-        remove_direct_loops(graph)
-        checkgraph(graph)
-
-        blocknum = {}
-        allblocks = []
-
-        def gen_link(link, linklocalvars=None):
-            "Generate the code to jump across the given Link."
-            has_ref = {}
-            linklocalvars = linklocalvars or {}
-            for v in to_release:
-                linklocalvars[v] = self.expr(v, localscope)
-            has_ref = linklocalvars.copy()
-            for a1, a2 in zip(link.args, link.target.inputargs):
-                if a1 in linklocalvars:
-                    src = linklocalvars[a1]
-                else:
-                    src = self.expr(a1, localscope)
-                line = 'MOVE(%s, %s)' % (src, self.expr(a2, localscope))
-                if a1 in has_ref:
-                    del has_ref[a1]
-                else:
-                    line += '\tPy_INCREF(%s);' % self.expr(a2, localscope)
-                yield line
-            for v in has_ref:
-                yield 'Py_DECREF(%s);' % linklocalvars[v]
-            yield 'goto block%d;' % blocknum[link.target]
-
-        # collect all blocks
-        def visit(block):
-            if isinstance(block, Block):
-                allblocks.append(block)
-                blocknum[block] = len(blocknum)
-        traverse(visit, graph)
-
-        # generate the body of each block
-        for block in allblocks:
-            yield ''
-            yield 'block%d:' % blocknum[block]
-            to_release = list(block.inputargs)
-            for op in block.operations:
-                lst = [self.expr(v, localscope) for v in op.args]
-                lst.append(self.expr(op.result, localscope))
-                lst.append('err%d_%d' % (blocknum[block], len(to_release)))
-                macro = 'OP_%s' % op.opname.upper()
-                meth = getattr(self, macro, None)
-                if meth:
-                    yield meth(lst[:-2], lst[-2], lst[-1])
-                else:
-                    yield '%s(%s)' % (macro, ', '.join(lst))
-                to_release.append(op.result)
-
-            err_reachable = False
-            if len(block.exits) == 0:
-                if len(block.inputargs) == 2:   # exc_cls, exc_value
-                    # exceptional return block
-                    exc_cls   = self.expr(block.inputargs[0], localscope)
-                    exc_value = self.expr(block.inputargs[1], localscope)
-                    yield 'PyErr_Restore(%s, %s, NULL);' % (exc_cls, exc_value)
-                    yield 'FUNCTION_RETURN(NULL)'
-                else:
-                    # regular return block
-                    retval = self.expr(block.inputargs[0], localscope)
-                    yield 'FUNCTION_RETURN(%s)' % retval
-                continue
-            elif block.exitswitch is None:
-                # single-exit block
-                assert len(block.exits) == 1
-                for op in gen_link(block.exits[0]):
-                    yield op
-                yield ''
-            elif block.exitswitch == Constant(last_exception):
-                # block catching the exceptions raised by its last operation
-                # we handle the non-exceptional case first
-                link = block.exits[0]
-                assert link.exitcase is None
-                for op in gen_link(link):
-                    yield op
-                # we must catch the exception raised by the last operation,
-                # which goes to the last err%d_%d label written above.
-                yield ''
-                to_release.pop()  # skip default error handling for this label
-                yield 'err%d_%d:' % (blocknum[block], len(to_release))
-                yield ''
-                for link in block.exits[1:]:
-                    assert issubclass(link.exitcase, Exception)
-                    yield 'if (PyErr_ExceptionMatches(%s)) {' % (
-                        self.nameof(link.exitcase),)
-                    yield '\tPyObject *exc_cls, *exc_value, *exc_tb;'
-                    yield '\tPyErr_Fetch(&exc_cls, &exc_value, &exc_tb);'
-                    yield '\tif (exc_value == NULL) {'
-                    yield '\t\texc_value = Py_None;'
-                    yield '\t\tPy_INCREF(Py_None);'
-                    yield '\t}'
-                    yield '\tPy_XDECREF(exc_tb);'
-                    for op in gen_link(link, {
-                                Constant(last_exception): 'exc_cls',
-                                Constant(last_exc_value): 'exc_value'}):
-                        yield '\t' + op
-                    yield '}'
-                err_reachable = True
-            else:
-                # block ending in a switch on a value
-                for link in block.exits[:-1]:
-                    yield 'if (EQ_%s(%s)) {' % (link.exitcase,
-                                                self.expr(block.exitswitch, localscope))
-                    for op in gen_link(link):
-                        yield '\t' + op
-                    yield '}'
-                link = block.exits[-1]
-                yield 'assert(EQ_%s(%s));' % (link.exitcase,
-                                              self.expr(block.exitswitch, localscope))
-                for op in gen_link(block.exits[-1]):
-                    yield op
-                yield ''
-
-            while to_release:
-                v = to_release.pop()
-                if err_reachable:
-                    yield 'ERR_DECREF(%s)' % self.expr(v, localscope)
-                yield 'err%d_%d:' % (blocknum[block], len(to_release))
-                err_reachable = True
-            if err_reachable:
-                yield 'FUNCTION_RETURN(NULL)'
 
 # ____________________________________________________________
 
@@ -853,46 +598,3 @@ MODULE_INITFUNC(%(modname)s)
 \tSETUP_MODULE(%(modname)s)
 \tPyModule_AddObject(m, "%(entrypointname)s", %(entrypoint)s);
 }'''
-
-    # the C preprocessor cannot handle operations taking a variable number
-    # of arguments, so here are Python methods that do it
-    
-    def OP_NEWLIST(self, args, r, err):
-        if len(args) == 0:
-            return 'OP_NEWLIST0(%s, %s)' % (r, err)
-        else:
-            args.insert(0, '%d' % len(args))
-            return 'OP_NEWLIST((%s), %s, %s)' % (', '.join(args), r, err)
-
-    def OP_NEWDICT(self, args, r, err):
-        if len(args) == 0:
-            return 'OP_NEWDICT0(%s, %s)' % (r, err)
-        else:
-            assert len(args) % 2 == 0
-            args.insert(0, '%d' % (len(args)//2))
-            return 'OP_NEWDICT((%s), %s, %s)' % (', '.join(args), r, err)
-
-    def OP_NEWTUPLE(self, args, r, err):
-        args.insert(0, '%d' % len(args))
-        return 'OP_NEWTUPLE((%s), %s, %s)' % (', '.join(args), r, err)
-
-    def OP_SIMPLE_CALL(self, args, r, err):
-        args.append('NULL')
-        return 'OP_SIMPLE_CALL((%s), %s, %s)' % (', '.join(args), r, err)
-
-    def OP_CALL_ARGS(self, args, r, err):
-        return 'OP_CALL_ARGS((%s), %s, %s)' % (', '.join(args), r, err)
-
-# ____________________________________________________________
-
-def cdecl(type, name):
-    # Utility to generate a typed name declaration in C syntax.
-    # For local variables, struct fields, function declarations, etc.
-    # For complex C types, the 'type' can contain a '@' character that
-    # specifies where the 'name' should be inserted; for example, an
-    # array of 10 ints has a type of "int @[10]".
-    if '@' in type:
-        return type.replace('@', name)
-    else:
-        return ('%s %s' % (type, name)).rstrip()
-
