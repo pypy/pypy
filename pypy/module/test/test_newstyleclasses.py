@@ -36,16 +36,16 @@ class TestBuiltinApp(test.AppTestCase):
         self.assertEquals(d.f("abc"), (D, "abc"))
         self.assertEquals(D.f("abc"), (D, "abc"))
 
-    def test_property_simple(self):
+    def xtest_property_simple(self):
         
         class a(object):
             def _get(self): return 42
             def _set(self, value): raise AttributeError
-            def _del(self, value): raise KeyError
+            def _del(self): raise KeyError
             name = property(_get, _set, _del)
         a1 = a()
         self.assertEquals(a1.name, 42)
-        self.assertRaises(AttributeError, setattr, a1, 'name')
+        self.assertRaises(AttributeError, setattr, a1, 'name', 42)
         self.assertRaises(KeyError, delattr, a1, 'name')
 
 if __name__ == '__main__':

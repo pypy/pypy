@@ -109,22 +109,19 @@ class MyTextTestResult(unittest._TextTestResult):
     def printErrorList(self, flavour, errors):
         from pypy.interpreter.baseobjspace import OperationError
         for test, err in errors:
-            if Options.showinterplevelexceptions:
+            t1, t2 = '', ''
+            if not Options.quiet:
                 self.stream.writeln(self.separator1)
                 self.stream.writeln("%s: %s" % (flavour,self.getDescription(test)))
                 self.stream.writeln(self.separator2)
                 t1 = self._exc_info_to_string(err)
-                t2 = ''
             if isinstance(err[1], OperationError) and \
               test.space.full_exceptions:
-                if Options.showinterplevelexceptions:
+                if not Options.quiet:
                     t2 = '\nand at app-level:\n\n'
-                else:
-                    t2 = ''
                 sio = StringIO.StringIO()
                 err[1].print_application_traceback(test.space, sio)
                 t2 += sio.getvalue()
-
             self.stream.writeln("%s" % (t1 + t2,))
 
 
@@ -264,8 +261,7 @@ class Options(option.Options):
     def ensure_value(*args):
         return 0
     ensure_value = staticmethod(ensure_value)
-    showinterplevelexceptions = 1
-
+    quiet = 0
 
 class TestSkip(Exception):
     pass
@@ -313,6 +309,9 @@ def get_test_options():
     options.append(make_option(
         '-i', action="store_true", dest="interactive",
         help="enter an interactive mode on failure or error"))
+    options.append(make_option(
+        '-q', action="store_true", dest="quiet",
+        help="suppress some information (e.g. interpreter level exceptions)"))
     options.append(make_option(
         '-c', action="store_true", dest="runcts",
         help="run CtsTestRunner (discards output and prints report "
