@@ -29,6 +29,7 @@ class PyBuiltinCode(PyBaseCode):
 
     def eval_code(self, space, w_globals, w_locals):
         # this isn't quite complete: varargs and kwargs are missing
+        # defaults are not here either
         args = []
         for argname in self.co_varnames:
             w_arg = space.getitem(w_locals, space.wrap(argname))
@@ -48,7 +49,7 @@ class BuiltinModule:
         w_module = space.newmodule(space.wrap(modulename))
         for key, value in self.__class__.__dict__.items():
             if isinstance(value, appmethod):
-
-                PyBuiltinCode(self, value)
-                
-                ...
+                code = PyBuiltinCode(self, value)
+                w_function = space.newfunction(code, space.w_None, None)
+                space.setattr(w_module, space.wrap(key), w_function)
+        return w_module
