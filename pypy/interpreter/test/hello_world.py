@@ -1,6 +1,5 @@
 
-def main():
-    aStr = "hello world"
+def main(aStr):
     print len(aStr)
 
-main()
+map(main, ["hello world", "good bye"])

@@ -227,7 +227,7 @@ StdObjSpace.delitem.register(cpython_getitem, W_CPythonObject, W_ANY)
 def cpython_next(space, w_obj):
     obj = space.unwrap(w_obj)
     try:
-        result = w.next()
+        result = obj.next()
     except StopIteration:
         raise NoValue
     except:
