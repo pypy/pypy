@@ -21,7 +21,7 @@ class StdTypeDef(TypeDef):
     def mro(self, space):
         assert len(self.bases) <= 1
         if self.bases:
-            return [self] + self.bases[0].mro()
+            return [self] + self.bases[0].mro(space)
         else:
             return [self]
 
