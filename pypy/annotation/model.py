@@ -202,14 +202,23 @@ def ishashable(x):
 
 def immutablevalue(x):
     "The most precise SomeValue instance that contains the immutable value x."
-    if isinstance(bool, type) and isinstance(x, bool):
+    tp = type(x)
+    if tp is bool:
         result = SomeBool()
-    elif isinstance(x, int):
+    elif tp is int:
         result = SomeInteger(nonneg = x>=0)
-    elif isinstance(x, str):
+    elif tp is str:
         result = SomeString()
-    elif isinstance(x, tuple):
+    elif tp is tuple:
         result = SomeTuple(items = [immutablevalue(e) for e in x])
+    elif tp is list:
+        items_s = [immutablevalue(e) for e in x]
+        result = SomeList({}, unionof(*items_s))
+    elif tp is dict:   # exactly a dict, not a subclass like Cache
+        items = {}
+        for key, value in x.items():
+            items[key] = immutablevalue(value)
+        result = SomeDict({}, items)
     elif ishashable(x) and x in BUILTIN_FUNCTIONS:
         result = SomeBuiltin(BUILTIN_FUNCTIONS[x])
     elif callable(x):
