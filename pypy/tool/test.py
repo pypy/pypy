@@ -139,7 +139,6 @@ class CtsTestRunner:
         import pickle
         import cStringIO as StringIO
 
-        output = sys.stdout
         result = MyTestResult()
         try:
             # discard output of test or suite
@@ -176,12 +175,12 @@ class CtsTestRunner:
                 del ostatus[k]
             new = status[k]
             if old != new:
-                print >> output, k, 'has transitioned from', old, 'to', new
+                print k, 'has transitioned from', old, 'to', new
             elif new != 'success':
-                print >> output, k, "is still a", new
+                print k, "is still a", new
 
         for k in ostatus:
-            print >>output, k, 'was a', ostatus[k], 'was not run this time'
+            print k, 'was a', ostatus[k], 'was not run this time'
             status[k] = ostatus[k]
 
         pickle.dump(status, open('testcts.pickle','w'))
