@@ -2,45 +2,39 @@
 # really implement unicode yet).
 
 import autopath, sys
-from pypy.tool import testit
 
 
-class TestUnicodeStringStdOnly(testit.AppTestCase):
-    def setUp(self):
-         self.space = testit.objspace('std')
+objspacename = 'std'
 
+class AppTestUnicodeStringStdOnly:
     def test_compares(self):
-        self.assertEqual(u'a', 'a')
-        self.assertEqual('a', u'a')
-        self.assertNotEqual(u'a', 'b')
-        self.assertNotEqual('a', u'b')
+        assert u'a' == 'a'
+        assert 'a' == u'a'
+        assert not u'a' == 'b' # xxx u'a' != 'b' fails
+        assert not 'a'  == u'b'# xxx 'a' != u'b' fails
 
-class TestUnicodeString(testit.AppTestCase):
+class AppTestUnicodeString:
     def test_addition(self):
         def check(a, b):
-            self.assertEqual(a, b)
-            self.assertEqual(type(a), type(b))
+            assert a == b
+            assert type(a) == type(b)
         check(u'a' + 'b', u'ab')
         check('a' + u'b', u'ab')
 
     def test_join(self):
         def check(a, b):
-            self.assertEqual(a, b)
-            self.assertEqual(type(a), type(b))
+            assert a == b
+            assert type(a) == type(b)
         check(', '.join([u'a']), u'a')
         check(', '.join(['a', u'b']), u'a, b')
         check(u', '.join(['a', 'b']), u'a, b')
 
     if sys.version_info >= (2,3):
         def test_contains_ex(self):
-            self.failUnless(u'' in 'abc')
-            self.failUnless(u'bc' in 'abc')
-            self.failUnless('bc' in 'abc')
+            assert u'' in 'abc'
+            assert u'bc' in 'abc'
+            assert 'bc' in 'abc'
 
     def test_contains(self):
-        self.failUnless(u'a' in 'abc')
-        self.failUnless('a' in u'abc')
-        
-
-if __name__ == '__main__':
-    testit.main()
+        assert u'a' in 'abc'
+        assert 'a' in u'abc'

@@ -1,30 +1,28 @@
 import autopath
-from pypy.tool import testit
 
-class TestUserObject(testit.AppTestCase):
-    def setUp(self):
-        self.space = testit.objspace('std')
+objspacename = 'std'
 
+class AppTestUserObject:
     def test_emptyclass(self):
         class empty: pass
         inst = empty()
-        self.failUnless(isinstance(inst, empty))
+        assert isinstance(inst, empty)
         inst.attr=23
-        self.assertEquals(inst.attr,23)
+        assert inst.attr ==23
 
     def test_method(self):
         class A:
             def f(self, v):
                 return v*42
         a = A()
-        self.assertEquals(a.f('?'), '??????????????????????????????????????????')
+        assert a.f('?') == '??????????????????????????????????????????'
 
     def test_unboundmethod(self):
         class A:
             def f(self, v):
                 return v*17
         a = A()
-        self.assertEquals(A.f(a, '!'), '!!!!!!!!!!!!!!!!!')
+        assert A.f(a, '!') == '!!!!!!!!!!!!!!!!!'
 
     def test_subclassing(self):
         for base in tuple, list, dict, str, int, float:
@@ -36,17 +34,17 @@ class TestUserObject(testit.AppTestCase):
                 if base is not dict:  # XXX must be fixed
                     raise
             else:
-                self.failUnless(isinstance(stuff, base))
+                assert isinstance(stuff, base)
 
     def test_subclasstuple(self):
         class subclass(tuple): pass
         stuff = subclass()
-        self.failUnless(isinstance(stuff, tuple))
+        assert isinstance(stuff, tuple)
         stuff.attr = 23
-        self.assertEquals(stuff.attr,23)
-        self.assertEquals(len(stuff),0)
+        assert stuff.attr ==23
+        assert len(stuff) ==0
         result = stuff + (1,2,3)
-        self.assertEquals(len(result),3)
+        assert len(result) ==3
 
     def test_subsubclass(self):
         class base:
@@ -54,9 +52,9 @@ class TestUserObject(testit.AppTestCase):
         class derived(base):
             derivedattr = 34
         inst = derived()
-        self.failUnless(isinstance(inst, base))
-        self.assertEquals(inst.baseattr,12)
-        self.assertEquals(inst.derivedattr,34)
+        assert isinstance(inst, base)
+        assert inst.baseattr ==12
+        assert inst.derivedattr ==34
 
     def test_descr_get(self):
         class C:
@@ -64,7 +62,7 @@ class TestUserObject(testit.AppTestCase):
                 def __get__(self, ob, cls=None):
                     return 42
             prop = desc()
-        self.assertEquals(C().prop, 42)
+        assert C().prop == 42
 
     def test_descr_set(self):
         class C:
@@ -74,7 +72,7 @@ class TestUserObject(testit.AppTestCase):
             prop = desc()
         c = C()
         c.prop = 32
-        self.assertEquals(c.wibble, 32)
+        assert c.wibble == 32
 
     def test_descr_delete(self):
         class C:
@@ -86,63 +84,60 @@ class TestUserObject(testit.AppTestCase):
             prop = desc()
         c = C()
         del c.prop
-        self.assertEquals(c.wibble, 22)
+        assert c.wibble == 22
 
     def test_class_setattr(self):
         class C:
             pass
         C.a = 1
-        self.assert_(hasattr(C, 'a'))
-        self.assertEquals(C.a, 1)
+        assert hasattr(C, 'a')
+        assert C.a == 1
 
     def test_add(self):
         class C:
             def __add__(self, other):
                 return self, other
         c1 = C()
-        self.assertEquals(c1+3, (c1, 3))
+        assert c1+3 == (c1, 3)
 
     def test_call(self):
         class C:
             def __call__(self, *args):
                 return args
         c1 = C()
-        self.assertEquals(c1(), ())
-        self.assertEquals(c1(5), (5,))
-        self.assertEquals(c1("hello", "world"), ("hello", "world"))
+        assert c1() == ()
+        assert c1(5) == (5,)
+        assert c1("hello", "world") == ("hello", "world")
 
     def test_getattribute(self):
         class C:
             def __getattribute__(self, name):
                 return '->' + name
         c1 = C()
-        self.assertEquals(c1.a, '->a')
+        assert c1.a == '->a'
         c1.a = 5
-        self.assertEquals(c1.a, '->a')
+        assert c1.a == '->a'
 
     def test_getattr(self):
         class C:
             def __getattr__(self, name):
                 return '->' + name
         c1 = C()
-        self.assertEquals(c1.a, '->a')
+        assert c1.a == '->a'
         c1.a = 5
-        self.assertEquals(c1.a, 5)
+        assert c1.a == 5
 
     def test_dict(self):
         class A(object):
             pass
         class B(A):
             pass
-        self.failIf('__dict__' in object.__dict__)
-        self.assert_('__dict__' in A.__dict__)
-        self.failIf('__dict__' in B.__dict__)
+        assert not '__dict__' in object.__dict__
+        assert '__dict__' in A.__dict__
+        assert not '__dict__' in B.__dict__
         a = A()
         a.x = 5
-        self.assertEquals(a.__dict__, {'x': 5})
+        assert a.__dict__ == {'x': 5}
         a.__dict__ = {'y': 6}
-        self.assertEquals(a.y, 6)
-        self.failIf(hasattr(a, 'x'))
-
-if __name__ == '__main__':
-    testit.main()
+        assert a.y == 6
+        assert not hasattr(a, 'x')

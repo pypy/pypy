@@ -83,10 +83,12 @@ def gettestobjspace(name=None):
 class PyPyItem(py.test.Item):
     # All PyPy test items catch and display OperationErrors specially.
 
-    #def setup_module(self, mod): 
+    def setup_module(self, mod): 
     #    if hasattr(mod, 'objspacename'): 
     #        mod.space = getttestobjspace(mod.objspacename)
-    #    super(PyPyItem, self).setup_module(mod) 
+        # stick py.test raise in module globals
+        mod.raises = py.test.raises
+        super(PyPyItem, self).setup_module(mod) 
 
     def setup_class(self, cls): 
         name = getattr(cls, 'objspacename', None) 

@@ -1,42 +1,33 @@
 import autopath
-from pypy.tool import testit
 
 
-class TestW_BoolObject(testit.TestCase):
+objspacename = 'std'
 
-    def setUp(self):
-        self.space = testit.objspace('std')
+class TestW_BoolObject:
+
+    def setup_method(self,method):
         self.true = self.space.w_True
         self.false = self.space.w_False
         self.wrap = self.space.wrap
 
-    def tearDown(self):
-        pass
-
     def test_repr(self):
-        self.assertEqual_w(self.space.repr(self.true), self.wrap("True"))
-        self.assertEqual_w(self.space.repr(self.false), self.wrap("False"))
+        assert self.space.eq_w(self.space.repr(self.true), self.wrap("True"))
+        assert self.space.eq_w(self.space.repr(self.false), self.wrap("False"))
     
     def test_true(self):
-        self.failUnless_w(self.true)
+        assert self.space.is_true(self.true)
         
     def test_false(self):
-        self.failIf_w(self.false)
+        assert not self.space.is_true(self.false)
         
-class AppBoolTest(testit.AppTestCase):
-    def setUp(self):
-        self.space = testit.objspace('std')
-
+class AppTestAppBoolTest:
     def test_bool_callable(self):
-        self.assertEquals(True, bool(1))
-        self.assertEquals(False, bool(0))
-        self.assertEquals(False, bool())
+        assert True == bool(1)
+        assert False == bool(0)
+        assert False == bool()
 
     def test_bool_string(self):
-        self.assertEquals("True", str(True))
-        self.assertEquals("False", str(False))
-        self.assertEquals("True", repr(True))
-        self.assertEquals("False", repr(False))
-
-if __name__ == '__main__':
-    testit.main()
+        assert "True" == str(True)
+        assert "False" == str(False)
+        assert "True" == repr(True)
+        assert "False" == repr(False)

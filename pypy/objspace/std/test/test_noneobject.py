@@ -1,25 +1,16 @@
 import autopath
-from pypy.tool import testit
 
 
-class TestW_NoneObject(testit.TestCase):
+objspacename = 'std'
 
-    def setUp(self):
-        self.space = testit.objspace('std')
-
-    def tearDown(self):
-        pass
+class TestW_NoneObject:
 
     def test_equality(self):
-        self.assertEqual_w(self.space.w_None, self.space.w_None)
+        assert self.space.eq_w(self.space.w_None, self.space.w_None)
     
     def test_inequality(self):
         neresult = self.space.ne(self.space.w_None, self.space.w_None)
-        self.failIf_w(neresult)
+        assert not self.space.is_true(neresult)
 
     def test_false(self):
-        self.failIf_w(self.space.w_None)
-        
-
-if __name__ == '__main__':
-    testit.main()
+        assert not self.space.is_true(self.space.w_None)

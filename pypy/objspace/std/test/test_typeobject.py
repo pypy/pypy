@@ -1,5 +1,4 @@
 import autopath
-from pypy.tool import testit
 
 ##class TestSpecialMultimethodCode(testit.TestCase):
 
@@ -53,41 +52,40 @@ from pypy.tool import testit
 ##                                              w({'x1': 5.5, 'x2': 7})),
 ##                               w(-1.5))
 
-class TestTypeObject(testit.AppTestCase):
-    def setUp(self):
-        self.space = testit.objspace('std')
+objspacename = 'std'
 
+class AppTestTypeObject:
     def test_bases(self):
-        self.assertEquals(int.__bases__, (object,))
+        assert int.__bases__ == (object,)
         class X: pass
-        self.assertEquals(X.__bases__,  (object,))
+        assert X.__bases__ ==  (object,)
         class Y(X): pass
-        self.assertEquals(Y.__bases__,  (X,))
+        assert Y.__bases__ ==  (X,)
         class Z(Y,X): pass
-        self.assertEquals(Z.__bases__,  (Y, X))
+        assert Z.__bases__ ==  (Y, X)
         
     def test_builtin_add(self):
         x = 5
-        self.assertEquals(x.__add__(6), 11)
+        assert x.__add__(6) == 11
         x = 3.5
-        self.assertEquals(x.__add__(2), 5.5)
-        self.assertEquals(x.__add__(2.0), 5.5)
+        assert x.__add__(2) == 5.5
+        assert x.__add__(2.0) == 5.5
 
     def test_builtin_call(self):
         def f(*args):
             return args
-        self.assertEquals(f.__call__(), ())
-        self.assertEquals(f.__call__(5), (5,))
-        self.assertEquals(f.__call__("hello", "world"), ("hello", "world"))
+        assert f.__call__() == ()
+        assert f.__call__(5) == (5,)
+        assert f.__call__("hello", "world") == ("hello", "world")
 
     def test_builtin_call_kwds(self):
         def f(*args, **kwds):
             return args, kwds
-        self.assertEquals(f.__call__(), ((), {}))
-        self.assertEquals(f.__call__("hello", "world"), (("hello", "world"), {}))
-        self.assertEquals(f.__call__(5, bla=6), ((5,), {"bla": 6}))
-        self.assertEquals(f.__call__(a=1, b=2, c=3), ((), {"a": 1, "b": 2,
-                                                           "c": 3}))
+        assert f.__call__() == ((), {})
+        assert f.__call__("hello", "world") == (("hello", "world"), {})
+        assert f.__call__(5, bla=6) == ((5,), {"bla": 6})
+        assert f.__call__(a=1, b=2, c=3) == ((), {"a": 1, "b": 2,
+                                                           "c": 3})
 
     def test_multipleinheritance_fail(self):
         try:
@@ -105,15 +103,15 @@ class TestTypeObject(testit.AppTestCase):
         class HasOuterMetaclass(object):
             __metaclass__ = OuterMetaClass
 
-        self.assertEquals(type(HasOuterMetaclass), OuterMetaClass)
-        self.assertEquals(type(HasOuterMetaclass), HasOuterMetaclass.__metaclass__)
+        assert type(HasOuterMetaclass) == OuterMetaClass
+        assert type(HasOuterMetaclass) == HasOuterMetaclass.__metaclass__
 
     def test_inner_metaclass(self):
         class HasInnerMetaclass(object):
             class __metaclass__(type):
                 pass
 
-        self.assertEquals(type(HasInnerMetaclass), HasInnerMetaclass.__metaclass__)
+        assert type(HasInnerMetaclass) == HasInnerMetaclass.__metaclass__
 
     def test_implicit_metaclass(self):
         global __metaclass__
@@ -130,7 +128,7 @@ class TestTypeObject(testit.AppTestCase):
             pass
 
         try:
-            self.assertEquals(type(HasImplicitMetaclass), __metaclass__)
+            assert type(HasImplicitMetaclass) == __metaclass__
         finally:
             if has_old_metaclass:
                 __metaclass__ = old_metaclass
@@ -148,20 +146,20 @@ class TestTypeObject(testit.AppTestCase):
                 def mro(self):
                     return [self, object]
 
-        self.assertEquals(B_mro.__bases__, (A_mro,))
-        self.assertEquals(B_mro.__mro__, (B_mro, object))
-        self.assertEquals(B_mro.mro(), [B_mro, object])
-        self.assertEquals(B_mro.b, 1)
-        self.assertEquals(B_mro().b, 1)
-        self.assertEquals(getattr(B_mro, 'a', None), None)
-        self.assertEquals(getattr(B_mro(), 'a', None), None)
+        assert B_mro.__bases__ == (A_mro,)
+        assert B_mro.__mro__ == (B_mro, object)
+        assert B_mro.mro() == [B_mro, object]
+        assert B_mro.b == 1
+        assert B_mro().b == 1
+        assert getattr(B_mro, 'a', None) == None
+        assert getattr(B_mro(), 'a', None) == None
 
     def test_nodoc(self):
         class NoDoc(object):
             pass
 
         try:
-            self.assertEquals(NoDoc.__doc__, None)
+            assert NoDoc.__doc__ == None
         except AttributeError:
             raise AssertionError, "__doc__ missing!"
 
@@ -169,13 +167,13 @@ class TestTypeObject(testit.AppTestCase):
         class ExplicitDoc(object):
             __doc__ = 'foo'
 
-        self.assertEquals(ExplicitDoc.__doc__, 'foo')
+        assert ExplicitDoc.__doc__ == 'foo'
 
     def test_implicitdoc(self):
         class ImplicitDoc(object):
             "foo"
 
-        self.assertEquals(ImplicitDoc.__doc__, 'foo')
+        assert ImplicitDoc.__doc__ == 'foo'
 
     def test_immutabledoc(self):
         class ImmutableDoc(object):
@@ -192,8 +190,4 @@ class TestTypeObject(testit.AppTestCase):
         else:
             raise AssertionError, '__doc__ should not be writable'
 
-        self.assertEquals(ImmutableDoc.__doc__, 'foo')
-
-
-if __name__ == '__main__':
-    testit.main()
+        assert ImmutableDoc.__doc__ == 'foo'

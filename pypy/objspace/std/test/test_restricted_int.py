@@ -1,18 +1,16 @@
 import unittest
 import autopath
-from pypy.tool import testit
 from pypy.objspace.std.restricted_int import *
 import sys
 
 maxint_mask = (sys.maxint*2 + 1)
 
-class Test_r_int(testit.TestCase):
+objspacename = 'std'
 
-    def setUp(self):
-        space = testit.objspace('std')
+class Test_r_int:
 
-    def tearDown(self):
-        pass
+    def setup_method(self,method):
+        space = self.space
 
     def test__add__(self):
         self.binary_test(lambda x, y: x + y)
@@ -21,8 +19,8 @@ class Test_r_int(testit.TestCase):
     def test__mul__(self):
         self.binary_test(lambda x, y: x * y)
         x = 3; y = [2]
-        self.assertEquals(x*y, r_int(x)*y)
-        self.assertEquals(y*x, y*r_int(x))
+        assert x*y == r_int(x)*y
+        assert y*x == y*r_int(x)
     def test__div__(self):
         self.binary_test(lambda x, y: x // y)
     def test__mod__(self):
@@ -53,7 +51,7 @@ class Test_r_int(testit.TestCase):
         for arg in (-10, -1, 0, 3, 12345):
             res = f(arg)
             cmp = f(r_int(arg))
-            self.assertEquals(res, cmp)
+            assert res == cmp
         
     def binary_test(self, f, rargs = None):
         if not rargs:
@@ -64,15 +62,12 @@ class Test_r_int(testit.TestCase):
                     res = f(larg, rarg)
                     left, right = types
                     cmp = f(left(larg), right(rarg))
-                    self.assertEquals(res, cmp)
+                    assert res == cmp
                     
-class Test_r_uint(testit.TestCase):
+class Test_r_uint:
 
-    def setUp(self):
-        space = testit.objspace('std')
-
-    def tearDown(self):
-        pass
+    def setup_method(self,method):
+        space = self.space
 
     def test__add__(self):
         self.binary_test(lambda x, y: x + y)
@@ -81,8 +76,8 @@ class Test_r_uint(testit.TestCase):
     def test__mul__(self):
         self.binary_test(lambda x, y: x * y)
         x = 3; y = [2]
-        self.assertEquals(x*y, r_uint(x)*y)
-        self.assertEquals(y*x, y*r_uint(x))
+        assert x*y == r_uint(x)*y
+        assert y*x == y*r_uint(x)
     def test__div__(self):
         self.binary_test(lambda x, y: x // y)
     def test__mod__(self):
@@ -114,7 +109,7 @@ class Test_r_uint(testit.TestCase):
         for arg in (0, 3, 12345):
             res = f(arg) & maxint_mask 
             cmp = f(r_uint(arg))
-            self.assertEquals(res, cmp)
+            assert res == cmp
         
     def binary_test(self, f, rargs = None):
         mask = maxint_mask 
@@ -130,7 +125,4 @@ class Test_r_uint(testit.TestCase):
                         res = res[0] & mask, res[1] & mask
                     else:
                         res = res & mask
-                    self.assertEquals(res, cmp)
-
-if __name__ == '__main__':
-    testit.main()
+                    assert res == cmp

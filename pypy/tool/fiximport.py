@@ -43,8 +43,8 @@ def read_whole_suite(intro_line):
     return base_indent,lines
 
 pass_re = re.compile(r"^\s*pass\s*$")
-getobjspace_re = r"testit\.objspace\((.*)\)"
-setspace_re = r"self\.space\s*=\s*"
+getobjspace_re = re.compile(r"testit\.objspace\((.*)\)")
+setspace_re = re.compile(r"self\.space\s*=\s*")
 
 def up_down_port(lines):
     npass = 0
@@ -97,6 +97,9 @@ for fn in files:
 
     global_objspacename = False
     confused = False
+
+    import_autopath_lineno = -1
+    
     while True:
         if pushback:
             line = pushback.pop()
@@ -168,6 +171,8 @@ for fn in files:
             else:
                 print ' * ignored class', rest
             line = 'class ' + rest + '\n'
+        if line.rstrip() == "import autopath":
+            import_autopath_lineno = len(lines)
         lines.append(line)
     f.close()
 

@@ -1,18 +1,13 @@
 import autopath
-from pypy.tool import testit
 
-class TestW_SliceObject(testit.TestCase):
+objspacename = 'std'
 
-    def setUp(self):
-        self.space = testit.objspace('std')
-
-    def tearDown(self):
-        pass
+class TestW_SliceObject:
 
     def equal_indices(self, got, expected):
-        self.assertEqual(len(got), len(expected))
+        assert len(got) == len(expected)
         for g, e in zip(got, expected):
-            self.assertEqual(g, e)
+            assert g == e
 
     def test_indices(self):
         from pypy.objspace.std import slicetype
@@ -32,31 +27,25 @@ class TestW_SliceObject(testit.TestCase):
         w = space.wrap
         w_None = space.w_None
         w_slice = space.newslice(w_None, w_None, w(0))
-        self.assertRaises_w(space.w_ValueError,
+        self.space.raises_w(space.w_ValueError,
                             slicetype.indices3, space, w_slice, 10)
 
-class Test_SliceObject(testit.AppTestCase):
-    def setUp(self):
-        self.space = testit.objspace('std')
-
+class AppTest_SliceObject:
     def test_new(self):
         def cmp_slice(sl1, sl2):
             for attr in "start", "stop", "step":
                 if getattr(sl1, attr) != getattr(sl2, attr):
                     return False
             return True
-        self.assertRaises(TypeError, slice)
-        self.assertRaises(TypeError, slice, 1, 2, 3, 4)
-        self.failUnless(cmp_slice(slice(23), slice(None, 23, None)))
-        self.failUnless(cmp_slice(slice(23, 45), slice(23, 45, None)))
+        raises(TypeError, slice)
+        raises(TypeError, slice, 1, 2, 3, 4)
+        assert cmp_slice(slice(23), slice(None, 23, None))
+        assert cmp_slice(slice(23, 45), slice(23, 45, None))
 
     def test_indices(self):
-        self.assertEqual(slice(4,11,2).indices(28), (4, 11, 2))
-        self.assertEqual(slice(4,11,2).indices(8), (4, 8, 2))
-        self.assertEqual(slice(4,11,2).indices(2), (2, 2, 2))
-        self.assertEqual(slice(11,4,-2).indices(28), (11, 4, -2))
-        self.assertEqual(slice(11,4,-2).indices(8), (7, 4, -2))
-        self.assertEqual(slice(11,4,-2).indices(2), (1, 2, -2))
-
-if __name__ == '__main__':
-    testit.main()
+        assert slice(4,11,2).indices(28) == (4, 11, 2)
+        assert slice(4,11,2).indices(8) == (4, 8, 2)
+        assert slice(4,11,2).indices(2) == (2, 2, 2)
+        assert slice(11,4,-2).indices(28) == (11, 4, -2)
+        assert slice(11,4,-2).indices(8) == (7, 4, -2)
+        assert slice(11,4,-2).indices(2) == (1, 2, -2)
