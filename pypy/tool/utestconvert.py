@@ -11,7 +11,7 @@ d={}
 #  function.
 
 # Old Unittest Name             new name         operator  # of args
-#d['assertRaises']           = ('raises',               '', ['Any'])
+d['assertRaises']           = ('raises',               '', ['Any'])
 d['fail']                   = ('raise AssertionError', '', [0,1])
 d['assert_']                = ('assert',               '', [1,2])
 d['failIf']                 = ('assert not',           '', [1,2])
@@ -25,7 +25,7 @@ d['assertNotAlmostEqual']   = ('assert round',      ' !=', [2,3,4])
 d['failUnlessAlmostEquals'] = ('assert not round',  ' !=', [2,3,4])
 
 #  the list of synonyms
-#d['failUnlessRaises']      = d['assertRaises']
+d['failUnlessRaises']      = d['assertRaises']
 d['failUnless']            = d['assert_']
 d['assertEquals']          = d['assertEqual']
 d['assertNotEquals']       = d['assertNotEqual']
@@ -211,9 +211,13 @@ if __name__ == '__main__':
     optparser.add_option("-c", "--copy", action="callback",
                          callback=select_output,
                          callback_kwargs={'output':'copy'},
-                         help="copy files ... fn.py --> fn.new.py")
+                         help="copy files ... fn.py --> fn.cp.py")
 
     options, args = optparser.parse_args()
+
+
+
+    
 
     output = getattr(optparser, 'output', 'stdout')
 

@@ -67,7 +67,7 @@ class Testit(unittest.TestCase):
             """
             ),
             r"""
-            assert 0,(
+            assert 0, (
                  'Meet the badger.\n')
             """
                           )
@@ -232,10 +232,10 @@ class Testit(unittest.TestCase):
             ),
             """
             assert badger() == (
-                              snake()), '''BAD BADGER
+                              snake()), ( '''BAD BADGER
                               BAD BADGER
                               BAD BADGER'''
-                              
+                              )
             """
                         )
 
@@ -276,7 +276,7 @@ class Testit(unittest.TestCase):
                               GOOD MUSHROOM''' == (
                               '''GOOD MUSHROOM
                               GOOD MUSHROOM
-                              GOOD MUSHROOM'''),(
+                              GOOD MUSHROOM'''), (
                               ''' FAILURE
                               FAILURE
                               FAILURE''')
@@ -390,7 +390,7 @@ class Testit(unittest.TestCase):
             """
             ),
             """
-        assert '__builtin__' in modules, ("An entry for __builtin__ "
+        assert '__builtin__' in modules, ( "An entry for __builtin__ "
                                                     "is not in sys.modules.")
             """
                            )

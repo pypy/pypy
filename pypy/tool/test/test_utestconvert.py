@@ -4,21 +4,24 @@ import unittest
 
 class Testit(unittest.TestCase):
     def test(self):
-
         assert rewrite_utest("badger badger badger") == (
-                             "badger badger badger")
+                          "badger badger badger")
 
         assert rewrite_utest(
-            "self.assertRaises(excClass, callableObj, *args, **kwargs)") == (
-            "raises(excClass, callableObj, *args, **kwargs)")
+            "self.assertRaises(excClass, callableObj, *args, **kwargs)"
+            ) == (
+            "raises(excClass, callableObj, *args, **kwargs)"
+                          )
 
-        assert rewrite_utest("""
+        assert rewrite_utest(
+            """
             self.failUnlessRaises(TypeError, func, 42, **{'arg1': 23})
-            """) == ("""
+            """
+            ) == (
+            """
             raises(TypeError, func, 42, **{'arg1': 23})
             """
                           )
-
         assert rewrite_utest(
             """
             self.assertRaises(TypeError,
@@ -32,17 +35,13 @@ class Testit(unittest.TestCase):
                               mushroom)
             """
                           )
-
         assert rewrite_utest("self.fail()") == "raise AssertionError"
-
         assert rewrite_utest("self.fail('mushroom, mushroom')") == (
                           "raise AssertionError, 'mushroom, mushroom'")
-
         assert rewrite_utest("self.assert_(x)") == "assert x"
-
         assert rewrite_utest("self.failUnless(func(x)) # XXX") == (
                           "assert func(x) # XXX")
-
+        
         assert rewrite_utest(
             """
             self.assert_(1 + f(y)
@@ -68,11 +67,11 @@ class Testit(unittest.TestCase):
             """
             ) == (
             r"""
-            assert 0,(
+            assert 0, (
                  'Meet the badger.\n')
             """
                           )
-
+        
         assert rewrite_utest(
             r"""
             self.failIf(0 + 0
@@ -95,7 +94,7 @@ class Testit(unittest.TestCase):
 
         assert rewrite_utest("self.assertEquals(0, 0)") == (
                           "assert 0 == 0")
-
+        
         assert rewrite_utest(
             r"""
             self.assertEquals(0,
@@ -121,7 +120,7 @@ class Testit(unittest.TestCase):
                               + snake) == 0
             """
                           )
-        
+                            
         assert rewrite_utest(
             """
             self.assertNotEquals(badger + 0
@@ -155,7 +154,6 @@ class Testit(unittest.TestCase):
                               - badger())
             """
                          )
-
         assert rewrite_utest("self.failIfEqual(0, 0)") == (
                           "assert not 0 == 0")
 
@@ -182,6 +180,7 @@ class Testit(unittest.TestCase):
             """
                           )
 
+                                   
         assert rewrite_utest(
             """
             self.assertEquals('''snake snake snake
@@ -193,7 +192,7 @@ class Testit(unittest.TestCase):
                                  snake snake snake''' == mushroom
             """
                           )
-
+        
         assert rewrite_utest(
             """
             self.assertEquals(badger(),
@@ -233,10 +232,10 @@ class Testit(unittest.TestCase):
             ) == (
             """
             assert badger() == (
-                              snake()), '''BAD BADGER
+                              snake()), ( '''BAD BADGER
                               BAD BADGER
                               BAD BADGER'''
-                              
+                              )
             """
                         )
 
@@ -277,13 +276,12 @@ class Testit(unittest.TestCase):
                               GOOD MUSHROOM''' == (
                               '''GOOD MUSHROOM
                               GOOD MUSHROOM
-                              GOOD MUSHROOM'''),(
+                              GOOD MUSHROOM'''), (
                               ''' FAILURE
                               FAILURE
                               FAILURE''')
             """
                         )
-
 
         assert rewrite_utest(
             """
@@ -349,11 +347,11 @@ class Testit(unittest.TestCase):
             """
                           )
 
-        assert rewrite_utest(
+        self.assertEquals(rewrite_utest(
             """
             self.failIfAlmostEqual(first, second, 5, 6, 7, 'Too Many Args')
             """
-            ) == (
+            ),
             """
             self.failIfAlmostEqual(first, second, 5, 6, 7, 'Too Many Args')
             """
@@ -384,7 +382,7 @@ class Testit(unittest.TestCase):
             expression ... will this blow up?
             """
                           )
-
+        
         assert rewrite_utest(
             """
         self.failUnless('__builtin__' in modules, "An entry for __builtin__ "
@@ -392,11 +390,13 @@ class Testit(unittest.TestCase):
             """
             ) == (
             """
-        assert '__builtin__' in modules, ("An entry for __builtin__ "
+        assert '__builtin__' in modules, ( "An entry for __builtin__ "
                                                     "is not in sys.modules.")
             """
                            )
             
-               
+                              
 if __name__ == '__main__':
     unittest.main()
+
+
