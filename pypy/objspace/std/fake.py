@@ -95,7 +95,7 @@ class CPythonFakeFrame(eval.Frame):
             self.unwrappedargs = self.space.unwrap(w_args)
             self.unwrappedkwds = self.space.unwrap(w_kwds)
         except UnwrapError, e:
-            raise UnwrapError('calling %s: %s' % (fn, e))
+            raise UnwrapError('calling %s: %s' % (self.code.cpy_callable, e))
 
     def getfastscope(self):
         raise OperationError(self.space.w_TypeError,

@@ -11,6 +11,7 @@ Gateway between app-level and interpreter-level:
 """
 
 import types, sys
+from pypy.interpreter.error import OperationError 
 from pypy.interpreter import eval, pycode
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import Wrappable
