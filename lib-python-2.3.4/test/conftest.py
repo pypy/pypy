@@ -28,6 +28,7 @@ working_unittests = (
 'test_base64.py',
 'test_binop.py',
 'test_bisect.py',
+'test_builtin.py',
 'test_call',
 'test_codeop.py',
 'test_compile.py',
