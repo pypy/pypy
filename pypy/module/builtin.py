@@ -309,13 +309,21 @@ class __builtin__(ExtModule):
                         self.space.wrap('iter(v, w): v must be callable'))
             return self._iter_generator(w_collection_or_callable, w_sentinel)
 
-    def app__iter_generator(self,callable_,sentinel):
+    def app__iter_generator(self, callable_, sentinel):
         """ This generator implements the __iter__(callable,sentinel) protocol """
         while 1:
             result = callable_()
             if result == sentinel:
                 raise StopIteration
             yield result
+
+    def app_enumerate(self, collection):
+        'Generates an indexed series:  (0,coll[0]), (1,coll[1]) ...'     
+        i = 0
+        it = iter(collection)
+        while 1:
+            yield (i, it.next())
+            i += 1
 
     def ord(self, w_val):
         return self.space.ord(w_val)
