@@ -7,10 +7,10 @@ def get_type(w,annotations):
     if isinstance(w,Constant):
         return type(w.value)
     for ann in annotations:
-        if ann.opname == 'type' and list(ann.args) == [var] and isinstance(ann.result,Constant):
+        if ann.opname == 'type' and list(ann.args) == [w] and isinstance(ann.result,Constant):
             return ann.result.value
     return None
-            
+
 def set_type(var,type,annotations):
     ann = SpaceOperation("type",[var],Constant(type))
     annotations.append(ann)    
@@ -22,8 +22,14 @@ class Annotator:
 
     def build_annotations(self,input_annotations):
         self.annotated = {}
+        self.endblock = BasicBlock([Variable('_return_value')], [], [], None)
         self.flowin(self.flowgraph.startblock,input_annotations)
         return self.annotated
+
+    def end_annotations(self):
+        "Returns (return_value_Variable(), annotations_list)."
+        # XXX what if self.endblock not in self.annotated?
+        return self.endblock.input_args[0], self.annotated[self.endblock]
 
     def flownext(self,branch,curblock):
         getattr(self,'flownext_'+branch.__class__.__name__)(branch,curblock)
@@ -32,15 +38,16 @@ class Annotator:
         if block not in self.annotated:
             self.annotated[block] = annotations[:]
         else:
-            oldannotations = block.annotations
+            oldannotations = self.annotated[block]
             newannotations = self.unify(oldannotations,annotations)
             if newannotations == oldannotations:
                 return
             self.annotated[block] = newannotations
 
         for op in block.operations:
-                self.consider_op(op,self.annotated[block])
-        self.flownext(block.branch,block)
+            self.consider_op(op,self.annotated[block])
+        if block is not self.endblock:
+            self.flownext(block.branch,block)
             
     def consider_op(self,op,annotations):
         consider_meth = getattr(self,'consider_op_'+op.opname,None)
@@ -75,7 +82,7 @@ class Annotator:
                 return w
             if isinstance(w,GraphGlobalVariable):
                 return w
-            else
+            else:
                 return renaming[w]
 
         for ann in self.annotated[curblock]:
@@ -90,11 +97,12 @@ class Annotator:
         self.flowin(branch.target,newannotations)
          
     def flownext_ConditionalBranch(self,branch,curblock):
-        self.flownext(branch.ifbranch,block)
-        self.flownext(branch.elsebranch,block)
+        self.flownext(branch.ifbranch,curblock)
+        self.flownext(branch.elsebranch,curblock)
 
     def flownext_EndBranch(self,branch,curblock):
-        pass # XXX
+        branch = Branch([branch.returnvalue], self.endblock)
+        self.flownext_Branch(branch,curblock)
 
     def unify(self,oldannotations,annotations):
         return [ ann for ann in oldannotations if ann in annotations]
