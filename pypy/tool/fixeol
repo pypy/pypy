@@ -49,12 +49,16 @@ def binary2text(filename, native_eol = native_eol):
 def asserttextfile(fname):
     "Assert a file is a text file or issue a warning otherwise."
     # safety check to nail binary files
-    if not binary2text(fname):
-        print >> sys.stderr, "*** warning, looks like a binary file:",
-        print >> sys.stderr, fname
-        return
-    # change end-of-line style of each .py and .txt file to 'native'
-    os.system('svn propset svn:eol-style native %s' % fname)
+    try:
+        if not binary2text(fname):
+            print >> sys.stderr, "*** warning, looks like a binary file:",
+            print >> sys.stderr, fname
+            return
+    except IOError, e:
+        print "skipping %r because of %s" %(fname, e)
+    else:
+        # change end-of-line style of each .py and .txt file to 'native'
+        os.system('svn propset svn:eol-style native %s' % fname)
 
 
 def fixpyfiles(ignored, dirname, fnames):
