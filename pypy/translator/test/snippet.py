@@ -211,3 +211,43 @@ def s_and(x, y):
         return 'yes'
     else:
         return 'no'
+
+def break_continue(x):
+    result = []
+    i = 0
+    while 1:
+        i = i + 1
+        try:
+            if i&1:
+                continue
+            if i >= x:
+                break
+        finally:
+            result.append(i)
+        i = i + 1
+    return result
+
+def reverse_3(lst):
+    try:
+        a, b, c = lst
+    except:
+        return 0, 0, 0
+    return c, b, a
+
+def finallys(lst):
+    x = 1
+    try:
+        x = 2
+        try:
+            x = 3
+            a, = lst
+            x = 4
+        except KeyError:
+            return 5
+        except ValueError:
+            return 6
+        b, = lst
+        x = 7
+    finally:
+        x = 8
+    return x
