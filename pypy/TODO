@@ -5,6 +5,10 @@ General
   compiler, a number of C modules, and some types -- as printed
   when running py.py:  "faking <type xyz>".
 
+* re-allow more than one instance of StdObjSpace 
+  (probably requiring geninterp to generate less global 
+  init-code) 
+
 * not all of CPython's exceptions use the same __init__!
 
 * refactor the cmdline-entrypoints to PyPy aka py.py main.py 
