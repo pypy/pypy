@@ -276,6 +276,33 @@ class ObjSpace(object):
             raise TypeError, 'space.exec_(): expected a string, code or PyCode object'
         return statement.exec_code(self, w_globals, w_locals)
 
+    def exec_with(self, source, **kwargs_w): 
+        """ execute given source at applevel with given name=wrapped value 
+            parameters as its starting scope.  Note: EXPERIMENTAL. 
+        """ 
+        space = self
+        pypyco = getpypycode(space, source) 
+
+        # XXX use the fastscope version of Frames? 
+        w_glob = space.newdict([])
+        for name, w_value in kwargs_w.items(): 
+            space.setitem(w_glob, space.wrap(name), w_value) 
+        pypyco.exec_code(self, w_glob, w_glob) 
+        w_result = space.getitem(w_glob, space.wrap('__return__')) 
+        return w_result 
+
+pypycodecache = {}
+def getpypycode(space, source): 
+    try: 
+        return pypycodecache[(space, source)]
+    except KeyError: 
+        # NOT_RPYTHON  
+        # XXX hack a bit to allow for 'return' statements? 
+        from pypy.interpreter.pycode import PyCode
+        co = compile(source, '', 'exec') 
+        pypyco = PyCode(space)._from_code(co) 
+        pypycodecache[(space, co)] = pypyco 
+        return pypyco 
 
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result
