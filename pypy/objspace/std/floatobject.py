@@ -115,7 +115,19 @@ def div__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     try:
-        z = x / y   # XXX make sure this is the new true division
+        z = x / y
+    except ZeroDivisionError:
+        raise OperationError(space.w_ZeroDivisionError, space.wrap("float division"))
+    except FloatingPointError:
+        raise FailedToImplement(space.w_FloatingPointError, space.wrap("float division"))
+	# no overflow
+    return W_FloatObject(space, z)
+
+def floordiv__Float_Float(space, w_float1, w_float2):
+    x = w_float1.floatval
+    y = w_float2.floatval
+    try:
+        z = x // y
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError, space.wrap("float division"))
     except FloatingPointError:
@@ -144,7 +156,7 @@ def divmod__Float_Float(space, w_float1, w_float2):
     if y == 0.0:
         raise FailedToImplement(space.w_ZeroDivisionError, space.wrap("float modulo"))
     try:
-        # this is a hack!!!! must be replaced by a real fmod function
+        # XXX this is a hack!!!! must be replaced by a real fmod function
         mod = math.fmod(x,y)
         div = (x -mod) / y
         if (mod):
