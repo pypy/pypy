@@ -11,9 +11,9 @@ class TestExecutionContext(testsupport.TestCase):
         space = testsupport.objspace()
         ec = executioncontext.ExecutionContext(space)
         compile = space.builtin.compile
-        bytecode = compile(space.wrap('def f(x): return x+1'),
-                           space.wrap('<string>'),
-                           space.wrap('exec')).co_consts[0]
+        bytecode = space.unwrap(compile(space.wrap('def f(x): return x+1'),
+                                        space.wrap('<string>'),
+                                        space.wrap('exec'))).co_consts[0]
         w_globals = ec.make_standard_w_globals()
         w_locals = space.newdict([(space.wrap('x'), space.wrap(5))])
         frame = PyFrame(space, bytecode, w_globals, w_locals)
