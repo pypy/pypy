@@ -144,6 +144,9 @@ def zip(*collections):
        ignoring the trailing items in the other collections."""
 
     if len(collections) == 0:
+        import sys
+        if sys.version_info < (2,4):
+            raise TypeError("zip() requires at least one sequence")
         return []
     res = []
     iterators = [ iter(collection) for collection in collections ]

@@ -3,6 +3,12 @@ import autopath
 class AppTestZip:
 
    def test_zip_no_arguments(self):
+      import sys
+      if sys.version_info < (2,4):
+          # Test 2.3 behaviour
+          raises(TypeError, zip)
+          return
+      # Test 2.4 behaviour
       assert zip() ==  []
       assert zip(*[]) == []
    
