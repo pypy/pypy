@@ -210,6 +210,10 @@ class ObjSpace(object):
                 check_list.extend(exclst)
         return False
 
+    def normalize_exception(self, w_type, w_value, w_tb):
+        from pypy.interpreter import pyframe
+        return pyframe.normalize_exception(self, w_type,w_value, w_tb)
+
     def call(self, w_callable, w_args, w_kwds=None):
         args = Arguments.frompacked(self, w_args, w_kwds)
         return self.call_args(w_callable, args)

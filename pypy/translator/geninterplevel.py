@@ -1069,6 +1069,8 @@ class GenRpy:
                 # which goes to the last err%d_%d label written above.
                 # Since we only have OperationError, we need to select:
                 yield "except %s, e:" % (self.nameof(OperationError),)
+                yield "    e.w_type, e.w_value, _ign = space.unpacktuple("
+                yield "        space.normalize_exception(e.w_type, e.w_value, space.w_None), 3)"
                 q = "if"
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
@@ -1422,7 +1424,7 @@ class memfile(object):
     def close(self):
         pass
 
-def translate_as_module(sourcetext, modname="app2interpexec", tmpname=None):
+def translate_as_module(sourcetext, filename=None, modname="app2interpexec", tmpname=None):
     """ compile sourcetext as a module, translating to interp level.
     The result is the init function that creates the wrapped module dict.
     This init function needs a space as argument.
@@ -1437,7 +1439,10 @@ def translate_as_module(sourcetext, modname="app2interpexec", tmpname=None):
     # and now use the members of the dict
     """
     # create something like a module
-    code = py.code.Source(sourcetext).compile()
+    if filename is None: 
+        code = py.code.Source(sourcetext).compile()
+    else: 
+        code = compile(sourcetext, filename, 'exec') 
     dic = {'__name__': modname}
     exec code in dic
     del dic['__builtins__']

@@ -323,7 +323,7 @@ class PyInterpFrame(pyframe.PyFrame):
         if nbargs >= 3: w_traceback = f.valuestack.pop()
         if nbargs >= 2: w_value     = f.valuestack.pop()
         if 1:           w_type      = f.valuestack.pop()
-        w_resulttuple = pyframe.normalize_exception(f.space, w_type, w_value,
+        w_resulttuple = f.space.normalize_exception(w_type, w_value,
                                                     w_traceback)
         w_type, w_value, w_traceback = f.space.unpacktuple(w_resulttuple, 3)
         if w_traceback is not f.space.w_None:

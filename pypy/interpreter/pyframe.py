@@ -392,7 +392,7 @@ class ExceptBlock(FrameBlock):
             operationerr = unroller.args[0]
             w_type  = operationerr.w_type
             w_value = operationerr.w_value
-            w_normalized = normalize_exception(frame.space, w_type, w_value,
+            w_normalized = frame.space.normalize_exception(w_type, w_value,
                                                frame.space.w_None)
             w_type, w_value, w_tb = frame.space.unpacktuple(w_normalized, 3)
             # save the normalized exception back into the OperationError
@@ -409,6 +409,10 @@ class ExceptBlock(FrameBlock):
             frame.next_instr = self.handlerposition   # jump to the handler
             return True  # stop unrolling
         return False
+
+# make the following flowable: need _classobj
+import types, __builtin__
+__builtin__._classobj = types.ClassType
 
 app = gateway.applevel('''
     def normalize_exception(etype, value, tb):

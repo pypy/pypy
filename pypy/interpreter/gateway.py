@@ -540,14 +540,14 @@ class applevel:
 
 class applevelinterp(applevel):
     """ same as applevel, but using translation to interp-level.
-    Hopefully this will replace applevel at some point.
     """
-    NOT_RPYTHON_ATTRIBUTES = ['initfunc']
+    NOT_RPYTHON_ATTRIBUTES = []
 
-    def __init__(self, source, modname = 'applevelinterp'):
+    def __init__(self, source, filename = None, modname = 'applevelinterp'):
         "NOT_RPYTHON"
-        from pypy.translator.geninterplevel import translate_as_module
-        self.initfunc = translate_as_module(source, modname)
+        self.filename = filename
+        self.source = source
+        self.modname = modname
 
     def getwdict(self, space):
         return space.loadfromcache(self, applevelinterp._builddict,
@@ -555,11 +555,14 @@ class applevelinterp(applevel):
 
     def _builddict(self, space):
         "NOT_RPYTHON"
-        w_glob = self.initfunc(space)
+        from pypy.translator.geninterplevel import translate_as_module
+        initfunc = translate_as_module(self.source, self.filename,
+                                       self.modname, tmpname="/tmp/look.py")
+        w_glob = initfunc(space)
         return w_glob
 
 # comment this out to check against applevel without translation
-##applevel = applevelinterp
+##applevelinterp = applevel
 
 ## XXX there is a problem with the naming convention of app_xxx not allowed
 ## for interp2app! What shall we do?
