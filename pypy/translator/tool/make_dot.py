@@ -38,16 +38,25 @@ edge [fontname=Times];
     def emit(self, line):
         self.lines.append(line)
 
-    def emit_edge(self, name1, name2, label="", style="dashed", color="black", **kw):
+    def emit_edge(self, name1, name2, label="", 
+                  style="dashed", 
+                  color="black", 
+                  dir="forward",
+                  decorateP="",
+                  ):
         d = locals()
-        d.update(kw)
-        self.emit('edge [style=%(style)s, color=%(color)s, dir="forward", weight=0, label="%(label)s"];' % d)
-        self.emit('%(name1)s -> %(name2)s;' % d)
+        attrs = [('%s="%s"' % (x, d[x])) for x in d if isinstance(x, str)]
+        self.emit('edge [%s];' % ", ".join(attrs))
+        self.emit('%s -> %s' % (name1, name2))
 
-    def emit_node(self, name, shape, label, color="black", **kw):
+    def emit_node(self, name, 
+                  shape="diamond", 
+                  label="", 
+                  color="black",
+                  ):
         d = locals()
-        d.update(kw)
-        self.emit('%(name)s [shape=%(shape)s, color="%(color)s" label="%(label)s"];' % d)
+        attrs = [('%s="%s"' % (x, d[x])) for x in d if isinstance(x, str)]
+        self.emit('%s [%s];' % (name, ", ".join(attrs)))
 
     def visit(self, obj):
         # ignore for now 
@@ -60,14 +69,11 @@ edge [fontname=Times];
         self.emit_edge(name, self.blockname(funcgraph.startblock), 'startblock')
 
     def visit_Block(self, block):
+        # do the block itself
         name = self.blockname(block)
-        lines = []
-
-        lines.extend(map(repr, block.operations))
+        lines = map(repr, block.operations)
         lines.append("")
-
         numblocks = len(block.exits)
-
         color = "black"
         if not numblocks:
            shape = "circle"
@@ -81,8 +87,10 @@ edge [fontname=Times];
         iargs = " ".join(map(repr, block.inputargs))
         data = "%s(%s)\\ninputargs: %s\\n\\n" % (name, block.__class__.__name__, iargs)
         data = data + "\l".join(lines)
+
         self.emit_node(name, label=data, shape=shape, color=color)
 
+        # do links/exits
         if numblocks == 1:
             name2 = self.blockname(block.exits[0].target)
             label = " ".join(map(repr, block.exits[0].args))
