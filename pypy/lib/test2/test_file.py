@@ -1,6 +1,6 @@
 import os
 import autopath
-from pypy.appspace import _file
+# from pypy.appspace import _file
 from pypy.tool.udir import udir 
 import py 
 import unittest
@@ -8,7 +8,7 @@ import unittest
 class TestFile: 
     def setup_method(self, method):
         filename = os.path.join(autopath.this_dir, 'test_file.py')
-        self.fd = _file.file_(filename, 'r')
+        self.fd = file(filename, 'r')
 
     def teardown_method(self, method):
         self.fd.close()
@@ -18,7 +18,7 @@ class TestFile:
 
     def test_case_readonly(self):
         fn = str(udir.join('temptestfile'))
-        f=_file.file_(fn, 'w')
+        f=file(fn, 'w')
         assert f.name == fn
         assert f.mode == 'w'
         assert f.closed == False
