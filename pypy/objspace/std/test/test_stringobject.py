@@ -366,6 +366,9 @@ class TestStringObject(testit.AppTestCase):
         self.assertEquals(", ".join(['a', 'b', 'c']), "a, b, c")
         self.assertEquals("".join([]), "")
         self.assertEquals("-".join(['a', 'b']), 'a-b')
+        self.assertRaises(TypeError, ''.join, 1)
+        self.assertRaises(TypeError, ''.join, [1])
+        self.assertRaises(TypeError, ''.join, [[1]])
 
     def test_lower(self):
         self.assertEquals("aaa AAA".lower(), "aaa aaa")
@@ -472,6 +475,13 @@ class TestStringObject(testit.AppTestCase):
         self.assertEquals(repr("'''\"") ,'\'\\\'\\\'\\\'"\'')
         self.assertEquals(repr(chr(19)) ,"'\\x13'")
         self.assertEquals(repr(chr(2))  ,"'\\x02'")
+
+    def test_contains(self):
+        self.failUnless('' in 'abc')
+        self.failUnless('a' in 'abc')
+        self.failUnless('ab' in 'abc')
+        self.failIf('d' in 'abc')
+        self.assertRaises(TypeError, 'a'.__contains__, 1)
     
 
 if __name__ == '__main__':

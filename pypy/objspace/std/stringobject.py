@@ -328,10 +328,18 @@ def str_join__String_ANY(space, w_self, w_list):
         self = u(w_self)
         firstelem = 1
         listlen = 0
-        reslen = 0 
+        reslen = 0
         #compute the length of the resulting string 
-        for w_item in list:
-            reslen = reslen + len(u(w_item))
+        for i in range(len(list)):
+            if not space.is_true(space.isinstance(list[i], space.w_str)):
+                if space.is_true(space.isinstance(list[i], space.w_unicode)):
+                    w_u = space.call_function(space.w_unicode, w_self)
+                    return space.call_method(w_u, "join", w_list)
+                raise OperationError(
+                    space.w_TypeError,
+                    space.wrap("sequence item %d: expected string, %s "
+                               "found"%(i, space.type(list[i]).name)))
+            reslen = reslen + len(u(list[i]))
             listlen = listlen + 1
 
         reslen = reslen + (listlen - 1) * len(self)
@@ -346,8 +354,8 @@ def str_join__String_ANY(space, w_self, w_list):
             if firstelem:
                 for i in range(len(item)):
                     res[i+pos] = item[i]
-                firstelem = 0
                 pos = pos + len(item)
+                firstelem = 0
             else:
                 for i in range(len(self)):
                     res[i+pos] = self[i]
@@ -931,6 +939,10 @@ def iter__String(space, w_list):
     from pypy.objspace.std import iterobject
     return iterobject.W_SeqIterObject(space, w_list)
 
+def app_contains__String_String(self, sub):
+    return self.find(sub) >= 0
+
+contains__String_String = gateway.app2interp(app_contains__String_String)
 
 def app_repr__String(s):
     quote = "'"

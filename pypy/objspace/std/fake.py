@@ -36,7 +36,8 @@ def fake_type(cpy_type):
     print 'faking %r'%(cpy_type,)
     kw = {}
     for s, v in cpy_type.__dict__.items():
-        kw[s] = v
+        if cpy_type is not unicode or s not in ['__add__', '__contains__']:
+            kw[s] = v
     def fake__new__(space, w_type, *args_w):
         args = [space.unwrap(w_arg) for w_arg in args_w]
         try:
@@ -60,7 +61,7 @@ def fake_type(cpy_type):
     def fake_unwrap(space, w_obj):
         return w_obj.val
     StdObjSpace.unwrap.register(fake_unwrap, W_Fake)
-    W_Fake.__name__ = 'W_Fake(%s)'%(cpy_type.__name__)
+    W_Fake.__name__ = 'W_Fake%s'%(cpy_type.__name__.capitalize())
     W_Fake.typedef.fakedcpytype = cpy_type
     # XXX obviously this entire file is something of a hack, but it
     # manages to get worse here:
