@@ -210,12 +210,11 @@ class Gateway(Wrappable):
         return self.build_function(space, w_globals)
 
     def build_function(self, space, w_globals):
-        if self in space.generalcache:
-            fn = space.generalcache[self]
-        else:
-            defs = self.getdefaults(space)  # needs to be implemented by subclass
-            fn = Function(space, self.code, w_globals, defs, forcename = self.name)
-            space.generalcache[self] = fn
+        if not space.allowbuildcache: 
+            return space.generalcache[self]
+        defs = self.getdefaults(space)  # needs to be implemented by subclass
+        fn = Function(space, self.code, w_globals, defs, forcename = self.name)
+        space.generalcache[self] = fn
         return fn
 
     def get_method(self, obj):

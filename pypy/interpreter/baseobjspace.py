@@ -33,6 +33,7 @@ class ObjSpace(object):
     def __init__(self):
         "Basic initialization of objects."
         self.generalcache = {}
+        self.allowbuildcache = True 
         # sets all the internal descriptors
         self.initialize()
 
@@ -40,7 +41,10 @@ class ObjSpace(object):
         try:
             return self.generalcache[key]
         except KeyError:
-            return self.generalcache.setdefault(key, builder(key, self))
+            if self.allowbuildcache: 
+                #print "building for key %r" % key 
+                return self.generalcache.setdefault(key, builder(key, self))
+            raise 
     loadfromcache.translated_version = lambda s, k, b: s.generalcache[k]
 
     def make_builtins(self, for_builtins):
