@@ -152,6 +152,11 @@ class ObjSpace:
                 if self.is_true(w_rv):
                     return w_rv
         return self.w_False
+
+    def call_function(self, w_func, *args_w):
+        return self.call(w_func,
+                         self.newtuple(list(args_w)),
+                         self.newdict([]))
             
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result
