@@ -11,19 +11,6 @@ class Builtin(BuiltinModule):
     __pythonname__ = '__builtin__'
     __appfile__ = appfile.AppFile(__name__, ["module"])
 
-    def chr(self, w_ascii):
-        w_character = self.space.newstring([w_ascii])
-        return w_character
-    chr = appmethod(chr)
-
-    def len(self, w_obj):
-        return self.space.len(w_obj)
-    len = appmethod(len)
-
-    def str(self, w_obj):
-        return self.space.str(w_obj)
-    str = appmethod(str)
-
     # temporary hack, until we have a real tuple type for calling
     def tuple(self, w_obj):
         lis = self.space.unpackiterable(w_obj)
@@ -68,11 +55,18 @@ class Builtin(BuiltinModule):
         return self.space.abs(w_val)
     abs = appmethod(abs)
 
-    #XXX
-    def chr(self, w_val):
-        return self.space.chr(w_val)
+    def chr(self, w_ascii):
+        w_character = self.space.newstring([w_ascii])
+        return w_character
     chr = appmethod(chr)
 
+    def len(self, w_obj):
+        return self.space.len(w_obj)
+    len = appmethod(len)
+
+    def str(self, w_obj):
+        return self.space.str(w_obj)
+    str = appmethod(str)
 
     def delattr(self, w_object, w_name):
         return self.space.delattr(w_object, w_name)
@@ -99,8 +93,8 @@ class Builtin(BuiltinModule):
     id = appmethod(id)
 
     #XXX
-    def isinstance(self, w_object, w_class-or-type-or-tuple):
-        return self.space.isinstance(w_object, w_class-or-type-or-tuple)
+    def isinstance(self, w_object, w_class):
+        return self.space.isinstance(w_object, w_class)
     isinstance = appmethod(isinstance)
 
     #built-in name and object space name do not match
