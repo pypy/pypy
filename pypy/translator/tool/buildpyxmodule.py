@@ -1,5 +1,4 @@
 import autopath
-from pypy.tool.udir import udir
 
 import py
 from py.process import cmdexec 
@@ -155,6 +154,7 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
 
     # build the flow graph
     from pypy.objspace.flow import Space
+    from pypy.tool.udir import udir
     space = Space()
     name = func.func_name
     funcgraph = space.build_flow(func)
