@@ -1,5 +1,5 @@
 # replacement for decode_frame_arguments
-# Attention ! All calls here must be "easy", i.e. not involve
+# ===== ATTENTION ===== ! All calls here must be "easy", i.e. not involve
 # default or keyword arguments !! For example, all range() calls
 # need three arguments.
 
@@ -20,7 +20,7 @@ def decode_code_arguments(args, kws, defs, closure, codeobject):
     parameter_names = codeobject.co_varnames[:codeobject.co_argcount]
     
     # Normal arguments
-    for i in range(0, len(args), 1):
+    for i in range(0, len(args), 1):    # see comment above for ", 1"
         try:
             argdict[parameter_names[i]] = args[i]
         except IndexError:
@@ -29,6 +29,7 @@ def decode_code_arguments(args, kws, defs, closure, codeobject):
                 varargs_tuple = args[i:]
             else:
                 raise TypeError, 'Too many parameters to callable object'
+            break
 
     # Put all suitable keywords into arglist
     if kws:
@@ -65,7 +66,7 @@ def decode_code_arguments(args, kws, defs, closure, codeobject):
     if defs:
         argcount = codeobject.co_argcount
         defcount = len(defs)
-        for i in range(argcount - defcount, argcount, 1):
+        for i in range(argcount - defcount, argcount, 1): # ", 1" comment above
             if parameter_names[i] in argdict:
                 continue
             argdict[parameter_names[i]] = defs[i - (argcount - defcount)]
