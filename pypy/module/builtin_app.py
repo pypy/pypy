@@ -1,4 +1,3 @@
-
 def apply(function, args, kwds={}):
     return function(*args, **kwds)
 
@@ -100,33 +99,46 @@ def isinstance(obj, klass_or_tuple):
 def range(x, y=None, step=1):
     "docstring"
 
+    if step == 0:
+        raise ValueError, 'range() arg 3 must not be zero'
+
     if y is None:
         start = 0
         stop = x
     else:
         start = x
         stop = y
-
-    arr = []
-    i = start
-    if step == 0:
-        raise ValueError, 'range() arg 3 must not be zero'
-    elif step > 0:
-        while i < stop:
-            arr.append(i)
-            i += step
+    
+    if (stop <= start and step > 0) or (stop >= start and step < 0):
+            return []
     else:
-        while i > stop:
-            arr.append(i)
-            i += step
+        howmany = abs((stop - start)/step)
+        if abs(step) != 1:
+            howmany += 1
+                
+        if howmany == 0:
+            return []
+        else:
+            arr = [None] * int(howmany)
+
+    i = start
+    n = 0
+    while n < howmany:
+        arr[n] = i
+        i += step
+        n += 1
 
     return arr
 
 def min(*arr):
     "docstring"
 
-    if not len(arr):
-        raise TypeError, 'min/max() takes exactly 1 argument (0 given)'
+    if not arr:
+        raise TypeError, 'min() takes at least one argument'
+
+    if len(arr) == 1:
+        arr = arr[0]
+        
     
     min = arr[0]
     for i in arr:
@@ -137,8 +149,11 @@ def min(*arr):
 def max(*arr):
     "docstring"
 
-    if not len(arr):
-        raise TypeError, 'min/max() takes exactly 1 argument (0 given)'
+    if not arr:
+        raise TypeError, 'max() takes at least one argument'
+
+    if len(arr) == 1:
+        arr = arr[0]
     
     max = arr[0]
     for i in arr:
