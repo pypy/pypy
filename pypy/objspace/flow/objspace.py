@@ -260,7 +260,7 @@ def make_op(name, symbol, arity, specialnames):
         #print >> sys.stderr, 'Variable operation', name, args_w
         w_result = self.do_operation(name, *args_w)
         if exceptions:
-            # catch possible exceptions implicitely.  If the OperationError
+            # catch possible exceptions implicitly.  If the OperationError
             # below is not caught in the same function, it will produce an
             # exception-raising return block in the flow graph.  The special
             # value 'wrap(last_exception)' is used as a marker for this kind
