@@ -70,6 +70,16 @@ class TestW_TupleObject(unittest_w.TestCase_w):
         self.assertEqual_w(self.space.add(w_tuple1, w_tuple0), w_tuple1)
         self.assertEqual_w(self.space.add(w_tuple0, w_tuple2), w_tuple2)
 
+    def test_mul(self):
+        # only testing right mul at the moment
+        w = self.space.wrap
+        arg = w(2)
+        n = 3
+        w_tup = tobj.W_TupleObject([arg])
+        w_tup3 = tobj.W_TupleObject([arg]*n)
+        w_res = self.space.mul(w_tup, w(n))
+        self.assertEqual_w(w_tup3, w_res)
+
     def test_getslice(self):
         w = self.space.wrap
 

@@ -75,6 +75,13 @@ def list_add(space, w_list1, w_list2):
 
 StdObjSpace.add.register(list_add, W_ListObject, W_ListObject)
 
+def list_int_mul(space, w_list, w_int):
+    items = w_list.wrappeditems
+    times = w_int.intval
+    return W_ListObject(items * times)
+
+StdObjSpace.mul.register(list_int_mul, W_ListObject, W_IntObject)
+
 def list_eq(space, w_list1, w_list2):
     items1 = w_list1.wrappeditems
     items2 = w_list2.wrappeditems
@@ -90,8 +97,17 @@ StdObjSpace.eq.register(list_eq, W_ListObject, W_ListObject)
 # upto here, lists are nearly identical to tuples.
 # XXX have to add over-allocation!
 
-###def getattr_list(space, w_list, w_attr):
-###    if space.is_true(space.eq(w_attr, space.wrap('append'))):
-###        ...
-###        return W_InstMethObject(w_list, w_builtinfn)
-###    raise FailedToImplement(space.w_AttributeError)
+"""
+static PyMethodDef list_methods[] = {
+	{"append",	(PyCFunction)listappend,  METH_O, append_doc},
+	{"insert",	(PyCFunction)listinsert,  METH_VARARGS, insert_doc},
+	{"extend",      (PyCFunction)listextend,  METH_O, extend_doc},
+	{"pop",		(PyCFunction)listpop, 	  METH_VARARGS, pop_doc},
+	{"remove",	(PyCFunction)listremove,  METH_O, remove_doc},
+	{"index",	(PyCFunction)listindex,   METH_O, index_doc},
+	{"count",	(PyCFunction)listcount,   METH_O, count_doc},
+	{"reverse",	(PyCFunction)listreverse, METH_NOARGS, reverse_doc},
+	{"sort",	(PyCFunction)listsort, 	  METH_VARARGS, sort_doc},
+	{NULL,		NULL}		/* sentinel */
+};
+"""

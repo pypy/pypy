@@ -32,6 +32,16 @@ class TestW_ListObject(unittest_w.TestCase_w):
         w_list = tobj.W_ListObject([w(5), w(3), w(99)]*111)
         self.assertEqual_w(self.space.len(w_list), w(333))
 
+    def test_mul(self):
+        # only testing right mul at the moment
+        w = self.space.wrap
+        arg = w(2)
+        n = 3
+        w_lis = tobj.W_ListObject([arg])
+        w_lis3 = tobj.W_ListObject([arg]*n)
+        w_res = self.space.mul(w_lis, w(n))
+        self.assertEqual_w(w_lis3, w_res)
+
     def test_getitem(self):
         w = self.space.wrap
         w_list = tobj.W_ListObject([w(5), w(3)])

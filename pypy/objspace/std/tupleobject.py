@@ -71,6 +71,13 @@ def tuple_add(space, w_tuple1, w_tuple2):
 
 StdObjSpace.add.register(tuple_add, W_TupleObject, W_TupleObject)
 
+def tuple_int_mul(space, w_tuple, w_int):
+    items = w_tuple.wrappeditems
+    times = w_int.intval
+    return W_TupleObject(items * times)
+
+StdObjSpace.mul.register(tuple_int_mul, W_TupleObject, W_IntObject)
+
 def tuple_eq(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
