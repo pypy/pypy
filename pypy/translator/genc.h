@@ -8,17 +8,6 @@
 #include "structmember.h"
 #include "traceback.h"
 
-#if PY_VERSION_HEX < 0x02040000   /* 2.4 */
-struct _frame;
-typedef struct _traceback {
-	PyObject_HEAD
-	struct _traceback *tb_next;
-	struct _frame *tb_frame;
-	int tb_lasti;
-	int tb_lineno;
-} PyTracebackObject;
-#endif
-
 #if !defined(MIN)
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */
@@ -161,7 +150,7 @@ static PyObject *this_module_globals;
 
 #if defined(USE_CALL_TRACE)
 
-#define FAIL(err) { __f->f_lineno = __LINE__; goto err; }
+#define FAIL(err) { __f->f_lineno = __f->f_code->co_firstlineno = __LINE__; goto err; }
 
 #define FUNCTION_HEAD(signature, self, args, names, file, line) \
 	PyThreadState *__tstate = PyThreadState_GET(); \
@@ -171,6 +160,8 @@ static PyObject *this_module_globals;
 #define FUNCTION_CHECK() \
 	assert (__f != NULL);
 
+#define ERR_DECREF(arg) { if (__f->f_locals) { PyDict_SetItemString(__f->f_locals, #arg, arg); } Py_DECREF(arg); }
+
 #define FUNCTION_RETURN(rval) return traced_function_tail(rval, __f, __tstate);
 
 #else /* !defined(USE_CALL_TRACE) */
@@ -179,6 +170,7 @@ static PyObject *this_module_globals;
 
 #define FUNCTION_HEAD(signature, self, args, names, file, line)
 
+#define ERR_DECREF(arg) { Py_DECREF(arg); }
 #define FUNCTION_CHECK()
 
 #define FUNCTION_RETURN(rval) return rval;
@@ -463,10 +455,7 @@ static PyObject *traced_function_tail(PyObject *rval, PyFrameObject *f, PyThread
 	}
 	if (rval == NULL) {
 		if (tstate->curexc_traceback == NULL) {
-			if (PyTraceBack_Here(f) != -1) {
-				/* XXX - this is probably evil */
-				((PyTracebackObject*)tstate->curexc_traceback)->tb_lineno = f->f_lineno;
-			}
+			PyTraceBack_Here(f);
 		}
 		if (trace_frame_exc(tstate, f) < 0) {
 			goto end;

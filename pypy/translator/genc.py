@@ -53,8 +53,8 @@ class GenC:
                                #   for later in initxxx() -- for recursive
                                #   objects
         self.globaldecl = []
+        self.globalobjects = []
         self.pendingfunctions = []
-        self.initglobals = []
         self.debugstack = ()  # linked list of nested nameof()
         self.gen_source()
 
@@ -98,9 +98,8 @@ class GenC:
         if type(value) is not object:
             raise Exception, "nameof(%r)" % (value,)
         name = self.uniquename('g_object')
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*)&PyBaseObject_Type, ""))'%name)
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_module(self, value):
@@ -108,9 +107,8 @@ class GenC:
                not (value.__file__.endswith('.pyc') or value.__file__.endswith('.py') or value.__file__.endswith('.pyo')), \
                "%r is not a builtin module (probably :)"%value
         name = self.uniquename('mod%s'%value.__name__)
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyImport_Import("%s"))'%(name, value.__name__))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
         
 
@@ -119,10 +117,9 @@ class GenC:
             name = 'gint_%d' % value
         else:
             name = 'gint_minus%d' % abs(value)
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = '
                              'PyInt_FromLong(%d))' % (name, value))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_long(self, value):
@@ -131,10 +128,9 @@ class GenC:
             name = 'glong%d' % value
         else:
             name = 'glong_minus%d' % abs(value)
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = '
                              'PyLong_FromLong(%d))' % (name, value))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_float(self, value):
@@ -147,10 +143,9 @@ class GenC:
                                     '_' == c )]
         name = ''.join(chrs)
         name = self.uniquename(name)
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = '
                              'PyFloat_FromFloat(%r))' % (name, value))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_str(self, value):
@@ -159,7 +154,7 @@ class GenC:
                                      '0' <= c <='9' or
                                      '_' == c )]
         name = self.uniquename('gstr_' + ''.join(chrs))
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         if [c for c in value if not (' '<=c<='~')]:
             # non-printable string
             s = 'chr_%s' % name
@@ -170,20 +165,18 @@ class GenC:
             s = '"%s"' % value
         self.initcode.append('INITCHK(%s = PyString_FromStringAndSize('
                              '%s, %d))' % (name, s, len(value)))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def skipped_function(self, func):
         # debugging only!  Generates a placeholder for missing functions
         # that raises an exception when called.
         name = self.uniquename('gskippedfunc_' + func.__name__)
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         self.globaldecl.append('static PyMethodDef ml_%s = { "%s", &skipped, METH_VARARGS };' % (name, name))
         self.initcode.append('INITCHK(%s = PyCFunction_New('
                              '&ml_%s, NULL))' % (name, name))
         self.initcode.append('\tPy_INCREF(%s);' % name)
         self.initcode.append('\tPyCFunction_GET_SELF(%s) = %s;' % (name, name))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_function(self, func):
@@ -202,11 +195,10 @@ class GenC:
                 return self.skipped_function(func)
             #print "nameof", printable_name
         name = self.uniquename('gfunc_' + func.__name__)
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
                              '&ml_%s, NULL))' % (name, name))
         self.initcode.append('\t%s->ob_type = &PyGenCFunction_Type;' % name)
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.pendingfunctions.append(func)
         return name
 
@@ -217,10 +209,9 @@ class GenC:
             assert func in self.translator.flowgraphs, func
             
         name = self.uniquename('gsm_' + func.__name__)
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
                              '&ml_%s, NULL))' % (name, name))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.pendingfunctions.append(func)
         return name
 
@@ -234,11 +225,10 @@ class GenC:
             func = self.nameof(meth.im_func)
             typ = self.nameof(meth.im_class)
             name = self.uniquename('gmeth_'+meth.im_func.__name__)
-            self.globaldecl.append('static PyObject* %s;'%(name,))
+            self.globalobjects.append(name)
             self.initcode.append(
                 'INITCHK(%s = gencfunc_descr_get(%s, %s, %s))'%(
                 name, func, ob, typ))
-            self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
             return name
 
     def should_translate_attr(self, pbc, attr):
@@ -270,10 +260,9 @@ class GenC:
                 if self.should_translate_attr(instance, key):
                     yield 'INITCHK(SETUP_INSTANCE_ATTR(%s, "%s", %s))' % (
                         name, key, self.nameof(value))
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         self.initcode.append('INITCHK(SETUP_INSTANCE(%s, %s))' % (
             name, cls))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.later(initinstance())
         return name
 
@@ -292,7 +281,7 @@ class GenC:
             else:
                 raise Exception, '%r not found in any built-in module' % (func,)
             name = self.uniquename('gbltin_' + func.__name__)
-            self.globaldecl.append('static PyObject* %s;' % name)
+            self.globalobjects.append(name)
             if modname == '__builtin__':
                 self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
                                      'PyEval_GetBuiltins(), "%s"))' % (
@@ -301,15 +290,13 @@ class GenC:
                 self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
                                      '%s, "%s"))' % (
                     name, self.nameof(module), func.__name__))
-            self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         else:
             # builtin (bound) method
             name = self.uniquename('gbltinmethod_' + func.__name__)
-            self.globaldecl.append('static PyObject* %s;' % name)
+            self.globalobjects.append(name)
             self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
                                  '%s, "%s"))' % (
                 name, self.nameof(func.__self__), func.__name__))
-            self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_classobj(self, cls):
@@ -345,7 +332,7 @@ class GenC:
                     
                 yield 'INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
                     name, key, self.nameof(value))
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
 
         baseargs = ", ".join(basenames)
         if baseargs:
@@ -355,7 +342,6 @@ class GenC:
         self.initcode.append('\t\t"s(%s){}", "%s"%s))'
                              %("O"*len(basenames), cls.__name__, baseargs))
         
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.later(initclassobj())
         return name
 
@@ -406,12 +392,11 @@ class GenC:
 
     def nameof_tuple(self, tup):
         name = self.uniquename('g%dtuple' % len(tup))
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         args = [self.nameof(x) for x in tup]
         args.insert(0, '%d' % len(tup))
         args = ', '.join(args)
         self.initcode.append('INITCHK(%s = PyTuple_Pack(%s))' % (name, args))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_list(self, lis):
@@ -421,9 +406,8 @@ class GenC:
                 item = self.nameof(lis[i])
                 yield '\tPy_INCREF(%s);' % item
                 yield '\tPyList_SET_ITEM(%s, %d, %s);' % (name, i, item)
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyList_New(%d))' % (name, len(lis)))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.later(initlist())
         return name
 
@@ -442,9 +426,8 @@ class GenC:
                     yield ('\tINITCHK(PyDict_SetItem'
                            '(%s, %s, %s) >= 0)'%(
                                name, self.nameof(k), self.nameof(dic[k])))
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyDict_New())' % (name,))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         self.later(initdict())
         return name
 
@@ -453,14 +436,13 @@ class GenC:
     def nameof_member_descriptor(self, md):
         name = self.uniquename('gdescriptor_%s_%s' % (
             md.__objclass__.__name__, md.__name__))
-        self.globaldecl.append('static PyObject* %s;' % name)
+        self.globalobjects.append(name)
         cls = self.nameof(md.__objclass__)
         self.initcode.append('INITCHK(PyType_Ready((PyTypeObject*) %s) >= 0)' %
                              cls)
         self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
                              '((PyTypeObject*) %s)->tp_dict, "%s"))' %
                                 (name, cls, md.__name__))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
     nameof_getset_descriptor  = nameof_member_descriptor
     nameof_method_descriptor  = nameof_member_descriptor
@@ -502,12 +484,14 @@ class GenC:
         print >> f, self.C_INIT_HEADER % info
         for codeline in self.initcode:
             print >> f, '\t' + codeline
-        for codeline in self.initglobals:
-            print >> f, '\t' + codeline
+        for name in self.globalobjects:
+            print >> f, '\t' + 'REGISTER_GLOBAL(%s)' % (name,)
         print >> f, self.C_INIT_FOOTER % info
 
     def gen_global_declarations(self):
         g = self.globaldecl
+        for name in self.globalobjects:
+            g.append('static PyObject *%s;' % (name,))
         if g:
             f = self.f
             print >> f, '/* global declaration%s */' % ('s'*(len(g)>1))
@@ -564,12 +548,12 @@ class GenC:
             print >> f, '\targs = PyTuple_GetSlice(args, 0, %d);' % (
                 len(positional_args),)
             print >> f, '\tif (args == NULL) {'
-            print >> f, '\t\tPy_DECREF(%s);' % vararg
+            print >> f, '\t\tERR_DECREF(%s)' % vararg
             print >> f, '\t\tFUNCTION_RETURN(NULL)'
             print >> f, '\t}'
             tail = """{
-\t\tPy_DECREF(args);
-\t\tPy_DECREF(%s);
+\t\tERR_DECREF(args)
+\t\tERR_DECREF(%s)
 \t\tFUNCTION_RETURN(NULL);
 \t}
 \tPy_DECREF(args);""" % vararg
@@ -729,7 +713,7 @@ class GenC:
             while to_release:
                 v = to_release.pop()
                 if err_reachable:
-                    yield 'Py_DECREF(%s);' % v.name
+                    yield 'ERR_DECREF(%s)' % v.name
                 yield 'err%d_%d:' % (blocknum[block], len(to_release))
                 err_reachable = True
             if err_reachable:
