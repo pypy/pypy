@@ -249,8 +249,8 @@ class GenPyrex:
             except AttributeError:
                 pass
             else:
-                if __builtins__.get(name) is value:
-                    return name    # built-in functions represented as their name only
+                if callable(value):
+                    return name    # functions represented as their name only
             if isinstance(value, int):
                 value = int(value)  # cast subclasses of int (i.e. bools) to ints
             return repr(value)
