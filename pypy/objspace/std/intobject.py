@@ -41,21 +41,15 @@ FromUnicode
 print
 """
 
-def int_unwrap(space, w_int1):
-    return w_int1.intval
+def unwrap__Int(space, w_int1):
+    return int(w_int1.intval)
 
-StdObjSpace.unwrap.register(int_unwrap, W_IntObject)
-
-def int_repr(space, w_int1):
+def repr__Int(space, w_int1):
     a = w_int1.intval
     res = "%ld" % a
     return space.wrap(res)
 
-StdObjSpace.repr.register(int_repr, W_IntObject)
-
-int_str = int_repr
-
-StdObjSpace.str.register(int_str, W_IntObject)
+str__Int = repr__Int
 
 ## deprecated
 ## we are going to support rich compare, only
@@ -73,45 +67,39 @@ StdObjSpace.str.register(int_str, W_IntObject)
 ##
 ##StdObjSpace.cmp.register(int_int_cmp, W_IntObject, W_IntObject)
 
-def int_int_lt(space, w_int1, w_int2):
+def lt__Int_Int(space, w_int1, w_int2):
     i = w_int1.intval
     j = w_int2.intval
     return space.newbool( i < j )
-StdObjSpace.lt.register(int_int_lt, W_IntObject, W_IntObject)
 
-def int_int_le(space, w_int1, w_int2):
+def le__Int_Int(space, w_int1, w_int2):
     i = w_int1.intval
     j = w_int2.intval
     return space.newbool( i <= j )
-StdObjSpace.le.register(int_int_le, W_IntObject, W_IntObject)
 
-def int_int_eq(space, w_int1, w_int2):
+def eq__Int_Int(space, w_int1, w_int2):
     i = w_int1.intval
     j = w_int2.intval
     return space.newbool( i == j )
-StdObjSpace.eq.register(int_int_eq, W_IntObject, W_IntObject)
 
-def int_int_ne(space, w_int1, w_int2):
+def ne__Int_Int(space, w_int1, w_int2):
     i = w_int1.intval
     j = w_int2.intval
     return space.newbool( i != j )
-StdObjSpace.ne.register(int_int_ne, W_IntObject, W_IntObject)
 
-def int_int_gt(space, w_int1, w_int2):
+def gt__Int_Int(space, w_int1, w_int2):
     i = w_int1.intval
     j = w_int2.intval
     return space.newbool( i > j )
-StdObjSpace.gt.register(int_int_gt, W_IntObject, W_IntObject)
 
-def int_int_ge(space, w_int1, w_int2):
+def ge__Int_Int(space, w_int1, w_int2):
     i = w_int1.intval
     j = w_int2.intval
     return space.newbool( i >= j )
-StdObjSpace.ge.register(int_int_ge, W_IntObject, W_IntObject)
 
 STRICT_HASH = True # temporary, to be put elsewhere or removed
 
-def int_hash_strict(space, w_int1):
+def _hash_strict(space, w_int1):
     #/* XXX If this is changed, you also need to change the way
     #   Python's long, float and complex types are hashed. */
     x = w_int1.intval
@@ -119,7 +107,7 @@ def int_hash_strict(space, w_int1):
         x = -2
     return W_IntObject(space, x)
 
-def int_hash_liberal(space, w_int1):
+def _hash_liberal(space, w_int1):
     # Armin: unlike CPython we have no need to special-case the value -1
     return w_int1
 
@@ -129,14 +117,13 @@ def int_hash_liberal(space, w_int1):
 # and we might think of some config options
 # or decide to drop compatibility (using pypy-dev).
 
-if STRICT_HASH:
-    int_hash = int_hash_strict
-else:
-    int_hash = int_hash_liberal
+def hash__Int(space, w_int1):
+    if STRICT_HASH:
+        return _hash_strict(space, w_int1)
+    else:
+        return _hash_liberal(space, w_int1)
 
-StdObjSpace.hash.register(int_hash, W_IntObject)
-
-def int_int_add(space, w_int1, w_int2):
+def add__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
@@ -146,9 +133,7 @@ def int_int_add(space, w_int1, w_int2):
                                 space.wrap("integer addition"))
     return W_IntObject(space, z)
 
-StdObjSpace.add.register(int_int_add, W_IntObject, W_IntObject)
-
-def int_int_sub(space, w_int1, w_int2):
+def sub__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
@@ -158,9 +143,7 @@ def int_int_sub(space, w_int1, w_int2):
                                 space.wrap("integer substraction"))
     return W_IntObject(space, z)
 
-StdObjSpace.sub.register(int_int_sub, W_IntObject, W_IntObject)
-
-def int_int_mul(space, w_int1, w_int2):
+def mul__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
@@ -170,9 +153,7 @@ def int_int_mul(space, w_int1, w_int2):
                                 space.wrap("integer multiplication"))
     return W_IntObject(space, z)
 
-StdObjSpace.mul.register(int_int_mul, W_IntObject, W_IntObject)
-
-def int_int_floordiv(space, w_int1, w_int2):
+def _floordiv(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
@@ -185,16 +166,12 @@ def int_int_floordiv(space, w_int1, w_int2):
                                 space.wrap("integer division"))
     return W_IntObject(space, z)
 
-StdObjSpace.floordiv.register(int_int_floordiv, W_IntObject, W_IntObject)
-
-def int_int_truediv(space, w_int1, w_int2):
+def _truediv(space, w_int1, w_int2):
     # cannot implement, since it gives floats
     raise FailedToImplement(space.w_OverflowError,
                             space.wrap("integer division"))
 
-StdObjSpace.truediv.register(int_int_truediv, W_IntObject, W_IntObject)
-
-def int_int_mod(space, w_int1, w_int2):
+def mod__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
@@ -207,9 +184,7 @@ def int_int_mod(space, w_int1, w_int2):
                                 space.wrap("integer modulo"))
     return W_IntObject(space, z)
 
-StdObjSpace.mod.register(int_int_mod, W_IntObject, W_IntObject)
-
-def int_int_divmod(space, w_int1, w_int2):
+def divmod__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
@@ -224,18 +199,14 @@ def int_int_divmod(space, w_int1, w_int2):
     m = x % y
     return space.wrap((z,m))
 
-StdObjSpace.divmod.register(int_int_divmod, W_IntObject, W_IntObject)
-
-## install the proper int_int_div
-if 1 / 2 == 1 // 2:
-    int_int_div = int_int_floordiv
-else:
-    int_int_div = int_int_truediv
-
-StdObjSpace.div.register(int_int_div, W_IntObject, W_IntObject)
+def div__Int_Int(space, w_int1, w_int2):
+    # Select the proper div
+    if 1 / 2 == 1 // 2:
+        return _floordiv(space, w_int1, w_int2)
+    else:
+        return _truediv(space, w_int1, w_int2)
 
 # helper for pow()
-
 def _impl_int_int_pow(space, iv, iw, iz=None):
     if iw < 0:
         if iz is not None:
@@ -270,24 +241,20 @@ def _impl_int_int_pow(space, iv, iw, iz=None):
                                 space.wrap("integer exponentiation"))
     return ix
 
-def int_int_int_pow(space, w_int1, w_int2, w_int3):
+def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
     y = w_int2.intval
     z = w_int3.intval
     ret = _impl_int_int_pow(space, x, y, z)
     return W_IntObject(space, ret)
 
-StdObjSpace.pow.register(int_int_int_pow, W_IntObject, W_IntObject, W_IntObject)
-
-def int_int_none_pow(space, w_int1, w_int2, w_none=None):
+def pow__Int_Int_None(space, w_int1, w_int2, w_none=None):
     x = w_int1.intval
     y = w_int2.intval
     ret = _impl_int_int_pow(space, x, y)
     return W_IntObject(space, ret)
 
-StdObjSpace.pow.register(int_int_none_pow, W_IntObject, W_IntObject, W_NoneObject)
-
-def int_neg(space, w_int1):
+def neg__Int(space, w_int1):
     a = w_int1.intval
     try:
         x = -a
@@ -296,49 +263,39 @@ def int_neg(space, w_int1):
                                 space.wrap("integer negation"))
     return W_IntObject(space, x)
 
-StdObjSpace.neg.register(int_neg, W_IntObject)
-
-# int_pos is supposed to do nothing, unless it has
+# pos__Int is supposed to do nothing, unless it has
 # a derived integer object, where it should return
 # an exact one.
-def int_pos(space, w_int1):
+def pos__Int(space, w_int1):
     #not sure if this should be done this way:
     if w_int1.__class__ is W_IntObject:
         return w_int1
     a = w_int1.intval
     return W_IntObject(space, a)
 
-StdObjSpace.pos.register(int_pos, W_IntObject)
-
-def int_abs(space, w_int1):
+def abs__Int(space, w_int1):
     if w_int1.intval >= 0:
-        return int_pos(space, w_int1)
+        return pos__Int(space, w_int1)
     else:
-        return int_neg(space, w_int1)
+        return neg__Int(space, w_int1)
 
-StdObjSpace.abs.register(int_abs, W_IntObject)
-
-def int_is_true(space, w_int1):
+def is_true__Int(space, w_int1):
     ''' note: this must return an UNWRAPPED bool!!! '''
     return w_int1.intval != 0
 
-StdObjSpace.is_true.register(int_is_true, W_IntObject)
-
-def int_invert(space, w_int1):
+def invert__Int(space, w_int1):
     x = w_int1.intval
     a = ~x
     return W_IntObject(space, a)
 
-StdObjSpace.invert.register(int_invert, W_IntObject)
-
-def int_int_lshift(space, w_int1, w_int2):
+def lshift__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     if b < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     if a == 0 or b == 0:
-        return int_pos(w_int1)
+        return Int_pos(w_int1)
     if b >= LONG_BIT:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer left shift"))
@@ -358,16 +315,14 @@ def int_int_lshift(space, w_int1, w_int2):
                                 space.wrap("integer left shift"))
     return W_IntObject(space, c)
 
-StdObjSpace.lshift.register(int_int_lshift, W_IntObject, W_IntObject)
-
-def int_int_rshift(space, w_int1, w_int2):
+def rshift__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     if b < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     if a == 0 or b == 0:
-        return int_pos(w_int1)
+        return Int_pos(w_int1)
     if b >= LONG_BIT:
         if a < 0:
             a = -1
@@ -379,36 +334,28 @@ def int_int_rshift(space, w_int1, w_int2):
         a = a >> b
     return W_IntObject(space, a)
 
-StdObjSpace.rshift.register(int_int_rshift, W_IntObject, W_IntObject)
-
-def int_int_and(space, w_int1, w_int2):
+def and__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a & b
     return W_IntObject(space, res)
 
-StdObjSpace.and_.register(int_int_and, W_IntObject, W_IntObject)
-
-def int_int_xor(space, w_int1, w_int2):
+def xor__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a ^ b
     return W_IntObject(space, res)
 
-StdObjSpace.xor.register(int_int_xor, W_IntObject, W_IntObject)
-
-def int_int_or(space, w_int1, w_int2):
+def or__Int_Int(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a | b
     return W_IntObject(space, res)
 
-StdObjSpace.or_.register(int_int_or, W_IntObject, W_IntObject)
-
 # coerce is not wanted
 ##
 ##static int
-##int_coerce(PyObject **pv, PyObject **pw)
+##coerce__Int(PyObject **pv, PyObject **pw)
 ##{
 ##    if (PyInt_Check(*pw)) {
 ##        Py_INCREF(*pv);
@@ -418,26 +365,23 @@ StdObjSpace.or_.register(int_int_or, W_IntObject, W_IntObject)
 ##    return 1; /* Can't do it */
 ##}
 
-def int_int(space, w_int1):
+def int__Int(space, w_int1):
     return w_int1
 
-StdObjSpace.int.register(int_int, W_IntObject)
-
-def int_long(space, w_int1):
+"""
+# Not registered
+def long__Int(space, w_int1):
     a = w_int1.intval
     x = long(a)  ## XXX should this really be done so?
     return space.newlong(x)
+"""
 
-#?StdObjSpace.long.register(int_long, W_IntObject)
-
-def int_float(space, w_int1):
+def float__Int(space, w_int1):
     a = w_int1.intval
     x = float(a)
     return space.newfloat(x)
 
-StdObjSpace.float.register(int_float, W_IntObject)
-
-def int_oct(space, w_int1):
+def oct__Int(space, w_int1):
     x = w_int1.intval
     if x < 0:
         ## XXX what about this warning?
@@ -452,9 +396,7 @@ def int_oct(space, w_int1):
         ret = "0%lo" % x
     return space.wrap(ret)
 
-StdObjSpace.oct.register(int_oct, W_IntObject)
-
-def int_hex(space, w_int1):
+def hex__Int(space, w_int1):
     x = w_int1.intval
     if x < 0:
         ## XXX what about this warning?
@@ -469,4 +411,4 @@ def int_hex(space, w_int1):
         ret = "0x%lx" % x
     return space.wrap(ret)
 
-StdObjSpace.hex.register(int_hex, W_IntObject)
+register_all(vars())

@@ -34,19 +34,19 @@ class TestW_IntObject(test.TestCase):
     def test_repr(self):
         x = 1
         f1 = iobj.W_IntObject(self.space, x)
-        result = iobj.int_repr(self.space, f1)
+        result = iobj.repr__Int(self.space, f1)
         self.assertEquals(self.space.unwrap(result), repr(x))
 
     def test_str(self):
         x = 12345
         f1 = iobj.W_IntObject(self.space, x)
-        result = iobj.int_str(self.space, f1)
+        result = iobj.str__Int(self.space, f1)
         self.assertEquals(self.space.unwrap(result), str(x))
 
     def test_hash(self):
         x = 42
         f1 = iobj.W_IntObject(self.space, x)
-        result = iobj.int_hash(self.space, f1)
+        result = iobj.hash__Int(self.space, f1)
         self.assertEquals(result.intval, hash(x))
 
     def test_compare(self):
@@ -58,7 +58,7 @@ class TestW_IntObject(test.TestCase):
                     wx = iobj.W_IntObject(self.space, x)
                     wy = iobj.W_IntObject(self.space, y)
                     res = getattr(operator, op)(x, y)
-                    method = getattr(iobj, 'int_int_%s' % op)
+                    method = getattr(iobj, '%s__Int_Int' % op)
                     myres = method(self.space, wx, wy)
                     self.assertEquals(self.space.unwrap(myres), res)
                     
@@ -67,28 +67,28 @@ class TestW_IntObject(test.TestCase):
         y = 2
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        result = iobj.int_int_add(self.space, f1, f2)
+        result = iobj.add__Int_Int(self.space, f1, f2)
         self.assertEquals(result.intval, x+y)
         x = sys.maxint
         y = 1
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
         self.assertEquals(self.space.w_OverflowError,
-                          self._unwrap_nonimpl(iobj.int_int_add, self.space, f1, f2))
+                          self._unwrap_nonimpl(iobj.add__Int_Int, self.space, f1, f2))
 
     def test_sub(self):
         x = 1
         y = 2
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        result = iobj.int_int_sub(self.space, f1, f2)
+        result = iobj.sub__Int_Int(self.space, f1, f2)
         self.assertEquals(result.intval, x-y)
         x = sys.maxint
         y = -1
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
         self.assertEquals(self.space.w_OverflowError,
-                          self._unwrap_nonimpl(iobj.int_int_sub, self.space, f1, f2))
+                          self._unwrap_nonimpl(iobj.sub__Int_Int, self.space, f1, f2))
 
 
     def test_mul(self):
@@ -96,14 +96,14 @@ class TestW_IntObject(test.TestCase):
         y = 3
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        result = iobj.int_int_mul(self.space, f1, f2)
+        result = iobj.mul__Int_Int(self.space, f1, f2)
         self.assertEquals(result.intval, x*y)
         x = -sys.maxint-1
         y = -1
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
         self.assertEquals(self.space.w_OverflowError,
-                          self._unwrap_nonimpl(iobj.int_int_mul, self.space, f1, f2))
+                          self._unwrap_nonimpl(iobj.mul__Int_Int, self.space, f1, f2))
 
 
     def test_div(self):
@@ -111,21 +111,21 @@ class TestW_IntObject(test.TestCase):
             res = i//3
             f1 = iobj.W_IntObject(self.space, i)
             f2 = iobj.W_IntObject(self.space, 3)
-            result = iobj.int_int_div(self.space, f1, f2)
+            result = iobj.div__Int_Int(self.space, f1, f2)
             self.assertEquals(result.intval, res)
         x = -sys.maxint-1
         y = -1
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
         self.assertEquals(self.space.w_OverflowError,
-                          self._unwrap_nonimpl(iobj.int_int_div, self.space, f1, f2))
+                          self._unwrap_nonimpl(iobj.div__Int_Int, self.space, f1, f2))
 
     def test_mod(self):
         x = 1
         y = 2
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        v = iobj.int_int_mod(self.space, f1, f2)
+        v = iobj.mod__Int_Int(self.space, f1, f2)
         self.assertEquals(v.intval, x % y)
         # not that mod cannot overflow
 
@@ -134,7 +134,7 @@ class TestW_IntObject(test.TestCase):
         y = 2
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        ret = iobj.int_int_divmod(self.space, f1, f2)
+        ret = iobj.divmod__Int_Int(self.space, f1, f2)
         v, w = self.space.unwrap(ret)
         self.assertEquals((v, w), divmod(x, y))
         x = -sys.maxint-1
@@ -142,7 +142,7 @@ class TestW_IntObject(test.TestCase):
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
         self.assertEquals(self.space.w_OverflowError,
-                          self._unwrap_nonimpl(iobj.int_int_divmod, self.space, f1, f2))
+                          self._unwrap_nonimpl(iobj.divmod__Int_Int, self.space, f1, f2))
 
     def test_pow_iii(self):
         x = 10
@@ -151,15 +151,15 @@ class TestW_IntObject(test.TestCase):
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
         f3 = iobj.W_IntObject(self.space, z)
-        v = iobj.int_int_int_pow(self.space, f1, f2, f3)
+        v = iobj.pow__Int_Int_Int(self.space, f1, f2, f3)
         self.assertEquals(v.intval, pow(x, y, z))
         f1, f2, f3 = [iobj.W_IntObject(self.space, i) for i in (10, -1, 42)]
         self.assertRaises_w(self.space.w_TypeError,
-                            iobj.int_int_int_pow,
+                            iobj.pow__Int_Int_Int,
                             self.space, f1, f2, f3)
         f1, f2, f3 = [iobj.W_IntObject(self.space, i) for i in (10, 5, 0)]
         self.assertRaises_w(self.space.w_ValueError,
-                            iobj.int_int_int_pow,
+                            iobj.pow__Int_Int_Int,
                             self.space, f1, f2, f3)
 
     def test_pow_iin(self):
@@ -167,49 +167,49 @@ class TestW_IntObject(test.TestCase):
         y = 2
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        v = iobj.int_int_none_pow(self.space, f1, f2)
+        v = iobj.pow__Int_Int_None(self.space, f1, f2)
         self.assertEquals(v.intval, x ** y)
         f1, f2 = [iobj.W_IntObject(self.space, i) for i in (10, 20)]
         self.assertEquals(self.space.w_OverflowError,
-                          self._unwrap_nonimpl(iobj.int_int_none_pow, self.space, f1, f2))
+                          self._unwrap_nonimpl(iobj.pow__Int_Int_None, self.space, f1, f2))
         f1, f2 = [iobj.W_IntObject(self.space, i) for i in (10, -1)]
         self.assertEquals(self.space.w_ValueError,
-                          self._unwrap_nonimpl(iobj.int_int_none_pow, self.space, f1, f2))
+                          self._unwrap_nonimpl(iobj.pow__Int_Int_None, self.space, f1, f2))
 
     def test_neg(self):
         x = 42
         f1 = iobj.W_IntObject(self.space, x)
-        v = iobj.int_neg(self.space, f1)
+        v = iobj.neg__Int(self.space, f1)
         self.assertEquals(v.intval, -x)
         x = -sys.maxint-1
         f1 = iobj.W_IntObject(self.space, x)
         self.assertEquals(self.space.w_OverflowError,
-                          self._unwrap_nonimpl(iobj.int_neg, self.space, f1))
+                          self._unwrap_nonimpl(iobj.neg__Int, self.space, f1))
 
     def test_pos(self):
         x = 42
         f1 = iobj.W_IntObject(self.space, x)
-        v = iobj.int_pos(self.space, f1)
+        v = iobj.pos__Int(self.space, f1)
         self.assertEquals(v.intval, +x)
 
     def test_abs(self):
         x = 42
         f1 = iobj.W_IntObject(self.space, x)
-        v = iobj.int_abs(self.space, f1)
+        v = iobj.abs__Int(self.space, f1)
         self.assertEquals(v.intval, abs(x))
         x = -42
         f1 = iobj.W_IntObject(self.space, x)
-        v = iobj.int_abs(self.space, f1)
+        v = iobj.abs__Int(self.space, f1)
         self.assertEquals(v.intval, abs(x))
         x = -sys.maxint-1
         f1 = iobj.W_IntObject(self.space, x)
         self.assertEquals(self.space.w_OverflowError,
-                          self._unwrap_nonimpl(iobj.int_neg, self.space, f1))
+                          self._unwrap_nonimpl(iobj.abs__Int, self.space, f1))
 
-    def test_pos(self):
+    def test_invert(self):
         x = 42
         f1 = iobj.W_IntObject(self.space, x)
-        v = iobj.int_invert(self.space, f1)
+        v = iobj.invert__Int(self.space, f1)
         self.assertEquals(v.intval, ~x)
 
     def test_lshift(self):
@@ -217,20 +217,20 @@ class TestW_IntObject(test.TestCase):
         y = 2
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        v = iobj.int_int_lshift(self.space, f1, f2)
+        v = iobj.lshift__Int_Int(self.space, f1, f2)
         self.assertEquals(v.intval, x << y)
         y = self._longshiftresult(x)
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
         self.assertEquals(self.space.w_OverflowError,
-                          self._unwrap_nonimpl(iobj.int_int_lshift, self.space, f1, f2))
+                          self._unwrap_nonimpl(iobj.lshift__Int_Int, self.space, f1, f2))
 
     def test_rshift(self):
         x = 12345678
         y = 2
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        v = iobj.int_int_rshift(self.space, f1, f2)
+        v = iobj.rshift__Int_Int(self.space, f1, f2)
         self.assertEquals(v.intval, x >> y)
 
     def test_and(self):
@@ -238,7 +238,7 @@ class TestW_IntObject(test.TestCase):
         y = 2
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        v = iobj.int_int_and(self.space, f1, f2)
+        v = iobj.and__Int_Int(self.space, f1, f2)
         self.assertEquals(v.intval, x & y)
 
     def test_xor(self):
@@ -246,7 +246,7 @@ class TestW_IntObject(test.TestCase):
         y = 2
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        v = iobj.int_int_xor(self.space, f1, f2)
+        v = iobj.xor__Int_Int(self.space, f1, f2)
         self.assertEquals(v.intval, x ^ y)
 
     def test_or(self):
@@ -254,12 +254,12 @@ class TestW_IntObject(test.TestCase):
         y = 2
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        v = iobj.int_int_or(self.space, f1, f2)
+        v = iobj.or__Int_Int(self.space, f1, f2)
         self.assertEquals(v.intval, x | y)
 
     def test_int(self):
         f1 = iobj.W_IntObject(self.space, 1)
-        result = iobj.int_int(self.space, f1)
+        result = iobj.int__Int(self.space, f1)
         self.assertEquals(result, f1)
 
 ##    def test_long(self):
@@ -277,13 +277,13 @@ class TestW_IntObject(test.TestCase):
     def test_oct(self):
         x = 012345
         f1 = iobj.W_IntObject(self.space, x)
-        result = iobj.int_oct(self.space, f1)
+        result = iobj.oct__Int(self.space, f1)
         self.assertEquals(self.space.unwrap(result), oct(x))
 
     def test_hex(self):
         x = 0x12345
         f1 = iobj.W_IntObject(self.space, x)
-        result = iobj.int_hex(self.space, f1)
+        result = iobj.hex__Int(self.space, f1)
         self.assertEquals(self.space.unwrap(result), hex(x))
 
 class AppIntTest(test.AppTestCase):
