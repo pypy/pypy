@@ -1,4 +1,3 @@
-from pypy.tool.tb_server import publish_exc
 import os, sys
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
@@ -150,14 +149,14 @@ class LinePrefixer:
             self.file.write('\n')
 
 # installing the excepthook for OperationErrors
-if hasattr(sys, 'excepthook'):   # not implemented on PyPy
-    def operr_excepthook(exctype, value, traceback):
-        if issubclass(exctype, OperationError):
-            value.debug_excs.append((exctype, value, traceback))
-            value.print_detailed_traceback()
-        else:
-            old_excepthook(exctype, value, traceback)
-            publish_exc((exctype, value, traceback))
-            
-    old_excepthook = sys.excepthook
-    sys.excepthook = operr_excepthook
+def operr_excepthook(exctype, value, traceback):
+    if issubclass(exctype, OperationError):
+        value.debug_excs.append((exctype, value, traceback))
+        value.print_detailed_traceback()
+    else:
+        old_excepthook(exctype, value, traceback)
+        from pypy.tool import tb_server
+        tb_server.publish_exc((exctype, value, traceback))
+
+old_excepthook = sys.excepthook
+sys.excepthook = operr_excepthook
