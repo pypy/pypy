@@ -304,7 +304,7 @@ def _make_binop_impl(symbol,specialnames):
         if w_res is not None:
             return w_res
         raise OperationError(space.w_TypeError,
-                space.wrap("operands do not support binary %s" % symbol))
+                space.wrap("unsupported operand type(s) for %s" % symbol))
     return binop_impl
 
 def _make_comparison_impl(symbol,specialnames):
