@@ -26,10 +26,19 @@ class W_TypeObject(W_Object):
                                 space.wrap("instance layout conflicts in "
                                                     "multiple inheritance"))
             w_self.instancetypedef = longest_mro[0]
+            nd = False
+            for w_base in bases_w:
+                if w_base.needs_new_dict:
+                    nd = True
+                    break
+            
             # provide a __dict__ for the instances if there isn't any yet
             if w_self.lookup('__dict__') is None:
                 w_self.needs_new_dict = True
                 w_self.dict_w['__dict__'] = space.wrap(attrproperty_w('w__dict__'))
+            elif nd:
+                w_self.needs_new_dict = True
+                
             
 
     def getmro(w_self):

@@ -94,7 +94,7 @@ class TracebackView(Renderer):
             for k, v in tb.tb_frame.f_locals.items():
                 if k[0] == '_':
                     continue
-                lines.append(xml.escape('%s=%s\n'%(k, repr(v)[:50])))
+                lines.append(xml.escape('%s=%s\n'%(k, repr(v)[:1000])))
         return lines
         
 
