@@ -65,6 +65,12 @@ def getdict__User(space, w_userobj):
     # XXX check getdict() of the base built-in implementation
     return w_userobj.w_dict
 
+def is_data_descr__User(space, w_userobj):
+    try:
+        space.type(w_userobj).lookup(space.wrap("__set__"))
+        return 1
+    except:
+        return 0
 
 # register an implementation for all multimethods that define special names
 def user_specialmethod(space, *args_w):

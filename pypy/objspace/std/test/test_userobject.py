@@ -48,6 +48,26 @@ class TestUserObject(test.AppTestCase):
             prop = desc()
         self.assertEquals(C().prop, 42)
 
+    def test_descr_set(self):
+        class C:
+            class desc:
+                def __set__(self, ob, val):
+                    ob.wibble = val
+            prop = desc()
+        c = C()
+        c.prop = 32
+        self.assertEquals(c.wibble, 32)
+
+    def dont_test_descr_delete(self):
+        class C:
+            class desc:
+                def __delete__(self, ob):
+                    ob.wibble = 22
+            prop = desc()
+        c = C()
+        del c.prop
+        self.assertEquals(c.wibble, 22)
+
     def test_class_setattr(self):
         class C:
             pass
