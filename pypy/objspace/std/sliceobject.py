@@ -53,7 +53,7 @@ def getattr__Slice_ANY(space, w_slice, w_attr):
             return w_slice.w_step
     if space.is_true(space.eq(w_attr, space.wrap('indices'))):
         w_builtinfn = make_builtin_func(space, W_SliceObject.indices2)
-        return W_InstMethObject(space, w_builtinfn, w_slice, w_slice.w_statictype)
+        return W_InstMethObject(space, w_builtinfn, w_slice, w_slice.statictype)
     
     raise FailedToImplement(space.w_AttributeError)
 
