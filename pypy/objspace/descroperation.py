@@ -283,8 +283,6 @@ class DescrOperation:
 
     _NESTING_LIMIT = 20
 
-    _compare_nesting = 0
-
     def cmp(space, w_v, w_w):
         # Icky implementation trying to mimic python 2.3 semantics.
 
@@ -294,10 +292,14 @@ class DescrOperation:
         w_vt = space.type(w_v)
         token = None
         _inprogress_dict = None
+
+        # um 
+        statedict = space.get_ec_state_dict() 
+        _compare_nesting = statedict.get('_compare_nesting', 0) + 1
+        statedict['_compare_nesting'] = _compare_nesting 
         try:
             # Try to do some magic to compare cyclic constructs.
-            space._compare_nesting += 1
-            if (space._compare_nesting > space._NESTING_LIMIT and
+            if (_compare_nesting > space._NESTING_LIMIT and
                 (space.lookup(w_v, '__getitem__') is not None) and
                 not (space.is_w(w_vt, space.w_str) or
                      space.is_w(w_vt, space.w_tuple))):
@@ -308,7 +310,7 @@ class DescrOperation:
                         t = (iv, iw, -1)
                     else:
                         t = (iw, iv, -1)
-                    _inprogress_dict = space.get_ec_state_dict().setdefault('cmp_state', {})
+                    _inprogress_dict = statedict.setdefault('cmp_state', {})
                     if t in _inprogress_dict:
                         # If we are allready trying to compare the arguments
                         # presume they are equal
@@ -338,7 +340,7 @@ class DescrOperation:
                     except:
                         pass
         finally:
-            space._compare_nesting -= 1
+            statedict['_compare_nesting'] -= 1
 
     def coerce(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
@@ -474,10 +476,14 @@ def _make_comparison_impl(symbol, specialnames):
         
         token = None
         _inprogress_dict = None
+
+        # um 
+        statedict = space.get_ec_state_dict() 
+        _compare_nesting = statedict.get('_compare_nesting', 0) + 1
+        statedict['_compare_nesting'] = _compare_nesting 
         try:
             # Try to do some magic to compare cyclic constructs.
-            space._compare_nesting += 1
-            if (space._compare_nesting > space._NESTING_LIMIT and
+            if (_compare_nesting > space._NESTING_LIMIT and
                 (space.lookup(w_obj1, '__getitem__') is not None) and
                 not (space.is_w(w_typ1, space.w_str) or
                      space.is_w(w_typ1, space.w_tuple))):
@@ -520,6 +526,7 @@ def _make_comparison_impl(symbol, specialnames):
             res = space.int_w(w_res)
             return space.wrap(op(res, 0))
         finally:
+            statedict['_compare_nesting'] -= 1 
             if token is not None:
                 try:
                     del _inprogress_dict[token]
