@@ -205,14 +205,16 @@ class TestNoTypeCGenTestCase:
     def test_direct_loop(self):
         # check that remove_direct_loops() does its job correctly
         def direct_loop(n, m):
+            x = False
             while 1:
                 o = n; n = m; m = o
                 n -= 10
                 if n < 0:
-                    return n
+                    return n, x
+                x = True
         fn = self.build_cfunc(direct_loop)
-        assert fn(117, 114) == -6
-        assert fn(117, 124) == -3
+        assert fn(117, 114) == (-6, True)
+        assert fn(117, 124) == (-3, True)
 
 
 class TestAnnotatedTestCase:
