@@ -9,41 +9,87 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from stringobject import W_StringObject
 
+dummy = object()
 
 class W_DictObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
     def __init__(w_self, space, list_pairs_w):
         W_Object.__init__(w_self, space)
-        w_self.data = [ [space.unwrap(space.hash(w_key)), w_key, w_value]
-                        for w_key,w_value in list_pairs_w ]
-
+        
+        w_self.used = 0
+        w_self.data = [[0, None, None]]
+        w_self.resize(len(list_pairs_w)*2)
+        for w_k, w_v in list_pairs_w:
+            w_self.insert(space.unwrap(space.hash(w_k)), w_k, w_v)
+        
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "%s(%s)" % (w_self.__class__.__name__, w_self.data)
 
-    def lookup(self, w_lookup, create=False):
-        # this lookup is where most of the start-up time is consumed.
-        # Hashing helps a lot.
-        space = self.space
-        lookup_hash = space.unwrap(space.hash(w_lookup))
-        for cell in self.data:
-            if (cell[0] == lookup_hash and
-                space.is_true(space.eq(w_lookup, cell[1]))):
-                break
+    def insert(self, h, w_key, w_value):
+        cell = self.lookdict(h, w_key)
+        if cell[2] is None:
+            self.used += 1
+            cell[:] = [h, w_key, w_value]
         else:
-            if not create:
-                raise OperationError(space.w_KeyError, w_lookup)
-            cell = [lookup_hash, w_lookup, None]
-            self.data.append(cell)
-        return cell
+            cell[2] = w_value
+
+    def resize(self, minused):
+        newsize = 1
+        while newsize < minused:
+            newsize *= 2
+        od = self.data
+
+        self.used = 0
+        self.data = [[0, None, None] for i in range(newsize)]
+        for h, k, v in od:
+            if v is not None:
+                self.insert(h, k, v)
+
+    def non_empties(self):
+        return [(h, w_k, w_v) for (h, w_k, w_v) in self.data if w_v is not None]
+        
+    def lookdict(self, lookup_hash, w_lookup):
+        space = self.space
+        i = lookup_hash % len(self.data)
+
+        entry = self.data[i]
+        if entry[1] is None or \
+           space.is_true(space.is_(w_lookup, entry[1])):
+            return entry
+        if entry[1] is dummy:
+            freeslot = entry
+        else:
+            if entry[0] == lookup_hash and space.is_true(
+                space.eq(entry[1], w_lookup)):
+                return entry
+            freeslot = None
+
+        perturb = lookup_hash
+        while 1:
+            # XXX HAAAAAAACK to avoid FutureWarnings :-(
+            i = ((i & 0x1FFFFFFF) << 2) + i + perturb + 1
+            entry = self.data[i%len(self.data)]
+            if entry[1] is None:
+                if freeslot:
+                    return freeslot
+                else:
+                    return entry
+            if entry[0] == lookup_hash and entry[1] is not dummy \
+                   and space.is_true(
+                space.eq(entry[1], w_lookup)):
+                return entry
+            if entry[1] is dummy and freeslot is None:
+                freeslot = entry
+            perturb >>= 5
 
 registerimplementation(W_DictObject)
 
 
 def unwrap__Dict(space, w_dict):
     result = {}
-    for hash, w_key, w_value in w_dict.data:
+    for hash, w_key, w_value in w_dict.non_empties():
         result[space.unwrap(w_key)] = space.unwrap(w_value)
     return result
 
@@ -68,28 +114,32 @@ def init__Dict(space, w_dict, w_args, w_kwds):
     space.call_method(w_dict, 'update', w_kwds)
 
 def getitem__Dict_ANY(space, w_dict, w_lookup):
-    return w_dict.lookup(w_lookup)[2]
+    entry = w_dict.lookdict(space.unwrap(space.hash(w_lookup)), w_lookup)
+    if entry[2] is not None:
+        return entry[2]
+    else:
+        raise OperationError(space.w_KeyError, w_lookup)
 
 def setitem__Dict_ANY_ANY(space, w_dict, w_newkey, w_newvalue):
-    cell = w_dict.lookup(w_newkey, create=True)
-    cell[2] = w_newvalue
+    w_dict.insert(space.unwrap(space.hash(w_newkey)), w_newkey, w_newvalue)
+    if 2*w_dict.used > len(w_dict.data):
+        w_dict.resize(2*w_dict.used)
 
 def delitem__Dict_ANY(space, w_dict, w_lookup):
-    cell = w_dict.lookup(w_lookup)
-    # overwrite the cell with any other one removed from the dictionary
-    cell[:] = w_dict.data.pop()
-
+    entry = w_dict.lookdict(space.unwrap(space.hash(w_lookup)), w_lookup)
+    if entry[2] is not None:
+        w_dict.used -= 1
+        entry[1] = dummy
+        entry[2] = None
+    else:
+        raise OperationError(space.w_KeyError, w_lookup)
+    
 def len__Dict(space, w_dict):
-    return space.wrap(len(w_dict.data))
+    return space.wrap(w_dict.used)
 
 def contains__Dict_ANY(space, w_dict, w_lookup):
-    try:
-        w_dict.lookup(w_lookup)
-    except OperationError:
-        # assert e.match(space, space.w_KeyError)
-        return space.w_False
-    else:
-        return space.w_True
+    entry = w_dict.lookdict(space.unwrap(space.hash(w_lookup)), w_lookup)
+    return space.newbool(entry[2] is not None)
 
 dict_has_key__Dict_ANY = contains__Dict_ANY
 
@@ -102,8 +152,8 @@ def eq__Dict_Dict(space, w_left, w_right):
     if space.is_true(space.is_(w_left, w_right)):
         return space.w_True
 
-    dataleft = w_left.data
-    dataright = w_right.data
+    dataleft = w_left.non_empties()
+    dataright = w_right.non_empties()
     if len(dataleft) != len(dataright):
         return space.w_False
     for hash, w_key, w_value in dataleft:
@@ -117,8 +167,8 @@ def eq__Dict_Dict(space, w_left, w_right):
         
 def lt__Dict_Dict(space, w_left, w_right):
     # Different sizes, no problem
-    dataleft = w_left.data
-    dataright = w_right.data
+    dataleft = w_left.non_empties()
+    dataright = w_right.non_empties()
     if len(dataleft) < len(dataright):
         return space.w_True
     if len(dataleft) > len(dataright):
@@ -143,28 +193,33 @@ def hash__Dict(space,w_dict):
 
 def dict_copy__Dict(space, w_self):
     return W_DictObject(space, [(w_key,w_value)
-                                      for hash,w_key,w_value in w_self.data])
+                                for hash,w_key,w_value in w_self.data
+                                if w_value is not None])
 
 def dict_items__Dict(space, w_self):
     return space.newlist([ space.newtuple([w_key,w_value])
-                           for hash,w_key,w_value in w_self.data ])
+                           for hash,w_key,w_value in w_self.data 
+                           if w_value is not None])
 
 def dict_keys__Dict(space, w_self):
     return space.newlist([ w_key
-                           for hash,w_key,w_value in w_self.data ])
+                           for hash,w_key,w_value in w_self.data
+                           if w_value is not None])
 
 def dict_values__Dict(space, w_self):
     return space.newlist([ w_value
-                           for hash,w_key,w_value in w_self.data ])
+                           for hash,w_key,w_value in w_self.data 
+                           if w_value is not None])
 
 def dict_clear__Dict(space, w_self):
-    w_self.data = []
+    w_self.data = [[0, None, None]]
+    w_self.used = 0
 
 def dict_get__Dict_ANY_ANY(space, w_dict, w_lookup, w_default):
-    try:
-        return w_dict.lookup(w_lookup)[2]
-    except OperationError:
-        # assert e.match(space, space.w_KeyError)
+    entry = w_dict.lookdict(space.unwrap(space.hash(w_lookup)), w_lookup)
+    if entry[2] is not None:
+        return entry[2]
+    else:
         return w_default
 
 # Now we only handle one implementation of dicts, this one.

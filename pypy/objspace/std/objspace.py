@@ -334,7 +334,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def is_true(self, w_obj):
         # XXX don't look!
         if isinstance(w_obj, W_DictObject):
-            return not not w_obj.data
+            return not not w_obj.used
         else:
             return DescrOperation.is_true(self, w_obj)
 
