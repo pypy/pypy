@@ -81,3 +81,19 @@ def decode_frame_arguments(args, kws, defs, closure, codeobject):
     if varkeywords:
         a.append(newkw)
     return tuple(a)
+
+def normalize_exception(etype, evalue):
+    # mistakes here usually show up as infinite recursion, which is
+    # fun.
+    if isinstance(evalue, etype):
+        return etype, evalue
+    if isinstance(etype, type) and issubclass(etype, Exception):
+        if evalue is None:
+            evalue = ()
+        elif not isinstance(evalue, tuple):
+            evalue = (evalue,)
+        evalue = etype(*evalue)
+    else:
+        raise Exception, "?!"
+    return etype, evalue
+

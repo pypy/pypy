@@ -186,8 +186,19 @@ class ExceptBlock(FrameBlock):
             # instead of the traceback, we store the unroller object,
             # wrapped.
             frame.valuestack.push(frame.space.wrap(unroller))
-            frame.valuestack.push(operationerr.w_value)
-            frame.valuestack.push(operationerr.w_type)
+
+            s = frame.space
+            w_value = operationerr.w_value
+            w_type = operationerr.w_type
+##             import pdb
+##             pdb.set_trace()
+##             print w_type, `w_value`, frame.bytecode.co_name
+            w_res = s.gethelper(appfile).call(
+                "normalize_exception", [w_type, w_value])
+            w_value = s.getitem(w_res, s.wrap(1))
+            
+            frame.valuestack.push(w_value)
+            frame.valuestack.push(w_type)
             frame.next_instr = self.handlerposition   # jump to the handler
             raise StopUnrolling
 
