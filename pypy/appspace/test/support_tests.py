@@ -8,6 +8,9 @@ if __name__ != 'test.test_support':
 import sys
 from os import unlink
 
+import py 
+TESTFN = str(py.test.config.tempdir.join('@test'))
+
 class Error(Exception):
     """Base class for regression test exceptions."""
 
@@ -117,21 +120,7 @@ except NameError:
 is_jython = sys.platform.startswith('java')
 
 
-TESTFN = '@test'
 
-# Make sure we can write to TESTFN, try in /tmp if we can't
-fp = None
-try:
-    fp = open(TESTFN, 'w+')
-except IOError:
-    TMP_TESTFN = os.path.join('/tmp', TESTFN)
-    try:
-        fp = open(TMP_TESTFN, 'w+')
-        TESTFN = TMP_TESTFN
-        del TMP_TESTFN
-    except IOError:
-        print ('WARNING: tests will fail, unable to write to: %s or %s' %
-                (TESTFN, TMP_TESTFN))
 if fp is not None:
     fp.close()
 del fp
