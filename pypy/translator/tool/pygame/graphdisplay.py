@@ -62,6 +62,7 @@ class GraphDisplay(Display):
     STATUSBAR_ALPHA = 0.75
     STATUSBAR_FGCOLOR = (255, 255, 80)
     STATUSBAR_BGCOLOR = (128, 0, 0)
+    STATUSBAR_OVERFLOWCOLOR = (255, 0, 0)
     HELP_ALPHA = 0.95
     HELP_FGCOLOR = (255, 255, 80)
     HELP_BGCOLOR = (0, 128, 0)
@@ -187,7 +188,8 @@ class GraphDisplay(Display):
         helpmsg = self.HELP_MSG
         width = self.width - 2*margin_x
         height = self.height - 2*margin_y
-        lines = rendertext(helpmsg, self.font, fgcolor, width - 2*padding_x)
+        lines = rendertext(helpmsg, self.font, fgcolor, width - 2*padding_x,
+                           height - 2*padding_y)
         block = pygame.Surface((width, height), SWSURFACE | SRCALPHA)
         block.fill(bgcolor)
         sx = padding_x
@@ -355,7 +357,9 @@ class GraphDisplay(Display):
 
     def drawstatusbar(self):
         text, fgcolor, bgcolor = self.statusbarinfo
-        lines = rendertext(text, self.font, fgcolor, self.width)
+        maxheight = self.height / 2
+        lines = rendertext(text, self.font, fgcolor, self.width, maxheight,
+                           self.STATUSBAR_OVERFLOWCOLOR)
         totalh = totalheight(lines)
         y = self.height - totalh
         self.status_bar_height = totalh + 16
@@ -580,11 +584,14 @@ def shortlabel(label):
     return label.replace('\\l', '').splitlines()[0]
 
 
-def renderline(text, font, fgcolor, width):
+def renderline(text, font, fgcolor, width, maxheight=sys.maxint,
+               overflowcolor=None):
     """Render a single line of text into a list of images.
 
     Performs word wrapping.
     """
+    if overflowcolor is None:
+        overflowcolor = fgcolor
     words = text.split(' ')
     lines = []
     while words:
@@ -599,17 +606,31 @@ def renderline(text, font, fgcolor, width):
             words.pop(0)
             line = longerline
             img = longerimg
+        w, h = img.get_size()
+        if h > maxheight:
+            img = font.render('...', 1, overflowcolor)
+            w, h = img.get_size()
+            while lines and h > maxheight:
+                maxheight += lines.pop().get_size()[1]
+            lines.append(img)
+            break
+        maxheight -= h
         lines.append(img)
     return lines
 
 
-def rendertext(text, font, fgcolor, width):
+def rendertext(text, font, fgcolor, width, maxheight=sys.maxint,
+               overflowcolor=None):
     """Render a multiline string into a list of images.
 
     Performs word wrapping for each line individually."""
     lines = []
     for line in text.splitlines():
-        lines.extend(renderline(line, font, fgcolor, width))
+        l = renderline(line, font, fgcolor, width, maxheight, overflowcolor)
+        lines.extend(l)
+        maxheight -= totalheight(l)
+        if maxheight <= 0:
+            break
     return lines
 
 
