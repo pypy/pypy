@@ -84,7 +84,8 @@ class NoTypeCGenTestCase(testit.IntTestCase):
         self.assertEquals(sand(0, 6), "no")
         self.assertEquals(sand(0, 0), "no")
 
-class TypedTestCase(testit.IntTestCase):
+if 0:
+  class TypedTestCase(testit.IntTestCase):
 
     def getcompiled(self, func):
         t = Translator(func) 

@@ -6,11 +6,7 @@ from __future__ import generators
 import autopath, os
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
-from pypy.translator.typer import LLFunction, LLOp, LLVar, LLConst
-from pypy.translator.classtyper import LLClass
-from pypy.translator.genc_typeset import CTypeSet
-from pypy.translator.genc_op import ERROR_RETVAL
-from pypy.translator.genc_repr import R_INT, R_OBJECT, cdecl
+from pypy.objspace.flow.model import traverse, uniqueitems
 
 # ____________________________________________________________
 
@@ -33,323 +29,200 @@ class GenC:
         self.translator = translator
         self.modname = (modname or
                         uniquemodulename(translator.functions[0].__name__))
-        if translator.annotator:
-            bindings = translator.annotator.bindings.copy()
-        else:
-            bindings = {}
-        self.typeset = CTypeSet(self, bindings)
-        self.initializationcode = []
-        self.llclasses = {};   self.classeslist = []
-        self.llfunctions = {}; self.functionslist = []
-        self.llarrays = {}
-        # must build functions first, otherwise methods are not found
-        self.build_llfunctions()
-        self.build_llclasses()
-        self.build_llentrypoint()
+        self.cnames = {}
+        self.seennames = {}
+        self.initcode = []
+        self.globaldecl = []
+        self.pendingfunctions = []
         self.gen_source()
+
+    def nameof(self, obj):
+        key = type(obj), obj   # to avoid confusing e.g. 0 and 0.0
+        try:
+            return self.cnames[key]
+        except KeyError:
+            for cls in type(obj).__mro__:
+                meth = getattr(self, 'nameof_' + cls.__name__, None)
+                if meth:
+                    break
+            else:
+                raise TypeError, "nameof(%r)" % (obj,)
+            name = meth(obj)
+            self.cnames[key] = name
+            return name
+
+    def uniquename(self, basename):
+        name = basename
+        i = 0
+        while name in self.seennames:
+            i += 1
+            name = '%s_%d' % (basename, i)
+        self.seennames[name] = True
+        return name
+
+    def nameof_int(self, value):
+        if value >= 0:
+            name = 'gint_%d' % value
+        else:
+            name = 'gint_minus%d' % abs(value)
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('%s = PyInt_FromLong(%d);' % (name, value))
+        return name
+
+    def nameof_function(self, func):
+        name = self.uniquename('gfunc_' + func.__name__)
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('%s = PyCFunction_New(&ml_%s, NULL);' % (name,
+                                                                      name))
+        self.pendingfunctions.append(func)
+        return name
 
     def gen_source(self):
         f = self.f
         info = {
             'modname': self.modname,
-            'exported': self.translator.functions[0].__name__,
+            'entrypointname': self.translator.functions[0].__name__,
+            'entrypoint': self.nameof(self.translator.functions[0]),
             }
         # header
         print >> f, self.C_HEADER
 
-        # forward declarations
-        print >> f, '/* forward declarations */'
-        for llfunc in self.functionslist:
-            print >> f, '%s;' % self.cfunction_header(llfunc)
-        print >> f
-
-        # declaration of class structures
-        for llclass in self.classeslist:
-            self.gen_cclass(llclass)
-
-        # function implementation
-        print >> f, self.C_SEP
-        print >> f
-        for llfunc in self.functionslist:
-            self.gen_cfunction(llfunc)
-            print >> f
-
-        # entry point
-        print >> f, self.C_SEP
-        print >> f, self.C_ENTRYPOINT_HEADER % info
-        self.gen_entrypoint()
-        print >> f, self.C_ENTRYPOINT_FOOTER % info
+        # function implementations
+        for func in self.pendingfunctions:
+            self.gen_cfunction(func)
 
         # footer
-        print >> f, self.C_METHOD_TABLE % info
         print >> f, self.C_INIT_HEADER % info
-        for codeline in self.initializationcode:
+        for codeline in self.initcode:
             print >> f, '\t' + codeline
         print >> f, self.C_INIT_FOOTER % info
 
-
-    def build_llclasses(self):
-        if not self.translator.annotator:
-            return
-        n = 0
-        for cdef in self.translator.annotator.getuserclassdefinitions():
-            # annotation.factory guarantees that this will enumerate
-            # the ClassDefs in a parent-first, children-last order.
-            cls = cdef.cls
-            assert cls not in self.llclasses, '%r duplicate' % (cls,)
-            if cdef.basedef is None:
-                llparent = None
-            else:
-                llparent = self.llclasses[cdef.basedef.cls]
-            llclass = LLClass(
-                typeset = self.typeset,
-                name = '%s__%d' % (cls.__name__, n),
-                cdef = cdef,
-                llparent = llparent,
-                )
-            self.llclasses[cls] = llclass
-            self.classeslist.append(llclass)
-            n += 1
-        for llclass in self.classeslist:
-            llclass.setup()
-        management_functions = []
-        for llclass in self.classeslist:
-            management_functions += llclass.get_management_functions()
-        self.functionslist[:0] = management_functions
-
-    def build_llfunctions(self):
-        n = 0
-        for func in self.translator.functions:
-            assert func not in self.llfunctions, '%r duplicate' % (func,)
-            llfunc = LLFunction(
-                typeset = self.typeset,
-                name    = 'f%d_%s' % (n, func.func_name),
-                graph   = self.translator.flowgraphs[func])
-            self.llfunctions[func] = llfunc
-            self.functionslist.append(llfunc)
-            n += 1
-
-    def build_llentrypoint(self):
-        # create a LLFunc that calls the entry point function and returns
-        # whatever it returns, but converted to PyObject*.
-        main = self.translator.functions[0]
-        llmain = self.llfunctions[main]
-        inputargs = llmain.graph.getargs()
-        b = Block(inputargs)
-        v1 = Variable()
-        b.operations.append(SpaceOperation('simple_call',
-                                           [Constant(main)] + inputargs,
-                                           v1))
-        # finally, return v1
-        graph = FunctionGraph('entry_point', b)
-        b.closeblock(Link([v1], graph.returnblock))
-        llfunc = LLFunction(self.typeset, graph.name, graph)
-        self.functionslist.append(llfunc)
-
-    def get_llfunc_header(self, llfunc):
-        llargs, llret = llfunc.ll_header()
-        if len(llret) == 0:
-            retlltype = None
-        elif len(llret) == 1:
-            retlltype = llret[0].type
-        else:
-            # if there is more than one return LLVar, only the first one is
-            # returned and the other ones are returned via ptr output args
-            retlltype = llret[0].type
-            llargs += [LLVar(a.type, '*output_'+a.name) for a in llret[1:]]
-        return llargs, retlltype
-
-    def cfunction_header(self, llfunc):
-        llargs, rettype = self.get_llfunc_header(llfunc)
-        l = [cdecl(a.type, a.name) for a in llargs]
-        l = l or ['void']
-        return 'static ' + cdecl(rettype or 'int',
-                                 '%s(%s)' % (llfunc.name, ', '.join(l)))
-
-    def gen_entrypoint(self):
+    def gen_cfunction(self, func):
         f = self.f
-        llfunc = self.functionslist[-1]
-        llargs, rettype = self.get_llfunc_header(llfunc)
-        assert llfunc.name == 'entry_point', llfunc.name
-        assert rettype == 'PyObject*', rettype
-        l = []
-        l2 = []
-        for a in llargs:
-            print >> f, '\t%s;' % cdecl(a.type, a.name)
-            l.append('&' + a.name)
-            l2.append(a.name)
-        formatstr = []
-        for v in llfunc.graph.getargs():
-            hltype = self.typeset.gethltype(v)
-            assert hltype.parse_code, (
-                "entry point arg %s has unsupported type %s" % (v, hltype))
-            formatstr.append(hltype.parse_code)
-        l.insert(0, '"' + ''.join(formatstr) + '"')
-        print >> f, '\tif (!PyArg_ParseTuple(args, %s))' % ', '.join(l)
-        print >> f, '\t\treturn NULL;'
-        print >> f, '\treturn entry_point(%s);' % (', '.join(l2))
-
-    def gen_cfunction(self, llfunc):
-        f = self.f
-
-        # generate the body of the function
-        llargs, rettype = self.get_llfunc_header(llfunc)
-        error_retval = LLConst(rettype, ERROR_RETVAL.get(rettype, 'NULL'))
-        body = list(llfunc.ll_body([error_retval]))
-
-        # print the declaration of the new global constants needed by
-        # the current function
-        to_declare = []
-        for line in body:
-            if isinstance(line, LLOp):
-                for a in line.using():
-                    if isinstance(a, LLConst) and a.to_declare:
-                        to_declare.append(a)
-                        if a.initexpr:
-                            self.initializationcode.append('%s = %s;' % (
-                                a.name, a.initexpr))
-                        a.to_declare = False
-        if to_declare:
-            print >> f, '/* global constant%s */' % ('s'*(len(to_declare)>1))
-            for a in to_declare:
-                print >> f, 'static %s;' % cdecl(a.type, a.name)
+        body = list(self.cfunction_body(func))
+        g = self.globaldecl
+        if g:
+            print >> f, '/* global declaration%s */' % ('s'*(len(g)>1))
+            for line in g:
+                print >> f, line
             print >> f
+            del g[:]
 
         # print header
-        print >> f, self.cfunction_header(llfunc)
+        name = self.nameof(func)
+        assert name.startswith('gfunc_')
+        f_name = 'f_' + name[6:]
+        print >> f, 'static PyObject* %s(PyObject* self, PyObject* args)' % (
+            f_name,)
         print >> f, '{'
 
-        # collect and print all the local variables from the body
-        lllocals = []
-        for line in body:
-            if isinstance(line, LLOp):
-                lllocals += line.using()
-        seen = {}
-        for a in llargs:
-            seen[a] = True
-        for a in lllocals:
-            if a not in seen:
-                if not isinstance(a, LLConst):
-                    print >> f, '\t%s;' % cdecl(a.type, a.name)
-                seen[a] = True
+        # collect and print all the local variables
+        graph = self.translator.flowgraphs[func]
+        localslst = []
+        def visit(node):
+            if isinstance(node, Block):
+                localslst.extend(node.getvariables())
+        traverse(visit, graph)
+        for a in uniqueitems(localslst):
+            print >> f, '\tPyObject* %s;' % a.name
         print >> f
+
+        # argument unpacking
+        lst = ['"' + 'O'*len(graph.getargs()) + '"']
+        lst += ['&' + a.name for a in graph.getargs()]
+        print >> f, '\tif (!PyArg_ParseTuple(args, %s))' % ', '.join(lst)
+        print >> f, '\t\treturn NULL;'
 
         # print the body
         for line in body:
-            if isinstance(line, LLOp):
-                code = line.write()
-                if code:
-                    for codeline in code.split('\n'):
-                        print >> f, '\t' + codeline
-            elif line:  # label
-                print >> f, '   %s:' % line
-            else:  # empty line
-                print >> f
+            if line.endswith(':'):
+                line = '    ' + line
+            else:
+                line = '\t' + line
+            print >> f, line
         print >> f, '}'
 
-    def gen_cclass(self, llclass):
-        f = self.f
-        cls = llclass.cdef.cls
-        info = {
-            'module': cls.__module__,
-            'basename': cls.__name__,
-            'name': llclass.name,
-            'base': '0',
-            }
-        if llclass.llparent is not None:
-            info['base'] = '&g_Type_%s.type' % llclass.llparent.name
+        # print the PyMethodDef
+        print >> f, 'static PyMethodDef ml_%s = { "%s", %s, METH_VARARGS };' % (
+            name, func.__name__, f_name)
+        print >> f
 
-        # print the C struct declaration
-        print >> f, self.C_STRUCT_HEADER % info
-        for fld in llclass.instance_fields:
-            for llvar in fld.llvars:
-                print >> f, '\t%s;' % cdecl(llvar.type, llvar.name)
-        print >> f, self.C_STRUCT_FOOTER % info
+    def cfunction_body(self, func):
+        graph = self.translator.flowgraphs[func]
+        blocknum = {}
+        allblocks = []
 
-        # print the struct PyTypeObject_Xxx, which is an extension of
-        # PyTypeObject with the class attributes of this class
-        print >> f, self.C_TYPESTRUCT_HEADER % info
-        for fld in llclass.class_fields:
-            for llvar in fld.llvars:
-                print >> f, '\t%s;' % cdecl(llvar.type, llvar.name)
-        print >> f, self.C_TYPESTRUCT_FOOTER % info
-
-        # generate the deallocator function -- must special-case it;
-        # other functions are generated by LLClass.get_management_functions()
-        print >> f, self.C_DEALLOC_HEADER % info
-        llxdecref = self.typeset.rawoperations['xdecref']
-        for fld in llclass.instance_fields:
-            llvars = fld.getllvars('op->%s')
-            line = llxdecref(llvars)
-            code = line.write()
-            if code:
-                for codeline in code.split('\n'):
-                    print >> f, '\t' + codeline
-        print >> f, self.C_DEALLOC_FOOTER % info
-
-        # generate the member list for the type object
-        print >> f, self.C_MEMBERLIST_HEADER % info
-        # XXX write member definitions for member with well-known types only
-        #     members from the parents are inherited via tp_base
-        for fld in llclass.fields_here:
-            if fld.is_class_attr:
-                continue   # XXX should provide a reader
-            if fld.hltype == R_OBJECT:
-                t = 'T_OBJECT_EX'
-            elif fld.hltype == R_INT:
-                t = 'T_INT'
+        def expr(v):
+            if isinstance(v, Variable):
+                return v.name
+            elif isinstance(v, Constant):
+                return self.nameof(v.value)
             else:
-                continue   # ignored
-            print >> f, '\t{"%s",\t%s,\toffsetof(PyObj_%s, %s)},' % (
-                fld.name, t, llclass.name, fld.llvars[0].name)
-        print >> f, self.C_MEMBERLIST_FOOTER % info
+                raise TypeError, "expr(%r)" % (v,)
 
-        # declare and initialize the static PyTypeObject
-        print >> f, self.C_TYPEOBJECT % info
+        def gen_link(link):
+            "Generate the code to jump across the given Link."
+            has_ref = {}
+            for v in to_release:
+                has_ref[v] = True
+            for a1, a2 in zip(link.args, link.target.inputargs):
+                line = 'MOVE(%s, %s)' % (expr(a1), a2.name)
+                if a1 in has_ref:
+                    del has_ref[a1]
+                else:
+                    line += '\tPy_INCREF(%s);' % a2.name
+                yield line
+            for v in to_release:
+                if v in has_ref:
+                    yield 'Py_XDECREF(%s);' % v.name
+            yield 'goto block%d;' % blocknum[link.target]
 
-        self.initializationcode.append('SETUP_TYPE(%s)' % llclass.name)
+        # collect all blocks
+        def visit(block):
+            if isinstance(block, Block):
+                allblocks.append(block)
+                blocknum[block] = len(blocknum)
+        traverse(visit, graph)
 
-    def declare_list(self, lltypes):
-        # called by genc_typer.py to write the type definition of a list
-        # as an array of "struct { lltypes };"
-        lltypes = tuple(lltypes)
-        if lltypes in self.llarrays:
-            return self.llarrays[lltypes]   # already seen
+        # generate an incref for each input argument
+        for v in graph.getargs():
+            yield 'Py_INCREF(%s);' % v.name
 
-        s = '_'.join(lltypes)
-        name = ''.join([('a'<=c<='z' or
-                         'A'<=c<='Z' or
-                         '0'<=c<='9') and c or '_'
-                        for c in s])
-        name = name or 'void'
-        name += '_%d' % len(self.llarrays)
-        self.llarrays[lltypes] = name
-        
-        f = self.f
-        info = {
-            'name': name,
-            }
-        print >> f, self.C_LIST_HEADER % info
-        llvars1 = []
-        for i in range(len(lltypes)):
-            print >> f, '\t%s;' % cdecl(lltypes[i], 'a%d'%i)
-            llvars1.append(LLVar(lltypes[i], 'item->a%d'%i))
-        print >> f, self.C_LIST_FOOTER % info
+        # generate the body of each block
+        for block in allblocks:
+            yield ''
+            yield 'block%d:' % blocknum[block]
+            to_release = list(block.inputargs)
+            for op in block.operations:
+                lst = [expr(v) for v in op.args]
+                lst.append(op.result.name)
+                lst.append('err%d_%d' % (blocknum[block], len(to_release)))
+                yield 'OP_%s(%s)' % (op.opname.upper(), ', '.join(lst))
+                to_release.append(op.result)
 
-        print >> f, self.C_LIST_DEALLOC_HEADER % info
-        lldecref = self.typeset.rawoperations['decref']
-        line = lldecref(llvars1)
-        code = line.write()
-        if code:
-            print >> f, self.C_LIST_DEALLOC_LOOP_HEADER % info
-            for codeline in code.split('\n'):
-                print >> f, '\t\t' + codeline
-            print >> f, self.C_LIST_DEALLOC_LOOP_FOOTER % info
-        print >> f, self.C_LIST_DEALLOC_FOOTER % info
+            if len(block.exits) == 0:
+                yield 'return %s;' % expr(block.inputargs[0])
+                continue
+            if block.exitswitch is not None:
+                for link in block.exits[:-1]:
+                    yield 'if (EQ_%s(%s)) {' % (link.exitcase,
+                                                block.exitswitch.name)
+                    for op in gen_link(link):
+                        yield '\t' + op
+                    yield '}'
+                link = block.exits[-1]
+                yield 'assert(EQ_%s(%s));' % (link.exitcase,
+                                              block.exitswitch.name)
+            for op in gen_link(block.exits[-1]):
+                yield op
 
-        print >> f, self.C_LIST_TYPEOBJECT % info
-
-        return name
+            yield ''
+            to_release.pop()  # this label is never reachable
+            while to_release:
+                n = len(to_release)
+                v = to_release.pop()
+                yield 'err%d_%d: Py_XDECREF(%s);' % (blocknum[block], n, v.name)
+            yield 'return NULL;'
 
 # ____________________________________________________________
 
@@ -357,205 +230,26 @@ class GenC:
 
     C_SEP = "/************************************************************/"
 
-    C_ENTRYPOINT_HEADER = '''
-static PyObject* c_%(exported)s(PyObject* self, PyObject* args)
-{'''
+    C_INIT_HEADER = C_SEP + '''
 
-    C_ENTRYPOINT_FOOTER = '''}'''
-
-    C_METHOD_TABLE = '''
-static PyMethodDef g_methods_%(modname)s[] = {
-\t{"%(exported)s", (PyCFunction)c_%(exported)s, METH_VARARGS},
-\t{NULL, NULL}
-};'''
-
-    C_INIT_HEADER = '''
 void init%(modname)s(void)
 {
-\tPy_InitModule("%(modname)s", g_methods_%(modname)s);'''
-
-    C_INIT_FOOTER = '''}'''
-
-    C_STRUCT_HEADER = C_SEP + '''
-/*** Definition of class %(module)s.%(basename)s ***/
-
-typedef struct {
-	PyObject_HEAD'''
-
-    C_STRUCT_FOOTER = '''} PyObj_%(name)s;
+\tPyObject* m = Py_InitModule("%(modname)s", NULL);
 '''
 
-    C_DEALLOC_HEADER = '''static void dealloc_%(name)s(PyObj_%(name)s* op)
-{'''
-
-    C_DEALLOC_FOOTER = '''	PyObject_Del((PyObject*) op);
-}
-'''
-
-    C_MEMBERLIST_HEADER = '''static PyMemberDef g_memberlist_%(name)s[] = {'''
-
-    C_MEMBERLIST_FOOTER = '''	{NULL}	/* Sentinel */
-};
-'''
-
-    # NB: our types don't have Py_TPFLAGS_BASETYPE because we do not want
-    #     the complications of dynamically created subclasses.  This doesn't
-    #     prevent the various types from inheriting from each other via
-    #     tp_base.  This is ok because we expect all RPython classes to exist
-    #     and be analyzed in advance.  This allows class attributes to be stored
-    #     as an extensison of the PyTypeObject structure, which are then
-    #     accessed with ((PyTypeObject_Xxx*)op->ob_type)->classattrname.
-    #     This doesn't work if op->ob_type can point to a heap-allocated
-    #     type object over which we have no control.
-
-    C_TYPESTRUCT_HEADER = '''typedef struct {
-	PyTypeObject type;
-	/* class attributes follow */'''
-
-    C_TYPESTRUCT_FOOTER = '''} PyTypeObject_%(name)s;
-'''
-
-    C_TYPEOBJECT = '''static PyTypeObject_%(name)s g_Type_%(name)s = {
-	PyObject_HEAD_INIT(&PyType_Type)
-	0,
-	"%(name)s",
-	sizeof(PyObj_%(name)s),
-	0,
-	(destructor)dealloc_%(name)s,		/* tp_dealloc */
-	0,					/* tp_print */
-	0,					/* tp_getattr */
-	0,					/* tp_setattr */
-	0,					/* tp_compare */
-	0,					/* tp_repr */
-	0,					/* tp_as_number */
-	0,					/* tp_as_sequence */
-	0,					/* tp_as_mapping */
-	0,					/* tp_hash */
-	0,					/* tp_call */
-	0,					/* tp_str */
-	PyObject_GenericGetAttr,		/* tp_getattro */
-	PyObject_GenericSetAttr,		/* tp_setattro */
-	0,					/* tp_as_buffer */
-	Py_TPFLAGS_DEFAULT,			/* tp_flags */
- 	0,					/* tp_doc */
- 	0,	/* XXX need GC */		/* tp_traverse */
- 	0,					/* tp_clear */
-	0,					/* tp_richcompare */
-	0,					/* tp_weaklistoffset */
-	0,					/* tp_iter */
-	0,					/* tp_iternext */
-	0,					/* tp_methods */
-	g_memberlist_%(name)s,			/* tp_members */
-	0,					/* tp_getset */
-	%(base)s,				/* tp_base */
-	0,					/* tp_dict */
-	0,					/* tp_descr_get */
-	0,					/* tp_descr_set */
-	0,					/* tp_dictoffset */
-	0,  /* XXX call %(name)s_new() */	/* tp_init */
-	PyType_GenericAlloc,			/* tp_alloc */
-	PyType_GenericNew,			/* tp_new */
-	PyObject_Del,				/* tp_free */
-};
-'''
-
-    C_LIST_HEADER = '''/* the type "list of %(name)s" */
-typedef struct {'''
-
-    C_LIST_FOOTER = '''} ListItem_%(name)s;
-
-typedef struct {
-	PyObject_VAR_HEAD
-	ListItem_%(name)s* ob_item;
-} PyList_%(name)s;
-'''
-
-    C_LIST_DEALLOC_HEADER = (
-'''static void dealloclist_%(name)s(PyList_%(name)s* op)
-{''')
-
-    C_LIST_DEALLOC_LOOP_HEADER = (
-'''	int i = op->ob_size;
-	ListItem_%(name)s* item = op->ob_item + i;
-	while (--i >= 0) {
-		--item;''')
-
-    C_LIST_DEALLOC_LOOP_FOOTER = (
-'''	}''')
-
-    C_LIST_DEALLOC_FOOTER = (
-'''	PyMem_Free(op->ob_item);
-	PyObject_Del((PyObject*) op);
-}
-''')
-
-    C_LIST_TYPEOBJECT = '''static PyTypeObject g_ListType_%(name)s = {
-	PyObject_HEAD_INIT(&PyType_Type)
-	0,
-	"list of %(name)s",
-	sizeof(PyList_%(name)s),
-	0,
-	(destructor)dealloclist_%(name)s,	/* tp_dealloc */
-	0,					/* tp_print */
-	0,					/* tp_getattr */
-	0,					/* tp_setattr */
-	0,					/* tp_compare */
-	0,					/* tp_repr */
-	0,					/* tp_as_number */
-	0,					/* tp_as_sequence */
-	0,					/* tp_as_mapping */
-	0,					/* tp_hash */
-	0,					/* tp_call */
-	0,					/* tp_str */
-	PyObject_GenericGetAttr,		/* tp_getattro */
-	0,					/* tp_setattro */
-	0,					/* tp_as_buffer */
-	Py_TPFLAGS_DEFAULT,			/* tp_flags */
- 	0,					/* tp_doc */
- 	0,	/* XXX need GC */		/* tp_traverse */
- 	0,					/* tp_clear */
-};
-
-static PyObject* alloclist_%(name)s(int len)
-{
-	void* buffer;
-	PyList_%(name)s* o;
-
-	if (len > 0) {
-		buffer = PyMem_Malloc(len * sizeof(ListItem_%(name)s));
-		if (buffer == NULL) {
-			PyErr_NoMemory();
-			return NULL;
-		}
-	}
-	else
-		buffer = NULL;
-
-	o = PyObject_New(PyList_%(name)s, &g_ListType_%(name)s);
-	if (o != NULL) {
-		o->ob_size = len;
-		o->ob_item = (ListItem_%(name)s*) buffer;
-	}
-	else {
-		PyMem_Free(buffer);
-	}
-	return (PyObject*) o;
-}
-
-static int growlist_%(name)s(PyObject* a, int extralen)
-{
-	/* NB. this function does not update o->ob_size */
-	PyList_%(name)s* o = (PyList_%(name)s*) a;
-	int newlen = o->ob_size + extralen;
-	void* buffer = PyMem_Realloc(o->ob_item,
-				     newlen*sizeof(ListItem_%(name)s));
-	if (buffer == NULL) {
-		PyErr_NoMemory();
-		return -1;
-	}
-	o->ob_item = (ListItem_%(name)s*) buffer;
-	return 0;
-}
-'''
+    C_INIT_FOOTER = '''
+\tPyModule_AddObject(m, "%(entrypointname)s", %(entrypoint)s);
+}'''
 
 # ____________________________________________________________
+
+def cdecl(type, name):
+    # Utility to generate a typed name declaration in C syntax.
+    # For local variables, struct fields, function declarations, etc.
+    # For complex C types, the 'type' can contain a '@' character that
+    # specifies where the 'name' should be inserted; for example, an
+    # array of 10 ints has a type of "int @[10]".
+    if '@' in type:
+        return type.replace('@', name)
+    else:
+        return ('%s %s' % (type, name)).rstrip()
