@@ -46,7 +46,7 @@ def debugname(xcell, name=None, _seen = {}):
         return _seen[id(xcell)]
     except KeyError:
         if name is None:
-            name = "X%d" % len(seen)
+            name = "X%d" % len(_seen)
         _seen[id(xcell)] = name
         return name
 

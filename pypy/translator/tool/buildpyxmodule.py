@@ -12,6 +12,7 @@ from pypy.translator.tool import stdoutcapture
 debug = 0
 
 def make_module_from_pyxstring(name, dirpath, string):
+    dirpath = Path(dirpath)
     pyxfile = dirpath.join('%s.pyx' % name) 
     i = 0
     while pyxfile.exists():

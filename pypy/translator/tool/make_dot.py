@@ -131,6 +131,11 @@ edge [fontname=Times];
 def make_dot(graphname, graph, storedir=None, target='ps'):
     return make_dot_graphs(graph.name, [(graphname, graph)], storedir, target)
 
+def show_dot(graph, storedir = None, target = 'ps'):
+    name = graph.name
+    fn = make_dot(name, graph, storedir, target)
+    os.system('gv %s' % fn)
+
 def make_dot_graphs(basefilename, graphs, storedir=None, target='ps'):
     from vpath.adapter.process import exec_cmd
 
