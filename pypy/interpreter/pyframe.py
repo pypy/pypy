@@ -54,13 +54,27 @@ class PyFrame(eval.Frame):
         "Interpreter main loop!"
         try:
             while True:
-                executioncontext.bytecode_trace(self)
-                last_instr = self.next_instr
                 try:
                     try:
-                        # fetch and dispatch the next opcode
-                        # dispatch() is abstract, see pyopcode.
-                        self.dispatch()
+                        try:
+                            while True:
+                                # fetch and dispatch the next opcode
+                                # dispatch() is abstract, see pyopcode.
+                                executioncontext.bytecode_trace(self)
+                                last_instr = self.next_instr
+                                self.dispatch()
+                        # catch asynchronous exceptions and turn them
+                        # into OperationErrors
+                        except KeyboardInterrupt:
+                            raise OperationError(self.space.w_KeyboardInterrupt,
+                                                 self.space.w_None)
+                        except MemoryError:
+                            raise OperationError(self.space.w_MemoryError,
+                                                 self.space.w_None)
+                        except RuntimeError, e:
+                            raise OperationError(self.space.w_RuntimeError,
+                                self.space.wrap("internal error: " + str(e)))
+
                     except OperationError, e:
                         pytraceback.record_application_traceback(
                             self.space, e, self, last_instr)
@@ -70,8 +84,6 @@ class PyFrame(eval.Frame):
                         import sys
                         tb = sys.exc_info()[2]
                         raise SApplicationException(e, tb)
-                    # XXX some other exceptions could be caught here too,
-                    #     like KeyboardInterrupt
 
                 except ControlFlowException, ctlflowexc:
                     # we have a reason to change the control flow
