@@ -14,8 +14,9 @@ options = ('pypy options', [
                help="object space to run tests on."),
         Option('--oldstyle', action="store_true",dest="oldstyle", default=False,
                help="enable oldstyle classes as default metaclass (std objspace only)"),
+        Option('--allpypy', action="store_true",dest="allpypy", default=False, 
+               help="run everything possible on top of PyPy."),
 ])
-
 
 def getobjspace(name=None, _spacecache={}): 
     """ helper for instantiating and caching space's for testing. 

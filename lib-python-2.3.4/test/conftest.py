@@ -7,7 +7,7 @@ from pypy.conftest import gettestobjspace, options
 from pypy.interpreter.module import Module as PyPyModule 
 from pypy.interpreter.main import run_string, run_file
 
-from regrtest import reportdiff
+from test.regrtest import reportdiff
 
 #
 # PyPy's command line extra options (these are added 
@@ -125,7 +125,7 @@ def app_list_testmethods(mod, testcaseclass):
         l.append((instance.setUp, instance.tearDown, methods))
     return l 
 list_testmethods = app2interp_temp(app_list_testmethods) 
-           
+
 def Module(fspath): 
     output = fspath.dirpath('output', fspath.purebasename)
     if output.check(file=1):
@@ -135,7 +135,7 @@ def Module(fspath):
     # XXX not exactly clean: 
     if content.find('unittest') != -1: 
         # we can try to run ...  
-        return UnittestModule(fspath) 
+        return AppUnittestModule(fspath) 
    
 class OutputTestItem(py.test.Item): 
     def __init__(self, fspath, output): 
@@ -164,9 +164,9 @@ class OutputTestItem(py.test.Item):
                 reportdiff(expected, result) 
                 assert 0, "expected and real output of running test differ" 
        
-class UnittestModule(py.test.collect.Module): 
+class AppUnittestModule(py.test.collect.Module): 
     def __init__(self, fspath): 
-        super(UnittestModule, self).__init__(fspath) 
+        super(AppUnittestModule, self).__init__(fspath) 
     
     def _prepare(self): 
         if hasattr(self, 'space'): 
