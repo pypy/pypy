@@ -12,17 +12,36 @@ METAKEYS = dict([
 ])
 
 if sys.platform == 'darwin':
-    PMETA = 'lmeta'
+    PMETA = 'lmeta', 'rmeta'
 else:
-    PMETA = 'lalt'
+    PMETA = 'lalt', 'ralt'
 
-METAKEYS['meta'] = METAKEYS[PMETA]
-METAKEYS['shift'] = METAKEYS['lshift']
+METAKEYS['meta'] = PMETA
+METAKEYS['shift'] = 'lshift', 'rshift'
 
 KEYS = dict([
     (ident[len('K_'):].lower(), getattr(pygame.locals, ident))
     for ident in dir(pygame.locals) if ident.startswith('K_')
 ])
+
+KEYS['plus'] = ('=', '+')
+KEYS['quit'] = ('q', 'f4')
+
+def GET_KEY(key):
+    k = KEYS.get(key)
+    if k is None:
+        assert len(key) == 1
+        return ord(key)
+    return k
+
+def permute_mods(base, args):
+    if not args:
+        yield base
+        return
+    first, rest = args[0], args[1:]
+    for val in first:
+        for rval in permute_mods(base | val, rest):
+            yield rval
 
 class Display(object):
     
@@ -46,13 +65,11 @@ class GraphDisplay(Display):
 
     KEYS = {
         'meta -' : ('zoom', 0.5),
-        'meta =' : ('zoom', 2.0),
-        'meta +' : ('zoom', 2.0),
+        'meta plus' : ('zoom', 2.0),
         'meta 0' : 'zoom_actual_size',
         'meta 1' : 'zoom_to_fit',
-        'meta q' : 'quit',
+        'meta quit' : 'quit',
         'escape' : 'quit',
-        'meta f4' : 'quit',
         'meta right' : 'layout_forward',
         'meta left': 'layout_back',
         'p' : 'layout_back',
@@ -84,25 +101,37 @@ class GraphDisplay(Display):
         pygame.key.set_repeat(*self.KEY_REPEAT)
         for strnames, methodname in self.KEYS.iteritems():
             names = strnames.split()
-            mod = 0
-            key = 0
             if not isinstance(methodname, basestring):
                 methodname, args = methodname[0], methodname[1:]
             else:
                 args = ()
-            for name in names:
-                if name in METAKEYS:
-                    mod |= METAKEYS[name]
-                elif name in KEYS:
-                    key = KEYS[name]
-                else:
-                    assert len(name) == 1
-                    key = ord(name)
             method = getattr(self, methodname, None)
             if method is None:
                 print 'Can not implement key mapping %r, %s.%s does not exist' % (
                         strnames, self.__class__.__name__, methodname)
-            self.key_cache[(key, mod)] = (method, args)
+                continue
+
+            mods = []
+            basemod = 0
+            keys = []
+            for name in names:
+                if name in METAKEYS:
+                    val = METAKEYS[name]
+                    if not isinstance(val, int):
+                        mods.append(tuple([METAKEYS[k] for k in val]))
+                    else:
+                        basemod |= val
+                else:
+                    val = GET_KEY(name)
+                    assert len(keys) == 0
+                    if not isinstance(val, int):
+                        keys.extend([GET_KEY(k) for k in val])
+                    else:
+                        keys.append(val)
+            assert keys
+            for key in keys:
+                for mod in permute_mods(basemod, mods):
+                    self.key_cache[(key, mod)] = (method, args)
     
     def setlayout(self, layout):
         if self.viewer:
