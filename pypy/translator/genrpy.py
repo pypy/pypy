@@ -26,58 +26,6 @@ from pypy.translator.translator import Translator
 
 import sys
 
-def somefunc(arg):
-    pass
-
-def f(a,b):
-    print "start"
-    a = []
-    a.append(3)
-    for i in range(3):
-        print i
-    if a > b:
-        try:
-            if b == 123:
-                raise ValueError
-            elif b == 321:
-                raise IndexError
-            return 123
-        except ValueError:
-            raise TypeError
-    else:
-        dummy = somefunc(23)
-        return 42
-
-def ff(a, b):
-    try:
-        raise SystemError, 42
-        return a+b
-    finally:
-        a = 7
-
-glob = 100
-def fff():
-    global glob
-    return 42+glob
-
-def app_mod__String_ANY(format, values):
-    import _formatting
-    if isinstance(values, tuple):
-        return _formatting.format(format, values, None)
-    else:
-        if hasattr(values, 'keys'):
-            return _formatting.format(format, (values,), values)
-        else:
-            return _formatting.format(format, (values,), None)
-
-def app_str_decode__String_ANY_ANY(str, encoding=None, errors=None):
-    if encoding is None and errors is None:
-        return unicode(str)
-    elif errors is None:
-        return unicode(str, encoding)
-    else:
-        return unicode(str, encoding, errors)
-        
 
 def ordered_blocks(graph):
     # collect all blocks
@@ -127,8 +75,31 @@ class GenRpy:
         for name in "newtuple newlist newdict newstring".split():
             self.has_listarg[name] = name
 
+        self.current_globals = {}
+        self.glob_names = []
+        self.glob_values = []
+
         self.gen_source()            
 
+    def adjust_namespace(self):
+        """ inspect the globals of self.current_func and build a searchable list
+            of the globals.
+        """
+        g = self.current_func.func_globals
+        if g is self.current_globals:
+            return
+        self.current_globals = g
+        order = [(value, key) for key, value in g.items()]
+        order.sort()
+        self.glob_names  = [key   for value, key in order]
+        self.glob_values = [value for value, key in order]
+
+    def find_global_name(self, obj):
+        for i in xrange(len(self.glob_values)):
+            if self.glob_values[i] is obj:
+                return self.glob_names[i]
+        return None
+        
     def nameof(self, obj):
         key = Constant(obj).key
         try:
@@ -196,6 +167,9 @@ class GenRpy:
         return "w(%s)" % value
 
     def nameof_str(self, value):
+        name = self.find_global_name(value)
+        if name:
+            return "w(%s)" % name
         return "w(%s)" % repr(value)
 
     def skipped_function(self, func):
@@ -223,7 +197,7 @@ class GenRpy:
                 func.func_doc.lstrip().startswith('NOT_RPYTHON')):
                 print "skipped", printable_name
                 return self.skipped_function(func)
-        name = self.uniquename('gfunc_' + func.__name__)
+        name = func.__name__
         self.initcode.append('INITCHK(%s = PyCFunction_New('
                              '&ml_%s, NULL))' % (name, name))
         self.initcode.append('\t%s->ob_type = &PyGenCFunction_Type;' % name)
@@ -288,35 +262,7 @@ class GenRpy:
         return name
 
     def nameof_builtin_function_or_method(self, func):
-        if func.__self__ is None:
-            # builtin function
-            # where does it come from? Python2.2 doesn't have func.__module__
-            for modname, module in sys.modules.items():
-                if hasattr(module, '__file__'):
-                    if (module.__file__.endswith('.py') or
-                        module.__file__.endswith('.pyc') or
-                        module.__file__.endswith('.pyo')):
-                        continue    # skip non-builtin modules
-                if func is getattr(module, func.__name__, None):
-                    break
-            else:
-                raise Exception, '%r not found in any built-in module' % (func,)
-            name = self.uniquename('gbltin_' + func.__name__)
-            if modname == '__builtin__':
-                self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
-                                     'PyEval_GetBuiltins(), "%s"))' % (
-                    name, func.__name__))
-            else:
-                self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
-                                     '%s, "%s"))' % (
-                    name, self.nameof(module), func.__name__))
-        else:
-            # builtin (bound) method
-            name = self.uniquename('gbltinmethod_' + func.__name__)
-            self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
-                                 '%s, "%s"))' % (
-                name, self.nameof(func.__self__), func.__name__))
-        return name
+        return "w(%s)" % func.__name__
 
     def nameof_classobj(self, cls):
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
@@ -399,6 +345,9 @@ class GenRpy:
         return name
 
     def nameof_dict(self, dic):
+        name = self.find_global_name(dic)
+        if name:
+            return name
         return 'space.newdict([w("sorry", "not yet"])'
         assert dic is not __builtins__
         assert '__builtins__' not in dic, 'Seems to be the globals of %s' % (
@@ -451,10 +400,12 @@ class GenRpy:
             'entrypoint': self.nameof(self.translator.functions[0]),
             }
 
+        # make sure 
+
         # function implementations
         while self.pendingfunctions:
             func = self.current_func = self.pendingfunctions.pop()
-            print "#######", func.__name__
+            self.adjust_namespace()
             self.gen_rpyfunction(func)
             # collect more of the latercode after each function
             while self.latercode:
@@ -465,6 +416,7 @@ class GenRpy:
                     self.initcode.append(line)
                 self.debugstack = ()
             #self.gen_global_declarations()
+            print >> f
 
         # footer
         # maybe not needed
@@ -504,11 +456,19 @@ class GenRpy:
             return ", ".join(res)
         
         def oper(op):
-            # specialcase is_true
+            print op.opname, op.args
+            if op.opname == "simple_call":
+                v = op.args[0]
+                if isinstance(v, Constant) and self.find_global_name(v.value):
+                    fmt = "%s = %s(space, %s)"
+                else:
+                    fmt = "%s = space.call(%s, space.newtuple([%s]))"
+                return fmt % (expr(op.result), expr(op.args[0]), arglist(op.args[1:]))
             if op.opname in self.has_listarg:
                 fmt = "%s = %s([%s])"
             else:
                 fmt = "%s = %s(%s)"
+            # specialcase is_true
             if op.opname == "is_true":
                 return fmt % (expr(op.result, False), expr(op.opname), arglist(op.args))    
             return fmt % (expr(op.result), expr(op.opname), arglist(op.args))    
@@ -591,7 +551,6 @@ class GenRpy:
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
                     yield "except OperationError, e:"
-                    print "*"*10, link.exitcase
                     for op in gen_link(link, {
                                 Constant(last_exception): 'e.w_type',
                                 Constant(last_exc_value): 'e.w_value'}):
@@ -620,9 +579,62 @@ class GenRpy:
         for block in blocks:
             blockno = blocknum[block]
             print >> f
-            print "        if goto == %d:" % blockno
+            print >> f, "        if goto == %d:" % blockno
             for line in render_block(block):
-                print "            %s" % line
+                print >> f, "            %s" % line
+
+def somefunc(arg):
+    pass
+
+def f(a,b):
+    print "start"
+    a = []
+    a.append(3)
+    for i in range(3):
+        print i
+    if a > b:
+        try:
+            if b == 123:
+                raise ValueError
+            elif b == 321:
+                raise IndexError
+            return 123
+        except ValueError:
+            raise TypeError
+    else:
+        dummy = somefunc(23)
+        return 42
+
+def ff(a, b):
+    try:
+        raise SystemError, 42
+        return a+b
+    finally:
+        a = 7
+
+glob = 100
+def fff():
+    global glob
+    return 42+glob
+
+def app_mod__String_ANY(format, values):
+    import _formatting
+    if isinstance(values, tuple):
+        return _formatting.format(format, values, None)
+    else:
+        if hasattr(values, 'keys'):
+            return _formatting.format(format, (values,), values)
+        else:
+            return _formatting.format(format, (values,), None)
+
+def app_str_decode__String_ANY_ANY(str, encoding=None, errors=None):
+    if encoding is None and errors is None:
+        return unicode(str)
+    elif errors is None:
+        return unicode(str, encoding)
+    else:
+        return unicode(str, encoding, errors)
+        
 
 def test_md5():
     #import md5
@@ -630,7 +642,10 @@ def test_md5():
     from pypy.appspace import md5
     digest = md5.new("hello")
 
-entry_point = (f, ff, fff, app_str_decode__String_ANY_ANY, app_mod__String_ANY, test_md5) [-1]
+def test_mod():
+    return app_mod__String_ANY("-%s-", ["hallo"])
+
+entry_point = (f, ff, fff, app_str_decode__String_ANY_ANY, test_mod, test_md5) [-2]
 
 import os, sys
 from pypy.interpreter import autopath
@@ -641,7 +656,19 @@ try:
     hold = sys.path[:]
     sys.path.insert(0, appdir)
     t = Translator(entry_point, verbose=False, simplifying=True)
-    gen = GenRpy(sys.stdout, t)
+    if 0:
+        gen = GenRpy(sys.stdout, t)
+    else:
+        fil= file("d:/tmp/look.py", "w")
+        gen = GenRpy(fil, t)
+        print >> fil, \
+"""
+from pypy.objspace.std import StdObjSpace
+space = StdObjSpace()
+space.simple_call = space.call
+test_mod(space)
+"""
+        fil.close()
 finally:
     sys.path[:] = hold
 #t.simplify()
@@ -649,4 +676,3 @@ finally:
 # debugging
 graph = t.getflowgraph()
 ab = ordered_blocks(graph) # use ctrl-b in PyWin with ab
-
