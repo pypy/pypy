@@ -105,8 +105,12 @@ class BuiltinFrame(eval.Frame):
         if self.code.ismethod:
             argarray[0] = self.space.unwrap(argarray[0])
         if self.code.spacearg:
-            argarray.insert(0, self.space)
-        return self.code.func(*argarray)
+            w_result = self.code.func(self.space, *argarray)
+        else:
+            w_result = self.code.func(*argarray)
+        if w_result is None:
+            w_result = self.space.w_None
+        return w_result
 
 
 class Gateway(Wrappable):
