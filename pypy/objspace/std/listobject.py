@@ -200,9 +200,13 @@ def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
 
     for i in r:
         items[i] = items[i-delta]
-            
-    for i in range(len2):
-    #    items[start+i] = space.getitem(w_list2,space.wrap(i))
+
+    # Always copy starting from the right to avoid
+    # having to make a shallow copy in the case where
+    # the source and destination lists are the same list.
+    r = range(len2)
+    r.reverse()
+    for i in r:
         items[start+i] = w_list2.ob_item[i]
     return space.w_None
 
