@@ -55,7 +55,7 @@ class Block:
         self.exits      = []              # list of Link(s)
 
     def getvariables(self):
-        "Return all variables mentionned in this Block."
+        "Return all variables mentioned in this Block."
         result = self.inputargs[:]
         for op in self.operations:
             result += op.args
