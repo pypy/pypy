@@ -220,24 +220,21 @@ def setitem__List_Int_ANY(space, w_list, w_index, w_any):
     items[idx] = w_any
     return space.w_None
 
-# XXX the following is disabled, so that 'setitem' can be a binary multimethod.
-##def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
-##    return _setitem_slice_helper(space, w_list, w_slice, w_list2.ob_item, w_list2.ob_size)
+def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
+    return _setitem_slice_helper(space, w_list, w_slice, w_list2.ob_item, w_list2.ob_size)
 
-##def setitem__List_Slice_Tuple(space, w_list, w_slice, w_tuple):
-##    t = w_tuple.wrappeditems
-##    return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
+def setitem__List_Slice_Tuple(space, w_list, w_slice, w_tuple):
+    t = w_tuple.wrappeditems
+    return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
 
 def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
-    # for performance, check for common cases of w_iterable
-    # (this used to be done by the disabled cases of 'setitem' above)
-    if isinstance(w_iterable, W_ListObject):
-        return _setitem_slice_helper(space, w_list, w_slice,
-                                     w_iterable.ob_item, w_iterable.ob_size)
-    if isinstance(w_iterable, W_TupleObject):
-        t = w_tuple.wrappeditems
-    else:
-        t = space.unpackiterable(w_iterable)
+##    if isinstance(w_iterable, W_ListObject):
+##        return _setitem_slice_helper(space, w_list, w_slice,
+##                                     w_iterable.ob_item, w_iterable.ob_size)
+##    if isinstance(w_iterable, W_TupleObject):
+##        t = w_iterable.wrappeditems
+##    else:
+    t = space.unpackiterable(w_iterable)
     return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
 
 def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
