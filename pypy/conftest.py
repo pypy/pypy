@@ -69,9 +69,13 @@ def gettestobjspace(name=None):
 
 class IntTestFunction(py.test.Item): 
     def execute(self, target, *args):
-        name = target.func_globals.get('objspacename', None) 
-        space = gettestobjspace(name) 
-        return target(space, *args)
+        co = target.func_code
+        if 'space' in co.co_varnames[:co.co_argcount]:
+            name = target.func_globals.get('objspacename', None) 
+            space = gettestobjspace(name) 
+            return target(space, *args)
+        else:
+            return target(*args)
 
 class AppTestFunction(py.test.Item): 
     def execute(self, target, *args): 
