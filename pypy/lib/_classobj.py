@@ -4,10 +4,11 @@ import sys, operator
 from pypy.tool.sourcetools import NiceCompile
 _compile = NiceCompile(globals())
 
-def coerce(left, right):
-    # XXX this is just a surrogate for now
-    # XXX the builtin coerce needs to be implemented by PyPy
-    return None
+def _coerce(left, right):
+    try:
+        return coerce(left, right)
+    except TypeError:
+        return None
 
 obj_setattr = object.__setattr__
 obj_getattribute = object.__getattribute__
@@ -372,6 +373,13 @@ class instance(object):
 """, {"op": op})
     del op
 
+    # coerce
+    def __coerce__(self, other):
+        func = instance_getattr1(self, '__coerce__', False)
+        if func:
+            return func(other)
+        return NotImplemented
+
 
     # binary operators    
     for op in "or and xor lshift rshift add sub mul div mod divmod floordiv truediv".split():
@@ -383,7 +391,7 @@ class instance(object):
         exec _compile("""
 
     def __%(op)s__(self, other):
-        coerced = coerce(self, other)
+        coerced = _coerce(self, other)
         if coerced is None or coerced[0] is self:
             func = instance_getattr1(self, '__%(op)s__', False)
             if func:
@@ -393,7 +401,7 @@ class instance(object):
             return %(opref)s(self, other)
 
     def __r%(op)s__(self, other):
-        coerced = coerce(self, other)
+        coerced = _coerce(self, other)
         if coerced is None or coerced[0] is self:
             func = instance_getattr1(self, '__r%(op)s__', False)
             if func:
@@ -422,7 +430,7 @@ class instance(object):
 
     def __pow__(self, other, modulo=None):
         if modulo is None:
-            coerced = coerce(self, other)
+            coerced = _coerce(self, other)
             if coerced is None or coerced[0] is self:
                 func = instance_getattr1(self, '__pow__', False)
                 if func:
@@ -440,7 +448,7 @@ class instance(object):
 
     def __rpow__(self, other, modulo=None):
         if modulo is None:
-            coerced = coerce(self, other)
+            coerced = _coerce(self, other)
             if coerced is None or coerced[0] is self:
                 func = instance_getattr1(self, '__rpow__', False)
                 if func:
@@ -513,7 +521,7 @@ class instance(object):
         return func()
 
     def __cmp__(self, other): # do all the work here like CPython
-        coerced = coerce(self, other)
+        coerced = _coerce(self, other)
         if coerced is None:
             v = self
             w = other
