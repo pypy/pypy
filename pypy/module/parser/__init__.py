@@ -15,7 +15,7 @@ class Module(LazyModule):
 
         'suite'        : 'pyparser.suite',
         'expr'         : 'pyparser.expr',
-        'STType'       : 'pyparser.STType', 
+#        'STType'       : 'pyparser.STType', 
 #        'ASTType'      : 'pyparser.STType', 
         'sequence2st'  : 'pyparser.sequence2st',
         #'eval_input'   : 'pyparser.eval_input', 
