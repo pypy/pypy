@@ -106,7 +106,7 @@ class TestItem:
                 raise
             except:
                 result._setstatus(ERROR)
-                return
+                return result
 
             try:
                 testmethod()
@@ -199,7 +199,6 @@ class TestSuite:
                     items = self._items_from_module(module)
                 except:
                     print "skipping testfile (failed loading it)", modpath
-                    raise
                 else:
                     self.items.extend(items)
 
@@ -209,13 +208,18 @@ class TestSuite:
             yield item.run()
 
 
-if __name__ == '__main__':
+def main():
     ts = TestSuite()
-    ts.initfromdir(".")
+    ts.initfromdir(autopath.pypydir)
     for res in ts.testresults():
+        if res.status == SUCCESS:
+            continue
         print 75 * '-'
         print "%s: %s" % (res.item, res.status)
         if res.traceback:
-            print '-----'
+            print
             print res.formatted_traceback
 
+
+if __name__ == '__main__':
+    main()
