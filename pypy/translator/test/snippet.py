@@ -263,6 +263,10 @@ def call_five_six():
     _append_six(a)
     return a
 
+def call_unpack_56():
+    a = call_five_six()
+    return len(a), a[0], a[1]
+
 # INHERITANCE / CLASS TESTS  
 class C(object): pass
 

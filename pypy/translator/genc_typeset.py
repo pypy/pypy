@@ -186,6 +186,7 @@ class CTypeSet:
             yield sig, genc_op.LoNewArray.With(
                 typename = r.typename,
                 lltypes  = r.r_item.impl,
+                length   = len(hltypes)-1,
                 )
 
     def extend_OP_ALLOC_AND_SET(self, hltypes):
@@ -271,6 +272,7 @@ class CTypeSet:
             # Calling a built-in defined in genc.h, if we have a macro
             # CALL_funcname()
             opname = 'CALL_' + getattr(fn, '__name__', '?')
+            self.typemismatch(opname, hltypes[1:])  # invoke extend_CALL_xxx()
             if opname in self.lloperations:
                 for sig, llopcls in self.lloperations[opname].items():
                     sig = (r,) + sig
@@ -379,16 +381,44 @@ class CTypeSet:
                 lltypes  = r.r_item.impl,
                 )
 
-    def extend_OP_INPLACE_ADD(self, hltypes):
+    def extend_OP_LEN(self, hltypes):
+        if len(hltypes) != 2:
+            return
+        r, r_result = hltypes
+        # the length of a CList
+        if isinstance(r, CList):
+            sig = (r, R_INT)
+            yield sig, genc_op.LoStandardOperation.With(
+                can_fail = False,
+                llname   = 'OP_ARRAYLEN',
+                cost     = 1,
+                )
+
+    extend_CALL_len = extend_OP_LEN
+
+    def extend_OP_GROWLIST(self, hltypes):
         if len(hltypes) != 3:
             return
-        r1, r2, r_result = hltypes
-        # concatenating CLists of the same type
-        if isinstance(r1, CList) and r1 == r2:
-            sig = (r1, r1, r1)
-            yield sig, genc_op.LoConcatArray.With(
-                typename = r1.typename,
-                lltypes  = r1.r_item.impl,
+        r, r_newlen, r_void = hltypes
+        # grow a CList
+        if isinstance(r, CList):
+            sig = (r, R_INT, R_VOID)
+            yield sig, genc_op.LoArrayGrow.With(
+                typename = r.typename,
+                )
+
+    def extend_OP_FASTAPPEND(self, hltypes):
+        # like append() but can assume that the list was already
+        # reallocated with OP_GROWLIST and has enough room
+        if len(hltypes) != 3:
+            return
+        r, r_newitem, r_void = hltypes
+        # append to a CList
+        if isinstance(r, CList):
+            sig = (r, r.r_item, R_VOID)
+            yield sig, genc_op.LoArrayFastAppend.With(
+                typename = r.typename,
+                lltypes  = r.r_item.impl,
                 )
 
     # ____________________________________________________________
