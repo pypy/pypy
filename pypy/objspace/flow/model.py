@@ -89,11 +89,13 @@ class Block:
 
 class Variable:
     counter = 0
+    instances = {}
     def __init__(self, name=None):
         if name is None:
             name = 'v%d' % Variable.counter
             Variable.counter += 1
         self.name = name
+        Variable.instances[name] = self
     def __repr__(self):
         return '%s' % self.name
 
