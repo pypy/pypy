@@ -222,6 +222,10 @@ class StdObjSpace(ObjSpace):
         import cpythonobject
         return cpythonobject.W_CPythonObject(self, x)
 
+    def newint(self, int_w):
+        import intobject
+        return intobject.W_IntObject(self, int_w)
+
     def newtuple(self, list_w):
         import tupleobject
         return tupleobject.W_TupleObject(self, list_w)
