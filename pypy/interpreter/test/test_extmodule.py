@@ -70,5 +70,23 @@ class TestBuiltinModule(testsupport.TestCase):
             'somedata': BM_with_appdata.somedata} )
         self.assertEqual(thedata, 'twentythree')
 
+
+class TestPyBuiltinCode(testsupport.TestCase):
+
+    def setUp(self):
+        self.space = testsupport.objspace()
+
+    def tearDown(self):
+        pass
+
+    def test_simple(self):
+        def f(w_x):
+            return w_x
+        builtin_f = extmodule.make_builtin_func(self.space, f)
+        w_input = self.space.wrap(42)
+        w_res = self.space.call_function(builtin_f, w_input)
+        self.assertEqual_w(w_res, w_input)
+
+
 if __name__ == '__main__':
     testsupport.main()
