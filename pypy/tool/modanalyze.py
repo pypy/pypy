@@ -48,8 +48,10 @@ def moduledelta(space,modname):
     c_module = __import__(modname,globals(),None,[])
     c_module = Set(c_module.__dict__.keys()) | Set(['__dict__','__new__'])
     diff = c_module ^ pypy_module
-    missing = diff & c_module
-    extra = diff & pypy_module
+    missing = list(diff & c_module)
+    extra = list(diff & pypy_module)
+    missing.sort()
+    extra.sort()
     return missing,extra
 
 if __name__ == '__main__':
