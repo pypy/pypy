@@ -270,7 +270,7 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 		return NULL;
 	}
 	rval = PyObject_Call(function, args, NULL);
-	PyObject_DECREF(args);
+	Py_DECREF(args);
 	callstack_depth--;
 	if (rval == NULL) {
 		if (tstate->curexc_traceback == NULL) {
