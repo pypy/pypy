@@ -22,7 +22,9 @@ class Module(LazyModule):
         'maxunicode'            : 'space.wrap(sys.maxunicode)',
         'maxint'                : 'space.wrap(sys.maxint)',
         'stdin'                 : 'space.wrap(sys.stdin)',
+        '__stdin__'             : 'space.wrap(sys.stdin)',
         'stdout'                : 'space.wrap(sys.stdout)',
+        '__stdout__'            : 'space.wrap(sys.stdout)',
         'stderr'                : 'space.wrap(sys.stderr)', 
         'pypy_objspaceclass'    : 'space.wrap(space.__class__.__name__)', 
 

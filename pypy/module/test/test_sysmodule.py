@@ -9,8 +9,13 @@ def app_init_globals_via_builtins_hack():
     b.cStringIO = cStringIO
     b.sys = sys
 
+def test_stdin_exists(space):
+    space.sys.get('stdin') 
+    space.sys.get('__stdin__')
+
 def test_stdout_exists(space):
-    assert space.sys.get('stdout') 
+    space.sys.get('stdout') 
+    space.sys.get('__stdout__')
 
 class AppTestAppSysTests:
     def test_path_exists(self):
