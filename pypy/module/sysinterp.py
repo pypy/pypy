@@ -95,15 +95,17 @@ def setbuiltinmodule(w_module, name):
             "trying to change the builtin-in module %r" % (name,))
     space.setitem(w_modules, space.wrap(name), w_module)
 
-def displayhook(w_x):
-    w = space.wrap
-    if not space.is_true(space.is_(w_x, space.w_None)):
-        try:
-            # XXX don't use print, send to sys.stdout instead
-            print space.unwrap(space.repr(w_x))
-        except OperationError:
-            print "! could not print", w_x
-        space.setitem(space.w_builtins, w('_'), w_x)
+##def displayhook(w_x):
+##    w = space.wrap
+##    if not space.is_true(space.is_(w_x, space.w_None)):
+##        w_stdout = space.getattr(space.w_sys, space.wrap('stdout'))
+##        try:
+##            w_repr = space.repr(w_x)
+##        except OperationError:
+##            w_repr = space.wrap("! __repr__ raised an exception")
+##        w_repr = space.add(w_repr, space.wrap("\n"))
+##        space.call_method(w_stdout, 'write', 
+##        space.setitem(space.w_builtins, w('_'), w_x)
 
 def _getframe():
     # XXX No Argument Accepted Yet

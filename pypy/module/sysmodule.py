@@ -15,7 +15,7 @@ from __interplevel__ import hexversion, platform, byteorder
 from __interplevel__ import pypy_objspaceclass
 
 # Functions from interpreter-level
-from __interplevel__ import displayhook, _getframe, exc_info
+from __interplevel__ import _getframe, exc_info
 
 # Dummy
 executable = ''
@@ -31,3 +31,8 @@ def excepthook(exctype, value, traceback):
 
 def exit(exitcode=0):
     raise SystemExit(exitcode)
+
+def displayhook(obj):
+    if obj is not None:
+        __builtins__['_'] = obj
+        stdout.write(`obj` + '\n')
