@@ -185,3 +185,7 @@ def pypy_getudir():
     """NOT_RPYTHON"""
     from pypy.tool.udir import udir
     return space.wrap(str(udir))
+
+def getdefaultencoding():
+    """getdefaultencoding() -> return the default encoding used for UNICODE"""
+    return space.wrap(cpy_sys.getdefaultencoding())
