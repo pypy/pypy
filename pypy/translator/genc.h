@@ -111,6 +111,31 @@ static PyObject *this_module_globals;
 
 #define OP_NEWSLICE(x,y,z,r,err)  if (!(r=PySlice_New(x,y,z)))       FAIL(err)
 
+#define AS_LONG(x) PyInt_AsLong(x)
+
+#define FAIL_IF_ERR(r,err) \
+	if (PyErr_Occurred()) { \
+		r = NULL; \
+		FAIL(err) \
+	}
+
+#define OP_GETSLICE(x,y,z,r,err)  { \
+		int __y = (y == Py_None) ? 0 : AS_LONG(y); \
+		int __z = (z == Py_None) ? PyInt_GetMax() : AS_LONG(z); \
+		FAIL_IF_ERR(r,err) \
+		if (!(r=PySequence_GetSlice(x, __y, __z)))	FAIL(err) \
+	}
+
+#define OP_ALLOC_AND_SET(x,y,r,err) { \
+		int __i, __x = AS_LONG(x); \
+		FAIL_IF_ERR(r,err) \
+		if (!(r = PyList_New(__x))) FAIL(err) \
+		for (__i=0; __i<__x; __i++) { \
+			Py_INCREF(y); \
+			PyList_SET_ITEM(r, __i, y); \
+		} \
+	}
+
 #define OP_ITER(x,r,err)          if (!(r=PyObject_GetIter(x)))      FAIL(err)
 #define OP_NEXT(x,r,err)          if (!(r=PyIter_Next(x))) {                   \
 		if (!PyErr_Occurred()) PyErr_SetNone(PyExc_StopIteration);     \
