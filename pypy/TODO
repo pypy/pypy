@@ -13,6 +13,19 @@ General
 * an oldie: move interpreter/unittest_w.py somewhere more appropriate
   and give it a better name.
 
+* (documentation) remove/retire all web-pages referencing e.g.
+  AnnSpace or other deprecated stuff
+
+* Review, enhance the new mixed-level module mechanism
+  (e.g. the module/builtin*.py files comprise the builtin module)
+  and try to apply the same technique for the application level 
+  type definitions (types.py). Think about a way to split up
+  especially app-level definitions of __builtin__ into multiple
+  files. (like allowing __builtin__ to be a directory with files
+  comprising the complete definition of the builtin module etc.pp) 
+
+* review whatever you like 
+
 StdObjSpace
 ===========
 
@@ -33,19 +46,6 @@ StdObjSpace
 
 * port pypy's testing framework to std.utest (probably a sprint topic, 
   as some discussion how to do it is required) 
-
-* (documentation) remove/retire all web-pages referencing e.g.
-  AnnSpace or other deprecated stuff
-
-* Review, enhance the new mixed-level module mechanism
-  (e.g. the module/builtin*.py files comprise the builtin module)
-  and try to apply the same technique for the application level 
-  type definitions (types.py). Think about a way to split up
-  especially app-level definitions of __builtin__ into multiple
-  files. (like allowing __builtin__ to be a directory with files
-  comprising the complete definition of the builtin module etc.pp) 
-
-* review whatever you like 
 
 * clear out and do a clean implementation of multimethod delegation.
   The idea is to give 'kinds' to arguments according to their use,
