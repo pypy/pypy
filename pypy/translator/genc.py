@@ -316,13 +316,14 @@ class GenC:
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r should never be reached" % (cls,)
 
+        metaclass = "&PyType_Type"
         if issubclass(cls, Exception):
             if cls.__module__ == 'exceptions':
                 return 'PyExc_%s'%cls.__name__
             else:
-                assert cls.__name__ == "OperationError"
-                return 'PyExc_%s'%cls.__name__
-            
+                # exceptions must be old-style classes (grr!)
+                metaclass = "&PyClass_Type"
+
         name = self.uniquename('gcls_' + cls.__name__)
         basenames = [self.nameof(base) for base in cls.__bases__]
         def initclassobj():
@@ -349,8 +350,8 @@ class GenC:
         baseargs = ", ".join(basenames)
         if baseargs:
             baseargs = ', '+baseargs
-        self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*) &PyType_Type,'
-                             %(name,))
+        self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*) %s,'
+                             %(name, metaclass))
         self.initcode.append('\t\t"s(%s){}", "%s"%s))'
                              %("O"*len(basenames), cls.__name__, baseargs))
         

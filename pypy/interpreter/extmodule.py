@@ -38,6 +38,7 @@ class BuiltinModule(Module):
         w_dict = self.w_dict
 
         # Compile the xxxmodule.py source file
+        self.__name__ = 'interpreter-level %s' % modulename
         self.__file__ = sourcefile or os.path.join(autopath.pypydir, 'module',
                                                    modulename+'module.py')
         space.setitem(w_dict, space.wrap('__file__'),

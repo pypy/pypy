@@ -197,8 +197,7 @@ static PyTypeObject PyGenCFunction_Type = {
 	PyModule_AddStringConstant(m, "__sourcefile__", __FILE__); \
 	this_module_globals = PyModule_GetDict(m); \
 	PyGenCFunction_Type.tp_base = &PyCFunction_Type;	\
-	PyType_Ready(&PyGenCFunction_Type);			\
-	PyExc_OperationError = PyErr_NewException(#modname ".OperationError", NULL, NULL);
+	PyType_Ready(&PyGenCFunction_Type);
 
 
 /*** operations with a variable number of arguments ***/
@@ -595,8 +594,6 @@ static PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
 	return PySequence_SetSlice(obj, start, stop, v);
 }
 #endif
-
-static PyObject* PyExc_OperationError;
 
 #ifdef USE_CALL_TRACE
 static int
