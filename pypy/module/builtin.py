@@ -8,9 +8,6 @@ from pypy.interpreter.executioncontext import OperationError
 
 import __builtin__ as _b
 
-##compile.__doc__ = _b.compile.__doc__
-
-
 class Builtin(BuiltinModule):
     __pythonname__ = '__builtin__'
 
@@ -33,24 +30,16 @@ class Builtin(BuiltinModule):
             if not e.match(space,space.w_KeyError):
                 raise
             raise OperationError(space.w_ImportError)
-            
-        
-
     __import__ = appmethod(__import__)
 
     def compile(self, w_str, w_filename, w_startstr,
                 w_supplied_flags=None, w_dont_inherit=None):
+        space = self.space
         str = space.unwrap(w_str)
         filename = space.unwrap(w_filename)
         startstr = space.unwrap(w_startstr)
-        if w_supplied_flags is None:
-            supplied_flags = 0
-        else:
-            supplied_flags = space.unwrap(w_supplied_flags)
-        if w_dont_inherit is None:
-            dont_inherit = False
-        else:
-            dont_inherit = space.unwrap(w_dont_inherit)
+        supplied_flags = space.unwrap(w_supplied_flags)
+        dont_inherit = space.unwrap(w_dont_inherit)
 
         c = _b.compile(str, filename, startstr, supplied_flags, dont_inherit)
         res = PyByteCode()
