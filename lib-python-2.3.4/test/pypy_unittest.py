@@ -37,7 +37,7 @@ class TestCase:
             assert not expr, msg
 
     def fail(self, msg):
-        assert False, msg
+        raise AssertionError(msg)
         
     def assertRaises(self, exc, call, *args, **kwargs): 
         raises(exc, call, *args, **kwargs) 
