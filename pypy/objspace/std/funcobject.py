@@ -48,3 +48,11 @@ def func_get(space, w_function, w_instance, w_cls):
     return W_InstMethObject(space, w_instance, w_function)
 
 StdObjSpace.get.register(func_get, W_FuncObject, W_ANY, W_ANY)
+
+def func_getattr(space, w_function, w_attr):
+    if space.is_true(space.eq(w_attr, space.wrap('func_code'))):
+        return space.wrap(w_function.code)
+    else:
+        raise FailedToImplement
+
+StdObjSpace.getattr.register(func_getattr, W_FuncObject, W_ANY)
