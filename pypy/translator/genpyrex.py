@@ -113,7 +113,8 @@ class GenPyrex:
         return "\n".join(self.lines)
 
     def putline(self, line):
-        self.lines.append("  " * self.indent + line)
+        if line:
+            self.lines.append("  " * self.indent + line)
 
     def gen_Graph(self):
         fun = self.functiongraph
@@ -125,14 +126,14 @@ class GenPyrex:
         # emit the header after the body
         functionbodylines = self.lines
         self.lines = currentlines
-        inputargnames = [ self._declvar(var) for var in fun.startblock.input_args ]
+        inputargnames = [ " ".join(self._paramvardecl(var)) for var in fun.startblock.input_args ]
         params = ", ".join(inputargnames)
         self.putline("def %s(%s):" % (fun.functionname, params))
         self.indent += 1
         #self.putline("# %r" % self.annotations)
         for var in self.variablelocations:
             if var not in fun.startblock.input_args:
-                self.putline("cdef %s" % self._declvar(var))
+                self.putline(self._vardecl(var))
         self.indent -= 1
         self.lines.extend(functionbodylines)
 
@@ -148,13 +149,21 @@ class GenPyrex:
             prefix = ""
         return prefix + var.pseudoname
 
-    def _declvar(self, var):
+    def _paramvardecl(self, var):
         vartype = self.get_type(var)
         if vartype == int:
-            ctype = "int "
+            ctype = "int"
         else:
-            ctype = "object "
-        return ctype + self.get_varname(var)
+            ctype = "object"
+
+        return (ctype, self.get_varname(var))
+
+    def _vardecl(self, var):
+            vartype, varname = self._paramvardecl(var)
+            if vartype != "object":
+                return "cdef %s %s" % (vartype, varname)
+            else:
+                return ""
 
     def _str(self, obj, block):
         if isinstance(obj, Variable):

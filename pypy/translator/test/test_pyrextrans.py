@@ -85,5 +85,28 @@ class TestCase(test.IntTestCase):
         poor_man_range = self.make_cfunc(self.poor_man_range)
         self.assertEquals(poor_man_range(10), range(10))
 
+    #____________________________________________________
+
+    def attrs():
+        def b(): pass
+        b.f = 4
+        b.g = 5
+
+        return b.f + b.g
+
+    def _test_attrs(self):
+        attrs = self.make_cfunc(self.attrs)
+        self.assertEquals(attrs(), 9)
+
+    #_____________________________________________________
+
+    def builtinusage(self):
+        return pow(2,2)
+
+    def _test_builtinusage(self):
+        fun = self.make_cfunc(self.builtinusage)
+        self.assertEquals(fun(), 4)
+
+
 if __name__ == '__main__':
     test.main()

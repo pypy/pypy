@@ -11,7 +11,9 @@ from pypy.objspace.flow import flowcontext
 # ______________________________________________________________________
 class FlowObjSpace(ObjSpace):
     def initialize(self):
-        self.w_builtins = W_Variable()
+        import __builtin__
+        self.w_builtins = W_Constant(__builtin__.__dict__)
+        self.w_KeyError = W_Constant(KeyError)
         #self.make_builtins()
         #self.make_sys()
 
