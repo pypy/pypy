@@ -67,7 +67,15 @@ The most delicate operation is for the interpreter to inspect a wrapped object, 
 
 * ``space.unpackiterable(w_x)``: this helper iterates ``w_x`` (using ``space.iter()`` and ``space.next()``) and collects the resulting wrapped objects in a list.  Of course, in cases where iterating directly is better than collecting the elements in a list first, you should use ``space.iter()`` and ``space.next()`` directly.
 
-* ``space.unwrap(w_x)``: inverse of ``space.wrap()``.  Attention! Using ``space.unwrap()`` must be avoided whenever possible.  Actually, it should only be used when you are sure that ``w_x`` contains a simple object or an internal interpreter object that was wrapped with ``space.wrap()``.  This function is a bit buggy anyway, and it should probably be fixed at some point: we should specify what kind of unwrapped result is expected (and raise a TypeError appropriately).
+* ``space.unwrap(w_x)``: inverse of ``space.wrap()``.  Attention!  Using ``space.unwrap()`` must be avoided whenever possible, i.e. only use this when you are well aware that you are cheating, in unit tests or bootstrapping code.
+
+* ``space.interpclass_w(w_x)``: If w_x is a wrapped instance of an interpreter class -- for example Function, Frame, Cell, etc. -- return it unwrapped.  Otherwise return None.
+
+* ``space.int_w(w_x)``: If w_x is an application-level integer or long which can be converted without overflow to an integer, return an interpreter-level integer.  Otherwise raise TypeError or OverflowError.
+
+* ``space.str_w(w_x)``: If w_x is an application-level string, return an interpreter-level string.  Otherwise raise TypeError.
+
+* ``space.float_w(w_x)``: If w_x is an application-level float, integer or long, return interpreter-level float.  Otherwise raise TypeError or OverflowError in case of very large longs.
 
 Remember that you can usually obtain the information you want by invoking operations or methods on the wrapped objects; e.g. ``space.call_method(w_dict, 'iterkeys')`` returns a wrapped iterable that you can decode with ``space.unpackiterable()``.
 

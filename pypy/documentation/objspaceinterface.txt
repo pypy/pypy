@@ -86,6 +86,18 @@ Conversions from Application Level to Interpreter Level
 **unwrap(w_x):**
   Return Interpreter Level equivalent of w_x
 
+**interpclass_w(w_x):**
+  If w_x is a wrapped instance of an interpreter class -- for example Function, Frame, Cell, etc. -- return it unwrapped.  Otherwise return None.
+
+**int_w(w_x):**
+  If w_x is an application-level integer or long which can be converted without overflow to an integer, return an interpreter-level integer.  Otherwise raise TypeError or OverflowError.
+
+**str_w(w_x):**
+  If w_x is an application-level string, return an interpreter-level string.  Otherwise raise TypeError.
+
+**float_w(w_x):**
+  If w_x is an application-level float, integer or long, return interpreter-level float.  Otherwise raise TypeError or OverflowError in case of very large longs.
+
 **is_true(w_x):**
   Return a interpreter level bool (True or False).
 

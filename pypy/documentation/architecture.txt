@@ -226,12 +226,13 @@ Wrapping
 
 The ``w_`` prefixes so lavishly used in the previous example indicate,
 by PyPy coding convention, that we are dealing with *wrapped* objects,
-that is, interpreter-level objects which the object space constructs to
-implement corresponding application-level objects.  Each object space
-supplies ``wrap`` and ``unwrap`` operations that move between the two
-levels for objects of simple built-in types; each object space also
-implements other Python types with suitable interpreter-level classes
-with some amount of internal structure.
+that is, interpreter-level objects which the object space constructs
+to implement corresponding application-level objects.  Each object
+space supplies ``wrap`` and ``unwrap``, ``int_w``, ``interpclass_w``,
+etc. operations that move between the two levels for objects of simple
+built-in types; each object space also implements other Python types
+with suitable interpreter-level classes with some amount of internal
+structure.
 
 For example, an application-level Python ``list`` is implemented as an
 instance of ``W_ListObject``, which has an instance attribute
