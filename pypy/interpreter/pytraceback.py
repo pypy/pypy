@@ -20,6 +20,8 @@ class PyTraceback(baseobjspace.Wrappable):
 
 
 def record_application_traceback(space, operror, frame, last_instruction):
+    if frame.code.hidden_applevel:
+        return
     lineno = offset2lineno(frame.code, last_instruction)
     tb = operror.application_traceback
     tb = PyTraceback(space, frame, last_instruction, lineno, tb)

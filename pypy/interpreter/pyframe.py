@@ -111,8 +111,6 @@ class PyFrame(eval.Frame):
                         executioncontext.exception_trace(self, e)
                         # convert an OperationError into a control flow
                         # exception
-                        import sys
-                        tb = sys.exc_info()[2]
                         raise SApplicationException(e)
 
                 except ControlFlowException, ctlflowexc:
