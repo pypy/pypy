@@ -59,7 +59,42 @@ def transform_slice(self):
                                          op2.result)
                 block.operations[i:i+2] = [new_op]
 
+# a(*b)
+# -->
+# c = newtuple(*b)
+# d = newdict()
+# e = call(function a, c, d)
+# -->
+# e = simple_call(a, *b)
+
+def transform_simple_call(self):
+    """Transforms a(*b) to simple_call(a, *b)"""
+    t = self.transaction()
+    for block in self.annotated:
+        operations = block.operations[:]
+        n_op = len(operations)
+        for i in range(0, n_op-2):
+            op1 = operations[i]
+            op2 = operations[i+1]
+            op3 = operations[i+2]
+            if not op3.args: continue
+            op3arg0type = t.get_type(self.binding(op3.args[0]))
+            if (op1.opname == 'newtuple' and
+                op2.opname == 'newdict' and
+                len(op2.args) == 0 and
+                op3.opname == 'call' and
+                op1.result is op3.args[1] and
+                op2.result is op3.args[2] and
+                # eek!
+                (op3arg0type is types.FunctionType or
+                 op3arg0type is types.BuiltinFunctionType)):
+                new_op = SpaceOperation('simple_call',
+                                        (op3.args[0],) + tuple(op1.args),
+                                        op3.result)
+                block.operations[i:i+3] = [new_op]
+
 def transform_graph(ann):
     """Apply set of transformations available."""
     transform_allocate(ann)
     transform_slice(ann)
+    transform_simple_call(ann)

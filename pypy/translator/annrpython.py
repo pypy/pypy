@@ -81,6 +81,10 @@ class RPythonAnnotator:
 
     #___ simplification (should be moved elsewhere?) _______
 
+    # it should be!
+    # now simplify_calls is moved to transform.py.
+    # i kept reverse_binding here for future(?) purposes though. --sanxiyn
+
     def reverse_binding(self, known_variables, cell):
         """This is a hack."""
         # In simplify_calls, when we are trying to create the new
@@ -98,39 +102,6 @@ class RPythonAnnotator:
                     return v
             else:
                 raise CannotSimplify
-
-    def simplify_calls(self):
-        t = self.transaction()
-        for block in self.annotated:
-            known_variables = block.inputargs[:]
-            newops = []
-            for op in block.operations:
-                try:
-                    if op.opname == "call":
-                        func, varargs, kwargs = [self.binding(a)
-                                                 for a in op.args]
-                        c = t.get('len', [varargs])
-                        if not isinstance(c, XConstant):
-                            raise CannotSimplify
-                        length = c.value
-                        v = self.reverse_binding(known_variables, func)
-                        args = [v]
-                        for i in range(length):
-                            c = t.get('getitem', [varargs, self.constant(i)])
-                            if c is None:
-                                raise CannotSimplify
-                            v = self.reverse_binding(known_variables, c)
-                            args.append(v)
-                        op = SpaceOperation('simple_call', args, op.result)
-                        # XXX check that kwargs is empty
-                except CannotSimplify:
-                    pass
-                newops.append(op)
-                known_variables.append(op.result)
-            block.operations = newops
-
-    def simplify(self):
-        self.simplify_calls()
 
 
     #___ flowing annotations in blocks _____________________

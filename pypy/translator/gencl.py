@@ -157,7 +157,6 @@ class GenCL:
     def annotate(self, input_arg_types):
         ann = RPythonAnnotator()
         ann.build_types(self.fun, input_arg_types)
-        ann.simplify()
         self.setannotator(ann)
     def setannotator(self, annotator):
         self.ann = annotator
