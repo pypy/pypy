@@ -46,7 +46,7 @@ from pypy.objspace.flow import FlowObjSpace
 
 class Translator:
 
-    def __init__(self, func=None, verbose=False, simplifying=False, builtins_can_raise_exceptions=False):
+    def __init__(self, func=None, verbose=False, simplifying=True, builtins_can_raise_exceptions=False):
         self.entrypoint = func
         self.verbose = verbose
         self.simplifying = simplifying
