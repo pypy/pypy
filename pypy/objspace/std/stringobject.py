@@ -57,6 +57,23 @@ class W_StringObject(W_Object):
             return W_StringObject(w_self.space, res.value())
         else:
             return W_StringObject(w_self.space, "")
+   
+    def isspace(self):
+        space = self.space   
+        v = self._value
+        if v.len == 0:
+            return space.w_False
+        if v.len == 1:
+            c = v.charat(0)
+            return space.newbool(ord(c) in (9, 10, 11, 12, 13, 32))
+        else:
+            res = 1
+            for idx in range(v.len):
+                if not (ord(v.charat(idx)) in (9, 10, 11, 12, 13, 32)):
+                    return space.w_False
+            return space.w_True
+
+    isspace = implmethod().register(isspace)
 
     join = implmethod().register(join, W_ANY)
     split = implmethod()
