@@ -9,9 +9,9 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from stringobject import W_StringObject
 
-class _NoValueInCell: pass
+class _NoValueInCell(object): pass
 
-class Cell:
+class Cell(object):
     def __init__(self,w_value=_NoValueInCell):
         self.w_value = w_value
 
@@ -50,8 +50,8 @@ class W_DictObject(W_Object):
         return "%s(%s)" % (w_self.__class__.__name__, w_self.data)
 
     def non_empties(self):
-        return [ (w_key,cell) for w_key,hash,cell in self.data
-                              if not cell.is_empty()]
+        return [ (w_key, hash, cell) for w_key,hash,cell in self.data
+                 if not cell.is_empty()]
 
     def _cell(self,space,w_lookup):
         data = self.data
@@ -81,7 +81,7 @@ registerimplementation(W_DictObject)
 
 def unwrap__Dict(space, w_dict):
     result = {}
-    for w_key, cell in w_dict.non_empties():
+    for w_key, hash, cell in w_dict.non_empties():
         result[space.unwrap(w_key)] = space.unwrap(cell.get())
     return result
 
@@ -107,8 +107,10 @@ def init__Dict(space, w_dict, w_args, w_kwds):
 
 def getitem__Dict_ANY(space, w_dict, w_lookup):
     data = w_dict.non_empties()
-    # XXX shouldn't this use hashing? -- mwh
-    for w_key, cell in data:
+    h = space.unwrap(space.hash(w_lookup))
+    for w_key, hash, cell in data:
+        if hash != h:
+            continue
         if space.is_true(space.eq(w_lookup, w_key)):
             return cell.get()
     raise OperationError(space.w_KeyError, w_lookup)
@@ -119,7 +121,10 @@ def setitem__Dict_ANY_ANY(space, w_dict, w_newkey, w_newvalue):
 
 def delitem__Dict_ANY(space, w_dict, w_lookup):
     data = w_dict.non_empties()
-    for w_key,cell in data:
+    h = space.unwrap(space.hash(w_lookup))
+    for w_key, hash, cell in data:
+        if hash != h:
+            continue
         if space.is_true(space.eq(w_lookup, w_key)):
             cell.make_empty()
             return
@@ -136,7 +141,10 @@ def len__Dict(space, w_dict):
 
 def contains__Dict_ANY(space, w_dict, w_lookup):
     data = w_dict.non_empties()
-    for w_key,cell in data:
+    h = space.unwrap(space.hash(w_lookup))    
+    for w_key, hash, cell in data:
+        if hash != h:
+            continue
         if space.is_true(space.eq(w_lookup, w_key)):
             return space.w_True
     return space.w_False
@@ -156,7 +164,7 @@ def eq__Dict_Dict(space, w_left, w_right):
     dataright = w_right.non_empties()
     if len(dataleft) != len(dataright):
         return space.w_False
-    for w_key, cell in dataleft:
+    for w_key, hash, cell in dataleft:
         try:
             w_rightval = space.getitem(w_right, w_key)
         except OperationError:
@@ -175,7 +183,7 @@ def lt__Dict_Dict(space, w_left, w_right):
         return space.w_False
 
     # Same size
-    for w_key, cell in dataleft:
+    for w_key, hash, cell in dataleft:
         # This is incorrect, but we need to decide what comparisons on
         # dictionaries of equal size actually means
         # The Python language specification is silent on the subject
@@ -193,21 +201,21 @@ def hash__Dict(space,w_dict):
 
 def dict_copy__Dict(space, w_self):
     return W_DictObject(space, [(w_key,cell.get())
-                                      for w_key,cell in
+                                      for w_key,hash,cell in
                                       w_self.non_empties()])
 def dict_items__Dict(space, w_self):
     return space.newlist([ space.newtuple([w_key,cell.get()])
-                           for w_key,cell in
+                           for w_key,hash,cell in
                            w_self.non_empties()])
 
 def dict_keys__Dict(space, w_self):
     return space.newlist([ w_key
-                           for w_key,cell in
+                           for w_key,hash,cell in
                            w_self.non_empties()])
 
 def dict_values__Dict(space, w_self):
     return space.newlist([ cell.get()
-                           for w_key,cell in
+                           for w_key,hash,cell in
                            w_self.non_empties()])
 
 def dict_clear__Dict(space, w_self):
@@ -215,7 +223,10 @@ def dict_clear__Dict(space, w_self):
 
 def dict_get__Dict_ANY_ANY(space, w_self, w_lookup, w_default):
     data = w_self.non_empties()
-    for w_key, cell in data:
+    h = space.unwrap(space.hash(w_lookup))    
+    for w_key, hash, cell in data:
+        if h != hash:
+            continue
         if space.is_true(space.eq(w_lookup, w_key)):
             return cell.get()
     return w_default
