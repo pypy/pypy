@@ -320,17 +320,6 @@ class __builtin__(ExtModule):
             total = total + item
         return total
 
-    # This function was not in the original builtins,
-    # but is quite useful for some aspects of PyPy
-    # implementation.
-    def app_sign(self, a):
-        if a > 0:
-            return 1
-        elif a < 0:
-            return -1
-        else:
-            return 0
-
     #XXX works only for new-style classes.
     #So we have to fix it, when we add support for old-style classes
     def issubclass(self, w_cls1, w_cls2):
