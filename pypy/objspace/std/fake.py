@@ -42,23 +42,10 @@ def really_build_fake_type(cpy_type, ignored):
     debug_print('faking %r'%(cpy_type,))
     kw = {}
     
-    if cpy_type.__name__ == 'SRE_Pattern':
-        import re
-        import __builtin__
-        p = re.compile("foo")
-        for meth_name in p.__methods__:
-            kw[meth_name] = __builtin__.eval("lambda p,*args,**kwds: p.%s(*args,**kwds)" % meth_name)
-    elif cpy_type.__name__ == 'SRE_Match':
-        import re
-        import __builtin__
-        m = re.compile("foo").match('foo')
-        for meth_name in m.__methods__:
-            kw[meth_name] = __builtin__.eval("lambda m,*args,**kwds: m.%s(*args,**kwds)" % meth_name)
-    else:
-        for s, v in cpy_type.__dict__.items():
-            if not (cpy_type is unicode and s in ['__add__', '__contains__']):
-                if s != '__getattribute__' or cpy_type is type(sys):
-                    kw[s] = v
+    for s, v in cpy_type.__dict__.items():
+        if not (cpy_type is unicode and s in ['__add__', '__contains__']):
+            if s != '__getattribute__' or cpy_type is type(sys):
+                kw[s] = v
 
     kw['__module__'] = cpy_type.__module__
 

@@ -82,6 +82,12 @@ class ObjSpace(object):
         self.setitem(w_modules, w_name, w_builtin) 
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin) 
 
+        from pypy.module._sre_pypy import Module
+        w_name = self.wrap('_sre')
+        mod = Module(self, w_name)
+        w_mod = self.wrap(mod)
+        self.setitem(w_modules, w_name, w_mod)
+
         self.setbuiltinmodule('parser') 
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
