@@ -1,7 +1,18 @@
 import autopath
 from pypy.tool import testit
     
-class Test_TraceObjSpace(testit.AppTestCase):
+class Test_Descriptor(testit.AppTestCase):
+
+    def test_non_data_descr(self):
+        class X(object):
+            def f(self):
+                return 42
+        x = X()
+        self.assertEquals(x.f(), 42)
+        x.f = 43
+        self.assertEquals(x.f, 43)
+        del x.f
+        self.assertEquals(x.f(), 42)
 
     def test_member(self):
         import sys
