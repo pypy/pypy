@@ -1,11 +1,6 @@
 import testsupport
-<<<<<<< .mine
 from pypy.objspace.std.stringobject import string_richcompare, W_StringObject, EQ, LT, GT, NE, LE, GE
 from pypy.objspace.std.objspace import StdObjSpace
-=======
-#from pypy.objspace.std.stringobject import W_StringObject
-#from pypy.objspace.std.objspace import StdObjSpace
->>>>>>> .r676
 
 
 class TestW_StringObject(testsupport.TestCase):
@@ -15,6 +10,11 @@ class TestW_StringObject(testsupport.TestCase):
 
     def tearDown(self):
         pass
+
+    def test_order_rich(self):
+        space = self.space
+        w = space.wrap
+        self.failUnless_w(string_richcompare(space, w('abc'), w('abc'), EQ))
 
     def test_equality(self):
         w = self.space.wrap 
