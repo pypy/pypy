@@ -148,7 +148,7 @@ def pow__Long_Long_None(space, w_long1, w_long2, w_none3):
 def pow__Long_Long_Long(space, w_long1, w_long2, w_long3):
     x = w_long1.longval
     y = w_long2.longval
-    z = w_long2.longval
+    z = w_long3.longval
     t = pow(x, y, z)
     return W_LongObject(space, t)
 
