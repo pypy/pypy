@@ -123,7 +123,10 @@ class TestItem:
             except KeyboardInterrupt:
                 raise
             except:
-                result._setstatus(ERROR)
+                # if we already had an exception in the test method,
+                # don't overwrite it
+                if result.status not in (ERROR, FAILURE):
+                    result._setstatus(ERROR)
         finally:
             if posttest is not None:
                 posttest(self)
