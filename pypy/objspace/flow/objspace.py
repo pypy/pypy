@@ -96,13 +96,14 @@ class FlowObjSpace(ObjSpace):
         return context.guessbool(w_truthvalue)
 
     def next(self, w_iter):
-        w_tuple = self.do_operation("next_and_flag", w_iter)
-        w_flag = self.do_operation("getitem", w_tuple, Constant(1))
+        w_item = self.do_operation("next", w_iter)
+        w_curexc = self.do_operation('exception', w_item)
         context = self.getexecutioncontext()
-        if context.guessbool(w_flag):
-            return self.do_operation("getitem", w_tuple, Constant(0))
-        else:
+        outcome = context.guessbool(w_curexc, [None, StopIteration])
+        if outcome is StopIteration:
             raise NoValue
+        else:
+            return w_item
 
 # ______________________________________________________________________
 

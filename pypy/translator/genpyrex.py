@@ -50,15 +50,15 @@ class Op:
 
         return "%s = %s(%s)" % (self.resultname, self.op.opname, ", ".join(self.argnames)) 
     
-    def op_next_and_flag(self):
+    def op_next(self):
         lines = []
         args = self.argnames
         lines.append("try:")
-        lines.append("  _nextval = %s.next()" % args[0])
+        lines.append("  %s = %s.next()" % (self.resultname, args[0]))
         lines.append("except StopIteration:")
-        lines.append("  %s = None, 0" % self.resultname)
+        lines.append("  last_exc = StopIteration")
         lines.append("else:")
-        lines.append("  %s = _nextval, 1" % self.resultname)
+        lines.append("  last_exc = None")
         return "\n".join(lines)
 
     def op_getitem(self):
@@ -134,10 +134,7 @@ class Op:
         return "%s = not not %s" % (self.resultname, self.argnames[0])
 
     def op_exception(self):
-        # Cheat!  This cannot really detect an exception because any
-        # exception would already have been raised by Pyrex in the previous
-        # instructions.
-        return "%s = None #exception(%s)" % (self.resultname, self.argnames[0])
+        return "%s, last_exc = last_exc, None" % (self.resultname,)
 
 class GenPyrex:
     def __init__(self, functiongraph):
@@ -178,6 +175,7 @@ class GenPyrex:
         currentlines = self.lines
         self.lines = []
         self.indent += 1 
+        self.putline("last_exc = None")
         self.gen_block(fun.startblock)
         self.indent -= 1
         # emit the header after the body
