@@ -123,14 +123,11 @@ def string_richcompare(space, w_str1, w_str2, op):
     str1 = w_str1._value
     str2 = w_str2._value
 
-    #There is still problem with it
-    #
-    #if space.is_(w_str1, w_str2):
-    #    print "Oooh, str1 and str2 are the same!"
-    #    if op == EQ or op == LE or op == GE:
-    #        return space.w_True
-    #    elif op == GT or op == LT or op == NE:
-    #        return space.w_False
+    if space.is_true(space.is_(w_str1, w_str2)):
+        if op == EQ or op == LE or op == GE:
+            return space.w_True
+        elif op == GT or op == LT or op == NE:
+            return space.w_False
     if 0:
         pass
     else:
@@ -165,7 +162,6 @@ def string_richcompare(space, w_str1, w_str2, op):
             else:
                 c = 0
 
-        print "c is ", c
         if op == LT:
             return space.newbool(c < 0)
         elif op == LE:
