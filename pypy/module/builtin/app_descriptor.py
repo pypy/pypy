@@ -83,13 +83,13 @@ class super(object):
         else:
             return self
     def __getattribute__(self, attr):
-        d = object.__getattribute__(self, '__dict__')
-        if attr != '__class__' and d['__self_class__'] is not None:
-            # we want super().__class__ to be the real class
-            # and we don't do anything for unbound type objects
-            mro = iter(d['__self_class__'].__mro__)
+        _self_class_ = super.__self_class__.__get__(self)
+        if (attr != '__class__' # we want super().__class__ to be the real class
+              and _self_class_ is not None): # no magic for unbound type objects
+            _thisclass_ = super.__thisclass__.__get__(self)
+            mro = iter(_self_class_.__mro__)
             for cls in mro:
-                if cls is d['__thisclass__']:
+                if cls is _thisclass_:
                     break
             # Note: mro is an iterator, so the second loop
             # picks up where the first one left off!
@@ -99,6 +99,7 @@ class super(object):
                 except KeyError:
                     continue
                 if hasattr(x, '__get__'):
-                    x = x.__get__(d['__self__'], type(d['__self__']))
+                    _self_ = super.__self__.__get__(self)
+                    x = x.__get__(_self_, type(_self_))
                 return x
         return object.__getattribute__(self, attr)     # fall-back
