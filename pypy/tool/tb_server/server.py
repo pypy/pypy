@@ -92,5 +92,5 @@ def publish_exc(exc):
     print "traceback is at http://localhost:%d/%s" % (server_port, x.name)
 
 if __name__ == "__main__":
-    t = main()
+    t = start() 
     wait_until_interrupt()

@@ -1,7 +1,6 @@
 from pypy.tool.tb_server.server import TBRequestHandler
-from xpy import html, xml
-
-from py.magic import dyncode
+import py 
+html = py.xml.html 
 
 import traceback
 import cgi
@@ -41,7 +40,7 @@ class Renderer:
             import sys, traceback
             lines = traceback.format_exception(*sys.exc_info())
             inner =  html.pre(
-                xml.escape(''.join(
+                py.xml.escape(''.join(
                 ['Internal Rendering Error, traceback follows\n'] + lines)))
             
         tag = html.html(
@@ -50,14 +49,16 @@ class Renderer:
                 inner
             )
         )
-        return tag.to_unicode()
+        return tag.unicode(indent=2)
     
 
 class TracebackView(Renderer):
-    def __init__(self, exc):
+    def __init__(self, excinfo):
         self.name = 'traceback%d' % len(views) 
         views[self.name] = self
-        self.exc = exc
+        if not isinstance(excinfo, py.code.ExceptionInfo): 
+            excinfo = py.code.ExceptionInfo(excinfo) 
+        self.excinfo = excinfo 
         
     def render_self(self, url, args):
         lines = html.div()
@@ -68,33 +69,32 @@ class TracebackView(Renderer):
             opts.setdefault(ent, {})[opt] = val
             
         i = 0
-        for tb in dyncode.listtb(self.exc[2]):
-            lines.append(self.render_tb(url, tb, i,
-                                        **opts.get('entry' + str(i), {})))
+        for tbentry in self.excinfo.traceback: 
+            lines.append(self.render_tb(
+                                url, tbentry, i,
+                                **opts.get('entry' + str(i), {})))
             i += 1
             
-        lines.append(html.pre(xml.escape(
-            ''.join(traceback.format_exception_only(self.exc[0], self.exc[1])))))
+        lines.append(html.pre(py.xml.escape(self.excinfo.exconly()))) 
         return lines
 
-    def render_tb(self, url, tb, i, showlocals=0):
+    def render_tb(self, url, tbentry, i, showlocals=0):
         lines = html.pre()
-        filename = tb.tb_frame.f_code.co_filename 
-        lineno = tb.tb_lineno
-        name = tb.tb_frame.f_code.co_name
-        link = '/file' + filename + '?line=' + str(lineno) + '#' + str(lineno)
+        filename = tbentry.frame.code.path 
+        lineno = tbentry.lineno + 1
+        name = tbentry.frame.code.name 
+        link = '/file%s?line=%d#%d' %(filename, lineno, lineno) 
         lines.append('  File "%s", line %d, in %s\n'%(
-            html.a(filename, href=link).to_unicode().encode('utf-8'),
-            lineno, name))
+            html.a(filename, href=link), lineno, name))
         lines.append(html.a('locals', href=url.link_with_options(
-            {'entry%s:showlocals'%i:1-showlocals})))
+            {'entry%d:showlocals' % i : 1-showlocals})))
         lines.append('       ' + 
-                     dyncode.getline(filename, lineno).lstrip())
+                     filename.readlines()[lineno-1].lstrip())
         if showlocals:
-            for k, v in tb.tb_frame.f_locals.items():
+            for k, v in tbentry.frame.f_locals.items(): 
                 if k[0] == '_':
                     continue
-                lines.append(xml.escape('%s=%s\n'%(k, repr(v)[:1000])))
+                lines.append(py.xml.escape('%s=%s\n'%(k, repr(v)[:1000])))
         return lines
         
 
@@ -115,7 +115,7 @@ class FileSystemView(Renderer):
             row = html.tr(
                 html.td(html.a("%03d" % i, name=str(i))),
                 html.td(
-                    html.pre(xml.escape(line)[:-1],
+                    html.pre(py.xml.escape(line)[:-1],
                              **kws),
                 ), 
             )
