@@ -48,7 +48,8 @@ class __builtin__(ExtModule):
     def locals(self):
         return self._actframe().w_locals
 
-    def __import__(self, w_modulename, w_locals, w_globals, w_fromlist):
+    def __import__(self, w_modulename, w_globals=None,
+                   w_locals=None, w_fromlist=None):
         space = self.space
         w = space.wrap
         try:
