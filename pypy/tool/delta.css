@@ -1,0 +1,17 @@
+body { font-family: arial, helvetica, sans-serif; }
+
+.title {font-size: 2em; font-weight: bolder }
+
+.even { background: #d0d0d0; }
+.odd { background: white;  }
+
+table { border-spacing: 0pt }
+
+a { color: inherit; }
+a:hover { background: yellow }
+a:visited:hover { background: inherit  }
+
+.missing { color: red }
+.faked { color: red; font-style: italic }
+.somemissing { color: maroon }
+.only_in { font-style: italic }
