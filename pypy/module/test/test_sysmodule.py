@@ -97,9 +97,6 @@ class AppTestAppSysTests:
             raise AssertionError, "ZeroDivisionError not caught"
 
 
-
-
-
 class AppTestSysModulePortedFromCPython:
 
     def setup_class(cls):
@@ -352,3 +349,14 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
+
+    def test_settrace(self):
+        counts = []
+        def trace(x, y, z):
+            counts.append(None)
+
+        def x():
+            pass
+        sys.settrace(trace)
+        x()
+        assert len(counts) == 1
