@@ -3,7 +3,7 @@ import autopath
 from pypy.tool import testit
 from pypy.tool.udir import udir
 
-from pypy.translator.annrpython import RPythonAnnotator, ANN
+from pypy.translator.annrpython import RPythonAnnotator, annmodel
 from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import *
 
@@ -124,9 +124,7 @@ class AnnonateTestCase(testit.IntTestCase):
         # result should be a list of integers
         self.assertEquals(a.gettype(fun.getreturnvar()), list)
         end_cell = a.binding(fun.getreturnvar())
-        item_cell = a.heap.get(ANN.listitems, end_cell)
-        self.assert_(item_cell)
-        self.assertEquals(a.heap.get(ANN.type, item_cell), int)
+        self.assertEquals(end_cell.s_item.knowntype, int)
 
     def test_factorial(self):
         translator = Translator(snippet.factorial)
@@ -152,6 +150,29 @@ class AnnonateTestCase(testit.IntTestCase):
         # result should be an integer
         self.assertEquals(a.gettype(graph.getreturnvar()), int)
 
+    def test_inheritance1(self):
+        translator = Translator(snippet.inheritance1)
+        graph = translator.getflowgraph()
+        a = RPythonAnnotator(translator)
+        a.build_types(graph, [])
+        # result should be exactly:
+        self.assertEquals(a.binding(graph.getreturnvar()),
+                          annmodel.SomeTuple([
+                              annmodel.SomeTuple([]),
+                              annmodel.SomeInteger()
+                              ]))
+
+    def test_inheritance2(self):
+        translator = Translator(snippet.inheritance2)
+        graph = translator.getflowgraph()
+        a = RPythonAnnotator(translator)
+        a.build_types(graph, [])
+        # result should be exactly:
+        self.assertEquals(a.binding(graph.getreturnvar()),
+                          annmodel.SomeTuple([
+                              annmodel.SomeInteger(),
+                              annmodel.SomeObject()
+                              ]))
 
 
 def g(n):

@@ -1,9 +1,10 @@
 from __future__ import generators
 
-from types import FunctionType
-from pypy.annotation.model import SomeValue, ANN
-from pypy.annotation.annset import AnnotationSet
-from pypy.annotation.annset import impossiblevalue, mostgeneralvalue
+from types import FunctionType, ClassType
+from pypy.annotation import model as annmodel
+from pypy.annotation.model import pair
+from pypy.annotation.factory import ListFactory, InstanceFactory
+from pypy.annotation.factory import BlockedInference
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation
 
@@ -11,34 +12,29 @@ from pypy.objspace.flow.model import SpaceOperation
 class AnnotatorError(Exception):
     pass
 
-intvalue = SomeValue()
-boolvalue = SomeValue()
-
 
 class RPythonAnnotator:
     """Block annotator for RPython.
     See description in doc/transation/annotation.txt."""
 
     def __init__(self, translator=None):
-        self.heap = AnnotationSet()
-        self.heap.settype(intvalue,  int)
-        self.heap.settype(boolvalue, bool)
         self.pendingblocks = []  # list of (block, list-of-SomeValues-args)
-        self.delayedblocks = []  # list of blocked blocks
-        self.bindings = {}       # map Variables/Constants to SomeValues
+        self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
+        self.creationpoints = {} # map positions-in-blocks to Factories
         self.translator = translator
-        self.userclasses = {}    # set of user classes discovered,
-                                 # mapped to sets of instance attributes
+        self.userclasses = {}    # set of user classes
 
     #___ convenience high-level interface __________________
 
     def build_types(self, flowgraph, input_arg_types):
         """Recursively build annotations about the specific entry point."""
         # make input arguments and set their type
-        inputcells = [SomeValue() for arg in flowgraph.getargs()]
-        for cell, arg_type in zip(inputcells, input_arg_types):
-            self.heap.settype(cell, arg_type)
+        input_arg_types = list(input_arg_types)
+        nbarg = len(flowgraph.getargs())
+        while len(input_arg_types) < nbarg:
+            input_arg_types.append(object)
+        inputcells = [annmodel.valueoftype(t) for t in input_arg_types]
         
         # register the entry point
         self.addpendingblock(flowgraph.startblock, inputcells)
@@ -46,16 +42,16 @@ class RPythonAnnotator:
         self.complete()
 
     def gettype(self, variable):
-        """Return the known type of a control flow graph variable, or None."""
+        """Return the known type of a control flow graph variable,
+        defaulting to 'object'."""
         if isinstance(variable, Constant):
             return type(variable.value)
         elif isinstance(variable, Variable):
             cell = self.bindings.get(variable)
             if cell:
-                cell = self.heap.get(ANN.type, cell)
-                if cell:
-                    return cell
-            return None
+                return cell.knowntype
+            else:
+                return object
         else:
             raise TypeError, ("Variable or Constant instance expected, "
                               "got %r" % (variable,))
@@ -66,11 +62,10 @@ class RPythonAnnotator:
 
     def getuserattributes(self, cls):
         """Enumerate the attributes of the given user class, as Variable()s."""
-        for attr in self.userclasses[cls]:
-            clscell = self.constant(cls)
-            attrcell = self.heap.get(ANN.instanceattr[attr], clscell)
+        clsdef = self.userclasses[cls]
+        for attr, s_value in clsdef.attrs.items():
             v = Variable(name=attr)
-            self.bindings[v] = attrcell
+            self.bindings[v] = s_value
             yield v
 
 
@@ -78,37 +73,31 @@ class RPythonAnnotator:
 
     def addpendingblock(self, block, cells):
         """Register an entry point into block with the given input cells."""
+        for a in cells:
+            assert isinstance(a, annmodel.SomeObject)
         self.pendingblocks.append((block, cells))
 
     def complete(self):
         """Process pending blocks until none is left."""
         while self.pendingblocks:
             # XXX don't know if it is better to pop from the head or the tail.
-            # let's do it breadth-first and pop from the head (oldest first).
-            # that's more stacklessy.
-            block, cells = self.pendingblocks.pop(0)
+            # but suspect from the tail is better in the new Factory model.
+            block, cells = self.pendingblocks.pop()
             self.processblock(block, cells)
-        if self.delayedblocks:
-            raise AnnotatorError('%d block(s) are still blocked' %
-                                 len(delayedblocks))
+        if False in self.annotated.values():
+            raise AnnotatorError('%d blocks are still blocked' %
+                                 self.annotated.values().count(False))
 
     def binding(self, arg):
         "Gives the SomeValue corresponding to the given Variable or Constant."
-        try:
+        if isinstance(arg, Variable):
             return self.bindings[arg]
-        except KeyError:
-            if not isinstance(arg, Constant):
-                raise   # propagate missing bindings for Variables
-            if isinstance(arg, UndefinedConstant):
-                result = impossiblevalue  # undefined local variables
-            else:
-                result = self.consider_const(arg.value)
-            self.bindings[arg] = result
-            return result
-
-    def constant(self, value):
-        "Turn a value into a SomeValue with the proper annotations."
-        return self.binding(Constant(value))
+        elif isinstance(arg, UndefinedConstant):  # undefined local variables
+            return annmodel.SomeImpossibleValue()
+        elif isinstance(arg, Constant):
+            return annmodel.immutablevalue(arg.value)
+        else:
+            raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
 
 
     #___ simplification (should be moved elsewhere?) _______
@@ -125,13 +114,15 @@ class RPythonAnnotator:
         # Variable that just happens to be bound to the given SomeValue.
         # A typical example would be if the tuple of arguments was created
         # from another basic block or even another function.  Well I guess
-        # there is no clean solution.
-        constvalue = self.heap.get(ANN.const, cell)
-        if constvalue is not mostgeneralvalue:
-            return Constant(constvalue)
+        # there is no clean solution, short of making the transformations
+        # more syntactic (e.g. replacing a specific sequence of SpaceOperations
+        # with another one).  This is a real hack because we have to use
+        # the identity of 'cell'.
+        if cell.is_constant():
+            return Constant(cell.const)
         else:
             for v in known_variables:
-                if self.heap.isshared(self.bindings[v], cell):
+                if self.bindings[v] is cell:
                     return v
             else:
                 raise CannotSimplify
@@ -166,15 +157,14 @@ class RPythonAnnotator:
             self.annotated[block] = True
             try:
                 self.flowin(block)
-            except DelayAnnotation:
+            except BlockedInference, e:
+                #print '_'*60
+                #print 'Blocked at %r:' % (self.curblockpos,)
+                #import traceback, sys
+                #traceback.print_tb(sys.exc_info()[2])
                 self.annotated[block] = False   # failed, hopefully temporarily
-                self.delayedblocks.append(block)
-            else:
-                # When flowin succeeds, i.e. when the analysis progress,
-                # we can tentatively re-schedlue the delayed blocks.
-                for block in self.delayedblocks:
-                    self.addpendingblock(block, None)
-                del self.delayedblocks[:]
+                for factory in e.invalidatefactories:
+                    self.reflowpendingblock(factory.block)
 
     def reflowpendingblock(self, block):
         self.pendingblocks.append((block, None))
@@ -190,28 +180,35 @@ class RPythonAnnotator:
     def mergeinputargs(self, block, inputcells):
         # Merge the new 'cells' with each of the block's existing input
         # variables.
-        oldcells = []
-        newcells = []
-        for a, cell2 in zip(block.inputargs, inputcells):
-            cell1 = self.bindings[a]   # old binding
-            oldcells.append(cell1)
-            newcells.append(self.heap.merge(cell1, cell2))
+        oldcells = [self.binding(a) for a in block.inputargs]
+        unions = [pair(c1,c2).union() for c1, c2 in zip(oldcells, inputcells)]
         # if the merged cells changed, we must redo the analysis
-        #print '** oldcells = ', oldcells
-        #print '** newcells = ', newcells
-        for cell1, cell2 in zip(oldcells, newcells):
-            if not self.heap.isshared(cell1, cell2):
-                self.bindinputargs(block, newcells)
-                return
+        if unions != oldcells:
+            self.bindinputargs(block, unions)
 
     def flowin(self, block):
-        self.heap.enter(block, self.reflowpendingblock)
-        for op in block.operations:
-            self.consider_op(op)
-        self.heap.leave()
+        #print 'Flowing', block, [self.binding(a) for a in block.inputargs]
+        for i in range(len(block.operations)):
+            self.curblockpos = block, i
+            self.consider_op(block.operations[i])
         for link in block.exits:
             cells = [self.binding(a) for a in link.args]
             self.addpendingblock(link.target, cells)
+
+    def getfactory(self, factorycls, *factoryargs):
+        try:
+            factory = self.creationpoints[self.curblockpos]
+        except KeyError:
+            block = self.curblockpos[0]
+            factory = factorycls(*factoryargs)
+            factory.block = block
+            self.creationpoints[self.curblockpos] = factory
+        # self.curblockpos is an arbitrary key that identifies a specific
+        # position, so that asking twice for a factory from the same position
+        # returns the same factory object.  Because we can ask for several
+        # factories in the same operation, we change self.curblockpos here
+        self.curblockpos = self.curblockpos, 'bis'
+        return factory
 
 
     #___ creating the annotations based on operations ______
@@ -221,199 +218,247 @@ class RPythonAnnotator:
         consider_meth = getattr(self,'consider_op_'+op.opname,
                                 self.default_consider_op)
         resultcell = consider_meth(*argcells)
-        if resultcell is impossiblevalue:
-            raise DelayAnnotation  # the operation cannot succeed
-        assert isinstance(resultcell, (SomeValue, type(mostgeneralvalue)))
+        if resultcell is None:
+            resultcell = annmodel.SomeImpossibleValue()  # no return value
+        elif resultcell == annmodel.SomeImpossibleValue():
+            raise BlockedInference  # the operation cannot succeed
+        assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
         self.bindings[op.result] = resultcell   # bind resultcell to op.result
 
-    def consider_op_setattr(self,obj,attr,newval):
-        objtype = self.heap.get(ANN.type,obj)
-        if objtype in self.userclasses:
-            attr = self.heap.get(ANN.const,attr)
-            if isinstance(attr, str):
-                # do we already know about this attribute?
-                attrdict = self.userclasses[objtype]
-                clscell = self.constant(objtype)
-                if attr not in attrdict:
-                    # no -> create it
-                    attrdict[attr] = True
-                    self.heap.set(ANN.instanceattr[attr], clscell, newval)
-                else:
-                    # yes -> update it
-                    self.heap.generalize(ANN.instanceattr[attr], clscell, newval)
-        return SomeValue()
-
-    def consider_op_getattr(self,obj,attr):
-        result = SomeValue()
-        objtype = self.heap.get(ANN.type,obj)
-        if objtype in self.userclasses:
-            attr = self.heap.get(ANN.const,attr)
-            if isinstance(attr, str):
-                # do we know something about this attribute?
-                attrdict = self.userclasses[objtype]
-                if attr in attrdict:
-                    # yes -> return the current annotation
-                    clscell = self.constant(objtype)
-                    return self.heap.get(ANN.instanceattr[attr], clscell)
-        return result
-        
-
     def default_consider_op(self, *args):
-        return mostgeneralvalue
+        return annmodel.SomeObject()
 
-    def consider_op_add(self, arg1, arg2):
-        result = SomeValue()
-        tp = self.heap.checktype
-        if tp(arg1, int) and tp(arg2, int):
-            self.heap.settype(result, int)
-        elif tp(arg1, (int, long)) and tp(arg2, (int, long)):
-            self.heap.settype(result, long)
-        if tp(arg1, str) and tp(arg2, str):
-            self.heap.settype(result, str)
-        if tp(arg1, list) and tp(arg2, list):
-            self.heap.settype(result, list)
-            # XXX propagate information about the type of the elements
-        return result
+    def _registeroperations(loc):
+        # All unary operations
+        for opname in annmodel.UNARY_OPERATIONS:
+            exec """
+def consider_op_%s(self, arg, *args):
+    return arg.%s(*args)
+""" % (opname, opname) in globals(), loc
+        # All binary operations
+        for opname in annmodel.BINARY_OPERATIONS:
+            exec """
+def consider_op_%s(self, arg1, arg2, *args):
+    return pair(arg1,arg2).%s(*args)
+""" % (opname, opname) in globals(), loc
 
-    def consider_op_mul(self, arg1, arg2):
-        result = SomeValue()
-        tp = self.heap.checktype
-        if tp(arg1, int) and tp(arg2, int):
-            self.heap.settype(result, int)
-        elif tp(arg1, (int, long)) and tp(arg2, (int, long)):
-            self.heap.settype(result, long)
-        return result
-
-    def consider_op_inplace_add(self, arg1, arg2):
-        tp = self.heap.checktype
-        if tp(arg1, list) and tp(arg2, list):
-            # Annotations about the items of arg2 are merged with the ones about
-            # the items of arg1.  arg2 is not modified during this operation.
-            # result is arg1.
-            self.heap.kill(ANN.len, arg1)
-            item2 = self.heap.get(ANN.listitems, arg2)
-            self.heap.generalize(ANN.listitems, arg1, item2)
-            return arg1
-        else:
-            return self.consider_op_add(arg1, arg2)
-
-    def consider_op_sub(self, arg1, arg2):
-        result = SomeValue()
-        tp = self.heap.checktype
-        if tp(arg1, int) and tp(arg2, int):
-            self.heap.settype(result, int)
-        elif tp(arg1, (int, long)) and tp(arg2, (int, long)):
-            self.heap.settype(result, long)
-        return result
-
-    consider_op_and_ = consider_op_sub # trailing underline
-    consider_op_mod  = consider_op_sub
-    consider_op_inplace_lshift = consider_op_sub
-
-    def consider_op_is_true(self, arg):
-        return boolvalue
-
-    consider_op_not_ = consider_op_is_true
-
-    def consider_op_lt(self, arg1, arg2):
-        return boolvalue
-
-    consider_op_le = consider_op_lt
-    consider_op_eq = consider_op_lt
-    consider_op_ne = consider_op_lt
-    consider_op_gt = consider_op_lt
-    consider_op_ge = consider_op_lt
+    _registeroperations(locals())
+    del _registeroperations
 
     def consider_op_newtuple(self, *args):
-        result = SomeValue()
-        self.heap.settype(result, tuple)
-        self.heap.set(ANN.len, result, len(args))
-        for i in range(len(args)):
-            self.heap.set(ANN.tupleitem[i], result, args[i])
-        return result
+        return annmodel.SomeTuple(items = args)
 
     def consider_op_newlist(self, *args):
-        result = SomeValue()
-        self.heap.settype(result, list)
-        self.heap.set(ANN.len, result, len(args))
-        item_cell = impossiblevalue
+        factory = self.getfactory(ListFactory)
         for a in args:
-            item_cell = self.heap.merge(item_cell, a)
-        self.heap.set(ANN.listitems, result, item_cell)
-        return result
+            factory.generalize(a)
+        return factory.create()
 
-    def consider_op_newslice(self, *args):
-        result = SomeValue()
-        self.heap.settype(result, slice)
-        return result
-
-    def consider_op_newdict(self, *args):
-        result = SomeValue()
-        self.heap.settype(result, dict)
-        if not args:
-            self.heap.set(ANN.len, result, 0)
-        return result
-
-    def consider_op_getitem(self, arg1, arg2):
-        tp = self.heap.checktype
-        if tp(arg2, int):
-            if tp(arg1, tuple):
-                index = self.heap.get(ANN.const, arg2)
-                if index is not mostgeneralvalue:
-                    return self.heap.get(ANN.tupleitem[index], arg1)
-            if tp(arg1, list):
-                return self.heap.get(ANN.listitems, arg1)
-        result = SomeValue()
-        if tp(arg2, slice):
-            self.heap.copytype(arg1, result)
-            # XXX copy some information about the items
-        return result
-
-    def decode_simple_call(self, varargs_cell, varkwds_cell):
-        nbargs = self.heap.get(ANN.len, varargs_cell)
-        if nbargs is mostgeneralvalue:
+    def decode_simple_call(self, s_varargs, s_varkwds):
+        s_nbargs = s_varargs.len()
+        if not s_nbargs.is_constant():
             return None
-        arg_cells = [self.heap.get(ANN.tupleitem[j], varargs_cell)
+        nbargs = s_nbargs.const
+        arg_cells = [pair(s_varargs, annmodel.immutablevalue(j)).getitem()
                      for j in range(nbargs)]
-        nbkwds = self.heap.get(ANN.len, varkwds_cell)
-        if nbkwds != 0:
-            return None  # XXX deal with dictionaries with constant keys
+##        nbkwds = self.heap.get(ANN.len, varkwds_cell)
+##        if nbkwds != 0:
+##            return None  # XXX deal with dictionaries with constant keys
         return arg_cells
 
-    def consider_op_call(self, func, varargs, kwargs):
-        result = SomeValue()
-        tp = self.heap.checktype
-        func = self.heap.get(ANN.const, func)
+    def consider_op_call(self, s_func, s_varargs, s_kwargs):
+        if not s_func.is_constant():
+            return annmodel.SomeObject()
+        func = s_func.const
+        
         # XXX: generalize this later
         if func is range:
-            self.heap.settype(result, list)
+            factory = self.getfactory(ListFactory)
+            factory.generalize(annmodel.SomeInteger())  # XXX nonneg=...
+            return factory.create()
         elif func is pow:
-            args = self.decode_simple_call(varargs, kwargs)
+            args = self.decode_simple_call(s_varargs, s_kwargs)
             if args is not None and len(args) == 2:
-                if tp(args[0], int) and tp(args[1], int):
-                    self.heap.settype(result, int)
+                if (issubclass(args[0].knowntype, int) and
+                    issubclass(args[1].knowntype, int)):
+                    return annmodel.SomeInteger()
         elif isinstance(func, FunctionType) and self.translator:
-            args = self.decode_simple_call(varargs, kwargs)
+            args = self.decode_simple_call(s_varargs, s_kwargs)
             return self.translator.consider_call(self, func, args)
-        elif isinstance(func,type):
+        elif (isinstance(func, (type, ClassType)) and
+              func.__module__ != '__builtin__'):
             # XXX flow into __init__/__new__
-            self.heap.settype(result,func)
-            if func.__module__ != '__builtin__':
-                self.userclasses.setdefault(func, {})
-        return result
+            factory = self.getfactory(InstanceFactory, func, self.userclasses)
+            return factory.create()
+        elif isinstance(func,type):
+            return annmodel.valueoftype(func)
+        return annmodel.SomeObject()
 
-    def consider_const(self, constvalue):
-        result = SomeValue()
-        self.heap.set(ANN.const, result, constvalue)
-        self.heap.settype(result, type(constvalue))
-        if isinstance(constvalue, tuple):
-            pass # XXX say something about the elements
-        return result
+
+##    def consider_op_setattr(self,obj,attr,newval):
+##        objtype = self.heap.get(ANN.type,obj)
+##        if objtype in self.userclasses:
+##            attr = self.heap.get(ANN.const,attr)
+##            if isinstance(attr, str):
+##                # do we already know about this attribute?
+##                attrdict = self.userclasses[objtype]
+##                clscell = self.constant(objtype)
+##                if attr not in attrdict:
+##                    # no -> create it
+##                    attrdict[attr] = True
+##                    self.heap.set(ANN.instanceattr[attr], clscell, newval)
+##                else:
+##                    # yes -> update it
+##                    self.heap.generalize(ANN.instanceattr[attr], clscell, newval)
+##        return SomeValue()
+
+##    def consider_op_getattr(self,obj,attr):
+##        result = SomeValue()
+##        objtype = self.heap.get(ANN.type,obj)
+##        if objtype in self.userclasses:
+##            attr = self.heap.get(ANN.const,attr)
+##            if isinstance(attr, str):
+##                # do we know something about this attribute?
+##                attrdict = self.userclasses[objtype]
+##                if attr in attrdict:
+##                    # yes -> return the current annotation
+##                    clscell = self.constant(objtype)
+##                    return self.heap.get(ANN.instanceattr[attr], clscell)
+##        return result
+        
+
+##    def consider_op_add(self, arg1, arg2):
+##        result = SomeValue()
+##        tp = self.heap.checktype
+##        if tp(arg1, int) and tp(arg2, int):
+##            self.heap.settype(result, int)
+##        elif tp(arg1, (int, long)) and tp(arg2, (int, long)):
+##            self.heap.settype(result, long)
+##        if tp(arg1, str) and tp(arg2, str):
+##            self.heap.settype(result, str)
+##        if tp(arg1, list) and tp(arg2, list):
+##            self.heap.settype(result, list)
+##            # XXX propagate information about the type of the elements
+##        return result
+
+##    def consider_op_mul(self, arg1, arg2):
+##        result = SomeValue()
+##        tp = self.heap.checktype
+##        if tp(arg1, int) and tp(arg2, int):
+##            self.heap.settype(result, int)
+##        elif tp(arg1, (int, long)) and tp(arg2, (int, long)):
+##            self.heap.settype(result, long)
+##        return result
+
+##    def consider_op_inplace_add(self, arg1, arg2):
+##        tp = self.heap.checktype
+##        if tp(arg1, list) and tp(arg2, list):
+##            # Annotations about the items of arg2 are merged with the ones about
+##            # the items of arg1.  arg2 is not modified during this operation.
+##            # result is arg1.
+##            self.heap.kill(ANN.len, arg1)
+##            item2 = self.heap.get(ANN.listitems, arg2)
+##            self.heap.generalize(ANN.listitems, arg1, item2)
+##            return arg1
+##        else:
+##            return self.consider_op_add(arg1, arg2)
+
+##    def consider_op_sub(self, arg1, arg2):
+##        result = SomeValue()
+##        tp = self.heap.checktype
+##        if tp(arg1, int) and tp(arg2, int):
+##            self.heap.settype(result, int)
+##        elif tp(arg1, (int, long)) and tp(arg2, (int, long)):
+##            self.heap.settype(result, long)
+##        return result
+
+##    consider_op_and_ = consider_op_sub # trailing underline
+##    consider_op_mod  = consider_op_sub
+##    consider_op_inplace_lshift = consider_op_sub
+
+##    def consider_op_is_true(self, arg):
+##        return boolvalue
+
+##    consider_op_not_ = consider_op_is_true
+
+##    def consider_op_lt(self, arg1, arg2):
+##        return boolvalue
+
+##    consider_op_le = consider_op_lt
+##    consider_op_eq = consider_op_lt
+##    consider_op_ne = consider_op_lt
+##    consider_op_gt = consider_op_lt
+##    consider_op_ge = consider_op_lt
+
+##    def consider_op_newslice(self, *args):
+##        result = SomeValue()
+##        self.heap.settype(result, slice)
+##        return result
+
+##    def consider_op_newdict(self, *args):
+##        result = SomeValue()
+##        self.heap.settype(result, dict)
+##        if not args:
+##            self.heap.set(ANN.len, result, 0)
+##        return result
+
+##    def consider_op_getitem(self, arg1, arg2):
+##        tp = self.heap.checktype
+##        if tp(arg2, int):
+##            if tp(arg1, tuple):
+##                index = self.heap.get(ANN.const, arg2)
+##                if index is not mostgeneralvalue:
+##                    return self.heap.get(ANN.tupleitem[index], arg1)
+##            if tp(arg1, list):
+##                return self.heap.get(ANN.listitems, arg1)
+##        result = SomeValue()
+##        if tp(arg2, slice):
+##            self.heap.copytype(arg1, result)
+##            # XXX copy some information about the items
+##        return result
+
+##    def decode_simple_call(self, varargs_cell, varkwds_cell):
+##        nbargs = self.heap.get(ANN.len, varargs_cell)
+##        if nbargs is mostgeneralvalue:
+##            return None
+##        arg_cells = [self.heap.get(ANN.tupleitem[j], varargs_cell)
+##                     for j in range(nbargs)]
+##        nbkwds = self.heap.get(ANN.len, varkwds_cell)
+##        if nbkwds != 0:
+##            return None  # XXX deal with dictionaries with constant keys
+##        return arg_cells
+
+##    def consider_op_call(self, func, varargs, kwargs):
+##        result = SomeValue()
+##        tp = self.heap.checktype
+##        func = self.heap.get(ANN.const, func)
+##        # XXX: generalize this later
+##        if func is range:
+##            self.heap.settype(result, list)
+##        elif func is pow:
+##            args = self.decode_simple_call(varargs, kwargs)
+##            if args is not None and len(args) == 2:
+##                if tp(args[0], int) and tp(args[1], int):
+##                    self.heap.settype(result, int)
+##        elif isinstance(func, FunctionType) and self.translator:
+##            args = self.decode_simple_call(varargs, kwargs)
+##            return self.translator.consider_call(self, func, args)
+##        elif isinstance(func,type):
+##            # XXX flow into __init__/__new__
+##            self.heap.settype(result,func)
+##            if func.__module__ != '__builtin__':
+##                self.userclasses.setdefault(func, {})
+##        return result
+
+##    def consider_const(self, constvalue):
+##        result = SomeValue()
+##        self.heap.set(ANN.const, result, constvalue)
+##        self.heap.settype(result, type(constvalue))
+##        if isinstance(constvalue, tuple):
+##            pass # XXX say something about the elements
+##        return result
 
 
 class CannotSimplify(Exception):
-    pass
-
-class DelayAnnotation(Exception):
     pass

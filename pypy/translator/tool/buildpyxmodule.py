@@ -106,6 +106,10 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
     name = func.func_name
     funcgraph = space.build_flow(func)
 
+    if not inputargtypes: 
+        source = inspect.getsource(func)
+        base = udir.join(name).newext('.py').write(source) 
+
     if dot:
         from pypy.translator.tool.make_dot import DotGen
         dotgen = DotGen()

@@ -287,3 +287,22 @@ def set_attr():
     c.a = 1
     c.a = 2
     return c.a
+
+class D(C): pass
+class E(C): pass
+
+def inheritance1():
+    d = D()
+    d.stuff = ()
+    e = E()
+    e.stuff = -12
+    e.stuff = 3
+    lst = [d, e]
+    return d.stuff, e.stuff
+
+def inheritance2():
+    d = D()
+    d.stuff = (-12, -12)
+    e = E()
+    e.stuff = (3, "world")
+    return C().stuff

@@ -328,8 +328,7 @@ class GenPyrex:
         self.gen_block(block)
 
     def globaldeclarations(self):
-        """Static method to generate the global class declaration for a
-        group of functions."""
+        """Generate the global class declaration for a group of functions."""
         if self.annotator:
             self.lines = []
             self.indent = 0
