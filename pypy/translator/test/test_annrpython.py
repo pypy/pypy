@@ -567,6 +567,7 @@ class TestAnnonateTestCase:
                 a.bookkeeper.immutablevalue(42))
         assert (classes[snippet.CSub2].attrs['x'].s_value ==
                 a.bookkeeper.immutablevalue('world'))
+        assert s == a.bookkeeper.immutablevalue(42)
 
 
 def g(n):
