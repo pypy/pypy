@@ -824,6 +824,8 @@ def app_sys_stdout():
         raise RuntimeError("lost sys.stdout")
 
 def app_print_item_to(x, stream):
+    if stream is None:
+        return
     if file_softspace(stream, False):
         stream.write(" ")
     stream.write(str(x))
@@ -835,6 +837,8 @@ def app_print_item_to(x, stream):
     file_softspace(stream, True)
 
 def app_print_newline_to(stream):
+    if stream is None:
+        return
     stream.write("\n")
     file_softspace(stream, False)
 
