@@ -28,6 +28,13 @@ class ObjSpace:
         self.w_builtins = self.getattr(w_builtin, self.wrap("__dict__"))
         self.setitem(self.w_modules, self.wrap("__builtin__"), w_builtin)
 
+    def make_sys(self):
+        import pypy.module.sysmodule
+        self.sys = pypy.module.sysmodule.Sys(self)
+        self.w_sys = self.sys.wrap_me()
+        self.setitem(self.w_modules, self.wrap("sys"), self.w_sys)
+        self.setattr(self.w_sys, self.wrap("modules"), self.w_modules)
+
     def initialize(self):
         """Abstract method that should put some minimal content into the
         w_builtins."""

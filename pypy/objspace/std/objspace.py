@@ -39,12 +39,13 @@ class StdObjSpace(ObjSpace):
                 setattr(self, 'w_' + c.__name__, w_c)
                 newstuff[c.__name__] = w_c
         self.make_builtins()
+        self.make_sys()
         # insert these into the newly-made builtins
         for key, w_value in newstuff.items():
             self.setitem(self.w_builtins, self.wrap(key), w_value)
         # add a dummy __import__  XXX fixme
-        w_import = self.wrap(__import__)
-        self.setitem(self.w_builtins, self.wrap("__import__"), w_import)
+#        w_import = self.wrap(__import__)
+#        self.setitem(self.w_builtins, self.wrap("__import__"), w_import)
 
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."
