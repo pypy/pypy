@@ -23,15 +23,12 @@ appfile = AppFile(__name__, ["interpreter"])
 
 class PyBaseCode:
     def __init__(self):
-        self.co_filename = ""
         self.co_name = ""
         self.co_flags = 0
-        self.co_code = None
-        self.co_consts = None
-        self.co_names = None
-        self.co_varnames = None
-        self.co_freevars = None
-        self.co_cellvars = None
+        self.co_varnames = ()
+        self.co_argcount = 0
+        self.co_freevars = ()
+        self.co_cellvars = ()
         
     def build_arguments(self, space, w_arguments, w_kwargs, w_defaults, w_closure):
         # We cannot systematically go to the application-level (_app.py)
@@ -72,7 +69,10 @@ class PyByteCode(PyBaseCode):
 
     def __init__(self):
         """ initialize all attributes to just something. """
-        self.co_argcount = 0
+        self.co_filename = ""
+        self.co_code = None
+        self.co_consts = ()
+        self.co_names = ()
         self.co_nlocals = 0
         self.co_stacksize = 0
         # The rest doesn't count for hash/cmp
@@ -88,7 +88,7 @@ class PyByteCode(PyBaseCode):
             This method is called by our compile builtin function.
         """
         import types
-        assert(type(code is types.CodeType))
+        assert type(code) is types.CodeType
         # simply try to suck in all attributes we know of
         for name in self.__dict__.keys():
             value = getattr(code, name)
@@ -100,4 +100,3 @@ class PyByteCode(PyBaseCode):
         ec = space.getexecutioncontext()
         w_ret = ec.eval_frame(frame)
         return w_ret
-    
