@@ -1,6 +1,4 @@
-import unittest, sys
 import testsupport
-from pypy.interpreter import unittest_w
 
 # need pypy.module.builtin first to make other imports work (???)
 from pypy.module import builtin
@@ -16,39 +14,41 @@ class BM_with_appmethod(extmodule.BuiltinModule):
     def amethod(self): return 23
     amethod = extmodule.appmethod(amethod)
 
-class TestBuiltinModule(unittest_w.TestCase_w):
+class TestBuiltinModule(testsupport.TestCase):
 
     def setUp(self):
-        self.space = trivial.TrivialObjSpace()
+        self.space = testsupport.objspace()
 
     def tearDown(self):
         pass
 
     def test_empty(self):
-        bm = EmptyBM(self.space)
+        space = self.space
+        bm = EmptyBM(space)
         w_bm = bm.wrap_me()
-        modobj = self.space.unwrap(w_bm)
-        bmd = modobj.__dict__
-        bmd_kys = bmd.keys()
-        bmd_kys.sort()
-        self.assertEqual(bmd_kys, ['__doc__','__name__'])
-        self.assertEqual(bmd['__doc__'], EmptyBM.__doc__)
-        self.assertEqual(bmd['__name__'], EmptyBM.__pythonname__)
+        w_bmd = space.getattr(w_bm, space.wrap('__dict__'))
+        bmd = space.unwrap(w_bmd)
+        self.assertEqual(bmd,
+            {'__doc__': EmptyBM.__doc__,
+            '__name__': EmptyBM.__pythonname__} )
 
     def test_appmethod(self):
-        bm = BM_with_appmethod(self.space)
+        space = self.space
+        bm = BM_with_appmethod(space)
         w_bm = bm.wrap_me()
-        modobj = self.space.unwrap(w_bm)
-        bmd = modobj.__dict__
-        bmd_kys = bmd.keys()
-        bmd_kys.sort()
-        self.assertEqual(bmd_kys, ['__doc__','__name__','amethod'])
-        self.assertEqual(bmd['__doc__'], BM_with_appmethod.__doc__)
-        self.assertEqual(bmd['__name__'], BM_with_appmethod.__pythonname__)
-        self.assertEqual(bmd['amethod'].__name__, 'amethod')
-        result = bmd['amethod']()
+        w_bmd = space.getattr(w_bm, space.wrap('__dict__'))
+        bmd = space.unwrap(w_bmd)
+        themethod = bmd.get('amethod')
+        self.assertNotEqual(themethod, None)
+        w_method = space.getitem(w_bmd, space.wrap('amethod'))
+        bmd['amethod'] = BM_with_appmethod.amethod
+        self.assertEqual(bmd,
+            {'__doc__': BM_with_appmethod.__doc__,
+            '__name__': BM_with_appmethod.__pythonname__,
+            'amethod': BM_with_appmethod.amethod} )
+        result = space.call(w_method, space.wrap(()), None)
         self.assertEqual(result, 23)
 
 
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()
