@@ -97,11 +97,15 @@ def app_list_testmethods(mod, testcaseclass):
     #print "entering list_testmethods"
     classlist = []
     if callable(getattr(mod, 'test_main', None)): 
+        from test import test_support  # humpf
         def hack_run_unittest(*classes): 
             classlist.extend(list(classes))
-        mod.test_support.run_unittest = hack_run_unittest 
+        test_support.run_unittest = hack_run_unittest 
         mod.test_main() 
-        mod.test_support.run_unittest = None 
+        assert classlist, ("found %s.test_main() but it returned no " 
+                           "test classes" % mod.__name__) 
+        test_support.run_unittest = None  # nobody should really 
+                                          # call it anymore 
     else: 
         # we try to find out fitting tests ourselves 
         for clsname, cls in mod.__dict__.items(): 
@@ -128,6 +132,7 @@ def Module(fspath):
         # ok this is an output test 
         return OutputTestItem(fspath, output) 
     content = fspath.read() 
+    # XXX not exactly clean: 
     if content.find('unittest') != -1: 
         # we can try to run ...  
         return UnittestModule(fspath) 

@@ -8,13 +8,10 @@ lib = lib.dirpath('lib-python-2.3.4', 'test')
 assert lib.check(dir=1) 
 conftest = lib.join('conftest.py').getpymodule() 
 
-class Module(conftest.Module): 
-    pass 
+def Module(fspath): 
+    return conftest.Module(fspath) 
 
-class Directory(conftest.Module): 
-    pass 
-
-#class Directory(py.test.collect.Directory): 
-#    def __iter__(self): 
-#        return iter([])
+class Directory(conftest.Directory): 
+    def __iter__(self): 
+        return iter([])
 
