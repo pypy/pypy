@@ -552,7 +552,7 @@ def IMPORT_NAME(f, nameindex):
 
 def IMPORT_STAR(f):
     w_module = f.valuestack.pop()
-    f.space.gethelper(appfile).call("import_star", [w_module, f.w_locals])
+    f.space.gethelper(appfile).call("import_all_from", [w_module, f.w_locals])
 
 def IMPORT_FROM(f, nameindex):
     name = f.getname(nameindex)
