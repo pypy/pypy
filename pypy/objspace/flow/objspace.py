@@ -182,7 +182,7 @@ class FlowObjSpace(ObjSpace):
 # ______________________________________________________________________
 
 implicit_exceptions = {
-    'getitem': [IndexError],
+    'getitem': [IndexError, KeyError],
     }
 
 def extract_cell_content(c):
@@ -207,8 +207,8 @@ def make_op(name, symbol, arity, specialnames):
         #    op = apply
         if name == 'issubtype':
             op = issubclass
-        elif name == 'id':
-            op = id
+        elif name == 'is_':
+            op = lambda x, y: x is y
         elif name == 'getattr':
             op = getattr
         else:

@@ -243,16 +243,12 @@ def mkentrymap(funcgraph):
 def checkgraph(graph):
     "Check the consistency of a flow graph."
     if __debug__:
+        this_block = [None]
         exitblocks = [graph.returnblock] + graph.exceptblocks.values()
-        for block in exitblocks:
-            assert len(block.inputargs) == 1
-            assert not block.operations
-            assert not block.exits
-
-        vars_previous_blocks = {}
-
+        
         def visit(block):
             if isinstance(block, Block):
+                this_block[0] = block
                 assert bool(block.isstartblock) == (block is graph.startblock)
                 if not block.exits:
                     assert block in exitblocks
@@ -291,4 +287,19 @@ def checkgraph(graph):
                             assert v in vars
                 vars_previous_blocks.update(vars)
 
-        traverse(visit, graph)
+        try:
+            for block in exitblocks:
+                this_block[0] = block
+                assert len(block.inputargs) == 1
+                assert not block.operations
+                assert not block.exits
+
+            vars_previous_blocks = {}
+
+            traverse(visit, graph)
+
+        except AssertionError, e:
+            # hack for debug tools only
+            if this_block[0] and not hasattr(e, '__annotator_block'):
+                setattr(e, '__annotator_block', this_block[0])
+            raise

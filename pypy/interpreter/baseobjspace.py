@@ -110,11 +110,11 @@ class ObjSpace(object):
     # that can be defined in term of more primitive ones.  Subclasses
     # may also override specific functions for performance.
 
-    def is_(self, w_x, w_y):
-        "'x is y'."
-        w_id_x = self.id(w_x)
-        w_id_y = self.id(w_y)
-        return self.eq(w_id_x, w_id_y)
+    #def is_(self, w_x, w_y):   -- not really useful.  Must be subclassed
+    #    "'x is y'."
+    #    w_id_x = self.id(w_x)
+    #    w_id_y = self.id(w_y)
+    #    return self.eq(w_id_x, w_id_y)
 
     def not_(self, w_obj):
         return self.wrap(not self.is_true(w_obj))
@@ -238,6 +238,7 @@ class ObjSpace(object):
 
 ObjSpace.MethodTable = [
 # method name # symbol # number of arguments # special method name(s)
+    ('is_',             'is',        2, []),
     ('id',              'id',        1, []),
     ('type',            'type',      1, []),
     ('issubtype',       'issubtype', 2, []),  # not for old-style classes
