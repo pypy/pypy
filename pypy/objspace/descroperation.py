@@ -155,6 +155,20 @@ class DescrOperation:
         return space.get_and_call_function(w_descr, w_obj)
         # XXX PyObject_Str() checks that the result is a string
 
+    def int(space, w_obj):
+        w_impl = space.lookup(w_obj, '__int__')
+        if w_impl is None:
+            raise OperationError(space.w_TypeError,
+                   space.wrap("operand does not support unary %s" % symbol))
+        w_result = space.get_and_call_function(w_impl, w_obj)
+
+        if space.is_true(space.isinstance(w_result, space.w_int)) or \
+           space.is_true(space.isinstance(w_result, space.w_long)):
+            return w_result
+        w_typename = space.getattr(space.type(w_result), space.wrap('__name__'))
+        w_msg = space.mod(space.wrap("__int__ returned non-int (%s)"), w_typename)
+        raise OperationError(space.w_TypeError, w_msg)
+
     def repr(space, w_obj):
         w_descr = space.lookup(w_obj, '__repr__')
         return space.get_and_call_function(w_descr, w_obj)

@@ -333,3 +333,8 @@ class AppTestInt:
         assert isinstance(j("100",2),j)
         raises(OverflowError,j,10000000000)
         raises(OverflowError,j,"10000000000")
+
+    def test_special_int_method(self):
+        class a:
+            def __int__(self): return None
+        raises(TypeError, int, a())
