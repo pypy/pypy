@@ -59,7 +59,7 @@ class object:
 _register(pypy.ObjectFactory, object)
 
 
-class bool(object):
+class bool(int):
 
     def __new__(cls, *args):
         if cls is bool:
@@ -175,6 +175,16 @@ class dict(object):
 
     def __repr__(self):
         return str(self)
+
+# add to dict all and only those methods that used to be defined in
+# objspace/std/dicttype.py, but get the implementations from the
+# excellent code in UserDict.DictMixin instead (no inheritance for
+# two reasons: we could not control what methods we get, and we do
+# not want DictMixin among user-visible __bases__).
+import UserDict
+for attribute in 'update popitem get setdefault pop'
+                 'iteritems iterkeys itervalues'.split():
+    setattr(dict, attribute, UserDict.DictMixin.__dict__[attribute])
 
 _register(pypy.DictObjectFactory, dict)
 
