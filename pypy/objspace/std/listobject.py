@@ -402,15 +402,15 @@ def list_remove__List_ANY(space, w_list, w_any):
     raise OperationError(space.w_ValueError,
                          space.wrap("list.remove(x): x not in list"))
 
-def list_index__List_ANY_Int_Int(space, w_list, w_any, w_start, w_stop):
+def list_index__List_ANY_ANY_ANY(space, w_list, w_any, w_start, w_stop):
     eq = space.eq
     items = w_list.ob_item
     size = w_list.ob_size
-    start = space.unwrap(w_start)
+    start = space.unwrap(w_start)   # XXX type check: int or clamped long
     if start < 0:
         start += size
     start = min(max(0,start),size)
-    stop = space.unwrap(w_stop)
+    stop = space.unwrap(w_stop)     # XXX type check: int or clamped long
     if stop < 0:
         stop += size
     stop = min(max(start,stop),size)
