@@ -65,5 +65,16 @@ class GenCLTestCase(test.IntTestCase):
         self.assertEquals(cl_bool(42), True)
         self.assertEquals(cl_bool(True), True)
 
+    #___________________________________
+    def two_plus_two():
+        array = [0] * 3
+        array[0] = 2
+        array[1] = 2
+        array[2] = array[0] + array[1]
+        return array[2]
+    def test_array(self):
+        cl_four = self.cl_func(self.two_plus_two)
+        self.assertEquals(cl_four(), 4)
+
 if __name__ == '__main__':
     test.main()

@@ -2,6 +2,9 @@ import autopath
 from pypy.translator.flowmodel import *
 from pypy.translator.annotation import Annotator
 
+from pypy.translator.peepfgt import register
+register()
+
 # For 2.2 -- sanxiyn
 if not isinstance(bool, type):
     class bool(int):
@@ -11,6 +14,7 @@ class Op:
     def __init__(self, gen, op):
         self.gen = gen
         self.str = gen.str
+        self.op = op
         self.opname = op.opname
         self.args = op.args
         self.result = op.result
@@ -21,12 +25,16 @@ class Op:
             default = self.op_default
             meth = getattr(self, "op_" + self.opname, default)
             meth()
+    def op_default(self):
+        print ";", self.op
+        print "; Op", self.opname, "is missing"
     binary_ops = {
         "add": "+",
         "inplace_add": "+", # weird, but it works
         "mod": "mod",
         "lt": "<",
         "eq": "=",
+        "getitem": "aref",
     }
     def op_binary(self, op):
         s = self.str
@@ -39,8 +47,15 @@ class Op:
         print "(setq", s(result), "(not"
         self.gen.emit_truth_test(arg1)
         print "))"
-    def op_default(self):
-        print "; Op", self.opname, "is missing"
+    def op_alloc_and_set(self):
+        s = self.str
+        result, (size, init) = self.result, self.args
+        print "(setq", s(result), "(make-array", s(size)
+        print ":initial-element", s(init), "))"
+    def op_setitem(self):
+        s = self.str
+        (array, index, element) = self.args
+        print "(setf (aref", s(array), s(index), ")", s(element), ")"
 
 class GenCL:
     def __init__(self, fun):
