@@ -24,5 +24,5 @@ def transform_allocate(self):
                                     (new_op,) +
                                     operations[i+2:])
 
-def register():
-    Annotator.simplify_hooks.append(transform_allocate)
+def register(ann):
+    ann.simplify_hooks.append(transform_allocate)

@@ -10,6 +10,7 @@ class Annotator:
 
     def __init__(self, flowgraph):
         self.flowgraph = flowgraph
+        self.simplify_hooks = []
 
     def build_types(self, input_arg_types):
         input_ann = AnnotationSet()
@@ -62,8 +63,6 @@ class Annotator:
                             # XXX check that w_kwargs is empty
                 newops.append(op)
             block.operations = tuple(newops)
-
-    simplify_hooks = []
 
     def simplify(self):
         self.simplify_calls()

@@ -2,8 +2,7 @@ import autopath
 from pypy.translator.flowmodel import *
 from pypy.translator.annotation import Annotator
 
-from pypy.translator.peepfgt import register
-register()
+from pypy.translator.peepfgt import register as fgt_register
 
 # For 2.2 -- sanxiyn
 if not isinstance(bool, type):
@@ -66,6 +65,7 @@ class GenCL:
     def annotate(self, input_arg_types):
         ann = Annotator(self.fun)
         ann.build_types(input_arg_types)
+        fgt_register(ann)
         ann.simplify()
         self.ann = ann
     def str(self, obj):
