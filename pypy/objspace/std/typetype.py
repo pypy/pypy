@@ -15,7 +15,7 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
         key = space.unwrap(w_key)
         assert isinstance(key, str)
         dict_w[key] = space.getitem(w_dict, w_key)
-    return W_TypeObject(space, name, bases_w, dict_w)
+    return W_TypeObject(space, name, bases_w or [space.w_object], dict_w)
 
 def descr_get__mro__(space, w_type):
     # XXX this should be inside typeobject.py

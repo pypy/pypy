@@ -82,7 +82,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.w_Exception = W_TypeObject(
             self,
             'Exception',
-            [],
+            [self.w_object],
             {'__init__': w_init,
              '__str__': w_str})
         done = {'Exception': self.w_Exception}
@@ -269,6 +269,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     unwrap  = MultiMethod('unwrap', 1, [])    # returns an unwrapped object
     is_true = MultiMethod('nonzero', 1, [])   # returns an unwrapped bool
     issubtype = MultiMethod('issubtype', 2, [])
+    id = MultiMethod('id', 1, [])
 
     class MM:
         "Container for multimethods."
@@ -293,9 +294,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
-    if (not hasattr(StdObjSpace.MM, _name) and     # XXX!
-        not isinstance(getattr(StdObjSpace, _name, None), MultiMethod)):
-        setattr(StdObjSpace.MM, _name, MultiMethod(_symbol, _arity, _specialnames))
+    if not hasattr(StdObjSpace.MM, _name):
+        if isinstance(getattr(StdObjSpace, _name, None), MultiMethod):
+            mm = getattr(StdObjSpace, _name)
+        else:
+            mm = MultiMethod(_symbol, _arity, _specialnames)
+        setattr(StdObjSpace.MM, _name, mm)
 
 
 # import the common base W_ObjectObject as well as
