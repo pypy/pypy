@@ -9,43 +9,63 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.pycode import PyCode
 debug = 0
 
-class TraceExecutionContext(ExecutionContext):
-
+class TraceExecutionContext(ExecutionContext):        
+        
     def bytecode_trace(self, frame):
         "Trace function called before each bytecode."
-        print "XXX %s, %s" % frame.examineop()
+        #print "XXX %s, %s" % frame.examineop()
+        self.space.notify_on_bytecode(frame)
+
+        
+    def dump(self):
+        bytecodes = self.list_of_bytecodes
+        self.list_of_bytecodes = []
+        return bytecodes
+    
+    
 
 class Logger(object):
-    def __init__(self, name, fn, printme):
+    def __init__(self, name, fn, space, printme):
         self.fn = fn
         self.name = name
+        self.space = space
         self.printme = printme
         
     def __call__(self, cls, *args, **kwds):
         print self.name
         #print "%s %s(%s, %s)" % (self.printme, , str(args), str(kwds)) 
+        self.space.notify_on_operation(self.name)
         return self.fn(*args, **kwds)
 
     def __getattr__(self, name):
         return getattr(self.fn, name)
 
+
+class InteractiveLogger(Logger):
+        
+    def __call__(self, cls, *args, **kwds):
+        res = Logger.__call__(self, cls, *args, **kwds)
+        raw_input()
+        return res
         
 # ______________________________________________________________________
 
-def Trace(spacecls = StdObjSpace):
+def Trace(spacecls = StdObjSpace, logger_cls = Logger):
 
     class TraceObjSpace(spacecls):
         full_exceptions = False
         
         def initialize(self):
+            self.log_list = []
+            self.current_frame = None
             spacecls.initialize(self)
-
+            self.current_frame = None
+            self.log_list = []
             method_names = [ii[0] for ii in ObjSpace.MethodTable]
             for key in method_names:
                 if key in method_names:
                     item = getattr(self, key)
-                    l = Logger(key, item, "class method")
-                    #print l
+                    l = logger_cls(key, item, self, "class method")
                     setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
 
         def createexecutioncontext(self):
@@ -53,6 +73,20 @@ def Trace(spacecls = StdObjSpace):
             return TraceExecutionContext(self)
 
 
+        def notify_on_bytecode(self, frame):
+            if self.current_frame is None:
+                self.current_frame = frame
+            elif self.current_frame is frame:
+                bytecode, name = frame.examineop()
+                self.log_list.append((name, []))
+
+
+        def notify_on_operation(self, name):
+            self.log_list[-1][1].append(name)
+
+        def dump(self):
+            return self.log_list
+        
     return TraceObjSpace()
 
 Space = Trace
@@ -78,3 +112,6 @@ if __name__ == "__main__":
         return b+1
 
     print runx(s, a, 1)
+
+    print ">>>>>>"
+    print s.dump()
