@@ -969,6 +969,11 @@ repr__String = gateway.app2interp(app_repr__String)
 
     
 def ord__String(space, w_str):
+    if len(w_str._value) != 1:
+        raise OperationError(
+            space.w_TypeError,
+            space.wrap("ord() expected a character, but string "
+                       "of length %d found"%(len(w_str._value),)))
     return space.wrap(ord(space.unwrap(w_str)))
 
 def app_mod__String_ANY(format, values):
