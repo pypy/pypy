@@ -38,6 +38,7 @@ class Bookkeeper:
         self.creationpoints = {} # map position-in-a-block to its Factory
         self.userclasses = {}    # map classes to ClassDefs
         self.userclasseslist = []# userclasses.keys() in creation order
+        self.attrs_read_from_constants = {}
 
     def enter(self, position_key):
         """Start of an operation.

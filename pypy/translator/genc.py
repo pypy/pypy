@@ -8,6 +8,7 @@ from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link, last_exception
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.translator.simplify import remove_direct_loops
+from types import FunctionType
 
 # ____________________________________________________________
 
@@ -73,6 +74,24 @@ class GenC:
         self.seennames[name] = True
         return name
 
+    def nameof_object(self, value):
+        if type(value) is not object:
+            raise Exception, "nameof(%r)" % (value,)
+        name = self.uniquename('g_object')
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*)&PyBaseObject_Type, ""))'%name)
+        return name
+
+    def nameof_module(self, value):
+##         assert not hasattr(value, "__file__") or \
+##                not (value.__file__.endswith('.pyc') or value.__file__.endswith('.py')), \
+##                "%r is not a builtin module (probably :)"%value
+        name = self.uniquename('mod%s'%value.__name__)
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('INITCHK(%s = PyImport_Import("%s"))'%(name, value.__name__))
+        return name
+        
+
     def nameof_int(self, value):
         if value >= 0:
             name = 'gint_%d' % value
@@ -103,6 +122,8 @@ class GenC:
         return name
 
     def nameof_function(self, func):
+        if self.translator.frozen:
+            assert func in self.translator.flowgraphs, func
         name = self.uniquename('gfunc_' + func.__name__)
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
@@ -110,6 +131,20 @@ class GenC:
         self.initcode.append('\t%s->ob_type = &PyGenCFunction_Type;' % name)
         self.pendingfunctions.append(func)
         return name
+
+    def nameof_staticmethod(self, sm):
+        # XXX XXX XXXX
+        func = sm.__get__(42.5)
+        if self.translator.frozen:
+            assert func in self.translator.flowgraphs, func
+            
+        name = self.uniquename('gsm_' + func.__name__)
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('INITCHK(%s = PyCFunction_New('
+                             '&ml_%s, NULL))' % (name, name))
+        self.pendingfunctions.append(func)
+        return name
+
 
     def nameof_instancemethod(self, meth):
         if meth.im_self is None:
@@ -125,7 +160,13 @@ class GenC:
                 'INITCHK(%s = gencfunc_descr_get(%s, %s, %s))'%(
                 us, func, ob, typ))
             return us
-                                   
+
+    def should_translate_attr(self, pbc, attr):
+        ann = self.translator.annotator
+        if ann is None:
+            return "good luck" # True
+        return attr in ann.getpbcattrs(pbc)
+
     def nameof_instance(self, instance):
         name = self.uniquename('ginst_' + instance.__class__.__name__)
         cls = self.nameof(instance.__class__)
@@ -133,8 +174,9 @@ class GenC:
             content = instance.__dict__.items()
             content.sort()
             for key, value in content:
-                yield 'INITCHK(SETUP_INSTANCE_ATTR(%s, "%s", %s))' % (
-                    name, key, self.nameof(value))
+                if self.should_translate_attr(instance, key):
+                    yield 'INITCHK(SETUP_INSTANCE_ATTR(%s, "%s", %s))' % (
+                        name, key, self.nameof(value))
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(SETUP_INSTANCE(%s, %s))' % (
             name, cls))
@@ -168,6 +210,9 @@ class GenC:
                         continue
                     # XXX some __NAMES__ are important... nicer solution sought
                     #raise Exception, "unexpected name %r in class %s"%(key, cls)
+                if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
+                    continue
+                    
                 yield 'INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
                     name, key, self.nameof(value))
         self.globaldecl.append('static PyObject* %s;' % name)
@@ -277,6 +322,10 @@ class GenC:
             del g[:]
 
     def gen_cfunction(self, func):
+##         print 'gen_cfunction (%s:%d) %s' % (
+##             func.func_globals.get('__name__', '?'),
+##             func.func_code.co_firstlineno,
+##             func.__name__)
         f = self.f
         body = list(self.cfunction_body(func))
         self.gen_global_declarations()

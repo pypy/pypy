@@ -82,6 +82,7 @@ if __name__ == '__main__':
 
     try:
         analyse()
+        t.frozen = True
         print '-'*60
         print 'Generating C code...'
         t.ccompile()

@@ -57,6 +57,7 @@ class Translator:
         self.flowgraphs = {}  # {function: graph}
         self.functions = []   # the keys of self.flowgraphs, in creation order
         self.callgraph = {}   # {opaque_tag: (caller, callee)}
+        self.frozen = False   # when frozen, no more flowgraphs can be generated
         self.getflowgraph()
 
     def getflowgraph(self, func=None, called_by=None, call_tag=None):
@@ -70,6 +71,7 @@ class Translator:
                     func.func_globals.get('__name__', '?'),
                     func.func_code.co_firstlineno,
                     func.__name__)
+            assert not self.frozen
             space = FlowObjSpace()
             graph = space.build_flow(func)
             if self.simplifying:

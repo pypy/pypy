@@ -9,6 +9,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeClass
 from pypy.annotation.model import SomeFunction, SomeMethod, SomeIterator
+from pypy.annotation.model import SomePrebuiltConstant
 from pypy.annotation.model import immutablevalue
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
@@ -179,3 +180,19 @@ class __extend__(SomeMethod):
             # call func(s_self, *arglist)
             results.append(factory.pycall(func, s_self, *args))
         return unionof(*results)
+
+class __extend__(SomePrebuiltConstant):
+    def getattr(pbc, s_attr):
+        assert s_attr.is_constant()
+        bookkeeper = getbookkeeper()
+        actuals = []
+        attr = s_attr.const
+        for c in pbc.prebuiltinstances:
+            bookkeeper.attrs_read_from_constants.setdefault(c, {})[attr] = True
+            if hasattr(c.value, attr):
+                actuals.append(immutablevalue(getattr(c.value, s_attr.const)))
+        return unionof(*actuals)
+
+    def setattr(pbc, s_attr, s_value):
+        raise Exception, "oops!"
+    
