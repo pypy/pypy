@@ -94,7 +94,10 @@ class UniqueList(list):
         except TypeError: # not hashable
             if arg not in self:
                 list.append(self, arg)
-            
+    def appendnew(self, arg):
+        "always append"
+        list.append(self, arg)
+        
 class GenRpy:
     def __init__(self, translator, modname=None):
         self.translator = translator
@@ -143,7 +146,6 @@ class GenRpy:
                         localnames[v.name] = ret = "v%d" % len(localnames)
                 return ret
             scorepos = n.rfind("_")
-            print n, scorepos
             if scorepos >= 0 and n[scorepos+1:].isdigit():
                 name = n[:scorepos]
                 ret = localnames.get(v.name)
@@ -153,7 +155,6 @@ class GenRpy:
                     else:
                         fmt = "%s_%d"
                     localnames[v.name] = ret = fmt % (name, len(localnames))
-                print ret
                 return ret
         elif isinstance(v, Constant):
             return self.nameof(v.value,
@@ -558,8 +559,16 @@ class GenRpy:
                     name, self.nameof(key), self.nameof(value))
 
         baseargs = ", ".join(basenames)
-        self.initcode.append('_dic = space.newdict([])\n'
-                             '_bases = space.newtuple([%(bases)s])\n'
+        if cls.__doc__ is not None:
+            sdoc = self.nameof("__doc__")
+            lines = list(self.render_docstr(cls, "_doc = space.wrap("))
+            lines[-1] +=")"
+            self.initcode.extend(lines)
+            self.initcode.appendnew('_dic = space.newdict([(%s, %s)])' % (
+                self.nameof("__doc__"), "_doc") )
+        else:
+            self.initcode.appendnew('_dic = space.newdict([])')
+        self.initcode.append('_bases = space.newtuple([%(bases)s])\n'
                              '_args = space.newtuple([%(name)s, _bases, _dic])\n'
                              'm.%(klass)s = space.call(%(meta)s, _args)'
                              % {"bases": baseargs,
@@ -782,14 +791,13 @@ class GenRpy:
         doc = func.__doc__
         if doc is None:
             return []
-        doc2 = ""
+        doc = indent_str + q + doc.replace(q, "\\"+q) + q
+        doc2 = doc
         if q in doc and redo:
             doc2 = self.render_docstr(func, indent_str, "'''", False)
-        doc = indent_str + q + doc.replace(q, "\\"+q) + q
         if not redo:
             return doc # recursion case
         doc = (doc, doc2)[len(doc2) < len(doc)]
-        assert func.__doc__ == eval(doc, {}), "check geninterplevel!!"
         return [line for line in doc.split('\n')]
     
     def gen_rpyfunction(self, func):
@@ -1224,16 +1232,28 @@ def test_struct():
     res2 = struct.unpack('f', struct.pack('f',1.23))
     return res1, res2
 
-def test_exceptions():
+def test_exceptions_helper():
+    def demoduliseDict(mod):
+        # get the raw dict without module stuff like __builtins__
+        dic = mod.__dict__.copy()
+        bad = ("__builtins__", )  # anything else?
+        for name in bad:
+            if name in dic:
+                del dic[name]
+        return dic
     from pypy.appspace import _exceptions
-    _exceptions.Exception()
-    #return [thing for thing in _exceptions.__dict__.values()]
-    
+    a = demoduliseDict(_exceptions)
+    def test_exceptions():
+        """ enumerate all exceptions """
+        return a.keys()
+        #return [thing for thing in _exceptions.__dict__.values()]
+    return test_exceptions
+
 def all_entries():
-    res = [func() for func in entry_points[:-1]]
+    res = [func() for func in entrypoints[:-1]]
     return res
 
-entry_points = (small_loop,
+entrypoints = (small_loop,
                 lambda: f(2, 3),
                 lambda: ff(2, 3, 5),
                 fff,
@@ -1244,9 +1264,9 @@ entry_points = (small_loop,
                 test_iter,
                 test_strutil,
                 test_struct,
-                test_exceptions,
+                test_exceptions_helper,
                 all_entries)
-entry_point = entry_points[-2]
+entrypoint = entrypoints[-2]
 
 if __name__ == "__main__":
     import os, sys
@@ -1257,7 +1277,9 @@ if __name__ == "__main__":
     if appdir not in sys.path:
         sys.path.insert(0, appdir)
 
-    t = Translator(entry_point, verbose=False, simplifying=True)
+    if entrypoint.__name__.endswith("_helper"):
+        entrypoint = entrypoint()
+    t = Translator(entrypoint, verbose=False, simplifying=True)
     gen = GenRpy(t)
     gen.use_fast_call = True
     import pypy.appspace.generated as tmp
