@@ -56,6 +56,9 @@ class MultiMethod(object):
                 delegators.update(getattr(nexttype, "delegate_once", {}))
                 # before general delegation, try superclasses
                 if not nexttype.__bases__:
+                    # debugging assertion
+                    assert nexttype.__name__ == 'W_Object',  \
+                    "calling a multimethod with an argument which is not wrapped"
                     break
                 nexttype, = nexttype.__bases__ # no multiple inheritance pleeease
             for othertype, delegator in delegators.items():

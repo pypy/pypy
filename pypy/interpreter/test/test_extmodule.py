@@ -51,7 +51,7 @@ class TestBuiltinModule(testsupport.TestCase):
             {'__doc__': BM_with_appmethod.__doc__,
             '__name__': BM_with_appmethod.__pythonname__,
             'amethod': BM_with_appmethod.amethod} )
-        result = space.call(w_method, space.wrap(()), None)
+        result = space.call(w_method, space.wrap(()), space.wrap({}))
         self.assertEqual(result, 23)
 
     def test_appdata(self):
