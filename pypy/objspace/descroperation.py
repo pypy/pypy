@@ -90,8 +90,10 @@ class DescrOperation:
                 return w_result
         w_descr = space.lookup(w_obj, '__call__')
         if w_descr is None:
-            raise OperationError(space.w_TypeError, 
-                                 space.wrap('object %r is not callable' % (w_obj,)))
+            raise OperationError(
+                space.w_TypeError, 
+                space.mod(space.wrap('object %r is not callable'),
+                          space.newtuple([w_obj])))
         return space.get_and_call_args(w_descr, w_obj, args)
 
     def get(space, w_descr, w_obj, w_type=None):
