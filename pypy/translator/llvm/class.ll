@@ -3,13 +3,17 @@
 %std.class = type {%std.class*, uint}
 %std.object = type {%std.class*}
 
+%std.list.sbyte = type {uint, sbyte*}
+%std.exception = type {%std.class*, %std.list.sbyte*}
+%std.last_exception.type = internal global %std.class {%std.class* null, uint 0}
+%std.last_exception.value = internal global %std.exception {%std.class* null, %std.list.sbyte* null}
 
 implementation
 
 
 ;functions for type info at runtime
 
-bool %std.issubtype(%std.class* %a, %std.class* %b) {
+internal bool %std.issubtype(%std.class* %a, %std.class* %b) {
 entry:
 	br label %not_null		
 not_null:
@@ -28,7 +32,7 @@ return:
 	ret bool %result
 }
 
-bool %std.isinstance(%std.object* %a, %std.class* %b) {
+internal bool %std.isinstance(%std.object* %a, %std.class* %b) {
 entry:
 	%baseptr = getelementptr %std.object* %a, int 0, uint 0
 	%class = load %std.class** %baseptr
@@ -36,5 +40,9 @@ entry:
 	ret bool %result
 }
 
-
+internal bool %std.is_(%std.class* %a, %std.class* %b) {
+entry:
+	%result = seteq %std.class* %a, %b
+	ret bool %result
+}
 

@@ -266,3 +266,16 @@ def tuple_f2(i):
 def tuple_f3(i):
     j, s1, s2, l = tuple_f2(i)
     return j
+
+
+#exception snippets:
+def two_exceptions(n):
+    lst = range(10)
+    try:
+        lst[n]
+    except IndexError:
+        return 2
+    except KeyError:
+        return 3
+    return 4
+

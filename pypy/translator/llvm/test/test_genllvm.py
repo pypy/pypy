@@ -5,16 +5,15 @@ import StringIO
 
 from pypy.translator.translator import Translator
 from pypy.translator.llvm.genllvm import LLVMGenerator
+from pypy.translator.llvm.test import llvmsnippet
 from pypy.translator.test import snippet as test
 from pypy.objspace.flow.model import Constant, Variable
-
-from pypy.translator.llvm.test import llvmsnippet
 
 def setup_module(mod): 
     mod.llvm_found = is_on_path("llvm-as")
 
 def compile_function(function, annotate):
-    t = Translator(function, simplifying=True)
+    t = Translator(function)
     a = t.annotate(annotate)
     a.simplify()
     gen = LLVMGenerator(t)

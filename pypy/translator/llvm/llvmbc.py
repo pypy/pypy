@@ -73,9 +73,6 @@ class BasicBlock(object):
         self.instructions.append(s +
             ", ".join([a.typed_name() for a in l_args]) + ")")
 
-    def invoke(self, l_target, l_func, l_args, errorblock):
-        pass
-
     def ret(self, l_value):
         self.instructions.append("ret %s" % l_value.typed_name())
 
@@ -138,10 +135,54 @@ class BasicBlock(object):
         return "".join(s)
 
 
-class ExceptionBasicBlock(BasicBlock):
+class TryBasicBlock(BasicBlock):
     def __init__(self, label, regularblock, exceptblock):
         self.label = label
         self.exceptblock = exceptblock
         self.regularblock = regularblock
         self.llvmblocks = []
         self.instructions = []
+        self.finalized = False
+
+    def invoke(self, l_target, l_func, l_args):
+        if l_target.llvmtype() == "void":
+            s = "invoke void %s(" % l_func.llvmname()
+        elif  l_target.llvmtype() == "%std.void":
+            s = "invoke %std.void %s(" % l_func.llvmname()
+        else:
+            s = "%s = invoke %s %s(" % (l_target.llvmname(),
+                                        l_target.llvmtype(), l_func.llvmname())
+        s += ", ".join([a.typed_name() for a in l_args]) + ")"
+        s += "\n\t\tto label %s.%i\n\t\texcept label %s" % \
+             (self.label, len(self.llvmblocks), self.exceptblock)
+        self.instructions.append(s)
+        self.llvmblocks.append(self.instructions)
+        self.instructions = []
+
+    def invoke_void(self, l_func, l_args):
+        s = "call %s %s(" % (l_func.rettype(), l_func.llvmname())
+        s += ", ".join([a.typed_name() for a in l_args]) + ")"
+        s += "\n\t\tto label %s.%i\n\t\texcept label %s" % \
+             (self.label, len(self.llvmblocks), self.exceptblock)
+        self.instructions.append(s)
+        self.llvmblocks.append(self.instructions)
+        self.instructions = []
+
+    def __str__(self):
+        if not self.finalized:
+            self.uncond_branch(self.regularblock)
+            self.llvmblocks.append(self.instructions)
+            self.instructions = []
+            self.finalized = True
+        s = []
+        for i, instrs in enumerate(self.llvmblocks):
+            if i == 0:
+                label = self.label
+            else:
+                label = "%s.%i" % (self.label, i - 1)
+            s.append(label + ":\n")
+            for ins in instrs:
+                s.append("\t%s\n" % ins)
+        return "".join(s)
+            
+            

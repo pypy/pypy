@@ -1,7 +1,7 @@
 import autopath
 import exceptions, sets, StringIO
 
-from types import FunctionType, MethodType
+from types import FunctionType, MethodType, ClassType
 import new
 
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
@@ -10,9 +10,8 @@ from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.annotation.classdef import ClassDef
-from pypy.translator import transform
 from pypy.translator.llvm import llvmbc
-
+from pypy.translator.unsimplify import remove_double_links
 
 INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is", "is_true", "len",
                  "neg", "pos", "invert", "add", "sub", "mul", "truediv",
@@ -492,18 +491,26 @@ class IntTypeRepr(TypeRepr):
         lblock.cast(l_tmp, l_val, l_type)
         return l_tmp
 
+class ClassObjectRepr(TypeRepr):
+    def get(obj, gen):
+        pass
+    get = staticmethod(get)
+
 
 class SimpleTypeRepr(TypeRepr):
     def get(obj, gen):
         if obj.__class__ is annmodel.SomeInteger:
             l_repr = SimpleTypeRepr("int", gen)
-            return l_repr            
+            return l_repr
         elif obj.__class__ is annmodel.SomeBool:
             l_repr = SimpleTypeRepr("bool", gen)
-            return l_repr            
+            return l_repr
         elif obj.__class__ is annmodel.SomeChar:
             l_repr = SimpleTypeRepr("sbyte", gen)
-            return l_repr            
+            return l_repr
+        elif obj.__class__ is annmodel.SomePBC:
+            if obj.knowntype == object or obj.knowntype == ClassType:
+                return SimpleTypeRepr("%std.class", gen)
         return None
     get = staticmethod(get)
 
@@ -552,8 +559,8 @@ class ClassRepr(TypeRepr):
         if obj.__class__ is Constant:
             bind = gen.annotator.binding(obj)
             if bind.__class__ is annmodel.SomePBC and \
-               bind.const.__class__ == type:
-                classdef = gen.annotator.bookkeeper.userclasses[bind.const]
+                gen.annotator.bookkeeper.userclasses.has_key(bind.const):
+                    classdef = gen.annotator.bookkeeper.userclasses[bind.const]
         elif isinstance(obj, annmodel.SomeInstance):
             classdef = obj.classdef
         elif isinstance(obj, ClassDef):
@@ -650,6 +657,7 @@ class ClassRepr(TypeRepr):
         #XXXX: Ouch. I get bitten by the fact that
         #      in LLVM typedef != class object
         # This will work, as long as class objects are only passed to functions
+        # (as opposed to used in LLVM instructions)
         return "%%std.class* %s" % self.objectname
 
     def op_simple_call(self, l_target, args, lblock, l_func):
@@ -731,6 +739,58 @@ class ClassRepr(TypeRepr):
             for l_c in l_cls.iter_subclasses():
                 yield l_c
 
+class ExceptionTypeRepr(TypeRepr):
+    def get(obj, gen):
+        try:
+            if isinstance(obj, Constant):
+                if issubclass(obj.value, Exception):
+                    return ExceptionTypeRepr(obj.value, gen)
+                return None
+            elif issubclass(obj, Exception):
+                return ExceptionTypeRepr(obj, gen)
+        except TypeError:
+            pass
+        return None
+    get = staticmethod(get)
+
+    def __init__(self, exception, gen):
+        if debug:
+            print "ExceptionTypeRepr: %s" % exception
+        self.gen = gen
+        self.exception = exception
+        self.name = "%std.exception"
+        self.objectname = gen.get_global_tmp("class.%s.object" %
+                                             self.exception.__name__)
+        s = "%s = internal global %%std.class {%%std.class* null, uint %i}"
+        self.definition = s % (self.objectname, abs(id(exception)))
+        self.dependencies = sets.Set()
+
+    def setup(self):
+        if len(self.exception.__bases__) != 0:
+            self.l_base = self.gen.get_repr(self.exception.__bases__[0])
+            self.dependencies.add(self.l_base)
+        else:
+            self.l_base = None
+
+    def llvmname(self):
+        return "%std.exception* "
+
+    def llvmtype(self):
+        return "%std.class* "
+
+    def typed_name(self):
+        return "%%std.class* %s" % self.objectname
+
+    def collect_init_code(self, lblock, l_func):
+        if self.l_base is None:
+            return
+        l_tmp = self.gen.get_local_tmp(None, l_func)
+        i = "%s = getelementptr %%std.class* %s, int 0, uint 0" % \
+            (l_tmp.llvmname(), self.objectname)
+        lblock.instruction(i)
+        lblock.instruction("store %%std.class* %s, %%std.class** %s" %
+                           (self.l_base.objectname, l_tmp.llvmname()))
+
 class BuiltinFunctionRepr(LLVMRepr):
     def get(obj, gen):
         if isinstance(obj, Constant) and \
@@ -796,6 +856,7 @@ class FunctionRepr(LLVMRepr):
         self.allblocks = []
         self.pyrex_source = ""
         self.dependencies = sets.Set()
+        remove_double_links(self.translator, self.graph)
         self.get_bbs()
         self.se = False
 
@@ -822,10 +883,19 @@ class FunctionRepr(LLVMRepr):
         self.same_origin_block = [False] * len(self.allblocks)
 
     def build_bbs(self):
+        checkgraph(self.graph)
         a = self.annotator
         for number, pyblock in enumerate(self.allblocks):
-            lblock = llvmbc.BasicBlock("block%i" % number)
             pyblock = self.allblocks[number]
+            is_tryblock = isinstance(pyblock.exitswitch, Constant) and \
+                          pyblock.exitswitch == last_exception
+            if is_tryblock:
+                regularblock = "block%i" % self.blocknum[self.exits[0].target]
+                exceptblock = "block%i" % self.blocknum[self.exits[1].target]
+                pyblock = llvmbc.TryBasicBlock("block%i" % number,
+                                               regularblock, exceptblock)
+            else:
+                lblock = llvmbc.BasicBlock("block%i" % number)
             if number == 0:
                 self.llvm_func = llvmbc.Function(self.llvmfuncdef(), lblock)
             else:
@@ -836,25 +906,18 @@ class FunctionRepr(LLVMRepr):
                 if isinstance(node, Link) and node.target == pyblock:
                     incoming_links.append(node)
             traverse(visit, self.graph)
-            #special case if the incoming links are from the same block
-            if len(incoming_links) == 2 and \
-               incoming_links[0].prevblock == incoming_links[1].prevblock:
-                for i, arg in enumerate(pyblock.inputargs):
-                    l_select = self.gen.get_repr(
-                        incoming_links[0].prevblock.exitswitch)
-                    l_arg = self.gen.get_repr(arg)
-                    l_v1 = self.gen.get_repr(incoming_links[1].args[i])
-                    l_v2 = self.gen.get_repr(incoming_links[0].args[i])
-                    self.dependencies.update([l_arg, l_switch, l_v1, l_v2])
-                    lblock.select(l_arg, l_select, l_v1, l_v2)
-            elif len(incoming_links) != 0:
+            if len(incoming_links) != 0:
                 for i, arg in enumerate(pyblock.inputargs):
                     l_arg = self.gen.get_repr(arg)
                     l_values = [self.gen.get_repr(l.args[i])
                                 for l in incoming_links]
                     for j in range(len(l_values)):
                         if l_values[j].llvmtype() != l_arg.llvmtype():
-                            l_values[j] = l_values[j].alt_types[l_arg.llvmtype()]
+                            try:
+                                l_values[j] = \
+                                        l_values[j].alt_types[l_arg.llvmtype()]
+                            except KeyError:
+                                pass
                     self.dependencies.add(l_arg)
                     self.dependencies.update(l_values)
                     lblock.phi(l_arg, l_values,
@@ -886,7 +949,7 @@ class FunctionRepr(LLVMRepr):
             # XXX: If a variable is passed to another block and has a different
             # type there, we have to make the cast in this block since the phi
             # instructions in the next block cannot be preceded by any other
-            # instrcution
+            # instruction
             for link in pyblock.exits:
                 for i, arg in enumerate(link.args):
                     localtype = self.annotator.binding(arg)
@@ -903,13 +966,17 @@ class FunctionRepr(LLVMRepr):
                         l_local.alt_types = {l_targettype.llvmname(): l_tmp}
             #Create branches
             if pyblock.exitswitch is None:
-                if pyblock.exits == ():
+                if pyblock == self.graph.returnblock:
                     l_returnvalue = self.gen.get_repr(pyblock.inputargs[0])
                     self.dependencies.add(l_returnvalue)
                     lblock.ret(l_returnvalue)
                 else:
                     lblock.uncond_branch(
                         "%%block%i" % self.blocknum[pyblock.exits[0].target])
+            elif isinstance(pyblock.exitswitch, Constant) and \
+                 pyblock.exitswitch.value == last_exception:
+                lblock.uncond_branch(
+                    "%%block%i" % self.blocknum[pyblock.exits[0].target])
             else:
                 assert isinstance(a.binding(pyblock.exitswitch),
                                   annmodel.SomeBool)
