@@ -163,6 +163,7 @@ class ObjSpace:
         w_objtype = self.type(w_obj)
         return self.issubtype(w_objtype, w_type)
 
+
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result
 ## (if any).  XXX Maybe we should say that these methods must be accessed
@@ -230,7 +231,7 @@ ObjSpace.MethodTable = [
     ('iter',            'iter',      1, ['__iter__']),
     ('call',            'call',      3, ['__call__']),
     ('get',             'get',       3, ['__get__']),
-    ('set',             'set',       2, ['__set__']),
+    ('set',             'set',       3, ['__set__']),
     ('delete',          'delete',    2, ['__delete__']),
     ]
 
