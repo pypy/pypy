@@ -15,7 +15,11 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
         key = space.unwrap(w_key)
         assert isinstance(key, str)
         dict_w[key] = space.getitem(w_dict, w_key)
-    # XXX classmethod-ify w_dict['__new__']
+    # make '__new__' an unbound method on w_typetype
+    # XXX check if this is correct in all cases
+    if '__new__' in dict_w:
+        dict_w['__new__'] = space.get(dict_w['__new__'],
+                                      space.w_None, w_typetype)
     w_type = W_TypeObject(space, name, bases_w or [space.w_object], dict_w, None)
     return space.w_type.check_user_subclass(w_typetype, w_type)
 
