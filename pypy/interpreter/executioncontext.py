@@ -150,13 +150,16 @@ class NoValue(Exception):
 
 # Utilities
 
-def inlinecompile(source, symbol='exec'):
+def inlinecompile(source, space, symbol='exec'):
     """Compile the given 'source' string.
     This function differs from the built-in compile() because it abuses
     co_filename to store a copy of the complete source code.
     This lets OperationError.print_application_traceback() print the
     actual source line in the traceback."""
-    return compile(source, '<inline>\n' + source, symbol)
+    compile = space.builtin.compile
+    w = space.wrap
+    return compile(w(source), w('<inline>\n%s'%source), w(symbol), w(0), w(0))
+
 
 def offset2lineno(c, stopat):
     tab = c.co_lnotab
