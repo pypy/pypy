@@ -113,10 +113,13 @@ def eval_helper(self, typename, expr):
     return name
 
 class GenRpy:
-    def __init__(self, translator, modname=None):
+    def __init__(self, translator, entrypoint=None, modname=None):
         self.translator = translator
+        if entrypoint is None:
+            entrypoint = translator.entrypoint
+        self.entrypoint = entrypoint
         self.modname = self.trans_funcname(modname or
-                        uniquemodulename(translator.functions[0].__name__))
+                        uniquemodulename(entrypoint))
         self.moddict = None # the dict if we translate a module
         self.rpynames = {Constant(None).key:  'space.w_None',
                          Constant(False).key: 'space.w_False',
@@ -794,11 +797,9 @@ class GenRpy:
         f = self.f
         info = {
             'modname': self.modname,
-            'entrypointname': self.trans_funcname(
-                self.translator.functions[0].__name__),
-            'entrypoint': self.nameof(self.translator.functions[0]),
+             # the side-effects of this kick-start the process
+            'entrypoint': self.nameof(self.entrypoint),
             }
-        self.entrypoint = info['entrypoint']
         # header
         print >> f, self.RPY_HEADER
         print >> f
@@ -814,10 +815,11 @@ class GenRpy:
             self.seennames["__doc__"] = 1
             self.initcode.append("m.__doc__ = space.wrap(m.__doc__)")
         # function implementations
-        while self.pendingfunctions:
-            func = self.pendingfunctions.pop()
-            self.currentfunc = func
-            self.gen_rpyfunction(func)
+        while self.pendingfunctions or self.latercode:
+            if self.pendingfunctions:
+                func = self.pendingfunctions.pop()
+                self.currentfunc = func
+                self.gen_rpyfunction(func)
             # collect more of the latercode after each function
             while self.latercode:
                 gen, self.debugstack = self.latercode.pop()
@@ -829,7 +831,7 @@ class GenRpy:
 
         # set the final splitter
         print >> f, "##SECTION##"
-        # footer
+        # footer, init code
         print >> f, self.RPY_INIT_HEADER % info
         for codelines in self.initcode:
             # keep docstrings unindented
@@ -842,9 +844,15 @@ class GenRpy:
                 codelines = codelines.split("\n")
             for codeline in codelines:
                 print >> f, indent + codeline
-        print >> f, self.RPY_INIT_FOOTER % info
+
+        self.gen_trailer(info, "    ")
+                         
         f.close()
 
+    def gen_trailer(self, info, indent):
+        info['entrypointname'] = self.trans_funcname(self.entrypoint.__name__)
+        print >> self.f, self.RPY_INIT_FOOTER % info
+       
     def gen_global_declarations(self):
         g = self.globaldecl
         if g:
@@ -1131,7 +1139,7 @@ if __name__ == "__main__":
     from pypy.objspace.std.model import UnwrapError
     space = StdObjSpace()
     init%(modname)s(space)
-    ret = space.call(gfunc_%(entrypointname)s, space.newtuple([]))
+    ret = space.call(%(entrypoint)s, space.newtuple([]))
     try:
         print space.unwrap(ret)
     except UnwrapError:
@@ -1360,8 +1368,8 @@ if __name__ == "__main__":
     # extract certain stuff like a general module maker
     # and put this into tools/compile_exceptions, maybe???
     dic, entrypoint = exceptions_helper()
-    t = Translator(entrypoint, verbose=False, simplifying=True)
-    gen = GenRpy(t)
+    t = Translator(None, verbose=False, simplifying=True)
+    gen = GenRpy(t, entrypoint)
     gen.use_fast_call = True
     gen.moddict = dic
     gen.gen_source('/tmp/look.py')
