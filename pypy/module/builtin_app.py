@@ -48,3 +48,27 @@ def isinstance(obj, klass_or_tuple):
        except TypeError:
           raise TypeError, "isinstance() arg 2 must be a class or type"
  
+def range(x, y=None, step=1):
+    "docstring"
+
+    if y is None:
+        start = 0
+        stop = x
+    else:
+        start = x
+        stop = y
+
+    arr = []
+    i = start
+    if step == 0:
+        raise ValueError, 'range() arg 3 must not be zero'
+    elif step > 0:
+        while i < stop:
+            arr.append(i)
+            i += step
+    else:
+        while i > stop:
+            arr.append(i)
+            i += step
+
+    return arr
