@@ -1,7 +1,3 @@
-# XXX
-# This file is almost auto-generated now and yet
-# not ableto adopt changes by hand. Please don't edit now.
-
 class Exception:
     """Common base class for all exceptions."""
 
@@ -14,8 +10,14 @@ class Exception:
         self.args = args
 
     # auto-generated code, please check carefully!
-    # please implement Exception.__str__
-    # instantiation of Exception works with 13119 solutions
+    def __str__(self):
+        argc = len(self.args)
+        if argc == 0:
+            return ''
+        elif argc == 1:
+            return str(self.args[0])
+        else:
+            return str(self.args)
 
 class StandardError(Exception):
     """Base class for all standard Python exceptions."""
@@ -36,12 +38,26 @@ class UnicodeTranslateError(UnicodeError):
     """Unicode translation error."""
 
     # auto-generated code, please check carefully!
-    ##def __init__(self, *args):
-    ##    pass
-    ## completely wrong
+    def __init__(self, *args):
+        argc = len(args)
+        self.args = args # modified: always assign args, no error check
+        if argc == 4:
+            self.object = args[0]
+            self.start = args[1]
+            self.end = args[2]
+            self.reason = args[3]
+
     # auto-generated code, please check carefully!
-    # please implement UnicodeTranslateError.__str__
-    # instantiation of UnicodeTranslateError works with 1 solutions
+    def __str__(self):
+        # this is a bad hack, please supply an implementation
+        res = ' '.join([
+           'start=%s' % self.start),
+           'reason=%s' % self.reason),
+           'args=%s' % self.args),
+           'end=%s' % self.end),
+           'object=%s' % self.object),
+        ])
+        return res
 
 class LookupError(StandardError):
     """Base class for lookup errors."""
@@ -50,8 +66,14 @@ class KeyError(LookupError):
     """Mapping key not found."""
 
     # auto-generated code, please check carefully!
-    # please implement KeyError.__str__
-    # instantiation of KeyError works with 13119 solutions
+    def __str__(self):
+        argc = len(self.args)
+        if argc == 0:
+            return ''
+        elif argc == 1:
+            return repr(self.args[0])
+        else:
+            return str(self.args)
 
 class Warning(Exception):
     """Base class for warning categories."""
@@ -69,12 +91,29 @@ class EnvironmentError(StandardError):
     """Base class for I/O related errors."""
 
     # auto-generated code, please check carefully!
-    ##def __init__(self, *args):
-    ##    pass
-    ## completely wrong
+    def __init__(self, *args):
+        argc = len(args)
+        self.args = args
+        self.errno = None # default, hopefully
+        self.strerror = None # default, hopefully
+        self.filename = None # default, hopefully
+        if 2 <= argc <= 3:
+            self.errno = args[0]
+            self.strerror = args[1]
+        if argc == 3:
+            self.filename = args[2]
+            self.args = (args[0], args[1])
+
     # auto-generated code, please check carefully!
-    # please implement EnvironmentError.__str__
-    # instantiation of EnvironmentError works with 13119 solutions
+    def __str__(self):
+        # this is a bad hack, please supply an implementation
+        res = ' '.join([
+           'errno=%s' % self.errno),
+           'args=%s' % self.args),
+           'strerror=%s' % self.strerror),
+           'filename=%s' % self.filename),
+        ])
+        return res
 
 class OSError(EnvironmentError):
     """OS system call failed."""
@@ -86,12 +125,28 @@ class UnicodeEncodeError(UnicodeError):
     """Unicode encoding error."""
 
     # auto-generated code, please check carefully!
-    ##def __init__(self, *args):
-    ##    pass
-    ## completely wrong
+    def __init__(self, *args):
+        argc = len(args)
+        self.args = args # modified: always assign args, no error check
+        if argc == 5:
+            self.encoding = args[0]
+            self.object = args[1]
+            self.start = args[2]
+            self.end = args[3]
+            self.reason = args[4]
+
     # auto-generated code, please check carefully!
-    # please implement UnicodeEncodeError.__str__
-    # instantiation of UnicodeEncodeError works with 1 solutions
+    def __str__(self):
+        # this is a bad hack, please supply an implementation
+        res = ' '.join([
+           'object=%s' % self.object),
+           'end=%s' % self.end),
+           'encoding=%s' % self.encoding),
+           'args=%s' % self.args),
+           'start=%s' % self.start),
+           'reason=%s' % self.reason),
+        ])
+        return res
 
 class ArithmeticError(StandardError):
     """Base class for arithmetic errors."""
@@ -121,12 +176,24 @@ class SyntaxError(StandardError):
     text = None
 
     # auto-generated code, please check carefully!
-    ##def __init__(self, *args):
-    ##    pass
-    ## completely wrong
+    def __init__(self, *args):
+        argc = len(args)
+        self.args = args
+        if argc >= 1:
+            self.msg = args[0]
+        if argc == 2:
+            self.filename = args[1][0]
+            self.lineno = args[1][1]
+            self.offset = args[1][2]
+            self.text = args[1][3]
+
     # auto-generated code, please check carefully!
-    # please implement SyntaxError.__str__
-    # instantiation of SyntaxError works with 13116 solutions
+    def __str__(self):
+        # this is a bad hack, please supply an implementation
+        res = ' '.join([
+           'args=%s' % self.args),
+        ])
+        return res
 
 class FutureWarning(Warning):
     """Base class for warnings about constructs that will change semantically in the future."""
@@ -136,12 +203,13 @@ class SystemExit(Exception):
 
     # auto-generated code, please check carefully!
     def __init__(self, *args):
+        argc = len(args)
+        if argc == 0:
+            self.code = None # default, hopefully
         self.args = args
-        if len(args) == 0:
-            self.code = None
-        elif len(args) == 1:
+        if argc == 1:
             self.code = args[0]
-        else:
+        if argc >= 2:
             self.code = args
 
 class EOFError(StandardError):
@@ -169,12 +237,28 @@ class UnicodeDecodeError(UnicodeError):
     """Unicode decoding error."""
 
     # auto-generated code, please check carefully!
-    ##def __init__(self, *args):
-    ##    pass
-    ## completely wrong
+    def __init__(self, *args):
+        argc = len(args)
+        self.args = args # modified: always assign args, no error check
+        if argc == 5:
+            self.encoding = args[0]
+            self.object = args[1]
+            self.start = args[2]
+            self.end = args[3]
+            self.reason = args[4]
+
     # auto-generated code, please check carefully!
-    # please implement UnicodeDecodeError.__str__
-    # instantiation of UnicodeDecodeError works with 1 solutions
+    def __str__(self):
+        # this is a bad hack, please supply an implementation
+        res = ' '.join([
+           'object=%s' % self.object),
+           'end=%s' % self.end),
+           'encoding=%s' % self.encoding),
+           'args=%s' % self.args),
+           'start=%s' % self.start),
+           'reason=%s' % self.reason),
+        ])
+        return res
 
 class TypeError(StandardError):
     """Inappropriate argument type."""
