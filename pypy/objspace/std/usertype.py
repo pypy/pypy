@@ -44,7 +44,7 @@ class W_UserType(W_TypeObject):
 # XXX we'll worry about the __new__/__init__ distinction later
 def usertype_new(space, w_usertype, w_args, w_kwds):
     from userobject import W_UserObject
-    newobj = W_UserObject(space, w_usertype)
+    newobj = W_UserObject(space, w_usertype, w_args, w_kwds)
     try:
         init = space.getattr(newobj, space.wrap('__init__'))
     except OperationError, err:
