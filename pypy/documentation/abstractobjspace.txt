@@ -1,0 +1,16 @@
+=======================
+AbstractObjectSpace
+=======================
+
+We currently don't really have an AbstractObjSpace but an AnnotateObjSpace_ (or AnnSpace for short)
+which comes close to it.  Abstract Interpretation means to the bytecode instructions of a program like an interpreter does but with abstract objects instead of concrete ones. Remember that in PyPy this is done by using alternate object spaces with the same interpreter main loop.
+
+The most abstract object space is the one manipulating the most abstract objects that you could imagine: they are all equivalent, because we have abstracted away any information about the object. There is actually only one of them left, and we can call it "the object". In Python terms, our AbstractObjectSpace uses None for all its wrapped objects. Any operation between wrapped objects gives None again as the wrapped result -- there is nothing else it could give anyway. So when you have said that the add method of AbstractObjectSpace takes None and None and returns None you have said everything.
+
+The point of such an object space is for example to check the bytecode. The interpreter will really run your bytecode, just with completely abstract arguments. If there is no problem then you are sure that the bytecode is valid. You could also record, during this abstract interpretation, how much the stack ever grows; that would give you a fool-proof method of computing the co_stacksize argument of a code object which might be useful for the PyPy compiler. (There are subtleties which I won't describe here, but that's the basic idea.)
+
+Typically, however, abstract object spaces are a (little) bit less abstract, still maintaining a minimal amount of information about the objects. For example, a wrapped object could be represented by its type. You then define the object space's add to return int when the two arguments are int and int. That way, you abstractedly call a function with the input argument's types and what the interpreter will do is a type inference. (Here also there are subtle problems, even besides the remark that integer operations can overflow and actually return longs in a real Python implementation.)
+
+As an example of more abstract object spaces you have the ones with finite domain, i.e. with a finite number of different possible wrapped objects. For example, you can use True and False as wrapped values to denote the fact that the object is, respectively, a non-negative integer or anything else. In this way you are doing another kind of type inference that just tells you which variables will only ever contain non-negative integers.
+
+.. _AnnotateObjSpace: annotateobjspace.html

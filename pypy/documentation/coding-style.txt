@@ -1,0 +1,67 @@
+=====================================
+Coding Style
+=====================================
+
+
+Naming and environment
+-----------------------------
+
+- directories/modules/namespaces are always **lowercase**
+
+- classes are **CamelCase**
+
+- never use plural names in directory and file names
+
+- ``__init__.py`` is always empty except for ``"pypy/objspace/*"``
+
+- functions/methods are lowercase and ``'_'-separated`` (if
+  you need to separate at all)
+
+- not more than 4 directory nesting levels
+
+- it's appreciated if you manage to name files in a directory
+  so that tab-completion on the shell level is as easy as possible. 
+
+Committing
+----------
+
+- it's nice to write good log messages because several people
+  are reading the diffs. 
+
+- if you add (text/py) files to the repository then please run
+  pypy/tool/fixeol in that directory.  This will make sure 
+  that the property 'svn:eol-style' is set to native which 
+  allows checkin/checkout in native line-ending format.
+
+Object Spaces
+---------------
+
+- objectspace classes are always spelled "ObjSpace". e.g.
+
+  - TrivialObjSpace
+  - StdObjSpace
+  - FlowObjSpace
+
+- at interpreter level and in ObjSpace all boxed values
+  have a leading ``w_`` to indicate "wrapped values".  This
+  includes w_self.  Don't use ``w_`` in application level
+  python only code.
+
+Test conventions
+----------------
+
+- adding features usually requires adding appropriate tests. 
+  (It often even makes sense to first write the tests so that you are
+  sure that they actually can fail.) 
+
+- All over the pypy source code there are test/ directories 
+  which contain unittests.  Such scripts can usually be executed
+  directly or are collectively run by pypy/test_all.py 
+
+- each test directory needs a copy of pypy/tool/autopath.py which
+  upon import will make sure that sys.path contains the directory
+  where 'pypy' is in. 
+
+- see some more information about tests at the test-design_ document. 
+
+.. _test-design: ../devel/testdesign.html

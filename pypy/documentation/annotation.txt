@@ -1,0 +1,366 @@
+The annotation pass
+===================
+
+We describe below how a control flow graph can be "annotated"
+to discover the types of the objects.  This annotation pass is
+done after control flow graphs are built by the FlowObjSpace,
+but before these graphs are translated into low-level code
+(e.g. C/Lisp/Pyrex).
+
+
+An example: the factorial
+-------------------------
+
+Say we want to make the control flow graph and type inference
+on the following program::
+
+  def f(n):
+    if n >= 2:
+      return n * f(n-1)
+    else:
+      return 1
+
+The flow objspace gives us the following graph (after the
+simplification that turns ``call`` into ``simple_call``)::
+
+  StartBlock(v1):
+    v2 = ge(v1, 2)
+    exitswitch(v2)
+      link "True" to Block2(v1)
+      link "False" to Block3
+
+  Block2(v3):
+    v4 = sub(v3, 1)
+    v7 = simple_call(f, v4)
+    v8 = mul(v3, v7)
+    jump to ReturnBlock(v8)
+
+  Block3:
+    v9 = 1
+    jump to ReturnBlock(v9)
+
+  ReturnBlock(retval):
+    (empty, just returns retval)
+
+Suppose that we know that ``f`` takes an ``int`` argument.
+We start type inference on the first block::
+
+  Analyse(StartBlock):
+    v1 ----> SV1   type(SV1)=int
+    v2 ----> SV2   type(SV2)=bool
+
+The notation is as follows.  Everything at the right of the arrows
+lives in a "big heap" of objects and annotations; a object is like a
+CPython ``PyObject`` object structure in the heap, althought it can
+here be unknown (SV1, SV2, SV3...).  Annotations give some information
+about the unknown heap objects.  The arrows represent binding from
+variables to objects.  ``SV`` means ``SomeValue``.
+
+After StartBlock, we proceed to the type inference of its exits;
+first Block2::
+
+  Analyse(Block2):
+    v3 ------------> SV1   # copied from StartBlock
+    v4 ------------> SV4   type(SV4)=int
+    v7 ------------> impossiblevalue
+
+It fails at the simple_call to f, because we don't know yet anything
+about the return value of f.  We suspend the analysis of Block2 and
+resume at some other non-blocked point -- in this case, the other exit
+from the StackBlock, which is jumping to Block3::
+
+  Analyse(Block3):
+    v9 --------> SV31    # const(SV31)=1, type(SV31)=int
+
+The object SV31 is the constant object 1.
+Then we proceed to ReturnBlock::
+
+  Analyse(ReturnBlock):
+    retval --------> SV31
+
+And we are done.  We can now try to resume the suspended analysis of
+Block2 -- in practice it is easier to just restart it::
+
+  Analyse(Block2):
+    v3 ------------> SV1   # copied from StartBlock
+    v4 ------------> SV4   type(SV4)=int
+    v7 ------------> SV31  # because that's the retval of f
+    v8 ------------> SV8   type(SV8)=int
+
+And now is the second branch into ReturnBlock.  We must combine the
+annotations coming from the two branches::
+
+  Intersection(ReturnBlock):
+    previous annotations for retval ----> SV31 type(SV31)=int const(SV31)=1
+    new annotations for retval ---------> SV8  type(SV8)=int
+    intersection of both is retval -----> SV10 type(SV10)=int
+
+We invalidate the analysis of the blocks that depend on this new result,
+namely ReturnBlock, which in turn invalidates the analysis of Block2
+which depended on the return value.  Then we can restart it once more::
+
+  Analyse(Block2):
+    v3 ------------> SV1   # with type(SV1)=int
+    v4 ------------> SV4   type(SV4)=int
+    v7 ------------> SV10  # with type(SV10)=int
+    v8 ------------> SV11  type(SV11)=int
+
+Again, we must redo the intersection of the two branches
+that enter ReturnBlock::
+
+  Intersection(ReturnBlock):
+    previous annotations for retval -------> SV10  type(SV10)=int
+    new annotations for retval ------------> SV11  type(SV11)=int
+    intersection doesn't change any more.
+
+Now the annotations are stable, and we are done.  In the final version
+summarized below, all the objects that are used in the variables and
+in retval are properly annotated::
+
+  Bindings:
+    v1 ------> SV1
+    v2 ------> SV2
+    v3 ------> SV1
+    v4 ------> SV4
+    v7 ------> SV10
+    v8 ------> SV11
+    v9 ------> SV31
+    retval --> SV10
+
+  Annotations:
+    type(SV1)=int
+    type(SV2)=bool
+    type(SV4)=int
+    type(SV10)=int
+    type(SV11)=int
+
+The bindings are implemented as a dictionary, and the annotations as
+an AnnotationSet instance.  More about it below.
+
+
+Whole-program analysis
+----------------------
+
+A program of more than one function is analysed in exactly the same way,
+starting from an entry point and following calls.  We have a cache of all
+the flowgraphs that the flow objspace produced, and a list of pending blocks
+that we have to type-analyse.  When the analysis of a block temporarily
+fails (as above for the first recursive call to ``f``) we move the block
+back into the pending list.  There is only one heap of annotations for the
+whole program, so that we can track where the objects come from and go
+through the whole program.  (This makes separate compilation very difficult,
+I guess.)
+
+
+Empty lists and mutable objects
+-------------------------------
+
+Nothing special is required for empty lists.  Let's try::
+
+  def g(a, n):
+    a.append(n)
+
+  def f():
+    b = []
+    g(b, 5)
+    g(b, 6)
+
+As above, after simplification::
+
+  F_StartBlock():
+    v1 = newlist()
+    v2 = simple_call(g, v1, 5)
+    v3 = simple_call(g, v1, 6)
+
+  Analyse(F_StartBlock):
+    v1 -------> SV1  type(SV1)=list len(SV1)=0 listitems(SV1)=impossiblevalue
+    v2 -------> impossiblevalue
+
+The annotations about ``SV1`` mean that it is an empty list.  When trying
+to get any item out of it, the result is ``impossiblevalue``, because if we
+try to execute code like ``c=b[0]`` then obviously it is impossible for
+``c`` to contain any value.  It is important not to confuse the two extreme
+values: ``impossiblevalue`` means that no value can ever be found there
+during actual execution, and corresponds to a ``SVx`` about which all
+annotations are still possible.  During the annotation pass, annotations
+about a ``SVx`` can only *decrease*: we can later remove annotations that
+we find to be incorrect, but we don't add new annotations.  Thus an
+``impossiblevalue`` is a value with potentially all annotations at first.
+The other extreme is a ``SVx`` with no annotation at all; it represents
+an object about which we know nothing at all -- and about which nothing
+will be known later either: it means that we have inferred that many
+different objects could be found at that point during execution.
+Typically it shows a problem, e.g. that type inference failed to figure
+out what object type can appear at that point.
+
+Let's come back to the example.  The type analysis above fails at ``v2``
+because of the calls to ``g``, but it triggers the analysis of ``g`` with
+the input arguments' annotations::
+
+  G_StartBlock(v4, v5):
+    v6 = getattr(v4, 'append')
+    v7 = simple_call(v6, v5)
+
+  Analyse(G_StartBlock):
+    v4 -------> SV1   # from the call above
+    v5 -------> SV35  const(SV35)=5  type(SV35)=int
+    v6 -------> SV6   im_self(SV6)=SV1  im_func(SV6)=list_append
+    v7 -------> SV30  const(SV30)=None
+
+And most importantly the call to list_append corrects the annotations about
+``SV1``.  The annotation ``len(SV1)=0`` is deleted, and ``listitems(SV1)``
+is generalized from ``impossiblevalue`` to ``SV35`` -- this is done by
+the same intersection process as above: we already know that
+``listitems(SV1)`` can be ``impossiblevalue``, and now we figure out that
+it could also be ``SV35``, so we take the intersection of the annotations
+that apply to both ``impossiblevalue`` and ``SV35``.  The result in this
+case is just ``SV35``.
+
+Note that killing annotations like ``len(SV1)=0`` invalidates the inference
+in any block that explicitely depends on it.  Such blocks are marked as
+"to be redone".  (There isn't any such block in the present example.)
+
+Only after this can the analysis of ``F_StartBlock`` proceed, and
+now we know that v1 points to the list ``SV1`` with the correct annotations:
+unknown length, all items are ``5``.
+
+In the above example I also show a second call to ``g(b, 6)``, which
+triggers an intersection on the input argument types of ``g`` which was
+previously thought to be used with ``5`` only::
+
+  Intersection(G_StartBlock):
+    previous annotations for v5 -----> SV35 const(SV35)=5 type(SV35)=int
+    new annotations for v5 ----------> SV36 const(SV36)=6 type(SV36)=int
+    intersection of both is v5 ------> SV5                type(SV5)=int
+
+And so this time the list ``SV1`` is updated with::
+
+    listitems(SV1)=SV5
+
+and now we know that we have a list of integers.
+
+Note that during this whole process the same list is represented by ``SV1``.
+This is important, so that any code anywhere that could modify the list
+can kill invalid annotations about it.  Intersection must be clever about
+mutable objects: we have seen above an example where ``retval`` could map
+to ``SV10`` or ``SV11``, and the intersection said it was fine because they
+had the same annotations.  It would not be fine if ``SV10`` and ``SV11``
+could be of a mutable type.  In this case we must force ``SV10==SV11`` for
+the whole program.  In other words the representation choosen for a list
+depends on all the places where this list could go, and these places
+themselves use a representation that depends on all the lists that could
+come at this point.  All these places and lists will use a common,
+most general representation.
+
+
+Polymorphism and mixed flowing/inference
+----------------------------------------
+
+(This paragraph is just an idea, it is not implemented.)
+
+We might eventually mix type inference and control flow generation a bit
+more than described above.  The annotations could influence the generation
+of the graph.
+
+The most interesting influence would be to occasionally prevent two
+FrameStates from being merged.  This would result in a bigger control flow
+graph in which several basic blocks can contain the operations about the
+same bytecode positions, with different annotations.  In particular, a
+quite interesting idea is to disallow two states to be merged if the
+resulting intersection of annotations is too poor -- say if it would make
+genpyrex.py use the fall-back generic object type, which is not available
+to other genxxx.py.
+
+The result is that we will automatically generate several specialized
+version of the RPython code when it is meant to be polymorphic.  For
+example, in a function such as::
+
+    def push(stack, item):
+        stack.append(item)
+
+the different entry points, specifying quite different type annotations
+for ``item``, are all unmergeable, as merging them would result in
+insufficently many annotations left.  By contrast, in the factorial
+example above, all merges are fine because they conserve at least the
+``type(X)=int`` annotation.
+
+
+SomeValue
+---------
+
+An abstract Python object in the heap is represented by an
+instance of ``pypy.annotation.model.SomeValue``.  All these SomeValue()
+instances print as SV0, SV1, SV2... for debugging, but we only
+use their identity internally.
+
+A SomeValue() alone represents an object about which nothing
+is known.  To collect information about such an object we use an
+instance of ``pypy.annotation.annset.AnnotationSet``.  An
+annotation is like an attribute of a SomeValue(); for example, to
+say that an object SV5 is known to be an integer, then we set the
+annotation ``SV5.type = int``.  However, for various good and bad
+reasons, the annotation is not actually stored as an attribute,
+but managed by the AnnotationSet().  The allowed "attributes",
+i.e. the various annotations that exist, are in
+``pypy.annotation.model.ANN``.  Thus for the above example we
+set the annotation ``ANN.type`` of SV5 to ``int``.  This is what
+we wrote in the above examples ``type(SV5) = int``.
+
+Note that unlike previous attempts an annotation is now always
+a "name" (ANN.type) with just two arguments: the subject (SV5) and
+the associated value (int).  Just like with attributes, there are
+never more than one associated value per subject and attribute name.
+But unlike attributes, all annotations have a default value:
+``mostgeneralvalue``, which is a SomeValue() about which nothing
+is known.  The only differences between the ``mostgeneralvalue``
+and a normal SomeValue() with no annotations are that AnnotationSet
+will complain if you try to set annotations to ``mostgeneralvalue``;
+and for convenience reasons ``mostgeneralvalue`` is false in a
+boolean context.
+
+
+AnnotationSet and ANN
+---------------------
+
+AnnotationSet has two main methods: ``get(name, subject)`` to
+read the current annotation ``name`` about ``subject``, and
+``set(name, subject, value)`` to set it.
+
+The meaning of ``value`` depends on the annotation.  In some
+cases it is a usual Python object (int, 3, True...).  In other
+cases it is specifically a SomeValue() instance, on which we
+can recursively have partial information only.  Here are
+a few common annotations:
+
+* ``ANN.type``: the ``value`` is the type (int, list, ...).
+
+* ``ANN.len``: the ``value`` is the length of the object
+  (if known and constant, of course).
+
+* ``ANN.const``: we know that the ``subject`` is a constant
+  object; the ``value`` of ``ANN.const`` is precisely this
+  constant.
+
+* ``ANN.listitems``: the ``value`` is another SomeValue()
+  which stands for any item of the list.  Thus the
+  annotations about this sub-SomeValue() tell what is known
+  in general about all the items in the list.
+
+* ``ANN.tupleitem[index]``: this is a family of annotations.
+  This is one of the reasons why we don't just use attributes
+  to store annotations: the whole expression ``ANN.tupleitem[0]``
+  would be the attribute name.  The expression ``ANN.tupleitem[1]``
+  would be a different attribute name, and so on.  Annotation-wise,
+  ``ANN.tupleitem[i]`` has a ``value`` which is a SomeValue()
+  describing what is known about the item ``i`` of a tuple.
+
+* ``ANN.immutable``: the ``value`` is always ``True``, unless
+  the annotation is not set, in which case it automatically
+  defaults to ``mostgeneralvalue`` (which is considered as false
+  in a boolean context for convenient checking).  When
+  ``ANN.immutable`` is set, it means that the subject is known to
+  be of an immutable type (int, float, tuple...).  This influences
+  the intersection algorithm.
+
+The interection algorithm is implemented in the ``merge()`` method
+of AnnotationSet.
