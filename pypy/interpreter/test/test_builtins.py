@@ -2,7 +2,7 @@ import unittest, sys, os
 sys.path.insert(0, '..')
 
 from pyframe import PyFrame
-import trivialspace
+import pypy.objspace.trivial as trivialspace
 
 def make_builtins_global():
         d = {}
