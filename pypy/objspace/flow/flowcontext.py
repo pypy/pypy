@@ -2,6 +2,7 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.pyframe \
      import ControlFlowException, ExitFrame, PyFrame
+from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import FrameState
 
@@ -152,10 +153,16 @@ class FlowExecutionContext(ExecutionContext):
                 block.patchframe(frame, self)
             except ExitFrame:
                 continue   # restarting a dead SpamBlock
-            w_result = frame.eval(self)
-            if w_result is not None:
-                link = Link([w_result], self.graph.returnblock)
+            try:
+                w_result = frame.eval(self)
+            except OperationError, e:
+                exc_type = self.space.unwrap(e.w_type)   # e.w_value ignored
+                link = Link([], self.graph.getexceptblock(exc_type))
                 self.crnt_block.closeblock(link)
+            else:
+                if w_result is not None:
+                    link = Link([w_result], self.graph.returnblock)
+                    self.crnt_block.closeblock(link)
         self.fixeggblocks()
 
     def fixeggblocks(self):

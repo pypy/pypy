@@ -19,6 +19,8 @@ class NoValue(Exception):
 class ObjSpace:
     """Base class for the interpreter-level implementations of object spaces.
     http://codespeak.net/moin/pypy/moin.cgi/ObjectSpace"""
+    
+    full_exceptions = True  # full support for exceptions (normalization & more)
 
     def __init__(self):
         "Basic initialization of objects."
@@ -157,15 +159,15 @@ class ObjSpace:
             # Match identical items.
             if self.is_true(self.is_(w_exc_type, w_item)):
                 return True
-            # Test within iterables (i.e. tuples)
             try:
-                exclst = self.unpackiterable(w_item)
-                check_list.extend(exclst)
-            except OperationError:
-                # w_item is not iterable; it should then be an Exception.
                 # Match subclasses.
                 if self.is_true(self.issubtype(w_exc_type, w_item)):
                     return True
+            except OperationError:
+                # Assume that this is a TypeError: w_item not a type,
+                # and assume that w_item is then actually a tuple.
+                exclst = self.unpackiterable(w_item)
+                check_list.extend(exclst)
         return False
 
     def call_function(self, w_func, *args_w, **kw_w):

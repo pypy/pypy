@@ -87,7 +87,7 @@ edge [fontname=Times];
         self.emit_node(name, label=data, shape="box", fillcolor="green", style="filled")
         #('%(name)s [fillcolor="green", shape=box, label="%(data)s"];' % locals())
         self.emit_edge(name, self.blockname(funcgraph.startblock), 'startblock')
-        self.emit_edge(name, self.blockname(funcgraph.returnblock), 'returnblock', style="dashed")
+        #self.emit_edge(name, self.blockname(funcgraph.returnblock), 'returnblock', style="dashed")
 
     def visit_Block(self, block):
         # do the block itself
@@ -100,6 +100,8 @@ edge [fontname=Times];
         if not numblocks:
            shape = "box"
            fillcolor="green"
+           if hasattr(block, 'exc_type'):
+               lines.insert(0, 'exc_type: %s' % block.exc_type.__name__)
         elif numblocks == 1:
             shape = "box"
         else:

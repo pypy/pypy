@@ -13,11 +13,23 @@ class FunctionGraph:
         self.returnblock = Block([return_var or Variable()])
         self.returnblock.operations = ()
         self.returnblock.exits      = ()
+        self.exceptblocks = {}  # Blocks corresponding to exception results
 
     def getargs(self):
         return self.startblock.inputargs
+
     def getreturnvar(self):
         return self.returnblock.inputargs[0]
+
+    def getexceptblock(self, exc_type):
+        try:
+            block = self.exceptblocks[exc_type]
+        except KeyError:
+            block = self.exceptblocks[exc_type] = Block([])
+            block.exc_type = exc_type
+            block.operations = ()
+            block.exits      = ()
+        return block
 
 class Link:
     def __init__(self, args, target, exitcase=None):
@@ -84,7 +96,7 @@ class Constant:
         return hash(self.value)
 
     def __repr__(self):
-        return '%r' % (self.value,)
+        return '(%r)' % (self.value,)
 
 class UndefinedConstant(Constant):
     # for local variables not defined yet.

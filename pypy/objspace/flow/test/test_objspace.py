@@ -21,9 +21,8 @@ class TestFlowOjSpace(test.TestCase):
 
     def reallyshow(self, x):
         import os
-        from pypy.translator.test.make_dot import make_dot
-        from pypy.tool.udir import udir
-        dest = make_dot(x, udir, 'ps')
+        from pypy.translator.tool.make_dot import make_dot
+        dest = make_dot(x.name, x)
         os.system('gv %s' % str(dest))
 
     def show(self, x):
@@ -157,6 +156,50 @@ class TestFlowOjSpace(test.TestCase):
 
     def test_break_continue(self):
         x = self.codetest(self.break_continue)
+        self.show(x)
+
+    #__________________________________________________________
+    def unpack_tuple(lst):
+        a, b, c = lst
+
+    def test_unpack_tuple(self):
+        x = self.codetest(self.unpack_tuple)
+        self.show(x)
+
+    #__________________________________________________________
+    def reverse_3(lst):
+        try:
+            a, b, c = lst
+        except:
+            return 0, 0, 0
+        else:
+            return c, b, a
+
+    def test_reverse_3(self):
+        x = self.codetest(self.reverse_3)
+        self.show(x)
+
+    #__________________________________________________________
+    def finallys(lst):
+        x = 1
+        try:
+            x = 2
+            try:
+                x = 3
+                a, = lst
+                x = 4
+            except KeyError:
+                return 5
+            except ValueError:
+                return 6
+            b, = lst
+            x = 7
+        finally:
+            x = 8
+        return x
+
+    def test_finallys(self):
+        x = self.codetest(self.finallys)
         self.show(x)
 
 

@@ -44,7 +44,7 @@ class MyTestResult(unittest.TestResult):
     def addError(self, test, err):
         # XXX not nice:
         from pypy.interpreter.baseobjspace import OperationError
-        if isinstance(err[1], OperationError):
+        if isinstance(err[1], OperationError) and test.space.full_exceptions:
             if err[1].match(test.space, test.space.w_AssertionError):
                 self.addFailure(test, err)
                 return
@@ -58,7 +58,7 @@ class MyTextTestResult(unittest._TextTestResult):
         
     def addError(self, test, err):
         from pypy.interpreter.baseobjspace import OperationError
-        if isinstance(err[1], OperationError):
+        if isinstance(err[1], OperationError) and test.space.full_exceptions:
             if err[1].match(test.space, test.space.w_AssertionError):
                 self.addFailure(test, err)
                 return
@@ -121,7 +121,7 @@ class MyTextTestResult(unittest._TextTestResult):
             self.stream.writeln(self.separator2)
             t1 = self._exc_info_to_string(err)
             t2 = ''
-            if isinstance(err[1], OperationError):
+            if isinstance(err[1], OperationError) and test.space.full_exceptions:
                 t2 = '\nand at app-level:\n\n'
                 sio = StringIO.StringIO()
                 err[1].print_application_traceback(test.space, sio)

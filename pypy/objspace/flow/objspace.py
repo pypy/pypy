@@ -14,11 +14,17 @@ class UnwrapException(Exception):
 
 # ______________________________________________________________________
 class FlowObjSpace(ObjSpace):
+    full_exceptions = False
+    
     def initialize(self):
         import __builtin__
         self.w_builtins = Constant(__builtin__.__dict__)
         self.w_None     = Constant(None)
-        self.w_KeyError = Constant(KeyError)
+        self.w_False    = Constant(False)
+        self.w_True     = Constant(True)
+        for exc in [KeyError, ValueError]:
+            clsname = exc.__name__
+            setattr(self, 'w_'+clsname, Constant(exc))
         #self.make_builtins()
         #self.make_sys()
 
