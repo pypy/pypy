@@ -302,6 +302,18 @@ class AppTestW_ListObject(test.AppTestCase):
         l = [1]
         l.sort()
         self.assertEquals(l, [1])
+
+    def test_sort_cmp(self):
+        def lencmp(a,b): return cmp(len(a), len(b))
+        l = [ 'a', 'fiver', 'tre', '' ]
+        l.sort(lencmp)
+        self.assertEquals(l, ['', 'a', 'tre', 'fiver'])
+        l = []
+        l.sort(lencmp)
+        self.assertEquals(l, [])
+        l = [ 'a' ]
+        l.sort(lencmp)
+        self.assertEquals(l, [ 'a' ])
         
     def test_extended_slice(self):
         l = range(10)
