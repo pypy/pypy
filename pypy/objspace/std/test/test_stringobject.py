@@ -386,13 +386,53 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals("aaa AAA".upper(), "AAA AAA")
         self.assertEquals("".upper(), "")
 
-    def test_alnum(self):
+    def test_isalnum(self):
         self.assertEquals("".isalnum(), False)
         self.assertEquals("!Bro12345w&&&&n Fox".isalnum(), False)
         self.assertEquals("125 Brown Foxes".isalnum(), False)
         self.assertEquals("125BrownFoxes".isalnum(), True)
+
+    def test_isalpha(self):
+        self.assertEquals("".isalpha(), False)
+        self.assertEquals("!Bro12345w&&&&nFox".isalpha(), False)
+        self.assertEquals("Brown Foxes".isalpha(), False)
+        self.assertEquals("125".isalpha(), False)
+
+    def test_isdigit(self):
+        self.assertEquals("".isdigit(), False)
+        self.assertEquals("!Bro12345w&&&&nFox".isdigit(), False)
+        self.assertEquals("Brown Foxes".isdigit(), False)
+        self.assertEquals("125".isdigit(), True)
+
+    def test_isspace(self):
+        self.assertEquals("".isspace(), False)
+        self.assertEquals("!Bro12345w&&&&nFox".isspace(), False)
+        self.assertEquals(" ".isspace(),  True)
+        self.assertEquals("\t\t\b\b\n".isspace(), False)
+        self.assertEquals("\t\t".isspace(), True)
+        self.assertEquals("\t\t\r\r\n".isspace(), True)
         
-    
+    def test_islower(self):
+        self.assertEquals("".islower(), False)
+        self.assertEquals(" ".islower(),  False)
+        self.assertEquals("\t\t\b\b\n".islower(), False)
+        self.assertEquals("b".islower(), True)
+        self.assertEquals("bbb".islower(), True)
+        self.assertEquals("!bbb".islower(), False)
+        self.assertEquals("BBB".islower(), False)
+        self.assertEquals("bbbBBB".islower(), False)
+
+    def test_isupper(self):
+        self.assertEquals("".isupper(), False)
+        self.assertEquals(" ".isupper(),  False)
+        self.assertEquals("\t\t\b\b\n".isupper(), False)
+        self.assertEquals("B".isupper(), True)
+        self.assertEquals("BBB".isupper(), True)
+        self.assertEquals("!BBB".isupper(), False)
+        self.assertEquals("bbb".isupper(), False)
+        self.assertEquals("BBBbbb".isupper(), False)
+                          
+         
     def test_swapcase(self):
         self.assertEquals("aaa AAA 111".swapcase(), "AAA aaa 111")
         self.assertEquals("".swapcase(), "")
