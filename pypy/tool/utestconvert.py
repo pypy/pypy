@@ -1,57 +1,39 @@
 import re
 import unittest
 import parser
-import os
 
 d={}
 
 #  d is the dictionary of unittest changes, keyed to the old name
-#  used by unittest.  d['new'] is the new replacement function.
-#  arg_nums is the possible number of arguments to the unittest
-#  function.  The last argument to the arg_nums list is the position the
-#  optional 'message' to print when the unittest fails should occur.
-#  assertRaises and failUnlessRaises, unlike all the other functions
-#  cannot have an special message to print, and can be passed any
-#  number of arguments, so their arg_nums is [None] (in the absense of
-#  [Any].  But we don't process those arguments in any case, since
-#  all we need is a name change, so we don't care ...
+#  used by unittest.
+#  d[old][0] is the new replacement function.
+#  d[old][1] is the operator you will substitute, or '' if there is none.
+#  d[old][2] is the possible number of arguments to the unittest
+#  function.
 
-#  'op' is the operator you will substitute, if applicable. '' if there
-#  none.
+# Old Unittest Name             new name         operator  # of args
+d['assertRaises']           = ('raises',               '', ['Any'])
+d['fail']                   = ('raise AssertionError', '', [0,1])
+d['assert_']                = ('assert',               '', [1,2])
+d['failIf']                 = ('assert not',           '', [1,2])
+d['assertEqual']            = ('assert',            ' ==', [2,3])
+d['failIfEqual']            = ('assert not',        ' ==', [2,3])
+d['assertNotEqual']         = ('assert',            ' !=', [2,3])
+d['failUnlessEqual']        = ('assert not',        ' !=', [2,3])
+d['assertAlmostEqual']      = ('assert round',      ' ==', [2,3,4])
+d['failIfAlmostEqual']      = ('assert not round',  ' ==', [2,3,4])
+d['assertNotAlmostEqual']   = ('assert round',      ' !=', [2,3,4])
+d['failUnlessAlmostEquals'] = ('assert not round',  ' !=', [2,3,4])
 
-
-d['assertRaises'] = {'new': 'raises', 'op': '', 'arg_nums':[None]}
-d['failUnlessRaises'] = d['assertRaises']
-
-d['fail'] = {'new': 'raise AssertionError', 'op': '', 'arg_nums':[0,1]}
-
-d['assert_'] = {'new': 'assert', 'op': '', 'arg_nums':[1,2]}
-d['failIf'] = {'new': 'assert not','op': '', 'arg_nums':[1,2]}
-d['failUnless'] = d['assert_']
-
-d['assertEqual'] = {'new': 'assert', 'op': ' ==', 'arg_nums':[2,3]}
-d['assertEquals'] = d['assertEqual']
-
-d['assertNotEqual'] = {'new': 'assert', 'op': ' !=', 'arg_nums':[2,3]}
-d['assertNotEquals'] = d['assertNotEqual']
-
-d['failUnlessEqual'] = {'new': 'assert not', 'op': ' !=', 'arg_nums':[2,3]}
-
-d['failIfEqual'] =  {'new': 'assert not', 'op': ' ==', 'arg_nums':[2,3]}
-
-d['assertAlmostEqual'] = {'new':'assert round', 'op':' ==', 'arg_nums':[2,3,4]}
-d['assertAlmostEquals'] = d['assertAlmostEqual']
-
-d['assertNotAlmostEqual'] = {'new':'assert round','op': ' !=',
-                             'arg_nums':[2,3,4]}
+#  the list of synonyms
+d['failUnlessRaises']      = d['assertRaises']
+d['failUnless']            = d['assert_']
+d['assertEquals']          = d['assertEqual']
+d['assertNotEquals']       = d['assertNotEqual']
+d['assertAlmostEquals']    = d['assertAlmostEqual']
 d['assertNotAlmostEquals'] = d['assertNotAlmostEqual']
 
-d['failIfAlmostEqual'] = {'new': 'assert not round', 'op': ' ==',
-                          'arg_nums':[2,3,4]}
-
-d['failUnlessAlmostEquals'] = {'new': 'assert not round', 'op': ' !=',
-                               'arg_nums':[2,3,4]}
-
+# set up the regular expressions we will need
 leading_spaces = re.compile(r'^(\s*)') # this never fails
 
 pat = ''
@@ -59,7 +41,9 @@ for k in d.keys():  # this complicated pattern to match all unittests
     pat += '|' + r'^(\s*)' + 'self.' + k + r'\(' # \tself.whatever(
 
 old_names = re.compile(pat[1:])
-linesep=os.linesep
+linesep='\n'        # nobody will really try to convert files not read
+                    # in text mode, will they?
+
 
 def blocksplitter(filename):
     '''split a file into blocks that are headed by functions to rename'''
@@ -84,7 +68,7 @@ def rewrite_utest(block):
 
     '''This is the code that actually knows the format of the old
        and new unittests.  The rewriting rules are picky with when
-       to add spaces, and commas, so there are unfortunately 7 exit
+       to add spaces, and commas, so there are unfortunately 8 exit
        paths, all some form of 'return indent + new + string + trailer'
 
     '''
@@ -94,37 +78,51 @@ def rewrite_utest(block):
         return block
 
     else: # we have an interesting block
+        old = utest.group(0).lstrip()[5:-1]
+        # old - the name we want to replace -- between the 'self.' and the '('
 
-        old = utest.group(0).lstrip()[5:-1]  # '  self.blah(' -> 'blah'
-        new = d[old]['new']
-        op = d[old]['op']
-        possible_args = d[old]['arg_nums']
-        message_position = possible_args[-1]
+        #  d is the dictionary of unittest changes, keyed to the old name
+        #  used by unittest.
+        #  d[old][0] is the new replacement function.
+        #  d[old][1] is the operator you will use , or '' if there is none.
+        #  d[old][2] is the possible number of arguments to the unittest
+        #  function.
 
-        if not message_position: # just rename assertRaises & friends
+        new = d[old][0]
+        op  = d[old][1]
+        possible_args = d[old][2]
+                
+        if new == 'raises': # just rename assertRaises & friends
             return re.sub('self.'+old, new, block)
+        else:
+            message_pos = possible_args[-1]
+            # the remaining unittests can have an optional message to
+            # print when they fail.  It is always the last argument to
+            # the function.
 
         try:
             indent, args, message, trailer = decompose_unittest(
-                old, block, message_position)
-        except SyntaxError: # but we couldn't parse it!  Either it is
-                            # malformed, or possibly deeply embedded inside
-                            # a triple quoted string, which happens to
-                            # start 'self.someunitttest(blah blah blah
-               return block
+                old, block, message_pos)
+        except SyntaxError: # but we couldn't parse it!
+            return block
 
-        # otherwise, we have a real one that we can parse.
-        key = len(args)
+        # otherwise, we have a real one that we could parse.
+
+        argnum = len(args)
         if message:
-            key += 1
-        
-        if key is 0:  # fail()
+            argnum += 1
+
+        if argnum not in possible_args:
+            # sanity check - this one isn't real either
+            return block
+
+        if argnum is 0:  # fail()
             return indent + new + trailer
 
-        elif key is 1 and key is message_position: # fail('unhappy message')
-            return new + ', ' + message + trailer
+        elif argnum is 1 and argnum is message_pos: # fail('unhappy message')
+            return indent + new + ', ' + message + trailer
 
-        elif message_position is 4:  # assertAlmostEqual and friends
+        elif message_pos is 4:  # assertAlmostEqual and friends
             try:
                 pos = args[2].lstrip()
             except IndexError:
@@ -135,14 +133,14 @@ def rewrite_utest(block):
                 string = string + ',' + message
             return indent + new + string + trailer
                 
-        else:
+        else: #assert_, assertEquals and all the rest
             string = op.join(args)
             if message:
                 string = string + ',' + message
 
         return indent + new + ' ' + string + trailer
 
-def decompose_unittest(old, block, message_position):
+def decompose_unittest(old, block, message_pos):
     '''decompose the block into its component parts'''
 
     ''' returns indent, arglist, message, trailer 
@@ -161,7 +159,7 @@ def decompose_unittest(old, block, message_position):
     if arglist == ['']: # there weren't any
         return indent, [], [], trailer
 
-    if len(arglist) != message_position:
+    if len(arglist) != message_pos:
         message = None
     else:
         message = arglist[-1]
@@ -185,7 +183,7 @@ def decompose_unittest(old, block, message_position):
                 arg = '(' + arg + ')'
             newl.append(arg)
         arglist = newl
-         
+
     return indent, arglist, message, trailer
 
 def break_args(args, arglist):
@@ -458,6 +456,50 @@ class Testit(unittest.TestCase):
 
         self.assertEquals(rewrite_utest(
             r"""
+            self.assertEquals('''BAD BADGER
+                              BAD BADGER
+                              BAD BADGER''', '''BAD BADGER
+                              BAD BADGER
+                              BAD BADGER''')
+            """
+            ),
+            r"""
+            assert '''BAD BADGER
+                              BAD BADGER
+                              BAD BADGER''' == '''BAD BADGER
+                              BAD BADGER
+                              BAD BADGER'''
+            """
+                        )
+
+        self.assertEquals(rewrite_utest(
+            r"""
+            self.assertEquals('''GOOD MUSHROOM
+                              GOOD MUSHROOM
+                              GOOD MUSHROOM''',
+                              '''GOOD MUSHROOM
+                              GOOD MUSHROOM
+                              GOOD MUSHROOM''',
+                              ''' FAILURE
+                              FAILURE
+                              FAILURE''')
+            """
+            ),
+            r"""
+            assert '''GOOD MUSHROOM
+                              GOOD MUSHROOM
+                              GOOD MUSHROOM''' ==(
+                              '''GOOD MUSHROOM
+                              GOOD MUSHROOM
+                              GOOD MUSHROOM'''),(
+                              ''' FAILURE
+                              FAILURE
+                              FAILURE''')
+            """
+                        )
+
+        self.assertEquals(rewrite_utest(
+            r"""
             self.assertAlmostEquals(first, second, 5, 'A Snake!')
             """
             ),
@@ -522,11 +564,11 @@ class Testit(unittest.TestCase):
 
         self.assertEquals(rewrite_utest(
             r"""
-            self.failIfAlmostEqual(first, second, 5, 'A Snake!')
+            self.failIfAlmostEqual(first, second, 5, 6, 7, 'Too Many Args')
             """
             ),
             r"""
-            assert not round(first - second, 5) == 0, 'A Snake!'
+            self.failIfAlmostEqual(first, second, 5, 6, 7, 'Too Many Args')
             """
                           )
 
