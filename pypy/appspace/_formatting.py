@@ -203,7 +203,8 @@ def format(fmt, values, valuedict=None):
     except StopIteration:
         pass
     else:
-        raise TypeError('not all arguments converted '
-                        'during string formatting')
+        if valuedict is None:
+            raise TypeError('not all arguments converted '
+                            'during string formatting')
     return ''.join(r)
             

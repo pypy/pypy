@@ -976,8 +976,9 @@ def app_mod__String_ANY(format, values):
     if isinstance(values, tuple):
         return _formatting.format(format, values, None)
     else:
-        if hasattr(values, '__getitem__') and not isinstance(values, str):
-            return _formatting.format(format, (), values)
+        if hasattr(values, '__getitem__') and \
+               not isinstance(values, (str, list)):
+            return _formatting.format(format, (values,), values)
         else:
             return _formatting.format(format, (values,), None)
 
