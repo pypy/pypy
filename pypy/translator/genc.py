@@ -125,8 +125,11 @@ class GenC:
         content.sort()
         lines = []
         for key, value in content:
-            if key.startswith('__'):
-                continue
+            if key.startswith('__') and key != '__init__':
+                if key in ['__module__', '__doc__', '__dict__',
+                           '__weakref__']:
+                    continue
+                raise Exception, "unexpected name %r in class %s"%(key, cls)
             lines.append('INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
                 name, key, self.nameof(value)))
         self.globaldecl.append('static PyObject* %s;' % name)
