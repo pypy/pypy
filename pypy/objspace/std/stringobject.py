@@ -408,7 +408,6 @@ def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=N
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
     res = _find(self, sub, start, end, 1)
 
-    print space.w_ValueError
     if res == -1:
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.index"))

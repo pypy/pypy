@@ -194,21 +194,20 @@ class AppTestInterpreter(test.AppTestCase):
         self.assertEquals(f(), 2)
 
     def test_print(self):
-        #import sys
-        #save = sys.stdout 
-        #class Out:
-        #    def __init__(self):
-        #        self.args = []
-        #    def write(self, *args):
-        #        self.args.extend(args)
-        #out = Out()
-        #try:
-        #    sys.stdout = out
-        #    print 10
-        #    self.assertEquals(out.args, ['10','\n'])
-        #finally:
-        #    sys.stdout = save
-        print 42
+        import sys
+        save = sys.stdout 
+        class Out:
+            def __init__(self):
+                self.args = []
+            def write(self, *args):
+                self.args.extend(args)
+        out = Out()
+        try:
+            sys.stdout = out
+            print 10
+            self.assertEquals(out.args, ['10','\n'])
+        finally:
+            sys.stdout = save
 
     def test_identity(self):
         def f(x): return x

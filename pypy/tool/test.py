@@ -22,11 +22,12 @@ class MyTestSuite(unittest.TestSuite):
             return result
 
         fm = getattr(self, 'frommodule','')
-        if fm and fm.startswith('pypy.objspace.std') and \
-           Options.spacename != 'std':
-            sys.stderr.write("\n%s skip for objspace %r" % (
-                fm, Options.spacename))
-            return result
+        for spacename  in ('std','trivial','ann'):
+            if fm and fm.startswith('pypy.objspace.' + spacename) and \
+                   Options.spacename != spacename:
+               sys.stderr.write("\n%s skip for objspace %r" % (
+                    fm, Options.spacename))
+               return result
 
         if fm and Options.verbose==0:
             sys.stderr.write('\n%s [%d]' %(fm, count))
