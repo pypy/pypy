@@ -44,7 +44,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
         self.traceback = AppTraceback(self.operr.application_traceback)
 
     def __str__(self):
-        return '[app-level] ' + self.operr.errorstr(self.space)
+        return '(application-level) ' + self.operr.errorstr(self.space)
 
 class AppTracebackEntry(py.code.Traceback.Entry):
     exprinfo = None

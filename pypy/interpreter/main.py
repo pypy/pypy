@@ -1,7 +1,6 @@
 import autopath
-from pypy.tool import option
 from pypy.interpreter import executioncontext, module
-from pypy.interpreter.error import OperationError, PyPyError
+from pypy.interpreter.error import OperationError
 import sys
 
 def _run_eval_string(source, filename, space, eval):
@@ -9,7 +8,7 @@ def _run_eval_string(source, filename, space, eval):
         cmd = 'eval'
     else:
         cmd = 'exec'
-        
+ 
     try:
         if space is None:
             from pypy.objspace.std import StdObjSpace
@@ -31,7 +30,7 @@ def _run_eval_string(source, filename, space, eval):
 
     except OperationError, operationerr:
         operationerr.record_interpreter_traceback()
-        raise PyPyError(space, operationerr)
+        raise
 
 def run_string(source, filename='<string>', space=None):
     _run_eval_string(source, filename, space, False)
@@ -44,19 +43,3 @@ def run_file(filename, space=None):
         print "Running %r with %r" % (filename, space)
     istring = open(filename).read()
     run_string(istring, filename, space)
-
-def main(argv=None):
-    if argv is None:
-        argv = sys.argv
-
-    argv = option.process_options(option.get_standard_options(),
-                                  option.Options)
-    space = option.objspace()
-    try:
-        run_file(argv[0], space)
-    except PyPyError, pypyerr:
-        pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
-
-if __name__ == '__main__':
-    main(sys.argv)
-    

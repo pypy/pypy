@@ -8,14 +8,20 @@ except ImportError:
 from pypy.tool import option
 from pypy.tool.optik import make_option
 from pypy.interpreter import main, interactive, error
-import sys
+import os, sys
 
 class Options(option.Options):
+    verbose = os.getenv('PYPY_TB')
     interactive = 0
     command = []
 
 def get_main_options():
     options = option.get_standard_options()
+
+    options.append(make_option(
+        '-v', action='store_true', dest='verbose',
+        help='show verbose interpreter-level traceback'))
+
     options.append(make_option(
         '-i', action="store_true", dest="interactive",
         help="inspect interactively after running script"))
@@ -48,22 +54,22 @@ def main_(argv=None):
             args = ['-c'] + Options.command[1:]
         for arg in args:
             space.call_method(space.sys.w_argv, 'append', space.wrap(arg))
-        if Options.command:
-            try:
+        try:
+            if Options.command:
                 main.run_string(Options.command[0], '<string>', space)
-            except error.PyPyError, pypyerr:
-                pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
-        elif args:
-            try:
+            elif args:
                 main.run_file(args[0], space)
-            except error.PyPyError, pypyerr:
-                pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
-        else:
-            space.call_method(space.sys.w_argv, 'append', space.wrap(''))
-            go_interactive = 1
-            banner = None
+            else:
+                space.call_method(space.sys.w_argv, 'append', space.wrap(''))
+                go_interactive = 1
+                banner = None
+        except error.OperationError, operationerr:
+            if Options.verbose:
+                operationerr.print_detailed_traceback(space)
+            else:
+                operationerr.print_application_traceback(space)
         if go_interactive:
-            con = interactive.PyPyConsole(space)
+            con = interactive.PyPyConsole(space, Options.verbose)
             if banner == '':
                 banner = '%s / %s'%(con.__class__.__name__,
                                     space.__class__.__name__)

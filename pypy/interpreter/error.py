@@ -1,14 +1,6 @@
 import os, sys
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
-INTERP_LEVEL_TRACEBACK = os.getenv('PYPY_TB')
-
-
-class PyPyError(Exception):
-    "Raise this when you encounter an exceptional situation in PyPy itself."
-    def __init__(self, space, operationerr):
-        self.space = space
-        self.operationerr = operationerr
 
 
 class OperationError(Exception):
@@ -44,10 +36,24 @@ class OperationError(Exception):
 
     def errorstr(self, space):
         "NOT_RPYTHON: The exception class and value, as a string."
-        exc_type  = space.str_w(
-            space.getattr(self.w_type, space.wrap('__name__')))
-        exc_value = space.str_w(space.str(self.w_value))
-        return '%s: %s' % (exc_type, exc_value)
+        if space is None:
+            exc_typename = str(self.w_type)
+            exc_value    = self.w_value
+        else:
+            w = space.wrap
+            if space.is_true(space.is_(space.type(self.w_type), space.w_str)):
+                exc_typename = space.str_w(self.w_type)
+            else:
+                exc_typename = space.str_w(
+                    space.getattr(self.w_type, w('__name__')))
+            if self.w_value == space.w_None:
+                exc_value = None
+            else:
+                exc_value = space.str_w(space.str(self.w_value))
+        if not exc_value:
+            return exc_typename
+        else:
+            return '%s: %s' % (exc_typename, exc_value)
 
     def getframe(self):
         "The frame this exception was raised in, or None."
@@ -101,38 +107,16 @@ class OperationError(Exception):
         import traceback, cStringIO
         if file is None: file = sys.stderr
         f = cStringIO.StringIO()
-        if not INTERP_LEVEL_TRACEBACK:
-            print >> f, ("Traceback (interpreter-level): "
-                         "hidden ($PYPY_TB not set)")
-        else:
-            for i in range(len(self.debug_excs)-1, -1, -1):
-                print >> f, "Traceback (interpreter-level):"
-                traceback.print_tb(self.debug_excs[i][2], file=f)
+        for i in range(len(self.debug_excs)-1, -1, -1):
+            print >> f, "Traceback (interpreter-level):"
+            traceback.print_tb(self.debug_excs[i][2], file=f)
         f.seek(0)
         debug_print(''.join(['|| ' + line for line in f.readlines()]), file)
         if self.debug_excs:
             from pypy.tool import tb_server
             tb_server.publish_exc(self.debug_excs[-1])
         self.print_app_tb_only(file)
-        if space is None:
-            exc_typename = str(self.w_type)
-            exc_value    = self.w_value
-        else:
-            w = space.wrap
-            if space.is_true(space.is_(space.type(self.w_type), space.w_str)):
-                exc_typename = space.str_w(self.w_type)
-            else:
-                exc_typename = space.str_w(
-                    space.getattr(self.w_type, w('__name__')))
-            if self.w_value == space.w_None:
-                exc_value = None
-            else:
-                exc_value = space.str_w(space.str(self.w_value))
-            print >> file, '(application-level)',
-        if not exc_value:
-            print >> file, exc_typename
-        else:
-            print >> file, exc_typename+':', exc_value
+        print >> file, '(application-level)', self.errorstr(space)
         if AUTO_DEBUG:
             import debug
             debug.fire(self)

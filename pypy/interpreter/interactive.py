@@ -1,14 +1,16 @@
 import autopath
 
+from pypy.interpreter import error
 from pypy.interpreter import executioncontext, baseobjspace
 import sys
 import code
 
 
 class PyPyConsole(code.InteractiveConsole):
-    def __init__(self, objspace):
+    def __init__(self, objspace, verbose=0):
         code.InteractiveConsole.__init__(self)
         self.space = objspace
+        self.verbose = verbose
         self.ec = executioncontext.ExecutionContext(self.space)
         self.w_globals = self.ec.make_standard_w_globals()
         self.space.setitem(self.w_globals,
@@ -54,13 +56,16 @@ class PyPyConsole(code.InteractiveConsole):
         pycode = PyCode(self.space)._from_code(code)
         try:
             pycode.exec_code(self.space, self.w_globals, self.w_globals)
-        except baseobjspace.OperationError, operationerr:
+        except error.OperationError, operationerr:
             space = self.space
             if operationerr.match(space, space.w_SystemExit):
                 # XXX fetch the exit code from somewhere inside the w_SystemExit
                 raise SystemExit
             # XXX insert exception info into the application-level sys.last_xxx
-            operationerr.print_detailed_traceback(space)
+            if self.verbose:
+                operationerr.print_detailed_traceback(space)
+            else:
+                operationerr.print_application_traceback(space)
             # for debugging convenience we also insert the exception into
             # the interpreter-level sys.last_xxx
             sys.last_type, sys.last_value, sys.last_traceback = sys.exc_info()

@@ -3,7 +3,6 @@ from pypy.tool import optik
 make_option = optik.make_option
 
 class Options:
-    verbose = 0
     showwarning = 0
     spaces = []
 
@@ -25,9 +24,6 @@ def get_standard_options():
         '-T', action="callback",
         callback=objspace_callback, callback_args=("trivial",),
         help="run in trivial object space"))
-    options.append(make_option(
-        '-v', action="count", dest="verbose",
-        help="verbose"))
     options.append(make_option(
         '-w', action="store_true", dest="showwarning",
         help="enable warnings (disabled by default)"))
