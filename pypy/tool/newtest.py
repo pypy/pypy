@@ -3,31 +3,31 @@ Unit testing framework for PyPy.
 
 The following picture is an UML class diagram of the framework.
 
-+------------+ 1                                    1 +----------+
-| TestResult |----------------------------------------| TestItem |
-| (abstract) |                                        +----------+
-+------------+                                             | *
-    A                                                      |
-    -                                                      |
-    |                                                      | 1
-    +----------------------------+-----------+        +-----------+
-    |                            |           |        | TestSuite |
-+-------------------------+ +---------+ +---------+   +-----------+
-| TestResultWithTraceback | | Success | | Skipped |         A
-| (abstract)              | +---------+ +---------+         |
-+-------------------------+                                 | loaded by
-    A          A                                            |
-    -          -                                            | *
-    |          |                                      +------------+
-    |          |                                      | TestCase   |
-+-------+ +---------+                                 | (abstract) |
-| Error | | Failure |                                 +------------+
-+-------+ +---------+                                       A
-                                                            -
-                                                            |
-                                                            |
-                                                       concrete test
-                                                       case classes
+ +----------+ 1                    1 +------------+
+ | TestItem |------------------------| TestResult |
+ +----------+                        | (abstract) |
+      | *                            +------------+
+      |                                     A
+      |                                     -
+      | 1                                   |
+ +-----------+         +-----------+--------+----------+
+ | TestSuite |         |           |                   |
+ +-----------+    +---------+ +---------+ +-------------------------+
+      A           | Success | | Skipped | | TestResultWithTraceback |
+      |           +---------+ +---------+ | (abstract)              |
+      | loaded by                         +-------------------------+
+      |                                          A            A
+      | *                                        -            -
+ +------------+                                  |            |
+ | TestCase   |                                  |            |
+ | (abstract) |                              +-------+   +---------+
+ +------------+                              | Error |   | Failure |
+      A                                      +-------+   +---------+
+      -
+      |
+      |
+  concrete test
+  case classes
 
 Like the unittest framework of Python, our framework implements
 tests as test methods in TestCase classes. Custom test case classes
@@ -64,11 +64,14 @@ else causes an unforeseen exception to be raised.
 from __future__ import generators
 
 import autopath
+
+import cStringIO as StringIO
 import inspect
+import new
 import os
 import sys
-import cStringIO as StringIO
 import traceback
+import types
 import vpath
 
 #TODO
@@ -267,36 +270,74 @@ class Failure(TestResultWithTraceback):
 #
 # other classes
 #
+_dummy_module = new.module('<dummy_module>')
+
 class TestItem:
     """
     Represent either a test function, or a single test method from a
     TestCase class.
     """
-    def __init__(self, module, callable=None, cls=None):
+    def __init__(self, callable_=None):
         """
-        Construct a test item. The argument callable must be either a
-        plain function or an unbound method of a class. In the latter
-        case, the argument cls must receive the test case class.
+        Construct a test item. The argument callable_ must be a
+        callable object, i. e. a plain function, a bound or unbound
+        method of a class, or an object with __call__ attribute.
         """
-        # do we have a plain function, or a class and a method?
-        self.isfunction = (cls is None)
-        self.file = inspect.getsourcefile(module)
-        self.module = module
-        self.callable = callable
-        self.cls = cls
-        # remove trailing whitespace but leave things such indentation
-        # of first line(s) alone
-        self.docs = (self._docstring(module), self._docstring(cls),
-                     self._docstring(callable))
+        assert callable(callable_), \
+               "must get a callable item, but got '%s'" % callable_
+        self.callable = callable_
+        # determine additional attributes (e. g. for error reporting)
+        self.call_via_class = False
+        # - class
+        if hasattr(callable_, 'im_class'):
+            # unbound and bound methods; __class__ would be instancemethod,
+            # not the one containing the methods
+            self.cls = callable_.im_class
+            if callable_.im_self is None:
+                # unbound methods are not directly callable without
+                # arguments
+                self.call_via_class = True
+        elif hasattr(callable_, '__class__') and \
+          not inspect.isfunction(callable_):
+            # class instances with __call__ attribute
+            self.cls = callable_.__class__
+        else:
+            self.cls = None
+        # - module (sometimes, using the class works better than the callable)
+        self.module = inspect.getmodule(self.cls or callable_)
+        # - name
+        try:
+            self.name = callable_.__name__
+        except AttributeError:
+            self.name = '<unnamed object>'
+        # - file
+        try:
+            if self.module is None:
+                self.file = inspect.getsourcefile(self.cls or callable_)
+            else:
+                self.file = inspect.getsourcefile(self.module)
+        except IOError:
+            self.file = '<unknown>'
+        except TypeError:
+            self.file = '<built-in or from __main__>'
+        # - docstrings
+        self.docs = (self._docstring(self.module), self._docstring(self.cls),
+                     self._docstring(self.callable))
+        # - source code properties
         #XXX inspect.getsourcelines may fail if the file path stored
         #  in a module's pyc/pyo file doesn't match the py file's
         #  actual location. This can happen if a py file, together with
         #  its pyc/pyo file is moved to a new location. See Python
         #  bug "[570300] inspect.getmodule symlink-related failure":
         #  http://sourceforge.net/tracker/index.php?func=detail&aid=570300&group_id=5470&atid=105470
-        lines, self.lineno = inspect.getsourcelines(callable)
-        # removing trailing newline(s) but not the indentation
-        self.source = ''.join(lines).rstrip()
+        try:
+            lines, self.lineno = inspect.getsourcelines(callable)
+            # removing trailing newline(s) but not the indentation
+            self.source = ''.join(lines).rstrip()
+        except IOError:
+            self.source, self.lineno = '<unknown>', None
+        except TypeError:
+            self.source, self.lineno = '<built-in or from __main__>', None
 
     def _docstring(self, obj):
         """
@@ -346,17 +387,17 @@ class TestItem:
         the test callable, the test_runner object will be called with the
         test function/method as its argument.
         """
-        if self.isfunction:
-            # use the test function directly
-            test = self.callable
-        else:
+        if self.call_via_class:
             # turn the test callable, an unbound method, into a bound method
             cls_object = self.cls()
             test = getattr(cls_object, self.callable.__name__)
+        else:
+            # use the test function directly
+            test = self.callable
 
         try:
             # call setUp only for a class
-            self.isfunction or cls_object.setUp()
+            self.call_via_class and cls_object.setUp()
         except KeyboardInterrupt:
             raise
         except TestResult, result:
@@ -378,23 +419,22 @@ class TestItem:
 
         try:
             # call tearDown only for a class
-            self.isfunction or cls_object.tearDown()
+            self.call_via_class and cls_object.tearDown()
         except KeyboardInterrupt:
             raise
         except Exception, exc:
             # if we already had an exception in the test method,
-            # don't overwrite it
+            # don't overwrite/mask it
             if result.traceback is None:
                 result = Error(msg=str(exc), item=self)
         return result
 
     def __str__(self):
-        if self.isfunction:
-            return "TestItem from %s.%s" % (self.module.__name__,
-                                            self.callable.__name__)
+        if self.cls is None:
+            return "TestItem from %s.%s" % (self.module.__name__, self.name)
         else:
             return "TestItem from %s.%s.%s" % (self.module.__name__,
-                   self.cls.__name__, self.callable.__name__)
+                                               self.cls.__name__, self.name)
 
     def __repr__(self):
         return "<%s at %#x>" % (str(self), id(self))
@@ -414,44 +454,8 @@ class TestSuite:
         self.last_results = {}
 
     #
-    # get lists of TestItems from a dictionary, a module, or a directory tree
+    # get lists of TestItems from a class, a module, or a directory tree
     #
-    def items_from_dict(self, dict_, module=None):
-        """
-        Return a list of TestItems as extracted from the given dictionary
-        dict_. The keys of the dictionary are names of objects, the values
-        are the corresponding objects. Think of the value returned by the
-        builtin function globals.
-
-        You may pass in a module object via the optional argument module.
-        If the argument is present, it will be included in the TestItems.
-        Else, the __main__ module will be used.
-        """
-        if module is None:
-            module = __import__('__main__')
-        items = []
-        # scan the values for test functions, and for classes derived
-        # from TestCase
-        for obj in dict_.values():
-            # find TestCase classes and methods within them
-            if inspect.isclass(obj) and issubclass(obj, TestCase):
-                # we found a TestCase class, now scan it for test methods
-                for obj2 in vars(obj).values():
-                    # inspect.ismethod doesn't seem to work here
-                    if inspect.isfunction(obj2) and \
-                      obj2.__name__.startswith("test"):
-                        items.append(TestItem(module=module, cls=obj,
-                                              callable=obj2))
-            # find test functions
-            elif (callable(obj) and hasattr(obj, '__name__') and
-                  obj.__name__.startswith('test_')):
-                items.append(TestItem(module, callable=obj))
-        return items
-
-    def items_from_module(self, module):
-        """Return a list of TestItems read from the given module."""
-        return self.items_from_dict(vars(module), module=module)
-
     def _module_from_modpath(self, modpath):
         """
         Return a module object derived from the module path
@@ -466,7 +470,45 @@ class TestSuite:
         __import__(modpath)
         return sys.modules[modpath]
 
-    def items_from_dir(self, dirname, filterfunc=None, recursive=True):
+    def _add_items(self, items):
+        """Add TestItems from list 'items' to TestSuite."""
+        self.items.extend(items)
+
+    def _items_from_class(self, cls):
+        """
+        Return TestItems extracted from class cls.
+
+        This includes all unbound methods whose names start with
+        "test_".
+        """
+        items = []
+        for attrname in cls.__dict__:
+            # don't use cls.__dict__[attrname]; for unbound methods,
+            # we would get function objects, i. e.
+            # cls.__dict__[attrname] != getattr(cls, attrname)
+            attr = getattr(cls, attrname)
+            if callable(attr) and attrname.startswith("test_"):
+                items.append(TestItem(attr))
+        return items
+
+    def _items_from_module(self, module):
+        """
+        Return TestItems extracted from module.
+
+        This includes all TestItems of classes derived from
+        TestCase and functions whose names start with "test_".
+        """
+        items = []
+        for attrname in module.__dict__:
+            # see comment in _items_from_class
+            attr = getattr(module, attrname)
+            if inspect.isclass(attr) and issubclass(attr, TestCase):
+                items.extend(self._items_from_class(attr))
+            elif inspect.isfunction(attr) and attrname.startswith("test_"):
+                items.append(TestItem(attr))
+        return items
+
+    def _items_from_dir(self, dirname, filterfunc=None, recursive=True):
         """
         Return a list of TestItems found by reading the directory denoted
         by dirname. Find all test modules in it. Test modules are files that
@@ -493,30 +535,43 @@ class TestSuite:
             if (filterfunc is None) or filterfunc(modpath):
                 try:
                     module = self._module_from_modpath(modpath)
-                    module_items = self.items_from_module(module)
+                    module_items = self._items_from_module(module)
                 except:
                     print >> sys.stderr, \
                           "Warning: can't load module %s" % modpath
-                    raise
+                    #raise
                 else:
                     items.extend(module_items)
         return items
 
-    #
-    # init TestSuite instance from a dictionary, a module, or a directory tree
-    #
-    def init_from_dict(self, dict_, module=None):
-        self.reset()
-        self.items = self.items_from_dict(dict_, module=module)
+    def add(self, *args):
+        """
+        Extract TestItems from the given args and add them to this
+        TestSuite.
 
-    def init_from_module(self, module):
-        self.reset()
-        self.items = self.items_from_module(module)
-
-    def init_from_dir(self, dirname, filterfunc=None, recursive=True):
-        self.reset()
-        self.items = self.items_from_dir(dirname, filterfunc=None,
-                                         recursive=True)
+        The given objects can be:
+        - callable (function, unbound or bound method, class instance
+          with __call__ attribute): convert to TestItem
+        - class: extract all test methods, i. e. whose names start
+          with "test_"
+        - module: extract all test classes, i. e. classes derived
+          from newtest.TestCase, and all functions whose names
+          start with "test_"
+        - string: interpret the string as a file system path and
+          search it for Python files located in (sub)directories
+          named "test" and matching the shell pattern "test_*.py"
+        """
+        for arg in args:
+            if isinstance(arg, (types.ClassType, types.TypeType)):
+                self._add_items(self._items_from_class(arg))
+            elif callable(arg):
+                self._add_items([arg])
+            elif isinstance(arg, types.ModuleType):
+                self._add_items(self._items_from_module(arg))
+            elif isinstance(arg, (str, unicode)):
+                self._add_items(self._items_from_dir(arg))
+            else:
+                raise TypeError("unsupported TestItem source '%s'" % arg)
 
     #
     # running tests and getting results
@@ -560,7 +615,7 @@ def _print_results(suite):
         print 79 * '-'
         # print a line with the qualified name of the bad callable
         item = result.item
-        if result.item.isfunction:
+        if result.item.cls is None:
             print "%s.%s: %s" % (item.module.__name__, item.callable.__name__,
                                  result.name.upper())
         else:
@@ -589,17 +644,17 @@ def main():
     import __main__
     from pypy.tool import newtest
     suite = TestSuite()
-    suite.init_from_dict(vars(__main__))
+    suite.add(__main__)
     _print_results(suite)
 
 def test(do_selftest=False):
     # possibly ignore dummy unit tests
     if do_selftest:
         # include only selftest module
-        filterfunc = lambda m: m.find("pypy.tool.testitdata.") != -1
+        filterfunc = lambda m: m.find("pypy.tool.testdata.") != -1
     else:
         # exclude selftest module
-        filterfunc = lambda m: m.find("pypy.tool.testitdata.") == -1
+        filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
     # collect tests
     suite = TestSuite()
     print "Loading test modules ..."
