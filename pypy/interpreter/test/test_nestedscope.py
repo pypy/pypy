@@ -55,7 +55,7 @@ class AppTestNestedScope(testit.AppTestCase):
             return g()
         outer_locals, inner_locals = f()
         self.assertEquals(inner_locals, {'i':3})
-        self.assertEquals(len(outer_locals), 1, "len!=1 for %r" % outer_locals)
+        self.assertEquals(len(outer_locals), 1, "len!=1 for %r" % (outer_locals,))
 
 if __name__ == '__main__':
     testit.main()
