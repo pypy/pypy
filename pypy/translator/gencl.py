@@ -2,6 +2,7 @@ import autopath
 from pypy.objspace.flow.model import *
 from pypy.translator.annotation import Annotator
 
+from pypy.translator.simplify import simplify_graph
 from pypy.translator.peepfgt import register as fgt_register
 
 # XXX For 2.2 the emitted code isn't quite right, because we cannot tell
@@ -66,6 +67,7 @@ class Op:
 
 class GenCL:
     def __init__(self, fun):
+        simplify_graph(fun)
         self.fun = fun
         self.blockref = {}
         self.annotate([])
