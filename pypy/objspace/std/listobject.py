@@ -54,9 +54,9 @@ def getitem_list_slice(space, w_list, w_slice):
     step        = space.unwrap(w_step)
     slicelength = space.unwrap(w_slicelength)
     assert slicelength >= 0
-    subitems = []
+    subitems = [None] * slicelength
     for i in range(slicelength):
-        subitems.append(items[start])
+        subitems[i] = items[start]
         start += step
     return W_ListObject(subitems)
 
