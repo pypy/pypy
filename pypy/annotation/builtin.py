@@ -39,6 +39,18 @@ def builtin_isinstance(s_obj, s_type):
             return immutablevalue(True)
     return SomeBool()
 
+def builtin_getattr(s_obj, s_attr):
+    if not s_attr.is_constant() or not isinstance(s_attr.const, str):
+        raise Exception, 'getattr(%r, %r) is not RPythonic enough' % (
+            s_obj, s_attr)
+    return s_obj.getattr(s_attr)
+
+def builtin_type(s_obj, *moreargs):
+    if moreargs:
+        raise Exception, 'type() called with more than one argument'
+    #...
+    return SomeObject(knowntype=type)
+
 
 # collect all functions
 import __builtin__

@@ -181,7 +181,9 @@ class __extend__(SomeMethod):
             results.append(factory.pycall(func, s_self, *args))
         return unionof(*results)
 
+
 class __extend__(SomePrebuiltConstant):
+
     def getattr(pbc, s_attr):
         assert s_attr.is_constant()
         bookkeeper = getbookkeeper()
@@ -195,4 +197,7 @@ class __extend__(SomePrebuiltConstant):
 
     def setattr(pbc, s_attr, s_value):
         raise Exception, "oops!"
-    
+
+    def simple_call(pbc, *args):
+        s_meth = pbc.getattr(immutablevalue("__call__"))
+        return s_meth.simple_call(*args)
