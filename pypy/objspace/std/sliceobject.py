@@ -42,6 +42,17 @@ def eq__Slice_Slice(space, w_slice1, w_slice2):
     else:
         return space.w_False
 
+def lt__Slice_Slice(space, w_slice1, w_slice2):
+    if space.is_w(w_slice1, w_slice2):
+        return space.w_False   # see comments in eq__Slice_Slice()
+    if space.eq_w(w_slice1.w_start, w_slice2.w_start):
+        if space.eq_w(w_slice1.w_stop, w_slice2.w_stop):
+            return space.lt(w_slice1.w_step, w_slice2.w_step)
+        else:
+            return space.lt(w_slice1.w_stop, w_slice2.w_stop)
+    else:
+        return space.lt(w_slice1.w_start, w_slice2.w_start)
+
 def hash__Slice(space, w_slice):
     """slices are not hashables but they must have a __hash__ method"""
     raise OperationError(space.w_TypeError,

@@ -61,3 +61,12 @@ class AppTest_SliceObject:
         assert slice1 == slice2
         slice2 = slice(1, 2)
         assert slice1 != slice2
+
+    def test_lt(self):
+        assert slice(0, 2, 3) < slice(1, 0, 0)
+        assert slice(0, 1, 3) < slice(0, 2, 0)
+        assert slice(0, 1, 2) < slice(0, 1, 3)
+        assert not (slice(1, 2, 3) < slice(0, 0, 0))
+        assert not (slice(1, 2, 3) < slice(1, 0, 0))
+        assert not (slice(1, 2, 3) < slice(1, 2, 0))
+        assert not (slice(1, 2, 3) < slice(1, 2, 3))
