@@ -71,7 +71,7 @@ import os
 import sys
 import traceback
 import types
-import vpath
+from std import path 
 
 #TODO
 # - add support for ignored tests (do we need to differentiate between
@@ -529,12 +529,12 @@ class TestSuite:
         by scanning the start directory recursively.
         """
         items = []
-        dirname = vpath.getlocal(dirname)
+        dirname = path.local(dirname)
 
         def testfilefilter(path):
-            return path.isfile() and path.fnmatch('test_*.py')
+            return path.check(file=1, fnmatch='test_*.py')
         def recfilter(path):
-            return recursive and vpath.nodotfile(path)
+            return recursive and path.check(dotfile=0) 
 
         for testfn in dirname.visit(testfilefilter, recfilter):
             # strip the leading pypy directory and the .py suffix

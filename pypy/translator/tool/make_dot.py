@@ -7,6 +7,7 @@ import autopath, os
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import Space
 from pypy.tool.udir import udir
+from std.process import cmdexec
 
 debug = 0
 
@@ -137,8 +138,6 @@ def show_dot(graph, storedir = None, target = 'ps'):
     os.system('gv %s' % fn)
 
 def make_dot_graphs(basefilename, graphs, storedir=None, target='ps'):
-    from vpath.adapter.process import exec_cmd
-
     if storedir is None:
         storedir = udir
 
@@ -160,7 +159,7 @@ def make_dot_graphs(basefilename, graphs, storedir=None, target='ps'):
     #print source
     dest.write(source)
     psdest = dest.newext(target)
-    out = exec_cmd('dot -T%s %s' % (target, str(dest)))
+    out = cmdexec('dot -T%s %s' % (target, str(dest)))
     psdest.write(out)
     #print "wrote", psdest
     return psdest

@@ -2,8 +2,8 @@ import autopath
 from pypy.tool import testit
 from pypy.tool.udir import udir
 
-from vpath.adapter.process import exec_cmd
-from vpath.local import Path
+from std.process import cmdexec 
+from std import path 
 from pypy.translator.genpyrex import GenPyrex
 
 import os, sys, inspect
@@ -12,11 +12,11 @@ from pypy.translator.tool import stdoutcapture
 debug = 0
 
 def make_module_from_pyxstring(name, dirpath, string):
-    dirpath = Path(dirpath)
+    dirpath = path.local(dirpath)
     pyxfile = dirpath.join('%s.pyx' % name) 
     i = 0
-    while pyxfile.exists():
-        pyxfile = pyxfile.newbasename('%s%d.pyx' % (name, i))
+    while pyxfile.check():
+        pyxfile = pyxfile.new(basename='%s%d.pyx' % (name, i))
     pyxfile.write(string)
     if debug: print "made pyxfile", pyxfile
     make_c_from_pyxfile(pyxfile)
@@ -36,11 +36,11 @@ def make_module_from_c(pyxfile):
     #    print "ERROR IMPORTING"
     #    pass
 
-    dirpath = pyxfile.dirname()
-    lastdir = Path()
+    dirpath = pyxfile.dirpath()
+    lastdir = path.local()
     os.chdir(str(dirpath))
     try:
-        modname = pyxfile.purebasename()
+        modname = pyxfile.get('purebasename') 
         if debug: print "modname", modname
         c = stdoutcapture.Capture(mixed_out_err = True)
         try:
@@ -86,7 +86,7 @@ def make_c_from_pyxfile(pyxfile):
             raise ValueError, "failure %s" % result
     except PyrexError, e:
         print >>sys.stderr, e
-    cfile = pyxfile.newext('.c')
+    cfile = pyxfile.new(ext='.c')
 
 def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
     """ return a pyrex-generated cfunction from the given func. 
@@ -109,7 +109,7 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
 
     if not inputargtypes: 
         source = inspect.getsource(func)
-        base = udir.join(name).newext('.py').write(source) 
+        base = udir.join(name).new(ext='.py').write(source) 
 
     if dot:
         from pypy.translator.tool.make_dot import DotGen
@@ -149,10 +149,10 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
             subgraphs.append(dotgen.getsubgraph(name, funcgraph))
         content = dotgen.getgraph("graph_"+func.func_name, subgraphs)
         base = udir.join(name)
-        base.newext('dot').write(content)
-        base.newext('ps')
-        exec_cmd('dot -Tps -o %s %s' % (
-            str(base.newext('ps')),
-            str(base.newext('.dot'))))
+        base.new(ext='dot').write(content)
+        base.new(ext='ps')
+        cmdexec('dot -Tps -o %s %s' % (
+            str(base.new(ext='ps')),
+            str(base.new(ext='.dot'))))
 
     return getattr(mod, func.func_name)

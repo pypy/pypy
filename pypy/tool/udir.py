@@ -1,6 +1,6 @@
 import autopath
 
-from vpath.local import make_numbered_dir
+from std.path import local 
 
-udir = make_numbered_dir(base='usession-', keep=3)
+udir = local.make_numbered_dir(base='usession-', keep=3)
 

@@ -2,7 +2,7 @@ import autopath
 
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.gencl import GenCL
-from vpath.adapter.process import exec_cmd
+from std.process import cmdexec 
 
 class Literal:
     def __init__(self, val):
@@ -56,7 +56,7 @@ def _make_cl_func(func, cl, path, argtypes=[]):
             print >>fp, writelisp(gen, arg),
         print >>fp, "))"
         fp.close()
-        output = exec_cmd("%s %s" % (cl, str(fpath)))
+        output = cmdexec("%s %s" % (cl, str(fpath)))
         return readlisp(output)
     return _
 

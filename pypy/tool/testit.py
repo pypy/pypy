@@ -242,8 +242,8 @@ def testsuite_from_dir(root, filterfunc=None, recursive=0, loader=None):
     Additionally, their fully qualified python module path has
     to be accepted by filterfunc (if it is not None).
     """
-    from vpath import getlocal, nodotfile
-    root = getlocal(root)
+    from std import path 
+    root = path.local(root)
 
     if Options.verbose > 2:
         print >> sys.stderr, "scanning for test files in", root
@@ -251,10 +251,10 @@ def testsuite_from_dir(root, filterfunc=None, recursive=0, loader=None):
     if loader is None:
         loader = unittest.TestLoader()
 
-    def testfilefilter(path):
-        return path.isfile() and path.fnmatch('test_*.py')
-    def recfilter(path):
-        return recursive and nodotfile(path) 
+    def testfilefilter(p):
+        return p.check(file=1, fnmatch='test_*.py') 
+    def recfilter(p):
+        return recursive and p.check(dotfile=0) 
     
     suite = unittest.TestLoader.suiteClass()
 
