@@ -16,7 +16,6 @@ class W_TypeObject(W_Object):
         w_self.dict_w = dict_w
         w_self.ensure_static__new__()
 
-        #compute_C3_mro(w_self)   # XXX call type(w_self).mro()
         w_self.mro_w = compute_C3_mro(w_self)
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
@@ -31,6 +30,9 @@ class W_TypeObject(W_Object):
                                 space.wrap("instance layout conflicts in "
                                                     "multiple inheritance"))
             w_self.instancetypedef = instancetypedef
+        # XXX - this w_self.lookup('__dict__') is why we precalculate a C3 mro
+        #       even for instances that may override the mro.  This probably is not
+        #       a good thing to do.
         if forcedict and not w_self.lookup('__dict__'):
             w_self.dict_w['__dict__'] = space.wrap(default_dict_descr)
         if overridetypedef is None:
