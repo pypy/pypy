@@ -9,27 +9,28 @@ from pypy.interpreter import gateway, function
 from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.miscutils import InitializedClass
 from pypy.interpreter.argument import Arguments
+from pypy.tool import hack
 
-
-class unaryoperation:
-    def __init__(self, operationname):
-        self.operationname = operationname
-
-    def __call__(self, f):
-        operation = getattr(f.space, self.operationname)
+def unaryoperation(operationname):
+    """NOT_RPYTHON"""
+    def opimpl(f):
+        operation = getattr(f.space, operationname)
         w_1 = f.valuestack.pop()
         w_result = operation(w_1)
         f.valuestack.push(w_result)
 
-class binaryoperation:
-    def __init__(self, operationname):
-        self.operationname = operationname
-    def __call__(self, f):
-        operation = getattr(f.space, self.operationname)
+    return hack.func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
+
+def binaryoperation(operationname):
+    """NOT_RPYTHON"""    
+    def opimpl(f):
+        operation = getattr(f.space, operationname)
         w_2 = f.valuestack.pop()
         w_1 = f.valuestack.pop()
         w_result = operation(w_1, w_2)
         f.valuestack.push(w_result)
+
+    return hack.func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)        
 
 
 class PyInterpFrame(pyframe.PyFrame):
@@ -37,19 +38,21 @@ class PyInterpFrame(pyframe.PyFrame):
     minus the ones related to nested scopes."""
     
     ### opcode dispatch ###
-
-    # 'dispatch_table' is a class attribute: a list of functions.
-    # Currently, it is always created by setup_dispatch_table in pyopcode.py
+ 
+    # 'opcode_has_arg' is a class attribute: list of True/False whether opcode takes arg
+    # 'dispatch_table_no_arg: list of functions/None
+    # 'dispatch_table_w_arg: list of functions/None 
+    # Currently, they are always setup in pyopcode.py
     # but it could be a custom table.
 
     def dispatch(self):
         opcode = self.nextop()
-        fn = self.dispatch_table[opcode]
-        if fn.has_arg:
+        if self.opcode_has_arg[opcode]:
+            fn = self.dispatch_table_w_arg[opcode]
             oparg = self.nextarg()
             fn(self, oparg)
-
         else:
+            fn = self.dispatch_table_no_arg[opcode]            
             fn(self)
 
     def nextop(self):
@@ -180,7 +183,7 @@ class PyInterpFrame(pyframe.PyFrame):
     def INPLACE_POWER(f):
         w_2 = f.valuestack.pop()
         w_1 = f.valuestack.pop()
-        w_result = f.space.inplace_pow(w_1, w_2, f.space.w_None)
+        w_result = f.space.inplace_pow(w_1, w_2)
         f.valuestack.push(w_result)
 
     INPLACE_MULTIPLY = binaryoperation("inplace_mul")
@@ -681,9 +684,9 @@ class PyInterpFrame(pyframe.PyFrame):
     def EXTENDED_ARG(f, oparg):
         opcode = f.nextop()
         oparg = oparg<<16 | f.nextarg()
-        fn = f.dispatch_table[opcode]
-        if not fn.has_arg:
-            raise pyframe.BytecodeCorruption
+        fn = f.dispatch_table_w_arg[opcode]        
+        if fn is None:
+            raise pyframe.BytecodeCorruption            
         fn(f, oparg)
 
     def MISSING_OPCODE(f, oparg=None):
@@ -691,26 +694,38 @@ class PyInterpFrame(pyframe.PyFrame):
 
     ### dispatch_table ###
 
-    # 'dispatch_table' is a class attribute: a list of functions
-    # it is created by 'cls.setup_dispatch_table()'.
+    # 'opcode_has_arg' is a class attribute: list of True/False whether opcode takes arg
+    # 'dispatch_table_no_arg: list of functions/None
+    # 'dispatch_table_w_arg: list of functions/None
 
     __metaclass__ = InitializedClass
     def __initclass__(cls):
         "NOT_RPYTHON"
         # create the 'cls.dispatch_table' attribute
         import dis
-        dispatch_table = []
+        opcode_has_arg = []
+        dispatch_table_no_arg = []
+        dispatch_table_w_arg = []
         missing_opcode = cls.MISSING_OPCODE
         for i in range(256):
             opname = dis.opname[i].replace('+', '_')
             fn = getattr(cls, opname, missing_opcode)
             fn = getattr(fn, 'im_func',fn)
-            fn.has_arg = i >= dis.HAVE_ARGUMENT
+            has_arg = i >= dis.HAVE_ARGUMENT
             #if fn is missing_opcode and not opname.startswith('<') and i>0:
             #    import warnings
             #    warnings.warn("* Warning, missing opcode %s" % opname)
-            dispatch_table.append(fn)
-        cls.dispatch_table = dispatch_table
+            opcode_has_arg.append(has_arg)
+            if has_arg:
+                dispatch_table_w_arg.append(fn)
+                dispatch_table_no_arg.append(None)
+            else:
+                dispatch_table_no_arg.append(fn)
+                dispatch_table_w_arg.append(None)
+
+        cls.opcode_has_arg = opcode_has_arg
+        cls.dispatch_table_no_arg = dispatch_table_no_arg
+        cls.dispatch_table_w_arg = dispatch_table_w_arg
 
 
 ### helpers written at the application-level ###
