@@ -24,7 +24,8 @@ def readlisp(s):
         return Literal(s)
 
 def writelisp(gen, obj):
-    if isinstance(obj, (bool, int, type(None), str)):
+    #if isinstance(obj, (bool, int, type(None), str)):
+    if isinstance(obj, (int, type(None), str)):
         return gen.conv(obj)
     if isinstance(obj, (tuple, list)):
         content = ' '.join([writelisp(gen, elt) for elt in obj])
