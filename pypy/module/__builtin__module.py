@@ -466,7 +466,11 @@ class enumerate:
         return self
 
     def next(self):
-        value = self.iter.next()
+        try:
+            value = self.iter.next()
+        except AttributeError:
+            # CPython raises a TypeError when next() is not defined
+            raise TypeError('%s has no next() method' % self.iter)
         index = self.index
         self.index += 1
         return index, value
