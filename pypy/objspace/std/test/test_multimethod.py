@@ -19,7 +19,7 @@ from_y_to_x.priority = 2
 
 def from_x_to_str_sometimes(space, xinstance):
     if xinstance.value:
-        return '!' + repr(xinstance.value)
+        return w('!' + repr(xinstance.value))
     else:
         return []
 
@@ -72,6 +72,19 @@ class FakeObjSpace:
         return '<wrapped %r>' % (x,)
     w_TypeError = 'w_TypeError'
 
+def w(x, cache={}):
+    if type(x) in cache:
+        Stub = cache[type(x)]
+    else:
+        class Stub(type(x)):
+            pass
+        Stub.dispatchclass = Stub
+        cache[type(x)] = Stub
+    return Stub(x)
+
+X.dispatchclass = X
+Y.dispatchclass = Y
+
 
 class TestMultiMethod(test.TestCase):
 
@@ -96,28 +109,28 @@ class TestMultiMethod(test.TestCase):
         r = space.add(X(-3), Y(20))
         self.assertEquals(repr(r), "('add_x_x', <X -3>, <X <Y 20>>)")
         
-        r = space.add(-3, [7,6,5])
+        r = space.add(w(-3), w([7,6,5]))
         self.assertEquals(repr(r), "('add_int_any', -3, [7, 6, 5])")
 
-        r = space.add(5,"test")
+        r = space.add(w(5), w("test"))
         self.assertEquals(repr(r), "('add_int_string', 5, 'test')")
         
-        r = space.add("x","y")
+        r = space.add(w("x"), w("y"))
         self.assertEquals(repr(r), "('add_string_string', 'x', 'y')")
         
-        self.assertRaises(OperationError, space.add, [3],4)
+        self.assertRaises(OperationError, space.add, w([3]), w(4))
         
-        self.assertRaises(OperationError, space.add, 3.0,'bla')
+        self.assertRaises(OperationError, space.add, w(3.0), w('bla'))
 
-        r = space.add(X(42),"spam")
+        r = space.add(X(42), w("spam"))
         self.assertEquals(repr(r), "('add_string_string', '!42', 'spam')")
 
-        r = space.add(Y(20),"egg")
+        r = space.add(Y(20), w("egg"))
         self.assertEquals(repr(r), "('add_string_string', '!<Y 20>', 'egg')")
 
-        self.assertRaises(OperationError, space.add, X(0),"spam")
+        self.assertRaises(OperationError, space.add, X(0), w("spam"))
 
-        self.assertRaises(OperationError, space.add, Y(666),"egg")
+        self.assertRaises(OperationError, space.add, Y(666), w("egg"))
 
 
 if __name__ == '__main__':

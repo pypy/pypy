@@ -89,7 +89,6 @@ def unwrap__Dict(space, w_dict):
     return result
 
 def object_init__Dict_ANY_ANY(space, w_dict, w_args, w_kwds):
-    # w_kwds = w_kwds.copy() w unwrap & rewrap, but that should not be needed
     dict_clear__Dict(space, w_dict)
     args = space.unpackiterable(w_args)
     if len(args) == 0:
@@ -107,6 +106,7 @@ def object_init__Dict_ANY_ANY(space, w_dict, w_args, w_kwds):
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("dict() takes at most 1 argument"))
+    dict_update__Dict_Dict(space, w_dict, w_kwds)
 
 def getitem__Dict_ANY(space, w_dict, w_lookup):
     data = w_dict.non_empties()
