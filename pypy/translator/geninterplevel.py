@@ -1335,7 +1335,9 @@ if False and __name__ == "__main__":
     # extract certain stuff like a general module maker
     # and put this into tools/compile_exceptions, maybe???
     dic, entrypoint = exceptions_helper()
-    t = Translator(None, verbose=False, simplifying=True, builtins_can_raise_exceptions=True)
+    t = Translator(None, verbose=False, simplifying=True,
+                   builtins_can_raise_exceptions=True,
+                   do_imports_immediately=False)
     gen = GenRpy(t, entrypoint)
     gen.moddict = dic
     gen.gen_source('/tmp/look.py')
@@ -1372,7 +1374,9 @@ def crazy_test():
     def test():
         entrypoint()
         
-    t = Translator(test, verbose=False, simplifying=True, builtins_can_raise_exceptions=True)
+    t = Translator(test, verbose=False, simplifying=True,
+                   builtins_can_raise_exceptions=True,
+                   do_imports_immediately=False)
     gen2 = GenRpy(t)
     gen2.gen_source("/tmp/look2.py")
 
@@ -1402,7 +1406,9 @@ def translate_as_module(sourcetext, modname="app2interpexec", tmpname=None):
     exec code in dic
     del dic['__builtins__']
     entrypoint = dic
-    t = Translator(None, verbose=False, simplifying=True, builtins_can_raise_exceptions=True)
+    t = Translator(None, verbose=False, simplifying=True,
+                   builtins_can_raise_exceptions=True,
+                   do_imports_immediately=False)
     gen = GenRpy(t, entrypoint, modname, dic)
     if tmpname:
         out = file(tmpname, 'w')

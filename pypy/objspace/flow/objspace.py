@@ -30,7 +30,9 @@ class FlowObjSpace(ObjSpace):
     full_exceptions = False
 
     builtins_can_raise_exceptions = False
-    
+
+    do_imports_immediately = True  # overridden in geninterplevel
+
     def initialize(self):
         import __builtin__
         self.concrete_mode = 0

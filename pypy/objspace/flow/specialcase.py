@@ -91,6 +91,7 @@ def sc_operator(space, fn, args):
 def setup(space):
     fn = pyframe.normalize_exception.get_function(space)
     space.specialcases[fn] = sc_normalize_exception
-    space.specialcases[__import__] = sc_import
+    if space.do_imports_immediately:
+        space.specialcases[__import__] = sc_import
     for opname in ['lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_']:
         space.specialcases[getattr(operator, opname)] = sc_operator
