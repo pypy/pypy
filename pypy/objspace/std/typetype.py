@@ -1,5 +1,5 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.interpreter.typedef import default_dict_descr
+from pypy.objspace.std.dictproxyobject import dictproxy_descr
 
 
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
@@ -46,6 +46,6 @@ type_typedef = StdTypeDef("type",
     __bases__ = GetSetProperty(descr__bases),
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
-    __dict__ = default_dict_descr,
+    __dict__ = dictproxy_descr,
     mro = newmethod(descr_mro),
     )
