@@ -37,6 +37,9 @@ from pypy.tool.cache import Cache
 import inspect
 
 
+DEBUG = True    # set to False to disable recording of debugging information
+
+
 class SomeObject:
     """The set of all objects.  Each instance stands
     for an arbitrary object about which nothing is known."""
@@ -56,16 +59,18 @@ class SomeObject:
         return hasattr(self, 'const')
 
     # for debugging, record where each instance comes from
+    # this is disabled if DEBUG is set to False
     _coming_from = {}
     def __new__(cls, *args, **kw):
         self = super(SomeObject, cls).__new__(cls, *args, **kw)
-        try:
-            bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
-            position_key = bookkeeper.position_key
-        except AttributeError:
-            pass
-        else:
-            SomeObject._coming_from[id(self)] = position_key, None
+        if DEBUG:
+            try:
+                bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
+                position_key = bookkeeper.position_key
+            except AttributeError:
+                pass
+            else:
+                SomeObject._coming_from[id(self)] = position_key, None
         return self
     def origin(self):
         return SomeObject._coming_from.get(id(self), (None, None))[0]
@@ -199,7 +204,7 @@ def unionof(*somevalues):
     for s2 in somevalues:
         if s1 != s2:
             s1 = pair(s1, s2).union()
-    if s1.caused_by_merge is None and len(somevalues) > 1:
+    if DEBUG and s1.caused_by_merge is None and len(somevalues) > 1:
         s1.caused_by_merge = somevalues
     return s1
 

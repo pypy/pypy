@@ -96,9 +96,11 @@ class FlowGraphLayout(GraphLayout):
                 info = '%s: %s' % (var.name, s_value)
                 self.links[var.name] = info
                 self.current_value[var.name] = s_value
-                self.caused_by[var.name] = self.annotator.binding_caused_by[var]
+                self.caused_by[var.name] = (
+                    self.annotator.binding_caused_by.get(var))
             for var, history in self.annotator.bindingshistory.items():
-                cause_history = self.annotator.binding_cause_history[var]
+                cause_history = (
+                    self.annotator.binding_cause_history.get(var, []))
                 self.binding_history[var.name] = zip(history, cause_history)
 
     def followlink(self, varname):

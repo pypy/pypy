@@ -25,11 +25,13 @@ class RPythonAnnotator:
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
         self.links_followed = {} # set of links that have ever been followed
+        self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
+        # --- the following information is recorded for debugging only ---
+        # --- and only if annotation.model.DEBUG is kept to True
         self.why_not_annotated = {} # {block: (exc_type, exc_value, traceback)}
                                     # records the location of BlockedInference
                                     # exceptions that blocked some blocks.
         self.blocked_functions = {} # set of functions that have blocked blocks
-        self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
         self.bindingshistory = {}# map Variables to lists of SomeValues
         self.binding_caused_by = {}     # map Variables to position_keys
                # records the caller position that caused bindings of inputargs
@@ -37,6 +39,7 @@ class RPythonAnnotator:
         self.binding_cause_history = {} # map Variables to lists of positions
                 # history of binding_caused_by, kept in sync with
                 # bindingshistory
+        # --- end of debugging information ---
         self.bookkeeper = Bookkeeper(self)
 
     #___ convenience high-level interface __________________
@@ -98,7 +101,6 @@ class RPythonAnnotator:
         for attr, s_value in clsdef.attrs.items():
             v = Variable(name=attr)
             self.bindings[v] = s_value
-            self.binding_caused_by[v] = None
             yield v
 
     #___ medium-level interface ____________________________
@@ -118,18 +120,19 @@ class RPythonAnnotator:
             fn, block, cells, called_from = self.pendingblocks.pop()
             self.processblock(fn, block, cells, called_from)
         if False in self.annotated.values():
-            for block in self.annotated:
-                if self.annotated[block] is False:
-                    fn = self.why_not_annotated[block][1].break_at[0]
-                    self.blocked_functions[fn] = True
-                    import traceback
-                    print '-+' * 30
-                    print 'BLOCKED block at:',
-                    print self.why_not_annotated[block][1].break_at
-                    print 'because of:'
-                    traceback.print_exception(*self.why_not_annotated[block])
-                    print '-+' * 30
-                    print
+            if annmodel.DEBUG:
+                for block in self.annotated:
+                    if self.annotated[block] is False:
+                        fn = self.why_not_annotated[block][1].break_at[0]
+                        self.blocked_functions[fn] = True
+                        import traceback
+                        print '-+' * 30
+                        print 'BLOCKED block at:',
+                        print self.why_not_annotated[block][1].break_at
+                        print 'because of:'
+                        traceback.print_exception(*self.why_not_annotated[block])
+                        print '-+' * 30
+                        print
             print "++-" * 20
             print ('%d blocks are still blocked' %
                                  self.annotated.values().count(False))
@@ -158,12 +161,14 @@ class RPythonAnnotator:
             assert s_value.contains(self.bindings[arg])
             # for debugging purposes, record the history of bindings that
             # have been given to this variable
-            history = self.bindingshistory.setdefault(arg, [])
-            history.append(self.bindings[arg])
-            cause_history = self.binding_cause_history.setdefault(arg, [])
-            cause_history.append(self.binding_caused_by[arg])
+            if annmodel.DEBUG:
+                history = self.bindingshistory.setdefault(arg, [])
+                history.append(self.bindings[arg])
+                cause_history = self.binding_cause_history.setdefault(arg, [])
+                cause_history.append(self.binding_caused_by[arg])
         self.bindings[arg] = s_value
-        self.binding_caused_by[arg] = called_from
+        if annmodel.DEBUG:
+            self.binding_caused_by[arg] = called_from
 
 
     #___ interface for annotator.factory _______
@@ -300,8 +305,9 @@ class RPythonAnnotator:
                 #import traceback, sys
                 #traceback.print_tb(sys.exc_info()[2])
                 self.annotated[block] = False   # failed, hopefully temporarily
-                import sys
-                self.why_not_annotated[block] = sys.exc_info()
+                if annmodel.DEBUG:
+                    import sys
+                    self.why_not_annotated[block] = sys.exc_info()
             except Exception, e:
                 # hack for debug tools only
                 if not hasattr(e, '__annotator_block'):

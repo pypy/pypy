@@ -13,6 +13,7 @@ Command-line options for translate_pypy:
             Do not mark functions that have SomeObject in their signature.
    -tcc     Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
                 -- http://fabrice.bellard.free.fr/tcc/
+   -no-d    Disable recording of debugging information
 """
 import autopath, sys, threading, pdb, os
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
@@ -146,6 +147,7 @@ if __name__ == '__main__':
                '-no-mark-some-objects': False,
                '-no-a': False,
                '-tcc':  False,
+               '-no-d': False,
                }
     for arg in sys.argv[1:]:
         if arg in ('-h', '--help'):
@@ -155,6 +157,8 @@ if __name__ == '__main__':
         options[arg] = True
     if options['-tcc']:
         os.environ['PYPY_CC'] = 'tcc -shared -o "%s.so" "%s.c"'
+    if options['-no-d']:
+        annmodel.DEBUG = False
 
     def about(x):
         """ interactive debugging helper """

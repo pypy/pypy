@@ -194,6 +194,7 @@ class Bookkeeper:
             if func.im_self is not None:
                 s_self = self.immutablevalue(func.im_self)
                 args = [s_self] + list(args)
+            # for debugging only, but useful to keep anyway:
             try:
                 func.im_func.class_ = func.im_class
             except AttributeError:
