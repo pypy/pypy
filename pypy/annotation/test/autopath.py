@@ -37,9 +37,11 @@ def __dirinfo(part):
         partdir = head
         head, tail = os.path.split(head)
         if tail == part:
-            sys.path = [p for p in sys.path if not p.startswith(head)]
-            if head not in sys.path:
-                sys.path.insert(0, head)
+            try:
+                sys.path.remove(head)
+            except ValueError:
+                pass
+            sys.path.insert(0, head)
             return partdir, this_dir
         
     raise EnvironmentError, "'%s' missing in '%r'" % (pathpart,this_path)
