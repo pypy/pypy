@@ -179,6 +179,8 @@ class __extend__(SomeCallable):
                     print ("!!! rebinding an already bound"
                            " method %r with %r" % (func, value))
                 d[func] = classdef
+            elif isinstance(func, staticmethod):
+                d[func.__get__(43)] = value
             else:
                 d[func] = value 
         return SomeCallable(d)

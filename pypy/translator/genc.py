@@ -218,6 +218,9 @@ class GenC:
                         continue
                     # XXX some __NAMES__ are important... nicer solution sought
                     #raise Exception, "unexpected name %r in class %s"%(key, cls)
+                if isinstance(value, staticmethod) and value.__get__(1) not in self.translator.flowgraphs and self.translator.frozen:
+                    print value
+                    continue
                 if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
                     print value
                     continue

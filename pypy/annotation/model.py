@@ -148,7 +148,7 @@ class SomeCallable(SomeObject):
     def __init__(self, callables):
         # callables is a dictionary containing concrete python 
         # callable objects as keys and - in the case of a method - 
-        # the value contains the classdef (see SomeMethod above) 
+        # the value contains the classdef (see SomeMethod below) 
         self.callables = callables
         if len(callables) == 1:
             self.const, = callables
@@ -229,7 +229,7 @@ def immutablevalue(x):
         result = SomeDict({}, items)
     elif ishashable(x) and x in BUILTIN_FUNCTIONS:
         result = SomeBuiltin(BUILTIN_FUNCTIONS[x])
-    elif callable(x):
+    elif callable(x) or isinstance(x, staticmethod): # XXX
         if hasattr(x, '__self__') and x.__self__ is not None:
             s_self = immutablevalue(x.__self__)
             del s_self.const # stop infinite recursion getattr<->immutablevalue
