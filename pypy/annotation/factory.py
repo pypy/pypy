@@ -41,7 +41,7 @@ class Bookkeeper:
         self.userclasses = {}    # map classes to ClassDefs
         self.userclasseslist = []# userclasses.keys() in creation order
         self.attrs_read_from_constants = {}
-        self.cachespecializedfunctions = {}
+        self.cachespecializations = {}
 
     def enter(self, position_key):
         """Start of an operation.
@@ -143,6 +143,14 @@ class CallableFactory:
         if isinstance(func, (type, ClassType)) and \
             func.__module__ != '__builtin__':
             cls = func 
+            x = getattr(cls, "_specialize_", False)
+            if x:
+                if x == "location":
+                    cls = self.specialize_by_key(cls, self.position_key)
+                else:
+                    raise Exception, \
+                          "unsupported specialization type '%s'"%(x,)
+            
             classdef = self.bookkeeper.getclassdef(cls)
             classdef.instancefactories[self] = True
             s_instance = SomeInstance(classdef)
@@ -182,20 +190,26 @@ class CallableFactory:
                                                            len(args)))
         return self.bookkeeper.annotator.recursivecall(func, self, *args)
 
-    def specialize_by_key(self, func, key, name=None):
-        key = func, key
+    def specialize_by_key(self, thing, key, name=None):
+        key = thing, key
         try:
-            func = self.bookkeeper.cachespecializedfunctions[key]
+            thing = self.bookkeeper.cachespecializations[key]
         except KeyError:
-            # XXX XXX XXX HAAAAAAAAAAAACK
-            self.bookkeeper.annotator.translator.getflowgraph(func)
-            func = new.function(func.func_code, 
-                                func.func_globals, 
-                                name or func.func_name, 
-                                func.func_defaults, 
-                                func.func_closure)
-            self.bookkeeper.cachespecializedfunctions[key] = func
-        return func
+            if isinstance(thing, FunctionType):
+                # XXX XXX XXX HAAAAAAAAAAAACK
+                self.bookkeeper.annotator.translator.getflowgraph(thing)
+                thing = new.function(thing.func_code, 
+                                     thing.func_globals, 
+                                     name or thing.func_name, 
+                                     thing.func_defaults, 
+                                     thing.func_closure)
+            elif isinstance(thing, (type, ClassType)):
+                assert not "not working yet"
+                thing = type(thing)(name or thing.__name__, (thing,))
+            else:
+                raise Exception, "specializing %r?? why??"%thing
+            self.bookkeeper.cachespecializations[key] = thing
+        return thing
 
 class ClassDef:
     "Wraps a user class."
