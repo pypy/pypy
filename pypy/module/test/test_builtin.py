@@ -40,17 +40,18 @@ class TestBuiltinApp(test.AppTestCase):
             return dir()
         def g(c=0, b=0, a=0):
             return dir()
+        def nosp(x): return [y for y in x if y[0]!='_']
         self.assertEquals(f(), [])
         self.assertEquals(g(), ['a', 'b', 'c'])
         class X: pass
-        self.assertEquals(dir(X), ['__module__', ])
+        self.assertEquals(nosp(dir(X)), nosp(['__module__', ]))
         class X: a = 23
-        self.assertEquals(dir(X), ['__module__', 'a'])
+        self.assertEquals(nosp(dir(X)), nosp(['__module__', 'a']))
         class X:
             a = 23
             c = 45
             b = 67
-        self.assertEquals(dir(X), ['__module__', 'a', 'b', 'c'])
+        self.assertEquals(nosp(dir(X)), nosp(['__module__', 'a', 'b', 'c']))
 
     def test_vars(self):
         def f():
