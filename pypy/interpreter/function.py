@@ -183,15 +183,15 @@ class Function(Wrappable):
         # (for FlowObjSpace)
         return self.space.call(wrap(self), w_args, w_kwds)
 
-    def pypy_getattr(self, w_name):
-        space = self.space
-        raise OperationError(space.w_AttributeError, w_name)
+    #def pypy_getattr(self, w_name):
+    #    space = self.space
+    #    raise OperationError(space.w_AttributeError, w_name)
 
     def app_visible(self):  
         space = self.space
-        def f(*kw):
+        def items(**kw):
             return kw.items()
-        return f(
+        return items(
                 func_defaults = self.defs_w and space.newtuple(self.defs_w) or space.w_None,
                 func_code = space.wrap(self.code),
                 func_dict = self.w_func_dict,
@@ -199,7 +199,8 @@ class Function(Wrappable):
                 __doc__ = space.wrap(self.doc),
                 func_name = space.wrap(self.name),
                 __name__ = space.wrap(self.name),
-                func_globals = self.w_func_globals)
+                func_globals = self.w_func_globals,
+                func_closure = space.wrap(self.closure))
 
 class Method(object):
     """A method is a function bound to a specific instance or class."""
