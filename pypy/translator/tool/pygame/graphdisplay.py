@@ -106,13 +106,7 @@ class GraphDisplay(Display):
         self.zoom_to_fit()
 
     def zoom_actual_size(self):
-        # XXX - HACK HACK HACK
-        #self.update_status_bar()
-        #self.drawstatusbar()
-
         self.viewer.shiftscale(self.viewer.SCALEMAX / self.viewer.scale)
-        #self.viewer.setoffset((self.viewer.width - self.width) // 2,
-        #                      (self.viewer.height - (self.height - self.status_bar_height)) // 2)
         self.updated_viewer()
 
     def calculate_zoom_to_fit(self):
