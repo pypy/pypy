@@ -224,7 +224,7 @@ class Bookkeeper:
                 # class information then
                 pass
             func = func.im_func
-        assert isinstance(func, FunctionType), "expected function, got %r"%func
+        assert isinstance(func, FunctionType), "[%s] expected function, got %r" % (self.whereami(), func)
         # do we need to specialize this function in several versions?
         x = getattr(func, '_specialize_', False)
         #if not x: 
