@@ -36,19 +36,19 @@ if __name__ == '__main__':
     BASE.join('delta.css').copy(revdir) 
     BASE.join('delta.js').copy(revdir) 
 
-    if 1 or py.std.sys.stdout.isatty(): 
+    if py.std.sys.stdout.isatty(): 
         delta.genreport(revdir) 
     else: 
         capture = SimpleOutErrCapture() 
         try: 
             delta.genreport(revdir) 
         except: 
-            out, err = capture.done()  
+            out, err = capture.reset()  
             print "stdout", out 
             print "stderr", err 
             raise 
         else: 
-            out, err = capture.done() 
+            out, err = capture.reset() 
             print "stdout"
             print out 
     print "generated into", revdir 
