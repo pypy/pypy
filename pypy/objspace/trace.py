@@ -8,57 +8,38 @@ from pypy.interpreter.pycode import PyCode
 debug = 0
 
 class Logger(object):
-    def __init__(self, fn, printme):
+    def __init__(self, name, fn, printme):
         self.fn = fn
+        self.name = name
         self.printme = printme
         
     def __call__(self, cls, *args, **kwds):
-        print "%s (%s, %s)" % (self.printme, str(args), str(kwds)) 
+        print self.name
+        #print "%s %s(%s, %s)" % (self.printme, , str(args), str(kwds)) 
         return self.fn(*args, **kwds)
 
         
 # ______________________________________________________________________
-class TraceObjSpace(StdObjSpace):
-    full_exceptions = False
-    
-    def initialize(self):
-        space = StdObjSpace()
-        self.space = space
-        for key, item in space.__dict__.items():
-            if not callable(item):
-                print "key: %s" % key
-                setattr(self, key, item)
-            else:
-                l = Logger(item, "instance method")
-                print l
-                setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
 
-        for key in space.__class__.__dict__.keys():
-            item = getattr(space, key)
-            if callable(item) and not key.startswith('__'):
-                l = Logger(item, "class method")
-                print l
-                setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
+def Trace(spacecls = StdObjSpace):
 
-    def runx(self, func, *args):
-        globals = {}
-            
-        w_globals = self.wrap(globals) 
-        args_w = [self.wrap(ii) for ii in args]
-
-        ec = self.getexecutioncontext()
-
-        code = func.func_code
-        code = PyCode()._from_code(code)
-
-        frame = code.create_frame(space, w_globals)
-        frame.setfastscope(args_w)
+    class TraceObjSpace(spacecls):
         
-        return frame.run()
-        
+        def initialize(self):
+            self.space = spacecls()
 
-Space = TraceObjSpace
-s = Space()
+            method_names = [ii[0] for ii in ObjSpace.MethodTable]
+            for key in method_names:
+                if key in method_names:
+                    item = getattr(self.space, key)
+                    l = Logger(key, item, "class method")
+                    setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
+
+    return TraceObjSpace()
+
+
+s = Trace()
+print dir(s)
 # ______________________________________________________________________
 # End of trace.py
 
