@@ -4,7 +4,7 @@ from pypy.tool import test
 # this test isn't so much to test that the objspace interface *works*
 # -- it's more to test that it's *there*
 
-class TestStdObjectSpace(test.TestCase):
+class TestObjSpace(test.TestCase):
 
     def setUp(self):
         self.space = test.objspace()
@@ -57,6 +57,42 @@ class TestStdObjectSpace(test.TestCase):
         w_false = w(false)
         self.failUnless(self.space.is_true(w_true))
         self.failIf(self.space.is_true(w_false))
+
+    def test_is_(self):
+        w_l = self.space.newlist([])
+        w_m = self.space.newlist([])
+        self.assertEqual(self.space.is_(w_l, w_l), self.space.w_True)
+        self.assertEqual(self.space.is_(w_l, w_m), self.space.w_False)
+
+    def test_newbool(self):
+        self.assertEqual(self.space.newbool(0), self.space.w_False)
+        self.assertEqual(self.space.newbool(1), self.space.w_True)
+
+    def test_unpackiterable(self):
+        w = self.space.wrap
+        l = [w(1), w(2), w(3), w(4)]
+        w_l = self.space.newlist(l)
+        self.assertEqual(self.space.unpackiterable(w_l), l)
+        self.assertEqual(self.space.unpackiterable(w_l, 4), l)
+        self.assertRaises(ValueError, self.space.unpackiterable, w_l, 3)
+        self.assertRaises(ValueError, self.space.unpackiterable, w_l, 5)
+
+    def test_unpacktuple(self):
+        w = self.space.wrap
+        l = [w(1), w(2), w(3), w(4)]
+        w_l = self.space.newtuple(l)
+        self.assertEqual(self.space.unpacktuple(w_l), l)
+        self.assertEqual(self.space.unpacktuple(w_l, 4), l)
+        self.assertRaises(ValueError, self.space.unpacktuple, w_l, 3)
+        self.assertRaises(ValueError, self.space.unpacktuple, w_l, 5)
+
+    def test_exception_match(self):
+        self.failUnless(self.space.exception_match(self.space.w_ValueError,
+                                                   self.space.w_ValueError))
+        self.failUnless(self.space.exception_match(self.space.w_IndexError,
+                                                   self.space.w_LookupError))
+        self.failIf(self.space.exception_match(self.space.w_ValueError,
+                                               self.space.w_LookupError))
 
 if __name__ == '__main__':
     test.main()

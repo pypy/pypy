@@ -2,7 +2,7 @@
 This module defines the abstract base classes that support execution:
 Code and Frame.
 """
-
+from error import OperationError
 
 class Code(object):
     """A code is a compiled version of some source code.
@@ -99,6 +99,7 @@ class Frame(object):
 
     def locals2fast(self):
         # Copy values from self.w_locals to self.fastlocals_w
+        assert self.w_locals is not None
         varnames = self.code.getvarnames()
         for name, i in zip(varnames, range(len(self.fastlocals_w))):
             w_name = self.space.wrap(varnames[i])

@@ -21,7 +21,6 @@ class ObjSpace:
 
     def __init__(self):
         "Basic initialization of objects."
-        self.appfile_helpers = {}
         self.initialize()
 
     def make_builtins(self):
@@ -78,21 +77,6 @@ class ObjSpace:
     def createexecutioncontext(self):
         "Factory function for execution contexts."
         return ExecutionContext(self)
-
-    def gethelper(self, applicationfile):
-        try:
-            helper = self.appfile_helpers[applicationfile]
-        except KeyError:
-            from appfile import AppHelper
-            helper = AppHelper(self.gethelperspace(), applicationfile)
-            self.appfile_helpers[applicationfile] = helper
-        return helper
-
-    def gethelperspace(self):
-        # Return the object space to be used for executing helper code.
-        # A subclass may override this if it wants to use a different
-        # space to execute helpers (e.g. the annotating space)
-        return self
 
     # Following is a friendly interface to common object space operations
     # that can be defined in term of more primitive ones.  Subclasses

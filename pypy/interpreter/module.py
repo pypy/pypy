@@ -28,3 +28,13 @@ class Module(Wrappable):
 
     def pypy_setattr(self, w_attr, w_value):
         self.space.setitem(self.w_dict, w_attr, w_value)
+
+    def pypy_delattr(self, w_attr):
+        space = self.space
+        try:
+            space.delitem(self.w_dict, w_attr)
+        except OperationError, e:
+            if not e.match(space, space.w_KeyError):
+                raise
+            # XXX fix error message
+            raise OperationError(space.w_AttributeError, w_attr)
