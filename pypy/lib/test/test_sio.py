@@ -4,8 +4,6 @@ import os
 import time
 from pypy.tool.udir import udir
 
-from pypy.appspace import sio 
-
 class TestSource(object):
 
     def __init__(self, packets):

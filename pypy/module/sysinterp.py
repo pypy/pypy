@@ -61,14 +61,15 @@ w_builtin_module_names = space.newtuple([space.wrap(fn)
 import os
 from pypy.interpreter import autopath
 srcdir = os.path.dirname(autopath.pypydir)
-appdir = os.path.join(autopath.pypydir, 'appspace')
-python_std_lib = os.path.join(autopath.pypydir, '..','lib-python-2.3.4') 
+python_std_lib = os.path.normpath(
+        os.path.join(autopath.pypydir, '..','lib-2.3.4'))
+pypy_override_lib = os.path.join(autopath.pypydir, 'lib') 
 assert os.path.exists(python_std_lib) 
 del os, autopath # XXX for the translator. Something is very wrong around here.
 
 w_initialpath = space.newlist([space.wrap(''), 
+                       space.wrap(pypy_override_lib), 
                        space.wrap(python_std_lib), 
-                       #space.wrap(appdir), 
                        ] +
                        [space.wrap(p) for p in cpy_sys.path if p!= srcdir])
 

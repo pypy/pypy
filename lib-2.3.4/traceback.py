@@ -155,9 +155,7 @@ def format_exception_only(etype, value):
     which exception occurred is the always last string in the list.
     """
     list = []
-    # the following line is the only change against Py 2.3.3
-    # Python will change here, anyway. Drop this file, then.
-    if isinstance(etype, (types.ClassType, type)):
+    if type(etype) == types.ClassType:
         stype = etype.__name__
     else:
         stype = etype

@@ -1,6 +1,4 @@
-"""Suite Standard URL suite: Mac URL standard, supported by many apps
-
-
+"""Suite Standard URL suite: Mac URL standard, supported by many apps
 Level 1, version 1
 
 Generated from /Volumes/Sap/Applications (Mac OS 9)/Netscape Communicator\xe2\x84\xa2 Folder/Netscape Communicator\xe2\x84\xa2
