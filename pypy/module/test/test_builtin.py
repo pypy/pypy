@@ -21,6 +21,16 @@ class TestBuiltinApp(test.AppTestCase):
         self.assertRaises(ValueError, chr, -1)
         self.assertRaises(TypeError, chr, 'a')
 
+    def test_intern(self):
+        self.assertRaises(TypeError, intern)
+        s = "never interned before"
+        s2 = intern(s)
+        self.assertEquals(s, s2)
+        s3 = s.swapcase()
+        self.assert_(s3 != s2)
+        s4 = s3.swapcase()
+        self.assert_(intern(s4) is s2)
+
     def test_globals(self):
         d = {"foo":"bar"}
         exec "def f(): return globals()" in d
