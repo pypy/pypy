@@ -15,8 +15,8 @@ class FunctionGraph:
         self.returnblock.operations = ()
         self.returnblock.exits      = ()
         # block corresponding to exception results
-        self.exceptblock = Block([Variable(),   # exception class
-                                  Variable()])  # exception value
+        self.exceptblock = Block([Variable('etype'),   # exception class
+                                  Variable('evalue')])  # exception value
         self.exceptblock.operations = ()
         self.exceptblock.exits      = ()
 
