@@ -118,6 +118,9 @@ class TestStringObject(testit.AppTestCase):
     def setUp(self):
         self.space = testit.objspace('std')
 
+    def test_format_wrongchar(self):
+        self.assertRaises(ValueError, 'a%Zb'.__mod__, ((23,),))
+
     def test_split(self):
         self.assertEquals("".split(), [])
         self.assertEquals("a".split(), ['a'])

@@ -938,17 +938,47 @@ def ord__String(space, w_str):
     return space.wrap(ord(space.unwrap(w_str)))
 
 def mod__String_ANY(space, w_str, w_item):
-    return mod_str_tuple(space, w_str, space.newtuple([w_item]))
+    return mod__String_Tuple(space, w_str, space.newtuple([w_item]))
 
-def mod__String_ANY(space, w_str, w_tuple):
-    return mod_str_tuple(space, w_str, w_tuple) 
+def app_mod__String_Tuple(format, values):
+    l = list(values) 
+    l.reverse()
+    pieces = []
+    start = 0
+    state = 0
+    for i in range(len(format)):
+        c = format[i]
+        if state == 0:
+            """ just copy constant-pieces of the format """
+            if c!='%':
+                continue
+            pieces.append(format[start:i])
+            state = 1
+        else:
+            if c=='%':
+                pieces.append('%')
+            elif c=='s':
+                pieces.append(str(l.pop()))
+            elif c=='d':
+                pieces.append(str(int(l.pop())))
+            elif c=='x':
+                pieces.append(hex(int(l.pop())))
+            elif c=='r':
+                pieces.append(repr(l.pop()))
+            else:
+                raise ValueError, "unsupported format character '%s' (%x) at index %d" % (
+                        c, ord(c), i)
+            state = 0
+            start = i+1
 
-#def app_mod__String_Tuple(format, values):
-#    l = list(values) 
-#    l.reverse()
-#    for formatchars = list(format) 
+    if state == 1:
+        raise ValueError, "incomplete format"
 
-#mod__String_Tuple = gateway.app2interp(app_mod__String_Tuple) 
+    pieces.append(format[start:])
+    return ''.join(pieces)
+
+
+mod__String_Tuple = gateway.app2interp(app_mod__String_Tuple) 
 
 # register all methods 
 register_all(vars(), W_StringType)
