@@ -19,5 +19,11 @@ class TranslatorTestCase(testit.IntTestCase):
         inheritance2 = t.compile()
         self.assertEquals(inheritance2(), ((-12, -12), (3, "world")))
 
+    def test_simple_method(self):
+        t = Translator(snippet.simple_method)
+        t.annotate([int]).simplify()
+        simple_method = t.compile()
+        self.assertEquals(simple_method(55), 55)
+
 if __name__ == '__main__':
     testit.main()

@@ -191,6 +191,8 @@ class GenPyrex:
         self.lines = currentlines
         inputargnames = [ " ".join(self._paramvardecl(var)) for var in fun.getargs() ]
         params = ", ".join(inputargnames)
+        #returntype = self.get_type(fun.getreturnvar())
+        #returntypename = self._gettypename(returntype)
         self.putline("def %s(%s):" % (fun.name, params))
         self.indent += 1
         #self.putline("# %r" % self.annotations)
@@ -355,9 +357,9 @@ class GenPyrex:
                     empty = False
                 list_methods=delay_methods.get(cls,[])
                 for py_fun in list_methods:
-                    self.putline("def %s(*args):" % (self._str(py_fun,'XXX')))
+                    self.putline("def %s(self, *args):" % py_fun.__name__)
                     self.indent += 1
-                    self.putline("return %s(*args)" %(self._str(py_fun,'XXX')))
+                    self.putline("return %s(self, *args)" % py_fun.__name__)
                     self.indent -= 1
                 if empty:
                     self.putline("pass")

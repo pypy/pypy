@@ -361,3 +361,12 @@ def somebug1(n):
     while n:
         l[7] = 5
     return v
+
+class Z:
+    def my_method(self):
+        return self.my_attribute
+
+def simple_method(v):
+    z = Z()
+    z.my_attribute = v
+    return z.my_method()
