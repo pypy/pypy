@@ -1,7 +1,7 @@
 from pypy.tool.tb_server.server import TBRequestHandler
 from xpy import html, xml
 
-from std.magic import dyncode
+from py.magic import dyncode
 
 import traceback
 import cgi

@@ -7,7 +7,7 @@ import autopath, os
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import Space
 from pypy.tool.udir import udir
-from std.process import cmdexec
+from py.process import cmdexec
 
 class DotGen:
     

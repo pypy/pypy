@@ -2,7 +2,7 @@ import autopath
 
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.gencl import GenCL
-from std.process import cmdexec 
+from py.process import cmdexec 
 
 class Literal:
     def __init__(self, val):

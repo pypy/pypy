@@ -2,8 +2,8 @@ import autopath
 from pypy.tool import testit
 from pypy.tool.udir import udir
 
-from std.process import cmdexec 
-from std import path 
+from py.process import cmdexec 
+from py import path 
 from pypy.translator.genpyrex import GenPyrex
 
 import os, sys, inspect
