@@ -89,6 +89,7 @@ class GraphDisplay(Display):
         '/': 'search',
         'n': 'find_next',
         'p': 'find_prev',
+        'r': 'reload',
         'left' : ('pan', (-1, 0)),
         'right' : ('pan', (1, 0)),
         'up' : ('pan', (0, -1)),
@@ -114,6 +115,7 @@ class GraphDisplay(Display):
         Backspace       Go back in history
         Meta Left       Go back in history
         Meta Right      Go forward in history
+        R               Reload the page
 
         F or /          Search for text
         N               Find next occurrence
@@ -388,6 +390,12 @@ class GraphDisplay(Display):
             self.layout = self.viewer.graphlayout
             self.updated_viewer()
 
+    def reload(self):
+        self.setstatusbar('reloading...')
+        self.redraw_now()
+        newlayout = self.layout.reload()
+        self.setlayout(newlayout)
+
     def setstatusbar(self, text, fgcolor=None, bgcolor=None):
         info = (text, fgcolor or self.STATUSBAR_FGCOLOR, bgcolor or self.STATUSBAR_BGCOLOR)
         if info != self.statusbarinfo:
@@ -438,10 +446,13 @@ class GraphDisplay(Display):
     def notifyclick(self, pos):
         word = self.viewer.at_position(pos)
         if word in self.layout.links:
+            self.setstatusbar('loading...')
+            self.redraw_now()
             newlayout = self.layout.followlink(word)
             if newlayout is not None:
                 self.setlayout(newlayout)
                 return
+            self.setstatusbar('')
         node = self.viewer.node_at_position(pos)
         if node:
             self.look_at_node(node)
@@ -539,12 +550,7 @@ class GraphDisplay(Display):
                                      bumpscale*t*(1-t))
                 self.viewer.setcenter(cx1*(1-t) + cx2*t, cy1*(1-t) + cy2*t)
                 self.updated_viewer(keep_highlight=keep_highlight)
-                self.viewer.render()
-                if self.statusbarinfo:
-                    self.drawstatusbar()
-                else:
-                    self.status_bar_height = 0
-                pygame.display.flip()
+                self.redraw_now()
         return moving
 
     def peek(self, typ):
@@ -619,7 +625,16 @@ class GraphDisplay(Display):
     
     def quit(self):
         raise StopIteration
-    
+
+    def redraw_now(self):
+        self.viewer.render()
+        if self.statusbarinfo:
+            self.drawstatusbar()
+        else:
+            self.status_bar_height = 0
+        pygame.display.flip()
+        self.must_redraw = False
+
     def run(self):
         self.dragging = self.click_origin = self.click_time = None
         events = self.events = []
@@ -628,13 +643,7 @@ class GraphDisplay(Display):
             while True:
 
                 if self.must_redraw and not events:
-                    self.viewer.render()
-                    if self.statusbarinfo:
-                        self.drawstatusbar()
-                    else:
-                        self.status_bar_height = 0
-                    pygame.display.flip()
-                    self.must_redraw = False
+                    self.redraw_now()
 
                 if not events:
                     events.append(pygame.event.wait())

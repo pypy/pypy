@@ -79,6 +79,9 @@ class GraphLayout:
         from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
         GraphDisplay(self).run()
 
+    def reload(self):
+        return self
+
 class Node:
     def __init__(self, name, x, y, w, h, label, style, shape, color, fillcolor):
         self.name = name

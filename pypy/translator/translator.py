@@ -108,8 +108,8 @@ class Translator:
     def view(self, *functions):
         """Shows the control flow graph with annotations if computed.
         Requires 'dot' and pygame."""
-        from pypy.translator.tool.pygame.flowviewer import FlowGraphLayout
-        FlowGraphLayout(self).display()
+        from pypy.translator.tool.graphpage import FlowGraphPage
+        FlowGraphPage(self).display()
 
     def simplify(self, func=None):
         """Simplifies the control flow graph (default: for all functions)."""

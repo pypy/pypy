@@ -4,6 +4,8 @@
 """
 Command-line options for translate_pypy:
 
+   port     Listen on the given port number for connexions
+                (see pypy/translator/tool/pygame/graphclient.py)
    -text    Don't start the Pygame viewer
    -no-a    Don't infer annotations, just translate everything
    -no-c    Don't generate the C code
@@ -46,6 +48,8 @@ def analyse(entry_point=entry_point):
     # caches (as far as analyzing the entry_point is concerned) 
     entry_point() 
     t = Translator(entry_point, verbose=True, simplifying=True)
+    if listen_port:
+        run_async_server()
     if not options['-no-a']:
         a = t.annotate([])
         a.simplify()
@@ -138,6 +142,13 @@ def run_in_thread(fn, args, cleanup=None, cleanup_args=()):
             cleanup(*cleanup_args)
     return threading.Thread(target=_run_in_thread, args=())
 
+def run_async_server():
+    from pypy.translator.tool import graphpage, graphserver
+    homepage = graphpage.TranslatorPage(t)
+    graphserver.run_server(homepage, port=listen_port, background=True)
+    options['-text'] = True
+
+
 if __name__ == '__main__':
 
     options = {'-text': False,
@@ -149,12 +160,16 @@ if __name__ == '__main__':
                '-tcc':  False,
                '-no-d': False,
                }
+    listen_port = None
     for arg in sys.argv[1:]:
         if arg in ('-h', '--help'):
             print __doc__.strip()
             sys.exit()
-        assert arg in options, "unknown option %r" % (arg,)
-        options[arg] = True
+        try:
+            listen_port = int(arg)
+        except ValueError:
+            assert arg in options, "unknown option %r" % (arg,)
+            options[arg] = True
     if options['-tcc']:
         os.environ['PYPY_CC'] = 'tcc -shared -o "%s.so" "%s.c"'
     if options['-no-d']:
@@ -186,14 +201,15 @@ if __name__ == '__main__':
         print "don't know about", x
 
     def run_server():
-        from pypy.translator.tool.pygame.flowviewer import TranslatorLayout
+        from pypy.translator.tool.graphpage import TranslatorPage
+        from pypy.translator.tool.pygame.graphclient import get_layout
         from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
         import pygame
 
         if not options['-no-mark-some-objects']:
             find_someobjects(t, quiet=True)
 
-        display = GraphDisplay(TranslatorLayout(t))
+        display = GraphDisplay(get_layout(TranslatorPage(t)))
         async_quit = display.async_quit
         return display.run, async_quit, pygame.quit
 

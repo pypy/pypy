@@ -1,27 +1,52 @@
-import autopath
 import inspect
-from pypy.translator.tool.pygame.drawgraph import GraphLayout
-from pypy.translator.tool.make_dot import DotGen
+from pypy.objspace.flow.model import traverse
+from pypy.translator.tool.make_dot import DotGen, make_dot, make_dot_graphs
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from pypy.annotation import model
 from pypy.annotation.classdef import ClassDef
 from pypy.tool.uid import uid
 
 
-class SingleGraphLayout(GraphLayout):
-    """ A GraphLayout showing a single precomputed FlowGraph."""
+class GraphPage:
+    """Base class for the server-side content of one of the 'pages'
+    (one graph) sent over to and displayed by the client.
+    """
+    def __init__(self, *args):
+        self.args = args
 
-    def __init__(self, graph):
-        from pypy.translator.tool.make_dot import make_dot
-        fn = make_dot(graph.name, graph, target='plain')
-        GraphLayout.__init__(self, fn)
+    def content(self):
+        """Compute the content of the page.
+        This doesn't modify the page in place; it returns a new GraphPage.
+        """
+        if hasattr(self, 'source'):
+            return self
+        else:
+            new = self.__class__()
+            new.source = ''  # '''dot source'''
+            new.links  = {}  # {'word': 'statusbar text'}
+            new.compute(*self.args)   # defined in subclasses
+            return new
+
+    def followlink(self, word):
+        raise KeyError
+
+    def display(self):
+        "Display a graph page locally."
+        from pypy.translator.tool.pygame.graphclient import get_layout
+        get_layout(self).display()
 
 
-class VariableHistoryGraphLayout(GraphLayout):
-    """ A GraphLayout showing the history of variable bindings. """
+class SingleGraphPage(GraphPage):
+    """ A GraphPage showing a single precomputed FlowGraph."""
 
-    def __init__(self, translator, name, info, caused_by, history, func_names):
-        self.links = {}
+    def compute(self, graph):
+        self.source = make_dot(graph.name, graph, target=None)
+
+
+class VariableHistoryGraphPage(GraphPage):
+    """ A GraphPage showing the history of variable bindings. """
+
+    def compute(self, translator, name, info, caused_by, history, func_names):
         self.linkinfo = {}
         self.translator = translator
         self.func_names = func_names
@@ -44,9 +69,7 @@ class VariableHistoryGraphLayout(GraphLayout):
                 label += '\\n' + self.createlink(caused_by)
             dotgen.emit_node(str(n+1), shape="box", label=label)
             dotgen.emit_edge(str(n+1), str(n))
-        links = self.links  # GraphLayout.__init__ will override it with {}
-        GraphLayout.__init__(self, dotgen.generate(target='plain'))
-        self.links.update(links)
+        self.source = dotgen.generate(target=None)
 
     def createlink(self, position_key, wording='Caused by a call from'):
         fn, block, pos = position_key
@@ -66,14 +89,13 @@ class VariableHistoryGraphLayout(GraphLayout):
     def followlink(self, funcname):
         fn, block, pos = self.linkinfo[funcname]
         # It would be nice to focus on the block
-        return FlowGraphLayout(self.translator, [fn], self.func_names)
+        return FlowGraphPage(self.translator, [fn], self.func_names)
 
 
-class FlowGraphLayout(GraphLayout):
-    """ A GraphLayout showing a Flow Graph (or a few flow graphs).
+class FlowGraphPage(GraphPage):
+    """ A GraphPage showing a Flow Graph (or a few flow graphs).
     """
-    def __init__(self, translator, functions=None, func_names=None):
-        from pypy.translator.tool.make_dot import make_dot_graphs
+    def compute(self, translator, functions=None, func_names=None):
         self.translator = translator
         self.annotator = translator.annotator
         self.func_names = func_names or {}
@@ -84,8 +106,7 @@ class FlowGraphLayout(GraphLayout):
             for block, was_annotated in self.annotator.annotated.items():
                 if not was_annotated:
                     block.fillcolor = "red"
-        fn = make_dot_graphs(graphs[0].name + "_graph", gs, target='plain')
-        GraphLayout.__init__(self, fn)
+        self.source = make_dot_graphs(graphs[0].name+"_graph", gs, target=None)
         # make the dictionary of links -- one per annotated variable
         self.binding_history = {}
         self.current_value = {}
@@ -109,7 +130,7 @@ class FlowGraphLayout(GraphLayout):
         caused_by = self.caused_by[varname]
         history = list(self.binding_history.get(varname, []))
         history.reverse()
-        return VariableHistoryGraphLayout(self.translator, varname, cur_value,
+        return VariableHistoryGraphPage(self.translator, varname, cur_value,
                                           caused_by, history, self.func_names)
 
 
@@ -127,10 +148,10 @@ def nottoowide(text, width=72):
     return '\\n'.join(lines)
 
 
-class ClassDefLayout(GraphLayout):
-    """A GraphLayout showing the attributes of a class.
+class ClassDefPage(GraphPage):
+    """A GraphPage showing the attributes of a class.
     """
-    def __init__(self, translator, cdef):
+    def compute(self, translator, cdef):
         self.translator = translator
         dotgen = DotGen(cdef.cls.__name__, rankdir="LR")
 
@@ -152,14 +173,14 @@ class ClassDefLayout(GraphLayout):
             prevcdef = cdef
             cdef = cdef.basedef
         
-        GraphLayout.__init__(self, dotgen.generate(target='plain'))
+        self.source = dotgen.generate(target=None)
 
 
-class TranslatorLayout(GraphLayout):
-    """A GraphLayout showing a the call graph between functions
+class TranslatorPage(GraphPage):
+    """A GraphPage showing a the call graph between functions
     as well as the class hierarchy."""
 
-    def __init__(self, translator):
+    def compute(self, translator):
         self.translator = translator
         self.object_by_name = {}
         self.name_by_object = {}
@@ -168,10 +189,16 @@ class TranslatorLayout(GraphLayout):
 
         # show the call graph
         functions = translator.functions
+        blocked_functions = {}
         if translator.annotator:
-            blocked_functions = translator.annotator.blocked_functions
-        else:
-            blocked_functions = {}
+            # don't use translator.annotator.blocked_functions here because
+            # it is not populated until the annotator finishes.
+            annotated = translator.annotator.annotated
+            for fn, graph in translator.flowgraphs.items():
+                def visit(node):
+                    if annotated.get(node) is False:
+                        blocked_functions[fn] = True
+                traverse(visit, graph)
         highlight_functions = getattr(translator, 'highlight_functions', {}) # XXX
         dotgen.emit_node('entry', fillcolor="green", shape="octagon",
                          label="Translator\\nEntry Point")
@@ -201,7 +228,7 @@ class TranslatorLayout(GraphLayout):
                 dotgen.emit_node(nameof(classdef), label=data, shape="box")
                 dotgen.emit_edge(nameof(classdef.basedef), nameof(classdef))
         
-        GraphLayout.__init__(self, dotgen.generate(target='plain'))
+        self.source = dotgen.generate(target=None)
 
         # link the function names to the individual flow graphs
         for name, obj in self.object_by_name.iteritems():
@@ -232,9 +259,9 @@ class TranslatorLayout(GraphLayout):
     def followlink(self, name):
         obj = self.object_by_name[name]
         if isinstance(obj, ClassDef):
-            return ClassDefLayout(self.translator, obj)
+            return ClassDefPage(self.translator, obj)
         else:
-            return FlowGraphLayout(self.translator, [obj], self.name_by_object)
+            return FlowGraphPage(self.translator, [obj], self.name_by_object)
 
 
 def nameof(obj, cache={}):
@@ -246,22 +273,3 @@ def nameof(obj, cache={}):
         result = '%s__0x%x' % (getattr(obj, '__name__', ''), uid(obj))
         cache[obj] = result
         return result
-
-# ____________________________________________________________
-
-if __name__ == '__main__':
-    from pypy.translator.translator import Translator
-    from pypy.translator.test import snippet
-    from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
-    
-    t = Translator(snippet.powerset)
-    #t.simplify()
-    a = t.annotate([int])
-    a.simplify()
-    GraphDisplay(FlowGraphLayout(t)).run()
-
-##    t = Translator(snippet._methodcall1)
-##    t.simplify()
-##    a = t.annotate([int])
-##    a.simplify()
-##    GraphDisplay(TranslatorLayout(t)).run()

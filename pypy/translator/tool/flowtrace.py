@@ -260,12 +260,12 @@ def debug(func):
     """Shows the control flow graph with annotations if computed.
     Requires 'dot' and pygame."""
     from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
-    from pypy.translator.tool.pygame.flowviewer import FlowGraphLayout
+    from pypy.translator.tool.graphpage import FlowGraphPage
     from pypy.translator.translator import Translator
     t = Translator(func)
     t.simplify()
     #t.annotate([int])
-    GraphDisplay(FlowGraphLayout(t)).run()
+    FlowGraphPage(t).display()
 
 def timeit(num, func, *args):
     from time import time as now

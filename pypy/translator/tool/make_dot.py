@@ -23,6 +23,8 @@ class DotGen:
 
     def generate(self, storedir=None, target='ps'):
         source = self.get_source()
+        if target is None:
+            return source    # unprocessed
         if storedir is None:
             storedir = udir
         pdot = storedir.join('%s.dot' % self.graphname)

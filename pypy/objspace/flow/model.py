@@ -43,8 +43,8 @@ class FunctionGraph:
             return self._onlyex 
 
     def show(self):
-        from pypy.translator.tool.pygame.flowviewer import SingleGraphLayout
-        SingleGraphLayout(self).display()
+        from pypy.translator.tool.graphpage import SingleGraphPage
+        SingleGraphPage(self).display()
 
 class Link:
     def __init__(self, args, target, exitcase=None):
