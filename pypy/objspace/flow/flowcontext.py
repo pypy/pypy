@@ -16,12 +16,11 @@ class SpamBlock(Block):
         Block.__init__(self, framestate.getvariables())
         self.framestate = framestate
 
-    def patchframe(self, frame, executioncontext):
+    def patchframe(self, frame):
         if self.dead:
             raise ExitFrame(None)
         self.framestate.restoreframe(frame)
-        executioncontext.crnt_block = self
-        executioncontext.crnt_ops = self.operations
+        return BlockRecorder(self)
 
 
 class EggBlock(Block):
@@ -31,30 +30,123 @@ class EggBlock(Block):
         self.prevblock = prevblock
         self.booloutcome = booloutcome
 
-    def patchframe(self, frame, executioncontext):
+    def patchframe(self, frame):
         parentblocks = []
         block = self
         while isinstance(block, EggBlock):
             block = block.prevblock
             parentblocks.append(block)
         # parentblocks = [Egg, Egg, ..., Egg, Spam] not including self
-        block.patchframe(frame, executioncontext)
-        replaylist = self.operations
+        block.patchframe(frame)
+        recorder = BlockRecorder(self)
         prevblock = self
         for block in parentblocks:
-            replaylist = ReplayList(block.operations,
-                                    prevblock, prevblock.booloutcome,
-                                    replaylist)
+            recorder = Replayer(block, prevblock.booloutcome, recorder)
             prevblock = block
-        executioncontext.crnt_ops = replaylist
+        return recorder
 
-class ReplayList:
+# ____________________________________________________________
+
+class Recorder:
+
+    def append(self, operation):
+        raise NotImplementedError
+
+    def bytecode_trace(self, ec, frame):
+        pass
+
+    def guessbool(self, ec, w_condition, **kwds):
+        raise AssertionError, "cannot guessbool(%s)" % (w_condition,)
+
+
+class BlockRecorder(Recorder):
+    # Records all generated operations into a block.
+
+    def __init__(self, block):
+        self.crnt_block = block
+
+    def append(self, operation):
+        self.crnt_block.operations.append(operation)
+
+    def bytecode_trace(self, ec, frame):
+        assert frame is ec.crnt_frame, "seeing an unexpected frame!"
+        next_instr = frame.next_instr
+        ec.crnt_offset = next_instr # save offset for opcode
+        varnames = frame.code.getvarnames()
+        for name, w_value in zip(varnames, frame.getfastscope()):
+            if isinstance(w_value, Variable):
+                w_value.rename(name)
+        if next_instr in ec.joinpoints:
+            currentstate = FrameState(frame)
+            # can 'currentstate' be merged with one of the blocks that
+            # already exist for this bytecode position?
+            for block in ec.joinpoints[next_instr]:
+                newstate = block.framestate.union(currentstate)
+                if newstate is not None:
+                    # yes
+                    finished = newstate == block.framestate
+                    break
+            else:
+                # no
+                newstate = currentstate.copy()
+                finished = False
+                block = None
+            
+            if finished:
+                newblock = block
+            else:
+                newblock = SpamBlock(newstate)
+            # unconditionally link the current block to the newblock
+            outputargs = currentstate.getoutputargs(newstate)
+            self.crnt_block.closeblock(Link(outputargs, newblock))
+            # phew
+            if finished:
+                raise ExitFrame(None)
+            if block is not None and block.exits:
+                # to simplify the graph, we patch the old block to point
+                # directly at the new block which is its generalization
+                block.dead = True
+                block.operations = ()
+                block.exitswitch = None
+                outputargs = block.framestate.getoutputargs(newstate)
+                block.recloseblock(Link(outputargs, newblock))
+            ec.recorder = newblock.patchframe(frame)
+            ec.joinpoints[next_instr].insert(0, newblock)
+
+    def guessbool(self, ec, w_condition, cases=[False,True],
+                  replace_last_variable_except_in_first_case = None):
+        block = self.crnt_block
+        vars = vars2 = block.getvariables()
+        links = []
+        for case in cases:
+            egg = EggBlock(vars2, block, case)
+            ec.pendingblocks.append(egg)
+            link = Link(vars, egg, case)
+            links.append(link)
+            if replace_last_variable_except_in_first_case is not None:
+                assert block.operations[-1].result is vars[-1]
+                vars = vars[:-1]
+                vars.extend(replace_last_variable_except_in_first_case)
+                vars2 = vars2[:-1]
+                while len(vars2) < len(vars):
+                    vars2.append(Variable())
+                replace_last_variable_except_in_first_case = None
+        block.exitswitch = w_condition
+        block.closeblock(*links)
+        # forked the graph. Note that False comes before True by default
+        # in the exits tuple so that (just in case we need it) we
+        # actually have block.exits[False] = elseLink and
+        # block.exits[True] = ifLink.
+        raise ExitFrame(None)
+
+
+class Replayer(Recorder):
     
-    def __init__(self, listtoreplay, nextblock, booloutcome, nextreplaylist):
-        self.listtoreplay = listtoreplay
-        self.nextblock = nextblock
+    def __init__(self, block, booloutcome, nextreplayer):
+        self.crnt_block = block
+        self.listtoreplay = block.operations
         self.booloutcome = booloutcome
-        self.nextreplaylist = nextreplaylist
+        self.nextreplayer = nextreplayer
         self.index = 0
         
     def append(self, operation):
@@ -67,15 +159,21 @@ class ReplayList:
                       [str(s) for s in self.listtoreplay[self.index:]]))
         self.index += 1
 
-    def finished(self):
-        return self.index == len(self.listtoreplay)
+    def guessbool(self, ec, w_condition, **kwds):
+        assert self.index == len(self.listtoreplay)
+        ec.recorder = self.nextreplayer
+        return self.booloutcome
 
-class ConcreteNoOp:
+
+class ConcreteNoOp(Recorder):
     # In "concrete mode", no SpaceOperations between Variables are allowed.
     # Concrete mode is used to precompute lazily-initialized caches,
     # when we don't want this precomputation to show up on the flow graph.
     def append(self, operation):
         raise AssertionError, "concrete mode: cannot perform %s" % operation
+
+# ____________________________________________________________
+
 
 class FlowExecutionContext(ExecutionContext):
 
@@ -109,91 +207,15 @@ class FlowExecutionContext(ExecutionContext):
     def create_frame(self):
         # create an empty frame suitable for the code object
         # while ignoring any operation like the creation of the locals dict
-        self.crnt_ops = []
+        self.recorder = []
         return self.code.create_frame(self.space, self.w_globals,
                                       self.closure)
 
     def bytecode_trace(self, frame):
-        if not isinstance(self.crnt_ops, list):
-            return
-        assert frame is self.crnt_frame, "seeing an unexpected frame!"
-        next_instr = frame.next_instr
-        self.crnt_offset = next_instr # save offset for opcode
-        varnames = frame.code.getvarnames()
-        for name, w_value in zip(varnames, frame.getfastscope()):
-            if isinstance(w_value, Variable):
-                w_value.rename(name)
-        if next_instr in self.joinpoints:
-            currentstate = FrameState(frame)
-            # can 'currentstate' be merged with one of the blocks that
-            # already exist for this bytecode position?
-            for block in self.joinpoints[next_instr]:
-                newstate = block.framestate.union(currentstate)
-                if newstate is not None:
-                    # yes
-                    finished = newstate == block.framestate
-                    break
-            else:
-                # no
-                newstate = currentstate.copy()
-                finished = False
-                block = None
-            
-            if finished:
-                newblock = block
-            else:
-                newblock = SpamBlock(newstate)
-            # unconditionally link the current block to the newblock
-            outputargs = currentstate.getoutputargs(newstate)
-            self.crnt_block.closeblock(Link(outputargs, newblock))
-            # phew
-            if finished:
-                raise ExitFrame(None)
-            if block is not None and block.exits:
-                # to simplify the graph, we patch the old block to point
-                # directly at the new block which is its generalization
-                block.dead = True
-                block.operations = ()
-                block.exitswitch = None
-                outputargs = block.framestate.getoutputargs(newstate)
-                block.recloseblock(Link(outputargs, newblock))
-            newblock.patchframe(frame, self)
-            self.joinpoints[next_instr].insert(0, newblock)
+        self.recorder.bytecode_trace(self, frame)
 
-    def guessbool(self, w_condition, cases=[False,True],
-                  replace_last_variable_except_in_first_case = None):
-        if isinstance(self.crnt_ops, list):
-            block = self.crnt_block
-            vars = vars2 = block.getvariables()
-            links = []
-            for case in cases:
-                egg = EggBlock(vars2, block, case)
-                self.pendingblocks.append(egg)
-                link = Link(vars, egg, case)
-                links.append(link)
-                if replace_last_variable_except_in_first_case is not None:
-                    assert block.operations[-1].result is vars[-1]
-                    vars = vars[:-1]
-                    vars.extend(replace_last_variable_except_in_first_case)
-                    vars2 = vars2[:-1]
-                    while len(vars2) < len(vars):
-                        vars2.append(Variable())
-                    replace_last_variable_except_in_first_case = None
-            block.exitswitch = w_condition
-            block.closeblock(*links)
-            # forked the graph. Note that False comes before True by default
-            # in the exits tuple so that (just in case we need it) we
-            # actually have block.exits[False] = elseLink and
-            # block.exits[True] = ifLink.
-            raise ExitFrame(None)
-        if isinstance(self.crnt_ops, ReplayList):
-            replaylist = self.crnt_ops
-            assert replaylist.finished()
-            self.crnt_block = replaylist.nextblock
-            self.crnt_ops = replaylist.nextreplaylist
-            return replaylist.booloutcome
-        raise AssertionError, "concrete mode: cannot guessbool(%s)" % (
-            w_condition,)
+    def guessbool(self, w_condition, **kwds):
+        return self.recorder.guessbool(self, w_condition, **kwds)
 
     def guessexception(self, *classes):
         outcome = self.guessbool(Constant(last_exception, last_exception=True),
@@ -204,7 +226,7 @@ class FlowExecutionContext(ExecutionContext):
         if outcome is None:
             w_exc_cls, w_exc_value = None, None
         else:
-            w_exc_cls, w_exc_value = self.crnt_block.inputargs[-2:]
+            w_exc_cls, w_exc_value = self.recorder.crnt_block.inputargs[-2:]
         return outcome, w_exc_cls, w_exc_value
 
     def build_flow(self):
@@ -213,7 +235,7 @@ class FlowExecutionContext(ExecutionContext):
             block = self.pendingblocks.pop(0)
             frame = self.create_frame()
             try:
-                block.patchframe(frame, self)
+                self.recorder = block.patchframe(frame)
             except ExitFrame:
                 continue   # restarting a dead SpamBlock
             try:
@@ -229,11 +251,12 @@ class FlowExecutionContext(ExecutionContext):
                         self.space.unwrap(e.w_value)))
             except OperationError, e:
                 link = Link([e.w_type, e.w_value], self.graph.exceptblock)
-                self.crnt_block.closeblock(link)
+                self.recorder.crnt_block.closeblock(link)
             else:
                 if w_result is not None:
                     link = Link([w_result], self.graph.returnblock)
-                    self.crnt_block.closeblock(link)
+                    self.recorder.crnt_block.closeblock(link)
+            del self.recorder
         self.fixeggblocks()
 
     def fixeggblocks(self):

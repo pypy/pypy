@@ -55,8 +55,9 @@ def sc_normalize_exception(space, fn, args):
     # Normally, Instance should have been created by the previous operation
     # which should be a simple_call(<Class>, ...).
     # Fetch the <Class> out of there.  (This doesn't work while replaying)
-    if space.executioncontext.crnt_ops:
-        spaceop = space.executioncontext.crnt_ops[-1]
+    operations = space.executioncontext.recorder.crnt_block.operations
+    if operations:
+        spaceop = operations[-1]
         if (spaceop.opname == 'simple_call' and
             spaceop.result is w_arg1):
             w_type = spaceop.args[0]

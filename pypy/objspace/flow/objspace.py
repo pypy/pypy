@@ -62,13 +62,13 @@ class FlowObjSpace(ObjSpace):
         # "concrete mode".  In this mode, only Constants are allowed
         # and no SpaceOperation is recorded.
         def my_builder(key, stuff):
-            previous_ops = self.executioncontext.crnt_ops
-            self.executioncontext.crnt_ops = flowcontext.ConcreteNoOp()
+            previous_recorder = self.executioncontext.recorder
+            self.executioncontext.recorder = flowcontext.ConcreteNoOp()
             self.concrete_mode += 1
             try:
                 return builder(key, stuff)
             finally:
-                self.executioncontext.crnt_ops = previous_ops
+                self.executioncontext.recorder = previous_recorder
                 self.concrete_mode -= 1
         return super(FlowObjSpace, self).loadfromcache(key, my_builder, cache)
 
@@ -163,7 +163,7 @@ class FlowObjSpace(ObjSpace):
         specialcase.setup(self)
 
     def exception_match(self, w_exc_type, w_check_class):
-        self.executioncontext.crnt_block.exc_handler = True
+        self.executioncontext.recorder.crnt_block.exc_handler = True
         return ObjSpace.exception_match(self, w_exc_type, w_check_class)
 
 
@@ -243,7 +243,7 @@ class FlowObjSpace(ObjSpace):
         spaceop = SpaceOperation(name, args_w, Variable())
         if hasattr(self, 'executioncontext'):  # not here during bootstrapping
             spaceop.offset = self.executioncontext.crnt_offset
-            self.executioncontext.crnt_ops.append(spaceop)
+            self.executioncontext.recorder.append(spaceop)
         return spaceop.result
     
     def is_true(self, w_obj):
