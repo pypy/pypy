@@ -9,11 +9,19 @@ import sys
 import pickle
 import cPickle
 
+'''
 from pypy.appspace.datetime import MINYEAR, MAXYEAR
 from pypy.appspace.datetime import timedelta
 from pypy.appspace.datetime import tzinfo
 from pypy.appspace.datetime import time
 from pypy.appspace.datetime import date, datetime
+'''
+
+from datetime import MINYEAR, MAXYEAR
+from datetime import timedelta
+from datetime import tzinfo
+from datetime import time
+from datetime import date, datetime
 
 
 # Before Python 2.3, proto=2 was taken as a synonym for proto=1.
