@@ -42,9 +42,17 @@ def descr__init__(space, w_obj, __args__):
     pass
 
 def descr__reduce_ex__(space, w_obj, proto=0):
-    # we intentionally avoid to ask for __reduce__ here
-    # XXX check for integerness of proto ?
-
+    w_st_reduce = space.wrap('__reduce__')
+    try: w_reduce = space.getattr(w_obj, w_st_reduce)
+    except OperationError: pass
+    else:
+        w_cls = space.getattr(w_obj, space.wrap('__class__'))
+        w_cls_reduce = space.getattr(w_cls, w_st_reduce)
+        w_objtype = space.w_object
+        w_obj_reduce = space.getattr(w_objtype, space.wrap('__dict__'))
+        override = space.is_true(space.ne(w_cls_reduce, w_obj_reduce))
+        if override:
+            return space.call(w_reduce, space.newtuple([]))
     if proto >= 2:
         return reduce_2(space, w_obj)
     w_proto = space.wrap(proto)
