@@ -3,9 +3,8 @@
 import os
 import time
 import tempfile
-import unittest
 
-import sio
+from pypy.appspace import sio 
 
 class TestSource(object):
 
@@ -146,7 +145,7 @@ class TestReaderWriter(TestWriter):
             self.pos += n
         return result
     
-class BufferingInputStreamTests(unittest.TestCase):
+class TestBufferingInputStreamTests: 
 
     packets = ["a", "b", "\n", "def", "\nxy\npq\nuv", "wx"]
     lines = ["ab\n", "def\n", "xy\n", "pq\n", "uvwx"]
@@ -161,43 +160,43 @@ class BufferingInputStreamTests(unittest.TestCase):
 
     def test_readline(self):
         file = self.makeStream()
-        self.assertEqual(list(iter(file.readline, "")), self.lines)
+        assert list(iter(file.readline, "")) == self.lines
 
     def test_readlines(self):
         # This also tests next() and __iter__()
         file = self.makeStream()
-        self.assertEqual(file.readlines(), self.lines)
+        assert file.readlines() == self.lines
 
     def test_readlines_small_bufsize(self):
         file = self.makeStream(bufsize=1)
-        self.assertEqual(list(file), self.lines)
+        assert list(file) == self.lines
 
     def test_readall(self):
         file = self.makeStream()
-        self.assertEqual(file.readall(), "".join(self.lines))
+        assert file.readall() == "".join(self.lines)
 
     def test_readall_small_bufsize(self):
         file = self.makeStream(bufsize=1)
-        self.assertEqual(file.readall(), "".join(self.lines))
+        assert file.readall() == "".join(self.lines)
 
     def test_readall_after_readline(self):
         file = self.makeStream()
-        self.assertEqual(file.readline(), self.lines[0])
-        self.assertEqual(file.readline(), self.lines[1])
-        self.assertEqual(file.readall(), "".join(self.lines[2:]))
+        assert file.readline() == self.lines[0]
+        assert file.readline() == self.lines[1]
+        assert file.readall() == "".join(self.lines[2:])
 
     def test_read_1_after_readline(self):
         file = self.makeStream()
-        self.assertEqual(file.readline(), "ab\n")
-        self.assertEqual(file.readline(), "def\n")
+        assert file.readline() == "ab\n"
+        assert file.readline() == "def\n"
         blocks = []
         while 1:
             block = file.read(1)
             if not block:
                 break
             blocks.append(block)
-            self.assertEqual(file.read(0), "")
-        self.assertEqual(blocks, list("".join(self.lines)[7:]))
+            assert file.read(0) == ""
+        assert blocks == list("".join(self.lines)[7:])
 
     def test_read_1(self):
         file = self.makeStream()
@@ -207,8 +206,8 @@ class BufferingInputStreamTests(unittest.TestCase):
             if not block:
                 break
             blocks.append(block)
-            self.assertEqual(file.read(0), "")
-        self.assertEqual(blocks, list("".join(self.lines)))
+            assert file.read(0) == ""
+        assert blocks == list("".join(self.lines))
 
     def test_read_2(self):
         file = self.makeStream()
@@ -218,9 +217,9 @@ class BufferingInputStreamTests(unittest.TestCase):
             if not block:
                 break
             blocks.append(block)
-            self.assertEqual(file.read(0), "")
-        self.assertEqual(blocks, ["ab", "\nd", "ef", "\nx", "y\n", "pq",
-                                  "\nu", "vw", "x"])
+            assert file.read(0) == ""
+        assert blocks == ["ab", "\nd", "ef", "\nx", "y\n", "pq",
+                                  "\nu", "vw", "x"]
 
     def test_read_4(self):
         file = self.makeStream()
@@ -230,21 +229,21 @@ class BufferingInputStreamTests(unittest.TestCase):
             if not block:
                 break
             blocks.append(block)
-            self.assertEqual(file.read(0), "")
-        self.assertEqual(blocks, ["ab\nd", "ef\nx", "y\npq", "\nuvw", "x"])
+            assert file.read(0) == ""
+        assert blocks == ["ab\nd", "ef\nx", "y\npq", "\nuvw", "x"]
         
     def test_read_4_after_readline(self):
         file = self.makeStream()
-        self.assertEqual(file.readline(), "ab\n")
-        self.assertEqual(file.readline(), "def\n")
+        assert file.readline() == "ab\n"
+        assert file.readline() == "def\n"
         blocks = [file.read(4)]
         while 1:
             block = file.read(4)
             if not block:
                 break
             blocks.append(block)
-            self.assertEqual(file.read(0), "")
-        self.assertEqual(blocks, ["xy\np", "q\nuv", "wx"])
+            assert file.read(0) == ""
+        assert blocks == ["xy\np", "q\nuv", "wx"]
 
     def test_read_4_small_bufsize(self):
         file = self.makeStream(bufsize=1)
@@ -254,13 +253,13 @@ class BufferingInputStreamTests(unittest.TestCase):
             if not block:
                 break
             blocks.append(block)
-        self.assertEqual(blocks, ["ab\nd", "ef\nx", "y\npq", "\nuvw", "x"])
+        assert blocks == ["ab\nd", "ef\nx", "y\npq", "\nuvw", "x"]
 
     def test_tell_1(self):
         file = self.makeStream(tell=True)
         pos = 0
         while 1:
-            self.assertEqual(file.tell(), pos)
+            assert file.tell() == pos
             n = len(file.read(1))
             if not n:
                 break
@@ -270,11 +269,11 @@ class BufferingInputStreamTests(unittest.TestCase):
         file = self.makeStream(tell=True)
         pos = 0
         pos += len(file.readline())
-        self.assertEqual(file.tell(), pos)
+        assert file.tell() == pos
         pos += len(file.readline())
-        self.assertEqual(file.tell(), pos)
+        assert file.tell() == pos
         while 1:
-            self.assertEqual(file.tell(), pos)
+            assert file.tell() == pos
             n = len(file.read(1))
             if not n:
                 break
@@ -284,7 +283,7 @@ class BufferingInputStreamTests(unittest.TestCase):
         file = self.makeStream(tell=True)
         pos = 0
         while 1:
-            self.assertEqual(file.tell(), pos)
+            assert file.tell() == pos
             n = len(file.read(2))
             if not n:
                 break
@@ -294,7 +293,7 @@ class BufferingInputStreamTests(unittest.TestCase):
         file = self.makeStream(tell=True)
         pos = 0
         while 1:
-            self.assertEqual(file.tell(), pos)
+            assert file.tell() == pos
             n = len(file.read(4))
             if not n:
                 break
@@ -304,7 +303,7 @@ class BufferingInputStreamTests(unittest.TestCase):
         file = self.makeStream(tell=True)
         pos = 0
         while 1:
-            self.assertEqual(file.tell(), pos)
+            assert file.tell() == pos
             n = len(file.readline())
             if not n:
                 break
@@ -318,9 +317,9 @@ class BufferingInputStreamTests(unittest.TestCase):
             for seekto in range(0, end+1):
                 for whence in 0, 1, 2:
                     file.seek(0)
-                    self.assertEqual(file.tell(), 0)
+                    assert file.tell() == 0
                     head = file.read(readto)
-                    self.assertEqual(head, all[:readto])
+                    assert head == all[:readto]
                     if whence == 1:
                         offset = seekto - readto
                     elif whence == 2:
@@ -329,9 +328,9 @@ class BufferingInputStreamTests(unittest.TestCase):
                         offset = seekto
                     file.seek(offset, whence)
                     here = file.tell()
-                    self.assertEqual(here, seekto)
+                    assert here == seekto
                     rest = file.readall()
-                    self.assertEqual(rest, all[seekto:])
+                    assert rest == all[seekto:]
 
     def test_seek_noseek(self):
         file = self.makeStream()
@@ -342,32 +341,32 @@ class BufferingInputStreamTests(unittest.TestCase):
                 for whence in 1, 2:
                     file = self.makeStream()
                     head = file.read(readto)
-                    self.assertEqual(head, all[:readto])
+                    assert head == all[:readto]
                     if whence == 1:
                         offset = seekto - readto
                     elif whence == 2:
                         offset = seekto - end
                     file.seek(offset, whence)
                     rest = file.readall()
-                    self.assertEqual(rest, all[seekto:])
+                    assert rest == all[seekto:]
 
-class BufferingOutputStreamTests(unittest.TestCase):
+class TestBufferingOutputStream: 
 
     def test_write(self):
         base = TestWriter()
         filter = sio.BufferingOutputStream(base, 4)
         filter.write("123")
-        self.assertEqual(base.buf, "")
-        self.assertEquals(filter.tell(), 3)
+        assert base.buf == ""
+        assert filter.tell() == 3
         filter.write("456")
-        self.assertEqual(base.buf, "1234")
+        assert base.buf == "1234"
         filter.write("789ABCDEF")
-        self.assertEqual(base.buf, "123456789ABC")
+        assert base.buf == "123456789ABC"
         filter.write("0123")
-        self.assertEqual(base.buf, "123456789ABCDEF0")
-        self.assertEquals(filter.tell(), 19)
+        assert base.buf == "123456789ABCDEF0"
+        assert filter.tell() == 19
         filter.close()
-        self.assertEqual(base.buf, "123456789ABCDEF0123")
+        assert base.buf == "123456789ABCDEF0123"
 
     def test_write_seek(self):
         base = TestWriter()
@@ -376,7 +375,7 @@ class BufferingOutputStreamTests(unittest.TestCase):
         filter.seek(3)
         filter.write("y"*2)
         filter.close()
-        self.assertEqual(base.buf, "x"*3 + "y"*2 + "x"*1)
+        assert base.buf == "x"*3 + "y"*2 + "x"*1
 
     def test_write_seek_beyond_end(self):
         "Linux behaviour. May be different on other platforms."
@@ -385,7 +384,7 @@ class BufferingOutputStreamTests(unittest.TestCase):
         filter.seek(3)
         filter.write("y"*2)
         filter.close()
-        self.assertEqual(base.buf, "\0"*3 + "y"*2)
+        assert base.buf == "\0"*3 + "y"*2
 
     def test_truncate(self):
         "Linux behaviour. May be different on other platforms."
@@ -395,7 +394,7 @@ class BufferingOutputStreamTests(unittest.TestCase):
         filter.truncate(4)
         filter.write('y')
         filter.close()
-        self.assertEqual(base.buf, 'xy' + '\0' * 2)
+        assert base.buf == 'xy' + '\0' * 2
 
     def test_truncate2(self):
         "Linux behaviour. May be different on other platforms."
@@ -405,26 +404,26 @@ class BufferingOutputStreamTests(unittest.TestCase):
         filter.truncate(4)
         filter.write('y')
         filter.close()
-        self.assertEqual(base.buf, '1234' + '\0' * 4 + 'y')
+        assert base.buf == '1234' + '\0' * 4 + 'y'
 
-class LineBufferingOutputStreamTests(unittest.TestCase):
+class TestLineBufferingOutputStreamTests: 
 
     def test_write(self):
         base = TestWriter()
         filter = sio.LineBufferingOutputStream(base)
         filter.bufsize = 4 # More handy for testing than the default
         filter.write("123")
-        self.assertEqual(base.buf, "")
-        self.assertEquals(filter.tell(), 3)
+        assert base.buf == ""
+        assert filter.tell() == 3
         filter.write("456")
-        self.assertEqual(base.buf, "1234")
+        assert base.buf == "1234"
         filter.write("789ABCDEF\n")
-        self.assertEqual(base.buf, "123456789ABCDEF\n")
+        assert base.buf == "123456789ABCDEF\n"
         filter.write("0123")
-        self.assertEqual(base.buf, "123456789ABCDEF\n0123")
-        self.assertEquals(filter.tell(), 20)
+        assert base.buf == "123456789ABCDEF\n0123"
+        assert filter.tell() == 20
         filter.close()
-        self.assertEqual(base.buf, "123456789ABCDEF\n0123")
+        assert base.buf == "123456789ABCDEF\n0123"
 
     def xtest_write_seek(self):
         base = TestWriter()
@@ -433,25 +432,25 @@ class LineBufferingOutputStreamTests(unittest.TestCase):
         filter.seek(3)
         filter.write("y"*2)
         filter.close()
-        self.assertEqual(base.buf, "x"*3 + "y"*2 + "x"*1)
+        assert base.buf == "x"*3 + "y"*2 + "x"*1
 
-class BufferingInputOutputStreamTests(unittest.TestCase):
+class TestBufferingInputOutputStreamTests: 
 
     def test_write(self):
         base = TestReaderWriter()
         filter = sio.BufferingInputOutputStream(base, 4)
         filter.write("123456789")
-        self.assertEqual(base.buf, "12345678")
+        assert base.buf == "12345678"
         s = filter.read()
-        self.assertEqual(base.buf, "123456789")
+        assert base.buf == "123456789"
         filter.write("01234")
-        self.assertEqual(base.buf, "1234567890123")
+        assert base.buf == "1234567890123"
         filter.seek(4,0)
-        self.assertEqual(base.buf, "12345678901234")
-        self.assertEqual(filter.read(3), "567")
+        assert base.buf == "12345678901234"
+        assert filter.read(3) == "567"
         filter.write('x')
         filter.flush()
-        self.assertEqual(base.buf, "1234567x901234")
+        assert base.buf == "1234567x901234"
         
     def test_write_seek_beyond_end(self):
         "Linux behaviour. May be different on other platforms."
@@ -460,9 +459,9 @@ class BufferingInputOutputStreamTests(unittest.TestCase):
         filter.seek(3)
         filter.write("y"*2)
         filter.close()
-        self.assertEqual(base.buf, "\0"*3 + "y"*2)
+        assert base.buf == "\0"*3 + "y"*2
 
-class CRLFFilterTests(unittest.TestCase):
+class TestCRLFFilter: 
 
     def test_filter(self):
         packets = ["abc\ndef\rghi\r\nxyz\r", "123\r", "\n456"]
@@ -474,9 +473,9 @@ class CRLFFilterTests(unittest.TestCase):
             if not block:
                 break
             blocks.append(block)
-        self.assertEqual(blocks, expected)
+        assert blocks == expected
 
-class MMapFileTests(BufferingInputStreamTests):
+class TestMMapFile:
 
     tfn = None
 
@@ -503,15 +502,15 @@ class MMapFileTests(BufferingInputStreamTests):
         file.write("BooHoo\n")
         file.write("Barf\n")
         file.writelines(["a\n", "b\n", "c\n"])
-        self.assertEqual(file.tell(), len("BooHoo\nBarf\na\nb\nc\n"))
+        assert file.tell() == len("BooHoo\nBarf\na\nb\nc\n")
         file.seek(0)
-        self.assertEqual(file.read(), "BooHoo\nBarf\na\nb\nc\n")
+        assert file.read() == "BooHoo\nBarf\na\nb\nc\n"
         file.seek(0)
-        self.assertEqual(file.readlines(),
+        assert file.readlines() == (
                          ["BooHoo\n", "Barf\n", "a\n", "b\n", "c\n"])
-        self.assertEqual(file.tell(), len("BooHoo\nBarf\na\nb\nc\n"))
+        assert file.tell() == len("BooHoo\nBarf\na\nb\nc\n")
 
-class TextInputFilterTests(unittest.TestCase):
+class TestTextInputFilter:
 
     packets = [
         "foo\r",
@@ -561,15 +560,15 @@ class TextInputFilterTests(unittest.TestCase):
         base = TestReader(self.packets)
         filter = sio.TextInputFilter(base)
         for data, pos in self.expected:
-            self.assertEqual(filter.read(100), data)
+            assert filter.read(100) == data
 
     def test_read_tell(self):
         base = TestReader(self.packets)
         filter = sio.TextInputFilter(base)
         for data, pos in self.expected_with_tell:
-            self.assertEqual(filter.read(100), data)
-            self.assertEqual(filter.tell(), pos)
-            self.assertEqual(filter.tell(), pos) # Repeat the tell() !
+            assert filter.read(100) == data
+            assert filter.tell() == pos
+            assert filter.tell() == pos # Repeat the tell() !
 
     def test_seek(self):
         base = TestReader(self.packets)
@@ -581,22 +580,22 @@ class TextInputFilterTests(unittest.TestCase):
             c = filter.read(1)
             if not c:
                 break
-            self.assertEqual(len(c), 1)
+            assert len(c) == 1
             sofar += c
         all = sofar
         for i in range(len(pairs)):
             sofar, pos = pairs[i]
             filter.seek(pos)
-            self.assertEqual(filter.tell(), pos)
-            self.assertEqual(filter.tell(), pos)
+            assert filter.tell() == pos
+            assert filter.tell() == pos
             bufs = [sofar]
             while True:
                 data = filter.read(100)
                 if not data:
-                    self.assertEqual(filter.read(100), "")
+                    assert filter.read(100) == ""
                     break
                 bufs.append(data)
-            self.assertEqual("".join(bufs), all)
+            assert "".join(bufs) == all
             
     def test_newlines_attribute(self):
 
@@ -605,9 +604,9 @@ class TextInputFilterTests(unittest.TestCase):
             filter = sio.TextInputFilter(base)
             for e in expected:
                 filter.read(100)
-                self.assertEquals(filter.newlines, e)
+                assert filter.newlines == e
 
-class TextOutputFilterTests(unittest.TestCase):
+class TestTextOutputFilter: 
 
     def test_write_nl(self):
         base = TestWriter()
@@ -615,7 +614,7 @@ class TextOutputFilterTests(unittest.TestCase):
         filter.write("abc")
         filter.write("def\npqr\nuvw")
         filter.write("\n123\n")
-        self.assertEqual(base.buf, "abcdef\npqr\nuvw\n123\n")
+        assert base.buf == "abcdef\npqr\nuvw\n123\n"
 
     def test_write_cr(self):
         base = TestWriter()
@@ -623,7 +622,7 @@ class TextOutputFilterTests(unittest.TestCase):
         filter.write("abc")
         filter.write("def\npqr\nuvw")
         filter.write("\n123\n")
-        self.assertEqual(base.buf, "abcdef\rpqr\ruvw\r123\r")
+        assert base.buf == "abcdef\rpqr\ruvw\r123\r"
 
     def test_write_crnl(self):
         base = TestWriter()
@@ -631,31 +630,31 @@ class TextOutputFilterTests(unittest.TestCase):
         filter.write("abc")
         filter.write("def\npqr\nuvw")
         filter.write("\n123\n")
-        self.assertEqual(base.buf, "abcdef\r\npqr\r\nuvw\r\n123\r\n")
+        assert base.buf == "abcdef\r\npqr\r\nuvw\r\n123\r\n"
 
     def test_write_tell_nl(self):
         base = TestWriter()
         filter = sio.TextOutputFilter(base, linesep="\n")
         filter.write("xxx")
-        self.assertEqual(filter.tell(), 3)
+        assert filter.tell() == 3
         filter.write("\nabc\n")
-        self.assertEqual(filter.tell(), 8)
+        assert filter.tell() == 8
 
     def test_write_tell_cr(self):
         base = TestWriter()
         filter = sio.TextOutputFilter(base, linesep="\r")
         filter.write("xxx")
-        self.assertEqual(filter.tell(), 3)
+        assert filter.tell() == 3
         filter.write("\nabc\n")
-        self.assertEqual(filter.tell(), 8)
+        assert filter.tell() == 8
 
     def test_write_tell_crnl(self):
         base = TestWriter()
         filter = sio.TextOutputFilter(base, linesep="\r\n")
         filter.write("xxx")
-        self.assertEqual(filter.tell(), 3)
+        assert filter.tell() == 3
         filter.write("\nabc\n")
-        self.assertEqual(filter.tell(), 10)
+        assert filter.tell() == 10
 
     def test_write_seek(self):
         base = TestWriter()
@@ -663,9 +662,9 @@ class TextOutputFilterTests(unittest.TestCase):
         filter.write("x"*100)
         filter.seek(50)
         filter.write("y"*10)
-        self.assertEqual(base.buf, "x"*50 + "y"*10 + "x"*40)
+        assert base.buf == "x"*50 + "y"*10 + "x"*40
 
-class DecodingInputFilterTests(unittest.TestCase):
+class TestDecodingInputFilter:
 
     def test_read(self):
         chars = u"abc\xff\u1234\u4321\x80xyz"
@@ -676,13 +675,13 @@ class DecodingInputFilterTests(unittest.TestCase):
         for n in range(1, 11):
             while 1:
                 c = filter.read(n)
-                self.assertEqual(type(c), unicode)
+                assert type(c) == unicode
                 if not c:
                     break
                 bufs.append(c)
-            self.assertEqual(u"".join(bufs), chars)
+            assert u"".join(bufs) == chars
 
-class EncodingOutputFilterTests(unittest.TestCase):
+class TestEncodingOutputFilterTests: 
 
     def test_write(self):
         chars = u"abc\xff\u1234\u4321\x80xyz"
@@ -697,7 +696,7 @@ class EncodingOutputFilterTests(unittest.TestCase):
                     break
                 pos += len(c)
                 filter.write(c)
-            self.assertEqual(base.buf, data)
+            assert base.buf == data
 
 # Speed test
 
@@ -732,20 +731,3 @@ def functional_main():
     for i in range(10):
         print repr(f.readline())
 
-def makeSuite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(BufferingInputStreamTests))
-    suite.addTest(unittest.makeSuite(BufferingOutputStreamTests))
-    suite.addTest(unittest.makeSuite(LineBufferingOutputStreamTests))
-    suite.addTest(unittest.makeSuite(BufferingInputOutputStreamTests))
-    suite.addTest(unittest.makeSuite(CRLFFilterTests))
-    suite.addTest(unittest.makeSuite(MMapFileTests))
-    suite.addTest(unittest.makeSuite(TextInputFilterTests))
-    suite.addTest(unittest.makeSuite(TextOutputFilterTests))
-    suite.addTest(unittest.makeSuite(DecodingInputFilterTests))
-    suite.addTest(unittest.makeSuite(EncodingOutputFilterTests))
-
-    return suite
-
-if __name__ == "__main__":
-    unittest.TextTestRunner().run(makeSuite())

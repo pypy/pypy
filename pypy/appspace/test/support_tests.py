@@ -116,6 +116,7 @@ except NameError:
 
 is_jython = sys.platform.startswith('java')
 
+
 TESTFN = '@test'
 
 # Make sure we can write to TESTFN, try in /tmp if we can't

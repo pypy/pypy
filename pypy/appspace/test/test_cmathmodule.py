@@ -15,7 +15,6 @@ import sys
 import unittest
 import autopath
 
-from pypy.tool import testit
 from pypy.appspace import cmathmodule
 from pypy.appspace.test.test_complexobject import equal
 
@@ -30,7 +29,7 @@ def enumerate():
 
 
 
-class TestCMathModule(testit.TestCase):
+class TestCMathModule: 
 
     def assertAEqual(self, a, b):
         if not equal(a, b):
@@ -61,6 +60,3 @@ class TestCMathModule(testit.TestCase):
                     op1 = cmathmodule.__dict__[op](z)
                     self.assertAEqual(op0, op1)
 
-
-if __name__ == "__main__":
-    testit.main()

@@ -6,12 +6,11 @@
 
 import autopath
 from pypy.appspace import sha
-import unittest
 
-class SHATestCase(unittest.TestCase):
+class TestSHA: 
     def check(self, data, digest):
         computed = sha.new(data).hexdigest()
-        self.assert_(computed == digest)
+        assert computed == digest
 
     def test_case_1(self):
         self.check("abc",
@@ -24,10 +23,3 @@ class SHATestCase(unittest.TestCase):
     def disabled_too_slow_test_case_3(self):
         self.check("a" * 1000000,
                    "34aa973cd4c4daa4f61eeb2bdbad27316534016f")
-
-def test_main():
-    unittest.main()
-
-
-if __name__ == "__main__":
-    test_main()
