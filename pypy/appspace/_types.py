@@ -2,6 +2,7 @@
 Definition of the standard Python types.
 """
 
+# XXX we can't do this import yet
 from sys import pypy
 import __builtin__
 import _types
@@ -16,15 +17,16 @@ __all__ = ['BooleanType', 'BufferType', 'BuiltinFunctionType',
            'TracebackType', 'TupleType', 'TypeType', 'UnboundMethodType',
            'UnicodeType', 'XRangeType']
 
+
 def _register(factory, cls, in_builtin=True, synonym=True):
     """
-    Register factory as type cls. 
-    
+    Register factory as type cls.
+
     If in_builtin is a true value (which is the default), also
     register the type as a built-in. If the value of in_builtin
     is a string, use this name as the type name in the __builtin__
     module.
-    
+
     If synonym is true (which is the default), also register the
     type in this very module under its synonym. If synonym is a
     string, use this string, else uppercase the class name and
@@ -182,8 +184,8 @@ class dict(object):
 # two reasons: we could not control what methods we get, and we do
 # not want DictMixin among user-visible __bases__).
 import UserDict
-for attribute in 'update popitem get setdefault pop'
-                 'iteritems iterkeys itervalues'.split():
+for attribute in ('update popitem get setdefault pop'
+                  'iteritems iterkeys itervalues').split():
     setattr(dict, attribute, UserDict.DictMixin.__dict__[attribute])
 
 _register(pypy.DictObjectFactory, dict)
@@ -546,6 +548,4 @@ class xrange(object):
         return str(self)
 
 _register(pypy.XrangeObjectFactory, xrange, synonym='XRangeType')
-
-
 
