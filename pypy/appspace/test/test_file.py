@@ -1,7 +1,8 @@
 import os
 import autopath
 from pypy.appspace import _file
-from py.test import raises 
+from pypy.tool.udir import udir 
+import py 
 import unittest
 
 class TestFile: 
@@ -16,11 +17,10 @@ class TestFile:
         assert self.fd.tell() == 0
 
     def test_case_readonly(self):
-        from tempfile import mktemp
-        fn = mktemp()
+        fn = str(udir.join('temptestfile'))
         f=_file.file_(fn, 'w')
         assert f.name == fn
         assert f.mode == 'w'
         assert f.closed == False
         assert f.encoding == None # Fix when we find out what this is
-        raises(TypeError, setattr, f, 'name', 42)
+        py.test.raises(TypeError, setattr, f, 'name', 42)
