@@ -1,6 +1,7 @@
 from pypy.objspace.std.objspace import *
 from intobject import W_IntObject
 from sliceobject import W_SliceObject
+from instmethobject import W_InstMethObject
 
 
 class W_ListObject(object):
@@ -12,6 +13,9 @@ class W_ListObject(object):
         """ representation for debugging purposes """
         reprlist = [repr(w_item) for w_item in w_self.wrappeditems]
         return "%s(%s)" % (w_self.__class__.__name__, ', '.join(reprlist))
+
+###    def append(w_self):
+###        .:.
 
 
 def list_unwrap(space, w_list):
@@ -85,3 +89,9 @@ StdObjSpace.eq.register(list_eq, W_ListObject, W_ListObject)
 
 # upto here, lists are nearly identical to tuples.
 # XXX have to add over-allocation!
+
+###def getattr_list(space, w_list, w_attr):
+###    if space.is_true(space.eq(w_attr, space.wrap('append'))):
+###        ...
+###        return W_InstMethObject(w_list, w_builtinfn)
+###    raise FailedToImplement(space.w_AttributeError)
