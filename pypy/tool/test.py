@@ -135,6 +135,11 @@ class MyTextTestResult(unittest._TextTestResult):
 
 
 class CtsTestRunner:
+    def __methodname(self, result):
+        """Return a normalized form of the method name for result."""
+        return "%s.%s" % (result.__class__.__name__,
+                          result._TestCase__testMethodName) 
+        
     def run(self, test):
         import pickle
         import cStringIO as StringIO
@@ -147,41 +152,41 @@ class CtsTestRunner:
         finally:
             sys.stdout = sys.__stdout__
             sys.stderr = sys.__stderr__
-
-        ostatus = {}
+            
+        # load status from previous run
+        oldstatus = {}
         if os.path.exists('testcts.pickle'):
-            ostatus = pickle.load(open('testcts.pickle','r'))
+            oldstatus = pickle.load(open('testcts.pickle', 'r'))
 
+        # store status from this run in dictionary named status
         status = {}
-
         for e in result.errors:
-            name = e[0].__class__.__name__ + '.' + \
-                   e[0]._TestCase__testMethodName
+            name = self.__methodname(e[0])
             status[name] = 'ERROR'
         for f in result.failures:
-            name = f[0].__class__.__name__ + '.' + \
-                   f[0]._TestCase__testMethodName
+            name = self.__methodname(f[0])
             status[name] = 'FAILURE'
         for s in result.successes:
-            name = s.__class__.__name__ + '.' + s._TestCase__testMethodName
+            name = self.__methodname(s)
             status[name] = 'success'
 
+        # compare statuses from previous and this run
         keys = status.keys()
         keys.sort()
 
         for k in keys:
-            old = ostatus.get(k, 'success')
-            if k in ostatus:
-                del ostatus[k]
+            old = oldstatus.get(k, 'success')
+            if k in oldstatus:
+                del oldstatus[k]
             new = status[k]
             if old != new:
                 print k, 'has transitioned from', old, 'to', new
             elif new != 'success':
                 print k, "is still a", new
 
-        for k in ostatus:
-            print k, 'was a', ostatus[k], 'was not run this time'
-            status[k] = ostatus[k]
+        for k in oldstatus:
+            print k, 'was a', oldstatus[k], 'was not run this time'
+            status[k] = oldstatus[k]
 
         pickle.dump(status, open('testcts.pickle','w'))
 
