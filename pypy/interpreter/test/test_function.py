@@ -30,6 +30,22 @@ class AppTestFunctionIntrospection(testit.AppTestCase):
         self.assert_(f.__dict__ is f.func_dict)
         self.assert_(hasattr(f, '__class__'))
 
+    def test_write_doc(self):
+        def f(): "hello"
+        self.assertEquals(f.__doc__, 'hello')
+        f.__doc__ = 'good bye'
+        self.assertEquals(f.__doc__, 'good bye')
+        del f.__doc__
+        self.assertEquals(f.__doc__, None)
+
+    def test_write_func_doc(self):
+        def f(): "hello"
+        self.assertEquals(f.func_doc, 'hello')
+        f.func_doc = 'good bye'
+        self.assertEquals(f.func_doc, 'good bye')
+        del f.func_doc
+        self.assertEquals(f.func_doc, None)
+
 class AppTestFunction(testit.AppTestCase):
     def test_simple_call(self):
         def func(arg1, arg2):

@@ -121,16 +121,20 @@ Module.typedef = TypeDef("module",
     __dict__ = attrproperty_w('w_dict'), 
     )
 
+getset_func_doc = GetSetProperty(Function.fget_func_doc,
+                                 Function.fset_func_doc,
+                                 Function.fdel_func_doc)
+
 Function.typedef = TypeDef("function",
     __call__ = interp2app(Function.descr_function_call.im_func),
     __get__ = interp2app(Function.descr_function_get.im_func),
     func_code = attrproperty('code'), 
-    func_doc = attrproperty('doc'), 
+    func_doc = getset_func_doc,
     func_name = attrproperty('name'), 
     func_dict = attrproperty_w('w_func_dict'), 
     func_defaults = GetSetProperty(Function.fget_func_defaults),
     func_globals = attrproperty_w('w_func_globals'),
-    __doc__ = attrproperty('doc'), 
+    __doc__ = getset_func_doc,
     __name__ = attrproperty('name'), 
     __dict__ = attrproperty_w('w_func_dict'), 
     # XXX func_closure, etc.pp

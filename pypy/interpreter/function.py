@@ -17,7 +17,7 @@ class Function(Wrappable):
     def __init__(self, space, code, w_globals=None, defs_w=[], closure=None, forcename=None):
         self.space = space
         self.name = forcename or code.co_name
-        self.doc = getattr(code, 'co_consts', (None,))[0]
+        self.w_doc = None   # lazily read and wrapped from code.co_consts[0]
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure   = closure    # normally, list of Cell instances or None
@@ -185,7 +185,22 @@ class Function(Wrappable):
         values_w = self.defs_w
         if not values_w:
             return space.w_None
-        return space.newtuple(values_w) 
+        return space.newtuple(values_w)
+
+    def fget_func_doc(space, w_self):
+        self = space.unwrap(w_self)
+        if self.w_doc is None:
+            doc = getattr(self.code, 'co_consts', (None,))[0]
+            self.w_doc = space.wrap(doc)
+        return self.w_doc
+
+    def fset_func_doc(space, w_self, w_doc):
+        self = space.unwrap(w_self)
+        self.w_doc = w_doc
+
+    def fdel_func_doc(space, w_self):
+        self = space.unwrap(w_self)
+        self.w_doc = space.w_None
 
 class Method(Wrappable): 
     """A method is a function bound to a specific instance or class."""
