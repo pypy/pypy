@@ -111,6 +111,10 @@ def builtin_list(s_iterable):
     factory.generalize(s_iter.next())
     return factory.create()
 
+def builtin_apply(*stuff):
+    print "XXX ignoring apply%r" % (stuff,)
+    return SomeObject()
+
 # collect all functions
 import __builtin__
 BUILTIN_ANALYZERS = {}
