@@ -120,8 +120,8 @@ class ObjSpace(object):
     #    w_id_y = self.id(w_y)
     #    return self.eq(w_id_x, w_id_y)
     #
-    def _isequal(self, w_obj1, w_obj2): 
-        """ only for shortcutting purposes. """ 
+    def eq_w(self, w_obj1, w_obj2): 
+        """ return interp-level boolean of eq(w_obj1, w_obj2). """ 
         return self.is_true(self.eq(w_obj1, w_obj2))
 
     def not_(self, w_obj):

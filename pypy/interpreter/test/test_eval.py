@@ -12,19 +12,19 @@ class TestFrame:
         self.f = Frame(self.space, code, numlocals=5)
 
     def test_fast2locals(self):
-        w = self.space.wrap
         space = self.space 
+        w = space.wrap
         self.f.fast2locals()
-        assert space._isequal(self.f.w_locals, self.space.newdict([]))
+        assert space.eq_w(self.f.w_locals, self.space.newdict([]))
         
         self.f.fastlocals_w[0] = w(5)
         self.f.fast2locals()
-        assert space._isequal(self.f.w_locals, self.space.newdict([
+        assert space.eq_w(self.f.w_locals, self.space.newdict([
                                                (w('x'), w(5))]))
 
         self.f.fastlocals_w[2] = w(7)
         self.f.fast2locals()
-        assert space._isequal(self.f.w_locals, self.space.newdict([
+        assert space.eq_w(self.f.w_locals, self.space.newdict([
             (w('x'), w(5)),
             (w('args'), w(7))]))
 
@@ -33,7 +33,7 @@ class TestFrame:
         for w_1, w_2 in zip(l1, l2):
             assert not ((w_1 is UNDEFINED) != (w_2 is UNDEFINED))
             if w_1 is not UNDEFINED:
-                assert self.space._isequal(w_1, w_2) 
+                assert self.space.eq_w(w_1, w_2) 
 
     def test_locals2fast(self):
         w = self.space.wrap
