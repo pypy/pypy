@@ -260,6 +260,9 @@ def repr__List(space, w_list):
     return a(a(w('['), space.call_function(w_bm, space.newlist(reprs_w))), w(']'))
     return space.newstring([])
 
+def hash__List(space,w_list):
+    raise OperationError(space.w_TypeError,space.wrap("list objects are unhashable"))
+
 # adapted C code
 def _roundupsize(n):
     nbits = r_uint(0)
