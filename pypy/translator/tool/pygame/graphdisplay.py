@@ -5,7 +5,6 @@ import pygame
 from pygame.locals import *
 from drawgraph import GraphRenderer
 
-
 class Display(object):
     
     def __init__(self, (w,h)=(800,740)):
@@ -27,6 +26,7 @@ class GraphDisplay(Display):
         self.font = pygame.font.Font(self.STATUSBARFONT, 16)
         self.viewers_history = []
         self.viewer = None
+        self.method_cache = {}
         self.setlayout(layout)
 
     def setlayout(self, layout):
@@ -176,69 +176,91 @@ class GraphDisplay(Display):
                 pygame.display.flip()
         return moving
 
+    def peek(self, typ):
+        for event in self.events:
+            if event.type == typ:
+                return True
+        return False
+
+    def process_event(self, event):
+        method = self.method_cache.get(event.type, KeyError)
+        if method is KeyError:
+            method = getattr(self, 'process_%s' % (pygame.event.event_name(event.type),), None)
+            self.method_cache[method] = method
+        if method is not None:
+            method(event)
+        
+    def process_MouseMotion(self, event):
+        if self.peek(MOUSEMOTION):
+            return
+        if self.dragging:
+            if (abs(event.pos[0] - self.click_origin[0]) +
+                abs(event.pos[1] - self.click_origin[1])) > 12:
+                self.click_time = None
+            dx = event.pos[0] - self.dragging[0]
+            dy = event.pos[1] - self.dragging[1]
+            if event.buttons[0]:   # left mouse button
+                self.viewer.shiftscale(1.003 ** (dx+dy))
+            else:
+                self.viewer.shiftoffset(-2*dx, -2*dy)
+            self.dragging = event.pos
+            self.must_redraw = True
+        else:
+            self.notifymousepos(event.pos)
+
+    def process_MouseButtonDown(self, event):
+        self.dragging = self.click_origin = event.pos
+        self.click_time = time.time()
+        pygame.event.set_grab(True)
+
+    def process_MouseButtonUp(self, event):
+        self.dragging = None
+        pygame.event.set_grab(False)
+        if self.click_time is not None and abs(time.time() - self.click_time) < 1:
+            # click (no significant dragging)
+            self.notifyclick(self.click_origin)
+        self.click_time = None
+        self.notifymousepos(event.pos)
+
+    def process_KeyDown(self, event):
+        if event.key in [K_p, K_LEFT, K_BACKSPACE]:
+            self.layout_back()
+        elif event.key == K_ESCAPE:
+            self.events.insert(0, pygame.event.Event(QUIT))
+
+    def process_VideoResize(self, event):
+        # short-circuit if there are more resize events pending
+        if self.peek(VIDEORESIZE):
+            return
+        self.resize(event.size)
+        self.must_redraw = True
+
+    def process_Quit(self, event):
+        raise StopIteration
+     
     def run(self):
-        dragging = click_origin = click_time = None
-        events = []
-        def peek(typ):
-            for val in events:
-                if val.type == typ:
-                    return True
-            return False
-        while True:
-            if self.must_redraw and not events:
-                self.viewer.render()
-                if self.statusbarinfo:
-                    self.drawstatusbar()
-                pygame.display.flip()
-                self.must_redraw = False
-            
-            if not events:
-                events.append(pygame.event.wait())
-                events.extend(pygame.event.get())
-            event = events.pop(0)
-            if event.type == MOUSEMOTION:
-                # short-circuit if there are more motion events pending
-                if peek(MOUSEMOTION):
-                    continue
-                if dragging:
-                    if (abs(event.pos[0] - click_origin[0]) +
-                        abs(event.pos[1] - click_origin[1])) > 12:
-                        click_time = None
-                    dx = event.pos[0] - dragging[0]
-                    dy = event.pos[1] - dragging[1]
-                    if event.buttons[0]:   # left mouse button
-                        self.viewer.shiftscale(1.003 ** (dx+dy))
-                    else:
-                        self.viewer.shiftoffset(-2*dx, -2*dy)
-                    dragging = event.pos
-                    self.must_redraw = True
-                else:
-                    self.notifymousepos(event.pos)
-            elif event.type == MOUSEBUTTONDOWN:
-                dragging = click_origin = event.pos
-                click_time = time.time()
-                pygame.event.set_grab(True)
-            elif event.type == MOUSEBUTTONUP:
-                dragging = None
-                pygame.event.set_grab(False)
-                if click_time is not None and abs(time.time() - click_time) < 1:
-                    # click (no significant dragging)
-                    self.notifyclick(click_origin)
-                click_time = None
-                self.notifymousepos(event.pos)
-            elif event.type == KEYDOWN:
-                if event.key in [K_p, K_LEFT, K_BACKSPACE]:
-                    self.layout_back()
-                elif event.key == K_ESCAPE:
-                    events.insert(0, pygame.event.Event(QUIT))
-            elif event.type == VIDEORESIZE:
-                # short-circuit if there are more resize events pending
-                if peek(VIDEORESIZE):
-                    continue
-                self.resize(event.size)
-                self.must_redraw = True
-            elif event.type == QUIT:
-                break
+        self.dragging = self.click_origin = self.click_time = None
+        events = self.events = []
+        try:
+
+            while True:
+
+                if self.must_redraw and not events:
+                    self.viewer.render()
+                    if self.statusbarinfo:
+                        self.drawstatusbar()
+                    pygame.display.flip()
+                    self.must_redraw = False
+
+                if not events:
+                    events.append(pygame.event.wait())
+                    events.extend(pygame.event.get())
+
+                self.process_event(events.pop(0))
+
+        except StopIteration:
+            pass
+
         # cannot safely close and re-open the display, depending on
         # Pygame version and platform.
         pygame.display.set_mode((self.width,1))
