@@ -240,7 +240,6 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 	PyDict_SetItemString(locals, "signature", locals_signature);
 	PyDict_SetItemString(locals, "lineno", locals_lineno);
 	PyDict_SetItemString(locals, "filename", locals_filename);
-	Py_DECREF(locals);
 	Py_DECREF(locals_signature);
 	Py_DECREF(locals_lineno);
 	Py_DECREF(locals_filename);
@@ -248,6 +247,7 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 	c = getcode(c_signature, c_lineno);
 	if (c == NULL) {
 		callstack_depth--;
+		Py_DECREF(function);
 		Py_DECREF(args);
 		Py_DECREF(locals);
 		return NULL;
@@ -257,6 +257,7 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 		callstack_depth--;
 		Py_DECREF(c);
 		Py_DECREF(locals);
+		Py_DECREF(function);
 		Py_DECREF(args);
 		return NULL;
 	}
@@ -270,6 +271,7 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 		return NULL;
 	}
 	rval = PyObject_Call(function, args, NULL);
+	Py_DECREF(function);
 	Py_DECREF(args);
 	callstack_depth--;
 	if (rval == NULL) {
