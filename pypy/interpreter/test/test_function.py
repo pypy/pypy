@@ -17,6 +17,10 @@ class AppTestFunctionIntrospection(test.AppTestCase):
         self.assertEquals(f.func_doc, None)
         self.assertEquals(f.func_name, 'f')
 
+    def test_code_is_ok(self):
+        def f(): pass
+        self.assert_(not hasattr(f.func_code, '__dict__'))
+
     def test_underunder_attributes(self):
         def f(): pass
         self.assertEquals(f.__name__, 'f')

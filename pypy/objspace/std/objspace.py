@@ -202,7 +202,7 @@ class StdObjSpace(ObjSpace):
             return listobject.W_ListObject(self, wrappeditems)
         if hasattr(type(x), '__wrap__'):
             return x.__wrap__(self)
-        # print "wrapping %r (%s)" % (x, type(x))
+        #print "wrapping %r (%s)" % (x, type(x))
         import cpythonobject
         return cpythonobject.W_CPythonObject(self, x)
 

@@ -189,6 +189,7 @@ class Function(Wrappable):
         space = self.space
         def makedict(**kw):
             return kw
+        #print "APPVISI", self.code, "INTO", space.wrap(self.code)
         it = makedict(
                 func_defaults = self.defs_w and space.newtuple(self.defs_w) or space.w_None,
                 func_code = space.wrap(self.code),

@@ -30,7 +30,7 @@ registerimplementation(W_CPythonObject)
 
 def cpython_unwrap(space, w_obj):
     cpyobj = w_obj.cpyobj
-    if hasattr(cpyobj, '__unwrap__'):
+    if hasattr(type(cpyobj), '__unwrap__'):
         cpyobj = cpyobj.__unwrap__()
     return cpyobj
 
@@ -162,7 +162,7 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     if f:
         if _arity == 1:
             def cpython_f(space, w_1, f=f, pypymethod='pypy_'+_name):
-                x1 = space.unwrap(w_1)
+                x1 = w_1.cpyobj 
                 type_x1 = type(x1)
                 if hasattr(type_x1, pypymethod):
                     return getattr(type_x1, pypymethod)(x1)
@@ -173,7 +173,7 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
                 return space.wrap(y)
         elif _arity == 2:
             def cpython_f(space, w_1, w_2, f=f, pypymethod='pypy_'+_name):
-                x1 = space.unwrap(w_1)
+                x1 = w_1.cpyobj 
                 type_x1 = type(x1)
                 if hasattr(type_x1, pypymethod):
                     return getattr(type_x1, pypymethod)(x1, w_2)
@@ -187,7 +187,7 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
                 return space.wrap(y)
         elif _arity == 3:
             def cpython_f(space, w_1, w_2, w_3, f=f, pypymethod='pypy_'+_name):
-                x1 = space.unwrap(w_1)
+                x1 = w_1.cpyobj 
                 type_x1 = type(x1)
                 if hasattr(type_x1, pypymethod):
                     return getattr(type_x1, pypymethod)(x1, w_2, w_3)
