@@ -1,5 +1,4 @@
-import autopath
-import textwrap
+import py 
 
 class TestInterpreter: 
     def codetest(self, source, functionname, args):
@@ -8,6 +7,8 @@ class TestInterpreter:
         from pypy.interpreter import baseobjspace, executioncontext
         from pypy.interpreter import pyframe, gateway, module
         space = self.space
+
+        source = str(py.code.Source(source).strip())
 
         compile = space.builtin.compile
         w = space.wrap
@@ -39,36 +40,36 @@ class TestInterpreter:
     #    del cls.space 
 
     def test_exception_trivial(self):
-        x = self.codetest('''
-def f():
-    try:
-        raise Exception()
-    except Exception, e:
-        return 1
-    return 2
-''', 'f', [])
+        x = self.codetest('''\
+                def f():
+                    try:
+                        raise Exception()
+                    except Exception, e:
+                        return 1
+                    return 2
+            ''', 'f', [])
         assert x == 1
 
     def test_exception(self):
         x = self.codetest('''
-def f():
-    try:
-        raise Exception, 1
-    except Exception, e:
-        return e.args[0]
-''', 'f', [])
+            def f():
+                try:
+                    raise Exception, 1
+                except Exception, e:
+                    return e.args[0]
+            ''', 'f', [])
         assert x == 1
 
     def test_finally(self):
         code = '''
-def f(a):
-    try:
-        if a:
-            raise Exception
-        a = -12
-    finally:
-        return a
-'''
+            def f(a):
+                try:
+                    if a:
+                        raise Exception
+                    a = -12
+                finally:
+                    return a
+        '''
         assert self.codetest(code, 'f', [0]) == -12
         assert self.codetest(code, 'f', [1]) == 1
 
@@ -81,29 +82,29 @@ def f(a):
 
     def test_except2(self):
         x = self.codetest('''
-def f():
-    try:
-        z = 0
-        try:
-            "x"+1
-        except TypeError, e:
-            z = 5
-            raise e
-    except TypeError:
-        return z
-''', 'f', [])
+            def f():
+                try:
+                    z = 0
+                    try:
+                        "x"+1
+                    except TypeError, e:
+                        z = 5
+                        raise e
+                except TypeError:
+                    return z
+            ''', 'f', [])
         assert x == 5
 
     def test_except3(self):
         code = '''
-def f(v):
-    z = 0
-    try:
-        z = 1//v
-    except ZeroDivisionError, e:
-        z = "infinite result"
-    return z
-'''
+                def f(v):
+                    z = 0
+                    try:
+                        z = 1//v
+                    except ZeroDivisionError, e:
+                        z = "infinite result"
+                    return z
+                '''
         assert self.codetest(code, 'f', [2]) == 0
         assert self.codetest(code, 'f', [0]) == "infinite result"
         ess = "TypeError: unsupported operand type"
@@ -114,32 +115,32 @@ def f(v):
 
     def test_break(self):
         code = '''
-def f(n):
-    total = 0
-    for i in range(n):
-        try:
-            if i == 4:
-                break
-        finally:
-            total += i
-    return total
-'''
+                def f(n):
+                    total = 0
+                    for i in range(n):
+                        try:
+                            if i == 4:
+                                break
+                        finally:
+                            total += i
+                    return total
+                '''
         assert self.codetest(code, 'f', [4]) == 1+2+3
         assert self.codetest(code, 'f', [9]) == 1+2+3+4
 
     def test_continue(self):
         code = '''
-def f(n):
-    total = 0
-    for i in range(n):
-        try:
-            if i == 4:
-                continue
-        finally:
-            total += 100
-        total += i
-    return total
-'''
+                def f(n):
+                    total = 0
+                    for i in range(n):
+                        try:
+                            if i == 4:
+                                continue
+                        finally:
+                            total += 100
+                        total += i
+                    return total
+                '''
         assert self.codetest(code, 'f', [4]) == 1+2+3+400
         assert self.codetest(code, 'f', [9]) == (
                           1+2+3 + 5+6+7+8+900)
@@ -155,70 +156,70 @@ def f(n):
                 assert arg is not None
             return real_call_function(w_obj, *arg_w)
         self.space.call_function = safe_call_function
-        code = textwrap.dedent('''
+        code = '''
             def f():
                 import sys
-            ''')
+            '''
         self.codetest(code, 'f', [])
 
     def test_extended_arg(self):
         longexpr = 'x = x or ' + '-x' * 2500
         code = '''
-def f(x):
-    %s
-    %s
-    %s
-    %s
-    %s
-    %s
-    %s
-    %s
-    %s
-    %s
-    while x:
-        x -= 1   # EXTENDED_ARG is for the JUMP_ABSOLUTE at the end of the loop
-    return x
-''' % ((longexpr,)*10)
+                def f(x):
+                    %s
+                    %s
+                    %s
+                    %s
+                    %s
+                    %s
+                    %s
+                    %s
+                    %s
+                    %s
+                    while x:
+                        x -= 1   # EXTENDED_ARG is for the JUMP_ABSOLUTE at the end of the loop
+                    return x
+                ''' % ((longexpr,)*10)
         assert self.codetest(code, 'f', [3]) == 0
 
     def test_call_star_starstar(self):
-        code = '''
-def f1(n):
-    return n*2
-def f38(n):
-    f = f1
-    r = [
-        f(n, *[]),
-        f(n),
-        apply(f, (n,)),
-        apply(f, [n]),
-        f(*(n,)),
-        f(*[n]),
-        f(n=n),
-        f(**{'n': n}),
-        apply(f, (n,), {}),
-        apply(f, [n], {}),
-        f(*(n,), **{}),
-        f(*[n], **{}),
-        f(n, **{}),
-        f(n, *[], **{}),
-        f(n=n, **{}),
-        f(n=n, *[], **{}),
-        f(*(n,), **{}),
-        f(*[n], **{}),
-        f(*[], **{'n':n}),
-        ]
-    return r
-'''
+        code = '''\
+            def f1(n):
+                return n*2
+            def f38(n):
+                f = f1
+                r = [
+                    f(n, *[]),
+                    f(n),
+                    apply(f, (n,)),
+                    apply(f, [n]),
+                    f(*(n,)),
+                    f(*[n]),
+                    f(n=n),
+                    f(**{'n': n}),
+                    apply(f, (n,), {}),
+                    apply(f, [n], {}),
+                    f(*(n,), **{}),
+                    f(*[n], **{}),
+                    f(n, **{}),
+                    f(n, *[], **{}),
+                    f(n=n, **{}),
+                    f(n=n, *[], **{}),
+                    f(*(n,), **{}),
+                    f(*[n], **{}),
+                    f(*[], **{'n':n}),
+                    ]
+                return r
+            '''
         assert self.codetest(code, 'f38', [117]) == [234]*19
 
     def test_star_arg(self):
-        code = textwrap.dedent('''
+        code = ''' 
             def f(x, *y):
                 return y
             def g(u, v):
                 return f(u, *v)
-            ''')
+            '''
         assert self.codetest(code, 'g', [12, ()]) ==    ()
         assert self.codetest(code, 'g', [12, (3,4)]) == (3,4)
         assert self.codetest(code, 'g', [12, []]) ==    ()
