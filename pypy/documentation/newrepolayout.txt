@@ -5,27 +5,24 @@ Proposition: new svn repository layout
 Motivation
 ----------
 
-The `PyPy repository layout`_ has evolved for two 
-years into something that needs some refactoring 
-to become more practical. 
+We want to move to the following structure: 
 
-For example, the `extradoc`_ directory was originally intended
-to hold developer documentation but nowadays it contains
-funding, negotiations, mails and misc-other-stuff documents.  It is
-not easy and obvious anymore to know which files are relevant.
-Moreover, `extradoc`_ is too far away from the source code:
-developers currently checkout the 'dist' directory and
-don't even get the documentation. This also makes it more
-difficult to keep the documentation up-to-date. 
+- `dist`_: source code + documentation (for developer needs) 
+
+- `extradoc`_: talks, papers, newsletters and EU-related information
+  that are useful for not-only-developers 
+
+- `eu-tracking`_: eu-tracking details that involve internal 
+  budget/cost/audit preparations and documentations (not 
+  available to anonymous checkouts) 
 
 .. _`extradoc`: http://codespeak.net/svn/pypy/extradoc 
-.. _`PyPy repository layout`: http://codespeak.net/svn/pypy/
+.. _`dist`: http://codespeak.net/svn/pypy/dist  
+.. _`eu-tracking`: http://codespeak.net/svn/pypy/eu-tracking 
 
-New repo layout proposal Nr. 1
-------------------------------
+More detailed layout (work in progress) 
+---------------------------------------
 
-Based on experiences in various repositories here is a
-new proposition describing a possible new structure 
 (starting at /svn/pypy):: 
 
     branch                  # holds branches 
@@ -44,23 +41,32 @@ new proposition describing a possible new structure
         paper               # various pypy-related papers (including our own)
         sprint              # sprint related information (reports etc.pp.)
         irclog              # IRC logs (snipped appropriately) 
-
+        eu-info             # legal guidelines/rules partcipation
+        eu-forms            # Accession forms (empty) 
+        proposal            # several versions 
+        newsletter          # ...
+        press               # ...
+            
+    eu-tracking             # strong focus on eu-internal details 
+        timesheets          # monthly timesheets 
+        monthly-reports 
+        deliverables        # deliverable/documents
+        minutes             # meeting protocols 
+        budget.sxc          
+        calendar.sxc 
+        ... 
     www                     # website-related stuff (needs its own reconsideration) 
 
-    funding                 # funding related documents 
-        eu-info             # official information from the EU 
-        contract            # contract material (EU-contract, amendments) 
-        eu-report           # eu reports (time/cost/budget) 
-        ...                 # probably more, we'll see later 
 
 The idea is that developers can use a simple url::
     
     svn co https://codespeak.net/svn/pypy/dist dist-pypy 
 
 in order to get everything neccessary for sourcecode, documentation
-and test development.  Obviously, if you care about the funding 
+and test development.  Obviously, if you care about the EU-funding 
 or web site application/contents you can do an appropriate checkout
-as well.  
+as well.  The extradoc contains information interesting to 
+developers and other open source projects (seeking funding or not). 
 
 Note, that having documentation inside the source tree will help
 with keeping a closer eye on documentation - especially when we 
