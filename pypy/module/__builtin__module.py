@@ -41,12 +41,27 @@ def execfile(filename, glob=None, loc=None):
 
 def raw_input(prompt=None):
     import sys
+    try:
+        sys.stdin
+    except AttributeError:
+        raise RuntimeError("[raw_]input: lost sys.stdin");
+    try:
+        sys.stdout
+    except AttributeError:
+        raise RuntimeError("[raw_]input: lost sys.stdout");
     if prompt is not None:
         sys.stdout.write(prompt)
-        sys.stdout.flush()
+        try:
+            flush = sys.stdout.flush
+        except AttributeError:
+            pass
+        else:
+            flush()
     line = sys.stdin.readline()
     if not line:    # inputting an empty line gives line == '\n'
         raise EOFError
+    if line[-1] == '\n':
+        return line[:-1]
     return line
 
 def input(prompt=None):
