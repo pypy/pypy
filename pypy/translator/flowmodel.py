@@ -102,7 +102,6 @@ class SpaceOperation:
 
     def __hash__(self):
         return hash((self.opname,tuple(self.args),self.result))
-        
 
     def __repr__(self):
         return "%s <- %s(%s)" % (self.result, self.opname, ", ".join(map(str, self.args)))

@@ -59,17 +59,6 @@ class FlowObjSpace(ObjSpace):
         self.executioncontext = ec
         ec.build_flow()
         return ec.graph
-        
-        frames = [frame]
-        while len(frames) > 0:
-            crnt_frame = frames.pop()
-            ret_val = crnt_frame.run()
-            self._crnt_block.branch = EndBranch(ret_val)
-        g = self._graph
-        del self._graph
-        del self._crnt_block
-        del self._crnt_ops
-        return g
 
     # ____________________________________________________________
     def do_operation(self, name, *args_w):
