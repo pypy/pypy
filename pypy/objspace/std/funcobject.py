@@ -1,3 +1,4 @@
+from __future__ import nested_scopes
 from pypy.objspace.std.objspace import *
 import pypy.interpreter.pyframe
 
@@ -8,6 +9,19 @@ class W_FuncObject(object):
         w_self.w_globals = w_globals
         w_self.w_defaultarguments = w_defaultarguments
         w_self.w_closure = w_closure
+
+
+def function_unwrap(space, w_function):
+    # XXX this is probably a temporary hack
+    def proxy_function(*args, **kw):
+        w_arguments = space.wrap(args)
+        w_keywords  = space.wrap(kw)
+        w_result = func_call(space, w_function, w_arguments, w_keywords)
+        return space.unwrap(w_result)
+    # XXX no closure implemented
+    return proxy_function
+
+StdObjSpace.unwrap.register(function_unwrap, W_FuncObject)
 
 
 def func_call(space, w_function, w_arguments, w_keywords):

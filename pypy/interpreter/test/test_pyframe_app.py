@@ -6,7 +6,7 @@ class CodeObject:
     """ A code object class for test purposes. """
     def __init__(self, count=3, vflag = 0, kflag = 0):
         self.co_argcount = count
-        self.co_varnames = ('a', 'b', 'c', 'd', 'e')[:count]
+        self.co_varnames = ('a', 'b', 'c', 'd', 'e')
         self.co_flags = 4 * vflag + 8 * kflag
 
 

@@ -14,6 +14,14 @@ def dict_is_true(space, w_dict):
 
 StdObjSpace.is_true.register(dict_is_true, W_DictObject)
 
+def dict_unwrap(space, w_dict):
+    result = {}
+    for w_key, w_value in w_dict.data:
+        result[space.unwrap(w_key)] = space.unwrap(w_value)
+    return result
+
+StdObjSpace.unwrap.register(dict_unwrap, W_DictObject)
+
 def getitem_dict_any(space, w_dict, w_lookup):
     data = w_dict.data
     for w_key, w_value in data:

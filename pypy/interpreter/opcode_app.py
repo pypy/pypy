@@ -4,6 +4,9 @@ def prepare_raise0():
     
 def prepare_raise(etype, value, traceback):
     import types
+    # XXX we get an infinite loop if this import fails:
+    #    import types -> IMPORT_NAME -> import_name -> raise ImportError
+    #    -> RAISE_VARARGS -> prepare_raise -> import types ...
     if  not isinstance(traceback, (types.NoneType, types.TracebackType)):
             raise TypeError, "raise: arg 3 must be traceback or None"
     while isinstance(etype, tuple):

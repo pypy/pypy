@@ -245,7 +245,7 @@ def RAISE_VARARGS(f, nbargs):
     # but not to actually raise it, because we cannot use the 'raise'
     # statement to implement RAISE_VARARGS
     if nbargs == 0:
-        w_resulttuple = f.space.gethelper(appfile).call("prepare_raise0")
+        w_resulttuple = f.space.gethelper(appfile).call("prepare_raise0", [])
     elif nbargs == 1:
         w_type = f.valuestack.pop()
         w_resulttuple = f.space.gethelper(appfile).call(
@@ -544,13 +544,13 @@ def JUMP_ABSOLUTE(f, jumpto):
 
 def GET_ITER(f):
     w_iterable = f.valuestack.pop()
-    w_iterator = f.space.op.iter(w_iterable)
+    w_iterator = f.space.iter(w_iterable)
     f.valuestack.push(w_iterator)
 
 def FOR_ITER(f, jumpby):
     w_iterator = f.valuestack.top()
     try:
-        w_nextitem = f.space.op.next(w_iterator)
+        w_nextitem = f.space.next(w_iterator)
     except NoValue:
         # iterator exhausted
         f.valuestack.pop()

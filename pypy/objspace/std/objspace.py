@@ -2,6 +2,11 @@ import pypy.interpreter.appfile
 from pypy.interpreter.baseobjspace import *
 from multimethod import *
 
+if not isinstance(bool, type):
+    booltype = ()
+else:
+    booltype = bool
+
 
 ##################################################################
 
@@ -29,10 +34,17 @@ class StdObjSpace(ObjSpace):
                 w_c = W_CPythonObject(c)
                 setattr(self, 'w_' + c.__name__, w_c)
                 self.setitem(self.w_builtins, self.wrap(c.__name__), w_c)
+        # add a dummy __import__  XXX fixme
+        w_import = self.wrap(__import__)
+        self.setitem(self.w_builtins, self.wrap("__import__"), w_import)
 
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."
+        if x is None:
+            return self.w_None
         if isinstance(x, int):
+            if isinstance(x, booltype):
+                return self.newbool(x)
             import intobject
             return intobject.W_IntObject(x)
         if isinstance(x, str):

@@ -109,7 +109,7 @@ class PyFrame:
         for i in range(len(arguments)):
             varname = self.getlocalvarname(i)
             w_varname = self.space.wrap(varname)
-            w_arg = self.space.wrap(arguments[i])
+            w_arg = arguments[i]
             self.space.setitem(self.w_locals, w_varname, w_arg)
 
     def decode_arguments(self, w_arguments, w_kwargs, w_defaults, w_closure):

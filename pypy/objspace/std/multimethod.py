@@ -102,7 +102,7 @@ class BoundMultiMethod:
             w_value = self.space.wrap(message)
             raise OperationError(self.space.w_TypeError, w_value)
         else:
-            raise e
+            raise OperationError(*e.args)
 
 
 class error(Exception):

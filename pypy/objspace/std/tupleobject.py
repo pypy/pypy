@@ -3,8 +3,14 @@ from intobject import W_IntObject
 
 
 class W_TupleObject(object):
+
     def __init__(self, wrappeditems):
         self.wrappeditems = wrappeditems   # a list of wrapped values
+
+    def __repr__(w_self):
+        """ representation for debugging purposes """
+        reprlist = [repr(w_item) for w_item in w_self.wrappeditems]
+        return "%s(%s)" % (w_self.__class__.__name__, ', '.join(reprlist))
 
 
 def tuple_unwrap(space, w_tuple):

@@ -42,6 +42,7 @@ class TrivialObjSpace(ObjSpace):
     str       = str
     len       = len
     pow       = pow
+    divmod    = divmod
     hash      = hash
     setattr   = setattr
     delattr   = delattr
@@ -56,7 +57,7 @@ class TrivialObjSpace(ObjSpace):
         except:
             raise OperationError(*sys.exc_info()[:2])
 
-    for _name in ('pos', 'neg', 'not_', 'pos', 'neg', 'not_', 'invert',
+    for _name in ('pos', 'neg', 'not_', 'abs', 'invert',
                  'mul', 'truediv', 'floordiv', 'div', 'mod',
                  'add', 'sub', 'lshift', 'rshift', 'and_', 'xor', 'or_',
                  'getitem', 'setitem', 'delitem', 'contains',
@@ -113,14 +114,14 @@ def %(_name)s(self, *args):
 
 
     # misc
-    def iternext(self, w):
+    def next(self, w):
         try:
             return w.next()
         except StopIteration:
             raise NoValue
 
     def newfunction(self, code, globals, defaultarguments, closure=None):
-        if closure is None:   # temp hack
+        if closure is None:   # temp hack for Python 2.2
             return new.function(code, globals, None, defaultarguments)
         return new.function(code, globals, None, defaultarguments, closure)
 
@@ -132,10 +133,14 @@ def %(_name)s(self, *args):
             bytecode = callable.func_code
             ec = self.getexecutioncontext()
             w_globals = self.wrap(callable.func_globals)
+            w_defaults = self.wrap(callable.func_defaults)
             w_locals = self.newdict([])
             frame = pyframe.PyFrame(self, bytecode, w_globals, w_locals)
             # perform call
-            frame.setargs(args, kwds)
+            frame.setargs(args, kwds, w_defaults)
             return ec.eval_frame(frame)
         else:
-            return apply(callable, args, kwds)
+            try:
+                return apply(callable, args, kwds)
+            except:
+                raise OperationError(*sys.exc_info()[:2])

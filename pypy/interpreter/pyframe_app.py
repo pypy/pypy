@@ -59,7 +59,7 @@ def decode_frame_arguments(args, kws, defs, closure, codeobject):
                 
     # Fill in with defaults, starting at argcount - defcount
     if defs:
-        argcount = len(codeobject.co_varnames)
+        argcount = codeobject.co_argcount
         defcount = len(defs)
         for i in range(argcount - defcount, argcount):
             if argdict.has_key(parameter_names[i]):
