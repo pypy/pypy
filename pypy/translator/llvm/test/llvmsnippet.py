@@ -194,6 +194,9 @@ class CCC(BBB):
         AAA.__init__(self)
         BBB.__init__(self)
 
+    def cmethod(self):
+        return 13
+
 def attribute_from_base_class():
     a = AAA()
     b = BBB()
@@ -209,6 +212,19 @@ def direct_call_of_virtual_method():
     b = BBB()
     c = CCC()
     return a.get() + b.get() + c.get()
+
+def ifisinstance(a):
+    if isinstance(a, CCC):
+        return a.cmethod()
+    elif isinstance(a, BBB):
+        return a.b
+    return 1
+
+def flow_type():
+    a = AAA()
+    b = BBB()
+    c = CCC()
+    return ifisinstance(a) + ifisinstance(b) + ifisinstance(c)
 
 #string snippets
 def string_f1(i):

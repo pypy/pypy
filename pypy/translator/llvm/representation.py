@@ -33,7 +33,7 @@ LLVM_SIMPLE_TYPES = {annmodel.SomeChar: "sbyte",
                      annmodel.SomeBool: "bool"}
 
 
-debug = True
+debug = False
 
 
 class CompileError(exceptions.Exception):
@@ -56,6 +56,9 @@ class LLVMRepr(object):
 
     def get_functions(self):
         return ""
+
+    def collect_init_code(self, lblock, l_func):
+        pass
 
     def llvmname(self):
         return self.name
@@ -569,6 +572,8 @@ class ClassRepr(TypeRepr):
         self.gen = gen
         self.includefile = ""
         self.name = gen.get_global_tmp("class.%s" % self.classdef.cls.__name__)
+        self.objectname = gen.get_global_tmp("class.%s.object" %
+                                             self.classdef.cls.__name__)
         if debug:
             print self.name
         self.dependencies = sets.Set()
@@ -588,11 +593,12 @@ class ClassRepr(TypeRepr):
             self.dependencies.add(self.l_base)
             attribs = self.l_base.attributes
         else:
+            self.l_base = None
             attribs = []
         meth = []
         if debug:
             print "attributes", self.classdef.attrs
-        #get attributes of this class and decide wether they are methods
+        #get attributes of this class and decide whether they are methods
         for key, attr in self.classdef.attrs.items():
             if debug:
                 print key, attr, attr.sources, attr.s_value,
@@ -614,23 +620,45 @@ class ClassRepr(TypeRepr):
         self.l_attrs_types = [gen.get_repr(attr.s_value) for attr in attribs]
         self.dependencies = sets.Set(self.l_attrs_types)
         attributes = ", ".join([at.llvmname() for at in self.l_attrs_types])
-        self.definition = "%s = type {uint, %s}" % (self.name, attributes)
+        self.definition = "%s = type {%%std.class*, %s}" % (self.name,
+                                                           attributes)
         self.attributes = attribs
         self.attr_num = {}
         for i, attr in enumerate(attribs):
             self.attr_num[attr.name] = i + 1
         self.methods = dict(meth)
 
+    def get_globals(self):
+        s = "\n%s = internal global %%std.class {%%std.class* null, uint %i}"
+        s = s % (self.objectname, abs(id(self)))
+        return self.definition + s
+
+    def collect_init_code(self, lblock, l_func):
+        if self.l_base is None:
+            return
+        l_tmp = self.gen.get_local_tmp(None, l_func)
+        i = "%s = getelementptr %%std.class* %s, int 0, uint 0" % \
+            (l_tmp.llvmname(), self.objectname)
+        lblock.instruction(i)
+        lblock.instruction("store %%std.class* %s, %%std.class** %s" %
+                           (self.l_base.objectname, l_tmp.llvmname()))
+
+    def llvmtype(self):
+        return "%std.class* "
+
+    def typed_name(self):
+        #XXXX: Ouch. I get bitten by the fact that
+        #      in LLVM typedef != class object
+        # This will work, as long as class objects are only passed to functions
+        return "%%std.class* %s" % self.objectname
+
     def op_simple_call(self, l_target, args, lblock, l_func):
         lblock.malloc(l_target, self)
-        l_tmp = self.gen.get_local_tmp(PointerTypeRepr("uint", self.gen),
-                                       l_func)
+        l_tmp = self.gen.get_local_tmp(
+            PointerTypeRepr("%std.class*", self.gen), l_func)
         lblock.getelementptr(l_tmp, l_target, [0, 0])
-        #XXX: store the id of the ClassRepr for isinstance checks,
-        #polymorphism etc. Should probably replace this with a pointer to a
-        #virtual function table instead
-        lblock.instruction("store uint %s, %s" %
-                           (id(self), l_tmp.typed_name()))
+        lblock.instruction("store %%std.class* %s, %s" %
+                           (self.objectname, l_tmp.typed_name()))
         init = None
         for cls in self.classdef.getmro():
             if "__init__" in cls.attrs:
@@ -724,6 +752,12 @@ class BuiltinFunctionRepr(LLVMRepr):
     def op_simple_call(self, l_target, args, lblock, l_func):
         l_args = [self.gen.get_repr(arg) for arg in args]
         l_func.dependencies.update(l_args)
+        if self.name == "%std.isinstance":
+            l_tmp = self.gen.get_local_tmp(PointerTypeRepr("%std.object",
+                                                           self.gen), l_func)
+            l_func.dependencies.add(l_tmp)
+            lblock.cast(l_tmp, l_args[1])
+            l_args[1] = l_tmp
         lblock.call(l_target, l_args[0], l_args[1:])
 
 class FunctionRepr(LLVMRepr):
@@ -813,6 +847,20 @@ class FunctionRepr(LLVMRepr):
                     l_v2 = self.gen.get_repr(incoming_links[0].args[i])
                     self.dependencies.update([l_arg, l_switch, l_v1, l_v2])
                     lblock.select(l_arg, l_select, l_v1, l_v2)
+            #special case for isinstance blocks:
+            #if the type changes a cast is neccessary
+            elif len(incoming_links) == 1:
+                link = incoming_links[0]
+                for i, arg in enumerate(pyblock.inputargs):
+                    l_arg = self.gen.get_repr(arg)
+                    l_value = self.gen.get_repr(link.args[i])
+                    self.dependencies.update([l_arg, l_value])
+                    if l_arg.llvmtype() == l_value.llvmtype():
+                        lblock.phi(
+                            l_arg, [l_value],
+                            ["%%block%i" % self.blocknum[link.prevblock]])
+                    else:
+                        lblock.cast(l_arg, l_value)
             elif len(incoming_links) != 0:
                 for i, arg in enumerate(pyblock.inputargs):
                     l_arg = self.gen.get_repr(arg)
@@ -865,33 +913,9 @@ class FunctionRepr(LLVMRepr):
                     "%%block%i" % self.blocknum[pyblock.exits[1].target],
                     "%%block%i" % self.blocknum[pyblock.exits[0].target])
 
-    def cfuncdef(self):
-        a = self.translator.annotator
-        retv = self.graph.returnblock.inputargs[0]
-        rettype_c = C_SIMPLE_TYPES[a.binding(retv).__class__]
-        args = self.graph.startblock.inputargs
-        argtypes_c = [C_SIMPLE_TYPES[a.binding(v).__class__] for v in args]
-        fd = "%s %s(%s)" % (rettype_c, self.func.func_name,
-                            ", ".join(argtypes_c))
-        return fd
-
     def llvmfuncdef(self):
-        s = "%s %s(" % (self.retvalue.llvmtype(), self.name)
+        s = "internal %s %s(" % (self.retvalue.llvmtype(), self.name)
         return s + ", ".join([a.typed_name() for a in self.l_args]) + ")"
-
-    def get_pyrex_source(self):
-        name = self.func.func_name
-        args = self.graph.startblock.inputargs
-        self.pyrex_source = ["cdef extern %s\n" %
-                             (self.cfuncdef())]
-        self.pyrex_source += ["def wrap_%s(" % name]
-        t = []
-        for i, a in enumerate(args):
-            t += ["%s" % a]
-        t = ", ".join(t)
-        self.pyrex_source += t + "):\n\treturn %s(%s)\n\n" % (name, t)
-        self.pyrex_source = "".join(self.pyrex_source)
-        return self.pyrex_source
 
     def rettype(self):
         return self.retvalue.llvmtype()
@@ -1038,19 +1062,27 @@ class VirtualMethodRepr(LLVMRepr):
         l_retvalue = self.retvalue
         self.dependencies.update(self.l_args)
         #create function
+        #XXX pretty messy
         entryblock = llvmbc.BasicBlock("entry")
-        l_ptr = self.gen.get_local_tmp(PointerTypeRepr("uint", self.gen), self)
-        l_type = self.gen.get_local_tmp(self.gen.get_repr(
-            annmodel.SomeInteger(True, True)), self)
-        self.dependencies.update([l_ptr, l_type])
-        entryblock.getelementptr(l_ptr, self.l_args[0], [0, 0])
-        entryblock.load(l_type, l_ptr)
-        entryblock.switch(l_type, "%a" + str(id(self.l_commonbase)),
-                          [(id(l_c), "%a" + str(id(l_c)))
+        l_clp = self.gen.get_local_tmp(PointerTypeRepr("%std.class*",
+                                                       self.gen), self)
+        l_cl = self.gen.get_local_tmp(PointerTypeRepr("%std.class",
+                                                      self.gen), self)
+        l_uip = self.gen.get_local_tmp(PointerTypeRepr("uint", self.gen),
+                                       self)
+        l_ui = self.gen.get_local_tmp(
+            self.gen.get_repr(annmodel.SomeInteger(True, True)), self)
+        self.dependencies.update([l_clp, l_cl, l_uip, l_ui])
+        entryblock.getelementptr(l_clp, self.l_args[0], [0, 0])
+        entryblock.load(l_cl, l_clp)
+        entryblock.getelementptr(l_uip, l_cl, [0, 1])
+        entryblock.load(l_ui, l_uip)
+        entryblock.switch(l_ui, "%" + self.l_commonbase.classdef.cls.__name__,
+                          [(str(abs(id(l_c))), "%" + l_c.classdef.cls.__name__)
                            for l_c in self.l_classes])
         lfunc = llvmbc.Function(self.llvmfuncdef(), entryblock)
         for i, l_cls in enumerate(self.l_classes):
-            lblock = llvmbc.BasicBlock("a" + str(id(l_cls)))
+            lblock = llvmbc.BasicBlock(l_cls.classdef.cls.__name__)
             lfunc.basic_block(lblock)
             l_tmp = self.gen.get_local_tmp(l_cls, self)
             lblock.cast(l_tmp, self.l_args[0])
@@ -1090,7 +1122,8 @@ class VirtualMethodRepr(LLVMRepr):
         return str(self.llvm_func)
 
     def llvmfuncdef(self):
-        s = "%s %s(" % (self.l_funcs[0].retvalue.llvmtype(), self.name)
+        s = "internal %s %s(" % (self.l_funcs[0].retvalue.llvmtype(),
+                                 self.name)
         return s + ", ".join([a.typed_name() for a in self.l_args]) + ")"
 
     def rettype(self):

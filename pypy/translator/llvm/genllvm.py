@@ -113,17 +113,30 @@ class LLVMGenerator(object):
         raise CompileError, "Can't get repr of %s, %s" % (obj, obj.__class__)
 
     def write(self, f):
+        init_block = self.l_entrypoint.init_block
+        seen_reprs = sets.Set()
+        for l_repr in traverse_dependencies(self.l_entrypoint, seen_reprs):
+            l_repr.collect_init_code(init_block, self.l_entrypoint)
+        include_files = ["operations.ll", "class.ll"]
+        for i, fn in enumerate(include_files):
+            f1 = file(autopath.this_dir + "/" + fn)
+            s = f1.read()
+            include_files[i] = s.split("\nimplementation")
+            if len(include_files[i]) == 1:
+                include_files[i].insert(0, "")
+            f1.close()
         f.write("\n\n; +-------+\n; |globals|\n; +-------+\n\n")
+        for inc in include_files:
+            f.write(inc[0])
         seen_reprs = sets.Set()
         for l_repr in traverse_dependencies(self.l_entrypoint, seen_reprs):
             s = l_repr.get_globals()
             if s != "":
                 f.write(s + "\n")
+        f.write("implementation\n")
         f.write("\n\n; +---------+\n; |space_ops|\n; +---------+\n\n")
-        f1 = file(autopath.this_dir + "/operations.ll", "r")
-        s = f1.read()
-        f.write(s)
-        f1.close()
+        for inc in include_files:
+            f.write(inc[1])
         f.write("\n\n; +---------+\n; |functions|\n; +---------+\n\n")
         seen_reprs = sets.Set()
         for l_repr in traverse_dependencies(self.l_entrypoint, seen_reprs):
@@ -145,4 +158,5 @@ def traverse_dependencies(l_repr, seen_reprs):
         for l_dep1 in traverse_dependencies(l_dep, seen_reprs):
             yield l_dep1
     yield l_repr
+
 
