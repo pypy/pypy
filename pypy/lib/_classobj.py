@@ -8,10 +8,14 @@ def coerce(left, right):
 obj_setattr = object.__setattr__
 obj_getattribute = object.__getattribute__
 
-MASK = sys.maxint * 2 + 2
+MASK = sys.maxint * 2 + 1
 
 def uid(o):
-    return (MASK + id(o)) & (MASK-1)
+    v = id(o)
+    if v < 0:
+        v += MASK
+        v += 1
+    return v & MASK
 
 def type_err(arg, expected, v):
    return TypeError("argument %s must be %s, not %s" % (arg, expected, type(v).__name__))
