@@ -434,3 +434,79 @@ def __i%(op)s__(self, other):
         if not func:
             raise AttributeError, "%s instance has no __call__ method" % (self.__class__.__name__)            
         return func(*args, **kwds)
+
+    # rich comparison operations
+    for op in 'eq ne gt lt ge le'.split():
+        exec ("""
+def __%(op)s__(self, other):
+        try:
+            return instance_getattr1(self, '__%(op)s__')(other)
+        except AttributeError:
+            return NotImplemented
+
+""") % {"op": op}
+    del op    
+
+
+    def __iter__(self):
+        func = instance_getattr1(self, '__iter__', False)
+        if func:
+            ret = func()
+            if not mro_lookup(ret, 'next'):
+                raise TypeError, ("__iter__ returned non-iterator of type %s"
+                                  % type(ret).__name__)
+            return ret
+        func = instance_getattr1(self, '__getitem__')
+        if not func:
+            raise TypeError, "iteration over non-sequence"
+        def seqiter(): # XXX may want to access and instatiate the internal
+                       # sequence-iterator type instead
+            i = 0
+            while 1:
+                try:
+                    yield func(i)
+                except IndexError:
+                    return
+                i += 1
+        return seqiter()
+
+    def next(self):
+        func = instance_getattr1(self, '__next__', False)
+        if not func:
+            raise TypeError, "instance has no next() method"
+        return func()
+
+    def __cmp__(self, other): # do all the work here like CPython
+        coerced = coerce(self, other)
+        if coerced is None:
+            v = self
+            w = other
+        else:
+            v = coerced[0]
+            w = coerced[1]
+            if not isinstance(v, instance) and not isinstance(w, instance):
+                return operator.cmp(v,w)
+        if isinstance(v, instance):
+            func = instance_getattr1(v, '__cmp__', False)
+            if func:
+                res = func(w)
+                if isinstance(res, int):
+                    if res > 0:
+                        return 1
+                    if res < 0:
+                        return -1
+                    return 0
+                raise TypeError,"__cmp__ must return int"
+        if isinstance(w, instance):
+            func = instance_getattr1(v, '__cmp__', False)
+            if func:
+                res = func(v)
+                if isinstance(res, int):
+                    if res > 0:
+                        return 1
+                    if res < 0:
+                        return -1
+                    return 0
+                raise TypeError,"__cmp__ must return int"
+        return NotImplemented
+                    
