@@ -108,3 +108,13 @@ def fake_builtin_callable(space, val):
 _fake_type_cache.content[type(len)] = fake_builtin_callable
 _fake_type_cache.content[type(list.append)] = fake_builtin_callable
 _fake_type_cache.content[type(type(None).__repr__)] = fake_builtin_callable
+
+from pypy.interpreter.typedef import GetSetProperty
+
+def fake_descriptor(space, d):
+    n = d.__name__
+    return space.wrap(GetSetProperty(lambda x:getattr(x, n),
+                                     lambda x,y:setattr(x, n, y)))
+
+_fake_type_cache.content[type(file.softspace)] = fake_descriptor
+_fake_type_cache.content[type(type.__dict__['__dict__'])] = fake_descriptor
