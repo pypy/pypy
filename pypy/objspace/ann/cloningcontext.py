@@ -1,7 +1,7 @@
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.pyframe import ControlFlowException, ExitFrame
 from pypy.objspace.ann.wrapper \
-     import union, compatible_frames, unite_frames, W_Anything, W_Constant
+     import union, compatible_frames, unify_frames, W_Anything, W_Constant
 
 class FunctionInfo(object):
 
@@ -77,7 +77,7 @@ class CloningExecutionContext(ExecutionContext):
         info = self.getfunctioninfo(frame)
         for f in info.iterknown(frame):
             if compatible_frames(frame, f):
-                c1, c2 = unite_frames(frame, f)
+                c1, c2 = unify_frames(frame, f)
                 if not c2:
                     # A fixpoint; abandon this frame
                     raise ExitFrame(None)

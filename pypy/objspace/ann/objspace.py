@@ -1,6 +1,7 @@
 import sys
 import operator
 
+import pypy
 from pypy.interpreter.baseobjspace \
      import ObjSpace, OperationError, NoValue, PyPyError
 from pypy.interpreter.pycode import PyByteCode
@@ -22,20 +23,38 @@ class AnnotationObjSpace(ObjSpace):
 
     def initialize(self):
         self.bytecodecache = {}
-        self.w_None = self.wrap(None)
-        self.w_True = self.wrap(True)
-        self.w_False = self.wrap(False)
-        self.w_NotImplemented = self.wrap(NotImplemented)
-        self.w_Ellipsis = self.wrap(Ellipsis)
+        self.wrappercache = {}
+        self.w_None = self.wrapboot(None)
+        self.w_True = self.wrapboot(True)
+        self.w_False = self.wrapboot(False)
+        self.w_NotImplemented = self.wrapboot(NotImplemented)
+        self.w_Ellipsis = self.wrapboot(Ellipsis)
         import __builtin__, types
         for n, c in __builtin__.__dict__.iteritems():
             if isinstance(c, types.TypeType) or isinstance(c, types.ClassType):
                 setattr(self, 'w_'+n, self.wrap(c))
         self.w_builtins = self.wrap(__builtin__)
+        self.make_builtins()
+        self.make_sys()
+
+    def make_builtins(self):
+        self.builtin = pypy.module.builtin.Builtin(self)
 
     # Service methods whose interface is in the abstract base class
 
+    def wrapboot(self, obj):
+        w_obj = self.wrap(obj)
+        self.wrappercache[obj] = w_obj
+        return w_obj
+
     def wrap(self, obj):
+        try:
+            if obj in self.wrappercache:
+                return self.wrappercache[obj]
+        except (TypeError, AttributeError):
+            # This can happen when obj is not hashable, for instance
+            # XXX What about other errors???
+            pass
         return W_Constant(obj)
 
     def unwrap(self, w_obj):
@@ -71,7 +90,7 @@ class AnnotationObjSpace(ObjSpace):
         return CloningExecutionContext(self)
 
     def clone_locals(self, w_locals):
-        assert isinstance(w_locals, W_KnownKeysContainer)
+        assert isinstance(w_locals, (W_KnownKeysContainer, W_Constant))
         return w_locals.clone()
 
 
@@ -84,6 +103,20 @@ class AnnotationObjSpace(ObjSpace):
         return self.wrap(tuple(map(self.unwrap, args_w)))
 
     def newdict(self, items_w):
+        d = {}
+        for w_key, w_value in items_w:
+            try:
+                key = self.unwrap(w_key)
+                value = self.unwrap(w_value)
+            except UnwrapException:
+                break
+            else:
+                d[key] = value
+        else:
+            # All keys and values were unwrappable
+            return W_Constant(d)
+        # It's not quite constant.
+        # Maybe the keys are constant?
         values_w = {}
         for w_key, w_value in items_w:
             try:
@@ -102,8 +135,40 @@ class AnnotationObjSpace(ObjSpace):
     def newfunction(self, *stuff):
         return W_Anything()
 
+    def newlist(self, list_w):
+        unwrappedlist = []
+        try:
+            for w_obj in list_w:
+                obj = self.unwrap(w_obj)
+                unwrappedlist.append(obj)
+        except UnwrapException:
+            return W_Anything()
+        else:
+            return W_Constant(unwrappedlist)
+
+    def newstring(self, listofwrappedints):
+        unwrappedints = []
+        try:
+            for w_i in listofwrappedints:
+                i = self.unwrap(w_i)
+                unwrappedints.append(i)
+        except UnwrapException:
+            return W_Anything()
+        else:
+            try:
+                s = "".join(map(chr, unwrappedints))
+            except:
+                self.reraise()
+            return W_Constant(s)
+
     # Methods implementing Python operations
     # (Many missing ones are added by make_op() below)
+
+    def str(self, w_left):
+        if isinstance(w_left, W_Constant):
+            return self.wrap(str(w_left.value))
+        else:
+            return W_Anything()
 
     def is_(self, w_left, w_right):
         if w_left is w_right:
@@ -112,6 +177,8 @@ class AnnotationObjSpace(ObjSpace):
             # XXX Is this really safe?
             if w_left.value is w_right.value:
                 return self.w_True
+            else:
+                return self.w_False
         return W_Integer()
 
     def add(self, w_left, w_right):
@@ -159,8 +226,7 @@ class AnnotationObjSpace(ObjSpace):
             try:
                 it = iter(value)
             except:
-                raise OperationError(self.wrap(AttributeError),
-                                     self.wrap(AttributeError("__iter__")))
+                self.reraise()
         return W_Anything()
 
     def next(self, w_iterator):
@@ -205,6 +271,10 @@ class AnnotationObjSpace(ObjSpace):
                 return self.wrap(getattr(obj, name))
             except:
                 return self.reraise()
+
+    def setattr(self, w_obj, w_name, w_value):
+        # XXX What about the side effect?
+        return self.w_None
 
     def len(self, w_obj):
         if isinstance(w_obj, W_KnownKeysContainer):

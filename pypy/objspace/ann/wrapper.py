@@ -56,8 +56,14 @@ class W_Constant(W_Object):
     def __eq__(self, other):
         return type(other) is type(self) and self.value == other.value
 
+    def clone(self):
+        return self
+
 class W_KnownKeysContainer(W_Object):
-    """A dict with constant set of keys or a tuple with known length."""
+    """A dict with constant set of keys or a tuple with known length.
+
+    XXX This may be mutable!  Is that a good idea?
+    """
 
     def __init__(self, args_w):
         self.args_w = args_w
@@ -81,7 +87,7 @@ class W_KnownKeysContainer(W_Object):
         # XXX Recurse down the values?
         return W_KnownKeysContainer(args_w)
 
-def unite_frames(f1, f2):
+def unify_frames(f1, f2):
     """Given two compatible frames, make them the same.
 
     This changes both f1 and f2 in-place to change all the values into
@@ -112,27 +118,29 @@ def unite_frames(f1, f2):
                 c2 = True
                 s2[i] = u
 
-    # Compare locals
-    # XXX uses W_KnownKeysContainer internals
-    assert isinstance(f1.w_locals, W_KnownKeysContainer)
-    assert isinstance(f2.w_locals, W_KnownKeysContainer)
-    l1 = f1.w_locals.args_w
-    l2 = f2.w_locals.args_w
-    keydict = {} # compute set of keys
-    for key in l1.iterkeys():
-        keydict[key] = 1
-    for key in l2.iterkeys():
-        keydict[key] = 1
-    for key in keydict.iterkeys():
-        v1 = l1.get(key, W_Undefined())
-        v2 = l2.get(key, W_Undefined())
+    # Compare locals.
+    # XXX This uses the fast locals now and ignores w_locals.
+    # XXX What about nested cells?
+    l1 = f1.localcells
+    l2 = f2.localcells
+    assert len(l1) == len(l2)
+    for i in range(len(l1)):
+        try:
+            v1 = l1[i].get()
+        except ValueError:
+            v1 = W_Undefined()
+        try:
+            v2 = l2[i].get()
+        except ValueError:
+            v2 = W_Undefined()
         u = union(v1, v2)
         if v1 != u:
             c1 = True
-            l1[key] = u
+            l1[i].set(u)
         if v2 != u:
             c2 = True
-            l2[key] = u
+            l2[i].set(u)
+
     return c1, c2
 
 def compatible_frames(f1, f2):
@@ -147,6 +155,8 @@ def compatible_frames(f1, f2):
     return (f1.next_instr == f2.next_instr and
             f1.space is f2.space and
             f2.bytecode is f2.bytecode and
+            len(f1.localcells) == len(f2.localcells) and
+            len(f1.nestedcells) == len(f2.nestedcells) and
             f1.valuestack.depth() == f2.valuestack.depth() and
             equivalent(f1.w_globals, f2.w_globals) and
             equivalent(f1.w_builtins, f2.w_builtins) and
