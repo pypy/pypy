@@ -131,19 +131,43 @@ def maybe_int(value):
         raise TypeError, "an integer argument is required"
     return inter()
 
+def maybe_float(value):
+    try:
+        floater = value.__float__
+    except AttributeError:
+        raise TypeError, "float argument is required"
+    return floater()
+
 class floatFFormatter(Formatter):
     def format(self):
+        v = maybe_float(self.value)
         if self.prec is None:
             self.prec = 6
-        r = str(int(self.value))
+        r = str(int(v))
         # XXX this is a bit horrid
         if self.prec > 0:
-            frac_part = str(self.value%1)[1:2+self.prec]
+            frac_part = str(v%1)[1:2+self.prec]
             if len(frac_part) < self.prec + 1:
                frac_part += (1 + self.prec - len(frac_part)) * '0' 
             r += frac_part
+        if v >= 0.0 and self.flags.f_sign:
+            r = '+' + r
         self.prec = None
         return self.std_wp(r)
+
+class floatGFormatter(Formatter):
+    def format(self):
+        # this needs to be much, much more complicated :-( (perhaps
+        # should just punt to host Python -- which in turn punts to
+        # libc)
+        v = maybe_float(self.value)
+        if self.prec is None:
+            self.prec = 6
+        r = str(v)
+        if v > 0 and self.flags.f_sign:
+            r = '+' + r
+        return self.std_wp(r)
+
 
 class HexFormatter(Formatter):
     def format(self):
@@ -162,7 +186,7 @@ format_registry = {
     'X':HexFormatter,
     'd':funcFormatter(maybe_int, str),
     'f':floatFFormatter,
-    'g':funcFormatter(str),
+    'g':floatGFormatter,
     }
     
 class FmtIter(object):
