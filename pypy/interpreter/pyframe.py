@@ -414,7 +414,7 @@ class ExceptBlock(FrameBlock):
 import types, __builtin__
 __builtin__._classobj = types.ClassType
 
-app = gateway.applevel('''
+app = gateway.applevelinterp('''
     def normalize_exception(etype, value, tb):
         """Normalize an (exc_type, exc_value) pair:
         exc_value will be an exception instance and exc_type its class.
@@ -422,7 +422,9 @@ app = gateway.applevel('''
         # mistakes here usually show up as infinite recursion, which is fun.
         while isinstance(etype, tuple):
             etype = etype[0]
-        if isinstance(etype, (type, _classobj)):
+        ## if isinstance(etype, (type, _classobj)):
+        ## isinstance with tuple argument doesn't map to space.isinstance, yet
+        if isinstance(etype, type) or isinstance(etype, _classobj):
             if not isinstance(value, etype):
                 if value is None:
                     # raise Type: we assume we have to instantiate Type
