@@ -37,6 +37,9 @@ def restricted_uint(s_obj):    # for r_uint
 def builtin_chr(s_int):
     return SomeChar()
 
+def builtin_ord(s_chr):
+    return SomeInteger(nonneg=True)
+
 def builtin_unicode(s_obj): 
     return SomeString() 
 
