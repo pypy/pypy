@@ -242,7 +242,7 @@ def testsuite_from_dir(root, filterfunc=None, recursive=0, loader=None):
     Additionally, their fully qualified python module path has
     to be accepted by filterfunc (if it is not None).
     """
-    from std import path 
+    from py import path 
     root = path.local(root)
 
     if Options.verbose > 2:

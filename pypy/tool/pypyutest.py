@@ -1,4 +1,6 @@
-from std.__impl__.magic import exprinfo
+from py.__impl__.magic import exprinfo
+import py
+py.magic.autopath()
 from pypy.objspace.std import StdObjSpace
 
 class AppRunnerFrame:
