@@ -383,6 +383,10 @@ def with_init(v=int):
 
 def with_more_init(v=int, w=bool):
     z = WithMoreInit(v, w)
+    if z.b:
+        return z.a
+    else:
+        return -z.a
 
 global_z = Z()
 global_z.my_attribute = 42

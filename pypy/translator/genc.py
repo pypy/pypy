@@ -46,7 +46,7 @@ class GenC:
             return self.cnames[key]
         except KeyError:
             for cls in type(obj).__mro__:
-                meth = getattr(self, 'nameof_' + cls.__name__, None)
+                meth = getattr(self, 'nameof_' + cls.__name__.replace(' ', ''), None)
                 if meth:
                     break
             else:
@@ -101,6 +101,11 @@ class GenC:
         self.initcode.append('\t%s->ob_type = &PyGenCFunction_Type;' % name)
         self.pendingfunctions.append(func)
         return name
+
+    def nameof_instancemethod(self, meth):
+        assert meth.im_self is None, "meth must be unbound (for now)"
+        # no error checking here
+        return self.nameof(meth.im_func)
 
     def nameof_builtin_function_or_method(self, func):
         import __builtin__
