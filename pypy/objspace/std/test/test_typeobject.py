@@ -98,5 +98,24 @@ class TestTypeObject(testit.AppTestCase):
         else:
             raise AssertionError, "this multiple inheritance should fail"
 
+    def test_mro(self):
+        class A(object):
+            a = 1
+
+        class B(A):
+            b = 1
+            class __metaclass__(type):
+                def mro(self):
+                    return [self, object]
+
+        self.assertEquals(B.__bases__, (A,))
+        self.assertEquals(B.__mro__, (B, object))
+        self.assertEquals(B.mro(), [B, object])
+        self.assertEquals(B.b, 1)
+        self.assertEquals(B().b, 1)
+        self.assertEquals(getattr(B, 'a', None), None)
+        self.assertEquals(getattr(B(), 'a', None), None)
+
+
 if __name__ == '__main__':
     testit.main()
