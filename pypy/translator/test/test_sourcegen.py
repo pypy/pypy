@@ -5,6 +5,7 @@ from pypy.tool import test
 from pypy.translator.genpyrex import GenPyrex
 from pypy.translator.controlflow import *
 
+from buildpyxmodule import make_module_from_pyxstring
 
 class TestCase(test.IntTestCase):
     def test_simple_func(self):
@@ -22,11 +23,8 @@ class TestCase(test.IntTestCase):
                            endbranch)
         fun = FunctionGraph(block, "f")
         result = GenPyrex(fun).emitcode()
-        self.assertEquals(result, """
-def f(x):
-    result = x + 1
-    return result
-""")
+        mod = make_module_from_pyxstring(result)
+        self.assertEquals(mod.f(1), 2)
 
     def test_if(self):
         """
@@ -52,14 +50,9 @@ def f(x):
                            conditionalbranch)
         fun = FunctionGraph(startblock, "f")
         result = GenPyrex(fun).emitcode()
-        self.assertEquals(result, """
-def f(i, j):
-    conditionres = i < 0
-    if conditionres: cinline "goto label1;"
-    return i
-    cinline "label1:"
-    return j
-""")
+        mod = make_module_from_pyxstring(result)
+        self.assertEquals(mod.f(-1, 42), 42)
+        self.assertEquals(mod.f(3, 5), 3)
 
 if __name__ == '__main__':
     test.main()
