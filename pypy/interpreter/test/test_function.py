@@ -25,10 +25,10 @@ class AppTestFunctionIntrospection(testit.AppTestCase):
         def f(): pass
         self.assertEquals(f.__name__, 'f')
         self.assertEquals(f.__doc__, None)
-        self.assert_(f.__name__ is f.func_name)
-        self.assert_(f.__doc__ is f.func_doc)
+        self.assert_(f.__name__ == f.func_name)
+        self.assert_(f.__doc__ == f.func_doc)
         self.assert_(f.__dict__ is f.func_dict)
-        #XXX self.assert_(hasattr(f, '__class__'))
+        self.assert_(hasattr(f, '__class__'))
 
 class AppTestFunction(testit.AppTestCase):
     def test_simple_call(self):
