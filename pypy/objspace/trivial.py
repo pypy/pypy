@@ -144,6 +144,8 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
         else:
             return w
 
+    unwrap_builtin = unwrap
+
     def hackwrapperclass(self, typedef):
         try:
             return typedef.trivialwrapperclass
@@ -190,12 +192,6 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             cls = type('CPyWrapped '+typedef.name, bases, descrdict)
             typedef.trivialwrapperclass = cls
             return cls
-
-    def unwrap_builtin(self, w_obj):
-        if isinstance(w_obj, CPyWrapper):
-            return self.unwrap(w_obj)
-        else:
-            return None
 
     def is_(self, w_obj1, w_obj2):
         return self.unwrap(w_obj1) is self.unwrap(w_obj2)

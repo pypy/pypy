@@ -35,13 +35,13 @@ class GetSetProperty(Wrappable):
 
 def attrproperty(name):
     def fget(space, w_obj):
-        obj = space.unwrap(w_obj)
+        obj = space.unwrap_builtin(w_obj)
         return space.wrap(getattr(obj, name))
     return GetSetProperty(fget)
 
 def attrproperty_w(name):
     def fget(space, w_obj):
-        obj = space.unwrap(w_obj)
+        obj = space.unwrap_builtin(w_obj)
         w_value = getattr(obj, name)
         if w_value is None:
             return space.w_None
