@@ -37,7 +37,7 @@ __setattr__
 __str__           def str__String(space, w_str):
 capitalize        def str_capitalize__String(space, w_self):
 center            def str_center__String_Int(space, w_self):
-count             def str_count__String_String(space, w_self): [optional arguments not supported now]
+count             def str_count__String_String_Int_Int(space, w_self): [optional arguments not supported now]
 decode            !Unicode not supported now
 encode            !Unicode not supported now
 endswith          str_endswith__String_String    [optional arguments not supported now]
@@ -54,16 +54,16 @@ isupper           def str_isupper__String(space, w_self): def _isupper(ch):
 join              def str_join__String_ANY(space, w_self, w_list):
 ljust             def str_ljust__String_ANY(space, w_self, w_arg):
 lower             OK
-lstrip            def str_lstrip__String(space, w_self):
+lstrip            def str_lstrip__String_String(space, w_self, w_chars):
 replace           OK
 rfind             OK
 rindex            OK
 rjust             def str_rjust__String_ANY(space, w_self, w_arg):
-rstrip            def str_rstrip__String(space, w_self):
+rstrip            def str_rstrip__String_String(space, w_self, w_chars):
 split             def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
-splitlines        *Guenter
-startswith        *Guenter
-strip             def str_strip__String(space, w_self):
+splitlines        def str_splitlines__String_String(space, w_self, w_keepends):
+startswith        str_startswith__String_String    [optional arguments not supported now]
+strip             def str_strip__String_String(space, w_self, w_chars):
 swapcase          OK
 title             def str_title__String(space, w_self):
 translate
@@ -472,8 +472,6 @@ def str_replace__String_String_String_Int(space, w_self, w_sub, w_by, w_maxsplit
         bufpos = bufpos + 1 
     return space.wrap("".join(buf))
 
-
-
 def _find(self, sub, start, end, dir):
 
     length = len(self)
@@ -522,38 +520,39 @@ def _find(self, sub, start, end, dir):
         return -1        
 
 
-
-def str_strip__String(space, w_self):
-    u = space.unwrap
-    u_self = u(w_self)
+def _strip(space, w_self, w_chars, left, right):
+    "internal function called by str_xstrip methods"
+    u_self = space.unwrap(w_self)
+    u_chars = space.unwrap(w_chars)
+    
+    if u_self == None or u_chars == None:
+        return w_self
+    
     lpos = 0
-    while u_self[lpos] == ' ':
-       lpos += 1
-       
     rpos = len(u_self)
-    while u_self[rpos - 1] == ' ':
-       rpos -= 1
+    
+    if left:
+        #print "while %d < %d and -%s- in -%s-:"%(lpos, rpos, u_self[lpos],w_chars)
+        while lpos < rpos and u_self[lpos] in u_chars:
+           lpos += 1
+       
+    if right:
+        while rpos > 0 and u_self[rpos - 1] in u_chars:
+           rpos -= 1
        
     return space.wrap(u_self[lpos:rpos])
+
+
+def str_strip__String_String(space, w_self, w_chars):
+    return _strip(space, w_self, w_chars, left=1, right=1)
+
    
+def str_rstrip__String_String(space, w_self, w_chars):
+    return _strip(space, w_self, w_chars, left=0, right=1)
+
    
-def str_rstrip__String(space, w_self):
-    u_self = space.unwrap(w_self)
-       
-    rpos = len(u_self)
-    while u_self[rpos - 1] == ' ':
-       rpos -= 1
-       
-    return space.wrap(u_self[:rpos])
-   
-   
-def str_lstrip__String(space, w_self):
-    u_self = space.unwrap(w_self)
-    lpos = 0
-    while u_self[lpos] == ' ':
-       lpos += 1
-            
-    return space.wrap(u_self[lpos:])
+def str_lstrip__String_String(space, w_self, w_chars):
+    return _strip(space, w_self, w_chars, left=1, right=0)
    
 
 def str_center__String_Int(space, w_self, w_arg):
@@ -568,26 +567,36 @@ def str_center__String_Int(space, w_self, w_arg):
         u_centered = u_self
 
     return W_StringObject(space, u_centered)
+      
+      
+def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end): 
+    u_self  = space.unwrap(w_self)
+    u_arg   = space.unwrap(w_arg)
+    u_start = space.unwrap(w_start)
+    u_end   = space.unwrap(w_end)
     
-#[optional arguments not supported now]    
-def str_count__String_String(space, w_self, w_arg): 
-    u_self = space.unwrap(w_self)
-    u_arg  = space.unwrap(w_arg)
+    
+    if u_end == None: 
+        u_end = len(u_self)
+    elif u_end < 0:
+        u_end += len(u_self)
+    
+    if u_start == None: u_start = 0
+    
+    area =  u_self [u_start:u_end]
     
     count = 0  
-    if u_arg == "":
-        count = len(u_self) +1 #behaves as in Python
-    elif u_self == "":
-        pass                   #behaves as in Python
-    else:
-        pos = 0
-        while 1: 
-           count += 1
-           pos = u_self.find(u_arg, pos+1) #XXX use pypy find
-           if pos == -1:
-              break
+
+    pos = -1
+    while 1: 
+       pos = _find(area, u_arg, pos+1, u_end, 1)
+       #pos = area.find(u_arg, pos+1, u_end)
+       if pos == -1:
+          break
+       count += 1
        
     return W_IntObject(space, count)
+
 
 #[optional arguments not supported now]    
 def str_endswith__String_String(space, w_self, w_end): 
@@ -619,21 +628,70 @@ def str_startswith__String_String(space, w_self, w_start):
         found = 1
         
     return W_IntObject(space, found)    
+    
+    
+def _tabindent(u_token, u_tabsize):
+    "calculates distance behind the token to the next tabstop"
+    
+    distance = u_tabsize
+    if u_token:    
+        distance = 0
+        offset = len(u_token)
 
+        while 1:
+            #no sophisticated linebreak support now, '\r' just for passing adapted CPython test
+            if u_token[offset-1] == "\n" or u_token[offset-1] == "\r":
+                break;
+            distance += 1
+            offset -= 1
+            if offset == 0:
+                break
+                
+        #the same like distance = len(u_token) - (offset + 1)
+        #print '<offset:%d distance:%d tabsize:%d token:%s>' % (offset, distance, u_tabsize, u_token)
+        distance = (u_tabsize-distance) % u_tabsize
+        if distance == 0:
+            distance=u_tabsize
+
+    return distance    
+    
+    
 def str_expandtabs__String_Int(space, w_self, w_tabsize):   
     u_self = space.unwrap(w_self)
     u_tabsize  = space.unwrap(w_tabsize)
-
+    
     u_expanded = ""
     if u_self:
-        for token in u_self.split("\t"): #XXX use pypy split
-            if token:
-                u_expanded += token
-            else:
-                u_expanded += " " * u_tabsize
+        split = u_self.split("\t") #XXX use pypy split
+        u_expanded =oldtoken = split.pop(0)
 
+        for token in split:  
+            #print  "%d#%d -%s-" % (_tabindent(oldtoken,u_tabsize), u_tabsize, token)
+            u_expanded += " " * _tabindent(oldtoken,u_tabsize) + token
+            oldtoken = token
+            
     return W_StringObject(space, u_expanded)        
-  
+ 
+ 
+def str_splitlines__String_Int(space, w_self, w_keepends):
+    u_self = space.unwrap(w_self)
+    u_keepends  = space.unwrap(w_keepends)
+    selflen = len(u_self)
+    
+    L = []
+    pos = 0
+    while 1:
+        oldpos = pos
+        pos = _find(u_self, '\n', pos, selflen, 1) + 1
+        if pos  > oldpos:
+            w_item = space.wrap(u_self[oldpos:pos])
+            if not u_keepends:
+                w_item = _strip(space, w_item, W_StringObject(space,'\n'), left=0, right=1)
+            L.append(w_item)
+        else:
+            break    
+    return W_ListObject(space, L)
+
 def str_zfill__String_Int(space, w_self, w_width):
     u = space.unwrap
     input = u(w_self)
@@ -662,6 +720,7 @@ def str_zfill__String_Int(space, w_self, w_width):
     
     return space.wrap("".join(buf))
     
+        
 def unwrap__String(space, w_str):
     return w_str._value
 
