@@ -24,18 +24,18 @@ def _run_eval_string(source, filename, space, eval):
 
         mainmodule = module.Module(space, space.wrap("__main__"))
         w_globals = mainmodule.w_dict
-       
-    except OperationError, operationerr:
-        operationerr.record_interpreter_traceback()
-        raise PyPyError(space, operationerr)
-    else:
+
         pycode = space.unwrap(w_code)
         retval = pycode.exec_code(space, w_globals, w_globals)
         if eval:
             return retval
         else:
             return
-    
+
+    except OperationError, operationerr:
+        operationerr.record_interpreter_traceback()
+        raise PyPyError(space, operationerr)
+
 def run_string(source, filename='<string>', space=None):
     _run_eval_string(source, filename, space, False)
 
