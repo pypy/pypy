@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 import tool.autopath
 from pypy.tool import test
 
