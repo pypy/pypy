@@ -22,6 +22,15 @@ class TestW_TupleObject(unittest_w.TestCase_w):
         w_tuple = tobj.W_TupleObject([w(5), w(3)])
         self.assertEqual(self.space.is_true(w_tuple), True)
 
+    def test_len(self):
+        w = self.space.wrap
+        w_tuple = tobj.W_TupleObject([])
+        self.assertEqual_w(self.space.len(w_tuple), w(0))
+        w_tuple = tobj.W_TupleObject([w(5)])
+        self.assertEqual_w(self.space.len(w_tuple), w(1))
+        w_tuple = tobj.W_TupleObject([w(5), w(3), w(99)]*111)
+        self.assertEqual_w(self.space.len(w_tuple), w(333))
+
     def test_getitem(self):
         w = self.space.wrap
         w_tuple = tobj.W_TupleObject([w(5), w(3)])
