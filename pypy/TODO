@@ -8,9 +8,6 @@
 
 * Supports traceback. At least sys.exc_info. (Many modules expect it.)
 
-* slicing with assigments & more small things 
-  lst[::-2] = lst2
-
 * (documentation) generate a nice dot-graph from the structure of PyPy
 
 * trash the standard unittest framework/enhance it (there already
