@@ -12,33 +12,36 @@ if make_dot:
 else:
     def make_dot(*args): pass
 
+
+def make_cfunc(func):
+    """ make a pyrex-generated cfunction from the given func """
+    import inspect
+    try:
+        func = func.im_func
+    except AttributeError:
+        pass
+    from pypy.objspace.flow import Space
+    space = Space()
+    name = func.func_name
+    funcgraph = space.build_flow(func)
+    from pypy.translator.simplify import simplify_graph
+    simplify_graph(funcgraph)
+    funcgraph.source = inspect.getsource(func)
+    result = GenPyrex(funcgraph).emitcode()
+    make_dot(funcgraph, udir, 'ps')
+    mod = make_module_from_pyxstring(name, udir, result)
+    return getattr(mod, name)
+
 class PyrexGenTestCase(test.IntTestCase):
     def setUp(self):
         self.space = test.objspace('flow')
-
-    def make_cfunc(self, func):
-        """ make a pyrex-generated cfunction from the given func """
-        import inspect
-        try:
-            func = func.im_func
-        except AttributeError:
-            pass
-        name = func.func_name
-        funcgraph = self.space.build_flow(func)
-        from pypy.translator.simplify import simplify_graph
-        simplify_graph(funcgraph)
-        funcgraph.source = inspect.getsource(func)
-        result = GenPyrex(funcgraph).emitcode()
-        make_dot(funcgraph, udir, 'ps')
-        mod = make_module_from_pyxstring(name, udir, result)
-        return getattr(mod, name)
 
     #____________________________________________________
     def simple_func(i):
         return i+1
 
     def test_simple_func(self):
-        cfunc = self.make_cfunc(self.simple_func)
+        cfunc = make_cfunc(self.simple_func)
         self.assertEquals(cfunc(1), 2)
 
     #____________________________________________________
@@ -50,7 +53,7 @@ class PyrexGenTestCase(test.IntTestCase):
         return total
 
     def test_while_func(self):
-        while_func = self.make_cfunc(self.while_func)
+        while_func = make_cfunc(self.while_func)
         self.assertEquals(while_func(10), 55)
 
     #____________________________________________________
@@ -67,7 +70,7 @@ class PyrexGenTestCase(test.IntTestCase):
         return s
 
     def test_nested_whiles(self):
-        nested_whiles = self.make_cfunc(self.nested_whiles)
+        nested_whiles = make_cfunc(self.nested_whiles)
         self.assertEquals(nested_whiles(111, 114),
                           '...!...!...!...!...!')
 
@@ -81,7 +84,7 @@ class PyrexGenTestCase(test.IntTestCase):
         return lst
 
     def test_poor_man_range(self):
-        poor_man_range = self.make_cfunc(self.poor_man_range)
+        poor_man_range = make_cfunc(self.poor_man_range)
         self.assertEquals(poor_man_range(10), range(10))
 
    #____________________________________________________
@@ -92,7 +95,7 @@ class PyrexGenTestCase(test.IntTestCase):
     def test_simple_id(self):
         #we just want to see, if renaming of parameter works correctly
         #if the first branch is the end branch
-        simple_id = self.make_cfunc(self.simple_id)
+        simple_id = make_cfunc(self.simple_id)
         self.assertEquals(simple_id(9), 9)
 
    #____________________________________________________
@@ -105,7 +108,7 @@ class PyrexGenTestCase(test.IntTestCase):
                 return b
 
     def test_branch_id(self):
-        branch_id = self.make_cfunc(self.branch_id)
+        branch_id = make_cfunc(self.branch_id)
         self.assertEquals(branch_id(1, 2, 3), 2)
         self.assertEquals(branch_id(0, 2, 3), 3)
 
@@ -119,7 +122,7 @@ class PyrexGenTestCase(test.IntTestCase):
         return b.f + b.g
 
     def _test_attrs(self):
-        attrs = self.make_cfunc(self.attrs)
+        attrs = make_cfunc(self.attrs)
         self.assertEquals(attrs(), 9)
 
     #_____________________________________________________
@@ -128,9 +131,29 @@ class PyrexGenTestCase(test.IntTestCase):
         return pow(2,2)
 
     def test_builtinusage(self):
-        fun = self.make_cfunc(self.builtinusage)
+        fun = make_cfunc(self.builtinusage)
         self.assertEquals(fun(), 4)
 
+    #_____________________________________________________
+    def sieve_of_eratosthenes():
+        # This one is from:
+        # The Great Computer Language Shootout
+        flags = [True] * (8192+1)
+        count = 0
+        i = 2
+        while i <= 8192:
+            if flags[i]:
+                k = i + i
+                while k <= 8192:
+                    flags[k] = False
+                    k = k + i
+                count = count + 1
+            i = i + 1
+        return count
+
+    def test_sieve(self):
+        sieve = make_cfunc(self.sieve_of_eratosthenes)
+        self.assertEquals(sieve(), 1028)
 
 if __name__ == '__main__':
     test.main()

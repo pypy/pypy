@@ -64,11 +64,9 @@ def eliminate_empty_blocks(graph):
                 break
     return graph
 
-
-
 def simplify_graph(graph):
     """apply all the existing optimisations to the graph"""
-    graph = eliminate_empty_blocks(graph)
+    #XXX doesn't work right on sieve_of_eras... graph = eliminate_empty_blocks(graph)
     graph = eliminate_fun_params_renaming(graph)
     return graph
 

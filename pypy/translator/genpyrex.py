@@ -89,6 +89,10 @@ class Op:
         a = self.argnames
         return "%s = %s(%s)" % (self.resultname, a[0], ", ".join(a[1:]))
 
+    def op_setitem(self):
+        a = self.argnames
+        return "%s[%s] = %s" % (a[0], a[1], a[2])
+
     def op_getattr(self):
         args = self.argnames
         attr = self.op.args[1]
