@@ -1,88 +1,189 @@
 import autopath
-from pypy.annotation.model import *
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
-from pypy.translator.transform import fully_annotated_blocks
+from pypy.objspace.flow.model import Block, Link
 
 
-S_INT = SomeInteger()
+class TypeMatch:
+    def __init__(self, s_type, type_cls):
+        self.s_type = s_type
+        self.type_cls = type_cls
 
-SpecializationTable = [
-    ('add',     'int_add',     S_INT, S_INT),
-    ('sub',     'int_sub',     S_INT, S_INT),
-    ('is_true', 'int_is_true', S_INT),
-    ]
 
-TypesToConvert = {
-    SomeInteger: ('int2obj', 'obj2int'),
-    }
+class Specializer:
+    specializationdict = {}
 
-def setup_specialization_dict():
-    for e in SpecializationTable:
-        spectypes = e[2:]
-        opname1   = e[0]
-        opname2   = e[1]
-        SpecializationDict.setdefault(opname1, []).append((opname2, spectypes))
-        SpecializationDict.setdefault(opname2, []).append((opname2, spectypes))
+    def __init__(self, annotator):
+        if not self.specializationdict:
+            # setup the class
+            d = self.specializationdict
+            for e in self.specializationtable:
+                opname1    = e[0]
+                opname2    = e[1]
+                spectypes  = e[2:-1]
+                restypecls = e[-1]
+                info = opname2, spectypes, restypecls
+                d.setdefault(opname1, []).append(info)
+                d.setdefault(opname2, []).append(info)
+        self.annotator = annotator
 
-SpecializationDict = {}
-setup_specialization_dict()
+    def specialize(self):
+        for block in self.annotator.annotated:
+            if block.operations:
+                self.specialize_block(block)
 
-# ____________________________________________________________
+    def settype(self, a, type_cls):
+        """Set the type_cls of a Variable or Constant."""
+        assert not hasattr(a, 'type_cls')
+        a.type_cls = type_cls
 
-def specialize(annotator):
-    for block in fully_annotated_blocks(annotator):
-        if not block.operations:
-            continue
+    def setbesttype(self, a):
+        """Set the best type_cls for a Variable or Constant according to
+        the annotations."""
+        try:
+            return a.type_cls
+        except AttributeError:
+            besttype = self.defaulttypecls
+            s_value = self.annotator.binding(a, True)
+            if s_value is not None:
+                for tmatch in self.typematches:
+                    if tmatch.s_type.contains(s_value):
+                        besttype = tmatch.type_cls
+                        break
+            self.settype(a, besttype)
+            return besttype
+
+    def convertvar(self, v, type_cls):
+        """Get the operation(s) needed to convert 'v' to the given type."""
+        ops = []
+        if isinstance(v, Constant):
+            self.settype(v, type_cls)  # mark the concrete type of the Constant
+
+        elif v.type_cls is not type_cls:
+            # XXX do we need better conversion paths?
+
+            # 1) convert to the generic type
+            if v.type_cls is not self.defaulttypecls:
+                v2 = Variable()
+                v2.type_cls = self.defaulttypecls
+                op = SpaceOperation(v.type_cls.convert_to_obj, [v], v2)
+                v = v2
+                ops.append(op)
+
+            # 2) convert back from the generic type
+            if type_cls is not self.defaulttypecls:
+                v2 = Variable()
+                v2.type_cls = type_cls
+                op = SpaceOperation(type_cls.convert_from_obj, [v], v2)
+                v = v2
+                ops.append(op)
+
+        return v, ops
+
+    def specialize_block(self, block):
+        # give the best possible types to the input args
+        for a in block.inputargs:
+            self.setbesttype(a)
+
+        # specialize all the operations, as far as possible
         newops = []
         for op in block.operations:
 
             indices = range(len(op.args))
             args = list(op.args)
-            bindings = [annotator.binding(a, True) for a in args]
-            noteworthyindices = []
+            bindings = [self.annotator.binding(a, True) for a in args]
 
+            # replace constant annotations with real Constants
             for i in indices:
                 if isinstance(args[i], Variable) and bindings[i] is not None:
                     if bindings[i].is_constant():
                         args[i] = Constant(bindings[i].const)
-                    else:
-                        noteworthyindices.append(i)
 
-            specializations = SpecializationDict.get(op.opname, ())
-            for opname2, spectypes in specializations:
-                assert len(spectypes) == len(op.args)
-                for i in indices:
-                    if bindings[i] is None:
-                        break
-                    if not spectypes[i].contains(bindings[i]):
-                        break
-                else:
-                    op = SpaceOperation(opname2, args, op.result)
+            # look for a specialized version of the current operation
+            opname2, argtypes, restypecls = self.getspecializedop(op, bindings)
+
+            # type-convert the input arguments
+            for i in indices:
+                args[i], convops = self.convertvar(args[i], argtypes[i])
+                newops += convops
+
+            # store the result variable's type
+            self.settype(op.result, restypecls)
+
+            # store the possibly modified SpaceOperation
+            if opname2 != op.opname or args != op.args:
+                op = SpaceOperation(opname2, args, op.result)
+            newops.append(op)
+
+        block.operations[:] = newops
+
+        # insert the needed conversions on the links
+        for link in block.exits:
+            # numbering of Variables:
+            #    a1 in the original Link
+            #    a2 in the inserted block before conversion
+            #    a3 in the inserted block after conversion
+            #    a4 in the original target block's inputargs
+            convargs = []
+            convops = []
+            for i in range(len(link.args)):
+                a1 = link.args[i]
+                a4 = link.target.inputargs[i]
+                a4type = self.setbesttype(a4)
+                a3, convop1 = self.convertvar(a1, a4type)
+                convargs.append(a3)
+                convops += convop1
+            # if there are conversion operations, they are inserted into
+            # a new block along this link
+            if convops:
+                newblock = Block([])
+                mapping = {}
+                for a1 in link.args:
+                    a2 = Variable()
+                    a2.type_cls = a1.type_cls
+                    newblock.inputargs.append(a2)
+                    mapping[a1] = a2
+                newblock.operations = convops
+                newblock.closeblock(Link(convargs, link.target))
+                newblock.renamevariables(mapping)
+                link.target = newblock
+
+    def getspecializedop(self, op, bindings):
+        specializations = self.specializationdict.get(op.opname, ())
+        for opname2, spectypes, restypecls in specializations:
+            assert len(spectypes) == len(op.args) == len(bindings)
+            for i in range(len(spectypes)):
+                if bindings[i] is None:
+                    break
+                if not spectypes[i].s_type.contains(bindings[i]):
                     break
             else:
-                for i in noteworthyindices:
-                    for cls in bindings[i].__class__.__mro__:
-                        if cls in TypesToConvert:
-                            convert, backconvert = TypesToConvert[cls]
-                            result = Variable()
-                            newops.append(SpaceOperation(convert, [args[i]],
-                                                         result))
-                            args[i] = result
-                            break
-                if args != op.args:
-                    op = SpaceOperation(op.opname, args, op.result)
-                result = op.result
-                result_binding = annotator.binding(result, True)
-                if result_binding is not None:
-                    for cls in result_binding.__class__.__mro__:
-                        if cls in TypesToConvert:
-                            convert, backconvert = TypesToConvert[cls]
-                            intermediate = Variable()
-                            newops.append(SpaceOperation(op.opname, args,
-                                                         intermediate))
-                            op = SpaceOperation(backconvert, [intermediate],
-                                                result)
-                            break
+                # specialization found
+                # opname2 and restypecls are set above by the for loop
+                argtypes = [tmatch.type_cls for tmatch in spectypes]
+                break
+        else:
+            # specialization not found
+            opname2 = op.opname
+            argtypes = [CType_PyObject] * len(op.args)
+            restypecls = self.defaulttypecls
+        return opname2, argtypes, restypecls
 
-            newops.append(op)
-        block.operations[:] = newops
+# ____________________________________________________________
+# GenC-specific specializer
+
+from pypy.annotation.model import SomeInteger
+from pypy.translator.genc_pyobj import CType_PyObject
+from pypy.translator.genc_type import CType_Int
+
+class GenCSpecializer(Specializer):
+
+    TInt = TypeMatch(SomeInteger(), CType_Int)
+    typematches = [TInt]   # in more-specific-first, more-general-last order
+    defaulttypecls = CType_PyObject
+
+    specializationtable = [
+        ## op      specialized op   arg types   concrete return type
+        ('add',     'int_add',     TInt, TInt,   CType_Int),
+        ('sub',     'int_sub',     TInt, TInt,   CType_Int),
+        ('is_true', 'int_is_true', TInt,         CType_Int),
+        ]
