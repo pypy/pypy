@@ -121,7 +121,7 @@ static PyObject *this_module_globals;
 
 #define OP_GETSLICE(x,y,z,r,err)  { \
 		int __y = (y == Py_None) ? 0 : AS_LONG(y); \
-		int __z = (z == Py_None) ? PyInt_GetMax() : AS_LONG(z); \
+		int __z = (z == Py_None) ? INT_MAX : AS_LONG(z); \
 		FAIL_IF_ERR(r,err) \
 		if (!(r=PySequence_GetSlice(x, __y, __z)))	FAIL(err) \
 	}
