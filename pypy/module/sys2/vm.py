@@ -93,3 +93,17 @@ def getrefcount(space, w_obj):
     # value of 6 to get results comparable to cpythons. /Arre
     return space.wrap(sys.getrefcount(w_obj) - 6)
 
+def settrace(space, w_func):
+    """settrace(function)
+
+Set the global debug tracing function.  It will be called on each
+function call.  See the debugger chapter in the library manual.
+"""
+
+def setprofile(space, w_func):
+    """setprofile(function)
+
+Set the profiling function.  It will be called on each function call
+and return.  See the profiler chapter in the library manual.
+"""
+

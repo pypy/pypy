@@ -10,7 +10,9 @@ class ExecutionContext:
         self.space = space
         self.framestack = Stack()
         self.stateDict = {}
-        
+        self.w_tracefunc = None
+        self.is_tracing = 0
+
     def enter(self, frame):
         if self.framestack.depth() > self.space.sys.recursionlimit:
             raise OperationError(self.space.w_RuntimeError,
@@ -18,10 +20,17 @@ class ExecutionContext:
         locals = getthreadlocals()
         previous_ec = locals.executioncontext
         locals.executioncontext = self
+        if self.framestack.empty():
+            frame.f_back = None
+        else:
+            frame.f_back = self.framestack.top()
         self.framestack.push(frame)
+        self.call_trace(frame, 'call', self.space.w_None)
         return previous_ec
 
-    def leave(self, previous_ec):
+    def leave(self, previous_ec, w_retval=None):
+        if w_retval is not None:
+            self.call_trace(self.framestack.top(), 'return', w_retval)
         self.framestack.pop()
         locals = getthreadlocals()
         locals.executioncontext = previous_ec
@@ -46,6 +55,8 @@ class ExecutionContext:
     def exception_trace(self, operationerr):
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()
+        self.call_trace(self.framestack.top(), 'exception',
+                        self.sys_exc_info())
         #operationerr.print_detailed_traceback(self.space)
 
     def sys_exc_info(self):
@@ -62,3 +73,32 @@ class ExecutionContext:
         Similar to cpython's PyThreadState_GetDict.
         """
         return self.stateDict
+
+    def settrace(self, w_func):
+        """Set the global trace function."""
+        if self.space.is_(w_func, self.space.w_None):
+            self.w_tracefunc = None
+        else:
+            self.w_tracefunc = w_func
+
+    def call_trace(self, frame, event, w_arg):
+        if event == 'call':
+            w_callback = self.w_tracefunc
+        else:
+            w_callback = frame.w_f_trace
+        if self.is_tracing or w_callback is None:
+            return
+        self.is_tracing += 1
+        try:
+            try:
+                w_result = self.space.call(w_callback, self.space.wrap(frame), self.space.wrap(event), w_arg)
+                if self.space.is_(w_result, self.space.w_None):
+                    frame.w_f_trace = None
+                else:
+                    frame.w_f_trace = w_result
+            except:
+                self.settrace(self.space.w_None)
+                frame.w_f_trace = None
+        finally:
+            self.is_traceing -= 1
+            

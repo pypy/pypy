@@ -40,7 +40,10 @@ class PyFrame(eval.Frame):
             self.w_locals = space.newdict([])  # set to None by Frame.__init__
 
         self.fastlocals_w = [None]*self.numlocals
-
+        self.w_f_trace = None
+        self.last_instr = -1
+        self.f_back = None
+        
     def getfastscope(self):
         "Get the fast locals as a list."
         return self.fastlocals_w
@@ -60,8 +63,9 @@ class PyFrame(eval.Frame):
 
     def eval(self, executioncontext):
         "Interpreter main loop!"
+        previous = executioncontext.enter(self)
         try:
-            last_instr = -1
+            self.last_instr = -1
             while True:
                 try:
                     try:
@@ -70,7 +74,7 @@ class PyFrame(eval.Frame):
                                 # fetch and dispatch the next opcode
                                 # dispatch() is abstract, see pyopcode.
                                 executioncontext.bytecode_trace(self)
-                                last_instr = self.next_instr
+                                self.last_instr = self.next_instr
                                 self.dispatch()
                         # catch asynchronous exceptions and turn them
                         # into OperationErrors
@@ -89,7 +93,7 @@ class PyFrame(eval.Frame):
 
                     except OperationError, e:
                         pytraceback.record_application_traceback(
-                            self.space, e, self, last_instr)
+                            self.space, e, self, self.last_instr)
                         executioncontext.exception_trace(e)
                         # convert an OperationError into a control flow
                         # exception
@@ -100,13 +104,17 @@ class PyFrame(eval.Frame):
                 except ControlFlowException, ctlflowexc:
                     # we have a reason to change the control flow
                     # (typically unroll the stack)
-                    ctlflowexc.action(self, last_instr, executioncontext)
+                    ctlflowexc.action(self, self.last_instr, executioncontext)
             
         except ExitFrame, e:
             # leave that frame
             w_exitvalue = e.args[0]
+            executioncontext.leave(previous, w_exitvalue)
             return w_exitvalue
-
+        except:
+            executioncontext.leave(previous)
+            raise
+        
     ### exception stack ###
 
     def clean_exceptionstack(self):
@@ -138,7 +146,22 @@ class PyFrame(eval.Frame):
         self = space.interpclass_w(w_self)
         return self.builtin.getdict()
 
+    def fget_f_back(space, w_self):
+        self = space.interpclass_w(w_self)
+        return self.space.wrap(self.f_back)
 
+    def fget_f_lasti(space, w_self):
+        self = space.interpclass_w(w_self)
+        return self.space.wrap(self.last_instr)
+
+    def fget_f_trace(space, w_self):
+        self = space.interpclass_w(w_self)
+        return self.w_f_trace
+
+    def fset_f_trace(space, w_self, w_trace):
+        self = space.interpclass_w(w_self)
+        self.w_f_trace = w_trace
+        
 ### Frame Blocks ###
 
 class FrameBlock:

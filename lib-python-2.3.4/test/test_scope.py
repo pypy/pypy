@@ -437,6 +437,7 @@ def f(x):
 d = f(2)(4)
 verify(d.has_key('h'))
 del d['h']
+print d
 verify(d == {'x': 2, 'y': 7, 'w': 6})
 
 print "19. var is bound and free in class"

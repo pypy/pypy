@@ -42,7 +42,9 @@ class Module(LazyModule):
         'getcheckinterval'      : 'vm.getcheckinterval', 
         'exc_info'              : 'vm.exc_info', 
         'exc_clear'             : 'vm.exc_clear', 
-
+        'settrace'              : 'vm.settrace',
+        'setprofile'            : 'vm.setprofile',
+        
         'executable'            : 'space.wrap("py.py")', 
         'copyright'             : 'space.wrap("MIT-License")', 
         'api_version'           : 'space.wrap(1012)', 
