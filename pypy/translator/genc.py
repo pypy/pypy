@@ -345,7 +345,23 @@ class GenC:
         self.initcode.append('INITCHK(%s = PyDict_New())' % (name,))
         self.latercode.append(initdict())
         return name
-            
+
+    # strange prebuilt instances below, don't look too closely
+    # XXX oh well.
+    def nameof_member_descriptor(self, md):
+        name = self.uniquename('gdescriptor_%s_%s' % (
+            md.__objclass__.__name__, md.__name__))
+        self.globaldecl.append('static PyObject* %s;' % name)
+        cls = self.nameof(md.__objclass__)
+        self.initcode.append('INITCHK(PyType_Ready((PyTypeObject*) %s) >= 0)' %
+                             cls)
+        self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
+                             '((PyTypeObject*) %s)->tp_dict, "%s"))' %
+                                (name, cls, md.__name__))
+        return name
+    nameof_getset_descriptor  = nameof_member_descriptor
+    nameof_method_descriptor  = nameof_member_descriptor
+    nameof_wrapper_descriptor = nameof_member_descriptor
 
     def gen_source(self):
         f = self.f
