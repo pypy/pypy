@@ -309,6 +309,10 @@ class Test_DictObject(test.AppTestCase):
         self.assertEqual('{1: 2}', str({1: 2}))
         self.assertEqual("{'ba': 'bo'}", str({'ba': 'bo'}))
         self.assertEqual("{1: 2, 'ba': 'bo'}", str({1: 2, 'ba': 'bo'}))
+        self.assertEqual('{}', repr({}))
+        self.assertEqual('{1: 2}', repr({1: 2}))
+        self.assertEqual("{'ba': 'bo'}", repr({'ba': 'bo'}))
+        self.assertEqual("{1: 2, 'ba': 'bo'}", repr({1: 2, 'ba': 'bo'}))
         
     def tooslow_test_new(self):
         d = dict()
