@@ -183,7 +183,11 @@ class FlowObjSpace(ObjSpace):
 
     def exception_match(self, w_exc_type, w_check_class):
         self.executioncontext.recorder.crnt_block.exc_handler = True
-        if not isinstance(self.unwrap(w_check_class), tuple):
+        try:
+            check_class = self.unwrap(w_check_class)
+        except UnwrapException:
+            raise Exception, "non-constant except guard"
+        if not isinstance(check_class, tuple):
             # the simple case
             return ObjSpace.exception_match(self, w_exc_type, w_check_class)
         # checking a tuple of classes
