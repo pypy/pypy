@@ -35,33 +35,6 @@ class TestInterpreter(testsupport.TestCase):
     def setUp(self):
         self.space = testsupport.objspace()
 
-    def test_trivial(self):
-        x = self.codetest('''
-def g(): return 42''', 'g', [])
-        self.assertEquals(x, 42)
-
-    def test_trivial_call(self):
-        x = self.codetest('''
-def f(): return 42
-def g(): return f()''', 'g', [])
-        self.assertEquals(x, 42)
-
-    def test_trivial_call2(self):
-        x = self.codetest('''
-def f(): return 1 + 1
-def g(): return f()''', 'g', [])
-        self.assertEquals(x, 2)
-
-    def test_print(self):
-        x = self.codetest('''
-def g(): print 10''', 'g', [])
-        self.assertEquals(x, None)
-
-    def test_identity(self):
-        x = self.codetest('''
-def g(x): return x''', 'g', [666])
-        self.assertEquals(x, 666)
-
     def test_exception_trivial(self):
         x = self.codetest('''
 def f():
@@ -96,12 +69,12 @@ def f(a):
         self.assertEquals(self.codetest(code, 'f', [0]), -12)
         self.assertEquals(self.codetest(code, 'f', [1]), 1)
 
-    def test_raise(self):
-        x = self.codetest('''
-def f():
-    raise 1
-''', 'f', [])
-        self.assertEquals(x, '<<<TypeError: exceptions must be instances or subclasses of Exception or strings (deprecated), not int>>>')
+##     def test_raise(self):
+##         x = self.codetest('''
+## def f():
+##     raise 1
+## ''', 'f', [])
+##         self.assertEquals(x, '<<<TypeError: exceptions must be instances or subclasses of Exception or strings (deprecated), not int>>>')
 
     def test_except2(self):
         x = self.codetest('''
@@ -167,6 +140,63 @@ def f(n):
         self.assertEquals(self.codetest(code, 'f', [4]), 1+2+3+400)
         self.assertEquals(self.codetest(code, 'f', [9]),
                           1+2+3 + 5+6+7+8+900)
+
+class AppTestInterpreter(testsupport.AppTestCase):
+    def test_exception(self):
+        try:
+            raise Exception, 1
+        except Exception, e:
+            self.assertEquals(e.args[0], 1)
+
+    def test_trivial(self):
+        x = 42
+        self.assertEquals(x, 42)
+
+    def test_raise(self):
+        def f():
+            raise Exception
+        self.assertRaises(Exception, f)
+
+    def test_exception(self):
+        try:
+            raise Exception
+            self.fail("exception failed to raise")
+        except:
+            pass
+        else:
+            self.fail("exception executing else clause!")
+
+    def test_raise2(self):
+        def f(r):
+            try:
+                raise r
+            except LookupError:
+                return 1
+        self.assertRaises(Exception, f, Exception)
+        self.assertEquals(f(IndexError), 1)
+
+    def test_raise3(self):
+        try:
+            raise 1
+        except TypeError:
+            pass
+        else:
+            self.fail("shouldn't be able to raise 1")
+
+    def test_trivial_call(self):
+        def f(): return 42
+        self.assertEquals(f(), 42)
+
+    def test_trivial_call2(self):
+        def f(): return 1 + 1
+        self.assertEquals(f(), 2)
+
+    def test_print(self):
+        print 10
+
+    def test_identity(self):
+        def f(x): return x
+        self.assertEquals(f(666), 666)
 
 
 if __name__ == '__main__':
