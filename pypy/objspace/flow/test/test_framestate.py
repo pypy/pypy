@@ -1,8 +1,9 @@
 
 import autopath
 
-from pypy.objspace.flow.flowcontext import *
+from py.test import raises
 from pypy.objspace.flow.model import *
+from pypy.objspace.flow.framestate import *
 from pypy.interpreter.pycode import PyCode
 
 objspacename = 'flow'
@@ -95,3 +96,10 @@ class TestFrameState:
         fs3 = fs1.union(fs2)
         fs3.restoreframe(frame)
         assert isinstance(frame.fastlocals_w[-1], Variable) # generalized
+
+    def test_union_spectag(self):
+        frame = self.getframe(self.func_simple)
+        fs1 = FrameState(frame)
+        frame.fastlocals_w[-1] = Constant(SpecTag())
+        fs2 = FrameState(frame)
+        assert fs1.union(fs2) is None   # UnionError

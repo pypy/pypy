@@ -117,14 +117,24 @@ def union(w1, w2):
         # This is needed for try:except: and try:finally:, though
         # it makes the control flow a bit larger by duplicating the
         # handlers.
-        dont_merge_w1 = w1 in UNPICKLE_TAGS
-        dont_merge_w2 = w2 in UNPICKLE_TAGS
+        dont_merge_w1 = w1 in UNPICKLE_TAGS or isinstance(w1.value, SpecTag)
+        dont_merge_w2 = w2 in UNPICKLE_TAGS or isinstance(w2.value, SpecTag)
         if dont_merge_w1 or dont_merge_w2:
             raise UnionError
         else:
             return Variable()  # generalize different constants
     raise TypeError('union of %r and %r' % (w1.__class__.__name__,
                                             w2.__class__.__name__))
+
+# ____________________________________________________________
+#
+# Support for explicit specialization: in code using global constants
+# that are instances of SpecTag, code paths are not merged when
+# the same variable holds a different SpecTag instance.
+
+class SpecTag(object):
+    def __repr__(self):
+        return 'SpecTag(%d)' % id(self)
 
 # ____________________________________________________________
 #
