@@ -6,7 +6,6 @@ from pypy.objspace.std.objspace import *
 import typeobject, objecttype
 from typeobject import W_TypeObject
 
-
 class W_UserType(W_TypeObject):
     """Instances of this class are user-defined Python type objects.
     All user-defined types are instances of the present class.
@@ -43,17 +42,16 @@ class W_UserType(W_TypeObject):
             raise KeyError
         return w_value
 
-
 # XXX we'll worry about the __new__/__init__ distinction later
 # XXX NOTE: currently (03-06-21) user-object can only sublass
-#   types which register an implementation for ´new´ -- currently
+#   types which register an implementation for 'new' -- currently
 #   this means that e.g. subclassing list or str works, subclassing
 #   int or float does not -- this is not a bug fixable in userobject
 #   (perhaps in the object-space, perhaps in each builtin type...?)
 #   but we're documenting it here as there seems no better place!!!
 #   The problem is actually that, currently, several types such as
 #   int and float just cannot be CALLED -- this needs to be fixed soon.
-def usertype_new(space, w_usertype, w_args, w_kwds):
+def new__UserType_ANY_ANY(space, w_usertype, w_args, w_kwds):
     from userobject import W_UserObject
     newobj = W_UserObject(space, w_usertype, w_args, w_kwds)
     try:
@@ -64,6 +62,8 @@ def usertype_new(space, w_usertype, w_args, w_kwds):
     else:
         space.call(init, w_args, w_kwds)
     return newobj
-           
 
-StdObjSpace.new.register(usertype_new, W_UserType, W_ANY, W_ANY)
+def repr__UserType(space, w_usertype):
+    return space.wrap("<class '%s'>" % w_usertype.typename)
+    
+register_all(vars())
