@@ -10,7 +10,7 @@ from pypy.interpreter.error import OperationError
 class AppRunnerFrame(InspectableFrame):
 
     def __init__(self, pyframe):
-        lineno = pyframe.get_last_lineno()
+        lineno = pyframe.get_last_lineno() - 1
         super(AppRunnerFrame, self).__init__(pyframe.code, lineno)
         self.space = pyframe.space
         self.w_globals = pyframe.w_globals
