@@ -10,7 +10,7 @@ class CodeObject:
         self.co_flags = 4 * vflag + 8 * kflag
 
 
-class FrameTest(unittest.TestCase):
+class Testdecode_frame_arguments(unittest.TestCase):
     
     def test_plain_parameters(self):
         self.assertEqual(
