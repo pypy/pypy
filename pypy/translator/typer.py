@@ -1,6 +1,7 @@
 import autopath
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link, uniqueitems
+from pypy.translator.unsimplify import insert_empty_block
 
 
 class TypeMatch:
@@ -106,6 +107,7 @@ class Specializer:
                 if isinstance(args[i], Variable) and bindings[i] is not None:
                     if bindings[i].is_constant():
                         args[i] = Constant(bindings[i].const)
+                        op = SpaceOperation(op.opname, args, op.result)
 
             # look for a specialized version of the current operation
             opname2, argtypes, restypecls = self.getspecializedop(op, bindings)
@@ -125,42 +127,28 @@ class Specializer:
 
         block.operations[:] = newops
 
+        self.insert_link_conversions(block)
+
+    def insert_link_conversions(self, block):
         # insert the needed conversions on the links
+        can_insert_here = block.exitswitch is None and len(block.exits) == 1
         for link in block.exits:
-            # numbering of Variables:
-            #    a1 in the original Link
-            #    a2 in the inserted block before conversion
-            #    a3 in the inserted block after conversion
-            #    a4 in the original target block's inputargs
-            # warning, link.args may contain the same Variable multiple times!
-            convargs = []
-            convops = []
             for i in range(len(link.args)):
                 a1 = link.args[i]
-                a4 = link.target.inputargs[i]
-                a4type = self.setbesttype(a4)
-                a3, convop1 = self.convertvar(a1, a4type)
-                convargs.append(a3)
-                convops += convop1
-            # if there are conversion operations, they are inserted into
-            # a new block along this link
-            if convops:
-                vars = uniqueitems([a1 for a1 in link.args
-                                       if isinstance(a1, Variable)])
-                newblock = Block([])
-                mapping = {}
-                for a1 in vars:
-                    a2 = Variable()
-                    a2.type_cls = a1.type_cls
-                    newblock.inputargs.append(a2)
-                    mapping[a1] = a2
-                newblock.operations = convops
-                newblock.closeblock(Link(convargs, link.target))
-                newblock.renamevariables(mapping)
-                link.target = newblock
-                link.args[:] = vars
-            else:
-                link.args[:] = convargs   # some Constants may have changed
+                a2 = link.target.inputargs[i]
+                a2type = self.setbesttype(a2)
+                a1, convops = self.convertvar(a1, a2type)
+                if convops and not can_insert_here:
+                    # cannot insert conversion operations around a single
+                    # link, unless it is the only exit of this block.
+                    # create a new block along the link...
+                    newblock = insert_empty_block(self.annotator.translator,
+                                                  link)
+                    # ...and do the conversions there.
+                    self.insert_link_conversions(block)
+                    break   # done with this link
+                block.operations += convops
+                link.args[i] = a1
 
     def getspecializedop(self, op, bindings):
         specializations = self.specializationdict.get(op.opname, ())
