@@ -207,16 +207,34 @@ def b2a_base64(s):
                   table_b2a_base64[(b << 2) & 0x3F] + '='
     return ''.join(result) + snippet + '\n'
 
-
-
 def a2b_qp(s):
-    pass
+    parts = s.rstrip().split('=')
+
+    # Change the parts in-place
+    for index, part in enumerate(parts[1:]):
+        if len(parts) > 2 and part[0] in hex_numbers and part[1] in hex_numbers:
+            parts[index + 1] = chr(strhex_to_int(part[0:2])) + part[2:]
+        else:
+            parts[index + 1] = '=' + parts[index + 1]
+            
+    return ''.join(parts)
 
 def b2a_qp(s):
+    """ In this implementation, we are quoting all spaces and tab character.
+        This is ok by the standard, though it slightly reduces the 
+        readability of the quoted string. The CPython implementation
+        preserves internal whitespace, which is a different way of
+        implementing the standard. The reason we are doing things differently
+        is that it greatly simplifies the code.
+
+        The CPython implementation does not escape CR and LF characters
+        and does not encode newlines as CRLF sequences. This seems to be
+        non-standard, and we copy this behaviour.
+    """
     def f(c):
-        if '!' <= c <= '<' or '>' <= c <= '~':
+        if '!' <= c <= '<' or '>' <= c <= '~' or c in '\n\r':
             return c
-        return '=' + str(hex(ord(c)))
+        return '=' + two_hex_digits(ord(c))
     return ''.join([ f(c) for c in s])
 
 hex_numbers = '0123456789ABCDEF'
@@ -233,10 +251,19 @@ def hex(n):
     for nibble in hexgen(n):
         arr = [hex_numbers[nibble]] + arr
     return sign + ''.join(arr)
-        
+
+def two_hex_digits(n):
+    return hex_numbers[n / 0x10] + hex_numbers[n % 0x10]
+    
 def hexgen(n):
     """ Yield a nibble at a time. """
     while n:
         remainder = n % 0x10
         n = n / 0x10
         yield remainder
+
+def strhex_to_int(s):
+    i = 0
+    for c in s:
+        i = i * 0x10 + hex_numbers.index(c)
+    return i
