@@ -117,6 +117,10 @@ class NoTypeCGenTestCase(testit.IntTestCase):
 ##         global_badinit = self.build_cfunc(snippet.global_badinit)
 ##         self.assertEquals(global_badinit(), 1)
 
+    def test_multiple_inheritance(self):
+        multiple_inheritance = self.build_cfunc(snippet.multiple_inheritance)
+        self.assertEquals(multiple_inheritance(), 1+2+3+4)
+
 class TypedTestCase(testit.IntTestCase):
 
     def getcompiled(self, func):

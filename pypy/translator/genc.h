@@ -105,9 +105,9 @@
 
 /*** classes ***/
 
-#define SETUP_CLASS(t, name, base)				\
+/*#define SETUP_CLASS(t, name, base)				\
 	t = PyObject_CallFunction((PyObject*) &PyType_Type,	\
-				  "s(O){}", name, base)
+				  "s(O){}", name, base)*/
 
 #define SETUP_CLASS_ATTR(t, attr, value)	\
 	(PyObject_SetAttrString(t, attr, value) >= 0)

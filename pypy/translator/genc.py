@@ -59,7 +59,7 @@ class GenC:
                     if meth:
                         break
                 else:
-                    raise TypeError, "nameof(%r)" % (obj,)
+                    raise Exception, "nameof(%r)" % (obj,)
                 name = meth(obj)
             self.cnames[key] = name
             return name
@@ -153,19 +153,16 @@ class GenC:
         return name
 
     def nameof_classobj(self, cls):
+        if issubclass(cls, Exception) and cls.__module__ == 'exceptions':
+            return 'PyExc_%s'%cls.__name__
         name = self.uniquename('gcls_' + cls.__name__)
         bases = [base for base in cls.__bases__ if base is not object]
-        assert len(bases) <= 1, "%r needs multiple inheritance" % (cls,)
-        if bases:
-            base = bases[0]
-        else:
-            base = object
-        base = self.nameof(base)
+        basenames = [self.nameof(base) for base in bases]
         def initclassobj():
             content = cls.__dict__.items()
             content.sort()
             for key, value in content:
-                if key.startswith('__') and key != '__init__':
+                if key.startswith('__'):
                     if key in ['__module__', '__doc__', '__dict__',
                                '__weakref__', '__repr__']:
                         continue
@@ -174,8 +171,15 @@ class GenC:
                 yield 'INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
                     name, key, self.nameof(value))
         self.globaldecl.append('static PyObject* %s;' % name)
-        self.initcode.append('INITCHK(SETUP_CLASS(%s, "%s", %s))' % (
-            name, cls.__name__, base))
+
+        baseargs = ", ".join(basenames)
+        if baseargs:
+            baseargs = ', '+baseargs
+        self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*) &PyType_Type,'
+                             %(name,))
+        self.initcode.append('\t\t"s(%s){}", "%s"%s))'
+                             %("O"*len(bases), cls.__name__, baseargs))
+        
         self.latercode.append(initclassobj())
         return name
 

@@ -429,6 +429,19 @@ class BadInit(object):
 
 global_bi = BadInit(1)
 
+class MI_A(object):
+    a = 1
+class MI_B(MI_A):
+    b = 2
+class MI_C(MI_A):
+    c = 3
+class MI_D(MI_B, MI_C):
+    d = 4
+
+def multiple_inheritance():
+    i = MI_D()
+    return i.a + i.b + i.c + i.d
+
 def global_badinit():
     return global_bi.read()
     
