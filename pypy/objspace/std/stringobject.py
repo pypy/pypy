@@ -816,6 +816,9 @@ def str__String(space, w_str):
     return w_str
 
 
+def iter__String(space, w_list):
+    import iterobject
+    return iterobject.W_SeqIterObject(space, w_list)
 
 def repr__String(space, w_str):
     # XXX this is bogus -- mwh

@@ -126,6 +126,9 @@ class TestW_StringObject(test.TestCase):
 #        self.assertEqual_w(w(s).ljust(5), w(s + "  "))    
 
 class TestStringObject(test.AppTestCase):
+    def setUp(self):
+        self.space = test.objspace('std')
+
     def test_split(self):
         self.assertEquals("".split(), [])
         self.assertEquals("a".split(), ['a'])
@@ -359,6 +362,12 @@ class TestStringObject(test.AppTestCase):
     def test_swapcase(self):
         self.assertEquals("aaa AAA 111".swapcase(), "AAA aaa 111")
         self.assertEquals("".swapcase(), "")
+
+    def test_iter(self):
+        l=[]
+        for i in iter("42"):
+            l.append(i)
+        self.assertEquals(l, ['4','2'])
 
 if __name__ == '__main__':
     test.main()
