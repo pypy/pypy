@@ -11,7 +11,16 @@ def map(function, list):
     return [function(x) for x in list]
 
 def filter(function, list):
-    pass
+    res = []
+    if function is None:
+       for elem in list:
+           if elem:
+              res.append(elem)
+    else:
+       for elem in list:
+           if function(elem):
+              res.append(elem)
+    
 
 def zip(function, list):
     pass
