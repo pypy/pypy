@@ -1,15 +1,46 @@
 import testsupport
 from pypy.module.builtin_app import map, filter, reduce, zip
 
+# trivial functions for testing 
+
+def add_two(x):
+   return x + 2
+
+def add_both(x, y):
+   return x + y
+
+
 class TestMap(testsupport.TestCase):
 
+   def test_trivial_map_one_seq(self):
+      self.assertEqual(map(add_two, [1, 2, 3, 4]), [3, 4, 5, 6])
+
+   def test_trivial_map_two_seq(self):
+      self.assertEqual(map(add_both, [1, 2, 3, 4],[1, 2, 3, 4]), [2, 4, 6, 8])
+
+   def test_trivial_map_sizes_dont_match_and_should(self):
+      self.assertRaises(TypeError, map, add_both, [1, 2, 3, 4], [1, 2, 3])
+
+   def test_trivial_map_no_arguments(self):
+      self.assertRaises(TypeError, map)
+      
+   def test_trivial_map_no_function_no_seq(self):
+      self.assertRaises(TypeError, map, None)
+
+   def test_trivial_map_no_fuction_one_seq(self):
+      self.assertEqual(map(None, [1, 2, 3]), [1, 2, 3])
+      
+   def test_trivial_map_no_function(self):
+      self.assertEqual(map(None, [1,2,3], [4,5,6], [7,8], [1]),
+                       [(1, 4, 7, 1), (2, 5, 8, None), (3, 6, None, None)])
+                       
    def test_map_identity1(self):
       a = ['1', 2, 3, 'b', None]
       b = a[:]
       self.assertEqual(map(lambda x: x, a), a)
       self.assertEqual(a, b)
  
-   def test_map_None1(self):
+   def test_map_None(self):
       a = ['1', 2, 3, 'b', None]
       b = a[:]
       self.assertEqual(map(None, a), a)

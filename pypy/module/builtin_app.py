@@ -3,7 +3,15 @@ def apply(function, args, kwds={}):
     return function(*args, **kwds)
 
 def map(function, *collections):
-    if len(collections) == 1:
+    """does 3 separate things.
+       1.  if function is None, return a list of tuples, each with one
+           item from each collection.  If the collections have different
+           lengths,  shorter ones are padded with None."""
+
+    if len(collections) == 0:
+        raise TypeError, "map() requires at least one sequence"
+    
+    elif len(collections) == 1:
        #it's the most common case, so make it faster
        if function is None:
           return collections[0]
