@@ -65,7 +65,9 @@ def really_build_fake_type(cpy_type, ignored):
             r = cpy_type.__new__(cpy_type, *args)
         except:
             wrap_exception(space)
-        return W_Fake(space, r)
+        w_obj = space.allocate_instance(W_Fake, w_type)
+        w_obj.__init__(space, r)
+        return w_obj
 
     kw['__new__'] = gateway.interp2app(fake__new__,
                          unwrap_spec = [baseobjspace.ObjSpace,
@@ -85,6 +87,7 @@ def really_build_fake_type(cpy_type, ignored):
             w_self.val = val
         def unwrap(w_self):
             return w_self.val
+                
     # cannot write to W_Fake.__name__ in Python 2.2!
     W_Fake = type(W_Object)('W_Fake%s'%(cpy_type.__name__.capitalize()),
                             (W_Object,),
