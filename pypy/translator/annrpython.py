@@ -23,6 +23,7 @@ class RPythonAnnotator:
         self.pendingblocks = []  # list of (fn, block, list-of-SomeValues-args)
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
+        self.why_not_annotated = {} # {block: traceback_where_BlockedInference_was_raised}
         self.notify = {}         # {block: {factory-to-invalidate-when-done}}
         self.bindingshistory = {}# map Variables to lists of SomeValues
         self.bookkeeper = Bookkeeper(self)
@@ -254,6 +255,7 @@ class RPythonAnnotator:
                 #import traceback, sys
                 #traceback.print_tb(sys.exc_info()[2])
                 self.annotated[block] = False   # failed, hopefully temporarily
+                self.why_not_annotated[block] = sys.exc_info()[2]
             except Exception, e:
                 # hack for debug tools only
                 if not hasattr(e, '__annotator_block'):
