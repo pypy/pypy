@@ -883,7 +883,7 @@ class GenRpy:
         print >> f, ("## filename    %r\n"
                      "## function    %r\n"
                      "## firstlineno %d") % (
-            func.func_code.co_filename,
+            os.path.basename(func.func_code.co_filename),
             func.func_code.co_name,
             func.func_code.co_firstlineno)
         print >> f, "##SECTION##"
