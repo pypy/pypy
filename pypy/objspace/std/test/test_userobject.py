@@ -35,6 +35,7 @@ class AppTestUserObject:
                     raise
             else:
                 assert isinstance(stuff, base)
+                assert subclass.__base__ is base
 
     def test_subclasstuple(self):
         class subclass(tuple): pass
