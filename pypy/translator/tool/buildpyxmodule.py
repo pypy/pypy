@@ -70,16 +70,22 @@ def make_module_from_c(cfile, include_dirs=None):
                 else:
                     from distutils.core import setup
                     from distutils.extension import Extension
-                    setup(
-                      name = "testmodules",
-                      ext_modules=[
-                            Extension(modname, [str(cfile)],
-                                include_dirs=include_dirs)
-                      ],
-                      script_name = 'setup.py',
-                      script_args = ['-q', 'build_ext', '--inplace']
-                      #script_args = ['build_ext', '--inplace']
-                    )
+                    saved_environ = os.environ.items()
+                    try:
+                        setup(
+                          name = "testmodules",
+                          ext_modules=[
+                                Extension(modname, [str(cfile)],
+                                    include_dirs=include_dirs)
+                          ],
+                          script_name = 'setup.py',
+                          script_args = ['-q', 'build_ext', '--inplace']
+                          #script_args = ['build_ext', '--inplace']
+                        )
+                    finally:
+                        for key, value in saved_environ:
+                            if os.environ.get(key) != value:
+                                os.environ[key] = value
             finally:
                 foutput, foutput = c.done()
         except:
