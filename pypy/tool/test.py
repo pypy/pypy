@@ -172,7 +172,9 @@ def testsuite_from_dir(root, filterfunc=None, recursive=0, loader=None):
     root = os.path.abspath(root)
 
     suite = unittest.TestLoader.suiteClass()
-    for fn in os.listdir(root):
+    names = os.listdir(root)
+    names.sort()
+    for fn in names:
         if fn.startswith('.'):
             continue
         fullfn = os.path.join(root, fn)
