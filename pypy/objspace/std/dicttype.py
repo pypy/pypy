@@ -28,7 +28,7 @@ class W_DictType(W_TypeObject):
 registerimplementation(W_DictType)
 
 
-def type_new__DictType_DictType_ANY_ANY(space, w_basetype, w_dicttype, w_args, w_kwds):
+def type_new__DictType_DictType(space, w_basetype, w_dicttype, w_args, w_kwds):
     return space.newdict([]), True
 
 

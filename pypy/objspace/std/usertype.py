@@ -53,7 +53,7 @@ registerimplementation(W_UserType)
 #   but we're documenting it here as there seems no better place!!!
 #   The problem is actually that, currently, several types such as
 #   int and float just cannot be CALLED -- this needs to be fixed soon.
-def type_new__UserType_UserType_ANY_ANY(space, w_basetype, w_usertype, w_args, w_kwds):
+def type_new__UserType_UserType(space, w_basetype, w_usertype, w_args, w_kwds):
     import typetype
     # XXX this uses the following algorithm:
     #     walk the __mro__ of the user type
@@ -74,7 +74,7 @@ def type_new__UserType_UserType_ANY_ANY(space, w_basetype, w_usertype, w_args, w
             return w_newobj, True
     raise AssertionError, "execution should not get here"
 
-def type_new__ANY_UserType_ANY_ANY(space, w_basetype, w_usertype, w_args, w_kwds):
+def type_new__ANY_UserType(space, w_basetype, w_usertype, w_args, w_kwds):
     import typetype
     from userobject import morph_into_user_object, getsinglebuiltintype
     assert w_basetype is getsinglebuiltintype(space, w_usertype)

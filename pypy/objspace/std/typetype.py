@@ -27,12 +27,12 @@ class W_TypeType(W_TypeObject):
     # the class 'type'.
     # Attention, this internally returns a tuple (w_result, flag),
     # where 'flag' specifies whether we would like __init__() to be called.
-    type_new = MultiMethod('__new__', 4, varargs=True, keywords=True,
+    type_new = MultiMethod('__new__', 2, varargs=True, keywords=True,
                                          mmframeclass=NewMmFrame)
 
 registerimplementation(W_TypeType)
 
-def type_new__TypeType_TypeType_ANY_ANY(space, w_basetype, w_typetype, w_args, w_kwds):
+def type_new__TypeType_TypeType(space, w_basetype, w_typetype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))

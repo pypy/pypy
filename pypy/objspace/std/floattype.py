@@ -9,7 +9,7 @@ class W_FloatType(W_TypeObject):
 registerimplementation(W_FloatType)
 
 
-def type_new__FloatType_FloatType_ANY_ANY(space, w_basetype, w_floattype, w_args, w_kwds):
+def type_new__FloatType_FloatType(space, w_basetype, w_floattype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))

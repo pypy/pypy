@@ -9,7 +9,7 @@ class W_IntType(W_TypeObject):
 registerimplementation(W_IntType)
 
 
-def type_new__IntType_IntType_ANY_ANY(space, w_basetype, w_inttype, w_args, w_kwds):
+def type_new__IntType_IntType(space, w_basetype, w_inttype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))

@@ -279,8 +279,8 @@ class AppTestW_ListObject(test.AppTestCase):
     def setUp(self):
         self.space = test.objspace('std')
 
-    def test_explicit_init(self):
-        l = []
+    def test_explicit_new_init(self):
+        l = list.__new__(list)
         l.__init__([1,2])
         self.assertEquals(l,[1,2])
         list.__init__(l,[1,2,3])

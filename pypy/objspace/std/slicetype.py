@@ -13,7 +13,7 @@ class W_SliceType(W_TypeObject):
 registerimplementation(W_SliceType)
 
 
-def type_new__SliceType_SliceType_ANY_ANY(space, w_basetype, w_slicetype, w_args, w_kwds):
+def type_new__SliceType_SliceType(space, w_basetype, w_slicetype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))

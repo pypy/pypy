@@ -41,7 +41,7 @@ class W_StringType(W_TypeObject):
 registerimplementation(W_StringType)
 
 
-def type_new__StringType_StringType_ANY_ANY(space, w_basetype, w_stringtype, w_args, w_kwds):
+def type_new__StringType_StringType(space, w_basetype, w_stringtype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))

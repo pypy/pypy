@@ -26,7 +26,7 @@ class W_ObjectType(W_TypeObject):
 registerimplementation(W_ObjectType)
 
 
-def type_new__ObjectType_ObjectType_ANY_ANY(space, w_basetype, w_objecttype, w_args, w_kwds):
+def type_new__ObjectType_ObjectType(space, w_basetype, w_objecttype, w_args, w_kwds):
     # XXX 2.2 behavior: ignoring all arguments
     from objectobject import W_ObjectObject
     return W_ObjectObject(space), True

@@ -9,7 +9,7 @@ class W_TupleType(W_TypeObject):
 registerimplementation(W_TupleType)
 
 
-def type_new__TupleType_TupleType_ANY_ANY(space, w_basetype, w_tupletype, w_args, w_kwds):
+def type_new__TupleType_TupleType(space, w_basetype, w_tupletype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))

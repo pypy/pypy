@@ -19,7 +19,7 @@ class W_ListType(W_TypeObject):
 registerimplementation(W_ListType)
 
 
-def type_new__ListType_ListType_ANY_ANY(space, w_basetype, w_listtype, w_args, w_kwds):
+def type_new__ListType_ListType(space, w_basetype, w_listtype, w_args, w_kwds):
     return space.newlist([]), True
 
 register_all(vars())
