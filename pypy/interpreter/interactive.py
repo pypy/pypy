@@ -39,6 +39,12 @@ class PyPyConsole(code.InteractiveConsole):
                 local['w_' + self.space.unwrap(w_name)] = (
                     self.space.getitem(self.w_globals, w_name))
             code.interact(banner=banner, local=local)
+            # copy back 'w_' names
+            for name in local:
+                if name.startswith('w_'):
+                    self.space.setitem(self.w_globals,
+                                       self.space.wrap(name[2:]),
+                                       local[name])
             print '*** Leaving interpreter-level console ***'
             raise
 
