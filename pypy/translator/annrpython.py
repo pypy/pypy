@@ -197,7 +197,7 @@ class RPythonAnnotator:
             inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
             print 'IGNORED', e     # hopefully temporary hack
-            return SomeImpossibleValue()
+            return annmodel.SomeImpossibleValue()
 
         # generalize the function's input arguments
         self.addpendingblock(func, graph.startblock, inputcells, position_key)
