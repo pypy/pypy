@@ -1,23 +1,22 @@
-# XXX fixme:
-# This test is out of date and not functioning.
+import testsupport
 
-import unittest, sys, os
-sys.path.insert(0, '..')
+# need pypy.module.builtin first to make other imports work (???)
+import pypy.module.builtin
 
-from pyframe import PyFrame
-import pypy.objspace.trivial as trivialspace
+from pypy.interpreter.pyframe import PyFrame
 
 def make_builtins_global():
         d = {}
         exec '''def filter(a, b): return 42''' in d 
         return d
 
-class TestBuiltins(unittest.TestCase):
+class TestBuiltins(testsupport.TestCase):
 
     def test_filter_None(self):
         # build frame
-        space = trivialspace
-        bytecode = compile("def f(x): return filter(None, [1, '', 2])", '', 'exec').co_consts[0]
+        space = testsupport.objspace()
+        bytecode = compile("def f(x): return filter(None, [1, '', 2])",
+            '', 'exec').co_consts[0]
         d = make_builtins_global()
         w_globals = space.wrap(d)
         w_locals = space.wrap({})
@@ -31,4 +30,4 @@ class TestBuiltins(unittest.TestCase):
         
 
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()
