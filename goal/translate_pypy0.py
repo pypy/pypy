@@ -52,15 +52,8 @@ def analyse(entry_point=entry_point):
     # caches (as far as analyzing the entry_point is concerned)
 
     from pypy.interpreter import pycode
-    from pypy.interpreter import pyopcode
-    from pypy.interpreter import nestedscope
-    from pypy.interpreter import generator
 
-    for comb in ((),(nestedscope.PyNestedScopeFrame,),(generator.GeneratorFrame,),(nestedscope.PyNestedScopeFrame,generator.GeneratorFrame)):
-        F = pyopcode.PyInterpFrame
-        for x in comb:
-            F = pycode.enhanceclass(F, x)
-        #print F.__mro__
+    pycode.setup_frame_classes()
 
     t = Translator(entry_point, verbose=True, simplifying=True)
     if listen_port:
