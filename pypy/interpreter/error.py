@@ -124,16 +124,6 @@ class OperationError(Exception):
 
 # Utilities
 
-def inlinecompile(source, space, symbol='exec'):
-    """Compile the given 'source' string.
-    This function differs from the built-in compile() because it abuses
-    co_filename to store a copy of the complete source code.
-    This lets OperationError.print_application_traceback() print the
-    actual source line in the traceback."""
-    compile = space.builtin.compile
-    return compile(source, '<inline>\n%s'%source, symbol, 0, 0)
-
-
 def debug_print(text, file=None):
     if file is None: file = sys.stderr
     text = text.rstrip()
