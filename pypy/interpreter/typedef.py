@@ -232,26 +232,36 @@ getset_func_doc = GetSetProperty(Function.fget_func_doc,
 # it's not really possible to do a get or getitem on dictionaries
 # (mostly because wrapped exceptions don't exist at that time)
 getset___module__ = GetSetProperty(Function.fget___module__,
-                                 Function.fset___module__,
-                                 Function.fdel___module__)
+                                   Function.fset___module__,
+                                   Function.fdel___module__)
+
+getset_func_defaults = GetSetProperty(Function.fget_func_defaults,
+                                      Function.fset_func_defaults,
+                                      Function.fdel_func_defaults)
+getset_func_code = GetSetProperty(Function.fget_func_code,
+                                  Function.fset_func_code)
+
+getset_func_dict = GetSetProperty(descr_get_dict, descr_set_dict)
 
 Function.typedef = TypeDef("function",
     __call__ = interp2app(Function.descr_function_call.im_func),
     __get__ = interp2app(Function.descr_function_get.im_func),
-    func_code = interp_attrproperty('code'), 
+    func_code = getset_func_code, 
     func_doc = getset_func_doc,
     func_name = interp_attrproperty('name'), 
-    func_dict = interp_attrproperty_w('w_func_dict'), 
-    func_defaults = GetSetProperty(Function.fget_func_defaults),
+    func_dict = getset_func_dict, 
+    func_defaults = getset_func_defaults,
     func_globals = interp_attrproperty_w('w_func_globals'),
+    func_closure = GetSetProperty( Function.fget_func_closure ),
     __doc__ = getset_func_doc,
     __name__ = interp_attrproperty('name'),
-    __dict__ = GetSetProperty(descr_get_dict, descr_set_dict),
+    __dict__ = getset_func_dict,
     __module__ = getset___module__,
     # XXX func_closure, etc.pp
     )
 
 Method.typedef = TypeDef("method",
+    __new__ = interp2app(Method.descr_method__new__.im_func),
     __call__ = interp2app(Method.descr_method_call.im_func),
     __get__ = interp2app(Method.descr_method_get.im_func),
     im_func  = interp_attrproperty_w('w_function'), 
@@ -280,7 +290,7 @@ GeneratorIterator.typedef = TypeDef("generator",
     gi_frame   = interp_attrproperty('frame'), 
 )
 
-Cell.typedef = TypeDef("Cell")
+Cell.typedef = TypeDef("cell")
 
 Ellipsis.typedef = TypeDef("Ellipsis", 
     __repr__   = interp2app(Ellipsis.descr__repr__.im_func),

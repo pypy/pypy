@@ -9,6 +9,7 @@ attribute.
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter.eval import Code
 
 class Function(Wrappable):
     """A function is a code object captured with some environment:
@@ -69,6 +70,16 @@ class Function(Wrappable):
         if not values_w:
             return space.w_None
         return space.newtuple(values_w)
+    
+    def fset_func_defaults(space, w_self, w_defaults):
+        self = space.interpclass_w(w_self)
+        if not space.is_true( space.isinstance( w_defaults, space.w_tuple ) ):
+            raise OperationError( space.w_TypeError, space.wrap("func_defaults must be set to a tuple object") )
+        self.defs_w = space.unpackiterable( w_defaults )
+
+    def fdel_func_defaults(space, w_self):
+        self = space.interpclass_w(w_self)
+        self.defs_w = []
 
     def fget_func_doc(space, w_self):
         self = space.interpclass_w(w_self)
@@ -101,6 +112,23 @@ class Function(Wrappable):
         self = space.interpclass_w(w_self)
         self.w_module = space.w_None
 
+    def fget_func_code(space, w_self):
+        self = space.interpclass_w(w_self)
+        return space.wrap(self.code)
+
+    def fset_func_code(space, w_self, w_code):
+        self = space.interpclass_w(w_self)
+        code = space.interpclass_w(w_code)
+        if not isinstance(code, Code ):
+            raise OperationError( space.w_TypeError, space.wrap("func_code must be set to a code object") )
+        self.code = code
+    
+    def fget_func_closure(space, w_self):
+        self = space.interpclass_w(w_self)
+        w_res = space.newtuple( [ space.wrap(i) for i in self.closure ] )
+        return w_res
+
+
 class Method(Wrappable): 
     """A method is a function bound to a specific instance or class."""
 
@@ -110,6 +138,13 @@ class Method(Wrappable):
         self.w_instance = w_instance   # or None
         self.w_class = w_class
         
+    def descr_method__new__(space, w_subtype, w_function, w_instance, w_class):
+        method = space.allocate_instance(Method, w_subtype)
+        if space.is_w( w_instance, space.w_None ):
+            w_instance = None
+        method.__init__(space, w_function, w_instance, w_class)
+        return space.wrap(method)
+
     def __repr__(self):
         if self.w_instance:
             pre = "bound"
