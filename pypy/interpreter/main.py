@@ -12,6 +12,11 @@ def run_string(source, fname):
         ec = executioncontext.ExecutionContext(space)
 
         w_globals = ec.make_standard_w_globals()
+
+        space.setitem(w_globals,
+                      space.wrap("__name__"),
+                      space.wrap("__main__"))
+        
         frame = pyframe.PyFrame(space, code, w_globals, w_globals)
     except baseobjspace.OperationError, operationerr:
         raise PyPyError(operationerr)
