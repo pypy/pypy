@@ -94,9 +94,13 @@ class __builtin__(ExtModule):
         elif loc is None:
             loc = glob
         f = file(filename)
-        source = f.read()
-        f.close()
-        exec source in glob, loc
+        try:
+            source = f.read()
+        finally:
+            f.close()
+        #Don't exec the source directly, as this loses the filename info
+        co = compile(source, filename, 'exec')
+        exec co in glob, loc
 
     ####essentially implemented by the objectspace
     def abs(self, w_val):
@@ -382,6 +386,9 @@ class __builtin__(ExtModule):
             return True
         except AttributeError:
             return False
+
+    def app_callable(self, ob):
+        return hasattr(ob, '__call__')
 
     def app_dir(self, *args):
         """dir([object]) -> list of strings

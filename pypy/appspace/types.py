@@ -1,5 +1,8 @@
 """Appspace types module. 
 
+!! This file has been copied practicaly verbatim from the CPython source.
+!! See http://www.python.org/2.3.2/license.html for licensing info.
+
 Define names for all type symbols known in the standard interpreter.
 
 Types that are part of optional modules (e.g. array) are not listed.
@@ -23,6 +26,10 @@ try:
 except NameError:
     pass
 FloatType = float
+try:
+    BooleanType = bool
+except NameError:
+    pass
 try:
     ComplexType = complex
 except NameError:
@@ -79,6 +86,9 @@ BuiltinMethodType = type([].append)     # Same as BuiltinFunctionType
 ModuleType = type(sys)
 try:
     FileType = file
+except NameError:
+   pass
+try:
     XRangeType = type(xrange(0))
 except NameError:
    pass
@@ -100,5 +110,9 @@ SliceType = type(slice(0))
 EllipsisType = type(Ellipsis)
 
 #DictProxyType = type(TypeType.__dict__)
+try:
+    NotImplementedType = type(NotImplemented)
+except NameError:
+   pass
 
 del sys, _f, _C, _x#, generators                  # Not for export

@@ -29,6 +29,18 @@ class AppSysTests(test.AppTestCase):
         import sys
         self.failUnless(hasattr(sys, 'builtin_module_names'),
                         "sys.builtin_module_names gone missing")        
+    def test_warnoptions_exists(self):
+        import sys
+        self.failUnless(hasattr(sys, 'warnoptions'),
+                        "sys.warnoptions gone missing")
+    def test_hexversion_exists(self):
+        import sys
+        self.failUnless(hasattr(sys, 'hexversion'),
+                        "sys.hexversion gone missing")
+    def test_platform_exists(self):
+        import sys
+        self.failUnless(hasattr(sys, 'platform'), "sys.platform gone missing")
+
     def test_sys_in_modules(self):
         import sys
         modules = sys.modules

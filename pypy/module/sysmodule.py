@@ -20,6 +20,10 @@ class Sys(ExtModule):
         self.w_path = space.newlist([appdir] + [p for p in cpy_sys.path if p!= pypydir])
         self.w_modules = space.newdict([])
         self.w_builtin_module_names = space.newlist([])
+        self.w_warnoptions = space.newlist([space.wrap(i) for i in cpy_sys.warnoptions])
+        # XXX - Replace with appropriate PyPy version numbering
+        self.w_hexversion = space.wrap(cpy_sys.hexversion)
+        self.w_platform = space.wrap(cpy_sys.platform)
         ExtModule.__init__(self, space)
 
     stdout = cpy_sys.stdout
