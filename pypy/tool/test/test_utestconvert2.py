@@ -369,17 +369,29 @@ class Testit(unittest.TestCase):
 
         self.assertEquals(rewrite_utest(
             """
-              self.assertAlmostEquals(now do something reasonable ..()
+            self.assertAlmostEquals(now do something reasonable ..()
             oops, I am inside a comment as a ''' string, and the fname was
             mentioned in passing, leaving us with something that isn't an
             expression ... will this blow up?
             """
             ),
             """
-              self.assertAlmostEquals(now do something reasonable ..()
+            self.assertAlmostEquals(now do something reasonable ..()
             oops, I am inside a comment as a ''' string, and the fname was
             mentioned in passing, leaving us with something that isn't an
             expression ... will this blow up?
+            """
+                          )
+
+        self.assertEquals(rewrite_utest(
+            """
+            happily inside a comment I write self.assertEquals(0, badger)
+            now will this one get rewritten?
+            """
+            ),
+            """
+            happily inside a comment I write self.assertEquals(0, badger)
+            now will this one get rewritten?
             """
                           )
         
@@ -394,9 +406,19 @@ class Testit(unittest.TestCase):
                                                     "is not in sys.modules.")
             """
                            )
+        
+        # two unittests on the same line separated by a semi-colon is
+        # only half-converted.  Just so you know.
+        self.assertEquals(rewrite_utest(
+            """
+            self.assertEquals(0, 0); self.assertEquals(1, 1) #not 2 per line!
+            """
+            ),
+            """
+            assert 0 == 0; self.assertEquals(1, 1) #not 2 per line!
+            """
+                           )
             
                               
 if __name__ == '__main__':
     unittest.main()
-
-

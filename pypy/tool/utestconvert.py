@@ -132,7 +132,7 @@ def decompose_unittest(old, block):
         trailer -- any extra junk after the closing paren, such as #commment
     '''
  
-    indent = re.search(r'^(\s*)', block).group()
+    indent = re.match(r'(\s*)', block).group()
     pat = re.search('self.' + old + r'\(', block)
 
     args, trailer = get_expr(block[pat.end():], ')')

@@ -394,6 +394,18 @@ class Testit(unittest.TestCase):
                                                     "is not in sys.modules.")
             """
                            )
+        
+        # two unittests on the same line separated by a semi-colon is
+        # only half-converted.  Just so you know.
+        assert rewrite_utest(
+            """
+            self.assertEquals(0, 0); self.assertEquals(1, 1) #not 2 per line!
+            """
+            ) == (
+            """
+            assert 0 == 0; self.assertEquals(1, 1) #not 2 per line!
+            """
+                           )
             
                               
 if __name__ == '__main__':
