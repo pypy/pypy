@@ -118,6 +118,33 @@ def _getframe(w_depth=0):
                              space.wrap("frame index must not be negative"))
     return space.wrap(f)
 
+# directly from the C code in ceval.c, might be moved somewhere else.
+
+recursion_limit = 1000
+
+def setrecursionlimit(w_new_limit):
+    """setrecursionlimit(n)
+
+Set the maximum depth of the Python interpreter stack to n.  This
+limit prevents infinite recursion from causing an overflow of the C
+stack and crashing Python.  The highest possible limit is platform
+dependent."""
+    new_limit = space.int_w(w_new_limit)
+    if new_limit <= 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("recursion limit must be positive"))
+    global recursion_limit
+    recursion_limit = new_limit
+
+def getrecursionlimit():
+    """getrecursionlimit()
+
+Return the current value of the recursion limit, the maximum depth
+of the Python interpreter stack.  This limit prevents infinite
+recursion from causing an overflow of the C stack and crashing Python."""
+
+    return space.newint(recursion_limit)
+
 def exc_info():
     operror = space.getexecutioncontext().sys_exc_info()
     if operror is None:
