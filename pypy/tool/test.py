@@ -63,7 +63,7 @@ class MyTestResult(unittest.TestResult):
 
 class MyTextTestResult(unittest._TextTestResult):
     ignored = 0
-    
+
     def addError(self, test, err):
         from pypy.interpreter.baseobjspace import OperationError
         if isinstance(err[1], OperationError) and test.space.full_exceptions:
@@ -136,8 +136,8 @@ class MyTextTestResult(unittest._TextTestResult):
             self.stream.writeln(self.separator2)
             t1 = self._exc_info_to_string(err)
             t2 = ''
-            if isinstance(err[1],
-                          OperationError) and test.space.full_exceptions:
+            if isinstance(err[1], OperationError) and \
+              test.space.full_exceptions:
                 t2 = '\nand at app-level:\n\n'
                 sio = StringIO.StringIO()
                 err[1].print_application_traceback(test.space, sio)
@@ -199,10 +199,10 @@ class CtsTestRunner:
                 new = status[m]
                 if old != new:
                     # print all transitions
-                    print "%s has transitioned from %s to %s" % (m, old, new)
+                    print "%s has changed from %s to %s" % (m, old, new)
                 elif new != "success":
                     # print old statuses only if they weren't successes
-                    print "%s is still a %s" % (m, new)
+                    print "%s remains a %s" % (m, new)
             # case: test was run previously but not now
             elif is_old and not is_new:
                 print "%s was a %s but not run this time" % (m, oldstatus[m])
