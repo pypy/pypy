@@ -312,6 +312,9 @@ def iter(w_collection_or_callable, w_sentinel=NoneNotWrapped):
                     space.wrap('iter(v, w): w must be callable'))
         return _iter_generator(w_collection_or_callable, w_sentinel)
 
+def _seqiter(w_obj):
+    return space.newseqiter(w_obj)
+
 def ord(w_val):
     return space.ord(w_val)
 
