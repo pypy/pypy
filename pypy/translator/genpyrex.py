@@ -9,6 +9,7 @@ from pypy.objspace.flow.model import mkentrymap, last_exception
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.annotation.model import SomePBC
 from pypy.annotation.classdef import isclassdef
+from pypy.tool.uid import uid
 import inspect
 
 class Op:
@@ -289,7 +290,7 @@ class GenPyrex:
         name = cls.__name__
         if issubclass(cls,Exception):
             return name
-        return '%s__%x' % (name, id(cls))#self._hackname(cls)
+        return '%s__%x' % (name, uid(cls))#self._hackname(cls)
     
     def getfunctionname(self,func):
         # NB. the purpose of the cache is not performance, but to ensure that
@@ -300,7 +301,7 @@ class GenPyrex:
             return self.namecache[func]
         except KeyError:
             assert inspect.isfunction(func) or inspect.ismethod(func)
-            name = '%s__%x' % (func.__name__, id(func))#self._hackname(func)
+            name = '%s__%x' % (func.__name__, uid(func))#self._hackname(func)
             self.namecache[func] = name
             return name
     
