@@ -309,12 +309,12 @@ class Test_DictObject(test.AppTestCase):
         self.assertEqual('{1: 2}', str({1: 2}))
         self.assertEqual("{'ba': 'bo'}", str({'ba': 'bo'}))
         # NOTE: the string repr depends on hash values of 1 and 'ba'!!!
-        twoitemsrepr = "{1: 2, 'ba': 'bo'}"
-        self.assertEqual(twoitemsrepr, str({1: 2, 'ba': 'bo'}))
+        ok_reprs = ["{1: 2, 'ba': 'bo'}", "{'ba': 'bo', 1: 2}"]
+        self.assert_(str({1: 2, 'ba': 'bo'}) in ok_reprs)
         self.assertEqual('{}', repr({}))
         self.assertEqual('{1: 2}', repr({1: 2}))
         self.assertEqual("{'ba': 'bo'}", repr({'ba': 'bo'}))
-        self.assertEqual(twoitemsrepr, repr({1: 2, 'ba': 'bo'}))
+        self.assert_(str({1: 2, 'ba': 'bo'}) in ok_reprs)
         
     def tooslow_test_new(self):
         d = dict()
