@@ -22,7 +22,7 @@ class FlowObjSpace(ObjSpace):
         self.w_None     = Constant(None)
         self.w_False    = Constant(False)
         self.w_True     = Constant(True)
-        for exc in [KeyError, ValueError, StopIteration]:
+        for exc in [KeyError, ValueError, IndexError, StopIteration]:
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, Constant(exc))
         #self.make_builtins()
@@ -100,6 +100,11 @@ class FlowObjSpace(ObjSpace):
         #print >> sys.stderr, '*** reraise', etype, evalue
         raise OperationError, OperationError(self.wrap(etype), self.wrap(evalue)), etb
 
+    def setup_executioncontext(self, ec):
+        self.executioncontext = ec
+        from pypy.objspace.flow import specialcase
+        self.specialcases = specialcase.setup(self)
+
     def build_flow(self, func, constargs={}):
         """
         """
@@ -111,7 +116,7 @@ class FlowObjSpace(ObjSpace):
             closure = [extract_cell_content(c) for c in func.func_closure]
         ec = flowcontext.FlowExecutionContext(self, code, func.func_globals,
                                               constargs, closure)
-        self.executioncontext = ec
+        self.setup_executioncontext(ec)
         ec.build_flow()
         name = ec.graph.name
         for c in "<>&!":
@@ -148,6 +153,13 @@ class FlowObjSpace(ObjSpace):
             return w_item
 
     def call_args(self, w_callable, args):
+        try:
+            sc = self.specialcases[self.unwrap(w_callable)]
+        except (UnwrapException, KeyError):
+            pass
+        else:
+            return sc(self, args)
+
         if args.kwds_w:
             w_args, w_kwds = args.pack()
             return self.do_operation('call', w_callable, w_args, w_kwds)

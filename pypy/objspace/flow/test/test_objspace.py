@@ -222,6 +222,30 @@ class TestFlowObjSpace(testit.TestCase):
         x = self.codetest(self.freevar(3))
         self.show(x)
 
+    #__________________________________________________________
+    def raise1(msg):
+        raise IndexError
+    
+    def test_raise1(self):
+        x = self.codetest(self.raise1)
+        self.show(x)
+
+    #__________________________________________________________
+    def raise2(msg):
+        raise IndexError, msg
+    
+    def test_raise2(self):
+        x = self.codetest(self.raise2)
+        self.show(x)
+
+    #__________________________________________________________
+    def raise3(msg):
+        raise IndexError(msg)
+    
+    def test_raise3(self):
+        x = self.codetest(self.raise3)
+        self.show(x)
+
 
 if __name__ == '__main__':
     testit.main()
