@@ -1,12 +1,15 @@
 import autopath
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
-from pypy.objspace.flow.model import Block, Link
+from pypy.objspace.flow.model import Block, Link, uniqueitems
 
 
 class TypeMatch:
     def __init__(self, s_type, type_cls):
         self.s_type = s_type
         self.type_cls = type_cls
+
+class TyperError:
+    pass
 
 
 class Specializer:
@@ -28,12 +31,13 @@ class Specializer:
 
     def specialize(self):
         for block in self.annotator.annotated:
-            if block.operations:
+            if block.operations != ():
                 self.specialize_block(block)
 
     def settype(self, a, type_cls):
         """Set the type_cls of a Variable or Constant."""
-        assert not hasattr(a, 'type_cls')
+        if hasattr(a, 'type_cls') and a.type_cls != type_cls:
+            raise TyperError, "inconsitent type for %r" % (a,)
         a.type_cls = type_cls
 
     def setbesttype(self, a):
@@ -56,7 +60,12 @@ class Specializer:
         """Get the operation(s) needed to convert 'v' to the given type."""
         ops = []
         if isinstance(v, Constant):
-            self.settype(v, type_cls)  # mark the concrete type of the Constant
+            try:
+                # mark the concrete type of the Constant
+                self.settype(v, type_cls)
+            except TyperError:
+                v = Constant(v.value)   # need a copy of the Constant
+                self.settype(v, type_cls)
 
         elif v.type_cls is not type_cls:
             # XXX do we need better conversion paths?
@@ -123,6 +132,7 @@ class Specializer:
             #    a2 in the inserted block before conversion
             #    a3 in the inserted block after conversion
             #    a4 in the original target block's inputargs
+            # warning, link.args may contain the same Variable multiple times!
             convargs = []
             convops = []
             for i in range(len(link.args)):
@@ -135,9 +145,11 @@ class Specializer:
             # if there are conversion operations, they are inserted into
             # a new block along this link
             if convops:
+                vars = uniqueitems([a1 for a1 in link.args
+                                       if isinstance(a1, Variable)])
                 newblock = Block([])
                 mapping = {}
-                for a1 in link.args:
+                for a1 in vars:
                     a2 = Variable()
                     a2.type_cls = a1.type_cls
                     newblock.inputargs.append(a2)
@@ -146,6 +158,9 @@ class Specializer:
                 newblock.closeblock(Link(convargs, link.target))
                 newblock.renamevariables(mapping)
                 link.target = newblock
+                link.args[:] = vars
+            else:
+                link.args[:] = convargs   # some Constants may have changed
 
     def getspecializedop(self, op, bindings):
         specializations = self.specializationdict.get(op.opname, ())

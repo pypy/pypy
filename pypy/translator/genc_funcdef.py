@@ -3,7 +3,7 @@ from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.objspace.flow.model import Block, Link
 from pypy.objspace.flow.model import last_exception, last_exc_value
-from pypy.translator.simplify import remove_direct_loops
+from pypy.translator.unsimplify import remove_direct_loops
 from pypy.interpreter.pycode import CO_VARARGS
 from types import FunctionType
 
@@ -44,8 +44,11 @@ class FunctionDef:
         self.wrapper_name = None                                     # pyfn_xxx
         self.globalobject_name = None                                # gfunc_xxx
         self.localscope = namespace.localScope()
+
+        # get the flow graph, and ensure that there is no direct loop in it
+        # as we cannot generate valid code for this case.
         self.graph = graph = genc.translator.getflowgraph(func)
-        remove_direct_loops(graph) # this can introduce new vars! we need to declare them
+        remove_direct_loops(genc.translator, graph)
         checkgraph(graph)
         graph_args = graph.getargs()
 

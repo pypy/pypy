@@ -1,5 +1,5 @@
 import inspect
-from pypy.objspace.flow.model import traverse
+from pypy.objspace.flow.model import traverse, Block
 from pypy.translator.tool.make_dot import DotGen, make_dot, make_dot_graphs
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from pypy.annotation import model
@@ -123,6 +123,16 @@ class FlowGraphPage(GraphPage):
                 cause_history = (
                     self.annotator.binding_cause_history.get(var, []))
                 self.binding_history[var.name] = zip(history, cause_history)
+
+        def visit(node):
+            if isinstance(node, Block):
+                for var in node.getvariables():
+                    if hasattr(var, 'type_cls'):
+                        info = self.links.get(var.name, var.name)
+                        info = '(%s) %s' % (var.type_cls.__name__, info)
+                        self.links[var.name] = info
+        for graph in graphs:
+            traverse(visit, graph)
 
     def followlink(self, varname):
         # clicking on a variable name shows its binding history

@@ -3,8 +3,6 @@
 'Syntactic-ish' simplifications on a flow graph.
 
 simplify_graph() applies all simplifications defined in this file.
-See also remove_direct_loops(), which is a 'de-simplification' useful
-for code generators.
 """
 
 from pypy.objspace.flow.model import *
@@ -101,21 +99,6 @@ def remove_implicit_exceptions(graph):
                 link.prevblock.exits = tuple(lst)
                 if len(lst) <= 1:
                     link.prevblock.exitswitch = None
-    traverse(visit, graph)
-
-def remove_direct_loops(graph):
-    """This is useful for code generators: it ensures that no link has
-    common input and output variables, which could occur if a block's exit
-    points back directly to the same block.  It allows code generators to be
-    simpler because they don't have to worry about overwriting input
-    variables when generating a sequence of assignments."""
-    def visit(link):
-        if isinstance(link, Link) and link.prevblock is link.target:
-            # insert an empty block with fresh variables.
-            intermediate = [Variable() for a in link.args]
-            b = Block(intermediate)
-            b.closeblock(Link(intermediate, link.target))
-            link.target = b
     traverse(visit, graph)
 
 def transform_dead_op_vars(graph):

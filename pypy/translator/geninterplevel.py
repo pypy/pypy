@@ -23,7 +23,6 @@ from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
-from pypy.translator.simplify import remove_direct_loops
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from pypy.annotation import model as annmodel
 from types import FunctionType, CodeType, ModuleType
