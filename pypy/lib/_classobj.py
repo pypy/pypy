@@ -269,7 +269,7 @@ class instance(object):
         elif name == '__class__':
             if not isinstance(value, classobj):
                 raise TypeError("__class__ must be set to a class")
-            instance_class_slot.__set__(inst, value)
+            instance_class_slot.__set__(self, value)
         else:
             setattr = instance_getattr1(self, '__setattr__', exc=False)
             if setattr is not None:
