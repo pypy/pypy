@@ -19,6 +19,7 @@ class Sys(ExtModule):
         appdir = os.path.join(pypydir, 'pypy', 'appspace')
         self.w_path = space.newlist([appdir] + [p for p in cpy_sys.path if p!= pypydir])
         self.w_modules = space.newdict([])
+        self.w_builtin_module_names = space.newlist([])
         ExtModule.__init__(self, space)
 
     stdout = cpy_sys.stdout
@@ -30,6 +31,15 @@ class Sys(ExtModule):
         w_name = self.space.getattr(w_module, self.space.wrap('__name__'))
         self.space.setitem(self.w_modules, w_name, w_module)
 
+    def _setbuiltinmodule(self, w_module):
+        """ put a module into modules list and builtin_module_names """
+        w_name = self.space.getattr(w_module, self.space.wrap('__name__'))
+        append = self.space.getattr(self.w_builtin_module_names,
+                               self.space.wrap('append'))
+        self.space.call(append, self.space.newtuple((w_name,)),
+                        self.space.newdict([]))
+        self.space.setitem(self.w_modules, w_name, w_module)
+        
     def displayhook(self, w_x):
         space = self.space
         w = space.wrap

@@ -53,14 +53,14 @@ class ObjSpace:
         # an almost functional 'builtin' attribute on the space
         self.builtin._initcompiledbuiltins()
 
-        self.sys._setmodule(self.w_builtin)
+        self.sys._setbuiltinmodule(self.w_builtin)
 
     def make_sys(self):
         assert not hasattr(self, 'sys')
         from pypy.module import sysmodule
         self.sys = sysmodule.Sys(self)
         self.w_sys = self.wrap(self.sys)
-        self.sys._setmodule(self.w_sys)
+        self.sys._setbuiltinmodule(self.w_sys)
 
     # XXX get rid of this. 
     def get_builtin_module(self, name):
