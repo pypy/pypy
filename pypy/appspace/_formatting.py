@@ -127,22 +127,22 @@ class Formatter(object):
                 sign = ''
         return v, sign
 
-    def numeric_postprocess(self, r, sign):
+    def numeric_postprocess(self, r, sign,prefix=""):
         assert self.char in 'iduoxXeEfFgG'
         padchar = ' '
         if self.flags.f_zero:
             padchar = '0'
         if self.width is not None:
-            p = self.width - len(r) - len(sign)
+            p = self.width - len(r) - len(sign) -len(prefix)
             if self.flags.f_ljust:
-                r = sign + r + ' '*p
+                r = sign + prefix + r + ' '*p
             else:
                 if self.flags.f_zero:
-                    r = sign+padchar*p + r
+                    r = sign+prefix+padchar*p + r
                 else:
-                    r = padchar*p + sign + r
+                    r = padchar*p + sign + prefix + r
         else:
-            r = sign + r
+            r = sign + prefix + r
         return r
 
     def format(self):
@@ -175,7 +175,7 @@ def maybe_int(value):
     try:
         inter = value.__int__
     except AttributeError:
-        raise TypeError, "an integer argument is required"
+        raise TypeError, "int argument required"
     return inter()
 
 
@@ -183,7 +183,7 @@ def maybe_float(value):
     try:
         floater = value.__float__
     except AttributeError:
-        raise TypeError, "a float argument is required"
+        raise TypeError, "float argument required"
     return floater()
 
 
@@ -267,13 +267,19 @@ class HexFormatter(Formatter):
     def format(self):
         v, sign = self.numeric_preprocess(maybe_int(self.value))
         r = hex(v)[2:]
+        if r[-1]=="L":
+            # workaround weird behavior of CPython's hex
+            r = r[:-1].lower()
         if self.prec is not None and len(r) < self.prec:
             r = '0'*(self.prec - len(r)) + r
         if self.flags.f_alt:
-            r = '0x' + r
+            prefix = '0x'
+        else:
+            prefix = ''
         if self.char == 'X':
             r = r.upper()
-        return self.numeric_postprocess(r, sign)
+            prefix = prefix.upper()
+        return self.numeric_postprocess(r, sign, prefix)
 
 
 class OctFormatter(Formatter):
@@ -281,7 +287,9 @@ class OctFormatter(Formatter):
     def format(self):
         v, sign = self.numeric_preprocess(maybe_int(self.value))
         r = oct(v)
-        if not self.flags.f_alt:
+        if r[-1] == "L":
+            r = r[:-1]
+        if v and not self.flags.f_alt:
             r = r[1:]
         if self.prec is not None and len(r) < self.prec:
             r = '0'*(self.prec - len(r)) + r
@@ -376,8 +384,8 @@ def format(fmt, values, valuedict=None):
                     f = format_registry[t[0]]
                 except KeyError:
                     raise ValueError("unsupported format character "
-                                     "'%s' (%x) at index %d"
-                                     %(t[0], ord(t[0]), fmtiter.i))
+                                     "'%s' (0x%x) at index %d"
+                                     %(t[0], ord(t[0]), fmtiter.i-1))
                 # Trying to translate this using the flow space.
                 # Currently, star args give a problem there,
                 # so let's be explicit about the args:
