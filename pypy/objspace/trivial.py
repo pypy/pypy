@@ -11,7 +11,7 @@ import operator, types, new, sys
 
 class TrivialObjSpace(ObjSpace):
 
-    def clone_exception_heirachy(self):
+    def clone_exception_hierarchy(self):
         from pypy.interpreter.pycode import PyByteCode
         def __init__(self, *args):
             self.args = args
@@ -82,7 +82,7 @@ class TrivialObjSpace(ObjSpace):
             if isinstance(c, types.TypeType):
                 setattr(self, 'w_' + c.__name__, c)
                 newstuff[c.__name__] = c
-        newstuff.update(self.clone_exception_heirachy())
+        newstuff.update(self.clone_exception_hierarchy())
         self.make_builtins()
         self.make_sys()
         # insert these into the newly-made builtins
