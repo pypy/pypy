@@ -27,7 +27,10 @@ import types
 import unittest
 
 from pypy.tool import testit
-from pypy.appspace.complexobject import complex as pycomplex
+#from pypy.appspace.complexobject import complex as pycomplex
+from pypy.module.test.applevel_in_cpython import applevel_in_cpython
+our_own_builtin = applevel_in_cpython('__builtin__')
+pycomplex = our_own_builtin.complex
     
 
 try:
@@ -60,7 +63,7 @@ def equal(a, b):
 
 
 def enumerate():
-    valueRange = xrange(-3, 3)
+    valueRange = [-3, -0.5, 0, 1]
     res = []
     for x0 in valueRange:
         for y0 in valueRange:
@@ -76,9 +79,7 @@ def enumerate():
 
 
 
-if 0:    # DISABLED -- we know it works all right and don't want to see them
-         #             take time any more for the time being
-  class TestComplex(unittest.TestCase):
+class TestComplex(unittest.TestCase):
 
     def assertAEqual(self, a, b):
         if not equal(a, b):

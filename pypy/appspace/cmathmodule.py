@@ -6,7 +6,6 @@ functions for complex numbers."""
 # much code borrowed from mathmodule.c
 
 import math
-from complexobject import complex
 
 M_PI = 3.141592653589793239
 

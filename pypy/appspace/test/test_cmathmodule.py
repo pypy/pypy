@@ -15,20 +15,22 @@ import sys
 import unittest
 import autopath
 
-#try:
 from pypy.tool import testit
 from pypy.appspace import cmathmodule
-from pypy.appspace.complexobject import complex as pycomplex
-#except ImportError:
-#    import cmathmodule
-#    from pypy.complexobject import complex as pycomplex
+from pypy.appspace.test.test_complexobject import equal
 
-from pypy.appspace.test.test_complexobject import equal, enumerate
+def enumerate():
+    valueRange = [-12.34, -3, -1, -0.5, 0, 0.5, 1, 3, 12.34]
+    res = []
+    for x0 in valueRange:
+        for y0 in valueRange:
+            z = complex(x0,y0)
+            res.append(z)
+    return res
 
 
-if 0:    # DISABLED -- we know it works all right and don't want to see them
-         #             take time any more for the time being
-  class TestCMathModule(testit.TestCase):
+
+class TestCMathModule(testit.TestCase):
 
     def assertAEqual(self, a, b):
         if not equal(a, b):
@@ -37,35 +39,26 @@ if 0:    # DISABLED -- we know it works all right and don't want to see them
     def test_funcs(self):
         "Compare many functions with CPython."
         
-        for (z0c, z1c, z0p, z1p) in enumerate():
-            mc = z0c*z1c
-            mp = z0p*z1p
-            self.assertAEqual(mc, mp)
+        for z in enumerate():
 
             for op in "sqrt acos acosh asin asinh atan atanh cos cosh exp".split():
-                if op == "atan" and equal(z0c, complex(0,-1)) or equal(z0c, complex(0,1)):
+                if op == "atan" and equal(z, complex(0,-1)) or equal(z, complex(0,1)):
                     continue
-                if op == "atanh" and equal(z0c, complex(-1,0)) or equal(z0c, complex(1,0)):
+                if op == "atanh" and equal(z, complex(-1,0)) or equal(z, complex(1,0)):
                     continue
-                op0 = cmath.__dict__[op](z0c)
-                op1 = cmathmodule.__dict__[op](z0p)
+                op0 = cmath.__dict__[op](z)
+                op1 = cmathmodule.__dict__[op](z)
                 self.assertAEqual(op0, op1)
-
-            # check divisions
-            if equal(z0c, complex(0,0)) or equal(z1c, complex(0,0)):
-                continue
-            self.assertAEqual(mc/z0c, mp/z0p)
-            self.assertAEqual(mc/z1c, mp/z1p)
 
 
     def test_log_log10(self):
         "Compare log/log10 functions with CPython."
         
-        for (z0c, z1c, z0p, z1p) in enumerate():
+        for z in enumerate():
             for op in "log log10".split():
-                if z0p != 0:
-                    op0 = cmath.__dict__[op](z0c)
-                    op1 = cmathmodule.__dict__[op](z0p)
+                if z != 0:
+                    op0 = cmath.__dict__[op](z)
+                    op1 = cmathmodule.__dict__[op](z)
                     self.assertAEqual(op0, op1)
 
 
