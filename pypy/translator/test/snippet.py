@@ -401,6 +401,12 @@ global_c.a = 1
 def global_newstyle_instance():
     return global_c
 
+global_rl = []
+global_rl.append(global_rl)
+
+def global_recursive_list():
+    return global_rl
+
 def powerset(setsize=int):
     """Powerset
 

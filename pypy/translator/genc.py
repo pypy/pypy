@@ -30,22 +30,21 @@ class GenC:
         self.translator = translator
         self.modname = (modname or
                         uniquemodulename(translator.functions[0].__name__))
-        self.cnames = {(type(None), None): 'Py_None',
-                       (   bool,   False): 'Py_False',
-                       (   bool,    True): 'Py_True',
+        self.cnames = {Constant(None).key:  'Py_None',
+                       Constant(False).key: 'Py_False',
+                       Constant(True).key:  'Py_True',
                        }
         self.seennames = {}
-        self.initcode = []
+        self.initcode = []     # list of lines for the module's initxxx()
+        self.latercode = []    # list of generators generating extra lines
+                               #   for later in initxxx() -- for recursive
+                               #   objects
         self.globaldecl = []
         self.pendingfunctions = []
         self.gen_source()
 
     def nameof(self, obj):
-        key = type(obj), obj   # to avoid confusing e.g. 0 and 0.0
-        try:
-            hash(key)
-        except TypeError:
-            key = id(obj)
+        key = Constant(obj).key
         try:
             return self.cnames[key]
         except KeyError:
@@ -130,18 +129,17 @@ class GenC:
     def nameof_instance(self, instance):
         name = self.uniquename('ginst_' + instance.__class__.__name__)
         cls = self.nameof(instance.__class__)
-        content = instance.__dict__.items()
-        content.sort()
-        lines = []
-        for key, value in content:
-            lines.append('INITCHK(SETUP_INSTANCE_ATTR(%s, "%s", %s))' % (
-                name, key, self.nameof(value)))
+        def initinstance():
+            content = instance.__dict__.items()
+            content.sort()
+            for key, value in content:
+                yield 'INITCHK(SETUP_INSTANCE_ATTR(%s, "%s", %s))' % (
+                    name, key, self.nameof(value))
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(SETUP_INSTANCE(%s, %s))' % (
             name, cls))
-        self.initcode.extend(lines)
+        self.latercode.append(initinstance())
         return name
-        
 
     def nameof_builtin_function_or_method(self, func):
         import __builtin__
@@ -162,22 +160,22 @@ class GenC:
             base = self.nameof(bases[0])
         else:
             base = '(PyObject*) &PyBaseObject_Type'
-        content = cls.__dict__.items()
-        content.sort()
-        lines = []
-        for key, value in content:
-            if key.startswith('__') and key != '__init__':
-                if key in ['__module__', '__doc__', '__dict__',
-                           '__weakref__', '__repr__']:
-                    continue
-                # XXX some __NAMES__ are important... nicer solution sought
-                #raise Exception, "unexpected name %r in class %s"%(key, cls)
-            lines.append('INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
-                name, key, self.nameof(value)))
+        def initclassobj():
+            content = cls.__dict__.items()
+            content.sort()
+            for key, value in content:
+                if key.startswith('__') and key != '__init__':
+                    if key in ['__module__', '__doc__', '__dict__',
+                               '__weakref__', '__repr__']:
+                        continue
+                    # XXX some __NAMES__ are important... nicer solution sought
+                    #raise Exception, "unexpected name %r in class %s"%(key, cls)
+                yield 'INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
+                    name, key, self.nameof(value))
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(SETUP_CLASS(%s, "%s", %s))' % (
             name, cls.__name__, base))
-        self.initcode.extend(lines)
+        self.latercode.append(initclassobj())
         return name
 
     nameof_class = nameof_classobj   # for Python 2.2
@@ -189,38 +187,38 @@ class GenC:
 
     def nameof_tuple(self, tup):
         name = self.uniquename('g%dtuple' % len(tup))
-        lines = []
-        for i in range(len(tup)):
-            item = self.nameof(tup[i])
-            lines.append('\tPy_INCREF(%s);' % item)
-            lines.append('\tPyTuple_SET_ITEM(%s, %d, %s);' % (name, i, item))
+        def inittuple():
+            for i in range(len(tup)):
+                item = self.nameof(tup[i])
+                yield '\tPy_INCREF(%s);' % item
+                yield '\tPyTuple_SET_ITEM(%s, %d, %s);' % (name, i, item)
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyTuple_New(%d))' % (name, len(tup)))
-        self.initcode.extend(lines)
+        self.latercode.append(inittuple())
         return name
 
     def nameof_list(self, lis):
         name = self.uniquename('g%dlist' % len(lis))
-        lines = []
-        for i in range(len(lis)):
-            item = self.nameof(lis[i])
-            lines.append('\tPy_INCREF(%s);' % item)
-            lines.append('\tPyList_SET_ITEM(%s, %d, %s);' % (name, i, item))
+        def initlist():
+            for i in range(len(lis)):
+                item = self.nameof(lis[i])
+                yield '\tPy_INCREF(%s);' % item
+                yield '\tPyList_SET_ITEM(%s, %d, %s);' % (name, i, item)
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyList_New(%d))' % (name, len(lis)))
-        self.initcode.extend(lines)
+        self.latercode.append(initlist())
         return name
 
     def nameof_dict(self, dic):
         name = self.uniquename('g%ddict' % len(dic))
-        lines = []
-        for k in dic:
-            assert type(k) is str, "can only dump dicts with string keys"
-            lines.append('\tINITCHK(PyDict_SetItemString(%s, "%s", %s) >= 0)'%(
-                name, k, self.nameof(dic[k])))
+        def initdict():
+            for k in dic:
+                assert type(k) is str, "can only dump dicts with string keys"
+                yield '\tINITCHK(PyDict_SetItemString(%s, "%s", %s) >= 0)'%(
+                    name, k, self.nameof(dic[k]))
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyDict_New())' % (name,))
-        self.initcode.extend(lines)
+        self.latercode.append(initdict())
         return name
             
 
@@ -235,8 +233,14 @@ class GenC:
         print >> f, self.C_HEADER
 
         # function implementations
-        for func in self.pendingfunctions:
+        while self.pendingfunctions:
+            func = self.pendingfunctions.pop(0)
             self.gen_cfunction(func)
+            # collect more of the latercode after each function
+            while self.latercode:
+                gen = self.latercode.pop(0)
+                self.initcode.extend(gen)
+            self.gen_global_declarations()
 
         # footer
         print >> f, self.C_INIT_HEADER % info
@@ -244,16 +248,20 @@ class GenC:
             print >> f, '\t' + codeline
         print >> f, self.C_INIT_FOOTER % info
 
-    def gen_cfunction(self, func):
-        f = self.f
-        body = list(self.cfunction_body(func))
+    def gen_global_declarations(self):
         g = self.globaldecl
         if g:
+            f = self.f
             print >> f, '/* global declaration%s */' % ('s'*(len(g)>1))
             for line in g:
                 print >> f, line
             print >> f
             del g[:]
+
+    def gen_cfunction(self, func):
+        f = self.f
+        body = list(self.cfunction_body(func))
+        self.gen_global_declarations()
 
         # print header
         name = self.nameof(func)

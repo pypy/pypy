@@ -106,7 +106,12 @@ class NoTypeCGenTestCase(testit.IntTestCase):
     def test_global_newstyle_instance(self):
         global_newstyle_instance = self.build_cfunc(snippet.global_newstyle_instance)
         self.assertEquals(global_newstyle_instance().a, 1)
-        
+
+    def test_global_recursive_list(self):
+        global_recursive_list = self.build_cfunc(snippet.global_recursive_list)
+        lst = global_recursive_list()
+        self.assertEquals(len(lst), 1)
+        self.assert_(lst[0] is lst)
 
 class TypedTestCase(testit.IntTestCase):
 
