@@ -142,6 +142,19 @@ class GenRpy:
                     else:
                         localnames[v.name] = ret = "v%d" % len(localnames)
                 return ret
+            scorepos = n.rfind("_")
+            print n, scorepos
+            if scorepos >= 0 and n[scorepos+1:].isdigit():
+                name = n[:scorepos]
+                ret = localnames.get(v.name)
+                if not ret:
+                    if wrapped:
+                        fmt = "w_%s_%d"
+                    else:
+                        fmt = "%s_%d"
+                    localnames[v.name] = ret = fmt % (name, len(localnames))
+                print ret
+                return ret
         elif isinstance(v, Constant):
             return self.nameof(v.value,
                                debug=('Constant in the graph of', self.currentfunc))
@@ -164,7 +177,7 @@ class GenRpy:
                 fmt = ("_tup = space.newtuple([%(args)s])\n"
                         "%(res)s = space.call(%(func)s, _tup)")
                 # see if we can optimize for a fast call.
-                # we justdo the very simple ones.
+                # we just do the very simple ones.
                 if self.use_fast_call and (isinstance(v, Constant)
                                            and exv.startswith('gfunc_')):
                     func = v.value
@@ -276,6 +289,15 @@ class GenRpy:
         else:
             return self.uniquename('%s_%d' % (basename, n))
 
+    def uniquelocalname(self, basename, seennames):
+        basename = basename.translate(C_IDENTIFIER)
+        n = seennames.get(basename, 0)
+        seennames[basename] = n+1
+        if n == 0:
+            return basename
+        else:
+            return self.uniquelocalname('%s_%d' % (basename, n), seennames)
+
     def nameof_object(self, value):
         if type(value) is not object:
             #raise Exception, "nameof(%r) in %r" % (value, self.currentfunc)
@@ -302,7 +324,9 @@ class GenRpy:
         if value >= 0:
             name = 'gi_%d' % value
         else:
-            name = 'gim_%d' % abs(value)
+            # make sure that the type ident is completely described by
+            # the prefixbefore the initial '_' for easy postprocessing
+            name = 'gi_minus_%d' % abs(value)
         name = self.uniquename(name)
         self.initcode.append('m.%s = space.newint(%d)' % (name, value))
         return name
@@ -319,7 +343,9 @@ class GenRpy:
         if value >= 0:
             name = 'glong_%s' % s
         else:
-            name = 'glongm_%d' % abs(value)
+            # mae sure that the type ident is completely described by
+            # the prefix  before the initial '_'
+            name = 'glong_minus_%d' % abs(value)
         name = self.uniquename(name)
         self.initcode.append('m.%s = space.wrap(%s) # XXX implement long!' % (name, s))
         return name
@@ -425,10 +451,15 @@ class GenRpy:
             content.sort()
             for key, value in content:
                 if self.should_translate_attr(instance, key):
-                    yield 'space.setattr(%s, %s, %s)' % (
-                        name, self.nameof(key), self.nameof(value))
+                    try:
+                            yield 'space.setattr(%s, %s, %s)' % (
+                                name, self.nameof(key), self.nameof(value))
+                    except:
+                        print >>sys.stderr, "Problem while generating %s of %r" % (
+                                name, instance)
+                        raise
         if isinstance(instance, Exception):
-            # specialcase for exception instances: wrap them directly
+            # special-case for exception instances: wrap them directly
             self.initcode.append('_ins = %s()\n'
                                  'm.%s = space.wrap(_ins)' % (
                 instance.__class__.__name__, name))
@@ -746,6 +777,21 @@ class GenRpy:
             pass # self.initcode.append('# REGISTER_GLOBAL(%s)' % (name,))
         del g[:]
 
+
+    def render_docstr(self, func, indent_str, q='"""', redo=True):
+        doc = func.__doc__
+        if doc is None:
+            return []
+        doc2 = ""
+        if q in doc and redo:
+            doc2 = self.render_docstr(func, indent_str, "'''", False)
+        doc = indent_str + q + doc.replace(q, "\\"+q) + q
+        if not redo:
+            return doc # recursion case
+        doc = (doc, doc2)[len(doc2) < len(doc)]
+        assert func.__doc__ == eval(doc, {}), "check geninterplevel!!"
+        return [line for line in doc.split('\n')]
+    
     def gen_rpyfunction(self, func):
 
         f = self.f
@@ -764,6 +810,7 @@ class GenRpy:
         self.gen_global_declarations()
 
         # print header
+        doc_lines = self.render_docstr(func, "    ")
         cname = self.nameof(func)
         assert cname.startswith('gfunc_')
         f_name = 'f_' + cname[6:]
@@ -794,13 +841,15 @@ class GenRpy:
         fast_set = dict(zip(fast_args, fast_args))
 
         # create function declaration
-        name = func.__name__
+        name = self.trans_funcname(func.__name__) # for <lambda>
         argstr = ", ".join(fast_args)
         fast_function_header = ('def %s(space, %s):'
-                                % (fast_name, argstr))
+                                % (name, argstr))
 
-        print >> f, 'def %s(space, *args_w):' % (f_name,)
-        kwlist = ['"%s"' % name for name in
+        print >> f, 'def %s(space, *args_w):' % (name,)
+        for line in doc_lines:
+            print >> f, line
+        kwlist = ['"%s"' % var for var in
                       func.func_code.co_varnames[:func.func_code.co_argcount]]
         print >> f, '    kwlist = [%s]' % (', '.join(kwlist),)
 
@@ -825,7 +874,7 @@ class GenRpy:
         print >> f, '    defaults_w = (%s)' % tupstr(name_of_defaults)
 
         theargs = [arg for arg in fast_args if arg != varname]
-        txt = ('from pypy.translator.genrpy import PyArg_ParseMini\n'
+        txt = ('from pypy.translator.geninterplevel import PyArg_ParseMini\n'
                'm.PyArg_ParseMini = PyArg_ParseMini\n'
                'from pypy.interpreter.error import OperationError\n'
                'm.OperationError = OperationError')
@@ -839,9 +888,12 @@ class GenRpy:
             txt = '    PyArg_ParseMini(space, funcname, %d, %d, _args_w, defaults_w)'
             print >>f, txt % (min_number_of_args, len(positional_args))
         print >> f, '    return %s(space, %s)' % (fast_name, ', '.join(fast_args))
+        print >> f, '%s = globals().pop("%s")' % (f_name, name)
         print >> f
 
         print >> f, fast_function_header
+        for line in doc_lines:
+            print >> f, line
 
         fast_locals = [arg for arg in localnames if arg not in fast_set]
         if fast_locals:
@@ -855,6 +907,7 @@ class GenRpy:
         # print the body
         for line in body:
             print >> f, line
+        print >> f, '%s = globals().pop("%s")' % (fast_name, name)
         print >> f
 
         # print the PyMethodDef
@@ -1044,6 +1097,26 @@ def PyArg_ParseMini(space, name, minargs, maxargs, args_w, defaults_w):
 def somefunc(arg):
     pass
 
+# XXX problem with local functions:
+def randint(low, high, seed = 1234567): # really not a real random
+    return (seed % (high-low)) + low
+
+def small_loop():
+    ''' this is a test for small loops.
+    How would we generate small blocks which call
+    each other? Hey, and """ is a doc string test """
+    '''
+    #from random import randint
+    # does not work. flowspace really complains on random.
+    # XXX we also seem to have problems with local functions
+    #def randint(low, high, seed = 1234567): # really not a real random
+    #    return (seed % (high-low)) + low
+                
+    for i in range(10000):
+        r = randint(0, 10000)
+        if r > 9000:
+            return r
+
 def f(a,b):
 ##    print "start"
     a = []
@@ -1066,6 +1139,10 @@ def f(a,b):
 class TestClass:pass
 
 def ff(a, b, c=3,*rest):
+    """ this is
+    some
+    docstring
+"""
     try:
         try:
             if rest:
@@ -1147,11 +1224,17 @@ def test_struct():
     res2 = struct.unpack('f', struct.pack('f',1.23))
     return res1, res2
 
+def test_exceptions():
+    from pypy.appspace import _exceptions
+    _exceptions.Exception()
+    #return [thing for thing in _exceptions.__dict__.values()]
+    
 def all_entries():
     res = [func() for func in entry_points[:-1]]
     return res
 
-entry_points = (lambda: f(2, 3),
+entry_points = (small_loop,
+                lambda: f(2, 3),
                 lambda: ff(2, 3, 5),
                 fff,
                 lambda: app_str_decode__String_ANY_ANY("hugo"),
@@ -1161,7 +1244,8 @@ entry_points = (lambda: f(2, 3),
                 test_iter,
                 test_strutil,
                 test_struct,
-               all_entries)
+                test_exceptions,
+                all_entries)
 entry_point = entry_points[-2]
 
 if __name__ == "__main__":
