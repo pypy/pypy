@@ -34,7 +34,6 @@ import pypy
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.objspace.flow.model import Constant
 
-
 class SomeObject:
     """The set of all objects.  Each instance stands
     for an arbitrary object about which nothing is known."""
@@ -138,7 +137,7 @@ class SomeCallable(SomeObject):
         # callables is a dictionary containing concrete python 
         # callable objects as keys and - in the case of a method - 
         # the value contains the classdef (see SomeMethod above) 
-        self.callables = callables 
+        self.callables = callables
         if len(callables) == 1:
             self.const, = callables
 
@@ -207,8 +206,13 @@ def immutablevalue(x):
         result = SomeTuple(items = [immutablevalue(e) for e in x])
     elif ishashable(x) and x in BUILTIN_FUNCTIONS:
         result = SomeBuiltin(BUILTIN_FUNCTIONS[x])
-    elif callable(x): 
-        result = SomeCallable({x : True}) 
+    elif callable(x):
+        if hasattr(x, '__self__') and x.__self__ is not None:
+            x_self = immutablevalue(x.__self__)
+            x_name = immutablevalue(x.__name__)
+            result = x_self.getattr(x_name, hack=True)
+        else:
+            result = SomeCallable({x : True})
     elif hasattr(x, '__class__') and x.__class__.__module__ != '__builtin__':
         result = SomePrebuiltConstant({x: True}) # pre-built inst:
     else:

@@ -1,4 +1,5 @@
 from pypy.interpreter.baseobjspace import OperationError
+from pypy.tool.frozendict import frozendict
 
 
 class FailedToImplement(Exception):
@@ -61,6 +62,7 @@ class AbstractMultiMethod(object):
         try:
             return self.cache_table[argclasses]
         except KeyError:
+            assert not isinstance(self.cache_table, frozendict)
             calllist = []
             self.internal_buildcalllist(argclasses, delegate, calllist)
             result = self.internal_compilecalllist(argclasses, calllist)

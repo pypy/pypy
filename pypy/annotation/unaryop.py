@@ -38,7 +38,7 @@ class __extend__(SomeObject):
             else:
                 return SomeBool()
 
-    def getattr(obj, s_attr):
+    def getattr(obj, s_attr, hack=False):
         # get a SomeBuiltin if the SomeObject has
         # a corresponding method to handle it
         if s_attr.is_constant() and isinstance(s_attr.const, str):
@@ -47,7 +47,7 @@ class __extend__(SomeObject):
             if analyser is not None:
                 return SomeBuiltin(analyser, obj)
             # if the SomeObject is itself a constant, allow reading its attrs
-            if obj.is_constant() and hasattr(obj.const, attr):
+            if not hack and obj.is_constant() and hasattr(obj.const, attr):
                 return immutablevalue(getattr(obj.const, attr))
         return SomeObject()
 
@@ -164,7 +164,7 @@ class __extend__(SomeCallable):
         """ turn the callables in the given SomeCallable 'cal' 
             into bound versions.
         """
-        d = {}
+        d = cal.callables.copy()
         for func, value in cal.callables.items():
             if isinstance(func, FunctionType): 
                 if isclassdef(value): 
