@@ -26,11 +26,8 @@ def eliminate_empty_blocks(graph):
     victims = True
     while victims:
         victims = False
-        victimlist = []
         entrymap = graph.mkentrymap()
         for node in graph.flatten():
-            if node in victimlist:
-                continue
             if isinstance(node, BasicBlock) and len(node.operations) == 0:
                 prevnodes = entrymap[node]
                 if len(prevnodes) != 1:
@@ -39,17 +36,14 @@ def eliminate_empty_blocks(graph):
                 nextbranch = node.branch
                 if not isinstance(prevbranch, Branch) or isinstance(nextbranch, EndBranch):
                    continue 
-                # 
+                # renaming ... (figure it out yourself :-)
                 if len(prevbranch.args) > len(nextbranch.args):
                     prevbranch.args = prevbranch.args[:len(nextbranch.args)]
                 else:
                     prevbranch.args.extend(nextbranch.args[len(prevbranch.args):])
                 prevbranch.target = nextbranch.target
-                targetentrylist = entrymap[nextbranch.target]
-                targetentrylist.remove(nextbranch)
-                targetentrylist.append(prevbranch)
-                victimlist.append(node)
-                victimlist.append(nextbranch)
-        victims = len(victimlist) > 0
+                print "eliminated", node, nextbranch
+                victims = True
+                break
     return graph
 
