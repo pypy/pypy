@@ -3,6 +3,8 @@ import os, sys, unittest, re, warnings, unittest, traceback
 from unittest import TestCase, TestLoader
 
 import pypy.interpreter.unittest_w
+from pypy.tool.optik import make_option
+from pypy.tool import optik
 
 IntTestCase = pypy.interpreter.unittest_w.IntTestCase
 AppTestCase = pypy.interpreter.unittest_w.AppTestCase
@@ -211,7 +213,7 @@ class Options:
     verbose = 0
     spacename = ''
     showwarning = 0
-    allspaces = []
+    spaces = []
     testreldir = 0
     runcts = 0
 
@@ -241,64 +243,48 @@ class RegexFilterFunc:
             if include(arg):
                 return arg
 
-def print_usage():
-    print >>sys.stderr, """\
-%s [-chrvST] [regex1] [regex2] [...]
+def get_standard_options():
+    options = []
 
-  -c  run CtsTestRunner (catches stdout and prints report after testing)
-      [unix only, for now]
-  -h  this help message
-  -r  gather only tests relative to current dir
-  -v  increase verbosity level (including unittest-verbosity)
-  -w  enable warnings from warnings framework (default is off)
-  -S  run in standard object space 
-  -T  run in trivial object space (default)
+    def objspace_callback(option, opt, value, parser, space):
+        parser.values.spaces.append(space)
 
-  The regular expressions regex1, regex2 ... are matched
-  against the full python path of a test module. A leading
-  '%%' before a regex means that the matching result is to
-  be inverted.
-""" % sys.argv[0]
-    raise SystemExit(1)
+    options.append(make_option(
+        '-S', action="callback",
+        callback=objspace_callback, callback_args=("std",),
+        help="run in std object space"))
+    options.append(make_option(
+        '-T', action="callback",
+        callback=objspace_callback, callback_args=("trivial",),
+        help="run in trivial object space"))
+    options.append(make_option(
+        '-v', action="count", dest="verbose"))
+    options.append(make_option(
+        '-w', action="store_true", dest="showwarning"))
 
-def process_options(argv=[]):
-    """ invoke this if you want to process test-switches from sys.argv"""
+    return options
 
-    if not argv:
-        argv[:] = sys.argv[1:]
+def get_test_options():
+    options = get_standard_options()
+    options.append(make_option(
+        '-r', action="store_true", dest="testreldir",
+        help="gather only tests relative to current dir"))
+    options.append(make_option(
+        '-c', action="store_true", dest="runcts",
+        help="run CtsTestRunner (catches stdout and prints report "
+        "after testing) [unix only, for now]"))
+    return options
 
-    try:
-        import getopt
-        opts, args = getopt.getopt(argv, "chrvST")
-    except getopt.error, msg:
-        print msg
-        print "Try `python %s -h' for help" % sys.argv[0]
-        sys.exit(2)
-
-    for k,v in opts:
-        if k == '-h':
-            print_usage()
-        elif k == '-c':
-            Options.runcts = 1
-        elif k == '-r':
-            Options.testreldir = 1
-        elif k == '-w':
-            Options.showwarning = 1
-        elif k == '-h':
-            print_usage()
-        elif k == '-v':
-            Options.verbose += 1
-        elif k == '-S':
-            Options.spacename = 'std'
-            Options.allspaces.append('std')
-        elif k == '-T':
-            Options.spacename = 'trivial'
-            Options.allspaces.append('trivial')
-            
+def process_options(optionlist, argv=None):
+    op = optik.OptionParser()
+    op.add_options(optionlist)
+    options, args = op.parse_args(argv, Options)
+    if not options.spaces:
+        options.spaces = ['trivial']
     return args
 
 def run_tests(suite):
-    for spacename in Options.allspaces or ['']:
+    for spacename in Options.spaces or ['']:
         run_tests_on_space(suite, spacename)
 
 def run_tests_on_space(suite, spacename=''):
@@ -318,7 +304,8 @@ def run_tests_on_space(suite, spacename=''):
 def main(root=None):
     """ run this to test everything in the __main__ or
     in the given root-directory (recursive)"""
-    args = process_options()
+    args = process_options(get_test_options())
+    
     filterfunc = RegexFilterFunc(*args)
     if Options.testreldir:
         root = os.path.abspath('.')
