@@ -92,6 +92,24 @@ def compile(w_str, w_filename, w_startstr,
         raise OperationError(space.w_TypeError,space.wrap(str(e)))
     return space.wrap(PyCode()._from_code(c))
 
+def eval(w_source, w_globals=None, w_locals=None):
+    w = space.wrap
+
+    if space.is_true(space.isinstance(w_source, space.w_str)):
+        w_codeobj = compile(w_source, w("<string>"), w("eval"))
+    elif isinstance(space.unwrap(w_source), PyCode):
+        w_codeobj = w_source
+    else:
+        raise OperationError(space.w_TypeError,
+              w('eval() arg 1 must be a string or code object'))
+
+    if w_globals is None:
+        w_globals = globals()
+        w_locals = locals()
+    elif w_locals is None:
+        w_locals = w_globals
+
+    return space.unwrap(w_codeobj).exec_code(space, w_globals, w_locals)
 
 def abs(w_val):
     return space.abs(w_val)

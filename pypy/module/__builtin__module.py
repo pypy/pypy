@@ -427,7 +427,7 @@ from __interplevel__ import abs, chr, len, ord, pow, repr
 from __interplevel__ import hash, oct, hex, round
 from __interplevel__ import getattr, setattr, delattr, iter, hash, id
 from __interplevel__ import issubclass, _pypy_get
-from __interplevel__ import compile
+from __interplevel__ import compile, eval
 from __interplevel__ import globals, locals, _caller_globals, _caller_locals
 
 from __interplevel__ import file
