@@ -336,3 +336,8 @@ class AppTestW_ListObject:
         l += [4,5]
         assert l is l0
         assert l == [1,2,3,4,5]
+
+    def test_index(self):
+        l = ['a', 'b', 'c', 'd', 'e', 'f']
+        raises(TypeError, l.index, 'c', 0, 4.3)
+        raises(TypeError, l.index, 'c', 1.0, 5.6)

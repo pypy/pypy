@@ -78,6 +78,10 @@ def indices4(space, w_slice, length):
             space.int_w(w_3), space.int_w(w_4))
 
 def adapt_bound(space, w_index, w_size):
+    if not (space.is_true(space.isinstance(w_index, space.w_int)) or
+            space.is_true(space.isinstance(w_index, space.w_long))):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("slice indices must be integers"))
     if space.is_true(space.lt(w_index, space.wrap(0))):
         w_index = space.add(w_index, w_size)
         if space.is_true(space.lt(w_index, space.wrap(0))):
