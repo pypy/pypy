@@ -1,7 +1,7 @@
 import autopath
 from pypy.tool import test
 from pypy.tool.udir import udir
-from pypy.translator.test.test_pyrextrans import make_cfunc
+from pypy.translator.tool.buildpyxmodule import build_cfunc
 from pypy.translator.test.test_cltrans import global_cl, make_cl_func
 
 def benchmark(func):
@@ -9,7 +9,7 @@ def benchmark(func):
         func = func.im_func
     except AttributeError:
         pass
-    c_func = make_cfunc(func)
+    c_func = build_cfunc(func, dot=False)
     if global_cl:
         cl_func = make_cl_func(func)
     print "generated c-func for", func.func_name

@@ -23,8 +23,9 @@ Task: try tests of CPython in PyPy
 
 Task: generate a nice dot-graph from the structure of PyPy
 
-Task: integrate the code in translator, with a script that can be 
+Task: integrate the code in translator, with a script that can be
       invoked from the command-line to play with sample source code
+(Note: partially done with translator.py.)
 
 Task: trash the standard unittest framework/enhance it
 
