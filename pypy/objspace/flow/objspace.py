@@ -11,6 +11,13 @@ debug = 0
 class UnwrapException(Exception):
     "Attempted to unwrap a Variable."
 
+class WrapException(Exception):
+    """Attempted wrapping of a type that cannot sanely appear in flow graph or during its construction"""
+
+# method-wrappers
+method_wrapper = type(complex.real.__get__)
+
+
 # ______________________________________________________________________
 class FlowObjSpace(ObjSpace):
     """NOT_RPYTHON.
@@ -97,6 +104,10 @@ class FlowObjSpace(ObjSpace):
     def wrap(self, obj):
         if isinstance(obj, (Variable, Constant)) and obj is not UNDEFINED:
             raise TypeError("already wrapped: " + repr(obj))
+        # method-wrapper have ill-defined comparison and introspection
+        # to appear in a flow graph
+        if type(obj) is method_wrapper:
+            raise WrapException
         return Constant(obj)
 
     def int_w(self, w_obj):
@@ -391,7 +402,12 @@ def make_op(name, symbol, arity, specialnames):
                     raise flowcontext.OperationThatShouldNotBePropagatedError(
                         self.wrap(etype), self.wrap(msg))
                 else:
-                    return self.wrap(result)
+                    try:
+                        return self.wrap(result)
+                    except WrapException:
+                        # type cannot sanely appear in flow graph,
+                        # store operation with variable result instead
+                        pass
 
         #print >> sys.stderr, 'Variable operation', name, args_w
         w_result = self.do_operation(name, *args_w)
