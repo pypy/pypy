@@ -27,17 +27,21 @@ class StdObjSpace(ObjSpace):
         self.w_None  = W_NoneObject()
         self.w_False = W_BoolObject(False)
         self.w_True  = W_BoolObject(True)
-        self.make_builtins()
         # hack in the exception classes
         import __builtin__, types
+        newstuff = {"False": self.w_False,
+                    "True" : self.w_True,
+                    "None" : self.w_None,
+                    }
         for n, c in __builtin__.__dict__.iteritems():
             if isinstance(c, types.ClassType) and issubclass(c, Exception):
                 w_c = W_CPythonObject(c)
                 setattr(self, 'w_' + c.__name__, w_c)
-                self.setitem(self.w_builtins, self.wrap(c.__name__), w_c)
-        self.setitem(self.w_builtins, self.wrap("False"), self.w_False)
-        self.setitem(self.w_builtins, self.wrap("True"), self.w_True)
-        self.setitem(self.w_builtins, self.wrap("None"), self.w_None)
+                newstuff[c.__name__] = w_c
+        self.make_builtins()
+        # insert these into the newly-made builtins
+        for key, w_value in newstuff.items():
+            self.setitem(self.w_builtins, self.wrap(key), w_value)
         # add a dummy __import__  XXX fixme
         w_import = self.wrap(__import__)
         self.setitem(self.w_builtins, self.wrap("__import__"), w_import)

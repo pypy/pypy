@@ -17,6 +17,7 @@ class ObjSpace:
 
     def __init__(self):
         "Basic initialization of objects."
+        self.w_builtins = self.newdict([]) #temporary! changed by make_builtins()
         self.w_modules = self.newdict([])
         self.appfile_helpers = {}
         self.initialize()
@@ -48,7 +49,7 @@ class ObjSpace:
             helper = self.appfile_helpers[applicationfile]
         except KeyError:
             from appfile import AppHelper
-            helper = AppHelper(self, applicationfile.bytecode)
+            helper = AppHelper(self, applicationfile)
             self.appfile_helpers[applicationfile] = helper
         return helper
 

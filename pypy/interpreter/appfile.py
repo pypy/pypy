@@ -35,10 +35,12 @@ class AppFile:
 
 class Namespace:
 
-    def __init__(self, space):
+    def __init__(self, space, w_namespace=None):
         self.space = space
         ec = space.getexecutioncontext()
-        self.w_namespace = ec.make_standard_w_globals()
+        if w_namespace is None:
+            w_namespace = ec.make_standard_w_globals()
+        self.w_namespace = w_namespace
 
     def get(self, objname):
         "Returns a wrapped copy of an object by name."
@@ -68,6 +70,6 @@ class Namespace:
 
 class AppHelper(Namespace):
 
-    def __init__(self, space, bytecode):
-        Namespace.__init__(self, space)
-        self.runbytecode(bytecode)
+    def __init__(self, space, appfile, w_namespace=None):
+        Namespace.__init__(self, space, w_namespace)
+        self.runbytecode(appfile.bytecode)

@@ -1,4 +1,5 @@
 from pycode import PyBaseCode
+from appfile import AppHelper
 
 class appmethod(object):
     def __init__(self, func):
@@ -45,6 +46,7 @@ class PyBuiltinCode(PyBaseCode):
 
 
 class BuiltinModule:
+    __appfile__ = None
 
     def __init__(self, space):
         self.space = space
@@ -61,4 +63,8 @@ class BuiltinModule:
             elif isinstance(value, appdata):
                 w_data = space.wrap(value.data)
                 space.setattr(w_module, space.wrap(key), w_data)
+        appfile = self.__appfile__
+        if appfile:
+            w_dict = space.getattr(w_module, space.wrap("__dict__"))
+            AppHelper(space, appfile, w_dict)
         return w_module

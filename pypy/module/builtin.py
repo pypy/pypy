@@ -1,5 +1,6 @@
 from pypy.interpreter.extmodule import *
 from pypy.interpreter.pycode import PyByteCode
+from pypy.interpreter.appfile import AppFile
 from pypy.interpreter.executioncontext import OperationError
 
 #######################
@@ -10,6 +11,7 @@ import __builtin__ as _b
 
 class Builtin(BuiltinModule):
     __pythonname__ = '__builtin__'
+    __appfile__ = AppFile(__name__, ["module"])
 
     def chr(self, w_ascii):
         w_character = self.space.newstring([w_ascii])

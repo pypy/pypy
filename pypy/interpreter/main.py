@@ -4,6 +4,7 @@ from pypy.interpreter import executioncontext, baseobjspace, pyframe
 import sys
 
 def run_string(source, fname):
+    space = None   # in case StdObjSpace.__init__() crashes
     try:
         space = StdObjSpace()
 
@@ -40,6 +41,8 @@ def main(argv=None):
     try:
         run_file(argv[1])
     except baseobjspace.PyPyError, pypyerr:
+        if pypyerr.space is None:
+            raise pypyerr.operationerr   # does anyone have a better idea?
         pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
     except baseobjspace.OperationError, operationerr:
         operationerr.print_detailed_traceback(operationerr.space)

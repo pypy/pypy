@@ -145,7 +145,12 @@ class PyFrame:
         # initialize self.w_builtins.  This cannot be done in the '.app.py'
         # file for bootstrapping reasons.
         w_builtinsname = self.space.wrap("__builtins__")
-        w_builtins = self.space.getitem(self.w_globals, w_builtinsname)
+        try:
+            w_builtins = self.space.getitem(self.w_globals, w_builtinsname)
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_KeyError):
+                raise
+            w_builtins = self.space.w_builtins  # fall-back for bootstrapping
         # w_builtins can be a module object or a dictionary object.
         # In frameobject.c we explicitely check if w_builtins is a module
         # object.  Here we will just try to read its __dict__ attribute and
