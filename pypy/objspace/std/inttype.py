@@ -7,8 +7,8 @@ def descr__new__(space, w_inttype, w_value=None, w_base=None):
     if w_base is None:
         w_base = space.w_None
     if w_value is None:
-        space.newint(0)
-    if w_base == space.w_None and not space.is_true(space.isinstance(w_value, space.w_str)):
+        w_obj = space.newint(0)
+    elif w_base == space.w_None and not space.is_true(space.isinstance(w_value, space.w_str)):
             w_obj = space.int(w_value)
     else:
         if w_base == space.w_None:
