@@ -9,6 +9,7 @@ class FunctionGraph:
     def __init__(self, name, startblock, return_var=None):
         self.name        = name    # function name (possibly mangled already)
         self.startblock  = startblock
+        self.startblock.isstartblock = True
         # build default returnblock
         self.returnblock = Block([return_var or Variable()])
         self.returnblock.operations = ()
@@ -40,6 +41,8 @@ class Link:
         self.prevblock = None      # the block this Link is an exit of
 
 class Block:
+    isstartblock = False
+    
     def __init__(self, inputargs):
         self.inputargs = inputargs    # mixed list of variable/const 
         self.operations = []          # list of SpaceOperation(s)

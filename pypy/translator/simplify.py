@@ -62,6 +62,10 @@ def join_blocks(graph):
     traverse(visit, graph)
 
 def remove_implicit_exceptions(graph):
+    """An exception that is marked implicit (see implicitexc) and not
+    caught in the block is entierely removed.  This gets rid for example
+    of possible ValueErrors upon tuple unpacking, assuming they cannot
+    happen unless there is an exception handler in the same function."""
     def visit(link):
         if isinstance(link, Link) and link in link.prevblock.exits:
             if (isinstance(link.exitcase, type(Exception)) and

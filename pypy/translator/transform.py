@@ -96,26 +96,77 @@ def transform_simple_call(self):
 
         block.operations = operations
 
-def transform_dead_operations(self):
-    """Remove dead operations."""
+def transform_dead_op_vars(self):
+    """Remove dead operations and variables that are passed over a link
+    but not used in the target block."""
     # the set of operations that can safely be removed (no side effects)
     CanRemove = {'newtuple': True,
                  'newlist': True,
                  'newdict': True}
+    read_vars = {}  # set of variables really used
+    variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
+    
+    # compute variable_flow and an initial read_vars
     for block in self.annotated:
         # figure out which variables are ever read
-        read_vars = {}
         for op in block.operations:
-            for arg in op.args:
+            if op.opname not in CanRemove:  # mark the inputs as really needed
+                for arg in op.args:
+                    read_vars[arg] = True
+            else:
+                # if CanRemove, only mark dependencies of the result
+                # on the input variables
+                deps = variable_flow.setdefault(op.result, [])
+                deps.extend(op.args)
+        
+        if block.exits:
+            for link in block.exits:
+                for arg, targetarg in zip(link.args, link.target.inputargs):
+                    deps = variable_flow.setdefault(targetarg, [])
+                    deps.append(arg)
+        else:
+            # return blocks implicitely use their single input variable
+            assert len(block.inputargs) == 1
+            read_vars[block.inputargs[0]] = True
+        # an input block's inputargs should not be modified, even if some
+        # of the function's input arguments are not actually used
+        if block.isstartblock:
+            for arg in block.inputargs:
                 read_vars[arg] = True
-        for link in block.exits:
-            for arg in link.args:
-                read_vars[arg] = True
+
+    # flow read_vars backwards so that any variable on which a read_vars
+    # depends is also included in read_vars
+    pending = list(read_vars)
+    for var in pending:
+        for prevvar in variable_flow.get(var, []):
+            if prevvar not in read_vars:
+                read_vars[prevvar] = True
+                pending.append(prevvar)
+
+    for block in self.annotated:
+        
         # look for removable operations whose result is never used
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
             if op.opname in CanRemove and op.result not in read_vars:
                 del block.operations[i]
+                
+        # look for output variables never used
+        # warning: this must be completely done *before* we attempt to
+        # remove the corresponding variables from block.inputargs!
+        # Otherwise the link.args get out of sync with the
+        # link.target.inputargs.
+        for link in block.exits:
+            for i in range(len(link.args)-1, -1, -1):
+                if link.target.inputargs[i] not in read_vars:
+                    del link.args[i]
+
+    for block in self.annotated:
+        # look for input variables never used
+        # The corresponding link.args have already been all removed above
+        for i in range(len(block.inputargs)-1, -1, -1):
+            if block.inputargs[i] not in read_vars:
+                del block.inputargs[i]
 
 def transform_graph(ann):
     """Apply set of transformations available."""
@@ -124,4 +175,4 @@ def transform_graph(ann):
     transform_simple_call(ann)
     # do this last, after the previous transformations had a
     # chance to remove dependency on certain variables
-    transform_dead_operations(ann)
+    transform_dead_op_vars(ann)
