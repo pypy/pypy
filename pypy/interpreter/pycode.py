@@ -38,8 +38,7 @@ class PyCode(eval.Code):
         self.co_lnotab = ""          # string: encoding addr<->lineno mapping
 
     def _from_code(self, code):
-        """ NOT_RPYTHON
-            Initialize the code object from a real (CPython) one.
+        """ Initialize the code object from a real (CPython) one.
             This is just a hack, until we have our own compile.
             At the moment, we just fake this.
             This method is called by our compile builtin function.
@@ -47,15 +46,42 @@ class PyCode(eval.Code):
         import types
         assert isinstance(code, types.CodeType)
         # simply try to suck in all attributes we know of
-        for name in self.__dict__.keys():
-            value = getattr(code, name)
-            setattr(self, name, value)
-        newconsts = ()
+        # with a lot of boring asserts to enforce type knowledge
+        # XXX get rid of that ASAP with a real compiler!
+        x = code.co_argcount; assert isinstance(x, int)
+        self.co_argcount = x
+        x = code.co_nlocals; assert isinstance(x, int)
+        self.co_nlocals = x
+        x = code.co_stacksize; assert isinstance(x, int)
+        self.co_stacksize = x
+        x = code.co_flags; assert isinstance(x, int)
+        self.co_flags = x
+        x = code.co_code; assert isinstance(x, str)
+        self.co_code = x
+        #self.co_consts = <see below>
+        x = code.co_names; assert isinstance(x, tuple)
+        self.co_names = x
+        x = code.co_varnames; assert isinstance(x, tuple)
+        self.co_varnames = x
+        x = code.co_freevars; assert isinstance(x, tuple)
+        self.co_freevars = x
+        x = code.co_cellvars; assert isinstance(x, tuple)
+        self.co_cellvars = x
+        x = code.co_filename; assert isinstance(x, str)
+        self.co_filename = x
+        x = code.co_name; assert isinstance(x, str)
+        self.co_name = x
+        x = code.co_firstlineno; assert isinstance(x, int)
+        self.co_firstlineno = x
+        x = code.co_lnotab; assert isinstance(x, str)
+        self.co_lnotab = x
+        # recursively _from_code()-ify the code objects in code.co_consts
+        newconsts = []
         for const in code.co_consts:
             if isinstance(const, types.CodeType):
                 const = PyCode()._from_code(const)
-            newconsts = newconsts + (const,)
-        self.co_consts = newconsts
+            newconsts.append(const)
+        self.co_consts = tuple(newconsts)
         return self
 
     def create_frame(self, space, w_globals, closure=None):
