@@ -37,3 +37,10 @@ class AppTest_ModuleObject:
         delattr(m, 'x')
         raises(AttributeError, getattr, m, 'x')
         raises(AttributeError, delattr, m, 'x')
+    def test_docstring(self):
+        import sys
+        foo = type(sys)('foo')
+        assert foo.__name__ == 'foo'
+        assert foo.__doc__ is None
+        bar = type(sys)('bar','docstring')
+        assert bar.__doc__ == 'docstring'

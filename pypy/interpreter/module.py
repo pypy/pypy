@@ -14,6 +14,8 @@ class Module(Wrappable):
         self.w_dict = w_dict
         self.w_name = w_name
         space.setitem(w_dict, space.wrap('__name__'), w_name)
+        if not space.is_true(space.contains(w_dict, space.wrap('__doc__'))):
+            space.setitem(w_dict, space.wrap('__doc__'), space.w_None)
 
     def getdict(self):
         return self.w_dict
@@ -26,7 +28,9 @@ class Module(Wrappable):
         module.__init__(space, space.wrap('?'))
         return space.wrap(module)
 
-    def descr_module__init__(self, w_name):
+    def descr_module__init__(self, w_name, w_doc=None):
         space = self.space
         self.w_name = w_name
         space.setitem(self.w_dict, space.wrap('__name__'), w_name)
+        if w_doc is not None:
+            space.setitem(self.w_dict, space.wrap('__doc__'), w_doc)
