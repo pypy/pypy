@@ -75,7 +75,7 @@ def up_down_port(lines):
     return objspace,skip
 
 
-# option -o let you pick a default objspace wich will be enforced
+# option -o let you pick a default objspace which will be enforced
 # trough a module global objspacename = 
 
 default_objspace = None
