@@ -2,12 +2,12 @@
 #  
 #
 import autopath, sys
-
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.translator.translator import Translator
 from pypy.annotation import model as annmodel
 
+import buildcache 
 
 # __________  Entry point  __________
 
@@ -23,6 +23,7 @@ def analyse(entry_point=entry_point):
     global t
     t = Translator(entry_point, verbose=True, simplifying=True)
     space = StdObjSpace()
+    #buildcache.buildcache(space) 
     a = t.annotate([annmodel.immutablevalue(space)])
     a.simplify()
 

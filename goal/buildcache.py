@@ -42,16 +42,18 @@ gateway.importall(globals())   # app_xxx() -> xxx()
 
 #######################################################
     
-def triggercachebuild(space): 
+def buildcache(space): 
+    print "triggering cache build for %r" % space 
     triggerall(space) 
     triggerexec(space)
-
-if __name__ == '__main__': 
-    space = option.objspace('std') 
-    triggercachebuild(space) 
-    #testit.main(autopath.pypydir)
     space._typecache = frozendict(space._typecache) 
     space._faketypecache = frozendict(space._faketypecache) 
     space._gatewaycache = frozendict(space._gatewaycache) 
+    print "cache build finished, caches are 'frozen' now"
+
+if __name__ == '__main__': 
+    space = option.objspace('std') 
+    buildcache(space) 
+    #testit.main(autopath.pypydir)
 
     testit.main(os.path.join(autopath.pypydir)) # , 'objspace', 'std'))
