@@ -35,11 +35,6 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         if obj1 == obj2:
             return obj1
         else:
-            #if isinstance(obj1, SomeFunction) or \
-            #   isinstance(obj2, SomeFunction): 
-            #   raise TypeError, ("generalizing not allowed:"
-            #                     "%r AND %r" % (obj1, obj2))
-            #    
             result = SomeObject()
             # try to preserve the origin of SomeObjects
             if obj1 == result:
