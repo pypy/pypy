@@ -145,7 +145,7 @@ class Specializer:
                     newblock = insert_empty_block(self.annotator.translator,
                                                   link)
                     # ...and do the conversions there.
-                    self.insert_link_conversions(block)
+                    self.insert_link_conversions(newblock)
                     break   # done with this link
                 block.operations += convops
                 link.args[i] = a1

@@ -317,6 +317,20 @@ class TestAnnotatedTestCase:
         result = fn(l, 2**64)
         assert result == list('abc')
 
+    def test_type_conversion(self):
+        # obfuscated test case specially for typer.insert_link_conversions()
+        def type_conversion(n):
+            if n > 3:
+                while n > 0:
+                    n = n-1
+                    if n == 5:
+                        n += 3.1416
+            return n
+        fn = self.getcompiled(type_conversion)
+        assert fn(3) == 3
+        assert fn(5) == 0
+        assert abs(fn(7) + 0.8584) < 1E-5
+
 
 class TestTypedTestCase(TestAnnotatedTestCase):
 
