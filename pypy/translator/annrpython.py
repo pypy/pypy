@@ -7,6 +7,7 @@ from pypy.annotation.factory import ListFactory, DictFactory
 from pypy.annotation.factory import BlockedInference, Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
+from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 
 
@@ -135,13 +136,18 @@ class RPythonAnnotator:
             raise AnnotatorError('%d blocks are still blocked' %
                                  self.annotated.values().count(False))
 
-    def binding(self, arg):
+    def binding(self, arg, in_link=None):
         "Gives the SomeValue corresponding to the given Variable or Constant."
         if isinstance(arg, Variable):
             return self.bindings[arg]
         elif isinstance(arg, UndefinedConstant):  # undefined local variables
             return annmodel.SomeImpossibleValue()
         elif isinstance(arg, Constant):
+            if arg.value is last_exception or arg.value is last_exc_value:
+                assert in_link
+                assert isinstance(in_link.exitcase, type(Exception))
+                assert issubclass(in_link.exitcase, Exception)
+                return annmodel.SomeObject()   # XXX
             return annmodel.immutablevalue(arg.value)
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
@@ -340,11 +346,10 @@ class RPythonAnnotator:
             self.links_followed[link] = True
             cells = []
             for a in link.args:
+                cell = self.binding(a, in_link=link)
                 if link.exitcase is True and a is knownvar \
-                       and not knownvarvalue.contains(self.binding(a)):
+                       and not knownvarvalue.contains(cell):
                     cell = knownvarvalue
-                else:
-                    cell = self.binding(a)
                 cells.append(cell)
             self.addpendingblock(fn, link.target, cells)
         if block in self.notify:
