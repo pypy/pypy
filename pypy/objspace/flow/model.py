@@ -13,6 +13,7 @@ class FunctionGraph:
         self.returnblock = Block([return_var or Variable()])
         self.returnblock.operations = ()
         self.returnblock.exits      = ()
+
     def getargs(self):
         return self.startblock.inputargs
 
@@ -25,7 +26,6 @@ class Link:
         self.prevblock = None      # the block this Link is an exit of
 
 class Block:
-
     def __init__(self, inputargs):
         self.inputargs = inputargs    # mixed list of variable/const 
         self.operations = []          # list of SpaceOperation(s)
@@ -63,12 +63,16 @@ class Variable:
 class Constant:
     def __init__(self, value):
         self.value = value     # a concrete value
+
     def __eq__(self, other):
         return isinstance(other, Constant) and self.value == other.value
+
     def __ne__(self, other):
         return not (self == other)
+
     def __hash__(self):
         return hash(self.value)
+
     def __repr__(self):
         return '%r' % (self.value,)
 
@@ -77,15 +81,19 @@ class SpaceOperation:
         self.opname = opname      # operation name
         self.args   = list(args)  # mixed list of var/const
         self.result = result      # either Variable or Constant instance
+
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and 
                 self.opname == other.opname and
                 self.args == other.args and
                 self.result == other.result)
+
     def __ne__(self, other):
         return not (self == other)
+
     def __hash__(self):
         return hash((self.opname,tuple(self.args),self.result))
+
     def __repr__(self):
         return "%r = %s(%s)" % (self.result, self.opname, ", ".join(map(repr, self.args)))
 
