@@ -136,7 +136,8 @@ class ClassDefLayout(GraphLayout):
                              label=repr(cdef.cls))
             attrs = cdef.attrs.items()
             attrs.sort()
-            for name, s_value in attrs:
+            for name, attrdef in attrs:
+                s_value = attrdef.getvalue()
                 dotgen.emit_node(name, shape="box", label=nottoowide(s_value))
                 dotgen.emit_edge(nameof(cdef), name, label=name)
 
