@@ -72,6 +72,9 @@ def mul__Tuple_Int(space, w_tuple, w_int):
 def mul__Int_Tuple(space, w_int, w_tuple):
     return mul__Tuple_Int(space, w_tuple, w_int)
 
+def ne__Tuple_Tuple(space, w_tuple1, w_tuple2):
+    return space.not_(eq__Tuple_Tuple(space, w_tuple1, w_tuple2))
+
 def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
@@ -88,7 +91,6 @@ def _min(a, b):
     return b
 
 def lt__Tuple_Tuple(space, w_tuple1, w_tuple2):
-    # XXX tuple_le, tuple_gt, tuple_ge, tuple_ne must also be explicitely done
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
     ncmp = _min(len(items1), len(items2))
@@ -98,6 +100,23 @@ def lt__Tuple_Tuple(space, w_tuple1, w_tuple2):
             return space.lt(items1[p], items2[p])
     # No more items to compare -- compare sizes
     return space.newbool(len(items1) < len(items2))
+
+def ge__Tuple_Tuple(space, w_tuple1, w_tuple2):
+    return space.not_(lt__Tuple_Tuple(space, w_tuple1, w_tuple2))
+
+def gt__Tuple_Tuple(space, w_tuple1, w_tuple2):
+    items1 = w_tuple1.wrappeditems
+    items2 = w_tuple2.wrappeditems
+    ncmp = _min(len(items1), len(items2))
+    # Search for the first index where items are different
+    for p in range(ncmp):
+        if not space.is_true(space.eq(items1[p], items2[p])):
+            return space.gt(items1[p], items2[p])
+    # No more items to compare -- compare sizes
+    return space.newbool(len(items1) > len(items2))
+
+def le__Tuple_Tuple(space, w_tuple1, w_tuple2):
+    return space.not_(gt__Tuple_Tuple(space, w_tuple1, w_tuple2))
 
 def repr__Tuple(space, w_tuple):
     # XXX slimy! --mwh

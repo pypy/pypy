@@ -115,5 +115,129 @@ class TestW_TupleObject(test.TestCase):
         test1((5,7,1,4), -3, 11, 2, (7, 4))
         test1((5,7,1,4), -5, 11, 2, (5, 1))
 
+    def test_eq(self):
+        w = self.space.wrap
+        
+        w_tuple0 = W_TupleObject(self.space, [])
+        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
+
+        self.assertEqual_w(self.space.eq(w_tuple0, w_tuple1),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.eq(w_tuple1, w_tuple0),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.eq(w_tuple1, w_tuple1),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.eq(w_tuple1, w_tuple2),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.eq(w_tuple2, w_tuple3),
+                           self.space.w_False)
+    def test_ne(self):
+        w = self.space.wrap
+        
+        w_tuple0 = W_TupleObject(self.space, [])
+        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
+
+        self.assertEqual_w(self.space.ne(w_tuple0, w_tuple1),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.ne(w_tuple1, w_tuple0),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.ne(w_tuple1, w_tuple1),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.ne(w_tuple1, w_tuple2),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.ne(w_tuple2, w_tuple3),
+                           self.space.w_True)
+    def test_lt(self):
+        w = self.space.wrap
+        
+        w_tuple0 = W_TupleObject(self.space, [])
+        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
+        w_tuple4 = W_TupleObject(self.space, [w(5), w(3), w(9), w(-1)])
+
+        self.assertEqual_w(self.space.lt(w_tuple0, w_tuple1),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.lt(w_tuple1, w_tuple0),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.lt(w_tuple1, w_tuple1),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.lt(w_tuple1, w_tuple2),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.lt(w_tuple2, w_tuple3),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.lt(w_tuple4, w_tuple3),
+                           self.space.w_True)
+        
+    def test_ge(self):
+        w = self.space.wrap
+        
+        w_tuple0 = W_TupleObject(self.space, [])
+        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
+        w_tuple4 = W_TupleObject(self.space, [w(5), w(3), w(9), w(-1)])
+
+        self.assertEqual_w(self.space.ge(w_tuple0, w_tuple1),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.ge(w_tuple1, w_tuple0),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.ge(w_tuple1, w_tuple1),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.ge(w_tuple1, w_tuple2),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.ge(w_tuple2, w_tuple3),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.ge(w_tuple4, w_tuple3),
+                           self.space.w_False)
+        
+    def test_gt(self):
+        w = self.space.wrap
+        
+        w_tuple0 = W_TupleObject(self.space, [])
+        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
+        w_tuple4 = W_TupleObject(self.space, [w(5), w(3), w(9), w(-1)])
+
+        self.assertEqual_w(self.space.gt(w_tuple0, w_tuple1),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.gt(w_tuple1, w_tuple0),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.gt(w_tuple1, w_tuple1),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.gt(w_tuple1, w_tuple2),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.gt(w_tuple2, w_tuple3),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.gt(w_tuple4, w_tuple3),
+                           self.space.w_False)
+        
+    def test_le(self):
+        w = self.space.wrap
+        
+        w_tuple0 = W_TupleObject(self.space, [])
+        w_tuple1 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject(self.space, [w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject(self.space, [w(5), w(3), w(99), w(-1)])
+        w_tuple4 = W_TupleObject(self.space, [w(5), w(3), w(9), w(-1)])
+
+        self.assertEqual_w(self.space.le(w_tuple0, w_tuple1),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.le(w_tuple1, w_tuple0),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.le(w_tuple1, w_tuple1),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.le(w_tuple1, w_tuple2),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.le(w_tuple2, w_tuple3),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.le(w_tuple4, w_tuple3),
+                           self.space.w_True)
+        
 if __name__ == '__main__':
     test.main()
