@@ -6,7 +6,7 @@ from py.process import cmdexec
 from py import path 
 from pypy.translator.genpyrex import GenPyrex
 
-import os, sys, inspect
+import os, sys, inspect, re
 from pypy.translator.tool import stdoutcapture
 
 debug = 0
@@ -24,6 +24,12 @@ def make_module_from_pyxstring(name, dirpath, string):
     module = make_module_from_c(cfile)
     #print "made module", module
     return module
+
+def enable_fast_compilation():
+    from distutils import sysconfig
+    opt = sysconfig.get_config_vars()['OPT']
+    opt = re.sub('-O.', '-O0', opt)
+    sysconfig.get_config_vars()['OPT'] = opt
 
 def make_module_from_c(cfile):
     from distutils.core import setup

@@ -16,6 +16,10 @@ from pypy.translator.translator import Translator
 from pypy.annotation import model as annmodel
 from pypy.tool.cache import Cache
 
+# XXX this tries to make compiling faster
+from pypy.translator.tool import buildpyxmodule
+buildpyxmodule.enable_fast_compilation()
+
 #from buildcache import buildcache
 # __________  Entry point  __________
 

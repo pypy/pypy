@@ -8,6 +8,11 @@ from pypy.translator.translator import Translator
 
 from pypy.translator.test import snippet 
 
+# XXX this tries to make compiling faster for full-scale testing
+from pypy.translator.tool import buildpyxmodule
+buildpyxmodule.enable_fast_compilation()
+
+
 class NoTypePyrexGenTestCase(testit.IntTestCase):
 
     def setUp(self):
