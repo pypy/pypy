@@ -75,12 +75,8 @@ class Module(py.test.collect.Module):
         if hasattr(self, 'space'): 
             return
         self.space = space = gettestobjspace('std') 
-        #try: 
         w_mod = make_module(space, 'unittest', mydir.join('pypy_unittest.py')) 
         self.w_TestCase = space.getattr(w_mod, space.wrap('TestCase'))
-        #except OperationError, e: 
-        #    raise py.test.Item.Failed(
-        #        excinfo=pytestsupport.AppExceptionInfo(self.space, e))
         
     def __iter__(self): 
         self._prepare() 
@@ -116,9 +112,6 @@ class AppTestCaseMethod(py.test.Item):
         self.w_teardown = w_teardown 
 
     def run(self, driver):      
-        #if sys.version_info < (2,4): 
-        #    py.test.skip("CPython 2.4 required for "
-        #                 "running CPython 2.4 regrtests")
         try: 
             self.space.call_function(self.w_setup) 
             try: 
