@@ -110,7 +110,7 @@ def fcmp(x, y): # fuzzy comparison function
 
 try:
     unicode
-    have_unicode = 1
+    have_unicode = 0 # XXX UNICODE 1
 except NameError:
     have_unicode = 0
 

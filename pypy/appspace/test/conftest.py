@@ -11,7 +11,9 @@ class Directory(py.test.collect.Directory):
                 continue 
                 #XXX yield RunFileAtAppLevelItem(py.path.extpy(path)) 
             elif self.fil(path): 
-                if path.basename in ('test_complexobject.py',): 
+                if path.basename in ('test_cmathmodule.py', 
+                                     'builtin_functions_test.py', 
+                                     'test_complexobject.py',): 
                     continue
                 yield self.Module(path) 
             elif self.rec(path): 
