@@ -27,6 +27,7 @@ class RPythonAnnotator:
         self.why_not_annotated = {} # {block: (exc_type, exc_value, traceback)}
                                     # records the location of BlockedInference
                                     # exceptions that blocked some blocks.
+        self.blocked_functions = {} # set of functions that have blocked blocks
         self.notify = {}         # {block: {factory-to-invalidate-when-done}}
         self.bindingshistory = {}# map Variables to lists of SomeValues
         self.binding_caused_by = {}     # map Variables to Factories
@@ -121,6 +122,8 @@ class RPythonAnnotator:
         if False in self.annotated.values():
             for block in self.annotated:
                 if self.annotated[block] is False:
+                    fn = self.why_not_annotated[block][1].break_at[0]
+                    self.blocked_functions[fn] = True
                     import traceback
                     print '-+' * 30
                     print 'BLOCKED block at:',

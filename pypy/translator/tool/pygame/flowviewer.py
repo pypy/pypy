@@ -157,9 +157,13 @@ class TranslatorLayout(GraphLayout):
         self.name_by_object = {}
         dotgen = DotGen('translator')
         dotgen.emit('mclimit=15.0')
-        
+
         # show the call graph
         functions = translator.functions
+        if translator.annotator:
+            blocked_functions = translator.annotator.blocked_functions
+        else:
+            blocked_functions = {}
         highlight_functions = getattr(translator, 'highlight_functions', {}) # XXX
         dotgen.emit_node('entry', fillcolor="green", shape="octagon",
                          label="Translator\\nEntry Point")
@@ -169,7 +173,9 @@ class TranslatorLayout(GraphLayout):
             if class_ is not None:
                 name = '%s.%s' % (class_.__name__, name)
             data = self.labelof(func, name)
-            if func in highlight_functions:
+            if func in blocked_functions:
+                kw = {'fillcolor': 'red'}
+            elif func in highlight_functions:
                 kw = {'fillcolor': '#ffcccc'}
             else:
                 kw = {}
