@@ -153,9 +153,9 @@ class FlowObjSpace(ObjSpace):
     def unpackiterable(self, w_iterable, expected_length=None):
         if isinstance(w_iterable, Variable) and expected_length is None:
             # XXX TEMPORARY HACK XXX TEMPORARY HACK XXX TEMPORARY HACK
-            print ("*** cannot unpack a Variable iterable "
-                   "without knowing its length,")
-            print "    assuming a list or tuple with up to 7 items"
+            #print ("*** cannot unpack a Variable iterable "
+            #       "without knowing its length,")
+            #print "    assuming a list or tuple with up to 7 items"
             items = []
             w_len = self.len(w_iterable)
             i = 0
