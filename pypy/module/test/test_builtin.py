@@ -1,9 +1,6 @@
 import testsupport
 
-from pypy.interpreter import unittest_w
-from pypy.objspace.std import StdObjSpace
-
-class TestCompile(unittest_w.TestCase_w):
+class TestBuiltin(testsupport.TestCase):
 
    def setUp(self):
       self.space = testsupport.objspace()

@@ -1,10 +1,8 @@
-import testsupport, unittest
-from pypy.interpreter.unittest_w import TestCase_w
-from pypy.objspace.std.objspace import StdObjSpace
+import testsupport
 
-class SysTests(TestCase_w):
+class SysTests(testsupport.TestCase):
     def setUp(self):
-        self.space = StdObjSpace()
+        self.space = testsupport.objspace()
         self.sys_w = self.space.getitem(self.space.w_modules,
                                         self.space.wrap("sys"))
     def tearDown(self):
@@ -15,5 +13,5 @@ class SysTests(TestCase_w):
         self.failUnless_w(s.getattr(self.sys_w, s.wrap("stdout")))
 
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()
 
