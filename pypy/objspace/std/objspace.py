@@ -157,7 +157,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         global W_TupleObject, W_ListObject, W_DictObject, W_StringObject
         global W_TypeObject, W_SliceObject, W_LongObject, W_NoneObject
         global W_SeqIterObject
-        global W_FakeFile
         W_ObjectObject = objectobject.W_ObjectObject
         W_BoolObject = boolobject.W_BoolObject
         W_IntObject = intobject.W_IntObject
@@ -194,14 +193,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_type = self.gettypeobject(typedef)
             setattr(self, 'w_' + typedef.name, w_type)
             for_builtins[typedef.name] = w_type
-
-        import fake
-        W_FakeFile = fake.fake_type(self, file)
-
-        self.w_file = self.gettypeobject(W_FakeFile.typedef)
-        for_builtins['file'] = self.w_file
-        self.fake_type_cache[file] = W_FakeFile
-        
         
         # exceptions
         for_builtins.update(self.clone_exception_hierarchy())

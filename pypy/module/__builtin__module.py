@@ -13,6 +13,8 @@ object = __interplevel__eval('space.w_object')
 # XXX these are faked:
 basestring = __interplevel__eval('space.wrap(basestring)')
 unicode = __interplevel__eval('space.wrap(unicode)')
+file = __interplevel__eval('space.wrap(file)')
+open = file
 
 # TODO Fix this later to show Ctrl-D on Unix
 quit = exit = "Use Ctrl-Z (i.e. EOF) to exit."
@@ -445,9 +447,6 @@ from __interplevel__ import getattr, setattr, delattr, iter, hash, id
 from __interplevel__ import issubclass
 from __interplevel__ import compile, eval
 from __interplevel__ import globals, locals, _caller_globals, _caller_locals
-
-from __interplevel__ import file
-from __interplevel__ import file as open
 
 # The following must be the last import from __interplevel__ because it
 # overwrites the special __import__ hook with the normal one.

@@ -8,7 +8,6 @@ from pypy.interpreter.error import OperationError
 _noarg = object()
 
 import __builtin__ as cpy_builtin
-w_file = space.wrap(cpy_builtin.file)
 
 # import useful app-level functions
 from __applevel__ import execfile, callable, _iter_generator
