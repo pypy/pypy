@@ -9,8 +9,8 @@ class TestMin(testsupport.TestCase):
    def tearDown(self):
       pass
 
-   def test_min_one(self):
-      self.assertEqual(min(1), 1)
+   def test_min_notseq(self):
+      self.assertRaises(TypeError, min, 1)
 
    def test_min_usual(self):
       self.assertEqual(min(1, 2, 3), 1)
@@ -44,8 +44,8 @@ class TestMax(testsupport.TestCase):
    def tearDown(self):
       pass
 
-   def test_max_one(self):
-      self.assertEqual(max(1), 1)
+   def test_max_notseq(self):
+      self.assertRaises(TypeError, max, 1)
 
    def test_max_usual(self):
       self.assertEqual(max(1, 2, 3), 3)
