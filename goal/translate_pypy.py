@@ -47,8 +47,8 @@ def analyse(entry_point=entry_point):
         a.simplify()
         t.frozen = True   # cannot freeze if we don't have annotations
 
-    if options['--mark-some-objects']:
-        find_someobjects(a)
+        if options['--mark-some-objects']:
+            find_someobjects(a)
 
 
 def find_someobjects(annotator):
