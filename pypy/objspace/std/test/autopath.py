@@ -49,6 +49,33 @@ def __dirinfo(part):
         if os.path.join(os.path.realpath(orig), '').startswith(pypy_root):
             sys.path.remove(orig)
     sys.path.insert(0, head)
+
+    munged = {}
+    for name, mod in sys.modules.items():
+        fn = getattr(mod, '__file__', None)
+        if '.' in name or not isinstance(fn, str):
+            continue
+        newname = os.path.splitext(os.path.basename(fn))[0]
+        path = os.path.join(os.path.dirname(os.path.realpath(fn)), '')
+        if path.startswith(pypy_root) and newname != part:
+            modpaths = os.path.normpath(path[len(pypy_root):]).split(os.sep)
+            if newname != '__init__':
+                modpaths.append(newname)
+            modpath = '.'.join(modpaths)
+            if modpath not in sys.modules:
+                munged[modpath] = mod
+
+    for name, mod in munged.iteritems():
+        if name not in sys.modules:
+            sys.modules[name] = mod
+        if '.' in name:
+            prename = name[:name.rfind('.')]
+            postname = name[len(prename)+1:]
+            if prename not in sys.modules:
+                __import__(prename)
+                if not hasattr(sys.modules[prename], postname):
+                    setattr(sys.modules[prename], postname, mod)
+
     return partdir, this_dir
 
 def __clone():
