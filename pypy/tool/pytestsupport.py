@@ -155,3 +155,7 @@ def raises_w(space, w_ExpectedException, *args, **kwds):
     except py.test.Item.ExceptionFailure, e:
         e.tbindex = getattr(e, 'tbindex', -1) - 1
         raise
+
+def eq_w(space, w_obj1, w_obj2): 
+    """ return interp-level boolean of eq(w_obj1, w_obj2). """ 
+    return space.is_true(space.eq(w_obj1, w_obj2))
