@@ -446,8 +446,10 @@ def %(name)s(self, x, *args):
                                                w_args, w_kwargs)
         else:
             try:
-                impl = w_descr.__get__(w_obj, type(w_obj))
-                return impl(*w_args, **w_kwargs)
+                obj = self.unwrap(w_obj)
+                if hasattr(w_descr, '__get__'):
+                    obj = w_descr.__get__(obj, type(obj))
+                return obj(*w_args, **w_kwargs)
             except:
                 self.reraise()
 
@@ -457,8 +459,10 @@ def %(name)s(self, x, *args):
                                                         *args_w, **kwargs_w)
         else:
             try:
-                impl = w_descr.__get__(w_obj, type(w_obj))
-                return impl(*args_w, **kwargs_w)
+                obj = self.unwrap(w_obj)
+                if hasattr(w_descr, '__get__'):
+                    obj = w_descr.__get__(obj, type(obj))
+                return obj(*args_w, **kwargs_w)
             except:
                 #import traceback; traceback.print_exc()
                 self.reraise()
