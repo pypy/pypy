@@ -1,5 +1,5 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import *
+from pypy.interpreter.baseobjspace import ObjSpace
 
 class DescrOperation:
 
@@ -89,9 +89,11 @@ class DescrOperation:
         return space.get_and_call_function(w_descr,w_obj,w_key)
 
 
-    # special cases
+    # not_ has a default implementation
 
-    # xxx what about not_,round,ord
+    # xxx round, not_ 
+
+
 
 # helpers
 
@@ -227,7 +229,9 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
             _impl_maker = _make_unaryop_impl    
         if _impl_maker:
             setattr(DescrOperation,_name,_impl_maker(_specialnames))
-        elif _name not in ['id','type','issubtype']:
+        elif _name not in ['id','type','issubtype',
+                           # not really to be defined in DescrOperation
+                           'ord','not_','round']:
             print "missing %s" % _name
             
             
