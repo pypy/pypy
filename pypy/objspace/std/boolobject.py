@@ -27,6 +27,7 @@ registerimplementation(W_BoolObject)
 # to an .intval one
 def delegate__Bool(space, w_bool):
     return intobject.W_IntObject(space, int(w_bool.boolval))
+delegate__Bool.result_class = intobject.W_IntObject
 delegate__Bool.priority = PRIORITY_PARENT_TYPE
 
 

@@ -38,31 +38,184 @@ class AbstractMultiMethod(object):
         self.operatorsymbol = operatorsymbol
         self.dispatch_table = {}
         self.cache_table = {}
+        self.cache_delegator_key = None
 
     def register(self, function, *types):
-        for type in types:
-            if (hasattr(type, 'dispatchclass') and
-                'dispatchclass' not in type.__dict__):
-                raise error, ('looks like you forgot to call\n'
-                              'registerimplementation(%r)' % type)
-        # W_ANY can be used as a placeholder to dispatch on any value.
         functions = self.dispatch_table.setdefault(types, [])
         if function not in functions:
             functions.append(function)
             self.cache_table.clear()
 
+    def compile_calllist(self, argclasses, delegate):
+        """Compile a list of calls to try for the given classes of the
+        arguments. Return a function that should be called with the
+        actual arguments."""
+        if delegate.key is not self.cache_delegator_key:
+            self.cache_table.clear()
+            self.cache_delegator_key = delegate.key
+        try:
+            return self.cache_table[argclasses]
+        except KeyError:
+            calllist = []
+            self.internal_buildcalllist(argclasses, delegate, calllist)
+            result = self.internal_compilecalllist(argclasses, calllist)
+            self.cache_table[argclasses] = result
+            return result
+
+    def internal_compilecalllist(self, argclasses, calllist):
+        """Translate a call list into the source of a Python function
+        which is optimized and doesn't do repeated conversions on the
+        same arguments."""
+        if len(calllist) == 1:
+            fn, conversions = calllist[0]
+            if conversions.count([]) == len(conversions):
+                # no conversion, just calling a single function: return
+                # that function directly
+                return fn
+        
+        #print '**** compile **** ', self.operatorsymbol, [
+        #    t.__name__ for t in argclasses]
+        arglist = ['a%d'%i for i in range(len(argclasses))] + ['*extraargs']
+        source = ['def do(space,%s):' % ','.join(arglist)]
+        converted = [{(): 'a%d'%i} for i in range(len(argclasses))]
+
+        def make_conversion(argi, convlist):
+            if tuple(convlist) in converted[argi]:
+                return converted[argi][tuple(convlist)]
+            else:
+                prev = make_conversion(argi, convlist[:-1])
+                new = '%s_%d' % (prev, len(converted[argi]))
+                fname = all_functions.setdefault(convlist[-1],
+                                                 'd%d' % len(all_functions))
+                source.append(' %s = %s(space,%s)' % (new, fname, prev))
+                converted[argi][tuple(convlist)] = new
+                return new
+
+        all_functions = {}
+        has_firstfailure = False
+        for fn, conversions in calllist:
+            # make the required conversions
+            fname = all_functions.setdefault(fn, 'f%d' % len(all_functions))
+            arglist = [make_conversion(i, conversions[i])
+                       for i in range(len(argclasses))] + ['*extraargs']
+            source.append(    ' try:')
+            source.append(    '  return %s(space,%s)' % (
+                fname, ','.join(arglist)))
+            if has_firstfailure:
+                source.append(' except FailedToImplement:')
+            else:
+                source.append(' except FailedToImplement, firstfailure:')
+                has_firstfailure = True
+            source.append(    '  pass')
+
+        # complete exhaustion
+        if has_firstfailure:
+            source.append(' raise firstfailure')
+        else:
+            source.append(' raise FailedToImplement()')
+        source.append('')
+
+        # compile the function
+        glob = {'FailedToImplement': FailedToImplement}
+        for fn, fname in all_functions.items():
+            glob[fname] = fn
+        #for key, value in glob.items():
+        #    print key, '=', value
+        #for line in source:
+        #    print line
+        exec '\n'.join(source) in glob
+        return glob['do']
+
+    def internal_buildcalllist(self, argclasses, delegate, calllist):
+        """Build a list of calls to try for the given classes of the
+        arguments. The list contains 'calls' of the following form:
+        (function-to-call, list-of-list-of-converters)
+        The list of converters contains a list of converter functions per
+        argument, with [] meaning that no conversion is needed for
+        that argument."""
+        # look for an exact match first
+        arity = self.arity
+        assert arity == len(argclasses)
+        dispatchclasses = tuple([(c,) for c in argclasses])
+        choicelist = self.buildchoices(dispatchclasses)
+        seen_functions = {}
+        no_conversion = [[]] * arity
+        for signature, function in choicelist:
+            calllist.append((function, no_conversion))
+            seen_functions[function] = 1
+
+        # proceed by expanding the last argument by delegation, step by step
+        # until no longer possible, and then the previous argument, and so on.
+        expanded_args = ()
+        expanded_dispcls = ()
+
+        for argi in range(arity-1, -1, -1):
+            # growing tuple of dispatch classes we can delegate to
+            curdispcls = dispatchclasses[argi]
+            assert len(curdispcls) == 1
+            # maps each dispatch class to a list of converters
+            curargs = {curdispcls[0]: []}
+            # reduce dispatchclasses to the arguments before this one
+            # (on which no delegation has been tried yet)
+            dispatchclasses = dispatchclasses[:argi]
+            no_conversion = no_conversion[:argi]
+            
+            while 1:
+                choicelist = delegate.buildchoices((curdispcls,))
+                # the list is sorted by priority
+                progress = False
+                for (t,), function in choicelist:
+                    if function is None:
+                        # this marks a decrease in the priority.
+                        # Don't try delegators with lower priority if
+                        # we have already progressed.
+                        if progress:
+                            break
+                    else:
+                        assert hasattr(function, 'result_class'), (
+                            "delegator %r must have a result_class" % function)
+                        nt = function.result_class
+                        if nt not in curargs:
+                            curdispcls += (nt,)
+                            srcconvs = curargs[t]
+                            if not getattr(function, 'trivial_delegation',False):
+                                srcconvs = srcconvs + [function]
+                            curargs[nt] = srcconvs
+                            progress = True
+                else:
+                    if not progress:
+                        break  # no progress, and delegators list exhausted
+
+                # progress: try again to dispatch with this new set of types
+                choicelist = self.buildchoices(
+                    dispatchclasses + (curdispcls,) + expanded_dispcls)
+                for signature, function in choicelist:
+                    if function not in seen_functions:
+                        seen_functions[function] = 1
+                        # collect arguments: arguments after position argi...
+                        after_argi = [expanded_args[j][signature[j]]
+                                      for j in range(argi+1-arity, 0)]  # nb. j<0
+                        # collect arguments: argument argi...
+                        arg_argi = curargs[signature[argi]]
+                        # collect all arguments
+                        newargs = no_conversion + [arg_argi] + after_argi
+                        # record the call
+                        calllist.append((function, newargs))
+                # end of while 1: try on delegating the same argument i
+
+            # proceed to the next argument
+            expanded_args = (curargs,) + expanded_args
+            expanded_dispcls = (curdispcls,) + expanded_dispcls
+
     def buildchoices(self, allowedtypes):
         """Build a list of all possible implementations we can dispatch to,
         sorted best-first, ignoring delegation."""
         # 'types' is a tuple of tuples of classes, one tuple of classes per
-        # argument. (Delegation needs to call buildchoice() with than one
-        # class for a single argument.)
-        try:
-            result = self.cache_table[allowedtypes]  # try from the cache first
-        except KeyError:
-            result = self.cache_table[allowedtypes] = []
-            self.internal_buildchoices(allowedtypes, (), result)
-            self.postprocessresult(allowedtypes, result)
+        # argument. (After delegation, we need to call buildchoice() with
+        # more than one possible class for a single argument.)
+        result = []
+        self.internal_buildchoices(allowedtypes, (), result)
+        self.postprocessresult(allowedtypes, result)
         #print self.operatorsymbol, allowedtypes, result
         # the result is a list a tuples (function, signature).
         return result
@@ -129,29 +282,33 @@ class DelegateMultiMethod(MultiMethod):
 
     def __init__(self):
         MultiMethod.__init__(self, 'delegate', 1, [])
-    
+        self.key = object()
+
+    def register(self, function, *types):
+        AbstractMultiMethod.register(self, function, *types)
+        self.key = object()   # change the key to force recomputation
+
     def postprocessresult(self, allowedtypes, result):
-        by_priority = {} # classify delegators by priority
-        
-        # add delegation from a class to its parent classes
+        # add delegation from a class to the *first* immediate parent class
         arg1types, = allowedtypes
-        parenttypes = []
         for t in arg1types:
-            parenttypes += list(t.__bases__)
-        if parenttypes:
-            def delegate_to_parent_classes(space, a, parenttypes=parenttypes):
-                return [(t, a) for t in parenttypes
-                        if issubclass(a.dispatchclass, t)]
-            # hard-wire it at priority 0
-            by_priority[0] = [((t,), delegate_to_parent_classes)
-                              for t in arg1types]
+            if t.__bases__:
+                base = t.__bases__[0]
+                def delegate_to_parent_class(space, a):
+                    return a
+                delegate_to_parent_class.trivial_delegation = True
+                delegate_to_parent_class.result_class = base
+                delegate_to_parent_class.priority = 0
+                # hard-wire it at priority 0
+                result.append(((t,), delegate_to_parent_class))
 
         # sort the results in priority order, and insert None marks
         # between jumps in the priority values. Higher priority values
         # first.
+        by_priority = {} # classify delegators by priority
         for signature, function in result:
             assert hasattr(function, 'priority'), (
-                "delegator function must have a priority")
+                "delegator %r must have a priority" % function)
             sublist = by_priority.setdefault(function.priority, [])
             sublist.append((signature, function))
         delegators = by_priority.items()
@@ -220,7 +377,7 @@ class BoundMultiMethod:
                 raise OperationError(*e.args)
             else:
                 # raise a TypeError for a FailedToImplement
-                initialtypes = [a.dispatchclass
+                initialtypes = [a.__class__
                                 for a in args[:self.multimethod.arity]]
                 if len(initialtypes) <= 1:
                     plural = ""
@@ -235,90 +392,10 @@ class BoundMultiMethod:
 
     def perform_call(self, args):
         arity = self.multimethod.arity
-        extraargs = args[arity:]
-
-##        if self.ASSERT_BASE_TYPE:
-##            for a in args[:arity]:
-##                assert issubclass(a.dispatchclass, self.ASSERT_BASE_TYPE), (
-##                    "multimethod '%s' call with non wrapped argument: %r" %
-##                    (self.multimethod.operatorsymbol, a))
-
-        # look for an exact match first
-        firstfailure = None
-        types = tuple([(a.dispatchclass,) for a in args])
-        choicelist = self.multimethod.buildchoices(types)
-        for signature, function in choicelist:
-            try:
-                return function(self.space, *args)
-            except FailedToImplement, e:
-                # we got FailedToImplement, record the first such error
-                firstfailure = firstfailure or e
-
-        seen_functions = {}
-        for signature, function in choicelist:
-            seen_functions[function] = 1
-
-        # proceed by expanding the last argument by delegation, step by step
-        # until no longer possible, and then the previous argument, and so on.
-        expanded_args = ()
-        expanded_types = ()
-        delegate  = self.space.delegate.multimethod
-
-        for argi in range(arity-1, -1, -1):
-            curtypes = types[argi] # growing tuple of types we can delegate to
-            assert len(curtypes) == 1
-            curobjs = {curtypes[0]: args[argi]} # maps them to actual objects
-            args = args[:argi]   # initial segments of arguments before this one
-            types = types[:argi] # same with types (no deleg tried on them yet)
-            while 1:
-                choicelist = delegate.buildchoices((curtypes,))
-                # the list is sorted by priority
-                progress = False
-                for (t,), function in choicelist:
-                    if function is None:
-                        # this marks a decrease in the priority.
-                        # Don't try delegators with lower priority if
-                        # we have already progressed.
-                        if progress:
-                            break
-                    else:
-                        converted = function(self.space, curobjs[t])
-                        if not isinstance(converted, list):
-                            converted = [(converted.dispatchclass,
-                                          converted)]
-                        for t, a in converted:
-                            if t not in curobjs:
-                                curtypes += (t,)
-                                curobjs[t] = a
-                                progress = True
-                else:
-                    if not progress:
-                        break  # no progress, and delegators list exhausted
-
-                # progress: try again to dispatch with this new set of types
-                choicelist = self.multimethod.buildchoices(
-                    types + (curtypes,) + expanded_types)
-                for signature, function in choicelist:
-                    if function not in seen_functions:
-                        seen_functions[function] = 1
-                        # collect arguments: arguments after position i...
-                        tail = [expanded_args[j][signature[j]]
-                                for j in range(argi+1-arity, 0)]  # nb. j<0
-                        # argments before and up to position i...
-                        newargs= args + (curobjs[signature[argi]],) + tuple(tail)
-                        try:
-                            return function(self.space, *newargs+extraargs)
-                        except FailedToImplement, e:
-                            # record the first FailedToImplement
-                            firstfailure = firstfailure or e
-                # end of while 1: try on delegating the same argument i
-
-            # proceed to the next argument
-            expanded_args = (curobjs,) + expanded_args
-            expanded_types = (curtypes,) + expanded_types
-
-        # complete exhaustion
-        raise firstfailure or FailedToImplement()
+        argclasses = tuple([a.__class__ for a in args[:arity]])
+        delegate = self.space.delegate.multimethod
+        fn = self.multimethod.compile_calllist(argclasses, delegate)
+        return fn(self.space, *args)
 
     def is_empty(self):
         return self.multimethod.is_empty()

@@ -42,10 +42,17 @@ def _make_bltin_subclass(cls):
     try:
         return _bltin_subclass_cache[cls]
     except:
-        subcls = type(W_Object)("%s_sub" % cls.__name__, (cls,),
-                                {'statictype'   : W_UserType,
-                                 'bltbase'      : cls,
-                                 'dispatchclass': W_UserObject})
+        subcls = type(W_Object)("%s_sub" % cls.__name__, (W_UserObject, cls),
+                                {'statictype': W_UserType})
+
+        # W_UserObject-to-the-parent-builtin-type delegation
+        def delegate_to_parent_builtin(space, w_userobj):
+            return w_userobj
+        delegate_to_parent_builtin.trivial_delegation = True
+        delegate_to_parent_builtin.result_class = cls
+        delegate_to_parent_builtin.priority = PRIORITY_PARENT_TYPE
+        StdObjSpace.delegate.register(delegate_to_parent_builtin, subcls)
+
         _bltin_subclass_cache[cls] = subcls
         return subcls
 
@@ -71,14 +78,6 @@ def getsinglebuiltintype(space, w_type):
                                                 "multiple inheritance"))
             mostspecialized = w_base
     return mostspecialized
-
-
-# W_UserObject-to-the-parent-builtin-type delegation
-# So far this is the only delegation that produces a result
-# of a variable type.
-def delegate__User(space, w_userobj):
-    return [(w_userobj.bltbase,w_userobj)]
-delegate__User.priority = PRIORITY_PARENT_TYPE
 
 
 def type__User(space, w_userobj):

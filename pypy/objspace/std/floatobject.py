@@ -28,6 +28,7 @@ registerimplementation(W_FloatObject)
 # int-to-float delegation
 def delegate__Int(space, w_intobj):
     return W_FloatObject(space, float(w_intobj.intval))
+delegate__Int.result_class = W_FloatObject
 delegate__Int.priority = PRIORITY_CHANGE_TYPE
 
 

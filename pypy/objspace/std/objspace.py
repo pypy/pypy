@@ -37,7 +37,6 @@ def registerimplementation(implcls):
     # it may be modified to take 'statictype' instead of requiring it to be
     # stored in 'implcls' itself
     assert issubclass(implcls, W_Object)
-    implcls.__dict__.setdefault('dispatchclass', implcls)
 
 
 ##################################################################

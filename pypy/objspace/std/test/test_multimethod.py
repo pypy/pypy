@@ -15,15 +15,17 @@ class X:
 def from_y_to_x(space, yinstance):
     return X(yinstance)
 
+from_y_to_x.result_class = X
 from_y_to_x.priority = 2
 
-def from_x_to_str_sometimes(space, xinstance):
-    if xinstance.value:
-        return w('!' + repr(xinstance.value))
-    else:
-        return []
+def from_x_to_str(space, xinstance):
+    #if xinstance.value:
+    return w('!' + repr(xinstance.value))
+    #else:
+    #    return []
 
-from_x_to_str_sometimes.priority = 2
+from_x_to_str.result_class = str
+from_x_to_str.priority = 2
 
 
 class Y:
@@ -65,24 +67,27 @@ class FakeObjSpace:
     add.register(add_int_any,       int, object)
 
     delegate = DelegateMultiMethod()
-    delegate.register(from_y_to_x,              Y)
-    delegate.register(from_x_to_str_sometimes,  X)
+    delegate.register(from_y_to_x,    Y)
+    delegate.register(from_x_to_str,  X)
     
     def wrap(self, x):
         return '<wrapped %r>' % (x,)
     w_TypeError = 'w_TypeError'
 
-def w(x, cache={}):
-    if type(x) in cache:
-        Stub = cache[type(x)]
-    else:
-        Stub = type(type(x))('%s_stub' % type(x).__name__, (type(x),), {})
-        Stub.dispatchclass = Stub
-        cache[type(x)] = Stub
-    return Stub(x)
+##def w(x, cache={}):
+##    if type(x) in cache:
+##        Stub = cache[type(x)]
+##    else:
+##        Stub = type(type(x))('%s_stub' % type(x).__name__, (type(x),), {})
+##        Stub.dispatchclass = Stub
+##        cache[type(x)] = Stub
+##    return Stub(x)
 
-X.dispatchclass = X
-Y.dispatchclass = Y
+##X.dispatchclass = X
+##Y.dispatchclass = Y
+
+def w(x):
+    return x
 
 
 class TestMultiMethod(test.TestCase):
@@ -127,10 +132,10 @@ class TestMultiMethod(test.TestCase):
         space = self.space
         self.assertRaises(OperationError, space.add, w([3]), w(4))
         self.assertRaises(OperationError, space.add, w(3.0), w('bla'))
-        self.assertRaises(OperationError, space.add, X(0), w("spam"))
-        self.assertRaises(OperationError, space.add, Y(666), w("egg"))
+        #self.assertRaises(OperationError, space.add, X(0), w("spam"))
+        #self.assertRaises(OperationError, space.add, Y(666), w("egg"))
 
-    def test_delegate_x_to_str_sometimes(self):
+    def test_delegate_x_to_str(self):
         space = self.space
         r = space.add(X(42), w("spam"))
         self.assertEquals(repr(r), "('add_string_string', '!42', 'spam')")
