@@ -9,7 +9,7 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeFunction, SomeMethod
 from pypy.annotation.model import SomeBuiltin, SomeIterator
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.factory import BlockedInference, getbookkeeper
+from pypy.annotation.factory import generalize
 
 
 # XXX unify this with ObjSpace.MethodTable
@@ -122,10 +122,7 @@ class __extend__(pairtype(SomeDict, SomeObject)):
     def setitem((dic1, obj2), s_value):
         assert obj2.is_constant()
         key = obj2.const
-        if key not in dic1.items or not dic1.items[key].contains(s_value):
-            bookkeeper = getbookkeeper()
-            for factory in dic1.factories:
-                factory.generalize(key, s_value, bookkeeper)
+        generalize(dic1.factories, key, s_value)
 
 
 class __extend__(pairtype(SomeTuple, SomeInteger)):
@@ -146,10 +143,7 @@ class __extend__(pairtype(SomeList, SomeInteger)):
         return lst1.s_item
 
     def setitem((lst1, int2), s_value):
-        if not lst1.s_item.contains(s_value):
-            bookkeeper = getbookkeeper()
-            for factory in lst1.factories:
-                factory.generalize(s_value, bookkeeper)
+        generalize(lst1.factories, s_value)
 
 
 class __extend__(pairtype(SomeInteger, SomeList)):

@@ -1,9 +1,9 @@
 """
 Mutable Objects Factories.
 
-A factory is associated to each point in the source that creates a mutable
-object.  The factory remembers how general an object it has to create here.
-
+A factory is associated to an SpaceOperation in the source that creates a
+mutable object, currently 'newlist' and 'call' (which can build instances).
+The factory remembers how general an object it has to create here.
 """
 
 from __future__ import generators
@@ -36,7 +36,7 @@ class Bookkeeper:
 
     def __init__(self, annotator):
         self.annotator = annotator
-        self.creationpoints = {} # map positions-in-blocks to Factories
+        self.creationpoints = {} # map position-in-a-block to its Factory
         self.userclasses = {}    # map classes to ClassDefs
         self.userclasseslist = []# userclasses.keys() in creation order
 
@@ -44,36 +44,25 @@ class Bookkeeper:
         """Start of an operation.
         The operation is uniquely identified by the given key."""
         self.position_key = position_key
-        self.choice_id = 0
         getthreadlocals().bookkeeper = self
 
     def leave(self):
         """End of an operation."""
         del getthreadlocals().bookkeeper
         del self.position_key
-        del self.choice_id
 
-    def nextchoice(self):
-        """Get the next choice key.  The keys are unique, but they follow
-        the same sequence while reflowing."""
-        # 'position_key' is an arbitrary key that identifies a specific
-        # operation, but calling nextchoice() several times during the same
-        # operation returns a different choice key.
-        key = self.position_key, self.choice_id
-        self.choice_id += 1
-        return key
-
-    def getfactory(self, factorycls, *factoryargs):
+    def getfactory(self, factorycls):
         """Get the Factory associated with the current position,
-        or if it doesn't exist yet build it with factorycls(*factoryargs)."""
-        key = self.nextchoice()
+        or build it if it doesn't exist yet."""
         try:
-            return self.creationpoints[key]
+            factory = self.creationpoints[self.position_key]
         except KeyError:
-            factory = factorycls(*factoryargs)
+            factory = factorycls()
+            factory.bookkeeper = self
             factory.position_key = self.position_key
-            self.creationpoints[key] = factory
-            return factory
+            self.creationpoints[self.position_key] = factory
+        assert isinstance(factory, factorycls)
+        return factory
 
     def getclassdef(self, cls):
         """Get the ClassDef associated with the given user cls."""
@@ -98,16 +87,26 @@ def getbookkeeper():
 #  Factories
 #
 
+def generalize(factories, *args):
+    modified = [factory for factory in factories if factory.generalize(*args)]
+    if modified:
+        for factory in modified:
+            factory.bookkeeper.annotator.reflowfromposition(factory.position_key)
+        raise BlockedInference   # reflow now
+
+
 class ListFactory:
     s_item = SomeImpossibleValue()
 
     def create(self):
         return SomeList(factories = {self: True}, s_item = self.s_item)
 
-    def generalize(self, s_new_item, bookkeeper=None):
-        self.s_item = unionof(self.s_item, s_new_item)
-        if bookkeeper:
-            bookkeeper.annotator.reflowfromposition(self.position_key)
+    def generalize(self, s_new_item):
+        if not self.s_item.contains(s_new_item):
+            self.s_item = unionof(self.s_item, s_new_item)
+            return True
+        else:
+            return False
 
 
 class DictFactory:
@@ -116,31 +115,30 @@ class DictFactory:
     def create(self):
         return SomeDict(factories = {self: True}, items = self.items)
 
-    def generalize(self, key, s_new_value, bookkeeper=None):
-        result = self.items.copy()
-        if key in result:
-            result[key] = unionof(result[key], s_new_value)
+    def generalize(self, key, s_new_value):
+        self.items = self.items.copy()
+        if key not in self.items:
+            self.items[key] = s_new_value
+            return True
+        elif not self.items[key].contains(s_new_value):
+            self.items[key] = unionof(self.items[key], s_new_value)
+            return True
         else:
-            result[key] = s_new_value
-        self.items = result
-        if bookkeeper:
-            bookkeeper.annotator.reflowfromposition(self.position_key)
+            return False
 
 
 class FuncCallFactory:
 
     def pycall(self, func, arglist):
-        return getbookkeeper().annotator.recursivecall(func, arglist, self)
+        return self.bookkeeper.annotator.recursivecall(func, arglist, self)
 
 
 class InstanceFactory:
 
-    def __init__(self, cls):
-        self.classdef = getbookkeeper().getclassdef(cls)
-        self.classdef.instancefactories[self] = True
-
-    def create(self):
-        return SomeInstance(self.classdef)
+    def create(self, cls):
+        classdef = self.bookkeeper.getclassdef(cls)
+        classdef.instancefactories[self] = True
+        return SomeInstance(classdef)
 
 
 class ClassDef:

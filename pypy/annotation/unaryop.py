@@ -131,8 +131,8 @@ class __extend__(SomeClass):
 
     def call(cls, args, kwds):
         # XXX flow into __init__
-        factory = getbookkeeper().getfactory(InstanceFactory, cls.cls)
-        return factory.create()
+        factory = getbookkeeper().getfactory(InstanceFactory)
+        return factory.create(cls.cls)
 
 
 class __extend__(SomeFunction):
