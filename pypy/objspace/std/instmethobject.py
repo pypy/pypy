@@ -1,3 +1,18 @@
+"""
+Reviewed 03-06-21
+This object should implement both bound and unbound methods.
+Currently, the bound methods work:
+__call__   tested, OK.
+
+Unbound methods do not work yet (test is broken) at least in
+application space.  Changing this module to make them work
+would be easy: test in call__InstMeth_ANY_ANY if w_instmeth
+is None; if so, insert nothing in the arguments, but rather
+perform a typetest on the first argument.  However, this would
+not be testable until getattr on a typeobject will return an
+unbound-method, which, so far, it doesn't yet.
+"""
+
 from __future__ import nested_scopes
 from pypy.objspace.std.objspace import *
 from instmethtype import W_InstMethType
@@ -13,20 +28,6 @@ class W_InstMethObject(W_Object):
 
 
 registerimplementation(W_InstMethObject)
-
-
-#def function_unwrap(space, w_function):
-#    # XXX this is probably a temporary hack
-#    def proxy_function(*args, **kw):
-#        w_arguments = space.wrap(args)
-#        w_keywords  = space.wrap(kw)
-#        w_result = func_call(space, w_function, w_arguments, w_keywords)
-#        return space.unwrap(w_result)
-#    # XXX no closure implemented
-#    return proxy_function
-#
-#StdObjSpace.unwrap.register(function_unwrap, W_FuncObject)
-
 
 def call__InstMeth_ANY_ANY(space, w_instmeth, w_arguments, w_keywords):
     w_args = space.add(space.newtuple([w_instmeth.w_im_self]),
