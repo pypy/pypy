@@ -1,5 +1,5 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import test, option
 from pypy.objspace.std import StdObjSpace
 from pypy.module.builtin import Builtin
 from pypy.interpreter import executioncontext, baseobjspace, pyframe
@@ -39,8 +39,9 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv
 
-    argv = test.process_options(argv[1:])
-    space = test.objspace()
+    argv = option.process_options(option.get_standard_options(),
+                                  option.Options)
+    space = option.objspace()
     try:
         run_file(argv[0], space)
     except baseobjspace.PyPyError, pypyerr:

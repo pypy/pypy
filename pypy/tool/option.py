@@ -1,9 +1,9 @@
+import os
 from pypy.tool import optik
 make_option = optik.make_option
 
 class Options:
     verbose = 0
-    spacename = ''
     showwarning = 0
     spaces = []    
 
@@ -28,10 +28,28 @@ def get_standard_options():
 
     return options
 
-def process_options(optionlist, argv=None, v=None):
+def process_options(optionlist, input_options, argv=None):
     op = optik.OptionParser()
     op.add_options(optionlist)
-    options, args = op.parse_args(argv, v)
-    if not options.spaces:
-        options.spaces = ['trivial']
+    options, args = op.parse_args(argv, input_options)
+    if not input_options.spaces:
+        input_options.spaces.append(os.environ.get('OBJSPACE', 'trivial'))
     return args
+
+def objspace(name='', _spacecache={}):
+    """ return singleton ObjSpace instance. 
+
+    this is configured via the environment variable OBJSPACE
+    """
+    name = name or Options.spaces[-1]
+    if name == 'std':
+        from pypy.objspace.std import Space
+    elif name == 'trivial':
+        from pypy.objspace.trivial import Space
+    else:
+        raise ValueError, "no objectspace named %s" % repr(name)
+
+    try:
+        return _spacecache[name]
+    except KeyError:
+        return _spacecache.setdefault(name, Space())

@@ -5,6 +5,7 @@ from unittest import TestCase, TestLoader
 import pypy.interpreter.unittest_w
 from pypy.tool.optik import make_option
 from pypy.tool import optik, option
+from pypy.tool.option import objspace
 
 IntTestCase = pypy.interpreter.unittest_w.IntTestCase
 AppTestCase = pypy.interpreter.unittest_w.AppTestCase
@@ -190,27 +191,10 @@ def testsuite_from_dir(root, filterfunc=None, recursive=0, loader=None):
                 suite._tests.extend(subsuite._tests)
     return suite
 
-def objspace(name='', _spacecache={}):
-    """ return singleton ObjSpace instance. 
-
-    this is configured via the environment variable OBJSPACE
-    """
-    name = name or Options.spacename or os.environ.get('OBJSPACE', 'trivial')
-    if name == 'std':
-        from pypy.objspace.std import Space
-    elif name == 'trivial':
-        from pypy.objspace.trivial import Space
-    else:
-        raise ValueError, "no objectspace named %s" % repr(name)
-
-    try:
-        return _spacecache[name]
-    except KeyError:
-        return _spacecache.setdefault(name, Space())
-
 class Options(option.Options):
     testreldir = 0
     runcts = 0
+    spacename = ''
 
 class RegexFilterFunc:
     """ stateful function to filter included/excluded strings via
@@ -270,7 +254,7 @@ def run_tests_on_space(suite, spacename=''):
 def main(root=None):
     """ run this to test everything in the __main__ or
     in the given root-directory (recursive)"""
-    args = option.process_options(get_test_options(), None, Options)
+    args = option.process_options(get_test_options(), Options)
     
     filterfunc = RegexFilterFunc(*args)
     if Options.testreldir:

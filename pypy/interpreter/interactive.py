@@ -72,7 +72,7 @@ if __name__ == '__main__':
     from pypy.tool import option
     from pypy.tool import test
     args = option.process_options(option.get_standard_options(),
-                                  None, option.Options)
-    objspace = test.objspace(option.Options.spaces[-1])
+                                  option.Options)
+    objspace = option.objspace()
     con = PyPyConsole(objspace)
     con.interact()
