@@ -6,6 +6,12 @@ from pypy.translator.java.genjava import GenJava
 from pypy.translator.test import snippet
 from pypy.translator.translator import Translator
 
+def setup_module(mod):
+    try:
+        cmdexec('javac')
+    except py.__impl__.process.cmdexec.ExecutionFailed:
+        py.test.skip("Java compiler (javac) not found.")
+
 
 class TestNoTypeCGenTestCase:
 
