@@ -32,11 +32,11 @@ def wrap_exception(space):
         w_value = space.wrap(value)
     raise OperationError, OperationError(w_exc, w_value), tb
 
-def fake_type(cpy_type, ignored=None):
+def fake_type(cpy_type):
     assert type(cpy_type) is type
-    if cpy_type in _fake_type_cache.content:
-        return _fake_type_cache.content[cpy_type]
-    assert not _fake_type_cache.frozen 
+    return _fake_type_cache.getorbuild(cpy_type, really_build_fake_type, None)
+
+def really_build_fake_type(cpy_type, ignored):
     print 'faking %r'%(cpy_type,)
     kw = {}
     for s, v in cpy_type.__dict__.items():
@@ -70,7 +70,6 @@ def fake_type(cpy_type, ignored=None):
         return w_obj.val
     StdObjSpace.unwrap.register(fake_unwrap, W_Fake)
     W_Fake.typedef.fakedcpytype = cpy_type
-    _fake_type_cache.content[cpy_type] = W_Fake
     return W_Fake
 
 # ____________________________________________________________

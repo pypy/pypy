@@ -137,7 +137,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                             
     def initialize(self):
         self._typecache = Cache()
-        self._faketypecache = Cache()
 
         # The object implementations that we want to 'link' into PyPy must be
         # imported here.  This registers them into the multimethod tables,
@@ -258,9 +257,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 assert isinstance(w_result, W_TypeObject)
                 return w_result 
         if isinstance(x, type):
-            ft = self.loadfromcache(x, fake_type, self._faketypecache)
+            ft = fake_type(x)
             return self.gettypeobject(ft.typedef)
-        ft = self.loadfromcache(type(x), fake_type, self._faketypecache)
+        ft = fake_type(type(x))
         return ft(self, x)
     wrap._specialize_ = "argtypes"
 
