@@ -826,3 +826,12 @@ thing1 = Thing1()
 def one_thing1():
     return thing1
 
+
+class Thing2(long):
+    def __new__(t,v):
+       return  long.__new__(t,v*2)
+
+thing2 = Thing2(2)
+
+def one_thing2():
+    return thing2

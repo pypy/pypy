@@ -240,8 +240,15 @@ class GenC:
         self.latercode.append((gen, self.debugstack))
 
     def nameof_instance(self, instance):
-        name = self.uniquename('ginst_' + instance.__class__.__name__)
-        cls = self.nameof(instance.__class__)
+        klass = instance.__class__
+        name = self.uniquename('ginst_' + klass.__name__)
+        cls = self.nameof(klass)
+        if hasattr(klass, '__base__'):
+            base_class = klass.__base__
+            base = self.nameof(base_class)
+        else:
+            base_class = None
+            base = cls
         def initinstance():
             content = instance.__dict__.items()
             content.sort()
@@ -253,15 +260,15 @@ class GenC:
             import copy_reg
             reduced = instance.__reduce_ex__()
             assert reduced[0] is copy_reg._reconstructor
+            assert reduced[1][1] is base_class
             state = reduced[1][2]
         else:
             state = None
         self.initcode.append('if isinstance(%s, type):' % cls)
         if state is not None:
-            #print "INST",'    %s = %s.__new__(%s, %r)' % (name, cls, cls, state)
-            self.initcode.append('    %s = %s.__new__(%s, %r)' % (name, cls, cls, state))
+            self.initcode.append('    %s = %s.__new__(%s, %r)' % (name, base, cls, state))
         else:
-            self.initcode.append('    %s = %s.__new__(%s)' % (name, cls, cls))
+            self.initcode.append('    %s = %s.__new__(%s)' % (name, base, cls))
         self.initcode.append('else:')
         self.initcode.append('    %s = new.instance(%s)' % (name, cls))
         self.later(initinstance())

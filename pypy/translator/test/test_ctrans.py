@@ -197,6 +197,10 @@ class TestNoTypeCGenTestCase:
         fn = self.build_cfunc(snippet.one_thing1)
         assert fn().thingness == 1
 
+    def test_global_const_w_new(self):
+        fn = self.build_cfunc(snippet.one_thing2)
+        assert fn() == 4
+
 class TestTypedTestCase:
 
     def getcompiled(self, func):
