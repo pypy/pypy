@@ -74,7 +74,7 @@ def inplace_xor(x1, x2):
 MethodImplementation = {
     'id':                 id,
     'type':               type,
-    'issubtype':          issubclass,
+#    'issubtype':          issubclass,
     'repr':               repr,
     'str':                str,
     'len':                len,
@@ -242,5 +242,12 @@ def call__CPython_ANY_ANY(space, w_obj, w_arguments, w_keywords):
         import sys
         wrap_exception(space)
     return space.wrap(result)
+
+def issubtype__CPython_ANY(space, w_obj, w_other):
+    return space.newbool(0)
+
+def issubtype__CPython_CPython(space, w_obj, w_other):
+    return space.newbool(issubclass(space.unwrap(w_obj),
+                                    space.unwrap(w_other)))
 
 register_all(vars())

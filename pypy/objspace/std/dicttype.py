@@ -6,7 +6,8 @@ class W_DictType(W_TypeObject):
 
     typename = 'dict'
 
-    dict_copy   = MultiMethod('copy',   1)
-    dict_items  = MultiMethod('items',  1)
-    dict_keys   = MultiMethod('keys',   1)
-    dict_values = MultiMethod('values', 1)
+    dict_copy    = MultiMethod('copy',    1)
+    dict_items   = MultiMethod('items',   1)
+    dict_keys    = MultiMethod('keys',    1)
+    dict_values  = MultiMethod('values',  1)
+    dict_has_key = MultiMethod('has_key', 2)

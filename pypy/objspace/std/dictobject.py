@@ -79,6 +79,7 @@ def unwrap__Dict(space, w_dict):
 
 def getitem__Dict_ANY(space, w_dict, w_lookup):
     data = w_dict.non_empties()
+    # XXX shouldn't this use hashing? -- mwh
     for w_key, cell in data:
         if space.is_true(space.eq(w_lookup, w_key)):
             return cell.get()
@@ -160,5 +161,15 @@ def dict_values__Dict(space, w_self):
     return space.newlist([ cell.get()
                            for w_key,cell in
                            w_self.non_empties()])
+
+def dict_has_key__Dict_ANY(space, w_self, w_lookup):
+    data = w_self.non_empties()
+    # XXX hashing? -- mwh
+    for w_key, cell in data:
+        if space.is_true(space.eq(w_lookup, w_key)):
+            return space.newbool(1)
+    else:
+        return space.newbool(0)
+    
 
 register_all(vars(), W_DictType)

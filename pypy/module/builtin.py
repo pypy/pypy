@@ -78,11 +78,16 @@ class Builtin(BuiltinModule):
             supplied_flags = 0
         else:
             supplied_flags = space.unwrap(w_supplied_flags)
+            if supplied_flags is None:
+                supplied_flags = 0
         if w_dont_inherit is None:
             dont_inherit = 0
         else:
             dont_inherit = space.unwrap(w_dont_inherit)
+            if dont_inherit is None:
+                dont_inherit = 0
 
+        #print (str, filename, startstr, supplied_flags, dont_inherit)
         c = _b.compile(str, filename, startstr, supplied_flags, dont_inherit)
         res = pycode.PyByteCode()
         res._from_code(c)

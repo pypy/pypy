@@ -291,7 +291,7 @@ def EXEC_STMT(f):
     w_globals = f.space.getitem(w_tuple,f.space.wrap(1))
     w_locals = f.space.getitem(w_tuple,f.space.wrap(2))
 
-    w_prog.eval_code(f.space, w_globals, w_locals)
+    f.space.unwrap(w_prog).eval_code(f.space, w_globals, w_locals)
     
 def POP_BLOCK(f):
     block = f.blockstack.pop()

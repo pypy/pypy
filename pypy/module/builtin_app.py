@@ -117,9 +117,9 @@ def isinstance(obj, klass_or_tuple):
        return 0
     else:
        try:
-          return issubclass(objcls, klass_or_tuple)
+           return issubclass(objcls, klass_or_tuple)
        except TypeError:
-          raise TypeError, "isinstance() arg 2 must be a class or type"
+           raise TypeError, "isinstance() arg 2 must be a class or type"
  
 def range(x, y=None, step=1):
     """ returns a list of integers in arithmetic position from start (defaults

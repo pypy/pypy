@@ -169,18 +169,20 @@ def exec_statement(prog, globals, locals,
         globals['__builtins__'] = builtins
     if not isinstance(locals, types.DictType):
         raise TypeError("exec: arg 3 must be a dictionary or None")
-    # XXX - HACK to check for code object
-    co = compile('1','<string>','eval')
-    if isinstance(prog, type(co)):
+##     # XXX - HACK to check for code object
+##     co = compile('1','<string>','eval')
+##     print prog
+    if isinstance(prog, types.CodeType):
         return (prog, globals, locals)
-    if not (isinstance(prog, types.StringTypes) or
-            isinstance(prog, types.FileType)):
+    if not isinstance(prog, types.StringTypes):
+##     if not (isinstance(prog, types.StringTypes) or
+##             isinstance(prog, types.FileType)):
         raise TypeError("exec: arg 1 must be a string, file, or code object")
-    if isinstance(prog, types.FileType):
-        flags = 0
-        ## XXX add in parent flag merging
-        co = compile(prog.read(),prog.name,'exec',flags,1)
-        return (co,globals,locals)
+##     if isinstance(prog, types.FileType):
+##         flags = 0
+##         ## XXX add in parent flag merging
+##         co = compile(prog.read(),prog.name,'exec',flags,1)
+##         return (co,globals,locals)
     else: # prog is a string
         flags = 0
         ## XXX add in parent flag merging
