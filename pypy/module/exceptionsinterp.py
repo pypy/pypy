@@ -1,11 +1,6 @@
 #!/bin/env python
 # -*- coding: LATIN-1 -*-
 
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.argument import Arguments
-from pypy.interpreter import gateway
-
-
 """Python's standard exception class hierarchy.
 
 Before Python 1.5, the standard exceptions were all simple string objects.
@@ -159,7 +154,7 @@ Exception
 # global object gs_EOFError
 # global object gcls_EOFError
 # global object gs___file__
-# global object gs__Users_pedronis_PyPy_dist_pypy_l
+# global object gs_D___pypy__dist__pypy__lib___exce
 # global object gs_TabError
 # global object gcls_TabError
 # global object gs_UnicodeEncodeError
@@ -220,7 +215,7 @@ Exception
 # global object gfunc_Exception___str__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__getitem__'
 ## firstlineno 94
 ##SECTION##
@@ -234,25 +229,22 @@ def __getitem__(space, __args__):
 f_Exception___getitem__ = __getitem__
 
 def __getitem__(space, w_self, w_idx):
-
-    w_0=w_2=w_4=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_0 = space.getattr(w_self, gs_args)
             w_2 = space.getitem(w_0, w_idx)
             w_4 = w_2
-            goto = 2
+            goto = glabel_2
 
-        if goto == 2:
+        if goto is glabel_2:
             return w_4
 
 fastf_Exception___getitem__ = __getitem__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 98
 ##SECTION##
@@ -266,31 +258,33 @@ def __init__(space, __args__):
 f_Exception___init__ = __init__
 
 def __init__(space, w_self, w_args):
-
-    w_0=w_3=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_0 = space.setattr(w_self, gs_args, w_args)
             w_3 = space.w_None
-            goto = 2
+            goto = glabel_2
 
-        if goto == 2:
+        if goto is glabel_2:
             return w_3
 
 fastf_Exception___init__ = __init__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 102
 ##SECTION##
 # global declarations
+# global object glabel_1
 # global object gs_args
 # global object gi_0
+# global object glabel_5
+# global object glabel_2
 # global object gi_1
+# global object glabel_3
+# global object glabel_4
 
 def __str__(space, __args__):
     funcname = "__str__"
@@ -302,55 +296,51 @@ def __str__(space, __args__):
 f_Exception___str__ = __str__
 
 def __str__(space, w_self):
-
-    w_args=w_argc=w_3=v4=w_args_1=w_argc_1=w_6=v7=w_args_3=w_10=w_5=None
-    w_args_2=w_8=w_9=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_args = space.getattr(w_self, gs_args)
             w_argc = space.len(w_args)
             w_3 = space.eq(w_argc, gi_0)
             v4 = space.is_true(w_3)
             if v4 == True:
                 w_5 = gs__emptystr_
-                goto = 5
+                goto = glabel_5
             else:
                 assert v4 == False
                 w_args_1, w_argc_1 = w_args, w_argc
-                goto = 2
+                goto = glabel_2
 
-        if goto == 2:
+        if goto is glabel_2:
             w_6 = space.eq(w_argc_1, gi_1)
             v7 = space.is_true(w_6)
             if v7 == True:
                 w_args_2 = w_args_1
-                goto = 3
+                goto = glabel_3
             else:
                 assert v7 == False
                 w_args_3 = w_args_1
-                goto = 4
+                goto = glabel_4
 
-        if goto == 3:
+        if goto is glabel_3:
             w_8 = space.getitem(w_args_2, gi_0)
             w_9 = space.call_function(space.w_str, w_8)
             w_5 = w_9
-            goto = 5
+            goto = glabel_5
 
-        if goto == 4:
+        if goto is glabel_4:
             w_10 = space.call_function(space.w_str, w_args_3)
             w_5 = w_10
-            goto = 5
+            goto = glabel_5
 
-        if goto == 5:
+        if goto is glabel_5:
             return w_5
 
 fastf_Exception___str__ = __str__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 131
 ##SECTION##
@@ -369,27 +359,23 @@ def __init__(space, __args__):
 f_UnicodeTranslateError___init__ = __init__
 
 def __init__(space, w_self, w_args):
-
-    w_argc=w_2=w_4=v5=w_6=w_self_1=w_args_1=w_7=w_8=w_9=w_10=w_11=None
-    w_12=w_13=w_14=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_argc = space.len(w_args)
             w_2 = space.setattr(w_self, gs_args, w_args)
             w_4 = space.eq(w_argc, gi_4)
             v5 = space.is_true(w_4)
             if v5 == True:
                 w_self_1, w_args_1 = w_self, w_args
-                goto = 2
+                goto = glabel_2
             else:
                 assert v5 == False
                 w_6 = space.w_None
-                goto = 3
+                goto = glabel_3
 
-        if goto == 2:
+        if goto is glabel_2:
             w_7 = space.getitem(w_args_1, gi_0)
             w_8 = space.setattr(w_self_1, gs_object, w_7)
             w_9 = space.getitem(w_args_1, gi_1)
@@ -399,15 +385,15 @@ def __init__(space, w_self, w_args):
             w_13 = space.getitem(w_args_1, gi_3)
             w_14 = space.setattr(w_self_1, gs_reason, w_13)
             w_6 = space.w_None
-            goto = 3
+            goto = glabel_3
 
-        if goto == 3:
+        if goto is glabel_3:
             return w_6
 
 fastf_UnicodeTranslateError___init__ = __init__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 141
 ##SECTION##
@@ -436,14 +422,10 @@ def __str__(space, __args__):
 f_UnicodeTranslateError___str__ = __str__
 
 def __str__(space, w_self):
-
-    w_0=w_2=w_3=w_4=w_5=w_6=w_7=w_8=w_9=w_10=w_11=w_12=w_13=w_14=None
-    w_15=w_16=w_res=w_18=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_0 = space.call_function((space.builtin.get(space.str_w(gs_getattr))), w_self, gs_start, space.w_None)
             w_2 = space.call_function(space.w_str, w_0)
             w_3 = space.add(gs_start_, w_2)
@@ -462,15 +444,15 @@ def __str__(space, w_self):
             w_16 = space.newlist([w_3, w_6, w_9, w_12, w_15])
             w_res = space.call_function(gbltinmethod_join, w_16)
             w_18 = w_res
-            goto = 2
+            goto = glabel_2
 
-        if goto == 2:
+        if goto is glabel_2:
             return w_18
 
 fastf_UnicodeTranslateError___str__ = __str__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 159
 ##SECTION##
@@ -484,55 +466,51 @@ def __str__(space, __args__):
 f_KeyError___str__ = __str__
 
 def __str__(space, w_self):
-
-    w_args=w_argc=w_3=v4=w_args_1=w_argc_1=w_6=v7=w_args_3=w_10=w_5=None
-    w_args_2=w_8=w_9=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_args = space.getattr(w_self, gs_args)
             w_argc = space.len(w_args)
             w_3 = space.eq(w_argc, gi_0)
             v4 = space.is_true(w_3)
             if v4 == True:
                 w_5 = gs__emptystr_
-                goto = 5
+                goto = glabel_5
             else:
                 assert v4 == False
                 w_args_1, w_argc_1 = w_args, w_argc
-                goto = 2
+                goto = glabel_2
 
-        if goto == 2:
+        if goto is glabel_2:
             w_6 = space.eq(w_argc_1, gi_1)
             v7 = space.is_true(w_6)
             if v7 == True:
                 w_args_2 = w_args_1
-                goto = 3
+                goto = glabel_3
             else:
                 assert v7 == False
                 w_args_3 = w_args_1
-                goto = 4
+                goto = glabel_4
 
-        if goto == 3:
+        if goto is glabel_3:
             w_8 = space.getitem(w_args_2, gi_0)
             w_9 = space.repr(w_8)
             w_5 = w_9
-            goto = 5
+            goto = glabel_5
 
-        if goto == 4:
+        if goto is glabel_4:
             w_10 = space.call_function(space.w_str, w_args_3)
             w_5 = w_10
-            goto = 5
+            goto = glabel_5
 
-        if goto == 5:
+        if goto is glabel_5:
             return w_5
 
 fastf_KeyError___str__ = __str__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 185
 ##SECTION##
@@ -546,16 +524,10 @@ def __init__(space, __args__):
 f_EnvironmentError___init__ = __init__
 
 def __init__(space, w_self, w_args):
-
-    w_argc=w_2=w_4=w_5=w_6=w_7=v8=w_self_2=w_args_2=w_argc_2=w_9=None
-    v11=w_self_4=w_args_4=w_argc_4=w_16=v17=w_18=w_self_5=w_args_5=None
-    w_19=w_20=w_21=w_22=w_23=w_24=w_self_3=w_args_3=w_argc_3=w_12=None
-    w_13=w_14=w_15=w_self_1=w_args_1=w_argc_1=w_10=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_argc = space.len(w_args)
             w_2 = space.setattr(w_self, gs_args, w_args)
             w_4 = space.setattr(w_self, gs_errno, space.w_None)
@@ -565,48 +537,48 @@ def __init__(space, w_self, w_args):
             v8 = space.is_true(w_7)
             if v8 == True:
                 w_self_1, w_args_1, w_argc_1 = w_self, w_args, w_argc
-                goto = 2
+                goto = glabel_2
             else:
                 assert v8 == False
                 w_self_2, w_args_2, w_argc_2, w_9 = w_self, w_args, w_argc, w_7
-                goto = 3
+                goto = glabel_3
 
-        if goto == 2:
+        if goto is glabel_2:
             w_10 = space.le(w_argc_1, gi_3)
             (w_self_2, w_args_2, w_argc_2, w_9) = (w_self_1, w_args_1,
              w_argc_1, w_10)
-            goto = 3
+            goto = glabel_3
 
-        if goto == 3:
+        if goto is glabel_3:
             v11 = space.is_true(w_9)
             if v11 == True:
                 w_self_3, w_args_3, w_argc_3 = w_self_2, w_args_2, w_argc_2
-                goto = 4
+                goto = glabel_4
             else:
                 assert v11 == False
                 w_self_4, w_args_4, w_argc_4 = w_self_2, w_args_2, w_argc_2
-                goto = 5
+                goto = glabel_5
 
-        if goto == 4:
+        if goto is glabel_4:
             w_12 = space.getitem(w_args_3, gi_0)
             w_13 = space.setattr(w_self_3, gs_errno, w_12)
             w_14 = space.getitem(w_args_3, gi_1)
             w_15 = space.setattr(w_self_3, gs_strerror, w_14)
             w_self_4, w_args_4, w_argc_4 = w_self_3, w_args_3, w_argc_3
-            goto = 5
+            goto = glabel_5
 
-        if goto == 5:
+        if goto is glabel_5:
             w_16 = space.eq(w_argc_4, gi_3)
             v17 = space.is_true(w_16)
             if v17 == True:
                 w_self_5, w_args_5 = w_self_4, w_args_4
-                goto = 6
+                goto = glabel_6
             else:
                 assert v17 == False
                 w_18 = space.w_None
-                goto = 7
+                goto = glabel_7
 
-        if goto == 6:
+        if goto is glabel_6:
             w_19 = space.getitem(w_args_5, gi_2)
             w_20 = space.setattr(w_self_5, gs_filename, w_19)
             w_21 = space.getitem(w_args_5, gi_0)
@@ -614,15 +586,15 @@ def __init__(space, w_self, w_args):
             w_23 = space.newtuple([w_21, w_22])
             w_24 = space.setattr(w_self_5, gs_args, w_23)
             w_18 = space.w_None
-            goto = 7
+            goto = glabel_7
 
-        if goto == 7:
+        if goto is glabel_7:
             return w_18
 
 fastf_EnvironmentError___init__ = __init__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 199
 ##SECTION##
@@ -643,14 +615,10 @@ def __str__(space, __args__):
 f_EnvironmentError___str__ = __str__
 
 def __str__(space, w_self):
-
-    w_0=w_2=w_3=w_4=w_5=w_6=w_7=w_8=w_9=w_10=w_11=w_12=w_13=w_res=None
-    w_15=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_0 = space.call_function((space.builtin.get(space.str_w(gs_getattr))), w_self, gs_errno, space.w_None)
             w_2 = space.call_function(space.w_str, w_0)
             w_3 = space.add(gs_errno_, w_2)
@@ -666,15 +634,15 @@ def __str__(space, w_self):
             w_13 = space.newlist([w_3, w_6, w_9, w_12])
             w_res = space.call_function(gbltinmethod_join, w_13)
             w_15 = w_res
-            goto = 2
+            goto = glabel_2
 
-        if goto == 2:
+        if goto is glabel_2:
             return w_15
 
 fastf_EnvironmentError___str__ = __str__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 219
 ##SECTION##
@@ -691,27 +659,23 @@ def __init__(space, __args__):
 f_UnicodeEncodeError___init__ = __init__
 
 def __init__(space, w_self, w_args):
-
-    w_argc=w_2=w_4=v5=w_6=w_self_1=w_args_1=w_7=w_8=w_9=w_10=w_11=None
-    w_12=w_13=w_14=w_15=w_16=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_argc = space.len(w_args)
             w_2 = space.setattr(w_self, gs_args, w_args)
             w_4 = space.eq(w_argc, gi_5)
             v5 = space.is_true(w_4)
             if v5 == True:
                 w_self_1, w_args_1 = w_self, w_args
-                goto = 2
+                goto = glabel_2
             else:
                 assert v5 == False
                 w_6 = space.w_None
-                goto = 3
+                goto = glabel_3
 
-        if goto == 2:
+        if goto is glabel_2:
             w_7 = space.getitem(w_args_1, gi_0)
             w_8 = space.setattr(w_self_1, gs_encoding, w_7)
             w_9 = space.getitem(w_args_1, gi_1)
@@ -723,15 +687,15 @@ def __init__(space, w_self, w_args):
             w_15 = space.getitem(w_args_1, gi_4)
             w_16 = space.setattr(w_self_1, gs_reason, w_15)
             w_6 = space.w_None
-            goto = 3
+            goto = glabel_3
 
-        if goto == 3:
+        if goto is glabel_3:
             return w_6
 
 fastf_UnicodeEncodeError___init__ = __init__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 230
 ##SECTION##
@@ -749,14 +713,10 @@ def __str__(space, __args__):
 f_UnicodeEncodeError___str__ = __str__
 
 def __str__(space, w_self):
-
-    w_0=w_2=w_3=w_4=w_5=w_6=w_7=w_8=w_9=w_10=w_11=w_12=w_13=w_14=None
-    w_15=w_16=w_17=w_18=w_19=w_res=w_21=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_0 = space.call_function((space.builtin.get(space.str_w(gs_getattr))), w_self, gs_object, space.w_None)
             w_2 = space.call_function(space.w_str, w_0)
             w_3 = space.add(gs_object_, w_2)
@@ -778,15 +738,15 @@ def __str__(space, w_self):
             w_19 = space.newlist([w_3, w_6, w_9, w_12, w_15, w_18])
             w_res = space.call_function(gbltinmethod_join, w_19)
             w_21 = w_res
-            goto = 2
+            goto = glabel_2
 
-        if goto == 2:
+        if goto is glabel_2:
             return w_21
 
 fastf_UnicodeEncodeError___str__ = __str__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 270
 ##SECTION##
@@ -800,45 +760,40 @@ def __init__(space, __args__):
 f_SyntaxError___init__ = __init__
 
 def __init__(space, w_self, w_args):
-
-    w_argc=w_2=w_4=v5=w_self_2=w_args_2=w_argc_2=w_8=v9=w_10=w_self_3=None
-    w_args_3=w_11=w_12=w_13=w_14=w_15=w_16=w_17=w_18=w_19=w_20=w_21=None
-    w_22=w_self_1=w_args_1=w_argc_1=w_6=w_7=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_argc = space.len(w_args)
             w_2 = space.setattr(w_self, gs_args, w_args)
             w_4 = space.ge(w_argc, gi_1)
             v5 = space.is_true(w_4)
             if v5 == True:
                 w_self_1, w_args_1, w_argc_1 = w_self, w_args, w_argc
-                goto = 2
+                goto = glabel_2
             else:
                 assert v5 == False
                 w_self_2, w_args_2, w_argc_2 = w_self, w_args, w_argc
-                goto = 3
+                goto = glabel_3
 
-        if goto == 2:
+        if goto is glabel_2:
             w_6 = space.getitem(w_args_1, gi_0)
             w_7 = space.setattr(w_self_1, gs_msg, w_6)
             w_self_2, w_args_2, w_argc_2 = w_self_1, w_args_1, w_argc_1
-            goto = 3
+            goto = glabel_3
 
-        if goto == 3:
+        if goto is glabel_3:
             w_8 = space.eq(w_argc_2, gi_2)
             v9 = space.is_true(w_8)
             if v9 == True:
                 w_self_3, w_args_3 = w_self_2, w_args_2
-                goto = 4
+                goto = glabel_4
             else:
                 assert v9 == False
                 w_10 = space.w_None
-                goto = 5
+                goto = glabel_5
 
-        if goto == 4:
+        if goto is glabel_4:
             w_11 = space.getitem(w_args_3, gi_1)
             w_12 = space.getitem(w_11, gi_0)
             w_13 = space.setattr(w_self_3, gs_filename, w_12)
@@ -852,15 +807,15 @@ def __init__(space, w_self, w_args):
             w_21 = space.getitem(w_20, gi_3)
             w_22 = space.setattr(w_self_3, gs_text, w_21)
             w_10 = space.w_None
-            goto = 5
+            goto = glabel_5
 
-        if goto == 5:
+        if goto is glabel_5:
             return w_10
 
 fastf_SyntaxError___init__ = __init__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 282
 ##SECTION##
@@ -874,33 +829,32 @@ def __str__(space, __args__):
 f_SyntaxError___str__ = __str__
 
 def __str__(space, w_self):
-
-    w_0=w_2=w_3=w_4=w_res=w_6=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_0 = space.call_function((space.builtin.get(space.str_w(gs_getattr))), w_self, gs_args, space.w_None)
             w_2 = space.call_function(space.w_str, w_0)
             w_3 = space.add(gs_args_, w_2)
             w_4 = space.newlist([w_3])
             w_res = space.call_function(gbltinmethod_join, w_4)
             w_6 = w_res
-            goto = 2
+            goto = glabel_2
 
-        if goto == 2:
+        if goto is glabel_2:
             return w_6
 
 fastf_SyntaxError___str__ = __str__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 296
 ##SECTION##
-# global declaration
+# global declarations
 # global object gs_code
+# global object glabel_6
+# global object glabel_7
 
 def __init__(space, __args__):
     funcname = "__init__"
@@ -912,72 +866,67 @@ def __init__(space, __args__):
 f_SystemExit___init__ = __init__
 
 def __init__(space, w_self, w_args):
-
-    w_argc=w_2=v3=w_self_2=w_args_2=w_argc_2=w_6=w_7=v8=w_self_4=None
-    w_args_4=w_argc_4=w_11=v12=w_13=w_self_5=w_args_5=w_14=w_self_3=None
-    w_args_3=w_argc_3=w_9=w_10=w_self_1=w_args_1=w_argc_1=w_5=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_argc = space.len(w_args)
             w_2 = space.eq(w_argc, gi_0)
             v3 = space.is_true(w_2)
             if v3 == True:
                 w_self_1, w_args_1, w_argc_1 = w_self, w_args, w_argc
-                goto = 2
+                goto = glabel_2
             else:
                 assert v3 == False
                 w_self_2, w_args_2, w_argc_2 = w_self, w_args, w_argc
-                goto = 3
+                goto = glabel_3
 
-        if goto == 2:
+        if goto is glabel_2:
             w_5 = space.setattr(w_self_1, gs_code, space.w_None)
             w_self_2, w_args_2, w_argc_2 = w_self_1, w_args_1, w_argc_1
-            goto = 3
+            goto = glabel_3
 
-        if goto == 3:
+        if goto is glabel_3:
             w_6 = space.setattr(w_self_2, gs_args, w_args_2)
             w_7 = space.eq(w_argc_2, gi_1)
             v8 = space.is_true(w_7)
             if v8 == True:
                 w_self_3, w_args_3, w_argc_3 = w_self_2, w_args_2, w_argc_2
-                goto = 4
+                goto = glabel_4
             else:
                 assert v8 == False
                 w_self_4, w_args_4, w_argc_4 = w_self_2, w_args_2, w_argc_2
-                goto = 5
+                goto = glabel_5
 
-        if goto == 4:
+        if goto is glabel_4:
             w_9 = space.getitem(w_args_3, gi_0)
             w_10 = space.setattr(w_self_3, gs_code, w_9)
             w_self_4, w_args_4, w_argc_4 = w_self_3, w_args_3, w_argc_3
-            goto = 5
+            goto = glabel_5
 
-        if goto == 5:
+        if goto is glabel_5:
             w_11 = space.ge(w_argc_4, gi_2)
             v12 = space.is_true(w_11)
             if v12 == True:
                 w_self_5, w_args_5 = w_self_4, w_args_4
-                goto = 6
+                goto = glabel_6
             else:
                 assert v12 == False
                 w_13 = space.w_None
-                goto = 7
+                goto = glabel_7
 
-        if goto == 6:
+        if goto is glabel_6:
             w_14 = space.setattr(w_self_5, gs_code, w_args_5)
             w_13 = space.w_None
-            goto = 7
+            goto = glabel_7
 
-        if goto == 7:
+        if goto is glabel_7:
             return w_13
 
 fastf_SystemExit___init__ = __init__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 331
 ##SECTION##
@@ -991,27 +940,23 @@ def __init__(space, __args__):
 f_UnicodeDecodeError___init__ = __init__
 
 def __init__(space, w_self, w_args):
-
-    w_argc=w_2=w_4=v5=w_6=w_self_1=w_args_1=w_7=w_8=w_9=w_10=w_11=None
-    w_12=w_13=w_14=w_15=w_16=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_argc = space.len(w_args)
             w_2 = space.setattr(w_self, gs_args, w_args)
             w_4 = space.eq(w_argc, gi_5)
             v5 = space.is_true(w_4)
             if v5 == True:
                 w_self_1, w_args_1 = w_self, w_args
-                goto = 2
+                goto = glabel_2
             else:
                 assert v5 == False
                 w_6 = space.w_None
-                goto = 3
+                goto = glabel_3
 
-        if goto == 2:
+        if goto is glabel_2:
             w_7 = space.getitem(w_args_1, gi_0)
             w_8 = space.setattr(w_self_1, gs_encoding, w_7)
             w_9 = space.getitem(w_args_1, gi_1)
@@ -1023,15 +968,15 @@ def __init__(space, w_self, w_args):
             w_15 = space.getitem(w_args_1, gi_4)
             w_16 = space.setattr(w_self_1, gs_reason, w_15)
             w_6 = space.w_None
-            goto = 3
+            goto = glabel_3
 
-        if goto == 3:
+        if goto is glabel_3:
             return w_6
 
 fastf_UnicodeDecodeError___init__ = __init__
 
 ##SECTION##
-## filename    '_exceptions.py'
+## filename    'lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 342
 ##SECTION##
@@ -1045,14 +990,10 @@ def __str__(space, __args__):
 f_UnicodeDecodeError___str__ = __str__
 
 def __str__(space, w_self):
-
-    w_0=w_2=w_3=w_4=w_5=w_6=w_7=w_8=w_9=w_10=w_11=w_12=w_13=w_14=None
-    w_15=w_16=w_17=w_18=w_19=w_res=w_21=None
-
-    goto = 1 # startblock
+    goto = glabel_1 # startblock
     while True:
 
-        if goto == 1:
+        if goto is glabel_1:
             w_0 = space.call_function((space.builtin.get(space.str_w(gs_getattr))), w_self, gs_object, space.w_None)
             w_2 = space.call_function(space.w_str, w_0)
             w_3 = space.add(gs_object_, w_2)
@@ -1074,9 +1015,9 @@ def __str__(space, w_self):
             w_19 = space.newlist([w_3, w_6, w_9, w_12, w_15, w_18])
             w_res = space.call_function(gbltinmethod_join, w_19)
             w_21 = w_res
-            goto = 2
+            goto = glabel_2
 
-        if goto == 2:
+        if goto is glabel_2:
             return w_21
 
 fastf_UnicodeDecodeError___str__ = __str__
@@ -1355,8 +1296,8 @@ def initexceptions(space):
     space.setitem(g48dict, gs_EOFError, gcls_EOFError)
     space.setitem(g48dict, gs_StandardError, gcls_StandardError)
     m.gs___file__ = space.wrap('__file__')
-    m.gs__Users_pedronis_PyPy_dist_pypy_l = space.wrap('/Users/pedronis/PyPy/dist/pypy/lib/_exceptions.py')
-    space.setitem(g48dict, gs___file__, gs__Users_pedronis_PyPy_dist_pypy_l)
+    m.gs_D___pypy__dist__pypy__lib___exce = space.wrap('D:\\pypy\\dist\\pypy\\lib\\_exceptions.py')
+    space.setitem(g48dict, gs___file__, gs_D___pypy__dist__pypy__lib___exce)
     m.gs_TabError = space.wrap('TabError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs__exceptions)
@@ -1511,6 +1452,7 @@ the Python version, and the hardware/OS platform and version.""")
     m.gcls_WindowsError = space.call(space.w_type, _args)
     space.setitem(g48dict, gs_WindowsError, gcls_WindowsError)
     m.gs___init__ = space.wrap('__init__')
+    from pypy.interpreter import gateway
     m.gfunc_UnicodeDecodeError___init__ = space.wrap(gateway.interp2app(f_UnicodeDecodeError___init__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_UnicodeDecodeError, gs___init__, gfunc_UnicodeDecodeError___init__)
     m.gs___str__ = space.wrap('__str__')
@@ -1556,9 +1498,15 @@ the Python version, and the hardware/OS platform and version.""")
     space.setattr(gcls_Exception, gs___init__, gfunc_Exception___init__)
     m.gfunc_Exception___str__ = space.wrap(gateway.interp2app(f_Exception___str__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_Exception, gs___str__, gfunc_Exception___str__)
+    from pypy.objspace.flow.framestate import SpecTag
+    m.glabel_1 = SpecTag()
     m.gs_args = space.wrap('args')
     m.gi_0 = space.newint(0)
+    m.glabel_5 = SpecTag()
+    m.glabel_2 = SpecTag()
     m.gi_1 = space.newint(1)
+    m.glabel_3 = SpecTag()
+    m.glabel_4 = SpecTag()
     del m.__str__
     del m.__init__
     del m.__getitem__
@@ -1579,6 +1527,8 @@ the Python version, and the hardware/OS platform and version.""")
     m.gi_2 = space.newint(2)
     m.gi_3 = space.newint(3)
     m.gs_code = space.wrap('code')
+    m.glabel_6 = SpecTag()
+    m.glabel_7 = SpecTag()
     m.gs_errno = space.wrap('errno')
     m.gs_errno_ = space.wrap('errno=')
     m.gs_strerror = space.wrap('strerror')
