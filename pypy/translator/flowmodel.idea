@@ -1,0 +1,35 @@
+discussion from 4th of october 2003
+
+class FunctionGraph:
+    startblock 
+    returnblock
+    name
+
+class Link:
+    exitcase
+    args
+    target
+
+class Block:
+    input_args
+    operations
+    exitswitch  # variable
+    exits
+
+class ReturnBlock:
+    input_args  # a single variable 
+    operations = None
+    exits = ()
+
+class Variable:
+    name
+
+class Const:
+    value
+
+class SpaceOperation:
+    opname
+    args      # list of variable or Constant (can be mixed)
+    result    # either Variable or Constant instance
+
+
