@@ -1,5 +1,4 @@
 import os
-from pypy.module.builtin import compile
 
 class AppFile:
     """Dynamic loader of a set of Python functions and objects that
@@ -30,6 +29,7 @@ class AppFile:
         f = open(filename, 'r')
         src = f.read()
         f.close()
+        print filename
         self.bytecode = compile(src, filename, 'exec')
 
 
