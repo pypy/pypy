@@ -12,6 +12,10 @@ class W_BoolObject(W_Object):
     def __nonzero__(w_self):
         raise Exception, "you cannot do that, you must use space.is_true()"
 
+    def __repr__(w_self):
+        """ representation for debugging purposes """
+        return "%s(%s)" % (w_self.__class__.__name__, w_self.boolval)
+
 registerimplementation(W_BoolObject)
 
 # bool-to-int delegation requires translating the .boolvar attribute
