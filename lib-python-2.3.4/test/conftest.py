@@ -31,7 +31,6 @@ working_unittests = (
 'test_bisect.py',
 'test_call',
 'test_codeop.py',
-'test_operator.py',
 'test_compile.py',
 'test_operator.py',
 'test_heapq.py',
@@ -41,6 +40,13 @@ working_unittests = (
 working_outputtests = (
     # well 
 )
+
+# sanity check for when the above lists become long
+assert len(dict.fromkeys(working_unittests)) == len(working_unittests), (
+    "duplicate entry in working_unittests")
+assert len(dict.fromkeys(working_outputtests)) == len(working_outputtests), (
+    "duplicate entry in working_outputtests")
+
 
 def make_module(space, dottedname, filepath): 
     #print "making module", dottedname, "from", filepath 
