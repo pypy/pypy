@@ -276,10 +276,20 @@ class GraphRenderer:
 
         self.ofsx = noffsetx
         self.ofsy = noffsety
-    
+
     def getboundingbox(self):
         "Get the rectangle where the graph will be rendered."
         return (-self.ofsx, -self.ofsy, self.width, self.height)
+
+    def visible(self, x1, y1, x2, y2):
+        "Is any part of the box visible (i.e. within the bounding box)?
+
+        We have to perform clipping ourselves because with big graphs the
+        coordinates may sometimes become longs and cause OverflowErrors
+        within pygame.
+        "
+        return (x1 < self.width-self.ofsx and x2 > -self.ofsx and
+                y1 < self.height-self.ofsy and y2 > -self.ofsy)
 
     def map(self, x, y):
         return (int(x*self.scale) - (self.ofsx - self.margin),
@@ -392,7 +402,7 @@ class GraphRenderer:
             if edge.highlight:
                 fgcolor = highlight_color(fgcolor)
             points = [self.map(*xy) for xy in edge.bezierpoints()]
-            
+
             def drawedgebody(points=points, fgcolor=fgcolor):
                 pygame.draw.lines(self.screen, fgcolor, False, points)
             edgebodycmd.append(drawedgebody)
@@ -402,14 +412,15 @@ class GraphRenderer:
                 def drawedgehead(points=points, fgcolor=fgcolor):
                     pygame.draw.polygon(self.screen, fgcolor, points, 0)
                 edgeheadcmd.append(drawedgehead)
-            
+
             if edge.label:
                 x, y = self.map(edge.xl, edge.yl)
                 img = TextSnippet(self, edge.label, (0, 0, 0))
                 w, h = img.get_size()
-                def drawedgelabel(img=img, x1=x-w//2, y1=y-h//2):
-                    img.draw(x1, y1)
-                edgeheadcmd.append(drawedgelabel)
+                if self.visible(x-w//2, y-h//2, x+w//2, y+h//2):
+                    def drawedgelabel(img=img, x1=x-w//2, y1=y-h//2):
+                        img.draw(x1, y1)
+                    edgeheadcmd.append(drawedgelabel)
 
         return edgebodycmd + nodebkgndcmd + edgeheadcmd + nodecmd
 
