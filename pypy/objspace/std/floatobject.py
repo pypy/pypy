@@ -1,4 +1,5 @@
 from pypy.objspace.std.objspace import *
+from pypy.interpreter import gateway
 from pypy.objspace.std.noneobject import W_NoneObject
 
 ##############################################################
@@ -45,15 +46,21 @@ def int__Float(space, w_value):
 def unwrap__Float(space, w_float):
     return w_float.floatval
 
-def repr__Float(space, w_float):
-    ## %reimplement%
-    # uses CPython "repr" builtin function
-    return space.wrap(repr(w_float.floatval))
+def app_repr__Float(f):
+    r = "%.17g"%f
+    for c in r:
+        if c not in '-0123456789':
+            return r
+    else:
+        return r + '.0'    
 
-def str__Float(space, w_float):
-    ## %reimplement%
-    # uses CPython "str" builtin function
-    return space.wrap(str(w_float.floatval))
+def app_str__Float(f):
+    r = "%.12g"%f
+    for c in r:
+        if c not in '-0123456789':
+            return r
+    else:
+        return r + '.0'    
 
 def lt__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval
@@ -256,5 +263,5 @@ def float_coerce(space, w_float):
 StdObjSpace.coerce.register(float_coerce, W_FloatObject)
 """
 
-
+gateway.importall(globals())
 register_all(vars())
