@@ -29,6 +29,7 @@ class W_StringType(W_TypeObject):
     str_rfind      = MultiMethod('rfind', 4, defaults=(None, None))
     str_index      = MultiMethod('index', 4, defaults=(None, None))
     str_rindex     = MultiMethod('rindex', 4, defaults=(None, None))
+    str_zfill      = MultiMethod('zfill', 2)
 
     str_strip      = MultiMethod('strip', 1)
     str_rstrip     = MultiMethod('rstrip', 1)

@@ -212,7 +212,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('xyzzyhelloxyzzy'.lstrip('xyz'), 'helloxyzzy')
         self.assertEquals('xyzzyhelloxyzzy'.rstrip('xyz'), 'xyzzyhello')
 
-    def _test_zfill(self):
+    def test_zfill(self):
         self.assertEquals('123'.zfill(2), '123')
         self.assertEquals('123'.zfill(3), '123')
         self.assertEquals('123'.zfill(4), '0123')

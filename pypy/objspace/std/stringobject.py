@@ -42,8 +42,8 @@ decode            !Unicode not supported now
 encode            !Unicode not supported now
 endswith          str_endswith__String_String    [optional arguments not supported now]
 expandtabs        str_expandtabs__String_Int
-find              OK, nur noch tests
-index             OK, nur noch tests
+find              OK
+index             OK
 isalnum           def str_isalnum__String(space, w_self): def _isalnum(ch):
 isalpha           def str_isalpha__String(space, w_self): def _isalpha(ch):
 isdigit           def str_isdigit__String(space, w_self): def _isdigit(ch):
@@ -68,7 +68,7 @@ swapcase          OK
 title             def str_title__String(space, w_self):
 translate
 upper             def str_upper__String(space, w_self):
-zfill
+zfill             *Tomek
 """
 
 from pypy.objspace.std.objspace import *
@@ -582,7 +582,34 @@ def str_expandtabs__String_Int(space, w_self, w_tabsize):
                 u_expanded += " " * u_tabsize
 
     return W_StringObject(space, u_expanded)        
-   
+  
+def str_zfill__String_Int(space, w_self, w_width):
+    u = space.unwrap
+    input = u(w_self)
+    width = u(w_width)
+
+    if len(input) >= width:
+        return w_self
+
+    b = width - len(input)
+
+    buf = [' '] * width
+    if len(input) > 0 and (input[0] == '+' or input[0] == '-'):
+        buf[0] = input[0]
+        start = 1
+        middle = width - len(input) + 1
+    else:
+        start = 0
+        middle = width - len(input)
+
+    for i in range(start, middle):
+        buf[i] = '0'
+
+    for i in range(middle, width):
+        buf[i] = input[start]
+        start = start + 1
+    
+    return space.wrap("".join(buf))
     
 def unwrap__String(space, w_str):
     return w_str._value
@@ -706,6 +733,21 @@ def getitem__String_Slice(space, w_str, w_slice):
     w_r = space.newlist(r)
     w_empty = space.newstring([])
     return str_join(space, w_empty, w_r)
+
+def mul__String_Int(space, w_str, w_mul):
+    u = space.unwrap
+    input = u(w_str)
+    mul = u(w_mul)
+
+    buffer = [' '] * (mul*len(input))
+
+    pos = 0
+    for i in range(mul):
+        for j in range(len(input)):
+            buffer[pos] = input[j]
+            pos = pos + 1
+
+    return space.wrap("".join(buffer))
 
 def add__String_String(space, w_left, w_right):
     u = space.unwrap
