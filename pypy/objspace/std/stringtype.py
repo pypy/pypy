@@ -16,6 +16,8 @@ class W_StringType(W_TypeObject):
     str_islower = MultiMethod('islower', 1)
     str_istitle = MultiMethod('istitle', 1)
     str_isalnum = MultiMethod('isalnum', 1)
+    str_ljust   = MultiMethod('ljust', 2)
+    str_rjust   = MultiMethod('rjust', 2)
 
 # XXX we'll worry about the __new__/__init__ distinction later
 def stringtype_new(space, w_stringtype, w_args, w_kwds):

@@ -169,6 +169,21 @@ def str_join(space, w_self, w_list):
 
 W_StringType.str_join.register(str_join, W_StringObject, W_ANY)
 
+def str_ljust(space, w_str, w_arg):
+    # XXX look away for three lines, please :-) -- mwh
+    u = space.unwrap
+    w = space.wrap
+    return w(u(w_str).ljust(u(w_arg)))
+
+W_StringType.str_ljust.register(str_ljust, W_StringObject, W_ANY)
+
+def str_rjust(space, w_str, w_arg):
+    # XXX and another three -- mwh
+    u = space.unwrap
+    w = space.wrap
+    return w(u(w_str).rjust(u(w_arg)))
+
+W_StringType.str_rjust.register(str_rjust, W_StringObject, W_ANY)
 
 def str_unwrap(space, w_str):
     return w_str._value.value()
