@@ -7,10 +7,9 @@ class TestBuiltinApp(test.AppTestCase):
         self.space = test.objspace()
     
     def test_import(self):
-        d = {}
-        m = __import__('types', d, d, [])
-        self.assertEquals(m.IntType, type(123))
-        self.assertEquals(m.__name__, "types")
+        m = __import__('pprint')
+        self.assertEquals(m.pformat({}), '{}')
+        self.assertEquals(m.__name__, "pprint")
 
     def test_chr(self):
         self.assertEquals(chr(65), 'A')
@@ -99,6 +98,12 @@ class TestBuiltinApp(test.AppTestCase):
         self.assert_(cmp(0,9) < 0)
         self.assert_(cmp(9,0) > 0)
 
+    def test_return_None(self):
+        self.assertEquals(setattr(self, 'x', 11), None)
+        self.assertEquals(delattr(self, 'x'), None)
+        # To make this test, we need autopath to work in application space.
+        #self.assertEquals(execfile('emptyfile.py'), None)
+
 class TestInternal(test.IntTestCase):
 
     def setUp(self):
@@ -140,6 +145,7 @@ class TestInternal(test.IntTestCase):
                 return a+2
         self.failIf(not callable(Call()),
                     "Builtin function 'callable' misreads callable object")
+
     def test_uncallable(self):
         class NoCall:
             pass
