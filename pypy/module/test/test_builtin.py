@@ -7,9 +7,9 @@ class TestBuiltinApp(test.AppTestCase):
         self.space = test.objspace()
     
     def test_sign(self):
-        self.assertEquals(sign(-4),-1)
-        self.assertEquals(sign(0),0)
-        self.assertEquals(sign(10),1)
+        self.assertEquals(sign(-4), -1)
+        self.assertEquals(sign(0), 0)
+        self.assertEquals(sign(10), 1)
 
     def test_import(self):
         m = __import__('pprint')
