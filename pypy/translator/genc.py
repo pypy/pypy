@@ -624,7 +624,7 @@ class GenC:
             tail = '\n\t\tFUNCTION_RETURN(NULL)'
         for i in range(len(name_of_defaults)):
             print >> f, '\t%s = %s;' % (
-                positional_args[min_number_of_args+i],
+                self.expr(positional_args[min_number_of_args+i], localvars),
                 name_of_defaults[i])
         fmt = 'O'*min_number_of_args
         if min_number_of_args < len(positional_args):
