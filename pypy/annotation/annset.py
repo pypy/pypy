@@ -325,3 +325,8 @@ immutable_types = {
     bool: True,
     types.FunctionType: True,
     }
+
+if __name__ == '__main__':
+    val1, val2, val3 = SomeValue(), SomeValue(), SomeValue()
+    annset = AnnotationSet()
+

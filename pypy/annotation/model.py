@@ -13,20 +13,20 @@ def debugname(someval, _seen = {}):
                 if isinstance(value, SomeValue):
                     _seen[id(value)] = name
             return debugname(someval)
-        name = "X%d" % len(seen)
+        name = "V%d" % len(_seen)
         _seen[id(someval)] = name
         return name
 
 class Predicate:
-    def __init__(self, name, arity):
-        self.name = name
+    def __init__(self, debugname, arity):
+        self.debugname = debugname
         self.arity = arity
     def __getitem__(self, args):
         if self.arity == 1:
             args = (args,)
         return Annotation(self, *args)
     def __str__(self):
-        return self.name
+        return self.debugname
 
 class ConstPredicate(Predicate):
     def __init__(self, value):
@@ -65,7 +65,7 @@ class Annotation:
 
     def __repr__(self):
         return "Annotation(%s, %s)" % (
-                self.predicate, ", ".join(map(repr, self.args)))
+                self.predicate, ", ".join(map(debugname, self.args)))
 
 
 immutable_types = {
