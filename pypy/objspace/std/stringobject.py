@@ -902,6 +902,9 @@ def mul__String_Int(space, w_str, w_mul):
 
     return space.wrap("".join(buffer))
 
+def mul__Int_String(space, w_mul, w_str):
+    return mul__String_Int(space, w_str, w_mul)
+
 def add__String_String(space, w_left, w_right):
     u = space.unwrap
     right = u(w_right)
