@@ -3,6 +3,7 @@ Built-in functions.
 """
 
 import types
+import sys
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
@@ -43,6 +44,12 @@ def builtin_ord(s_chr):
 
 def builtin_id(o):
     return SomeInteger()
+
+def builtin_hex(o):
+    return SomeString()
+
+def builtin_abs(o):
+    return o.__class__()
 
 def builtin_unicode(s_obj): 
     return SomeString() 
@@ -167,6 +174,9 @@ def builtin_slice(*args):
 def exception_init(s_self, *args):
     s_self.setattr(immutablevalue('args'), SomeTuple(args))
 
+def count(s_obj):
+    return SomeInteger()
+
 # collect all functions
 import __builtin__
 BUILTIN_ANALYZERS = {}
@@ -178,4 +188,4 @@ for name, value in globals().items():
 BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_int] = builtin_int
 BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_uint] = restricted_uint
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
-
+BUILTIN_ANALYZERS[sys.getrefcount] = count

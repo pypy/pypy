@@ -66,6 +66,7 @@ class SomeObject:
     
     def contains(self, other):
         return self == other or pair(self, other).union() == self
+
     def is_constant(self):
         return hasattr(self, 'const')
 
