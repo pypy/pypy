@@ -101,38 +101,57 @@ class TestAnnotationSet(test.IntTestCase):
         self.assertSameCells(a1, c, c1, c3)
         self.assertSameSet(a1, a2)
 
-    def test_merge_immutable1(self):
+    def test_merge_same_immutables(self):
         a1 = annset(ANN.len, c1, c2,
                     ANN.immutable, c1,
                     ANN.len, c3, c2,
                     ANN.immutable, c3)
-        # (c1) inter (c3) == (some new c)
+        # (c1) inter (c3) == (c1 and c3)
         c = a1.merge(c1, c3)
-        a2 = annset(ANN.len, c1, c2,
-                    ANN.immutable, c1,
-                    ANN.len, c3, c2,
-                    ANN.immutable, c3,
-                    ANN.len, c, c2,
-                    ANN.immutable, c)
+        self.assertSameCells(a1, c, c1, c3)
+        a2 = annset(ANN.len, c, c2,
+                    ANN.immutable, c,
+                    links=[c1,c,c3,c])
         self.assertSameSet(a1, a2)
 
-    def test_merge_immutable2(self):
+    def test_merge_generalize_one_immutable(self):
         a1 = annset(ANN.len, c1, c2,
                     ANN.immutable, c1,
+                    ANN.type, c1, list,
                     ANN.len, c3, c2,
                     ANN.immutable, c3,
-                    ANN.type, c1, list,
                     ANN.type, c2, str)
-        # (c1) inter (c3) == (some new c)
+        # (c1) inter (c3) == (c3)
+        c = a1.merge(c1, c3)
+        self.assertSameCells(a1, c, c3)
+        a2 = annset(ANN.len, c1, c2,
+                    ANN.immutable, c1,
+                    ANN.type, c1, list,
+                    ANN.len, c, c2,
+                    ANN.immutable, c,
+                    ANN.type, c2, str,
+                    links=[c3,c])
+        self.assertSameSet(a1, a2)
+
+    def test_merge_generalize_both_immutables(self):
+        a1 = annset(ANN.len, c1, c2,
+                    ANN.immutable, c1,
+                    ANN.type, c1, list,
+                    ANN.len, c3, c2,
+                    ANN.immutable, c3,
+                    ANN.type, c3, tuple,
+                    ANN.type, c2, str)
+        # (c1) inter (c3) == (a more general c)
         c = a1.merge(c1, c3)
         a2 = annset(ANN.len, c1, c2,
                     ANN.immutable, c1,
+                    ANN.type, c1, list,
                     ANN.len, c3, c2,
                     ANN.immutable, c3,
-                    ANN.type, c1, list,
-                    ANN.type, c2, str,
+                    ANN.type, c3, tuple,
                     ANN.len, c, c2,
-                    ANN.immutable, c)
+                    ANN.immutable, c,
+                    ANN.type, c2, str)
         self.assertSameSet(a1, a2)
 
     def test_recursive_merge(self):
@@ -151,23 +170,20 @@ class TestAnnotationSet(test.IntTestCase):
         c9  = a1.merge(c1, c5)
         c10 = a1.get(ANN.tupleitem[2], c9)
         c11 = a1.get(ANN.listitems, c10)
+        self.assertSameCells(a1, c1, c5, c9)
         self.assertSameCells(a1, c2, c6, c10)
         
-        a2 = annset(ANN.tupleitem[2], c1, c2,
-                    ANN.immutable, c1,
-                    ANN.type, c3, int,
-                    ANN.immutable, c3,
-                    ANN.tupleitem[2], c5, c6,
-                    ANN.immutable, c5,
-                    ANN.type, c7, float,
-                    ANN.immutable, c7,
-
-                    ANN.tupleitem[2], c9, c10,
+        a2 = annset(ANN.tupleitem[2], c9, c10,
                     ANN.immutable, c9,
                     ANN.type, c10, list,
                     ANN.listitems, c10, c11,
                     ANN.immutable, c11,
-                    links=[c2,c10,c6,c10])
+                    # old remaining stuff
+                    ANN.type, c3, int,
+                    ANN.immutable, c3,
+                    ANN.type, c7, float,
+                    ANN.immutable, c7,
+                    links=[c1,c9, c5,c9, c2,c10, c6,c10])
         self.assertSameSet(a1, a2)
 
     def test_settype(self):

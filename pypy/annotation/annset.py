@@ -8,6 +8,10 @@ class MostGeneralValue:
         return False
 mostgeneralvalue = MostGeneralValue()
 
+class ImpossibleValue(Exception):
+    pass
+impossiblevalue = ImpossibleValue()
+
 
 class About:
     def __init__(self):
@@ -44,8 +48,8 @@ class AnnotationSet:
     def leave(self):
         self.inblock = None
 
-    def isshared(self, someval1, someval2):
-        return self.about[someval1] is self.about[someval2]
+    def isshared(self, val1, val2):
+        return self.about.get(val1, val1) == self.about.get(val2, val2)
 
     def __repr__(self):     # debugging
         lines = ['=====  AnnotationSet  =====']
@@ -61,15 +65,15 @@ class AnnotationSet:
         return '\n'.join(lines)
 
     def get(self, predicate, subject):
-        about = self._about(subject)
-        result = about.annotations.get(predicate)
-        if result:
-            answer, dependencies = result
-            if self.inblock:
-                dependencies[self.inblock] = True
-            return answer
-        else:
-            return mostgeneralvalue
+        if subject is not mostgeneralvalue:
+            about = self._about(subject)
+            result = about.annotations.get(predicate)
+            if result:
+                answer, dependencies = result
+                if self.inblock:
+                    dependencies[self.inblock] = True
+                return answer
+        return mostgeneralvalue
 
     def _about(self, somevalue):
         try:
@@ -77,6 +81,8 @@ class AnnotationSet:
         except KeyError:
             if somevalue is mostgeneralvalue:
                 raise ValueError, "Unexpected mostgeneralvalue"
+            if isinstance(somevalue, ImpossibleValue):
+                raise somevalue
             about = self.about[somevalue] = About()
             about.subjects[somevalue] = True
             return about
@@ -100,8 +106,14 @@ class AnnotationSet:
     def merge(self, oldvalue, newvalue):
         """Update the heap to account for the merging of oldvalue and newvalue.
         Return the merged somevalue."""
+        if isinstance(newvalue, ImpossibleValue):
+            return oldvalue
+        if isinstance(oldvalue, ImpossibleValue):
+            return newvalue
         if newvalue is mostgeneralvalue or oldvalue is mostgeneralvalue:
             return mostgeneralvalue
+        if self.isshared(oldvalue, newvalue):
+            return oldvalue
 
         # build an About set that is the intersection of the two incoming ones
         about1 = self._about(oldvalue)
@@ -128,17 +140,24 @@ class AnnotationSet:
         # modify the annotations about it.  If one of them is mutable,
         # then we must replace its About set with 'about3'.
         invalidatedblocks = {}
-        for value, about in [(oldvalue, about1), (newvalue, about2)]:
-            if ANN.immutable not in about.annotations:
-                # find all annotations that are removed or generalized
-                for pred, (someval, deps) in about.annotations.items():
-                    if (pred not in about3.annotations or
-                        about3.annotations[pred][0] != someval):
-                        invalidatedblocks.update(deps)
+        for about in [about1, about2]:
+            # find all annotations that are removed or generalized
+            removedannotations = []
+            for pred, (someval, deps) in about.annotations.items():
+                if (pred in about3.annotations and
+                    self.isshared(about3.annotations[pred][0], someval)):
+                    continue   # unmodified annotation
+                removedannotations.append(deps)
+            # if the existing 'value' is mutable, or if nothing has been
+            # removed, then we identify (by sharing) the 'value' and the
+            # new 'about3'.
+            if not removedannotations or ANN.immutable not in about.annotations:
                 # patch 'value' to use the new 'about3'.
                 for sharedvalue in about.subjects:   # this includes 'value'
                     self.about[sharedvalue] = about3
                     about3.subjects[sharedvalue] = True
+                for deps in removedannotations:
+                    invalidatedblocks.update(deps)
 
         if not about3.subjects:
             value3 = SomeValue()
