@@ -7,11 +7,13 @@ The factory remembers how general an object it has to create here.
 """
 
 from __future__ import generators
+import new
 from types import FunctionType, ClassType, MethodType
 from pypy.annotation.model import SomeImpossibleValue, SomeList, SomeDict
 from pypy.annotation.model import SomeObject, SomeInstance
 from pypy.annotation.model import unionof, immutablevalue
 from pypy.interpreter.miscutils import getthreadlocals
+from pypy.interpreter.pycode import CO_VARARGS
 
 
 class BlockedInference(Exception):
@@ -39,6 +41,7 @@ class Bookkeeper:
         self.userclasses = {}    # map classes to ClassDefs
         self.userclasseslist = []# userclasses.keys() in creation order
         self.attrs_read_from_constants = {}
+        self.cachespecializedfunctions = {}
 
     def enter(self, position_key):
         """Start of an operation.
@@ -159,19 +162,29 @@ class CallableFactory:
                 args = [s_self] + list(args)
             func = func.im_func
         assert isinstance(func, FunctionType), "expected function, got %r"%func
+        # do we need to specialize this function in several versions?
+        if getattr(func, 'specialize', False):
+            # fully specialize: create one version per call position
+            func = self.specialize_by_key(func, self.position_key)
+        elif func.func_code.co_flags & CO_VARARGS:
+            # calls to *arg functions: create one version per number of args
+            func = self.specialize_by_key(func, len(args),
+                                          name='%s__%d' % (func.func_name,
+                                                           len(args)))
         return self.bookkeeper.annotator.recursivecall(func, self, *args)
 
-        #if hasattr(func, 'specialize'):
-        #    key = func, factory.position_key 
-        #    try:
-        #        func = self._cachespecializedfunctions[key]
-        #    except KeyError:
-        #        func = new.function(func.func_code, 
-        #                            func.func_globals, 
-        #                            func.func_name, 
-        #                            func.func_defaults, 
-        #                            func.func_closure)
-        #        self._cachespecializedfunctions[key] = func 
+    def specialize_by_key(self, func, key, name=None):
+        key = func, key
+        try:
+            func = self.bookkeeper.cachespecializedfunctions[key]
+        except KeyError:
+            func = new.function(func.func_code, 
+                                func.func_globals, 
+                                name or func.func_name, 
+                                func.func_defaults, 
+                                func.func_closure)
+            self.bookkeeper.cachespecializedfunctions[key] = func
+        return func
 
 class ClassDef:
     "Wraps a user class."
