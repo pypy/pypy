@@ -49,6 +49,14 @@ def is_thunk(space, w_obj):
     return space.newbool(isinstance(w_obj, W_Thunk))
 app_is_thunk = gateway.interp2app(is_thunk)
 
+def become(space, w_target, w_source):
+    while isinstance(w_target, W_Thunk) and w_target.w_value is not None:
+        w_target = w_target.w_value
+    w_target.__class__ = W_Thunk
+    w_target.__dict__ = {'w_value': w_source}
+    return space.w_None
+app_become = gateway.interp2app(become)
+
 # __________________________________________________________________________
 
 operation_args_that_dont_force = {
@@ -73,4 +81,6 @@ def Space(space=None):
                   space.wrap(app_thunk))
     space.setitem(space.builtin.w_dict, space.wrap('is_thunk'),
                   space.wrap(app_is_thunk))
+    space.setitem(space.builtin.w_dict, space.wrap('become'),
+                 space.wrap(app_become))
     return space
