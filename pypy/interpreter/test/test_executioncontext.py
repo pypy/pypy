@@ -10,13 +10,13 @@ class TestExecutionContext(testsupport.TestCase):
         # build frame
         space = testsupport.objspace()
         ec = executioncontext.ExecutionContext(space)
-        
-        bytecode = compile('def f(x): return x+1', '', 'exec').co_consts[0]
+        compile = space.builtin.compile
+        bytecode = compile(space.wrap('def f(x): return x+1'),
+                           space.wrap('<string>'),
+                           space.wrap('exec')).co_consts[0]
         w_globals = ec.make_standard_w_globals()
-        w_locals = space.newdict([])
+        w_locals = space.newdict([(space.wrap('x'), space.wrap(5))])
         frame = PyFrame(space, bytecode, w_globals, w_locals)
-        w_input = frame.space.wrap((5,))
-        frame.setargs(w_input)
         w_output = ec.eval_frame(frame)
         self.assertEquals(frame.space.unwrap(w_output), 6)
 

@@ -13,14 +13,6 @@ class Builtin(BuiltinModule):
 
     __helper_appfile__ = appfile.AppFile('builtin_helper',["module"])
 
-    # we have None!
-    None = appdata(_b.None)
-    False = appdata(_b.False)
-    True = appdata(_b.True)
-    dict = appdata(_b.dict)   # XXX temporary
-    tuple = appdata(_b.tuple) # XXX temporary
-    int = appdata(_b.int) # XXX temporary
-
     # temporary hack, until we have a real tuple type for calling
     #def tuple(self, w_obj):
     #    lis = self.space.unpackiterable(w_obj)
@@ -165,3 +157,11 @@ class Builtin(BuiltinModule):
     unichr = appmethod(unichr)
 
 
+    # we have None! But leave these at the bottom, otherwise the default
+    # arguments of the above-defined functions will see this new None...
+    None = appdata(_b.None)
+    False = appdata(_b.False)
+    True = appdata(_b.True)
+    dict = appdata(_b.dict)   # XXX temporary
+    tuple = appdata(_b.tuple) # XXX temporary
+    int = appdata(_b.int) # XXX temporary
