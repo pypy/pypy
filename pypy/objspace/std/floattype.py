@@ -22,9 +22,9 @@ def type_new__FloatType_FloatType(space, w_basetype, w_floattype, w_args, w_kwds
                                          space.w_str)):
             try:
                 return space.newfloat(float(space.unwrap(arg))), True
-            except TypeError:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("invalid literal for float()"))
+            except ValueError, e:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap(str(e)))
         else:
             return space.float(args[0]), True
     else:
