@@ -355,7 +355,7 @@ def string_richcompare(space, w_str1, w_str2, op):
         elif op == GE:
             return space.newbool(c >= 0)
         else:
-            raise NotImplemented
+            return NotImplemented
 
 def lt__String_String(space, w_str1, w_str2):
     return string_richcompare(space, w_str1, w_str2, LT)
@@ -410,7 +410,7 @@ def add__String_String(space, w_left, w_right):
     return W_StringObject(space, buf.value())
 
 def mod_str_tuple(space, w_format, w_args):
-    notImplemented
+    raise NotImplementedError
 
 def len__String(space, w_str):
     return space.wrap(w_str._value.len)
