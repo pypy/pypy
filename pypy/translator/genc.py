@@ -29,7 +29,10 @@ class GenC:
         self.translator = translator
         self.modname = (modname or
                         uniquemodulename(translator.functions[0].__name__))
-        self.cnames = {}
+        self.cnames = {(type(None), None): 'Py_None',
+                       (   bool,   False): 'Py_False',
+                       (   bool,    True): 'Py_True',
+                       }
         self.seennames = {}
         self.initcode = []
         self.globaldecl = []
@@ -69,12 +72,42 @@ class GenC:
         self.initcode.append('%s = PyInt_FromLong(%d);' % (name, value))
         return name
 
+    def nameof_str(self, value):
+        chrs = [c for c in value if ('a' <= c <='z' or
+                                     'A' <= c <='Z' or
+                                     '0' <= c <='9' or
+                                     '_' == c )]
+        name = self.uniquename('gstr_' + ''.join(chrs))
+        self.globaldecl.append('static PyObject* %s;' % name)
+        if [c for c in value if not (' '<=c<='~')]:
+            # non-printable string
+            s = 'chr_%s' % name
+            self.globaldecl.append('static char %s[] = { %s };' % (
+                s, ', '.join(['%d' % ord(c) for c in value])))
+        else:
+            # printable string
+            s = '"%s"' % value
+        self.initcode.append('%s = PyString_FromStringAndSize(%s, %d);' % (
+            name, s, len(value)))
+        return name
+
     def nameof_function(self, func):
         name = self.uniquename('gfunc_' + func.__name__)
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('%s = PyCFunction_New(&ml_%s, NULL);' % (name,
                                                                       name))
         self.pendingfunctions.append(func)
+        return name
+
+    def nameof_builtin_function_or_method(self, func):
+        import __builtin__
+        assert func is getattr(__builtin__, func.__name__, None), (
+            '%r is not from __builtin__' % (func,))
+        name = self.uniquename('gbltin_' + func.__name__)
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('%s = PyMapping_GetItemString('
+                             'PyEval_GetBuiltins(), "%s");' % (
+            name, func.__name__))
         return name
 
     def gen_source(self):
@@ -117,7 +150,7 @@ class GenC:
         print >> f, '{'
 
         # collect and print all the local variables
-        graph = self.translator.flowgraphs[func]
+        graph = self.translator.getflowgraph(func)
         localslst = []
         def visit(node):
             if isinstance(node, Block):
@@ -128,9 +161,13 @@ class GenC:
         print >> f
 
         # argument unpacking
-        lst = ['"' + 'O'*len(graph.getargs()) + '"']
+        lst = ['args',
+               '"%s"' % func.__name__,
+               '%d' % len(graph.getargs()),
+               '%d' % len(graph.getargs()),
+               ]
         lst += ['&' + a.name for a in graph.getargs()]
-        print >> f, '\tif (!PyArg_ParseTuple(args, %s))' % ', '.join(lst)
+        print >> f, '\tif (!PyArg_UnpackTuple(%s))' % ', '.join(lst)
         print >> f, '\t\treturn NULL;'
 
         # print the body
@@ -148,7 +185,7 @@ class GenC:
         print >> f
 
     def cfunction_body(self, func):
-        graph = self.translator.flowgraphs[func]
+        graph = self.translator.getflowgraph(func)
         blocknum = {}
         allblocks = []
 
@@ -174,7 +211,7 @@ class GenC:
                 yield line
             for v in to_release:
                 if v in has_ref:
-                    yield 'Py_XDECREF(%s);' % v.name
+                    yield 'Py_DECREF(%s);' % v.name
             yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks
@@ -197,7 +234,12 @@ class GenC:
                 lst = [expr(v) for v in op.args]
                 lst.append(op.result.name)
                 lst.append('err%d_%d' % (blocknum[block], len(to_release)))
-                yield 'OP_%s(%s)' % (op.opname.upper(), ', '.join(lst))
+                macro = 'OP_%s' % op.opname.upper()
+                meth = getattr(self, macro, None)
+                if meth:
+                    yield meth(lst[:-2], lst[-2], lst[-1])
+                else:
+                    yield '%s(%s)' % (macro, ', '.join(lst))
                 to_release.append(op.result)
 
             if len(block.exits) == 0:
@@ -221,8 +263,8 @@ class GenC:
             while to_release:
                 n = len(to_release)
                 v = to_release.pop()
-                yield 'err%d_%d: Py_XDECREF(%s);' % (blocknum[block], n, v.name)
-            yield 'return NULL;'
+                yield 'err%d_%d: Py_DECREF(%s);' % (blocknum[block], n, v.name)
+            yield 'err%d_0: return NULL;' % blocknum[block]
 
 # ____________________________________________________________
 
@@ -240,6 +282,24 @@ void init%(modname)s(void)
     C_INIT_FOOTER = '''
 \tPyModule_AddObject(m, "%(entrypointname)s", %(entrypoint)s);
 }'''
+
+    # the C preprocessor cannot handle operations taking a variable number
+    # of arguments, so here are Python methods that do it
+    
+    def OP_NEWLIST(self, args, r, err):
+        if len(args) == 0:
+            return 'OP_NEWLIST0(%s, %s)' % (r, err)
+        else:
+            args.insert(0, '%d' % len(args))
+            return 'OP_NEWLIST((%s), %s, %s)' % (', '.join(args), r, err)
+
+    def OP_NEWTUPLE(self, args, r, err):
+        args.insert(0, '%d' % len(args))
+        return 'OP_NEWTUPLE((%s), %s, %s)' % (', '.join(args), r, err)
+
+    def OP_SIMPLE_CALL(self, args, r, err):
+        args.append('NULL')
+        return 'OP_SIMPLE_CALL((%s), %s, %s)' % (', '.join(args), r, err)
 
 # ____________________________________________________________
 
