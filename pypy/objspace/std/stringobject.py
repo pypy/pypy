@@ -1,6 +1,9 @@
 from pypy.objspace.std.objspace import *
 from intobject   import W_IntObject
 from sliceobject import W_SliceObject
+from instmethobject import W_InstMethObject
+from pypy.interpreter.extmodule import make_builtin_func
+
 
 applicationfile = StdObjSpace.AppFile(__name__)
 
@@ -15,6 +18,26 @@ class W_StringObject(W_Object):
         return W_IntObject(self.space, w_self.value != 0)
     def hash(w_self):
         return W_IntObject(self, hash(self.value))
+
+    def join(w_self, w_list):
+        firstelem = 1
+        res = ""
+        for w_item in w_list.wrappeditems:
+            if firstelem:
+                res = w_item.value    
+                firstelem = 0
+            else:
+                res = res + w_self.value + w_item.value
+                
+        return W_StringObject(w_self.space, res)
+
+def getattr_str(space, w_list, w_attr):
+    if space.is_true(space.eq(w_attr, space.wrap('join'))):
+        w_builtinfn = make_builtin_func(space, W_StringObject.join)
+        return W_InstMethObject(space, w_list, w_builtinfn)
+    raise FailedToImplement(space.w_AttributeError)
+
+StdObjSpace.getattr.register(getattr_str, W_StringObject, W_ANY)
 
 
 def str_unwrap(space, w_str):
