@@ -117,8 +117,6 @@ class ExecutionContext:
         else:
             frame.instr_ub = sys.maxint
 
-
-
     def exception_trace(self, operationerr):
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()
@@ -160,10 +158,7 @@ class ExecutionContext:
             w_callback = frame.w_f_trace
         if self.is_tracing or w_callback is None:
             return
-        # To get better results when running test_trace.py
-        #if frame.code.co_filename.find('/lib-python-2.3.4/') <0:
-        #    print 'Skipping', event, frame.code.co_name
-        #    return
+
         self.is_tracing += 1
         try:
             try:
