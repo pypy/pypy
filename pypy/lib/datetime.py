@@ -577,9 +577,11 @@ class timedelta(object):
 
     def __add__(self, other):
         if isinstance(other, timedelta):
-            return self.__class__(self.__days + other.__days,
-                                  self.__seconds + other.__seconds,
-                                  self.__microseconds + other.__microseconds)
+            # for CPython compatibility, we cannot use
+            # our __class__ here, but need a real timedelta
+            return timedelta(self.__days + other.__days,
+                             self.__seconds + other.__seconds,
+                             self.__microseconds + other.__microseconds)
         return NotImplemented
 
     __radd__ = __add__
@@ -595,9 +597,11 @@ class timedelta(object):
         return NotImplemented
 
     def __neg__(self):
-        return self.__class__(-self.__days,
-                              -self.__seconds,
-                              -self.__microseconds)
+            # for CPython compatibility, we cannot use
+            # our __class__ here, but need a real timedelta
+            return timedelta(-self.__days,
+                             -self.__seconds,
+                             -self.__microseconds)
 
     def __pos__(self):
         return self
@@ -610,9 +614,11 @@ class timedelta(object):
 
     def __mul__(self, other):
         if isinstance(other, (int, long)):
-            return self.__class__(self.__days * other,
-                                  self.__seconds * other,
-                                  self.__microseconds * other)
+            # for CPython compatibility, we cannot use
+            # our __class__ here, but need a real timedelta
+            return timedelta(self.__days * other,
+                             self.__seconds * other,
+                             self.__microseconds * other)
         return NotImplemented
 
     __rmul__ = __mul__
@@ -621,7 +627,7 @@ class timedelta(object):
         if isinstance(other, (int, long)):
             usec = ((self.__days * (24*3600L) + self.__seconds) * 1000000 +
                     self.__microseconds)
-            return self.__class__(0, 0, usec // other)
+            return timedelta(0, 0, usec // other)
         return NotImplemented
 
     __floordiv__ = __div__
@@ -903,7 +909,7 @@ class date(object):
                       self.__month,
                       self.__day + other.days)
             self._checkOverflow(t.year)
-            result = self.__class__(t.year, t.month, t.day)
+            result = date(t.year, t.month, t.day)
             return result
         raise TypeError
         # XXX Should be 'return NotImplemented', but there's a bug in 2.2...
@@ -1344,7 +1350,7 @@ class time(object):
             self._tzinfo = state[1]
 
     def __reduce__(self):
-        return (self.__class__, self.__getstate())
+        return (time, self.__getstate())
 
 _time_class = time  # so functions w/ args named "time" can get at the class
 
@@ -1714,7 +1720,7 @@ class datetime(date):
                   self.__second + other.seconds,
                   self.__microsecond + other.microseconds)
         self._checkOverflow(t.year)
-        result = self.__class__(t.year, t.month, t.day,
+        result = datetime(t.year, t.month, t.day,
                                 t.hour, t.minute, t.second,
                                 t.microsecond, tzinfo=self._tzinfo)
         return result
