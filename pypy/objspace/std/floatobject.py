@@ -116,6 +116,8 @@ def div__Float_Float(space, w_float1, w_float2):
     y = w_float2.floatval
     try:
         z = x / y   # XXX make sure this is the new true division
+    except ZeroDivisionError:
+        raise OperationError(space.w_ZeroDivisionError, space.wrap("float division"))
     except FloatingPointError:
         raise FailedToImplement(space.w_FloatingPointError, space.wrap("float division"))
 	# no overflow
