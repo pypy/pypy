@@ -10,11 +10,13 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin 
 from pypy.annotation.model import SomeCallable, SomeIterator
 from pypy.annotation.model import SomePBC
-from pypy.annotation.model import immutablevalue
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
 from pypy.annotation.factory import CallableFactory, isclassdef 
 
+# convenience only!
+def immutablevalue(x):
+    return getbookkeeper().immutablevalue(x)
 
 UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'simple_call',
                         'iter', 'next'])
@@ -120,34 +122,27 @@ class __extend__(SomeInstance):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
             #print 'getattr:', ins, attr, ins.classdef.revision
-            # look for the attribute in the MRO order
-            for clsdef in ins.currentdef().getmro():
-                if attr in clsdef.attrs:
-                    return clsdef.attrs[attr]
-            # maybe the attribute exists in some subclass? if so, lift it
-            clsdef = ins.classdef
-            clsdef.generalize_attr(attr, SomeImpossibleValue(), getbookkeeper())
-            raise BlockedInference
+            s_result = ins.currentdef().find_attribute(attr).getvalue()
+            # we call this because it might raise BlockedInference if
+            # the above line caused generalization.
+            ins.currentdef()
+            return s_result
         return SomeObject()
 
     def setattr(ins, s_attr, s_value):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            for clsdef in ins.currentdef().getmro():
-                if attr in clsdef.attrs:
-                    # look for the attribute in ins.classdef or a parent class
-                    s_existing = clsdef.attrs[attr]
-                    if s_existing.contains(s_value):
-                        clsdef.readonly[attr] = False
-                        return   # already general enough, nothing to do
-                    break
-            else:
-                # if the attribute doesn't exist yet, create it here
-                clsdef = ins.classdef
+            clsdef = ins.currentdef().locate_attribute(attr)
+            attrdef = clsdef.attrs[attr]
+            attrdef.readonly = False
+
+            # if the attrdef is new, this must fail
+            if attrdef.getvalue().contains(s_value):
+                return
             # create or update the attribute in clsdef
-            clsdef.generalize_attr(attr, s_value, getbookkeeper(), readonly=False)
+            clsdef.generalize_attr(attr, s_value)
             raise BlockedInference
-        return SomeObject()
+        return
 
 class __extend__(SomeBuiltin):
     def simple_call(bltn, *args):
@@ -198,10 +193,9 @@ class __extend__(SomePBC):
     def getattr(pbc, s_attr):
         assert s_attr.is_constant()
         attr = s_attr.const
-        bookkeeper = getbookkeeper()
         actuals = []
+        
         for c in pbc.prebuiltinstances:
-            bookkeeper.attrs_read_from_constants.setdefault(c, {})[attr] = True
             if hasattr(c, attr):
                 actuals.append(immutablevalue(getattr(c, attr)))
         return unionof(*actuals)

@@ -9,13 +9,18 @@ The factory remembers how general an object it has to create here.
 from __future__ import generators
 import new
 from types import FunctionType, ClassType, MethodType
-from pypy.annotation.model import SomeImpossibleValue, SomeList, SomeDict
-from pypy.annotation.model import SomeObject, SomeInstance
-from pypy.annotation.model import unionof, immutablevalue
+from pypy.annotation.model import *
 from pypy.interpreter.miscutils import getthreadlocals
 from pypy.interpreter.pycode import CO_VARARGS
 from pypy.tool.hack import func_with_new_name
 
+def ishashable(x):
+    try:
+        hash(x)
+    except TypeError:
+        return False
+    else:
+        return True
 
 class BlockedInference(Exception):
     """This exception signals the type inference engine that the situation
@@ -44,7 +49,6 @@ class Bookkeeper:
         self.creationpoints = {} # map position-in-a-block to its Factory
         self.userclasses = {}    # map classes to ClassDefs
         self.userclasseslist = []# userclasses.keys() in creation order
-        self.attrs_read_from_constants = {}
         self.cachespecializations = {}
 
     def enter(self, position_key):
@@ -87,6 +91,85 @@ class Bookkeeper:
             return self.userclasses[cls]
 
 
+    def immutablevalue(self, x):
+        """The most precise SomeValue instance that contains the
+        immutable value x."""
+        tp = type(x)
+        if tp is bool:
+            result = SomeBool()
+        elif tp is int:
+            result = SomeInteger(nonneg = x>=0)
+        elif tp is str:
+            result = SomeString()
+        elif tp is tuple:
+            result = SomeTuple(items = [self.immutablevalue(e) for e in x])
+        elif tp is list:
+            items_s = [self.immutablevalue(e) for e in x]
+            result = SomeList({}, unionof(*items_s))
+        elif tp is dict:   # exactly a dict
+            items = {}
+            for key, value in x.items():
+                items[key] = self.immutablevalue(value)
+            result = SomeDict({}, items)
+        elif ishashable(x) and x in BUILTIN_ANALYZERS:
+            result = SomeBuiltin(BUILTIN_ANALYZERS[x])
+        elif callable(x) or isinstance(x, staticmethod): # XXX
+            # maybe 'x' is a method bound to a not-yet-frozen cache?
+            # fun fun fun.
+            if (hasattr(x, 'im_self') and isinstance(x.im_self, Cache)
+                and not x.im_self.frozen):
+                x.im_self.freeze()
+            if hasattr(x, '__self__') and x.__self__ is not None:
+                s_self = self.immutablevalue(x.__self__)
+                # stop infinite recursion getattr<->immutablevalue
+                del s_self.const
+                s_name = self.immutablevalue(x.__name__)
+                result = s_self.getattr(s_name)
+            else:
+                result = SomeCallable({x : True})
+        elif hasattr(x, '__class__') \
+                 and x.__class__.__module__ != '__builtin__':
+            if isinstance(x, Cache) and not x.frozen:
+                x.freeze()
+            result = SomePBC({x: True}) # pre-built inst
+            clsdef = self.getclassdef(x.__class__)
+            for attr in x.__dict__:
+                clsdef.add_source_for_attribute(attr, x)
+        elif x is None:
+            result = SomeNone()
+        else:
+            result = SomeObject()
+        result.const = x
+        return result
+
+    def valueoftype(self, t):
+        """The most precise SomeValue instance that contains all
+        objects of type t."""
+        if t is bool:
+            return SomeBool()
+        elif t is int:
+            return SomeInteger()
+        elif t is str:
+            return SomeString()
+        elif t is list:
+            return SomeList(factories={})
+        # can't do dict, tuple
+        elif isinstance(t, (type, ClassType)) and \
+                 t.__module__ != '__builtin__':
+            classdef = self.getclassdef(t)
+            if self.is_in_an_operation():
+                # woha! instantiating a "mutable" SomeXxx like SomeInstance
+                # is always dangerous, because we need to record this fact
+                # in a factory, to allow reflowing from the current operation
+                # if/when the classdef later changes.
+                factory = self.getfactory(CallableFactory)
+                classdef.instancefactories[factory] = True
+            return SomeInstance(classdef)
+        else:
+            o = SomeObject()
+            o.knowntype = t
+            return o
+
 def getbookkeeper():
     """Get the current Bookkeeper.
     Only works during the analysis of an operation."""
@@ -105,14 +188,14 @@ def generalize(factories, *args):
         raise BlockedInference   # reflow now
 
 def isclassdef(x):
-    return isinstance(x, ClassDef) 
+    return isinstance(x, ClassDef)
 
 class ListFactory:
     s_item = SomeImpossibleValue()
 
     def __repr__(self):
         return '%s(s_item=%r)' % (self.__class__.__name__, self.s_item)
-    
+
     def create(self):
         return SomeList(factories = {self: True}, s_item = self.s_item)
 
@@ -145,11 +228,11 @@ class DictFactory:
             return False
 
 
-class CallableFactory: 
+class CallableFactory:
     def pycall(self, func, *args):
         if isinstance(func, (type, ClassType)) and \
             func.__module__ != '__builtin__':
-            cls = func 
+            cls = func
             x = getattr(cls, "_specialize_", False)
             if x:
                 if x == "location":
@@ -157,7 +240,7 @@ class CallableFactory:
                 else:
                     raise Exception, \
                           "unsupported specialization type '%s'"%(x,)
-            
+
             classdef = self.bookkeeper.getclassdef(cls)
             classdef.instancefactories[self] = True
             s_instance = SomeInstance(classdef)
@@ -169,17 +252,17 @@ class CallableFactory:
                 assert not args, "no __init__ found in %r" % (cls,)
             return s_instance
         if hasattr(func, '__call__') and \
-           isinstance(func.__call__, MethodType): 
+           isinstance(func.__call__, MethodType):
             func = func.__call__
         if hasattr(func, 'im_func'):
             if func.im_self is not None:
-                s_self = immutablevalue(func.im_self)
+                s_self = self.bookkeeper.immutablevalue(func.im_self)
                 args = [s_self] + list(args)
             try:
                 func.im_func.class_ = func.im_class
             except AttributeError:
                 # probably a builtin function, we don't care to preserve
-                # class information then 
+                # class information then
                 pass
             func = func.im_func
         assert isinstance(func, FunctionType), "expected function, got %r"%func
@@ -187,15 +270,15 @@ class CallableFactory:
         x = getattr(func, '_specialize_', False)
         if x:
             if x == 'argtypes':
-                key = short_type_name(args) 
-                func = self.specialize_by_key(func, key, 
-                                              func.__name__+'__'+key) 
+                key = short_type_name(args)
+                func = self.specialize_by_key(func, key,
+                                              func.__name__+'__'+key)
             elif x == "location":
                 # fully specialize: create one version per call position
                 func = self.specialize_by_key(func, self.position_key)
             else:
                 raise Exception, "unsupported specialization type '%s'"%(x,)
-            
+
         elif func.func_code.co_flags & CO_VARARGS:
             # calls to *arg functions: create one version per number of args
             func = self.specialize_by_key(func, len(args),
@@ -222,20 +305,51 @@ class CallableFactory:
 
 def short_type_name(args):
     l = []
-    for x in args: 
+    for x in args:
         if isinstance(x, SomeInstance) and hasattr(x, 'knowntype'):
-            name = "SI_" + x.knowntype.__name__ 
+            name = "SI_" + x.knowntype.__name__
         else:
             name = x.__class__.__name__
-        l.append(name) 
-    return "__".join(l) 
+        l.append(name)
+    return "__".join(l)
+
+
+class Attribute:
+    # readonly-ness
+    # SomeThing-ness
+    # more potential sources (pbcs or classes) of information
+
+    def __init__(self, name, bookkeeper):
+        self.name = name
+        self.bookkeeper = bookkeeper
+        self.sources = {} # source -> None or ClassDef
+        # XXX a SomeImpossibleValue() constant?  later!!
+        self.s_value = SomeImpossibleValue()
+        self.readonly = True
+
+    def getvalue(self):
+        while self.sources:
+            source, classdef = self.sources.popitem()
+            s_value = self.bookkeeper.immutablevalue(
+                source.__dict__[self.name])
+            if classdef:
+                s_value = s_value.bindcallables(classdef)
+            self.s_value = unionof(self.s_value, s_value)
+        return self.s_value
+
+    def merge(self, other):
+        assert self.name == other.name
+        self.sources.update(other.sources)
+        self.s_value = unionof(self.s_value, other.s_value)
+        self.readonly = self.readonly and other.readonly
+
 
 class ClassDef:
     "Wraps a user class."
 
     def __init__(self, cls, bookkeeper):
-        self.attrs = {}          # attrs is updated with new information
-        self.readonly = {}       # {attr: True-or-False}
+        self.bookkeeper = bookkeeper
+        self.attrs = {}          # {name: Attribute}
         self.revision = 0        # which increases the revision number
         self.instancefactories = {}
         self.cls = cls
@@ -250,6 +364,7 @@ class ClassDef:
         self.basedef = bookkeeper.getclassdef(base)
         if self.basedef:
             self.basedef.subdefs[cls] = self
+
         # collect the (supposed constant) class attributes
         for name, value in cls.__dict__.items():
             # ignore some special attributes
@@ -257,13 +372,21 @@ class ClassDef:
                 continue
             if isinstance(value, FunctionType):
                 value.class_ = cls # remember that this is really a method
-            # although self.getallfactories() is currently empty,
-            # the following might still invalidate some blocks if it
-            # generalizes existing values in parent classes
-            s_value = immutablevalue(value)
-            s_value = s_value.bindcallables(self)
-            self.generalize_attr(name, s_value, bookkeeper)
+            self.add_source_for_attribute(name, cls, self)
 
+    def add_source_for_attribute(self, attr, source, clsdef=None):
+        self.find_attribute(attr).sources[source] = clsdef
+
+    def locate_attribute(self, attr):
+        for cdef in self.getmro():
+            if attr in cdef.attrs:
+                return cdef
+        self.generalize_attr(attr)
+        return self
+
+    def find_attribute(self, attr):
+        return self.locate_attribute(attr).attrs[attr]
+    
     def __repr__(self):
         return "<ClassDef '%s.%s'>" % (self.cls.__module__, self.cls.__name__)
 
@@ -271,6 +394,12 @@ class ClassDef:
         while other is not None and not issubclass(self.cls, other.cls):
             other = other.basedef
         return other
+
+    def superdef_containing(self, cls):
+        clsdef = self
+        while clsdef is not None and not issubclass(cls, clsdef.cls):
+            clsdef = clsdef.basedef
+        return clsdef
 
     def getmro(self):
         while self is not None:
@@ -293,41 +422,43 @@ class ClassDef:
             factories.update(clsdef.instancefactories)
         return factories
 
-    def _generalize_attr(self, attr, s_value, bookkeeper, readonly):
+    def _generalize_attr(self, attr, s_value):
         # first remove the attribute from subclasses -- including us!
-        subclass_values = []
+        subclass_attrs = []
         for subdef in self.getallsubdefs():
             if attr in subdef.attrs:
-                subclass_values.append(subdef.attrs[attr])
-                readonly = readonly and subdef.readonly[attr]
+                subclass_attrs.append(subdef.attrs[attr])
                 del subdef.attrs[attr]
-                del subdef.readonly[attr]
             # bump the revision number of this class and all subclasses
             subdef.revision += 1
 
         # do the generalization
-        self.attrs[attr] = unionof(s_value, *subclass_values)
-        self.readonly[attr] = readonly
-        
+        newattr = Attribute(attr, self.bookkeeper)
+        if s_value:
+            newattr.s_value = s_value
+            
+        for subattr in subclass_attrs:
+            newattr.merge(subattr)
+        self.attrs[attr] = newattr
+
         # reflow from all factories
-        if bookkeeper:
-            for factory in self.getallfactories():
-                bookkeeper.annotator.reflowfromposition(factory.position_key)
+        for factory in self.getallfactories():
+            self.bookkeeper.annotator.reflowfromposition(factory.position_key)
 
-
-    def generalize_attr(self, attr, s_value, bookkeeper=None, readonly=True):
+    def generalize_attr(self, attr, s_value=None):
         # if the attribute exists in a superclass, generalize there.
         for clsdef in self.getmro():
             if attr in clsdef.attrs:
-                clsdef._generalize_attr(attr, s_value, bookkeeper, readonly)
-                return
+                clsdef._generalize_attr(attr, s_value)
         else:
-            self._generalize_attr(attr, s_value, bookkeeper, readonly)
+            self._generalize_attr(attr, s_value)
 
     def about_attribute(self, name):
         for cdef in self.getmro():
             if name in cdef.attrs:
-                return cdef.attrs[name]
-        return SomeImpossibleValue()
+                return cdef.attrs[name].getvalue()
+        return None
 
-from pypy.annotation.builtin  import BUILTIN_ANALYZERS
+
+
+from pypy.annotation.builtin import BUILTIN_ANALYZERS

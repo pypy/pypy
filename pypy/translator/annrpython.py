@@ -60,7 +60,7 @@ class RPythonAnnotator:
         inputcells = []
         for t in input_arg_types:
             if not isinstance(t, annmodel.SomeObject):
-                t = annmodel.valueoftype(t, self.bookkeeper)
+                t = self.bookkeeper.valueoftype(t)
             inputcells.append(t)
         
         # register the entry point
@@ -100,9 +100,6 @@ class RPythonAnnotator:
             self.bindings[v] = s_value
             self.binding_caused_by[v] = None
             yield v
-
-    def getpbcattrs(self, pbc):
-        return self.bookkeeper.attrs_read_from_constants.get(pbc, {})
 
     #___ medium-level interface ____________________________
 
@@ -148,7 +145,7 @@ class RPythonAnnotator:
                 assert isinstance(in_link.exitcase, type(Exception))
                 assert issubclass(in_link.exitcase, Exception)
                 return annmodel.SomeObject()   # XXX
-            return annmodel.immutablevalue(arg.value)
+            return self.bookkeeper.immutablevalue(arg.value)
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
 
@@ -210,7 +207,7 @@ class RPythonAnnotator:
                     "got %d inputcells in call to %r; expected %s" % (
                     len(inputcells), func, msg))
             for extra in func.func_defaults[-missingargs:]:
-                inputcells.append(annmodel.immutablevalue(extra))
+                inputcells.append(self.bookkeeper.immutablevalue(extra))
         inputcells.extend(extracells)
         self.addpendingblock(func, block, inputcells, factory)
 

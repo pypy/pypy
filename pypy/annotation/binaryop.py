@@ -8,11 +8,14 @@ from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeCallable
 from pypy.annotation.model import SomeBuiltin, SomeIterator
-from pypy.annotation.model import SomePBC, immutablevalue
+from pypy.annotation.model import SomePBC
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import generalize, isclassdef, getbookkeeper
 from pypy.objspace.flow.model import Constant
 
+# convenience only!
+def immutablevalue(x):
+    return getbookkeeper().immutablevalue(x)
 
 # XXX unify this with ObjSpace.MethodTable
 BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
@@ -307,3 +310,15 @@ class __extend__(pairtype(SomePBC, SomePBC)):
     def union((pbc1, pbc2)):
         return SomePBC(setunion(pbc1.prebuiltinstances,
                                 pbc2.prebuiltinstances))
+
+class __extend__(pairtype(SomeInstance, SomePBC)):
+    def union((ins, pbc)):
+        classdef = ins.currentdef().superdef_containing(pbc.knowntype)
+        if classdef is None:
+            # print warning?
+            return SomeObject()
+        return SomeInstance(classdef)
+
+class __extend__(pairtype(SomePBC, SomeInstance)):
+    def union((pbc, ins)):
+        return pair(ins, pbc).union()

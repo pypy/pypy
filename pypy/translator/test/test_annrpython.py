@@ -7,7 +7,7 @@ from pypy.translator.annrpython import RPythonAnnotator, annmodel
 from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import *
 
-from pypy.annotation.model import immutablevalue, SomeCallable
+from pypy.annotation.model import SomeCallable
 
 from pypy.translator.test import snippet
 
@@ -161,7 +161,7 @@ class AnnonateTestCase(testit.IntTestCase):
         s = a.build_types(snippet.inheritance1, [])
         # result should be exactly:
         self.assertEquals(s, annmodel.SomeTuple([
-                                annmodel.immutablevalue(()),
+                                a.bookkeeper.immutablevalue(()),
                                 annmodel.SomeInteger()
                                 ]))
 
@@ -198,8 +198,10 @@ class AnnonateTestCase(testit.IntTestCase):
         classes = a.bookkeeper.userclasses
         self.assertEquals(classes[snippet.F].attrs.keys(), ['m'])
         self.assertEquals(classes[snippet.G].attrs.keys(), ['m2'])
-        self.assertEquals(classes[snippet.H].attrs,
-                          {'attr': annmodel.immutablevalue(1)})
+        self.assertEquals(classes[snippet.H].attrs.keys(), ['attr']) 
+        self.assertEquals(classes[snippet.H].about_attribute('attr'),
+                          a.bookkeeper.immutablevalue(1))
+       
 
     def test_knownkeysdict(self):
         a = RPythonAnnotator()
@@ -227,9 +229,9 @@ class AnnonateTestCase(testit.IntTestCase):
         # XXX on which class should the attribute 'a' appear?  We only
         #     ever flow WithInit.__init__ with a self which is an instance
         #     of WithMoreInit, so currently it appears on WithMoreInit.
-        self.assertEquals(classes[snippet.WithMoreInit].attrs.get('a'),
+        self.assertEquals(classes[snippet.WithMoreInit].about_attribute('a'),
                           annmodel.SomeInteger())
-        self.assertEquals(classes[snippet.WithMoreInit].attrs.get('b'),
+        self.assertEquals(classes[snippet.WithMoreInit].about_attribute('b'),
                           annmodel.SomeBool())
 
     def test_global_instance(self):
@@ -237,14 +239,14 @@ class AnnonateTestCase(testit.IntTestCase):
         s = a.build_types(snippet.global_instance, [])
         # currently this returns the constant 42.
         # XXX not sure this is the best behavior...
-        self.assertEquals(s, annmodel.immutablevalue(42))
+        self.assertEquals(s, a.bookkeeper.immutablevalue(42))
 
     def test_call_five(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.call_five, [])
         # returns should be a list of constants (= 5)
         self.assert_(isinstance(s, annmodel.SomeList))
-        self.assertEquals(s.s_item, annmodel.immutablevalue(5))
+        self.assertEquals(s.s_item, a.bookkeeper.immutablevalue(5))
 
     def test_call_five_six(self):
         a = RPythonAnnotator()
@@ -258,7 +260,7 @@ class AnnonateTestCase(testit.IntTestCase):
         s = a.build_types(snippet.constant_result, [])
         #a.translator.simplify()
         # must return "yadda"
-        self.assertEquals(s, annmodel.immutablevalue("yadda"))
+        self.assertEquals(s, a.bookkeeper.immutablevalue("yadda"))
         keys = a.translator.flowgraphs.keys()
         keys.sort()
         expected = [snippet.constant_result,
@@ -273,7 +275,7 @@ class AnnonateTestCase(testit.IntTestCase):
     def test_call_pbc(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.call_cpbc, [])
-        self.assertEquals(s, annmodel.immutablevalue(42))
+        self.assertEquals(s, a.bookkeeper.immutablevalue(42))
 
     def test_flow_type_info(self):
         a = RPythonAnnotator()
@@ -309,7 +311,7 @@ class AnnonateTestCase(testit.IntTestCase):
         a.translator.simplify()
         a.simplify()
         #a.translator.view()
-        self.assertEquals(s, immutablevalue((None, None)))
+        self.assertEquals(s, a.bookkeeper.immutablevalue((None, None)))
 
     def test_mergefunctions(self):
         a = RPythonAnnotator()

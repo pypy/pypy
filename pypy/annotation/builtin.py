@@ -4,11 +4,13 @@ Built-in functions.
 
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple
-from pypy.annotation.model import immutablevalue, valueoftype
 from pypy.annotation.factory import ListFactory, getbookkeeper
 from pypy.objspace.flow.model import Constant
 import pypy.objspace.std.restricted_int
 
+# convenience only!
+def immutablevalue(x):
+    return getbookkeeper().immutablevalue(x)
 
 def builtin_len(s_obj):
     return s_obj.len()
@@ -64,7 +66,7 @@ def builtin_isinstance(s_obj, s_type):
             assert op.args[0] == Constant(isinstance)
             assert annotator.binding(op.args[1]) is s_obj
             r = SomeBool()
-            r.knowntypedata = (op.args[1], valueoftype(typ, bk))
+            r.knowntypedata = (op.args[1], bk.valueoftype(typ))
             return r
     return SomeBool()
 
