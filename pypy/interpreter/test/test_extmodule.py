@@ -1,46 +1,33 @@
 
 import autopath
+import os
 from pypy.tool import testit
-from pypy.interpreter.extmodule import ExtModule
+from pypy.interpreter.extmodule import BuiltinModule
 
 
-class TestExtModule(testit.IntTestCase):
+class TestBuiltinModule(testit.IntTestCase):
     def setUp(self):
         self.space = testit.objspace()
 
-        class M(ExtModule):
-            __name__ = 'm'
-            constant = 678
-            def app_egg(self, x):
-                return -x
-            def foo(self, w_spam):
-                return self.space.neg(w_spam)
-        self.m = M(self.space)
-
-    def test_app_method(self):
-        w = self.space.wrap
-        self.assertEqual_w(self.m.egg(w(42)), w(-42))
-
-    def test_app_exported(self):
-        w = self.space.wrap
-        w_m = w(self.m)
-        w_result = self.space.call_method(w_m, 'egg', w(42))
-        self.assertEqual_w(w_result, w(-42))
-
-    def test_interp_method(self):
-        w = self.space.wrap
-        self.assertEqual_w(self.m.app_foo(w(42)), w(-42))
-
-    def test_interp_exported(self):
-        w = self.space.wrap
-        w_m = w(self.m)
-        w_result = self.space.call_method(w_m, 'foo', w(42))
-        self.assertEqual_w(w_result, w(-42))
-
-    def test_constant(self):
-        w = self.space.wrap
-        w_m = w(self.m)
-        self.assertEqual_w(self.space.getattr(w_m, w('constant')), w(678))
+    def test_foomodule(self):
+        space = self.space
+        sourcefile = os.path.join(autopath.this_dir, 'foomodule.py')
+        m = BuiltinModule(space, 'foo', sourcefile=sourcefile)
+        w = space.wrap
+        w_m = space.wrap(m)
+        self.assertEqual_w(space.getattr(w_m, w('__name__')), w('foo'))
+        self.assertEqual_w(space.getattr(w_m, w('__file__')), w(sourcefile))
+        # check app-level definitions
+        self.assertEqual_w(m.w_foo, space.w_Ellipsis)
+        self.assertEqual_w(space.getattr(w_m, w('foo1')), space.w_Ellipsis)
+        self.assertEqual_w(space.getattr(w_m, w('foo')), space.w_Ellipsis)
+        self.assertEqual_w(space.call_method(w_m, 'bar', w(4), w(3)), w(12))
+        self.assertEqual_w(space.getattr(w_m, w('foo2')), w('hello'))
+        self.assertEqual_w(space.getattr(w_m, w('foo3')), w('hi, guido!'))
+        # check interp-level definitions
+        self.assertEqual_w(m.w_foo2, w('hello'))
+        self.assertEqual_w(m.foobuilder(w('xyzzy')), w('hi, xyzzy!'))
+        self.assertEqual_w(m.fortytwo, w(42))
 
 
 if __name__ == '__main__':

@@ -421,6 +421,8 @@ def help():
 #   Interpreter-level function definitions
 #
 
+__interplevel__execfile('__builtin__interp.py')
+
 from __interplevel__ import abs, chr, len, ord, pow, repr
 from __interplevel__ import hash, oct, hex, round
 from __interplevel__ import getattr, setattr, delattr, iter, hash, id

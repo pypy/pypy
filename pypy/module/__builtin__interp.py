@@ -53,7 +53,6 @@ def __import__(w_modulename, w_globals=None,
         raise
     w_mod = space.get_builtin_module(modulename)
     if w_mod is not None:
-        space.setitem(space.sys.w_modules, w_modulename, w_mod)
         return w_mod
 
     import os
@@ -61,7 +60,7 @@ def __import__(w_modulename, w_globals=None,
         f = os.path.join(space.unwrap(path), modulename + '.py')
         if os.path.exists(f):
             w_mod = space.wrap(Module(space, w_modulename))
-            space.setitem(space.sys.w_modules, w_modulename, w_mod)
+            space.sys.setmodule(w_mod)
             space.setattr(w_mod, w('__file__'), w(f))
             w_dict = space.getattr(w_mod, w('__dict__'))
             execfile(w(f), w_dict, w_dict)

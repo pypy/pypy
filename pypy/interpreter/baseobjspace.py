@@ -74,36 +74,26 @@ class ObjSpace:
                 #print "setitem: space instance %-20s into builtins" % name
                 self.setitem(self.w_builtins, self.wrap(name), value)
 
-        self.sys.setbuiltinmodule(self.w_builtin)
-
-        #Now we can load all the builtin (interpreter level) modules.
-        self.make_builtin_modules()
+        self.sys.setbuiltinmodule(self.w_builtin, '__builtin__')
 
     def make_sys(self):
         from pypy.interpreter.extmodule import BuiltinModule
         assert not hasattr(self, 'sys')
         self.sys = BuiltinModule(self, 'sys')
         self.w_sys = self.wrap(self.sys)
-        self.sys.setbuiltinmodule(self.w_sys)
-
-    def make_builtin_modules(self):
-        for filename, classname, spaces in pypy.module._builtin_modules:
-            if self.__class__.__name__ not in spaces:
-                continue
-            mod = __import__("pypy.module.%s"%filename, globals(), locals(),
-                             [classname])
-            klass = getattr(mod, classname)
-            module = klass(self)
-            if module is not None:
-                self.sys.setbuiltinmodule(self.wrap(module))
+        self.sys.setbuiltinmodule(self.w_sys, 'sys')
         
-    # XXX get rid of this. 
     def get_builtin_module(self, name):
-        if name == '__builtin__':
-            return self.w_builtin
-        elif name == 'sys':
-            return self.w_sys
-        return None
+        if name not in self.sys.builtin_modules:
+            return None
+        module = self.sys.builtin_modules[name]
+        if module is None:
+            from pypy.interpreter.extmodule import BuiltinModule
+            module = BuiltinModule(self, name)
+            self.sys.builtin_modules[name] = module
+        w_module = self.wrap(module)
+        self.sys.setbuiltinmodule(w_module, name)
+        return w_module
 
     def initialize(self):
         """Abstract method that should put some minimal content into the

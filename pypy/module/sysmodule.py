@@ -2,6 +2,8 @@
 The 'sys' module.
 """
 
+__interplevel__execfile('sysinterp.py')
+
 # Common data structures
 from __interplevel__ import path, modules, warnoptions, builtin_module_names
 
