@@ -55,6 +55,9 @@ def make_module(space, dottedname, filepath):
 class Directory(py.test.collect.Directory): 
     def __iter__(self): 
         for x in self.fspath.listdir('test_*.py'): 
+            if fspath.basename not in working_outputtests and \
+               fspath.basename not in working_unittests: 
+                continue 
             yield Module(x) 
 
 def app_list_testmethods(mod, testcaseclass): 
@@ -82,14 +85,10 @@ def Module(fspath):
     output = fspath.dirpath('output', fspath.purebasename)
     if output.check(file=1):
         # ok this is an output test 
-        if fspath.basename not in working_outputtests: 
-            return 
         return OutputTestItem(fspath, output) 
     content = fspath.read() 
     if content.find('unittest') != -1: 
         # we can try to run ...  
-        if fspath.basename not in working_unittests: 
-            return 
         return UnittestModule(fspath) 
    
 class OutputTestItem(py.test.Item): 
