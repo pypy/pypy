@@ -68,7 +68,7 @@ def objspace(name='', _spacecache={}):
         if Options.spaces:
             name = Options.spaces[-1]
         else:
-            name = os.environ.get('OBJSPACE', 'trivial')
+            name = os.environ.get('OBJSPACE', 'std')
     
     try:
         return _spacecache[name]
