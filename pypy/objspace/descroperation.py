@@ -243,6 +243,11 @@ class DescrOperation:
             raise OperationError(space.w_TypeError, 
                      space.wrap("__hash__() should return an int"))
 
+    def userdel(space, w_obj):
+        w_del = space.lookup(w_obj, '__del__')
+        if w_del is not None:
+            space.get_and_call_function(w_del, w_obj)
+
     # xxx round, ord
 
 

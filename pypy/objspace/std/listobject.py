@@ -382,6 +382,10 @@ def _del_slice(w_list, ilow, ihigh):
         items[i] = items[i+d]
         items[i+d] = None
     w_list.ob_size -= d
+    # set the unused items to None to make sure the objects are freed
+    while i < w_list.ob_size:
+        items[i] = None
+        i += 1
 
 # note that the default value will come back wrapped!!!
 def list_pop__List_Int(space, w_list, w_idx=-1):

@@ -36,6 +36,9 @@ def _buildusercls(cls, ignored):
             # XXX sanity checks here
             self.w__class__ = w_subtype
 
+        def __del__(self):
+            self.space.userdel(self)
+
         if typedef.hasdict:
             def user_setup(self, space, w_subtype):
                 self.space = space
@@ -59,7 +62,7 @@ def _buildusercls(cls, ignored):
 
     body = dict([(key, value)
                  for key, value in User_InsertNameHere.__dict__.items()
-                 if not key.startswith('_')])
+                 if not key.startswith('_') or key == '__del__'])
     subcls = type(name, (cls,), body)
     return subcls
 
