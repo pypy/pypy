@@ -18,12 +18,13 @@ def make_testcase_class(space, tc_w):
     from pypy.interpreter.extmodule import make_builtin_func
     w = space.wrap
     d = space.newdict([])
+    space.setitem(d, w('failureException'), space.w_AssertionError)
+
     for name in dir(AppTestCase):
-        if name.startswith('assert') or name.startswith('fail'):
-            if hasattr(tc_w, 'app_' + name):
-                builtin_func = make_builtin_func(space, getattr(tc_w, "app_" + name),
-                                                 boundmethod=True)
-                space.setitem(d, w(name), builtin_func)
+        if ( name.startswith('assert') or name.startswith('fail')
+             and name != 'failureException'):
+            w_func = wrap_func(space, getattr(tc_w, name).im_func)
+            space.setitem(d, w(name), w_func)
     w_tc = space.call_function(space.w_type,
                                w('TestCase'),
                                space.newtuple([]),
@@ -49,19 +50,7 @@ class WrappedFunc(object):
             setattr(s, w_tc_attr, w_tc)
 
         w_f = wrap_func(s, self.testMethod.im_func)
-        try:
-            s.call_function(w_f, w_tc)
-        except executioncontext.OperationError, oe:
-            oe.print_application_traceback(s)
-            import __builtin__
-            w_res = s.gethelper(pyframe.appfile).call(
-                "normalize_exception", [oe.w_type, oe.w_value])
-            w_value = s.getitem(w_res, s.wrap(1))
-            exc_name = s.getattr(s.getattr(w_value, w('__class__')),
-                                 w('__name__'))
-            exc_type = getattr(__builtin__, s.unwrap(exc_name))
-            # it's a tad annoying we can't fake the traceback
-            raise exc_type(*s.unwrap(s.getattr(w_value, w('args'))))
+        s.call_function(w_f, w_tc)
 
 
 class IntTestCase(unittest.TestCase):
@@ -118,40 +107,7 @@ class AppTestCase(IntTestCase):
             setattr(self, self.methodName,
                 WrappedFunc(self, getattr(self, self.methodName)))
         return unittest.TestCase.__call__(self, result)
-
+        
     def setUp(self):
         from pypy.tool import test
         self.space = test.objspace()
-
-    def app_fail(self, w_self, w_msg=None):
-        msg = self.space.unwrap(w_msg)
-        self.fail(msg)
-
-    def app_failIf(self, w_self, w_expr, w_msg=None):
-        msg = self.space.unwrap(w_msg)
-        self.failIf_w(w_expr)
-
-    def app_failUnless(self, w_self, w_expr, w_msg=None):
-        msg = self.space.unwrap(w_msg)
-        self.failUnless_w(w_expr)
-
-    def app_failUnlessRaises(self, w_self, w_exc_class,
-                             w_callable, *args_w, **kw_w):
-        self.assertWRaises_w(w_exc_class, w_callable, *args_w, **kw_w)
-
-    def app_failUnlessEqual(self, w_self, w_first, w_second, w_msg=None):
-        msg = self.space.unwrap(w_msg)
-        self.assertEqual_w(w_first, w_second, msg)
-
-    def app_failIfEqual(self, w_self, w_first, w_second, w_msg=None):
-        msg = self.space.unwrap(w_msg)
-        self.assertNotEqual_w(w_first, w_second, msg)
-
-    app_assertEqual = app_assertEquals = app_failUnlessEqual
-
-    app_assertNotEqual = app_assertNotEquals = app_failIfEqual
-
-    app_assertRaises = app_failUnlessRaises
-
-    app_assert_ = app_failUnless
-                            

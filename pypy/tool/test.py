@@ -1,5 +1,5 @@
 import autopath
-import os, sys, unittest, re, warnings, unittest
+import os, sys, unittest, re, warnings, unittest, traceback
 from unittest import TestCase, TestLoader
 
 import pypy.interpreter.unittest_w
@@ -46,19 +46,61 @@ class MyTestResult(unittest.TestResult):
     def __init__(self):
         unittest.TestResult.__init__(self)
         self.successes = []
+    def addError(self, test, err):
+        # XXX not nice:
+        from pypy.interpreter.baseobjspace import OperationError
+        if isinstance(err[1], OperationError):
+            if err[1].match(test.space, test.space.w_AssertionError):
+                self.addFailure(test, err)
+                return
+        unittest.TestResult.addError(self, test, err)
     def addSuccess(self, test):
         self.successes.append(test)
+
+class MyTextTestResult(unittest._TextTestResult):
+    def addFailure(self, test, err):
+        unittest._TextTestResult.addFailure(self, test, err)
+    def munge(self, list, test, err):
+        import StringIO
+        from pypy.interpreter.baseobjspace import OperationError
+        text1 = list.pop()[1]
+        if isinstance(err[1], OperationError):
+            sio = StringIO.StringIO()
+            err[1].print_application_traceback(test.space, sio)
+            text2 = sio.getvalue()
+            
+            list.append((test, text1 + "\nand at app-level:\n\n" + text2))
+        else:
+            list.append((test, text1))
+        
+    def addError(self, test, err):
+        from pypy.interpreter.baseobjspace import OperationError
+        if isinstance(err[1], OperationError):
+            if err[1].match(test.space, test.space.w_AssertionError):
+                self.addFailure(test, err)
+                return
+        unittest._TextTestResult.addError(self, test, err)
+        self.munge(self.errors, test, err)
+        
+    def addFailure(self, test, err):
+        unittest._TextTestResult.addFailure(self, test, err)
+        self.munge(self.failures, test, err)
 
 class CtsTestRunner:
     def run(self, test):
         import pickle
 
+        output = sys.stdout
         result = MyTestResult()
-        sys.stdout = open('/dev/null', 'w')
-        sys.stderr = open('/dev/null', 'w')
-        test(result)
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
+        sso = sys.stdout
+        sse = sys.stderr
+        try:
+            sys.stdout = open('/dev/null', 'w')
+            sys.stderr = open('/dev/null', 'w')
+            test(result)
+        finally:
+            sys.stdout = sso
+            sys.stderr = sse
 
         ostatus = {}
         if os.path.exists('testcts.pickle'):
@@ -67,10 +109,12 @@ class CtsTestRunner:
         status = {}
 
         for e in result.errors:
-            name = e[0].__class__.__name__ + '.' + e[0]._TestCase__testMethodName
+            name = e[0].__class__.__name__ + '.' + \
+                   e[0]._TestCase__testMethodName
             status[name] = 'ERROR'
         for f in result.failures:
-            name = f[0].__class__.__name__ + '.' + f[0]._TestCase__testMethodName
+            name = f[0].__class__.__name__ + '.' + \
+                   f[0]._TestCase__testMethodName
             status[name] = 'FAILURE'
         for s in result.successes:
             name = s.__class__.__name__ + '.' + s._TestCase__testMethodName
@@ -85,17 +129,22 @@ class CtsTestRunner:
                 del ostatus[k]
             new = status[k]
             if old != new:
-                print k, 'has transitioned from', old, 'to', new
+                print >>output, k, 'has transitioned from', old, 'to', new
             elif new != 'success':
-                print k, "is still a", new
+                print >>output, k, "is still a", new
 
         for k in ostatus:
-            print k, 'was a', ostatus[k], 'was not run this time'
+            print >>output, k, 'was a', ostatus[k], 'was not run this time'
             status[k] = ostatus[k]
 
         pickle.dump(status, open('testcts.pickle','w'))
 
         return result
+
+class MyTextTestRunner(unittest.TextTestRunner):
+    def _makeResult(self):
+        return MyTextTestResult(self.stream, self.descriptions, self.verbosity)
+
 
 def testsuite_from_main():
     """ return test modules from __main__
@@ -197,6 +246,7 @@ def print_usage():
 %s [-chrvST] [regex1] [regex2] [...]
 
   -c  run CtsTestRunner (catches stdout and prints report after testing)
+      [unix only, for now]
   -h  this help message
   -r  gather only tests relative to current dir
   -v  increase verbosity level (including unittest-verbosity)
@@ -256,7 +306,7 @@ def run_tests_on_space(suite, spacename=''):
     if Options.runcts:
         runner = CtsTestRunner() # verbosity=Options.verbose+1)
     else:
-        runner = unittest.TextTestRunner(verbosity=Options.verbose+1)
+        runner = MyTextTestRunner(verbosity=Options.verbose+1)
 
     if spacename:
         Options.spacename = spacename
