@@ -122,6 +122,8 @@ class MultimethodCode(eval.Code):
         self.framecls = framecls
         argnames = ['x%d'%(i+1) for i in range(multimethod.arity)]
         varargname = kwargname = None
+        # XXX do something about __call__ and __init__ which still use
+        # XXX packed arguments: w_args, w_kwds instead of *args_w, **kwds_w
         if multimethod.extras.get('varargs', False):
             varargname = 'args'
         if multimethod.extras.get('keywords', False):
