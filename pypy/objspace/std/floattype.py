@@ -1,5 +1,4 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.objecttype import object_typedef
 
 def descr__new__(space, w_floattype, w_value=None):
     if w_value is None:
@@ -17,6 +16,6 @@ def descr__new__(space, w_floattype, w_value=None):
 
 # ____________________________________________________________
 
-float_typedef = StdTypeDef("float", [object_typedef],
+float_typedef = StdTypeDef("float",
     __new__ = newmethod(descr__new__),
     )

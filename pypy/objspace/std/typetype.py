@@ -1,5 +1,4 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.objecttype import object_typedef
 
 
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
@@ -34,7 +33,7 @@ def descr__bases(space, w_type):
 
 # ____________________________________________________________
 
-type_typedef = StdTypeDef("type", [object_typedef],
+type_typedef = StdTypeDef("type",
     __new__ = newmethod(descr__new__),
     __name__ = attrproperty('name'),
     __bases__ = GetSetProperty(descr__bases),

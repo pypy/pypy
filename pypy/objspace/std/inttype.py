@@ -1,5 +1,4 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.objecttype import object_typedef
 from pypy.interpreter.error import OperationError
 
 def descr__new__(space, w_inttype, w_value=None, w_base=None):
@@ -33,6 +32,6 @@ def descr__new__(space, w_inttype, w_value=None, w_base=None):
 
 # ____________________________________________________________
 
-int_typedef = StdTypeDef("int", [object_typedef],
+int_typedef = StdTypeDef("int",
     __new__ = newmethod(descr__new__),
     )

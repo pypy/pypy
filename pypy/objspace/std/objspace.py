@@ -182,8 +182,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                         }
 
         # types
-        from pypy.objspace.std.objecttype import object_typedef
-        self.object_typedef = object_typedef
         self.types_w = {}
         for typedef in self.standard_types():
             w_type = self.gettypeobject(typedef)

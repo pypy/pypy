@@ -1,6 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import attrproperty_w
+from pypy.objspace.std.stdtypedef import issubtypedef
 
 class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
@@ -16,19 +17,31 @@ class W_TypeObject(W_Object):
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
         else:
-            # find the most specific typedef
-            longest_mro = [space.object_typedef]
-            for w_base in bases_w:
-                mro = w_base.instancetypedef.mro(space)
-                if len(mro) > len(longest_mro):
-                    longest_mro = mro
-            # check that it is a sub-typedef of all other ones
-            for w_base in bases_w:
-                if w_base.instancetypedef not in longest_mro:
+##            # find the most specific typedef
+##            longest_mro = [space.object_typedef]
+##            for w_base in bases_w:
+##                mro = w_base.instancetypedef.mro(space)
+##                if len(mro) > len(longest_mro):
+##                    longest_mro = mro
+##            # check that it is a sub-typedef of all other ones
+##            for w_base in bases_w:
+##                if w_base.instancetypedef not in longest_mro:
+##                    raise OperationError(space.w_TypeError,
+##                                space.wrap("instance layout conflicts in "
+##                                                    "multiple inheritance"))
+##            w_self.instancetypedef = longest_mro[0]
+            
+            assert bases_w  # typetype.descr__new__ should take care that there
+                            # is always at least one base
+            instancetypedef = bases_w[0].instancetypedef
+            w_self.instancetypedef = instancetypedef
+            # check that the remaining bases don't have an incompatible 'layout'
+            for w_base in bases_w[1:]:
+                if not issubtypedef(instancetypedef, w_base.instancetypedef):
                     raise OperationError(space.w_TypeError,
                                 space.wrap("instance layout conflicts in "
                                                     "multiple inheritance"))
-            w_self.instancetypedef = longest_mro[0]
+
             nd = False
             for w_base in bases_w:
                 if w_base.needs_new_dict:

@@ -1,5 +1,4 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.objecttype import object_typedef
 
 def descr__new__(space, w_longtype, w_value=None):
     from longobject import W_LongObject
@@ -11,6 +10,6 @@ def descr__new__(space, w_longtype, w_value=None):
 
 # ____________________________________________________________
 
-long_typedef = StdTypeDef("long", [object_typedef],
+long_typedef = StdTypeDef("long",
     __new__ = newmethod(descr__new__),
     )

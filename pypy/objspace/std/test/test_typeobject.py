@@ -89,5 +89,14 @@ class TestTypeObject(testit.AppTestCase):
         self.assertEquals(f.__call__(a=1, b=2, c=3), ((), {"a": 1, "b": 2,
                                                            "c": 3}))
 
+    def test_multipleinheritance_fail(self):
+        try:
+            class A(int, dict):
+                pass
+        except TypeError:
+            pass
+        else:
+            raise AssertionError, "this multiple inheritance should fail"
+
 if __name__ == '__main__':
     testit.main()

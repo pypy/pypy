@@ -150,43 +150,41 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
         except AttributeError:
             from pypy.interpreter.gateway import interp2app
             
-            # make the base first (assuming single inheritance)
-            mro = typedef.mro(self)
-            if len(mro) > 1:
-                bases = (self.hackwrapperclass(mro[1]),)
+            # make the base first
+            if typedef.base:
+                bases = (self.hackwrapperclass(typedef.base),)
             else:
                 bases = (CPyWrapper,)
             # make the class dict with descriptors redirecting to the ones
             # in rawdict
             descrdict = {'__internalpypytypedef__': typedef}
-            if typedef.name != 'object':
-                for descrname, descr in typedef.rawdict.items():
-                    if isinstance(descr, interp2app):
-                        def make_stuff(descr=descr, descrname=descrname, space=self):
-                            def stuff(w_obj, *args, **kwds):
-                                fn = descr.get_function(space)
-                                try:
-                                    return fn.descr_function_call(w_obj, *args, **kwds)
-                                except OperationError, e:
-                                    if not hasattr(e.w_type, 'originalex'):
-                                        raise # XXX
-                                    # XXX normalize ...
-                                    #if isinstance(e.w_value, e.w_type):
-                                    raise e.w_type.originalex(repr(e.w_value)) # e.w_value) 
-                            return stuff
-                        descrdict[descrname] = make_stuff()
-                    else:
-                        # more generally, defining a property
-                        def fget(w_obj, descr=descr, space=self):
-                            w_descr = space.wrap(descr)
-                            return space.get(w_descr, w_obj, space.type(w_obj))
-                        def fset(w_obj, w_value, descr=descr, space=self):
-                            w_descr = space.wrap(descr)
-                            return space.set(w_descr, w_obj, w_value)
-                        def fdel(w_obj, descr=descr, space=self):
-                            w_descr = space.wrap(descr)
-                            return space.set(w_descr, w_obj)
-                        descrdict[descrname] = property(fget, fset, fdel)
+            for descrname, descr in typedef.rawdict.items():
+                if isinstance(descr, interp2app):
+                    def make_stuff(descr=descr, descrname=descrname, space=self):
+                        def stuff(w_obj, *args, **kwds):
+                            fn = descr.get_function(space)
+                            try:
+                                return fn.descr_function_call(w_obj, *args, **kwds)
+                            except OperationError, e:
+                                if not hasattr(e.w_type, 'originalex'):
+                                    raise # XXX
+                                # XXX normalize ...
+                                #if isinstance(e.w_value, e.w_type):
+                                raise e.w_type.originalex(repr(e.w_value)) # e.w_value) 
+                        return stuff
+                    descrdict[descrname] = make_stuff()
+                else:
+                    # more generally, defining a property
+                    def fget(w_obj, descr=descr, space=self):
+                        w_descr = space.wrap(descr)
+                        return space.get(w_descr, w_obj, space.type(w_obj))
+                    def fset(w_obj, w_value, descr=descr, space=self):
+                        w_descr = space.wrap(descr)
+                        return space.set(w_descr, w_obj, w_value)
+                    def fdel(w_obj, descr=descr, space=self):
+                        w_descr = space.wrap(descr)
+                        return space.set(w_descr, w_obj)
+                    descrdict[descrname] = property(fget, fset, fdel)
             cls = type('CPyWrapped '+typedef.name, bases, descrdict)
             typedef.trivialwrapperclass = cls
             return cls
@@ -441,9 +439,12 @@ def %(name)s(self, x, *args):
         assert not isinstance(w_obj, BaseWrappable)
         if isinstance(w_obj, CPyWrapper):
             typedef = type(w_obj).__internalpypytypedef__
-            for basedef in typedef.mro(space):
-                if name in basedef.rawdict:
-                    return space.wrap(basedef.rawdict[name])
+            while typedef is not None:
+                if name in typedef.rawdict:
+                    return space.wrap(typedef.rawdict[name])
+                typedef = typedef.base
+            if name in space.object_typedef.rawdict:
+                return space.wrap(space.object_typedef.rawdict[name])
             return None 
         else:
             for cls in w_obj.__class__.__mro__:

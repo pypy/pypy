@@ -7,15 +7,11 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 
 class TypeDef:
-    def __init__(self, __name, **rawdict):
+    def __init__(self, __name, __base=None, **rawdict):
         self.name = __name
+        self.base = __base
         self.rawdict = rawdict
 
-    def mro(self, space):
-        if self is space.object_typedef:
-            return [self]
-        else:
-            return [self, space.object_typedef]
 
 class GetSetProperty(Wrappable):
     def __init__(self, fget, fset=None, fdel=None, doc=None):
@@ -78,7 +74,7 @@ def attrproperty_w(name):
 
 from pypy.interpreter.eval import Code, Frame
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.pyframe import PyFrame
+from pypy.interpreter.pyframe import PyFrame, ControlFlowException
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, Method, StaticMethod
 from pypy.interpreter.pytraceback import PyTraceback
@@ -171,3 +167,5 @@ GeneratorIterator.typedef = TypeDef("generator",
 )
 
 Cell.typedef = TypeDef("Cell")
+
+ControlFlowException.typedef = TypeDef("ControlFlowException")

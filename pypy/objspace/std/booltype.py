@@ -10,6 +10,6 @@ def descr__new__(space, w_booltype, w_obj=None):
 
 # ____________________________________________________________
 
-bool_typedef = StdTypeDef("bool", [int_typedef],
+bool_typedef = StdTypeDef("bool", int_typedef,
     __new__ = newmethod(descr__new__),
     )

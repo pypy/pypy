@@ -31,7 +31,7 @@ def descr__init__(space, *args_w, **kwds_w):
 
 # ____________________________________________________________
 
-object_typedef = StdTypeDef("object", [],
+object_typedef = StdTypeDef("object",
     __getattribute__ = gateway.interp2app(Object.descr__getattribute__.im_func),
     __setattr__ = gateway.interp2app(Object.descr__setattr__.im_func),
     __delattr__ = gateway.interp2app(Object.descr__delattr__.im_func),

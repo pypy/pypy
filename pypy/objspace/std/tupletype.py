@@ -1,5 +1,4 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.objecttype import object_typedef
 
 
 def descr__new__(space, w_tupletype, w_items=None):
@@ -12,6 +11,6 @@ def descr__new__(space, w_tupletype, w_items=None):
 
 # ____________________________________________________________
 
-tuple_typedef = StdTypeDef("tuple", [object_typedef],
+tuple_typedef = StdTypeDef("tuple",
     __new__ = newmethod(descr__new__),
     )

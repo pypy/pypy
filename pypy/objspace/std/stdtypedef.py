@@ -11,20 +11,23 @@ __all__ = ['StdTypeDef', 'newmethod', 'gateway',
 
 class StdTypeDef(TypeDef):
 
-    def __init__(self, name, bases, **rawdict):
-        TypeDef.__init__(self, name, **rawdict)
-        self.bases = bases
+    def __init__(self, __name, __base=None, **rawdict):
+        TypeDef.__init__(self, __name, __base, **rawdict)
         self.local_multimethods = []
 
     def registermethods(self, namespace):
         self.local_multimethods += hack_out_multimethods(namespace)
 
-    def mro(self, space):
-        assert len(self.bases) <= 1
-        if self.bases:
-            return [self] + self.bases[0].mro(space)
-        else:
-            return [self]
+def issubtypedef(a, b):
+    from pypy.objspace.std.objecttype import object_typedef
+    if b is object_typedef:
+        return True
+    while a is not b:
+        a = a.base
+        if a is None:
+            return False
+    return True
+
 
 def newmethod(descr_new):
     # this is turned into a static method by the constructor of W_TypeObject.
@@ -39,6 +42,7 @@ def newmethod(descr_new):
 def buildtypeobject(typedef, space):
     # build a W_TypeObject from this StdTypeDef
     from pypy.objspace.std.typeobject import W_TypeObject
+    from pypy.objspace.std.objecttype import object_typedef
 
     w = space.wrap
     rawdict = typedef.rawdict.copy()
@@ -55,10 +59,13 @@ def buildtypeobject(typedef, space):
             assert name not in rawdict, 'name clash: %s in %s_typedef' % (
                 name, typedef.name)
             rawdict[name] = fn
-        bases_w = [space.gettypeobject(basedef) for basedef in typedef.bases]
+
+    # compute the bases
+    if typedef is object_typedef:
+        bases_w = []
     else:
-        from pypy.objspace.std.objecttype import object_typedef
-        bases_w = [space.gettypeobject(object_typedef)]
+        base = typedef.base or object_typedef
+        bases_w = [space.gettypeobject(base)]
 
     # wrap everything
     dict_w = {}

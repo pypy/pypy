@@ -1,5 +1,4 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
 
@@ -102,7 +101,7 @@ def descr__new__(space, w_slicetype, *args_w):
 
 # ____________________________________________________________
 
-slice_typedef = StdTypeDef("slice", [object_typedef],
+slice_typedef = StdTypeDef("slice",
     __new__ = newmethod(descr__new__),
     start = attrproperty_w('w_start'),
     stop  = attrproperty_w('w_stop'),

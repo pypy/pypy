@@ -1,5 +1,4 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.objecttype import object_typedef
 from sys import maxint
 
 list_append = MultiMethod('append', 2)
@@ -20,7 +19,7 @@ def descr__new__(space, w_listtype, *args_w, **kwds_w):
 
 # ____________________________________________________________
 
-list_typedef = StdTypeDef("list", [object_typedef],
+list_typedef = StdTypeDef("list",
     __new__ = newmethod(descr__new__),
     )
 list_typedef.registermethods(globals())

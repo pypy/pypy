@@ -1,5 +1,4 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.register_all import register_all
 
 dict_copy       = MultiMethod('copy',          1)
@@ -101,7 +100,7 @@ def descr__new__(space, w_dicttype, *args_w, **kwds_w):
 
 # ____________________________________________________________
 
-dict_typedef = StdTypeDef("dict", [object_typedef],
+dict_typedef = StdTypeDef("dict",
     __new__ = newmethod(descr__new__),
     )
 dict_typedef.registermethods(globals())
