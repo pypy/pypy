@@ -1,8 +1,11 @@
 import inspect
+import new
 import unittest
 
 import autopath
 from pypy.tool import newtest
+
+#TODO test(s) for adding TestItems from directory
 
 
 class TestTestItem(unittest.TestCase):
@@ -88,6 +91,14 @@ class TestTestSuite(unittest.TestCase):
         ts = newtest.TestSuite()
         ts.add(f, g, X.thisone)
         self.check_names(ts, ['f', '<lambda>', 'thisone'])
+        # add a bound method and an instance with __call__ attribute
+        class Y:
+            def thatone(self): pass
+        class Z:
+            def __call__(self): pass
+        ts.add(Y().thatone, Z())
+        self.check_names(ts, ['f', '<lambda>', 'thisone', 'thatone',
+                              '<unnamed object>'])
 
     def test_items_from_class(self):
         class X:
@@ -99,6 +110,20 @@ class TestTestSuite(unittest.TestCase):
         ts.add(X)
         self.check_names(ts, ['test_this', 'test_that'])
 
+    def test_items_from_module(self):
+        mod = new.module('new_module')
+        class X(newtest.TestCase):
+            "Don't add docstring."
+            def dont_add_method(self): pass
+            def test_this_method(self): pass
+        def dont_add(): pass
+        def add_this(): pass
+        for name, object in [('X', X), ('dont_add', dont_add),
+                             ('test_other_name', add_this)]:
+            setattr(mod, name, object)
+        ts = newtest.TestSuite()
+        ts.add(mod)
+        self.check_names(ts, ['test_this_method', 'test_other_name'])
 
 
 # used in unit tests above; placed here, so that TestTestItem is accessible
