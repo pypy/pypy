@@ -2,313 +2,196 @@
 import autopath
 from pypy.tool import test
 
-from pypy.annotation.model import ANN, SomeValue, blackholevalue
-from pypy.annotation.annset import AnnotationSet, QUERYARG, IDontKnow
+from pypy.annotation.model import SomeValue, ANN, Predicate
+from pypy.annotation.annset import AnnotationSet, mostgeneralvalue
 
 
 c1,c2,c3,c4 = SomeValue(), SomeValue(), SomeValue(), SomeValue()
+c5,c6,c7,c8 = SomeValue(), SomeValue(), SomeValue(), SomeValue()
+
+def annset(*args, **kwds):
+    "This constructor is just a convenient hack for the tests."
+    annset = AnnotationSet()
+    groups = []
+    for a in args:
+        if isinstance(a, Predicate):
+            groups.append([a])
+        else:
+            groups[-1].append(a)    # hack hack hack
+    for args in groups:
+        annset.set(*args)
+    if 'links' in kwds:
+        links = kwds['links']
+        for i in range(0, len(links), 2):
+            if annset.about.get(links[i]) != annset.about.get(links[i+1]):
+                assert links[i] not in annset.about
+                about = annset.about[links[i]] = annset.about[links[i+1]]
+                about.subjects[links[i]] = True
+    return annset
 
 
 class TestAnnotationSet(test.IntTestCase):
-    def assertSameSet(self, annset, annotations):
-        for ann in annotations:
-            annset.normalizeann(ann)
-        a = list(annset)
-        b = annotations
-        # try to reorder a to match b, without failing if the lists
-        # are different -- this will be checked by assertEquals()
-        for i in range(len(b)):
-            try:
-                j = i + a[i:].index(b[i])
-            except ValueError:
-                pass
-            else:
-                a[i], a[j] = a[j], a[i]
-        self.assertEquals(a, b)
 
-    def assertSameCells(self, annset, *cells):
-        cells = [annset.normalized(c) for c in cells]
-        for c in cells[1:]:
-            self.assertEquals(cells[0], c)
-
-    def test_isshared(self):
-        a = AnnotationSet()
-        self.assert_(a.isshared(c1, c1))
-        self.failIf(a.isshared(c1, c2))
-        a.setshared(c1, c2)
-        self.assert_(a.isshared(c1, c2))
-        self.assert_(a.isshared(c2, c1))
-        self.failIf(a.isshared(c1, c3))
-        a.setshared(c2, c3)
-        self.assert_(a.isshared(c1, c3))
-        self.assert_(a.isshared(c2, c3))
-        self.assert_(a.isshared(c3, c1))
-
-    def test_normalizeann(self):
-        a = AnnotationSet()
-        ann1 = ANN.add[c1,c2,c3]
-        ann2 = ANN.add[c4,c2,c3]
-        a.setshared(c1,c4)
-        a.normalizeann(ann1)
-        a.normalizeann(ann2)
-        self.assertEquals(ann1, ann2)
+    def assertSameSet(self, annset1, annset2):
+        self.assertEquals(repr(annset1), repr(annset2))
     
-    def test_query_one_annotation_arg(self):
-        lst = [ANN.add[c1, c3, c2]]
-        a = AnnotationSet(lst)
-        clist = a.query(ANN.add[c1, c3, QUERYARG])
-        self.assertEquals(clist, [c2])
-        clist = a.query(ANN.add[c1, QUERYARG, c2])
-        self.assertEquals(clist, [c3])
-        clist = a.query(ANN.add[QUERYARG, c3, c2])
-        self.assertEquals(clist, [c1])
+    def assertSameCells(self, annset, firstcell, *cells):
+        for cell in cells:
+            self.assert_(annset.isshared(firstcell, cell))
 
-        clist = a.query(ANN.add[QUERYARG, c1, c2])
-        self.assertEquals(clist, [])
+    def test_trivial(self):
+        a1 = annset(ANN.len, c1, c2,
+                    ANN.type, c2, int)
+        a2 = annset(ANN.len, c1, c2,
+                    ANN.type, c2, int)
+        self.assertSameSet(a1, a2)
 
-    def test_query_multiple_annotations(self):
-        lst = [
-            ANN.add[c1, c3, c2],
-            ANN.type[c2, c3],
-        ]
-        a = AnnotationSet(lst)
-        clist = a.query(ANN.add[c1, c3, QUERYARG],
-                        ANN.type[QUERYARG, c3])
-        self.assertEquals(clist, [c2])
+    def test_get(self):
+        a1 = annset(ANN.len, c1, c2,
+                    ANN.type, c2, int)
+        self.assertEquals(a1.get(ANN.len, c1), c2)
+        self.assertEquals(a1.get(ANN.len, c2), mostgeneralvalue)
 
-    def test_constant(self):
-        lst = [
-            ANN.constant(42)[c1],
-        ]
-        a = AnnotationSet(lst)
-        clist = a.query(ANN.constant(42)[QUERYARG])
-        self.assertEquals(clist, [c1])
-
-    def test_newconstant(self):
-        a = AnnotationSet([])
-        c = a.newconstant(42)
-        self.assertSameSet(a, [ANN.constant(42)[c]])
-
-    def test_getconstant(self):
-        lst = [
-            ANN.constant(42)[c1],
-        ]
-        a = AnnotationSet(lst)
-        self.assertEquals(a.getconstant(c1), 42)
-        self.assertRaises(IDontKnow, a.getconstant, c2)
-
-    def test_query_blackholevalue(self):
-        lst = [
-            ANN.add[c1, c3, c2],
-            ANN.add[c1, c2, c4],
-            ANN.type[c2, c4],
-            ANN.type[c2, c3],
-        ]
-        a = AnnotationSet(lst)
-        clist = a.query(ANN.add[c1, ..., QUERYARG])
-        clist.sort()
-        expected = [c2, c4]
-        expected.sort()
-        self.assertEquals(clist, expected)
-        clist = a.query(ANN.add[c2, ..., QUERYARG])
-        self.assertEquals(clist, [])
-        clist = a.query(ANN.type[c2, QUERYARG],
-                        ANN.add[c1, QUERYARG, ...])
-        self.assertEquals(clist, [c3])
-
-    def test_simplify(self):
-        lst = [ANN.add[c1, c3, c2],
-               ANN.add[c1, c2, c2],
-               ANN.neg[c2, c3]]
-        a = AnnotationSet(lst)
-        a.simplify()
-        self.assertSameSet(a, lst)
-        
-        a.setshared(c2, c3)
-        a.simplify()
-        self.assertSameSet(a, lst[1:])
+    def test_set(self):
+        a1 = annset(ANN.len, c1, c2,
+                    ANN.type, c2, int)
+        a1.set(ANN.len, c2, c3)
+        self.assertSameSet(a1,
+             annset(ANN.len, c1, c2,
+                    ANN.type, c2, int,
+                    ANN.len, c2, c3))
 
     def test_kill(self):
-        ann1 = ANN.add[c1, c3, c2]
-        lst = [ann1,
-               ANN.add[c1, c2, c2],
-               ANN.neg[c2, c3]]
-        a = AnnotationSet(lst)
-        a.kill(ann1)
-        self.assertSameSet(a, lst[1:])
+        a1 = annset(ANN.len, c1, c2,
+                    ANN.type, c2, int)
+        for i in range(2):
+            a1.kill(ANN.len, c1)
+            self.assertSameSet(a1,
+                 annset(ANN.type, c2, int))
 
-    def test_merge_blackholevalue(self):
-        lst = [ANN.add[c1, c3, c2],
-               ANN.neg[c2, c3]]
-        a = AnnotationSet(lst)
-        # (c3) inter (all annotations) == (c3)
-        c = a.merge(c3, blackholevalue)
-        self.assertEquals(c, c3)
-        self.assertSameSet(a, lst)
+    def test_merge_mostgeneralvalue(self):
+        a1 = annset(ANN.len, c1, c2,
+                    ANN.type, c2, int)
+        a2 = annset(ANN.len, c1, c2,
+                    ANN.type, c2, int)
+        # (c3) inter (mostgeneralvalue) == (mostgeneralvalue)
+        c = a1.merge(c3, mostgeneralvalue)
+        self.assertEquals(c, mostgeneralvalue)
+        self.assertSameSet(a1, a2)
 
     def test_merge_mutable1(self):
-        lst = [ANN.type[c1, c3],
-               ANN.type[c2, c3],
-               ANN.add[c2, c3, c3]]
-        a = AnnotationSet(lst)
-        # (c1) inter (c2) == (c1 shared with c2)
-        c = a.merge(c1, c2)
-        self.assertSameCells(a, c, c1, c2)
-        self.assertSameSet(a, [ANN.type[c, c3]])
+        a1 = annset(ANN.len, c1, c2,
+                    ANN.len, c3, c2)
+        a2 = annset(ANN.len, c1, c2, links=[c3,c1])
+        # (c1) inter (c3) == (c1 shared with c3)
+        c = a1.merge(c1, c3)
+        self.assertSameCells(a1, c, c1, c3)
+        self.assertSameSet(a1, a2)
 
     def test_merge_mutable2(self):
-        lst = [ANN.type[c1, c3],
-               ANN.type[c2, c3],
-               ANN.add[c1, c3, c3]]
-        a = AnnotationSet(lst)
-        # (c1) inter (c2) == (c1 shared with c2)
-        c = a.merge(c1, c2)
-        self.assertSameCells(a, c, c1, c2)
-        self.assertSameSet(a, [ANN.type[c, c3]])
+        a1 = annset(ANN.len, c1, c2,
+                    ANN.len, c3, c2,
+                    ANN.type, c1, list,
+                    ANN.type, c2, str)
+        a2 = annset(ANN.len, c1, c2,
+                    ANN.type, c2, str,
+                    links=[c3,c1])
+        # (c1) inter (c3) == (c1 shared with c3)
+        c = a1.merge(c1, c3)
+        self.assertSameCells(a1, c, c1, c3)
+        self.assertSameSet(a1, a2)
 
     def test_merge_immutable1(self):
-        lst = [ANN.type[c1, c3],
-               ANN.type[c2, c3],
-               ANN.immutable[c1],
-               ANN.immutable[c2],
-               ANN.add[c2, c3, c3]]
-        a = AnnotationSet(lst)
-        # (c1) inter (c2) == (c1)
-        c = a.merge(c1, c2)
-        self.assertSameCells(a, c, c1)
-        self.failIf(a.isshared(c1, c2))
-        self.assertSameSet(a, lst)
+        a1 = annset(ANN.len, c1, c2,
+                    ANN.immutable, c1,
+                    ANN.len, c3, c2,
+                    ANN.immutable, c3)
+        # (c1) inter (c3) == (some new c)
+        c = a1.merge(c1, c3)
+        a2 = annset(ANN.len, c1, c2,
+                    ANN.immutable, c1,
+                    ANN.len, c3, c2,
+                    ANN.immutable, c3,
+                    ANN.len, c, c2,
+                    ANN.immutable, c)
+        self.assertSameSet(a1, a2)
 
     def test_merge_immutable2(self):
-        lst = [ANN.type[c1, c3],
-               ANN.type[c2, c3],
-               ANN.immutable[c1],
-               ANN.immutable[c2],
-               ANN.add[c1, c3, c3]]
-        a = AnnotationSet(lst)
-        # (c1) inter (c2) == (some new c)
-        c = a.merge(c1, c2)
-        self.failIf(a.isshared(c, c1))
-        self.failIf(a.isshared(c, c2))  # maybe not needed, but we check that
-        self.failIf(a.isshared(c1, c2))
-        lst += [ANN.type[c, c3],
-                ANN.immutable[c]]
-        self.assertSameSet(a, lst)
-
-    def test_merge_mutable_ex(self):
-        lst = [ANN.add[c1, c2, c2],
-               ANN.neg[c2, c1],
-               ANN.add[c3, c2, c2],
-               ANN.immutable[c2]]
-        a = AnnotationSet(lst)
-        # (c1) inter (c3) == (c1 shared with c3)
-        c = a.merge(c1, c3)
-        self.assertSameCells(a, c, c1, c3)
-        self.assertSameSet(a, [lst[0], lst[3]])
-        self.assertSameSet(a, [lst[2], lst[3]])
-
-    def test_merge_immutable_ex(self):
-        lst = [ANN.add[c1, c2, c2],
-               ANN.neg[c2, c1],
-               ANN.add[c3, c2, c2],
-               ANN.immutable[c1],
-               ANN.immutable[c2],
-               ANN.immutable[c3]]
-        a = AnnotationSet(lst)
+        a1 = annset(ANN.len, c1, c2,
+                    ANN.immutable, c1,
+                    ANN.len, c3, c2,
+                    ANN.immutable, c3,
+                    ANN.type, c1, list,
+                    ANN.type, c2, str)
         # (c1) inter (c3) == (some new c)
-        c = a.merge(c1, c3)
-        self.failIf(a.isshared(c, c1))
-        self.failIf(a.isshared(c, c3))
-        self.failIf(a.isshared(c1, c3))
-        lst += [ANN.add[c, c2, c2],
-                ANN.immutable[c]]
-        self.assertSameSet(a, lst)
+        c = a1.merge(c1, c3)
+        a2 = annset(ANN.len, c1, c2,
+                    ANN.immutable, c1,
+                    ANN.len, c3, c2,
+                    ANN.immutable, c3,
+                    ANN.type, c1, list,
+                    ANN.type, c2, str,
+                    ANN.len, c, c2,
+                    ANN.immutable, c)
+        self.assertSameSet(a1, a2)
 
-##    def dont_test_merge_mutable_ex(self):
-##        # This test is expected to fail at this point because the algorithms
-##        # are not 100% theoretically correct, but probably quite good and
-##        # clear enough right now.  In theory in the intersection below
-##        # 'add' should be kept.  In practice the extra 'c3' messes things
-##        # up.  I can only think about much-more-obscure algos to fix that.
-##        lst = [ANN.add', [c1, c3], c2),
-##               ANN.neg', [c2], c1),
-##               ANN.add', [c3, c3], c2),
-##               ANN.immutable', [], c2)]
-##        a = AnnotationHeap(lst)
-##        # (c1) inter (c3) == (c1 shared with c3)
-##        c = a.merge(c1, c3)
-##        self.assertEquals(c, c1)
-##        self.assertEquals(c, c3)
-##        self.assertEquals(c1, c3)
-##        self.assertSameSet(a, [lst[0], lst[3]])
-##        self.assertSameSet(a, [lst[2], lst[3]])
+    def test_recursive_merge(self):
+        a1 = annset(ANN.tupleitem[2], c1, c2,
+                    ANN.immutable, c1,
+                    ANN.type, c2, list,
+                    ANN.listitems, c2, c3,
+                    ANN.type, c3, int,
+                    ANN.immutable, c3,
+                    ANN.tupleitem[2], c5, c6,
+                    ANN.immutable, c5,
+                    ANN.type, c6, list,
+                    ANN.listitems, c6, c7,
+                    ANN.type, c7, float,
+                    ANN.immutable, c7)
+        c9  = a1.merge(c1, c5)
+        c10 = a1.get(ANN.tupleitem[2], c9)
+        c11 = a1.get(ANN.listitems, c10)
+        self.assertSameCells(a1, c2, c6, c10)
+        
+        a2 = annset(ANN.tupleitem[2], c1, c2,
+                    ANN.immutable, c1,
+                    ANN.type, c3, int,
+                    ANN.immutable, c3,
+                    ANN.tupleitem[2], c5, c6,
+                    ANN.immutable, c5,
+                    ANN.type, c7, float,
+                    ANN.immutable, c7,
 
-##    def dont_test_merge_immutable_ex(self):
-##        # Disabled -- same as above.
-##        lst = [ANN.add', [c1, c3], c2),
-##               ANN.neg', [c2], c1),
-##               ANN.add', [c3, c3], c2),
-##               ANN.immutable', [], c1),
-##               ANN.immutable', [], c2),
-##               ANN.immutable', [], c3)]
-##        a = AnnotationHeap(lst)
-##        # (c1) inter (c3) == (some new c4)
-##        c = a.merge(c1, c3)
-##        self.failIfEqual(c, c1)
-##        self.failIfEqual(c, c3)
-##        lst += [ANN.add', [c, c3], c2),
-##                ANN.immutable', [], c)]
-##        self.assertSameSet(a, lst)
+                    ANN.tupleitem[2], c9, c10,
+                    ANN.immutable, c9,
+                    ANN.type, c10, list,
+                    ANN.listitems, c10, c11,
+                    ANN.immutable, c11,
+                    links=[c2,c10,c6,c10])
+        self.assertSameSet(a1, a2)
 
-    def test_set_kill(self):
-        lst = [
-            ANN.add[c1, c3, c2],
-            ANN.type[c1, c4],
-            ANN.constant(int)[c4],
-        ]
-        a = AnnotationSet(lst)
-        a.set(ANN.type[c1, c3])
-        lst += [ANN.type[c1, c3]]
-        self.assertSameSet(a, lst)
+    def test_settype(self):
+        a = annset()
+        a.settype(c1, int)
+        a.settype(c2, list)
+        self.assertSameSet(a,
+            annset(ANN.type, c1, int,
+                   ANN.immutable, c1,
+                   ANN.type, c2, list))
 
-        a.kill(lst[0])
-        del lst[0]
-        self.assertSameSet(a, lst)
-
-    def test_type(self):
-        lst = [
-            ANN.add[c1, c3, c2],
-            ANN.type[c1, c4],
-            ANN.constant(int)[c4],
-        ]
-        a = AnnotationSet(lst)
-        self.assert_(a.checktype(c1, int))
-        self.assert_(a.checktype(c1, (int, long)))
-        self.failIf(a.checktype(c1, str))
-        a.settype(c2, str)
-        self.assert_(a.query(ANN.type[c2, QUERYARG],
-                             ANN.constant(str)[QUERYARG]))
-
-    def test_delete(self):
-        lst = [
-            ANN.add[c1, c3, c2],
-            ANN.type[c1, c4],
-            ANN.constant(int)[c4],
-        ]
-        a = AnnotationSet(lst)
-        a.delete(ANN.add[c1, c3, ...])
-        self.assertSameSet(a, lst[1:])
-
-    def test_get_del(self):
-        lst = [
-            ANN.add[c1, c3, c2],
-            ANN.type[c1, c4],
-            ANN.constant(int)[c4],
-        ]
-        a = AnnotationSet(lst)
-        c = a.get_del(ANN.add[c1, c3, QUERYARG])
-        self.assertSameCells(a, c, c2)
-        self.assertSameSet(a, lst[1:])
+    def test_copytype(self):
+        a = annset(ANN.type, c1, int,
+                   ANN.immutable, c1,
+                   ANN.type, c2, list)
+        a.copytype(c1, c3)
+        a.copytype(c2, c4)
+        self.assertSameSet(a,
+            annset(ANN.type, c1, int,
+                   ANN.immutable, c1,
+                   ANN.type, c2, list,
+                   ANN.type, c3, int,
+                   ANN.immutable, c3,
+                   ANN.type, c4, list))
 
 
 if __name__ == '__main__':

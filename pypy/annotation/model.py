@@ -1,82 +1,40 @@
 import types
 
 class SomeValue:
-    pass
-
-class QueryArgument:
-    pass
+    def __repr__(self):
+        return debugname(self)
 
 class Predicate:
-    def __init__(self, debugname, arity):
+    def __init__(self, debugname):
         self.debugname = debugname
-        self.arity = arity
-    def __getitem__(self, args):
-        if self.arity == 1:
-            args = (args,)
-        return Annotation(self, *args)
     def __str__(self):
         return self.debugname
 
-class ConstPredicate(Predicate):
-    def __init__(self, value):
-        Predicate.__init__(self, 'const%s' % value, 1)
-        self.value = value
-    def __eq__(self, other):
-        return self.__class__ is other.__class__ and self.value == other.value
-    def __ne__(self, other):
-        return not (self == other)
-    def __hash__(self):
-        return hash(self.value)
+class PredicateFamily:
+    def __init__(self, familyname):
+        self.familyname = familyname
+        self.instances = {}
+    def __getitem__(self, index):
+        try:
+            return self.instances[index]
+        except KeyError:
+            name = '%s[%r]' % (self.familyname, index)
+            pred = self.instances[index] = Predicate(name)
+            return pred
 
 class ANN:
-    add = Predicate('add', 3)
-    len = Predicate('len', 2)
-    getitem = Predicate('getitem', 3)
-    neg = Predicate('neg', 2)
-    constant = ConstPredicate
-    type = Predicate('type', 2)
-    immutable = Predicate('immutable', 1)
+    len       = Predicate('len')
+    listitems = Predicate('listitems')
+    tupleitem = PredicateFamily('tupleitem')
+    type      = Predicate('type')
+    immutable = Predicate('immutable')
 
-class Annotation:
-    """An Annotation asserts something about SomeValues.  
-       It is a Predicate applied to some arguments. """
-    
-    def __init__(self, predicate, *args):
-        self.predicate = predicate      # the operation or predicate
-        self.args      = list(args)     # list of SomeValues
-        assert len(args) == predicate.arity
-        # note that for predicates that are simple operations like
-        # op.add, the result is stored as the last argument.
-        for someval in args:
-            assert isinstance(someval, (SomeValue, QueryArgument,
-                                        type(Ellipsis)))     # bug catcher
-
-    def copy(self, renameargs={}):
-        args = [renameargs.get(arg, arg) for arg in self.args]
-        return Annotation(self.predicate, *args)
-
-    def __repr__(self):
-        return "<ann %s[%s]>" % (
-                self.predicate, ", ".join(map(debugname, self.args)))
-
-    def __eq__(self, other):
-        return (self.__class__ is other.__class__ and
-                self.predicate == other.predicate and
-                self.args == other.args)
-
-    def __ne__(self, other):
-        return not (self == other)
 
 def debugname(someval, _seen = {}):
     """ return a simple name for a SomeValue. """
     try:
         return _seen[id(someval)]
     except KeyError:
-        if not _seen:
-            for name, value in globals().items():
-                if isinstance(value, SomeValue):
-                    _seen[id(value)] = name
-            return debugname(someval)
         name = "V%d" % len(_seen)
         _seen[id(someval)] = name
         return name
@@ -90,22 +48,3 @@ immutable_types = {
     slice: 'slice',
     types.FunctionType: 'function',
     }
-
-# a conventional value for representing 'all Annotations match this one'
-# or, equivalently, something for which it is currently impossible to exist
-# (when it will exist later it will have less annotations).
-blackholevalue = Ellipsis
-
-# a few values representing 'any value of the given type'
-# the following loops creates intvalue, strvalue, etc.
-basicannotations = []
-for _type, _name in immutable_types.items():
-    _val = globals()['%svalue' % _name] = SomeValue()
-    _tval = SomeValue()
-    basicannotations.append(ANN.type[_val, _tval])
-    basicannotations.append(ANN.constant(_type)[_tval])
-    basicannotations.append(ANN.immutable[_val])
-
-# 'any immutable value'
-immutablevalue = SomeValue()
-basicannotations.append(ANN.immutable[immutablevalue])
