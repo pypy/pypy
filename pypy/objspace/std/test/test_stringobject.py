@@ -1,8 +1,8 @@
 import testsupport
-import pypy.objspace.std.stringobject as so
+from pypy.objspace.std import stringobject
 
-from pypy.objspace.std.stringobject import string_richcompare, W_StringObject, EQ, LT, GT, NE, LE, GE
-from pypy.objspace.std.objspace import StdObjSpace
+from pypy.objspace.std.stringobject import \
+     string_richcompare, W_StringObject, EQ, LT, GT, NE, LE, GE
 
 
 class TestW_StringObject(testsupport.TestCase):
@@ -23,16 +23,23 @@ class TestW_StringObject(testsupport.TestCase):
         while strs[1:]:
             str1 = strs.pop()
             for op in ops:
-                orf = getattr(str1, '__%s__' % op.lower())  #original python function
-                pypyconst = getattr(so, op)
+                 #original python function
+                orf = getattr(str1, '__%s__' % op.lower()) 
+                pypyconst = getattr(stringobject, op)
                 for str2 in strs:   
                     if orf(str2):
-                         self.failUnless_w(string_richcompare(space, w(str1), w(str2), pypyconst))
+                         self.failUnless_w(
+                             string_richcompare(space,
+                                                w(str1),
+                                                w(str2),
+                                                pypyconst))
                     else:
-                         self.failIf_w(string_richcompare(space, w(str1), w(str2), pypyconst))
+                         self.failIf_w(
+                             string_richcompare(space,
+                                                w(str1),
+                                                w(str2),
+                                                pypyconst))
         
-        
-
     def test_equality(self):
         w = self.space.wrap 
         self.assertEqual_w(w('abc'), w('abc'))
@@ -102,8 +109,6 @@ class TestW_StringObject(testsupport.TestCase):
 
         w_slice = space.newslice(w(1), w_None, w(2))
         self.assertEqual_w(space.getitem(w_str, w_slice), w('el'))
-
-
 
 if __name__ == '__main__':
     testsupport.main()

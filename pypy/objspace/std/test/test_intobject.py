@@ -1,14 +1,12 @@
-import unittest, sys
+import sys
 import testsupport
-from pypy.interpreter import unittest_w
 from pypy.objspace.std import intobject as iobj
-from pypy.objspace.std.objspace import *
+from pypy.objspace.std.objspace import FailedToImplement
 
-
-class TestW_IntObject(unittest_w.TestCase_w):
+class TestW_IntObject(testsupport.TestCase):
 
     def setUp(self):
-        self.space = StdObjSpace()
+        self.space = testsupport.stdobjspace()
 
     def tearDown(self):
         pass
@@ -31,14 +29,6 @@ class TestW_IntObject(unittest_w.TestCase_w):
             raise Exception, "should have failed but returned '%s'!" %repr(res)
         except FailedToImplement, arg:
             return arg[0]
-
-    def _unwrap_except(self, func, *args, **kwds):
-        """ make sure that the expected exception occours, and unwrap it """
-        try:
-            res = func(*args, **kwds)
-            raise Exception, "should have failed but returned '%s'!" %repr(res)
-        except OperationError, e:
-            return e.w_type
 
     def test_repr(self):
         x = 1
@@ -163,11 +153,13 @@ class TestW_IntObject(unittest_w.TestCase_w):
         v = iobj.int_int_int_pow(self.space, f1, f2, f3)
         self.assertEquals(v.intval, pow(x, y, z))
         f1, f2, f3 = [iobj.W_IntObject(self.space, i) for i in (10, -1, 42)]
-        self.assertEquals(self.space.w_TypeError,
-                          self._unwrap_except(iobj.int_int_int_pow, self.space, f1, f2, f3))
+        self.assertRaises_w(self.space.w_TypeError,
+                            iobj.int_int_int_pow,
+                            self.space, f1, f2, f3)
         f1, f2, f3 = [iobj.W_IntObject(self.space, i) for i in (10, 5, 0)]
-        self.assertEquals(self.space.w_ValueError,
-                          self._unwrap_except(iobj.int_int_int_pow, self.space, f1, f2, f3))
+        self.assertRaises_w(self.space.w_ValueError,
+                            iobj.int_int_int_pow,
+                            self.space, f1, f2, f3)
 
     def test_pow_iin(self):
         x = 10
@@ -294,4 +286,4 @@ class TestW_IntObject(unittest_w.TestCase_w):
         self.assertEquals(self.space.unwrap(result), hex(x))
 
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()

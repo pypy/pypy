@@ -1,11 +1,10 @@
 import testsupport
-from pypy.objspace.std.objspace import StdObjSpace
 
 
 class TestW_NoneObject(testsupport.TestCase):
 
     def setUp(self):
-        self.space = StdObjSpace()
+        self.space = testsupport.stdobjspace()
 
     def tearDown(self):
         pass

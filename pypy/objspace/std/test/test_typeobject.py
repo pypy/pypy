@@ -1,14 +1,10 @@
-import unittest, sys
 import testsupport
-from pypy.interpreter import unittest_w
-from pypy.objspace.std import typeobject as tobj
-from pypy.objspace.std.objspace import *
+from pypy.objspace.std.typeobject import PyMultimethodCode
 
-
-class TestPyMultimethodCode(unittest_w.TestCase_w):
+class TestPyMultimethodCode(testsupport.TestCase):
 
     def setUp(self):
-        self.space = StdObjSpace()
+        self.space = testsupport.stdobjspace()
 
     def tearDown(self):
         pass
@@ -16,8 +12,8 @@ class TestPyMultimethodCode(unittest_w.TestCase_w):
     def test_int_sub(self):
         w = self.space.wrap
         for i in range(2):
-            meth = tobj.PyMultimethodCode(self.space.sub.multimethod,
-                                          i, self.space.w_int)
+            meth = PyMultimethodCode(self.space.sub.multimethod,
+                                     i, self.space.w_int)
             self.assertEqual(meth.slice().is_empty(), False)
             # test int.__sub__ and int.__rsub__
             self.assertEqual_w(meth.eval_code(self.space, None,
@@ -32,16 +28,16 @@ class TestPyMultimethodCode(unittest_w.TestCase_w):
 
     def test_empty_inplace_add(self):
         for i in range(2):
-            meth = tobj.PyMultimethodCode(self.space.inplace_add.multimethod,
-                                          i, self.space.w_int)
+            meth = PyMultimethodCode(self.space.inplace_add.multimethod,
+                                     i, self.space.w_int)
             self.assertEqual(meth.slice().is_empty(), True)
 
     def test_float_sub(self):
         w = self.space.wrap
         w(1.5)   # force floatobject imported
         for i in range(2):
-            meth = tobj.PyMultimethodCode(self.space.sub.multimethod,
-                                          i, self.space.w_float)
+            meth = PyMultimethodCode(self.space.sub.multimethod,
+                                     i, self.space.w_float)
             self.assertEqual(meth.slice().is_empty(), False)
             # test float.__sub__ and float.__rsub__
 
@@ -59,4 +55,4 @@ class TestPyMultimethodCode(unittest_w.TestCase_w):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()

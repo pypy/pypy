@@ -1,4 +1,4 @@
-import unittest, sys
+import unittest
 import testsupport
 from pypy.objspace.std.restricted_int import *
 

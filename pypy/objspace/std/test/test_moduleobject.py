@@ -1,21 +1,18 @@
-import unittest, sys
 import testsupport
-from pypy.interpreter import unittest_w
-from pypy.objspace.std import moduleobject as mobj
-from pypy.objspace.std.objspace import *
+from pypy.objspace.std.moduleobject import W_ModuleObject
 
 
-class TestW_ModuleObject(unittest_w.TestCase_w):
+class TestW_ModuleObject(testsupport.TestCase):
 
     def setUp(self):
-        self.space = StdObjSpace()
+        self.space = testsupport.stdobjspace()
 
     def tearDown(self):
         pass
 
     def test_name(self):
         space = self.space
-        w_m = mobj.W_ModuleObject(space, space.wrap('somename'))
+        w_m = W_ModuleObject(space, space.wrap('somename'))
         self.assertEqual_w(space.getattr(w_m, space.wrap('__name__')),
                            space.wrap('somename'))
 
@@ -23,7 +20,7 @@ class TestW_ModuleObject(unittest_w.TestCase_w):
         space = self.space
         w_x = space.wrap(123)
         w_yy = space.w_True
-        w_m = mobj.W_ModuleObject(space, space.wrap('somename'))
+        w_m = W_ModuleObject(space, space.wrap('somename'))
         space.setattr(w_m, space.wrap('x'), w_x)
         space.setattr(w_m, space.wrap('yy'), w_yy)
         self.assertEqual_w(space.getattr(w_m, space.wrap('x')), w_x)
@@ -34,4 +31,4 @@ class TestW_ModuleObject(unittest_w.TestCase_w):
         self.assertEqual_w(space.getattr(w_m, space.wrap('yy')), w_yy)
 
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()

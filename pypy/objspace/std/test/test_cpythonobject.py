@@ -1,13 +1,13 @@
 import unittest, sys, array
 import testsupport
 from pypy.objspace.std import cpythonobject
-from pypy.objspace.std.objspace import *
+from pypy.objspace.std.objspace import OperationError
 
 
-class TestW_CPythonObject(unittest.TestCase):
+class TestW_CPythonObject(testsupport.TestCase):
 
     def setUp(self):
-        self.space = StdObjSpace()
+        self.space = testsupport.stdobjspace()
         # arbitrary always-wrapped object
         self.stuff = array.array('b', [5,-2,77])
 
@@ -63,6 +63,7 @@ class TestW_CPythonObject(unittest.TestCase):
             self.assertEquals(self.space.unwrap(w_result), expected)
 
     def test_hash(self):
+        # i don't understand this test -- mwh
         w1 = self.space.wrap(self.stuff)
         try:
             self.space.hash(w1)
@@ -76,4 +77,4 @@ class TestW_CPythonObject(unittest.TestCase):
         self.assertEquals(self.space.unwrap(w_result), 11)
 
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()
