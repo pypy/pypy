@@ -1,9 +1,8 @@
 import re
-import unittest
+import sys
 import parser
 
 d={}
-
 #  d is the dictionary of unittest changes, keyed to the old name
 #  used by unittest.
 #  d[old][0] is the new replacement function.
@@ -12,7 +11,7 @@ d={}
 #  function.
 
 # Old Unittest Name             new name         operator  # of args
-d['assertRaises']           = ('raises',               '', ['Any'])
+#d['assertRaises']           = ('raises',               '', ['Any'])
 d['fail']                   = ('raise AssertionError', '', [0,1])
 d['assert_']                = ('assert',               '', [1,2])
 d['failIf']                 = ('assert not',           '', [1,2])
@@ -45,9 +44,9 @@ linesep='\n'        # nobody will really try to convert files not read
                     # in text mode, will they?
 
 
-def blocksplitter(filename):
+def blocksplitter(fp):
     '''split a file into blocks that are headed by functions to rename'''
-    fp = file(filename, 'r')
+
     blocklist = []
     blockstring = ''
 
@@ -198,399 +197,63 @@ def get_expr(s, char):
             pass
     raise SyntaxError       # We never found anything that worked.
 
-class Testit(unittest.TestCase):
-    def test(self):
-        self.assertEquals(rewrite_utest("badger badger badger"),
-                          "badger badger badger")
-
-        self.assertEquals(rewrite_utest(
-            "self.assertRaises(excClass, callableObj, *args, **kwargs)"
-            ),
-            "raises(excClass, callableObj, *args, **kwargs)"
-                          )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.failUnlessRaises(TypeError, func, 42, **{'arg1': 23})
-            """
-            ),
-            """
-            raises(TypeError, func, 42, **{'arg1': 23})
-            """
-                          )
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertRaises(TypeError,
-                              func,
-                              mushroom)
-            """
-            ),
-            """
-            raises(TypeError,
-                              func,
-                              mushroom)
-            """
-                          )
-        self.assertEquals(rewrite_utest("self.fail()"), "raise AssertionError")
-        self.assertEquals(rewrite_utest("self.fail('mushroom, mushroom')"),
-                          "raise AssertionError, 'mushroom, mushroom'")
-        self.assertEquals(rewrite_utest("self.assert_(x)"), "assert x")
-        self.assertEquals(rewrite_utest("self.failUnless(func(x)) # XXX"),
-                          "assert func(x) # XXX")
-        
-        self.assertEquals(rewrite_utest(
-            """
-            self.assert_(1 + f(y)
-                         + z) # multiline, keep parentheses
-            """
-            ),
-            """
-            assert (1 + f(y)
-                         + z) # multiline, keep parentheses
-            """
-                          )
-
-        self.assertEquals(rewrite_utest("self.assert_(0, 'badger badger')"),
-                          "assert 0, 'badger badger'")
-
-        self.assertEquals(rewrite_utest("self.assert_(0, '''badger badger''')"),
-                          "assert 0, '''badger badger'''")
-
-        self.assertEquals(rewrite_utest(
-            r"""
-            self.assert_(0,
-                 'Meet the badger.\n')
-            """
-            ),
-            r"""
-            assert 0,(
-                 'Meet the badger.\n')
-            """
-                          )
-        
-        self.assertEquals(rewrite_utest(
-            r"""
-            self.failIf(0 + 0
-                          + len('badger\n')
-                          + 0, '''badger badger badger badger
-                                 mushroom mushroom
-                                 Snake!  Ooh a snake!
-                              ''') # multiline, must move the parens
-            """
-            ),
-            r"""
-            assert not (0 + 0
-                          + len('badger\n')
-                          + 0), '''badger badger badger badger
-                                 mushroom mushroom
-                                 Snake!  Ooh a snake!
-                              ''' # multiline, must move the parens
-            """
-                          )
-
-        self.assertEquals(rewrite_utest("self.assertEquals(0, 0)"),
-                          "assert 0 == 0")
-        
-        self.assertEquals(rewrite_utest(
-            r"""
-            self.assertEquals(0,
-                 'Run away from the snake.\n')
-            """
-            ),
-            r"""
-            assert 0 == (
-                 'Run away from the snake.\n')
-            """
-                          )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertEquals(badger + 0
-                              + mushroom
-                              + snake, 0)
-            """
-            ),
-            """
-            assert (badger + 0
-                              + mushroom
-                              + snake) == 0
-            """
-                          )
-                            
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertNotEquals(badger + 0
-                              + mushroom
-                              + snake,
-                              mushroom
-                              - badger)
-            """
-            ),
-            """
-            assert (badger + 0
-                              + mushroom
-                              + snake) != (
-                              mushroom
-                              - badger)
-            """
-                          )
-
-        self.assertEqual(rewrite_utest(
-            """
-            self.assertEquals(badger(),
-                              mushroom()
-                              + snake(mushroom)
-                              - badger())
-            """
-            ),
-            """
-            assert badger() == (
-                              mushroom()
-                              + snake(mushroom)
-                              - badger())
-            """
-                         )
-        self.assertEquals(rewrite_utest("self.failIfEqual(0, 0)"),
-                          "assert not 0 == 0")
-
-        self.assertEquals(rewrite_utest("self.failUnlessEqual(0, 0)"),
-                          "assert not 0 != 0")
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.failUnlessEqual(mushroom()
-                                 + mushroom()
-                                 + mushroom(), '''badger badger badger
-                                 badger badger badger badger
-                                 badger badger badger badger
-                                 ''') # multiline, must move the parens
-            """
-            ),
-            """
-            assert not (mushroom()
-                                 + mushroom()
-                                 + mushroom()) != '''badger badger badger
-                                 badger badger badger badger
-                                 badger badger badger badger
-                                 ''' # multiline, must move the parens
-            """
-                          )
-
-                                   
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertEquals('''snake snake snake
-                                 snake snake snake''', mushroom)
-            """
-            ),
-            """
-            assert '''snake snake snake
-                                 snake snake snake''' == mushroom
-            """
-                          )
-        
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertEquals(badger(),
-                              snake(), 'BAD BADGER')
-            """
-            ),
-            """
-            assert badger() == (
-                              snake()), 'BAD BADGER'
-            """
-                          )
-        
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertNotEquals(badger(),
-                              snake()+
-                              snake(), 'POISONOUS MUSHROOM!\
-                              Ai! I ate a POISONOUS MUSHROOM!!')
-            """
-            ),
-            """
-            assert badger() != (
-                              snake()+
-                              snake()), 'POISONOUS MUSHROOM!\
-                              Ai! I ate a POISONOUS MUSHROOM!!'
-            """
-                          )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertEquals(badger(),
-                              snake(), '''BAD BADGER
-                              BAD BADGER
-                              BAD BADGER'''
-                              )
-            """
-            ),
-            """
-            assert badger() == (
-                              snake()), '''BAD BADGER
-                              BAD BADGER
-                              BAD BADGER'''
-                              
-            """
-                        )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertEquals('''BAD BADGER
-                              BAD BADGER
-                              BAD BADGER''', '''BAD BADGER
-                              BAD BADGER
-                              BAD BADGER''')
-            """
-            ),
-            """
-            assert '''BAD BADGER
-                              BAD BADGER
-                              BAD BADGER''' == '''BAD BADGER
-                              BAD BADGER
-                              BAD BADGER'''
-            """
-                        )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertEquals('''GOOD MUSHROOM
-                              GOOD MUSHROOM
-                              GOOD MUSHROOM''',
-                              '''GOOD MUSHROOM
-                              GOOD MUSHROOM
-                              GOOD MUSHROOM''',
-                              ''' FAILURE
-                              FAILURE
-                              FAILURE''')
-            """
-            ),
-            """
-            assert '''GOOD MUSHROOM
-                              GOOD MUSHROOM
-                              GOOD MUSHROOM''' == (
-                              '''GOOD MUSHROOM
-                              GOOD MUSHROOM
-                              GOOD MUSHROOM'''),(
-                              ''' FAILURE
-                              FAILURE
-                              FAILURE''')
-            """
-                        )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertAlmostEquals(first, second, 5, 'A Snake!')
-            """
-            ),
-            """
-            assert round(first - second, 5) == 0, 'A Snake!'
-            """
-                          )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertAlmostEquals(first, second, 120)
-            """
-            ),
-            """
-            assert round(first - second, 120) == 0
-            """
-                          )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertAlmostEquals(first, second)
-            """
-            ),
-            """
-            assert round(first - second, 7) == 0
-            """
-                          )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertAlmostEqual(first, second, 5, '''A Snake!
-            Ohh A Snake!  A Snake!!
-            ''')
-            """
-            ),
-            """
-            assert round(first - second, 5) == 0, '''A Snake!
-            Ohh A Snake!  A Snake!!
-            '''
-            """
-                          )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.assertNotAlmostEqual(first, second, 5, 'A Snake!')
-            """
-            ),
-            """
-            assert round(first - second, 5) != 0, 'A Snake!'
-            """
-                          )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.failIfAlmostEqual(first, second, 5, 'A Snake!')
-            """
-            ),
-            """
-            assert not round(first - second, 5) == 0, 'A Snake!'
-            """
-                          )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.failIfAlmostEqual(first, second, 5, 6, 7, 'Too Many Args')
-            """
-            ),
-            """
-            self.failIfAlmostEqual(first, second, 5, 6, 7, 'Too Many Args')
-            """
-                          )
-
-        self.assertEquals(rewrite_utest(
-            """
-            self.failUnlessAlmostEquals(first, second, 5, 'A Snake!')
-            """
-            ),
-            """
-            assert not round(first - second, 5) != 0, 'A Snake!'
-            """
-                          )
-
-        self.assertEquals(rewrite_utest(
-            """
-              self.assertAlmostEquals(now do something reasonable ..()
-            oops, I am inside a comment as a ''' string, and the fname was
-            mentioned in passing, leaving us with something that isn't an
-            expression ... will this blow up?
-            """
-            ),
-            """
-              self.assertAlmostEquals(now do something reasonable ..()
-            oops, I am inside a comment as a ''' string, and the fname was
-            mentioned in passing, leaving us with something that isn't an
-            expression ... will this blow up?
-            """
-                          )
-            
-                              
 if __name__ == '__main__':
-    unittest.main()
-    '''count = 1
-    for block in  blocksplitter('xxx.py'):
-        print 'START BLOCK', count
-        print rewrite_utest(block)
-        print 'END BLOCK', count
-        print
-        print
-        count +=1
-    '''
-#for block in  blocksplitter('xxx.py'): print rewrite_utest(block)
 
+    from optparse import OptionParser
+    import sys
 
+    usage = "usage: %prog [-s [filename ...] | [-i | -c filename ...]]"
+    optparser = OptionParser(usage)
+
+    def select_output (option, opt, value, optparser, **kw):
+        if hasattr(optparser, 'output'):
+            optparser.error(
+                'Cannot combine -s -i and -c options. Use one only.')
+        else:
+            optparser.output = kw['output']
+
+    optparser.add_option("-s", "--stdout", action="callback",
+                         callback=select_output,
+                         callback_kwargs={'output':'stdout'},
+                         help="send your output to stdout")
+
+    optparser.add_option("-i", "--inplace", action="callback",
+                         callback=select_output,
+                         callback_kwargs={'output':'inplace'},
+                         help="overwrite files in place")
+
+    optparser.add_option("-c", "--copy", action="callback",
+                         callback=select_output,
+                         callback_kwargs={'output':'copy'},
+                         help="copy files ... fn.py --> fn.new.py")
+
+    options, args = optparser.parse_args()
+
+    output = getattr(optparser, 'output', 'stdout')
+
+    if output in ['inplace', 'copy'] and not args:
+        optparser.error(
+                '-i and -c option  require at least one filename')
+
+    if not args:
+        s = ''
+        for block in blocksplitter(sys.stdin.read()):
+            s += rewrite_utest(block)
+        sys.stdout.write(s)
+
+    else:
+        for infilename in args: # no error checking to see if we can open, etc.
+            infile = file(infilename)
+            s = ''
+            for block in blocksplitter(infile):
+                s += rewrite_utest(block)
+            if output == 'inplace':
+                outfile = file(infilename, 'w+')
+            elif output == 'copy': # yes, just go clobber any existing .cp
+                outfile = file (infilename + '.cp', 'w+')
+            else:
+                outfile = sys.stdout
+
+            outfile.write(s)
+
+    
