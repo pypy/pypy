@@ -451,7 +451,7 @@ def list_reverse__List(space, w_list):
 
 # Python Quicksort Written by Magnus Lie Hetland
 # http://www.hetland.org/python/quicksort.html
-def _partition(space, list, start, end):
+def _partition(list, start, end, lt):
     pivot = list[end]                          # Partition around the last value
     bottom = start-1                           # Start outside the area to be partitioned
     top = end                                  # Ditto
@@ -466,7 +466,7 @@ def _partition(space, list, start, end):
                 done = 1                       # ... we are done.
                 break
 
-            if space.is_true(space.gt(list[bottom], pivot)):           # Is the bottom out of place?
+            if lt(pivot, list[bottom]):        # Is the bottom out of place?
                 list[top] = list[bottom]       # Then put it at the top...
                 break                          # ... and start searching from the top.
 
@@ -477,7 +477,7 @@ def _partition(space, list, start, end):
                 done = 1                       # ... we are done.
                 break
 
-            if space.is_true(space.lt(list[top], pivot)):              # Is the top out of place?
+            if lt(list[top], pivot):           # Is the top out of place?
                 list[bottom] = list[top]       # Then put it at the bottom...
                 break                          # ...and start searching from the bottom.
 
@@ -485,17 +485,19 @@ def _partition(space, list, start, end):
     return top                                 # Return the split point
 
 
-def _quicksort(space, list, start, end):
+def _quicksort(list, start, end, lt):
     if start < end:                            # If there are two or more elements...
-        split = _partition(space, list, start, end)    # ... partition the sublist...
-        _quicksort(space, list, start, split-1)        # ... and sort both halves.
-        _quicksort(space, list, split+1, end)
+        split = _partition(list, start, end, lt)    # ... partition the sublist...
+        _quicksort(list, start, split-1, lt)        # ... and sort both halves.
+        _quicksort(list, split+1, end, lt)
 
 def list_sort__List(space, w_list):
+    def lt(a,b):
+        return space.is_true(space.lt(a,b))
+
     # XXX Basic quicksort implementation
     # XXX this is not stable !!
-    # XXX no optional argument yet !
-    _quicksort(space, w_list.ob_item, 0, w_list.ob_size-1)
+    _quicksort(w_list.ob_item, 0, w_list.ob_size-1, lt)
     return space.w_None
 
 
