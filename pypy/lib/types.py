@@ -111,7 +111,7 @@ except TypeError:
 SliceType = type(slice(0))
 EllipsisType = type(Ellipsis)
 
-#DictProxyType = type(TypeType.__dict__)
+DictProxyType = type(TypeType.__dict__)
 try:
     NotImplementedType = type(NotImplemented)
 except NameError:
