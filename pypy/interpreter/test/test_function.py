@@ -136,6 +136,18 @@ class AppTestFunction(testit.AppTestCase):
         meth = func.__get__(obj, object)
         self.assertEquals(meth(), obj)
 
+    def test_call_builtin(self):
+        s = 'hello'
+        self.assertRaises(TypeError, len)
+        self.assertEquals(len(s), 5)
+        self.assertRaises(TypeError, len, s, s)
+        self.assertRaises(TypeError, len, s, s, s)
+        self.assertEquals(len(*[s]), 5)
+        self.assertEquals(len(s, *[]), 5)
+        self.assertRaises(TypeError, len, some_unknown_keyword=s)
+        self.assertRaises(TypeError, len, s, some_unknown_keyword=s)
+        self.assertRaises(TypeError, len, s, s, some_unknown_keyword=s)
+
 class AppTestMethod(testit.AppTestCase):
 
     def test_get(self):

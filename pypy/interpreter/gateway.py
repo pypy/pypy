@@ -10,7 +10,7 @@ Gateway between app-level and interpreter-level:
 
 """
 
-import types
+import types, sys
 from pypy.interpreter import eval, pycode
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import Wrappable
@@ -76,6 +76,11 @@ class BuiltinCode(eval.Code):
             argnames[i] = a[2:]
 
         self.sig = argnames, varargname, kwargname
+        self.minargs = len(argnames)
+        if self.starargs:
+            self.maxargs = sys.maxint
+        else:
+            self.maxargs = self.minargs
 
     def create_frame(self, space, w_globals, closure=None):
         return BuiltinFrame(space, self, w_globals)
@@ -91,6 +96,8 @@ class BuiltinCode(eval.Code):
         if self.generalargs or args.kwds_w:
             return None
         args_w = args.args_w
+        if not (self.minargs <= len(args_w) <= self.maxargs):
+            return None
         if self.ismethod:
             if not args_w:
                 return None
@@ -113,6 +120,8 @@ class BuiltinCode(eval.Code):
                 return None
         else:
             if args.kwds_w:
+                return None
+            if not (self.minargs <= 1+len(args.args_w) <= self.maxargs):
                 return None
             if self.ismethod:
                 w_obj = space.unwrap(w_obj) # abuse name w_obj
