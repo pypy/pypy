@@ -3,6 +3,7 @@
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter import gateway
 
 
 ##SECTION##
@@ -21,48 +22,17 @@ f__coerce = _coerce
 
 def _coerce(space, w_left, w_right):
 
-    w_0=w_3=w_4=w_5=w_6=w_7=v8=w_9=w_10=w_11=w_12=v13=w_etype=w_evalue=None
+    w_0=w_3=None
 
     goto = 1 # startblock
     while True:
 
         if goto == 1:
-            try:
-                w_0 = space.coerce(w_left, w_right)
-                w_3 = w_0
-                goto = 5
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 2
-                else:raise # unhandled case, should not happen
+            w_0 = space.coerce(w_left, w_right)
+            w_3 = w_0
+            goto = 2
 
         if goto == 2:
-            w_7 = space.is_(w_6, space.w_TypeError)
-            v8 = space.is_true(w_7)
-            if v8 == True:
-                w_3 = space.w_None
-                goto = 5
-            else:
-                assert v8 == False
-                w_9, w_10, w_11 = w_4, w_5, w_6
-                goto = 3
-
-        if goto == 3:
-            w_12 = space.issubtype(w_11, space.w_TypeError)
-            v13 = space.is_true(w_12)
-            if v13 == True:
-                w_3 = space.w_None
-                goto = 5
-            else:
-                assert v13 == False
-                w_etype, w_evalue = w_9, w_10
-                goto = 4
-
-        if goto == 4:
-            raise OperationError(w_etype, w_evalue)
-
-        if goto == 5:
             return w_3
 
 fastf__coerce = _coerce
@@ -743,23 +713,22 @@ def __new__(space, w_subtype, w_name, w_bases, w_dic):
     w_9=v10=w_name_3=w_bases_2=w_dic_2=w_11=v12=w_bases_4=w_13=w_14=None
     w_name_4=w_bases_3=w_dic_3=w_15=v16=w_dic_5=w_17=w_18=w_name_5=None
     w_bases_5=w_dic_4=w_19=w_name_6=w_bases_6=w_dic_6=w_30=w_name_11=None
-    w_bases_11=w_dic_11=w_66=w_name_24=w_bases_24=w_dic_24=w_67=w_b=None
-    w_name_25=w_bases_25=w_dic_25=w_69=w_b_1=w_72=v73=w_name_27=w_bases_27=None
-    w_dic_27=w_b_2=w_74=w_75=v76=w_name_28=w_bases_28=w_dic_28=w_b_3=None
-    w_77=w_78=w_79=w_name_26=w_bases_26=w_dic_26=w_new_class=w_81=None
-    w_82=w_83=w_84=w_85=w_name_12=w_bases_12=w_dic_12=w_31=w_32=w_33=None
-    w_34=v35=w_name_14=w_bases_14=w_dic_14=w_37=w_38=w_39=w_70=v71=None
-    w_name_13=w_bases_13=w_dic_13=w_i=w_42=w_name_15=w_bases_15=w_dic_15=None
-    w_i_1=w_43=w_g=w_name_17=w_bases_17=w_dic_17=w_i_2=w_g_1=w_48=None
-    w_name_18=w_bases_18=w_dic_18=w_i_3=w_g_2=w_49=w_50=w_name_19=None
-    w_bases_19=w_dic_19=w_i_4=w_g_3=w_51=w_52=v53=w_name_21=w_bases_21=None
-    w_dic_21=w_g_4=w_61=w_modname=w_63=v64=w_name_23=w_bases_23=w_dic_23=None
-    w_modname_1=w_65=w_name_20=w_bases_20=w_dic_20=w_i_5=w_i_6=w_name_16=None
-    w_bases_16=w_dic_16=w_44=w_45=w_46=w_59=v60=w_name_22=w_bases_22=None
-    w_dic_22=w_57=w_58=w_55=w_54=v56=w_name_7=w_bases_7=w_dic_7=w_20=None
-    w_21=w_22=w_23=v24=w_name_9=w_bases_9=w_dic_9=w_25=w_26=w_27=None
-    w_40=v41=w_name_10=w_bases_10=w_dic_10=w_28=w_name_8=w_bases_8=None
-    w_dic_8=w_29=None
+    w_bases_11=w_dic_11=w_65=w_name_23=w_bases_23=w_dic_23=w_66=w_b=None
+    w_name_24=w_bases_24=w_dic_24=w_68=w_b_1=w_71=v72=w_name_26=w_bases_26=None
+    w_dic_26=w_b_2=w_73=w_74=v75=w_name_27=w_bases_27=w_dic_27=w_b_3=None
+    w_76=w_77=w_78=w_name_25=w_bases_25=w_dic_25=w_new_class=w_80=None
+    w_81=w_82=w_83=w_84=w_name_12=w_bases_12=w_dic_12=w_31=w_32=w_33=None
+    w_34=v35=w_name_14=w_bases_14=w_dic_14=w_37=w_38=w_39=w_69=v70=None
+    w_name_13=w_bases_13=w_dic_13=w_i=w_42=w_g=w_name_15=w_bases_15=None
+    w_dic_15=w_i_1=w_g_1=w_47=w_name_17=w_bases_17=w_dic_17=w_i_2=None
+    w_g_2=w_48=w_49=w_name_18=w_bases_18=w_dic_18=w_i_3=w_g_3=w_50=None
+    w_51=v52=w_name_20=w_bases_20=w_dic_20=w_g_4=w_60=w_modname=w_62=None
+    v63=w_name_22=w_bases_22=w_dic_22=w_modname_1=w_64=w_name_19=None
+    w_bases_19=w_dic_19=w_i_4=w_i_5=w_name_16=w_bases_16=w_dic_16=None
+    w_44=w_45=w_46=w_58=v59=w_name_21=w_bases_21=w_dic_21=w_56=w_57=None
+    w_54=w_53=v55=w_name_7=w_bases_7=w_dic_7=w_20=w_21=w_22=w_23=None
+    v24=w_name_9=w_bases_9=w_dic_9=w_25=w_26=w_27=w_40=v41=w_name_10=None
+    w_bases_10=w_dic_10=w_28=w_name_8=w_bases_8=w_dic_8=w_29=None
 
     goto = 1 # startblock
     while True:
@@ -779,7 +748,7 @@ def __new__(space, w_subtype, w_name, w_bases, w_dic):
             w_5 = fastf_type_err(space, gs_name, gs_string, w_name_2)
             w_6 = space.type(w_5)
             w_etype, w_evalue = w_6, w_5
-            goto = 32
+            goto = 31
 
         if goto == 3:
             w_9 = space.is_(w_bases_1, space.w_None)
@@ -807,7 +776,7 @@ def __new__(space, w_subtype, w_name, w_bases, w_dic):
             w_13 = fastf_type_err(space, gs_bases, gs_tuple, w_bases_4)
             w_14 = space.type(w_13)
             w_etype, w_evalue = w_14, w_13
-            goto = 32
+            goto = 31
 
         if goto == 6:
             w_15 = space.isinstance(w_dic_3, space.w_dict)
@@ -824,7 +793,7 @@ def __new__(space, w_subtype, w_name, w_bases, w_dic):
             w_17 = fastf_type_err(space, gs_dict, gs_dict, w_dic_5)
             w_18 = space.type(w_17)
             w_etype, w_evalue = w_18, w_17
-            goto = 32
+            goto = 31
 
         if goto == 8:
             try:
@@ -870,7 +839,7 @@ def __new__(space, w_subtype, w_name, w_bases, w_dic):
             try:
                 w_30 = space.getitem(w_dic_6, gs___module__)
                 w_name_11, w_bases_11, w_dic_11 = w_name_6, w_bases_6, w_dic_6
-                goto = 25
+                goto = 24
             except OperationError, e:
                 if space.is_true(space.issubtype(e.w_type, space.w_IndexError)):
                     (w_name_12, w_bases_12, w_dic_12, w_31, w_32, w_33) = (w_name_6,
@@ -895,7 +864,7 @@ def __new__(space, w_subtype, w_name, w_bases, w_dic):
                 assert v35 == False
                 (w_name_14, w_bases_14, w_dic_14, w_37, w_38, w_39) = (w_name_12,
                  w_bases_12, w_dic_12, w_31, w_32, w_33)
-                goto = 27
+                goto = 26
 
         if goto == 14:
             w_40 = space.issubtype(w_27, space.w_KeyError)
@@ -907,217 +876,205 @@ def __new__(space, w_subtype, w_name, w_bases, w_dic):
             else:
                 assert v41 == False
                 w_etype, w_evalue = w_25, w_26
-                goto = 32
+                goto = 31
 
         if goto == 15:
+            w_42 = space.call_function((space.sys.get(space.str_w(gs__getframe))), w_i)
             try:
-                w_42 = space.call_function((space.sys.get(space.str_w(gs__getframe))), w_i)
-                (w_name_15, w_bases_15, w_dic_15, w_i_1, w_43) = (w_name_13,
-                 w_bases_13, w_dic_13, w_i, w_42)
+                w_g = space.getattr(w_42, gs_f_globals)
+                (w_name_15, w_bases_15, w_dic_15, w_i_1, w_g_1) = (w_name_13,
+                 w_bases_13, w_dic_13, w_i, w_g)
                 goto = 16
             except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                if space.is_true(space.issubtype(e.w_type, space.w_AttributeError)):
                     (w_name_16, w_bases_16, w_dic_16, w_44, w_45, w_46) = (w_name_13,
-                     w_bases_13, w_dic_13, e.w_type, e.w_value, e.w_type)
-                    goto = 22
+                     w_bases_13, w_dic_13, space.w_AttributeError, e.w_value,
+                     space.w_AttributeError)
+                    goto = 21
                 else:raise # unhandled case, should not happen
 
         if goto == 16:
             try:
-                w_g = space.getattr(w_43, gs_f_globals)
-                (w_name_17, w_bases_17, w_dic_17, w_i_2, w_g_1) = (w_name_15,
-                 w_bases_15, w_dic_15, w_i_1, w_g)
+                w_47 = space.getattr(w_g_1, gs_get)
+                (w_name_17, w_bases_17, w_dic_17, w_i_2, w_g_2,
+                 w_48) = (w_name_15, w_bases_15, w_dic_15, w_i_1, w_g_1, w_47)
                 goto = 17
             except OperationError, e:
                 if space.is_true(space.issubtype(e.w_type, space.w_AttributeError)):
                     (w_name_16, w_bases_16, w_dic_16, w_44, w_45, w_46) = (w_name_15,
                      w_bases_15, w_dic_15, space.w_AttributeError, e.w_value,
                      space.w_AttributeError)
-                    goto = 22
+                    goto = 21
                 else:raise # unhandled case, should not happen
 
         if goto == 17:
             try:
-                w_48 = space.getattr(w_g_1, gs_get)
-                (w_name_18, w_bases_18, w_dic_18, w_i_3, w_g_2,
-                 w_49) = (w_name_17, w_bases_17, w_dic_17, w_i_2, w_g_1, w_48)
+                w_49 = space.call_function(w_48, gs_OLD_STYLE_CLASSES_IMPL, space.w_None)
+                (w_name_18, w_bases_18, w_dic_18, w_i_3, w_g_3,
+                 w_50) = (w_name_17, w_bases_17, w_dic_17, w_i_2, w_g_2, w_49)
                 goto = 18
             except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_AttributeError)):
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     (w_name_16, w_bases_16, w_dic_16, w_44, w_45, w_46) = (w_name_17,
-                     w_bases_17, w_dic_17, space.w_AttributeError, e.w_value,
-                     space.w_AttributeError)
-                    goto = 22
+                     w_bases_17, w_dic_17, e.w_type, e.w_value, e.w_type)
+                    goto = 21
                 else:raise # unhandled case, should not happen
 
         if goto == 18:
-            try:
-                w_50 = space.call_function(w_49, gs_OLD_STYLE_CLASSES_IMPL, space.w_None)
-                (w_name_19, w_bases_19, w_dic_19, w_i_4, w_g_3,
-                 w_51) = (w_name_18, w_bases_18, w_dic_18, w_i_3, w_g_2, w_50)
+            w_51 = space.is_(w_50, g_object)
+            v52 = space.is_true(w_51)
+            if v52 == True:
+                (w_name_19, w_bases_19, w_dic_19, w_i_4) = (w_name_18, w_bases_18,
+                 w_dic_18, w_i_3)
                 goto = 19
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    (w_name_16, w_bases_16, w_dic_16, w_44, w_45, w_46) = (w_name_18,
-                     w_bases_18, w_dic_18, e.w_type, e.w_value, e.w_type)
-                    goto = 22
-                else:raise # unhandled case, should not happen
+            else:
+                assert v52 == False
+                (w_name_20, w_bases_20, w_dic_20, w_g_4) = (w_name_18, w_bases_18,
+                 w_dic_18, w_g_3)
+                goto = 22
 
         if goto == 19:
-            w_52 = space.is_(w_51, g_object)
-            v53 = space.is_true(w_52)
-            if v53 == True:
-                (w_name_20, w_bases_20, w_dic_20, w_i_5) = (w_name_19, w_bases_19,
-                 w_dic_19, w_i_4)
-                goto = 20
-            else:
-                assert v53 == False
-                (w_name_21, w_bases_21, w_dic_21, w_g_4) = (w_name_19, w_bases_19,
-                 w_dic_19, w_g_3)
-                goto = 23
-
-        if goto == 20:
             try:
-                w_i_6 = space.inplace_add(w_i_5, gi_1)
-                (w_name_13, w_bases_13, w_dic_13, w_i) = (w_name_20, w_bases_20,
-                 w_dic_20, w_i_6)
+                w_i_5 = space.inplace_add(w_i_4, gi_1)
+                (w_name_13, w_bases_13, w_dic_13, w_i) = (w_name_19, w_bases_19,
+                 w_dic_19, w_i_5)
                 goto = 15
                 continue
             except OperationError, e:
                 if space.is_true(space.issubtype(e.w_type, space.w_OverflowError)):
-                    (w_name_16, w_bases_16, w_dic_16, w_44, w_45, w_46) = (w_name_20,
-                     w_bases_20, w_dic_20, space.w_OverflowError, e.w_value,
+                    (w_name_16, w_bases_16, w_dic_16, w_44, w_45, w_46) = (w_name_19,
+                     w_bases_19, w_dic_19, space.w_OverflowError, e.w_value,
                      space.w_OverflowError)
-                    goto = 22
+                    goto = 21
                 elif space.is_true(space.issubtype(e.w_type, space.w_FloatingPointError)):
-                    (w_name_16, w_bases_16, w_dic_16, w_44, w_45, w_46) = (w_name_20,
-                     w_bases_20, w_dic_20, space.w_FloatingPointError, e.w_value,
+                    (w_name_16, w_bases_16, w_dic_16, w_44, w_45, w_46) = (w_name_19,
+                     w_bases_19, w_dic_19, space.w_FloatingPointError, e.w_value,
                      space.w_FloatingPointError)
-                    goto = 22
+                    goto = 21
                 else:raise # unhandled case, should not happen
 
-        if goto == 21:
-            w_54 = space.issubtype(w_55, space.w_ValueError)
-            v56 = space.is_true(w_54)
-            if v56 == True:
-                w_name_11, w_bases_11, w_dic_11 = w_name_22, w_bases_22, w_dic_22
-                goto = 25
+        if goto == 20:
+            w_53 = space.issubtype(w_54, space.w_ValueError)
+            v55 = space.is_true(w_53)
+            if v55 == True:
+                w_name_11, w_bases_11, w_dic_11 = w_name_21, w_bases_21, w_dic_21
+                goto = 24
             else:
-                assert v56 == False
-                w_etype, w_evalue = w_57, w_58
-                goto = 32
+                assert v55 == False
+                w_etype, w_evalue = w_56, w_57
+                goto = 31
 
-        if goto == 22:
-            w_59 = space.is_(w_46, space.w_ValueError)
-            v60 = space.is_true(w_59)
-            if v60 == True:
+        if goto == 21:
+            w_58 = space.is_(w_46, space.w_ValueError)
+            v59 = space.is_true(w_58)
+            if v59 == True:
                 w_name_11, w_bases_11, w_dic_11 = w_name_16, w_bases_16, w_dic_16
-                goto = 25
+                goto = 24
             else:
-                assert v60 == False
-                (w_name_22, w_bases_22, w_dic_22, w_57, w_58, w_55) = (w_name_16,
+                assert v59 == False
+                (w_name_21, w_bases_21, w_dic_21, w_56, w_57, w_54) = (w_name_16,
                  w_bases_16, w_dic_16, w_44, w_45, w_46)
-                goto = 21
+                goto = 20
                 continue
 
-        if goto == 23:
-            w_61 = space.getattr(w_g_4, gs_get)
-            w_modname = space.call_function(w_61, gs___name__, space.w_None)
-            w_63 = space.is_(w_modname, space.w_None)
-            v64 = space.is_true(w_63)
-            if v64 == True:
-                w_name_11, w_bases_11, w_dic_11 = w_name_21, w_bases_21, w_dic_21
-                goto = 25
-            else:
-                assert v64 == False
-                (w_name_23, w_bases_23, w_dic_23, w_modname_1) = (w_name_21,
-                 w_bases_21, w_dic_21, w_modname)
+        if goto == 22:
+            w_60 = space.getattr(w_g_4, gs_get)
+            w_modname = space.call_function(w_60, gs___name__, space.w_None)
+            w_62 = space.is_(w_modname, space.w_None)
+            v63 = space.is_true(w_62)
+            if v63 == True:
+                w_name_11, w_bases_11, w_dic_11 = w_name_20, w_bases_20, w_dic_20
                 goto = 24
+            else:
+                assert v63 == False
+                (w_name_22, w_bases_22, w_dic_22, w_modname_1) = (w_name_20,
+                 w_bases_20, w_dic_20, w_modname)
+                goto = 23
+
+        if goto == 23:
+            w_64 = space.setitem(w_dic_22, gs___module__, w_modname_1)
+            w_name_11, w_bases_11, w_dic_11 = w_name_22, w_bases_22, w_dic_22
+            goto = 24
 
         if goto == 24:
-            w_65 = space.setitem(w_dic_23, gs___module__, w_modname_1)
-            w_name_11, w_bases_11, w_dic_11 = w_name_23, w_bases_23, w_dic_23
+            w_65 = space.iter(w_bases_11)
+            (w_name_23, w_bases_23, w_dic_23, w_66) = (w_name_11, w_bases_11,
+             w_dic_11, w_65)
             goto = 25
 
         if goto == 25:
-            w_66 = space.iter(w_bases_11)
-            (w_name_24, w_bases_24, w_dic_24, w_67) = (w_name_11, w_bases_11,
-             w_dic_11, w_66)
-            goto = 26
-
-        if goto == 26:
             try:
-                w_b = space.next(w_67)
-                (w_name_25, w_bases_25, w_dic_25, w_69, w_b_1) = (w_name_24,
-                 w_bases_24, w_dic_24, w_67, w_b)
-                goto = 28
+                w_b = space.next(w_66)
+                (w_name_24, w_bases_24, w_dic_24, w_68, w_b_1) = (w_name_23,
+                 w_bases_23, w_dic_23, w_66, w_b)
+                goto = 27
             except OperationError, e:
                 if space.is_true(space.issubtype(e.w_type, space.w_StopIteration)):
-                    w_name_26, w_bases_26, w_dic_26 = w_name_24, w_bases_24, w_dic_24
-                    goto = 31
+                    w_name_25, w_bases_25, w_dic_25 = w_name_23, w_bases_23, w_dic_23
+                    goto = 30
                 else:raise # unhandled case, should not happen
 
-        if goto == 27:
-            w_70 = space.issubtype(w_39, space.w_KeyError)
-            v71 = space.is_true(w_70)
-            if v71 == True:
+        if goto == 26:
+            w_69 = space.issubtype(w_39, space.w_KeyError)
+            v70 = space.is_true(w_69)
+            if v70 == True:
                 (w_name_13, w_bases_13, w_dic_13, w_i) = (w_name_14, w_bases_14,
                  w_dic_14, gi_0)
                 goto = 15
                 continue
             else:
-                assert v71 == False
+                assert v70 == False
                 w_etype, w_evalue = w_37, w_38
-                goto = 32
+                goto = 31
 
-        if goto == 28:
-            w_72 = space.isinstance(w_b_1, gcls_classobj)
-            v73 = space.is_true(w_72)
-            if v73 == True:
-                (w_name_24, w_bases_24, w_dic_24, w_67) = (w_name_25, w_bases_25,
-                 w_dic_25, w_69)
-                goto = 26
+        if goto == 27:
+            w_71 = space.isinstance(w_b_1, gcls_classobj)
+            v72 = space.is_true(w_71)
+            if v72 == True:
+                (w_name_23, w_bases_23, w_dic_23, w_66) = (w_name_24, w_bases_24,
+                 w_dic_24, w_68)
+                goto = 25
                 continue
             else:
-                assert v73 == False
-                (w_name_27, w_bases_27, w_dic_27, w_b_2) = (w_name_25, w_bases_25,
-                 w_dic_25, w_b_1)
+                assert v72 == False
+                (w_name_26, w_bases_26, w_dic_26, w_b_2) = (w_name_24, w_bases_24,
+                 w_dic_24, w_b_1)
+                goto = 28
+
+        if goto == 28:
+            w_73 = space.call_function(space.w_type, w_b_2)
+            w_74 = space.call_function((space.builtin.get(space.str_w(gs_callable))), w_73)
+            v75 = space.is_true(w_74)
+            if v75 == True:
+                (w_name_27, w_bases_27, w_dic_27, w_b_3) = (w_name_26, w_bases_26,
+                 w_dic_26, w_b_2)
                 goto = 29
+            else:
+                assert v75 == False
+                w_etype, w_evalue = space.w_TypeError, gs_base_must_be_class
+                goto = 31
 
         if goto == 29:
-            w_74 = space.call_function(space.w_type, w_b_2)
-            w_75 = space.call_function((space.builtin.get(space.str_w(gs_callable))), w_74)
-            v76 = space.is_true(w_75)
-            if v76 == True:
-                (w_name_28, w_bases_28, w_dic_28, w_b_3) = (w_name_27, w_bases_27,
-                 w_dic_27, w_b_2)
-                goto = 30
-            else:
-                assert v76 == False
-                w_etype, w_evalue = space.w_TypeError, gs_base_must_be_class
-                goto = 32
+            w_76 = space.call_function(space.w_type, w_b_3)
+            w_77 = space.call_function(w_76, w_name_27, w_bases_27, w_dic_27)
+            w_78 = w_77
+            goto = 32
 
         if goto == 30:
-            w_77 = space.call_function(space.w_type, w_b_3)
-            w_78 = space.call_function(w_77, w_name_28, w_bases_28, w_dic_28)
-            w_79 = w_78
-            goto = 33
+            w_new_class = space.call_function(gbltinmethod___new__, gcls_classobj)
+            w_80 = space.call_function(gdescriptor_object___setattr__, w_new_class, gs___dict__, w_dic_25)
+            w_81 = space.getattr(gdescriptor_classobj__name, gs___set__)
+            w_82 = space.call_function(w_81, w_new_class, w_name_25)
+            w_83 = space.getattr(gdescriptor_classobj__bases, gs___set__)
+            w_84 = space.call_function(w_83, w_new_class, w_bases_25)
+            w_78 = w_new_class
+            goto = 32
 
         if goto == 31:
-            w_new_class = space.call_function(gbltinmethod___new__, gcls_classobj)
-            w_81 = space.call_function(gdescriptor_object___setattr__, w_new_class, gs___dict__, w_dic_26)
-            w_82 = space.getattr(gdescriptor_classobj__name, gs___set__)
-            w_83 = space.call_function(w_82, w_new_class, w_name_26)
-            w_84 = space.getattr(gdescriptor_classobj__bases, gs___set__)
-            w_85 = space.call_function(w_84, w_new_class, w_bases_26)
-            w_79 = w_new_class
-            goto = 33
-
-        if goto == 32:
             raise OperationError(w_etype, w_evalue)
 
-        if goto == 33:
-            return w_79
+        if goto == 32:
+            return w_78
 
 fastf___new__ = __new__
 
@@ -7173,8 +7130,7 @@ def initclassobj(space):
     m.gs__classobj = space.wrap('_classobj')
     space.setitem(_dic, gs___module__, gs__classobj)
     m.gs___new__ = space.wrap('__new__')
-    from pypy.interpreter.gateway import interp2app
-    m.gfunc___new__ = space.wrap(interp2app(f___new__))
+    m.gfunc___new__ = space.wrap(gateway.interp2app(f___new__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     m.gsm___new__ = space.wrap(gfunc___new__)
     space.setitem(_dic, gs___new__, gsm___new__)
     m.gs___slots__ = space.wrap('__slots__')
@@ -7189,7 +7145,7 @@ def initclassobj(space):
     m.gcls_classobj = space.call(space.w_type, _args)
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs__classobj)
-    m.gfunc___new___1 = space.wrap(interp2app(f___new___1))
+    m.gfunc___new___1 = space.wrap(gateway.interp2app(f___new___1, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     m.gsm___new___1 = space.wrap(gfunc___new___1)
     space.setitem(_dic, gs___new__, gsm___new___1)
     m.gs__class = space.wrap('_class')
@@ -7199,253 +7155,253 @@ def initclassobj(space):
     _bases = space.newtuple([space.w_object])
     _args = space.newtuple([gs_instance, _bases, _dic])
     m.gcls_instance = space.call(space.w_type, _args)
-    m.gfunc_purify = space.wrap(interp2app(f_purify))
+    m.gfunc_purify = space.wrap(gateway.interp2app(f_purify, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     m.g3tuple = space.newtuple([gcls_classobj, gcls_instance, gfunc_purify])
     del m.purify
     m.gs___abs__ = space.wrap('__abs__')
-    m.gfunc_instance___abs__ = space.wrap(interp2app(f_instance___abs__))
+    m.gfunc_instance___abs__ = space.wrap(gateway.interp2app(f_instance___abs__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___abs__, gfunc_instance___abs__)
     m.gs___add__ = space.wrap('__add__')
-    m.gfunc_instance___add__ = space.wrap(interp2app(f_instance___add__))
+    m.gfunc_instance___add__ = space.wrap(gateway.interp2app(f_instance___add__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___add__, gfunc_instance___add__)
     m.gs___and__ = space.wrap('__and__')
-    m.gfunc_instance___and__ = space.wrap(interp2app(f_instance___and__))
+    m.gfunc_instance___and__ = space.wrap(gateway.interp2app(f_instance___and__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___and__, gfunc_instance___and__)
     m.gs___call__ = space.wrap('__call__')
-    m.gfunc_instance___call__ = space.wrap(interp2app(f_instance___call__))
+    m.gfunc_instance___call__ = space.wrap(gateway.interp2app(f_instance___call__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___call__, gfunc_instance___call__)
     m.gs___cmp__ = space.wrap('__cmp__')
-    m.gfunc_instance___cmp__ = space.wrap(interp2app(f_instance___cmp__))
+    m.gfunc_instance___cmp__ = space.wrap(gateway.interp2app(f_instance___cmp__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___cmp__, gfunc_instance___cmp__)
     m.gs___coerce__ = space.wrap('__coerce__')
-    m.gfunc_instance___coerce__ = space.wrap(interp2app(f_instance___coerce__))
+    m.gfunc_instance___coerce__ = space.wrap(gateway.interp2app(f_instance___coerce__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___coerce__, gfunc_instance___coerce__)
     m.gs___contains__ = space.wrap('__contains__')
-    m.gfunc_instance___contains__ = space.wrap(interp2app(f_instance___contains__))
+    m.gfunc_instance___contains__ = space.wrap(gateway.interp2app(f_instance___contains__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___contains__, gfunc_instance___contains__)
     m.gs___delattr__ = space.wrap('__delattr__')
-    m.gfunc_instance___delattr__ = space.wrap(interp2app(f_instance___delattr__))
+    m.gfunc_instance___delattr__ = space.wrap(gateway.interp2app(f_instance___delattr__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___delattr__, gfunc_instance___delattr__)
     m.gs___delitem__ = space.wrap('__delitem__')
-    m.gfunc_instance___delitem__ = space.wrap(interp2app(f_instance___delitem__))
+    m.gfunc_instance___delitem__ = space.wrap(gateway.interp2app(f_instance___delitem__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___delitem__, gfunc_instance___delitem__)
     m.gs___div__ = space.wrap('__div__')
-    m.gfunc_instance___div__ = space.wrap(interp2app(f_instance___div__))
+    m.gfunc_instance___div__ = space.wrap(gateway.interp2app(f_instance___div__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___div__, gfunc_instance___div__)
     m.gs___divmod__ = space.wrap('__divmod__')
-    m.gfunc_instance___divmod__ = space.wrap(interp2app(f_instance___divmod__))
+    m.gfunc_instance___divmod__ = space.wrap(gateway.interp2app(f_instance___divmod__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___divmod__, gfunc_instance___divmod__)
     m.gs___eq__ = space.wrap('__eq__')
-    m.gfunc_instance___eq__ = space.wrap(interp2app(f_instance___eq__))
+    m.gfunc_instance___eq__ = space.wrap(gateway.interp2app(f_instance___eq__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___eq__, gfunc_instance___eq__)
     m.gs___float__ = space.wrap('__float__')
-    m.gfunc_instance___float__ = space.wrap(interp2app(f_instance___float__))
+    m.gfunc_instance___float__ = space.wrap(gateway.interp2app(f_instance___float__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___float__, gfunc_instance___float__)
     m.gs___floordiv__ = space.wrap('__floordiv__')
-    m.gfunc_instance___floordiv__ = space.wrap(interp2app(f_instance___floordiv__))
+    m.gfunc_instance___floordiv__ = space.wrap(gateway.interp2app(f_instance___floordiv__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___floordiv__, gfunc_instance___floordiv__)
     m.gs___ge__ = space.wrap('__ge__')
-    m.gfunc_instance___ge__ = space.wrap(interp2app(f_instance___ge__))
+    m.gfunc_instance___ge__ = space.wrap(gateway.interp2app(f_instance___ge__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___ge__, gfunc_instance___ge__)
     m.gs___getattribute__ = space.wrap('__getattribute__')
-    m.gfunc_instance___getattribute__ = space.wrap(interp2app(f_instance___getattribute__))
+    m.gfunc_instance___getattribute__ = space.wrap(gateway.interp2app(f_instance___getattribute__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___getattribute__, gfunc_instance___getattribute__)
     m.gs___getitem__ = space.wrap('__getitem__')
-    m.gfunc_instance___getitem__ = space.wrap(interp2app(f_instance___getitem__))
+    m.gfunc_instance___getitem__ = space.wrap(gateway.interp2app(f_instance___getitem__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___getitem__, gfunc_instance___getitem__)
     m.gs___gt__ = space.wrap('__gt__')
-    m.gfunc_instance___gt__ = space.wrap(interp2app(f_instance___gt__))
+    m.gfunc_instance___gt__ = space.wrap(gateway.interp2app(f_instance___gt__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___gt__, gfunc_instance___gt__)
     m.gs___hash__ = space.wrap('__hash__')
-    m.gfunc_instance___hash__ = space.wrap(interp2app(f_instance___hash__))
+    m.gfunc_instance___hash__ = space.wrap(gateway.interp2app(f_instance___hash__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___hash__, gfunc_instance___hash__)
     m.gs___hex__ = space.wrap('__hex__')
-    m.gfunc_instance___hex__ = space.wrap(interp2app(f_instance___hex__))
+    m.gfunc_instance___hex__ = space.wrap(gateway.interp2app(f_instance___hex__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___hex__, gfunc_instance___hex__)
     m.gs___iadd__ = space.wrap('__iadd__')
-    m.gfunc_instance___iadd__ = space.wrap(interp2app(f_instance___iadd__))
+    m.gfunc_instance___iadd__ = space.wrap(gateway.interp2app(f_instance___iadd__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___iadd__, gfunc_instance___iadd__)
     m.gs___iand__ = space.wrap('__iand__')
-    m.gfunc_instance___iand__ = space.wrap(interp2app(f_instance___iand__))
+    m.gfunc_instance___iand__ = space.wrap(gateway.interp2app(f_instance___iand__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___iand__, gfunc_instance___iand__)
     m.gs___idiv__ = space.wrap('__idiv__')
-    m.gfunc_instance___idiv__ = space.wrap(interp2app(f_instance___idiv__))
+    m.gfunc_instance___idiv__ = space.wrap(gateway.interp2app(f_instance___idiv__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___idiv__, gfunc_instance___idiv__)
     m.gs___ifloordiv__ = space.wrap('__ifloordiv__')
-    m.gfunc_instance___ifloordiv__ = space.wrap(interp2app(f_instance___ifloordiv__))
+    m.gfunc_instance___ifloordiv__ = space.wrap(gateway.interp2app(f_instance___ifloordiv__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___ifloordiv__, gfunc_instance___ifloordiv__)
     m.gs___ilshift__ = space.wrap('__ilshift__')
-    m.gfunc_instance___ilshift__ = space.wrap(interp2app(f_instance___ilshift__))
+    m.gfunc_instance___ilshift__ = space.wrap(gateway.interp2app(f_instance___ilshift__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___ilshift__, gfunc_instance___ilshift__)
     m.gs___imod__ = space.wrap('__imod__')
-    m.gfunc_instance___imod__ = space.wrap(interp2app(f_instance___imod__))
+    m.gfunc_instance___imod__ = space.wrap(gateway.interp2app(f_instance___imod__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___imod__, gfunc_instance___imod__)
     m.gs___imul__ = space.wrap('__imul__')
-    m.gfunc_instance___imul__ = space.wrap(interp2app(f_instance___imul__))
+    m.gfunc_instance___imul__ = space.wrap(gateway.interp2app(f_instance___imul__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___imul__, gfunc_instance___imul__)
     m.gs___int__ = space.wrap('__int__')
-    m.gfunc_instance___int__ = space.wrap(interp2app(f_instance___int__))
+    m.gfunc_instance___int__ = space.wrap(gateway.interp2app(f_instance___int__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___int__, gfunc_instance___int__)
     m.gs___invert__ = space.wrap('__invert__')
-    m.gfunc_instance___invert__ = space.wrap(interp2app(f_instance___invert__))
+    m.gfunc_instance___invert__ = space.wrap(gateway.interp2app(f_instance___invert__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___invert__, gfunc_instance___invert__)
     m.gs___ior__ = space.wrap('__ior__')
-    m.gfunc_instance___ior__ = space.wrap(interp2app(f_instance___ior__))
+    m.gfunc_instance___ior__ = space.wrap(gateway.interp2app(f_instance___ior__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___ior__, gfunc_instance___ior__)
     m.gs___ipow__ = space.wrap('__ipow__')
-    m.gfunc_instance___ipow__ = space.wrap(interp2app(f_instance___ipow__))
+    m.gfunc_instance___ipow__ = space.wrap(gateway.interp2app(f_instance___ipow__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___ipow__, gfunc_instance___ipow__)
     m.gs___irshift__ = space.wrap('__irshift__')
-    m.gfunc_instance___irshift__ = space.wrap(interp2app(f_instance___irshift__))
+    m.gfunc_instance___irshift__ = space.wrap(gateway.interp2app(f_instance___irshift__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___irshift__, gfunc_instance___irshift__)
     m.gs___isub__ = space.wrap('__isub__')
-    m.gfunc_instance___isub__ = space.wrap(interp2app(f_instance___isub__))
+    m.gfunc_instance___isub__ = space.wrap(gateway.interp2app(f_instance___isub__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___isub__, gfunc_instance___isub__)
     m.gs___iter__ = space.wrap('__iter__')
-    m.gfunc_instance___iter__ = space.wrap(interp2app(f_instance___iter__))
+    m.gfunc_instance___iter__ = space.wrap(gateway.interp2app(f_instance___iter__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___iter__, gfunc_instance___iter__)
     m.gs___itruediv__ = space.wrap('__itruediv__')
-    m.gfunc_instance___itruediv__ = space.wrap(interp2app(f_instance___itruediv__))
+    m.gfunc_instance___itruediv__ = space.wrap(gateway.interp2app(f_instance___itruediv__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___itruediv__, gfunc_instance___itruediv__)
     m.gs___ixor__ = space.wrap('__ixor__')
-    m.gfunc_instance___ixor__ = space.wrap(interp2app(f_instance___ixor__))
+    m.gfunc_instance___ixor__ = space.wrap(gateway.interp2app(f_instance___ixor__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___ixor__, gfunc_instance___ixor__)
     m.gs___le__ = space.wrap('__le__')
-    m.gfunc_instance___le__ = space.wrap(interp2app(f_instance___le__))
+    m.gfunc_instance___le__ = space.wrap(gateway.interp2app(f_instance___le__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___le__, gfunc_instance___le__)
     m.gs___len__ = space.wrap('__len__')
-    m.gfunc_instance___len__ = space.wrap(interp2app(f_instance___len__))
+    m.gfunc_instance___len__ = space.wrap(gateway.interp2app(f_instance___len__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___len__, gfunc_instance___len__)
     m.gs___long__ = space.wrap('__long__')
-    m.gfunc_instance___long__ = space.wrap(interp2app(f_instance___long__))
+    m.gfunc_instance___long__ = space.wrap(gateway.interp2app(f_instance___long__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___long__, gfunc_instance___long__)
     m.gs___lshift__ = space.wrap('__lshift__')
-    m.gfunc_instance___lshift__ = space.wrap(interp2app(f_instance___lshift__))
+    m.gfunc_instance___lshift__ = space.wrap(gateway.interp2app(f_instance___lshift__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___lshift__, gfunc_instance___lshift__)
     m.gs___lt__ = space.wrap('__lt__')
-    m.gfunc_instance___lt__ = space.wrap(interp2app(f_instance___lt__))
+    m.gfunc_instance___lt__ = space.wrap(gateway.interp2app(f_instance___lt__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___lt__, gfunc_instance___lt__)
     m.gs___mod__ = space.wrap('__mod__')
-    m.gfunc_instance___mod__ = space.wrap(interp2app(f_instance___mod__))
+    m.gfunc_instance___mod__ = space.wrap(gateway.interp2app(f_instance___mod__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___mod__, gfunc_instance___mod__)
     m.gs___mul__ = space.wrap('__mul__')
-    m.gfunc_instance___mul__ = space.wrap(interp2app(f_instance___mul__))
+    m.gfunc_instance___mul__ = space.wrap(gateway.interp2app(f_instance___mul__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___mul__, gfunc_instance___mul__)
     m.gs___ne__ = space.wrap('__ne__')
-    m.gfunc_instance___ne__ = space.wrap(interp2app(f_instance___ne__))
+    m.gfunc_instance___ne__ = space.wrap(gateway.interp2app(f_instance___ne__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___ne__, gfunc_instance___ne__)
     m.gs___neg__ = space.wrap('__neg__')
-    m.gfunc_instance___neg__ = space.wrap(interp2app(f_instance___neg__))
+    m.gfunc_instance___neg__ = space.wrap(gateway.interp2app(f_instance___neg__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___neg__, gfunc_instance___neg__)
     m.gs___nonzero__ = space.wrap('__nonzero__')
-    m.gfunc_instance___nonzero__ = space.wrap(interp2app(f_instance___nonzero__))
+    m.gfunc_instance___nonzero__ = space.wrap(gateway.interp2app(f_instance___nonzero__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___nonzero__, gfunc_instance___nonzero__)
     m.gs___oct__ = space.wrap('__oct__')
-    m.gfunc_instance___oct__ = space.wrap(interp2app(f_instance___oct__))
+    m.gfunc_instance___oct__ = space.wrap(gateway.interp2app(f_instance___oct__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___oct__, gfunc_instance___oct__)
     m.gs___or__ = space.wrap('__or__')
-    m.gfunc_instance___or__ = space.wrap(interp2app(f_instance___or__))
+    m.gfunc_instance___or__ = space.wrap(gateway.interp2app(f_instance___or__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___or__, gfunc_instance___or__)
     m.gs___pos__ = space.wrap('__pos__')
-    m.gfunc_instance___pos__ = space.wrap(interp2app(f_instance___pos__))
+    m.gfunc_instance___pos__ = space.wrap(gateway.interp2app(f_instance___pos__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___pos__, gfunc_instance___pos__)
     m.gs___pow__ = space.wrap('__pow__')
-    m.gfunc_instance___pow__ = space.wrap(interp2app(f_instance___pow__))
+    m.gfunc_instance___pow__ = space.wrap(gateway.interp2app(f_instance___pow__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___pow__, gfunc_instance___pow__)
     m.gs___radd__ = space.wrap('__radd__')
-    m.gfunc_instance___radd__ = space.wrap(interp2app(f_instance___radd__))
+    m.gfunc_instance___radd__ = space.wrap(gateway.interp2app(f_instance___radd__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___radd__, gfunc_instance___radd__)
     m.gs___rand__ = space.wrap('__rand__')
-    m.gfunc_instance___rand__ = space.wrap(interp2app(f_instance___rand__))
+    m.gfunc_instance___rand__ = space.wrap(gateway.interp2app(f_instance___rand__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rand__, gfunc_instance___rand__)
     m.gs___rdiv__ = space.wrap('__rdiv__')
-    m.gfunc_instance___rdiv__ = space.wrap(interp2app(f_instance___rdiv__))
+    m.gfunc_instance___rdiv__ = space.wrap(gateway.interp2app(f_instance___rdiv__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rdiv__, gfunc_instance___rdiv__)
     m.gs___rdivmod__ = space.wrap('__rdivmod__')
-    m.gfunc_instance___rdivmod__ = space.wrap(interp2app(f_instance___rdivmod__))
+    m.gfunc_instance___rdivmod__ = space.wrap(gateway.interp2app(f_instance___rdivmod__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rdivmod__, gfunc_instance___rdivmod__)
     m.gs___repr__ = space.wrap('__repr__')
-    m.gfunc_instance___repr__ = space.wrap(interp2app(f_instance___repr__))
+    m.gfunc_instance___repr__ = space.wrap(gateway.interp2app(f_instance___repr__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___repr__, gfunc_instance___repr__)
     m.gs___rfloordiv__ = space.wrap('__rfloordiv__')
-    m.gfunc_instance___rfloordiv__ = space.wrap(interp2app(f_instance___rfloordiv__))
+    m.gfunc_instance___rfloordiv__ = space.wrap(gateway.interp2app(f_instance___rfloordiv__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rfloordiv__, gfunc_instance___rfloordiv__)
     m.gs___rlshift__ = space.wrap('__rlshift__')
-    m.gfunc_instance___rlshift__ = space.wrap(interp2app(f_instance___rlshift__))
+    m.gfunc_instance___rlshift__ = space.wrap(gateway.interp2app(f_instance___rlshift__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rlshift__, gfunc_instance___rlshift__)
     m.gs___rmod__ = space.wrap('__rmod__')
-    m.gfunc_instance___rmod__ = space.wrap(interp2app(f_instance___rmod__))
+    m.gfunc_instance___rmod__ = space.wrap(gateway.interp2app(f_instance___rmod__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rmod__, gfunc_instance___rmod__)
     m.gs___rmul__ = space.wrap('__rmul__')
-    m.gfunc_instance___rmul__ = space.wrap(interp2app(f_instance___rmul__))
+    m.gfunc_instance___rmul__ = space.wrap(gateway.interp2app(f_instance___rmul__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rmul__, gfunc_instance___rmul__)
     m.gs___ror__ = space.wrap('__ror__')
-    m.gfunc_instance___ror__ = space.wrap(interp2app(f_instance___ror__))
+    m.gfunc_instance___ror__ = space.wrap(gateway.interp2app(f_instance___ror__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___ror__, gfunc_instance___ror__)
     m.gs___rpow__ = space.wrap('__rpow__')
-    m.gfunc_instance___rpow__ = space.wrap(interp2app(f_instance___rpow__))
+    m.gfunc_instance___rpow__ = space.wrap(gateway.interp2app(f_instance___rpow__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rpow__, gfunc_instance___rpow__)
     m.gs___rrshift__ = space.wrap('__rrshift__')
-    m.gfunc_instance___rrshift__ = space.wrap(interp2app(f_instance___rrshift__))
+    m.gfunc_instance___rrshift__ = space.wrap(gateway.interp2app(f_instance___rrshift__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rrshift__, gfunc_instance___rrshift__)
     m.gs___rshift__ = space.wrap('__rshift__')
-    m.gfunc_instance___rshift__ = space.wrap(interp2app(f_instance___rshift__))
+    m.gfunc_instance___rshift__ = space.wrap(gateway.interp2app(f_instance___rshift__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rshift__, gfunc_instance___rshift__)
     m.gs___rsub__ = space.wrap('__rsub__')
-    m.gfunc_instance___rsub__ = space.wrap(interp2app(f_instance___rsub__))
+    m.gfunc_instance___rsub__ = space.wrap(gateway.interp2app(f_instance___rsub__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rsub__, gfunc_instance___rsub__)
     m.gs___rtruediv__ = space.wrap('__rtruediv__')
-    m.gfunc_instance___rtruediv__ = space.wrap(interp2app(f_instance___rtruediv__))
+    m.gfunc_instance___rtruediv__ = space.wrap(gateway.interp2app(f_instance___rtruediv__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rtruediv__, gfunc_instance___rtruediv__)
     m.gs___rxor__ = space.wrap('__rxor__')
-    m.gfunc_instance___rxor__ = space.wrap(interp2app(f_instance___rxor__))
+    m.gfunc_instance___rxor__ = space.wrap(gateway.interp2app(f_instance___rxor__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___rxor__, gfunc_instance___rxor__)
     m.gs___setattr__ = space.wrap('__setattr__')
-    m.gfunc_instance___setattr__ = space.wrap(interp2app(f_instance___setattr__))
+    m.gfunc_instance___setattr__ = space.wrap(gateway.interp2app(f_instance___setattr__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___setattr__, gfunc_instance___setattr__)
     m.gs___setitem__ = space.wrap('__setitem__')
-    m.gfunc_instance___setitem__ = space.wrap(interp2app(f_instance___setitem__))
+    m.gfunc_instance___setitem__ = space.wrap(gateway.interp2app(f_instance___setitem__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___setitem__, gfunc_instance___setitem__)
     m.gs___str__ = space.wrap('__str__')
-    m.gfunc_instance___str__ = space.wrap(interp2app(f_instance___str__))
+    m.gfunc_instance___str__ = space.wrap(gateway.interp2app(f_instance___str__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___str__, gfunc_instance___str__)
     m.gs___sub__ = space.wrap('__sub__')
-    m.gfunc_instance___sub__ = space.wrap(interp2app(f_instance___sub__))
+    m.gfunc_instance___sub__ = space.wrap(gateway.interp2app(f_instance___sub__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___sub__, gfunc_instance___sub__)
     m.gs___truediv__ = space.wrap('__truediv__')
-    m.gfunc_instance___truediv__ = space.wrap(interp2app(f_instance___truediv__))
+    m.gfunc_instance___truediv__ = space.wrap(gateway.interp2app(f_instance___truediv__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___truediv__, gfunc_instance___truediv__)
     m.gs___xor__ = space.wrap('__xor__')
-    m.gfunc_instance___xor__ = space.wrap(interp2app(f_instance___xor__))
+    m.gfunc_instance___xor__ = space.wrap(gateway.interp2app(f_instance___xor__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs___xor__, gfunc_instance___xor__)
     m.gs_next = space.wrap('next')
-    m.gfunc_instance_next = space.wrap(interp2app(f_instance_next))
+    m.gfunc_instance_next = space.wrap(gateway.interp2app(f_instance_next, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_instance, gs_next, gfunc_instance_next)
-    m.gfunc_classobj___call__ = space.wrap(interp2app(f_classobj___call__))
+    m.gfunc_classobj___call__ = space.wrap(gateway.interp2app(f_classobj___call__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_classobj, gs___call__, gfunc_classobj___call__)
-    m.gfunc_classobj___delattr__ = space.wrap(interp2app(f_classobj___delattr__))
+    m.gfunc_classobj___delattr__ = space.wrap(gateway.interp2app(f_classobj___delattr__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_classobj, gs___delattr__, gfunc_classobj___delattr__)
-    m.gfunc_classobj___getattribute__ = space.wrap(interp2app(f_classobj___getattribute__))
+    m.gfunc_classobj___getattribute__ = space.wrap(gateway.interp2app(f_classobj___getattribute__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_classobj, gs___getattribute__, gfunc_classobj___getattribute__)
-    m.gfunc_classobj___repr__ = space.wrap(interp2app(f_classobj___repr__))
+    m.gfunc_classobj___repr__ = space.wrap(gateway.interp2app(f_classobj___repr__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_classobj, gs___repr__, gfunc_classobj___repr__)
-    m.gfunc_classobj___setattr__ = space.wrap(interp2app(f_classobj___setattr__))
+    m.gfunc_classobj___setattr__ = space.wrap(gateway.interp2app(f_classobj___setattr__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_classobj, gs___setattr__, gfunc_classobj___setattr__)
-    m.gfunc_classobj___str__ = space.wrap(interp2app(f_classobj___str__))
+    m.gfunc_classobj___str__ = space.wrap(gateway.interp2app(f_classobj___str__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_classobj, gs___str__, gfunc_classobj___str__)
-    m.gfunc_get_class_module = space.wrap(interp2app(f_get_class_module))
+    m.gfunc_get_class_module = space.wrap(gateway.interp2app(f_get_class_module, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     m.gs__ = space.wrap('?')
     m.gs___name__ = space.wrap('__name__')
     m.gs__s__s = space.wrap('%s.%s')
     del m.__str__
-    m.gfunc_retrieve = space.wrap(interp2app(f_retrieve))
+    m.gfunc_retrieve = space.wrap(gateway.interp2app(f_retrieve, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     del m.get_class_module
     m.gdescriptor_object___getattribute__ = space.getattr(space.w_object, gs___getattribute__)
     del m.retrieve
-    m.gfunc_set_name = space.wrap(interp2app(f_set_name))
+    m.gfunc_set_name = space.wrap(gateway.interp2app(f_set_name, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     m.gs___bases__ = space.wrap('__bases__')
-    m.gfunc_set_bases = space.wrap(interp2app(f_set_bases))
-    m.gfunc_set_dict = space.wrap(interp2app(f_set_dict))
+    m.gfunc_set_bases = space.wrap(gateway.interp2app(f_set_bases, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
+    m.gfunc_set_dict = space.wrap(gateway.interp2app(f_set_dict, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     m.gdescriptor_object___setattr__ = space.getattr(space.w_object, gs___setattr__)
     del m.__setattr__
     m.gs___dict___must_be_a_dictionary_ob = space.wrap('__dict__ must be a dictionary object')
@@ -7458,7 +7414,7 @@ def initclassobj(space):
     m.gs___name___must_be_a_string_object = space.wrap('__name__ must be a string object')
     m.gdescriptor_classobj__name = space.getattr(gcls_classobj, gs__name)
     del m.set_name
-    m.gfunc_uid = space.wrap(interp2app(f_uid))
+    m.gfunc_uid = space.wrap(gateway.interp2app(f_uid, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     m.gs__class__s__s_at_0x_x_ = space.wrap('<class %s.%s at 0x%x>')
     del m.__repr__
     m.gi_0 = space.newint(0)
@@ -7467,9 +7423,9 @@ def initclassobj(space):
     del m.uid
     m.gs___get__ = space.wrap('__get__')
     m.gi_1 = space.newint(1)
-    m.gfunc_lookup = space.wrap(interp2app(f_lookup))
+    m.gfunc_lookup = space.wrap(gateway.interp2app(f_lookup, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     m.gs_class__s_has_no_attribute__s = space.wrap('class %s has no attribute %s')
-    m.gfunc_mro_lookup = space.wrap(interp2app(f_mro_lookup))
+    m.gfunc_mro_lookup = space.wrap(gateway.interp2app(f_mro_lookup, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     del m.__getattribute__
     m.gs___mro__ = space.wrap('__mro__')
     del m.mro_lookup
@@ -7480,7 +7436,7 @@ def initclassobj(space):
     del m.__delattr__
     m.gbltinmethod___new__ = space.getattr(space.w_object, gs___new__)
     m.gdescriptor_instance__class = space.getattr(gcls_instance, gs__class)
-    m.gfunc_instance_getattr1 = space.wrap(interp2app(f_instance_getattr1))
+    m.gfunc_instance_getattr1 = space.wrap(gateway.interp2app(f_instance_getattr1, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     m.gs___init__ = space.wrap('__init__')
     m.gs___init_____should_return_None = space.wrap('__init__() should return None')
     del m.__call__
@@ -7489,7 +7445,7 @@ def initclassobj(space):
     del m.instance_getattr1
     m.gs_instance_has_no_next___method = space.wrap('instance has no next() method')
     del m.next
-    m.gfunc__coerce = space.wrap(interp2app(f__coerce))
+    m.gfunc__coerce = space.wrap(gateway.interp2app(f__coerce, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     del m.__xor__
     del m._coerce
     del m.__truediv__
@@ -7583,7 +7539,7 @@ def initclassobj(space):
     m.gs_instance___first_arg_must_be_cla = space.wrap('instance() first arg must be class')
     m.gs_instance___second_arg_must_be_di = space.wrap('instance() second arg must be dictionary or None')
     del m.__new__
-    m.gfunc_type_err = space.wrap(interp2app(f_type_err))
+    m.gfunc_type_err = space.wrap(gateway.interp2app(f_type_err, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     m.gs_name = space.wrap('name')
     m.gs_string = space.wrap('string')
     m.g0tuple = space.newtuple([])

@@ -3,6 +3,7 @@
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter import gateway
 
 
 """Python's standard exception class hierarchy.
@@ -158,7 +159,7 @@ Exception
 # global object gs_EOFError
 # global object gcls_EOFError
 # global object gs___file__
-# global object gs__u_pedronis_PyPy_dist_pypy_lib__
+# global object gs__Users_pedronis_PyPy_dist_pypy_l
 # global object gs_TabError
 # global object gcls_TabError
 # global object gs_UnicodeEncodeError
@@ -1354,8 +1355,8 @@ def initexceptions(space):
     space.setitem(g48dict, gs_EOFError, gcls_EOFError)
     space.setitem(g48dict, gs_StandardError, gcls_StandardError)
     m.gs___file__ = space.wrap('__file__')
-    m.gs__u_pedronis_PyPy_dist_pypy_lib__ = space.wrap('/u/pedronis/PyPy/dist/pypy/lib/_exceptions.py')
-    space.setitem(g48dict, gs___file__, gs__u_pedronis_PyPy_dist_pypy_lib__)
+    m.gs__Users_pedronis_PyPy_dist_pypy_l = space.wrap('/Users/pedronis/PyPy/dist/pypy/lib/_exceptions.py')
+    space.setitem(g48dict, gs___file__, gs__Users_pedronis_PyPy_dist_pypy_l)
     m.gs_TabError = space.wrap('TabError')
     _dic = space.newdict([])
     space.setitem(_dic, gs___module__, gs__exceptions)
@@ -1510,19 +1511,18 @@ the Python version, and the hardware/OS platform and version.""")
     m.gcls_WindowsError = space.call(space.w_type, _args)
     space.setitem(g48dict, gs_WindowsError, gcls_WindowsError)
     m.gs___init__ = space.wrap('__init__')
-    from pypy.interpreter.gateway import interp2app
-    m.gfunc_UnicodeDecodeError___init__ = space.wrap(interp2app(f_UnicodeDecodeError___init__))
+    m.gfunc_UnicodeDecodeError___init__ = space.wrap(gateway.interp2app(f_UnicodeDecodeError___init__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_UnicodeDecodeError, gs___init__, gfunc_UnicodeDecodeError___init__)
     m.gs___str__ = space.wrap('__str__')
-    m.gfunc_UnicodeDecodeError___str__ = space.wrap(interp2app(f_UnicodeDecodeError___str__))
+    m.gfunc_UnicodeDecodeError___str__ = space.wrap(gateway.interp2app(f_UnicodeDecodeError___str__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_UnicodeDecodeError, gs___str__, gfunc_UnicodeDecodeError___str__)
-    m.gfunc_UnicodeEncodeError___init__ = space.wrap(interp2app(f_UnicodeEncodeError___init__))
+    m.gfunc_UnicodeEncodeError___init__ = space.wrap(gateway.interp2app(f_UnicodeEncodeError___init__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_UnicodeEncodeError, gs___init__, gfunc_UnicodeEncodeError___init__)
-    m.gfunc_UnicodeEncodeError___str__ = space.wrap(interp2app(f_UnicodeEncodeError___str__))
+    m.gfunc_UnicodeEncodeError___str__ = space.wrap(gateway.interp2app(f_UnicodeEncodeError___str__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_UnicodeEncodeError, gs___str__, gfunc_UnicodeEncodeError___str__)
-    m.gfunc_SyntaxError___init__ = space.wrap(interp2app(f_SyntaxError___init__))
+    m.gfunc_SyntaxError___init__ = space.wrap(gateway.interp2app(f_SyntaxError___init__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_SyntaxError, gs___init__, gfunc_SyntaxError___init__)
-    m.gfunc_SyntaxError___str__ = space.wrap(interp2app(f_SyntaxError___str__))
+    m.gfunc_SyntaxError___str__ = space.wrap(gateway.interp2app(f_SyntaxError___str__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_SyntaxError, gs___str__, gfunc_SyntaxError___str__)
     m.gs_filename = space.wrap('filename')
     space.setattr(gcls_SyntaxError, gs_filename, space.w_None)
@@ -1537,24 +1537,24 @@ the Python version, and the hardware/OS platform and version.""")
     space.setattr(gcls_SyntaxError, gs_print_file_and_line, space.w_None)
     m.gs_text = space.wrap('text')
     space.setattr(gcls_SyntaxError, gs_text, space.w_None)
-    m.gfunc_EnvironmentError___init__ = space.wrap(interp2app(f_EnvironmentError___init__))
+    m.gfunc_EnvironmentError___init__ = space.wrap(gateway.interp2app(f_EnvironmentError___init__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_EnvironmentError, gs___init__, gfunc_EnvironmentError___init__)
-    m.gfunc_EnvironmentError___str__ = space.wrap(interp2app(f_EnvironmentError___str__))
+    m.gfunc_EnvironmentError___str__ = space.wrap(gateway.interp2app(f_EnvironmentError___str__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_EnvironmentError, gs___str__, gfunc_EnvironmentError___str__)
-    m.gfunc_SystemExit___init__ = space.wrap(interp2app(f_SystemExit___init__))
+    m.gfunc_SystemExit___init__ = space.wrap(gateway.interp2app(f_SystemExit___init__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_SystemExit, gs___init__, gfunc_SystemExit___init__)
-    m.gfunc_KeyError___str__ = space.wrap(interp2app(f_KeyError___str__))
+    m.gfunc_KeyError___str__ = space.wrap(gateway.interp2app(f_KeyError___str__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_KeyError, gs___str__, gfunc_KeyError___str__)
-    m.gfunc_UnicodeTranslateError___init__ = space.wrap(interp2app(f_UnicodeTranslateError___init__))
+    m.gfunc_UnicodeTranslateError___init__ = space.wrap(gateway.interp2app(f_UnicodeTranslateError___init__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_UnicodeTranslateError, gs___init__, gfunc_UnicodeTranslateError___init__)
-    m.gfunc_UnicodeTranslateError___str__ = space.wrap(interp2app(f_UnicodeTranslateError___str__))
+    m.gfunc_UnicodeTranslateError___str__ = space.wrap(gateway.interp2app(f_UnicodeTranslateError___str__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_UnicodeTranslateError, gs___str__, gfunc_UnicodeTranslateError___str__)
     m.gs___getitem__ = space.wrap('__getitem__')
-    m.gfunc_Exception___getitem__ = space.wrap(interp2app(f_Exception___getitem__))
+    m.gfunc_Exception___getitem__ = space.wrap(gateway.interp2app(f_Exception___getitem__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_Exception, gs___getitem__, gfunc_Exception___getitem__)
-    m.gfunc_Exception___init__ = space.wrap(interp2app(f_Exception___init__))
+    m.gfunc_Exception___init__ = space.wrap(gateway.interp2app(f_Exception___init__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_Exception, gs___init__, gfunc_Exception___init__)
-    m.gfunc_Exception___str__ = space.wrap(interp2app(f_Exception___str__))
+    m.gfunc_Exception___str__ = space.wrap(gateway.interp2app(f_Exception___str__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
     space.setattr(gcls_Exception, gs___str__, gfunc_Exception___str__)
     m.gs_args = space.wrap('args')
     m.gi_0 = space.newint(0)

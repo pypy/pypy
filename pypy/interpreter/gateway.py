@@ -315,10 +315,6 @@ class BuiltinCode(eval.Code):
         if unwrap_spec is None:
             unwrap_spec = getattr(func,'unwrap_spec',None)
 
-        if unwrap_spec is None and argnames == ['space', '__args__']: #xxx for geninterp
-            #print sys._getframe(2).f_globals['__name__']
-            unwrap_spec = [ObjSpace, Arguments]
-
         if unwrap_spec is None:
             unwrap_spec = [ObjSpace]+ [W_Root] * (len(argnames)-1)
 

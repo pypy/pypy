@@ -455,8 +455,7 @@ class GenRpy:
         name = self.uniquename('gfunc_' + self.trans_funcname(
             namehint + func.__name__))
         f_name = 'f_' + name[6:]
-        self.initcode.append('from pypy.interpreter.gateway import interp2app')
-        self.initcode.append('m.%s = space.wrap(interp2app(%s))' % (name, f_name))
+        self.initcode.append('m.%s = space.wrap(gateway.interp2app(%s, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))' % (name, f_name))
         self.pendingfunctions.append(func)
         return name
 
@@ -1152,6 +1151,7 @@ class GenRpy:
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter import gateway
 '''
 
     RPY_SEP = "#*************************************************************"
