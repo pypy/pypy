@@ -21,13 +21,15 @@ class URL(object):
         self.__dict__.update(kw)
         self.query = cgi.parse_qs(self.query)
 
-    def link_with_options(self, *kw):
-        nq = self.query.copy()
+    def link_with_options(self, kw):
+        nq = {}
+        for k in self.query:
+            nq[k] = self.query[k][0]
         nq.update(kw)
         query = urllib.urlencode(nq)
         from urlparse import urlunparse
-        return urlunparse(self.scm, self.netloc, self.path,
-                          self.params, query, self.fragment)
+        return urlunparse(('', self.netloc, self.path,
+                           self.params, query, self.fragment))
 
 class Renderer:
     def render(self, path):
@@ -69,6 +71,7 @@ class TracebackView(Renderer):
         for tb in dyncode.listtb(self.exc[2]):
             lines.append(self.render_tb(url, tb, i,
                                         **opts.get('entry' + str(i), {})))
+            i += 1
             
         lines.append(html.pre(xml.escape(
             ''.join(traceback.format_exception_only(self.exc[0], self.exc[1])))))
@@ -83,7 +86,15 @@ class TracebackView(Renderer):
         lines.append('  File "%s", line %d, in %s\n'%(
             html.a(filename, href=link).to_unicode().encode('utf-8'),
             lineno, name))
-        lines.append('        '+dyncode.getline(filename, lineno).lstrip())
+        lines.append(html.a('locals', href=url.link_with_options(
+            {'entry%s:showlocals'%i:1-showlocals})))
+        lines.append('       ' + 
+                     dyncode.getline(filename, lineno).lstrip())
+        if showlocals:
+            for k, v in tb.tb_frame.f_locals.items():
+                if k[0] == '_':
+                    continue
+                lines.append(xml.escape('%s=%s\n'%(k, repr(v)[:50])))
         return lines
         
 
