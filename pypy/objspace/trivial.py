@@ -157,26 +157,27 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             # make the class dict with descriptors redirecting to the ones
             # in rawdict
             descrdict = {'__internalpypytypedef__': typedef}
-            for descrname, descr in typedef.rawdict.items():
-                if isinstance(descr, interp2app):
-                    def fget(w_obj, descr=descr, space=self):
-                        fn = descr.get_function()
-                        return space.wrap(Method(space, space.wrap(fn), w_obj,
-                                                 space.type(w_obj)))
-                    fset = None
-                    fdel = None
-                else:
-                    # more generally, defining a property
-                    def fget(w_obj, descr=descr, space=self):
-                        w_descr = space.wrap(descr)
-                        return space.get(w_descr, w_obj, space.type(w_obj))
-                    def fset(w_obj, w_value, descr=descr, space=self):
-                        w_descr = space.wrap(descr)
-                        return space.set(w_descr, w_obj, w_value)
-                    def fdel(w_obj, descr=descr, space=self):
-                        w_descr = space.wrap(descr)
-                        return space.set(w_descr, w_obj)
-                descrdict[descrname] = property(fget, fset, fdel)
+            if typedef.name != 'object':
+                for descrname, descr in typedef.rawdict.items():
+                    if isinstance(descr, interp2app):
+                        def make_stuff(descr=descr, descrname=descrname, space=self):
+                            def stuff(w_obj, *args, **kwds):
+                                fn = descr.get_function(space)
+                                return fn.descr_function_call(w_obj, *args, **kwds)
+                            return stuff
+                        descrdict[descrname] = make_stuff()
+                    else:
+                        # more generally, defining a property
+                        def fget(w_obj, descr=descr, space=self):
+                            w_descr = space.wrap(descr)
+                            return space.get(w_descr, w_obj, space.type(w_obj))
+                        def fset(w_obj, w_value, descr=descr, space=self):
+                            w_descr = space.wrap(descr)
+                            return space.set(w_descr, w_obj, w_value)
+                        def fdel(w_obj, descr=descr, space=self):
+                            w_descr = space.wrap(descr)
+                            return space.set(w_descr, w_obj)
+                        descrdict[descrname] = property(fget, fset, fdel)
             cls = type('CPyWrapped '+typedef.name, bases, descrdict)
             typedef.trivialwrapperclass = cls
             return cls
@@ -431,13 +432,9 @@ def %(name)s(self, x, *args):
                     return space.wrap(basedef.rawdict[name])
             return None 
         else:
-            # hack hack hack: ignore the real 'object' and use our own
-            for cls in w_obj.__class__.__mro__[:-1]:
+            for cls in w_obj.__class__.__mro__:
                 if name in cls.__dict__:
                     return cls.__dict__[name]
-            basedef = space.object_typedef
-            if name in basedef.rawdict:
-                return space.wrap(basedef.rawdict[name])
             return None
 
     def get_and_call(self, w_descr, w_obj, w_args, w_kwargs):
