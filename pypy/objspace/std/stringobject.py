@@ -115,6 +115,10 @@ def split(w_self, w_by):
 
 # XXX temporary hack
 W_StringObject.__dict__['split'].register(split, W_StringObject)
+
+#We should erase the W_NoneObject, but register takes always
+#the same number of parameters. So you have to call split with
+#None as parameter instead of calling it without any parameter
 W_StringObject.__dict__['split'].register(splitByWhitespace, W_NoneObject)
 
 
