@@ -1,130 +1,239 @@
-import sio
-from array import array
+import os, _sio
 
-class file_(object):
-    """An implementation of file objects in Python. it relies on Guido's
-       sio.py implementation.
+##    # This is not quite correct, since more letters are allowed after
+##    # these. However, the following are the only starting strings allowed
+##    # in the mode parameter.
+##    modes = {
+##        'r'  : os.O_RDONLY,
+##        'rb' : os.O_RDONLY,
+##        'rU' : os.O_RDONLY,
+##        'U'  : os.O_RDONLY,
+##        'w'  : os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+##        'wb' : os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+##        'a'  : os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+##        'ab' : os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+##        'r+' : os.O_RDWR,
+##        'rb+': os.O_RDWR,
+##        'r+b': os.O_RDWR,
+##        'w+' : os.O_RDWR | os.O_CREAT | os.O_TRUNC,
+##        'wb+': os.O_RDWR | os.O_CREAT | os.O_TRUNC,
+##        'w+b': os.O_RDWR | os.O_CREAT | os.O_TRUNC,
+##        'a+' : os.O_RDWR | os.O_CREAT | os.O_EXCL,
+##        'ab+': os.O_RDWR | os.O_CREAT | os.O_EXCL,
+##        'a+b': os.O_RDWR | os.O_CREAT | os.O_EXCL,
+##        }
+##    def __init__(self, filename, mode="r"):
+##        self.filename = filename
+##        self.mode = mode
+##        try:
+##            flag = DiskFile.modes[mode]
+##        except KeyError:
+##            raise ValueError, "mode should be 'r', 'r+', 'w', 'w+' or 'a+'"
+
+##        O_BINARY = getattr(os, "O_BINARY", 0)
+##        flag |= O_BINARY
+##        try:
+##            self.fd = os.open(filename, flag)
+##        except OSError:
+##            # Opening in mode 'a' or 'a+' and file already exists
+##            flag = flag & (os.O_RDWR | O_BINARY)
+##            self.fd = os.open(filename, flag)
+##        if mode[0] == 'a':
+##            try:
+##                os.lseek(self.fd, 0, 2) # Move to end of file
+##            except:
+##                os.close(self.fd)
+##                raise
+
+
+from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
+O_BINARY = getattr(os, "O_BINARY", 0)
+
+#          (basemode, plus)
+OS_MODE = {('r', False): O_RDONLY,
+           ('r', True):  O_RDWR,
+           ('w', False): O_WRONLY | O_CREAT | O_TRUNC,
+           ('w', True):  O_RDWR   | O_CREAT | O_TRUNC,
+           ('a', False): O_WRONLY | O_CREAT,
+           ('a', True):  O_RDWR   | O_CREAT,
+           }
+
+
+class file(object):
+    """file(name[, mode[, buffering]]) -> file object
+
+Open a file.  The mode can be 'r', 'w' or 'a' for reading (default),
+writing or appending.  The file will be created if it doesn't exist
+when opened for writing or appending; it will be truncated when
+opened for writing.  Add a 'b' to the mode for binary files.
+Add a '+' to the mode to allow simultaneous reading and writing.
+If the buffering argument is given, 0 means unbuffered, 1 means line
+buffered, and larger numbers specify the buffer size.
+Add a 'U' to mode to open the file for input with universal newline
+support.  Any line ending in the input file will be seen as a '\n'
+in Python.  Also, a file so opened gains the attribute 'newlines';
+the value for this attribute is one of None (no newline read yet),
+'\r', '\n', '\r\n' or a tuple containing all the newline types seen.
+
+Note:  open() is an alias for file().
     """
 
-    
     def __init__(self, name, mode='r', bufsize=None):
-        self.reading = False
-        self.writing = False
-        
-        if not mode:
-            raise IOError('invalid mode :  ')
-        if mode[0] not in ['r', 'w', 'a', 'U']:
-            raise IOError('invalid mode : %s' % mode)
-        else:
-            if mode[0] in ['r', 'U']:
-                self.reading = True
-            else:
-                self.writing = True
-        try:
-            if mode[1] == 'b':
-                plus = mode[2]
-            else:
-                plus = mode[1]
-            if plus == '+':
-                self.reading = self.writing = True
-        except IndexError:
-            pass
+        self.mode = mode
+        self.name = name
+        self.closed = False
+        self.softspace = 0    # Required according to file object docs
+        self.encoding = None  # This is not used internally by file objects
 
-        self._mode = mode
-        self._name = name
-        self._closed = False
-        self.softspace =  0 # Required according to file object docs
-        self._encoding = None # Fix when we find out how encoding should be
-        self.fd = sio.DiskFile(name, mode)
-        if mode in ['U', 'rU']:
-            # Wants universal newlines
-            self.fd = sio.TextInputFilter(self.fd)
-        if bufsize < 0:
-            bufsize = None
-        if not self.writing and (bufsize is None or bufsize > 0):
-            "Read only buffered stream."
-            self.fd = sio.BufferingInputStream(self.fd, bufsize)
-        if not self.reading:
-            if bufsize is None or bufsize > 1:
-                "Write only buffered stream."
-                self.fd = sio.BufferingOutputStream(self.fd, bufsize)
-            elif bufsize == 1:
-                self.fd = sio.LineBufferingOutputStream(self.fd)
-        if self.reading and self.writing:
-            if bufsize > 2:
-                "Read and write buffered stream."
-                self.fd = sio.BufferingInputOutputStream(self.fd, bufsize)
+        if not mode or mode[0] not in ['r', 'w', 'a', 'U']:
+            raise IOError('invalid mode : %s' % mode)
+
+        if mode[0] == 'U':
+            mode = 'r' + mode
+
+        basemode  = mode[0]    # 'r', 'w' or 'a'
+        plus      = False
+        universal = False
+        binary    = False
+
+        for c in mode[1:]:
+            if c == '+':
+                plus = True
+            elif c == 'U':
+                universal = True
+            elif c == 'b':
+                binary = True
+            else:
+                break
+
+        flag = OS_MODE[basemode, plus]
+        if binary or universal:
+            flag |= O_BINARY
+
+        fd = os.open(name, flag)
+        if basemode == 'a':
+            try:
+                os.lseek(fd, 0, 2)
+            except OSError:
+                pass
+
+        self.stream = _sio.DiskFile(fd)
+
+        reading = basemode == 'r' or plus
+        writing = basemode != 'r' or plus
+
+        if universal:     # Wants universal newlines
+            if writing:
+                self.stream = _sio.TextOutputFilter(self.stream)
+            if reading:
+                self.stream = _sio.TextInputFilter(self.stream)
+
+        if bufsize == 0:   # no buffering
+            pass
+        elif bufsize == 1:   # line-buffering
+            if writing:
+                self.stream = _sio.LineBufferingOutputStream(self.stream)
+            if reading:
+                self.stream = _sio.BufferingInputStream(self.stream)
+
+        else:     # default or explicit buffer sizes
+            if bufsize is not None and bufsize < 0:
+                bufsize = None
+            if writing:
+                self.stream = _sio.BufferingOutputStream(self.stream, bufsize)
+            if reading:
+                self.stream = _sio.BufferingInputStream(self.stream, bufsize)
+
+
+    def read(self, n=-1):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        if n < 0:
+            return self.stream.readall()
+        else:
+            result = []
+            while n > 0:
+                data = self.stream.read(n)
+                if not data:
+                    break
+                n -= len(data)
+                result.append(data)
+            return ''.join(data)
+
+    def readall(self):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        return self.stream.readall()
+
+    def readline(self):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        return self.stream.readline()
+
+    def readlines(self, sizehint=0):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        return list(iter(self.stream.readline, ""))
+
+    def write(self, data):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        return self.stream.write(data)
+
+    def writelines(self, lines):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        for line in lines:
+            self.stream.write(line)
+
+    def tell(self):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        return self.stream.tell()
+    
+    def seek(self, offset, whence=0):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        self.stream.seek(offset, whence)
 
     def __iter__(self):
-        """
-        Return an iterator for the file.
-        """
-        if self._closed:
+        if self.closed:
             raise ValueError('I/O operation on closed file')
         return self
     xreadlines = __iter__
     
     def next(self):
-        if self._closed:
+        if self.closed:
             raise ValueError('I/O operation on closed file')
-        line = self.fd.readline()
+        line = self.stream.readline()
         if line == '':
             raise StopIteration
         return line
 
+    def truncate(self, size=None):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        if size is None:
+            size = self.stream.tell()
+        self.stream.truncate(size)
+
+    def flush(self):
+        if self.closed:
+            raise ValueError('I/O operation on closed file')
+        self.stream.flush()
+
     def close(self):
-        """
-        Close the file
-        """
-        self._closed = True
-        try:
-            self.fd.close()
-        except AttributeError:
-            pass
+        if not self.closed:
+            self.closed = True
+            self.stream.close()
 
-    def __getattr__(self, attr):
-        """
-        Handle the readonly attributes and then delegate the other
-        methods to the underlying file object, setting the 'closed'
-        attribute if you close the file.
-        """
-        if attr in ['fd', 'softspace', 'reading', 'writing']:
-            return self.__dict__[attr]
-        elif attr in ['mode', 'name', 'closed', 'encoding']:
-            return self.__dict__['_' + attr]
-                
-        return getattr(self.fd, attr)
-
-    def __setattr__(self, attr, val):
-        "Make some attributes readonly."
-        if attr in ['mode', 'name', 'closed', 'encoding']:
-            raise TypeError, "readonly attribute:'%s'" % attr
-        self.__dict__[attr] = val
-
-    def seek(self, *args, **kw):
-        if self._closed:
-            raise ValueError('I/O operation on closed file')
-        self.fd.seek(*args, **kw)
-
-    def write(self, *args, **kw):
-        if self._closed:
-            raise ValueError('I/O operation on closed file')
-        self.fd.write(*args, **kw)
-
-    def writelines(self, seq = ()):
-        if self._closed:
-            raise ValueError('I/O operation on closed file')
-        for line in seq:
-            self.write(line)
-        
     def readinto(self, a=None):
         'Obsolete method, do not use it.'
-        if self._closed:
-            raise ValueError('I/O operation on closed file')
-        if type(a) != array:
+        from array import array
+        if not isinstance(a, array):
             raise TypeError('Can only read into array objects')
-        i = 0
-        for char in self.read(len(a)):
-            a[i] = char
-            i += 1
-        return i
+        length = len(a)
+        data = self.read(length)
+        del a[:]
+        a.fromstring(data + '\x00' * (length-len(data)))
+        return len(data)
