@@ -180,5 +180,6 @@ def exc_clear():
         operror.clear(space)
 
 def pypy_getudir():
+    """NOT_RPYTHON"""
     from pypy.tool.udir import udir
     return space.wrap(str(udir))
