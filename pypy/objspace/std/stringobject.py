@@ -1,6 +1,7 @@
 from pypy.objspace.std.objspace import *
 from intobject   import W_IntObject
 from sliceobject import W_SliceObject
+from listobject import W_ListObject
 from instmethobject import W_InstMethObject
 from pypy.interpreter.extmodule import make_builtin_func
 
@@ -15,9 +16,9 @@ class W_StringObject(W_Object):
         """ representation for debugging purposes """
         return "%s(%r)" % (w_self.__class__.__name__, w_self.value)
     def nonzero(w_self):
-        return W_IntObject(self.space, w_self.value != 0)
+        return W_IntObject(w_self.space, w_self.value != 0)
     def hash(w_self):
-        return W_IntObject(self, hash(self.value))
+        return W_IntObject(w_self, hash(w_self.value))
 
     def join(w_self, w_list):
         firstelem = 1
@@ -28,12 +29,33 @@ class W_StringObject(W_Object):
                 firstelem = 0
             else:
                 res = res + w_self.value + w_item.value
-                
         return W_StringObject(w_self.space, res)
+
+    def split(w_self, w_by=None):
+        res = []
+        inword = 0
+        for ch in w_self.value:
+            if ch==w_by.value or w_by is None and ch.isspace():
+                if inword:
+                    inword = 0
+                elif w_by is not None:
+                    res.append('')
+            else:
+                if inword:
+                    res[-1] += ch
+                else:
+                    res.append(ch)
+                    inword = 1
+        for i in range(len(res)):
+            res[i] = W_StringObject(w_self.space, res[i])
+        return W_ListObject(w_self.space, res)
 
 def getattr_str(space, w_list, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('join'))):
         w_builtinfn = make_builtin_func(space, W_StringObject.join)
+        return W_InstMethObject(space, w_list, w_builtinfn)
+    elif space.is_true(space.eq(w_attr, space.wrap('split'))):
+        w_builtinfn = make_builtin_func(space, W_StringObject.split)
         return W_InstMethObject(space, w_list, w_builtinfn)
     raise FailedToImplement(space.w_AttributeError)
 
