@@ -29,3 +29,15 @@ Task: (documentation) remove/retire all web-pages referencing e.g.
       AnnSpace or other deprecated stuff
 
 Task: (documentation) do more and enhance
+
+==========================================================================
+New bigger tasks that we don't want to address during the Amsterdam sprint
+==========================================================================
+
+* make application-level types work for (1) StdObjSpace types and (2)
+  core interpreter objects.
+
+* clear out and do a clean implementation of multimethod delegation.
+  The idea is to give 'kinds' to arguments according to their use,
+  e.g. 'numeric argument' or 'object whose identity is preserved'.
+  A 'kind' encapsulates a set of delegation functions.
