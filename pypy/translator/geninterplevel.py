@@ -840,7 +840,7 @@ class GenRpy:
             dic = {}
             for line in txt.split("\n"):
                 ign, name, value = line.split(None, 2)
-                dic[name] = eval(value)
+                dic[name] = eval(value, {})
             key = (dic["filename"], dic["firstlineno"],
                    dic["function"], uniqueno)
             return key
@@ -1178,8 +1178,7 @@ class GenRpy:
 # ____________________________________________________________
 
     RPY_HEADER = '''#!/bin/env python
-# -*- coding: LATIN-1 -*-
-'''
+# -*- coding: LATIN-1 -*-'''
 
     RPY_SEP = "#*************************************************************"
 
