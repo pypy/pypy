@@ -17,6 +17,7 @@ class SpamBlock(BasicBlock):
                 inputargs.append(w)   # collects all variables
             newstate.append(w)
         self.framestate = newstate, unmergeablestate
+        #import sys; print >> sys.stderr, "** creating SpamBlock", self.framestate
         BasicBlock.__init__(self, inputargs, inputargs, [], None)
 
     def patchframe(self, frame, executioncontext):

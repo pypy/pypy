@@ -43,11 +43,13 @@ class TestFlowOjSpace(test.TestCase):
                           'f')
 
     def test_while(self):
+        #import sys; print >> sys.stderr, "--- starting! ---"
         x = self.codetest("def f(i):\n"
                           "    while i > 0:\n"
                           "        i = i - 1\n"
                           "        print i\n",
                           'f')
+        #import sys; print >> sys.stderr, "--- done! ---"
 
     def test_union_easy(self):
         x = self.codetest("def f(i):\n"
@@ -65,7 +67,7 @@ class TestFlowOjSpace(test.TestCase):
                           "    return i\n",
                           'f')
 
-    def dont_test_while_union(self):
+    def test_while_union(self):
         x = self.codetest("def f(i):\n"
                           "    total = 0\n"
                           "    while i > 0:\n"

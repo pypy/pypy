@@ -107,9 +107,9 @@ class PyFrame(eval.Frame):
 
     def setflowstate(self, (mergeablestate, nonmergeablestate)):
         self.setfastscope(mergeablestate[:len(self.fastlocals_w)])
-        self.valuestack.items = mergeablestate[len(self.fastlocals_w):]
+        self.valuestack.items[:] = mergeablestate[len(self.fastlocals_w):]
         (
-            self.blockstack.items,
+            self.blockstack.items[:],
             self.last_exception,
             self.next_instr,
             ) = nonmergeablestate
