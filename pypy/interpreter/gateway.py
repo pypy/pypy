@@ -253,6 +253,7 @@ class BuiltinCodeSignature(Signature):
         exec compile(setfastscope, '', 'exec') in self.miniglobals, d
 
         self.miniglobals['func'] = func
+        self.miniglobals['OperationError'] = OperationError
         source = """if 1: 
             def run(self):
                 try:
