@@ -101,7 +101,16 @@ class Method(Wrappable):
         return self.space.call_args(self.w_function, args)
 
     def descr_method_get(self, w_obj, w_cls=None):
-        return self.space.get(self.w_function, w_obj, w_type=w_cls)
+        space = self.space
+        if self.w_instance is not None:
+            return space.wrap(self)    # already bound
+        else:
+            # only allow binding to a more specific class than before
+            if w_cls == space.w_None:
+                w_cls = space.type(w_obj)
+            if not space.is_true(space.issubtype(w_cls, self.w_class)):
+                return space.wrap(self)   # subclass test failed
+            return space.get(self.w_function, w_obj, w_cls)
 
     def descr_method_call(self, __args__):
         return self.call_args(__args__)

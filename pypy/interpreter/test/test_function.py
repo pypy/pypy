@@ -204,10 +204,22 @@ class TestMethod(testit.IntTestCase):
         self.failUnless(isinstance(meth1, Method))
         self.assertEquals(meth1.call_args(args), obj1)
         # Check method returned from method.__get__()
+        # --- meth1 is already bound so meth1.__get__(*) is meth1.
         w_meth2 = meth1.descr_method_get(obj2, space.type(obj2))
         meth2 = space.unwrap(w_meth2)
         self.failUnless(isinstance(meth2, Method))
-        self.assertEquals(meth2.call_args(args), obj2)
+        self.assertEquals(meth2.call_args(args), obj1)
+        # Check method returned from unbound_method.__get__()
+        w_meth3 = func.descr_function_get(None, space.type(obj2))
+        meth3 = space.unwrap(w_meth3)
+        w_meth4 = meth3.descr_method_get(obj2, space.w_None)
+        meth4 = space.unwrap(w_meth4)
+        self.failUnless(isinstance(meth4, Method))
+        self.assertEquals(meth4.call_args(args), obj2)
+        # Check method returned from unbound_method.__get__()
+        # --- with an incompatible class
+        w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_None)
+        self.assert_(space.is_true(space.is_(w_meth5, w_meth3)))
 
 if __name__ == '__main__':
     testit.main()
