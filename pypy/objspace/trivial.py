@@ -359,9 +359,13 @@ def %(name)s(self, x, *args):
                     return space.wrap(basedef.rawdict[name])
             return None 
         else:
-            for cls in w_obj.__class__.__mro__:
+            # hack hack hack: ignore the real 'object' and use our own
+            for cls in w_obj.__class__.__mro__[:-1]:
                 if name in cls.__dict__:
                     return cls.__dict__[name]
+            basedef = space.object_typedef
+            if name in basedef.rawdict:
+                return space.wrap(basedef.rawdict[name])
             return None
 
     def get_and_call(self, w_descr, w_obj, w_args, w_kwargs):

@@ -18,7 +18,7 @@ class Object:
                 if not e.match(space,space.w_KeyError):
                     raise
         if w_descr is not None:
-            return space.get(w_descr,w_obj,space.wrap(type))
+            return space.get(w_descr,w_obj,space.type(w_obj))
         raise OperationError(space.w_AttributeError,w_name)
         
 class DescrOperation:
@@ -239,8 +239,23 @@ def _cmp(space,w_obj1,w_obj2):
     w_res = _invoke_binop(space,w_right_impl,w_obj2,w_obj1)
     if w_res is not None:
         return _conditional_neg(space,w_res,do_neg2)
-    raise OperationError(space.w_TypeError,
-                         space.wrap("operands do not support comparison"))
+    # fall back to internal rules
+    if space.is_true(space.is_(w_obj1, w_obj2)):
+        return space.wrap(0)
+    if space.is_true(space.is_(w_obj1, space.w_None)):
+        return space.wrap(-1)
+    if space.is_true(space.is_(w_obj2, space.w_None)):
+        return space.wrap(1)
+    if space.is_true(space.is_(w_typ1, w_typ2)):
+        w_id1 = space.id(w_obj1)
+        w_id2 = space.id(w_obj2)
+    else:
+        w_id1 = space.id(w_typ1)
+        w_id2 = space.id(w_typ2)
+    if space.is_true(space.lt(w_id1, w_id2)):
+        return space.wrap(-1)
+    else:
+        return space.wrap(1)
 
 # regular methods def helpers
 
