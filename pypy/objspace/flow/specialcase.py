@@ -17,29 +17,46 @@ def getconstclass(space, w_cls):
 
 
 def sc_normalize_exception(space, fn, args):
-    """Special-case for 'raise' statements.
+    """Special-case for 'raise' statements.  Case-by-case analysis:
 
-    Only accept the following syntaxes:
     * raise Class
-    * raise Class, Arg
+       - with a constant Class, it is easy to recognize.
+         The associated value is Class().
+
     * raise Class(...)
+       - when the class is instantiated in-place, we can figure that out
+
+    * raise Instance
+       - assumes that it's not a class, and raises an exception whose class
+         is variable and whose value is Instance.
+
+    * raise Class, Arg
+       - assumes that Arg is the value you want for the exception, and
+         that Class is exactly the exception class.  No check or normalization.
     """
     assert len(args.args_w) == 2 and args.kwds_w == {}
     w_arg1, w_arg2 = args.args_w
+    if w_arg2 != space.w_None:
+        # raise Class, Arg: no normalization
+        return (w_arg1, w_arg2)
     etype = getconstclass(space, w_arg1)
     if etype is not None:
-        # raise Class or raise Class, Arg: no normalization
+        # raise Class
+        w_arg2 = space.do_operation('simple_call', w_arg1)
         return (w_arg1, w_arg2)
-    else:
-        # raise Instance: we need a hack to figure out of which class it is.
-        # Normally, Instance should have been created by the previous operation
-        # which should be a simple_call(<Class>, ...).
-        # Fetch the <Class> out of there.  (This doesn't work while replaying)
+    # raise Class(..)?  We need a hack to figure out of which class it is.
+    # Normally, Instance should have been created by the previous operation
+    # which should be a simple_call(<Class>, ...).
+    # Fetch the <Class> out of there.  (This doesn't work while replaying)
+    if space.executioncontext.crnt_ops:
         spaceop = space.executioncontext.crnt_ops[-1]
-        assert spaceop.opname == 'simple_call'
-        assert spaceop.result is w_arg1
-        w_type = spaceop.args[0]
-        return (w_type, w_arg2)
+        if (spaceop.opname == 'simple_call' and
+            spaceop.result is w_arg1):
+            w_type = spaceop.args[0]
+            return (w_type, w_arg1)
+    # raise Instance.  Fall-back.
+    w_type = space.do_operation('type', w_arg1)
+    return (w_type, w_arg1)
     # this function returns a real tuple that can be handled
     # by FlowObjSpace.unpacktuple()
 

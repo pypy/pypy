@@ -179,6 +179,7 @@ class FlowExecutionContext(ExecutionContext):
                               cases = [None] + list(classes))
 
     def build_flow(self):
+        from pypy.objspace.flow.objspace import UnwrapException
         while self.pendingblocks:
             block = self.pendingblocks.pop(0)
             frame = self.create_frame()
@@ -189,7 +190,10 @@ class FlowExecutionContext(ExecutionContext):
             try:
                 w_result = frame.eval(self)
             except OperationError, e:
-                exc_type = self.space.unwrap(e.w_type)
+                try:
+                    exc_type = self.space.unwrap(e.w_type)
+                except UnwrapException:
+                    exc_type = unknown_exception
                 link = Link([e.w_value], self.graph.getexceptblock(exc_type))
                 self.crnt_block.closeblock(link)
             else:
@@ -209,3 +213,7 @@ class FlowExecutionContext(ExecutionContext):
                     mapping[a] = Variable()
                 node.renamevariables(mapping)
         traverse(fixegg, self.graph)
+
+
+class unknown_exception(object):    # not meant to be raised!
+    pass

@@ -6,7 +6,9 @@ class FrameState:
 
     def __init__(self, state):
         if isinstance(state, PyFrame):
-            self.mergeable = state.getfastscope() + state.valuestack.items
+            data = state.getfastscope() + state.valuestack.items
+            recursively_flatten(state.space, data)
+            self.mergeable = data
             self.nonmergeable = (
                 state.blockstack.items[:],
                 state.last_exception,
@@ -25,8 +27,10 @@ class FrameState:
     def restoreframe(self, frame):
         if isinstance(frame, PyFrame):
             fastlocals = len(frame.fastlocals_w)
-            frame.setfastscope(self.mergeable[:fastlocals])
-            frame.valuestack.items[:] = self.mergeable[fastlocals:]
+            data = self.mergeable[:]
+            recursively_unflatten(frame.space, data)
+            frame.setfastscope(data[:fastlocals])
+            frame.valuestack.items[:] = data[fastlocals:]
             (
                 frame.blockstack.items[:],
                 frame.last_exception,
@@ -103,11 +107,56 @@ def union(w1, w2):
         # This is needed for try:except: and try:finally:, though
         # it makes the control flow a bit larger by duplicating the
         # handlers.
-        dont_merge_w1 = isinstance(w1.value, ControlFlowException)
-        dont_merge_w2 = isinstance(w2.value, ControlFlowException)
+        dont_merge_w1 = w1 in UNPICKLE_TAGS
+        dont_merge_w2 = w2 in UNPICKLE_TAGS
         if dont_merge_w1 or dont_merge_w2:
             raise UnionError
         else:
             return Variable()  # generalize different constants
     raise TypeError('union of %r and %r' % (w1.__class__.__name__,
                                             w2.__class__.__name__))
+
+# ____________________________________________________________
+#
+# We have to flatten out the state of the frame into a list of
+# Variables and Constants.  This is done above by collecting the
+# locals and the items on the value stack, but the latter may contain
+# ControlFlowExceptions.  We have to handle these specially, because
+# some of them hide references to more Variables and Constants.
+# The trick is to flatten ("pickle") them into the list so that the
+# extra Variables show up directly in the list too.
+
+class PickleTag:
+    pass
+
+PICKLE_TAGS = {}
+UNPICKLE_TAGS = {}
+
+def recursively_flatten(space, lst):
+    i = 0
+    while i < len(lst):
+        item = lst[i]
+        if not (isinstance(item, Constant) and
+                isinstance(item.value, ControlFlowException)):
+            i += 1
+        else:
+            unroller = item.value
+            vars = unroller.state_unpack_variables(space)
+            key = unroller.__class__, len(vars)
+            try:
+                tag = PICKLE_TAGS[key]
+            except:
+                tag = PICKLE_TAGS[key] = Constant(PickleTag())
+                UNPICKLE_TAGS[tag] = key
+            lst[i:i+1] = [tag] + vars
+
+def recursively_unflatten(space, lst):
+    for i in range(len(lst)-1, -1, -1):
+        item = lst[i]
+        if item in UNPICKLE_TAGS:
+            unrollerclass, argcount = UNPICKLE_TAGS[item]
+            arguments = lst[i+1: i+1+argcount]
+            del lst[i+1: i+1+argcount]
+            unroller = unrollerclass()
+            unroller.state_pack_variables(space, *arguments)
+            lst[i] = Constant(unroller)

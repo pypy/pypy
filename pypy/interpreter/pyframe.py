@@ -266,6 +266,13 @@ class ControlFlowException(Exception, baseobjspace.BaseWrappable):
         # could occur e.g. when a BREAK_LOOP is not actually within a loop
         raise BytecodeCorruption, "block stack exhausted"
 
+    # for the flow object space, a way to "pickle" and "unpickle" the
+    # ControlFlowException by enumerating the Variables it contains.
+    def state_unpack_variables(self, space):
+        return []     # by default, overridden below
+    def state_pack_variables(self, space, *values_w):
+        assert len(values_w) == 0
+
 class SApplicationException(ControlFlowException):
     """Unroll the stack because of an application-level exception
     (i.e. an OperationException)."""
@@ -286,6 +293,13 @@ class SApplicationException(ControlFlowException):
             operationerr = self.args[0]
             raise operationerr
 
+    def state_unpack_variables(self, space):
+        e = self.args[0]
+        assert isinstance(e, OperationError)
+        return [e.w_type, e.w_value]
+    def state_pack_variables(self, space, w_type, w_value):
+        self.args = (OperationError(w_type, w_value),)
+
 class SBreakLoop(ControlFlowException):
     """Signals a 'break' statement."""
 
@@ -293,12 +307,24 @@ class SContinueLoop(ControlFlowException):
     """Signals a 'continue' statement.
     Argument is the bytecode position of the beginning of the loop."""
 
+    def state_unpack_variables(self, space):
+        jump_to = self.args[0]
+        return [space.wrap(jump_to)]
+    def state_pack_variables(self, space, w_jump_to):
+        self.args = (space.unwrap(w_jump_to),)
+
 class SReturnValue(ControlFlowException):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
     def emptystack(self, frame):
         w_returnvalue = self.args[0]
         raise ExitFrame(w_returnvalue)
+
+    def state_unpack_variables(self, space):
+        w_returnvalue = self.args[0]
+        return [w_returnvalue]
+    def state_pack_variables(self, space, w_returnvalue):
+        self.args = (w_returnvalue,)
 
 class ExitFrame(Exception):
     """Signals the end of the frame execution.

@@ -113,6 +113,11 @@ static PyObject *this_module_globals;
 #define OP_SIMPLE_CALL(args,r,err) if (!(r=PyObject_CallFunctionObjArgs args)) \
 					FAIL(err)
 
+#define OP_TYPE()   /* to whoever needs to implement this: if 'x' is an
+                       old-style exception instance, then OP_TYPE(x)
+                       should really return its (old-style) class */
+#define OP_ISSUBTYPE()  /* same comments */
+
 /*** tests ***/
 
 #define EQ_False(o)     (o == Py_False)

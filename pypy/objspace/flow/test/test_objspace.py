@@ -1,5 +1,6 @@
 import autopath
 from pypy.tool import testit
+from pypy.objspace.flow.model import Constant
 
 
 class TestFlowObjSpace(testit.TestCase):
@@ -18,10 +19,11 @@ class TestFlowObjSpace(testit.TestCase):
         return graph
 
     def reallyshow(self, x):
-        import os
-        from pypy.translator.tool.make_dot import make_dot
-        dest = make_dot(x.name, x)
-        os.system('gv %s' % str(dest))
+        x.show()
+        #import os
+        #from pypy.translator.tool.make_dot import make_dot
+        #dest = make_dot(x.name, x)
+        #os.system('gv %s' % str(dest))
 
     def show(self, x):
         pass   # or   self.reallyshow(x)
@@ -228,6 +230,11 @@ class TestFlowObjSpace(testit.TestCase):
     
     def test_raise1(self):
         x = self.codetest(self.raise1)
+        assert len(x.startblock.operations) == 1
+        assert x.startblock.operations[0].opname == 'simple_call'
+        assert list(x.startblock.operations[0].args) == [Constant(IndexError)]
+        assert x.startblock.operations[0].result is x.startblock.exits[0].args[0]
+        assert x.startblock.exits[0].target is x.exceptblocks[IndexError]
         self.show(x)
 
     #__________________________________________________________
@@ -236,6 +243,8 @@ class TestFlowObjSpace(testit.TestCase):
     
     def test_raise2(self):
         x = self.codetest(self.raise2)
+        assert len(x.startblock.operations) == 0
+        assert x.startblock.exits[0].target is x.exceptblocks[IndexError]
         self.show(x)
 
     #__________________________________________________________
@@ -244,6 +253,32 @@ class TestFlowObjSpace(testit.TestCase):
     
     def test_raise3(self):
         x = self.codetest(self.raise3)
+        assert len(x.startblock.operations) == 1
+        assert x.startblock.operations[0].opname == 'simple_call'
+        assert list(x.startblock.operations[0].args) == [
+            Constant(IndexError), x.startblock.inputargs[0]]
+        assert x.startblock.operations[0].result is x.startblock.exits[0].args[0]
+        assert x.startblock.exits[0].target is x.exceptblocks[IndexError]
+        self.show(x)
+
+    #__________________________________________________________
+    def raise4(stuff):
+        raise stuff
+    
+    def test_raise4(self):
+        x = self.codetest(self.raise4)
+        self.show(x)
+
+    #__________________________________________________________
+    def raise_and_catch_1(exception_instance):
+        try:
+            raise exception_instance
+        except IndexError:
+            return -1
+        return 0
+    
+    def test_raise_and_catch_1(self):
+        x = self.codetest(self.raise_and_catch_1)
         self.show(x)
 
     #__________________________________________________________
