@@ -1,5 +1,5 @@
 import autopath
-    
+
 class AppTest_Descriptor:
 
     def test_non_data_descr(self):
@@ -14,15 +14,23 @@ class AppTest_Descriptor:
         assert x.f() == 42
 
     def test_member(self):
-        import sys
-        assert sys.stdin.softspace == 0
-        assert file.softspace.__get__(sys.stdin) == 0
-        sys.stdin.softspace = 1
-        assert sys.stdin.softspace == 1
-        file.softspace.__set__(sys.stdin, 0)
-        assert sys.stdin.softspace == 0
-        raises(TypeError, delattr, sys.stdin, 'softspace')
-        raises(TypeError, file.softspace.__delete__, sys.stdin)
+        class X(object):
+            def __init__(self):
+                self._v = 0
+            def get_v(self):
+                return self._v
+            def set_v(self, v):
+                self._v = v
+            v = property(get_v, set_v)
+        x = X()
+        assert x.v  == 0
+        assert X.v.__get__(x) == 0
+        x.v = 1
+        assert x.v == 1
+        X.v.__set__(x, 0)
+        assert x.v == 0
+        raises(AttributeError delattr, x, 'v')
+        raises(AttributeError, X.v.__delete__, x)
 
     def test_special_methods_returning_strings(self): 
         class A: 
