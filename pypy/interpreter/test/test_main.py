@@ -1,5 +1,6 @@
 import unittest
-import support
+import testsupport
+from cStringIO import StringIO
 
 from pypy.interpreter.baseobjspace import OperationError
 
@@ -10,6 +11,22 @@ def main():
 
 main()
 """
+
+testresultoutput = '11\n'
+
+capture = StringIO()
+
+def checkoutput(expected_output,f,*args):
+    import sys
+    oldout = sys.stdout
+    try:
+        capture.reset()
+        sys.stdout = capture
+        f(*args)
+    finally:
+        sys.stdout = oldout
+
+    return capture.getvalue() == expected_output
 
 testfn = 'tmp_hello_world.py'
 
@@ -26,16 +43,12 @@ class TestMain(unittest.TestCase):
 
     def test_run_file(self):
         from pypy.interpreter import main
-        self.assertRaises(OperationError,
-                          main.run_file,
-                          testfn)
+        self.assert_(checkoutput(testresultoutput,main.run_file,testfn))
 
     def test_run_string(self):
         from pypy.interpreter import main
-        self.assertRaises(OperationError,
-                          main.run_string,
-                          testcode,
-                          testfn)
+        self.assert_(checkoutput(testresultoutput,
+                                 main.run_string,testcode,testfn))
 
 if __name__ == '__main__':
     unittest.main()
