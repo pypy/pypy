@@ -47,10 +47,13 @@ def descr__reduce_ex__(space, w_obj, proto=0):
     except OperationError: pass
     else:
         w_cls = space.getattr(w_obj, space.wrap('__class__'))
-        w_cls_reduce = space.getattr(w_cls, w_st_reduce)
+        w_cls_reduce_meth = space.getattr(w_cls, w_st_reduce)
+        w_cls_reduce = space.getattr(w_cls_reduce_meth, space.wrap('im_func'))
         w_objtype = space.w_object
-        w_obj_reduce = space.getattr(w_objtype, space.wrap('__dict__'))
+        w_obj_dict = space.getattr(w_objtype, space.wrap('__dict__'))
+        w_obj_reduce = space.getitem(w_obj_dict, w_st_reduce)
         override = space.is_true(space.ne(w_cls_reduce, w_obj_reduce))
+        # print 'OVR', override, w_cls_reduce, w_obj_reduce
         if override:
             return space.call(w_reduce, space.newtuple([]))
     if proto >= 2:
