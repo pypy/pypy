@@ -54,11 +54,11 @@ def make_module(space, dottedname, filepath):
 
 class Directory(py.test.collect.Directory): 
     def __iter__(self): 
-        for x in self.fspath.listdir('test_*.py'): 
-            if fspath.basename not in working_outputtests and \
-               fspath.basename not in working_unittests: 
+        for test in self.fspath.listdir('test_*.py'): 
+            if test.basename not in working_outputtests and \
+               test.basename not in working_unittests: 
                 continue 
-            yield Module(x) 
+            yield Module(test) 
 
 def app_list_testmethods(mod, testcaseclass): 
     """ return [(instance.setUp, instance.tearDown, 
