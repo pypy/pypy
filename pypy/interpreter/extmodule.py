@@ -92,6 +92,13 @@ class BuiltinModule(Module):
                         space.delitem(w_builtins, w_name)
         del self.__saved_hooks
 
+        # Don't keep a reference to __builtins__ in self.__dict__
+        # (it might have been put there by exec/eval/execfile)
+        try:
+            del self.__dict__['__builtins__']
+        except KeyError:
+            pass
+
     def interplevelexec(self, w_codestring):
         "'exec' a string at interp-level."
         codestring = self.space.unwrap(w_codestring)

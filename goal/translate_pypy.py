@@ -5,6 +5,7 @@
 Command-line options for translate_pypy:
 
    -text    Don't start the Pygame viewer
+   -no-a    Don't infer annotations, just translate everything
    -no-c    Don't generate the C code
    -c       Generate the C code, but don't compile it
    -o       Generate and compile the C code, but don't run it
@@ -41,8 +42,10 @@ def analyse(entry_point=entry_point):
     # caches (as far as analyzing the entry_point is concerned) 
     entry_point() 
     t = Translator(entry_point, verbose=True, simplifying=True)
-    a = t.annotate([])
-    a.simplify()
+    if not options['-no-a']:
+        a = t.annotate([])
+        a.simplify()
+        t.frozen = True   # cannot freeze if we don't have annotations
 
     if options['--mark-some-objects']:
         find_someobjects(a)
@@ -105,6 +108,7 @@ if __name__ == '__main__':
                '-c':    False,
                '-o':    False,
                '--mark-some-objects': False,
+               '-no-a': False,
                }
     for arg in sys.argv[1:]:
         if arg in ('-h', '--help'):
@@ -172,7 +176,6 @@ if __name__ == '__main__':
 
     try:
         analyse()
-        t.frozen = True
         print '-'*60
         if options['-no-c']:
             print 'Not generating C code.'

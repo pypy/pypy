@@ -347,6 +347,8 @@ class GenC:
         return name
 
     def nameof_dict(self, dic):
+        assert dic is not __builtins__
+        assert '__builtins__' not in dic, 'It seems to be a globals dict'
         name = self.uniquename('g%ddict' % len(dic))
         def initdict():
             for k in dic:
