@@ -10,6 +10,7 @@ class W_TypeObject(W_Object):
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
         w_self.needs_new_dict = False
+        w_self.mro_w = compute_C3_mro(w_self)   # XXX call type(w_self).mro()
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
         else:
@@ -38,23 +39,13 @@ class W_TypeObject(W_Object):
                 w_self.dict_w['__dict__'] = space.wrap(attrproperty_w('w__dict__'))
             elif nd:
                 w_self.needs_new_dict = True
-                
-            
-
-    def getmro(w_self):
-        # XXX this is something that works not too bad right now
-        # XXX do the complete mro thing later (see mro.py)
-        mro = [w_self]
-        for w_parent in w_self.bases_w:
-            mro += w_parent.getmro()
-        return mro
 
     def lookup(w_self, key):
         # note that this doesn't call __get__ on the result at all
         # XXX this should probably also return the (parent) class in which
         # the attribute was found
         space = w_self.space
-        for w_class in w_self.getmro():
+        for w_class in w_self.mro_w:
             try:
                 return w_class.dict_w[key]
             except KeyError:
@@ -103,7 +94,7 @@ def call__Type(space, w_type, w_args, w_kwds):
     return w_newobject
 
 def issubtype__Type_Type(space, w_type1, w_type2):
-    return space.newbool(w_type2 in w_type1.getmro())
+    return space.newbool(w_type2 in w_type1.mro_w)
 
 def repr__Type(space, w_obj):
     return space.wrap("<pypy type '%s'>" % w_obj.name)  # XXX remove 'pypy'
@@ -133,5 +124,53 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
 # XXX __delattr__
 # XXX __hash__ ??
 
+# ____________________________________________________________
+
+def compute_C3_mro(cls):
+    order = []
+    orderlists = [list(base.mro_w) for base in cls.bases_w]
+    orderlists.append([cls] + cls.bases_w)
+    while orderlists:
+        for candidatelist in orderlists:
+            candidate = candidatelist[0]
+            if mro_blockinglist(candidate, orderlists) is None:
+                break    # good candidate
+        else:
+            mro_error(orderlists)  # no candidate found
+        assert candidate not in order
+        order.append(candidate)
+        for i in range(len(orderlists)-1, -1, -1):
+            if orderlists[i][0] == candidate:
+                del orderlists[i][0]
+                if len(orderlists[i]) == 0:
+                    del orderlists[i]
+    return order
+
+def mro_blockinglist(candidate, orderlists):
+    for lst in orderlists:
+        if candidate in lst[1:]:
+            return lst
+    return None  # good candidate
+
+def mro_error(orderlists):
+    cycle = []
+    candidate = orderlists[-1][0]
+    space = candidate.space
+    if candidate in orderlists[-1][1:]:
+        # explicit error message for this specific case
+        raise OperationError(space.w_TypeError,
+            space.wrap("duplicate base class " + candidate.name))
+    while candidate not in cycle:
+        cycle.append(candidate)
+        nextblockinglist = mro_blockinglist(candidate, orderlists)
+        candidate = nextblockinglist[0]
+    del cycle[:cycle.index(candidate)]
+    cycle.append(candidate)
+    cycle.reverse()
+    names = [cls.name for cls in cycle]
+    raise OperationError(space.w_TypeError,
+        space.wrap("cycle among base classes: " + ' < '.join(names)))
+
+# ____________________________________________________________
 
 register_all(vars())

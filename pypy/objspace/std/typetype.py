@@ -21,7 +21,7 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
 
 def descr_get__mro__(space, w_type):
     # XXX this should be inside typeobject.py
-    return space.newtuple(w_type.getmro())
+    return space.newtuple(w_type.mro_w)
 
 def descr__dict__(space, w_type):
     # XXX should return a <dictproxy object>
