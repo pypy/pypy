@@ -254,7 +254,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # anything below this line is implicitly XXX'ed
         if isinstance(x, type(Exception)) and issubclass(x, Exception):
             if hasattr(self, 'w_' + x.__name__):
-                return getattr(self, 'w_' + x.__name__)
+                w_result = getattr(self, 'w_' + x.__name__)
+                assert isinstance(w_result, W_TypeObject)
+                return w_result 
         if isinstance(x, type):
             ft = self.loadfromcache(x, fake_type, self._faketypecache)
             return self.gettypeobject(ft.typedef)

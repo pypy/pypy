@@ -65,16 +65,20 @@ def builtin_issubclass(s_cls1, s_cls2):
     else:
         return SomeBool()
 
-def builtin_getattr(s_obj, s_attr):
+def builtin_getattr(s_obj, s_attr, s_default=None):
     if not s_attr.is_constant() or not isinstance(s_attr.const, str):
-        raise Exception, 'getattr(%r, %r) is not RPythonic enough' % (
-            s_obj, s_attr)
+        print "UN-RPYTHONIC-WARNING", \
+              'getattr(%r, %r) is not RPythonic enough' % (s_obj, s_attr)
+        return SomeObject()
     return s_obj.getattr(s_attr)
 
 def builtin_hasattr(s_obj, s_attr):
     if not s_attr.is_constant() or not isinstance(s_attr.const, str):
-        raise Exception, 'hasattr(%r, %r) is not RPythonic enough' % (
-            s_obj, s_attr)
+        print "UN-RPYTHONIC-WARNING", \
+              'hasattr(%r, %r) is not RPythonic enough' % (s_obj, s_attr)
+    return SomeBool()
+
+def builtin_callable(s_obj):
     return SomeBool()
 
 def builtin_tuple(s_iterable):
