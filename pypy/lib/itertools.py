@@ -353,15 +353,20 @@ def islice(iterable, *args):
     report may list a name field on every third line).
     """ 
     s = slice(*args)
-    next, stop, step = s.start or 0, s.stop, s.step or 1
+    start, stop, step = s.start or 0, s.stop, s.step or 1
+    next = iter(iterable).next
     cnt = 0 
-    for element in enumerate(iterable):
-        if cnt < next:
-            continue
-        if stop is not None and cnt >= stop:
-            break
-        yield element
-        next += step
+    while cnt < start:
+        next()
+	cnt += 1
+    while stop is None or cnt < stop:
+        yield next()
+	cnt += 1
+        skip = step - 1
+	while skip:
+	    next()
+	    cnt += 1
+	    skip -= 1
 
 class izip:
     """Make an iterator that aggregates elements from each of the
