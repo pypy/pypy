@@ -39,19 +39,19 @@ class TestInterpreter(testsupport.TestCase):
 def g(): return 42''', 'g', [])
         self.assertEquals(x, 42)
 
-    def aatest_trivial_call(self):
+    def test_trivial_call(self):
         x = self.codetest('''
 def f(): return 42
 def g(): return f()''', 'g', [])
         self.assertEquals(x, 42)
 
-    def aatest_trivial_call2(self):
+    def test_trivial_call2(self):
         x = self.codetest('''
 def f(): return 1 + 1
 def g(): return f()''', 'g', [])
         self.assertEquals(x, 2)
 
-    def aatest_print(self):
+    def test_print(self):
         x = self.codetest('''
 def g(): print 10''', 'g', [])
         self.assertEquals(x, None)
