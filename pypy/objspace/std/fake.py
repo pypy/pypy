@@ -109,13 +109,53 @@ _fake_type_cache.content[type(len)] = fake_builtin_callable
 _fake_type_cache.content[type(list.append)] = fake_builtin_callable
 _fake_type_cache.content[type(type(None).__repr__)] = fake_builtin_callable
 
-from pypy.interpreter.typedef import GetSetProperty
 
-def fake_descriptor(space, d):
-    "NOT_RPYTHON (don't try to fake extra descriptors after initialization!)"
-    n = d.__name__
-    return space.wrap(GetSetProperty(lambda x:getattr(x, n),
-                                     lambda x,y:setattr(x, n, y)))
+from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.gateway import interp2app
 
-_fake_type_cache.content[type(file.softspace)] = fake_descriptor
-_fake_type_cache.content[type(type.__dict__['__dict__'])] = fake_descriptor
+class W_FakeDescriptor(Wrappable):
+    # Mimics pypy.interpreter.typedef.GetSetProperty.
+
+    def __init__(self, space, d):
+        self.name = d.__name__
+
+    def descr_descriptor_get(space, w_descriptor, w_obj, w_cls=None):
+        # XXX HAAAAAAAAAAAACK (but possibly a good one)
+        if w_obj == space.w_None and not space.is_true(space.is_(w_cls, space.type(space.w_None))):
+            #print w_descriptor, w_obj, w_cls
+            return w_descriptor
+        else:
+            name = space.unwrap(w_descriptor).name
+            obj = space.unwrap(w_obj)
+            try:
+                val = getattr(obj, name)  # this gives a "not RPython" warning
+            except:
+                wrap_exception(space)
+            return space.wrap(val)
+
+    def descr_descriptor_set(space, w_descriptor, w_obj, w_value):
+        name = space.unwrap(w_descriptor).name
+        obj = space.unwrap(w_obj)
+        val = space.unwrap(w_value)
+        try:
+            setattr(obj, name, val)   # this gives a "not RPython" warning
+        except:
+            wrap_exception(space)
+
+    def descr_descriptor_del(space, w_descriptor, w_obj):
+        name = space.unwrap(w_descriptor).name
+        obj = space.unwrap(w_obj)
+        try:
+            delattr(obj, name)
+        except:
+            wrap_exception(space)
+
+    typedef = TypeDef("FakeDescriptor",
+        __get__ = interp2app(descr_descriptor_get),
+        __set__ = interp2app(descr_descriptor_set),
+        __delete__ = interp2app(descr_descriptor_del),
+        )
+
+_fake_type_cache.content[type(file.softspace)] = W_FakeDescriptor
+_fake_type_cache.content[type(type.__dict__['__dict__'])] = W_FakeDescriptor
