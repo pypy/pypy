@@ -8,7 +8,7 @@ from pypy.objspace.std import StdObjSpace
 class TestCompile(unittest_w.TestCase_w):
 
    def setUp(self):
-      self.space = StdObjSpace()
+      self.space = testsupport.objspace()
 
    def tearDown(self):
       pass
