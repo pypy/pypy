@@ -235,3 +235,13 @@ class Method(Wrappable):
         return self.call(space.newtuple(list(args_w)),
                          space.newdict([(space.wrap(key), w_item)
                                         for key, w_item in kwds_w.items()]))
+
+class StaticMethod(Wrappable):
+    """A static method.  Note that there is one class staticmethod at
+    app-level too currently; this is only used for __new__ methods."""
+
+    def __init__(self, w_function):
+        self.w_function = w_function
+
+    def descr_staticmethod_get(self, w_obj, w_cls):
+        return self.w_function

@@ -1,4 +1,5 @@
 from pypy.objspace.std.objspace import *
+from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import attrproperty_w
 
 class W_TypeObject(W_Object):
@@ -9,6 +10,7 @@ class W_TypeObject(W_Object):
         w_self.name = name
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
+        w_self.ensure_static__new__()
         w_self.needs_new_dict = False
         w_self.mro_w = compute_C3_mro(w_self)   # XXX call type(w_self).mro()
         if overridetypedef is not None:
@@ -40,6 +42,14 @@ class W_TypeObject(W_Object):
             elif nd:
                 w_self.needs_new_dict = True
 
+    def ensure_static__new__(w_self):
+        # special-case __new__, as in CPython:
+        # if it is a Function, turn it into a static method
+        if '__new__' in w_self.dict_w:
+            w_new = w_self.dict_w['__new__']
+            if isinstance(w_new, Function):
+                w_self.dict_w['__new__'] = StaticMethod(w_new)
+
     def lookup(w_self, key):
         # note that this doesn't call __get__ on the result at all
         # XXX this should probably also return the (parent) class in which
@@ -58,6 +68,10 @@ class W_TypeObject(W_Object):
         space = w_self.space
         if space.is_true(space.is_(w_self, w_subtype)):
             return w_obj
+        if not space.is_true(space.isinstance(w_subtype, space.w_type)):
+            raise OperationError(space.w_TypeError,
+                space.wrap("X is not a type object (%s)" % (
+                    space.type(w_subtype).name)))
         if not space.is_true(space.issubtype(w_subtype, w_self)):
             raise OperationError(space.w_TypeError,
                 space.wrap("%s.__new__(%s): %s is not a subtype of %s" % (
@@ -84,7 +98,7 @@ def call__Type(space, w_type, w_args, w_kwds):
         len(args_w) == 1 and not space.is_true(w_kwds)):
         return space.type(args_w[0])
     # invoke the __new__ of the type
-    w_descr = w_type.lookup('__new__')
+    w_descr = space.getattr(w_type, space.wrap('__new__'))
     w_extendedargs = space.newtuple([w_type] + args_w)
     w_newobject = space.call(w_descr, w_extendedargs, w_kwds)
     # maybe invoke the __init__ of the type

@@ -523,6 +523,8 @@ class property(object):
         self.fdel(obj, value)
 
 
+# XXX there is an interp-level pypy.interpreter.function.StaticMethod
+# XXX because __new__ needs to be a StaticMethod early.
 class staticmethod(object):
 
     def __init__(self, f):

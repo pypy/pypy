@@ -27,7 +27,7 @@ class StdTypeDef(TypeDef):
             return [self]
 
 def newmethod(descr_new):
-    # XXX make the result a staticmethod
+    # this is turned into a static method by the constructor of W_TypeObject.
     return gateway.interp2app(descr_new)
 
 # ____________________________________________________________

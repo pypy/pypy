@@ -80,7 +80,7 @@ from pypy.interpreter.eval import Code, Frame
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.module import Module
-from pypy.interpreter.function import Function, Method
+from pypy.interpreter.function import Function, Method, StaticMethod
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator 
 
@@ -146,6 +146,11 @@ Method.typedef = TypeDef("method",
     im_self  = attrproperty_w('w_instance'), 
     im_class = attrproperty_w('w_class'),
     # XXX getattribute/setattribute etc.pp 
+    )
+
+StaticMethod.typedef = TypeDef("staticmethod",
+    __get__ = interp2app(StaticMethod.descr_staticmethod_get.im_func),
+    # XXX getattribute etc.pp
     )
 
 PyTraceback.typedef = TypeDef("traceback",

@@ -79,5 +79,12 @@ class C:
         self.assertEquals(d.a, 42)
         self.assertEquals(D.a, 42)
 
+    def test___new__(self):
+        class A(object):
+            pass
+        self.assert_(isinstance(A(), A))
+        self.assert_(isinstance(object.__new__(A), A))
+        self.assert_(isinstance(A.__new__(A), A))
+
 if __name__ == '__main__':
     testit.main()
