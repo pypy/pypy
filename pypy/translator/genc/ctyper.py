@@ -5,15 +5,19 @@ GenC-specific type specializer
 from pypy.translator.typer import Specializer, TypeMatch
 from pypy.annotation.model import SomeInteger, SomePBC
 from pypy.translator.genc.t_pyobj import CType_PyObject
-from pypy.translator.genc.t_int import CType_Int
+from pypy.translator.genc.t_int import CType_Int, CType_None
 from pypy.translator.genc.t_func import CType_FuncPtr
 import types
 from pypy.interpreter.pycode import CO_VARARGS
 
 class GenCSpecializer(Specializer):
 
-    TInt = TypeMatch(SomeInteger(), CType_Int)
-    typematches = [TInt]   # in more-specific-first, more-general-last order
+    TInt  = TypeMatch(SomeInteger(), CType_Int)
+    TNone = TypeMatch(SomePBC({None: True}), CType_None)
+
+    # in more-specific-first, more-general-last order
+    typematches = [TNone, TInt]
+
     defaulttypecls = CType_PyObject
 
     specializationtable = [
