@@ -34,6 +34,7 @@ from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from pypy.annotation import model as annmodel
 from types import FunctionType, CodeType
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.restricted_int import r_int, r_uint
 
 from pypy.translator.translator import Translator
@@ -179,8 +180,7 @@ class GenRpy:
                 fmt = "%(res)s = %(func)s(%(args)s)"
             else:
                 # default for a spacecall:
-                fmt = ("_tup = space.newtuple([%(args)s])\n"
-                        "%(res)s = space.call(%(func)s, _tup)")
+                fmt = "%(res)s = space.call_function(%(func)s, %(args)s)"
                 # see if we can optimize for a fast call.
                 # we just do the very simple ones.
                 if self.use_fast_call and (isinstance(v, Constant)
@@ -193,6 +193,18 @@ class GenRpy:
             return fmt % {"res" : self.expr(op.result, localnames),
                           "func": exv,
                           "args": self.arglist(op.args[1:], localnames) }
+        if op.opname == "call_args":
+            v = op.args[0]
+            exv = self.expr(v, localnames)
+            fmt = (
+                "_args = Arguments.fromshape(space, %(shape)s, [%(data_w)s])\n"
+                "%(res)s = space.call_args(%(func)s, _args)")
+            assert isinstance(op.args[1], Constant)
+            shape = op.args[1].value
+            return fmt % {"res": self.expr(op.result, localnames),
+                          "func": exv,
+                          "shape": repr(shape),
+                          "data_w": self.arglist(op.args[2:], localnames) }
         if op.opname in self.has_listarg:
             fmt = "%s = %s([%s])"
         else:
@@ -1052,7 +1064,11 @@ class GenRpy:
 
 # ____________________________________________________________
 
-    RPY_HEADER = '#!/bin/env python\n# -*- coding: LATIN-1 -*-'
+    RPY_HEADER = '''#!/bin/env python
+# -*- coding: LATIN-1 -*-
+
+from pypy.interpreter.argument import Arguments
+'''
 
     RPY_SEP = "#*************************************************************"
 
