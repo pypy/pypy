@@ -45,14 +45,24 @@ def normalize_exception(space, args):
 
 def loadfromcache(space, args):
     # XXX need some way to know how to fully initialize the cache
+    print space, args
     assert len(args.args_w) == 2 and args.kwds_w == {}
     w_key, w_builder = args.args_w
     w_cache = Constant('space_cache')   # temporary
     return space.do_operation('getitem', w_cache, w_key)
 
 
+def import_(space, args):
+    assert len(args.args_w) == 4 and args.kwds_w == {}
+    unwrapped_args = []
+    for w_arg in args.args_w:
+        assert isinstance(w_arg, Constant)
+        unwrapped_args.append(space.unwrap(w_arg))
+    return space.wrap(__import__(*unwrapped_args))
+
 def setup(space):
     fn = pyframe.normalize_exception.get_function(space)
-    fn._flowspecialcase_ = normalize_exception
+    space.specialcases[fn] = normalize_exception
     fn = baseobjspace.ObjSpace.loadfromcache.im_func
-    fn._flowspecialcase_ = loadfromcache
+    space.specialcases[fn] = loadfromcache
+    space.specialcases[__import__] = import_

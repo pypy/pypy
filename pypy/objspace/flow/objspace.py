@@ -25,6 +25,7 @@ class FlowObjSpace(ObjSpace):
         for exc in [KeyError, ValueError, IndexError, StopIteration]:
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, Constant(exc))
+        self.specialcases = {}
         #self.make_builtins()
         #self.make_sys()
 
@@ -80,7 +81,7 @@ class FlowObjSpace(ObjSpace):
         return self.do_operation('newslice', w_start, w_stop, w_step)
 
     def wrap(self, obj):
-        if isinstance(obj, (Variable, Constant)):
+        if isinstance(obj, (Variable, Constant)) and obj is not UNDEFINED:
             raise TypeError("already wrapped: " + repr(obj))
         return Constant(obj)
 
@@ -168,8 +169,8 @@ class FlowObjSpace(ObjSpace):
 
     def call_args(self, w_callable, args):
         try:
-            sc = self.unwrap(w_callable)._flowspecialcase_
-        except (UnwrapException, AttributeError):
+            sc = self.specialcases[self.unwrap(w_callable)]
+        except (UnwrapException, KeyError):
             pass
         else:
             return sc(self, args)
