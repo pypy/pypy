@@ -50,7 +50,10 @@ def eval_helper(self, typename, expr):
     self.initcode.append1(
         'def %s(expr):\n'
         '    dic = space.newdict([])\n'
-        '    space.exec_("", dic, dic)\n'
+        '    if "types." in expr:\n'
+        '        space.exec_("import types", dic, dic)\n'
+        '    else:\n'
+        '        space.exec_("", dic, dic)\n'
         '    return space.eval(expr, dic, dic)' % (unique, ))
     self.initcode.append1('%s = %s(%r)' % (name, unique, expr))
     return name
@@ -683,7 +686,7 @@ class GenRpy:
         # XXX small problem here:
         # XXX with space.eval, we get <W_TypeObject(method)>
         # XXX but with wrap, we get <W_TypeObject(instancemethod)>
-        type(list.append): (eval_helper, "method_descriptor", "list.append"),
+        type(list.append): (eval_helper, "method_descriptor", "type(list.append)"),
         # type 'wrapper_descriptor':
         type(type(None).__repr__): (eval_helper, "wrapper_descriptor",
                                     "type(type(None).__repr__)"),
@@ -701,6 +704,7 @@ class GenRpy:
         types.ClassType: 'space.w_classobj',
         types.MethodType: (eval_helper, "instancemethod",
             "type((lambda:42).__get__(42))"),
+        property: (eval_helper, "property", 'property'),
     }
 
     def nameof_type(self, cls):
