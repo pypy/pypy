@@ -7,7 +7,7 @@ from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeFunction, SomeMethod
-from pypy.annotation.model import SomeBuiltin
+from pypy.annotation.model import SomeBuiltin, SomeIterator
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
 
@@ -163,6 +163,12 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
     def union((ins1, ins2)):
         basedef = ins1.classdef.commonbase(ins2.classdef)
         return SomeInstance(basedef)
+
+
+class __extend__(pairtype(SomeIterator, SomeIterator)):
+
+    def union((iter1, iter2)):
+        return SomeIterator(unionof(iter1.s_item, iter2.s_item))
 
 
 class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
