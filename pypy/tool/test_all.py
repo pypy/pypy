@@ -58,8 +58,9 @@ def drive_tests(base):
 
 if __name__=='__main__':
     path = dirname(abspath(sys.argv[0]))
+    drive, path = os.path.splitdrive(path)
     path = path.split(os.sep)
-
+    
     if 'pypy' not in path:
         raise SystemExit, "Need to be somewhere in pypy-tree"
     
@@ -68,6 +69,7 @@ if __name__=='__main__':
     
     path.insert(0, '/')
     path.append('pypy')
-    path = joinfn('/', *path)
+    path = drive + joinfn('/', *path)
+    print path, dirname(path)
     sys.path.insert(0, dirname(path))
     drive_tests(path)
