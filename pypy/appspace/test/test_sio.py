@@ -93,8 +93,8 @@ class TestReader(object):
 
 class TestWriter(object):
 
-    def __init__(self):
-        self.buf = ""
+    def __init__(self, data=''):
+        self.buf = data
         self.pos = 0
 
     def write(self, data):
@@ -124,6 +124,27 @@ class TestWriter(object):
 
     def close(self):
         pass
+
+    def truncate(self, size=None):
+        if size is None:
+            size = self.pos
+        if size <= len(self.buf):
+            self.buf = self.buf[:size]
+        else:
+            self.buf += '\0' * (size - len(self.buf))
+            
+class TestReaderWriter(TestWriter):
+
+    def read(self, n=-1):
+        if n < 1:
+            result = self.buf[self.pos: ]
+            self.pos = len(self.buf)
+        else:
+            if self.pos + n > len(self.buf):
+                n = len(self.buf) - self.pos
+            result = self.buf[self.pos: self.pos+n]
+            self.pos += n
+        return result
     
 class BufferingInputStreamTests(unittest.TestCase):
 
@@ -357,6 +378,35 @@ class BufferingOutputStreamTests(unittest.TestCase):
         filter.close()
         self.assertEqual(base.buf, "x"*3 + "y"*2 + "x"*1)
 
+    def test_write_seek_beyond_end(self):
+        "Linux behaviour. May be different on other platforms."
+        base = TestWriter()
+        filter = sio.BufferingOutputStream(base, 4)
+        filter.seek(3)
+        filter.write("y"*2)
+        filter.close()
+        self.assertEqual(base.buf, "\0"*3 + "y"*2)
+
+    def test_truncate(self):
+        "Linux behaviour. May be different on other platforms."
+        base = TestWriter()
+        filter = sio.BufferingOutputStream(base, 4)
+        filter.write('x')
+        filter.truncate(4)
+        filter.write('y')
+        filter.close()
+        self.assertEqual(base.buf, 'xy' + '\0' * 2)
+
+    def test_truncate2(self):
+        "Linux behaviour. May be different on other platforms."
+        base = TestWriter()
+        filter = sio.BufferingOutputStream(base, 4)
+        filter.write('12345678')
+        filter.truncate(4)
+        filter.write('y')
+        filter.close()
+        self.assertEqual(base.buf, '1234' + '\0' * 4 + 'y')
+
 class LineBufferingOutputStreamTests(unittest.TestCase):
 
     def test_write(self):
@@ -384,6 +434,33 @@ class LineBufferingOutputStreamTests(unittest.TestCase):
         filter.write("y"*2)
         filter.close()
         self.assertEqual(base.buf, "x"*3 + "y"*2 + "x"*1)
+
+class BufferingInputOutputStreamTests(unittest.TestCase):
+
+    def test_write(self):
+        base = TestReaderWriter()
+        filter = sio.BufferingInputOutputStream(base, 4)
+        filter.write("123456789")
+        self.assertEqual(base.buf, "12345678")
+        s = filter.read()
+        self.assertEqual(base.buf, "123456789")
+        filter.write("01234")
+        self.assertEqual(base.buf, "1234567890123")
+        filter.seek(4,0)
+        self.assertEqual(base.buf, "12345678901234")
+        self.assertEqual(filter.read(3), "567")
+        filter.write('x')
+        filter.flush()
+        self.assertEqual(base.buf, "1234567x901234")
+        
+    def test_write_seek_beyond_end(self):
+        "Linux behaviour. May be different on other platforms."
+        base = TestReaderWriter()
+        filter = sio.BufferingInputOutputStream(base, 4)
+        filter.seek(3)
+        filter.write("y"*2)
+        filter.close()
+        self.assertEqual(base.buf, "\0"*3 + "y"*2)
 
 class CRLFFilterTests(unittest.TestCase):
 
@@ -660,6 +737,7 @@ def makeSuite():
     suite.addTest(unittest.makeSuite(BufferingInputStreamTests))
     suite.addTest(unittest.makeSuite(BufferingOutputStreamTests))
     suite.addTest(unittest.makeSuite(LineBufferingOutputStreamTests))
+    suite.addTest(unittest.makeSuite(BufferingInputOutputStreamTests))
     suite.addTest(unittest.makeSuite(CRLFFilterTests))
     suite.addTest(unittest.makeSuite(MMapFileTests))
     suite.addTest(unittest.makeSuite(TextInputFilterTests))

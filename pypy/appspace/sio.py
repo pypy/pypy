@@ -34,8 +34,14 @@ streams on top of it, and then top it off with a buffering stream.
 
 import os
 import mmap
+class Stream(object):
+    def __getattr__(self, name):
+        """
+        Delegate all other methods to the underlying file object.
+        """
+        return getattr(self.base, name)
 
-class BufferingInputStream(object):
+class BufferingInputStream(Stream):
 
     """Standard buffering input stream.
 
@@ -249,7 +255,7 @@ class BufferingInputStream(object):
     def readlines(self, sizehint=0):
         return list(self)
 
-class BufferingOutputStream(object):
+class BufferingOutputStream(Stream):
 
     """Standard buffering output stream.
 
@@ -266,6 +272,7 @@ class BufferingOutputStream(object):
         self.do_seek = getattr(base, "seek", None)
                        # None, or seek to a byte offset
         self.do_close = base.close # Close file
+        self.do_truncate = base.truncate # Truncate file
 
         if bufsize is None:     # Get default from the class
             bufsize = self.bufsize
@@ -281,11 +288,14 @@ class BufferingOutputStream(object):
         return self.pos
             
     def seek(self, offset, whence=0):
-        self.do_write(self.buf)
-        self.buf = ''
+        self.flush()
         self.do_seek(offset, whence)
         self.pos = self.do_tell()
 
+    def flush(self):
+        self.do_write(self.buf)
+        self.buf = ''
+     
     def write(self, data):
         buflen = len(self.buf)
         datalen = len(data)
@@ -305,6 +315,10 @@ class BufferingOutputStream(object):
         if self.do_close():
             self.do_close()
 
+    def truncate(self, size=None):
+        self.flush()
+        self.do_truncate(size)
+
 class LineBufferingOutputStream(BufferingOutputStream):
 
     """Line buffering output stream.
@@ -319,24 +333,12 @@ class LineBufferingOutputStream(BufferingOutputStream):
         self.do_seek = getattr(base, "seek", None)
                        # None, or seek to a byte offset
         self.do_close = base.close # Close file
+        self.do_truncate = base.truncate # Truncate file
 
         self.linesep = os.linesep
         self.buf = ""           # raw data (may contain "\n")
         self.tell()
         
-    def tell(self):
-        assert self.do_tell is not None
-        if not hasattr(self, 'pos'):
-            self.pos = self.do_tell()
-
-        return self.pos
-            
-    def seek(self, offset, whence=0):
-        self.do_write(self.buf)
-        self.buf = ''
-        self.do_seek(offset, whence)
-        self.pos = self.do_tell()
-
     def write(self, data):
         all_lines = data.split(self.linesep)
         full_lines = all_lines[:-1]
@@ -373,13 +375,61 @@ class LineBufferingOutputStream(BufferingOutputStream):
             self.buf = ''
             self.write(line[self.bufsize-buflen:])
         
-    def close(self):
-        self.do_write(self.buf)
-        self.buf = ''
-        if self.do_close():
-            self.do_close()
+class BufferingInputOutputStream(Stream):
+    """To handle buffered input and output at the same time, we are
+       switching back and forth between using BuffereingInputStream
+       and BufferingOutputStream as reads and writes are done.
+       A more optimal solution would be to read and write on the same
+       buffer, but it would take a fair bit of time to implement.
+    """
+
+    def __init__(self, base, bufsize=None):
+        self.base = base
+        self.bufsize = bufsize
+        self.reader = None
+        self.writer = None
+
+    def read(self, n=-1):
+        if not self.reader:
+            if self.writer:
+                self.writer.flush()
+                self.writer = None
+            self.reader = BufferingInputStream(self.base, self.bufsize)
+        return self.reader.read(n)
+
+    def write(self, data):
+        if not self.writer:
+            if self.reader:
+                # Make sure the underlying file has the correct current
+                # position
+                self.reader.seek(self.reader.tell())
+                self.reader = None
+            self.writer = BufferingOutputStream(self.base, self.bufsize)
+        return self.writer.write(data)
+
+    def truncate(self, size=None):
+        if not self.writer:
+            if self.reader:
+                # Make sure the underlying file has the correct current
+                # position
+                self.reader.seek(self.reader.tell())
+                self.reader = None
+            self.writer = BufferingOutputStream(self.base, self.bufsize)
+        return self.writer.truncate(size)
+
+    def __getattr__(self, name):
+        """
+        Delegate all other methods to the underlying file object.
+        """
+        if not self.reader and not self.writer:
+            self.reader = BufferingInputStream(self.base, self.bufsize)
+
+        if self.reader:
+            return getattr(self.reader, name)
         
-class CRLFFilter(object):
+        return getattr(self.writer, name)
+
+class CRLFFilter(Stream):
 
     """Filtering stream for universal newlines.
 
@@ -597,13 +647,24 @@ class DiskFile(object):
             self.fd = None
             os.close(fd)
 
+    def truncate(self, size=None):
+        if size is None:
+            size = self.tell()
+        if os.name == 'posix':
+            os.ftruncate(self.fd, size)
+        else:
+            raise NotImplementedError
+        
+    def fileno():
+        return self.fd
+        
     def __del__(self):
         try:
             self.close()
         except:
             pass
 
-class TextInputFilter(object):
+class TextInputFilter(Stream):
 
     """Filtering input stream for universal newline translation."""
 
@@ -711,7 +772,7 @@ class TextInputFilter(object):
                 self.buf = ""
         return pos - len(self.buf)
 
-class TextOutputFilter(object):
+class TextOutputFilter(Stream):
 
     """Filtering output stream for universal newline translation."""
 
@@ -732,7 +793,7 @@ class TextOutputFilter(object):
     def tell(self):
         return self.base.tell()
 
-class DecodingInputFilter(object):
+class DecodingInputFilter(Stream):
 
     """Filtering input stream that decodes an encoded file."""
 
@@ -772,7 +833,7 @@ class DecodingInputFilter(object):
                     pass
             raise
 
-class EncodingOutputFilter(object):
+class EncodingOutputFilter(Stream):
 
     """Filtering output stream that writes to an encoded file."""
 

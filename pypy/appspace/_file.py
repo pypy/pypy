@@ -26,7 +26,11 @@ class file_(object):
                 self.reading = self.writing = True
         except IndexError:
             pass
-        
+
+        self.mode = mode
+        self.name = filename
+        self.closed = False
+        self.softspace =  0 # Required according to file object docs 
         self.fd = sio.DiskFile(filename, mode)
         if mode in ['U', 'rU']:
             # Wants universal newlines
@@ -43,9 +47,15 @@ class file_(object):
         return self.fd
 
     def __getattr__(self, name):
+        if name == 'close':
+            self.closed = True
         """
         Delegate all other methods to the underlying file object.
         """
         return getattr(self.fd, name)
 
-    
+    def __setattr__(self, name):
+        "Make some attributes readonly."
+        if name in ['mode', 'name', 'closed']:
+            raise TypeError('readonly attribute')
+        return setattr(self, name)
