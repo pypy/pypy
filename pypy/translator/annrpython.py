@@ -236,7 +236,7 @@ class RPythonAnnotator:
                 raise CannotSimplify
 
     def simplify(self):
-        # Generic simpliciations
+        # Generic simplifications
         from pypy.translator import transform
         transform.transform_graph(self)
 
