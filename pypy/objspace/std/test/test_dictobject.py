@@ -79,6 +79,35 @@ class TestW_DictObject(test.TestCase):
         wd5 = self.space.newdict([(w3, w3)])
         self.assertNotEqual_w(wd1, wd4)
 
+    def test_dict_call(self):
+        space = self.space
+        w = space.wrap
+        wd = space.newdict
+        def mydict(w_args=w(()), w_kwds=w({})):
+            return space.new(space.w_dict, w_args, w_kwds)
+        def deepwrap(lp):
+            return [[w(a),w(b)] for a,b in lp]
+        d = mydict()
+        self.assertEqual_w(d, w({}))
+        args = w([[['a',2],[23,45]]])
+        d = mydict(args)
+        self.assertEqual_w(d, wd(deepwrap([['a',2],[23,45]])))
+        d = mydict(args, w({'a':33, 'b':44}))
+        self.assertEqual_w(d, wd(deepwrap([['a',33],['b',44],[23,45]])))
+        d = mydict(w_kwds=w({'a':33, 'b':44}))
+        self.assertEqual_w(d, wd(deepwrap([['a',33],['b',44]])))
+        self.assertRaises_w(space.w_TypeError, mydict, w([23]))
+        self.assertRaises_w(space.w_ValueError, mydict, w([[[1,2,3]]]))
+        '''
+        try: d = dict(23)
+        except (TypeError, ValueError): pass
+        else: self.fail("dict(23) should raise!")
+        try: d = dict([[1,2,3]])
+        except (TypeError, ValueError): pass
+        else: self.fail("dict([[1,2,3]]) should raise!")
+        '''
+
+
 class Test_DictObject(test.AppTestCase):
 
     def setUp(self):
@@ -190,14 +219,13 @@ class Test_DictObject(test.AppTestCase):
         vals.sort()
         self.assertEqual(vals, [2,4])
 
-    def test_new(self):
+    def tooslow_test_new(self):
         d = dict()
         self.assertEqual(d, {})
-        d = dict([])
-        self.assertEqual(d, {})
-        d = dict([['a',2], [23,45]])
+        args = [['a',2], [23,45]]
+        d = dict(args)
         self.assertEqual(d, {'a':2, 23:45})
-        d = dict([['a',2], [23,45]], a=33, b=44)
+        d = dict(args, a=33, b=44)
         self.assertEqual(d, {'a':33, 'b':44, 23:45})
         d = dict(a=33, b=44)
         self.assertEqual(d, {'a':33, 'b':44})
