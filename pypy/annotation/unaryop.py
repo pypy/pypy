@@ -55,6 +55,10 @@ class __extend__(SomeObject):
         return obj   # default unbound __get__ implementation
 
 
+class __extend__(SomeBool):
+    def is_true(self):
+        return self
+
 class __extend__(SomeTuple):
 
     def len(tup):

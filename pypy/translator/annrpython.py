@@ -314,8 +314,17 @@ class RPythonAnnotator:
             if s_exitswitch.is_constant():
                 exits = [link for link in exits
                               if link.exitcase == s_exitswitch.const]
+        knownvar, knownvarvalue = getattr(self.bindings.get(block.exitswitch),
+                                          "knowntypedata", (None, None))
         for link in exits:
-            cells = [self.binding(a) for a in link.args]
+            cells = []
+            for a in link.args:
+                if link.exitcase is True and a is knownvar \
+                       and self.binding(a).contains(knownvarvalue):
+                    cell = knownvarvalue
+                else:
+                    cell = self.binding(a)
+                cells.append(cell)
             self.addpendingblock(fn, link.target, cells)
         if block in self.notify:
             # invalidate some factories when this block is done

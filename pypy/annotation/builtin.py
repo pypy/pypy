@@ -3,10 +3,10 @@ Built-in functions.
 """
 
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
-from pypy.annotation.model import SomeTuple 
-from pypy.annotation.model import SomeString
-from pypy.annotation.model import immutablevalue
+from pypy.annotation.model import SomeList, SomeString, SomeTuple
+from pypy.annotation.model import immutablevalue, valueoftype
 from pypy.annotation.factory import ListFactory, getbookkeeper
+from pypy.objspace.flow.model import Constant
 import pypy.objspace.std.restricted_int
 
 
@@ -39,6 +39,22 @@ def builtin_isinstance(s_obj, s_type):
         typ = s_type.const
         if issubclass(s_obj.knowntype, typ):
             return immutablevalue(True)
+        else:
+            # XXX HACK HACK HACK
+            # XXX HACK HACK HACK
+            # XXX HACK HACK HACK
+            # XXX HACK HACK HACK
+            # XXX HACK HACK HACK
+            fn, block, i = getbookkeeper().position_key
+            annotator = getbookkeeper().annotator
+            op = block.operations[i]
+            assert op.opname == "simple_call" 
+            assert len(op.args) == 3
+            assert op.args[0] == Constant(isinstance)
+            assert annotator.binding(op.args[1]) is s_obj
+            r = SomeBool()
+            r.knowntypedata = (op.args[1], valueoftype(typ))
+            return r
     return SomeBool()
 
 def builtin_getattr(s_obj, s_attr):
@@ -57,6 +73,9 @@ def builtin_type(s_obj, *moreargs):
         raise Exception, 'type() called with more than one argument'
     #...
     return SomeObject()
+
+def builtin_list(s_obj):
+    return SomeList({})
 
 def builtin_str(s_obj):
     return SomeString()
