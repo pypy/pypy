@@ -57,7 +57,7 @@ class ExecutionContext:
 
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
-        self._trace(self.framestack.top(), 'return', w_retval)
+        self._trace(frame, 'return', w_retval)
 
     def bytecode_trace(self, frame):
         "Trace function called before each bytecode."
@@ -117,12 +117,11 @@ class ExecutionContext:
         else:
             frame.instr_ub = sys.maxint
 
-    def exception_trace(self, operationerr):
+    def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()
         exc_info = self.sys_exc_info()
-        frame = self.framestack.top()
-        self._trace(self.framestack.top(), 'exception',
+        self._trace(frame, 'exception',
                         exc_info)
         #operationerr.print_detailed_traceback(self.space)
 

@@ -108,7 +108,7 @@ class PyFrame(eval.Frame):
                     except OperationError, e:
                         pytraceback.record_application_traceback(
                             self.space, e, self, self.last_instr)
-                        executioncontext.exception_trace(e)
+                        executioncontext.exception_trace(self, e)
                         # convert an OperationError into a control flow
                         # exception
                         import sys
