@@ -279,6 +279,16 @@ def constant_result():
     else:
         return never_called()
 
+class CallablePrebuiltConstant(object):
+    def __call__(self):
+        return 42
+
+callable_prebuilt_constant = CallablePrebuiltConstant()
+
+def call_cpbc():
+    return callable_prebuilt_constant()
+
+
 # INHERITANCE / CLASS TESTS  
 class C(object): pass
 

@@ -268,6 +268,12 @@ class AnnonateTestCase(testit.IntTestCase):
         a.simplify()
         #a.translator.view()
 
+    def test_call_pbc(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.call_cpbc, [])
+        self.assertEquals(s, annmodel.immutablevalue(42))
+
+
 def g(n):
     return [0,1,2,n]
 
