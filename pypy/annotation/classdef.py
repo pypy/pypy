@@ -81,7 +81,10 @@ class ClassDef:
             self.add_source_for_attribute(name, sources.get(name, cls), self)
 
     def add_source_for_attribute(self, attr, source, clsdef=None):
-        self.find_attribute(attr).sources[source] = clsdef
+        attrdef = self.find_attribute(attr)
+        attrdef.sources[source] = clsdef
+        for position in attrdef.read_locations:
+            self.bookkeeper.annotator.reflowfromposition(position)
 
     def locate_attribute(self, attr):
         for cdef in self.getmro():
