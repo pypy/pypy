@@ -75,7 +75,8 @@ class DummyObjSpace(ObjSpace):
         for en in ObjSpace.ExceptionTable:
             setattr(self, 'w_'+en, self.wrap(en))
 
-    for n, symbol, arity, ign in ObjSpace.MethodTable+[('newdict',"",1,[]), ('newtuple',"",1,[]), ('newslice',"",3,[]), ]:
+    for n, symbol, arity, ign in ObjSpace.MethodTable+[('newdict',"",1,[]), ('newlist',"",1,[]),
+                                                       ('newtuple',"",1,[]), ('newslice',"",3,[]), ]:
         source = ("""if 1:
         def %s(self, %s):
             return W_Obj()
