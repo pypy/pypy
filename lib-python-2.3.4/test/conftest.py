@@ -33,7 +33,7 @@ working_unittests = (
 'test_builtin.py',
 'test_call.py',
 'test_cmath.py',
-# 'test_codeop.py', # Commented out due to strange iteraction with py.test
+'test_codeop.py', # Commented out due to strange iteraction with py.test
 'test_commands.py',
 'test_compare.py',
 'test_compile.py',
@@ -89,23 +89,36 @@ class Directory(py.test.collect.Directory):
         for test in all_tests:
             yield Module(test) 
 
-def app_list_testmethods(mod, testcaseclass): 
+w_testlist = None 
+
+def getmyspace(): 
+    space = gettestobjspace('std') 
+    # we once and for all want to patch run_unittest 
+    # to get us the list of intended unittest-TestClasses
+    # from each regression test 
+    global w_testlist  
+    if w_testlist is None: 
+        w_testlist = space.newlist([]) 
+        space.appexec([w_testlist], """
+            (testlist): 
+                def hack_run_unittest(*classes): 
+                    testlist.extend(list(classes))
+                from test import test_support  # humpf
+                test_support.run_unittest = hack_run_unittest 
+        """) 
+    return space 
+    
+def app_list_testmethods(mod, testcaseclass, classlist): 
     """ return [(instance.setUp, instance.tearDown, 
                  [instance.testmethod1, ...]), 
                 ...]
     """ 
     #print "entering list_testmethods"
-    classlist = []
     if callable(getattr(mod, 'test_main', None)): 
-        from test import test_support  # humpf
-        def hack_run_unittest(*classes): 
-            classlist.extend(list(classes))
-        test_support.run_unittest = hack_run_unittest 
+        classlist[:] = []
         mod.test_main() 
         assert classlist, ("found %s.test_main() but it returned no " 
                            "test classes" % mod.__name__) 
-        test_support.run_unittest = None  # nobody should really 
-                                          # call it anymore 
     else: 
         # we try to find out fitting tests ourselves 
         for clsname, cls in mod.__dict__.items(): 
@@ -144,7 +157,7 @@ class OutputTestItem(py.test.Item):
         self.extpy = py.path.extpy(fspath) 
 
     def run(self, driver): 
-        space = gettestobjspace('std') 
+        space = getmyspace() 
         try: 
             oldsysout = sys.stdout 
             sys.stdout = capturesysout = py.std.cStringIO.StringIO() 
@@ -171,7 +184,7 @@ class AppUnittestModule(py.test.collect.Module):
     def _prepare(self): 
         if hasattr(self, 'space'): 
             return
-        self.space = space = gettestobjspace('std') 
+        self.space = space = getmyspace() 
         w_mod = make_module(space, 'unittest', mydir.join('pypy_unittest.py')) 
         self.w_TestCase = space.getattr(w_mod, space.wrap('TestCase'))
         
@@ -188,7 +201,7 @@ class AppUnittestModule(py.test.collect.Module):
         name = self.fspath.purebasename 
         space = self.space 
         w_mod = make_module(space, name, self.fspath) 
-        w_tlist = list_testmethods(space, w_mod, self.w_TestCase)
+        w_tlist = list_testmethods(space, w_mod, self.w_TestCase, w_testlist)
         tlist_w = space.unpackiterable(w_tlist) 
         for item_w in tlist_w: 
             w_setup, w_teardown, w_methods = space.unpacktuple(item_w) 

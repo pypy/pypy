@@ -34,7 +34,7 @@ def getobjspace(name=None, _spacecache={}):
     try:
         return _spacecache[name]
     except KeyError:
-        py.magic.invoke(compile=True)
+        #py.magic.invoke(compile=True)
         module = __import__("pypy.objspace.%s" % name, None, None, ["Space"])
         space = module.Space()
         _spacecache[name] = space
