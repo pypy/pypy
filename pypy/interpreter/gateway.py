@@ -167,7 +167,7 @@ class Gateway(Wrappable):
 
     # This is similar to a Function object, but not bound to a particular
     # object space. During the call, the object space is either given
-    # explicitely as the first argument (for plain function), or is read
+    # explicitly as the first argument (for plain function), or is read
     # from 'self.space' for methods.
 
         # after initialization the following attributes should be set
@@ -262,7 +262,7 @@ class app2interp(Gateway):
         return [space.wrap(val) for val in self.staticdefs]
 
     def __call__(self, space, *args_w):
-        # to call the Gateway as a non-method, 'space' must be explicitely
+        # to call the Gateway as a non-method, 'space' must be explicitly
         # supplied. We build the Function object and call it.
         fn = self.get_function(space)
         return space.call_function(space.wrap(fn), *args_w)

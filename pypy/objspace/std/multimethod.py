@@ -19,13 +19,13 @@ class W_ANY:
 #
 #   BoundMultiMethod is a MultiMethod or UnboundMultiMethod which
 #   has been found to a specific object space. It is obtained by
-#   'space.xxx' or explicitely by calling 'xxx.get(space)'.
+#   'space.xxx' or explicitly by calling 'xxx.get(space)'.
 #
 #   UnboundMultiMethod is a MultiMethod on which one argument
 #   (typically the first one) has been restricted to be of some
 #   statically known type. It is obtained by the syntax
 #   W_XxxType.yyy, where W_XxxType is the static type class,
-#   or explicitely by calling 'xxx.slice(typeclass, arg_position)'.
+#   or explicitly by calling 'xxx.slice(typeclass, arg_position)'.
 #   Its dispatch table is always a subset of the dispatch table of
 #   the original MultiMethod; a new function registered in either
 #   one may be automatically registered in the other one to keep

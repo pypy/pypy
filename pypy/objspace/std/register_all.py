@@ -104,7 +104,7 @@ for op1, op2, value in OP_CORRESPONDANCES[:]:
 
 def add_extra_comparisons():
     """
-    Add the missing comparison operators if they were not explicitely
+    Add the missing comparison operators if they were not explicitly
     defined:  eq <-> ne  and  lt <-> le <-> gt <-> ge.
     We try to add them in the order defined by the OP_CORRESPONDANCES
     table, thus favouring swapping the arguments over negating the result.

@@ -265,7 +265,7 @@ def make_op(name, symbol, arity, specialnames):
             # exception-raising return block in the flow graph.  The special
             # value 'wrap(last_exception)' is used as a marker for this kind
             # of implicit exceptions, and simplify.py will remove it as per
-            # the RPython definition: implicit exceptions not explicitely
+            # the RPython definition: implicit exceptions not explicitly
             # caught in the same function are assumed not to occur.
             context = self.getexecutioncontext()
             outcome = context.guessexception(*exceptions)
