@@ -10,6 +10,7 @@ __builtins__['type']       = __interplevel__eval('space.w_type')
 __builtins__['__debug__']  = True
 
 object = __interplevel__eval('space.w_object')
+basestring = str    # XXX until we have unicode
 
 
 # TODO Fix this later to show Ctrl-D on Unix
