@@ -10,6 +10,7 @@ FlowObjSpace, but before these graphs are translated into low-level code
 (e.g. C/Lisp/Pyrex).
 
 
+-----
 Model
 -----
 
@@ -56,6 +57,7 @@ what a Variable can contain, it does so by updating this dictionary, not
 the ``SomeXxx`` instance.
 
 
+---------
 Annotator
 ---------
 
@@ -156,5 +158,149 @@ Variables will possibly contain Python objects outside the set defined
 by the annotation, and the annotator doesn't know it yet.
 
 
-XXX write more
+----------------------------------
+Description of the available types
+----------------------------------
 
+The reference and the details for the annotation model is found in the 
+module ``pypy.annotation.model``.  We describe below the issues related 
+to the various kinds of annotations.
+
+
+Simple Types
+++++++++++++
+
+``SomeInteger``, ``SomeBool``, ``SomeString``, ``SomeChar`` all stands 
+for the obvious corresponding set of immutable Python objects.
+
+
+Tuples
+++++++
+
+``SomeTuple`` only considers tuples of known length.  We don't try to 
+handle tuples of varying length (the program should use lists instead).
+
+
+Lists and Dictionaries
+++++++++++++++++++++++
+
+``SomeList`` stands for a list of homogenous type (i.e. all the elements 
+of the list are represented by a single common ``SomeXxx`` annotation).
+
+``SomeDict`` stands for a homogenous dictionary (i.e. all keys have the 
+same ``SomeXxx`` annotation, and so have all values).
+
+These types are mutable, which requires special support for the 
+annotator.  The problem is that in code like::
+
+   lst = [42]
+   update_list(lst)
+   value = lst[0]
+
+the annotation given to ``value`` depends on the order in which the 
+annotator progresses.  As ``lst`` is originally considered as a list of 
+``SomeInteger(const=42)``, it is possible that ``value`` becomes 
+``SomeInteger(const=42)`` as well if the analysis of ``update_list()`` 
+is not completed by the time the third operation is first considered.  
+To solve this problem, each ``SomeList`` or ``SomeDict`` is linked to a 
+set of so-called *factories*.  Each creation point, i.e. each 'newlist' 
+or 'newdict' operation, gets its associated factory.  The factory 
+remembers what kind of object it really needs to build.  For example, in 
+code like::
+
+   lst = [42]
+   lst.append(43)
+
+the factory associated with the first line originally builds a list 
+whose items are all constants equal to 42; when the ``append(43)`` call 
+is then found, the factory is updated to build a more general list of 
+integers, and the annotator restarts its analysis from the factory 
+position.  Our model is not sensitive to timing: it doesn't know that 
+the same list object may contain different items at different times.  It 
+only computes how general the items in the list must be to cover all 
+cases.
+
+For initially empty lists, as created by ``lst = []``, we build a list 
+whose items have the annotation ``SomeImpossibleValue``.  This is an 
+annotation that denotes that no Python object at all can possibly appear 
+here at run-time.  It is the least general annotation.  The rationale is 
+that::
+
+   lst = []
+   oups = lst[0]
+
+will give the variable ``oups`` the annotation ``SomeImpossibleValue``, 
+which is reasonable given that no concrete Python object can ever be put 
+in ``oups`` at run-time.  In a more usual example::
+
+   lst = []
+   lst.append(42)
+
+the list is first built with ``SomeImpossibleValue`` items, and then the 
+factory is generalized to produce a list of ``SomeInteger(const=42)``.  
+With this "impossible object" trick we don't have to do anything special 
+about empty lists.
+
+
+User-defined Classes and Instances
+++++++++++++++++++++++++++++++++++
+
+``SomeInstance`` stands for an instance of the given class or any 
+subclass of it.  For each user-defined class seen by the annotator, we 
+maintain a ClassDef (``pypy.annotation.classdef``) describing the 
+attributes of the instances of the class; essentially, a ClassDef gives 
+the set of all class-level and instance-level attributes, and for each 
+one, a corresponding ``SomeXxx`` annotation.
+
+Instance-level attributes are discovered progressively as the annotation 
+progresses.  Assignments like::
+
+   inst.attr = value
+
+update the ClassDef of the given instance to record that the given 
+attribute exists and can be as general as the given value.
+
+For every attribute, the ClassDef also records all the positions where 
+the attribute is *read*.  If, at some later time, we discover an 
+assignment that forces the annotation about the attribute to be 
+generalized, then all the places that read the attribute so far are 
+marked as invalid and the annotator will have to restart its analysis 
+from there.
+
+The distinction between instance-level and class-level attributes is 
+thin; class-level attributes are essentially considered as initial 
+values for instance-level attributes.  Methods are not special in this 
+respect, expect that they are bound to the instance (i.e. ``self = 
+SomeInstance(cls)``) when considered as the initial value for the 
+instance.
+
+The inheritance rules are as follows: the union of two ``SomeInstance`` 
+annotations is the ``SomeInstance`` of the most precise common base 
+class.  If an attribute is considered (i.e. read or written) through a 
+``SomeInstance`` of a parent class, then we assume that all subclasses 
+also have the same attribute, and that the same annotation applies to 
+them all (so code like ``return self.x`` in a method of a parent class 
+forces the parent class and all its subclasses to have an attribute 
+``x``, whose annotation is general enough to contain all the values that 
+all the subclasses might want to store in ``x``).  However, distinct 
+subclasses can have attributes of the same names with different, 
+unrelated annotations if they are not used in a general way through the 
+parent class.
+
+
+Prebuilt Constants
+++++++++++++++++++
+
+(to be completed)
+
+
+Built-in functions and methods
+++++++++++++++++++++++++++++++
+
+(to be completed)
+
+
+Others
+++++++
+
+(to be completed)
