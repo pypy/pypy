@@ -162,6 +162,12 @@ class __extend__(pairtype(SomeString, SomeString)):
         return SomeString()
 
 
+class __extend__(pairtype(SomeString, SomeObject)):
+
+    def mod((str, args)):
+        return SomeString()
+
+
 class __extend__(pairtype(SomeList, SomeList)):
 
     def union((lst1, lst2)):
