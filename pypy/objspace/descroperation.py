@@ -63,7 +63,7 @@ class DescrOperation:
     def get_and_call_args(space, w_descr, w_obj, args):
         descr = space.unwrap_builtin(w_descr)
         # some special cases to avoid infinite recursion
-        if type(descr) is Function:
+        if isinstance(descr, Function):
             if isinstance(descr.code, BuiltinCode):
                 # this sub-special case is ONLY for performance reasons
                 w_result = descr.code.performance_shortcut_call_meth(
