@@ -89,6 +89,13 @@ def getitem__List_Slice(space, w_list, w_slice):
     w_res.ob_size = slicelength
     return w_res
 
+def contains__List_ANY(space, w_list, w_obj):
+    items = w_list.ob_item
+    for i in range(w_list.ob_size):
+        if space.eq_w(items[i], w_obj):
+            return space.w_True
+    return space.w_False
+
 def iter__List(space, w_list):
     from pypy.objspace.std import iterobject
     return iterobject.W_SeqIterObject(space, w_list)

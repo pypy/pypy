@@ -48,6 +48,12 @@ def getitem__Tuple_Slice(space, w_tuple, w_slice):
         start += step
     return W_TupleObject(space, subitems)
 
+def contains__Tuple_ANY(space, w_tuple, w_obj):
+    for w_item in w_tuple.wrappeditems:
+        if space.eq_w(w_item, w_obj):
+            return space.w_True
+    return space.w_False
+
 def iter__Tuple(space, w_tuple):
     from pypy.objspace.std import iterobject
     return iterobject.W_SeqIterObject(space, w_tuple)
