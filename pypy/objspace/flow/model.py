@@ -100,15 +100,22 @@ class Variable:
 class Constant:
     def __init__(self, value):
         self.value = value     # a concrete value
+        # try to be smart about constant mutable or immutable values
+        key = type(self.value), self.value  # to avoid confusing e.g. 0 and 0.0
+        try:
+            hash(key)
+        except TypeError:
+            key = id(self.value)
+        self.key = key
 
     def __eq__(self, other):
-        return self.__class__ is other.__class__ and self.value == other.value
+        return self.__class__ is other.__class__ and self.key == other.key
 
     def __ne__(self, other):
         return not (self == other)
 
     def __hash__(self):
-        return hash(self.value)
+        return hash(self.key)
 
     def __repr__(self):
         # try to limit the size of the repr to make it more readable
