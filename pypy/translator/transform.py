@@ -1,7 +1,8 @@
 """Flow Graph Transformation
 
 The difference between simplification and transformation is that
-transformation may introduce new space operation.
+transformation is based on annotations; it runs after the annotator
+completed.
 """
 
 import types

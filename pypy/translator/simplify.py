@@ -1,7 +1,24 @@
 """Flow Graph Simplification
+
+'Syntactic-ish' simplifications on a flow graph.
+
+simplify_graph() applies all simplifications defined in this file.
+See also remove_direct_loops(), which is a 'de-simplification' useful
+for code generators.
 """
 
 from pypy.objspace.flow.model import *
+
+def simplify_graph(graph):
+    """inplace-apply all the existing optimisations to the graph."""
+    checkgraph(graph)
+    eliminate_empty_blocks(graph)
+    remove_implicit_exceptions(graph)
+    join_blocks(graph)
+    transform_dead_op_vars(graph)
+    checkgraph(graph)
+
+# ____________________________________________________________
 
 def eliminate_empty_blocks(graph):
     """Eliminate basic blocks that do not contain any operations.
@@ -84,15 +101,6 @@ def remove_implicit_exceptions(graph):
                 if len(lst) <= 1:
                     link.prevblock.exitswitch = None
     traverse(visit, graph)
-
-def simplify_graph(graph):
-    """inplace-apply all the existing optimisations to the graph."""
-    checkgraph(graph)
-    eliminate_empty_blocks(graph)
-    remove_implicit_exceptions(graph)
-    join_blocks(graph)
-    transform_dead_op_vars(graph)
-    checkgraph(graph)
 
 def remove_direct_loops(graph):
     """This is useful for code generators: it ensures that no link has
