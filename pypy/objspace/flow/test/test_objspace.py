@@ -27,7 +27,6 @@ class TestFlowOjSpace(test.TestCase):
                           "        return i\n"
                           "    return j\n",
                           'f')
-        import pdb; pdb.set_trace()
 
     def test_ifthenelse(self):
         x = self.codetest("def g(i):\n"
