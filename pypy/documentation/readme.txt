@@ -55,7 +55,7 @@ within the pypy project. Even better, come to our next sprint so that we can get
 to know you.  
 
 .. _`documentation start page`: http://codespeak.net/pypy/index.cgi?doc/index.html 
-.. _`coding-style document`: http://codespeak.net/pypy/index.cgi?doc/devel/coding-style.html 
+.. _`coding-style document`: http://codespeak.net/pypy/index.cgi?doc/coding-style.html 
 .. _`py.test`: /py/current/doc/test.html 
 
 
