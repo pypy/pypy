@@ -3,16 +3,15 @@
 import unittest, inspect, compiler
 import sys
 
-# XXX - Is there a better way to detect that we are in PyPy?
-print sys.version
-if "pypy" in sys.version:
+#print sys.version
+if hasattr(sys, 'pypy_objspaceclass'):
     cpy_parser = None
     import parser
 else:
     import parser as cpy_parser
     del sys.modules['parser']
     import pypy.module.parser.pyparser as parser
-    print dir(parser)
+    #print dir(parser)
     #assert hasattr(parser, 'PyTokenizer'), "not using Basil's common parser"
     from pypy.objspace.std import StdObjSpace
     space = StdObjSpace()
