@@ -6,6 +6,7 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import mkentrymap
 from pypy.translator.annrpython import RPythonAnnotator
+from pypy.annotation.model import SomeMethod
 
 class Op:
     def __init__(self, operation, gen, block):
@@ -330,11 +331,12 @@ class GenPyrex:
 
         self.gen_block(block)
 
-    def globaldeclarations(self):
+    def globaldeclarations(self,):
         """Generate the global class declaration for a group of functions."""
         if self.annotator:
             self.lines = []
             self.indent = 0
+            delay_methods={}
             for cls in self.annotator.getuserclassdefinitions():
                 if cls.basedef:
                     bdef="(%s)" % (self.get_classname(cls.basedef.cls))
@@ -344,12 +346,21 @@ class GenPyrex:
                 self.indent += 1
                 empty = True
                 for attr,s_value in cls.attrs.items():
-                    vartype=self._gettypename(s_value.knowntype)
-                    self.putline("cdef public %s %s" % (vartype, attr))
+                    if isinstance(s_value,SomeMethod):
+                        for py_fun,fun_class in s_value.meths.items():
+                            delay_methods.setdefault(fun_class,[]).append(py_fun)                          
+                    else:
+                        vartype=self._gettypename(s_value.knowntype)
+                        self.putline("cdef public %s %s" % (vartype, attr))
                     empty = False
-                else:
-                    if empty:
-                        self.putline("pass")
+                list_methods=delay_methods.get(cls,[])
+                for py_fun in list_methods:
+                    self.putline("def %s(*args):" % (self._str(py_fun,'XXX')))
+                    self.indent += 1
+                    self.putline("return %s(*args)" %(self._str(py_fun,'XXX')))
+                    self.indent -= 1
+                if empty:
+                    self.putline("pass")
                 self.indent -= 1
                 self.putline("")
             return '\n'.join(self.lines)
