@@ -52,7 +52,8 @@ class BuiltinModule:
     def __init__(self, space):
         self.space = space
         if self.__helper_appfile__ is not None:
-            self._helper = AppHelper(self.space, self.__helper_appfile__)
+            self._helper = appfile.AppHelper(self.space,
+                                             self.__helper_appfile__)
             
     def wrap_me(self):
         space = self.space
