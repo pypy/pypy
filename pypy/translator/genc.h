@@ -193,26 +193,32 @@ static PyTypeObject PyGenCFunction_Type = {
 
 #if defined(USE_CALL_TRACE)
 
+static int callstack_depth = -1;
 #define OP_SIMPLE_CALL(args, r, err) do { \
+    callstack_depth++; \
 	PyCodeObject *c = getcode(INSIDE_FUNCTION " OP_SIMPLE_CALL" #args, __LINE__); \
 	PyThreadState *tstate = PyThreadState_GET(); \
 	PyFrameObject *f; \
 	if (c == NULL) { \
 		r = NULL; \
+        callstack_depth--; \
 		goto err; \
 	} \
 	f = PyFrame_New(tstate, c, PyEval_GetGlobals(), NULL); \
 	if (f == NULL) { \
 		r = NULL; \
+        callstack_depth--; \
 		goto err; \
 	} \
 	Py_DECREF(c); \
 	tstate->frame = f; \
 	if (trace_frame(tstate, f, PyTrace_CALL, Py_None) < 0) { \
 		r = NULL; \
+        callstack_depth--; \
 		goto err; \
 	} \
 	r = PyObject_CallFunctionObjArgs args; \
+    callstack_depth--; \
 	if (r == NULL) { \
 		if (tstate->curexc_traceback == NULL) { \
 			PyTraceBack_Here(f); \
@@ -229,7 +235,9 @@ static PyTypeObject PyGenCFunction_Type = {
 	} \
 	tstate->frame = f->f_back; \
 	Py_DECREF(f); \
-	if (r == NULL) goto err; \
+	if (r == NULL) { \
+        goto err; \
+    } \
 } while (0);
 
 #else
@@ -434,9 +442,17 @@ getcode(char* func_name, int lineno)
 	PyObject *nulltuple = NULL;
 	PyObject *filename = NULL;
 	PyCodeObject *tb_code = NULL;
+    int i;
 
 #if defined(OBNOXIOUS_PRINT_STATEMENTS)
-	printf("%d: %s\n", lineno, func_name);
+    printf("%5d: ", lineno);
+    assert(callstack_depth >= 0);
+    if (callstack_depth) {
+        for (i=0; i<callstack_depth; ++i) {
+            printf("  ");
+        }
+    }
+	printf("%s\n", func_name);
 #endif
 	code = PyString_FromString("");
 	if (code == NULL)
