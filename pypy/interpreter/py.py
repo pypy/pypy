@@ -1,3 +1,5 @@
+#!/usr/bin/env python 
+
 import autopath
 from pypy.tool import option
 from pypy.tool.optik import make_option
