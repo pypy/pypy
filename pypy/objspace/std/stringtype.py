@@ -34,6 +34,7 @@ str_expandtabs = MultiMethod('expandtabs', 2, defaults=(8,))
 str_splitlines = MultiMethod('splitlines', 2, defaults=(0,))
 str_startswith = MultiMethod('startswith', 2) #[optional arguments not supported now]
 str_translate  = MultiMethod('translate', 3, defaults=('',)) #unicode mimic not supported now
+str_decode     = MultiMethod('decode', 3, defaults=(None, None))
 
 # ____________________________________________________________
 

@@ -984,6 +984,18 @@ def app_mod__String_ANY(format, values):
 
 mod__String_ANY = gateway.app2interp(app_mod__String_ANY) 
 
+
+def app_str_decode__String_ANY_ANY(str, encoding=None, errors=None):
+    if encoding is None and errors is None:
+        return unicode(str)
+    elif errors is None:
+        return unicode(str, encoding)
+    else:
+        return unicode(str, encoding, errors)
+        
+
+str_decode__String_ANY_ANY = gateway.app2interp(app_str_decode__String_ANY_ANY)
+
 # register all methods
 from pypy.objspace.std import stringtype
 register_all(vars(), stringtype)
