@@ -6,6 +6,9 @@ from pypy.translator.simplify import simplify_graph
 from pypy.translator.transform import transform_graph
 
 
+DEBUG = False
+
+
 # XXX For 2.2 the emitted code isn't quite right, because we cannot tell
 # when we should write "0"/"1" or "nil"/"t".
 if not isinstance(bool, type):
@@ -22,6 +25,9 @@ class Op:
         self.args = op.args
         self.result = op.result
     def __call__(self):
+        if DEBUG:
+            self.op_default()
+            return
         if self.opname in self.binary_ops:
             self.op_binary(self.opname)
         else:
@@ -29,8 +35,8 @@ class Op:
             meth = getattr(self, "op_" + self.opname, default)
             meth()
     def op_default(self):
-        print ";", self.op
-        print "; Op", self.opname, "is missing"
+        print ";;", self.op
+        print ";; Op", self.opname, "is missing"
     binary_ops = {
         #"add": "+",
         "sub": "-",
@@ -213,11 +219,11 @@ class GenCL:
             else:
                 print self.str(var),
         print ")"
-        print "; DEBUG: type inference"
+        print ";; DEBUG: type inference"
         for var in vardict:
             tp = vardict[var]
             if tp:
-                print ";", self.str(var), "is", tp.__name__
+                print ";;", self.str(var), "is", tp.__name__
         for block in blocklist:
             self.emit_block(block)
         print ")"
@@ -304,10 +310,10 @@ prelude = """\
     (if (minusp start) (incf start l))
     (if (minusp end) (incf end l))
     (subseq seq start end)))
-; temporary
+;; temporary
 (defun python-range (end)
   (let ((a (make-array end)))
     (loop for i below end
-          do (setf (elt a i) i))
-    a))
+          do (setf (elt a i) i)
+          finally (return a))))
 """
