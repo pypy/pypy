@@ -61,9 +61,13 @@ class PyBaseCode(object):
         w_bytecode = space.wrap(co)
         w_arguments = space.gethelper(appfile).call(
             "decode_code_arguments", [w_arguments, w_kwargs, w_defaults,
-                                      w_closure, w_bytecode])
+                                      w_bytecode])
         # we assume that decode_code_arguments() gives us a dictionary
         # of the correct length.
+        if space.is_true(w_closure):
+            l = zip(co.co_freevars, space.unpackiterable(w_closure))
+            for key,cell in l:
+                w_arguments._appendcell(space, space.wrap(key), cell)
         return w_arguments
         
 class PyByteCode(PyBaseCode):

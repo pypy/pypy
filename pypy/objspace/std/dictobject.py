@@ -63,6 +63,12 @@ class W_DictObject(W_Object):
     def cell(self,space,w_lookup):
         return space.wrap(self._cell(space,w_lookup))
 
+    def _appendcell(self, space, w_lookup, w_cell):
+        # there should be no w_lookup entry already!
+        data = self.data
+        lookup_hash = space.unwrap(space.hash(w_lookup))
+        cell = space.unwrap(w_cell)
+        data.append((w_lookup, lookup_hash, cell))
 
 registerimplementation(W_DictObject)
 

@@ -13,7 +13,7 @@
 # (I wonder if the pain of writing this at interpreter level might be
 # worth it...)
 
-def decode_code_arguments(args, kws, defs, closure, codeobject):
+def decode_code_arguments(args, kws, defs, codeobject):
     """
     Assumptions:
     args = sequence of the normal actual parameters

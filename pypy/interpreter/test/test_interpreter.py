@@ -213,6 +213,25 @@ class AppTestInterpreter(test.AppTestCase):
         def f(x): return x
         self.assertEquals(f(666), 666)
 
+    def test_nested_scope(self):
+        x = 42
+        def f(): return x
+        self.assertEquals(f(), 42)
+
+    def test_nested_scope2(self):
+        x = 42
+        y = 3
+        def f(): return x
+        self.assertEquals(f(), 42)
+
+    def test_nested_scope3(self):
+        x = 42
+        def f():
+            def g():
+                return x
+            return g
+        self.assertEquals(f()(), 42)
+            
 
 if __name__ == '__main__':
     test.main()

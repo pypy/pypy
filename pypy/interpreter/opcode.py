@@ -442,8 +442,7 @@ def LOAD_CLOSURE(f, varindex):
     #     syntactically nested frames?
     varname = f.getfreevarname(varindex)
     w_varname = f.space.wrap(varname)
-    w_value = f.space.gethelper(appfile).call("load_closure",
-                                              [f.w_locals, w_varname])
+    w_value = f.w_locals.cell(f.space, w_varname)
     f.valuestack.push(w_value)
 
 def LOAD_DEREF(f, varindex):
