@@ -223,6 +223,8 @@ ObjSpace.MethodTable = [
     ('next',            'next',      1, ['next']),  # iterator interface
     ('call',            'call',      3, ['__call__']),
     ('get',             'get',       3, ['__get__']),
+    ('new',             'new',       3, ['__new__']),
+    ('init',            'init',      3, ['__init__']),
     ]
 
 ObjSpace.BuiltinModuleTable = [

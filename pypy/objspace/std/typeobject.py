@@ -1,37 +1,36 @@
 from pypy.interpreter import pycode
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std.dictobject import W_DictObject
 
 
 class W_TypeObject(W_Object):
     delegate_once = {}
-    statictypename = 'type'
+    #statictype = W_TypeType    (hacked into place in typetype.py)
 
-    def __init__(w_self, space, w_tpname):
+    def __init__(w_self, space):
         W_Object.__init__(w_self, space)
-        w_self.w_tpname = w_tpname
-        w_self.builtin_implementations = []
+        w_self.w_tpname = space.wrap(w_self.typename)
         w_self.multimethods = {}
-        # HACK to get to the multimethods of the space
-        for key, value in space.__class__.__dict__.iteritems():
-            if isinstance(value, MultiMethod):
-                for i in range(len(value.specialnames)):
-                    w_self.multimethods[value.specialnames[i]] = value, i
+        # import all multimethods of the space and of the type class
+        for multimethod in (hack_out_multimethods(space) +
+                            hack_out_multimethods(w_self)):
+            for i in range(len(multimethod.specialnames)):
+                w_self.multimethods[multimethod.specialnames[i]] = multimethod, i
 
-    def setup_builtin_type(w_self, implementation):
-        implementation.statictype = w_self
-        w_self.builtin_implementations.append(implementation)
-        
-        for key, value in implementation.__dict__.iteritems():
-            if isinstance(value, implmethod):
-                try:
-                    multimethod, bound_pos = w_self.multimethods[key]
-                except KeyError:
-                    sample = value.dispatch_table.keys()[0]
-                    multimethod = MultiMethod('%s()' % key, len(sample)+1, [])
-                    w_self.multimethods[key] = multimethod, None
-                for types, func in value.dispatch_table.iteritems():
-                    multimethod.register(func, implementation, *types)
+##    XXX remove me
+##    def setup_builtin_type(w_self, implementation):
+##        implementation.statictype = w_self
+##        w_self.builtin_implementations.append(implementation)
+##        
+##        for key, value in implementation.__dict__.iteritems():
+##            if isinstance(value, implmethod):
+##                try:
+##                    multimethod, bound_pos = w_self.multimethods[key]
+##                except KeyError:
+##                    sample = value.dispatch_table.keys()[0]
+##                    multimethod = MultiMethod('%s()' % key, len(sample)+1, [])
+##                    w_self.multimethods[key] = multimethod, None
+##                for types, func in value.dispatch_table.iteritems():
+##                    multimethod.register(func, implementation, *types)
 
     def lookup(w_self, space, w_key):
         "XXX at some point, turn this into a multimethod"
@@ -48,13 +47,9 @@ class W_TypeObject(W_Object):
         return space.newfunction(code, space.w_None, space.w_None)
 
 
-def make_type_by_name(space, tpname):
-    try:
-        w_type = space.TYPE_CACHE[tpname]
-    except KeyError:
-        w_type = space.TYPE_CACHE[tpname] = W_TypeObject(space,
-                                                         space.wrap(tpname))
-    return w_type
+def hack_out_multimethods(instance):
+    return [value for value in instance.__class__.__dict__.itervalues()
+                  if isinstance(value, MultiMethod)]
 
 
 class PyMultimethodCode(pycode.PyBaseCode):
@@ -63,14 +58,8 @@ class PyMultimethodCode(pycode.PyBaseCode):
         pycode.PyBaseCode.__init__(self)
         argnames = ['x%d'%(i+1) for i in range(multimethod.multimethod.arity)]
         if w_type is not None:
-            # 'bound_pos' hack mode on
-            multimethod = multimethod.slicetable(bound_position or 0, w_type)
-            # 'bound_pos' hack mode off
-            if bound_position:
-                argnames.insert(0, argnames.pop(bound_position))
-        # 'bound_pos' hack mode on
-        self.prepend_space_argument = bound_position is not None
-        # 'bound_pos' hack mode off
+            multimethod = multimethod.slicetable(bound_position, w_type)
+            argnames.insert(0, argnames.pop(bound_position))
         self.multimethod = multimethod
         self.co_name = multimethod.multimethod.operatorsymbol
         self.co_flags = 0
@@ -90,8 +79,7 @@ class PyMultimethodCode(pycode.PyBaseCode):
         dispatchargs = tuple(dispatchargs)
         initialtypes = tuple(initialtypes)
         try:
-            return multimethod.perform_call(dispatchargs, initialtypes,
-                prepend_space_argument = self.prepend_space_argument)
+            return multimethod.perform_call(dispatchargs, initialtypes)
         except FailedToImplement, e:
             if e.args:
                 raise OperationError(*e.args)
@@ -100,31 +88,34 @@ class PyMultimethodCode(pycode.PyBaseCode):
 
 
 def type_call(space, w_type, w_args, w_kwds):
+    w_newobject = space.new(w_type, w_args, w_kwds)
+    # XXX call __init__() later
+    return w_newobject
     
-    #        H  H   AA    CCC  K  K
-    #        H  H  A  A  C     K K
-    #        HHHH  A  A  C     KK
-    #        H  H  AAAA  C     K K
-    #        H  H  A  A   CCC  K  K
+##    #        H  H   AA    CCC  K  K
+##    #        H  H  A  A  C     K K
+##    #        HHHH  A  A  C     KK
+##    #        H  H  AAAA  C     K K
+##    #        H  H  A  A   CCC  K  K
 
-    tpname = space.unwrap(w_type.w_tpname)
-    args = space.unpackiterable(w_args)
-    if tpname == 'type':
-        assert len(args) == 1
-        return space.type(args[0])
-    if tpname == 'list':
-        assert len(args) == 1
-        return space.newlist(space.unpackiterable(args[0]))
-    if tpname == 'tuple':
-        assert len(args) == 1
-        return space.newtuple(space.unpackiterable(args[0]))
-    if tpname == 'str':
-        assert len(args) == 1
-        return space.str(args[0])
+##    tpname = space.unwrap(w_type.w_tpname)
+##    args = space.unpackiterable(w_args)
+##    if tpname == 'type':
+##        assert len(args) == 1
+##        return space.type(args[0])
+##    if tpname == 'list':
+##        assert len(args) == 1
+##        return space.newlist(space.unpackiterable(args[0]))
+##    if tpname == 'tuple':
+##        assert len(args) == 1
+##        return space.newtuple(space.unpackiterable(args[0]))
+##    if tpname == 'str':
+##        assert len(args) == 1
+##        return space.str(args[0])
 
-    import __builtin__
-    hacky = getattr(__builtin__, tpname)(
-        *space.unwrap(w_args), **space.unwrap(w_kwds))
-    return space.wrap(hacky)
+##    import __builtin__
+##    hacky = getattr(__builtin__, tpname)(
+##        *space.unwrap(w_args), **space.unwrap(w_kwds))
+##    return space.wrap(hacky)
 
 StdObjSpace.call.register(type_call, W_TypeObject, W_ANY, W_ANY)

@@ -1,10 +1,11 @@
 from pypy.objspace.std.objspace import *
+from moduletype import W_ModuleType
 from dictobject import W_DictObject
 
 
 class W_ModuleObject(W_Object):
     delegate_once = {}
-    statictypename = 'module'
+    statictype = W_ModuleType
 
     def __init__(w_self, space, w_name):
         W_Object.__init__(w_self, space)

@@ -37,6 +37,7 @@ class TestPyMultimethodCode(unittest_w.TestCase_w):
 
     def test_float_sub(self):
         w = self.space.wrap
+        w(1.5)   # force floatobject imported
         for i in range(2):
             meth = tobj.PyMultimethodCode(self.space.sub, i, self.space.w_float)
             self.assertEqual(meth.multimethod.is_empty(), False)

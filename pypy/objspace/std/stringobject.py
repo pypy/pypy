@@ -1,4 +1,5 @@
 from pypy.objspace.std.objspace import *
+from stringtype import W_StringType
 from intobject   import W_IntObject
 from sliceobject import W_SliceObject
 from listobject import W_ListObject
@@ -12,9 +13,8 @@ from rarray import CharArrayFromStr, CharArraySize
 applicationfile = StdObjSpace.AppFile(__name__)
 
 class W_StringObject(W_Object):
-
     delegate_once = {}
-    statictypename = 'str'
+    statictype = W_StringType
 
     def __init__(w_self, space, str):
         W_Object.__init__(w_self, space)
@@ -29,34 +29,6 @@ class W_StringObject(W_Object):
 
     def hash(w_self):
         return W_IntObject(self, self._value.hash())
-
-    def join(w_self, w_list):
-        list = w_self.space.unpackiterable(w_list)
-        if list:
-            firstelem = 1
-            listlen = 0
-            reslen = 0  
-            for w_item in list:
-                reslen = reslen + w_item._value.len
-                listlen = listlen + 1
-
-            reslen = reslen + (listlen - 1) * w_self._value.len
-            res = CharArraySize(reslen)
-
-            pos = 0
-            for w_item in list:
-                if firstelem:
-                    res.setsubstring(pos, w_item._value.value())
-                    pos = pos + w_item._value.len 
-                    firstelem = 0
-                else:
-                    res.setsubstring(pos, w_self._value.value())
-                    pos = pos + w_self._value.len
-                    res.setsubstring(pos, w_item._value.value())
-                    pos = pos + w_item._value.len
-            return W_StringObject(w_self.space, res.value())
-        else:
-            return W_StringObject(w_self.space, "")
 
     def _char_isspace(ch):
         return ord(ch) in (9, 10, 11, 12, 13, 32)  
@@ -78,41 +50,39 @@ class W_StringObject(W_Object):
 
     def isspace(w_self):
        return is_generic(w_self, _char_isspace)
+   ## XXX fixme
 
-    def isdigit(w_self):
-        pass
+##    def isdigit(w_self):
+##        pass
 
-    def isupper(w_self):
-        pass
+##    def isupper(w_self):
+##        pass
 
-    def isupper(w_self):
-        pass
+##    def isupper(w_self):
+##        pass
     
-    def islower(w_self):
-        pass
+##    def islower(w_self):
+##        pass
 
-    def istitle(w_self):
-        pass
+##    def istitle(w_self):
+##        pass
 
-    def isalnum(w_self):
-        pass
+##    def isalnum(w_self):
+##        pass
 
-    def isalpha(w_self):
-        pass
+##    def isalpha(w_self):
+##        pass
 
-    isspace = implmethod().register(isspace)
-    isdigit = implmethod().register(isdigit)
-    isupper = implmethod().register(isupper)
-    islower = implmethod().register(islower)
-    istitle = implmethod().register(istitle)
-    isalnum = implmethod().register(isalnum)
-    isalpha = implmethod().register(isalpha)
-
-    join = implmethod().register(join, W_ANY)
-    split = implmethod()
+##    isspace = implmethod().register(isspace)
+##    isdigit = implmethod().register(isdigit)
+##    isupper = implmethod().register(isupper)
+##    islower = implmethod().register(islower)
+##    istitle = implmethod().register(istitle)
+##    isalnum = implmethod().register(isalnum)
+##    isalpha = implmethod().register(isalpha)
 
 
-def splitByWhitespace(w_self, w_none):
+def str_splitByWhitespace(space, w_self, w_none):
     res = []
     inword = 0
     value = w_self._value.value()
@@ -127,10 +97,10 @@ def splitByWhitespace(w_self, w_none):
                 res.append(ch)
                 inword = 1
     for i in range(len(res)):
-        res[i] = W_StringObject(w_self.space, res[i])
-    return W_ListObject(w_self.space, res)
+        res[i] = W_StringObject(space, res[i])
+    return W_ListObject(space, res)
 
-def split(w_self, w_by):
+def str_split(space, w_self, w_by):
     res = []
     start = 0
     value = w_self._value.value()
@@ -147,12 +117,43 @@ def split(w_self, w_by):
     return W_ListObject(w_self.space, res)
 
 # XXX temporary hack
-W_StringObject.__dict__['split'].register(split, W_StringObject)
-
+W_StringType.str_split.register(str_split, W_StringObject, W_StringObject)
+W_StringType.str_split.register(str_splitByWhitespace,
+                                           W_StringObject, W_NoneObject)
 #We should erase the W_NoneObject, but register takes always
 #the same number of parameters. So you have to call split with
 #None as parameter instead of calling it without any parameter
-W_StringObject.__dict__['split'].register(splitByWhitespace, W_NoneObject)
+
+
+def str_join(space, w_self, w_list):
+    list = space.unpackiterable(w_list)
+    if list:
+        firstelem = 1
+        listlen = 0
+        reslen = 0  
+        for w_item in list:
+            reslen = reslen + w_item._value.len
+            listlen = listlen + 1
+
+        reslen = reslen + (listlen - 1) * w_self._value.len
+        res = CharArraySize(reslen)
+
+        pos = 0
+        for w_item in list:
+            if firstelem:
+                res.setsubstring(pos, w_item._value.value())
+                pos = pos + w_item._value.len 
+                firstelem = 0
+            else:
+                res.setsubstring(pos, w_self._value.value())
+                pos = pos + w_self._value.len
+                res.setsubstring(pos, w_item._value.value())
+                pos = pos + w_item._value.len
+        return W_StringObject(space, res.value())
+    else:
+        return W_StringObject(space, "")
+
+W_StringType.str_join.register(str_join, W_StringObject, W_ANY)
 
 
 def str_unwrap(space, w_str):
@@ -288,7 +289,7 @@ def getitem_str_slice(space, w_str, w_slice):
         r[i] = space.getitem(w_str, w(start + i*step))
     w_r = space.newlist(r)
     w_empty = space.newstring([])
-    return w_empty.join(w_r)
+    return str_join(w_empty, w_r)
 
 StdObjSpace.getitem.register(getitem_str_slice, 
                              W_StringObject, W_SliceObject)

@@ -1,4 +1,5 @@
 from pypy.objspace.std.objspace import *
+from inttype import W_IntType
 from noneobject import W_NoneObject
 from boolobject import W_BoolObject
 from restricted_int import r_int, LONG_BIT
@@ -23,7 +24,7 @@ RPython, just for test purposes.
 class W_IntObject(W_Object):
 
     delegate_once = {}
-    statictypename = 'int'
+    statictype = W_IntType
     
     def __init__(w_self, space, intval):
         W_Object.__init__(w_self, space)

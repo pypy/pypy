@@ -1,13 +1,15 @@
 from pypy.objspace.std.objspace import *
+from listtype import W_ListType
 from intobject import W_IntObject
 from sliceobject import W_SliceObject
 from instmethobject import W_InstMethObject
 from pypy.interpreter.extmodule import make_builtin_func
 from restricted_int import r_int, r_uint
 
+
 class W_ListObject(W_Object):
     delegate_once = {}
-    statictypename = 'list'
+    statictype = W_ListType
 
     def __init__(w_self, space, wrappeditems):
         W_Object.__init__(w_self, space)
@@ -27,45 +29,6 @@ class W_ListObject(W_Object):
         reprlist = [repr(w_item) for w_item in w_self.ob_item[:w_self.ob_size]]
         return "%s(%s)" % (w_self.__class__.__name__, ', '.join(reprlist))
 
-    def append(w_self, w_obj):
-        return list_append(w_self.space, w_self, w_obj)
-
-    append = implmethod().register(append, W_ANY)
-
-    def insert(w_self, w_idx, w_obj):
-        return list_insert(w_self.space, w_self, w_idx, w_obj)
-
-    insert = implmethod().register(insert, W_IntObject, W_ANY)
-
-    def extend(w_self, w_seq):
-        return list_extend(w_self.space, w_self, w_seq)
-
-    extend = implmethod().register(extend, W_ANY)
-
-    def pop(w_self, w_idx=-1):
-        return list_pop(w_self.space, w_self, w_idx)
-
-    pop = implmethod().register(pop, W_IntObject)
-
-    def remove(w_self, w_any):
-        return list_remove(w_self.space, w_self, w_any)
-
-    remove = implmethod().register(remove, W_ANY)
-
-    def index(w_self, w_any):
-        return list_index(w_self.space, w_self, w_any)
-
-    index = implmethod().register(index, W_ANY)
-
-    def count(w_self, w_any):
-        return list_count(w_self.space, w_self, w_any)
-
-    count = implmethod().register(count, W_ANY)
-
-    def reverse(w_self):
-        return list_reverse(w_self.space, w_self)
-
-    reverse = implmethod().register(reverse)
 
 def list_unwrap(space, w_list):
     items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]
@@ -409,6 +372,15 @@ def list_reverse(space, w_list):
     if w_list.ob_size > 1:
         _reverse_slice(w_list.ob_item, 0, w_list.ob_size)
     return space.w_None
+
+W_ListType.list_append .register(list_append, W_ListObject, W_ANY)
+W_ListType.list_insert .register(list_insert, W_ListObject, W_IntObject, W_ANY)
+W_ListType.list_extend .register(list_extend, W_ListObject, W_ANY)
+W_ListType.list_pop    .register(list_pop,    W_ListObject, W_IntObject)
+W_ListType.list_remove .register(list_remove, W_ListObject, W_ANY)
+W_ListType.list_index  .register(list_index,  W_ListObject, W_ANY)
+W_ListType.list_count  .register(list_count,  W_ListObject, W_ANY)
+W_ListType.list_reverse.register(list_reverse,W_ListObject)
 
 """
 static PyMethodDef list_methods[] = {

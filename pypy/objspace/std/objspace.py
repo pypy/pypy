@@ -18,19 +18,7 @@ class W_Object:
     def get_builtin_impl_class(w_self):
         return w_self.__class__
 
-
-class implmethod(object):
-    def __init__(self):
-        self.dispatch_table = {}
-    def register(self, function, *types):
-        assert len(types) == function.func_code.co_argcount - 1, \
-               "wrong number of W_Xxx arguments to .register()"
-        if types in self.dispatch_table:
-            raise error, "we already got an implementation for %r" % types
-        self.dispatch_table[types] = function
-        return self
-    def __get__(self, instance, cls=None):
-        raise "XXX come back later"
+W_ANY = W_Object  # synonyms for use in .register()
 
 
 ##################################################################
@@ -45,24 +33,26 @@ class StdObjSpace(ObjSpace):
         pass
     AppFile.LOCAL_PATH = [PACKAGE_PATH]
 
-    BUILTIN_TYPES = {
-        'W_NoneObject':  'noneobject',
-        'W_BoolObject':  'boolobject',
-        'W_IntObject':   'intobject',
-        'W_FloatObject': 'floatobject',
-        'W_ListObject':  'listobject',
-        'W_DictObject':  'dictobject',
-        'W_StringObject':'stringobject',
-        'W_ModuleObject':'moduleobject',
-        'W_TupleObject': 'tupleobject',
-        }
+
+    def standard_types(self):
+        class result:
+            "Import here the types you want to have appear in __builtin__."
+
+            from booltype   import W_BoolType
+            from inttype    import W_IntType
+            from floattype  import W_FloatType
+            from tupletype  import W_TupleType
+            from listtype   import W_ListType
+            from dicttype   import W_DictType
+            from stringtype import W_StringType
+        return [value for key, value in result.__dict__.items()
+                      if not key.startswith('_')]   # don't look
+
 
     def initialize(self):
-        self.TYPE_CACHE = {}
         from noneobject    import W_NoneObject
         from boolobject    import W_BoolObject
         from cpythonobject import W_CPythonObject
-        from typeobject    import W_TypeObject, make_type_by_name
         self.w_None  = W_NoneObject(self)
         self.w_False = W_BoolObject(self, False)
         self.w_True  = W_BoolObject(self, True)
@@ -80,13 +70,11 @@ class StdObjSpace(ObjSpace):
                 setattr(self, 'w_' + c.__name__, w_c)
                 newstuff[c.__name__] = w_c
         # make the types
-        for classname, modulename in self.BUILTIN_TYPES.iteritems():
-            mod = __import__(modulename, globals(), locals(), [classname])
-            cls = getattr(mod, classname)
-            w_type = make_type_by_name(self, cls.statictypename)
-            w_type.setup_builtin_type(cls)
-            setattr(self, 'w_' + cls.statictypename, w_type)
-            newstuff[cls.statictypename] = w_type
+        self.types_w = {}
+        for typeclass in self.standard_types():
+            w_type = self.get_typeinstance(typeclass)
+            setattr(self, 'w_' + typeclass.typename, w_type)
+            newstuff[typeclass.typename] = w_type
         
         self.make_builtins()
         self.make_sys()
@@ -96,6 +84,14 @@ class StdObjSpace(ObjSpace):
         # add a dummy __import__  XXX fixme
 #        w_import = self.wrap(__import__)
 #        self.setitem(self.w_builtins, self.wrap("__import__"), w_import)
+
+    def get_typeinstance(self, typeclass):
+        # types_w maps each W_XxxType class to its unique-for-this-space instance
+        try:
+            w_type = self.types_w[typeclass]
+        except:
+            w_type = self.types_w[typeclass] = typeclass(self)
+        return w_type
 
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."

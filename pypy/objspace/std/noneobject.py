@@ -1,9 +1,10 @@
 from pypy.objspace.std.objspace import *
+from nonetype import W_NoneType
 
 
 class W_NoneObject(W_Object):
     delegate_once = {}
-    statictypename = 'NoneType'
+    statictype = W_NoneType
 
 
 def none_unwrap(space, w_none):

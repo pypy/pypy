@@ -1,12 +1,12 @@
 from pypy.objspace.std.objspace import *
+from tupletype import W_TupleType
 from intobject import W_IntObject
 from sliceobject import W_SliceObject
 
 
 class W_TupleObject(W_Object):
-
     delegate_once = {}
-    statictypename = 'tuple'
+    statictype = W_TupleType
 
     def __init__(w_self, space, wrappeditems):
         W_Object.__init__(w_self, space)

@@ -4,18 +4,16 @@ from pypy.interpreter.baseobjspace import OperationError
 class FailedToImplement(Exception):
     "Signals the dispatcher to try harder."
 
-class W_ANY:
-    "Placeholder to allow dispatch on any value."
-    statictype = None
-
 
 class MultiMethod(object):
 
-    def __init__(self, operatorsymbol, arity, specialnames):
+    def __init__(self, operatorsymbol, arity, specialnames=None):
         "MultiMethod dispatching on the first 'arity' arguments."
         self.arity = arity
         self.operatorsymbol = operatorsymbol
         self.dispatch_table = {}
+        if specialnames is None:
+            specialnames = [operatorsymbol]
         self.specialnames = specialnames  # list like ['__xxx__', '__rxxx__']
 
     def register(self, function, *types):
@@ -34,39 +32,43 @@ class MultiMethod(object):
         """Build a list of all possible combinations of delegated types,
         sorted by cost."""
         result = []
-        self.internal_buildchoices(types, (), (), (), result)
-        result.sort()
-        return [(delegators, function) for costs, delegators, function in result]
+        self.internal_buildchoices(types, (), (), result)
+        # the result is sorted by costs by construction.
+        # it is a list of (delegator, function) pairs.
+        return result
 
     def internal_buildchoices(self, initialtypes, currenttypes,
-                              currentcosts, currentdelegators, result):
+                              currentdelegators, result):
         if len(currenttypes) == self.arity:
             try:
                 function = self.dispatch_table[currenttypes]
             except KeyError:
                 pass
             else:
-                result.append((currentcosts, currentdelegators, function))
+                result.append((currentdelegators, function))
         else:
             nexttype = initialtypes[len(currenttypes)]
-            self.internal_buildchoices(initialtypes, currenttypes + (nexttype,),
-                                       currentcosts + (0,),
-                                       currentdelegators + (None,), result)
-            self.internal_buildchoices(initialtypes, currenttypes + (W_ANY,),
-                                       currentcosts + (1,),
-                                       currentdelegators + (None,), result)
-            delegators = getattr(nexttype, "delegate_once", {})
+            delegators = {}
+            while 1:
+                self.internal_buildchoices(initialtypes,
+                                           currenttypes + (nexttype,),
+                                           currentdelegators + (None,), result)
+                delegators.update(getattr(nexttype, "delegate_once", {}))
+                # before general delegation, try superclasses
+                if not nexttype.__bases__:
+                    break
+                nexttype, = nexttype.__bases__ # no multiple inheritance pleeease
             for othertype, delegator in delegators.items():
                 self.internal_buildchoices(initialtypes,
                                            currenttypes + (othertype,),
-                                           currentcosts + (2,),
                                            currentdelegators + (delegator,),
                                            result)
 
-    def slicetable(self, position, statictype):
+    def slicetable(self, position, slicetype):
         m = MultiMethod(self.operatorsymbol, self.arity, self.specialnames)
         for key, value in self.dispatch_table.iteritems():
-            if key[position].statictype == statictype:
+            if (key[position].statictype is not None and
+                issubclass(key[position].statictype, slicetype.__class__)):
                 m.dispatch_table[key] = value
         return m
 
@@ -114,6 +116,7 @@ class BoundMultiMethod:
                     arg = delegator(self.space, arg)
                 newargs.append(arg)
             newargs = tuple(newargs) + extraargs
+            # XXX 'prepend_space_argument' should now always be True anyway
             if prepend_space_argument:
                 newargs = (self.space,) + newargs
             try:
@@ -124,9 +127,9 @@ class BoundMultiMethod:
                     firstfailure = e
         raise firstfailure or FailedToImplement()
 
-    def slicetable(self, position, statictype):
+    def slicetable(self, position, slicetype):
         return BoundMultiMethod(self.space,
-            self.multimethod.slicetable(position, statictype))
+            self.multimethod.slicetable(position, slicetype))
 
     def is_empty(self):
         return self.multimethod.is_empty()

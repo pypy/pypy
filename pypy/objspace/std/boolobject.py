@@ -1,9 +1,10 @@
 from pypy.objspace.std.objspace import *
+from booltype import W_BoolType
 
 
 class W_BoolObject(W_Object):
     delegate_once = {}
-    statictypename = 'bool'
+    statictype = W_BoolType
 
     def __init__(w_self, space, boolval):# please pass in a real bool, not an int
         W_Object.__init__(w_self, space)

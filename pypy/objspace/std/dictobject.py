@@ -1,4 +1,5 @@
-from objspace import *
+from pypy.objspace.std.objspace import *
+from dicttype import W_DictType
 from stringobject import W_StringObject
 from instmethobject import W_InstMethObject
 from pypy.interpreter.extmodule import make_builtin_func
@@ -33,7 +34,7 @@ class Cell:
 
 class W_DictObject(W_Object):
     delegate_once = {}
-    statictypename = 'dict'
+    statictype = W_DictType
 
     def __init__(w_self, space, list_pairs_w):
         W_Object.__init__(w_self, space)
@@ -59,33 +60,6 @@ class W_DictObject(W_Object):
     def cell(self,space,w_lookup):
         return space.wrap(self._cell(space,w_lookup))
 
-    def copy(w_self):
-        return W_DictObject(w_self.space,[(w_key,cell.get())
-                                          for w_key,cell in
-                                          w_self.non_empties()])
-    def items(w_self):
-        space = w_self.space
-        return space.newlist([ space.newtuple([w_key,cell.get()])
-                               for w_key,cell in
-                               w_self.non_empties()])
-
-    def keys(w_self):
-        space = w_self.space
-        return space.newlist([ w_key
-                               for w_key,cell in
-                               w_self.non_empties()])
-    
-    def values(w_self):
-        space = w_self.space
-        return space.newlist([ cell.get()
-                               for w_key,cell in
-                               w_self.non_empties()])
-
-    copy   = implmethod().register(copy)
-    items  = implmethod().register(items)
-    keys   = implmethod().register(keys)
-    values = implmethod().register(values)
-    
 
 def dict_is_true(space, w_dict):
     return not not w_dict.non_empties()
@@ -169,5 +143,29 @@ def eq_dict_dict(space, w_left, w_right):
             return space.newbool(r)
     return space.newbool(1)
         
-
 StdObjSpace.eq.register(eq_dict_dict, W_DictObject, W_DictObject)
+
+
+def dict_copy(space, w_self):
+    return W_DictObject(space, [(w_key,cell.get())
+                                      for w_key,cell in
+                                      w_self.non_empties()])
+def dict_items(space, w_self):
+    return space.newlist([ space.newtuple([w_key,cell.get()])
+                           for w_key,cell in
+                           w_self.non_empties()])
+
+def dict_keys(space, w_self):
+    return space.newlist([ w_key
+                           for w_key,cell in
+                           w_self.non_empties()])
+
+def dict_values(space, w_self):
+    return space.newlist([ cell.get()
+                           for w_key,cell in
+                           w_self.non_empties()])
+
+W_DictType.dict_copy  .register(dict_copy,   W_DictObject)
+W_DictType.dict_items .register(dict_items,  W_DictObject)
+W_DictType.dict_keys  .register(dict_keys,   W_DictObject)
+W_DictType.dict_values.register(dict_values, W_DictObject)

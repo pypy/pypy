@@ -1,4 +1,5 @@
-from objspace import *
+from pypy.objspace.std.objspace import *
+from floattype import W_FloatType
 
 ##############################################################
 # for the time being, all calls that are made to some external
@@ -17,7 +18,7 @@ class W_FloatObject(W_Object):
        an argument"""
 
     delegate_once = {}
-    statictypename = 'float'
+    statictype = W_FloatType
     
     def __init__(w_self, space, floatval):
         W_Object.__init__(w_self, space)

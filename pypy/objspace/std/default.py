@@ -128,10 +128,11 @@ StdObjSpace.get.register(default_get, W_ANY, W_ANY, W_ANY)
 # static types
 
 def default_type(space, w_obj):
-    w_type = w_obj.statictype
-    if w_type is None:
+    if w_obj.statictype is None:
         # XXX remove me, temporary
         return space.wrap(space.unwrap(w_obj).__class__)
-    return w_type
+    else:
+        w_type = space.get_typeinstance(w_obj.statictype)
+        return w_type
 
 StdObjSpace.type.register(default_type, W_ANY)
