@@ -191,6 +191,8 @@ ObjSpace.MethodTable = [
     ('or_',             '|',         2, ['__or__', '__ror__']),
     ('xor',             '^',         2, ['__xor__', '__rxor__']),
     ('nonzero',         'nonzero',   1, ['__nonzero__']),
+    ('int',             'int',       1, ['__int__']),
+    ('float',           'float',     1, ['__float__']),
     ('inplace_add',     '+=',        2, ['__iadd__']),
     ('inplace_sub',     '-=',        2, ['__isub__']),
     ('inplace_mul',     '*=',        2, ['__imul__']),

@@ -423,7 +423,7 @@ StdObjSpace.or_.register(int_int_or, W_IntObject, W_IntObject)
 def int_int(space, w_int1):
     return w_int1
 
-#?StdObjSpace.int.register(int_int, W_IntObject)
+StdObjSpace.int.register(int_int, W_IntObject)
 
 def int_long(space, w_int1):
     a = w_int1.intval
@@ -435,9 +435,9 @@ def int_long(space, w_int1):
 def int_float(space, w_int1):
     a = w_int1.intval
     x = float(a)
-    return space.newdouble(x)
+    return space.newfloat(x)
 
-#?StdObjSpace.float.register(int_float, W_IntObject)
+StdObjSpace.float.register(int_float, W_IntObject)
 
 def int_oct(space, w_int1):
     x = w_int1.intval

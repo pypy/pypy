@@ -31,13 +31,11 @@ def delegate__Int(space, w_intobj):
 delegate__Int.priority = PRIORITY_CHANGE_TYPE
 
 
-def float_float(space,w_value):
-    if w_value.__class__ == W_FloatObject:
-        return w_value
-    else:
-        return W_FloatObject(space, w_value.floatval)
+def float__Float(space, w_value):
+    return w_value
 
-#?StdObjSpace.float.register(float_float, W_FloatObject)
+def int__Float(space, w_value):
+    return space.newint(int(w_value.floatval))
 
 def unwrap__Float(space, w_float):
     return w_float.floatval

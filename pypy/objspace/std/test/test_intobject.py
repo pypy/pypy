@@ -286,5 +286,16 @@ class TestW_IntObject(test.TestCase):
         result = iobj.int_hex(self.space, f1)
         self.assertEquals(self.space.unwrap(result), hex(x))
 
+class AppIntTest(test.AppTestCase):
+    def test_int_callable(self):
+        self.assertEquals(42, int(42))
+
+    def test_int_string(self):
+        self.assertEquals(42, int("42"))
+
+    def test_int_float(self):
+        self.assertEquals(4, int(4.2))
+        
+
 if __name__ == '__main__':
     test.main()

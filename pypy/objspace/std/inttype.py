@@ -16,7 +16,16 @@ def inttype_new(space, w_inttype, w_args, w_kwds):
     if len(args) == 0:
         return space.newint(0)
     elif len(args) == 1:
-        return space.newint(space.unwrap(args[0]))
+        arg = args[0]
+        if space.is_true(space.issubtype(space.type(arg),
+                                         space.w_str)):
+            try:
+                return space.newint(int(space.unwrap(arg)))
+            except TypeError:
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("invalid literal for int()"))
+        else:
+            return space.int(args[0])
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("int() takes at most 1 argument"))

@@ -228,6 +228,10 @@ class StdObjSpace(ObjSpace):
         import intobject
         return intobject.W_IntObject(self, int_w)
 
+    def newfloat(self, int_w):
+        import floatobject
+        return floatobject.W_FloatObject(self, int_w)
+
     def newtuple(self, list_w):
         import tupleobject
         return tupleobject.W_TupleObject(self, list_w)
