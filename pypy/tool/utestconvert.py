@@ -11,7 +11,7 @@ d={}
 #  function.
 
 # Old Unittest Name             new name         operator  # of args
-d['assertRaises']           = ('py.test.raises',               '', ['Any'])
+d['assertRaises']           = ('raises',               '', ['Any'])
 d['fail']                   = ('raise AssertionError', '', [0,1])
 d['assert_']                = ('assert',               '', [1,2])
 d['failIf']                 = ('assert not',           '', [1,2])
