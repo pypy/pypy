@@ -34,7 +34,7 @@ class Builtin(BuiltinModule):
         if w_dont_inherit is None:
             dont_inherit = False
         else:
-            dont_inherit = space.unwrap(w_supplied_flags)
+            dont_inherit = space.unwrap(w_dont_inherit)
 
         c = _b.compile(str, filename, startstr, supplied_flags, dont_inherit)
         res = PyByteCode()
