@@ -260,6 +260,14 @@ class CList(CRepr):
     def __repr__(self):
         return 'CList(%r)' % (self.r_item,)
 
+    def convert_to(self, target, typeset):
+        if target == R_OBJECT:
+            # can convert to a generic PyObject*
+            # (but not, or not yet, to a regular PyListObject*!)
+            return genc_op.LoCopy
+        else:
+            raise CannotConvert
+
 # ____________________________________________________________
 #
 # Predefined CReprs and caches for building more
