@@ -81,7 +81,15 @@ class BuiltinCodeSignature(Signature):
         exec setfastscope in globals(),d
         exec """
 def run(self):
-    w_result = self.code.func(%s)
+    try: 
+        w_result = self.code.func(%s)
+    except KeyboardInterrupt: 
+        raise OperationError(self.space.w_KeyboardInterrupt, self.space.w_None) 
+    except MemoryError: 
+        raise OperationError(self.space.w_MemoryError, self.space.w_None) 
+    except RuntimeError, e: 
+        raise OperationError(self.space.w_RuntimeError, 
+                             self.space.wrap("internal error" + str(e))) 
     if w_result is None:
         w_result = self.space.w_None
     return w_result
