@@ -102,20 +102,27 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 bases = [space.w_object]
             res = W_TypeObject(space, name, bases, dic)
             return res
-        w_dic = self.newdict([])
         try:
             # note that we hide the real call method by an instance variable!
             self.call = call
-            ex.inittest_exceptions_1(self)
-            for name, w_obj in ex.__dict__.items():
-                if name.startswith("gcls_"):
-                    excname = name[5:]
-                    setattr(self, "w_"+excname, w_obj) # into space
-                    for_builtins[excname] = w_obj # into builtins
-                    self.setitem(w_dic, self.wrap(excname), w_obj) # into exc
-            self.setitem(w_dic, self.wrap("__doc__"), ex.__doc__)
+            w_dic = ex.initexceptions(self)
+
+            self.w_IndexError = self.getitem(w_dic, self.wrap("IndexError"))
+            self.w_StopIteration = self.getitem(w_dic, self.wrap("StopIteration"))
         finally:
-            del self.call # revert to the class' method
+            del self.call # revert
+
+        names_w = self.unpackiterable(self.call_function(self.getattr(w_dic, self.wrap("keys"))))
+
+        for w_name in names_w:
+            name = self.str_w(w_name)
+            if not name.startswith('__'):
+                excname = name
+                w_exc = self.getitem(w_dic, w_name)
+                setattr(self, "w_"+excname, w_exc)
+                        
+                for_builtins[excname] = w_exc
+
         # XXX refine things, clean up, create a builtin module...
         # but for now, we do a regular one.
         from pypy.interpreter.module import Module
