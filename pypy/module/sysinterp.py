@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError
 import sys as cpy_sys
 
 def hack_cpython_module(modname):
-    "Steal a module from CPython."
+    "NOT_RPYTHON. Steal a module from CPython."
     cpy_module = __import__(modname, globals(), locals(), None)
     return cpy_module
 ##    # to build the dictionary of the module, we get all the objects
