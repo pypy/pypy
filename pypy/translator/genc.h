@@ -8,6 +8,8 @@
 #include "structmember.h"
 #include "traceback.h"
 
+/* XXX HACK HACK HACK HACK HACK HACK HACK HACK HACK */
+#define PyExc_unknown_exception PyExc_Exception
 #if !defined(MIN)
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */
@@ -21,6 +23,14 @@ static PyObject *this_module_globals;
 #define OBNOXIOUS_PRINT_STATEMENTS
 #endif
 
+#define op_bool(r,err,what) { \
+		int retval = what; \
+		if (retval < 0) { \
+			FAIL(err) \
+		} \
+		r = PyBool_FromLong(retval); \
+	}
+
 #define op_richcmp(x,y,r,err,dir) \
 					if (!(r=PyObject_RichCompare(x,y,dir))) FAIL(err)
 #define OP_LT(x,y,r,err)  op_richcmp(x,y,r,err, Py_LT)
@@ -30,16 +40,9 @@ static PyObject *this_module_globals;
 #define OP_GT(x,y,r,err)  op_richcmp(x,y,r,err, Py_GT)
 #define OP_GE(x,y,r,err)  op_richcmp(x,y,r,err, Py_GE)
 
-#define OP_IS_(x,y,r,err) \
-					r = x == y ? Py_True : Py_False; Py_INCREF(r);
+#define OP_IS_(x,y,r,err) op_bool(r,err,(x == y))
 
-#define OP_IS_TRUE(x,r,err) \
-				switch (PyObject_IsTrue(x)) {	\
-					case 0: r=Py_False; break;	\
-					case 1: r=Py_True;  break;	\
-					default: FAIL(err)		\
-				}				\
-				Py_INCREF(r);
+#define OP_IS_TRUE(x,r,err) op_bool(r,err,PyObject_IsTrue(x))
 
 #define OP_NEG(x,r,err)           if (!(r=PyNumber_Negative(x)))     FAIL(err)
 #define OP_POS(x,r,err)           if (!(r=PyNumber_Positive(x)))     FAIL(err)
@@ -89,12 +92,7 @@ static PyObject *this_module_globals;
 #define OP_GETITEM(x,y,r,err)     if (!(r=PyObject_GetItem1(x,y)))   FAIL(err)
 #define OP_SETITEM(x,y,z,r,err)   if ((PyObject_SetItem1(x,y,z))<0)  FAIL(err) \
 				  r=Py_None; Py_INCREF(r);
-#define OP_CONTAINS(x,y,r,err)    switch (PySequence_Contains(x,y)) {	\
-	case 1:								\
-		Py_INCREF(Py_True); r = Py_True; break;			\
-	case 0:								\
-		Py_INCREF(Py_False); r = Py_False; break;		\
-	default: FAIL(err) }
+#define OP_CONTAINS(x,y,r,err)    op_bool(r,err,(PySequence_Contains(x,y)))
 
 #define OP_GETATTR(x,y,r,err)     if (!(r=PyObject_GetAttr(x,y)))    FAIL(err)
 #define OP_SETATTR(x,y,z,r,err)   if ((PyObject_SetAttr(x,y,z))<0)   FAIL(err) \
@@ -113,10 +111,20 @@ static PyObject *this_module_globals;
 #define OP_SIMPLE_CALL(args,r,err) if (!(r=PyObject_CallFunctionObjArgs args)) \
 					FAIL(err)
 
-#define OP_TYPE()   /* to whoever needs to implement this: if 'x' is an
-                       old-style exception instance, then OP_TYPE(x)
-                       should really return its (old-style) class */
-#define OP_ISSUBTYPE()  /* same comments */
+/* Needs to act like getattr(x, '__class__', type(x)) */
+#define OP_TYPE(x,r,err) { \
+		PyObject *o = x; \
+		if (PyInstance_Check(o)) { \
+			r = (PyObject*)(((PyInstanceObject*)o)->in_class); \
+		} else { \
+			r = (PyObject*)o->ob_type; \
+		} \
+		Py_INCREF(r); \
+	}
+
+/* Needs to act like instance(x,y) */
+#define OP_ISSUBTYPE(x,y,r,err)  \
+		op_bool(r,err,PyClass_IsSubclass(x, y))
 
 /*** tests ***/
 
