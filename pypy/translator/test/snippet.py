@@ -330,6 +330,7 @@ class G(F):
         return D(), x
 class H(F):
     def m(self, y):
+        self.attr = 1
         return E(), y
 
 def methodcall1(cond):

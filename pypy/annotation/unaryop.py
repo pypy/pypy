@@ -139,6 +139,11 @@ class __extend__(SomeMethod):
         #print 'methodcall:', met, arglist
         assert arglist is not None
         factory = getbookkeeper().getfactory(FuncCallFactory)
-        results = [factory.pycall(func, [SomeInstance(classdef)]+arglist)
-                   for func, classdef in met.meths.items()]
+        results = []
+        for func, classdef in met.meths.items():
+            # create s_self and record the creation in the factory
+            s_self = SomeInstance(classdef)
+            classdef.instancefactories[factory] = True
+            # call func(s_self, *arglist)
+            results.append(factory.pycall(func, [s_self]+arglist))
         return unionof(*results)
