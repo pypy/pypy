@@ -18,11 +18,6 @@ def unichr(code):
     return unicode('\\U%08x' %(code), 'unicode-escape')
 
 
-class buffer(object):
-    def __init__(self, object, offset=None, size=None):
-        raise NotImplementedError, "XXX nobody needs this anyway"
-
-
 def reload(module):
     import imp, sys, errno
 

@@ -51,7 +51,7 @@ Noteworthy: None is the `nil' object; Ellipsis represents `...' in slices.
 
         'intern'        : 'app_misc.intern',
         'unichr'        : 'app_misc.unichr',
-        'buffer'        : 'app_misc.buffer',
+        'buffer'        : 'app_buffer.buffer',
         'reload'        : 'app_misc.reload',
     }
 
