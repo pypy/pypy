@@ -31,7 +31,10 @@ class PyPyConsole(code.InteractiveConsole):
         code.InteractiveConsole.interact(self, banner)
 
     def runcode(self, code):
-        frame = pyframe.PyFrame(self.space, code,
+        from pypy.interpreter import pycode
+        r = pycode.PyByteCode()
+        r._from_code(code)
+        frame = pyframe.PyFrame(self.space, r,
                                 self.w_globals, self.w_globals)
         try:
             self.ec.eval_frame(frame)
