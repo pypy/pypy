@@ -395,7 +395,7 @@ def list_remove__List_ANY(space, w_list, w_any):
         if space.is_true(cmp):
             _del_slice(w_list, i, i+1)
             return space.w_None
-    raise OperationError(space.w_IndexError,
+    raise OperationError(space.w_ValueError,
                          space.wrap("list.remove(x): x not in list"))
 
 def list_index__List_ANY_Int_Int(space, w_list, w_any, w_start, w_stop):
