@@ -124,8 +124,8 @@ def splitline(line, re_word = re.compile(r'[^\s"]\S*|["]["]|["].*?[^\\]["]')):
 
 class GraphRenderer:
     MARGIN = 0.2
-    SCALEMIN = 25
-    SCALEMAX = 90
+    SCALEMIN = 30
+    SCALEMAX = 100
     FONTCACHE = {}
     
     def __init__(self, screen, graphlayout, scale=75):
@@ -144,7 +144,7 @@ class GraphRenderer:
         self.width = int((w + 2*self.MARGIN)*scale)
         self.height = int((h + 2*self.MARGIN)*scale)
         self.bboxh = h
-        size = int(14 * scale / 75)
+        size = max(4, int(15 * (scale-10) / 75))
         if size in self.FONTCACHE:
             self.font = self.FONTCACHE[size]
         else:

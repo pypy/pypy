@@ -37,11 +37,18 @@ class GraphDisplay(Display):
         graphs = [self.translator.getflowgraph(func) for func in functions]
         layout = build_layout(graphs)
         self.viewer = GraphRenderer(self.screen, layout, self.SCALE)
-        # center horizonally
-        self.viewer.setoffset((self.viewer.width - self.width) // 2, 0)
+        # center and scale to view the whole graph
+        self.viewer.setoffset((self.viewer.width - self.width) // 2,
+                              (self.viewer.height - self.height) // 2)
+        f = min(float(self.width-40) / self.viewer.width,
+                float(self.height-40) / self.viewer.height)
+        if f < 1.0:
+            self.viewer.shiftscale(f)
         self.sethighlight()
         self.statusbarinfo = None
         self.must_redraw = True
+        self.setstatusbar('Drag left mouse button to scroll; '
+                          'drag right mouse button to zoom')
 
     def setstatusbar(self, text, fgcolor=(255,255,80), bgcolor=(128,0,0)):
         info = (text, fgcolor, bgcolor)
@@ -141,7 +148,7 @@ if __name__ == '__main__':
     from pypy.translator.translator import Translator
     from pypy.translator.test import snippet
     
-    t = Translator(snippet.poor_man_range)
+    t = Translator(snippet.powerset)
     t.simplify()
     a = t.annotate([int])
     a.simplify()
