@@ -264,13 +264,13 @@ class ArgErrCount(ArgErr):
         argnames, varargname, kwargname = signature
         args_w, kwds_w = args.unpack()
         nargs = len(args_w)
+        if kwargname is not None:
+            msg2 = "non-keyword "
+        else:
+            msg2 = ""
+            nargs += len(kwds_w)
         n = len(argnames)
         if n == 0:
-            if kwargname is not None:
-                msg2 = "non-keyword "
-            else:
-                msg2 = ""
-                nargs += len(kwds_w)
             msg = "%s() takes no %sargument (%d given)" % (
                 fnname, 
                 msg2,
@@ -284,10 +284,8 @@ class ArgErrCount(ArgErr):
             else:
                 msg1 = "at least"
                 n -= defcount
-            if kwargname is not None:
-                msg2 = "non-keyword "
-            else:
-                msg2 = ""
+                if not kwds_w:  # msg "f() takes at least X non-keyword args"
+                    msg2 = ""   # is confusing if no kwd arg actually provided
             if n == 1:
                 plural = ""
             else:
