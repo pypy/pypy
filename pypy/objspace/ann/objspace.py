@@ -227,6 +227,8 @@ class AnnotationObjSpace(ObjSpace):
         else:
             return W_Anything()
 
+    inplace_add = add # XXX Not quite right!
+
     def sub(self, w_left, w_right):
         try:
             left = self.unwrap(w_left)
