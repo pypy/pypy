@@ -1,7 +1,7 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
-import opcode
+from pypy.interpreter import opcode
 from executioncontext import OperationError, Stack
 import baseobjspace
 from appfile import AppFile
