@@ -135,7 +135,7 @@ class TestFlowOjSpace(test.TestCase):
 
     def test_nested_whiles(self):
         x = self.codetest(self.nested_whiles)
-        self.reallyshow(x)
+        self.show(x)
 
 if __name__ == '__main__':
     test.main()
