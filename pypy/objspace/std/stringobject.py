@@ -945,7 +945,9 @@ def ord__String(space, w_str):
                        "of length %d found"%(len(w_str._value),)))
     return space.wrap(ord(u_str))
    
-app = gateway.applevel(r''' 
+app = gateway.applevel(r'''
+    import codecs
+    
     def str_translate__String_ANY_ANY(s, table, deletechars=''):
         """charfilter - unicode handling is not implemented
         
@@ -996,9 +998,9 @@ app = gateway.applevel(r'''
         if encoding is None and errors is None:
             return unicode(str)
         elif errors is None:
-            return unicode(str, encoding)
+            return codecs.getdecoder(encoding)(str)[0]
         else:
-            return unicode(str, encoding, errors)
+            return codecs.getdecoder(encoding)(str, errors)[0]
 ''') 
 
 str_translate__String_ANY_ANY = app.interphook('str_translate__String_ANY_ANY') 
