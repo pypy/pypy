@@ -14,11 +14,11 @@ import cmath
 import sys
 import types
 import unittest
+import testsupport
 
 try:
-    import setpath
-    from appspace import cmathmodule
-    from appspace.complexobject import complex as pycomplex
+    from pypy.appspace import cmathmodule
+    from pypy.appspace.complexobject import complex as pycomplex
 except ImportError:
     import cmathmodule
     from complexobject import complex as pycomplex

@@ -160,13 +160,13 @@ class TestComplex(unittest.TestCase):
             self.assert_(equal(dc, dp))
 
             if not equal(z1c, complex(0,0)): 
-                try:
+#                try:
                     qc = z0c/z1c
                     qp = z0p/z1p
                     self.assert_(equal(qc, qp))
-                except AssertionError:
-                    print "c: (%s/%s) = (%s)" % (z0c, z1c, qc)
-                    print "py:(%s/%s) = (%s)" % (z0p, z1p, qp)
+#                except AssertionError:
+#                    print "c: (%s/%s) = (%s)" % (z0c, z1c, qc)
+#                    print "py:(%s/%s) = (%s)" % (z0p, z1p, qp)
 
                 
     def test_special(self):
@@ -195,16 +195,16 @@ class TestComplex(unittest.TestCase):
             self.assert_(equal(mc, mp))
 
             if not equal(z1c, complex(0,0)): 
-                try:
+#                try:
                     ddc, mmc = divmod(z0c, z1c)
                     self.assert_(ddc*z1c + mmc == z0c)
                     ddp, mmp = divmod(z0p, z1p)
                     # self.assert_(ddp*z1p + mmp == z0p)
                     self.assert_(equal(ddc, ddp))
                     self.assert_(equal(mmc, mmp))
-                except AssertionError:
-                    print "c: divmod(%s,%s) = (%s,%s)" % (z0c, z1c, ddc,mmc)
-                    print "py:divmod(%s,%s) = (%s,%s)" % (z0p, z1p, ddp,mmp)
+#                except AssertionError:
+#                    print "c: divmod(%s,%s) = (%s,%s)" % (z0c, z1c, ddc,mmc)
+#                    print "py:divmod(%s,%s) = (%s,%s)" % (z0p, z1p, ddp,mmp)
 
 
     def test_mod(self):
@@ -216,13 +216,13 @@ class TestComplex(unittest.TestCase):
             self.assert_(equal(mc, mp))
 
             if not equal(z1c, complex(0,0)): 
-                try:
+#                try:
                     rc = z0c%z1c
                     rp = z0p%z1p
                     self.assert_(equal(rc, rp))
-                except AssertionError:
-                    print "c: %s%%%s = %s" % (z0c, z1c, rc)
-                    print "py:%s%%%s = %s" % (z0p, z1p, rp)
+#                except AssertionError:
+#                    print "c: %s%%%s = %s" % (z0c, z1c, rc)
+#                    print "py:%s%%%s = %s" % (z0p, z1p, rp)
                     
 
     def test_pow(self):

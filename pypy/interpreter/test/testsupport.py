@@ -26,7 +26,10 @@ import sys, os
 try:
     head = this_path = os.path.abspath(__file__)
 except NameError:
-    head = this_path = os.path.abspath(os.path.dirname(sys.argv[0]))
+    p = os.path.dirname(sys.argv[0])
+    if not p:
+        p = os.curdir
+    head = this_path = os.path.abspath(p)
 while 1:
     head, tail = os.path.split(head)
     if not tail:
