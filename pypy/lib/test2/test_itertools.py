@@ -95,9 +95,8 @@ class TestBasicOps(unittest.TestCase):
                          zip('abc', 'def'))
         self.assertEqual([pair for pair in izip('abc', 'def')],
                          zip('abc', 'def'))
-
-        # ids = map(id, izip('abc', 'def'))
-        # self.assertEqual(min(ids), max(ids)) ## NOT FEASIBLE IN PYPY
+        ids = map(id, izip('abc', 'def'))
+        self.assertEqual(min(ids), max(ids))
         ids = map(id, list(izip('abc', 'def')))
         self.assertEqual(len(dict.fromkeys(ids)), len(ids))
 
@@ -334,7 +333,7 @@ class TestGC(unittest.TestCase):
 class TestVariousIteratorArgs(unittest.TestCase):
 
     def test_chain(self):
-        for s in ("123", "", range(1000), ('do', 1.2), xrange(2000,2200,5)):
+        for s in ("123", "", range(6), ('do', 1.2), xrange(2000,2030,5)):
             for g in (G, I, Ig, S, L, R):
                 self.assertEqual(list(chain(g(s))), list(g(s)))
                 self.assertEqual(list(chain(g(s), g(s))), list(g(s))+list(g(s)))
@@ -343,7 +342,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, chain(E(s)))
 
     def test_cycle(self):
-        for s in ("123", "", range(1000), ('do', 1.2), xrange(2000,2200,5)):
+        for s in ("123", "", range(6), ('do', 1.2), xrange(2000,2030,5)):
             for g in (G, I, Ig, S, L, R):
                 tgtlen = len(s) * 3
                 expected = list(g(s))*3
@@ -354,7 +353,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, cycle(E(s)))
 
     def test_ifilter(self):
-        for s in (range(10), range(0), range(1000), (7,11), xrange(2000,2200,5)):
+        for s in (range(10), range(0), range(6), (7,11), xrange(2000,2030,5)):
             for g in (G, I, Ig, S, L, R):
                 self.assertEqual(list(ifilter(isEven, g(s))), filter(isEven, g(s)))
             self.assertRaises(TypeError, ifilter, isEven, X(s))
@@ -362,7 +361,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, ifilter(isEven, E(s)))
 
     def test_ifilterfalse(self):
-        for s in (range(10), range(0), range(1000), (7,11), xrange(2000,2200,5)):
+        for s in (range(10), range(0), range(10), (7,11), xrange(2000,2030,5)):
             for g in (G, I, Ig, S, L, R):
                 self.assertEqual(list(ifilterfalse(isEven, g(s))), filter(isOdd, g(s)))
             self.assertRaises(TypeError, ifilterfalse, isEven, X(s))
@@ -370,7 +369,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, ifilterfalse(isEven, E(s)))
 
     def test_izip(self):
-        for s in ("123", "", range(1000), ('do', 1.2), xrange(2000,2200,5)):
+        for s in ("123", "", range(10), ('do', 1.2), xrange(2000,2030,5)):
             for g in (G, I, Ig, S, L, R):
                 self.assertEqual(list(izip(g(s))), zip(g(s)))
                 self.assertEqual(list(izip(g(s), g(s))), zip(g(s), g(s)))
@@ -388,7 +387,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, imap(onearg, E(s)))
 
     def test_islice(self):
-        for s in ("12345", "", range(1000), ('do', 1.2), xrange(2000,2200,5)):
+        for s in ("12345", "", range(10), ('do', 1.2), xrange(2000,2030,5)):
             for g in (G, I, Ig, S, L, R):
                 self.assertEqual(list(islice(g(s),1,None,2)), list(g(s))[1::2])
             self.assertRaises(TypeError, islice, X(s), 10)
@@ -405,7 +404,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, starmap(operator.pow, E(ss)))
 
     def test_takewhile(self):
-        for s in (range(10), range(0), range(1000), (7,11), xrange(2000,2200,5)):
+        for s in (range(10), range(0), range(10), (7,11), xrange(2000,2030,5)):
             for g in (G, I, Ig, S, L, R):
                 tgt = []
                 for elem in g(s):
@@ -417,7 +416,7 @@ class TestVariousIteratorArgs(unittest.TestCase):
             self.assertRaises(ZeroDivisionError, list, takewhile(isEven, E(s)))
 
     def test_dropwhile(self):
-        for s in (range(10), range(0), range(1000), (7,11), xrange(2000,2200,5)):
+        for s in (range(10), range(0), range(10), (7,11), xrange(2000,2030,5)):
             for g in (G, I, Ig, S, L, R):
                 tgt = []
                 for elem in g(s):

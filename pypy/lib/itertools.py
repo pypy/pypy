@@ -356,20 +356,20 @@ class islice:
         s = slice(*args)
         self.start, self.stop, self.step = s.start or 0, s.stop, s.step or 1
         self.donext = iter(iterable).next
+        self.cnt = 0
 
     def __iter__(self):
-        cnt = 0
-        while cnt < self.start:
+        return self
+
+    def next(self): 
+        while self.cnt < self.start:
             self.donext()
-            cnt += 1
-        while self.stop is None or cnt < self.stop:
-            yield self.donext()
-            cnt += 1
-            skip = self.step - 1
-            while skip:
-                self.donext()
-                cnt += 1
-                skip -= 1
+            self.cnt += 1
+        if self.stop is None or self.cnt < self.stop:
+            self.start += self.step 
+            self.cnt += 1
+            return self.donext()
+        raise StopIteration 
 
 class izip:
     """Make an iterator that aggregates elements from each of the
