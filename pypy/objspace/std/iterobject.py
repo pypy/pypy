@@ -15,7 +15,6 @@ class W_SeqIterObject(W_Object):
         w_self.w_seq = w_seq
         w_self.index = index
 
-
 registerimplementation(W_SeqIterObject)
 
 
@@ -23,9 +22,12 @@ def iter__SeqIter(space, w_seqiter):
     return w_seqiter
 
 def next__SeqIter(space, w_seqiter):
+    if w_seqiter.w_seq is None:
+        raise OperationError(space.w_StopIteration, space.w_None) 
     try:
         w_item = space.getitem(w_seqiter.w_seq, space.wrap(w_seqiter.index))
     except OperationError, e:
+        w_seqiter.w_seq = None
         if not e.match(space, space.w_IndexError):
             raise
         raise OperationError(space.w_StopIteration, space.w_None) 
