@@ -16,6 +16,7 @@ try:
 except ImportError:
     WeakKeyDictionary = dict   # XXX for PyPy
 from pypy.interpreter import eval, pycode
+from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import Wrappable, ObjSpace
 
 
@@ -153,8 +154,12 @@ class Gateway(object):
                 assert self.code.ismethod, (
                     'global built-in function %r used as method' %
                     self.code.func)
-            fn = self.get_function(obj.space)
-            return fn.__get__(obj, cls)
+            space = obj.space
+            fn = self.get_function(space)
+            if cls is None:
+                cls = obj.__class__
+            return Method(space, space.wrap(fn),
+                          space.wrap(obj), space.wrap(cls))
 
     def get_function(self, space):
         try:
@@ -188,7 +193,6 @@ class Gateway(object):
         if space in self.functioncache:
             fn = self.functioncache[space]
         else:
-            from pypy.interpreter.function import Function
             defs = self.getdefaults(space)  # needs to be implemented by subclass
             fn = Function(space, self.code, w_globals, defs, forcename = self.name)
             self.functioncache[space] = fn

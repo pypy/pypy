@@ -97,8 +97,10 @@ Function.typedef = TypeDef("function",
     func_doc = attrproperty('doc'), 
     func_name = attrproperty('name'), 
     func_dict = attrproperty_w('w_func_dict'), 
+    __doc__ = attrproperty('doc'), 
+    __name__ = attrproperty('name'), 
     __dict__ = attrproperty_w('w_func_dict'), 
-    # XXX func_closure, __name__, __doc__, etc.pp
+    # XXX func_closure, etc.pp
     )
 
 Method.typedef = TypeDef("method",

@@ -8,7 +8,6 @@ attribute.
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import interp2app 
 
 class Function(Wrappable):
     """A function is a code object captured with some environment:
