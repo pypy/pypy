@@ -34,15 +34,16 @@ tests as test methods in TestCase classes. Custom test case classes
 derive from the shown TestCase class, defined in this module. As in
 Python's unittest, a test case class can contain setUp and tearDown
 methods. Additionally, it contains a method 'skip' which can be
-called to stop a test prematurely. This won't be counted as a failure.
+called to stop a test prematurely. This won't be counted as a failure
+or error.
 
 Test cases are loaded by a TestSuite class via the method init_from_dir.
-init_from_dir will read all test modules in and below a specified
+This method will read all test modules in and below a specified
 directory, inspect them for classes derived from TestCase (i. e. _our_
 TestCase), and in turn inspect them for test methods (like in
 unittest, all methods which start with "test").
 
-For every found method, TestSuite will store it's module, class,
+For every found method, TestSuite will store its module, class and
 unbound method objects in a TestItem object. There are also other
 properties stored, e. g. the source code for each method and its
 docstring.
