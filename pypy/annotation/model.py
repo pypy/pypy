@@ -231,6 +231,10 @@ def immutablevalue(x):
     elif ishashable(x) and x in BUILTIN_ANALYZERS:
         result = SomeBuiltin(BUILTIN_ANALYZERS[x])
     elif callable(x) or isinstance(x, staticmethod): # XXX
+        # maybe 'x' is a method bound to a not-yet-frozen cache? fun fun fun.
+        if (hasattr(x, 'im_self') and isinstance(x.im_self, Cache)
+            and not x.im_self.frozen):
+            x.im_self.freeze()
         if hasattr(x, '__self__') and x.__self__ is not None:
             s_self = immutablevalue(x.__self__)
             del s_self.const # stop infinite recursion getattr<->immutablevalue

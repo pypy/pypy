@@ -193,8 +193,8 @@ class FlowObjSpace(ObjSpace):
     def call_args(self, w_callable, args):
         try:
             fn = self.unwrap(w_callable)
-            sc = self.specialcases[fn]
-        except (UnwrapException, KeyError):
+            sc = self.specialcases[fn]   # TypeError if 'fn' not hashable
+        except (UnwrapException, KeyError, TypeError):
             pass
         else:
             return sc(self, fn, args)
