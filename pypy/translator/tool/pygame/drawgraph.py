@@ -282,12 +282,12 @@ class GraphRenderer:
         return (-self.ofsx, -self.ofsy, self.width, self.height)
 
     def visible(self, x1, y1, x2, y2):
-        "Is any part of the box visible (i.e. within the bounding box)?
+        """Is any part of the box visible (i.e. within the bounding box)?
 
         We have to perform clipping ourselves because with big graphs the
         coordinates may sometimes become longs and cause OverflowErrors
         within pygame.
-        "
+        """
         return (x1 < self.width-self.ofsx and x2 > -self.ofsx and
                 y1 < self.height-self.ofsy and y2 > -self.ofsy)
 
