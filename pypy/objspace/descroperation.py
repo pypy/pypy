@@ -247,7 +247,7 @@ class DescrOperation:
                 if not e.match(space, space.w_StopIteration):
                     raise
                 return space.w_False
-            if space.is_true(space.eq(w_next, w_lookfor)):
+            if space.is_true(space.eq(w_next, w_item)):
                 return space.w_True
     
     # XXX not_ has a default implementation
