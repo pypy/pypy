@@ -72,6 +72,13 @@ class TypedPyrexGenTestCase(test.IntTestCase):
         half = self.build_cfunc(t.half_of_n)
         self.assertEquals(half(10), 5)
 
+    def test_and(self):
+        sand = self.build_cfunc(t.s_and)
+        self.assertEquals(sand(5, 6), "yes")
+        self.assertEquals(sand(5, 0), "no")
+        self.assertEquals(sand(0, 6), "no")
+        self.assertEquals(sand(0, 0), "no")
+
 class NoTypePyrexGenTestCase(TypedPyrexGenTestCase):
 
     def build_cfunc(self, func):

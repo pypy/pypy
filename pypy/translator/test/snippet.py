@@ -198,3 +198,9 @@ def powerset(setsize):
         ptr += 1
         bitmask += 1
     return powerset
+
+def s_and(x, y):
+    if x and y:
+        return 'yes'
+    else:
+        return 'no'
