@@ -1,132 +1,203 @@
 from __future__ import generators
 
-from pypy.translator.annset import AnnotationSet, Cell, deref
+from pypy.translator.annheap import AnnotationHeap, Transaction
+from pypy.translator.annotation import XCell, XConstant, Annotation
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 
-#class GraphGlobalVariable(Variable):
-#    pass
 
-class Annotator:
+class RPythonAnnotator:
+    """Block annotator for RPython.
+    See description in doc/transation/annotation.txt."""
 
-    def __init__(self, flowgraph):
-        self.flowgraph = flowgraph
+    def __init__(self):
+        self.heap = AnnotationHeap()
+        self.pendingblocks = []  # list of (block, list-of-XCells)
+        self.bindings = {}       # map Variables/Constants to XCells/XConstants
+        self.annotated = {}      # set of blocks already seen
 
-    def build_types(self, input_arg_types):
-        input_ann = AnnotationSet()
-        for arg, arg_type in zip(self.flowgraph.getargs(), input_arg_types):
-            input_ann.set_type(arg, arg_type)
-        self.build_annotations(input_ann)
 
-    def build_annotations(self,input_annotations):
-        self.annotated = {}
-        self.flowin(self.flowgraph.startblock,input_annotations)
+    #___ convenience high-level interface __________________
 
-    def get_return_value(self):
-        "Return the return_value variable."
-        return self.flowgraph.returnblock.inputargs[0]
+    def build_types(self, flowgraph, input_arg_types):
+        """Recursively build annotations about the specific entry point."""
+        # make input arguments and set their type
+        inputcells = [XCell() for arg in flowgraph.getargs()]
+        t = self.transaction()
+        for cell, arg_type in zip(inputcells, input_arg_types):
+            t.set_type(cell, arg_type)
+        # register the entry point
+        self.addpendingblock(flowgraph.startblock, inputcells)
+        # recursively proceed until no more pending block is left
+        self.complete()
 
-    def get_variables_ann(self):
-        """Return a dict {Variable(): AnnotationSet()} mapping each variable
-        of the control flow graph to a set of annotations that apply to it."""
-        # XXX this assumes that all variables are local to a single block,
-        #     and returns for each variable the annotations for that block.
-        #     This assumption is clearly false because of the EggBlocks.
-        #     This has to be fixed anyway.
-        result = {}
-        for block, ann in self.annotated.items():
-            for v in block.getvariables():
-                #XXX assert v not in result, "Variables must not be shared"
-                result[v] = ann
+
+    #___ medium-level interface ____________________________
+
+    def addpendingblock(self, block, cells):
+        """Register an entry point into block with the given input cells."""
+        self.pendingblocks.append((block, cells))
+
+    def transaction(self):
+        """Start a Transaction.  Each new Annotation is marked as depending
+        on the Annotations queried for during the same Transation."""
+        return Transaction(self.heap)
+
+    def complete(self):
+        """Process pending blocks until none is left."""
+        while self.pendingblocks:
+            # XXX don't know if it is better to pop from the head or the tail.
+            # let's do it breadth-first and pop from the head (oldest first).
+            # that's more stacklessy.
+            block, cells = self.pendingblocks.pop(0)
+            self.processblock(block, cells)
+
+    def binding(self, arg):
+        "XCell or XConstant corresponding to the given Variable or Constant."
+        try:
+            return self.bindings[arg]
+        except KeyError:
+            if not isinstance(arg, Constant):
+                raise   # propagate missing bindings for Variables
+            result = XConstant(arg.value)
+            self.consider_const(result, arg)
+            self.bindings[arg] = result
+            return result
+
+    def bindnew(self, arg):
+        "Force the creation of a new binding for the given Variable."
+        assert isinstance(arg, Variable)
+        self.bindings[arg] = result = XCell()
         return result
 
+    def constant(self, value):
+        "Turn a value into an XConstant with the proper annotations."
+        return self.binding(Constant(value))
+
+
+    #___ simplification (should be moved elsewhere?) _______
+
+    def reverse_binding(self, known_variables, cell):
+        """This is a hack."""
+        # In simplify_calls, when we are trying to create the new
+        # SpaceOperation, all we have are XCells.  But SpaceOperations take
+        # Variables, not XCells.  Trouble is, we don't always have a Variable
+        # that just happens to be bound to the given XCells.  A typical
+        # example would be if the tuple of arguments was created from another
+        # basic block or even another function.  Well I guess there is no
+        # clean solution.
+        if isinstance(cell, XConstant):
+            return Constant(cell.value)
+        else:
+            for v in known_variables:
+                if self.bindings[v] == cell:
+                    return v
+            else:
+                raise CannotSimplify
+
     def simplify_calls(self):
-        for block, ann in self.annotated.iteritems():
+        t = self.transaction()
+        for block in self.annotated:
+            known_variables = block.inputargs[:]
             newops = []
             for op in block.operations:
-                if op.opname == "call":
-                    w_func, w_varargs, w_kwargs = op.args
-                    c = Cell()
-                    ann.match(SpaceOperation('len', [w_varargs], c))
-                    if isinstance(c.content, Constant):
-                        length = c.content.value
-                        args_w = [w_func]
+                try:
+                    if op.opname == "call":
+                        func, varargs, kwargs = [self.binding(a)
+                                                 for a in op.args]
+                        c = t.get('len', [varargs])
+                        if not isinstance(c, XConstant):
+                            raise CannotSimplify
+                        length = c.value
+                        v = self.reverse_binding(known_variables, func)
+                        args = [v]
                         for i in range(length):
-                            c = Cell()
-                            if not ann.match(SpaceOperation('getitem', [
-                                w_varargs, Constant(i)], c)):
-                                break
-                            args_w.append(deref(c))
-                        else:
-                            op = SpaceOperation('simple_call', args_w, op.result)
-                            # XXX check that w_kwargs is empty
+                            c = t.get('getitem', [varargs, self.constant(i)])
+                            if c is None:
+                                raise CannotSimplify
+                            v = self.reverse_binding(known_variables, c)
+                            args.append(v)
+                        op = SpaceOperation('simple_call', args, op.result)
+                        # XXX check that kwargs is empty
+                except CannotSimplify:
+                    pass
                 newops.append(op)
+                known_variables.append(op.result)
             block.operations = newops
 
     def simplify(self):
         self.simplify_calls()
 
-    #__________________________________________________
 
-    def flowin(self, block, annotations):
+    #___ flowing annotations in blocks _____________________
+
+    def processblock(self, block, cells):
         if block not in self.annotated:
-            oldlen = None
-            self.annotated[block] = blockannotations = annotations
+            self.annotated[block] = True
+            self.flowin(block, cells)
         else:
-            blockannotations = self.annotated[block]
-            oldlen = len(blockannotations)
-            #import sys; print >> sys.stderr, block, blockannotations
-            #import sys; print >> sys.stderr, '/\\', annotations, '==>',
-            blockannotations.intersect(annotations)
-            #import sys; print >> sys.stderr, blockannotations
+            # already seen; merge each of the block's input variable
+            newcells = []
+            reflow = False
+            for a, cell2 in zip(block.inputargs, cells):
+                cell1 = self.bindings[a]   # old binding
+                newcell = self.heap.merge(cell1, cell2)
+                newcells.append(newcell)
+                reflow = reflow or (newcell != cell1 and newcell != cell2)
+            # no need to re-flowin unless there is a completely new cell
+            if reflow:
+                self.flowin(block, newcells)
 
+    def flowin(self, block, inputcells):
+        for a, cell in zip(block.inputargs, inputcells):
+            self.bindings[a] = cell
         for op in block.operations:
-            self.consider_op(op, blockannotations)
-        # assert monotonic decrease
-        assert (oldlen is None or len(blockannotations) <= oldlen), (
-            block, oldlen, blockannotations)
-        if len(blockannotations) != oldlen:
-            for link in block.exits:
-                self.flownext(link,block)
-            
-    def consider_op(self,op,annotations):
+            self.consider_op(op)
+        for link in block.exits:
+            cells = [self.binding(a) for a in link.args]
+            self.addpendingblock(link.target, cells)
+
+
+    #___ creating the annotations based on operations ______
+
+    def consider_op(self,op):
+        argcells = [self.binding(a) for a in op.args]
+        resultcell = self.bindnew(op.result)
         consider_meth = getattr(self,'consider_op_'+op.opname,None)
         if consider_meth is not None:
-            consider_meth(op,annotations)
+            consider_meth(argcells, resultcell, self.transaction())
 
-    def consider_op_add(self,op,annotations):
-        arg1,arg2 = op.args
-        type1 = annotations.get_type(arg1)
-        type2 = annotations.get_type(arg2)
+    def consider_op_add(self, (arg1,arg2), result, t):
+        type1 = t.get_type(arg1)
+        type2 = t.get_type(arg2)
         if type1 is int and type2 is int:
-            annotations.set_type(op.result, int)
+            t.set_type(result, int)
         elif type1 in (int, long) and type2 in (int, long):
-            annotations.set_type(op.result, long)
+            t.set_type(result, long)
         if type1 is str and type2 is str:
-            annotations.set_type(op.result, str)
+            t.set_type(result, str)
         if type1 is list and type2 is list:
-            annotations.set_type(op.result, list)
+            t.set_type(result, list)
 
     consider_op_inplace_add = consider_op_add
 
-    def consider_op_sub(self, op, annotations):
-        arg1, arg2 = op.args
-        type1 = annotations.get_type(arg1)
-        type2 = annotations.get_type(arg2)
+    def consider_op_sub(self, (arg1,arg2), result, t):
+        type1 = t.get_type(arg1)
+        type2 = t.get_type(arg2)
         if type1 is int and type2 is int:
-            annotations.set_type(op.result, int)
+            t.set_type(result, int)
         elif type1 in (int, long) and type2 in (int, long):
-            annotations.set_type(op.result, long)
+            t.set_type(result, long)
 
     consider_op_and_ = consider_op_sub # trailing underline
     consider_op_inplace_lshift = consider_op_sub
 
-    def consider_op_is_true(self, op, annotations):
-        annotations.set_type(op.result, bool)
+    def consider_op_is_true(self, (arg,), result, t):
+        t.set_type(result, bool)
 
     consider_op_not_ = consider_op_is_true
 
-    def consider_op_lt(self, op, annotations):
-        annotations.set_type(op.result, bool)
+    def consider_op_lt(self, (arg1,arg2), result, t):
+        t.set_type(result, bool)
 
     consider_op_le = consider_op_lt
     consider_op_eq = consider_op_lt
@@ -134,74 +205,48 @@ class Annotator:
     consider_op_gt = consider_op_lt
     consider_op_ge = consider_op_lt
 
-    def consider_op_newtuple(self,op,annotations):
-        annotations.set_type(op.result,tuple)
-        ann = SpaceOperation("len",[op.result],Constant(len(op.args)))
-        annotations.add(ann)
-        for i in range(len(op.args)):
-            ann = SpaceOperation("getitem",[op.result,Constant(i)],op.args[i])
-            annotations.add(ann)
+    def consider_op_newtuple(self, args, result, t):
+        t.set_type(result,tuple)
+        t.set("len", [result], self.constant(len(args)))
+        for i in range(len(args)):
+            t.set("getitem", [result, self.constant(i)], args[i])
 
-    def consider_op_newlist(self, op, annotations):
-        annotations.set_type(op.result, list)
+    def consider_op_newlist(self, args, result, t):
+        t.set_type(result, list)
 
-    def consider_op_newslice(self,op,annotations):
-        annotations.set_type(op.result, slice)
+    def consider_op_newslice(self, args, result, t):
+        t.set_type(result, slice)
 
-    def consider_op_getitem(self, op, annotations):
-        arg1,arg2 = op.args
-        type1 = annotations.get_type(arg1)
-        type2 = annotations.get_type(arg2)
+    def consider_op_getitem(self, (arg1,arg2), result, t):
+        type1 = t.get_type(arg1)
+        type2 = t.get_type(arg2)
         if type1 in (list, tuple) and type2 is slice:
-            annotations.set_type(op.result, type1)
+            t.set_type(result, type1)
 
-    def consider_op_call(self, op, annotations):
-        func = op.args[0]
-        if not isinstance(func, Constant):
+    def consider_op_call(self, (func,varargs,kwargs), result, t):
+        if not isinstance(func, XConstant):
             return
         func = func.value
         # XXX: generalize this later
         if func is range:
-            annotations.set_type(op.result, list)
+            t.set_type(result, list)
         if func is pow:
-            varargs = op.args[1]
-            def getitem(var, i):
-                class NoMatch(Exception): pass
-                c = Cell()
-                match = annotations.match(
-                    SpaceOperation('getitem', (var, Constant(i)), c))
-                if match: return deref(c)
-                else: raise NoMatch
-            try:
-                tp1 = annotations.get_type(getitem(varargs, 0))
-                tp2 = annotations.get_type(getitem(varargs, 1))
-                if tp1 is int and tp2 is int:
-                    annotations.set_type(op.result, int)
-            except NoMatch:
-                pass
+            tp1 = t.get_type(t.get('getitem', [varargs, self.constant(0)]))
+            tp2 = t.get_type(t.get('getitem', [varargs, self.constant(1)]))
+            if tp1 is int and tp2 is int:
+                t.set_type(result, int)
 
-    def consider_const(self,to_var,const,annotations):
+    def consider_const(self,to_var,const):
+        t = self.transaction()
+        t.set('immutable', [], to_var)
         if getattr(const, 'dummy', False):
             return   # undefined local variables
-        annotations.set_type(to_var,type(const.value))
+        t.set_type(to_var,type(const.value))
         if isinstance(const.value, list):
             pass # XXX say something about the type of the elements
         elif isinstance(const.value, tuple):
             pass # XXX say something about the elements
 
-    def flownext(self,link,curblock):
-        renaming = {}
-        newannotations = AnnotationSet()
 
-        for w_from,w_to in zip(link.args,link.target.inputargs):
-            if isinstance(w_from,Variable):
-                renaming.setdefault(w_from, []).append(w_to)
-            else:
-                self.consider_const(w_to,w_from,newannotations)        
-
-        #import sys; print >> sys.stderr, self.annotated[curblock]
-        #import sys; print >> sys.stderr, renaming
-        for ann in self.annotated[curblock].enumerate(renaming):
-            newannotations.add(ann)
-        #import sys; print >> sys.stderr, newannotations
-        self.flowin(link.target,newannotations)
+class CannotSimplify(Exception):
+    pass

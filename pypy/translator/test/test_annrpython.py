@@ -3,15 +3,14 @@ import autopath
 from pypy.tool import test
 from pypy.tool.udir import udir
 
-from pypy.translator.annrpython import Annotator
+from pypy.translator.annrpython import RPythonAnnotator
 from pypy.objspace.flow.model import *
 
 class AnnonateTestCase(test.IntTestCase):
     def setUp(self):
         self.space = test.objspace('flow')
 
-    def make_ann(self, func):
-        """ make a pyrex-generated cfunction from the given func """
+    def make_fun(self, func):
         import inspect
         try:
             func = func.im_func
@@ -20,13 +19,12 @@ class AnnonateTestCase(test.IntTestCase):
         name = func.func_name
         funcgraph = self.space.build_flow(func)
         funcgraph.source = inspect.getsource(func)
-        return Annotator(funcgraph)
+        return funcgraph
 
     def reallyshow(self, graph):
         import os
-        from pypy.translator.test.make_dot import make_dot
-        from pypy.tool.udir import udir
-        dest = make_dot(graph, udir, 'ps')
+        from pypy.translator.tool.make_dot import make_dot
+        dest = make_dot('b', graph)
         os.system('gv %s' % str(dest))
 
     def test_simple_func(self):
@@ -42,11 +40,10 @@ class AnnonateTestCase(test.IntTestCase):
         fun = FunctionGraph("f", block)
         block.operations.append(op)
         block.closeblock(Link([result], fun.returnblock))
-        a = Annotator(fun)
-        a.build_types([int])
-        end_var = a.get_return_value()
-        end_ann = a.get_variables_ann()[end_var]
-        self.assertEquals(end_ann.get_type(end_var), int)
+        a = RPythonAnnotator()
+        a.build_types(fun, [int])
+        end_cell = a.binding(fun.getreturnvar())
+        self.assertEquals(a.transaction().get_type(end_cell), int)
 
     def test_while(self):
         """
@@ -70,12 +67,11 @@ class AnnonateTestCase(test.IntTestCase):
                                Link([i], whileblock, True))
         whileblock.operations.append(decop)
         whileblock.closeblock(Link([i], headerblock))
-        
-        a = Annotator(fun)
-        a.build_types([int])
-        end_var = a.get_return_value()
-        end_ann = a.get_variables_ann()[end_var]
-        self.assertEquals(end_ann.get_type(end_var), int)
+
+        a = RPythonAnnotator()
+        a.build_types(fun, [int])
+        end_cell = a.binding(fun.getreturnvar())
+        self.assertEquals(a.transaction().get_type(end_cell), int)
 
     def test_while_sum(self):
         """
@@ -108,18 +104,17 @@ class AnnonateTestCase(test.IntTestCase):
         whileblock.operations.append(decop)
         whileblock.closeblock(Link([i, sum], headerblock))
 
-        a = Annotator(fun)
-        #import sys; print >> sys.stderr, a.build_annotations(input_ann)
-        a.build_types([int])
-        end_var = a.get_return_value()
-        end_ann = a.get_variables_ann()[end_var]
-        self.assertEquals(end_ann.get_type(end_var), int)
+        a = RPythonAnnotator()
+        a.build_types(fun, [int])
+        end_cell = a.binding(fun.getreturnvar())
+        self.assertEquals(a.transaction().get_type(end_cell), int)
 
     def test_simplify_calls(self):
-        a = self.make_ann(f_calls_g)
-        a.build_types([int])
+        fun = self.make_fun(f_calls_g)
+        a = RPythonAnnotator()
+        a.build_types(fun, [int])
         a.simplify_calls()
-        #self.reallyshow(a.flowgraph)
+        #self.reallyshow(fun)
 
 def g(n):
     return [0,1,2,n]

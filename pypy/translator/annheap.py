@@ -87,19 +87,25 @@ class AnnotationHeap:
                         self.annlist.append(rename(ann, newcell, resultcell))
                     return resultcell
             else:
-                # for mutable objects we must identify oldcell and newcell,
-                # and only keep the common annotations
-                newcell.share(oldcell)
-                # search again and list all annotations that talk about
-                # oldcell or newcell (same thing now) but are not in 'common'
+                if Annotation('immutable', [], oldcell) in self.annlist:
+                    pass # old was immutable, don't touch it
+                elif Annotation('immutable', [], newcell) in self.annlist:
+                    # new is immutable, old was not, inverse the roles
+                    oldcell, newcell = newcell, oldcell
+                else:
+                    # two mutable objects: we identify oldcell and newcell
+                    newcell.share(oldcell)
+                # only keep the common annotations by listing all annotations
+                # to remove, which are the ones that talk about newcell but
+                # are not in 'common'.
                 deleting = []
                 for ann in self.annlist:
-                    if oldcell in ann.args or oldcell == ann.result:
+                    if newcell in ann.args or newcell == ann.result:
                         if ann not in common:
                             deleting.append(ann)
                 # apply changes
                 self.simplify(kill=deleting)
-                return oldcell
+                return newcell
 
 
 def rename(ann, oldcell, newcell):
@@ -153,6 +159,7 @@ class Transaction:
 
     def get_type(self, cell):
         """Get the type of 'cell', as specified by the annotations, or None."""
+        # Returns None if cell is None.
         c = self.get('type', [cell])
         if isinstance(c, XConstant):
             return c.value

@@ -112,6 +112,12 @@ class XConstant(XCell):
         return (isinstance(other, XConstant) and self.value == other.value
                 or XCell.__eq__(self, other))
 
+    def __repr__(self):
+        if self.shared:
+            return 'UNEXPECTEDLY SHARED %r' % XCell.__repr__(self)
+        else:
+            return 'XConstant %r' % self.value
+
 
 # The more annotations about an XCell, the least general
 # it is.  Extreme case: *all* possible annotations stand for an
