@@ -1,14 +1,9 @@
-import unittest, sys
 import testsupport
-from pypy.interpreter import unittest_w
-from pypy.objspace.std import noneobject as nobj
-from pypy.objspace.std.objspace import *
 
-
-class TestStdObjectSpace(unittest_w.TestCase_w):
+class TestStdObjectSpace(testsupport.TestCase):
 
     def setUp(self):
-        self.space = StdObjSpace()
+        self.space = testsupport.objspace()
 
     def tearDown(self):
         pass
@@ -31,4 +26,4 @@ class TestStdObjectSpace(unittest_w.TestCase_w):
                             [w(-1)])
 
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()
