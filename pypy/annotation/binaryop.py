@@ -297,10 +297,6 @@ class __extend__(pairtype(SomePBC, SomePBC)):
                     classdef = classdef.commonbase(d[x])
             d[x] = classdef
         result =  SomePBC(d)
-        is_type_of1 = getattr(pbc1, 'is_type_of', None)
-        is_type_of2 = getattr(pbc2, 'is_type_of', None)
-        if is_type_of1 and is_type_of1 == is_type_of2:
-            result.is_type_of = is_type_of1
         return result
 
 class __extend__(pairtype(SomeImpossibleValue, SomeImpossibleValue)):

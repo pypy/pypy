@@ -375,9 +375,10 @@ class RPythonAnnotator:
                     assert in_except_block
                     assert last_exception_unused
                     if last_exception_unknown:
-                        cell = last_exception_object = self.bookkeeper.immutablevalue(a.value)
-                    else:
-                        cell = last_exception_object
+                        # this modeling should be good enough
+                        # the exc type is not seen by user code
+                        last_exception_object.const = a.value 
+                    cell = last_exception_object
                     cells.append(cell)
                     last_exception_unknown = False
                 else:
