@@ -265,6 +265,8 @@ class FlowExecutionContext(ExecutionContext):
                 for a in node.inputargs:
                     mapping[a] = Variable(a)
                 node.renamevariables(mapping)
+            elif isinstance(node, SpamBlock):
+                del node.framestate     # memory saver
         traverse(fixegg, self.graph)
 
     def mergeblock(self, currentblock, currentstate):
