@@ -226,6 +226,11 @@ class Stack:
     def empty(self):
         return not self.items
 
+    def clone(self):
+        s = Stack()
+        s.items = self.items[:]
+        return s
+
 
 # installing the excepthook for OperationErrors
 def operr_excepthook(exctype, value, traceback):

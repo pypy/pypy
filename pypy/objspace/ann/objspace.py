@@ -4,6 +4,8 @@ import operator
 from pypy.interpreter.baseobjspace \
      import ObjSpace, OperationError, NoValue, PyPyError
 from pypy.interpreter.pycode import PyByteCode
+from pypy.objspace.ann.cloningcontext import CloningExecutionContext
+from pypy.objspace.ann.cloningcontext import IndeterminateCondition
 
 
 class W_Object(object):
@@ -28,9 +30,18 @@ class W_KnownKeysContainer(W_Object):
         return len(self.args_w)
     def __getitem__(self, i):
         return self.args_w[i]
+    def clone(self):
+        args_w = self.args_w
+        if isinstance(args_w, dict):
+            args_w = args_w.copy()
+        # XXX Recurse down the values?
+        return W_KnownKeysContainer(args_w)
 
 
 class AnnException(Exception):
+    pass
+
+class UnwrapException(AnnException):
     pass
 
 
@@ -48,7 +59,7 @@ class AnnotationObjSpace(ObjSpace):
                 setattr(self, 'w_' + c.__name__, self.wrap(c))
         self.w_builtins = self.wrap(__builtin__)
 
-    # Service methods
+    # Service methods whose interface is in the abstract base class
 
     def wrap(self, obj):
         return W_Constant(obj)
@@ -57,21 +68,59 @@ class AnnotationObjSpace(ObjSpace):
         if isinstance(w_obj, W_Constant):
             return w_obj.value
         elif isinstance(w_obj, W_Object):
-            raise AnnException, "Cannot unwrap %r" % w_obj
+            raise UnwrapException("Cannot unwrap: " +repr(w_obj))
         else:
-            raise TypeError, "not wrapped: %s" % repr(w_obj)
-
-    def is_true(self, w_obj):
-        if isinstance(w_obj, W_KnownKeysContainer):
-            return bool(len(w_obj))
-        obj = self.unwrap(w_obj)
-        return bool(obj)
+            raise TypeError("not wrapped: " + repr(w_obj))
 
     def reraise(self):
         t, v = sys.exc_info()[:2]
         raise OperationError(self.wrap(t), self.wrap(v))
 
-    # Specialized creators
+    def is_true(self, w_obj):
+        if hasattr(w_obj, "force"):
+            return w_obj.force # Forced by cloning machinery
+        if isinstance(w_obj, W_KnownKeysContainer):
+            return bool(len(w_obj))
+        try:
+            obj = self.unwrap(w_obj)
+        except UnwrapException:
+            pass
+        else:
+            return bool(obj)
+        # It's indeterminate!!!  Aargh!!!
+        # Raise an exception that will clone the interpreter.
+        raise IndeterminateCondition(w_obj)
+
+    def createexecutioncontext(self):
+        return CloningExecutionContext(self)
+
+    def clone_locals(self, w_locals):
+        assert isinstance(w_locals, W_KnownKeysContainer)
+        return w_locals.clone()
+
+    def union(self, r1, r2):
+        # Unite two results
+        if r1 is r2:
+            return r1
+        if r1 is None:
+            return r2
+        if r2 is None:
+            return r1
+        if isinstance(r1, W_Anything) or isinstance(r2, W_Anything):
+            return W_Anything()
+        if (isinstance(r1, W_Constant) and isinstance(r2, W_Constant) and
+            r1.value == r2.value):
+            return W_Constant(r1.value)
+        if self.is_int(r1) and self.is_int(r2):
+            return W_Integer()
+        if (isinstance(r1, W_KnownKeysContainer) and
+            isinstance(r2, W_KnownKeysContainer) and
+            r1.args_w == r2.args_w):
+            return W_KnownKeysContainer(r1.args_w)
+        # XXX Could do more cases.  This will blow up as we add more types
+        return W_Anything()
+
+    # Specialized creators whose interface is in the abstract base class
     
     def newtuple(self, args_w):
         for w_arg in args_w:
@@ -84,7 +133,7 @@ class AnnotationObjSpace(ObjSpace):
         for w_key, w_value in items_w:
             try:
                 key = self.unwrap(w_key)
-            except AnnException:
+            except UnwrapException:
                 break
             else:
                 values_w[key] = w_value
@@ -105,7 +154,7 @@ class AnnotationObjSpace(ObjSpace):
         try:
             left = self.unwrap(w_left)
             right = self.unwrap(w_right)
-        except AnnException:
+        except UnwrapException:
             pass
         else:
             return self.wrap(left + right)
@@ -141,7 +190,7 @@ class AnnotationObjSpace(ObjSpace):
         try:
             obj = self.unwrap(w_obj)
             name = self.unwrap(w_name)
-        except AnnException:
+        except UnwrapException:
             return W_Anything()
         else:
             try:
@@ -154,7 +203,7 @@ class AnnotationObjSpace(ObjSpace):
             return self.wrap(len(w_obj))
         try:
             obj = self.unwrap(w_obj)
-        except AnnException:
+        except UnwrapException:
             return W_Anything()
         else:
             return self.wrap(len(obj))
@@ -162,11 +211,11 @@ class AnnotationObjSpace(ObjSpace):
     def getitem(self, w_obj, w_key):
         try:
             key = self.unwrap(w_key)
-        except AnnException:
+        except UnwrapException:
             return W_Anything()
         try:
             obj = self.unwrap(w_obj)
-        except AnnException:
+        except UnwrapException:
             if isinstance(w_obj, W_KnownKeysContainer):
                 return w_obj[key]
             else:

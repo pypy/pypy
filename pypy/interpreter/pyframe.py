@@ -30,6 +30,16 @@ class PyFrame:
         self.last_exception = None
         self.next_instr = 0
 
+    def clone(self):
+        f = PyFrame(self.space, self.bytecode, self.w_globals, self.w_locals)
+        f.valuestack = self.valuestack.clone()
+        f.blockstack = self.blockstack.clone()
+        f.last_exception = self.last_exception
+        f.next_instr = self.next_instr
+        # Clone the locals (only the annotation space implements this)
+        f.w_locals = self.space.clone_locals(self.w_locals)
+        return f
+
     def eval(self, executioncontext):
         "Interpreter main loop!"
         from pypy.interpreter import opcode
@@ -60,7 +70,7 @@ class PyFrame:
                 except ControlFlowException, ctlflowexc:
                     # we have a reason to change the control flow
                     # (typically unroll the stack)
-                    ctlflowexc.action(self)
+                    ctlflowexc.action(self, last_instr)
             
         except ExitFrame, e:
             # leave that frame
@@ -251,7 +261,7 @@ class ControlFlowException(Exception):
 		WHY_YIELD	SYieldValue
 
     """
-    def action(self, frame):
+    def action(self, frame, last_instr):
         "Default unroller implementation."
         try:
             while not frame.blockstack.empty():
@@ -292,7 +302,7 @@ class SReturnValue(ControlFlowException):
 class SYieldValue(ControlFlowException):
     """Signals a 'yield' statement.
     Argument is the wrapped object to return."""
-    def action(self, frame):
+    def action(self, frame, last_instr):
         # XXX generators
         raise OperationError(frame.space.w_Exception,
                              frame.space.wrap("generators are not ready yet"))

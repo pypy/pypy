@@ -50,8 +50,12 @@ class ObjSpace:
         "Return what we consider to be the active execution context."
         ec = threadlocals.getlocals().executioncontext
         if ec is None:
-            ec = ExecutionContext(self)
+            ec = self.createexecutioncontext()
         return ec
+
+    def createexecutioncontext(self):
+        "Factory function for execution contexts."
+        return ExecutionContext(self)
 
     def gethelper(self, applicationfile):
         try:

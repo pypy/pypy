@@ -2,23 +2,23 @@ import autopath
 from pypy.tool import test
 from pypy.objspace.ann.objspace import W_Object, W_Anything, W_Integer
 from pypy.objspace.ann.objspace import AnnotationObjSpace
-from pypy.interpreter import baseobjspace, executioncontext, pyframe
+from pypy.interpreter import baseobjspace, pyframe
 
 class TestAnnotationObjSpace(test.TestCase):
 
     def codetest(self, source, functionname, args_w):
         """Compile and run the given code string, and then call its function
         named by 'functionname' with a list of wrapped arguments 'args_w'.
-        It returns the wrapped result."""
+        Return the wrapped result."""
 
         glob = {}
         exec source in glob
+        func = glob[functionname]
 
-        space = self.space
-        w_args = space.newtuple(args_w)
-        w_func = space.wrap(glob[functionname])
-        w_kwds = space.newdict([])
-        return space.call(w_func, w_args, w_kwds)
+        w_args = self.space.newtuple(args_w)
+        w_func = self.space.wrap(func)
+        w_kwds = self.space.newdict([])
+        return self.space.call(w_func, w_args, w_kwds)
 
     def setUp(self):
         self.space = AnnotationObjSpace()
@@ -46,6 +46,24 @@ class TestAnnotationObjSpace(test.TestCase):
                           "    return i+1\n",
                           'f', [W_Integer()])
         self.assertEquals(type(x), W_Integer)
+
+    def test_conditional_1(self):
+        x = self.codetest("def f(i):\n"
+                          "    if i < 0:\n"
+                          "        return 0\n"
+                          "    else:\n"
+                          "        return 1\n",
+                          'f', [W_Integer()])
+        self.assertEquals(type(x), W_Integer)
+
+    def test_conditional_2(self):
+        x = self.codetest("def f(i):\n"
+                          "    if i < 0:\n"
+                          "        return 0\n"
+                          "    else:\n"
+                          "        return 0\n",
+                          'f', [W_Integer()])
+        self.assertEquals(self.space.unwrap(x), 0)
 
 
 
