@@ -84,6 +84,8 @@ class Translator:
 
     def cl(self):
         g = GenCL(self.flowgraph)
+        if self.annotator:
+            g.ann = self.annotator
         return g.emitcode()
 
     def compile(self):
