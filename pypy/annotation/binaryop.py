@@ -18,7 +18,7 @@ from pypy.objspace.flow.model import Constant
 BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
                          'getitem', 'setitem',
                          'inplace_add', 'inplace_sub',
-                         'lt', 'le', 'eq', 'ne', 'gt', 'ge',
+                         'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_',
                          'union'])
 
 for opname in BINARY_OPERATIONS:
@@ -39,6 +39,14 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def inplace_sub((obj1, obj2)):
         return pair(obj1, obj2).sub()   # default
 
+    def lt((obj1, obj2)): return SomeBool()
+    def le((obj1, obj2)): return SomeBool()
+    def eq((obj1, obj2)): return SomeBool()
+    def ne((obj1, obj2)): return SomeBool()
+    def gt((obj1, obj2)): return SomeBool()
+    def ge((obj1, obj2)): return SomeBool()
+    def is_((obj1, obj2)): return SomeBool()
+
 
 class __extend__(pairtype(SomeInteger, SomeInteger)):
     # unsignedness is considered a rare and contagious disease
@@ -55,13 +63,6 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 
     def sub((int1, int2)):
         return SomeInteger(unsigned = int1.unsigned or int2.unsigned)
-
-    def lt((int1, int2)): return SomeBool()
-    def le((int1, int2)): return SomeBool()
-    def eq((int1, int2)): return SomeBool()
-    def ne((int1, int2)): return SomeBool()
-    def gt((int1, int2)): return SomeBool()
-    def ge((int1, int2)): return SomeBool()
 
 
 class __extend__(pairtype(SomeBool, SomeBool)):
