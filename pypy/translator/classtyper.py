@@ -7,7 +7,7 @@ import re
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.annotation import model as annmodel
-from pypy.translator.typer import LLTyper, LLFunction
+from pypy.translator.typer import LLTyper, LLFunction, LLVar
 from pypy.translator.genc_repr import R_OBJECT
 
 r_ends_in_underscore_digit = re.compile(r'_\d+$')
@@ -33,6 +33,14 @@ class ClassField:
         # this (high-level) field is implemented as a list of LLVars
         # that are real fields for the C struct
         self.llvars = llclass.llreprs[self.var]
+
+    def getllvars(self, pattern='%s'):
+        """Return a list of fresh LLVars that implement the fields in this
+        C struct.  The name of the variables are %'ed with 'pattern',
+        which can be a C expression template to generate expressions to
+        access this field.
+        """
+        return [LLVar(x.type, pattern % x.name) for x in self.llvars]
 
 # ____________________________________________________________
 
