@@ -80,6 +80,7 @@ class Translator:
             self.functions.append(func)
             try:
                 import inspect
+                graph.func = func
                 graph.source = inspect.getsource(func)
             except IOError:
                 pass  # e.g. when func is defined interactively

@@ -4,6 +4,7 @@ from __future__ import generators
 """
 
 import autopath, os
+import inspect, linecache
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import Space
 from pypy.tool.udir import udir
@@ -78,6 +79,7 @@ class FlowGraphDotGen(DotGen):
     def emit_subgraph(self, name, node):
         name = name.replace('.', '_')
         self.blocks = {}
+        self.func = None
         self.prefix = name
         self.enter_subgraph(name)
         traverse(self, node)
@@ -101,6 +103,8 @@ class FlowGraphDotGen(DotGen):
         if hasattr(funcgraph, 'source'):
             source = funcgraph.source.replace('"', '\\"')
             data += "\\n" + "\\l".join(source.split('\n'))
+        if hasattr(funcgraph, 'func'):
+            self.func = funcgraph.func
 
         self.emit_node(name, label=data, shape="box", fillcolor="green", style="filled")
         #('%(name)s [fillcolor="green", shape=box, label="%(data)s"];' % locals())
@@ -129,6 +133,22 @@ class FlowGraphDotGen(DotGen):
 
         iargs = " ".join(map(repr, block.inputargs))
         data = "%s(%s)\\ninputargs: %s\\n\\n" % (name, block.__class__.__name__, iargs)
+        if block.operations and self.func:
+            maxoffs = max([op.offset for op in block.operations])
+            if maxoffs >= 0:
+                minoffs = min([op.offset for op in block.operations
+                               if op.offset >= 0])
+                minlineno = lineno_for_offset(self.func.func_code, minoffs)
+                maxlineno = lineno_for_offset(self.func.func_code, maxoffs)
+                filename = inspect.getsourcefile(self.func)
+                source = "\l".join([linecache.getline(filename, line).rstrip()
+                                    for line in range(minlineno, maxlineno+1)])
+                if minlineno == maxlineno:
+                    data = data + r"line %d:\n%s\l\n" % (minlineno, source)
+                else:
+                    data = data + r"lines %d-%d:\n%s\l\n" % (minlineno,
+                                                             maxlineno, source)
+
         data = data + "\l".join(lines)
         data = data.replace('"', '\\"') # make dot happy
 
@@ -145,6 +165,21 @@ class FlowGraphDotGen(DotGen):
                 label = " ".join(map(repr, link.args))
                 label = "%s: %s" %(link.exitcase, label)
                 self.emit_edge(name, name2, label, style="dotted", color=color)
+
+def lineno_for_offset(code, offset):
+    """Calculate the source line number for a bytecode offset in a code object.
+
+    Based on tb_lineno from Python 2.2's traceback.py
+    """
+    tab = code.co_lnotab
+    lineno = code.co_firstlineno
+    addr = 0
+    for i in range(0, len(tab), 2):
+        addr += ord(tab[i])
+        if addr > offset:
+            break
+        lineno += ord(tab[i+1])
+    return lineno
 
 
 def make_dot(graphname, graph, storedir=None, target='ps'):
