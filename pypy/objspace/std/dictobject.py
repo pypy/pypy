@@ -19,8 +19,8 @@ class W_DictObject(W_Object):
         W_Object.__init__(w_self, space)
         
         w_self.used = 0
-        w_self.data = [[r_uint(0), None, None]]
-        w_self.resize(len(list_pairs_w)*2)
+        w_self.data = []
+        w_self.resize(min(len(list_pairs_w)*2, 8))
         for w_k, w_v in list_pairs_w:
             w_self.insert(w_self.hash(w_k), w_k, w_v)
         
@@ -76,10 +76,6 @@ class W_DictObject(W_Object):
         c = 0
         while 1:
             c += 1
-            if c > 1000:
-                import pdb
-                pdb.set_trace()
-                
             i = (i << 2) + i + perturb + 1
             entry = self.data[i%len(self.data)]
             if entry[1] is None:
