@@ -3,6 +3,7 @@ from pypy.objspace.std.objspace import *
 
 class W_NoneObject(W_Object):
     delegate_once = {}
+    statictypename = 'NoneType'
 
 
 def none_unwrap(space, w_none):

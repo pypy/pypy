@@ -123,7 +123,7 @@ MethodImplementation = {
     'iter':               iter,
     }
 
-for _name, _symbol, _arity in ObjSpace.MethodTable:
+for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     f = MethodImplementation.get(_name)
     if f:
         if _arity == 1:

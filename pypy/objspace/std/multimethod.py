@@ -6,15 +6,17 @@ class FailedToImplement(Exception):
 
 class W_ANY:
     "Placeholder to allow dispatch on any value."
+    statictype = None
 
 
 class MultiMethod(object):
 
-    def __init__(self, operatorsymbol, arity):
+    def __init__(self, operatorsymbol, arity, specialnames):
         "MultiMethod dispatching on the first 'arity' arguments."
         self.arity = arity
         self.operatorsymbol = operatorsymbol
         self.dispatch_table = {}
+        self.specialnames = specialnames  # list like ['__xxx__', '__rxxx__']
 
     def register(self, function, *types):
         # W_ANY can be used as a placeholder to dispatch on any value.
@@ -61,6 +63,16 @@ class MultiMethod(object):
                                            currentdelegators + (delegator,),
                                            result)
 
+    def slicetable(self, position, statictype):
+        m = MultiMethod(self.operatorsymbol, self.arity, self.specialnames)
+        for key, value in self.dispatch_table.iteritems():
+            if key[position].statictype == statictype:
+                m.dispatch_table[key] = value
+        return m
+
+    def is_empty(self):
+        return not self.dispatch_table
+
 
 class BoundMultiMethod:
 
@@ -73,8 +85,26 @@ class BoundMultiMethod:
             raise TypeError, ("multimethod needs at least %d arguments" %
                               self.multimethod.arity)
         dispatchargs = args[:self.multimethod.arity]
-        extraargs    = args[self.multimethod.arity:]
         initialtypes = tuple([a.__class__ for a in dispatchargs])
+        try:
+            return self.perform_call(args, initialtypes)
+        except FailedToImplement, e:
+            if e.args:
+                raise OperationError(*e.args)
+            else:
+                if len(initialtypes) <= 1:
+                    plural = ""
+                else:
+                    plural = "s"
+                typenames = [t.__name__ for t in initialtypes]
+                message = "unsupported operand type%s for %s: %s" % (
+                    plural, self.multimethod.operatorsymbol,
+                    ', '.join(typenames))
+                w_value = self.space.wrap(message)
+                raise OperationError(self.space.w_TypeError, w_value)
+
+    def perform_call(self, args, initialtypes):
+        extraargs = args[self.multimethod.arity:]
         choicelist = self.multimethod.buildchoices(initialtypes)
         firstfailure = None
         for delegators, function in choicelist:
@@ -90,19 +120,14 @@ class BoundMultiMethod:
                 # we got FailedToImplement, record the first such error
                 if firstfailure is None:
                     firstfailure = e
-        if firstfailure is None:
-            if len(initialtypes) <= 1:
-                plural = ""
-            else:
-                plural = "s"
-            typenames = [t.__name__ for t in initialtypes]
-            message = "unsupported operand type%s for %s: %s" % (
-                plural, self.multimethod.operatorsymbol,
-                ', '.join(typenames))
-            w_value = self.space.wrap(message)
-            raise OperationError(self.space.w_TypeError, w_value)
-        else:
-            raise OperationError(*e.args)
+        raise firstfailure or FailedToImplement()
+
+    def slicetable(self, position, statictype):
+        return BoundMultiMethod(self.space,
+            self.multimethod.slicetable(position, statictype))
+
+    def is_empty(self):
+        return self.multimethod.is_empty()
 
 
 class error(Exception):

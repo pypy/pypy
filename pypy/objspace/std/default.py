@@ -71,7 +71,7 @@ StdObjSpace.delattr.register(default_delattr, W_ANY, W_ANY)
 
 # in-place operators fall back to their non-in-place counterpart
 
-for _name, _symbol, _arity in ObjSpace.MethodTable:
+for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     if _name.startswith('inplace_'):
         def default_inplace(space, w_1, w_2, baseop=_name[8:]):
             op = getattr(space, baseop)

@@ -10,8 +10,13 @@ else:
 
 class W_Object:
     "Parent base class for wrapped objects."
+    statictype = None
+    
     def __init__(w_self, space):
         w_self.space = space
+
+    def get_builtin_impl_class(w_self):
+        return w_self.__class__
 
 
 ##################################################################
@@ -26,24 +31,45 @@ class StdObjSpace(ObjSpace):
         pass
     AppFile.LOCAL_PATH = [PACKAGE_PATH]
 
+    BUILTIN_TYPES = {
+        'W_NoneObject':  'noneobject',
+        'W_BoolObject':  'boolobject',
+        'W_IntObject':   'intobject',
+        'W_FloatObject': 'floatobject',
+        #'W_ListObject': 'listobject',
+        }
+    TYPE_CACHE = {}
+
     def initialize(self):
         from noneobject    import W_NoneObject
         from boolobject    import W_BoolObject
         from cpythonobject import W_CPythonObject
+        from typeobject    import W_TypeObject, make_type_by_name
         self.w_None  = W_NoneObject(self)
         self.w_False = W_BoolObject(self, False)
         self.w_True  = W_BoolObject(self, True)
+        self.w_NotImplemented = self.wrap(NotImplemented)  # XXX do me
         # hack in the exception classes
         import __builtin__, types
         newstuff = {"False": self.w_False,
                     "True" : self.w_True,
                     "None" : self.w_None,
+                    "NotImplemented": self.w_NotImplemented,
                     }
         for n, c in __builtin__.__dict__.iteritems():
             if isinstance(c, types.ClassType) and issubclass(c, Exception):
                 w_c = W_CPythonObject(self, c)
                 setattr(self, 'w_' + c.__name__, w_c)
                 newstuff[c.__name__] = w_c
+        # make the types
+        for classname, modulename in self.BUILTIN_TYPES.iteritems():
+            mod = __import__(modulename, globals(), locals(), [classname])
+            cls = getattr(mod, classname)
+            w_type = make_type_by_name(self, cls.statictypename)
+            w_type.setup_builtin_type(cls)
+            setattr(self, 'w_' + cls.statictypename, w_type)
+            newstuff[cls.statictypename] = w_type
+        
         self.make_builtins()
         self.make_sys()
         # insert these into the newly-made builtins
@@ -71,9 +97,9 @@ class StdObjSpace(ObjSpace):
             items_w = [(self.wrap(k), self.wrap(v)) for (k, v) in x.iteritems()]
             import dictobject
             return dictobject.W_DictObject(self, items_w)
-        #if isinstance(x, float):
-        #    import floatobject
-        #    return floatobject.W_FloatObject(self, x)
+        if isinstance(x, float):
+            import floatobject
+            return floatobject.W_FloatObject(self, x)
         if isinstance(x, tuple):
             wrappeditems = [self.wrap(item) for item in x]
             import tupleobject
@@ -124,8 +150,9 @@ class StdObjSpace(ObjSpace):
         return stringobject.W_StringObject(self, ''.join(chars))
 
     # special multimethods
-    unwrap  = MultiMethod('unwrap', 1)   # returns an unwrapped object
-    is_true = MultiMethod('nonzero', 1)  # returns an unwrapped bool
+    unwrap  = MultiMethod('unwrap', 1, [])   # returns an unwrapped object
+    is_true = MultiMethod('nonzero', 1, [])  # returns an unwrapped bool
+    # XXX do something about __nonzero__ !
 
 ##    # handling of the common fall-back cases
 ##    def compare_any_any(self, w_1, w_2, operation):
@@ -141,8 +168,8 @@ class StdObjSpace(ObjSpace):
 
 
 # add all regular multimethods to StdObjSpace
-for _name, _symbol, _arity in ObjSpace.MethodTable:
-    setattr(StdObjSpace, _name, MultiMethod(_symbol, _arity))
+for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
+    setattr(StdObjSpace, _name, MultiMethod(_symbol, _arity, _specialnames))
 
 # default implementations of some multimethods for all objects
 # that don't explicitely override them or that raise FailedToImplement

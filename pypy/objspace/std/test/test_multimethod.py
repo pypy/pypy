@@ -44,7 +44,7 @@ def add_int_any(space, y1, o2):
     return "add_int_any", y1, o2
 
 class FakeObjSpace:
-    add = MultiMethod('+', 2)
+    add = MultiMethod('+', 2, [])
     add.register(add_x_x,           X,   X)
     add.register(add_x_y,           X,   Y)
     add.register(add_y_y,           Y,   Y)
