@@ -65,7 +65,7 @@ class SomeObject:
             SomeObject._coming_from[id(self)] = position_key
         return self
     def origin(self):
-        return SomeObject._coming_from[id(self)]
+        return SomeObject._coming_from.get(id(self), None)
     origin = property(origin)
 
 
