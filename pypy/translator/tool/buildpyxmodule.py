@@ -81,10 +81,12 @@ def make_module_from_c(cfile, include_dirs=None):
                             'name': "testmodule",
                             'ext_modules': [
                                 Extension(modname, [str(cfile)],
-                                    include_dirs=include_dirs)
+                                    include_dirs=include_dirs,
+                                    extra_compile_args=["-Wno-unused-label",
+                                                        "-Wno-unused-variable"])
                                 ],
                             'script_name': 'setup.py',
-                            'script_args': ['-q', 'build_ext', '--inplace'],
+                            'script_args': [ '-q', 'build_ext', '--inplace'],
                             }
                         dist = Distribution(attrs)
                         if not dist.parse_command_line():
