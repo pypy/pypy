@@ -285,6 +285,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def newslice(self, w_start, w_end, w_step):
         # w_step may be a real None
+        if w_step is None:
+            w_step = self.w_None
         return W_SliceObject(self, w_start, w_end, w_step)
 
     def newstring(self, chars_w):

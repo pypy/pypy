@@ -43,4 +43,7 @@ def hash__Slice(space, w_slice):
     raise OperationError(space.w_TypeError,
                          space.wrap("unhashable type"))
 
+def unwrap__Slice(space, w_slice):
+    return slice(space.unwrap(w_slice.w_start), space.unwrap(w_slice.w_stop), space.unwrap(w_slice.w_step))
+
 register_all(vars())
