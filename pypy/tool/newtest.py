@@ -471,8 +471,8 @@ class TestSuite:
 
     def run(self):
         """
-        Run all the test items. After that, the results are available
-        via the attribute last_results.
+        Run all the test items and return a list of the results. After
+        that, the results are available via the attribute last_results.
         """
         # perform all the tests by using the existing generator; discard
         # the results; they are then available via self.last_results
