@@ -109,13 +109,13 @@ class GraphDisplay(Display):
         self.zoom_to_fit()
 
     def zoom_actual_size(self):
-        self.viewer.shiftscale(self.viewer.SCALEMAX / self.viewer.scale)
+        self.viewer.shiftscale(float(self.viewer.SCALEMAX) / self.viewer.scale)
         self.updated_viewer()
 
     def calculate_zoom_to_fit(self):
         return min(float(self.width) / self.viewer.width,
                 float(self.height - self.status_bar_height) / self.viewer.height,
-                1.0)
+                float(self.viewer.SCALEMAX) / self.viewer.scale)
     
     def zoom_to_fit(self):
         """
@@ -128,14 +128,17 @@ class GraphDisplay(Display):
 
         f = self.calculate_zoom_to_fit()
         self.viewer.shiftscale(f)
-        self.viewer.setoffset((self.viewer.width - self.width) // 2,
-                              (self.viewer.height - (self.height - self.status_bar_height)) // 2)
+        #self.viewer.setoffset((self.viewer.width - self.width) // 2,
+        #                      (self.viewer.height - (self.height - self.status_bar_height)) // 2)
         self.updated_viewer()
 
     def zoom(self, scale):
         self.viewer.shiftscale(max(scale, self.calculate_zoom_to_fit()))
         self.updated_viewer()
 
+    def reoffset(self):
+        self.viewer.reoffset(self.width, self.height - self.status_bar_height)
+    
     def pan(self, (x, y)):
         self.viewer.shiftoffset(x * (self.width // 8), y * (self.height // 8))
         self.updated_viewer()
@@ -154,6 +157,7 @@ class GraphDisplay(Display):
         self.setstatusbar(info)
     
     def updated_viewer(self):
+        self.reoffset()
         self.sethighlight()
         self.statusbarinfo = None
         self.must_redraw = True
@@ -225,6 +229,7 @@ class GraphDisplay(Display):
             newlayout = self.layout.followlink(word)
             if newlayout is not None:
                 self.setlayout(newlayout)
+                self.zoom_to_fit()
                 return
         node = self.viewer.node_at_position(pos)
         if node:

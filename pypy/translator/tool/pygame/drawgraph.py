@@ -181,9 +181,9 @@ class GraphRenderer:
         scale = max(min(scale, self.SCALEMAX), self.SCALEMIN)
         self.scale = float(scale)
         w, h = self.graphlayout.boundingbox
-        self.margin = int(self.MARGIN*scale)
-        self.width = int((w + 2*self.MARGIN)*scale)
-        self.height = int((h + 2*self.MARGIN)*scale)
+        self.margin = int(self.MARGIN * scale)
+        self.width = int(w * scale) + (2 * self.margin)
+        self.height = int(h * scale) + (2 * self.margin)
         self.bboxh = h
         size = int(15 * (scale-10) / 75)
         self.font = self.getfont(size)
@@ -228,19 +228,37 @@ class GraphRenderer:
         newx, newy = self.map(x, y)
         self.shiftoffset(newx - fixx, newy - fixy)
 
+    def reoffset(self, swidth, sheight):
+        offsetx = noffsetx = self.ofsx
+        offsety = noffsety = self.ofsy
+        width = self.width
+        height = self.height
+
+        # if it fits, center it, otherwise clamp
+        if width <= swidth:
+            noffsetx = (width - swidth) // 2
+        else:
+            noffsetx = min(max(0, offsetx), width - swidth)
+
+        if height <= sheight:
+            noffsety = (height - sheight) // 2
+        else:
+            noffsety = min(max(0, offsety), height - sheight)
+
+        self.ofsx = noffsetx
+        self.ofsy = noffsety
+    
     def getboundingbox(self):
         "Get the rectangle where the graph will be rendered."
-        offsetx = - self.margin - self.ofsx
-        offsety = - self.margin - self.ofsy
-        return (offsetx, offsety, self.width, self.height)
+        return (-self.ofsx, -self.ofsy, self.width, self.height)
 
     def map(self, x, y):
-        return (int(x*self.scale) - self.ofsx,
-                int((self.bboxh-y)*self.scale) - self.ofsy)
+        return (int(x*self.scale) - (self.ofsx - self.margin),
+                int((self.bboxh-y)*self.scale) - (self.ofsy - self.margin))
 
     def revmap(self, px, py):
-        return ((px + self.ofsx) / self.scale,
-                self.bboxh - (py + self.ofsy) / self.scale)
+        return ((px + (self.ofsx - self.margin)) / self.scale,
+                self.bboxh - (py + (self.ofsy - self.margin)) / self.scale)
 
     def draw_node_commands(self, node):
         xcenter, ycenter = self.map(node.x, node.y)
