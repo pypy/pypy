@@ -375,7 +375,7 @@ class interp2app(Wrappable):
                  ismethod=None, spacearg=None, unwrap_spec = None):
         "NOT_RPYTHON"
         Wrappable.__init__(self)
-        # f must be a function whose name does NOT starts with 'app_'
+        # f must be a function whose name does NOT start with 'app_'
         self_type = None
         if hasattr(f, 'im_func'):
             self_type = f.im_class
@@ -550,7 +550,7 @@ class applevel:
 
 class applevelinterp(applevel):
     """ same as applevel, but using translation to interp-level.
-    Hopefully this will replace applevelatsome point.
+    Hopefully this will replace applevel at some point.
     """
     NOT_RPYTHON_ATTRIBUTES = ['initfunc']
 
@@ -568,6 +568,8 @@ class applevelinterp(applevel):
         w_glob = self.initfunc(space)
         return w_glob
 
+## XXX there is a problem with the naming convention of app_xxx not allowed
+## for interp2app! What shall we do?
 
 def appdef(source, applevel=applevel):
     """ NOT_RPYTHON: build an app-level helper function, like for example:
