@@ -47,8 +47,21 @@ class TestImport(testit.AppTestCase):
       import ambig
       self.assert_('ambig' in sys.modules)
       self.assert_(hasattr(ambig,'imapackage'))
-       
+
+   def test_from_a(self):
+      import sys
+      sys.path.append('impsubdir')
+      from a import imamodule
+      self.assert_('a' in sys.modules)
+      self.assertEquals(imamodule, 1)
+
+   def test_from_dotted(self):
+      import sys
+      sys.path.append('impsubdir')
+      from pkg.a import imamodule
+      self.assert_('pkg' in sys.modules)
+      self.assert_('pkg.a' in sys.modules)
+      self.assertEquals(imamodule, 1)
+
 if __name__ == '__main__':
     testit.main()
-
-
