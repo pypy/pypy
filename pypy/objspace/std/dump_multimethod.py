@@ -53,9 +53,11 @@ def cartesian_prod(lstlst):
 
 def dump_table(mm, impls):
     print 'multimethod %r of arity %d.' % (mm.operatorsymbol, mm.arity)
+    if mm.dispatch_arity < mm.arity:
+        print 'dispatch arity is actually only %d.' % mm.dispatch_arity
     delegate = StdObjSpace.delegate
     versions = {}
-    for argclasses in cartesian_prod([impls] * mm.arity):
+    for argclasses in cartesian_prod([impls] * mm.dispatch_arity):
         calllist = []
         mm.internal_buildcalllist(argclasses, delegate, calllist)
         src, glob = mm.internal_sourcecalllist(argclasses, calllist)
@@ -76,22 +78,22 @@ def dump_table(mm, impls):
         # collapse ranges within argclasses where the last arg is not
         # relevant
         i = len(lstargclasses)-1
-        m = mm.arity-1
+        m = mm.dispatch_arity-1
         while i >= 0:
             if i+len(impls) <= len(lstargclasses):
                 model = lstargclasses[i][:m]
                 for next in lstargclasses[i+1:i+len(impls)]:
-                    if next[:m] == model and next[m+1:] == (W_ANY,)*(mm.arity-1-m):
+                    if next[:m] == model and next[m+1:] == (W_ANY,)*(mm.dispatch_arity-1-m):
                         pass
                     else:
                         break
                 else:
-                    lstargclasses[i:i+len(impls)] = [model + (W_ANY,)*(mm.arity-m)]
+                    lstargclasses[i:i+len(impls)] = [model + (W_ANY,)*(mm.dispatch_arity-m)]
                     if m > 0:
                         m -= 1
                         continue
             i -= 1
-            m = mm.arity-1
+            m = mm.dispatch_arity-1
         
         for argclasses in lstargclasses:
             print '#',
@@ -129,7 +131,7 @@ if __name__ == '__main__':
     total = 0
     restrict = sys.argv[1:]
     for name, mm in list_multimethods():
-        if not restrict or name in restrict:
+        if (not restrict and name != 'delegate') or name in restrict:
             print
             print '==========', name, '=========='
             print >> sys.stderr, name   # progress bar

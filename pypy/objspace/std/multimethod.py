@@ -17,10 +17,6 @@ class W_ANY:
 #   If xxx is a MultiMethod, StdObjSpace.xxx is xxx again,
 #   and space.xxx is a BoundMultiMethod.
 #
-#   BoundMultiMethod is a MultiMethod or UnboundMultiMethod which
-#   has been found to a specific object space. It is obtained by
-#   'space.xxx' or explicitly by calling 'xxx.get(space)'.
-#
 #   UnboundMultiMethod is a MultiMethod on which one argument
 #   (typically the first one) has been restricted to be of some
 #   statically known type. It is obtained by the syntax
@@ -30,6 +26,10 @@ class W_ANY:
 #   the original MultiMethod; a new function registered in either
 #   one may be automatically registered in the other one to keep
 #   them in sync.
+#
+#   BoundMultiMethod is a MultiMethod or UnboundMultiMethod which
+#   has been bound to a specific object space. It is obtained by
+#   'space.xxx' or explicitly by calling 'xxx.get(space)'.
 
 
 class AbstractMultiMethod(object):
@@ -42,15 +42,24 @@ class AbstractMultiMethod(object):
         self.dispatch_table = {}
         self.cache_table = {}
         self.cache_delegator_key = None
+        self.dispatch_arity = 0
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.operatorsymbol)
 
     def register(self, function, *types):
+        assert len(types) == self.arity
         functions = self.dispatch_table.setdefault(types, [])
         if function not in functions:
             functions.append(function)
             self.cache_table.clear()
+            self.adjust_dispatch_arity(types)
+
+    def adjust_dispatch_arity(self, types):
+        width = len(types)
+        while width > self.dispatch_arity and types[width-1] is W_ANY:
+            width -= 1
+        self.dispatch_arity = width
 
     def compile_calllist(self, argclasses, delegate):
         """Compile a list of calls to try for the given classes of the
@@ -158,7 +167,7 @@ class AbstractMultiMethod(object):
         argument, with [] meaning that no conversion is needed for
         that argument."""
         # look for an exact match first
-        arity = self.arity
+        arity = self.dispatch_arity
         assert arity == len(argclasses)
         dispatchclasses = tuple([(c,) for c in argclasses])
         choicelist = self.buildchoices(dispatchclasses)
@@ -248,7 +257,8 @@ class AbstractMultiMethod(object):
         pass
 
     def internal_buildchoices(self, initialtypes, currenttypes, result):
-        if len(currenttypes) == self.arity:
+        if len(currenttypes) == self.dispatch_arity:
+            currenttypes += (W_ANY,) * (self.arity - self.dispatch_arity)
             for func in self.dispatch_table.get(currenttypes, []):
                 if func not in result:   # ignore duplicates
                     result.append((currenttypes, func))
@@ -295,7 +305,7 @@ class MultiMethod(AbstractMultiMethod):
 
     def register(self, function, *types):
         AbstractMultiMethod.register(self, function, *types)
-        # register the function is unbound versions that match
+        # register the function into unbound versions that match
         for m in self.unbound_versions.values():
             if m.match(types):
                 AbstractMultiMethod.register(m, function, *types)
@@ -366,6 +376,7 @@ class UnboundMultiMethod(AbstractMultiMethod):
         for types, functions in basemultimethod.dispatch_table.iteritems():
             if self.match(types):
                 self.dispatch_table[types] = functions
+                self.adjust_dispatch_arity(types)
         #print basemultimethod.operatorsymbol, typeclass, self.dispatch_table
 
     def register(self, function, *types):
@@ -422,7 +433,7 @@ class BoundMultiMethod:
             else:
                 # raise a TypeError for a FailedToImplement
                 initialtypes = [a.__class__
-                                for a in args[:self.multimethod.arity]]
+                                for a in args[:self.multimethod.dispatch_arity]]
                 if len(initialtypes) <= 1:
                     plural = ""
                 else:
@@ -439,7 +450,7 @@ class BoundMultiMethod:
             assert isinstance(a, self.ASSERT_BASE_TYPE), (
                 "'%s' multimethod got a non-wrapped argument: %r" % (
                 self.multimethod.operatorsymbol, a))
-        arity = self.multimethod.arity
+        arity = self.multimethod.dispatch_arity
         argclasses = tuple([a.__class__ for a in args[:arity]])
         delegate = self.space.delegate.multimethod
         fn = self.multimethod.compile_calllist(argclasses, delegate)
