@@ -113,15 +113,30 @@ def int_int_ge(space, w_int1, w_int2):
     return space.newbool( i >= j )
 StdObjSpace.ge.register(int_int_ge, W_IntObject, W_IntObject)
 
-def int_hash(space, w_int1):
+STRICT_HASH = True # temporary, to be put elsewhere or removed
+
+def int_hash_strict(space, w_int1):
     #/* XXX If this is changed, you also need to change the way
     #   Python's long, float and complex types are hashed. */
-##    x = w_int1.intval
-##    if x == -1:
-##        x = -2
-##    return W_IntObject(x)
-    # XXX unlike CPython we have no need to special-case the value -1
+    x = w_int1.intval
+    if x == -1:
+        x = -2
+    return W_IntObject(x)
+
+def int_hash_liberal(space, w_int1):
+    # Armin: unlike CPython we have no need to special-case the value -1
     return w_int1
+
+# Chris: I'm not yet convinced that we want to make has()
+# return different values that CPython does.
+# So for the moment, both versions are here,
+# and we might think of some config options
+# or decide to drop compatibility (using pypy-dev).
+
+if STRICT_HASH:
+    int_hash = int_hash_strict
+else:
+    int_hash = int_hash_liberal
 
 StdObjSpace.hash.register(int_hash, W_IntObject)
 
