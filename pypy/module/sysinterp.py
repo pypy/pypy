@@ -61,7 +61,7 @@ w_builtin_module_names = space.newtuple([space.wrap(fn)
 # Initialize the default path
 srcdir = os.path.dirname(autopath.pypydir)
 appdir = os.path.join(autopath.pypydir, 'appspace')
-w_path = space.newlist([space.wrap(appdir)] +
+w_path = space.newlist([space.wrap(''), space.wrap(appdir)] +
                        [space.wrap(p) for p in cpy_sys.path if p!= srcdir])
 
 # XXX - Replace with appropriate PyPy version numbering
