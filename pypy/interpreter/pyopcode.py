@@ -46,6 +46,7 @@ class PyInterpFrame(pyframe.PyFrame):
         if fn.has_arg:
             oparg = self.nextarg()
             fn(self, oparg)
+
         else:
             fn(self)
 
@@ -53,6 +54,38 @@ class PyInterpFrame(pyframe.PyFrame):
         c = self.code.co_code[self.next_instr]
         self.next_instr += 1
         return ord(c)
+
+    def examineop(self):
+        # XXX Testing trace object space
+        # rxxxe Add test?
+
+        c = ord(self.code.co_code[self.next_instr])
+
+        fn = self.dispatch_table[c]
+        values = []
+        arg= ""
+        if fn.has_arg:
+            lo = ord(self.code.co_code[self.next_instr+1])
+            hi = ord(self.code.co_code[self.next_instr+2])
+            arg = (hi<<8) + lo 
+        
+##         for ii in [1,2,3]:
+##             if self.valuestack.depth() >= ii:
+##                 value = self.valuestack.top(ii - 1)
+##                 values.append(value)
+
+            
+        if hasattr(fn, "operationname"):
+            fn_name = fn.operationname
+        else:
+            fn_name = fn.__name__ 
+
+            
+        return c, fn_name, arg, self.next_instr
+
+    def get_index(self):
+        return index
+
 
     def nextarg(self):
         lo = self.nextop()

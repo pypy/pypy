@@ -1,6 +1,4 @@
-# ______________________________________________________________________
-import autopath
-import sys, operator, types, new
+import sys, operator, types, new, autopath
 import pypy
 from pypy.objspace.std import StdObjSpace
 from pypy.objspace.trivial import TrivialObjSpace
@@ -8,57 +6,47 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import gateway
-debug = 0
+
+DONT_TRACK_BYTECODES = ["PRINT_ITEM", "PRINT_NEWLINE", "PRINT_EXPR", "PRINT_ITEM_TO", "PRINT_NEWLINE_TO"]
+
 
 class TraceExecutionContext(ExecutionContext):        
-        
+    
     def bytecode_trace(self, frame):
         "Trace function called before each bytecode."
-        #print "XXX %s, %s" % frame.examineop()
         self.space.notify_on_bytecode(frame)
 
-class Logger(object):
-    def __init__(self, name, fn, space, printme):
+
+class Tracer(object):
+    def __init__(self, name, fn, space):
         self.fn = fn
         self.name = name
         self.space = space
-        self.printme = printme
         
     def __call__(self, cls, *args, **kwds):
         assert (not kwds)
 
-        #print self.name
-        #print "%s %s(%s, %s)" % (self.printme, , str(args), str(kwds)) 
-        self.space.notify_on_operation(self.name, None)
+        self.space.notify_on_operation(self.name, args)
         return self.fn(*args, **kwds)
 
     def __getattr__(self, name):
         return getattr(self.fn, name)
 
 
-## XXX Interaction not in scope (yet)
-## class InteractiveLogger(Logger):
-        
-##     def __call__(self, cls, *args, **kwds):
-##         res = Logger.__call__(self, cls, *args, **kwds)
-##         raw_input()
-##         return res
-        
-# ______________________________________________________________________
-
-def Trace(spacecls = StdObjSpace, logger_cls = Logger):
+def Trace(spacecls = StdObjSpace):
 
     class TraceObjSpace(spacecls):
         full_exceptions = False
         
         def initialize(self):
             self.tracing = 0
+            self.ignore_up_to_frame = None
             spacecls.initialize(self)
             method_names = [ii[0] for ii in ObjSpace.MethodTable]
             for key in method_names:
                 if key in method_names:
                     item = getattr(self, key)
-                    l = logger_cls(key, item, self, "class method")
+                    l = Tracer(key, item, self)
                     setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
 
         def start_tracing(self):
@@ -72,16 +60,37 @@ def Trace(spacecls = StdObjSpace, logger_cls = Logger):
             "Factory function for execution contexts."
             return TraceExecutionContext(self)
 
+        def handle_default(self, frame, opcode, opname, oparg, ins_idx):
+            return opcode, opname, "", ins_idx
+
+        def handle_SET_LINENO(self, frame, opcode, opname, oparg, ins_idx):
+            return opcode, opname, "%s" % oparg, ins_idx
+
+        def handle_LOAD_CONST(self, frame, opcode, opname, oparg, ins_idx):
+            return opcode, opname, "%s (%r)" % (oparg, frame.getconstant(oparg)), ins_idx
+
+        def handle_LOAD_FAST(self, frame, opcode, opname, oparg, ins_idx):
+            return opcode, opname, "%s (%s)" % (oparg, frame.getlocalvarname(oparg)), ins_idx
 
         def notify_on_bytecode(self, frame):
+            if not self.tracing and self.ignore_up_to_frame is frame:
+                self.tracing = 1
+                self.ignore_up_to_frame = None
             if self.tracing:
-                opcode, opname = frame.examineop()
-                self.log_list.append((opname, []))
+                opcode, opname, oparg, ins_idx = frame.examineop()
+                handle_method = getattr(self, "handle_%s" % opname, self.handle_default)
+                
+                opcode, opname, oparg, ins_idx = handle_method(frame, opcode, opname, oparg, ins_idx)
+                self.log_list.append(((opcode, opname, oparg, ins_idx), []))
+                if opname in DONT_TRACK_BYTECODES:
+                    self.ignore_up_to_frame = frame
+                    self.tracing = 0
 
 
         def notify_on_operation(self, name, args):
             if self.tracing:
                 self.log_list[-1][1].append((name, args))
+                
 
         def dump(self):
             return self.log_list
@@ -107,55 +116,32 @@ def Trace(spacecls = StdObjSpace, logger_cls = Logger):
 
 
 Space = Trace
-#s = Trace(TrivialObjSpace)
-s = Trace()
+
 # ______________________________________________________________________
 # End of trace.py
 
-def add_func(space, func, w_globals):
-    """ Add a function to globals. """
-    func_name = func.func_name
-    w_func_name = space.wrap(func_name)
-    w_func = space.wrap(func)
-    space.setitem(w_globals, w_func_name, w_func)
 
-def run_function(space, func, *args):
-    # Get execution context and globals
-    ec = space.getexecutioncontext()
-    w_globals = ec.make_standard_w_globals()
+## if __name__ == "__main__":
 
-    # Add the function to globals
-    add_func(space, func, w_globals)
-
-    # Create wrapped args
-    args_w = [space.wrap(ii) for ii in args]
-    code = func.func_code
-    code = PyCode()._from_code(code)
-    # Create frame
-    frame = code.create_frame(space, w_globals)
-    frame.setfastscope(args_w)
     
-    # start/stop tracing while running frame
-    space.start_tracing()
-    res = frame.run()
-    space.stop_tracing()
-
-    return res
-
-
-if __name__ == "__main__":
+##     s = Trace(TrivialObjSpace)
     
-    def a(b):
-        if b > 0:
-            return a(b-1)
-        else:
-            return b
+##     def a(b):
+##         print "x"
+##         if b > 2:
+##             return b*2 
+##         else:
+##             return b
 
-    print run_function(s, a, 3)
+##     print run_function(s, a, 1)
 
-    print ">>>>>>"
-    for line in s.dump():
-        print line
-    print ">>>>>>"
-    for line in s.rdump():
-        print line
+##     print ">>>>>>"
+##     for line in s.dump():
+##         ((opcode, opname, arg, ins_idx), spaceops) = line
+##         print ins_idx, opname, spaceops
+##     print ">>>>>>"
+##     #for line in s.rdump():
+##     #    print line
+
+##     #import dis
+##     #dis.dis(a)

@@ -117,7 +117,7 @@ class ObjSpace:
 
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
-        ec = getthreadlocals().executioncontext
+        ec = getthreadlocals().executioncontext  #it's allways None (dec. 2003)
         if ec is None:
             ec = self.createexecutioncontext()
         return ec
