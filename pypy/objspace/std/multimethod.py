@@ -43,6 +43,7 @@ class AbstractMultiMethod(object):
         self.operatorsymbol = operatorsymbol
         self.dispatch_table = {}
         self.cache_table = Cache()
+        self.compilation_cache_table = {}
         self.cache_delegator_key = None
         self.dispatch_arity = 0
 
@@ -56,6 +57,7 @@ class AbstractMultiMethod(object):
             return False
         functions.append(function)
         self.cache_table.clear()
+        self.compilation_cache_table.clear()
         self.adjust_dispatch_arity(types)
         return True
 
@@ -71,6 +73,7 @@ class AbstractMultiMethod(object):
         actual arguments."""
         if delegate.key is not self.cache_delegator_key:
             self.cache_table.clear()
+            self.compilation_cache_table.clear()
             self.cache_delegator_key = delegate.key
         try:
             return self.cache_table[argclasses]
@@ -78,40 +81,45 @@ class AbstractMultiMethod(object):
             assert not self.cache_table.frozen 
             calllist = []
             self.internal_buildcalllist(argclasses, delegate, calllist)
-            result = self.internal_compilecalllist(argclasses, calllist)
+            calllist = tuple(calllist)
+            try:
+                result = self.compilation_cache_table[calllist]
+            except KeyError:
+                result = self.internal_compilecalllist(calllist)
+                self.compilation_cache_table[calllist] = result
             self.cache_table[argclasses] = result
             return result
 
-    def internal_compilecalllist(self, argclasses, calllist):
-        source, glob = self.internal_sourcecalllist(argclasses, calllist)
+    def internal_compilecalllist(self, calllist):
+        source, glob = self.internal_sourcecalllist(calllist)
         # compile the function
         exec source in glob
         return glob['do']
 
-    def internal_sourcecalllist(self, argclasses, calllist):
+    def internal_sourcecalllist(self, calllist):
         """Translate a call list into the source of a Python function
         which is optimized and doesn't do repeated conversions on the
         same arguments."""
         if len(calllist) == 1:
             fn, conversions = calllist[0]
-            if conversions.count([]) == len(conversions):
+            if conversions == ((),) * len(conversions):
                 # no conversion, just calling a single function: return
                 # that function directly
                 return '', {'do': fn}
         
         #print '**** compile **** ', self.operatorsymbol, [
         #    t.__name__ for t in argclasses]
-        arglist = ['a%d'%i for i in range(len(argclasses))] + ['*extraargs']
+        arglist = ['a%d'%i for i in range(self.dispatch_arity)] + ['*extraargs']
         source = ['def do(space,%s):' % ','.join(arglist)]
-        converted = [{(): ('a%d'%i, False)} for i in range(len(argclasses))]
+        converted = [{(): ('a%d'%i, False)} for i in range(self.dispatch_arity)]
 
-        def make_conversion(argi, convlist):
-            if tuple(convlist) in converted[argi]:
-                return converted[argi][tuple(convlist)]
+        def make_conversion(argi, convtuple):
+            if convtuple in converted[argi]:
+                return converted[argi][convtuple]
             else:
-                prev, can_fail = make_conversion(argi, convlist[:-1])
+                prev, can_fail = make_conversion(argi, convtuple[:-1])
                 new = '%s_%d' % (prev, len(converted[argi]))
-                fname = all_functions.setdefault(convlist[-1],
+                fname = all_functions.setdefault(convtuple[-1],
                                                  'd%d' % len(all_functions))
                 if can_fail:
                     source.append(' if isinstance(%s, FailedToImplement):' % prev)
@@ -121,8 +129,8 @@ class AbstractMultiMethod(object):
                 else:
                     indent = ' '
                 source.append('%s%s = %s(space,%s)' % (indent, new, fname, prev))
-                can_fail = can_fail or getattr(convlist[-1], 'can_fail', False)
-                converted[argi][tuple(convlist)] = new, can_fail
+                can_fail = can_fail or getattr(convtuple[-1], 'can_fail', False)
+                converted[argi][convtuple] = new, can_fail
                 return new, can_fail
 
         all_functions = {}
@@ -132,7 +140,7 @@ class AbstractMultiMethod(object):
             fname = all_functions.setdefault(fn, 'f%d' % len(all_functions))
             arglist = []
             failcheck = []
-            for i in range(len(argclasses)):
+            for i in range(self.dispatch_arity):
                 argname, can_fail = make_conversion(i, conversions[i])
                 arglist.append(argname)
                 if can_fail:
@@ -176,9 +184,9 @@ class AbstractMultiMethod(object):
         dispatchclasses = tuple([(c,) for c in argclasses])
         choicelist = self.buildchoices(dispatchclasses)
         seen_functions = {}
-        no_conversion = [[]] * arity
+        no_conversion = [()] * arity
         for signature, function in choicelist:
-            calllist.append((function, no_conversion))
+            calllist.append((function, tuple(no_conversion)))
             seen_functions[function] = 1
 
         # proceed by expanding the last argument by delegation, step by step
@@ -230,14 +238,14 @@ class AbstractMultiMethod(object):
                     if function not in seen_functions:
                         seen_functions[function] = 1
                         # collect arguments: arguments after position argi...
-                        after_argi = [expanded_args[j][signature[j]]
+                        after_argi = [tuple(expanded_args[j][signature[j]])
                                       for j in range(argi+1-arity, 0)]  # nb. j<0
                         # collect arguments: argument argi...
-                        arg_argi = curargs[signature[argi]]
+                        arg_argi = tuple(curargs[signature[argi]])
                         # collect all arguments
                         newargs = no_conversion + [arg_argi] + after_argi
                         # record the call
-                        calllist.append((function, newargs))
+                        calllist.append((function, tuple(newargs)))
                 # end of while 1: try on delegating the same argument i
 
             # proceed to the next argument

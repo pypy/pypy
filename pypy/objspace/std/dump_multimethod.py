@@ -35,11 +35,16 @@ def import_implementations():
         result.append(getattr(module, clsname))
     return result
 
-def list_multimethods():
-    result = []
-    for name, value in StdObjSpace.MM.__dict__.iteritems():
+def list_multimethods(impls=[]):
+    collected = {}
+    for name, value in (StdObjSpace.MM.__dict__.items() +
+                        StdObjSpace.__dict__.items()):
         if isinstance(value, MultiMethod):
-            result.append((name, value))
+            collected[value] = name
+    for impl in impls:
+        for mm in impl.typedef.local_multimethods:
+            collected[mm] = '%s.%s' % (impl.typedef.name, mm.operatorsymbol)
+    result = [(name, value) for value, name in collected.iteritems()]
     result.sort()
     return result
 
@@ -57,19 +62,25 @@ def dump_table(mm, impls):
         print 'dispatch arity is actually only %d.' % mm.dispatch_arity
     delegate = StdObjSpace.delegate
     versions = {}
+    sourcecache = {}
     for argclasses in cartesian_prod([impls] * mm.dispatch_arity):
         calllist = []
         mm.internal_buildcalllist(argclasses, delegate, calllist)
-        src, glob = mm.internal_sourcecalllist(argclasses, calllist)
-        if 'FailedToImplement' in glob:
-            del glob['FailedToImplement']
-            order = len(glob)
-        else:
-            order = 0.5
-        glob = glob.items()
-        glob.sort()
-        glob = tuple(glob)
-        versions.setdefault((order, src, glob), []).append(argclasses)
+        calllist = tuple(calllist)
+        try:
+            key = sourcecache[calllist]
+        except KeyError:
+            src, glob = mm.internal_sourcecalllist(calllist)
+            if 'FailedToImplement' in glob:
+                del glob['FailedToImplement']
+                order = len(glob)
+            else:
+                order = 0.5
+            glob = glob.items()
+            glob.sort()
+            glob = tuple(glob)
+            key = sourcecache[calllist] = order, src, glob
+        versions.setdefault(key, []).append(argclasses)
     versions = versions.items()
     versions.sort()
     versions.reverse()
@@ -130,7 +141,7 @@ if __name__ == '__main__':
     impls = import_implementations()
     total = 0
     restrict = sys.argv[1:]
-    for name, mm in list_multimethods():
+    for name, mm in list_multimethods(impls):
         if (not restrict and name != 'delegate') or name in restrict:
             print
             print '==========', name, '=========='
