@@ -479,29 +479,15 @@ def %(name)s(self, x, *args):
                     return cls.__dict__[name]
             return None
 
-##    def get_and_call(self, w_descr, w_obj, w_args, w_kwargs):
-##        if isinstance(w_descr, CPyWrapper):
-##            return DescrOperation.get_and_call(self, w_descr, w_obj,
-##                                               w_args, w_kwargs)
-##        else:
-##            try:
-##                obj = self.unwrap(w_obj)
-##                if hasattr(w_descr, '__get__'):
-##                    obj = w_descr.__get__(obj, type(obj))
-##                return obj(*w_args, **w_kwargs)
-##            except:
-##                self.reraise()
-
-    def get_and_call_function(self, w_descr, w_obj, *args_w, **kwargs_w):
+    def get_and_call_args(self, w_descr, w_obj, args):
         if isinstance(w_descr, CPyWrapper):
-            return DescrOperation.get_and_call_function(self, w_descr, w_obj,
-                                                        *args_w, **kwargs_w)
+            return DescrOperation.get_and_call_args(self, w_descr, w_obj, args)
         else:
             try:
                 obj = self.unwrap(w_obj)
                 if hasattr(w_descr, '__get__'):
                     obj = w_descr.__get__(obj, type(obj))
-                return obj(*args_w, **kwargs_w)
+                return obj(*args.args_w, **args.kwds_w)
             except:
                 #import traceback; traceback.print_exc()
                 self.reraise()

@@ -1,6 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.typedef import default_dict_descr
+from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.stdtypedef import issubtypedef
 from pypy.objspace.std.objecttype import object_typedef
 
@@ -91,19 +92,18 @@ class W_TypeObject(W_Object):
 
 
 def call__Type(space, w_type, w_args, w_kwds):
-    args_w = space.unpacktuple(w_args)
-    kwds_w = space.unpackdictionary(w_kwds)
+    args = Arguments.frompacked(space, w_args, w_kwds)
     # special case for type(x)
     if (space.is_true(space.is_(w_type, space.w_type)) and
-        len(args_w) == 1 and not kwds_w):
-        return space.type(args_w[0])
+        len(args.args_w) == 1 and not args.kwds_w):
+        return space.type(args.args_w[0])
     # invoke the __new__ of the type
     w_newfunc = space.getattr(w_type, space.wrap('__new__'))
-    w_newobject = space.call_function(w_newfunc, w_type, *args_w, **kwds_w)
+    w_newobject = space.call_args(w_newfunc, args.prepend(w_type))
     # maybe invoke the __init__ of the type
     if space.is_true(space.isinstance(w_newobject, w_type)):
         w_descr = space.lookup(w_newobject, '__init__')
-        space.get_and_call_function(w_descr, w_newobject, *args_w, **kwds_w)
+        space.get_and_call_args(w_descr, w_newobject, args)
     return w_newobject
 
 def issubtype__Type_Type(space, w_type1, w_type2):

@@ -147,9 +147,12 @@ class FlowObjSpace(ObjSpace):
         else:
             return w_item
 
-    def call_function(self, w_callable, *args_w, **kwds_w):
-        assert not kwds_w, "don't know yet about keyword arguments"
-        return self.do_operation('simple_call', w_callable, *args_w)
+    def call_args(self, w_callable, args):
+        if args.kwds_w:
+            w_args, w_kwds = args.pack()
+            return self.do_operation('call', w_callable, w_args, w_kwds)
+        else:
+            return self.do_operation('simple_call', w_callable, *args.args_w)
 
 # ______________________________________________________________________
 

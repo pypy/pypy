@@ -16,16 +16,16 @@ class W_BuiltinFunctionObject(Function):
         self.space = space
         self.cpyfunc = cpyfunc
 
-    def call_function(self, *args_w, **kwds_w):
+    def call_args(self, args):
         space = self.space
         try:
-            args = [space.unwrap(w_arg) for w_arg in args_w]
-            kwds = dict([(key, space.unwrap(w_value))
-                         for key, w_value in kwds_w.items()])
+            unwrappedargs = [space.unwrap(w_arg) for w_arg in args.args_w]
+            unwrappedkwds = dict([(key, space.unwrap(w_value))
+                                  for key, w_value in args.kwds_w.items()])
         except UnwrapError, e:
             raise UnwrapError('calling %s: %s' % (self.cpyfunc, e))
         try:
-            result = apply(self.cpyfunc, args, kwds)
+            result = apply(self.cpyfunc, unwrappedargs, unwrappedkwds)
         except:
             wrap_exception(space)
         return space.wrap(result)

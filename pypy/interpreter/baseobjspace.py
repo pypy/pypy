@@ -1,6 +1,7 @@
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.miscutils import getthreadlocals
+from pypy.interpreter.argument import Arguments
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable']
 
@@ -182,39 +183,17 @@ class ObjSpace:
                 check_list.extend(exclst)
         return False
 
-    def unpackdictionary(self, w_mapping):
-        "Turns a wrapped dictionary into a {'string': w_value} dict."
-        if not self.is_mapping(w_mapping):
-            raise OperationError(self.w_TypeError,
-                                 self.wrap("the keywords must be a dictionary"))
-        result = {}
-        for w_key in self.unpackiterable(w_mapping):
-            key = self.unwrap(w_key)
-            if not isinstance(key, str):
-                raise OperationError(self.w_TypeError,
-                                     self.wrap("keywords must be strings"))
-            result[key] = self.getitem(w_mapping, w_key)
-        return result
-
-    def is_mapping(self, w_mapping):
-        # XXX extend to detect general mappings
-        return self.is_true(self.isinstance(w_mapping, self.w_dict))
-
     def call(self, w_callable, w_args, w_kwds=None):
-        "Deprecated.  Use call_function() instead."
-        args_w = self.unpacktuple(w_args)
-        if w_kwds is None:
-            return self.call_function(w_callable, *args_w)
-        else:
-            kwds_w = self.unpackdictionary(w_kwds)
-            return self.call_function(w_callable, *args_w, **kwds_w)
+        args = Arguments.frompacked(self, w_args, w_kwds)
+        return self.call_args(w_callable, args)
 
-##    def call_function(self, w_func, *args_w, **kw_w):
-##        implemented by subclasses
+    def call_function(self, w_func, *args_w):
+        args = Arguments(self, list(args_w))
+        return self.call_args(w_func, args)
 
-    def call_method(self, w_obj, methname, *arg_w, **kw_w):
+    def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, self.wrap(methname))
-        return self.call_function(w_meth, *arg_w, **kw_w)
+        return self.call_function(w_meth, *arg_w)
 
     def isinstance(self, w_obj, w_type):
         w_objtype = self.type(w_obj)
@@ -377,4 +356,4 @@ ObjSpace.ExceptionTable = [
 #      newstring([w_1, w_2,...]) -> w_string from ascii numbers (bytes)
 # newdict([(w_key,w_value),...]) -> w_dict
 #newslice(w_start,w_stop,w_step) -> w_slice (any argument may be a real None)
-#   call_function(w_obj,*args_w,**kwds_w)
+#   call_args(w_obj,Arguments()) -> w_result

@@ -2,6 +2,7 @@ import operator
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function
+from pypy.interpreter.argument import Arguments
 
 class Object:
     def descr__getattribute__(space, w_obj, w_name):
@@ -58,26 +59,18 @@ class DescrOperation:
     def is_data_descr(space, w_obj):
         return space.lookup(w_obj, '__set__') is not None
 
-##    def get_and_call(space, w_descr, w_obj, w_args, w_kwargs):
-##        descr = space.unwrap_builtin(w_descr)
-##        if isinstance(descr, Function):
-##            # special-case Functions to avoid infinite recursion
-##            args_w = space.unpacktuple(w_args)
-##            args_w = [w_obj] + args_w
-##            w_args = space.newtuple(args_w)
-##            return descr.call(w_args, w_kwargs)
-##        else:
-##            w_impl = space.get(w_descr, w_obj)
-##            return space.call(w_impl, w_args, w_kwargs)
-
-    def get_and_call_function(space, w_descr, w_obj, *args_w, **kwargs_w):
+    def get_and_call_args(space, w_descr, w_obj, args):
         descr = space.unwrap_builtin(w_descr)
         if isinstance(descr, Function):
             # special-case Functions to avoid infinite recursion
-            return descr.call_function(w_obj, *args_w, **kwargs_w)
+            return descr.call_args(args.prepend(w_obj))
         else:
             w_impl = space.get(w_descr, w_obj)
-            return space.call_function(w_impl, *args_w, **kwargs_w)
+            return space.call_args(w_impl, args)
+
+    def get_and_call_function(space, w_descr, w_obj, *args_w):
+        args = Arguments(space, list(args_w))
+        return space.get_and_call_args(w_descr, w_obj, args)
 
     def unwrap_builtin(self, w_obj):
         return w_obj    # hook for hack by TrivialObjSpace
@@ -90,12 +83,12 @@ class DescrOperation:
 ##                              space.wrap('object %r is not callable' % (w_obj,)))
 ##        return space.get_and_call(w_descr, w_obj, w_args, w_kwargs)
 
-    def call_function(space, w_obj, *args_w, **kwds_w):
+    def call_args(space, w_obj, args):
         w_descr = space.lookup(w_obj, '__call__')
         if w_descr is None:
             raise OperationError(space.w_TypeError, 
                                  space.wrap('object %r is not callable' % (w_obj,)))
-        return space.get_and_call_function(w_descr, w_obj, *args_w, **kwds_w)
+        return space.get_and_call_args(w_descr, w_obj, args)
 
     def get(space,w_descr,w_obj,w_type=None):
         w_get = space.lookup(w_descr,'__get__')

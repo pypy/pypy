@@ -9,6 +9,7 @@ from pypy.interpreter.eval import UNDEFINED
 from pypy.interpreter import gateway, function
 from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.miscutils import InitializedClass
+from pypy.interpreter.argument import Arguments
 
 
 class unaryoperation:
@@ -680,13 +681,9 @@ class PyInterpFrame(pyframe.PyFrame):
         block = pyframe.FinallyBlock(f, f.next_instr + offsettoend)
         f.blockstack.push(block)
 
-    def call_function_extra(f, oparg, with_varargs, with_varkw):
+    def CALL_FUNCTION(f, oparg, extra_args=None):
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
-        if with_varkw:
-            w_varkw = f.valuestack.pop()
-        if with_varargs:
-            w_varargs = f.valuestack.pop()
         keywords = {}
         for i in range(n_keywords):
             w_value = f.valuestack.pop()
@@ -695,31 +692,28 @@ class PyInterpFrame(pyframe.PyFrame):
             keywords[key] = w_value
         arguments = [f.valuestack.pop() for i in range(n_arguments)]
         arguments.reverse()
+        args = Arguments(f.space, arguments, keywords)
+        if extra_args:
+            args = args.join(extra_args)
         w_function  = f.valuestack.pop()
-        if with_varargs:    # add the arguments provided by the *args syntax
-            arguments += tuple(f.space.unpackiterable(w_varargs))
-        if with_varkw:      # add the arguments provided by the **kwds syntax
-            kwds_w = f.space.unpackdictionary(w_varkw)
-            for key, w_value in kwds_w.items():
-                if key in keywords:
-                    raise OperationError(f.space.w_TypeError,
-                            f.space.wrap("got multiple values for "
-                                         "keyword argument '%s'" % key))
-                keywords[key] = w_value
-        w_result = f.space.call_function(w_function, *arguments, **keywords)
+        w_result = f.space.call_args(w_function, args)
         f.valuestack.push(w_result)
 
-    def CALL_FUNCTION(f, oparg):
-        f.call_function_extra(oparg, False, False)
-
     def CALL_FUNCTION_VAR(f, oparg):
-        f.call_function_extra(oparg, True,  False)
+        w_varargs = f.valuestack.pop()
+        extra_args = Arguments.frompacked(f.space, w_varargs)
+        f.CALL_FUNCTION(oparg, extra_args)
 
     def CALL_FUNCTION_KW(f, oparg):
-        f.call_function_extra(oparg, False, True)
+        w_varkw = f.valuestack.pop()
+        extra_args = Arguments.frompacked(f.space, w_kwds=w_varkw)
+        f.CALL_FUNCTION(oparg, extra_args)
 
     def CALL_FUNCTION_VAR_KW(f, oparg):
-        f.call_function_extra(oparg, True,  True)
+        w_varkw = f.valuestack.pop()
+        w_varargs = f.valuestack.pop()
+        extra_args = Arguments.frompacked(f.space, w_varargs, w_varkw)
+        f.CALL_FUNCTION(oparg, extra_args)
 
     def MAKE_FUNCTION(f, numdefaults):
         w_codeobj = f.valuestack.pop()

@@ -8,6 +8,7 @@ attribute.
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.argument import Arguments
 
 class Function(Wrappable):
     """A function is a code object captured with some environment:
@@ -24,127 +25,12 @@ class Function(Wrappable):
         self.defs_w    = defs_w     # list of w_default's
         self.w_func_dict = space.newdict([])
 
-    def call_function(self, *args_w, **kwds_w):
-        scope_w = self.parse_args(list(args_w), kwds_w)
+    def call_args(self, args):
+        scope_w = args.parse(self.name, self.code.signature(), self.defs_w)
         frame = self.code.create_frame(self.space, self.w_func_globals,
                                             self.closure)
         frame.setfastscope(scope_w)
         return frame.run()
-
-    def parse_args(self, args_w, kwds_w):
-        """ parse args and kwargs to initialize the frame.
-        """
-        space = self.space
-        signature = self.code.signature()
-        argnames, varargname, kwargname = signature
-        #
-        #   args_w = list of the normal actual parameters, wrapped
-        #   kwds_w = real dictionary {'keyword': wrapped parameter}
-        #   argnames = list of formal parameter names
-        #   scope_w = resulting list of wrapped values
-        #
-        # We try to give error messages following CPython's, which are
-        # very informative.
-        #
-        co_argcount = len(argnames) # expected formal arguments, without */**
-
-        # put as many positional input arguments into place as available
-        scope_w = args_w[:co_argcount]
-        input_argcount = len(scope_w)
-
-        # check that no keyword argument conflicts with these
-        if kwds_w:
-            for name in argnames[:input_argcount]:
-                if name in kwds_w:
-                    self.raise_argerr_multiple_values(name)
-
-        remainingkwds_w = kwds_w.copy()
-        if input_argcount < co_argcount:
-            # not enough args, fill in kwargs or defaults if exists
-            def_first = co_argcount - len(self.defs_w)
-            for i in range(input_argcount, co_argcount):
-                name = argnames[i]
-                if name in remainingkwds_w:
-                    scope_w.append(remainingkwds_w[name])
-                    del remainingkwds_w[name]
-                elif i >= def_first:
-                    scope_w.append(self.defs_w[i-def_first])
-                else:
-                    self.raise_argerr(args_w, kwds_w, False)
-                    
-        # collect extra positional arguments into the *vararg
-        if varargname is not None:
-            scope_w.append(space.newtuple(args_w[co_argcount:]))
-        elif len(args_w) > co_argcount:
-            self.raise_argerr(args_w, kwds_w, True)
-
-        # collect extra keyword arguments into the **kwarg
-        if kwargname is not None:
-            w_kwds = space.newdict([(space.wrap(key), w_value)
-                                    for key, w_value in remainingkwds_w.items()])
-            scope_w.append(w_kwds)
-        elif remainingkwds_w:
-            self.raise_argerr_unknown_kwds(remainingkwds_w)
-        return scope_w
-
-    # helper functions to build error message for the above
-
-    def raise_argerr(self, args_w, kwds_w, too_many):
-        argnames, varargname, kwargname = self.code.signature()
-        nargs = len(args_w)
-        n = len(argnames)
-        if n == 0:
-            if kwargname is not None:
-                msg2 = "non-keyword "
-            else:
-                msg2 = ""
-                nargs += len(kwds_w)
-            msg = "%s() takes no %sargument (%d given)" % (
-                self.name, 
-                msg2,
-                nargs)
-        else:
-            defcount = len(self.defs_w)
-            if defcount == 0:
-                msg1 = "exactly"
-            elif too_many:
-                msg1 = "at most"
-            else:
-                msg1 = "at least"
-                n -= defcount
-            if kwargname is not None:
-                msg2 = "non-keyword "
-            else:
-                msg2 = ""
-            if n == 1:
-                plural = ""
-            else:
-                plural = "s"
-            msg = "%s() takes %s %d %sargument%s (%d given)" % (
-                self.name,
-                msg1,
-                n,
-                msg2,
-                plural,
-                nargs)
-        raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
-
-    def raise_argerr_multiple_values(self, argname):
-        msg = "%s() got multiple values for keyword argument %s" % (
-            self.name,
-            argname)
-        raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
-
-    def raise_argerr_unknown_kwds(self, kwds_w):
-        if len(kwds_w) == 1:
-            msg = "%s() got an unexpected keyword argument '%s'" % (
-                self.name,
-                kwds_w.keys()[0])
-        else:
-            msg = "%s() got %d unexpected keyword arguments" % (
-                self.name,
-                len(kwds_w))
-        raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
 
     def getdict(self):
         return self.w_func_dict
@@ -166,7 +52,9 @@ class Function(Wrappable):
             return wrap(Method(space, wrap(self), None, w_cls))
 
     def descr_function_call(self, *args_w, **kwds_w):
-        return self.call_function(*args_w, **kwds_w)
+        # XXX the Gateway interface should not use interp-level */**
+        # XXX arguments -- conflict with 'self'!
+        return self.call_args(Arguments(self.space, list(args_w), kwds_w))
 
     def fget_func_defaults(space, w_self):
         self = space.unwrap(w_self)
@@ -199,25 +87,25 @@ class Method(Wrappable):
         self.w_instance = w_instance   # or None
         self.w_class = w_class
 
-    def call_function(self, *args_w, **kwds_w):
+    def call_args(self, args):
         if self.w_instance is not None:
             # bound method
-            return self.space.call_function(self.w_function, self.w_instance,
-                                            *args_w, **kwds_w)
+            args = args.prepend(self.w_instance)
         else:
             # unbound method
-            if (len(args_w) >= 1 and self.space.is_true(
-                    self.space.isinstance(args_w[0], self.w_class))):
+            if (len(args.args_w) >= 1 and self.space.is_true(
+                    self.space.isinstance(args.args_w[0], self.w_class))):
                 pass  # ok
             else:
                 msg = ("unbound method must be called with "
                        "instance as first argument")     # XXX fix error msg
                 raise OperationError(self.space.w_TypeError,
                                      self.space.wrap(msg))
-            return self.space.call_function(self.w_function, *args_w, **kwds_w)
+        return self.space.call_args(self.w_function, args)
 
     def descr_method_call(self, *args_w, **kwds_w):
-        return self.call_function(*args_w, **kwds_w)
+        # XXX same as descr_function_call()
+        return self.call_args(Arguments(self.space, list(args_w), kwds_w))
 
 class StaticMethod(Wrappable):
     """A static method.  Note that there is one class staticmethod at
