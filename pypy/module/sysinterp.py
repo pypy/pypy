@@ -40,7 +40,8 @@ for fn in builtin_module_names:
 # steal them from Python.
 for fn in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
            'cStringIO', 'itertools', 'math',
-           '_random', '_sre', 'time']:
+           '_random', '_sre', 'time',
+           'marshal', 'struct', 'binascii']:
     if fn not in builtin_modules:
         try:
             builtin_modules[fn] = hack_cpython_module(fn)
