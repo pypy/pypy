@@ -29,7 +29,7 @@ class TBRequestHandler(BaseHTTPRequestHandler):
             tbview = self.views[tb_name]
             s = tbview.render(args) 
             self.send_response(200)
-            self.send_header("Content-Type", "text/html ; charset=utf-8")
+            self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
             self.wfile.write(unicode(s).encode('utf8')) 
 
