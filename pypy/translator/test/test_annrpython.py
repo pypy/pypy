@@ -344,7 +344,7 @@ class AnnonateTestCase(testit.IntTestCase):
         s = a.build_types(snippet.is_and_knowntype, [bool])
         #a.simplify()
         #a.translator.view()
-        self.assert_(isinstance(s, annmodel.SomeNone))
+        self.assertEquals(s, a.bookkeeper.immutablevalue(None))
 
     def test_isinstance_and_knowntype_data(self): 
         a = RPythonAnnotator()

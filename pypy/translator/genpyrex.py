@@ -256,7 +256,8 @@ class GenPyrex:
     def _gettypename(self, vartype):
         if vartype in (int, bool):
             ctype = "int"
-        elif self.annotator and vartype in self.annotator.getuserclasses():
+        elif (self.annotator and vartype in self.annotator.getuserclasses()
+              and vartype.__module__ != '__builtin__'):
             ctype = self.getclassname(vartype)
         else:
             ctype = "object"

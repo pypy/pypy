@@ -241,8 +241,7 @@ class GenC:
             else:
                 return "probably"   # True
         classdef = ann.getuserclasses().get(pbc.__class__)
-        if (classdef and classdef.about_attribute(attr) not in [
-                                None, annmodel.SomeImpossibleValue()]):
+        if classdef and classdef.about_attribute(attr) is not None:
             return True
         return False
 

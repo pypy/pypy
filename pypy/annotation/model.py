@@ -77,12 +77,6 @@ class SomeObject:
     del set_caused_by_merge
 
 
-class SomeNone(SomeObject):
-    "Stands for None."
-    knowntype = type(None)
-    const = None
-
-
 class SomeInteger(SomeObject):
     "Stands for an object which is known to be an integer."
     knowntype = int

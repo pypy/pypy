@@ -134,7 +134,7 @@ class Bookkeeper:
                 x.freeze()
             return self.getpbc(x)
         elif x is None:
-            result = SomeNone()
+            return self.getpbc(None)
         else:
             result = SomeObject()
         result.const = x
@@ -148,7 +148,7 @@ class Bookkeeper:
         except KeyError:
             result = SomePBC({x: True}) # pre-built inst
             clsdef = self.getclassdef(new_or_old_class(x))
-            for attr in x.__dict__:
+            for attr in getattr(x, '__dict__', {}):
                 clsdef.add_source_for_attribute(attr, x)
             self.pbccache[x] = result
             return result
@@ -469,7 +469,11 @@ class ClassDef:
     def about_attribute(self, name):
         for cdef in self.getmro():
             if name in cdef.attrs:
-                return cdef.attrs[name].s_value
+                s_result = cdef.attrs[name].s_value
+                if s_result != SomeImpossibleValue():
+                    return s_result
+                else:
+                    return None
         return None
 
 

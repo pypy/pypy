@@ -226,7 +226,7 @@ class RPythonAnnotator:
             if graph.hasonlyexceptionreturns(): 
                 # XXX for functions with exceptions what to 
                 #     do anyway? 
-                return annmodel.SomeNone() 
+                return self.bookkeeper.immutablevalue(None)
             return annmodel.SomeImpossibleValue()
 
     def reflowfromposition(self, position_key):
