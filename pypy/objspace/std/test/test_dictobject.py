@@ -15,14 +15,14 @@ class TestW_DictObject(unittest_w.TestCase_w):
 
     def test_empty(self):
         space = self.space
-        d = dobj.W_DictObject([])
+        d = dobj.W_DictObject(space, [])
         self.failIf_w(d)
 
     def test_nonempty(self):
         space = self.space
         wNone = space.w_None
-        d = dobj.W_DictObject([(wNone, wNone)])
-        self.failUnless(self.space.is_true(d))
+        d = dobj.W_DictObject(space, [(wNone, wNone)])
+        self.failUnless(space.is_true(d))
         i = space.getitem(d, wNone)
         equal = space.eq(i, wNone)
         self.failUnless(space.is_true(equal))
@@ -31,7 +31,7 @@ class TestW_DictObject(unittest_w.TestCase_w):
         space = self.space
         wk1 = space.wrap('key')
         wone = space.wrap(1)
-        d = dobj.W_DictObject([(space.wrap('zero'),space.wrap(0))])
+        d = dobj.W_DictObject(space, [(space.wrap('zero'),space.wrap(0))])
         space.setitem(d,wk1,wone)
         wback = space.getitem(d,wk1)
         self.assertEqual_w(wback,wone)
@@ -39,7 +39,8 @@ class TestW_DictObject(unittest_w.TestCase_w):
     def test_delitem(self):
         space = self.space
         wk1 = space.wrap('key')
-        d = dobj.W_DictObject([(space.wrap('zero'),space.wrap(0)),
+        d = dobj.W_DictObject(space,
+                              [(space.wrap('zero'),space.wrap(0)),
                                (space.wrap('one'),space.wrap(1)),
                                (space.wrap('two'),space.wrap(2))])
         space.delitem(d,space.wrap('one'))
@@ -50,7 +51,7 @@ class TestW_DictObject(unittest_w.TestCase_w):
     def test_cell(self):
        space = self.space
        wk1 = space.wrap('key')
-       d = dobj.W_DictObject([])
+       d = dobj.W_DictObject(space, [])
        w_cell = d.cell(space,wk1)
        cell = space.unwrap(w_cell)
        self.failUnless(cell.is_empty())

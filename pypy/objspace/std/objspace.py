@@ -61,44 +61,44 @@ class StdObjSpace(ObjSpace):
             if isinstance(x, booltype):
                 return self.newbool(x)
             import intobject
-            return intobject.W_IntObject(x)
+            return intobject.W_IntObject(self, x)
         if isinstance(x, str):
             import stringobject
-            return stringobject.W_StringObject(x)
+            return stringobject.W_StringObject(self, x)
         #if isinstance(x, float):
         #    import floatobject
         #    return floatobject.W_FloatObject(x)
         if isinstance(x, tuple):
             wrappeditems = [self.wrap(item) for item in x]
             import tupleobject
-            return tupleobject.W_TupleObject(wrappeditems)
+            return tupleobject.W_TupleObject(self, wrappeditems)
         if isinstance(x, list):
             wrappeditems = [self.wrap(item) for item in x]
             import listobject
-            return listobject.W_ListObject(wrappeditems)
+            return listobject.W_ListObject(self, wrappeditems)
         import cpythonobject
-        return cpythonobject.W_CPythonObject(x)
+        return cpythonobject.W_CPythonObject(self, x)
 
     def newtuple(self, list_w):
         import tupleobject
-        return tupleobject.W_TupleObject(list_w)
+        return tupleobject.W_TupleObject(self, list_w)
 
     def newlist(self, list_w):
         import listobject
-        return listobject.W_ListObject(list_w)
+        return listobject.W_ListObject(self, list_w)
 
     def newdict(self, list_pairs_w):
         import dictobject
-        return dictobject.W_DictObject(list_pairs_w)
+        return dictobject.W_DictObject(self, list_pairs_w)
 
     def newslice(self, w_start, w_end, w_step):
         # w_step may be a real None
         import sliceobject
-        return sliceobject.W_SliceObject(w_start, w_end, w_step)
+        return sliceobject.W_SliceObject(self, w_start, w_end, w_step)
 
     def newfunction(self, code, w_globals, w_defaultarguments, w_closure=None):
         import funcobject
-        return funcobject.W_FuncObject(code, w_globals,
+        return funcobject.W_FuncObject(self, code, w_globals,
                                        w_defaultarguments, w_closure)
 
     def newmodule(self, w_name):
@@ -115,7 +115,7 @@ class StdObjSpace(ObjSpace):
             raise OperationError(self.w_ValueError,
                                  self.wrap("character code not in range(256)"))
         import stringobject
-        return stringobject.W_StringObject(''.join(chars))
+        return stringobject.W_StringObject(self, ''.join(chars))
 
     # special multimethods
     unwrap  = MultiMethod('unwrap', 1)   # returns an unwrapped object
@@ -153,7 +153,7 @@ StdObjSpace.ne.register(default_ne, W_ANY, W_ANY)
 
 def default_id(space, w_obj):
     import intobject
-    return intobject.W_IntObject(id(w_obj))
+    return intobject.W_IntObject(space, id(w_obj))
 
 StdObjSpace.id.register(default_id, W_ANY)
 

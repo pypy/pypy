@@ -28,7 +28,7 @@ StdObjSpace.is_true.register(tuple_is_true, W_TupleObject)
 
 def tuple_len(space, w_tuple):
     result = len(w_tuple.wrappeditems)
-    return W_IntObject(result)
+    return W_IntObject(space, result)
 
 StdObjSpace.len.register(tuple_len, W_TupleObject)
 
@@ -55,27 +55,27 @@ def getitem_tuple_slice(space, w_tuple, w_slice):
     for i in range(slicelength):
         subitems[i] = items[start]
         start += step
-    return W_TupleObject(subitems)
+    return W_TupleObject(space, subitems)
 
 StdObjSpace.getitem.register(getitem_tuple_slice, W_TupleObject, W_SliceObject)
 
 def tuple_iter(space, w_tuple):
     import iterobject
-    return iterobject.W_SeqIterObject(w_tuple)
+    return iterobject.W_SeqIterObject(space, w_tuple)
 
 StdObjSpace.iter.register(tuple_iter, W_TupleObject)
 
 def tuple_add(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
-    return W_TupleObject(items1 + items2)
+    return W_TupleObject(space, items1 + items2)
 
 StdObjSpace.add.register(tuple_add, W_TupleObject, W_TupleObject)
 
 def tuple_int_mul(space, w_tuple, w_int):
     items = w_tuple.wrappeditems
     times = w_int.intval
-    return W_TupleObject(items * times)
+    return W_TupleObject(space, items * times)
 
 StdObjSpace.mul.register(tuple_int_mul, W_TupleObject, W_IntObject)
 
