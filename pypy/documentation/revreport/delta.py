@@ -2,14 +2,7 @@ import autopath
 from pypy.interpreter.error import OperationError
 
 from  py.xml import html
-
-class html_plus(html):
-    __tagspec__ = html.__tagspec__.copy()
-    
-    __tagspec__['button'] = 1
-    __tagspec__['script'] = 1
-
-html = html_plus
+import py
 
 import os, sys
 from sets import Set
@@ -21,6 +14,7 @@ RED   = "#ff0000"
 WHITE = "#ffffff"
 BLACK = "#000000"
 GREY =  "#808080"
+GREEN =  "#00ff00" 
 
 def incompleteness_bar(DIR, incompleteness):
     from PIL import Image, ImageDraw, ImageColor
@@ -29,6 +23,7 @@ def incompleteness_bar(DIR, incompleteness):
     white = ImageColor.getrgb(WHITE)
     black = ImageColor.getrgb(BLACK)
     grey = ImageColor.getrgb(GREY)
+    green = ImageColor.getrgb(GREEN)
 
     if incompleteness == -1.0:
         inc = -1
@@ -39,27 +34,21 @@ def incompleteness_bar(DIR, incompleteness):
             inc == 1
         name = "bar_%d.png" % inc
 
-    imgfname = os.path.join(DIR,'images',name)
-
-    if not os.path.exists(imgfname):
-        img = Image.new("RGB",(W,H), red)
+    IMGDIR = DIR.join('images') 
+    IMGDIR.ensure(dir=1)
+    imgfname = IMGDIR.join(name) 
+    if not imgfname.check(): 
+        img = Image.new("RGB", (W,H), red)
         draw = ImageDraw.Draw(img)
 
         if inc == -1:
             draw.rectangle([0,0,W-1,H-1], outline=black, fill=white)
         else:
             if W-1-inc != 0:
-                draw.rectangle([0,0,W-1-inc,H-1],outline=grey, fill=grey)
-
-        IMGDIR = os.path.join(DIR,'images')
-
-        if not os.path.isdir(IMGDIR):
-            os.mkdir(IMGDIR)
-
-        img.save(imgfname,optimize=True)
-
-    return html.img(src=os.path.join('images', name),alt="incompleteness=%.2f" % incompleteness)
-
+                draw.rectangle([0,0,W-1-inc,H-1], outline=black, fill=green)
+        img.save(str(imgfname),optimize=True)
+    return html.img(src='images/%s' % name, 
+                    alt="incompleteness=%.2f" % incompleteness)
 
 NOTFOUND = object()
 
@@ -220,7 +209,8 @@ class ObjSpaceExplore(Explore):
 
 
 class Status:
-    def __init__(self, msg, detail_missing, class_, incompleteness, shortmsg = None):
+    def __init__(self, msg, detail_missing, class_, 
+                 incompleteness, shortmsg = None):
         self.msg = msg
         self.detail_missing = detail_missing
         self.class_ = class_
@@ -325,9 +315,7 @@ reports = []
 class Report(Entry):
 
     useshort = False
-
     notes = None
-
     descr = granddescr = "<not specified>"
     
     def __init__(self, name, title=None, fname=None, **kwds):
@@ -415,12 +403,6 @@ class Report(Entry):
         return self.shortname, self.fname()
 
     def fill_table(self, dir, tbl, rows):
-        def set_class(class_):
-            if class_ is None:
-                return {}
-            else:
-                return {'class': class_}
-        
         i = 0
         for name, entry, rest, st in rows:
             tr_class = i%2 == 0 and "even" or "odd"
@@ -430,19 +412,14 @@ class Report(Entry):
                 msg = st.msg
             rest = rest + [incompleteness_bar(dir, st.incompleteness), msg]            
             tbl.append(html.tr(
-                html.td(entry.link(name), **set_class(st.class_)),
-                *map(html.td,rest), **{'class': tr_class})
-                       )
+                html.td(entry.link(name), class_=st.class_), 
+                class_=tr_class, 
+                *map(html.td,rest)) 
+            )
             i += 1
         
     def html(self, dir):
         title = self.title
-
-        def set_class(class_):
-            if class_ is None:
-                return {}
-            else:
-                return {'class': class_}
 
         if self.notes is not None:
             notes = html.p(self.notes)
@@ -466,21 +443,28 @@ class Report(Entry):
         incompleteness_table = html.table(id="incompleteness", style=HIDE)
 
         toggle = html.p("sort:",
-            html.button("alphabetical", type="button", onclick="toggle(ALPHA)"),'|',
-            html.button("incompleteness", type="button", onclick="toggle(INCOMPLETENESS)"),'|',
-            html.button("# overall missing", type="button", onclick="toggle(GRANDMISSING)"))
+            html.button("alphabetical", 
+                        type="button", onclick="toggle(ALPHA)"), 
+            '|',
+            html.button("incompleteness", 
+                        type="button", onclick="toggle(INCOMPLETENESS)"),
+            '|',
+            html.button("# overall missing", 
+                        type="button", onclick="toggle(GRANDMISSING)"))
 
         page = html.html(
             html.head(html.title(title),
-                      html.link(href="delta.css", rel="stylesheet", type="text/css"),
-                      html.script(' ',type="text/javascript",src="delta.js")),
+                      html.link(href="delta.css", rel="stylesheet", 
+                      type="text/css"),
+                      html.script(' ',type="text/javascript", src="delta.js")),
             html.body(self.navig(),
-                      html.p(msg, bar, **set_class(class_)),
+                      html.p(msg, bar, class_=class_), 
                       toggle,
                       alpha_table,
                       grandmissing_table,
                       incompleteness_table,
-                      notes), xmlns="http://www.w3.org/1999/xhtml")
+                      notes), 
+                      xmlns="http://www.w3.org/1999/xhtml")
 
         rows = []
         for name, entry, rest, parent in self.rows:
@@ -489,17 +473,17 @@ class Report(Entry):
 
         self.fill_table(dir, alpha_table, rows)
 
-        rows.sort(lambda (name1, ent1, r1, st1),(name2, ent2, r2, st2): -cmp(st1.detail_missing, st2.detail_missing))
+        rows.sort(lambda (name1, ent1, r1, st1),    (name2, ent2, r2, st2): 
+                   -cmp(st1.detail_missing, st2.detail_missing))
         self.fill_table(dir, grandmissing_table, rows)
 
-        rows.sort(lambda (name1, ent1, r1, st1),(name2, ent2, r2, st2): -cmp(st1.incompleteness, st2.incompleteness))
+        rows.sort(lambda (name1, ent1, r1, st1),(name2, ent2, r2, st2): 
+                    -cmp(st1.incompleteness, st2.incompleteness))
         self.fill_table(dir, incompleteness_table, rows)
 
-        f = open(os.path.join(dir, self.fname()),'w')
-
-        f.write(HEADER+page.unicode().encode("utf8"))
-
-        f.close()
+        f = dir.join(self.fname()).write(   
+            HEADER+page.unicode().encode("utf8")
+        )  
 
     def navig(self):
         return html.h1(self.title)
@@ -747,18 +731,14 @@ if __name__ == '__main__':
         print "Then copy delta.css, delta.js to dest-dir if they are not already there"
         sys.exit(0)
 
-    DIR = sys.argv[1]
-
+    DIR = py.path.local(sys.argv[1])
     
     from pypy.objspace.std.objspace import StdObjSpace
-
     space = StdObjSpace()
     
     mods_report = delta(ObjSpaceExplore(space), host_explore, TO_CHECK)
     cls_report = cls_delta_rep()
 
-    if not os.path.isdir(DIR):
-        os.mkdir(DIR)
-
+    DIR.ensure(dir=1) 
     for rep in reports:
         rep.html(DIR)
