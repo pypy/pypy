@@ -8,6 +8,55 @@ from pypy.interpreter import pyframe
 from pypy.interpreter.baseobjspace import *
 import operator, types, new, sys
 
+class nugen(object):
+    def __init__(self, space, frame):
+        self.space = space
+        self.frame = frame
+        self.running = 0
+    def next(g_self):
+        if g_self.running:
+            raise OperationError(self.w_ValueError,
+                                 "generator already executing")
+        ec = g_self.space.getexecutioncontext()
+
+        g_self.running = 1
+        try:
+            try:
+                ret = ec.eval_frame(g_self.frame)
+            except NoValue:
+                raise StopIteration
+        finally:
+            g_self.running = 0
+
+        return ret
+    def __iter__(self):
+        return self
+
+class nufun(object):
+    def __init__(self, space, code, globals, defaultarguments, closure):
+        self.space = space
+        self.__name__ = code.co_name
+        self.func_code = self.code = code
+        self.globals = globals
+        self.defaultarguments = defaultarguments
+        self.closure = closure
+    def do_call(self, *args, **kwds):
+        locals = self.code.build_arguments(self.space, args, kwds,
+            w_defaults = self.defaultarguments,
+            w_closure = self.closure)
+        if self.code.co_flags & 0x0020:
+            from pypy.interpreter import pyframe
+            frame = pyframe.PyFrame(self.space, self.code,
+                                    self.globals, locals)
+            return nugen(self.space, frame)
+        else:
+            return self.code.eval_code(self.space, self.globals, locals)
+    def __call__(self, *args, **kwds):
+        return self.do_call(*args, **kwds)
+    def __get__(self, ob, cls=None):
+        import new
+        return new.instancemethod(self, ob, cls)
+
 
 class TrivialObjSpace(ObjSpace):
 
@@ -258,22 +307,6 @@ def %(_name)s(self, *args):
         assert hasattr(code, 'co_name')
         assert hasattr(code, 'build_arguments')
         assert hasattr(code, 'eval_code')
-        class nufun(object):
-            def __init__(self, space, code, globals, defaultarguments, closure):
-                self.space = space
-                self.__name__ = code.co_name
-                self.func_code = self.code = code
-                self.globals = globals
-                self.defaultarguments = defaultarguments
-                self.closure = closure
-            def __call__(self, *args, **kwds):
-                locals = self.code.build_arguments(self.space, args, kwds,
-                    w_defaults = self.defaultarguments,
-                    w_closure = self.closure)
-                return self.code.eval_code(self.space, self.globals, locals)
-            def __get__(self, ob, cls=None):
-                import new
-                return new.instancemethod(self, ob, cls)
         return nufun(self, code, globals, defaultarguments, closure)
 
     def newstring(self, asciilist):
@@ -296,20 +329,14 @@ def %(_name)s(self, *args):
             and callable.im_self is not None):
             args = (callable.im_self,) + args
             callable = callable.im_func
-        if isinstance(callable, types.FunctionType):
-            raise Exception, "shouldn't get here, methinks"
-            bytecode = callable.func_code
-            ec = self.getexecutioncontext()
-            w_globals = self.wrap(callable.func_globals)
-            w_defaults = self.wrap(callable.func_defaults)
-            w_locals = self.newdict([])
-            frame = pyframe.PyFrame(self, bytecode, w_globals, w_locals)
-            # perform call
-            frame.setargs(args, kwds, w_defaults)
-            return ec.eval_frame(frame)
+        if callable == nugen.next.im_func:
+            try:
+                return apply(callable, args, kwds or {})
+            except:
+                self.reraise()
         else:
             return apply(callable, args, kwds or {})
-
+                
     def hex(self, ob):
         try:
             return hex(ob)

@@ -1,7 +1,7 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
 
-from pypy.interpreter.executioncontext import OperationError, Stack
+from pypy.interpreter.executioncontext import OperationError, Stack, NoValue
 from pypy.interpreter.appfile import AppFile
 
 appfile = AppFile(__name__, ["interpreter"])
@@ -57,7 +57,6 @@ class PyFrame:
                             opcode.dispatch_arg(self, op, oparg)
                         else:
                             opcode.dispatch_noarg(self, op)
-
                     except OperationError, e:
                         e.record_application_traceback(self, last_instr)
                         self.last_exception = e
@@ -296,7 +295,8 @@ class SReturnValue(ControlFlowException):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
     def emptystack(self, frame):
-        # XXX do something about generators, like throw a NoValue
+        if frame.bytecode.co_flags & 0x0020:#CO_GENERATOR:
+            raise NoValue
         w_returnvalue = self.args[0]
         raise ExitFrame(w_returnvalue)
 
@@ -304,9 +304,8 @@ class SYieldValue(ControlFlowException):
     """Signals a 'yield' statement.
     Argument is the wrapped object to return."""
     def action(self, frame, last_instr, executioncontext):
-        # XXX generators
-        raise OperationError(frame.space.w_Exception,
-                             frame.space.wrap("generators are not ready yet"))
+        w_returnvalue = self.args[0]
+        raise ExitFrame(w_returnvalue)
 
 class StopUnrolling(Exception):
     "Signals the end of the block stack unrolling."

@@ -29,13 +29,21 @@ def unwrap__Func(space, w_function):
     # XXX no closure implemented
     return proxy_function
 
+CO_GENERATOR = 0x0020
+
 def call__Func_ANY_ANY(space, w_function, w_arguments, w_keywords):
     somecode = w_function.code
     w_globals = w_function.w_globals
     w_locals = somecode.build_arguments(space, w_arguments, w_keywords,
                   w_defaults = w_function.w_defaultarguments,
                   w_closure = w_function.w_closure)
-    w_ret = somecode.eval_code(space, w_globals, w_locals)
+    if somecode.co_flags & CO_GENERATOR:
+        from generatorobject import W_GeneratorObject
+        from pypy.interpreter import pyframe
+        frame = pyframe.PyFrame(space, somecode, w_globals, w_locals)
+        w_ret = W_GeneratorObject(space, frame)
+    else:
+        w_ret = somecode.eval_code(space, w_globals, w_locals)
     return w_ret
 
 def get__Func_ANY_ANY(space, w_function, w_instance, w_cls):

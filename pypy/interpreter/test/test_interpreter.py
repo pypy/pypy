@@ -1,3 +1,4 @@
+from __future__ import generators
 import autopath
 from pypy.tool import test
 
@@ -231,6 +232,32 @@ class AppTestInterpreter(test.AppTestCase):
                 return x
             return g
         self.assertEquals(f()(), 42)
+
+    def test_generator(self):
+        def f():
+            yield 1
+        self.assertEquals(f().next(), 1)
+        
+    def test_generator2(self):
+        def f():
+            yield 1
+        g = f()
+        self.assertEquals(g.next(), 1)
+        self.assertRaises(StopIteration, g.next) 
+
+    def test_generator3(self):
+        def f():
+            yield 1
+        g = f()
+        self.assertEquals(list(g), [1])
+        
+    def test_generator_restart(self):
+        def g():
+            i = me.next()
+            yield i
+        me = g()
+        self.assertRaises(ValueError, me.next)
+        
             
 
 if __name__ == '__main__':
