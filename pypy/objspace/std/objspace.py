@@ -68,7 +68,7 @@ class StdObjSpace(ObjSpace):
         return [value for key, value in result.__dict__.items()
                       if not key.startswith('_')]   # don't look
 
-    def clone_exception_heirachy(self):
+    def clone_exception_hierarchy(self):
         from usertype import W_UserType
         from funcobject import W_FuncObject
         from pypy.interpreter.pycode import PyByteCode
@@ -171,7 +171,7 @@ class StdObjSpace(ObjSpace):
             for_builtins[typeclass.typename] = w_type
 
         # exceptions
-        for_builtins.update(self.clone_exception_heirachy())
+        for_builtins.update(self.clone_exception_hierarchy())
         
         self.make_builtins()
         self.make_sys()
