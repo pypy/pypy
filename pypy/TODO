@@ -1,12 +1,19 @@
+Task: refactor the flowmodel to translator/flowmodel.idea
+      (Armin and Holger plan on doing this next saturday)
+
+Task: announce the AmsterdamSprint (maybe together with the next task)
+Task: announce the EU proposal
+      (Armin and Holger plan on doing this next saturday)
+
 Task: update pypy homepage
+
+Task: add more builtins! (like e.g. 'dir')
 
 Task: fix interpreter-level object introspection from app-level 
       (make dis.dis(dis.dis) goal work as a side effect)
 
 Task: provide an importer that can include packages (we can't at the 
       moment)
-
-Task: complete builtins! (like e.g. 'dir')
 
 Task: slicing with assigments & more small things (finish StdObjSpace review!)
 
@@ -27,5 +34,3 @@ Task: (documentation) remove/retire all web-pages referencing e.g.
       AnnSpace or other deprecated stuff
 
 Task: (documentation) do more and enhance
-
-
