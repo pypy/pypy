@@ -287,7 +287,7 @@ class BuiltinCode(eval.Code):
     # When a BuiltinCode is stored in a Function object,
     # you get the functionality of CPython's built-in function type.
 
-    def __init__(self, func, ismethod=None, spacearg=None, unwrap_spec = None, self_type = None):
+    def __init__(self, func, unwrap_spec = None, self_type = None):
         "NOT_RPYTHON"
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
@@ -308,9 +308,6 @@ class BuiltinCode(eval.Code):
         # First extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
         argnames, varargname, kwargname = pycode.cpython_code_signature(func.func_code)
-
-        assert not ismethod, ("ismethod is not expected anymore")
-        assert not spacearg, ("spacearg is not expected anymore")
 
         if unwrap_spec is None:
             unwrap_spec = getattr(func,'unwrap_spec',None)
@@ -365,8 +362,7 @@ class interp2app(Wrappable):
 
     NOT_RPYTHON_ATTRIBUTES = ['_staticdefs']
     
-    def __init__(self, f, app_name=None,
-                 ismethod=None, spacearg=None, unwrap_spec = None):
+    def __init__(self, f, app_name=None, unwrap_spec = None):
         "NOT_RPYTHON"
         Wrappable.__init__(self)
         # f must be a function whose name does NOT start with 'app_'
@@ -381,10 +377,7 @@ class interp2app(Wrappable):
                 raise ValueError, ("function name %r suspiciously starts "
                                    "with 'app_'" % f.func_name)
             app_name = f.func_name
-        self._code = BuiltinCode(f, ismethod=ismethod,
-                                  spacearg=spacearg,
-                                  unwrap_spec=unwrap_spec,
-                                  self_type = self_type)
+        self._code = BuiltinCode(f, unwrap_spec=unwrap_spec, self_type = self_type)
         self.__name__ = f.func_name
         self.name = app_name
         self._staticdefs = list(f.func_defaults or ())
