@@ -1,8 +1,7 @@
 
 
 class W_SliceObject(object):
-    __slots__ = ['start', 'stop', 'step']
-    def __init__(self, start, stop, step):
+    def __init__(self, w_start, w_stop, w_step):
         self.w_start = w_start
         self.w_stop = w_stop
         self.w_step = w_step

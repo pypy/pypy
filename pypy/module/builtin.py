@@ -24,6 +24,13 @@ class Builtin(BuiltinModule):
         return self.space.str(w_obj)
     str = appmethod(str)
 
+    # temporary hack, until we have a real tuple type for calling
+    def tuple(self, w_obj):
+        lis = self.space.unpackiterable(w_obj)
+        w_res = self.space.newtuple(lis)
+        return w_res
+    tuple = appmethod(tuple)
+
     def __import__(self, w_modulename, w_locals, w_globals, w_fromlist):
         space = self.space
         try:
