@@ -31,7 +31,14 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         if obj1 == obj2:
             return obj1
         else:
-            return SomeObject()
+            result = SomeObject()
+            # try to preserve the origin of SomeObjects
+            if obj1 == result:
+                return obj1
+            elif obj2 == result:
+                return obj2
+            else:
+                return result
 
     def inplace_add((obj1, obj2)):
         return pair(obj1, obj2).add()   # default
