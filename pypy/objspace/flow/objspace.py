@@ -73,14 +73,11 @@ class FlowObjSpace(ObjSpace):
         if w_start is None: w_start = self.w_None
         if w_stop  is None: w_stop  = self.w_None
         if w_step  is None: w_step  = self.w_None
-        try:
-            content = slice(self.unwrap(w_start),
-                            self.unwrap(w_stop),
-                            self.unwrap(w_step))
-        except UnwrapException:
-            return self.do_operation('newslice', w_start, w_stop, w_step)
-        else:
-            return Constant(content)
+        if self.concrete_mode:
+            return Constant(slice(self.unwrap(w_start),
+                                  self.unwrap(w_stop),
+                                  self.unwrap(w_step)))
+        return self.do_operation('newslice', w_start, w_stop, w_step)
 
     def wrap(self, obj):
         if isinstance(obj, (Variable, Constant)):

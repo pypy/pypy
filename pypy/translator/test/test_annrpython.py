@@ -159,7 +159,7 @@ class AnnonateTestCase(testit.IntTestCase):
         s = a.build_types(snippet.inheritance1, [])
         # result should be exactly:
         self.assertEquals(s, annmodel.SomeTuple([
-                                annmodel.SomeTuple([]),
+                                annmodel.immutablevalue(()),
                                 annmodel.SomeInteger()
                                 ]))
 
