@@ -342,12 +342,12 @@ static int setup_globalfunctions(globalfunctiondef_t* def)
 	return 0;
 }
 
-static int setup_initcode(unsigned char* frozendata, int len)
+static int setup_initcode(char* frozendata, int len)
 {
 	PyObject* co;
 	PyObject* globals;
 	PyObject* res;
-	co = PyMarshal_ReadObjectFromString((char*) frozendata, len);
+	co = PyMarshal_ReadObjectFromString(frozendata, len);
 	if (co == NULL)
 		return -1;
 	if (!PyCode_Check(co)) {

@@ -490,8 +490,12 @@ class GenC:
         # frozen init bytecode
         print >> f, self.C_FROZEN_BEGIN
         bytecode = self.getfrozenbytecode()
+        def char_repr(c):
+            if c in '\\"': return '\\' + c
+            if ' ' <= c < '\x7F': return c
+            return '\\%03o' % ord(c)
         for i in range(0, len(bytecode), 20):
-            print >> f, ''.join(['%d,' % ord(c) for c in bytecode[i:i+20]])
+            print >> f, ''.join([char_repr(c) for c in bytecode[i:i+20]])+'\\'
         print >> f, self.C_FROZEN_END
 
         # the footer proper: the module init function */
@@ -826,9 +830,9 @@ static globalfunctiondef_t globalfunctiondefs[] = {'''
 
     C_FROZEN_BEGIN = '''
 /* Frozen Python bytecode: the initialization code */
-static unsigned char frozen_initcode[] = {'''
+static char frozen_initcode[] = "\\'''
 
-    C_FROZEN_END = '''};\n'''
+    C_FROZEN_END = '''";\n'''
 
     C_FOOTER = C_SEP + '''
 
