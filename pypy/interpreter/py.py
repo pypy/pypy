@@ -53,4 +53,8 @@ def main_(argv=None):
         con.interact(banner)
 
 if __name__ == '__main__':
+    try:
+        import readline
+    except:
+        pass
     main_(sys.argv)
