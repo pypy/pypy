@@ -14,8 +14,9 @@ def setup_module(mod):
     mod.llvm_found = is_on_path("llvm-as")
 
 def compile_function(function, annotate):
-    t = Translator(function, simplifying=True)
+    t = Translator(function)
     a = t.annotate(annotate)
+    t.simplify()
     gen = LLVMGenerator(t)
     return gen.compile()
 
@@ -155,6 +156,22 @@ class TestLLVMArray(object):
         f = compile_function(llvmsnippet.array_arg, [int])
         assert f(5) == 0
 
+    def test_array_len(self):
+        f = compile_function(llvmsnippet.array_len, [])
+        assert f() == 10
+
+    def test_array_append(self):
+        f = compile_function(llvmsnippet.array_append, [int])
+        for i in range(3):
+            assert f(i) == 0
+        assert f(3) == 10
+
+    def test_array_reverse(self):
+        f = compile_function(llvmsnippet.array_reverse, [int])
+        assert f(0) == 1
+        assert f(1) == 0
+        
+
 
 class TestClass(object):
     def setup_method(self, method):
@@ -204,7 +221,15 @@ class TestSnippet(object):
         assert f(10) == 1
         assert f(1) == 1
         assert f(0) == 0
-        
+
+    def test_two_plus_two(self):
+        f = compile_function(test.two_plus_two, [])
+        assert f() == 4
+
+    def test_sieve_of_eratosthenes(self):
+        f = compile_function(test.sieve_of_eratosthenes, [])
+        assert f() == 1028
+
     def test_while_func(self):
         while_func = compile_function(test.while_func, [int])
         assert while_func(10) == 55
@@ -223,14 +248,6 @@ class TestSnippet(object):
     def test_factorial(self):
         factorial = compile_function(test.factorial, [int])
         assert factorial(5) == 120
-
-    def test_two_plus_two(self):
-        f = compile_function(test.two_plus_two, [])
-        assert f() == 4
-
-    def test_sieve_of_eratosthenes(self):
-        f = compile_function(test.sieve_of_eratosthenes, [])
-        assert f() == 1028
 
 
 

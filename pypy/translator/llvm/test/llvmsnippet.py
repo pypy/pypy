@@ -96,6 +96,21 @@ def array_arg(i):
     a = [i - 5] * 12
     return callee(a)
 
+def array_len():
+    a = [1] * 10
+    return len(a)
+
+def array_append(i):
+    a = [0] * 3
+    a.append(10)
+    return a[i]
+
+def array_reverse(i):
+    a = [0] * 2
+    a[1] = 1
+    a.reverse()
+    return a[i]
+
 #class snippets
 
 class A(object):

@@ -27,7 +27,7 @@ C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
                   annmodel.SomeInteger: "int"}
 
 
-debug = 1
+debug = 0
 
 
 class CompileError(exceptions.Exception):
@@ -129,6 +129,19 @@ class VariableRepr(LLVMRepr):
         else:
             raise AttributeError, ("VariableRepr instance has no attribute %s"
                                    % repr(name))
+class TmpVariableRepr(LLVMRepr):
+    def __init__(self, name, type, gen):
+        if debug:
+            print "TmpVariableRepr: %s %s" % (type, name)
+        self.name = name
+        self.type = type
+        self.dependencies = sets.Set()
+
+    def llvmname(self):
+        return "%" + self.name
+
+    def llvmtype(self):
+        return self.type
 
 class StringRepr(LLVMRepr):
     def get(obj, gen):
@@ -253,7 +266,17 @@ class ListTypeRepr(TypeRepr):
         l_args = [self.gen.get_repr(arg) for arg in args]
         l_func.dependencies.update(l_args)
         lblock.spaceop(l_target, "delitem", l_args)
-    
+
+    def t_op_getattr(self, l_target, args, lblock, l_func):
+        if isinstance(args[1], Constant) and \
+               args[1].value in ["append", "reverse"]:
+            l_args0 = self.gen.get_repr(args[0])
+            l_func.dependencies.add(l_args0)
+            l_method = BoundMethodRepr(l_target.type, l_args0, self, self.gen)
+            l_method.setup()
+            l_target.type = l_method
+        else:
+            raise CompileError, "List method %s not supported." % args[1].value
 
 class SimpleTypeRepr(TypeRepr):
     def get(obj, gen):
@@ -336,26 +359,31 @@ class ClassRepr(TypeRepr):
 
     def setup(self):
         self.se = True
-        print "ClassRepr.setup()", id(self)
+        if debug:
+            print "ClassRepr.setup()", id(self)
         gen = self.gen
         attribs = []
         meth = []
-        print "attributes"
+        if debug:
+            print "attributes"
         for key, attr in self.classdef.attrs.iteritems():
-            print key, attr, attr.sources, attr.s_value,
+            if debug:
+                print key, attr, attr.sources, attr.s_value,
             if len(attr.sources) != 0:
                 func = self.classdef.cls.__dict__[attr.name]
                 meth.append((key, func))
-                print "--> method"
-                continue
-            if isinstance(attr.s_value, annmodel.SomePBC) and \
+                if debug:
+                    print "--> method"
+            elif isinstance(attr.s_value, annmodel.SomePBC) and \
                attr.s_value.knowntype is FunctionType:
                 func = self.classdef.cls.__dict__[attr.name]
                 meth.append((key, func))
-                print "--> method"
-                continue
-            attribs.append(attr)
-            print "--> value"
+                if debug:
+                    print "--> method"
+            else:
+                attribs.append(attr)
+                if debug:
+                    print "--> value"
         self.l_attrs_types = [gen.get_repr(attr.s_value) for attr in attribs]
         self.dependencies = sets.Set(self.l_attrs_types)
         attributes = ", ".join([at.llvmname() for at in self.l_attrs_types])
@@ -364,7 +392,6 @@ class ClassRepr(TypeRepr):
         for i, attr in enumerate(attribs):
             self.attr_num[attr.name] = i + 1
         self.methods = dict(meth)
-        print "setup: ", self, self.attr_num, self.methods
 
     def op_simple_call(self, l_target, args, lblock, l_func):
         l_init = self.gen.get_repr(self.methods["__init__"])
@@ -381,17 +408,15 @@ class ClassRepr(TypeRepr):
         if args[1].value in self.attr_num:
             l_args0 = self.gen.get_repr(args[0])
             l_func.dependencies.add(l_args0)
-            pter = self.gen.get_local_tmp(l_func)
-            lblock.getelementptr(pter, l_args0,
+            l_pter = self.gen.get_local_tmp(l_target.llvmtype() + "*", l_func)
+            lblock.getelementptr(l_pter, l_args0,
                                  [0, self.attr_num[args[1].value]])
-            lblock.load(l_target, pter)
+            lblock.load(l_target, l_pter)
         elif args[1].value in self.methods:
-            print "method", 
             l_args0 = self.gen.get_repr(args[0])
-            print l_args0, l_args0.typed_name()
             l_func.dependencies.add(l_args0)
-            l_method = BoundMethodRepr(self.methods[args[1].value],
-                                       l_args0, self, self.gen)
+            l_method = BoundMethodRepr(l_target.type, l_args0, self, self.gen)
+            l_method.setup()
             l_target.type = l_method
 
     def t_op_setattr(self, l_target, args, lblock, l_func):
@@ -401,27 +426,34 @@ class ClassRepr(TypeRepr):
             l_args0 = self.gen.get_repr(args[0])
             l_value = self.gen.get_repr(args[2])
             self.dependencies.update([l_args0, l_value])
-            pter = self.gen.get_local_tmp(l_func)
-            lblock.getelementptr(pter, l_args0,
+            l_pter = self.gen.get_local_tmp(l_value.llvmtype() + "*", l_func)
+            lblock.getelementptr(l_pter, l_args0,
                                  [0, self.attr_num[args[1].value]])
-            lblock.store(l_value, pter)
+            lblock.store(l_value, l_pter)
 
 
 class BuiltinFunctionRepr(LLVMRepr):
     def get(obj, gen):
         if isinstance(obj, Constant) and \
-           type(obj.value).__name__ == 'builtin_function_or_method':
-            l_repr = BuiltinFunctionRepr(obj.value, gen)
-            return l_repr
+           isinstance(gen.annotator.binding(obj), annmodel.SomeBuiltin):
+            return BuiltinFunctionRepr(obj.value.__name__, gen)
+        elif isinstance(obj, annmodel.SomeBuiltin):
+            name = obj.analyser.__name__.replace("method_", "")
+            return BuiltinFunctionRepr(name, gen)
         return None
     get = staticmethod(get)
 
-    def __init__(self, bi, gen):
-        self.name = "%std." + bi.__name__
+    def __init__(self, name, gen):
+        self.name = "%std." + name
         self.gen = gen
 
     def llvmname(self):
         return self.name
+
+    def op_simple_call(self, l_target, args, lblock, l_func):
+        l_args = [self.gen.get_repr(arg) for arg in args]
+        l_func.dependencies.update(l_args)
+        lblock.call(l_target, l_args[0], l_args[1:])
 
 class FunctionRepr(LLVMRepr):
     def get(obj, gen):
@@ -506,23 +538,23 @@ class FunctionRepr(LLVMRepr):
                     lblock.phi(l_arg, l_values,
                                ["%%block%i" % self.blocknum[l.prevblock]
                                 for l in incoming_links])
-            #Create a function call for every operation in the block
+            #Handle SpaceOperations
             for op in pyblock.operations:
                 l_target = self.gen.get_repr(op.result)
                 self.dependencies.add(l_target)
-                if op.opname in INTRINSIC_OPS:
-                    l_args = [self.gen.get_repr(arg) for arg in op.args]
+                l_arg0 = self.gen.get_repr(op.args[0])
+                self.dependencies.add(l_arg0)
+                l_op = getattr(l_arg0, "op_" + op.opname, None)
+                if l_op is not None:
+                    l_op(l_target, op.args, lblock, self)
+                elif op.opname in INTRINSIC_OPS:
+                    l_args = [self.gen.get_repr(arg) for arg in op.args[1:]]
                     self.dependencies.update(l_args)
-                    lblock.spaceop(l_target, op.opname, l_args)
+                    lblock.spaceop(l_target, op.opname, [l_arg0] + l_args)
                 else:
-                    l_arg0 = self.gen.get_repr(op.args[0])
-                    self.dependencies.add(l_arg0)
-                    l_op = getattr(l_arg0, "op_" + op.opname, None)
-                    if l_op is None:
                         s = "SpaceOperation %s not supported. Target: %s " \
                             "Args: %s" % (op.opname, l_target, op.args)
                         raise CompileError, s
-                    l_op(l_target, op.args, lblock, self)
             #Create branches
             if pyblock.exitswitch is None:
                 if pyblock.exits == ():
@@ -598,24 +630,17 @@ class BoundMethodRepr(LLVMRepr):
         return None
     get = staticmethod(get)
 
-    def __init__(self, func, l_self, l_class, gen):
+    def __init__(self, l_func, l_self, l_class, gen):
         self.gen = gen
-        self.func = func
+        self.l_func = l_func
         self.l_self = l_self
         self.l_class = l_class
-        self.dependencies = sets.Set([l_self, l_class])
-        self.se = False
+        self.dependencies = sets.Set([l_self, l_class, l_func])
 
     def setup(self):
-        print "setup BoundMethodRepr"
-        self.se = True
-        self.l_func = self.gen.get_repr(self.func)
-        self.dependencies.add(self.l_func)
-
+        pass
 
     def t_op_simple_call(self, l_target, args, lblock, l_func):
-        if not self.se:
-            self.setup()
         self.l_func.op_simple_call(l_target,
                                    [self.l_func, self.l_self] + args[1:],
                                    lblock, l_func)

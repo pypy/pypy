@@ -59,11 +59,12 @@ class BasicBlock(object):
         
     def call(self, l_target, l_func, l_args):
         if l_target.llvmtype() == "void":
-            s = "call void %%std.%s(" % opname
+            s = "call void %s(" % l_func.llvmname()
         elif  l_target.llvmtype() == "%std.void":
-            s = "call %std.void %%std.%s(" % opname
-        s = "%s = call %s %s(" % (l_target.llvmname(), l_func.rettype(),
-                                  l_func.llvmname())
+            s = "call %std.void %s(" % l_func.llvmname()
+        else:
+            s = "%s = call %s %s(" % (l_target.llvmname(), l_target.llvmtype(),
+                                      l_func.llvmname())
         self.instructions.append(s + 
             ", ".join([a.typed_name() for a in l_args]) + ")")
 
@@ -90,9 +91,9 @@ class BasicBlock(object):
             s += ", uint %i" % num
         self.instructions.append(s)
 
-    def getelementptr(self, target, l_ptr, adresses):
-        s = "%s = getelementptr %s %s, " % (target, l_ptr.llvmtype(),
-                                            l_ptr.llvmname())
+    def getelementptr(self, l_target, l_ptr, adresses):
+        s = "%s = getelementptr %s %s, " % (l_target.llvmname(),
+                                            l_ptr.llvmtype(), l_ptr.llvmname())
         adr = []
         for a in adresses:
             if a >= 0:
@@ -101,14 +102,14 @@ class BasicBlock(object):
                 adr.append("int %i" % a)
         self.instructions.append(s + ", ".join(adr))
 
-    def load(self, l_target, pter):
-        s = "%s = load %s* %s" % (l_target.llvmname(), l_target.llvmtype(),
-                                  pter)
+    def load(self, l_target, l_pter):
+        s = "%s = load %s %s" % (l_target.llvmname(), l_pter.llvmtype(),
+                                  l_pter.llvmname())
         self.instructions.append(s)
 
-    def store(self, l_value, pter):
-        s = "store %s %s, %s* %s" % (l_value.llvmtype(), l_value.llvmname(),
-                                     l_value.llvmtype(), pter)
+    def store(self, l_value, l_pter):
+        s = "store %s %s, %s %s" % (l_value.llvmtype(), l_value.llvmname(),
+                                     l_pter.llvmtype(), l_pter.llvmname())
         self.instructions.append(s)
 
 

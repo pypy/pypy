@@ -15,12 +15,13 @@ from pypy.translator.translator import Translator
 from pypy.translator.llvm import llvmbc
 from pypy.translator.llvm import build_llvm_module
 from pypy.translator.test import snippet as test
+from pypy.translator.llvm.test import llvmsnippet as test2
 
 
 from pypy.translator.llvm.representation import *
 
 
-debug = 1
+debug = 0
 
 
 def llvmcompile(transl, optimize=False):
@@ -41,7 +42,6 @@ class LLVMGenerator(object):
     def __init__(self, transl):
         self.translator = transl
         self.annotator = self.translator.annotator
-##         transform.transform_allocate(self.annotator)
         self.global_counts = {}
         self.local_counts = {}
         self.repr_classes = [eval(s)
@@ -49,12 +49,8 @@ class LLVMGenerator(object):
                              if "Repr" in s]
         self.llvm_reprs = {}
         self.depth = 0
-        try:
-            self.l_entrypoint = self.get_repr(
-                Constant(self.translator.functions[0]))
-        except:
-##             self.translator.view()
-            raise
+        self.l_entrypoint = self.get_repr(
+            Constant(self.translator.functions[0]))
 
     def compile(self, optimize=False):
         from pypy.tool.udir import udir
@@ -80,9 +76,10 @@ class LLVMGenerator(object):
             self.global_counts[used_by] = 0
             return "%%glb.%s" % used_by
 
-    def get_local_tmp(self, l_repr):
-        self.local_counts[l_repr] += 1
-        return "%%tmp_%i" % self.local_counts[l_repr]
+    def get_local_tmp(self, type, l_function):
+        self.local_counts[l_function] += 1
+        return TmpVariableRepr("tmp_%i" % self.local_counts[l_function], type,
+                               self)
 
     def get_repr(self, obj):
         self.depth += 1

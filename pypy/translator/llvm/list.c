@@ -18,6 +18,10 @@ void copy(struct item** from, struct item** to, unsigned int length) {
     }
 }
 
+int len(struct list* l) {
+    return (int) l->length;
+}
+
 struct list* newlist(struct item* value) {
     struct list* nlist = malloc(sizeof(struct list));
     nlist->length = 1;
@@ -26,10 +30,10 @@ struct list* newlist(struct item* value) {
     return nlist;
 }
 
-struct list* alloc_and_set(unsigned int length, struct item* init) {
+struct list* alloc_and_set(int length, struct item* init) {
     unsigned int i = 0;
     struct list* nlist = malloc(sizeof(struct list));
-    nlist->length = length;
+    nlist->length = (unsigned int)length;
     nlist->data = malloc(sizeof(struct item*) * length);
     while (i < length) {
 	nlist->data[i] = init;
@@ -82,11 +86,24 @@ void inplace_add(struct list* a, struct list* b) {
     a->data = newdata;
 }
 
-struct list* append(struct list* a, struct item* value) {
+void append(struct list* a, struct item* value) {
     struct item** newdata = malloc(sizeof(struct item*) * (a->length + 1));
+    newdata[a->length] = value;
     copy(a->data, newdata, a->length);
     a->length += 1;
     free(a->data);
     a->data = newdata;
-    return a;
+}
+
+void reverse(struct list* a) {
+    unsigned int lo = 0;
+    unsigned int hi = a->length - 1;
+    struct item* temp;
+    while (lo < hi) {
+	temp = a->data[lo];	    
+	a->data[lo] = a->data[hi];
+	a->data[hi] = temp;
+	lo += 1;
+	hi -= 1;
+    }
 }
