@@ -8,6 +8,7 @@ __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable']
 class BaseWrappable:
     """A subclass of BaseWrappable is an internal, interpreter-level class
     that can nevertheless be exposed at application-level by space.wrap()."""
+    hasdict = False
     def __spacebind__(self, space):
         return self
 

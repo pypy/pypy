@@ -14,19 +14,13 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
         key = space.unwrap(w_key)
         assert isinstance(key, str)
         dict_w[key] = space.getitem(w_dict, w_key)
-    w_type = W_TypeObject(space, name, bases_w or [space.w_object], dict_w, None)
-    return space.w_type.build_user_subclass(w_typetype, w_type)
+    w_type = space.allocate_instance(W_TypeObject, w_typetype)
+    w_type.__init__(space, name, bases_w or [space.w_object], dict_w, None)
+    return w_type
 
 def descr_get__mro__(space, w_type):
     # XXX this should be inside typeobject.py
     return space.newtuple(w_type.mro_w)
-
-def descr__dict__(space, w_type):
-    # XXX should return a <dictproxy object>
-    dictspec = []
-    for key, w_value in w_type.dict_w.items():
-        dictspec.append((space.wrap(key), w_value))
-    return space.newdict(dictspec)
 
 def descr__bases(space, w_type):
     return space.newtuple(w_type.bases_w)
@@ -37,6 +31,5 @@ type_typedef = StdTypeDef("type",
     __new__ = newmethod(descr__new__),
     __name__ = attrproperty('name'),
     __bases__ = GetSetProperty(descr__bases),
-    __dict__ = GetSetProperty(descr__dict__),
     __mro__ = GetSetProperty(descr_get__mro__),
     )

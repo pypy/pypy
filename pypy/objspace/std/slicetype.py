@@ -81,6 +81,7 @@ register_all(vars(), globals())
 # ____________________________________________________________
 
 def descr__new__(space, w_slicetype, *args_w):
+    from pypy.objspace.std.sliceobject import W_SliceObject
     w_start = space.w_None
     w_stop = space.w_None
     w_step = space.w_None
@@ -96,8 +97,9 @@ def descr__new__(space, w_slicetype, *args_w):
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("slice() takes at least 1 argument"))
-    w_obj = space.newslice(w_start, w_stop, w_step)
-    return space.w_slice.build_user_subclass(w_slicetype, w_obj)
+    w_obj = space.allocate_instance(W_SliceObject, w_slicetype)
+    w_obj.__init__(space, w_start, w_stop, w_step)
+    return w_obj
 
 # ____________________________________________________________
 

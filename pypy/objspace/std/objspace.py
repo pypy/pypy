@@ -1,13 +1,16 @@
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import *
+from pypy.interpreter.typedef import get_unique_interplevel_subclass
+from pypy.interpreter.typedef import instantiate, UserSubclass
 from pypy.objspace.std.multimethod import *
 from pypy.objspace.descroperation import DescrOperation
 import types
 
 
-class W_Object:
+class W_Object(object):
     "Parent base class for wrapped objects."
     typedef = None
+    hasdict = False
     
     def __init__(w_self, space):
         w_self.space = space     # XXX not sure this is ever used any more
@@ -276,11 +279,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_StringObject(self, ''.join(chars))
 
     def type(self, w_obj):
-        if isinstance(w_obj, W_CPythonObject):
-            #raise TypeError, str(w_obj.cpyobj)
-            return self.wrap(type(w_obj.cpyobj))
-        elif hasattr(w_obj, 'w__class__'):
-            return w_obj.w__class__    # user-defined classes
+        if isinstance(w_obj, UserSubclass):
+            return w_obj.getclass()
+        elif isinstance(w_obj, W_CPythonObject):
+                #raise TypeError, str(w_obj.cpyobj)
+                return self.wrap(type(w_obj.cpyobj))
         else:
             assert w_obj.typedef, w_obj
             return self.gettypeobject(w_obj.typedef)
@@ -297,9 +300,18 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     return self.wrap(cls.__dict__[name])
             return None
 
-    def build_user_subclass(self, typedef, w_subtype, w_obj):
-        w_type = self.gettypeobject(typedef)
-        return w_type.build_user_subclass(w_subtype, w_obj)
+    def allocate_instance(self, cls, w_subtype):
+        """Allocate the memory needed for an instance of an internal or
+        user-defined type, without actually __init__ializing the instance."""
+        w_type = self.gettypeobject(cls.typedef)
+        if self.is_true(self.is_(w_type, w_subtype)):
+            return instantiate(cls)
+        else:
+            w_type.check_user_subclass(w_subtype)
+            subcls = get_unique_interplevel_subclass(cls)
+            instance = instantiate(subcls)
+            instance.user_setup(self, w_subtype)
+            return instance
 
     def unpacktuple(self, w_tuple, expected_length=None):
         assert isinstance(w_tuple, W_TupleObject)

@@ -160,7 +160,13 @@ class Function(Wrappable):
                 self.name,
                 nkwds)
         raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
-   
+
+    hasdict = True
+    def getdict(self):
+        return self.w_func_dict
+    def setdict(self, w_dict):
+        self.w_func_dict = w_dict
+
     def descr_function_get(self, w_obj, w_cls=None):
         space = self.space
         wrap = space.wrap

@@ -1,3 +1,4 @@
+from pypy.interpreter.error import OperationError
 from pypy.objspace.descroperation import Object
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
@@ -23,11 +24,28 @@ def descr__class__(space, w_obj):
 def descr__new__(space, w_type, *args_w, **kwds_w):
     # XXX 2.2 behavior: ignoring all arguments
     from objectobject import W_ObjectObject
-    w_obj = W_ObjectObject(space)
-    return space.w_object.build_user_subclass(w_type, w_obj)
+    w_obj = space.allocate_instance(W_ObjectObject, w_type)
+    w_obj.__init__(space)
+    return w_obj
 
 def descr__init__(space, *args_w, **kwds_w):
     pass   # XXX 2.2. behavior: ignoring all arguments
+
+def descr__dict__(space, w_obj):
+    if w_obj.hasdict:
+        return w_obj.getdict()
+    else:
+        raise OperationError(space.w_AttributeError,
+                             space.wrap("%s instances don't have a __dict__" % (
+                                 space.type(w_obj).name)))
+
+def descr_set__dict__(space, w_obj, w_dict):
+    if w_obj.hasdict:
+        w_obj.setdict(w_dict)
+    else:
+        raise OperationError(space.w_AttributeError,
+                             space.wrap("%s instances don't have a __dict__" % (
+                                 space.type(w_obj).name)))
 
 # ____________________________________________________________
 
@@ -41,4 +59,5 @@ object_typedef = StdTypeDef("object",
     __class__ = GetSetProperty(descr__class__),
     __new__ = newmethod(descr__new__),
     __init__ = gateway.interp2app(descr__init__),
+    __dict__ = GetSetProperty(descr__dict__, descr_set__dict__),
     )

@@ -53,10 +53,10 @@ class Object:
 class DescrOperation:
 
     def getdict(space, w_obj):
-        w_descr = space.lookup(w_obj, '__dict__')
-        if w_descr is None:
-            return None 
-        return space.get(w_descr, w_obj, space.type(w_obj))
+        if w_obj.hasdict:
+            return w_obj.getdict()
+        else:
+            return None
 
     def is_data_descr(space, w_obj):
         return space.lookup(w_obj, '__set__') is not None
@@ -163,10 +163,12 @@ class DescrOperation:
     def str(space,w_obj):
         w_descr = space.lookup(w_obj,'__str__')
         return space.get_and_call_function(w_descr,w_obj)
+        # XXX PyObject_Str() checks that the result is a string
 
     def repr(space,w_obj):
         w_descr = space.lookup(w_obj,'__repr__')
         return space.get_and_call_function(w_descr,w_obj)
+        # XXX PyObject_Repr() probably checks that the result is a string
 
     def contains(space,w_obj,w_val):
         w_descr = space.lookup(w_obj,'__contains__')

@@ -12,7 +12,6 @@ class W_TypeObject(W_Object):
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
         w_self.ensure_static__new__()
-        w_self.needs_new_dict = False
         w_self.mro_w = compute_C3_mro(w_self)   # XXX call type(w_self).mro()
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
@@ -42,19 +41,6 @@ class W_TypeObject(W_Object):
                                 space.wrap("instance layout conflicts in "
                                                     "multiple inheritance"))
 
-            nd = False
-            for w_base in bases_w:
-                if w_base.needs_new_dict:
-                    nd = True
-                    break
-            
-            # provide a __dict__ for the instances if there isn't any yet
-            if w_self.lookup('__dict__') is None:
-                w_self.needs_new_dict = True
-                w_self.dict_w['__dict__'] = space.wrap(attrproperty_w('w__dict__'))
-            elif nd:
-                w_self.needs_new_dict = True
-
     def ensure_static__new__(w_self):
         # special-case __new__, as in CPython:
         # if it is a Function, turn it into a static method
@@ -75,12 +61,8 @@ class W_TypeObject(W_Object):
                 pass
         return None
 
-    def build_user_subclass(w_self, w_subtype, w_obj):
-        """This morphs an object newly created by the w_self's __new__
-        function into an instance of a subclass of w_self if needed."""
+    def check_user_subclass(w_self, w_subtype):
         space = w_self.space
-        if space.is_true(space.is_(w_self, w_subtype)):
-            return w_obj
         if not space.is_true(space.isinstance(w_subtype, space.w_type)):
             raise OperationError(space.w_TypeError,
                 space.wrap("X is not a type object (%s)" % (
@@ -93,16 +75,22 @@ class W_TypeObject(W_Object):
             raise OperationError(space.w_TypeError,
                 space.wrap("%s.__new__(%s) is not safe, use %s.__new__()" % (
                     w_self.name, w_subtype.name, w_subtype.name)))
-        if w_self.instancetypedef is not w_obj.typedef:
-            raise OperationError(space.w_TypeError,
-                space.wrap("%s.__new__(): got an object of type %s "
-                           "instead of %s" % (
-                    w_self.name, space.type(w_obj).name, w_self.name)))
-        # stuff extra attributes into w_obj
-        w_obj.w__class__ = w_subtype
-        if w_subtype.needs_new_dict:
-            w_obj.w__dict__ = space.newdict([])
-        return w_obj
+
+    hasdict = True
+    def getdict(w_self):
+        # XXX should return a <dictproxy object>
+        space = w_self.space
+        dictspec = []
+        for key, w_value in w_self.dict_w.items():
+            dictspec.append((space.wrap(key), w_value))
+        return space.newdict(dictspec)
+
+    def setdict(w_self, w_dict):
+        space = w_self.space
+        raise OperationError(space.w_TypeError,
+                             space.wrap("attribute '__dict__' of type objects "
+                                        "is not writable"))
+
 
 def call__Type(space, w_type, w_args, w_kwds):
     args_w = space.unpacktuple(w_args)

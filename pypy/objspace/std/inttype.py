@@ -6,9 +6,15 @@ def descr__new__(space, w_inttype, w_value=None, w_base=None):
     if w_base is None:
         w_base = space.w_None
     if w_value is None:
-        w_obj = space.newint(0)
+        value = 0
     elif w_base == space.w_None and not space.is_true(space.isinstance(w_value, space.w_str)):
-            w_obj = space.int(w_value)
+        w_obj = space.int(w_value)
+        if space.is_true(space.is_(w_inttype, space.w_int)):
+            return w_obj  # 'int(x)' should return whatever x.__int__() returned
+        value = space.unwrap(w_obj)
+        if not isinstance(value, int):   # XXX typechecking in unwrap!
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("value can't be converted to int"))
     else:
         if w_base == space.w_None:
             base = -909 # don't blame us!!
@@ -27,8 +33,9 @@ def descr__new__(space, w_inttype, w_value=None, w_base=None):
         except OverflowError, e:
             raise OperationError(space.w_OverflowError,
                          space.wrap(str(e)))
-        w_obj = W_IntObject(space, value)
-    return space.w_int.build_user_subclass(w_inttype, w_obj)
+    w_obj = space.allocate_instance(W_IntObject, w_inttype)
+    w_obj.__init__(space, value)
+    return w_obj
 
 # ____________________________________________________________
 

@@ -13,6 +13,61 @@ class TypeDef:
         self.rawdict = rawdict
 
 
+unique_interplevel_subclass_cache = {}
+def get_unique_interplevel_subclass(cls):
+    try:
+        return unique_interplevel_subclass_cache[cls]
+    except KeyError:
+        typedef = cls.typedef
+        name = 'User' + cls.__name__
+        body = {}
+
+        class User_InsertNameHere(object):
+            
+            def getclass(self):
+                return self.w__class__
+            
+            def setclass(self, w_subtype):
+                # XXX sanity checks here
+                self.w__class__ = w_subtype
+            
+            if cls.hasdict:
+                def user_setup(self, space, w_subtype):
+                    self.space = space
+                    self.w__class__ = w_subtype
+                    
+            else:
+                hasdict = True
+                def getdict(self):
+                    return self.w__dict__
+
+                def setdict(self, w_dict):
+                    space = self.space
+                    if not space.is_true(space.isinstance(w_dict, space.w_dict)):
+                        raise OperationError(space.w_TypeError,
+                                space.wrap("setting dictionary to a non-dict"))
+                    self.w__dict__ = w_dict
+
+                def user_setup(self, space, w_subtype):
+                    self.space = space
+                    self.w__class__ = w_subtype
+                    self.w__dict__ = space.newdict([])
+
+        body = dict(User_InsertNameHere.__dict__.items())
+        subcls = type(name, (cls, UserSubclass), body)
+        unique_interplevel_subclass_cache[cls] = subcls
+        return subcls
+
+class UserSubclass(object):
+    pass   # XXX this should probably not exist
+
+def instantiate(cls):
+    "Create an empty instance of 'cls'."
+    if isinstance(cls, type):
+        return object.__new__(cls)
+    else:
+        return new.instance(cls)
+
 class GetSetProperty(Wrappable):
     def __init__(self, fget, fset=None, fdel=None, doc=None):
         fget = getattr(fget, 'im_func', fget) 
@@ -115,7 +170,6 @@ PyFrame.typedef = TypeDef('frame',
     **Frame.typedef.rawdict)
 
 Module.typedef = TypeDef("module",
-    __dict__ = attrproperty_w('w_dict'), 
     __new__ = interp2app(Module.descr_module__new__.im_func),
     __init__ = interp2app(Module.descr_module__init__.im_func),
     )
@@ -135,7 +189,6 @@ Function.typedef = TypeDef("function",
     func_globals = attrproperty_w('w_func_globals'),
     __doc__ = getset_func_doc,
     __name__ = attrproperty('name'), 
-    __dict__ = attrproperty_w('w_func_dict'), 
     # XXX func_closure, etc.pp
     )
 

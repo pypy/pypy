@@ -36,11 +36,18 @@ str_translate  = MultiMethod('translate', 3, defaults=('',)) #unicode mimic not 
 # ____________________________________________________________
 
 def descr__new__(space, w_stringtype, w_obj=None):
+    from pypy.objspace.std.stringobject import W_StringObject
     if w_obj is None:
-        w_obj = space.newstring('')
+        value = ''
     else:
         w_obj = space.str(w_obj)
-    return space.w_str.build_user_subclass(w_stringtype, w_obj)
+        if space.is_true(space.is_(w_stringtype, space.w_str)):
+            return w_obj  # XXX might be reworked when space.str() typechecks
+        value = space.unwrap(w_obj)
+        assert isinstance(value, str)   # XXX should be checked by space.str()
+    w_obj = space.allocate_instance(W_StringObject, w_stringtype)
+    w_obj.__init__(space, value)
+    return w_obj
 
 # ____________________________________________________________
 

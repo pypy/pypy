@@ -14,8 +14,10 @@ list_sort   = MultiMethod('sort',   2, defaults=(None,))
 # ____________________________________________________________
 
 def descr__new__(space, w_listtype, *args_w, **kwds_w):
-    w_obj = space.newlist([])
-    return space.w_list.build_user_subclass(w_listtype, w_obj)
+    from listobject import W_ListObject
+    w_obj = space.allocate_instance(W_ListObject, w_listtype)
+    w_obj.__init__(space, [])
+    return w_obj
 
 # ____________________________________________________________
 
