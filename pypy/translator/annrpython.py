@@ -172,7 +172,11 @@ class RPythonAnnotator:
         resultcell = self.bindnew(op.result)
         consider_meth = getattr(self,'consider_op_'+op.opname,None)
         if consider_meth is not None:
-            consider_meth(argcells, resultcell, self.transaction())
+            newresult = consider_meth(argcells, resultcell, self.transaction())
+            # XXX not too clean: most consider_op_xxx() implicitely return None,
+            # but consider_op_call() needs to return an explicit resultcell.
+            if newresult is not None:
+                self.bindings[op.result] = newresult
 
     def consider_op_add(self, (arg1,arg2), result, t):
         type1 = t.get_type(arg1)
@@ -288,6 +292,7 @@ class RPythonAnnotator:
                 result_cell = self.translator.consider_call(self, func, args)
                 if result_cell is nothingyet:
                     raise DelayAnnotation
+                return result_cell
 
         # XXX: generalize this later
         if func is range:
