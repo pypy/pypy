@@ -183,3 +183,19 @@ def exec_statement(prog, globals, locals,
         ## XXX add in parent flag merging
         co = compile(prog,'<string>','exec',flags,1)
         return (co,globals,locals)
+
+def build_class(name, bases, namespace, globals):
+    if '__metaclass__' in namespace:
+        metaclass = namespace['__metaclass__']
+    elif len(bases) > 0:
+        base = bases[0]
+        if hasattr(base, '__class__'):
+            metaclass = base.__class__
+        else:
+            metaclass = type(base)
+    elif '__metaclass__' in globals:
+        metaclass = globals['__metaclass__']
+    else:
+        metaclass = type
+        
+    return metaclass(name, bases, namespace)
