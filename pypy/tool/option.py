@@ -22,6 +22,10 @@ def get_standard_options():
         callback=objspace_callback, callback_args=("trivial",),
         help="run in trivial object space"))
     options.append(make_option(
+        '-A', action="callback",
+        callback=objspace_callback, callback_args=("ann",),
+        help="run in annotation object space"))
+    options.append(make_option(
         '-v', action="count", dest="verbose",
         help="verbose"))
     options.append(make_option(
@@ -50,14 +54,10 @@ def objspace(name='', _spacecache={}):
             name = Options.spacename
         else:
             name = Options.spaces[-1]
-    if name == 'std':
-        from pypy.objspace.std import Space
-    elif name == 'trivial':
-        from pypy.objspace.trivial import Space
-    else:
-        raise ValueError, "no objectspace named %s" % repr(name)
 
     try:
         return _spacecache[name]
     except KeyError:
+        module = __import__("pypy.objspace.%s" % name, None, None, ["Space"])
+        Space = module.Space
         return _spacecache.setdefault(name, Space())
