@@ -266,8 +266,6 @@ class TestItem:
 
         if pretest is not None:
             pretest(self)
-        #FIXME raising Skipped in setUp should cause the result to be
-        # recognized as "skipped"
         try:
             try:
                 testobject.setUp()
@@ -275,7 +273,7 @@ class TestItem:
                 raise
             except TestResult, result:
                 # reconstruct TestResult object, implicitly set exception
-                result = result.__class__(msg=result.msg, item=self)
+                return result.__class__(msg=result.msg, item=self)
             except Exception, exc:
                 return Error(msg=str(exc), item=self)
 
@@ -415,8 +413,10 @@ class TestSuite:
 def main(do_selftest=False):
     # possibly ignore dummy unit tests
     if do_selftest:
+        # include only selftest module
         filterfunc = lambda m: m.find("pypy.tool.testdata.") != -1
     else:
+        # exclude selftest module
         filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
     # collect tests
     ts = TestSuite()
