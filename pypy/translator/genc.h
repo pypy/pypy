@@ -268,7 +268,7 @@ static PyTypeObject PyGenCFunction_Type = {
 
 #define MODULE_INITFUNC(modname) \
 	static PyMethodDef no_methods[] = { (char *)NULL, (PyCFunction)NULL }; \
-	void init##modname(void)
+	PyMODINIT_FUNC init##modname(void)
 
 #define SETUP_MODULE(modname)					\
 	PyObject *m = Py_InitModule(#modname, no_methods); \
