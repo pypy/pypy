@@ -178,6 +178,8 @@ class SpecialMethod:
 
 import new
 for multimethod in typeobject.hack_out_multimethods(StdObjSpace):
+    if multimethod in (StdObjSpace.iter, StdObjSpace.call):
+        continue
     for i in range(len(multimethod.specialnames)):
         f = SpecialMethod(multimethod.specialnames[i], i).normal_call
         signature = [W_ANY] * multimethod.arity

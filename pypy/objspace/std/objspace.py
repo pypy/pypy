@@ -251,6 +251,7 @@ class StdObjSpace(ObjSpace):
 
     getdict = MultiMethod('getdict', 1, [])  # get '.__dict__' attribute
     next    = MultiMethod('next', 1, [])     # iterator interface
+    call    = MultiMethod('call', 3, [], varargs=True, keywords=True)
 
     def is_(self, w_one, w_two):
         # XXX this is a hopefully temporary speed hack:
@@ -267,7 +268,8 @@ class StdObjSpace(ObjSpace):
 
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
-    setattr(StdObjSpace, _name, MultiMethod(_symbol, _arity, _specialnames))
+    if not hasattr(StdObjSpace,_name):
+        setattr(StdObjSpace, _name, MultiMethod(_symbol, _arity, _specialnames))
 
 
 # import the common base W_ObjectObject as well as
