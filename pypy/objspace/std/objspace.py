@@ -55,11 +55,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
             from stringtype import str_typedef
             from typetype   import type_typedef
             from slicetype  import slice_typedef
-        import floatobject
+        # The object implementations that we want to 'link' into PyPy must be
+        # imported here.  This registers them into the multimethod tables,
+        # *before* the type objects are built from these multimethod tables.
         import objectobject
         import boolobject
+        import intobject
+        import floatobject
         import tupleobject
         import listobject
+        import dictobject
         import stringobject
         import typeobject
         import sliceobject
