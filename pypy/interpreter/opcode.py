@@ -626,7 +626,8 @@ def MAKE_FUNCTION(f, numdefaults):
     defaultarguments = [f.valuestack.pop() for i in range(numdefaults)]
     defaultarguments.reverse()
     w_defaultarguments = f.space.newtuple(defaultarguments)
-    w_func = f.space.newfunction(w_codeobj, f.w_globals, w_defaultarguments)
+    w_func = f.space.newfunction(f.space.unwrap(w_codeobj),
+                                 f.w_globals, w_defaultarguments)
     f.valuestack.push(w_func)
 
 def MAKE_CLOSURE(f, numdefaults):
@@ -639,8 +640,8 @@ def MAKE_CLOSURE(f, numdefaults):
     defaultarguments = [f.valuestack.pop() for i in range(numdefaults)]
     defaultarguments.reverse()
     w_defaultarguments = f.space.newtuple(defaultarguments)
-    w_func = f.space.newfunction(w_codeobj, f.w_globals, w_defaultarguments,
-                                 w_freevars)
+    w_func = f.space.newfunction(f.space.unwrap(w_codeobj),
+                                 f.w_globals, w_defaultarguments, w_freevars)
     f.valuestack.push(w_func)
 
 def BUILD_SLICE(f, numargs):

@@ -27,6 +27,7 @@ class StdObjSpace(ObjSpace):
         self.w_None  = W_NoneObject()
         self.w_False = W_BoolObject(False)
         self.w_True  = W_BoolObject(True)
+        self.make_builtins()
         # hack in the exception classes
         import __builtin__, types
         for n, c in __builtin__.__dict__.iteritems():

@@ -11,9 +11,6 @@ from appfile import AppFile
 
 appfile = AppFile(__name__, ["interpreter"])
 
-CO_VARARGS     = 0x0004
-CO_VARKEYWORDS = 0x0008
-
 
 class PyFrame:
     """Represents a frame for a regular Python function

@@ -21,6 +21,7 @@ class Builtin(BuiltinModule):
 
     def compile(self, w_str, w_filename, w_startstr,
                 w_supplied_flags, w_dont_inherit):
+        space = self.space
         str = space.unwrap(w_str)
         filename = space.unwrap(w_filename)
         startstr = space.unwrap(w_startstr)

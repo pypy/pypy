@@ -1,23 +1,25 @@
 from pypy.objspace.std import StdObjSpace
-from pypy.objspace.trivial import TrivialObjSpace
-import executioncontext, baseobjspace, pyframe
-
+from pypy.module.builtin import Builtin
+from pypy.interpreter import executioncontext, baseobjspace, pyframe
 import sys
 
 def run_string(source, fname):
     try:
         space = StdObjSpace()
+
         compile = space.builtin.compile
         w=space.wrap
-        code = compile(w(source), w(fname), w('exec'))
+        w_code = compile(w(source), w(fname), w('exec'),
+                         w(0), w(0))
+
         ec = executioncontext.ExecutionContext(space)
 
         w_mainmodule = space.newmodule(space.wrap("__main__"))
         w_globals = space.getattr(w_mainmodule, space.wrap("__dict__"))
-        space.setitem(w_globals, space.wrap("__builtins__"),
-                      ec.get_w_builtins())
+        space.setitem(w_globals, space.wrap("__builtins__"), space.w_builtins)
         
-        frame = pyframe.PyFrame(space, code, w_globals, w_globals)
+        frame = pyframe.PyFrame(space, space.unwrap(w_code),
+                                w_globals, w_globals)
     except baseobjspace.OperationError, operationerr:
         raise baseobjspace.PyPyError(space, operationerr)
     else:

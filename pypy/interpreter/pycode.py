@@ -21,6 +21,10 @@ from appfile import AppFile
 
 appfile = AppFile(__name__, ["interpreter"])
 
+CO_VARARGS     = 0x0004
+CO_VARKEYWORDS = 0x0008
+
+
 class PyBaseCode:
     def __init__(self):
         self.co_name = ""
@@ -97,6 +101,15 @@ class PyByteCode(PyBaseCode):
         for name in self.__dict__.keys():
             value = getattr(code, name)
             setattr(self, name, value)
+        newconsts = ()
+        for const in code.co_consts:
+            if isinstance(const, types.CodeType):
+                newc = PyByteCode()
+                newc._from_code(const)
+                newconsts = newconsts + (newc,)
+            else:
+                newconsts = newconsts + (const,)
+        self.co_consts = newconsts
 
     def eval_code(self, space, w_globals, w_locals):
         frame = pyframe.PyFrame(space, self, w_globals, w_locals)

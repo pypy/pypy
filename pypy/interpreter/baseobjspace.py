@@ -1,5 +1,6 @@
 from executioncontext import ExecutionContext, OperationError, NoValue
 import pyframe
+import pypy.module.builtin
 
 __all__ = ['ObjSpace', 'OperationError', 'NoValue', 'PyPyError']
 
@@ -16,12 +17,15 @@ class ObjSpace:
 
     def __init__(self):
         "Basic initialization of objects."
-        self.w_builtins = self.newdict([])
-        self.w_modules  = self.newdict([])
+        self.w_modules = self.newdict([])
         self.appfile_helpers = {}
         self.initialize()
-        #import builtins
-        #builtins.init(self)
+
+    def make_builtins(self):
+        self.builtin = pypy.module.builtin.Builtin(self)
+        w_builtin = self.builtin.wrap_me()
+        self.w_builtins = self.getattr(w_builtin, self.wrap("__dict__"))
+        self.setitem(self.w_modules, self.wrap("__builtin__"), w_builtin)
 
     def initialize(self):
         """Abstract method that should put some minimal content into the

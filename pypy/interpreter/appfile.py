@@ -29,7 +29,7 @@ class AppFile:
         f = open(filename, 'r')
         src = f.read()
         f.close()
-        print filename
+        #print filename
         self.bytecode = compile(src, filename, 'exec')
 
 
@@ -57,8 +57,11 @@ class Namespace:
         # initialize the module by running the bytecode in a new
         # dictionary, in a new execution context
         from pyframe import PyFrame
+        from pycode import PyByteCode
         ec = self.space.getexecutioncontext()
-        frame = PyFrame(self.space, bytecode,
+        res = PyByteCode()
+        res._from_code(bytecode)
+        frame = PyFrame(self.space, res,
                                 self.w_namespace, self.w_namespace)
         ec.eval_frame(frame)
 

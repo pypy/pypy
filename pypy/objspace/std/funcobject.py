@@ -4,8 +4,8 @@ import pypy.interpreter.pyframe
 
 
 class W_FuncObject(object):
-    def __init__(w_self, w_code, w_globals, w_defaultarguments, w_closure):
-        w_self.w_code = w_code
+    def __init__(w_self, code, w_globals, w_defaultarguments, w_closure):
+        w_self.code = code
         w_self.w_globals = w_globals
         w_self.w_defaultarguments = w_defaultarguments
         w_self.w_closure = w_closure
@@ -25,7 +25,8 @@ StdObjSpace.unwrap.register(function_unwrap, W_FuncObject)
 
 
 def func_call(space, w_function, w_arguments, w_keywords):
-    somecode = space.unwrap(w_function.w_code)
+    somecode = w_function.code
+    print somecode
     w_globals = w_function.w_globals
     w_locals = somecode.build_arguments(space, w_arguments, w_keywords,
                   w_defaults = w_function.w_defaultarguments,
