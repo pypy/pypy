@@ -1,4 +1,7 @@
 import sys
+
+import autopath
+
 from pypy.translator.translator import *
 from pypy.translator.test import snippet as test
 
