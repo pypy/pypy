@@ -2,7 +2,7 @@
 Plain Python definition of the builtin functions oriented towards
 functional programming.
 """
-
+from __future__ import generators
 
 def sum(sequence, total=0):
     # must forbid "summing" strings, per specs of built-in 'sum'
