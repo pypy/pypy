@@ -1,16 +1,17 @@
 """
-Implementation of a translator from Python to interpreter level RPython.
+Implementation of a translator from application Python to interpreter level RPython.
 
 The idea is that we can automatically transform app-space implementations
 of methods into some equivalent representation at interpreter level.
 Then, the RPython to C translation might hopefully spit out some
 more efficient code than always interpreting these methods.
 
-Note that the appspace things are treated as RPythonic, in a sense
-that globals are constant,for instance.
+Note that the appspace functions are treated as rpythonic, in a sense
+that globals are constants, for instance. This definition is not
+exact and might change.
 
-This module is very much under construction and not yet usable but
-for testing.
+This module is very much under construction and not yet usable for much
+more than testing.
 """
 
 from pypy.objspace.flow.model import traverse
@@ -57,6 +58,16 @@ glob = 100
 def fff():
     global glob
     return 42+glob
+
+def app_mod__String_ANY(format, values):
+    import _formatting
+    if isinstance(values, tuple):
+        return _formatting.format(format, values, None)
+    else:
+        if hasattr(values, 'keys'):
+            return _formatting.format(format, (values,), values)
+        else:
+            return _formatting.format(format, (values,), None)
 
 def app_str_decode__String_ANY_ANY(str, encoding=None, errors=None):
     if encoding is None and errors is None:
@@ -114,6 +125,8 @@ class GenRpy:
         self.has_listarg = {}
         for name in "newtuple newlist newdict newstring".split():
             self.has_listarg[name] = name
+
+        self.gen_source()            
 
     def nameof(self, obj):
         key = Constant(obj).key
@@ -432,6 +445,38 @@ class GenRpy:
             return 'PySys_GetObject("stderr")'
         raise Exception, 'Cannot translate an already-open file: %r' % (fil,)
 
+    def gen_source(self):
+        f = self.f
+        info = {
+            'modname': self.modname,
+            'entrypointname': self.translator.functions[0].__name__,
+            'entrypoint': self.nameof(self.translator.functions[0]),
+            }
+
+        # function implementations
+        while self.pendingfunctions:
+            func = self.pendingfunctions.pop()
+            print "#######", func.__name__
+            self.gen_rpyfunction(func)
+            # collect more of the latercode after each function
+            while self.latercode:
+                #gen, self.debugstack = self.latercode.pop()
+                gen = self.latercode.pop()
+                #self.initcode.extend(gen) -- eats TypeError! bad CPython!
+                for line in gen:
+                    self.initcode.append(line)
+                self.debugstack = ()
+            #self.gen_global_declarations()
+
+        # footer
+        # maybe not needed
+        return
+        print >> f, self.C_INIT_HEADER % info
+        if self.f2name is not None:
+            print >> f, '#include "%s"' % self.f2name
+        for codeline in self.initcode:
+            print >> f, '\t' + codeline
+        print >> f, self.C_INIT_FOOTER % info
 
     def gen_rpyfunction(self, func):
 
@@ -489,7 +534,7 @@ class GenRpy:
         
         f = self.f
         t = self.translator
-        t.simplify(func)
+        #t.simplify(func)
         graph = t.getflowgraph(func)
 
         start = graph.startblock
@@ -546,9 +591,10 @@ class GenRpy:
                     yield "    %s" % op
                 # we must catch the exception raised by the last operation,
                 # which goes to the last err%d_%d label written above.
-                yield "except OperationError, e:"
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
+                    yield "except OperationError, e:"
+                    print "*"*10, link.exitcase
                     for op in gen_link(link, {
                                 Constant(last_exception): 'e.w_type',
                                 Constant(last_exc_value): 'e.w_value'}):
@@ -581,13 +627,22 @@ class GenRpy:
             for line in render_block(block):
                 print "            %s" % line
 
-entry_point = (f, ff, fff, app_str_decode__String_ANY_ANY) [0]
+entry_point = (f, ff, fff, app_str_decode__String_ANY_ANY, app_mod__String_ANY) [-1]
 
-t = Translator(entry_point, verbose=False, simplifying=True)
+import os, sys
+from pypy.interpreter import autopath
+srcdir = os.path.dirname(autopath.pypydir)
+appdir = os.path.join(autopath.pypydir, 'appspace')
+
+try:
+    hold = sys.path[:]
+    sys.path.insert(0, appdir)
+    t = Translator(entry_point, verbose=False, simplifying=not True)
+    gen = GenRpy(sys.stdout, t)
+finally:
+    sys.path[:] = hold
 #t.simplify()
 #t.view()
-gen = GenRpy(sys.stdout, t)
-gen.gen_rpyfunction(t.functions[0])
 # debugging
 graph = t.getflowgraph()
 ab = ordered_blocks(graph) # use ctrl-b in PyWin with ab
