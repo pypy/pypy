@@ -520,6 +520,8 @@ class __builtin__(ExtModule):
                 max = i
         return max
 
+    def app_divmod(self, x, y):
+        return x//y, x%y
 
     def app_cmp(self, x, y):
         """return 0 when x == y, -1 when x < y and 1 when x > y """

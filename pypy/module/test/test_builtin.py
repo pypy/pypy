@@ -128,6 +128,9 @@ class TestBuiltinApp(test.AppTestCase):
         # To make this test, we need autopath to work in application space.
         #self.assertEquals(execfile('emptyfile.py'), None)
 
+    def test_divmod(self):
+        self.assertEquals(divmod(15,10),(1,5))
+
 class TestInternal(test.IntTestCase):
 
     def setUp(self):
