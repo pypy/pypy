@@ -50,6 +50,8 @@ else: raise TestFailed, 'membership test failed'
 if None is None and [] is not []: pass
 else: raise TestFailed, 'identity test failed'
 
+
+print '6.3.1 Conversion errors'
 try: float('')
 except ValueError: pass
 else: raise TestFailed, "float('') didn't raise ValueError"
@@ -58,21 +60,23 @@ try: float('5\0')
 except ValueError: pass
 else: raise TestFailed, "float('5\0') didn't raise ValueError"
 
+print '6.3.2 Division errors'
 try: 5.0 / 0.0
 except ZeroDivisionError: pass
 else: raise TestFailed, "5.0 / 0.0 didn't raise ZeroDivisionError"
 
-'''  TODO
 try: 5.0 // 0.0
 except ZeroDivisionError: pass
 else: raise TestFailed, "5.0 // 0.0 didn't raise ZeroDivisionError"
-'''
 
 try: 5.0 % 0.0
 except ZeroDivisionError: pass
 else: raise TestFailed, "5.0 % 0.0 didn't raise ZeroDivisionError"
 
-'''  TODO
+try: 5L / 0
+except ZeroDivisionError: pass
+else: raise TestFailed, "5L / 0 didn't raise ZeroDivisionError"
+
 try: 5 / 0L
 except ZeroDivisionError: pass
 else: raise TestFailed, "5 / 0L didn't raise ZeroDivisionError"
@@ -84,7 +88,6 @@ else: raise TestFailed, "5 // 0L didn't raise ZeroDivisionError"
 try: 5 % 0L
 except ZeroDivisionError: pass
 else: raise TestFailed, "5 % 0L didn't raise ZeroDivisionError"
-'''
 
 print '6.4 Numeric types (mostly conversions)'
 if 0 != 0L or 0 != 0.0 or 0L != 0.0: raise TestFailed, 'mixed comparisons'
