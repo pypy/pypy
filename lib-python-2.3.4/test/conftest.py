@@ -50,6 +50,7 @@ working_unittests = (
 'test_string.py',
 'test_sys.py',
 'test_textwrap.py',
+'test_trace.py',
 'test_urlparse.py',
 )
 
