@@ -11,7 +11,7 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin 
 from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.factory import BlockedInference, generalize
+from pypy.annotation.factory import BlockedInference, generalize, ListFactory
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
 
@@ -117,7 +117,12 @@ class __extend__(SomeDict):
 
     def method_update(dct1, dct2):
         generalize(dct1.factories, dct2.s_key, dct2.s_value)
-    
+
+    def method_keys(dct):
+        factory = getbookkeeper().getfactory(ListFactory)
+        factory.generalize(dct.s_key)
+        return factory.create()
+        
 class __extend__(SomeString):
 
     def method_join(str, s_list):

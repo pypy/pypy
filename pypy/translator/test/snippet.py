@@ -669,3 +669,14 @@ def dict_update(x):
     d = {x:x}
     d.update({1:2})
     return d
+
+def dict_keys():
+    d = {"a" : 1}
+    return d.keys()
+
+def dict_keys2():
+    d = {"a" : 1}
+    keys = d.keys()
+    d[1] = 12
+    return keys
+
