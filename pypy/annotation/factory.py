@@ -27,6 +27,9 @@ class BlockedInference(Exception):
         except AttributeError:
             self.break_at = None
 
+    def __repr__(self):
+        return "<BlockedInference break_at %r>" %(self.break_at,)
+    __str__ = __repr__
 
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
@@ -172,16 +175,21 @@ class CallableFactory:
             if func.im_self is not None:
                 s_self = immutablevalue(func.im_self)
                 args = [s_self] + list(args)
-            func.im_func.class_ = func.im_class
+            try:
+                func.im_func.class_ = func.im_class
+            except AttributeError:
+                # probably a builtin function, we don't care to preserve
+                # class information then 
+                pass
             func = func.im_func
         assert isinstance(func, FunctionType), "expected function, got %r"%func
         # do we need to specialize this function in several versions?
         x = getattr(func, '_specialize_', False)
         if x:
             if x == 'argtypes':
-                key = "_".join([arg.__class__.__name__ for arg in args])
-                name = func.__name__+'_'+key
-                func = self.specialize_by_key(func, key, name) 
+                key = short_type_name(args) 
+                func = self.specialize_by_key(func, key, 
+                                              func.__name__+'__'+key) 
             elif x == "location":
                 # fully specialize: create one version per call position
                 func = self.specialize_by_key(func, self.position_key)
@@ -211,6 +219,16 @@ class CallableFactory:
                 raise Exception, "specializing %r?? why??"%thing
             self.bookkeeper.cachespecializations[key] = thing
         return thing
+
+def short_type_name(args):
+    l = []
+    for x in args: 
+        if isinstance(x, SomeInstance) and hasattr(x, 'knowntype'):
+            name = "SI_" + x.knowntype.__name__ 
+        else:
+            name = x.__class__.__name__
+        l.append(name) 
+    return "__".join(l) 
 
 class ClassDef:
     "Wraps a user class."
