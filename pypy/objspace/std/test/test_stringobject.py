@@ -424,15 +424,27 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals("aaa AAA 111".swapcase(), "AAA aaa 111")
         self.assertEquals("".swapcase(), "")
 
-    """
     def test_translate(self):
-        import string
-        string.maketrans('ae','ea')
-        s="abcde"
-        self.assertEquals('ebcda', s.translate(string.maketrans('ea','ae')))
-        self.assertEquals('eda',   s.translate(string.maketrans('ea','ae'),'bc'))
-        go away for now,
-        I am not working on  you and you make errors... Laura """
+        def maketrans(origin, image):
+            if len(origin) != len(image):
+                raise ValueError("maketrans arguments must have same length")
+            L = [chr(i) for i in range(256)]
+            for i in range(len(origin)):
+                L[ord(origin[i])] = image[i]
+
+            tbl = ''.join(L)
+            return tbl
+        
+        table = maketrans('abc', 'xyz')
+        self.assertEquals('xyzxyz', 'xyzabcdef'.translate(table, 'def'))
+
+        table = maketrans('a', 'A')
+        self.assertEquals('Abc', 'abc'.translate(table))
+        self.assertEquals('xyz', 'xyz'.translate(table))
+        self.assertEquals('yz',  'xyz'.translate(table, 'x'))
+        
+        #self.assertRaises(ValueError, 'xyz'.translate('too short', 'strip'))
+        #self.assertRaises(ValueError, 'xyz'.translate('too short'))
 
     def test_iter(self):
         l=[]
