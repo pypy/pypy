@@ -860,8 +860,8 @@ def app_prepare_raise(etype, value, traceback):
         etype = etype[0]
     if isinstance(etype, type):
         if isinstance(value, etype):
-            # raise Type, Instance: everything is fine
-            pass
+            # raise Type, Instance: let etype be the exact type of value
+            etype = value.__class__
         elif value is None:
             # raise Type: we assume we have to instantiate Type
             value = etype()

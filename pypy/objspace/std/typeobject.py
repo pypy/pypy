@@ -41,8 +41,6 @@ class W_TypeObject(W_Object):
 
     def lookup(w_self, key):
         # note that this doesn't call __get__ on the result at all
-        # XXX this should probably also return the (parent) class in which
-        # the attribute was found
         space = w_self.space
         for w_class in w_self.mro_w:
             try:
@@ -50,6 +48,17 @@ class W_TypeObject(W_Object):
             except KeyError:
                 pass
         return None
+
+    def lookup_where(w_self, key):
+        # like lookup() but also returns the parent class in which the
+        # attribute was found
+        space = w_self.space
+        for w_class in w_self.mro_w:
+            try:
+                return w_class, w_class.dict_w[key]
+            except KeyError:
+                pass
+        return None, None
 
     def check_user_subclass(w_self, w_subtype):
         space = w_self.space
@@ -94,8 +103,7 @@ def call__Type(space, w_type, w_args, w_kwds):
     # maybe invoke the __init__ of the type
     if space.is_true(space.isinstance(w_newobject, w_type)):
         w_descr = space.lookup(w_newobject, '__init__')
-        if w_descr is not None:
-            space.get_and_call(w_descr, w_newobject, w_args, w_kwds)
+        space.get_and_call(w_descr, w_newobject, w_args, w_kwds)
     return w_newobject
 
 def issubtype__Type_Type(space, w_type1, w_type2):
