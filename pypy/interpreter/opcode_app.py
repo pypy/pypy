@@ -7,8 +7,8 @@ def prepare_raise(etype, value, traceback):
     # XXX we get an infinite loop if this import fails:
     #    import types -> IMPORT_NAME -> import_name -> raise ImportError
     #    -> RAISE_VARARGS -> prepare_raise -> import types ...
-    if  not isinstance(traceback, (types.NoneType, types.TracebackType)):
-            raise TypeError, "raise: arg 3 must be traceback or None"
+    if not isinstance(traceback, (types.NoneType, types.TracebackType)):
+        raise TypeError, "raise: arg 3 must be traceback or None"
     while isinstance(etype, tuple):
         etype = etype[0]
     if type(etype) is str:
@@ -44,7 +44,10 @@ def print_expr(x):
 
 
 def file_softspace(file, newflag):
-    softspace = getattr(file, "softspace", False)
+    try:
+        softspace = file.softspace
+    except AttributeError:
+        softspace = 0
     try:
         file.softspace = newflag
     except AttributeError:
@@ -54,11 +57,12 @@ def file_softspace(file, newflag):
 def print_item_to(x, stream):
     if file_softspace(stream, False):
         stream.write(" ")
-    stream.write(str(x))
+    # XXX str call should go here!!! for now, only print strings -- mwh
+    stream.write(x) 
     # add a softspace unless we just printed a string which ends in a '\t'
     # or '\n' -- or more generally any whitespace character but ' '
-    if isinstance(x, str) and len(x) and x[-1].isspace() and x[-1]!=' ':
-        return
+#    if isinstance(x, str) and len(x) and x[-1].isspace() and x[-1]!=' ':
+#        return
     # XXX add unicode handling
     file_softspace(stream, True)
 
@@ -123,7 +127,7 @@ def load_name(name, locals, globals, builtins):
             try:
                 return builtins[name]
             except KeyError:
-                raise NameError, "name '%s' is not defined" % name
+                raise NameError, "name '"+name+"' is not defined"
 
 def load_closure(locals, name):
     # this assumes that 'locals' is an extended dictionary with a
