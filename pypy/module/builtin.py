@@ -669,6 +669,8 @@ class __builtin__(ExtModule):
         We don't have a string table, making intern a null operation.
         This is here for backwards compatibility.
         """
+        if not isinstance(s, str):
+            raise TypeError("intern() argument 1 must be string.")
         return s
     
 # source code for the builtin xrange-class
