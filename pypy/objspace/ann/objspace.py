@@ -6,10 +6,13 @@ from pypy.interpreter.baseobjspace \
 from pypy.interpreter.pycode import PyByteCode
 
 
-class W_Object:
+class W_Object(object):
     pass
 
 class W_Anything(W_Object):
+    pass
+
+class W_Integer(W_Object):
     pass
 
 class W_Constant(W_Object):
@@ -17,6 +20,14 @@ class W_Constant(W_Object):
         self.value = value
     def __repr__(self):
         return '<constant %r>' % self.value
+
+class W_KnownKeysContainer(W_Object):
+    def __init__(self, args_w):
+        self.args_w = args_w
+    def __len__(self):
+        return len(self.args_w)
+    def __getitem__(self, i):
+        return self.args_w[i]
 
 
 class AnnException(Exception):
@@ -37,6 +48,8 @@ class AnnotationObjSpace(ObjSpace):
                 setattr(self, 'w_' + c.__name__, self.wrap(c))
         self.w_builtins = self.wrap(__builtin__)
 
+    # Service methods
+
     def wrap(self, obj):
         return W_Constant(obj)
 
@@ -47,24 +60,36 @@ class AnnotationObjSpace(ObjSpace):
             raise AnnException, "Cannot unwrap %r" % w_obj
         else:
             raise TypeError, "not wrapped: %s" % repr(w_obj)
+
+    def is_true(self, w_obj):
+        if isinstance(w_obj, W_KnownKeysContainer):
+            return bool(len(w_obj))
+        obj = self.unwrap(w_obj)
+        return bool(obj)
+
+    def reraise(self):
+        t, v = sys.exc_info()[:2]
+        raise OperationError(self.wrap(t), self.wrap(v))
+
+    # Specialized creators
     
     def newtuple(self, args_w):
         for w_arg in args_w:
             if not isinstance(w_arg, W_Constant):
-                return W_Anything()
+                return W_KnownKeysContainer(args_w)
         return self.wrap(tuple(map(self.unwrap, args_w)))
 
     def newdict(self, items_w):
+        values_w = {}
         for w_key, w_value in items_w:
-            if (not isinstance(w_key, W_Constant) or
-                not isinstance(w_value, W_Constant)):
+            try:
+                key = self.unwrap(w_key)
+            except AnnException:
                 break
+            else:
+                values_w[key] = w_value
         else:
-            d = {}
-            for w_key, w_value in items_w:
-                d[self.unwrap(w_key)] = self.unwrap(w_value)
-            return self.wrap(d)
-
+            return W_KnownKeysContainer(values_w)
         return W_Anything()
 
     def newmodule(self, w_name):
@@ -72,6 +97,30 @@ class AnnotationObjSpace(ObjSpace):
 
     def newfunction(self, *stuff):
         return W_Anything()
+
+    # Methods implementing Python operations
+    # (Many missing ones are added by make_op() below)
+
+    def add(self, w_left, w_right):
+        try:
+            left = self.unwrap(w_left)
+            right = self.unwrap(w_right)
+        except AnnException:
+            pass
+        else:
+            return self.wrap(left + right)
+        if self.is_int(w_left) and self.is_int(w_right):
+            return W_Integer()
+        else:
+            return W_Anything()
+
+    def is_int(self, w_obj):
+        if isinstance(w_obj, W_Integer):
+            return True
+        if isinstance(w_obj, W_Constant):
+            return isinstance(w_obj.value, int)
+        else:
+            return False
 
     def call(self, w_func, w_args, w_kwds):
         func = self.unwrap(w_func) # Would be bad it it was W_Anything
@@ -101,6 +150,8 @@ class AnnotationObjSpace(ObjSpace):
                 return self.reraise()
 
     def len(self, w_obj):
+        if isinstance(w_obj, W_KnownKeysContainer):
+            return self.wrap(len(w_obj))
         try:
             obj = self.unwrap(w_obj)
         except AnnException:
@@ -108,13 +159,22 @@ class AnnotationObjSpace(ObjSpace):
         else:
             return self.wrap(len(obj))
 
-    def is_true(self, w_obj):
-        obj = self.unwrap(w_obj)
-        return bool(obj)
-
-    def reraise(self):
-        t, v = sys.exc_info()[:2]
-        raise OperationError(self.wrap(t), self.wrap(v))
+    def getitem(self, w_obj, w_key):
+        try:
+            key = self.unwrap(w_key)
+        except AnnException:
+            return W_Anything()
+        try:
+            obj = self.unwrap(w_obj)
+        except AnnException:
+            if isinstance(w_obj, W_KnownKeysContainer):
+                return w_obj[key]
+            else:
+                return W_Anything()
+        try:
+            return self.wrap(obj[key])
+        except:
+            self.reraise()
 
 def make_op(name, symbol, arity, specialnames):
 

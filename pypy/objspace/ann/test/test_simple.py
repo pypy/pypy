@@ -1,6 +1,7 @@
 import autopath
 from pypy.tool import test
-from pypy.objspace.ann.objspace import W_Object, W_Anything, AnnotationObjSpace
+from pypy.objspace.ann.objspace import W_Object, W_Anything, W_Integer
+from pypy.objspace.ann.objspace import AnnotationObjSpace
 from pypy.interpreter import baseobjspace, executioncontext, pyframe
 
 class TestAnnotationObjSpace(test.TestCase):
@@ -22,19 +23,34 @@ class TestAnnotationObjSpace(test.TestCase):
     def setUp(self):
         self.space = AnnotationObjSpace()
 
-    def dont_test_simple1(self):
+    def test_any2any(self):
         x = self.codetest('''
 def f(i):
     return i+1
 ''', 'f', [W_Anything()])
-        self.assert_(isinstance(x, W_Anything))
+        self.assertEquals(type(x), W_Anything)
 
-    def test_simple2(self):
+    def test_const2const(self):
         x = self.codetest('''
 def f(i):
     return i+1
 ''', 'f', [self.space.wrap(5)])
         self.assertEquals(self.space.unwrap(x), 6)
+
+    def test_constany2const(self):
+        x = self.codetest('''
+def f(i, j):
+    return i+1
+''', 'f', [self.space.wrap(5), W_Anything()])
+        self.assertEquals(self.space.unwrap(x), 6)
+
+    def test_int2int(self):
+        x = self.codetest('''
+def f(i):
+    return i+1
+''', 'f', [W_Integer()])
+        self.assertEquals(type(x), W_Integer)
+
 
 
 if __name__ == '__main__':
