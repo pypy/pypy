@@ -119,17 +119,26 @@ edge [fontname=Times];
 %(content)s
 }""" % locals()
 
+    def get_node_class(self, cls):
+        g = globals() 
+        #print cls.__name__
+        nodeclass = g.get('Node%s' % cls.__name__, None)
+        if nodeclass:
+            return nodeclass
+            
+        for base in cls.__bases__:
+            nodeclass = self.get_node_class(base)
+            if nodeclass:
+                return nodeclass
+
     def makenode(self, obj):
         try:
             return self.nodes[obj]
         except KeyError:
             pass
-        try:
-            name = obj.__class__.__name__
-        except AttributeError:
+        if not hasattr(obj, '__class__'):
             return
-        g = globals()
-        cls = g.get('Node%s' % name, None)
+        cls = self.get_node_class(obj.__class__)
         if cls is not None:
             node = cls(obj)
             self.nodes[obj] = node
@@ -168,7 +177,6 @@ def make_png(fun):
     out = exec_cmd('dot -Tpng %s' % str(dest))
     psdest.write(out)
     print "wrote", psdest
-    raise SystemExit, 0
 
 if __name__ == '__main__':
         i = Variable("i")
