@@ -1,7 +1,10 @@
-* provide an importer that can import packages
-  consider PEP 302, new import hooks try to write as much as
-  possible in app-level how would PyPy import CPython extension when
-  it runs on top of CPython?
+* Provide an importer that can import packages.
+  Consider PEP 302, new import hooks.
+  Try to write as much as possible in app-level.
+  How would PyPy import CPython extensions?
+
+* Implements super. Guido's paper, descrintro, has a pure Python
+  implementation. Let it run on PyPy. (as of r3461, it doesn't run.)
 
 * slicing with assigments & more small things 
   lst[::-2] = lst2
