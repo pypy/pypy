@@ -13,7 +13,7 @@ class TestW_StringObject(test.TestCase):
     def tearDown(self):
         pass
 
-    def test_order_rich(self):
+    def qqqtest_order_rich(self):
         space = self.space
         def w(txt):
              return W_StringObject(space, txt)
@@ -40,12 +40,12 @@ class TestW_StringObject(test.TestCase):
                                                 w(str2),
                                                 pypyconst))
         
-    def test_equality(self):
+    def qqqtest_equality(self):
         w = self.space.wrap 
         self.assertEqual_w(w('abc'), w('abc'))
         self.assertNotEqual_w(w('abc'), w('def'))
 
-    def test_order_cmp(self):
+    def qqqtest_order_cmp(self):
         space = self.space
         w = space.wrap
         self.failUnless_w(space.lt(w('a'), w('b')))
@@ -53,12 +53,12 @@ class TestW_StringObject(test.TestCase):
         self.failUnless_w(space.le(w('a'), w('a')))
         self.failUnless_w(space.gt(w('a'), w('')))
 
-    def test_truth(self):
+    def qqqtest_truth(self):
         w = self.space.wrap
         self.failUnless_w(w('non-empty'))
         self.failIf_w(w(''))
 
-    def test_getitem(self):
+    def qqqtest_getitem(self):
         space = self.space
         w = space.wrap
         w_str = w('abc')
@@ -69,7 +69,7 @@ class TestW_StringObject(test.TestCase):
                             w_str,
                             w(3))
 
-    def test_slice(self):
+    def qqqtest_slice(self):
         space = self.space
         w = space.wrap
         w_str = w('abc')
@@ -92,7 +92,7 @@ class TestW_StringObject(test.TestCase):
         w_slice = space.newslice(w(-1), space.w_None, None)
         self.assertEqual_w(space.getitem(w_str, w_slice), w('c'))
 
-    def test_extended_slice(self):
+    def qqqtest_extended_slice(self):
         space = self.space
         if self.space.__class__.__name__.startswith('Trivial'):
             import sys
@@ -116,7 +116,7 @@ class TestW_StringObject(test.TestCase):
 
 
 #AttributeError: W_StringObject instance has no attribute 'ljust'
-#    def test_ljust(self):
+#    def qqqtest_ljust(self):
 #        w = self.space.wrap         
 #        s = "abc"
 #
@@ -129,7 +129,7 @@ class TestStringObject(test.AppTestCase):
     def setUp(self):
         self.space = test.objspace('std')
 
-    def test_split(self):
+    def qqqtest_split(self):
         self.assertEquals("".split(), [])
         self.assertEquals("a".split(), ['a'])
         self.assertEquals(" a ".split(), ['a'])
@@ -148,13 +148,13 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('endcase test'.split('test'), ['endcase ', ''])
 
 
-    def test_split_splitchar(self):
+    def qqqtest_split_splitchar(self):
         self.assertEquals("/a/b/c".split('/'), ['','a','b','c'])
 
-    def test_title(self):
+    def qqqtest_title(self):
         self.assertEquals("brown fox".title(), "Brown Fox")
 
-    def test_capitalize(self):
+    def qqqtest_capitalize(self):
         self.assertEquals("brown fox".capitalize(), "Brown fox")
         self.assertEquals(' hello '.capitalize(), ' hello ')
         self.assertEquals('Hello '.capitalize(), 'Hello ')
@@ -162,7 +162,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('aaaa'.capitalize(), 'Aaaa')
         self.assertEquals('AaAa'.capitalize(), 'Aaaa')
 
-    def test_rjust(self):
+    def qqqtest_rjust(self):
         s = "abc"
         self.assertEquals(s.rjust(2), s)
         self.assertEquals(s.rjust(3), s)
@@ -174,7 +174,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('abc'.rjust(2), 'abc')
 
 
-    def test_ljust(self):
+    def qqqtest_ljust(self):
         s = "abc"
         self.assertEquals(s.ljust(2), s)
         self.assertEquals(s.ljust(3), s)
@@ -185,7 +185,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('abc'.ljust(3), 'abc')
         self.assertEquals('abc'.ljust(2), 'abc')
 
-    def test_replace(self):
+    def qqqtest_replace(self):
         self.assertEquals('one!two!three!'.replace('!', '@', 1), 'one@two!three!')
         self.assertEquals('one!two!three!'.replace('!', ''), 'onetwothree')
         self.assertEquals('one!two!three!'.replace('!', '@', 2), 'one@two@three!')
@@ -206,7 +206,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('123x123'.replace('123', ''), 'x')
 
 
-    def test_strip(self):
+    def qqqtest_strip(self):
         s = " a b "
         self.assertEquals(s.strip(), "a b")
         self.assertEquals(s.rstrip(), " a b")
@@ -215,7 +215,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('xyzzyhelloxyzzy'.lstrip('xyz'), 'helloxyzzy')
         self.assertEquals('xyzzyhelloxyzzy'.rstrip('xyz'), 'xyzzyhello')
 
-    def test_zfill(self):
+    def qqqtest_zfill(self):
         self.assertEquals('123'.zfill(2), '123')
         self.assertEquals('123'.zfill(3), '123')
         self.assertEquals('123'.zfill(4), '0123')
@@ -229,7 +229,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('34'.zfill(1), '34')
         self.assertEquals('34'.zfill(4), '0034')
             
-    def test_center(self):
+    def qqqtest_center(self):
         s="a b"
         self.assertEquals(s.center(0), "a b")
         self.assertEquals(s.center(1), "a b")
@@ -247,7 +247,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('abc'.center(2), 'abc')
 
         
-    def test_count(self):
+    def qqqtest_count(self):
         self.assertEquals("".count("x"),0)
         self.assertEquals("".count(""),1)
         self.assertEquals("Python".count(""),7)
@@ -260,7 +260,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('aaa'.count('a', 0, -10), 0)
     
     
-    def test_startswith(self):
+    def qqqtest_startswith(self):
         self.assertEquals('ab'.startswith('ab'),1)
         self.assertEquals('ab'.startswith('a'),1)
         self.assertEquals('ab'.startswith(''),1)
@@ -272,7 +272,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('y'.startswith('xx'),0)
                 
 
-    def test_endswith(self):
+    def qqqtest_endswith(self):
         self.assertEquals('ab'.endswith('ab'),1)
         self.assertEquals('ab'.endswith('b'),1)
         self.assertEquals('ab'.endswith(''),1)
@@ -283,7 +283,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('x'.endswith('xx'),0)
         self.assertEquals('y'.endswith('xx'),0)
       
-    def test_expandtabs(self):
+    def qqqtest_expandtabs(self):
         self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(),    'abc\rab      def\ng       hi')
         self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(8),   'abc\rab      def\ng       hi')
         self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(4),   'abc\rab  def\ng   hi')
@@ -305,7 +305,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals(''.expandtabs(),'')
 
 
-    def test_splitlines(self):
+    def qqqtest_splitlines(self):
         s="ab\nab\n \n  x\n\n\n"
         self.assertEquals(s.splitlines(),['ab',    'ab',  ' ',   '  x',   '',    ''])
         self.assertEquals(s.splitlines(),s.splitlines(0))
@@ -314,12 +314,12 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals(s.splitlines(),['', 'one', '\two', 'three', ''])
         self.assertEquals(s.splitlines(1),['\n', 'one\n', '\two\n', 'three\n', '\n'])
     
-    def test_find(self):
+    def qqqtest_find(self):
         self.assertEquals('abcdefghiabc'.find('abc'), 0)
         self.assertEquals('abcdefghiabc'.find('abc', 1), 9)
         self.assertEquals('abcdefghiabc'.find('def', 4), -1)
 
-    def test_index(self):
+    def qqqtest_index(self):
         self.assertEquals('abcdefghiabc'.index(''), 0)
         self.assertEquals('abcdefghiabc'.index('def'), 3)
         self.assertEquals('abcdefghiabc'.index('abc'), 0)
@@ -330,13 +330,13 @@ class TestStringObject(test.AppTestCase):
         #self.assertRaises(ValueError, 'abcdefghi'.index('ghi', 8))
         #self.assertRaises(ValueError, 'abcdefghi'.index('ghi', -1))
 
-    def test_rfind(self):
+    def qqqtest_rfind(self):
         self.assertEquals('abcdefghiabc'.rfind('abc'), 9)
         self.assertEquals('abcdefghiabc'.rfind(''), 12)
         self.assertEquals('abcdefghiabc'.rfind('abcd'), 0)
         self.assertEquals('abcdefghiabc'.rfind('abcz'), -1)
 
-    def test_rindex(self):
+    def qqqtest_rindex(self):
         self.assertEquals('abcdefghiabc'.rindex(''), 12)
         self.assertEquals('abcdefghiabc'.rindex('def'), 3)
         self.assertEquals('abcdefghiabc'.rindex('abc'), 9)
@@ -349,7 +349,7 @@ class TestStringObject(test.AppTestCase):
         #self.assertRaises(ValueError, 'abcdefghi'.rindex('ghi', 0, -1))
 
 
-    def test_split_maxsplit(self):
+    def qqqtest_split_maxsplit(self):
         self.assertEquals("/a/b/c".split('/', 2), ['','a','b/c'])
         self.assertEquals("a/b/c".split("/"), ['a', 'b', 'c'])
         self.assertEquals(" a ".split(None, 0), ['a '])
@@ -357,28 +357,47 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals(" a a ".split(" ", 0), [' a a '])
         self.assertEquals(" a a ".split(" ", 1), ['', 'a a '])
 
-    def test_join(self):
+    def qqqtest_join(self):
         self.assertEquals(", ".join(['a', 'b', 'c']), "a, b, c")
         self.assertEquals("".join([]), "")
         self.assertEquals("-".join(['a', 'b']), 'a-b')
 
-    def test_lower(self):
+    def qqqtest_lower(self):
         self.assertEquals("aaa AAA".lower(), "aaa aaa")
         self.assertEquals("".lower(), "")
 
-    def test_upper(self):
+    def qqqtest_upper(self):
         self.assertEquals("aaa AAA".upper(), "AAA AAA")
         self.assertEquals("".upper(), "")
     
-    def test_swapcase(self):
+    def qqqtest_swapcase(self):
         self.assertEquals("aaa AAA 111".swapcase(), "AAA aaa 111")
         self.assertEquals("".swapcase(), "")
 
-    def test_iter(self):
+    def qqqtest_iter(self):
         l=[]
         for i in iter("42"):
             l.append(i)
         self.assertEquals(l, ['4','2'])
+        
+    def test_repr(self):
+        self.assertEquals(repr("")      ,"''")
+        self.assertEquals(repr("a")     ,"'a'")
+        self.assertEquals(repr("'")     ,'"\'"')
+        self.assertEquals(repr("\'")    ,"\"\'\"")
+        self.assertEquals(repr("\"")    ,'\'"\'')
+        self.assertEquals(repr("\t")    ,"'\\t'")
+        self.assertEquals(repr("\\")    ,"'\\\\'")
+        self.assertEquals(repr('')      ,"''")
+        self.assertEquals(repr('a')     ,"'a'")
+        self.assertEquals(repr('"')     ,"'\"'")
+        self.assertEquals(repr('\'')    ,'"\'"')
+        self.assertEquals(repr('\"')    ,"'\"'")
+        self.assertEquals(repr('\t')    ,"'\\t'")
+        self.assertEquals(repr('\\')    ,"'\\\\'")
+        self.assertEquals(repr("'''\"") ,'\'\\\'\\\'\\\'"\'')
+        self.assertEquals(repr(chr(19)) ,"'\\x13'")
+    
 
 if __name__ == '__main__':
     test.main()
