@@ -72,9 +72,10 @@ class OperationError(Exception):
 
     def errorstr(self, space):
         "The exception class and value, as a string."
-        exc_type  = space.unwrap(self.w_type)
-        exc_value = space.unwrap(self.w_value)
-        return '%s: %s' % (exc_type.__name__, exc_value)
+        exc_type  = space.unwrap(
+            space.getattr(self.w_type, space.wrap('__name__')))
+        exc_value = space.unwrap(space.str(self.w_value))
+        return '%s: %s' % (exc_type, exc_value)
 
     def getframe(self):
         "The frame this exception was raised in, or None."
@@ -136,8 +137,9 @@ class OperationError(Exception):
             exc_typename = str(self.w_type)
             exc_value    = self.w_value
         else:
-            exc_typename = space.unwrap(self.w_type).__name__
-            exc_value    = space.unwrap(self.w_value)
+            w = space.wrap
+            exc_typename  = space.getattr(self.w_type, w('__name__'))
+            exc_value = space.unwrap(space.str(self.w_value))
             print >> file, '(application-level)',
         if exc_value is None:
             print >> file, exc_typename
