@@ -892,3 +892,24 @@ thing2 = Thing2(2)
 
 def one_thing2():
     return thing2
+
+# propagation of fresh instances through attributes
+
+class Stk:
+    def __init__(self):
+        self.itms = []
+
+    def push(self, v):
+        self.itms.append(v)
+
+class EC:
+
+    def __init__(self):
+        self.stk = Stk()
+
+    def enter(self, f):
+        self.stk.push(f)
+
+def propagation_of_fresh_instances_through_attrs(x):
+    e = EC()
+    e.enter(x)

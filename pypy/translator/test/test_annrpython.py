@@ -526,6 +526,11 @@ class TestAnnonateTestCase:
         assert isinstance(a.binding(g_flowgraph.getreturnvar()),
                           annmodel.SomeString)
 
+    def test_propagation_of_fresh_instances_through_attrs(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.propagation_of_fresh_instances_through_attrs, [int])
+        assert s is not None
+        
 
 def g(n):
     return [0,1,2,n]

@@ -82,7 +82,7 @@ class RPythonAnnotator:
         self.addpendingblock(func, flowgraph.startblock, inputcells)
         # recursively proceed until no more pending block is left
         self.complete()
-        return self.binding(flowgraph.getreturnvar())
+        return self.binding(flowgraph.getreturnvar(), extquery=True)
 
     def gettype(self, variable):
         """Return the known type of a control flow graph variable,
@@ -155,10 +155,16 @@ class RPythonAnnotator:
             print "++-" * 20
             
 
-    def binding(self, arg):
+    def binding(self, arg, extquery=False):
         "Gives the SomeValue corresponding to the given Variable or Constant."
         if isinstance(arg, Variable):
-            return self.bindings[arg]
+            try:
+                return self.bindings[arg]
+            except KeyError:
+                if extquery:
+                    return None
+                else:
+                    raise
         elif isinstance(arg, UndefinedConstant):  # undefined local variables
             return annmodel.SomeImpossibleValue()
         elif isinstance(arg, Constant):
