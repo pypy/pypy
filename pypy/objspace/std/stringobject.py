@@ -748,24 +748,6 @@ def str_zfill__String_ANY(space, w_self, w_width):
         start = start + 1
     
     return space.wrap("".join(buf))
-    
-    
-def app_str_translate__String_ANY_ANY(s, table, deletechars=''):
-    """charfilter - unicode handling is not implemented
-    
-    Return a copy of the string where all characters occurring 
-    in the optional argument deletechars are removed, and the 
-    remaining characters have been mapped through the given translation table, 
-    which must be a string of length 256"""
-
-    if len(table) < 256:
-        raise ValueError("translation table must be 256 characters long")
-
-    L =  [ table[ord(s[i])] for i in range(len(s)) if s[i] not in deletechars ]
-    return ''.join(L)
-
-str_translate__String_ANY_ANY = gateway.app2interp(app_str_translate__String_ANY_ANY)
-
 
 def str_w__String(space, w_str):
     return w_str._value
@@ -957,36 +939,6 @@ def iter__String(space, w_list):
     from pypy.objspace.std import iterobject
     return iterobject.W_SeqIterObject(space, w_list)
 
-def app_contains__String_ANY(self, sub):
-    return self.find(sub) >= 0
-
-contains__String_ANY = gateway.app2interp(app_contains__String_ANY)
-
-def app_repr__String(s):
-    quote = "'"
-    if quote in s and '"' not in s:
-        quote = '"'
-
-    repr = quote
-
-    for c in s:
-        if c == '\\' or c == quote: repr += '\\'+c
-        elif c == '\t': repr += '\\t'
-        elif c == '\r': repr += '\\r'
-        elif c == '\n': repr += '\\n'
-        elif not '\x20' <= c < '\x7f':
-            n = ord(c)
-            repr += '\\x'+"0123456789abcdef"[n>>4]+"0123456789abcdef"[n&0xF]
-        else:
-            repr += c
-
-    repr += quote
-
-    return repr
-
-repr__String = gateway.app2interp(app_repr__String)
-
-    
 def ord__String(space, w_str):
     u_str = w_str._value
     if len(u_str) != 1:
@@ -995,30 +947,68 @@ def ord__String(space, w_str):
             space.wrap("ord() expected a character, but string "
                        "of length %d found"%(len(w_str._value),)))
     return space.wrap(ord(u_str))
-
-def app_mod__String_ANY(format, values):
-    import _formatting
-    if isinstance(values, tuple):
-        return _formatting.format(format, values, None)
-    else:
-        if hasattr(values, 'keys'):
-            return _formatting.format(format, (values,), values)
-        else:
-            return _formatting.format(format, (values,), None)
-
-mod__String_ANY = gateway.app2interp(app_mod__String_ANY) 
-
-
-def app_str_decode__String_ANY_ANY(str, encoding=None, errors=None):
-    if encoding is None and errors is None:
-        return unicode(str)
-    elif errors is None:
-        return unicode(str, encoding)
-    else:
-        return unicode(str, encoding, errors)
+   
+app = gateway.applevel(r''' 
+    def str_translate__String_ANY_ANY(s, table, deletechars=''):
+        """charfilter - unicode handling is not implemented
         
+        Return a copy of the string where all characters occurring 
+        in the optional argument deletechars are removed, and the 
+        remaining characters have been mapped through the given translation table, 
+        which must be a string of length 256"""
 
-str_decode__String_ANY_ANY = gateway.app2interp(app_str_decode__String_ANY_ANY)
+        if len(table) < 256:
+            raise ValueError("translation table must be 256 characters long")
+
+        L =  [ table[ord(s[i])] for i in range(len(s)) if s[i] not in deletechars ]
+        return ''.join(L)
+
+    def contains__String_ANY(self, sub):
+        return self.find(sub) >= 0
+
+    def repr__String(s):
+        quote = "'"
+        if quote in s and '"' not in s:
+            quote = '"'
+        repr = quote
+        for c in s:
+            if c == '\\' or c == quote: 
+                repr += '\\'+c
+            elif c == '\t': repr += '\\t'
+            elif c == '\r': repr += '\\r'
+            elif c == '\n': repr += '\\n'
+            elif not '\x20' <= c < '\x7f':
+                n = ord(c)
+                repr += '\\x'+"0123456789abcdef"[n>>4]+"0123456789abcdef"[n&0xF]
+            else:
+                repr += c
+        repr += quote
+        return repr
+
+    def mod__String_ANY(format, values):
+        import _formatting
+        if isinstance(values, tuple):
+            return _formatting.format(format, values, None)
+        else:
+            if hasattr(values, 'keys'):
+                return _formatting.format(format, (values,), values)
+            else:
+                return _formatting.format(format, (values,), None)
+
+    def str_decode__String_ANY_ANY(str, encoding=None, errors=None):
+        if encoding is None and errors is None:
+            return unicode(str)
+        elif errors is None:
+            return unicode(str, encoding)
+        else:
+            return unicode(str, encoding, errors)
+''') 
+
+str_translate__String_ANY_ANY = app.interphook('str_translate__String_ANY_ANY') 
+str_decode__String_ANY_ANY = app.interphook('str_decode__String_ANY_ANY') 
+mod__String_ANY = app.interphook('mod__String_ANY') 
+contains__String_ANY = app.interphook('contains__String_ANY') 
+repr__String = app.interphook('repr__String') 
 
 # register all methods
 from pypy.objspace.std import stringtype
