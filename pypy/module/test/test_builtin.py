@@ -15,6 +15,8 @@ class TestBuiltinApp(test.AppTestCase):
         m = __import__('pprint')
         self.assertEquals(m.pformat({}), '{}')
         self.assertEquals(m.__name__, "pprint")
+        self.assertRaises(ImportError, __import__, 'spamspam')
+        self.assertRaises(TypeError, __import__, 1, 2, 3, 4)
 
     def test_chr(self):
         self.assertEquals(chr(65), 'A')
