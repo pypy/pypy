@@ -59,31 +59,142 @@ def triples(s):
         s = s[3:]
         yield ord(a), ord(b), ord(c)
 
+
+table_a2b_base64 = {
+    'A': 0,
+    'B': 1,
+    'C': 2,
+    'D': 3,
+    'E': 4,
+    'F': 5,
+    'G': 6,
+    'H': 7,
+    'I': 8,
+    'J': 9,
+    'K': 10,
+    'L': 11,
+    'M': 12,
+    'N': 13,
+    'O': 14,
+    'P': 15,
+    'Q': 16,
+    'R': 17,
+    'S': 18,
+    'T': 19,
+    'U': 20,
+    'V': 21,
+    'W': 22,
+    'X': 23,
+    'Y': 24,
+    'Z': 25,
+    'a': 26,
+    'b': 27,
+    'c': 28,
+    'd': 29,
+    'e': 30,
+    'f': 31,
+    'g': 32,
+    'h': 33,
+    'i': 34,
+    'j': 35,
+    'k': 36,
+    'l': 37,
+    'm': 38,
+    'n': 39,
+    'o': 40,
+    'p': 41,
+    'q': 42,
+    'r': 43,
+    's': 44,
+    't': 45,
+    'u': 46,
+    'v': 47,
+    'w': 48,
+    'x': 49,
+    'y': 50,
+    'z': 51,
+    '0': 52,
+    '1': 53,
+    '2': 54,
+    '3': 55,
+    '4': 56,
+    '5': 57,
+    '6': 58,
+    '7': 59,
+    '8': 60,
+    '9': 61,
+    '+': 62,
+    '/': 63,
+}
+
+def quadruplets_base64(s):
+    while s:
+        a, b, c, d = table_a2b_base64[s[0]], table_a2b_base64[s[1]], table_a2b_base64[s[2]], table_a2b_base64[s[3]]
+        s = s[4:]
+        yield a, b, c, d
+
+def a2b_base64(s):
+    s = s.rstrip()
+    a = quadruplets_base64(s[:-4])
+    result = [
+        chr(A << 2 | ((B >> 4) & 0x3)) + 
+        chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF)) + 
+        chr((C & 0xF) << 6 | D )
+        for A, B, C, D in a]
+    final = s[-4:]
+    if final[2] == '=':
+        A = table_a2b_base64[final[0]]
+        B = table_a2b_base64[final[1]]
+        snippet =  chr(A << 2 | ((B >> 4) & 0x3))
+    elif final[3] == '=':
+        A = table_a2b_base64[final[0]]
+        B = table_a2b_base64[final[1]]
+        C = table_a2b_base64[final[2]]
+        snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
+                  chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF))
+    else:
+        A = table_a2b_base64[final[0]]
+        B = table_a2b_base64[final[1]]
+        C = table_a2b_base64[final[2]]
+        D = table_a2b_base64[final[3]]
+        snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
+                  chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF)) + \
+                  chr((C & 0xF) << 6 | D )
+
+    return ''.join(result) + snippet
+    
+table_b2a_base64 = \
+"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+
 def b2a_base64(s):
     length = len(s)
     final_length = length % 3
     
-    a = triples(s[:length - final_length])
+    a = triples(s[: -final_length])
+
     result = [''.join(
-        [chr(0x20 + (( A >> 2                    ) & 0x3F)),
-         chr(0x20 + (((A << 4) | ((B >> 4) & 0xF)) & 0x3F)),
-         chr(0x20 + (((B << 2) | ((C >> 6) & 0x3)) & 0x3F)),
-         chr(0x20 + (( C                         ) & 0x3F))]) for A, B, C in a]
-    final = s[length - final_length:]
+        [table_b2a_base64[( A >> 2                    ) & 0x3F],
+         table_b2a_base64[((A << 4) | ((B >> 4) & 0xF)) & 0x3F],
+         table_b2a_base64[((B << 2) | ((C >> 6) & 0x3)) & 0x3F],
+         table_b2a_base64[( C                         ) & 0x3F]])
+              for A, B, C in a]
+
+    final = s[-final_length:]
     if len(final) == 0:
         snippet = ''
     elif len(final) == 1:
         a = ord(final[0])
-        print a
-        snippet = chr(0x20 + ((a >> 2 ) & 0x3F)) + \
-                  chr((0x20 + (a << 4 )) & 0x3F) + '=='
+        snippet = table_b2a_base64[(a >> 2 ) & 0x3F] + \
+                  table_b2a_base64[(a << 4 ) & 0x3F] + '=='
     else:
         a = ord(final[0])
         b = ord(final[1])
-        snippet = chr(0x20 + ((a >> 2 ) & 0x3F)) + \
-                  chr(0x20 + (((a << 4) | ((b >> 4) & 0xF))
-                              & 0x3F)) + chr((0x20 + (b << 2)) & 0x3F) + '='
+        snippet = table_b2a_base64[(a >> 2) & 0x3F] + \
+                  table_b2a_base64[(a << 4) | ((b >> 4) & 0xF) & 0x3F] + \
+                  table_b2a_base64[(b << 2) & 0x3F] + '='
     return ''.join(result) + snippet + '\n'
+
+
 
 #print b2a_uu('1234567')
 #print b2a_uu('123456789012345678901234567890123456789012345')
