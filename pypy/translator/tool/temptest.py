@@ -1,3 +1,18 @@
+"""
+
+- annotate and translate snippet producing tracing of calls
+to AnnotationSet and RPythonAnnotator
+- print bindings and final annotation set
+and pyrex 
+
+- display flow graph
+
+call it like:
+
+traceann <snippet-name> <types...>  >result.txt 2>trace.txt
+
+"""
+
 import sys
 
 import autopath
@@ -9,18 +24,19 @@ from pypy.translator.tool import tracer
 tracer.trace(AnnotationSet)
 tracer.trace(RPythonAnnotator)
 
-def h(lst):
-    lst += [5]
+try:
+    snippet_name = sys.argv[1]
+except IndexError:
+    snippet_name = "call_five"
 
-def calling_h():
-    a = []
-    h(a)
-    return a
+argtypes = []
 
+for argtype in sys.argv[2:]:
+    argtypes.append(eval(argtype))
 
-t = Translator(calling_h)  #  test.poor_man_rev_range)
+t = Translator(getattr(test,snippet_name))
 t.simplify()
-a = t.annotate([])
+a = t.annotate(argtypes)
 lines = []
 for key, value in a.bindings.items():
     lines.append('%r: %r' % (key, value))
