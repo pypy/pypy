@@ -64,7 +64,7 @@ class MyTestResult(unittest.TestResult):
 
 class MyTextTestResult(unittest._TextTestResult):
     ignored = 0
-    trace_information = ()
+    trace_information = []
 
     def record_trace(self, test):
         # XXX hack for TraceObjSpace
@@ -73,7 +73,7 @@ class MyTextTestResult(unittest._TextTestResult):
         except AttributeError:
             pass
         else:
-            self.trace_information += result
+            self.trace_information.append((test, result))
             test.space.settrace()
 
     def addError(self, test, err):
@@ -116,8 +116,8 @@ class MyTextTestResult(unittest._TextTestResult):
     def printErrors(self):
         if self.trace_information:
             from pypy.tool.traceop import print_result
-            for trace in self.trace_information:
-                print_result(trace)
+            for test, trace in self.trace_information:
+                print_result(test.space, trace)
             sys.stdout.flush()
         if Options.interactive:
             print
@@ -277,6 +277,7 @@ class Options(option.Options):
     spacename = ''
     individualtime = 0
     interactive = 0
+    trace_flag = 0
     #XXX what's the purpose of this?
     def ensure_value(*args):
         return 0
@@ -286,15 +287,28 @@ class Options(option.Options):
 class TestSkip(Exception):
     pass
 
-def objspace(name=''):
+def objspace(name='', new_flag=False):
     if name and Options.spacename and name != Options.spacename:
         raise TestSkip
-    return option.objspace(name)
+
+    if new_flag:
+        space = option.objspace(name, _spacecache={})    
+    else:
+        space = option.objspace(name)
+        
+    if Options.trace_flag:
+        # XXX This really sucks as a means to turn on tracing for a sole unit
+        # test (esp at app level).  I can't see an obvious way to do this
+        # better.  Don't think it is worth any mental energy given the new
+        # testing framework is just around the corner.
+        from pypy.objspace.trace import create_trace_space
+        create_trace_space(space)
+        space.settrace()
+
+    return space
 
 def new_objspace(name=''):
-    if name and Options.spacename and name != Options.spacename:
-        raise TestSkip
-    return option.objspace(name,_spacecache={})
+    return objspace(name=name, new_flag=True)
 
 class RegexFilterFunc:
     """
@@ -324,6 +338,10 @@ class RegexFilterFunc:
 
 def get_test_options():
     options = option.get_standard_options()
+
+    options.append(make_option(
+        '-p', action="store_true", dest="trace_flag",
+        help="augment object space with tracing capabilities"))
     options.append(make_option(
         '-r', action="store_true", dest="testreldir",
         help="gather only tests relative to current dir"))
@@ -347,6 +365,7 @@ def run_tests(suite):
         run_tests_on_space(suite, spacename)
 
 def run_tests_on_space(suite, spacename=''):
+
     """Run the suite on the given space."""
     if Options.runcts:
         runner = CtsTestRunner() # verbosity=Options.verbose+1)
