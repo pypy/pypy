@@ -195,7 +195,7 @@ class __extend__(SomeInstance):
             #       that can't possibly apply to an instance of ins.classdef.
             # XXX do it more nicely
             if isinstance(s_result, SomePBC):
-                s_result = ins.classdef.matching(s_result)
+                s_result = ins.classdef.matching(s_result, attr)
             return s_result
         return SomeObject()
 

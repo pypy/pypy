@@ -180,12 +180,14 @@ class ClassDef:
                     return None
         return None
 
-    def matching(self, pbc):
+    def matching(self, pbc, name=None):
         d = {}
         uplookup = None
         upfunc = None
+        meth = False
         for func, value in pbc.prebuiltinstances.items():
             if isclassdef(value):
+                meth = True
                 if value is not self and  value.issubclass(self):
                     pass # subclasses methods are always candidates
                 elif self.issubclass(value): # upward consider only the best match
@@ -200,6 +202,10 @@ class ClassDef:
             d[func] = value
         if uplookup is not None:
             d[upfunc] = uplookup
+        elif meth:
+            if name is None:
+                name = '???'
+            self.bookkeeper.warning("demoting method %s to base class %s" % (name,self))
         if d:
             return SomePBC(d)
         else:
