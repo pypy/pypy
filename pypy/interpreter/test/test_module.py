@@ -31,11 +31,11 @@ class Test_ModuleObject(test.AppTestCase):
     def test_attr(self):
         m = __import__('math')
         m.x = 15
-        self.assertEqual_w(m.x, 15)
-        self.assertEqual_w(getattr(m, 'x'), 15)
+        self.assertEqual(m.x, 15)
+        self.assertEqual(getattr(m, 'x'), 15)
         setattr(m, 'x', 23)
-        self.assertEqual_w(m.x, 23)
-        self.assertEqual_w(getattr(m, 'x'), 23)
+        self.assertEqual(m.x, 23)
+        self.assertEqual(getattr(m, 'x'), 23)
         del m.x
         self.assertRaises(AttributeError, getattr, m, 'x')
         m.x = 15
