@@ -14,8 +14,10 @@
 
 static PyObject *this_module_globals;
 
-/* Turn this off if you don't want the call trace frames to be built */
+/* Set this if you want call trace frames to be built */
+#if 0
 #define USE_CALL_TRACE
+#endif
 
 #if 0
 #define OBNOXIOUS_PRINT_STATEMENTS
@@ -193,6 +195,7 @@ static PyObject *this_module_globals;
 #define FUNCTION_HEAD(signature, self, args, names, file, line)
 
 #define ERR_DECREF(arg) { Py_DECREF(arg); }
+
 #define FUNCTION_CHECK()
 
 #define FUNCTION_RETURN(rval) return rval;
@@ -507,9 +510,9 @@ getcode(char *func_name, char *func_filename, int lineno)
 	PyObject *nulltuple = NULL;
 	PyObject *filename = NULL;
 	PyCodeObject *tb_code = NULL;
+#if defined(OBNOXIOUS_PRINT_STATEMENTS)
 	int i;
 
-#if defined(OBNOXIOUS_PRINT_STATEMENTS)
 	printf("%5d: ", lineno);
 	assert(callstack_depth >= 0);
 	if (callstack_depth) {
@@ -519,6 +522,7 @@ getcode(char *func_name, char *func_filename, int lineno)
 	}
 	printf("%s\n", func_name);
 #endif /* !defined(OBNOXIOUS_PRINT_STATEMENTS) */
+
 	code = PyString_FromString("");
 	if (code == NULL)
 		goto failed;
@@ -568,8 +572,6 @@ static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, c
 	PyObject *locals_signature;
 	PyObject *locals_lineno;
 	PyObject *locals_filename;
-	int i;
-	int max_locals;
 
 	assert(function && args && tstate);
 
@@ -596,6 +598,7 @@ static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, c
 	Py_DECREF(locals_filename);
 	if (extra_local_names != NULL) {
 		int max_locals = MIN(PyList_Size(extra_local_names), PyTuple_Size(args));
+        int i;
 		for (i = 0; i < max_locals; ++i) {
 			PyDict_SetItem(locals, PyList_GET_ITEM(extra_local_names, i), PyTuple_GET_ITEM(args, i));
 		}
@@ -656,7 +659,6 @@ bad_args:
 
 static PyObject* PyList_CrazyStringPack(char *begin, ...)
 {
-	int i;
 	PyObject *o;
 	PyObject *result;
 	va_list vargs;

@@ -38,6 +38,8 @@ def go_figure_out_this_name(source):
 
 class GenC:
     MODNAMES = {}
+    # XXX - I don't know how to make a macro do this.. so..
+    USE_CALL_TRACE = True
 
     def __init__(self, f, translator, modname=None, f2=None, f2name=None):
         self.f = f
@@ -462,6 +464,8 @@ class GenC:
             'entrypoint': self.nameof(self.translator.functions[0]),
             }
         # header
+        if self.USE_CALL_TRACE:
+            print >> f, '#define USE_CALL_TRACE'
         print >> f, self.C_HEADER
 
         # function implementations
@@ -508,6 +512,7 @@ class GenC:
 ##             func.func_globals.get('__name__', '?'),
 ##             func.func_code.co_firstlineno,
 ##             func.__name__)
+
         f = self.f
         body = list(self.cfunction_body(func))
         name_of_defaults = [self.nameof(x, debug=('Default argument of', func))
@@ -518,7 +523,41 @@ class GenC:
         name = self.nameof(func)
         assert name.startswith('gfunc_')
         f_name = 'f_' + name[6:]
-        print >> f, 'static PyObject*'
+
+        # collect all the local variables
+        graph = self.translator.getflowgraph(func)
+        localslst = []
+        def visit(node):
+            if isinstance(node, Block):
+                localslst.extend(node.getvariables())
+        traverse(visit, graph)
+        localnames = [a.name for a in uniqueitems(localslst)]
+
+        # collect all the arguments
+        if func.func_code.co_flags & CO_VARARGS:
+            vararg = graph.getargs()[-1]
+            positional_args = graph.getargs()[:-1]
+        else:
+            vararg = None
+            positional_args = graph.getargs()
+        min_number_of_args = len(positional_args) - len(name_of_defaults)
+
+        fast_args = [a.name for a in positional_args]
+        if vararg is not None:
+            fast_args.append(str(vararg))
+        fast_name = 'fast' + f_name
+
+        fast_set = dict(zip(fast_args, fast_args))
+
+        declare_fast_args = [('PyObject *' + a) for a in fast_args]
+        if self.USE_CALL_TRACE:
+            declare_fast_args[:0] = ['PyFrameObject *__f', 'PyThreadState *__tstate']
+
+        print >> f, 'static PyObject *'
+        print >> f, '%s(%s);' % (fast_name, ', '.join(declare_fast_args))
+        print >> f
+
+        print >> f, 'static PyObject *'
         print >> f, '%s(PyObject* self, PyObject* args)' % (f_name,)
         print >> f, '{'
         print >> f, '\tFUNCTION_HEAD(%s, %s, args, %s, __FILE__, __LINE__ - 2)' % (
@@ -527,31 +566,22 @@ class GenC:
             '(%s)' % (', '.join(map(c_string, name_of_defaults) + ['NULL']),),
         )
 
-        # collect and print all the local variables
-        graph = self.translator.getflowgraph(func)
-        localslst = []
-        def visit(node):
-            if isinstance(node, Block):
-                localslst.extend(node.getvariables())
-        traverse(visit, graph)
-        localnames = [a.name for a in uniqueitems(localslst)]
-        print >> f, '\tPyObject *%s;' % (', *'.join(localnames),)
+        if fast_args:
+            print >> f, '\tPyObject *%s;' % (', *'.join(fast_args))
         print >> f
-        
+
         print >> f, '\tFUNCTION_CHECK()'
 
         # argument unpacking
-        if func.func_code.co_flags & CO_VARARGS:
-            vararg = graph.getargs()[-1]
-            positional_args = graph.getargs()[:-1]
+        if vararg is not None:
             print >> f, '\t%s = PyTuple_GetSlice(args, %d, INT_MAX);' % (
                 vararg, len(positional_args))
-            print >> f, '\tif (%s == NULL)' % vararg
+            print >> f, '\tif (%s == NULL)' % (vararg,)
             print >> f, '\t\tFUNCTION_RETURN(NULL)'
             print >> f, '\targs = PyTuple_GetSlice(args, 0, %d);' % (
                 len(positional_args),)
             print >> f, '\tif (args == NULL) {'
-            print >> f, '\t\tERR_DECREF(%s)' % vararg
+            print >> f, '\t\tERR_DECREF(%s)' % (vararg,)
             print >> f, '\t\tFUNCTION_RETURN(NULL)'
             print >> f, '\t}'
             tail = """{
@@ -561,9 +591,7 @@ class GenC:
 \t}
 \tPy_DECREF(args);""" % vararg
         else:
-            positional_args = graph.getargs()
             tail = '\n\t\tFUNCTION_RETURN(NULL)'
-        min_number_of_args = len(positional_args) - len(name_of_defaults)
         for i in range(len(name_of_defaults)):
             print >> f, '\t%s = %s;' % (
                 positional_args[min_number_of_args+i],
@@ -577,6 +605,22 @@ class GenC:
         print >> f, '\tif (!PyArg_UnpackTuple(%s))' % ', '.join(lst),
         print >> f, tail
 
+        call_fast_args = list(fast_args)
+        if self.USE_CALL_TRACE:
+            call_fast_args[:0] = ['__f', '__tstate']
+        print >> f, '\treturn %s(%s);' % (fast_name, ', '.join(call_fast_args))
+        print >> f, '}'
+        print >> f
+
+        print >> f, 'static PyObject *'
+        print >> f, '%s(%s)' % (fast_name, ', '.join(declare_fast_args))
+        print >> f, '{'
+
+        fast_locals = [arg for arg in localnames if arg not in fast_set]
+        if fast_locals:
+            print >> f, '\tPyObject *%s;' % (', *'.join(fast_locals),)
+            print >> f
+        
         # generate an incref for each input argument
         for v in positional_args:
             print >> f, '\tPy_INCREF(%s);' % v.name
