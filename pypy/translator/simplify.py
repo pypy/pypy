@@ -9,6 +9,10 @@ from pypy.translator.flowmodel import *
 from pypy.translator.genpyrex import GenPyrex
 
 
+def eliminate_fun_params_renaming(graph):
+    """We allways rename the params - at the first branch, which isn't really necessary"""
+    return graph
+
 def eliminate_empty_blocks(graph):
     """simplify_vars()
     Things we know we can remove:
@@ -45,6 +49,8 @@ def eliminate_empty_blocks(graph):
                         i = node.input_args.index(var)
                         nextbranch.returnvalue = prevbranch.args[i]
                     prevprevnode[0].replace_branch(prevbranch, nextbranch)
+                elif isinstance(nextbranch, ConditionalBranch):
+                    continue
                 else:
                     # renaming ... (figure it out yourself :-)
                     if len(prevbranch.args) > len(nextbranch.args):
@@ -56,5 +62,13 @@ def eliminate_empty_blocks(graph):
                 victims = True
                 # restart the elimination-for loop cleanly
                 break
+    return graph
+
+
+
+def simplify_graph(graph):
+    """apply all the existing optimisations to the graph"""
+    graph = eliminate_empty_blocks(graph)
+    graph = eliminate_fun_params_renaming(graph)
     return graph
 

@@ -25,8 +25,8 @@ class PyrexGenTestCase(test.IntTestCase):
             pass
         name = func.func_name
         funcgraph = self.space.build_flow(func)
-        from pypy.translator.simplify import eliminate_empty_blocks
-        #eliminate_empty_blocks(funcgraph)
+        from pypy.translator.simplify import simplify_graph
+        simplify_graph(funcgraph)
         funcgraph.source = inspect.getsource(func)
         result = GenPyrex(funcgraph).emitcode()
         make_dot(funcgraph, udir, 'ps')
@@ -83,6 +83,31 @@ class PyrexGenTestCase(test.IntTestCase):
     def test_poor_man_range(self):
         poor_man_range = self.make_cfunc(self.poor_man_range)
         self.assertEquals(poor_man_range(10), range(10))
+
+   #____________________________________________________
+
+    def simple_id(x):
+        return x
+
+    def test_simple_id(self):
+        #we just want to see, if renaming of parameter works correctly
+        #if the first branch is the end branch
+        simple_id = self.make_cfunc(self.simple_id)
+        self.assertEquals(simple_id(9), 9)
+
+   #____________________________________________________
+
+    def branch_id(cond, a, b):
+        while 1:
+            if cond:
+                return a
+            else:
+                return b
+
+    def test_branch_id(self):
+        branch_id = self.make_cfunc(self.branch_id)
+        self.assertEquals(branch_id(1, 2, 3), 2)
+        self.assertEquals(branch_id(0, 2, 3), 3)
 
     #____________________________________________________
 
