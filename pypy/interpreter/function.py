@@ -125,7 +125,10 @@ class Function(Wrappable):
     
     def fget_func_closure(space, w_self):
         self = space.interpclass_w(w_self)
-        w_res = space.newtuple( [ space.wrap(i) for i in self.closure ] )
+        if self.closure is not None:
+            w_res = space.newtuple( [ space.wrap(i) for i in self.closure ] )
+        else:
+            w_res= space.w_None
         return w_res
 
 
