@@ -39,7 +39,7 @@ def Trace(spacecls = StdObjSpace):
 
     return TraceObjSpace()
 
-
+Space = Trace
 s = Trace()
 #print dir(s)
 # ______________________________________________________________________
