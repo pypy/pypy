@@ -41,8 +41,8 @@ class W_TypeObject(W_Object):
                     hasoldstylebase = True
                     continue
                 if w_base.nslots != 0:
-                    if w_base_with_slots is None:
-                        w_base_with_slots = w_base
+                    if w_most_derived_base_with_slots is None:
+                        w_most_derived_base_with_slots = w_base
                     else:
                         if space.is_true(space.issubtype(w_base, w_most_derived_base_with_slots)):
                             w_most_derived_base_with_slots = w_base
