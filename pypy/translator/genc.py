@@ -689,6 +689,9 @@ class GenC:
         # This is intermediate. Common code will be extracted into a base class.
         if isinstance(v, Variable):
             n = v.name
+            # there is a problem at the moment.
+            # use the name as is until this is solved
+            return v.name
             if n.startswith("v") and n[1:].isdigit():
                 ret = localnames.get(v.name)
                 if not ret:
