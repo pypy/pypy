@@ -361,6 +361,7 @@ class GenC:
         complex:'&PyComplex_Type',
         unicode:'&PyUnicode_Type',
         file:   '&PyFile_Type',
+        type(None): 'Py_None->ob_type',
 
         r_int:  '&PyInt_Type',
         r_uint: '&PyInt_Type',

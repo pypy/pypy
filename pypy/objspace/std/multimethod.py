@@ -38,6 +38,7 @@ class AbstractMultiMethod(object):
     i.e. the classes that are not bound to a specific space instance."""
 
     def __init__(self, operatorsymbol, arity):
+        "NOT_RPYTHON: cannot create new multimethods dynamically"
         self.arity = arity
         self.operatorsymbol = operatorsymbol
         self.dispatch_table = {}
@@ -50,6 +51,8 @@ class AbstractMultiMethod(object):
         return '<%s %s>' % (self.__class__.__name__, self.operatorsymbol)
 
     def register(self, function, *types):
+        """NOT_RPYTHON: cannot register new multimethod
+                        implementations dynamically"""
         assert len(types) == self.arity
         functions = self.dispatch_table.setdefault(types, [])
         if function in functions:
@@ -61,6 +64,7 @@ class AbstractMultiMethod(object):
         return True
 
     def adjust_dispatch_arity(self, types):
+        "NOT_RPYTHON"
         width = len(types)
         while width > self.dispatch_arity and types[width-1] is W_ANY:
             width -= 1
@@ -79,6 +83,7 @@ class AbstractMultiMethod(object):
                                            delegate)
 
     def do_compile_calllist(self, argclasses, delegate):
+        "NOT_RPYTHON"
         calllist = []
         self.internal_buildcalllist(argclasses, delegate, calllist)
         calllist = tuple(calllist)
@@ -90,13 +95,15 @@ class AbstractMultiMethod(object):
         return result
 
     def internal_compilecalllist(self, calllist):
+        "NOT_RPYTHON"
         source, glob = self.internal_sourcecalllist(calllist)
         # compile the function
         exec source in glob
         return glob['do']
 
     def internal_sourcecalllist(self, calllist):
-        """Translate a call list into the source of a Python function
+        """NOT_RPYTHON
+        Translate a call list into the source of a Python function
         which is optimized and doesn't do repeated conversions on the
         same arguments."""
         if len(calllist) == 1:
@@ -171,7 +178,8 @@ class AbstractMultiMethod(object):
         return '\n'.join(source), glob
 
     def internal_buildcalllist(self, argclasses, delegate, calllist):
-        """Build a list of calls to try for the given classes of the
+        """NOT_RPYTHON
+        Build a list of calls to try for the given classes of the
         arguments. The list contains 'calls' of the following form:
         (function-to-call, list-of-list-of-converters)
         The list of converters contains a list of converter functions per
@@ -252,7 +260,8 @@ class AbstractMultiMethod(object):
             expanded_dispcls = (curdispcls,) + expanded_dispcls
 
     def buildchoices(self, allowedtypes):
-        """Build a list of all possible implementations we can dispatch to,
+        """NOT_RPYTHON
+        Build a list of all possible implementations we can dispatch to,
         sorted best-first, ignoring delegation."""
         # 'types' is a tuple of tuples of classes, one tuple of classes per
         # argument. (After delegation, we need to call buildchoice() with
@@ -265,9 +274,10 @@ class AbstractMultiMethod(object):
         return result
 
     def postprocessresult(self, allowedtypes, result):
-        pass
+        "NOT_RPYTHON"
 
     def internal_buildchoices(self, initialtypes, currenttypes, result):
+        "NOT_RPYTHON"
         if len(currenttypes) == self.dispatch_arity:
             currenttypes += (W_ANY,) * (self.arity - self.dispatch_arity)
             for func in self.dispatch_table.get(currenttypes, []):
@@ -287,7 +297,9 @@ class AbstractMultiMethod(object):
 class MultiMethod(AbstractMultiMethod):
 
     def __init__(self, operatorsymbol, arity, specialnames=None, **extras):
-        "MultiMethod dispatching on the first 'arity' arguments."
+        """NOT_RPYTHON: cannot create new multimethods dynamically.
+        MultiMethod dispatching on the first 'arity' arguments.
+        """
         AbstractMultiMethod.__init__(self, operatorsymbol, arity)
         if arity < 1:
             raise ValueError, "multimethods cannot dispatch on nothing"
@@ -307,6 +319,7 @@ class MultiMethod(AbstractMultiMethod):
     get = __get__
 
     def slice(self, typeclass, bound_position=0):
+        "NOT_RPYTHON"
         try:
             return self.unbound_versions[typeclass, bound_position]
         except KeyError:
@@ -315,6 +328,8 @@ class MultiMethod(AbstractMultiMethod):
             return m
 
     def register(self, function, *types):
+        """NOT_RPYTHON: cannot register new multimethod
+                        implementations dynamically"""
         if not AbstractMultiMethod.register(self, function, *types):
             return False
         # register the function into unbound versions that match
@@ -327,16 +342,20 @@ class MultiMethod(AbstractMultiMethod):
 class DelegateMultiMethod(MultiMethod):
 
     def __init__(self):
+        "NOT_RPYTHON: cannot create new multimethods dynamically."
         MultiMethod.__init__(self, 'delegate', 1, [])
         self.key = object()
 
     def register(self, function, *types):
+        """NOT_RPYTHON: cannot register new multimethod
+                        implementations dynamically"""
         if not AbstractMultiMethod.register(self, function, *types):
             return False
         self.key = object()   # change the key to force recomputation
         return True
 
     def postprocessresult(self, allowedtypes, result):
+        "NOT_RPYTHON"
         # add delegation from a class to the *first* immediate parent class
         # and to W_ANY
         arg1types, = allowedtypes
@@ -381,6 +400,7 @@ class DelegateMultiMethod(MultiMethod):
 class UnboundMultiMethod(AbstractMultiMethod):
 
     def __init__(self, basemultimethod, typeclass, bound_position=0):
+        "NOT_RPYTHON: cannot create new multimethods dynamically."
         AbstractMultiMethod.__init__(self,
                                      basemultimethod.operatorsymbol,
                                      basemultimethod.arity)
@@ -395,6 +415,8 @@ class UnboundMultiMethod(AbstractMultiMethod):
         #print basemultimethod.operatorsymbol, typeclass, self.dispatch_table
 
     def register(self, function, *types):
+        """NOT_RPYTHON: cannot register new multimethod
+                        implementations dynamically"""
         if not AbstractMultiMethod.register(self, function, *types):
             return False
         # propagate the function registeration to the base multimethod
@@ -403,6 +425,7 @@ class UnboundMultiMethod(AbstractMultiMethod):
         return True
 
     def match(self, types):
+        "NOT_RPYTHON"
         # check if the 'types' signature statically corresponds to the
         # restriction of the present UnboundMultiMethod.
         # Only accept an exact match; having merely subclass should
