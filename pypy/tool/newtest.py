@@ -7,6 +7,9 @@ import traceback
 import unittest
 import vpath
 
+#TODO
+# - add support for ignored/skipped tests
+# - support TestItem.run with different object spaces
 
 class TestStatus:
     def __init__(self, name, longstring, shortstring):
@@ -84,8 +87,6 @@ class TestItem:
         # items in TestSuite. I wanted to avoid this.
 
         # credit: adapted from Python's unittest.TestCase.run
-        #XXX at a later time, this method may accept an object space
-        #  as argument
 
         # prepare result object
         result = TestResult(self)
