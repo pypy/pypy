@@ -81,6 +81,9 @@ class PyInterpFrame(pyframe.PyFrame):
     #  the 'self' argument of opcode implementations is called 'f'
     #  for historical reasons
 
+    def NOP(f):
+        pass
+
     def LOAD_FAST(f, varindex):
         # access a local variable directly
         w_value = f.fastlocals_w[varindex]
