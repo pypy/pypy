@@ -143,11 +143,17 @@
 
 #define OP_NEWARRAY(name,len,r,err)   if (!(r=alloclist_##name(len))) goto err;
 #define OP_NEWARRAY_SET(name,a,i,f,v)   ((PyList_##name*) a)->ob_item[i].f=v;
-#define OP_NEWARRAY_SET_o(name,a,i,f,o) ((PyList_##name*) a)->ob_item[i].f=o; \
-								  Py_INCREF(o);
+#define OP_NEWARRAY_SET_o(name,a,i,f,v) ((PyList_##name*) a)->ob_item[i].f=v; \
+								  Py_INCREF(v);
 #define OP_GETARRAYITEM(name,a,i,f,r)   r=((PyList_##name*) a)->ob_item[i].f;
 #define OP_GETARRAYITEM_o(name,a,i,f,r) r=((PyList_##name*) a)->ob_item[i].f; \
 								  Py_INCREF(r);
+#define OP_SETARRAYITEM(name,a,i,f,v)   ((PyList_##name*) a)->ob_item[i].f=v;
+#define OP_SETARRAYITEM_o(name,a,i,f,v) { PyObject* tmp;                    \
+					  OP_GETARRAYITEM(name,a,i,f,tmp)   \
+					  OP_SETARRAYITEM(name,a,i,f,v)     \
+					  Py_INCREF(v); Py_DECREF(tmp);     \
+					}
 
 /************************************************************/
  /***  The rest is produced by genc.py                     ***/

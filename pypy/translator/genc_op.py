@@ -211,6 +211,7 @@ class LoAllocAndSetArray(LoC):
 class LoGetArrayItem(LoC):
     typename = PARAMETER   # the name of the PyList_Xxx type in the C source
     lltypes  = PARAMETER   # the C types needed to represent each array item
+    macro    = 'OP_GETARRAYITEM'
     # self.args: [PyObject, int_index, output_item..]
     def writestr(self, array, index, *output):
         assert len(output) == len(self.lltypes)
@@ -220,9 +221,14 @@ class LoGetArrayItem(LoC):
                 typecode = '_o'
             else:
                 typecode = ''
-            ls.append('OP_GETARRAYITEM%s(%s, %s, %s, a%d, %s)' % (
-                typecode, self.typename, array, index, j, output[j]))
+            ls.append('%s%s(%s, %s, %s, a%d, %s)' % (
+                self.macro, typecode, self.typename,
+                array, index, j, output[j]))
         return '\n'.join(ls)
+
+class LoSetArrayItem(LoGetArrayItem):
+    macro = 'OP_SETARRAYITEM'
+    # self.args: [PyObject, int_index, input_item..]
 
 class LoGetAttr(LoC):
     cost = 1

@@ -73,7 +73,7 @@ class CTypeSet:
                     return r_func
                 else:
                     return method_representation(r_func)
-            if 0: # still working on it -- isinstance(var, annmodel.SomeList):
+            if isinstance(var, annmodel.SomeList):
                 r_item = self.gethltype(var.s_item)
                 typename = self.genc.declare_list(r_item.impl)
                 r = list_representation(r_item)
@@ -154,6 +154,23 @@ class CTypeSet:
         return result
 
     # ____________________________________________________________
+    #
+    # Each extend_OPNAME() method below is called when there is no direct
+    # match for the given hltypes for the operation OPNAME.
+    # The extend_XXX() methods should produce (yield) as many low-level
+    # operation signatures as they like, using the hltypes as a guide;
+    # once all these have been generated, the algorithms in typer.py will
+    # look for a best approximate match, doing conversions if needed.
+    #
+    # For example, extend_OP_GETITEM() is called with
+    #    hltypes == (repr_of_obj, repr_of_index, repr_of_result).
+    # When it is called with an instance of CList in hltypes[0], it
+    # generates the operation that reads an item out of this kind of array.
+    # This operation takes exactly an R_INT index (which may differ from
+    # hltypes[1]) and produce a result of exactly the CList's r_item type
+    # (which may differ from hltypes[2]).  Then typer.py will try to
+    # convert the index from hltypes[1] to R_INT and convert the result back
+    # to hltypes[2].
 
     def extend_OP_NEWLIST(self, hltypes):
         if not hltypes:
@@ -346,6 +363,18 @@ class CTypeSet:
         if isinstance(r, CList):
             sig = (r, R_INT, r.r_item)
             yield sig, genc_op.LoGetArrayItem.With(
+                typename = r.typename,
+                lltypes  = r.r_item.impl,
+                )
+
+    def extend_OP_SETITEM(self, hltypes):
+        if len(hltypes) != 4:
+            return
+        r, r_index, r_value, r_void = hltypes
+        # writing into a CList
+        if isinstance(r, CList):
+            sig = (r, R_INT, r.r_item, R_VOID)
+            yield sig, genc_op.LoSetArrayItem.With(
                 typename = r.typename,
                 lltypes  = r.r_item.impl,
                 )
