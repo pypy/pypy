@@ -23,6 +23,9 @@ def descr_get__mro__(space, w_type):
     # XXX this should be inside typeobject.py
     return space.newtuple(w_type.mro_w)
 
+def descr_mro(space, w_type):
+    return space.newlist(w_type.mro_w)
+
 def descr__bases(space, w_type):
     return space.newtuple(w_type.bases_w)
 
@@ -44,4 +47,5 @@ type_typedef = StdTypeDef("type",
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
     __dict__ = default_dict_descr,
+    mro = newmethod(descr_mro),
     )
