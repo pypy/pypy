@@ -470,14 +470,16 @@ class CBase(object):
 class CSub1(CBase):
     def m(self):
         self.x = 42
-        return self
 class CSub2(CBase):
     def m(self):
         self.x = 'world'
-        return self
 
-def methodcall_is_precise():
-    return (CSub1().m(), CSub2().m())
+def methodcall_is_precise(cond):
+    if cond:
+        x = CSub1()
+    else:
+        x = CSub2()
+    x.m()
 
 
 def flow_type_info(i):
