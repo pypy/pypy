@@ -13,9 +13,11 @@ d={}
 #  assertRaises and failUnlessRaises, unlike all the other functions
 #  cannot have an special message to print, and can be passed any
 #  number of arguments, so their arg_nums is [None] (in the absense of
-# [Any].
+#  [Any].  But we don't process those arguments in any case, since
+#  all we need is a name change, so we don't care ...
 
-#  'op' is the operator you will substitute, if applicable.
+#  'op' is the operator you will substitute, if applicable. '' if there
+#  none.
 
 
 d['assertRaises'] = {'new': 'raises', 'op': '', 'arg_nums':[None]}
@@ -37,7 +39,7 @@ d['failUnlessEqual'] = {'new': 'assert not', 'op': ' !=', 'arg_nums':[2,3]}
 
 d['failIfEqual'] =  {'new': 'assert not', 'op': ' ==', 'arg_nums':[2,3]}
 
-d['assertAlmostEqual'] = {'new': 'assert round', 'op':' ==','arg_nums':[2,3,4]}
+d['assertAlmostEqual'] = {'new':'assert round', 'op':' ==', 'arg_nums':[2,3,4]}
 d['assertAlmostEquals'] = d['assertAlmostEqual']
 
 d['assertNotAlmostEqual'] = {'new':'assert round','op': ' !=',
@@ -78,20 +80,40 @@ def blocksplitter(filename):
     return blocklist
 
 def rewrite_utest(block):
+    '''rewrite every block to use the new utest functions'''
+
+    '''This is the code that actually knows the format of the old
+       and new unittests.  The rewriting rules are picky with when
+       to add spaces, and commas, so there are unfortunately 7 exit
+       paths, all some form of 'return indent + new + string + trailer'
+
+    '''
     utest = old_names.match(block)
-    if utest:
-        old = utest.group(0).lstrip()[5:-1]  # '\tself.blah(' -> 'blah'
+
+    if not utest:  # just copy uninteresting blocks that don't begin a utest
+        return block
+
+    else: # we have an interesting block
+
+        old = utest.group(0).lstrip()[5:-1]  # '  self.blah(' -> 'blah'
         new = d[old]['new']
         op = d[old]['op']
         possible_args = d[old]['arg_nums']
         message_position = possible_args[-1]
 
-        if not message_position: # just rename assertRaises
+        if not message_position: # just rename assertRaises & friends
             return re.sub('self.'+old, new, block)
 
-        indent, args, message, trailer = decompose_unittest(
-            old, block, message_position)
-   
+        try:
+            indent, args, message, trailer = decompose_unittest(
+                old, block, message_position)
+        except SyntaxError: # but we couldn't parse it!  Either it is
+                            # malformed, or possibly deeply embedded inside
+                            # a triple quoted string, which happens to
+                            # start 'self.someunitttest(blah blah blah
+               return block
+
+        # otherwise, we have a real one that we can parse.
         key = len(args)
         if message:
             key += 1
@@ -102,11 +124,11 @@ def rewrite_utest(block):
         elif key is 1 and key is message_position: # fail('unhappy message')
             return new + ', ' + message + trailer
 
-        elif message_position is 4:  #assertAlmostEqual and freinds
+        elif message_position is 4:  # assertAlmostEqual and friends
             try:
                 pos = args[2].lstrip()
             except IndexError:
-                pos = 7
+                pos = '7' # default if none is specified
             string = '(' + args[0] + ' -' + args[1] + ', ' + pos + ')'
             string += op + ' 0'
             if message:
@@ -119,8 +141,6 @@ def rewrite_utest(block):
                 string = string + ',' + message
 
         return indent + new + ' ' + string + trailer
-    else: # just copy uninteresting lines
-        return block
 
 def decompose_unittest(old, block, message_position):
     '''decompose the block into its component parts'''
@@ -131,37 +151,40 @@ def decompose_unittest(old, block, message_position):
         message -- the optional message to print when it fails, and
         trailer -- any extra junk after the closing paren, such as #commment
     '''
-
-    message = None
-
+ 
     indent = re.search(r'^(\s*)', block).group()
     pat = re.search('self.' + old + r'\(', block)
-    try:
-        args, trailer = get_expr(block[pat.end():], ')')
-    except SyntaxError:  # this wasn't an expression.  ick.
-        return indent, [block], message, None
 
+    args, trailer = get_expr(block[pat.end():], ')')
     arglist = break_args(args, [])
+
     if arglist == ['']: # there weren't any
-        return indent, [], message, trailer
+        return indent, [], [], trailer
+
+    if len(arglist) != message_position:
+        message = None
     else:
+        message = arglist[-1]
+        arglist = arglist[:-1]
+        if message.lstrip('\t ').startswith(linesep):
+            message = '(' + message + ')'
+            # In proper input, message is required to be a string.
+            # Thus we can assume that however the string handled its
+            # line continuations in the original unittest will also work
+            # here.  But if the line happens to break  before the quoting
+            # begins, you will need another set of parens, (or a backslash).
+
+    if arglist:
         newl = []
-        if len(arglist) == message_position:
-            message = arglist[-1]
-            arglist = arglist[:-1]
-            if message.lstrip('\t ').startswith(linesep):
-                message = '(' + message + ')'
-
-        if arglist:
-            for arg in arglist:
-                try:
-                    parser.expr(arg.lstrip('\t '))
-                    # remove tab and space, but keep newline.
-                except SyntaxError:
-                    arg = '(' + arg + ')'
-
-                newl.append(arg)
-            arglist = newl
+        for arg in arglist:
+            try:
+                parser.expr(arg.lstrip('\t '))
+                # Again we want to enclose things that happen to have
+                # a linebreak just before the new arg.
+            except SyntaxError:
+                arg = '(' + arg + ')'
+            newl.append(arg)
+        arglist = newl
          
     return indent, arglist, message, trailer
 
@@ -432,6 +455,7 @@ class Testit(unittest.TestCase):
                               
             """
                         )
+
         self.assertEquals(rewrite_utest(
             r"""
             self.assertAlmostEquals(first, second, 5, 'A Snake!')
@@ -439,6 +463,96 @@ class Testit(unittest.TestCase):
             ),
             r"""
             assert round(first - second, 5) == 0, 'A Snake!'
+            """
+                          )
+
+        self.assertEquals(rewrite_utest(
+            r"""
+            self.assertAlmostEquals(first, second, 120)
+            """
+            ),
+            r"""
+            assert round(first - second, 120) == 0
+            """
+                          )
+
+        self.assertEquals(rewrite_utest(
+            r"""
+            self.assertAlmostEquals(first, second)
+            """
+            ),
+            r"""
+            assert round(first - second, 7) == 0
+            """
+                          )
+
+        self.assertEquals(rewrite_utest(
+            r"""
+            self.assertAlmostEqual(first, second, 5, '''A Snake!
+            Ohh A Snake!  A Snake!!
+            ''')
+            """
+            ),
+            r"""
+            assert round(first - second, 5) == 0, '''A Snake!
+            Ohh A Snake!  A Snake!!
+            '''
+            """
+                          )
+
+        self.assertEquals(rewrite_utest(
+            r"""
+            self.assertNotAlmostEqual(first, second, 5, 'A Snake!')
+            """
+            ),
+            r"""
+            assert round(first - second, 5) != 0, 'A Snake!'
+            """
+                          )
+
+        self.assertEquals(rewrite_utest(
+            r"""
+            self.failIfAlmostEqual(first, second, 5, 'A Snake!')
+            """
+            ),
+            r"""
+            assert not round(first - second, 5) == 0, 'A Snake!'
+            """
+                          )
+
+        self.assertEquals(rewrite_utest(
+            r"""
+            self.failIfAlmostEqual(first, second, 5, 'A Snake!')
+            """
+            ),
+            r"""
+            assert not round(first - second, 5) == 0, 'A Snake!'
+            """
+                          )
+
+        self.assertEquals(rewrite_utest(
+            r"""
+            self.failUnlessAlmostEquals(first, second, 5, 'A Snake!')
+            """
+            ),
+            r"""
+            assert not round(first - second, 5) != 0, 'A Snake!'
+            """
+                          )
+
+        self.assertEquals(rewrite_utest(
+            r"""
+              self.assertAlmostEquals(now do something reasonable ..()
+            oops, I am inside a comment as a ''' string, and the fname was
+            mentioned in passing, leaving us with something that isn't an
+            expression ... will this blow up?
+            """
+            ),
+            r"""
+              self.assertAlmostEquals(now do something reasonable ..()
+            oops, I am inside a comment as a ''' string, and the fname was
+            mentioned in passing, leaving us with something that isn't an
+            expression ... will this blow up?
             """
                           )
             
