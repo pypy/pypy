@@ -7,12 +7,19 @@ import __builtin__
 import _types
 
 
-def _register(factory, cls, synonym=True, in_builtin=True):
+def _register(factory, cls, in_builtin=True, synonym=True):
     """
-    Register factory as type cls. If builtin is a true value (which
-    is the default), also register the type as a built-in.  If
-    synonym is non-empty, also register the type in this very module
-    under its synonym.
+    Register factory as type cls. 
+    
+    If in_builtin is a true value (which is the default), also
+    register the type as a built-in. If the value of in_builtin
+    is a string, use this name as the type name in the __builtin__
+    module.
+    
+    If synonym is true (which is the default), also register the
+    type in this very module under its synonym. If synonym is a
+    string, use this string, else uppercase the class name and
+    append the string "Type".
     """
     pypy.registertype(factory, cls)
     if in_builtin:
