@@ -40,7 +40,14 @@ class TestImport(testit.AppTestCase):
       self.assert_('pkg' in sys.modules)
       self.assert_('pkg.pkg1' in sys.modules)
       self.assert_('pkg.pkg1.a' in sys.modules)
-      
+
+   def test_import_ambig(self):
+      import sys
+      sys.path.append('impsubdir')
+      import ambig
+      self.assert_('ambig' in sys.modules)
+      self.assert_(hasattr(ambig,'imapackage'))
+       
 if __name__ == '__main__':
     testit.main()
 
