@@ -11,6 +11,8 @@ class Builtin(BuiltinModule):
     __pythonname__ = '__builtin__'
     __appfile__ = appfile.AppFile(__name__, ["module"])
 
+    __helper_appfile__ = appfile.AppFile('builtin_helper',["module"])
+
     # temporary hack, until we have a real tuple type for calling
     def tuple(self, w_obj):
         lis = self.space.unpackiterable(w_obj)
