@@ -10,17 +10,10 @@ Note that the appspace functions are treated as rpythonic, in a sense
 that globals are constants, for instance. This definition is not
 exact and might change.
 
-This module appears to be already quite usable.
-But I need to ask how we want to integrate it.
-
-XXX open questions:
-- do we want a moduleperapp-spaceoperation?
-- do we want to auto-generate stuff?
-- do we want to create code that is more similar to the app code?
-- do we want to create specialized code for constants?
-- do we want to use small tail-functions instead of goto?
-- do we want to inline small functions?
-- do we want to translate non-rpythonic code as well?
+Integration of this module will be done half-automatically
+using a simple caching mechanism. The generated files are
+not meant to be checked into svn, although this currently
+still happens.
 """
 
 from __future__ import generators
@@ -45,6 +38,8 @@ from pypy.interpreter.gateway import app2interp, interp2app
 
 from pypy.tool.sourcetools import render_docstr
 
+import pypy # __path__
+import py.path
 # ____________________________________________________________
 
 def c_string(s):
@@ -165,6 +160,8 @@ class GenRpy:
         self.space = FlowObjSpace() # for introspection
 
         self.use_fast_call = True
+        self.specialize_goto = True
+        self._labeltable = {} # unique label names, reused per func
 
         self._space_arities = None
         
@@ -279,6 +276,19 @@ class GenRpy:
         res = [line + nonestr for line in res]
         return res
 
+    def mklabel(self, blocknum):
+        if self.specialize_goto:
+            lbname = self._labeltable.get(blocknum)
+            if not lbname:
+                self.initcode.append(
+                    'from pypy.objspace.flow.framestate import SpecTag')
+                lbname = self.uniquename("glabel_%d" % blocknum)
+                self._labeltable[blocknum] = lbname
+                self.initcode.append('m.%s = SpecTag()' % lbname)
+            return lbname
+        else:
+            return repr(blocknum)
+
     def gen_link(self, link, localvars, blocknum, block, linklocalvars=None):
         "Generate the code to jump across the given Link."
         linklocalvars = linklocalvars or {}
@@ -298,7 +308,7 @@ class GenRpy:
                 for line in self.large_assignment(left, right):
                     yield line
         goto = blocknum[link.target]
-        yield 'goto = %d' % goto
+        yield 'goto = %s' % self.mklabel(goto)
         if goto <= blocknum[block]:
             yield 'continue'
 
@@ -373,7 +383,7 @@ class GenRpy:
             self.initcode.append('m.%s = space.wrap(%r)' % (name, value))
             return name
         name = self.uniquename('g_object')
-        self.initcode.appendnew('_tup= space.newtuple([])\n'
+        self.initcode.appendnew('_tup = space.newtuple([])\n'
                                 'm.%s = space.call(space.w_object, _tup)'
                                 % name)
         return name
@@ -927,7 +937,17 @@ class GenRpy:
         for name in g:
             pass # self.initcode.append('# REGISTER_GLOBAL(%s)' % (name,))
         del g[:]
-    
+
+    def rel_filename(self, name):
+        # try to find a name relative to pypy and unify.
+        # if not possible, stick with the original.
+        ref = py.path.local(pypy.__path__[0])
+        rel = py.path.local(name).relto(ref)
+        if rel:
+            # make it os independent
+            return rel.replace('\\', '/')
+        return name # no success
+
     def gen_rpyfunction(self, func):
 
         f = self.f
@@ -935,7 +955,7 @@ class GenRpy:
         print >> f, ("## filename    %r\n"
                      "## function    %r\n"
                      "## firstlineno %d") % (
-            os.path.basename(func.func_code.co_filename),
+            self.rel_filename(func.func_code.co_filename),
             func.func_code.co_name,
             func.func_code.co_firstlineno)
         print >> f, "##SECTION##"
@@ -1038,13 +1058,13 @@ class GenRpy:
             print >> f, docstr
 
         fast_locals = [arg for arg in localnames if arg not in fast_set]
-        if fast_locals:
+        # if goto is specialized, the false detection of
+        # uninitialized variables goes away.
+        if fast_locals and not self.specialize_goto:
             print >> f
             for line in self.large_initialize(fast_locals):
                 print >> f, "    %s" % line
             print >> f
-        # generate an incref for each input argument
-        # skipped
 
         # print the body
         for line in body:
@@ -1088,7 +1108,7 @@ class GenRpy:
         for block in allblocks:
             blocknum[block] = len(blocknum)+1
 
-        yield "    goto = %d # startblock" % blocknum[start]
+        yield "    goto = %s # startblock" % self.mklabel(blocknum[start])
         yield "    while True:"
                 
         def render_block(block):
@@ -1168,10 +1188,11 @@ class GenRpy:
                 for op in self.gen_link(exits[-1], localvars, blocknum, block):
                     yield "    %s" % op
 
+        cmpop = ('==', 'is') [self.specialize_goto]
         for block in allblocks:
             blockno = blocknum[block]
             yield ""
-            yield "        if goto == %d:" % blockno
+            yield "        if goto %s %s:" % (cmpop, self.mklabel(blockno))
             for line in render_block(block):
                 yield "            %s" % line
 
@@ -1531,4 +1552,4 @@ def g():
 """
 
 if __name__ == '__main__':
-    res = translate_as_module(testcode)#, tmpname='/tmp/look.py')
+    res = translate_as_module(testcode, tmpname='/tmp/look.py')
