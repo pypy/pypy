@@ -4,7 +4,7 @@ from pypy.tool import test
 from pypy.tool.udir import udir
 
 from pypy.translator.annotation import Annotator
-from pypy.translator.flowmodel import *
+from pypy.objspace.flow.model import *
 
 class AnnonateTestCase(test.IntTestCase):
     def setUp(self):
@@ -38,11 +38,10 @@ class AnnonateTestCase(test.IntTestCase):
         x = Variable("x")
         result = Variable("result")
         op = SpaceOperation("add", [x, Constant(1)], result)
-        endbranch = EndBranch(result)
-        block = BasicBlock([x], [x], 
-                           [op],
-                           endbranch)
-        fun = FunctionGraph(block, "f")
+        block = Block([x])
+        fun = FunctionGraph("f", block)
+        block.operations.append(op)
+        block.closeblock(Link([result], fun.returnblock))
         a = Annotator(fun)
         a.build_types([int])
         end_var = a.get_return_value()
@@ -61,23 +60,16 @@ class AnnonateTestCase(test.IntTestCase):
         conditionres = Variable("conditionres")
         conditionop = SpaceOperation("gt", [i, Constant(0)], conditionres)
         decop = SpaceOperation("add", [i, Constant(-1)], i)
+        headerblock = Block([i])
+        whileblock = Block([i])
 
-        conditionbranch = ConditionalBranch()
-        headerbranch = Branch()
-        whileblock = BasicBlock([i], [i], [decop], headerbranch)
-        whilebranch = Branch([i], whileblock)
-        endbranch = EndBranch(i)
-        conditionbranch.set(conditionres, whilebranch, endbranch)
-
-        headerblock = BasicBlock([i], [i, conditionres],
-                                 [conditionop], conditionbranch)
-
-        headerbranch.set([i], headerblock)
-
-        startblock = BasicBlock([i], [i], 
-                                [], headerbranch)
-
-        fun = FunctionGraph(startblock, "f")
+        fun = FunctionGraph("f", headerblock)
+        headerblock.operations.append(conditionop)
+        headerblock.exitswitch = conditionres
+        headerblock.closeblock(Link([i], fun.returnblock, False),
+                               Link([i], whileblock, True))
+        whileblock.operations.append(decop)
+        whileblock.closeblock(Link([i], headerblock))
         
         a = Annotator(fun)
         a.build_types([int])
@@ -102,25 +94,19 @@ class AnnonateTestCase(test.IntTestCase):
         conditionop = SpaceOperation("gt", [i, Constant(0)], conditionres)
         decop = SpaceOperation("add", [i, Constant(-1)], i)
         addop = SpaceOperation("add", [i, sum], sum)
+        startblock = Block([i])
+        headerblock = Block([i, sum])
+        whileblock = Block([i, sum])
 
-        conditionbranch = ConditionalBranch()
-        headerbranch = Branch()
-        headerbranch2 = Branch()
-        whileblock = BasicBlock([i, sum], [i, sum], [addop, decop], headerbranch2)
-        whilebranch = Branch([i, sum], whileblock)
-        
-        endbranch = EndBranch(sum)
-        conditionbranch.set(conditionres, whilebranch, endbranch)
-
-        headerblock = BasicBlock([i, sum], [i, conditionres],
-                                 [conditionop], conditionbranch)
-
-        headerbranch.set([i, Constant(0)], headerblock)
-        headerbranch2.set([i, sum], headerblock)
-        startblock = BasicBlock([i], [i, sum], 
-                                [], headerbranch)
-
-        fun = FunctionGraph(startblock, "f")
+        fun = FunctionGraph("f", startblock)
+        startblock.closeblock(Link([i, Constant(0)], headerblock))
+        headerblock.operations.append(conditionop)
+        headerblock.exitswitch = conditionres
+        headerblock.closeblock(Link([sum], fun.returnblock, False),
+                               Link([i, sum], whileblock, True))
+        whileblock.operations.append(addop)
+        whileblock.operations.append(decop)
+        whileblock.closeblock(Link([i, sum], headerblock))
 
         a = Annotator(fun)
         #import sys; print >> sys.stderr, a.build_annotations(input_ann)

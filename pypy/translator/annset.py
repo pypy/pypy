@@ -1,6 +1,6 @@
 from __future__ import generators
 import weakref
-from pypy.translator.flowmodel import *
+from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 
 
 class Cell:
@@ -49,13 +49,6 @@ class Cell:
         if not self.shared:
             self.shared = [weakref.ref(self)]
         return self.shared
-
-    def get(self):
-        "Return the content of the Cell, or the Cell itself if empty."
-        if self.content is None:
-            return self
-        else:
-            return self.content
 
     def set(self, content):
         if isinstance(content, Cell):
@@ -217,14 +210,22 @@ def same_functor_assign(ann1, ann2):
     annotations have the same functor."""
     pairs = zip(ann1.args + [ann1.result], ann2.args + [ann2.result])
     for a1, a2 in pairs:
-        v1 = a1.get()
+        v1 = deref(a1)
         if not isinstance(v1, Cell):
-            v2 = a2.get()
+            v2 = deref(a2)
             if not isinstance(v2, Cell) and v2 != v1:
                 return False
     # match! Set the Cells of ann1...
     for a1, a2 in pairs:
-        v1 = a1.get()
+        v1 = deref(a1)
         if isinstance(v1, Cell):
             v1.set(a2)
     return True
+
+def deref(x):
+    """If x is a Cell, return the content of the Cell,
+    or the Cell itself if empty.  For other x, return x."""
+    if isinstance(x, Cell) and x.content is not None:
+        return x.content
+    else:
+        return x

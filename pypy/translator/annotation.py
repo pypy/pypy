@@ -1,7 +1,7 @@
 from __future__ import generators
 
-from pypy.translator.flowmodel import *
-from pypy.translator.annset import AnnotationSet, Cell
+from pypy.translator.annset import AnnotationSet, Cell, deref
+from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 
 #class GraphGlobalVariable(Variable):
 #    pass
@@ -14,18 +14,17 @@ class Annotator:
 
     def build_types(self, input_arg_types):
         input_ann = AnnotationSet()
-        for arg, arg_type in zip(self.flowgraph.get_args(), input_arg_types):
+        for arg, arg_type in zip(self.flowgraph.getargs(), input_arg_types):
             input_ann.set_type(arg, arg_type)
         self.build_annotations(input_ann)
 
     def build_annotations(self,input_annotations):
         self.annotated = {}
-        self.endblock = BasicBlock([Variable('_return_value')], [], [], None)
         self.flowin(self.flowgraph.startblock,input_annotations)
 
     def get_return_value(self):
         "Return the return_value variable."
-        return self.endblock.input_args[0]
+        return self.flowgraph.returnblock.inputargs[0]
 
     def get_variables_ann(self):
         """Return a dict {Variable(): AnnotationSet()} mapping each variable
@@ -36,8 +35,8 @@ class Annotator:
         #     This has to be fixed anyway.
         result = {}
         for block, ann in self.annotated.items():
-            for v in block.getlocals():
-                #assert v not in result -- XXX currently false
+            for v in block.getvariables():
+                #XXX assert v not in result, "Variables must not be shared"
                 result[v] = ann
         return result
 
@@ -57,7 +56,7 @@ class Annotator:
                             if not ann.match(SpaceOperation('getitem', [
                                 w_varargs, Constant(i)], c)):
                                 break
-                            args_w.append(c.get())
+                            args_w.append(deref(c))
                         else:
                             op = SpaceOperation('simple_call', args_w, op.result)
                             # XXX check that w_kwargs is empty
@@ -88,8 +87,9 @@ class Annotator:
         # assert monotonic decrease
         assert (oldlen is None or len(blockannotations) <= oldlen), (
             block, oldlen, blockannotations)
-        if len(blockannotations) != oldlen and block is not self.endblock:
-            self.flownext(block.branch,block)
+        if len(blockannotations) != oldlen:
+            for link in block.exits:
+                self.flownext(link,block)
             
     def consider_op(self,op,annotations):
         consider_meth = getattr(self,'consider_op_'+op.opname,None)
@@ -136,33 +136,19 @@ class Annotator:
         elif isinstance(const.value, tuple):
             pass # XXX say something about the elements
 
-    def flownext(self,branch,curblock):
-        getattr(self,'flownext_'+branch.__class__.__name__)(branch,curblock)
+    def flownext(self,link,curblock):
+        renaming = {}
+        newannotations = AnnotationSet()
 
-    def flownext_Branch(self,branch,curblock):
-        if branch.target.has_renaming:
-            renaming = {}
-            newannotations = AnnotationSet()
+        for w_from,w_to in zip(link.args,link.target.inputargs):
+            if isinstance(w_from,Variable):
+                renaming.setdefault(w_from, []).append(w_to)
+            else:
+                self.consider_const(w_to,w_from,newannotations)        
 
-            for w_from,w_to in zip(branch.args,branch.target.input_args):
-                if isinstance(w_from,Variable):
-                    renaming.setdefault(w_from, []).append(w_to)
-                else:
-                    self.consider_const(w_to,w_from,newannotations)        
-
-            #import sys; print >> sys.stderr, self.annotated[curblock]
-            #import sys; print >> sys.stderr, renaming
-            for ann in self.annotated[curblock].enumerate(renaming):
-                newannotations.add(ann)
-            #import sys; print >> sys.stderr, newannotations
-        else:
-            newannotations = self.annotated[curblock].copy()
-        self.flowin(branch.target,newannotations)
-    
-    def flownext_ConditionalBranch(self,branch,curblock):
-        self.flownext(branch.ifbranch,curblock)
-        self.flownext(branch.elsebranch,curblock)
-
-    def flownext_EndBranch(self,branch,curblock):
-        branch = Branch([branch.returnvalue], self.endblock)
-        self.flownext_Branch(branch,curblock)
+        #import sys; print >> sys.stderr, self.annotated[curblock]
+        #import sys; print >> sys.stderr, renaming
+        for ann in self.annotated[curblock].enumerate(renaming):
+            newannotations.add(ann)
+        #import sys; print >> sys.stderr, newannotations
+        self.flowin(link.target,newannotations)

@@ -3,7 +3,7 @@ import autopath
 from pypy.tool import test
 
 from pypy.translator.annset import Cell, AnnotationSet
-from pypy.translator.flowmodel import Variable, Constant, SpaceOperation
+from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 
 
 class TestCell(test.IntTestCase):
@@ -12,11 +12,11 @@ class TestCell(test.IntTestCase):
         c1 = Cell()
         v1 = Variable('v1')
         c1.set(v1)
-        self.assertEquals(c1.get(), v1)
+        self.assertEquals(c1.content, v1)
         c2 = Cell()
         k2 = Constant(123)
         c2.set(k2)
-        self.assertEquals(c2.get(), k2)
+        self.assertEquals(c2.content, k2)
         self.assertRaises(ValueError, c1.set, k2)
         self.assertRaises(ValueError, c2.set, v1)
         self.assertRaises(ValueError, c1.set, c2)
@@ -28,8 +28,8 @@ class TestCell(test.IntTestCase):
         c2 = Cell()
         c1.share(c2)
         c2.set(k1)
-        self.assertEquals(c1.get(), k1)
-        self.assertEquals(c2.get(), k1)
+        self.assertEquals(c1.content, k1)
+        self.assertEquals(c2.content, k1)
 
     def test_share2(self):
         k1 = Constant(-123)
@@ -37,8 +37,8 @@ class TestCell(test.IntTestCase):
         c2 = Cell()
         c2.set(k1)
         c1.share(c2)
-        self.assertEquals(c1.get(), k1)
-        self.assertEquals(c2.get(), k1)
+        self.assertEquals(c1.content, k1)
+        self.assertEquals(c2.content, k1)
 
     def test_share3(self):
         k1 = Constant(-123)
@@ -46,8 +46,8 @@ class TestCell(test.IntTestCase):
         c2 = Cell()
         c1.share(c2)
         c1.set(k1)
-        self.assertEquals(c1.get(), k1)
-        self.assertEquals(c2.get(), k1)
+        self.assertEquals(c1.content, k1)
+        self.assertEquals(c2.content, k1)
 
     def test_share3(self):
         k1 = Constant(-123)
@@ -55,8 +55,8 @@ class TestCell(test.IntTestCase):
         c2 = Cell()
         c1.set(k1)
         c1.share(c2)
-        self.assertEquals(c1.get(), k1)
-        self.assertEquals(c2.get(), k1)
+        self.assertEquals(c1.content, k1)
+        self.assertEquals(c2.content, k1)
 
     def test_is_shared(self):
         c1 = Cell()
@@ -157,15 +157,15 @@ class TestAnnotationSet(test.IntTestCase):
             self.assert_(a.match(ann))
         c = Cell()
         self.assert_(a.match(SpaceOperation('add', [self.v1, self.k4], c)))
-        self.assertEquals(c.get(), self.v2)
+        self.assertEquals(c.content, self.v2)
         c = Cell()
         c2 = Cell()
         self.assert_(a.match(SpaceOperation('add', [self.v1, c], c2)))
-        self.assertEquals(c.get(), self.k1)
-        self.assertEquals(c2.get(), self.v2)
+        self.assertEquals(c.content, self.k1)
+        self.assertEquals(c2.content, self.v2)
         c = Cell()
         self.assert_(a.match(SpaceOperation('neg', [c], self.v3)))
-        self.assertEquals(c.get(), self.v2)
+        self.assertEquals(c.content, self.v2)
         c = Cell()
         self.failIf(a.match(SpaceOperation('add', [self.v2, self.k1], self.v2)))
         self.failIf(a.match(SpaceOperation('add', [self.v2, self.k1], c)))
@@ -184,7 +184,7 @@ class TestAnnotationSet(test.IntTestCase):
         self.assert_(a.match(SpaceOperation('add', [self.v1, self.k1], self.v2)))
         c = Cell()
         self.assert_(a.match(SpaceOperation('add', [self.v1, self.k1], c)))
-        self.assertEquals(c.get(), self.v2)
+        self.assertEquals(c.content, self.v2)
         c = Cell()
         self.assert_(a.match(SpaceOperation('neg', [self.v2], c)))
         self.assert_(c.is_shared(c4))
@@ -192,10 +192,10 @@ class TestAnnotationSet(test.IntTestCase):
         self.assert_(not c.is_shared(c2))
         self.assert_(not c.is_shared(c1))
         
-        self.assertEquals(c1.get(), self.k1)
-        self.assertEquals(c2.get(), None)
-        self.assertEquals(c3.get(), None)
-        self.assertEquals(c4.get(), None)
+        self.assertEquals(c1.content, self.k1)
+        self.assertEquals(c2.content, None)
+        self.assertEquals(c3.content, None)
+        self.assertEquals(c4.content, None)
 
     def test_enumerate(self):
         lst = [SpaceOperation('add', [self.v1, self.k1], self.v2),

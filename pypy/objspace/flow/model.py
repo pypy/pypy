@@ -12,9 +12,12 @@ class FunctionGraph:
         self.returnblock = Block([return_var or Variable()])
         self.returnblock.operations = ()
         self.returnblock.exits      = ()
+    def getargs(self):
+        return self.startblock.inputargs
 
 class Link:
     def __init__(self, args, target, exitcase=None):
+        assert len(args) == len(target.inputargs), "output args mismatch"
         self.args = args           # mixed list of var/const
         self.target = target       # block
         self.exitcase = exitcase   # this is a concrete value
