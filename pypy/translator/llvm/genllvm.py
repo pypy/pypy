@@ -20,9 +20,6 @@ from pypy.translator.llvm.test import llvmsnippet as test2
 
 from pypy.translator.llvm.representation import *
 
-import rlcompleter2
-rlcompleter2.setup()
-
 debug = True
 
 
