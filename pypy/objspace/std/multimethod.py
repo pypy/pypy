@@ -11,7 +11,7 @@ class W_ANY:
 
 # This file defines three major classes:
 #
-#   MultiMethod is the class you instanciate explicitely.
+#   MultiMethod is the class you instanciate explicitly.
 #   It is essentially just a collection of registered functions.
 #   If xxx is a MultiMethod, StdObjSpace.xxx is xxx again,
 #   and space.xxx is a BoundMultiMethod.
