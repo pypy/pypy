@@ -241,6 +241,16 @@ class AppTestBuiltinApp:
         assert cmp(0,9) < 0
         assert cmp(9,0) > 0
 
+    def test_cmp_more(self):
+        class C:
+            def __eq__(self, other):
+                return True
+            def __cmp__(self, other):
+                raise RuntimeError
+        c1 = C()
+        c2 = C()
+        raises(RuntimeError, cmp, c1, c2)
+
     def test_return_None(self):
         class X: pass
         x = X()

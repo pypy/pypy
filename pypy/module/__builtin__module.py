@@ -281,6 +281,9 @@ def cmp(x, y):
     """return 0 when x == y, -1 when x < y and 1 when x > y """
     if x is y:
         return 0
+    if type(x) is type(y):
+        if hasattr(x, '__cmp__'):
+            return x.__cmp__(y)
     if x == y:
         return 0
     elif x < y:
