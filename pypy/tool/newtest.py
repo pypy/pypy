@@ -11,7 +11,7 @@ import vpath
 # - add support for ignored tests
 # - support TestItem.run with different object spaces
 # - perhaps we have to be able to compare TestResult and TestItem values
-#   which were pickled
+#   which were pickled (see -c option of current test_all.py)
 
 class TestStatus:
     def __init__(self, name, longstring, shortstring):
@@ -56,6 +56,9 @@ class TestResult:
 
     def __ne__(self, other):
         return not (self == other)
+
+    def __hash__(self):
+        return id(self.item) ^ id(self.status)
 
     def _setexception(self, statuscode):
         self.status = statuscode
@@ -106,6 +109,9 @@ class TestItem:
 
     def __ne__(self, other):
         return not (self == other)
+
+    def __hash__(self):
+        return id(self.module) ^ id(self.cls)
 
     def run(self, pretest=None, posttest=None):
         """
@@ -189,7 +195,7 @@ class TestSuite:
     """Represent a collection of test items."""
     def __init__(self):
         self.items = []
-        self.lastresult = []
+        self.lastresult = {}
 
     def _module_from_modpath(self, modpath):
         """
@@ -252,23 +258,36 @@ class TestSuite:
                 else:
                     self.items.extend(items)
 
-    def testresults(self):
-        """Return a generator to get the test result for each test item."""
-        self.lastresults = []
+    def testresults(self, classify=lambda result: result.item.module.__name__):
+        """
+        Return a generator to get the test result for each test item.
+
+        The optional argument classify must be callable which accepts
+        a TestResult instance as the argument and returns something
+        that can be used as a dictionary key.
+
+        During the iteration over the generator, the TestSuite object
+        will contain a dictionary named lastresult which maps these
+        keys to a list of TestResult objects that correspond to the key.
+        """
+        self.lastresults = {}
         for item in self.items:
             result = item.run()
-            self.lastresults.append(result)
+            key = classify(result)
+            self.lastresults.setdefault(key, []).append(result)
             yield result
 
 
-def main(ignore_selftest=True):
+def main(skip_selftest=True):
     # possibly ignore dummy unit tests
-    if ignore_selftest:
+    if skip_selftest:
         filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
     else:
         filterfunc = lambda m: True
+    # collect tests
     ts = TestSuite()
     ts.initfromdir(autopath.pypydir, filterfunc=filterfunc)
+    # iterate over tests and collect data
     for res in ts.testresults():
         if res.status == SUCCESS:
             continue
@@ -278,6 +297,15 @@ def main(ignore_selftest=True):
         if res.traceback:
             print
             print res.formatted_traceback
+    # emit a summary
+    print 79 * '='
+    modules = ts.lastresults.keys()
+    modules.sort()
+    for module in modules:
+        resultstring = ''
+        for result in ts.lastresults[module]:
+            resultstring += result.status.shortstring
+        print "%s %s" % (module, resultstring)
 
 
 if __name__ == '__main__':
