@@ -47,7 +47,11 @@ class PyBuiltinCode(pycode.PyBaseCode):
         w_ret = self.func(*args)
         return w_ret
 
-
+def make_builtin_func(space,func,boundmethod=False):
+    code = PyBuiltinCode(func,boundmethod)
+    w_function = space.newfunction(code, space.w_None, None)
+    return w_function
+    
 class BuiltinModule:
     __appfile__ = None
     __helper_appfile__ = None
@@ -68,8 +72,7 @@ class BuiltinModule:
         w_module = space.newmodule(space.wrap(modulename))
         for key, value in self.__class__.__dict__.items():
             if isinstance(value, appmethod):
-                code = PyBuiltinCode(value.func.__get__(self),boundmethod=True)
-                w_function = space.newfunction(code, space.w_None, None)
+                w_function = make_builtin_func(space,value.func.__get__(self),boundmethod=True)
                 space.setattr(w_module, space.wrap(key), w_function)
             elif isinstance(value, appdata):
                 w_data = space.wrap(value.data)
