@@ -55,5 +55,19 @@ class TestW_TupleObject(unittest_w.TestCase_w):
         self.assertRaises(NoValue, self.space.next, w_iter)
         self.assertRaises(NoValue, self.space.next, w_iter)
 
+    def test_add(self):
+        w = self.space.wrap
+        w_tuple0 = tobj.W_TupleObject([])
+        w_tuple1 = tobj.W_TupleObject([w(5), w(3), w(99)])
+        w_tuple2 = tobj.W_TupleObject([w(-7)] * 111)
+        self.assertEqual_w(self.space.add(w_tuple1, w_tuple1),
+                           tobj.W_TupleObject([w(5), w(3), w(99),
+                                               w(5), w(3), w(99)]))
+        self.assertEqual_w(self.space.add(w_tuple1, w_tuple2),
+                           tobj.W_TupleObject([w(5), w(3), w(99)] +
+                                              [w(-7)] * 111))
+        self.assertEqual_w(self.space.add(w_tuple1, w_tuple0), w_tuple1)
+        self.assertEqual_w(self.space.add(w_tuple0, w_tuple2), w_tuple2)
+
 if __name__ == '__main__':
     unittest.main()

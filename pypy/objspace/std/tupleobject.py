@@ -53,3 +53,15 @@ def tuple_add(space, w_tuple1, w_tuple2):
     return W_TupleObject(items1 + items2)
 
 StdObjSpace.add.register(tuple_add, W_TupleObject, W_TupleObject)
+
+def tuple_eq(space, w_tuple1, w_tuple2):
+    items1 = w_tuple1.wrappeditems
+    items2 = w_tuple2.wrappeditems
+    if len(items1) != len(items2):
+        return space.w_False
+    for item1, item2 in zip(items1, items2):
+        if not space.is_true(space.eq(item1, item2)):
+            return space.w_False
+    return space.w_True
+
+StdObjSpace.eq.register(tuple_eq, W_TupleObject, W_TupleObject)
