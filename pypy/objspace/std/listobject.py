@@ -406,15 +406,10 @@ def list_index__List_ANY_ANY_ANY(space, w_list, w_any, w_start, w_stop):
     eq = space.eq
     items = w_list.ob_item
     size = w_list.ob_size
+    w_start = slicetype.adapt_bound(space, w_start, space.wrap(size))
+    w_stop = slicetype.adapt_bound(space, w_stop, space.wrap(size))
     start = space.int_w(w_start)
-    if start < 0:
-        start += size
-    start = min(max(0,start),size)
     stop = space.int_w(w_stop)
-    if stop < 0:
-        stop += size
-    stop = min(max(start,stop),size)
-    
     for i in range(start,stop):
         cmp = eq(items[i], w_any)
         if space.is_true(cmp):

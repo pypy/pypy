@@ -77,6 +77,15 @@ def indices4(space, w_slice, length):
     return (space.int_w(w_1), space.int_w(w_2),
             space.int_w(w_3), space.int_w(w_4))
 
+def adapt_bound(space, w_index, w_size):
+    if space.is_true(space.lt(w_index, space.wrap(0))):
+        w_index = space.add(w_index, w_size)
+        if space.is_true(space.lt(w_index, space.wrap(0))):
+            w_index = space.wrap(0)
+    if space.is_true(space.gt(w_index, w_size)):
+        w_index = w_size
+    return w_index
+
 register_all(vars(), globals())
 
 # ____________________________________________________________
