@@ -139,7 +139,18 @@ def builtin_type(s_obj, *moreargs):
         raise Exception, 'type() called with more than one argument'
     if s_obj.is_constant():
         return immutablevalue(type(s_obj.const))
-    return SomeObject()
+    r = SomeObject()
+    # hack info
+    bk = getbookkeeper()
+    fn, block, i = bk.position_key
+    annotator = bk.annotator
+    op = block.operations[i]
+    assert op.opname == "simple_call" 
+    assert len(op.args) == 2
+    assert op.args[0] == Constant(type)
+    assert annotator.binding(op.args[1]) == s_obj   
+    r.is_type_of = [op.args[1]]
+    return r
 
 def builtin_str(s_obj):
     return SomeString()

@@ -595,6 +595,17 @@ class TestAnnonateTestCase:
         assert isinstance(s, annmodel.SomeInstance)
         assert s.knowntype is snippet.Exc
 
+    def test_type_is(self):
+        class C(object):
+            pass
+        def f(x):
+            if type(x) is C:
+                return x
+            raise Exception
+        a = RPythonAnnotator()
+        s = a.build_types(f, [object])
+        assert s.knowntype is C
+
     def test_overrides(self):
         import sys
         excs = []
