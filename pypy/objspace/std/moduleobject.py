@@ -1,0 +1,38 @@
+from objspace import *
+from dictobject import W_DictObject
+
+
+class W_ModuleObject:
+    delegate_once = {}
+
+    def __init__(self, space, w_name):
+        w_key_name = space.wrap('__name__')
+        w_key_doc  = space.wrap('__doc__')
+        items = [(w_key_name, w_name),
+                 (w_key_doc,  space.w_None)]
+        self.w_dict = W_DictObject(items)
+
+
+def getattr_dict_any(space, w_module, w_attr):
+    if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
+        return w_module.w_dict
+    else:
+        return space.getitem(w_module.w_dict, w_attr)
+
+def setattr_dict_any_any(space, w_module, w_attr, w_value):
+    if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("readonly attribute"))
+    else:
+        space.setitem(w_module.w_dict, w_attr, w_value)
+
+def delattr_dict_any(space, w_module, w_attr):
+    if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("readonly attribute"))
+    else:
+        space.delitem(w_module.w_dict, w_attr)
+
+StdObjSpace.getattr.register(getattr_dict_any, W_ModuleObject, W_ANY)
+StdObjSpace.setattr.register(setattr_dict_any_any, W_ModuleObject, W_ANY, W_ANY)
+StdObjSpace.delattr.register(delattr_dict_any, W_ModuleObject, W_ANY)

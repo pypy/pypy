@@ -68,8 +68,9 @@ class StdObjSpace(ObjSpace):
         return tupleobject.W_TupleObject(list_w)
 
     def newlist(self, list_w):
-        import listobject
-        return listobject.W_ListObject(list_w)
+        #import listobject
+        #return listobject.W_ListObject(list_w)
+        return self.wrap([self.unwrap(w_x) for w_x in list_w])
 
     def newdict(self, list_pairs_w):
         import dictobject
