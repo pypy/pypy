@@ -336,6 +336,10 @@ PyFrame.typedef = TypeDef('frame',
     f_back = GetSetProperty(PyFrame.fget_f_back),
     f_lasti = GetSetProperty(PyFrame.fget_f_lasti),
     f_trace = GetSetProperty(PyFrame.fget_f_trace, PyFrame.fset_f_trace),
+    f_exc_type = GetSetProperty(PyFrame.fget_f_exc_type),
+    f_exc_value = GetSetProperty(PyFrame.fget_f_exc_value),
+    f_exc_traceback = GetSetProperty(PyFrame.fget_f_exc_traceback),
+    f_restricted = GetSetProperty(PyFrame.fget_f_restricted),
     **Frame.typedef.rawdict)
 
 Module.typedef = TypeDef("module",

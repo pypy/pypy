@@ -290,6 +290,41 @@ class PyFrame(eval.Frame):
         else:
             self.w_f_trace = w_trace
             self.f_lineno = self.get_last_lineno()
+
+    def fget_f_exc_type(space, w_self):
+        self = space.interpclass_w(w_self)
+        if self.last_exception is not None:
+            f = self.f_back
+            while f is not None and f.last_exception is None:
+                f = f_back
+            if f is not None:
+                return f.last_exception.w_type
+        return space.w_None
+         
+    def fget_f_exc_value(space, w_self):
+        self = space.interpclass_w(w_self)
+        if self.last_exception is not None:
+            f = self.f_back
+            while f is not None and f.last_exception is None:
+                f = f_back
+            if f is not None:
+                return f.last_exception.w_value
+        return space.w_None
+
+    def fget_f_exc_traceback(space, w_self):
+        self = space.interpclass_w(w_self)
+        if self.last_exception is not None:
+            f = self.f_back
+            while f is not None and f.last_exception is None:
+                f = f_back
+            if f is not None:
+                return space.wrap(f.last_exception.application_traceback)
+        return space.w_None
+         
+    def fget_f_restricted(space, w_self):
+        self = space.interpclass_w(w_self)
+        return space.wrap(self.builtin is not space.builtin)
+
 ### Frame Blocks ###
 
 class FrameBlock:
