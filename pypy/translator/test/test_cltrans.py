@@ -14,15 +14,15 @@ def get_cl():
     if cl: return cl
     return None
 
-def cl_detect(self):
-    if self.is_on_path("clisp"):
+def cl_detect():
+    if is_on_path("clisp"):
         return "clisp"
-    elif self.is_on_path("lisp"):
-        if self.is_on_path("cmuclinvoke.sh"):
+    elif is_on_path("lisp"):
+        if is_on_path("cmuclinvoke.sh"):
             return "cmuclinvoke.sh"
     return None
 
-def is_on_path(self, name):
+def is_on_path(name):
     return os.system("which %s >/dev/null" % name) == 0
 
 global_cl = get_cl()
