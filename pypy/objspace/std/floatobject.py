@@ -41,7 +41,10 @@ def float__Float(space, w_float1):
     return W_FloatObject(space, a)
 
 def int__Float(space, w_value):
-    return space.newint(int(w_value.floatval))
+    value = int(w_value.floatval)
+    if isinstance(value, long):    # XXX cheating
+        return space.long(w_value)
+    return space.newint(value)
 
 def float_w__Float(space, w_float):
     return w_float.floatval

@@ -46,6 +46,7 @@ def float__Long(space, w_longobj):
                              space.wrap("long int too large to convert to float"))
 
 def long__Float(space, w_floatobj):
+    # XXX cheating
     return W_LongObject(space, long(w_floatobj.floatval))
 
 def int_w__Long(space, w_value):
