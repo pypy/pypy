@@ -29,7 +29,7 @@ def func_call(space, w_function, w_arguments, w_keywords):
     somecode = space.unwrap(w_function.w_code)
     w_locals = space.newdict([])
     w_globals = w_function.w_globals
-    w_locals = buildargs(w_arguments, w_keywords,
+    w_locals = somecode.build_arguments(space, w_arguments, w_keywords,
                   w_defaults = w_function.w_defaultarguments,
                   w_closure = w_function.w_closure)
     w_ret = somecode.eval_code(space, w_globals, w_locals)

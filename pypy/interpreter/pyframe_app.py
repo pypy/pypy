@@ -1,3 +1,9 @@
+# XXX
+# This is deprecated.
+# We use the same functionality,. but do it in
+# pycode_app.py.
+# the function is just fine, we just don't reduce the
+# dictionary; it is the result.
 
 def decode_frame_arguments(args, kws, defs, closure, codeobject):
     """

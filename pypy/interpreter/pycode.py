@@ -19,13 +19,49 @@ compile is found in the builtin.py file.
 import baseobjspace
 from appfile import AppFile
 
-# no appfile neede, yet
-#appfile = AppFile(__name__, ["interpreter"])
+appfile = AppFile(__name__, ["interpreter"])
 
 class PyBaseCode:
     def __init__(self):
         self.co_filename = ""
         self.co_name = ""
+        self.co_flags = 0
+        self.co_code = None
+        self.co_consts = None
+        self.co_names = None
+        self.co_varnames = None
+        self.co_freevars = None
+        self.co_cellvars = None
+        
+    def build_arguments(self, space, w_arguments, w_kwargs, w_defaults, w_closure):
+        # We cannot systematically go to the application-level (_app.py)
+        # to do this dirty work, for bootstrapping reasons.  So we check
+        # if we are in the most simple case and if so do not go to the
+        # application-level at all.
+        co = self
+        if (co.co_flags & (CO_VARARGS|CO_VARKEYWORDS) == 0 and
+            (w_defaults is None or not space.is_true(w_defaults)) and
+            (w_kwargs   is None or not space.is_true(w_kwargs))   and
+            (w_closure  is None or not space.is_true(w_closure))):
+            # looks like a simple case, see if we got exactly the correct
+            # number of arguments
+            try:
+                args = space.unpacktuple(w_arguments, self.co_argcount)
+            except ValueError:
+                pass  # no
+            else:
+                return args   # yes! fine!
+        # non-trivial case.  I won't do it myself.
+        if w_kwargs   is None: w_kwargs   = space.newdict([])
+        if w_defaults is None: w_defaults = space.newtuple([])
+        if w_closure  is None: w_closure  = space.newtuple([])
+        w_bytecode = space.wrap(co)
+        w_arguments = space.gethelper(appfile).call(
+            "decode_code_arguments", [w_arguments, w_kwargs, w_defaults,
+                                       w_closure, w_bytecode])
+        # we assume that decode_codee_arguments() gives us a dictionary
+        # of the correct length.
+        return w_arguments
         
 class PyByteCode(PyBaseCode):
     """Represents a code object for Python functions.
@@ -39,13 +75,6 @@ class PyByteCode(PyBaseCode):
         self.co_argcount = 0
         self.co_nlocals = 0
         self.co_stacksize = 0
-        self.co_flags = 0
-        self.co_code = None
-        self.co_consts = None
-        self.co_names = None
-        self.co_varnames = None
-        self.co_freevars = None
-        self.co_cellvars = None
         # The rest doesn't count for hash/cmp
         self.co_firstlineno = 0 #first source line number
         self.co_lnotab = "" # string (encoding addr<->lineno mapping)
