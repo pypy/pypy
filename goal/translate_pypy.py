@@ -27,6 +27,7 @@ Command-line options for translate_pypy:
 import autopath, sys, threading, pdb, os
 
 from pypy.translator.translator import Translator
+from pypy.translator.ann_override import pypy_overrides
 from pypy.annotation import model as annmodel
 from pypy.tool.cache import Cache
 from pypy.annotation.model import SomeObject
@@ -53,7 +54,7 @@ def analyse(target):
     if listen_port:
         run_async_server()
     if not options['-no-a']:
-        a = t.annotate(inputtypes)
+        a = t.annotate(inputtypes, overrides=pypy_overrides)
         a.simplify()
         t.frozen = True   # cannot freeze if we don't have annotations
         if not options['-no-mark-some-objects']:
@@ -175,7 +176,7 @@ if __name__ == '__main__':
         except ValueError:
             if os.path.isfile(arg+'.py'):
                 targetspec = arg
-            elif arg.startwith('-huge='):
+            elif arg.startswith('-huge='):
                 huge = int(arg[6:])
             else:                
                 assert arg in options, "unknown option %r" % (arg,)

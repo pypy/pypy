@@ -20,6 +20,11 @@ for fname in __future__.all_feature_names:
     compiler_flags |= getattr(__future__, fname).compiler_flag
 
 
+def cpython_tb():
+   """NOT_RPYTHON"""
+   import sys
+   return sys.exc_info()[2]   
+
 class PyFrame(eval.Frame):
     """Represents a frame for a regular Python function
     that needs to be interpreted.
@@ -93,15 +98,15 @@ class PyFrame(eval.Frame):
                         # catch asynchronous exceptions and turn them
                         # into OperationErrors
                         except KeyboardInterrupt:
-                            import sys; tb = sys.exc_info()[2]
+                            tb = cpython_tb()
                             raise OperationError, OperationError(self.space.w_KeyboardInterrupt,
                                                    self.space.w_None), tb
                         except MemoryError:
-                            import sys; tb = sys.exc_info()[2]
+                            tb = cpython_tb()
                             raise OperationError, OperationError(self.space.w_MemoryError,
                                                    self.space.w_None), tb
                         except RuntimeError, e:
-                            import sys; tb = sys.exc_info()[2]
+                            tb = cpython_tb()
                             raise OperationError, OperationError(self.space.w_RuntimeError,
                                 self.space.wrap("internal error: " + str(e))), tb
 

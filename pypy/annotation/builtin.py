@@ -200,9 +200,6 @@ def math_fmod(x, y):
 def math_floor(x):
     return SomeObject()
 
-def exc_info(): # XXX
-    return SomeTuple((immutablevalue(None),)*3)
-
 # collect all functions
 import __builtin__
 BUILTIN_ANALYZERS = {}
@@ -217,4 +214,3 @@ BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[sys.getrefcount] = count
 BUILTIN_ANALYZERS[math.fmod] = math_fmod
 BUILTIN_ANALYZERS[math.floor] = math_floor
-BUILTIN_ANALYZERS[sys.exc_info] = exc_info # xxx
