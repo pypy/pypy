@@ -67,10 +67,19 @@ class Frame(Wrappable):
             numlocals = len(code.getvarnames())
         self.fastlocals_w = [UNDEFINED]*numlocals  # flat list of wrapped locals
 
-    def run(self):
-        "Run the frame."
+    def resume(self):
+        "Resume the execution of the frame from its current state."
         executioncontext = self.space.getexecutioncontext()
-        return executioncontext.run_frame(self)
+        previous = executioncontext.enter(self)
+        try:
+            result = self.eval(executioncontext)
+        finally:
+            executioncontext.leave(previous)
+        return result
+
+    # running a frame is usually the same as resuming it from its
+    # initial state, but not for generator frames
+    run = resume
 
     def eval(self, executioncontext):
         "Abstract method to override."

@@ -231,12 +231,10 @@ class TestFlowObjSpace(testit.TestCase):
     def test_raise1(self):
         x = self.codetest(self.raise1)
         self.show(x)
-        assert len(x.startblock.operations) == 1
-        assert x.startblock.operations[0].opname == 'simple_call'
-        assert list(x.startblock.operations[0].args) == [Constant(IndexError)]
+        assert len(x.startblock.operations) == 0
         assert x.startblock.exits[0].args == [
             Constant(IndexError),
-            x.startblock.operations[0].result]
+            Constant(None)]         # no normalization
         assert x.startblock.exits[0].target is x.exceptblock
 
     #__________________________________________________________
