@@ -33,7 +33,7 @@ working_unittests = (
 'test_builtin.py',
 'test_call.py',
 'test_cmath.py',
-'test_codeop.py',
+# 'test_codeop.py', # Commented out due to strange iteraction with py.test
 'test_commands.py',
 'test_compare.py',
 'test_compile.py',
@@ -201,7 +201,8 @@ class UnittestModule(py.test.collect.Module):
 class AppTestCaseMethod(py.test.Item): 
     def __init__(self, fspath, space, w_name, w_method, w_setup, w_teardown): 
         self.space = space 
-        self.name = name = space.str_w(w_name) 
+        self.name = name = space.str_w(w_name)
+        self.modulepath = fspath
         extpy = py.path.extpy(fspath, name) 
         super(AppTestCaseMethod, self).__init__(extpy) 
         self.w_method = w_method 
@@ -210,7 +211,11 @@ class AppTestCaseMethod(py.test.Item):
 
     def run(self, driver):      
         space = self.space
-        try: 
+        try:
+            filename = str(self.modulepath)
+            w_argv = space.sys.get('argv')
+            space.setitem(w_argv, space.newslice(None, None, None),
+                          space.newlist([space.wrap(filename)]))
             space.call_function(self.w_setup) 
             try: 
                 try: 
