@@ -9,7 +9,7 @@ making it run fast.
 # ______________________________________________________________________
 # Module imports
 
-import token, exceptions, compiler
+import token, compiler
 import PyTokenizer, PyGrammar, DFAParser
 
 # ______________________________________________________________________
@@ -22,7 +22,7 @@ pygrammar = DFAParser.addAccelerators(PyGrammar.grammarObj)
 # ______________________________________________________________________
 # ParserError exception
 
-class ParserError (exceptions.Exception):
+class ParserError (Exception):
     """Class ParserError
     Exception class for parser errors (I assume).
     """
