@@ -59,12 +59,16 @@ def fixpyfiles(ignored, dirname, fnames):
             asserttextfile(os.path.join(dirname, fname))
             numpyfiles += 1
     if numpyfiles:
-        # ignore '*.pyc' in any directory containing .py files
+        # ignore '*.pyc' and '*.pyo' in any directory containing .py files
         g = os.popen('svn propget svn:ignore %s' % dirname)
         content = g.readlines()
         g.close()
+        oldlen = len(content)
         if '*.pyc\n' not in content:
             content.append('*.pyc\n')
+        if '*.pyo\n' not in content:
+            content.append('*.pyo\n')
+        if len(content) > oldlen:
             g = open('svn-ignore.tmp', 'w')
             g.writelines(content)
             g.close()

@@ -1,6 +1,7 @@
 import autopath
 from pypy.tool import option
 from pypy.interpreter import executioncontext, baseobjspace, gateway, module
+from pypy.interpreter.error import OperationError, PyPyError
 import sys, os
 
 def _run_eval_string(source, filename, space, eval):
@@ -24,9 +25,9 @@ def _run_eval_string(source, filename, space, eval):
         mainmodule = module.Module(space, space.wrap("__main__"))
         w_globals = mainmodule.w_dict
        
-    except baseobjspace.OperationError, operationerr:
+    except OperationError, operationerr:
         operationerr.record_interpreter_traceback()
-        raise baseobjspace.PyPyError(space, operationerr)
+        raise PyPyError(space, operationerr)
     else:
         pycode = space.unwrap(w_code)
         retval = pycode.exec_code(space, w_globals, w_globals)
@@ -56,7 +57,7 @@ def main(argv=None):
     space = option.objspace()
     try:
         run_file(argv[0], space)
-    except baseobjspace.PyPyError, pypyerr:
+    except PyPyError, pypyerr:
         pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
 
 if __name__ == '__main__':

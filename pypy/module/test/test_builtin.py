@@ -260,10 +260,6 @@ class TestInternal(test.IntTestCase):
             import os
             os.remove(fn)
 
-    def test_xrange(self):
-        self.assert_(hasattr(self.space.builtin, 'xrange'))
-        self.assertEquals(self.space.builtin.xrange(3).stop, 3)
-
 if __name__ == '__main__':
     test.main()
  

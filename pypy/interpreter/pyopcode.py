@@ -605,7 +605,13 @@ class PyInterpFrame(pyframe.PyFrame):
         name = f.getname(nameindex)
         w_name = f.space.wrap(name)
         w_module = f.valuestack.top()
-        w_obj = import_from(f.space, w_module, w_name)
+        try:
+            w_obj = f.space.getattr(w_module, w_name)
+        except OperationError, e:
+            if not e.match(f.space, f.space.w_AttributeError):
+                raise
+            raise OperationError(f.space.w_ImportError,
+                             f.space.wrap("cannot import name '%s'" % name))
         f.valuestack.push(w_obj)
 
     def JUMP_FORWARD(f, stepby):
@@ -881,12 +887,6 @@ def app_import_all_from(module, into_locals):
         if skip_leading_underscores and name[0]=='_':
             continue
         into_locals[name] = getattr(module, name)
-
-def app_import_from(module, name):
-    try:
-        return getattr(module, name)
-    except AttributeError:
-        raise ImportError("cannot import name '%s'" % name)
 
 
 gateway.importall(globals())   # app_xxx() -> xxx()

@@ -59,12 +59,11 @@ class ObjSpace:
         if not hasattr(self, 'sys'):
             self.make_sys()
 
-        from pypy.module import builtin
+        from pypy.interpreter.extmodule import BuiltinModule
 
-        # the builtins are iteratively initialized 
-        self.builtin = builtin.__builtin__(self)
+        # the builtins are iteratively initialized
+        self.builtin = BuiltinModule(self, '__builtin__', self.w_builtins)
         self.w_builtin = self.wrap(self.builtin)
-        self.w_builtins = self.builtin.w_dict
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():
@@ -74,11 +73,6 @@ class ObjSpace:
                     continue
                 #print "setitem: space instance %-20s into builtins" % name
                 self.setitem(self.w_builtins, self.wrap(name), value)
-
-        # only here can we add those builtins that require 
-        # execution of source code -- because this requires 
-        # an almost functional 'builtin' attribute on the space
-        self.builtin._initcompiledbuiltins()
 
         self.sys._setbuiltinmodule(self.w_builtin)
 
@@ -135,6 +129,12 @@ class ObjSpace:
         w_id_x = self.id(w_x)
         w_id_y = self.id(w_y)
         return self.eq(w_id_x, w_id_y)
+
+    def unwrapdefault(self, w_value, default):
+        if w_value is None or w_value == self.w_None:
+            return default
+        else:
+            return self.unwrap(w_value)
 
     def newbool(self, b):
         if b:

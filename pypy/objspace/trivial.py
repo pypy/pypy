@@ -130,7 +130,11 @@ class TrivialObjSpace(ObjSpace):
                     "slice": slice,
                     }
         for n, c in __builtin__.__dict__.iteritems():
-            if n == 'xrange': # we define this in builtin_app
+            if n in ['xrange',  # we define this in builtin_app
+                     'staticmethod',
+                     'classmethod',
+                     'property',
+                     ]:
                 continue
             if isinstance(c, types.TypeType):
                 setattr(self, 'w_' + c.__name__, c)

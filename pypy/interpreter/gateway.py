@@ -23,7 +23,7 @@ class BuiltinCode(eval.Code):
     # When a BuiltinCode is stored in a Function object,
     # you get the functionality of CPython's built-in function type.
 
-    def __init__(self, func):
+    def __init__(self, func, ismethod=None, spacearg=None):
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
         eval.Code.__init__(self, func.__name__)
@@ -39,16 +39,16 @@ class BuiltinCode(eval.Code):
         # Not exactly a clean approach XXX.
         argnames, varargname, kwargname = tmp.signature()
         argnames = list(argnames)
-        if argnames[0] == 'self':
-            self.ismethod = True
-        elif argnames[0] == 'space':
-            self.ismethod = False
+        lookslikemethod = argnames[:1] == ['self']
+        if ismethod is None:
+            ismethod = lookslikemethod
+        if spacearg is None:
+            spacearg = not lookslikemethod
+        self.ismethod = ismethod
+        self.spacearg = spacearg
+        if spacearg:
             del argnames[0]
-        else:
-            raise AssertionError, (
-                "first argument must be called 'self' in methods "
-                "and 'space' in global functions")
-        for i in range(self.ismethod, len(argnames)):
+        for i in range(ismethod, len(argnames)):
             a = argnames[i]
             assert a.startswith('w_'), (
                 "argument %s of built-in function %r should start with 'w_'" %
@@ -83,7 +83,7 @@ class BuiltinFrame(eval.Frame):
         argarray = self.fastlocals_w
         if self.code.ismethod:
             argarray = [self.space.unwrap(argarray[0])] + argarray[1:]
-        else:
+        if self.code.spacearg:
             argarray = [self.space] + argarray
         return call_with_prepared_arguments(self.space, self.code.func,
                                             argarray)
