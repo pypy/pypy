@@ -86,6 +86,44 @@ def str_islower__String(space, w_self):
 def str_istitle(space, w_self):
     pass
 
+def str_upper__String(space, w_self):
+    up = W_StringObject(space, w_self._value.value())
+    for i in range(up._value.len):
+        ch = up._value.charat(i)
+        if _islower(ch):
+            o = ord(ch) - 32
+            up._value.setcharat(i, chr(o))
+
+    return up
+    
+def str_capitalize__String(space, w_self):
+    w_str = W_StringObject(space, space.unwrap(w_self))
+    buffer = w_str._value
+    if buffer.len > 0:
+        ch = buffer.charat(0)
+        if _islower(ch):
+            o = ord(ch) - 32
+            buffer.setcharat(0, chr(o))
+    return w_str
+         
+def str_title__String(space, w_self):
+    w_str = W_StringObject(space, space.unwrap(w_self))
+    buffer = w_str._value
+    inword = 0
+
+    for pos in range(0, buffer.len):
+        ch = buffer.charat(pos)
+        if ch.isspace():
+            if inword:
+                inword = 0
+        else:
+            if not inword:
+                if _islower(ch):
+                    o = ord(ch) - 32
+                    buffer.setcharat(pos, chr(o))     
+                inword = 1
+    return w_str        
+
 def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):
     res = []
     inword = 0

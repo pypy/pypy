@@ -135,6 +135,12 @@ class TestStringObject(test.AppTestCase):
     def test_split_splitchar(self):
         self.assertEquals("/a/b/c".split('/'), ['','a','b','c'])
 
+    def test_title(self):
+        self.assertEquals("brown fox".title(), "Brown Fox")
+
+    def test_capitalize(self):
+        self.assertEquals("brown fox".capitalize(), "Brown fox")
+
     def test_rjust(self):
         s = "abc"
         self.assertEquals(s.rjust(2), s)

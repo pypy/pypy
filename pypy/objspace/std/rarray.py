@@ -44,6 +44,10 @@ class CharArray:
         """returns char at the index"""
         return self._value[idx]
 
+    def setcharat(self, idx, ch):
+        """sets char at the index"""
+        self._value[idx] = ch
+
     def setsize(self, size):
         """set size of the buffer to size"""
         self._value = array.array('c', ' ' * size)

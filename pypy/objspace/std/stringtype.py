@@ -9,15 +9,20 @@ class W_StringType(W_TypeObject):
     str_join    = MultiMethod('join', 2)
     str_split   = MultiMethod('split', 3, defaults=(None,-1))
 
-    str_isdigit = MultiMethod('isdigit', 1)
-    str_isalpha = MultiMethod('isalpha', 1)
-    str_isspace = MultiMethod('isspace', 1)
-    str_isupper = MultiMethod('isupper', 1)
-    str_islower = MultiMethod('islower', 1)
-    str_istitle = MultiMethod('istitle', 1)
-    str_isalnum = MultiMethod('isalnum', 1)
-    str_ljust   = MultiMethod('ljust', 2)
-    str_rjust   = MultiMethod('rjust', 2)
+    str_isdigit    = MultiMethod('isdigit', 1)
+    str_isalpha    = MultiMethod('isalpha', 1)
+    str_isspace    = MultiMethod('isspace', 1)
+    str_isupper    = MultiMethod('isupper', 1)
+    str_islower    = MultiMethod('islower', 1)
+    str_istitle    = MultiMethod('istitle', 1)
+    str_isalnum    = MultiMethod('isalnum', 1)
+    str_ljust      = MultiMethod('ljust', 2)
+    str_rjust      = MultiMethod('rjust', 2)
+    str_upper      = MultiMethod('upper', 1)
+    str_capitalize = MultiMethod('capitalize', 1)
+    str_title      = MultiMethod('title', 1)
+
+
 
 # XXX we'll worry about the __new__/__init__ distinction later
 def new__StringType_ANY_ANY(space, w_stringtype, w_args, w_kwds):
