@@ -187,16 +187,8 @@ def div__Float_Float(space, w_float1, w_float2):
 truediv__Float_Float = div__Float_Float
 
 def floordiv__Float_Float(space, w_float1, w_float2):
-    x = w_float1.floatval
-    y = w_float2.floatval
-    try:
-        z = x // y
-    except ZeroDivisionError:
-        raise OperationError(space.w_ZeroDivisionError, space.wrap("float division"))
-    except FloatingPointError:
-        raise FailedToImplement(space.w_FloatingPointError, space.wrap("float division"))
-	# no overflow
-    return W_FloatObject(space, z)
+    t = divmod__Float_Float(space, w_float1, w_float2)
+    return space.getitem(t, space.wrap(0))
 
 def mod__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
@@ -225,7 +217,7 @@ def divmod__Float_Float(space, w_float1, w_float2):
         if (mod):
             if ((y < 0.0) != (mod < 0.0)):
                 mod += y
-                div -= -1.0
+                div -= 1.0
         else:
             mod *= mod
             if y < 0.0:
