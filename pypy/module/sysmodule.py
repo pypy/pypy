@@ -33,6 +33,8 @@ def excepthook(exctype, value, traceback):
     from traceback import print_exception
     print_exception(exctype, value, traceback)
 
+__excepthook__ = excepthook  # this is exactly like in CPython
+
 def exit(exitcode=0):
     raise SystemExit(exitcode)
 
@@ -42,6 +44,8 @@ def displayhook(obj):
         # NB. this is slightly more complicated in CPython,
         # see e.g. the difference with  >>> print 5,; 8
         print `obj`
+
+__displayhook__ = displayhook  # this is exactly like in CPython
 
 def getfilesystemencoding():
     """getfilesystemencoding() -> string

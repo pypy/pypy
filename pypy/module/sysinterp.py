@@ -120,6 +120,11 @@ def _getframe(w_depth=0):
 
 # directly from the C code in ceval.c, might be moved somewhere else.
 
+# this variable is living here, but we
+# access it this way, later:
+# space.sys.recursion_limit = 1000
+# note that we cannot do it *here* because
+# space.sys does not exist, yet.
 recursion_limit = 1000
 
 def setrecursionlimit(w_new_limit):
@@ -133,8 +138,9 @@ dependent."""
     if new_limit <= 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("recursion limit must be positive"))
-    global recursion_limit
-    recursion_limit = new_limit
+    # global recursion_limit
+    # we need to do it without writing globals.
+    space.sys.recursion_limit = new_limit
 
 def getrecursionlimit():
     """getrecursionlimit()
@@ -152,8 +158,8 @@ def setcheckinterval(w_interval):
 
 Tell the Python interpreter to check for asynchronous events every
 n instructions.  This also affects how often thread switches occur."""
-    global checkinterval
-    checkinterval = space.int_w(w_interval)
+
+    space.sys.checkinterval = space.int_w(w_interval)
 
 def getcheckinterval():
     """getcheckinterval() -> current check interval; see setcheckinterval()."""
