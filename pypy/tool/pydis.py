@@ -115,6 +115,13 @@ def rtrace_function(trace_space, fn, *arg, **kwds):
     return _trace_function(trace_space, True, fn, *arg, **kwds)
 
 
+def trace_function2(space, fn, *arg, **kwds):
+    return _trace_function(Trace(space), False, fn, *arg, **kwds)
+
+def rtrace_function2(space, fn, *arg, **kwds):
+    return _trace_function(Trace(space), True, fn, *arg, **kwds)
+
+
                    
  
 ## # Create space
