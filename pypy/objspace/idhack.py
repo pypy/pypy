@@ -19,9 +19,10 @@ from pypy.interpreter import gateway
 
 def idhack(w_obj):
     try:
-        return w_obj.__id
+        w_obj = w_obj.__unified_with[-1]
     except AttributeError:
-        return id(w_obj)
+        pass
+    return id(w_obj)  # XXX call the inherited space.id(), maybe
 
 
 class IdHackSpace(std.Space):
@@ -45,8 +46,14 @@ Space = IdHackSpace
 # ____________________________________________________________
 
 def become(space, w_target, w_source):
-    w_target.__class__ = w_source.__class__
-    w_target.__dict__  = w_source.__dict__
-    w_target.__id      = idhack(w_source)
+    try:
+        targetfamily = w_target.__unified_with
+    except AttributeError:
+        targetfamily = [w_target]
+    w_source.__unified_with = targetfamily
+    targetfamily.append(w_source)
+    for w_obj in targetfamily:
+        w_obj.__class__ = w_source.__class__
+        w_obj.__dict__  = w_source.__dict__
     return space.w_None
 app_become = gateway.interp2app(become)

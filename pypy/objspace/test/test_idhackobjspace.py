@@ -17,3 +17,11 @@ class AppTest_IdHack:
         assert idx != idy
         become(x, y)
         assert id(x) == id(y) == idy
+
+    def test_double_become(self):
+        x = 5
+        y = 6
+        z = 7
+        become(x, y)
+        become(y, z)
+        assert x is y is z
