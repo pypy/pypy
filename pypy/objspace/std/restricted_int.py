@@ -39,7 +39,7 @@ class r_int(int):
         x = int(self)
         y = int(other)
         res = x * y
-        if not isinstance(res, int, long)):
+        if not isinstance(res, (int, long)):
             res = r_int(res)
         return res
     __rmul__ = __mul__
@@ -179,7 +179,7 @@ class r_uint(long):
         x = long(self)
         y = long(other)
         res = x * y
-        if not isinstance(res, int, long)):
+        if not isinstance(res, (int, long)):
             res = r_uint(res)
         return res
     __rmul__ = __mul__
