@@ -111,6 +111,45 @@ def hack_out_multimethods(ns):
             result.append(value)
     return result
 
+def make_frameclass_for_arity(arity, varargs, keywords, isspecial):
+    argnames = []
+    for i in range(arity):
+        argnames.append('arg%dof%d'%(i+1, arity))
+    if varargs:
+        argnames.append('var_args')
+    if keywords:
+        argnames.append('kw_args')
+    self_args_assigning = []
+    for i in range(len(argnames)):
+        self_args_assigning.append('        self.%s = args[%i]'%(argnames[i], i))
+    self_args_assigning = "\n".join(self_args_assigning)
+    self_args = ", ".join(['self.'+ a for a in argnames])
+    name = 'MmFrameOfArity%d'%arity
+    if varargs:
+        name += "Var"
+    if keywords:
+        name += "KW"
+    if isspecial:
+        name = "Special" + name
+    d = locals()
+    template = mmtemplate
+    if isspecial:
+        template += specialmmruntemplate
+    else:
+        template += mmruntemplate
+#    print template%d
+    exec template%d in globals(), d
+    return d[name]
+    
+_frameclass_for_arity_cache = {}
+def frameclass_for_arity(arity, varargs, keywords, isspecial):
+    try:
+        return _frameclass_for_arity_cache[(arity, varargs, keywords, isspecial)]
+    except KeyError:
+        r = _frameclass_for_arity_cache[(arity, varargs, keywords, isspecial)] = \
+                make_frameclass_for_arity(arity, varargs, keywords, isspecial)
+        return r
+
 def slicemultimethod(multimethod, typeclass, result):
     for i in range(len(multimethod.specialnames)):
         # each MultimethodCode embeds a multimethod
@@ -121,10 +160,10 @@ def slicemultimethod(multimethod, typeclass, result):
             code = result[name]
             if code.bound_position < i:
                 continue
-        if len(multimethod.specialnames) > 1:
-            mmframeclass = SpecialMmFrame
-        else:
-            mmframeclass = MmFrame
+        mmframeclass = frameclass_for_arity(multimethod.arity,
+                                            multimethod.extras.get('varargs', False),
+                                            multimethod.extras.get('keywords', False),
+                                            len(multimethod.specialnames) > 1)
         code = MultimethodCode(multimethod, mmframeclass, typeclass, i)
         result[name] = code
 
@@ -181,33 +220,39 @@ class MultimethodCode(eval.Code):
     def create_frame(self, space, w_globals, closure=None):
         return self.framecls(space, self)
 
-class MmFrame(eval.Frame):
+mmtemplate = """
+class %(name)s(eval.Frame):
 
     def setfastscope(self, scope_w):
         args = list(scope_w)
         args.insert(0, args.pop(self.code.bound_position))
-        self.args = args
+%(self_args_assigning)s
 
     def getfastscope(self):
         raise OperationError(self.space.w_TypeError,
           self.space.wrap("cannot get fastscope of a MmFrame"))
-    
+"""
+
+mmruntemplate = """
     def run(self):
         "Call the multimethod, raising a TypeError if not implemented."
-        w_result = self.code.mm(*self.args)
+        w_result = self.code.mm(%(self_args)s)
         # we accept a real None from operations with no return value
         if w_result is None:
             w_result = self.space.w_None
         return w_result
+"""
 
-class SpecialMmFrame(MmFrame):
+specialmmruntemplate = """
+
     def run(self):
         "Call the multimethods, possibly returning a NotImplemented."
         try:
-            return self.code.mm.perform_call(*self.args)
+            return self.code.mm.perform_call(%(self_args)s)
         except FailedToImplement, e:
             if e.args:
                 raise OperationError(e.args[0], e.args[1])
             else:
                 return self.space.w_NotImplemented
 
+"""
