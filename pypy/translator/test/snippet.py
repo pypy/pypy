@@ -351,3 +351,10 @@ def knownkeysdict(b):
 
 def prime(n):
     return len([i for i in range(1,n+1) if n%i==0]) == 2
+
+def somebug1(n):
+    l = []
+    v = l.append
+    while n:
+        l[7] = 5
+    return v
