@@ -49,6 +49,8 @@ class GenCLTestCase(test.IntTestCase):
         self.assertEquals(cl_if(False, 50, 100), 100)
         self.assertEquals(cl_if(0, 50, 100), 100)
         self.assertEquals(cl_if(1, 50, 100), 50)
+        self.assertEquals(cl_if([], 50, 100), 100)
+        self.assertEquals(cl_if([[]], 50, 100), 50)
 
     def test_gcd(self):
         cl_gcd = make_cl_func(t.my_gcd, [int, int])
@@ -114,6 +116,19 @@ class GenCLTestCase(test.IntTestCase):
         self.assertEquals(result.__class__, Literal)
         self.assertEquals(result.val,
                           '#(#() #(0) #(1) #(0 1) #(2) #(0 2) #(1 2) #(0 1 2))')
+    def test_yast(self):
+        cl_sum = make_cl_func(t.yast) # yet another sum test
+        self.assertEquals(cl_sum(range(12)), 66)
+
+
+# TODO
+# poor_man_range
+# - append/reverse. not RPython. delegate?
+# attrs
+# - attribute. need object. symbol-plist?
+# yast
+# - need way to specify that argument is list of int.
+
 
 if __name__ == '__main__':
     test.main()

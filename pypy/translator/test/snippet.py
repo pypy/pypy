@@ -134,11 +134,11 @@ def time_waster(n):
     """Arbitrary test function"""
     i = 0
     x = 1
-    while i<n:
+    while i < n:
         j = 0
-        while j<=i:
+        while j <= i:
             j = j + 1
-            x = x + (i&j)
+            x = x + (i & j)
         i = i + 1
     return x
 

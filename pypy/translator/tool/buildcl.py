@@ -31,6 +31,8 @@ def writelisp(gen, obj):
         content = '(' + content + ')'
         if isinstance(obj, list):
             content = '#' + content
+        elif isinstance(obj, tuple):
+            content = "'" + content # quote Lisp list
         return content
 
 # for test
