@@ -114,7 +114,7 @@ class MyTextTestResult(unittest._TextTestResult):
                 self.stream.writeln(self.separator1)
                 self.stream.writeln("%s: %s" % (flavour,self.getDescription(test)))
                 self.stream.writeln(self.separator2)
-                t1 = self._exc_info_to_string(err)
+                t1 = ''.join(traceback.format_exception(*err))
             if isinstance(err[1], OperationError) and \
               test.space.full_exceptions:
                 if not Options.quiet:
