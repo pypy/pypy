@@ -216,6 +216,7 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
             raise ValueError, '_arity too large'
 
         arglist = [W_CPythonObject] + [W_ANY]*(_arity-1)
+        if _name == 'getattr': _name = 'getattribute'  # XXX hack
         multimethod = getattr(StdObjSpace, _name)
         multimethod.register(cpython_f, *arglist)
 

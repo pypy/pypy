@@ -12,7 +12,7 @@ class W_ObjectType(W_TypeObject):
     # all multimethods that we want to be visible as object.__xxx__
     # should be defined here.
 
-    object_getattr = StdObjSpace.getattr
+    object_getattr = StdObjSpace.getattribute
     object_setattr = StdObjSpace.setattr
     object_delattr = StdObjSpace.delattr
     object_type    = StdObjSpace.type

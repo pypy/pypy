@@ -21,7 +21,7 @@ class W_SliceObject(W_Object):
 registerimplementation(W_SliceObject)
 
 
-def getattr__Slice_ANY(space, w_slice, w_attr):
+def getattribute__Slice_ANY(space, w_slice, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('start'))):
         if w_slice.w_start is None:
             return space.w_None

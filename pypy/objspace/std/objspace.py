@@ -258,6 +258,28 @@ class StdObjSpace(ObjSpace):
     getdict = MultiMethod('getdict', 1, [])  # get '.__dict__' attribute
     next    = MultiMethod('next', 1, [])     # iterator interface
     call    = MultiMethod('call', 3, [], varargs=True, keywords=True)
+    getattribute = MultiMethod('getattr', 2, ['__getattribute__'])  # XXX hack
+    usergetattr  = MultiMethod('usergetattr', 2, ['__getattr__'])   # XXX hack
+
+    def getattr(self, w_obj, w_attr):
+        try:
+            return self.getattribute(w_obj, w_attr)
+        except OperationError, e:
+            if not e.match(self, self.w_AttributeError):
+                raise
+            result = self.getattr_try_harder(w_obj, w_attr)
+            if result is None:
+                raise
+            return result
+
+    def getattr_try_harder(self, *args_w):
+        # this needs to be in another function so that the exception caught
+        # here doesn't prevent the bare 'raise' in self.getattr() to
+        # re-raise the previous OperationError with correct traceback.
+        try:
+            return self.usergetattr.perform_call(args_w)
+        except FailedToImplement:
+            return None
 
     def is_(self, w_one, w_two):
         # XXX a bit of hacking to gain more speed 

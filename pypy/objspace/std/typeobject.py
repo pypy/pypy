@@ -210,7 +210,7 @@ def issubtype__Type_Type(space, w_type1, w_type2):
 def repr__Type(space, w_obj):
     return space.wrap("<pypy type '%s'>" % w_obj.typename)  # XXX remove 'pypy'
 
-def getattr__Type_ANY(space, w_type, w_attr):
+def getattribute__Type_ANY(space, w_type, w_attr):
     # XXX mwh doubts this is the Right Way to do this...
     if space.is_true(space.eq(w_attr, space.wrap('__name__'))):
         return w_type.w_tpname

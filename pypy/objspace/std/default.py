@@ -45,7 +45,7 @@ def is_data_descr__Object(space, w_descr):
 # give objects some default attributes and a default way to complain
 # about missing attributes
 
-def getattr__Object_ANY(space, w_obj, w_attr):
+def getattribute__Object_ANY(space, w_obj, w_attr):
     # XXX build a nicer error message along these lines:
     #w_type = space.type(w_obj)
     #w_typename = space.getattr(w_type, space.wrap('__name__'))

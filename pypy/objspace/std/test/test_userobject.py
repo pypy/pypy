@@ -97,5 +97,23 @@ class TestUserObject(testit.AppTestCase):
         self.assertEquals(c1(5), (5,))
         self.assertEquals(c1("hello", "world"), ("hello", "world"))
 
+    def test_getattribute(self):
+        class C:
+            def __getattribute__(self, name):
+                return '->' + name
+        c1 = C()
+        self.assertEquals(c1.a, '->a')
+        c1.a = 5
+        self.assertEquals(c1.a, '->a')
+
+    def test_getattr(self):
+        class C:
+            def __getattr__(self, name):
+                return '->' + name
+        c1 = C()
+        self.assertEquals(c1.a, '->a')
+        c1.a = 5
+        self.assertEquals(c1.a, 5)
+
 if __name__ == '__main__':
     testit.main()
