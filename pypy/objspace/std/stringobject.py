@@ -199,9 +199,8 @@ def str_str_gt(space, w_str1, w_str2):
 StdObjSpace.gt.register(str_str_gt, W_StringObject, W_StringObject)
 
 def str_str_ge(space, w_str1, w_str2):
-    i = w_str1._value.value()
-    j = w_str2._value.value()
-    return space.newbool( i >= j )
+    return string_richcompare(space, w_str1, w_str2, GE)
+
 StdObjSpace.ge.register(str_str_ge, W_StringObject, W_StringObject)
 
 
@@ -240,7 +239,10 @@ StdObjSpace.getitem.register(getitem_str_slice,
                              W_StringObject, W_SliceObject)
 
 def add_str_str(space, w_left, w_right):
-    return W_StringObject(space, w_left._value.value() + w_right._value.value())
+    buf = CharArraySize(w_left._value.len + w_right._value.len)
+    buf.setsubstring(0, w_left._value.value())
+    buf.setsubstring(w_left._value.len, w_right._value.value())
+    return W_StringObject(space, buf.value())
 
 StdObjSpace.add.register(add_str_str, W_StringObject, W_StringObject)
 
