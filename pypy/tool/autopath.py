@@ -37,13 +37,15 @@ def __dirinfo(part):
         partdir = head
         head, tail = os.path.split(head)
         if tail == part:
+            sys.path = [p for p in sys.path if not p.startswith(head)]
             if head not in sys.path:
                 sys.path.insert(0, head)
             return partdir, this_dir
+        
     raise EnvironmentError, "'%s' missing in '%r'" % (pathpart,this_path)
 
 def __clone():
-    """ clone master version of autopath.y into all subdirs """
+    """ clone master version of autopath.py into all subdirs """
     from os.path import join, walk
     if not this_dir.endswith(join('pypy','tool')):
         raise EnvironmentError("can only clone master version "
@@ -59,7 +61,7 @@ def __clone():
                     print "checkok", fn
                 else:
                     print "syncing", fn
-                    f.seek(0)
+                    f = open(fn, 'w')
                     f.write(arg)
             finally:
                 f.close()
