@@ -38,6 +38,9 @@ def descr__base(space, w_type):
     else:
         return space.w_object
 
+def descr__doc(space, w_type):
+    return w_type.dict_w.get('__doc__')
+
 # ____________________________________________________________
 
 type_typedef = StdTypeDef("type",
@@ -47,5 +50,6 @@ type_typedef = StdTypeDef("type",
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
     __dict__ = dictproxy_descr,
+    __doc__ = GetSetProperty(descr__doc),
     mro = newmethod(descr_mro),
     )

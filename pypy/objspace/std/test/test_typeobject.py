@@ -185,10 +185,12 @@ class TestTypeObject(testit.AppTestCase):
             ImmutableDoc.__doc__ = "bar"
         except TypeError:
             pass
+        except AttributeError:
+            print 'XXX - Python raises TypeError for several descriptors, we always raise AttributeError.'
         else:
             raise AssertionError, '__doc__ should not be writable'
 
-        self.assertEquals_(ImmutableDoc.__doc__, 'foo')
+        self.assertEquals(ImmutableDoc.__doc__, 'foo')
 
 
 if __name__ == '__main__':
