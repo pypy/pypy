@@ -290,7 +290,7 @@ class GraphDisplay(Display):
             self.setstatusbar('Not found: %s' % self.searchstr)
             return
         self.searchpos += 1
-        self.highlight_found_item(self.searchresults[self.searchpos])
+        self.highlight_found_item()
 
     def find_prev(self):
         if not self.searchstr:
@@ -299,19 +299,22 @@ class GraphDisplay(Display):
             self.setstatusbar('Not found: %s' % self.searchstr)
             return
         self.searchpos -= 1
-        self.highlight_found_item(self.searchresults[self.searchpos])
+        self.highlight_found_item()
 
-    def highlight_found_item(self, item):
+    def highlight_found_item(self):
+        item = self.searchresults[self.searchpos]
         self.sethighlight(obj=item)
+        msg = 'Found %%s containing %s (%d/%d)' % (self.searchstr,
+                        self.searchpos+1, len(self.searchresults))
         if isinstance(item, Node):
-            self.setstatusbar('Found node containing %s' % self.searchstr)
+            self.setstatusbar(msg % 'node')
             self.look_at_node(item, keep_highlight=True)
         elif isinstance(item, Edge):
-            self.setstatusbar('Found edge containing %s' % self.searchstr)
+            self.setstatusbar(msg % 'edge')
             self.look_at_edge(item, keep_highlight=True)
         else:
             # should never happen
-            self.setstatusbar('Found %r containing %s' % (item, self.searchstr))
+            self.setstatusbar(msg % item)
 
     def setlayout(self, layout):
         if self.viewer:
