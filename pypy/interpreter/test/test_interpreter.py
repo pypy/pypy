@@ -62,7 +62,7 @@ def g(x): return x''', 'g', [666])
         self.assertEquals(x, 666)
 
     def XXXtest_exception(self):
-        """ can't make it run as e has no args; deep bug...? """
+        """ exception raising currently broken """
         x = self.codetest('''
 def f():
     try:
