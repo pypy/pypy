@@ -286,6 +286,9 @@ def call__CPython_ANY_ANY(space, w_obj, w_arguments, w_keywords):
 def issubtype__CPython_ANY(space, w_obj, w_other):
     return space.newbool(0)
 
+def issubtype__ANY_CPython(space, w_obj, w_other):
+    return space.newbool(0)
+
 def issubtype__CPython_CPython(space, w_obj, w_other):
     return space.newbool(issubclass(space.unwrap(w_obj),
                                     space.unwrap(w_other)))

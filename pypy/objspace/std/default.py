@@ -75,9 +75,9 @@ def get__ANY_ANY_ANY(space, w_descr, w_inst, w_cls):
 def is_data_descr__ANY(space, w_descr):
     return 0
 
-def issubtype__ANY_ANY(space, w_one, w_two):
-    # XXX -- mwh
-    return space.newbool(0)
-    # XXX why is it there ? -- Armin
+#def issubtype__ANY_ANY(space, w_one, w_two):
+#    # XXX -- mwh
+#    return space.newbool(0)
+#    # XXX why is it there ? -- Armin
 
 register_all(vars())
