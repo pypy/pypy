@@ -4,6 +4,7 @@
 """
 from pypy.interpreter.gateway import interp2app 
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import OperationError
 
 class TypeDef:
     def __init__(self, __name, **rawdict):
@@ -29,7 +30,7 @@ class GetSetProperty(Wrappable):
     def descr_property_get(space, w_property, w_obj, w_ignored):
         # XXX HAAAAAAAAAAAACK (but possibly a good one)
         if w_obj == space.w_None and not space.is_true(space.is_(w_ignored, space.type(space.w_None))):
-            print w_property, w_obj, w_ignored
+            #print w_property, w_obj, w_ignored
             return w_property
         else:
             return space.unwrap(w_property).fget(space, w_obj)
@@ -37,16 +38,16 @@ class GetSetProperty(Wrappable):
     def descr_property_set(space, w_property, w_obj, w_value):
         fset = space.unwrap(w_property).fset
         if fset is None:
-            complains
-        else:
-            do_it
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap("read-only attribute"))
+        fset(space, w_obj, w_value)
 
     def descr_property_del(space, w_property, w_obj):
-        fset = space.unwrap(w_property).fset
-        if fset is None:
-            complains
-        else:
-            do_it
+        fdel = space.unwrap(w_property).fdel
+        if fdel is None:
+            raise OperationError(space.w_AttributeError,
+                                 space.wrap("cannot delete attribute"))
+        fdel(space, w_obj)
 
     typedef = TypeDef("GetSetProperty",
         __get__ = interp2app(descr_property_get),

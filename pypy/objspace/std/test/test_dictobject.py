@@ -118,15 +118,15 @@ class TestW_DictObject(testit.TestCase):
             return [[w(a),w(b)] for a,b in lp]
         d = mydict()
         self.assertEqual_w(d, w({}))
-        args = w([[['a',2],[23,45]]])
+        args = w(([['a',2],[23,45]],))
         d = mydict(args)
         self.assertEqual_w(d, wd(deepwrap([['a',2],[23,45]])))
         d = mydict(args, w({'a':33, 'b':44}))
         self.assertEqual_w(d, wd(deepwrap([['a',33],['b',44],[23,45]])))
         d = mydict(w_kwds=w({'a':33, 'b':44}))
         self.assertEqual_w(d, wd(deepwrap([['a',33],['b',44]])))
-        self.assertRaises_w(space.w_TypeError, mydict, w([23]))
-        self.assertRaises_w(space.w_ValueError, mydict, w([[[1,2,3]]]))
+        self.assertRaises_w(space.w_TypeError, mydict, w((23,)))
+        self.assertRaises_w(space.w_ValueError, mydict, w(([[1,2,3]],)))
 
     def test_dict_pop(self):
         space = self.space
