@@ -1344,6 +1344,13 @@ entrypoints = (small_loop,
 entrypoint = entrypoints[-6]
 
 if __name__ == "__main__":
+    dic, entrypoint = test_exceptions_helper()
+    t = Translator(entrypoint, verbose=False, simplifying=True)
+    gen = GenRpy(t)
+    gen.use_fast_call = True
+    gen.moddict = dic
+    gen.gen_source('/tmp/look.py')
+    '''
     import os, sys
     from pypy.interpreter import autopath
     srcdir = os.path.dirname(autopath.pypydir)
@@ -1364,6 +1371,7 @@ if __name__ == "__main__":
     ftmpname = "/tmp/look.py"
     fname = os.path.join(pth, gen.modname+".py")
     gen.gen_source(fname, ftmpname)
+    '''
 
 def crazy_test():
     """ this thingy is generating the whole interpreter in itself"""

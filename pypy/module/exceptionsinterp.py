@@ -1,6 +1,9 @@
 #!/bin/env python
 # -*- coding: LATIN-1 -*-
 
+from pypy.interpreter.error import OperationError
+
+
 """Python's standard exception class hierarchy.
 
 Before Python 1.5, the standard exceptions were all simple string objects.
@@ -91,18 +94,19 @@ Exception
       +-- FutureWarning"""
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__getitem__'
 ## firstlineno 94
 ##SECTION##
-def __getitem__(space, *args_w):
-    kwlist = ["self", "idx"]
-    _args_w = args_w
-    defaults_w = ()
+def __getitem__(space, __args__):
     funcname = "__getitem__"
-    w_self, w_idx = PyArg_ParseMini(space, funcname, 2, 2, _args_w, defaults_w)
+    signature = ['self', 'idx'], None, None
+    def_w = []
+    w_self, w_idx = __args__.parse(funcname, signature, def_w)
     return fastf_Exception___getitem__(space, w_self, w_idx)
-f_Exception___getitem__ = globals().pop("__getitem__")
+
+f_Exception___getitem__ = __getitem__
+del __getitem__
 
 def __getitem__(space, w_self, w_idx):
 
@@ -119,22 +123,24 @@ def __getitem__(space, w_self, w_idx):
 
         if goto == 2:
             return w_4
-fastf_Exception___getitem__ = globals().pop("__getitem__")
+
+fastf_Exception___getitem__ = __getitem__
+del __getitem__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 98
 ##SECTION##
-def __init__(space, *args_w):
-    kwlist = ["self"]
-    w_args = space.newtuple(list(args_w[1:]))
-    _args_w = args_w[:1]
-    defaults_w = ()
+def __init__(space, __args__):
     funcname = "__init__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], 'args', None
+    def_w = []
+    w_self, w_args = __args__.parse(funcname, signature, def_w)
     return fastf_Exception___init__(space, w_self, w_args)
-f_Exception___init__ = globals().pop("__init__")
+
+f_Exception___init__ = __init__
+del __init__
 
 def __init__(space, w_self, w_args):
 
@@ -150,10 +156,12 @@ def __init__(space, w_self, w_args):
 
         if goto == 2:
             return w_3
-fastf_Exception___init__ = globals().pop("__init__")
+
+fastf_Exception___init__ = __init__
+del __init__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 102
 ##SECTION##
@@ -162,14 +170,15 @@ fastf_Exception___init__ = globals().pop("__init__")
 # global object gi_0
 # global object gi_1
 
-def __str__(space, *args_w):
-    kwlist = ["self"]
-    _args_w = args_w
-    defaults_w = ()
+def __str__(space, __args__):
     funcname = "__str__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], None, None
+    def_w = []
+    w_self, = __args__.parse(funcname, signature, def_w)
     return fastf_Exception___str__(space, w_self)
-f_Exception___str__ = globals().pop("__str__")
+
+f_Exception___str__ = __str__
+del __str__
 
 def __str__(space, w_self):
 
@@ -205,23 +214,23 @@ def __str__(space, w_self):
 
         if goto == 3:
             w_8 = space.getitem(w_args_2, gi_0)
-            _tup = space.newtuple([w_8])
-            w_9 = space.call(space.w_str, _tup)
+            w_9 = space.call_function(space.w_str, w_8)
             w_5 = w_9
             goto = 5
 
         if goto == 4:
-            _tup = space.newtuple([w_args_3])
-            w_10 = space.call(space.w_str, _tup)
+            w_10 = space.call_function(space.w_str, w_args_3)
             w_5 = w_10
             goto = 5
 
         if goto == 5:
             return w_5
-fastf_Exception___str__ = globals().pop("__str__")
+
+fastf_Exception___str__ = __str__
+del __str__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 131
 ##SECTION##
@@ -230,15 +239,15 @@ fastf_Exception___str__ = globals().pop("__str__")
 # global object gi_2
 # global object gi_3
 
-def __init__(space, *args_w):
-    kwlist = ["self"]
-    w_args = space.newtuple(list(args_w[1:]))
-    _args_w = args_w[:1]
-    defaults_w = ()
+def __init__(space, __args__):
     funcname = "__init__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], 'args', None
+    def_w = []
+    w_self, w_args = __args__.parse(funcname, signature, def_w)
     return fastf_UnicodeTranslateError___init__(space, w_self, w_args)
-f_UnicodeTranslateError___init__ = globals().pop("__init__")
+
+f_UnicodeTranslateError___init__ = __init__
+del __init__
 
 def __init__(space, w_self, w_args):
 
@@ -275,10 +284,12 @@ def __init__(space, w_self, w_args):
 
         if goto == 3:
             return w_6
-fastf_UnicodeTranslateError___init__ = globals().pop("__init__")
+
+fastf_UnicodeTranslateError___init__ = __init__
+del __init__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 141
 ##SECTION##
@@ -296,14 +307,15 @@ fastf_UnicodeTranslateError___init__ = globals().pop("__init__")
 # global object gs__
 # global object gs_join
 
-def __str__(space, *args_w):
-    kwlist = ["self"]
-    _args_w = args_w
-    defaults_w = ()
+def __str__(space, __args__):
     funcname = "__str__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], None, None
+    def_w = []
+    w_self, = __args__.parse(funcname, signature, def_w)
     return fastf_UnicodeTranslateError___str__(space, w_self)
-f_UnicodeTranslateError___str__ = globals().pop("__str__")
+
+f_UnicodeTranslateError___str__ = __str__
+del __str__
 
 def __str__(space, w_self):
 
@@ -315,48 +327,45 @@ def __str__(space, w_self):
 
         if goto == 1:
             w_0 = space.getattr(w_self, gs_start, space.w_None)
-            _tup = space.newtuple([w_0])
-            w_2 = space.call(space.w_str, _tup)
+            w_2 = space.call_function(space.w_str, w_0)
             w_3 = space.add(gs_start_, w_2)
             w_4 = space.getattr(w_self, gs_reason, space.w_None)
-            _tup = space.newtuple([w_4])
-            w_5 = space.call(space.w_str, _tup)
+            w_5 = space.call_function(space.w_str, w_4)
             w_6 = space.add(gs_reason_, w_5)
             w_7 = space.getattr(w_self, gs_args, space.w_None)
-            _tup = space.newtuple([w_7])
-            w_8 = space.call(space.w_str, _tup)
+            w_8 = space.call_function(space.w_str, w_7)
             w_9 = space.add(gs_args_, w_8)
             w_10 = space.getattr(w_self, gs_end, space.w_None)
-            _tup = space.newtuple([w_10])
-            w_11 = space.call(space.w_str, _tup)
+            w_11 = space.call_function(space.w_str, w_10)
             w_12 = space.add(gs_end_, w_11)
             w_13 = space.getattr(w_self, gs_object, space.w_None)
-            _tup = space.newtuple([w_13])
-            w_14 = space.call(space.w_str, _tup)
+            w_14 = space.call_function(space.w_str, w_13)
             w_15 = space.add(gs_object_, w_14)
             w_16 = space.newlist([w_3, w_6, w_9, w_12, w_15])
-            _tup = space.newtuple([w_16])
-            w_res = space.call(gbltinmethod_join, _tup)
+            w_res = space.call_function(gbltinmethod_join, w_16)
             w_18 = w_res
             goto = 2
 
         if goto == 2:
             return w_18
-fastf_UnicodeTranslateError___str__ = globals().pop("__str__")
+
+fastf_UnicodeTranslateError___str__ = __str__
+del __str__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 159
 ##SECTION##
-def __str__(space, *args_w):
-    kwlist = ["self"]
-    _args_w = args_w
-    defaults_w = ()
+def __str__(space, __args__):
     funcname = "__str__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], None, None
+    def_w = []
+    w_self, = __args__.parse(funcname, signature, def_w)
     return fastf_KeyError___str__(space, w_self)
-f_KeyError___str__ = globals().pop("__str__")
+
+f_KeyError___str__ = __str__
+del __str__
 
 def __str__(space, w_self):
 
@@ -397,29 +406,30 @@ def __str__(space, w_self):
             goto = 5
 
         if goto == 4:
-            _tup = space.newtuple([w_args_3])
-            w_10 = space.call(space.w_str, _tup)
+            w_10 = space.call_function(space.w_str, w_args_3)
             w_5 = w_10
             goto = 5
 
         if goto == 5:
             return w_5
-fastf_KeyError___str__ = globals().pop("__str__")
+
+fastf_KeyError___str__ = __str__
+del __str__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 185
 ##SECTION##
-def __init__(space, *args_w):
-    kwlist = ["self"]
-    w_args = space.newtuple(list(args_w[1:]))
-    _args_w = args_w[:1]
-    defaults_w = ()
+def __init__(space, __args__):
     funcname = "__init__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], 'args', None
+    def_w = []
+    w_self, w_args = __args__.parse(funcname, signature, def_w)
     return fastf_EnvironmentError___init__(space, w_self, w_args)
-f_EnvironmentError___init__ = globals().pop("__init__")
+
+f_EnvironmentError___init__ = __init__
+del __init__
 
 def __init__(space, w_self, w_args):
 
@@ -494,10 +504,12 @@ def __init__(space, w_self, w_args):
 
         if goto == 7:
             return w_18
-fastf_EnvironmentError___init__ = globals().pop("__init__")
+
+fastf_EnvironmentError___init__ = __init__
+del __init__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 199
 ##SECTION##
@@ -508,14 +520,15 @@ fastf_EnvironmentError___init__ = globals().pop("__init__")
 # global object gs_strerror_
 # global object gs_filename_
 
-def __str__(space, *args_w):
-    kwlist = ["self"]
-    _args_w = args_w
-    defaults_w = ()
+def __str__(space, __args__):
     funcname = "__str__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], None, None
+    def_w = []
+    w_self, = __args__.parse(funcname, signature, def_w)
     return fastf_EnvironmentError___str__(space, w_self)
-f_EnvironmentError___str__ = globals().pop("__str__")
+
+f_EnvironmentError___str__ = __str__
+del __str__
 
 def __str__(space, w_self):
 
@@ -527,48 +540,45 @@ def __str__(space, w_self):
 
         if goto == 1:
             w_0 = space.getattr(w_self, gs_errno, space.w_None)
-            _tup = space.newtuple([w_0])
-            w_2 = space.call(space.w_str, _tup)
+            w_2 = space.call_function(space.w_str, w_0)
             w_3 = space.add(gs_errno_, w_2)
             w_4 = space.getattr(w_self, gs_args, space.w_None)
-            _tup = space.newtuple([w_4])
-            w_5 = space.call(space.w_str, _tup)
+            w_5 = space.call_function(space.w_str, w_4)
             w_6 = space.add(gs_args_, w_5)
             w_7 = space.getattr(w_self, gs_strerror, space.w_None)
-            _tup = space.newtuple([w_7])
-            w_8 = space.call(space.w_str, _tup)
+            w_8 = space.call_function(space.w_str, w_7)
             w_9 = space.add(gs_strerror_, w_8)
             w_10 = space.getattr(w_self, gs_filename, space.w_None)
-            _tup = space.newtuple([w_10])
-            w_11 = space.call(space.w_str, _tup)
+            w_11 = space.call_function(space.w_str, w_10)
             w_12 = space.add(gs_filename_, w_11)
             w_13 = space.newlist([w_3, w_6, w_9, w_12])
-            _tup = space.newtuple([w_13])
-            w_res = space.call(gbltinmethod_join, _tup)
+            w_res = space.call_function(gbltinmethod_join, w_13)
             w_15 = w_res
             goto = 2
 
         if goto == 2:
             return w_15
-fastf_EnvironmentError___str__ = globals().pop("__str__")
+
+fastf_EnvironmentError___str__ = __str__
+del __str__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 219
 ##SECTION##
 # global declaration
 # global object gi_5
 
-def __init__(space, *args_w):
-    kwlist = ["self"]
-    w_args = space.newtuple(list(args_w[1:]))
-    _args_w = args_w[:1]
-    defaults_w = ()
+def __init__(space, __args__):
     funcname = "__init__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], 'args', None
+    def_w = []
+    w_self, w_args = __args__.parse(funcname, signature, def_w)
     return fastf_UnicodeEncodeError___init__(space, w_self, w_args)
-f_UnicodeEncodeError___init__ = globals().pop("__init__")
+
+f_UnicodeEncodeError___init__ = __init__
+del __init__
 
 def __init__(space, w_self, w_args):
 
@@ -607,10 +617,12 @@ def __init__(space, w_self, w_args):
 
         if goto == 3:
             return w_6
-fastf_UnicodeEncodeError___init__ = globals().pop("__init__")
+
+fastf_UnicodeEncodeError___init__ = __init__
+del __init__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 230
 ##SECTION##
@@ -618,14 +630,15 @@ fastf_UnicodeEncodeError___init__ = globals().pop("__init__")
 # global object gs_encoding
 # global object gs_encoding_
 
-def __str__(space, *args_w):
-    kwlist = ["self"]
-    _args_w = args_w
-    defaults_w = ()
+def __str__(space, __args__):
     funcname = "__str__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], None, None
+    def_w = []
+    w_self, = __args__.parse(funcname, signature, def_w)
     return fastf_UnicodeEncodeError___str__(space, w_self)
-f_UnicodeEncodeError___str__ = globals().pop("__str__")
+
+f_UnicodeEncodeError___str__ = __str__
+del __str__
 
 def __str__(space, w_self):
 
@@ -637,53 +650,48 @@ def __str__(space, w_self):
 
         if goto == 1:
             w_0 = space.getattr(w_self, gs_object, space.w_None)
-            _tup = space.newtuple([w_0])
-            w_2 = space.call(space.w_str, _tup)
+            w_2 = space.call_function(space.w_str, w_0)
             w_3 = space.add(gs_object_, w_2)
             w_4 = space.getattr(w_self, gs_end, space.w_None)
-            _tup = space.newtuple([w_4])
-            w_5 = space.call(space.w_str, _tup)
+            w_5 = space.call_function(space.w_str, w_4)
             w_6 = space.add(gs_end_, w_5)
             w_7 = space.getattr(w_self, gs_encoding, space.w_None)
-            _tup = space.newtuple([w_7])
-            w_8 = space.call(space.w_str, _tup)
+            w_8 = space.call_function(space.w_str, w_7)
             w_9 = space.add(gs_encoding_, w_8)
             w_10 = space.getattr(w_self, gs_args, space.w_None)
-            _tup = space.newtuple([w_10])
-            w_11 = space.call(space.w_str, _tup)
+            w_11 = space.call_function(space.w_str, w_10)
             w_12 = space.add(gs_args_, w_11)
             w_13 = space.getattr(w_self, gs_start, space.w_None)
-            _tup = space.newtuple([w_13])
-            w_14 = space.call(space.w_str, _tup)
+            w_14 = space.call_function(space.w_str, w_13)
             w_15 = space.add(gs_start_, w_14)
             w_16 = space.getattr(w_self, gs_reason, space.w_None)
-            _tup = space.newtuple([w_16])
-            w_17 = space.call(space.w_str, _tup)
+            w_17 = space.call_function(space.w_str, w_16)
             w_18 = space.add(gs_reason_, w_17)
             w_19 = space.newlist([w_3, w_6, w_9, w_12, w_15, w_18])
-            _tup = space.newtuple([w_19])
-            w_res = space.call(gbltinmethod_join, _tup)
+            w_res = space.call_function(gbltinmethod_join, w_19)
             w_21 = w_res
             goto = 2
 
         if goto == 2:
             return w_21
-fastf_UnicodeEncodeError___str__ = globals().pop("__str__")
+
+fastf_UnicodeEncodeError___str__ = __str__
+del __str__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 270
 ##SECTION##
-def __init__(space, *args_w):
-    kwlist = ["self"]
-    w_args = space.newtuple(list(args_w[1:]))
-    _args_w = args_w[:1]
-    defaults_w = ()
+def __init__(space, __args__):
     funcname = "__init__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], 'args', None
+    def_w = []
+    w_self, w_args = __args__.parse(funcname, signature, def_w)
     return fastf_SyntaxError___init__(space, w_self, w_args)
-f_SyntaxError___init__ = globals().pop("__init__")
+
+f_SyntaxError___init__ = __init__
+del __init__
 
 def __init__(space, w_self, w_args):
 
@@ -742,21 +750,24 @@ def __init__(space, w_self, w_args):
 
         if goto == 5:
             return w_10
-fastf_SyntaxError___init__ = globals().pop("__init__")
+
+fastf_SyntaxError___init__ = __init__
+del __init__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 282
 ##SECTION##
-def __str__(space, *args_w):
-    kwlist = ["self"]
-    _args_w = args_w
-    defaults_w = ()
+def __str__(space, __args__):
     funcname = "__str__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], None, None
+    def_w = []
+    w_self, = __args__.parse(funcname, signature, def_w)
     return fastf_SyntaxError___str__(space, w_self)
-f_SyntaxError___str__ = globals().pop("__str__")
+
+f_SyntaxError___str__ = __str__
+del __str__
 
 def __str__(space, w_self):
 
@@ -767,36 +778,36 @@ def __str__(space, w_self):
 
         if goto == 1:
             w_0 = space.getattr(w_self, gs_args, space.w_None)
-            _tup = space.newtuple([w_0])
-            w_2 = space.call(space.w_str, _tup)
+            w_2 = space.call_function(space.w_str, w_0)
             w_3 = space.add(gs_args_, w_2)
             w_4 = space.newlist([w_3])
-            _tup = space.newtuple([w_4])
-            w_res = space.call(gbltinmethod_join, _tup)
+            w_res = space.call_function(gbltinmethod_join, w_4)
             w_6 = w_res
             goto = 2
 
         if goto == 2:
             return w_6
-fastf_SyntaxError___str__ = globals().pop("__str__")
+
+fastf_SyntaxError___str__ = __str__
+del __str__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 296
 ##SECTION##
 # global declaration
 # global object gs_code
 
-def __init__(space, *args_w):
-    kwlist = ["self"]
-    w_args = space.newtuple(list(args_w[1:]))
-    _args_w = args_w[:1]
-    defaults_w = ()
+def __init__(space, __args__):
     funcname = "__init__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], 'args', None
+    def_w = []
+    w_self, w_args = __args__.parse(funcname, signature, def_w)
     return fastf_SystemExit___init__(space, w_self, w_args)
-f_SystemExit___init__ = globals().pop("__init__")
+
+f_SystemExit___init__ = __init__
+del __init__
 
 def __init__(space, w_self, w_args):
 
@@ -860,22 +871,24 @@ def __init__(space, w_self, w_args):
 
         if goto == 7:
             return w_13
-fastf_SystemExit___init__ = globals().pop("__init__")
+
+fastf_SystemExit___init__ = __init__
+del __init__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__init__'
 ## firstlineno 331
 ##SECTION##
-def __init__(space, *args_w):
-    kwlist = ["self"]
-    w_args = space.newtuple(list(args_w[1:]))
-    _args_w = args_w[:1]
-    defaults_w = ()
+def __init__(space, __args__):
     funcname = "__init__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], 'args', None
+    def_w = []
+    w_self, w_args = __args__.parse(funcname, signature, def_w)
     return fastf_UnicodeDecodeError___init__(space, w_self, w_args)
-f_UnicodeDecodeError___init__ = globals().pop("__init__")
+
+f_UnicodeDecodeError___init__ = __init__
+del __init__
 
 def __init__(space, w_self, w_args):
 
@@ -914,21 +927,24 @@ def __init__(space, w_self, w_args):
 
         if goto == 3:
             return w_6
-fastf_UnicodeDecodeError___init__ = globals().pop("__init__")
+
+fastf_UnicodeDecodeError___init__ = __init__
+del __init__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\lib\\_exceptions.py'
+## filename    '/home/tinuviel/pypy/pypy/lib/_exceptions.py'
 ## function    '__str__'
 ## firstlineno 342
 ##SECTION##
-def __str__(space, *args_w):
-    kwlist = ["self"]
-    _args_w = args_w
-    defaults_w = ()
+def __str__(space, __args__):
     funcname = "__str__"
-    w_self, = PyArg_ParseMini(space, funcname, 1, 1, _args_w, defaults_w)
+    signature = ['self'], None, None
+    def_w = []
+    w_self, = __args__.parse(funcname, signature, def_w)
     return fastf_UnicodeDecodeError___str__(space, w_self)
-f_UnicodeDecodeError___str__ = globals().pop("__str__")
+
+f_UnicodeDecodeError___str__ = __str__
+del __str__
 
 def __str__(space, w_self):
 
@@ -940,43 +956,38 @@ def __str__(space, w_self):
 
         if goto == 1:
             w_0 = space.getattr(w_self, gs_object, space.w_None)
-            _tup = space.newtuple([w_0])
-            w_2 = space.call(space.w_str, _tup)
+            w_2 = space.call_function(space.w_str, w_0)
             w_3 = space.add(gs_object_, w_2)
             w_4 = space.getattr(w_self, gs_end, space.w_None)
-            _tup = space.newtuple([w_4])
-            w_5 = space.call(space.w_str, _tup)
+            w_5 = space.call_function(space.w_str, w_4)
             w_6 = space.add(gs_end_, w_5)
             w_7 = space.getattr(w_self, gs_encoding, space.w_None)
-            _tup = space.newtuple([w_7])
-            w_8 = space.call(space.w_str, _tup)
+            w_8 = space.call_function(space.w_str, w_7)
             w_9 = space.add(gs_encoding_, w_8)
             w_10 = space.getattr(w_self, gs_args, space.w_None)
-            _tup = space.newtuple([w_10])
-            w_11 = space.call(space.w_str, _tup)
+            w_11 = space.call_function(space.w_str, w_10)
             w_12 = space.add(gs_args_, w_11)
             w_13 = space.getattr(w_self, gs_start, space.w_None)
-            _tup = space.newtuple([w_13])
-            w_14 = space.call(space.w_str, _tup)
+            w_14 = space.call_function(space.w_str, w_13)
             w_15 = space.add(gs_start_, w_14)
             w_16 = space.getattr(w_self, gs_reason, space.w_None)
-            _tup = space.newtuple([w_16])
-            w_17 = space.call(space.w_str, _tup)
+            w_17 = space.call_function(space.w_str, w_16)
             w_18 = space.add(gs_reason_, w_17)
             w_19 = space.newlist([w_3, w_6, w_9, w_12, w_15, w_18])
-            _tup = space.newtuple([w_19])
-            w_res = space.call(gbltinmethod_join, _tup)
+            w_res = space.call_function(gbltinmethod_join, w_19)
             w_21 = w_res
             goto = 2
 
         if goto == 2:
             return w_21
-fastf_UnicodeDecodeError___str__ = globals().pop("__str__")
+
+fastf_UnicodeDecodeError___str__ = __str__
+del __str__
 
 ##SECTION##
-## filename    'D:\\pypy\\dist\\pypy\\translator\\geninterplevel.py'
+## filename    'geninterplevel.py'
 ## function    'test_exceptions'
-## firstlineno 1272
+## firstlineno 1306
 ##SECTION##
 # global declarations
 # global object gfunc_test_exceptions
@@ -984,17 +995,19 @@ fastf_UnicodeDecodeError___str__ = globals().pop("__str__")
 # global object g47dict
 # global object gs_keys
 
-def test_exceptions(space, *args_w):
+def test_exceptions(space, __args__):
     """ enumerate all exceptions """
-    kwlist = []
-    _args_w = args_w
-    defaults_w = ()
-    funcname = "test_exceptions"
-    PyArg_ParseMini(space, funcname, 0, 0, _args_w, defaults_w)
-    return fastf_test_exceptions(space, )
-f_test_exceptions = globals().pop("test_exceptions")
 
-def test_exceptions(space, ):
+    funcname = "test_exceptions"
+    signature = [], None, None
+    def_w = []
+    __args__.parse(funcname, signature, def_w)
+    return fastf_test_exceptions(space)
+
+f_test_exceptions = test_exceptions
+del test_exceptions
+
+def test_exceptions(space):
     """ enumerate all exceptions """
 
     w_0=w_1=None
@@ -1003,14 +1016,15 @@ def test_exceptions(space, ):
     while True:
 
         if goto == 1:
-            _tup = space.newtuple([])
-            w_0 = space.call(gbltinmethod_keys, _tup)
+            w_0 = space.call_function(gbltinmethod_keys, )
             w_1 = w_0
             goto = 2
 
         if goto == 2:
             return w_1
-fastf_test_exceptions = globals().pop("test_exceptions")
+
+fastf_test_exceptions = test_exceptions
+del test_exceptions
 
 # global declarations
 # global object gs_MemoryError
@@ -1149,38 +1163,6 @@ def inittest_exceptions_1(space):
     m.g47dict = space.newdict([])
     m.gs_keys = space.wrap('keys')
     m.gbltinmethod_keys = space.getattr(g47dict, gs_keys)
-    def PyArg_ParseMini(space, name, minargs, maxargs, args_w, defaults_w):
-        err = None
-        if len(args_w) < minargs:
-            txt = "%s() takes at least %d argument%s (%d given)"
-            plural = ['s', ''][minargs == 1]
-            err = (name, minargs, plural, len(args_w))
-        if len(args_w) > maxargs:
-            plural = ['s', ''][maxargs == 1]
-            if minargs == maxargs:
-                if minargs == 0:
-                    txt = '%s() takes no arguments (%d given)'
-                    err = (name, len(args_w))
-                elif minargs == 1:
-                    txt = '%s() takes exactly %d argument%s (%d given)'
-                    err = (name, maxargs, plural, len(args_w))
-            else:
-                txt = '%s() takes at most %d argument%s (%d given)'
-                err = (name, maxargs, plural, len(args_w))
-        if err:
-            w_txt = space.wrap(txt)
-            w_tup = space.wrap(err)
-            w_txt = space.mod(w_txt, w_tup)
-            raise OperationError(space.w_TypeError, w_txt)
-    
-        # finally, we create the result ;-)
-        res_w = args_w + defaults_w[len(args_w) - minargs:]
-        assert len(res_w) == maxargs
-        return res_w
-    
-    m.PyArg_ParseMini = PyArg_ParseMini
-    from pypy.interpreter.error import OperationError
-    m.OperationError = OperationError
     m.gs_MemoryError = space.wrap('MemoryError')
     _dic = space.newdict([])
     m.gs___module__ = space.wrap('__module__')
@@ -1669,11 +1651,16 @@ the Python version, and the hardware/OS platform and version.""")
     m.gs_encoding_ = space.wrap('encoding=')
     m.gi_5 = space.newint(5)
 
-# entry point: test_exceptions, gfunc_test_exceptions)
+# entry point: test_exceptions, gfunc_test_exceptions
 if __name__ == "__main__":
     from pypy.objspace.std import StdObjSpace
+    from pypy.objspace.std.default import UnwrapError
     space = StdObjSpace()
     inittest_exceptions_1(space)
-    print space.unwrap(space.call(
-            gfunc_test_exceptions, space.newtuple([])))
+    ret = space.call(gfunc_test_exceptions, space.newtuple([]))
+    try:
+        print space.unwrap(ret)
+    except UnwrapError:
+        print "cannot unwrap, here the wrapped result:"
+        print ret
 
