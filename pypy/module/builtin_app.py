@@ -80,7 +80,7 @@ def reduce(function, list, *initialt):
        try:
          initial = function(initial, list[idx])
          idx = idx + 1
-       except:
+       except IndexError:
          break
     return initial
     

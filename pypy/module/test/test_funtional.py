@@ -35,8 +35,37 @@ class TestMap(testsupport.TestCase):
       self.assertEqual(map(lambda x, y: x, a, b), a)
 
 class TestZip(testsupport.TestCase):
-   pass
-      
+   def test_one_list(self):
+      self.assertEqual(zip([1,2,3]), [(1,), (2,), (3,)])
+
+   def test_three_lists(self):
+      self.assertEqual(zip([1,2,3], [1,2], [1,2,3]), [(1,1,1), (2,2,2)])
+
+class TestReduce(testsupport.TestCase):
+   def test_None(self):
+       self.assertRaises(TypeError, reduce, lambda x, y: x+y, [1,2,3], None)
+
+   def test_sum(self):
+       self.assertEqual(reduce(lambda x, y: x+y, [1,2,3,4], 0), 10)
+       self.assertEqual(reduce(lambda x, y: x+y, [1,2,3,4]), 10)
+   
+   def test_minus(self):
+       self.assertEqual(reduce(lambda x, y: x-y, [10, 2, 8]), 0)
+       self.assertEqual(reduce(lambda x, y: x-y, [2, 8], 10), 0)
+
+class TestFilter(testsupport.TestCase):
+   def test_None(self):
+       self.assertEqual(filter(None, ['a', 'b', 1, 0, None]), ['a', 'b', 1])
+
+   def test_return_type(self):
+       txt = "This is a test text"
+       self.assertEqual(filter(None, txt), txt)
+       tup = ("a", None, 0, [], 1)
+       self.assertEqual(filter(None, tup), ("a", 1))
+       
+   def test_function(self):
+       self.assertEqual(filter(lambda x: x != "a", "a small text"), " smll text")
+
 if __name__ == '__main__':
     testsupport.main()
 
