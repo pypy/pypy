@@ -148,7 +148,7 @@ def XX(func, a, b, c, d, x, s, ac):
     return res & 0xffffffffL
 
 
-class MD5:
+class MD5Type:
     "An implementation of the MD5 hash function in pure Python."
 
     def __init__(self):
@@ -417,7 +417,7 @@ def new(arg=None):
     If arg is present, the method call update(arg) is made.
     """
 
-    md5 = MD5()
+    md5 = MD5Type()
     if arg:
         md5.update(arg)
 
