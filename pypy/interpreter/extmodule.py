@@ -1,4 +1,4 @@
-
+from pycode import PyBaseCode
 
 class appmethod(object):
     def __init__(self, func):

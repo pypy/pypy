@@ -1,14 +1,15 @@
 from pypy.objspace.std import StdObjSpace
 from pypy.objspace.trivial import TrivialObjSpace
 import executioncontext, baseobjspace, pyframe
-from pypy.module.builtin import compile
 
 import sys
 
 def run_string(source, fname):
     try:
         space = StdObjSpace()
-        code = compile(source, fname, 'exec')
+        compile = space.builtin.compile
+        w=space.wrap
+        code = compile(w(source), w(fname), w('exec'))
         ec = executioncontext.ExecutionContext(space)
 
         w_mainmodule = space.newmodule(space.wrap("__main__"))
