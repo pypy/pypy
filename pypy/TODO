@@ -1,4 +1,11 @@
-* Provide an importer that can import packages.
+* String Formatting: the % mod operator needs to be implemented 
+  for dicts and the current hack for tuples (which just unwraps 
+  to cpython and calls the % operator) needs to be properly 
+  written at interp- or app-level. 
+
+* Provide an importer that can import packages. (we have a 
+  limited __import__ builtin defined) 
+
   Consider PEP 302, new import hooks.
   Try to write as much as possible in app-level.
   How would PyPy import CPython extensions?
