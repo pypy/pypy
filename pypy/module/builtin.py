@@ -39,8 +39,9 @@ class Builtin(BuiltinModule):
             if w_mod is not None:
                 space.setitem(space.w_modules,w_modulename,w_mod)
                 return w_mod
+            w_exc = space.call_function(space.w_ImportError, w_modulename)
             raise executioncontext.OperationError(
-                      space.w_ImportError, w_modulename)
+                      space.w_ImportError, w_exc)
     __import__ = appmethod(__import__)
 
     def compile(self, w_str, w_filename, w_startstr,
