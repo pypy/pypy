@@ -281,6 +281,7 @@ def list_extend(space, w_list, w_any):
     items = w_list.ob_item
     for i in range(len(lis)):
         items[d+i] = lis[i]
+    w_list.ob_size = newlen
     return space.w_None
 
 """
