@@ -257,6 +257,8 @@ class GraphDisplay(Display):
             return
         edge = self.viewer.edge_at_position(pos)
         if edge:
+            info = '%s -> %s' % (edge.tail.label, edge.head.label)
+            self.setstatusbar(info)
             self.sethighlight(obj=edge)
             return
         self.sethighlight()
