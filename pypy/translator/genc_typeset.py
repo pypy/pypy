@@ -7,7 +7,7 @@ from pypy.translator.typer import CannotConvert
 from pypy.translator.genc_repr import R_VOID, R_INT, R_OBJECT, R_UNDEFINED
 from pypy.translator.genc_repr import tuple_representation
 from pypy.translator.genc_repr import constant_representation, CConstant
-from pypy.translator.genc_repr import c_str, manglestr
+from pypy.translator.genc_repr import instance_representation, CInstance
 
 
 class CTypeSet:
@@ -56,6 +56,9 @@ class CTypeSet:
             if isinstance(var, annmodel.SomeTuple):
                 items_r = [self.gethltype(s_item) for s_item in var.items]
                 return tuple_representation(items_r)
+            if isinstance(var, annmodel.SomeInstance):
+                llclass = self.genc.llclasses[var.knowntype]
+                return instance_representation(llclass)
             # fall-back
             return R_OBJECT
         if isinstance(var, UndefinedConstant):
@@ -142,7 +145,9 @@ class CTypeSet:
             # Instantiating a user-defined class
             if fn in self.genc.llclasses:
                 # XXX do __init__
-                sig = (r, R_OBJECT)   # R_OBJECT is the result of the op
+                llclass = self.genc.llclasses[fn]
+                r_result = instance_representation(llclass)
+                sig = (r, r_result)   # r_result is the result of the op
                 yield sig, genc_op.LoInstantiate.With(
                     llclass = self.genc.llclasses[fn],
                     )
@@ -164,9 +169,38 @@ class CTypeSet:
             if not callable(fn):
                 return
             if fn in self.genc.llclasses:
-                sig = (r, R_OBJECT)   # R_OBJECT is the result
+                llclass = self.genc.llclasses[fn]
+                r_result = instance_representation(llclass)
+                sig = (r, r_result)   # r_result is the result of the op
                 yield sig, genc_op.LoAllocInstance.With(
-                    llclass = self.genc.llclasses[fn],
+                    llclass = llclass,
+                    )
+
+    def extend_OP_GETATTR(self, hltypes):
+        if len(hltypes) != 3:
+            return
+        r_obj, r_attr, r_result = hltypes
+        if isinstance(r_obj, CInstance) and isinstance(r_attr, CConstant):
+            # record the OP_GETATTR operation for this field
+            fld = r_obj.llclass.getfield(r_attr.value)
+            if fld is not None:
+                sig = (r_obj, constant_representation(fld.name), fld.hltype)
+                yield sig, genc_op.LoGetAttr.With(
+                    fld     = fld,
+                    )
+
+    def extend_OP_SETATTR(self, hltypes):
+        if len(hltypes) != 4:
+            return
+        r_obj, r_attr, r_value, r_voidresult = hltypes
+        if isinstance(r_obj, CInstance):
+            # record the OP_SETATTR operation for this field
+            fld = r_obj.llclass.getfield(r_attr.value)
+            if fld is not None:
+                sig = (r_obj, constant_representation(fld.name), fld.hltype,
+                       R_VOID)
+                yield sig, genc_op.LoSetAttr.With(
+                    fld     = fld,
                     )
 
     # ____________________________________________________________

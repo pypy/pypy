@@ -149,6 +149,30 @@ class CTuple(CRepr):
         else:
             raise CannotConvert
 
+
+class CInstance(CRepr):
+    "An instance of some class (or a subclass of it)."
+    impl = ['PyObject*']
+
+    def __init__(self, llclass):
+        self.llclass = llclass     # instance of classtyper.LLClass
+
+    def __repr__(self):
+        cls = self.llclass.cdef.cls
+        return 'CInstance(%s.%s)' % (cls.__module__, cls.__name__)
+
+    def convert_to(self, target, typeset):
+        if isinstance(target, CInstance):
+            # can convert to an instance of a parent class
+            if target.llclass.cdef not in self.llclass.cdef.getmro():
+                raise CannotConvert
+            return genc_op.LoCopy
+        elif target == R_OBJECT:
+            # can convert to a generic PyObject*
+            return genc_op.LoCopy
+        else:
+            raise CannotConvert
+
 # ____________________________________________________________
 #
 # Predefined CReprs and caches for building more
@@ -160,6 +184,7 @@ R_UNDEFINED = CUndefined()
 
 R_TUPLE_CACHE    = {}
 R_CONSTANT_CACHE = {}
+R_INSTANCE_CACHE = {}
 
 def tuple_representation(items_r):
     items_r = tuple(items_r)
@@ -193,6 +218,13 @@ def constant_representation(value):
         else:
             cls = CConstant
         r = R_CONSTANT_CACHE[key] = cls(value)
+        return r
+
+def instance_representation(llclass):
+    try:
+        return R_INSTANCE_CACHE[llclass]
+    except KeyError:
+        r = R_INSTANCE_CACHE[llclass] = CInstance(llclass)
         return r
 
 

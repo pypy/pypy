@@ -99,6 +99,9 @@
 #define ALLOC_INSTANCE(cls, r, err)                             \
 		if (!(r=PyType_GenericAlloc(&cls##_Type, 0))) goto err;
 
+#define GET_ATTR_py(fld, r)   r=fld; Py_INCREF(r);
+#define SET_ATTR_py(fld, v)   { PyObject* o=fld; fld=v;         \
+                                Py_INCREF(v); Py_XDECREF(o); }
 
 /* a few built-in functions */
 

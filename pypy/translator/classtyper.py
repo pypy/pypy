@@ -66,6 +66,32 @@ class LLClass(LLTyper):
             fld.name for fld in self.fields if fld.hltype == R_OBJECT]
         self.s_instance = annmodel.SomeInstance(self.cdef)
 
+    def getparent(self):
+        if self.cdef.basedef is None:
+            return None
+        else:
+            return self.typeset.genc.llclasses[self.cdef.basedef.cls]
+
+    def getfield(self, name):
+        """Returns the ClassField corresponding to this attribute name.
+        Keep in mind that it might be from some parent LLClass."""
+        while self is not None:
+            for fld in self.fields:
+                if fld.name == name:
+                    return fld
+            self = self.getparent()
+        return None
+
+    def getfields(self):
+        "Return the list of all fields, including the ones from the parent."
+        parent = self.getparent()
+        if parent is None:
+            fields = []
+        else:
+            fields = parent.getfields()
+        fields += self.fields
+        return fields
+
     def get_management_functions(self):
         "Generate LLFunctions that operate on this class' structure."
         yield self.make_fn_new()
@@ -90,7 +116,7 @@ class LLClass(LLTyper):
         v1 = op('alloc_instance', Constant(cls),
                 s_result = self.s_instance)
         # class attributes are used as defaults to initialize fields
-        for fld in self.fields:
+        for fld in self.getfields():
             if hasattr(cls, fld.name):
                 value = getattr(cls, fld.name)
                 op('setattr', v1, Constant(fld.name), Constant(value),

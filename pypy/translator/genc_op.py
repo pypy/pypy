@@ -150,6 +150,40 @@ class LoNewTuple(LoC):
                       (result, i, a, a))
         return '\n'.join(ls)
 
+class LoGetAttr(LoC):
+    cost = 1
+    fld  = PARAMETER
+
+    def writestr(self, inst, *result):
+        assert len(result) == len(self.fld.llvars)
+        ls = []
+        llclass = self.fld.llclass
+        for src, dstname in zip(self.fld.llvars, result):
+            fldexpr = '((%s_Object*) %s)->%s' % (llclass.name, inst,
+                                                 src.name)
+            if src.type == 'PyObject*':
+                ls.append('GET_ATTR_py(%s, %s)' % (fldexpr, dstname))
+            else:
+                ls.append('%s = %s;' % (dstname, fldexpr))
+        return '\n'.join(ls)
+
+class LoSetAttr(LoC):
+    cost = 1
+    fld  = PARAMETER
+
+    def writestr(self, inst, *value):
+        assert len(value) == len(self.fld.llvars)
+        ls = []
+        llclass = self.fld.llclass
+        for srcname, dst in zip(value, self.fld.llvars):
+            fldexpr = '((%s_Object*) %s)->%s' % (llclass.name, inst,
+                                                 dst.name)
+            if dst.type == 'PyObject*':
+                ls.append('SET_ATTR_py(%s, %s)' % (fldexpr, srcname))
+            else:
+                ls.append('%s = %s;' % (fldexpr, srcname))
+        return '\n'.join(ls)
+
 class LoConvertChain(LoOptimized):
     r_from   = PARAMETER
     r_middle = PARAMETER
