@@ -33,14 +33,15 @@ def getobjspace(name=None, _spacecache={}):
         module = __import__("pypy.objspace.%s" % name, None, None, ["Space"])
         space = module.Space()
         _spacecache[name] = space
-        space.setitem(space.w_builtins, space.wrap('AssertionError'), 
-                      pytestsupport.build_pytest_assertion(space))
-        space.setitem(space.w_builtins, space.wrap('raises'),
-                      space.wrap(pytestsupport.app_raises))
-        space.setitem(space.w_builtins, space.wrap('skip'),
-                      space.wrap(pytestsupport.app_skip))
-        space.raises_w = pytestsupport.raises_w.__get__(space)
-        space.eq_w = pytestsupport.eq_w.__get__(space) 
+	if name != 'flow': # not sensible for flow objspace case
+	    space.setitem(space.w_builtins, space.wrap('AssertionError'), 
+                          pytestsupport.build_pytest_assertion(space))
+            space.setitem(space.w_builtins, space.wrap('raises'),
+                          space.wrap(pytestsupport.app_raises))
+            space.setitem(space.w_builtins, space.wrap('skip'),
+                          space.wrap(pytestsupport.app_skip))
+	    space.raises_w = pytestsupport.raises_w.__get__(space)
+            space.eq_w = pytestsupport.eq_w.__get__(space) 
         return space
 
 # 

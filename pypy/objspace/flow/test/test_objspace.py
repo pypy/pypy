@@ -1,13 +1,11 @@
 import autopath
-from pypy.tool import testit
 from pypy.objspace.flow.model import Constant
 from pypy.interpreter.argument import Arguments
 
 
-class TestFlowObjSpace(testit.TestCase):
-    def setUp(self):
-        self.space = testit.objspace('flow')
+objspacename = 'flow'
 
+class TestFlowObjSpace:
     def codetest(self, func):
         import inspect
         try:
@@ -35,9 +33,9 @@ class TestFlowObjSpace(testit.TestCase):
 
     def test_nothing(self):
         x = self.codetest(self.nothing)
-        self.assertEquals(len(x.startblock.exits), 1)
+        assert len(x.startblock.exits) == 1
         link, = x.startblock.exits
-        self.assertEquals(link.target, x.returnblock)
+        assert link.target == x.returnblock
         self.show(x)
 
     #__________________________________________________________
@@ -340,19 +338,16 @@ class TestFlowObjSpace(testit.TestCase):
     
     def test_specialcases(self):
         x = self.codetest(self.specialcases)
-        self.assertEquals(len(x.startblock.operations), 13)
+        assert len(x.startblock.operations) == 13
         for op in x.startblock.operations:
-            self.assert_(op.opname in ['lt', 'le', 'eq', 'ne',
-                                       'gt', 'ge', 'is_'])
-            self.assertEquals(len(op.args), 2)
-            self.assertEquals(op.args[0].value, 2)
-            self.assertEquals(op.args[1].value, 3)
+            assert op.opname in ['lt', 'le', 'eq', 'ne',
+                                       'gt', 'ge', 'is_']
+            assert len(op.args) == 2
+            assert op.args[0].value == 2
+            assert op.args[1].value == 3
 
 DATA = {'x': 5,
         'y': 6}
 
 def user_defined_function():
     pass
-
-if __name__ == '__main__':
-    testit.main()

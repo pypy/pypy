@@ -1,15 +1,13 @@
 
 import autopath
-from pypy.tool import testit
 
 from pypy.objspace.flow.flowcontext import *
 from pypy.objspace.flow.model import *
 from pypy.interpreter.pycode import PyCode
 
-class TestFrameState(testit.TestCase):
-    def setUp(self):
-        self.space = testit.objspace('flow')
+objspacename = 'flow'
 
+class TestFrameState:
     def getframe(self, func):
         space = self.space
         try:
@@ -37,47 +35,47 @@ class TestFrameState(testit.TestCase):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
         fs2 = FrameState(frame)
-        self.assertEquals(fs1, fs2)
+        assert fs1 == fs2
 
     def test_neq_hacked_framestate(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
         frame.fastlocals_w[-1] = Variable()
         fs2 = FrameState(frame)
-        self.assertNotEquals(fs1, fs2)
+        assert fs1 != fs2
 
     def test_union_on_equal_framestates(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
         fs2 = FrameState(frame)
-        self.assertEquals(fs1.union(fs2), fs1)
+        assert fs1.union(fs2) == fs1
 
     def test_union_on_hacked_framestates(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
         frame.fastlocals_w[-1] = Variable()
         fs2 = FrameState(frame)
-        self.assertEquals(fs1.union(fs2), fs2)  # fs2 is more general
-        self.assertEquals(fs2.union(fs1), fs2)  # fs2 is more general
+        assert fs1.union(fs2) == fs2  # fs2 is more general
+        assert fs2.union(fs1) == fs2  # fs2 is more general
 
     def test_restore_frame(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
         frame.fastlocals_w[-1] = Variable()
         fs1.restoreframe(frame)
-        self.assertEquals(fs1, FrameState(frame))
+        assert fs1 == FrameState(frame)
 
     def test_copy(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
         fs2 = fs1.copy()
-        self.assertEquals(fs1, fs2)
+        assert fs1 == fs2
 
     def test_getvariables(self):
         frame = self.getframe(self.func_simple)
         fs1 = FrameState(frame)
         vars = fs1.getvariables()
-        self.assertEquals(len(vars), 1) 
+        assert len(vars) == 1 
 
     def test_getoutputargs(self):
         frame = self.getframe(self.func_simple)
@@ -87,7 +85,7 @@ class TestFrameState(testit.TestCase):
         outputargs = fs1.getoutputargs(fs2)
         # 'x' -> 'x' is a Variable
         # fastlocals_w[-1] -> fastlocals_w[-1] is Constant(None)
-        self.assertEquals(outputargs, [frame.fastlocals_w[0], Constant(None)])
+        assert outputargs == [frame.fastlocals_w[0], Constant(None)]
 
     def test_union_different_constants(self):
         frame = self.getframe(self.func_simple)
@@ -96,14 +94,4 @@ class TestFrameState(testit.TestCase):
         fs2 = FrameState(frame)
         fs3 = fs1.union(fs2)
         fs3.restoreframe(frame)
-        self.assert_(isinstance(frame.fastlocals_w[-1], Variable)) # generalized
-
-if __name__ == '__main__':
-    testit.main()
-        
-
-        
-        
-        
-        
-
+        assert isinstance(frame.fastlocals_w[-1], Variable) # generalized
