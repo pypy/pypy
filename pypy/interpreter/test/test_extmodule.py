@@ -87,6 +87,18 @@ class TestPyBuiltinCode(testsupport.TestCase):
         w_res = self.space.call_function(builtin_f, w_input)
         self.assertEqual_w(w_res, w_input)
 
+    def test_default(self):
+        space = self.space
+        w = space.wrap
+        def f(w_x, w_y=23):
+            return space.add(w_x, w_y)
+        builtin_f = extmodule.make_builtin_func(space, f)
+        w_input = w(42)
+        w_res = space.call_function(builtin_f, w_input)
+        self.assertEqual_w(w_res, w(65))
+        w_res = space.call_function(builtin_f, w_input, w(100))
+        self.assertEqual_w(w_res, w(142))
+        
 
 if __name__ == '__main__':
     testsupport.main()
