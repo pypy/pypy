@@ -383,6 +383,8 @@ class GenC:
         print >> f, 'static PyObject* %s(PyObject* self, PyObject* args)' % (
             f_name,)
         print >> f, '{'
+        print >> f, '#undef INSIDE_FUNCTION'
+        print >> f, '#define INSIDE_FUNCTION "%s"' % (f_name,)
 
         # collect and print all the local variables
         graph = self.translator.getflowgraph(func)
@@ -448,6 +450,8 @@ class GenC:
             else:
                 fmt = '%s\n'
             f.write(fmt % line)
+        print >> f, '#undef INSIDE_FUNCTION'
+        print >> f, '#define INSIDE_FUNCTION "unknown"'
         print >> f, '}'
 
         # print the PyMethodDef

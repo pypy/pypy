@@ -10,6 +10,7 @@
 /* Turn this off if you don't want the call trace frames to be built */
 #define USE_CALL_TRACE
 #define OBNOXIOUS_PRINT_STATEMENTS
+#define INSIDE_FUNCTION "<unknown>"
 
 #define op_richcmp(x,y,r,err,dir)   \
                        if (!(r=PyObject_RichCompare(x,y,dir))) goto err;
@@ -193,7 +194,7 @@ static PyTypeObject PyGenCFunction_Type = {
 #if defined(USE_CALL_TRACE)
 
 #define OP_SIMPLE_CALL(args, r, err) do { \
-	PyCodeObject *c = getcode("OP_SIMPLE_CALL" #args, __LINE__); \
+	PyCodeObject *c = getcode(INSIDE_FUNCTION " OP_SIMPLE_CALL" #args, __LINE__); \
 	PyThreadState *tstate = PyThreadState_GET(); \
 	PyFrameObject *f; \
 	if (c == NULL) { \
