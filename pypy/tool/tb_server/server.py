@@ -13,13 +13,12 @@ class TBRequestHandler(BaseHTTPRequestHandler):
             global server_thread
             server_thread = None
             raise SystemExit
-        parts = [x for x in self.path.split('/') if x]
+        i = self.path.find('/', 1)
+        parts = self.path[1:].split('/', 1)
         if not parts:
-            tb_name = 'traceback' 
-            args = []
+            tp_name = 'traceback'
         else:
             tb_name = parts[0]
-            args = parts[1:]
         if not self.views.has_key(tb_name):
             self.send_response(404)
             self.send_header("Content-Type", "text/plain")
@@ -27,7 +26,7 @@ class TBRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write('traceback named %r not found' % tb_name)
         else:
             tbview = self.views[tb_name]
-            s = tbview.render(args) 
+            s = tbview.render(self.path) 
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
