@@ -161,10 +161,3 @@ def xor(a, b):
     'xor(a, b) -- Same as a ^ b.'
     return a ^ b 
 __xor__ = xor
-
-# ugh:
-import types as _types
-for n in globals():
-    v = globals()[n]
-    if isinstance(v, _types.FunctionType):
-        globals()[n] = staticmethod(v)
