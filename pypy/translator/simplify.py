@@ -80,11 +80,12 @@ def remove_implicit_exceptions(graph):
                 link.prevblock.exits = tuple(lst)
     traverse(visit, graph)
 
-def simplify_graph(graph):
+def simplify_graph(graph, rpython=True):
     """inplace-apply all the existing optimisations to the graph."""
     checkgraph(graph)
     eliminate_empty_blocks(graph)
-    remove_implicit_exceptions(graph)
+    if rpython:
+        remove_implicit_exceptions(graph)
     join_blocks(graph)
     checkgraph(graph)
 
