@@ -200,7 +200,7 @@ are working in a DOS box (Windows) or terminal (MacOS/X or Linux).
    modules will not run yet, and others will run too slowly to be
    worth waiting for, but a few are fun to run::
    
-        >>>> import pystone
+        >>>> from test2 import pystone 
         >>>> pystone.main(10)
 
    Note that this is a slightly modified version of pystone -- the
@@ -212,16 +212,17 @@ are working in a DOS box (Windows) or terminal (MacOS/X or Linux).
 
 5. To list the PyPy interpreter command line options, type::
 
+        cd dist-pypy/pypy/interpreter 
         python py.py --help
 
    As an example of using PyPy from the command line, you could type::
 
-        python py.py -c "import pystone; pystone.main(10)"
+        python py.py -c "from test2 import pystone; pystone.main(10)"
 
    Alternatively, as with regular Python, you can simply give a
    script name on the command line::
 
-        python py.py ../appspace/pystone.py
+        python py.py ../lib/test2/pystone.py
 
    (Note that this will run "forever" -- actually, "just" for many
    hours, with the current implementation of PyPy.)
@@ -243,14 +244,22 @@ are working in a DOS box (Windows) or terminal (MacOS/X or Linux).
    ``test_all.py`` is actually just a synonym for `py.test`_ which is 
    our external testing tool. If you have installed that then you 
    can as well just issue ``py.test DIRECTORY_OR_FILE`` in order 
-   to perform test runs. 
+   to perform test runs or simply start it without arguments to 
+   run all tests below the current directory. 
 
-   Finally, there are some more advanced tests (which are derived from
-   some of the standard CPython tests).  These are not part of the unit
-   tests, because they take longer than the standard unit tests::
+   Finally, there are standard regression tests which you can 
+   run like this::
 
-        cd dist-pypy/pypy/interpreter
-        python py.py ../appspace/builtin_types_test.py
+        cd dist-pypy/lib-python-2.3.4/test 
+        python ../../pypy/test_all.py 
+
+   or if you have `installed py.test`_ then you simply say::
+
+        py.test 
+
+   from the lib-python-2.3.4/test directory. 
+
+.. _`installed py.test`: http://codespeak.net/py/current/doc/getting_started.html
 
 Trying out the translator
 =========================
