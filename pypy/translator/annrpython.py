@@ -24,6 +24,7 @@ class RPythonAnnotator:
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
         self.notify = {}         # {block: {factory-to-invalidate-when-done}}
+        self.bindingshistory = {}# map Variables to lists of SomeValues
         self.bookkeeper = Bookkeeper(self)
 
     #___ convenience high-level interface __________________
@@ -116,6 +117,14 @@ class RPythonAnnotator:
             return annmodel.immutablevalue(arg.value)
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
+
+    def setbinding(self, arg, s_value):
+        if arg in self.bindings:
+            # for debugging purposes, record the history of bindings that
+            # have been given to this variable
+            history = self.bindingshistory.setdefault(arg, [])
+            history.append(self.bindings[arg])
+        self.bindings[arg] = s_value
 
 
     #___ interface for annotator.factory _______
@@ -246,7 +255,7 @@ class RPythonAnnotator:
     def bindinputargs(self, block, inputcells):
         # Create the initial bindings for the input args of a block.
         for a, cell in zip(block.inputargs, inputcells):
-            self.bindings[a] = cell
+            self.setbinding(a, cell)
         self.annotated[block] = False  # must flowin.
 
     def mergeinputargs(self, block, inputcells):
@@ -288,7 +297,7 @@ class RPythonAnnotator:
             raise BlockedInference  # the operation cannot succeed
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
-        self.bindings[op.result] = resultcell   # bind resultcell to op.result
+        self.setbinding(op.result, resultcell)  # bind resultcell to op.result
 
     def default_consider_op(self, *args):
         return annmodel.SomeObject()
