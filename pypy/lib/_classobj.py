@@ -171,7 +171,7 @@ class classobj(object):
         dic['__class__'] = self
         init = instance_getattr1(inst,'__init__', False)
         if init:
-            ret = init(inst, *args, **kwds)
+            ret = init(*args, **kwds)
             if ret is not None:
                 raise TypeError("__init__() should return None")
         return inst
@@ -335,7 +335,7 @@ class instance(object):
         exec ("""
 def __%(op)s__(self):
    return instance_getattr1(self, '__%(op)s__')()
-""") % {"op": op}        
+""") % {"op": op}
     del op
 
 
@@ -509,4 +509,4 @@ def __%(op)s__(self, other):
                     return 0
                 raise TypeError,"__cmp__ must return int"
         return NotImplemented
-                    
+    
