@@ -1,5 +1,9 @@
 import sys, operator
 
+# producing nicer code objects by exec
+from pypy.tool.sourcetools import NiceCompile
+_compile = NiceCompile(globals())
+
 def coerce(left, right):
     # XXX this is just a surrogate for now
     # XXX the builtin coerce needs to be implemented by PyPy
@@ -345,50 +349,59 @@ class instance(object):
 
     # unary operators
     for op in "neg pos abs invert int long float oct hex".split():
-        exec ("""
-def __%(op)s__(self):
-   return instance_getattr1(self, '__%(op)s__')()
-""") % {"op": op}
+        exec _compile("""
+
+    def __%(op)s__(self):
+        return instance_getattr1(self, '__%(op)s__')()
+
+""", {"op": op})
     del op
 
 
     # binary operators    
     for op in "or and xor lshift rshift add sub mul div mod divmod floordiv truediv".split():
-        exec("""
-def __%(op)s__(self, other):
-    coerced = coerce(self, other)
-    if coerced is None or coerced[0] is self:
-        func = instance_getattr1(self, '__%(op)s__', False)
-        if func:
-            return func(other)
-        return NotImplemented
-    else:
-        return %(module)s%(op2)s(self, other)
+        opref = op
+        if op in ['and', 'or']:
+            opref = op + '_'
+        if op not in ['divmod']:
+            opref = 'operator.' + opref
+        exec _compile("""
 
-def __r%(op)s__(self, other):
-    coerced = coerce(self, other)
-    if coerced is None or coerced[0] is self:
-        func = instance_getattr1(self, '__r%(op)s__', False)
-        if func:
-            return func(other)
-        return NotImplemented
-    else:
-        return %(module)s%(op2)s(other, self)
-""") % {"op": op, "op2": (op, op+'_')[op in ('and', 'or', 'not')],
-        "module": ('operator.', '')[op == 'divmod']}
-    del op
+    def __%(op)s__(self, other):
+        coerced = coerce(self, other)
+        if coerced is None or coerced[0] is self:
+            func = instance_getattr1(self, '__%(op)s__', False)
+            if func:
+                return func(other)
+            return NotImplemented
+        else:
+            return %(opref)s(self, other)
+
+    def __r%(op)s__(self, other):
+        coerced = coerce(self, other)
+        if coerced is None or coerced[0] is self:
+            func = instance_getattr1(self, '__r%(op)s__', False)
+            if func:
+                return func(other)
+            return NotImplemented
+        else:
+            return %(opref)s(other, self)
+
+""", {"op": op, "opref": opref})
+    del op, opref
 
 
     # inplace operators    
     for op in 'mod and pow truediv lshift xor rshift floordiv div sub mul add or'.split():
-        exec ("""
-def __i%(op)s__(self, other):
-   func = instance_getattr1(self, '__i%(op)s__', False)
-   if func:
-       return func(other)
-   return NotImplemented
+        exec _compile("""
 
-""") % {"op": op}
+    def __i%(op)s__(self, other):
+       func = instance_getattr1(self, '__i%(op)s__', False)
+       if func:
+           return func(other)
+       return NotImplemented
+
+""", {"op": op})
     del op
 
 
@@ -451,14 +464,15 @@ def __i%(op)s__(self, other):
 
     # rich comparison operations
     for op in 'eq ne gt lt ge le'.split():
-        exec ("""
-def __%(op)s__(self, other):
+        exec _compile("""
+
+    def __%(op)s__(self, other):
         try:
             return instance_getattr1(self, '__%(op)s__')(other)
         except AttributeError:
             return NotImplemented
 
-""") % {"op": op}
+""", {"op": op})
     del op    
 
 
@@ -517,3 +531,4 @@ def __%(op)s__(self, other):
                 raise TypeError,"__cmp__ must return int"
         return NotImplemented
     
+del _compile, NiceCompile
