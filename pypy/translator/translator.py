@@ -45,7 +45,7 @@ from pypy.objspace.flow import FlowObjSpace
 
 class Translator:
 
-    def __init__(self, func, verbose=False, simplifying=False):
+    def __init__(self, func=None, verbose=False, simplifying=False):
         self.entrypoint = func
         self.verbose = verbose
         self.simplifying = simplifying
@@ -58,7 +58,8 @@ class Translator:
         self.functions = []   # the keys of self.flowgraphs, in creation order
         self.callgraph = {}   # {opaque_tag: (caller, callee)}
         self.frozen = False   # when frozen, no more flowgraphs can be generated
-        self.getflowgraph()
+        if self.entrypoint:
+            self.getflowgraph()
 
     def getflowgraph(self, func=None, called_by=None, call_tag=None):
         """Get the flow graph for a function (default: the entry point)."""
