@@ -27,7 +27,8 @@ class TestW_FloatObject(test.TestCase):
         f2 = fobj.W_FloatObject(self.space, y)
         f3 = fobj.W_FloatObject(self.space, z)
         self.assertEquals(self.space.w_TypeError,
-                          self._unwrap_nonimpl(fobj.pow__Float_Float_ANY, self.space, f1, f2, f3))
+                          self._unwrap_nonimpl(fobj.pow__Float_Float_ANY,
+                                               self.space, f1, f2, f3))
 
     def test_pow_ffn(self):
         x = 10.0
@@ -36,6 +37,12 @@ class TestW_FloatObject(test.TestCase):
         f2 = fobj.W_FloatObject(self.space, y)
         v = fobj.pow__Float_Float_ANY(self.space, f1, f2, self.space.w_None)
         self.assertEquals(v.floatval, x ** y)
+        f1 = fobj.W_FloatObject(self.space, -1.23)
+        f2 = fobj.W_FloatObject(self.space, -4.56)
+        self.assertEquals(self.space.w_ValueError,
+                          self._unwrap_nonimpl(fobj.pow__Float_Float_ANY,
+                                               self.space, f1, f2,
+                                               self.space.w_None))
 
 class AppFloatTest(test.AppTestCase):
     def setUp(self):

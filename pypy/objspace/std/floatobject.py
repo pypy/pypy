@@ -223,6 +223,9 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         z = x ** y
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError, space.wrap("float power"))
+    except ValueError, e:
+        raise FailedToImplement(space.w_ValueError, space.wrap(str(e)))
+
     return W_FloatObject(space, z)
 
 def neg__Float(space, w_float1):
