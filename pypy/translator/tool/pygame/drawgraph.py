@@ -429,7 +429,7 @@ class GraphRenderer:
     def search_for_node(self, searchstr, start_at=None):
         """Find a node that contains a search string."""
         iter = self.graphlayout.nodes.itervalues()
-        if start_at:
+        if start_at is not None:
             # Skip all nodes up to and including 'start_at'
             for node in iter:
                 if node is start_at:
