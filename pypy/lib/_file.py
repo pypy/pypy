@@ -79,9 +79,9 @@ Note:  open() is an alias for file().
     """
 
     def __init__(self, name, mode='r', bufsize=None):
-        self.mode = mode
-        self.name = name
-        self.closed = False
+        self._mode = mode
+        self._name = name
+        self._closed = True   # Until the file is successfully opened
         self.softspace = 0    # Required according to file object docs
         self.encoding = None  # This is not used internally by file objects
 
@@ -110,14 +110,15 @@ Note:  open() is an alias for file().
         if binary or universal:
             flag |= O_BINARY
 
-        fd = os.open(name, flag)
+        self.fd = os.open(name, flag)
         if basemode == 'a':
             try:
-                os.lseek(fd, 0, 2)
+                os.lseek(self.fd, 0, 2)
             except OSError:
                 pass
 
-        self.stream = _sio.DiskFile(fd)
+        self.stream = _sio.DiskFile(self.fd)
+        self._closed = False
 
         reading = basemode == 'r' or plus
         writing = basemode != 'r' or plus
@@ -144,9 +145,13 @@ Note:  open() is an alias for file().
             if reading:
                 self.stream = _sio.BufferingInputStream(self.stream, bufsize)
 
+    mode   = property(lambda self: self._mode)
+    name   = property(lambda self: self._name)
+    closed = property(lambda self: self._closed)
+
 
     def read(self, n=-1):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
         if n < 0:
             return self.stream.readall()
@@ -158,52 +163,57 @@ Note:  open() is an alias for file().
                     break
                 n -= len(data)
                 result.append(data)
-            return ''.join(data)
+            return ''.join(result)
 
     def readall(self):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
         return self.stream.readall()
 
     def readline(self):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
         return self.stream.readline()
 
     def readlines(self, sizehint=0):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
         return list(iter(self.stream.readline, ""))
 
     def write(self, data):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
+        if not isinstance(data, str):
+            raise TypeError('write() argument must be a string (for now)')
         return self.stream.write(data)
 
     def writelines(self, lines):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
         for line in lines:
+            if not isinstance(line, str):
+                raise TypeError('writelines() argument must be a list '
+                                'of strings')
             self.stream.write(line)
 
     def tell(self):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
         return self.stream.tell()
     
     def seek(self, offset, whence=0):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
         self.stream.seek(offset, whence)
 
     def __iter__(self):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
         return self
     xreadlines = __iter__
     
     def next(self):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
         line = self.stream.readline()
         if line == '':
@@ -211,24 +221,28 @@ Note:  open() is an alias for file().
         return line
 
     def truncate(self, size=None):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
         if size is None:
             size = self.stream.tell()
         self.stream.truncate(size)
 
     def flush(self):
-        if self.closed:
+        if self._closed:
             raise ValueError('I/O operation on closed file')
         self.stream.flush()
 
     def close(self):
-        if not self.closed:
-            self.closed = True
+        if not self._closed:
+            self._closed = True
             self.stream.close()
 
-    def readinto(self, a=None):
+    __del__ = close
+
+    def readinto(self, a):
         'Obsolete method, do not use it.'
+        if self._closed:
+            raise ValueError('I/O operation on closed file')
         from array import array
         if not isinstance(a, array):
             raise TypeError('Can only read into array objects')
@@ -237,3 +251,13 @@ Note:  open() is an alias for file().
         del a[:]
         a.fromstring(data + '\x00' * (length-len(data)))
         return len(data)
+
+    def fileno(self):
+        if self._closed:
+            raise ValueError('I/O operation on closed file')
+        return self.fd
+
+    def isatty(self):
+        if self._closed:
+            raise ValueError('I/O operation on closed file')
+        return os.isatty(self.fd)

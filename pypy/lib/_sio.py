@@ -470,6 +470,9 @@ class BufferingOutputStream(Stream):
     the stack of streams.
     """
 
+    bigsize = 2**19 # Half a Meg
+    bufsize = 2**13 # 8 K
+
     def __init__(self, base, bufsize=None):
         self.base = base
         self.do_write = base.write  # write more data
