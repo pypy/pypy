@@ -17,14 +17,6 @@ class TraceExecutionContext(ExecutionContext):
         #print "XXX %s, %s" % frame.examineop()
         self.space.notify_on_bytecode(frame)
 
-        
-    def dump(self):
-        bytecodes = self.list_of_bytecodes
-        self.list_of_bytecodes = []
-        return bytecodes
-    
-    
-
 class Logger(object):
     def __init__(self, name, fn, space, printme):
         self.fn = fn
@@ -69,15 +61,12 @@ def Trace(spacecls = StdObjSpace, logger_cls = Logger):
                     l = logger_cls(key, item, self, "class method")
                     setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
 
-
         def start_tracing(self):
             self.tracing = 1
             self.log_list = []
 
-
         def stop_tracing(self):
             self.tracing = 0 
-
 
         def createexecutioncontext(self):
             "Factory function for execution contexts."
@@ -94,17 +83,32 @@ def Trace(spacecls = StdObjSpace, logger_cls = Logger):
             if self.tracing:
                 self.log_list[-1][1].append((name, args))
 
-
         def dump(self):
             return self.log_list
 
-        
+        def rdump(self):
+            bytecodes = []
+            res = []
+            for bytecode, ops in self.log_list:
+                bytecodes.append(bytecode)
+                if ops:
+                    op = ops.pop(0)
+                    res.append((op, bytecodes))
+                    bytecodes = []
+                    for op in ops:
+                        res.append((op, []))
+
+            #the rest
+            res.append((None, bytecodes))
+            return res        
+
+                    
     return TraceObjSpace()
 
 
 Space = Trace
-s = Trace(TrivialObjSpace)
-#print dir(s)
+#s = Trace(TrivialObjSpace)
+s = Trace()
 # ______________________________________________________________________
 # End of trace.py
 
@@ -114,7 +118,6 @@ def add_func(space, func, w_globals):
     w_func_name = space.wrap(func_name)
     w_func = space.wrap(func)
     space.setitem(w_globals, w_func_name, w_func)
-
 
 def run_function(space, func, *args):
     # Get execution context and globals
@@ -128,11 +131,10 @@ def run_function(space, func, *args):
     args_w = [space.wrap(ii) for ii in args]
     code = func.func_code
     code = PyCode()._from_code(code)
-
     # Create frame
     frame = code.create_frame(space, w_globals)
     frame.setfastscope(args_w)
-
+    
     # start/stop tracing while running frame
     space.start_tracing()
     res = frame.run()
@@ -152,4 +154,8 @@ if __name__ == "__main__":
     print run_function(s, a, 3)
 
     print ">>>>>>"
-    print s.dump()
+    for line in s.dump():
+        print line
+    print ">>>>>>"
+    for line in s.rdump():
+        print line
