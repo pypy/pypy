@@ -14,7 +14,7 @@ def uid(o):
     return (MASK + id(o)) & (MASK-1)
 
 def type_err(arg, expected, v):
-   raise TypeError("argument %s must be %s, not %s" % (arg, expected, type(v).__name__))
+   return TypeError("argument %s must be %s, not %s" % (arg, expected, type(v).__name__))
 
 def set_name(cls, name):
     if not isinstance(name, str):
@@ -80,16 +80,16 @@ class classobj(object):
 
     def __new__(subtype, name, bases, dic):
         if not isinstance(name, str):
-            type_err('name', 'string', name)
+            raise type_err('name', 'string', name)
 
         if bases is None:
             bases = ()
 
         if not isinstance(bases, tuple):
-            type_err('bases', 'tuple', bases)
+            raise type_err('bases', 'tuple', bases)
         
         if not isinstance(dic, dict):
-            type_err('dict', 'dict', dic)
+            raise type_err('dict', 'dict', dic)
 
         try:
             dic['__doc__']
