@@ -54,6 +54,12 @@ class LazyModule(Module):
             self.lazy = False 
         return self.w_dict 
 
+    def _freeze_(self):
+        self.getdict()
+        # hint for the annotator: Modules can hold state, so they are
+        # not constant
+        return False
+
     def buildloaders(cls): 
         """ NOT_RPYTHON """ 
         if not hasattr(cls, 'loaders'): 

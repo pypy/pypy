@@ -594,6 +594,25 @@ class TestAnnonateTestCase:
         assert isinstance(s, annmodel.SomeInstance)
         assert s.knowntype is snippet.Exc
 
+    def test_freeze_protocol(self):
+        class Stuff:
+            def __init__(self, flag):
+                self.called = False
+                self.flag = flag
+            def _freeze_(self):
+                self.called = True
+                return self.flag
+        myobj = Stuff(True)
+        a = RPythonAnnotator()
+        s = a.build_types(lambda: myobj, [])
+        assert myobj.called
+        assert s == annmodel.SomePBC({myobj: True})
+        myobj = Stuff(False)
+        a = RPythonAnnotator()
+        s = a.build_types(lambda: myobj, [])
+        assert myobj.called
+        assert s == annmodel.SomeInstance(a.bookkeeper.getclassdef(Stuff))
+
 
 def g(n):
     return [0,1,2,n]

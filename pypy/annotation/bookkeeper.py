@@ -4,6 +4,7 @@ The Bookkeeper class.
 
 from types import FunctionType, ClassType, MethodType
 from types import BuiltinMethodType
+from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef
 from pypy.interpreter.miscutils import getthreadlocals
@@ -29,6 +30,7 @@ class Bookkeeper:
         self.userclasseslist = []# userclasses.keys() in creation order
         self.cachespecializations = {}
         self.pbccache = {}
+        self.pbctypes = {}
         # import ordering hack
         global BUILTIN_ANALYZERS
         from pypy.annotation.builtin import BUILTIN_ANALYZERS
@@ -64,6 +66,9 @@ class Bookkeeper:
         try:
             return self.userclasses[cls]
         except KeyError:
+            if cls in self.pbctypes:
+                self.warning("%r gets a ClassDef, but is the type of some PBC"
+                             % (cls,))
             cdef = ClassDef(cls, self)
             self.userclasses[cls] = cdef
             self.userclasseslist.append(cdef)
@@ -94,9 +99,8 @@ class Bookkeeper:
         elif callable(x) or isinstance(x, staticmethod): # XXX
             # maybe 'x' is a method bound to a not-yet-frozen cache?
             # fun fun fun.
-            if (hasattr(x, 'im_self') and isinstance(x.im_self, Cache)
-                and not x.im_self.frozen):
-                x.im_self.freeze()
+            if hasattr(x, 'im_self') and hasattr(x.im_self, '_freeze_'):
+                x.im_self._freeze_()
             if hasattr(x, '__self__') and x.__self__ is not None:
                 s_self = self.immutablevalue(x.__self__)
                 try:
@@ -107,9 +111,18 @@ class Bookkeeper:
                 return self.getpbc(x)
         elif hasattr(x, '__class__') \
                  and x.__class__.__module__ != '__builtin__':
-            if isinstance(x, Cache) and not x.frozen:
-                x.freeze()
-            return self.getpbc(x)
+            # user-defined classes can define a method _freeze_(), which
+            # is called when a prebuilt instance is found.  If the method
+            # returns True, the instance is considered immutable and becomes
+            # a SomePBC().  Otherwise it's just SomeInstance().
+            frozen = hasattr(x, '_freeze_') and x._freeze_()
+            if frozen:
+                return self.getpbc(x)
+            else:
+                clsdef = self.getclassdef(x.__class__)
+                for attr in x.__dict__:
+                    clsdef.add_source_for_attribute(attr, x)
+                return SomeInstance(clsdef)
         elif x is None:
             return self.getpbc(None)
         else:
@@ -124,15 +137,22 @@ class Bookkeeper:
             return self.pbccache[x]
         except KeyError:
             result = SomePBC({x: True}) # pre-built inst
-            clsdef = self.getclassdef(new_or_old_class(x))
-            for attr in getattr(x, '__dict__', {}):
-                clsdef.add_source_for_attribute(attr, x)
+            #clsdef = self.getclassdef(new_or_old_class(x))
+            #for attr in getattr(x, '__dict__', {}):
+            #    clsdef.add_source_for_attribute(attr, x)
             self.pbccache[x] = result
+            cls = new_or_old_class(x)
+            if cls not in self.pbctypes:
+                self.pbctypes[cls] = True
+                if cls in self.userclasses:
+                    self.warning("making some PBC of type %r, which has "
+                                 "already got a ClassDef" % (cls,))
             return result
 
     def valueoftype(self, t):
         """The most precise SomeValue instance that contains all
         objects of type t."""
+        assert isinstance(t, (type, ClassType))
         if t is bool:
             return SomeBool()
         elif t is int:
@@ -142,8 +162,7 @@ class Bookkeeper:
         elif t is list:
             return SomeList(factories={})
         # can't do dict, tuple
-        elif isinstance(t, (type, ClassType)) and \
-                 t.__module__ != '__builtin__':
+        elif t.__module__ != '__builtin__':
             classdef = self.getclassdef(t)
             return SomeInstance(classdef)
         else:
@@ -245,6 +264,13 @@ class Bookkeeper:
 
     def whereami(self):
         return self.annotator.whereami(self.position_key)
+
+    def warning(self, msg):
+        try:
+            pos = self.whereami()
+        except AttributeError:
+            pos = '?'
+        ansi_print("*** WARNING: [%s] %s" % (pos, msg), esc="31") # RED
 
     def specialize_by_key(self, thing, key, name=None):
         key = thing, key

@@ -522,6 +522,9 @@ class applevel:
         appcaller.get_function = get_function
         return appcaller
 
+    def _freeze_(self):
+        return True  # hint for the annotator: applevel instances are constants
+
 ## XXX experimental code using geninterplevel
 
 class applevelinterp(applevel):

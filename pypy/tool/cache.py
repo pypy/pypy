@@ -32,4 +32,10 @@ class Cache:
     getorbuild._specialize_ = "location"
 
     def freeze(self):
-        del self.frozen 
+        try:
+            del self.frozen
+        except AttributeError:
+            pass
+        return True
+
+    _freeze_ = freeze

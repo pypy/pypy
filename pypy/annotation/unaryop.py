@@ -3,7 +3,6 @@ Unary operations on SomeValues.
 """
 
 from types import FunctionType
-from pypy.tool.ansi_print import ansi_print
 from pypy.interpreter.argument import Arguments
 from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
@@ -90,8 +89,7 @@ class __extend__(SomeObject):
 
     def call(obj, args):
         #raise Exception, "cannot follow call_args%r" % ((obj, args),)
-        ansi_print("*** WARNING: [%s] cannot follow call(%r, %r)" %
-                   (getbookkeeper().whereami(), obj, args), esc="31") # RED
+        getbookkeeper().warning("cannot follow call(%r, %r)" % (obj, args))
         return SomeObject()
 
 class __extend__(SomeInteger):
@@ -238,17 +236,14 @@ class __extend__(SomePBC):
         for c in pbc.prebuiltinstances:
             if hasattr(c, attr):
                 # force the attribute to be considered on the class
-                classdef = bookkeeper.getclassdef(new_or_old_class(c))
-                classdef.find_attribute(attr).getvalue()
+                ##classdef = bookkeeper.getclassdef(new_or_old_class(c))
+                ##classdef.find_attribute(attr).getvalue()
                 # but only return the more precise result getattr(c, attr)
                 actuals.append(immutablevalue(getattr(c, attr)))
         return unionof(*actuals)
 
     def setattr(pbc, s_attr, s_value):
-        #raise Exception, "oops!"
-        ansi_print("*** WARNING: [%s] setattr not wanted on %r" %
-                   (getbookkeeper().whereami(), pbc), esc="31") # RED
-        pass
+        getbookkeeper().warning("setattr not wanted on %r" % (pbc,))
 
     def call(pbc, args):
         bookkeeper = getbookkeeper()
@@ -269,9 +264,9 @@ class __extend__(SomePBC):
         d = {}
         for func, value in pbc.prebuiltinstances.items():
             if isinstance(func, FunctionType): 
-                if isclassdef(value): 
-                    print ("!!! rebinding an already bound"
-                           " method %r with %r" % (func, value))
+                if isclassdef(value):
+                    getbookkeeper().warning("rebinding an already bound "
+                                            "method %r with %r" % (func, value))
                 d[func] = classdef
             elif isinstance(func, staticmethod):
                 d[func.__get__(43)] = value
