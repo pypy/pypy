@@ -40,13 +40,7 @@ class TestCase:
         assert False, msg
         
     def assertRaises(self, exc, call, *args, **kwargs): 
-        # Work around problem with py.test's raises
-        # raises(exc, call, *args, **kwargs) 
-        try:
-            call(*args, **kwargs)
-        except exc:
-            return
-        raise AssertionError('DID NOT RAISE')
+        raises(exc, call, *args, **kwargs) 
 
     def assertAlmostEqual(self, x, y, places=7, msg=None):
         if msg is None:
