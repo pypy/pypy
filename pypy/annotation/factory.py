@@ -14,6 +14,7 @@ from pypy.annotation.model import SomeObject, SomeInstance
 from pypy.annotation.model import unionof, immutablevalue
 from pypy.interpreter.miscutils import getthreadlocals
 from pypy.interpreter.pycode import CO_VARARGS
+from pypy.tool.hack import func_with_new_name
 
 
 class BlockedInference(Exception):
@@ -168,6 +169,7 @@ class CallableFactory:
             if func.im_self is not None:
                 s_self = immutablevalue(func.im_self)
                 args = [s_self] + list(args)
+            func.im_func.class_ = func.im_class
             func = func.im_func
         assert isinstance(func, FunctionType), "expected function, got %r"%func
         # do we need to specialize this function in several versions?
@@ -198,11 +200,7 @@ class CallableFactory:
             if isinstance(thing, FunctionType):
                 # XXX XXX XXX HAAAAAAAAAAAACK
                 self.bookkeeper.annotator.translator.getflowgraph(thing)
-                thing = new.function(thing.func_code, 
-                                     thing.func_globals, 
-                                     name or thing.func_name, 
-                                     thing.func_defaults, 
-                                     thing.func_closure)
+                thing = func_with_new_name(thing, name or thing.func_name)
             elif isinstance(thing, (type, ClassType)):
                 assert not "not working yet"
                 thing = type(thing)(name or thing.__name__, (thing,))
@@ -237,6 +235,8 @@ class ClassDef:
             # ignore some special attributes
             if name.startswith('_') and not isinstance(value, FunctionType):
                 continue
+            if isinstance(value, FunctionType):
+                value.class_ = cls # remember that this is really a method
             # although self.getallfactories() is currently empty,
             # the following might still invalidate some blocks if it
             # generalizes existing values in parent classes

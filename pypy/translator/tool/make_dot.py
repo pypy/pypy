@@ -10,7 +10,7 @@ from pypy.tool.udir import udir
 from py.process import cmdexec
 
 class DotGen:
-    
+
     def __init__(self, graphname, rankdir=None):
         self.graphname = graphname
         self.lines = []
@@ -72,7 +72,11 @@ class DotGen:
 
 class FlowGraphDotGen(DotGen):
 
+    def __init__(self, graphname, rankdir=None):
+        DotGen.__init__(self, graphname.replace('.', '_'), rankdir)
+
     def emit_subgraph(self, name, node):
+        name = name.replace('.', '_')
         self.blocks = {}
         self.prefix = name
         self.enter_subgraph(name)
@@ -93,7 +97,7 @@ class FlowGraphDotGen(DotGen):
 
     def visit_FunctionGraph(self, funcgraph):
         name = self.prefix # +'_'+funcgraph.name
-        data = name
+        data = funcgraph.name
         if hasattr(funcgraph, 'source'):
             source = funcgraph.source.replace('"', '\\"')
             data += "\\n" + "\\l".join(source.split('\n'))

@@ -17,7 +17,7 @@ COLOR = {
     'red': (255,0,0),
     'green': (0,255,0),
     }
-re_nonword=re.compile(r'(\W+)')
+re_nonword=re.compile(r'([^0-9a-zA-Z_.]+)')
 
 def highlight_color(color):
     intensity = sum(color)

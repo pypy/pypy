@@ -115,14 +115,17 @@ class FlowObjSpace(ObjSpace):
             closure = None
         else:
             closure = [extract_cell_content(c) for c in func.func_closure]
-        ec = flowcontext.FlowExecutionContext(self, code, func.func_globals,
-                                              constargs, closure)
-        self.setup_executioncontext(ec)
-        ec.build_flow()
+        # CallableFactory.pycall may add class_ to functions that are methods
         name = func.func_name
+        class_ = getattr(func, 'class_', None)
+        if class_ is not None:
+            name = '%s.%s' % (class_.__name__, name)
         for c in "<>&!":
             name = name.replace(c, '_')
-        ec.graph.name = name
+        ec = flowcontext.FlowExecutionContext(self, code, func.func_globals,
+                                              constargs, closure, name)
+        self.setup_executioncontext(ec)
+        ec.build_flow()
         checkgraph(ec.graph)
         return ec.graph
 

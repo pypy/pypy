@@ -75,7 +75,8 @@ class ConcreteNoOp:
 
 class FlowExecutionContext(ExecutionContext):
 
-    def __init__(self, space, code, globals, constargs={}, closure=None):
+    def __init__(self, space, code, globals, constargs={}, closure=None,
+                 name=None):
         ExecutionContext.__init__(self, space)
         self.code = code
         self.w_globals = w_globals = space.wrap(globals)
@@ -95,7 +96,7 @@ class FlowExecutionContext(ExecutionContext):
             self.joinpoints[joinpoint] = []  # list of blocks
         initialblock = SpamBlock(FrameState(frame).copy())
         self.pendingblocks = [initialblock]
-        self.graph = FunctionGraph(code.co_name, initialblock)
+        self.graph = FunctionGraph(name or code.co_name, initialblock)
 
     def create_frame(self):
         # create an empty frame suitable for the code object

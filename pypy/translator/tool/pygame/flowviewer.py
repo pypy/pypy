@@ -164,7 +164,11 @@ class TranslatorLayout(GraphLayout):
         dotgen.emit_node('entry', fillcolor="green", shape="octagon",
                          label="Translator\\nEntry Point")
         for func in functions:
-            data = self.labelof(func, func.func_name)
+            name = func.func_name
+            class_ = getattr(func, 'class_', None)
+            if class_ is not None:
+                name = '%s.%s' % (class_.__name__, name)
+            data = self.labelof(func, name)
             if func in highlight_functions:
                 kw = {'fillcolor': '#ffcccc'}
             else:
