@@ -139,9 +139,9 @@ class Method(Wrappable):
         self.space = space
         self.w_function = w_function
         self.w_instance = w_instance   # or None
-        self.w_class = w_class
+        self.w_class = w_class         # possibly space.w_None
         
-    def descr_method__new__(space, w_subtype, w_function, w_instance, w_class):
+    def descr_method__new__(space, w_subtype, w_function, w_instance, w_class=None):
         method = space.allocate_instance(Method, w_subtype)
         if space.is_w( w_instance, space.w_None ):
             w_instance = None
@@ -180,7 +180,9 @@ class Method(Wrappable):
             # only allow binding to a more specific class than before
             #if w_cls == space.w_None:
             #    w_cls = space.type(w_obj)
-            if w_cls is not None and w_cls != space.w_None and not space.is_true(space.abstract_issubclass(w_cls, self.w_class)):
+            if (w_cls is not None and
+                not space_is_w(w_cls, space.w_None) and
+                not space.is_true(space.abstract_issubclass(w_cls, self.w_class))):
                 return space.wrap(self)   # subclass test failed
             return space.get(self.w_function, w_obj, w_cls)
 
