@@ -19,7 +19,7 @@ def app_triggerall():
         except ValueError:
             pass
             
-    gen.func_code.co_name
+    #gen.func_code.co_name
     str({'co_name': ('f',)}), str(object.__init__.im_func.func_code)
     #"for %r" % ({'x': gen}) 
     "%02d %04f %05g %05s <%s> %r" % (1, 2.25, 2.25, 2.25, [1,2], {'x': gen})
