@@ -668,13 +668,7 @@ def cls_delta(clsname, expl1, cls1, expl2, cls2):
         names.update(expl1.names(cls))
 
     for cls in expl2.get_mro(cls2):
-        d = Set(expl2.names(cls))
-        if ('__cmp__' in d and '__cmp__' not in names and
-            '__eq__' in d and '__ne__' in d and
-            '__lt__' in d and '__le__' in d and
-            '__gt__' in d and '__ge__' in d):
-            d.remove('__cmp__')
-        names.update(d)
+        names.update(expl2.names(cls))
 
     if cls2 is type:     # strange strange attributes we don't care about
         names.remove('__basicsize__')
@@ -692,6 +686,12 @@ def cls_delta(clsname, expl1, cls1, expl2, cls2):
 
         if obj1 is NOTFOUND and obj2 is NOTFOUND:
             continue # spurious :(
+
+        if name == '__cmp__' and obj1 is NOTFOUND and (
+            '__eq__' in names and '__ne__' in names and
+            '__lt__' in names and '__le__' in names and
+            '__gt__' in names and '__ge__' in names):
+            continue # __cmp__ is only in CPython, PyPy has the rich cmp instead
 
         entry = Entry(name)
         if cls1_is_not_a_class:
