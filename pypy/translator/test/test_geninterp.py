@@ -38,19 +38,27 @@ from py.code import Source
 class TestGenRpyTestCase:
     objspacename = 'std'
 
+    snippet_ad = """if 1:
+        def import_func():
+            import copy_reg
+            return copy_reg._reconstructor.func_code.co_name"""
+
     def __init__(self):
         # simply compile snippets just once
         src = str(Source(snippet))
         # truncate non-compilable stuff for now:
         p = src.index('Non compilable Functions')
-        src = src[:p]
+        src = src[:p] + '\n'
+        # put our ad into snippet
+        exec self.snippet_ad in snippet.__dict__
+        src += self.snippet_ad
         # just in case of trouble, we produce a tempfile
         ini = translate_as_module(src, tmpname = str(udir.join("_geninterp_test.py")))
         self.w_glob = ini(self.space)
 
     def build_interpfunc(self, func, *morefuncs):
         # we ignore morefuncs, since they live in snippets
-        space =self.space
+        space = self.space
         func = space.getitem(self.w_glob, space.wrap(func.__name__))
         def wrapunwrap(*args):
             w_args = space.wrap(args)
@@ -65,6 +73,12 @@ class TestGenRpyTestCase:
             return space.unwrap(w_res)
         return wrapunwrap
 
+    # small addition to see whether imports look fine
+    def test_import(self):
+        import copy_reg
+        impfunc = self.build_interpfunc(snippet.import_func)
+        assert impfunc() == '_reconstructor'
+        
     def test_simple_func(self):
         cfunc = self.build_interpfunc(snippet.simple_func)
         assert cfunc(1) == 2
