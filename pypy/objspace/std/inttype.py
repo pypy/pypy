@@ -23,7 +23,7 @@ def descr__new__(space, w_inttype, w_value=None, w_base=None):
             if space.is_true(space.is_(w_inttype, space.w_int)):
                 return w_obj
             value = space.unwrap(w_obj)
-            if not isinstance(value, int):   # XXX typechecking in unwrap!
+            if not isinstance(value, (int, long)): # XXX typechecking in unwrap!
                 raise OperationError(space.w_ValueError,
                                  space.wrap("value can't be converted to int"))
     else:

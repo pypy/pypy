@@ -22,6 +22,7 @@ class TestStrUtil(testit.TestCase):
                  ]
         for s, expected in cases:
             self.assertEquals(string_to_int(s), expected)
+            self.assertEquals(string_to_long(s), expected)
 
     def test_string_to_int_base(self):
         cases = [('111', 2, 7),
@@ -101,6 +102,16 @@ class TestStrUtil(testit.TestCase):
             self.assertRaises(ValueError, string_to_int, s+'  ', base)
             self.assertRaises(ValueError, string_to_int, '+'+s, base)
             self.assertRaises(ValueError, string_to_int, '-'+s, base)
+
+    def test_string_to_long(self):
+        self.assertEquals(string_to_long('123L'), 123)
+        self.assertEquals(string_to_long('123L  '), 123)
+        self.assertRaises(ValueError, string_to_long, 'L')
+        self.assertRaises(ValueError, string_to_long, 'L  ')
+        self.assertEquals(string_to_long('123L', 4), 27)
+        self.assertEquals(string_to_long('123L', 30), 27000 + 1800 + 90 + 21)
+        self.assertEquals(string_to_long('123L', 22), 10648 + 968 + 66 + 21)
+        self.assertEquals(string_to_long('123L', 21), 441 + 42 + 3)
 
 if __name__ == '__main__':
     testit.main()
