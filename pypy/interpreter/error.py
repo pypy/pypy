@@ -1,6 +1,6 @@
-import sys
+import os, sys
 
-AUTO_DEBUG = 0
+AUTO_DEBUG = os.getenv('PYPY_DEBUG')
 
 
 class PyPyError(Exception):
