@@ -246,13 +246,13 @@ class complex(object):
         return complex(self.real, -self.imag)
 
 
+    def __eq__(self, other):
+        self, other = self.__coerce__(other)
+        return self.real == other.real and self.imag == other.imag
+
     def __ne__(self, other):
         self, other = self.__coerce__(other)
-        if self.real != other.real:
-            return 1
-        if self.imag != other.imag:
-            return 1
-        return 0            
+        return self.real != other.real or self.imag != other.imag
 
 
     # unsupported operations
