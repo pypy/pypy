@@ -148,6 +148,8 @@ def union(w1, w2):
 class SpecTag(object):
     def __repr__(self):
         return 'SpecTag(%d)' % id(self)
+    def _freeze_(self):
+        return True
 
 # ____________________________________________________________
 #
