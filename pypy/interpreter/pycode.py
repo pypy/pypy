@@ -50,21 +50,20 @@ GENERATOR = 2
 
 frame_classes = {}
 
-def frame_class(choose):
-    if frame_classes:
-        return frame_classes[choose]
-    else:
-        from pypy.interpreter.pyopcode import PyInterpFrame
-        from pypy.interpreter.nestedscope import PyNestedScopeFrame
-        from pypy.interpreter.generator import GeneratorFrame
+def setup_frame_classes():
+    "NOT_RPYTHON"
+    from pypy.interpreter.pyopcode import PyInterpFrame
+    from pypy.interpreter.nestedscope import PyNestedScopeFrame
+    from pypy.interpreter.generator import GeneratorFrame
 
-        frame_classes[0]                = PyInterpFrame
-        frame_classes[NESTED]           = PyNestedScopeFrame
-        frame_classes[GENERATOR]        = type('PyGeneratorFrame', (PyInterpFrame,),
-                                               GeneratorFrame.__dict__.copy())
-        frame_classes[NESTED|GENERATOR] = type('PyNestedScopeGeneratorFrame', (PyNestedScopeFrame,),
-                                               GeneratorFrame.__dict__.copy())
-        return frame_classes[choose]
+    frame_classes[0]                = PyInterpFrame
+    frame_classes[NESTED]           = PyNestedScopeFrame
+    frame_classes[GENERATOR]        = type('PyGeneratorFrame',
+                                           (PyInterpFrame,),
+                                           GeneratorFrame.__dict__.copy())
+    frame_classes[NESTED|GENERATOR] = type('PyNestedScopeGeneratorFrame',
+                                           (PyNestedScopeFrame,),
+                                           GeneratorFrame.__dict__.copy())
 
 class PyCode(eval.Code):
     "CPython-style code objects."
@@ -139,12 +138,14 @@ class PyCode(eval.Code):
     def create_frame(self, space, w_globals, closure=None):
         "Create an empty PyFrame suitable for this code object."
         # select the appropriate kind of frame
+        if not frame_classes:
+            setup_frame_classes()   # lazily
         choose = 0
         if self.co_cellvars or self.co_freevars:
             choose |= NESTED
         if self.co_flags & CO_GENERATOR:
             choose |= GENERATOR
-        Frame = frame_class(choose)
+        Frame = frame_classes[choose]
         return Frame(space, self, w_globals, closure)
 
     signature = cpython_code_signature
