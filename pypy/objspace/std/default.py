@@ -204,7 +204,9 @@ def contains__ANY_ANY(space, w_iterable, w_lookfor):
     while 1:
         try:
             w_next = space.next(w_iter)
-        except NoValue:
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
             return space.w_False
         if space.is_true(space.eq(w_next, w_lookfor)):
             return space.w_True

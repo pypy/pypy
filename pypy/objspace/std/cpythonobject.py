@@ -298,8 +298,6 @@ def next__CPython(space, w_obj):
         return obj.pypy_next()
     try:
         result = obj.next()
-    except StopIteration:
-        raise NoValue
     except:
         wrap_exception(space)
     return space.wrap(result)
