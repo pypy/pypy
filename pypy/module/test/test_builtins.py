@@ -1,5 +1,5 @@
 import unittest
-from pypy.module.builtin import compile as compile
+from pypy.module.builtin import compile
 
 class TestCompile(unittest.TestCase):
    """It makes basicaly not much sense, but we want to check,
@@ -7,18 +7,8 @@ class TestCompile(unittest.TestCase):
    """
 
    def test_f(self):
-      testcode = """
-def main():
-    aStr = 'hello world'
-    print len(aStr)
-                 """
-      codeobject = compile(testcode, '?', 'exec')
-      print codeobject
-      self.assertEquals(codeobject.co_name, 'main')
-
-
-
-
+      codeobject = compile("def main(): return None", '?', 'exec')
+      self.assertEquals(codeobject.co_names[0], 'main')
 
 if __name__ == '__main__':
     unittest.main()
