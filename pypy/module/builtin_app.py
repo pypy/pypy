@@ -1,4 +1,5 @@
 def apply(function, args, kwds={}):
+    """call a function (or other callable object) and return its result"""
     return function(*args, **kwds)
 
 def map(function, *collections):
