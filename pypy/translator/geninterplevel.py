@@ -721,7 +721,7 @@ class GenRpy:
             return 'PySys_GetObject("stderr")'
         raise Exception, 'Cannot translate an already-open file: %r' % (fil,)
 
-    def gen_source(self, fname, ftmpname=None):
+    def gen_source(self, fname, ftmpname=None, file=file):
         self.fname = fname
         self.ftmpname = ftmpname
 
@@ -1403,14 +1403,31 @@ def crazy_test():
 import py.code
 import cStringIO as StringIO
 
+class memfile(object):
+    _storage = {}
+    def __init__(self, name, mode="r"):
+        if mode == "w":
+            self._storage[name] = StringIO.StringIO()
+        elif mode == "r":
+            try:
+                data = self._storage[name].getvalue()
+            except IndexError:
+                data = file(name).read()
+            self._storage[name] = StringIO.StringIO(data)
+        else:
+            raise ValueError, "mode %s not supported" % mode
+        self._file = self._storage[name]
+    def __getattr__(self, name):
+        return getattr(self._file, name)
+    def close(self):
+        pass
+
 def translate_as_module(sourcetext, modname="app2interpexec", tmpname=None):
     """ compile sourcetext as a module, translating to interp level.
     The result is the init function that creates the wrapped module dict.
     This init function needs a space as argument.
-    tmpname can be passed for debugging purposes. Note that the generated
-    output is not sorted, because it is not meant to be persistent.
-    For persistent output, please use pypy/translator/tool/tointerplevel.py
-    
+    tmpname can be passed for debugging purposes.
+
     Example:
 
     initfunc = translate_as_module(text)
@@ -1430,19 +1447,15 @@ def translate_as_module(sourcetext, modname="app2interpexec", tmpname=None):
                    do_imports_immediately=False)
     gen = GenRpy(t, entrypoint, modname, dic)
     if tmpname:
-        out = file(tmpname, 'w')
-        def readback():
-            out.close()
-            return file(tmpname, 'r').read()
+        _file = file
     else:
-        import cStringIO as StringIO
-        out = StringIO.StringIO()
-        def readback():
-            out.seek(0)
-            return out.read()
+        _file = memfile
+        tmpname = "nada"
+    out = _file(tmpname, 'w')
     gen.f = out
-    gen.gen_source_temp()
-    newsrc = readback()
+    gen.gen_source(tmpname, file=_file)
+    out.close()
+    newsrc = _file(tmpname).read()
     code = py.code.Source(newsrc).compile()
     dic = {'__name__': modname}
     exec code in dic

@@ -26,7 +26,6 @@ XXX basis. Should we write generators for such tests like this?
 import autopath
 import py
 from pypy.tool.udir import udir
-from pypy.translator.genc import GenC
 from pypy.objspace.flow.model import *
 from pypy.translator.tool.buildpyxmodule import make_module_from_c
 from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
