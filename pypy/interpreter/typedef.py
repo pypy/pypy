@@ -120,6 +120,8 @@ PyFrame.typedef = TypeDef('frame',
 
 Module.typedef = TypeDef("module",
     __dict__ = attrproperty_w('w_dict'), 
+    __new__ = interp2app(Module.descr_module__new__.im_func),
+    __init__ = interp2app(Module.descr_module__init__.im_func),
     )
 
 getset_func_doc = GetSetProperty(Function.fget_func_doc,
