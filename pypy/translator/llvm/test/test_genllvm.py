@@ -14,9 +14,8 @@ def setup_module(mod):
     mod.llvm_found = is_on_path("llvm-as")
 
 def compile_function(function, annotate):
-    t = Translator(function)
+    t = Translator(function, simplifying=True)
     a = t.annotate(annotate)
-    t.simplify()
     gen = LLVMGenerator(t)
     return gen.compile()
 
