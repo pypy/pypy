@@ -99,6 +99,7 @@ class GraphDisplay(Display):
         'shift up' : ('fast_pan', (0, -1)),
         'shift down' : ('fast_pan', (0, 1)),
         'help': 'help',
+        'space': 'hit',
     }
 
     HELP_MSG = """
@@ -111,6 +112,8 @@ class GraphDisplay(Display):
 
         Arrows          Scroll
         Shift+Arrows    Scroll faster
+
+        Space           Follow word link
 
         Backspace       Go back in history
         Meta Left       Go back in history
@@ -275,6 +278,18 @@ class GraphDisplay(Display):
                         text += e.unicode
             if text != old_text:
                 draw(prompt + text)
+
+    def hit(self):
+        word = self.highlight_word
+        if word is not None:
+            if word in self.layout.links:
+                self.setstatusbar('loading...')
+                self.redraw_now()
+                newlayout = self.layout.followlink(word)
+                if newlayout is not None:
+                    self.setlayout(newlayout)
+                    return
+                self.setstatusbar('')
 
     def search(self):
         searchstr = self.input('Find: ')
