@@ -9,7 +9,7 @@ Command-line options for translate_pypy:
    -no-c    Don't generate the C code
    -c       Generate the C code, but don't compile it
    -o       Generate and compile the C code, but don't run it
-   --mark-some-objects
+   --not-mark-some-objects
             Mark all functions that have SomeObject in their signature.
    -tcc     Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
 """
@@ -20,6 +20,7 @@ from pypy.translator.translator import Translator
 from pypy.annotation import model as annmodel
 from pypy.tool.cache import Cache
 from pypy.annotation.model import SomeObject
+from pypy.tool.udir import udir 
 
 # XXX this tries to make compiling faster
 from pypy.translator.tool import buildpyxmodule
@@ -48,7 +49,7 @@ def analyse(entry_point=entry_point):
         a.simplify()
         t.frozen = True   # cannot freeze if we don't have annotations
 
-        if options['--mark-some-objects']:
+        if not options['--not-mark-some-objects']:
             find_someobjects(a)
 
 
@@ -104,6 +105,23 @@ def find_someobjects(annotator):
         someobjnum, num) 
     print "=" * 70
 
+def update_usession_dir(stabledir = udir.dirpath('usession')): 
+    from py import path 
+    try:
+        if stabledir.check(dir=1): 
+            for x in udir.visit(path.checker(file=1)): 
+                target = stabledir.join(x.relto(udir)) 
+                if target.check():
+                    target.remove()
+                else:
+                    target.dirpath().ensure(dir=1) 
+                try:
+                    target.mklinkto(x) 
+                except path.Invalid: 
+                    x.copy(target) 
+    except path.Invalid: 
+        print "ignored: couldn't link or copy to %s" % stabledir 
+
 def run_in_thread(fn, args, cleanup=None, cleanup_args=()):
     def _run_in_thread():
         fn(*args)
@@ -117,7 +135,7 @@ if __name__ == '__main__':
                '-no-c': False,
                '-c':    False,
                '-o':    False,
-               '--mark-some-objects': False,
+               '--not-mark-some-objects': False,
                '-no-a': False,
                '-tcc':  False,
                }
@@ -202,32 +220,14 @@ if __name__ == '__main__':
         elif options['-c']:
             print 'Generating C code without compiling it...'
             filename = t.ccompile(really_compile=False)
+            update_usession_dir()
             print 'Written %s.' % (filename,)
         else:
             print 'Generating and compiling C code...'
             c_entry_point = t.ccompile()
+            update_usession_dir()
             if not options['-o']:
                 print 'Running!'
-                import os, shutil
-                from pypy.tool.udir import udir
-                d = str(udir)
-                linkdir = os.path.join(os.path.dirname(d), 'usession')
-                if os.path.exists(linkdir):
-                    def globexps(dirname, *exps):
-                        import glob
-                        rval = []
-                        for exp in exps:
-                            rval.extend(glob.glob(os.path.join(dirname, exp)))
-                        return rval
-                    exts = ('*.c', '*.so')
-                    for fn in globexps(linkdir, *exts):
-                        os.remove(fn)
-                    for fn in globexps(d, *exts):
-                        args = fn, os.path.join(linkdir, os.path.basename(fn))
-                        try:
-                            os.link(*args)
-                        except OSError:
-                            shutil.copy2(*args)
                 w_result = c_entry_point()
                 print w_result
                 print w_result.intval
