@@ -324,12 +324,14 @@ class TestSuite:
 
     def _items_from_module(self, module):
         """Return a list of TestItems read from the given module."""
+        # make sure that this method and modules import newtest refer
+        # to the same TestCase class
+        from pypy.tool import newtest
+
         items = []
         # scan the module for classes derived from TestCase
         for obj in vars(module).values():
-            if inspect.isclass(obj):
-                print obj, id(obj)
-            if inspect.isclass(obj) and isinstance(obj, TestCase):
+            if inspect.isclass(obj) and issubclass(obj, newtest.TestCase):
                 # we found a TestCase class, now scan it for test methods
                 for obj2 in vars(obj).values():
                     # inspect.ismethod doesn't seem to work here
@@ -387,7 +389,6 @@ class TestSuite:
         self.lastresults = {}
         for item in self.items:
             result = item.run()
-            print result.formatted_traceback
             key = classify(result)
             self.lastresults.setdefault(key, []).append(result)
             yield result
@@ -404,8 +405,7 @@ def main(do_selftest=False):
     # collect tests
     ts = TestSuite()
     print "Loading test modules ..."
-    ts.initfromdir(autopath.pypydir, filterfunc=filterfunc)
-    print "Loading test modules ..."
+    #ts.initfromdir(autopath.pypydir, filterfunc=filterfunc)
     ts.initfromdir('.', filterfunc=filterfunc)
     # iterate over tests and collect data
     for res in ts.testresults():
