@@ -158,7 +158,7 @@ class Testit(unittest.TestCase):
                           "assert not 0 == 0")
 
         self.assertEquals(rewrite_utest("self.failUnlessEqual(0, 0)"),
-                          "assert not 0 != 0")
+                          "assert 0 == 0")
 
         self.assertEquals(rewrite_utest(
             """
@@ -171,9 +171,9 @@ class Testit(unittest.TestCase):
             """
             ),
             """
-            assert not (mushroom()
+            assert (mushroom()
                                  + mushroom()
-                                 + mushroom()) != '''badger badger badger
+                                 + mushroom()) == '''badger badger badger
                                  badger badger badger badger
                                  badger badger badger badger
                                  ''' # multiline, must move the parens
@@ -363,7 +363,7 @@ class Testit(unittest.TestCase):
             """
             ),
             """
-            assert not round(first - second, 5) != 0, 'A Snake!'
+            assert round(first - second, 5) == 0, 'A Snake!'
             """
                           )
 
