@@ -33,9 +33,9 @@ class Branch:
 
 class ConditionalBranch:
     def __init__(self, condition, ifbranch, elsebranch):
-	self.condition = condition
-	self.ifbranch = ifbranch
-	self.elsebranch = elsebranch
+	    self.condition = condition
+	    self.ifbranch = ifbranch
+	    self.elsebranch = elsebranch
 
 class EndBranch:
     def __init__(self, returnvalue):
@@ -43,8 +43,8 @@ class EndBranch:
 
 class FunctionGraph:
     def __init__(self, startblock, functionname):
-	self.startblock = startblock
-	self.functionname = functionname
+	    self.startblock = startblock
+	    self.functionname = functionname
 
 class TestCase(test.IntTestCase):
     def test_simple_func(self):
