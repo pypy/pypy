@@ -5,6 +5,8 @@ from cStringIO import StringIO
 from pypy.tool import test
 from pypy.interpreter.baseobjspace import OperationError
 
+from pypy.interpreter import main
+
 testcode = """\
 def main():
     aStr = 'hello world'
@@ -32,9 +34,10 @@ def checkoutput(expected_output,f,*args):
 
 testfn = 'tmp_hello_world.py'
 
-class TestMain(unittest.TestCase):
+class TestMain(test.TestCase):
 
     def setUp(self):
+        self.space = test.objspace()
         ofile = open(testfn, 'w')
         ofile.write(testcode)
         ofile.close()
@@ -44,14 +47,15 @@ class TestMain(unittest.TestCase):
         os.remove(testfn)
 
     def test_run_file(self):
-        from pypy.interpreter import main
         self.assert_(checkoutput(testresultoutput,main.run_file,testfn))
 
     def test_run_string(self):
-        from pypy.interpreter import main
         self.assert_(checkoutput(testresultoutput,
                                  main.run_string,testcode,testfn))
 
+    def test_eval_string(self):
+        w_x = main.eval_string('2+2', space=self.space)
+        self.assertEqual_w(w_x, self.space.wrap(4))
+
 if __name__ == '__main__':
-    unittest.main()
-        
+    test.main()
