@@ -97,28 +97,6 @@ class MyTextTestResult(unittest._TextTestResult):
         c = TestPM(efs)
         c.cmdloop()
         return
-        def proc_input(input):
-            r = int(input)
-            if r < 0 or r >= len(efs):
-                raise ValueError
-            return r
-        while 1:
-            i = 0
-            for t, e in efs:
-                print i, t.methodName
-                i += 1
-            while 1:
-                input = raw_input('itr> ')
-                if not input:
-                    return
-                try:
-                    r = proc_input(input)
-                except ValueError:
-                    continue
-                else:
-                    break
-            s, (t, v, tb) = efs[r]
-            ppdb.post_mortem(s.space, tb, v)
 
     def printErrors(self):
         if Options.interactive:
