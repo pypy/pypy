@@ -8,7 +8,7 @@ from pypy.interpreter.pycode import CO_VARARGS
 from types import FunctionType
 
 from pypy.translator.gensupp import c_string
-from pypy.translator.genc_pyobj import ctypeof
+from pypy.translator.genc.t_pyobj import ctypeof
 
 # Set this if you want call trace frames to be built
 USE_CALL_TRACE = False

@@ -1,8 +1,8 @@
 import autopath
 import py, sys
 from pypy.tool.udir import udir
-from pypy.translator.genc import GenC
-from pypy.translator.typer import GenCSpecializer
+from pypy.translator.genc.genc import GenC
+from pypy.translator.genc.ctyper import GenCSpecializer
 from pypy.objspace.flow.model import *
 from pypy.translator.tool.buildpyxmodule import make_module_from_c
 from pypy.translator.tool.buildpyxmodule import skip_missing_compiler

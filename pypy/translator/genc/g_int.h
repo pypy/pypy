@@ -1,8 +1,6 @@
 
 /************************************************************/
- /***  C header subsection: typed operations               ***/
-
-/* This file is included from genc.h. */
+ /***  C header subsection: operations between ints        ***/
 
 
 #define OP_INT2OBJ(i,r,err)   if (!(r=PyInt_FromLong(i))) FAIL(err)

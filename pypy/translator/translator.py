@@ -29,7 +29,7 @@ Some functions are provided for the benefit of interactive testing.
 Try dir(test) for list of current snippets.
 """
 
-import autopath
+import autopath, os
 
 from pypy.objspace.flow.model import *
 from pypy.annotation.model import *
@@ -37,7 +37,7 @@ from pypy.translator.annrpython import RPythonAnnotator
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.genpyrex import GenPyrex
 from pypy.translator.gencl import GenCL
-from pypy.translator.genc import GenC
+from pypy.translator.genc.genc import GenC
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring
 from pypy.translator.tool.buildpyxmodule import make_module_from_c
@@ -242,7 +242,7 @@ class Translator:
         if not really_compile:
             return cfile
         mod = make_module_from_c(cfile,
-            include_dirs=[autopath.this_dir])
+            include_dirs=[os.path.join(autopath.this_dir, 'genc')])
         return getattr(mod, self.entrypoint.func_name)
 
     def call(self, *args):

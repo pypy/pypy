@@ -8,8 +8,8 @@ from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.gensupp import NameManager
 
-from pypy.translator.genc_funcdef import FunctionDef, USE_CALL_TRACE
-from pypy.translator.genc_pyobj import CType_PyObject, ctypeof
+from pypy.translator.genc.funcdef import FunctionDef, USE_CALL_TRACE
+from pypy.translator.genc.t_pyobj import CType_PyObject, ctypeof
 
 # ____________________________________________________________
 
@@ -174,7 +174,7 @@ class GenC:
 
 # ____________________________________________________________
 
-    C_HEADER = '#include "genc.h"\n'
+    C_HEADER = '#include "g_include.h"\n'
 
     C_SEP = "/************************************************************/"
 

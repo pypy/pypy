@@ -179,26 +179,6 @@ class Specializer:
         else:
             # specialization not found
             opname2 = op.opname
-            argtypes = [CType_PyObject] * len(op.args)
+            argtypes = [self.defaulttypecls] * len(op.args)
             restypecls = self.defaulttypecls
         return opname2, argtypes, restypecls
-
-# ____________________________________________________________
-# GenC-specific specializer
-
-from pypy.annotation.model import SomeInteger
-from pypy.translator.genc_pyobj import CType_PyObject
-from pypy.translator.genc_type import CType_Int
-
-class GenCSpecializer(Specializer):
-
-    TInt = TypeMatch(SomeInteger(), CType_Int)
-    typematches = [TInt]   # in more-specific-first, more-general-last order
-    defaulttypecls = CType_PyObject
-
-    specializationtable = [
-        ## op      specialized op   arg types   concrete return type
-        ('add',     'int_add',     TInt, TInt,   CType_Int),
-        ('sub',     'int_sub',     TInt, TInt,   CType_Int),
-        ('is_true', 'int_is_true', TInt,         CType_Int),
-        ]
