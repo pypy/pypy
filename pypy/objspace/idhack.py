@@ -22,8 +22,7 @@ def idhack(w_obj):
     try:
         return w_obj.__id
     except AttributeError:
-        w_obj.__id = id(w_obj)
-        return w_obj.__id
+        return id(w_obj)
 
 
 class IdHackSpace(std.Space):
@@ -49,5 +48,6 @@ Space = IdHackSpace
 def become(space, w_target, w_source):
     w_target.__class__ = w_source.__class__
     w_target.__dict__  = w_source.__dict__
+    w_target.__id      = idhack(w_source)
     return space.w_None
 app_become = gateway.interp2app(become)
