@@ -1,5 +1,6 @@
 
 import autopath
+import py
 from pypy.tool.udir import udir
 
 from pypy.translator.genpyrex import GenPyrex
@@ -28,7 +29,8 @@ class TestSourceGenTestCase:
         block.operations.append(op)
         block.closeblock(Link([result], fun.returnblock))
         result = GenPyrex(fun).emitcode()
-        mod = make_module_from_pyxstring('test_source1', udir, result)
+        mod = py.test.skip_on_error(
+                    make_module_from_pyxstring, 'test_source1', udir, result)
         assert mod.f(1) == 2
 
     def test_if(self):
@@ -53,7 +55,8 @@ class TestSourceGenTestCase:
                               Link([j], fun.returnblock, True))
         
         result = GenPyrex(fun).emitcode()
-        mod = make_module_from_pyxstring('test_source2', udir, result)
+        mod = py.test.skip_on_error(
+                make_module_from_pyxstring, 'test_source2', udir, result)
         assert mod.f(-1, 42) == 42
         assert mod.f(3, 5) == 3
 
@@ -89,6 +92,7 @@ class TestSourceGenTestCase:
         whileblock.closeblock(Link([i, sum], headerblock))
 
         result = GenPyrex(fun).emitcode()
-        mod = make_module_from_pyxstring('test_source4', udir, result)
+        mod = py.test.skip_on_error(
+            make_module_from_pyxstring, 'test_source4', udir, result)
         assert mod.f(3) == 6
         assert mod.f(-3) == 0

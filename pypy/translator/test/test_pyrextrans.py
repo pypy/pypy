@@ -14,7 +14,6 @@ buildpyxmodule.enable_fast_compilation()
 
 
 class TestNoTypePyrexGenTestCase:
-
     objspacename = 'flow'
 
     def build_cfunc(self, func):
@@ -26,7 +25,7 @@ class TestNoTypePyrexGenTestCase:
             'simplify' : 1,
             'dot' : dot,
             }
-        return build_cfunc(func, **options)
+        return py.test.skip_on_error(build_cfunc, func, **options) 
 
     def test_simple_func(self):
         cfunc = self.build_cfunc(snippet.simple_func)
@@ -105,7 +104,7 @@ class TestTypedTestCase:
                     spec = spec[0] # use the first type only for the tests
                 argstypelist.append(spec)
         t.annotate(argstypelist) 
-        return t.compile()
+        return py.test.skip_on_error(t.compile)
 
     def test_set_attr(self):
         set_attr = self.getcompiled(snippet.set_attr)

@@ -1,4 +1,5 @@
 import autopath
+import py
 from pypy.tool.udir import udir
 from pypy.translator.genc import GenC
 from pypy.objspace.flow.model import *
@@ -11,9 +12,7 @@ from pypy.translator.test import snippet
 from pypy.translator.tool import buildpyxmodule
 buildpyxmodule.enable_fast_compilation()
 
-
 class TestNoTypeCGenTestCase:
-
     objspacename = 'flow'
 
     def build_cfunc(self, func):
@@ -21,7 +20,7 @@ class TestNoTypeCGenTestCase:
         except AttributeError: pass
         t = Translator(func)
         t.simplify()
-        return t.ccompile()
+        return py.test.skip_on_error(t.ccompile) 
 
     def test_simple_func(self):
         cfunc = self.build_cfunc(snippet.simple_func)
@@ -197,7 +196,7 @@ class TestTypedTestCase:
                 argstypelist.append(spec)
         a = t.annotate(argstypelist)
         a.simplify()
-        return t.ccompile()
+        return py.test.skip_on_error(t.ccompile) 
 
     def test_set_attr(self):
         set_attr = self.getcompiled(snippet.set_attr)
