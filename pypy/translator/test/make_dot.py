@@ -79,7 +79,7 @@ class NodeBranch(Node):
         """ args, target """
         name = self.name
         data = self.get_data()
-        return '%(name)s [shape=circle, label="%(data)s"];' % locals()
+        return '%(name)s [shape=diamond, label="%(data)s"];' % locals()
 
 class NodeConditionalBranch(Node):
     def descr_node(self):
