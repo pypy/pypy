@@ -79,8 +79,15 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             __class__ = GetSetProperty(self.__class__.type),
             __init__ = gateway.interp2app(Object.descr__init__.im_func),
             )
- 
-        self.w_None = None
+        # make a wrapped None object
+        none_typedef = TypeDef('NoneType',
+            __repr__ = gateway.interp2app(lambda space, w_None:
+                                          space.wrap('None')))
+        nonewrapperclass = self.hackwrapperclass(none_typedef)
+        self.w_None = CPyWrapper.__new__(nonewrapperclass)
+        instancedict = CPyWrapper.__dict__['__dict__'].__get__(self.w_None)
+        instancedict['__internalpypyobject__'] = None
+
         self.w_True = True
         self.w_False = False
         self.w_NotImplemented = NotImplemented
@@ -120,6 +127,8 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             instancedict = CPyWrapper.__dict__['__dict__'].__get__(instance)
             instancedict['__internalpypyobject__'] = x
             return instance
+        elif x is None:
+            return self.w_None
         else:
             # optional check for double-wrapping
             if isinstance(x, CPyWrapper):
@@ -145,7 +154,7 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
                 bases = (CPyWrapper,)
             # make the class dict with descriptors redirecting to the ones
             # in rawdict
-            descrdict = {}
+            descrdict = {'__internalpypytypedef__': typedef}
             for descrname, descr in typedef.rawdict.items():
                 def fget(w_obj, w_descr=descr, space=self):
                     return space.get(w_descr, w_obj, space.type(w_obj))
@@ -402,8 +411,8 @@ def %(name)s(self, x, *args):
     def lookup(space, w_obj, name):
         assert not isinstance(w_obj, Wrappable)
         if isinstance(w_obj, CPyWrapper):
-            obj = space.unwrap(w_obj)
-            for basedef in obj.typedef.mro(space):
+            typedef = type(w_obj).__internalpypytypedef__
+            for basedef in typedef.mro(space):
                 if name in basedef.rawdict:
                     return space.wrap(basedef.rawdict[name])
             return None 
