@@ -19,6 +19,9 @@ class W_UserType(W_TypeObject):
         w_self.w_bases  = w_bases
         w_self.w_dict   = w_dict
 
+    def __repr__(self):
+        return '<usertype %s>'%(self.space.unwrap(self.w_name),)
+
     def getbases(w_self):
         bases = w_self.space.unpackiterable(w_self.w_bases)
         if bases:
@@ -40,8 +43,16 @@ class W_UserType(W_TypeObject):
 
 # XXX we'll worry about the __new__/__init__ distinction later
 def usertype_new(space, w_usertype, w_args, w_kwds):
-    # XXX no __init__ support at all here
     from userobject import W_UserObject
-    return W_UserObject(space, w_usertype, w_args, w_kwds)
+    newobj = W_UserObject(space, w_usertype)
+    try:
+        init = space.getattr(newobj, space.wrap('__init__'))
+    except OperationError, err:
+        if not err.match(space, space.w_AttributeError):
+            raise
+    else:
+        space.call(init, w_args, w_kwds)
+    return newobj
+           
 
 StdObjSpace.new.register(usertype_new, W_UserType, W_ANY, W_ANY)
