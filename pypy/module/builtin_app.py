@@ -3,8 +3,8 @@
 # Problem: need to decide how to implement iterators,
 # which are needed for star args.
 
-def apply(function, args):#, kwds):
-    return function(*args)#, **kwds)
+def apply(function, args, kwds):
+    return function(*args, **kwds)
 
 def map(function, list):
     "docstring"
@@ -37,7 +37,7 @@ def reduce(function, list, initial = None):
     
 def isinstance(obj, klass_or_tuple):
     objcls = obj.__class__
-    if type(klass_or_tuple) is tuple:
+    if issubclass(klass_or_tuple.__class__, tuple):
        for klass in klass_or_tuple:
            if issubclass(objcls, klass):
               return 1

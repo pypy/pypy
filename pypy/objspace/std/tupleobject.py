@@ -1,5 +1,6 @@
 from pypy.objspace.std.objspace import *
 from intobject import W_IntObject
+from sliceobject import W_SliceObject
 
 
 class W_TupleObject(object):
@@ -30,7 +31,7 @@ def tuple_len(space, w_tuple):
 
 StdObjSpace.len.register(tuple_len, W_TupleObject)
 
-def tuple_getitem(space, w_tuple, w_index):
+def getitem_tuple_int(space, w_tuple, w_index):
     items = w_tuple.wrappeditems
     try:
         w_item = items[w_index.intval]
@@ -39,7 +40,23 @@ def tuple_getitem(space, w_tuple, w_index):
                              space.wrap("tuple index out of range"))
     return w_item
 
-StdObjSpace.getitem.register(tuple_getitem, W_TupleObject, W_IntObject)
+StdObjSpace.getitem.register(getitem_tuple_int, W_TupleObject, W_IntObject)
+
+def getitem_tuple_slice(space, w_tuple, w_slice):
+    items = w_tuple.wrappeditems
+    w_length = space.wrap(len(items))
+    w_start, w_stop, w_step, w_slicelength = w_slice.indices(space, w_length)
+    start       = space.unwrap(w_start)
+    step        = space.unwrap(w_step)
+    slicelength = space.unwrap(w_slicelength)
+    assert slicelength >= 0
+    subitems = []
+    for i in range(slicelength):
+        subitems.append(items[start])
+        start += step
+    return W_TupleObject(subitems)
+
+StdObjSpace.getitem.register(getitem_tuple_slice, W_TupleObject, W_SliceObject)
 
 def tuple_iter(space, w_tuple):
     import iterobject

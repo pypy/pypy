@@ -1,3 +1,4 @@
+from __future__ import nested_scopes
 import unittest, sys
 import testsupport
 from pypy.interpreter import unittest_w
@@ -68,6 +69,27 @@ class TestW_TupleObject(unittest_w.TestCase_w):
                                               [w(-7)] * 111))
         self.assertEqual_w(self.space.add(w_tuple1, w_tuple0), w_tuple1)
         self.assertEqual_w(self.space.add(w_tuple0, w_tuple2), w_tuple2)
+
+    def test_getslice(self):
+        w = self.space.wrap
+
+        def test1(testtuple, start, stop, step, expected):
+            w_slice  = self.space.newslice(w(start), w(end), w(step))
+            w_tuple = tobj.W_TupleObject([w(i) for i in testtuple])
+            w_result = self.space.getitem(w_tuple, w_slice)
+            self.assertEqual(self.space.unwrap(w_result), expected)
+        
+        for testtuple in [(), (5,3,99), tuple(range(5,555,10))]:
+            for start in [-2, -1, 0, 1, 10]:
+                for end in [-1, 0, 2, 999]:
+                    test1(testtuple, start, end, 1, testtuple[start:end])
+
+        test1((5,7,1,4), 3, 1, -2,  (4,))
+        test1((5,7,1,4), 3, 0, -2,  (4, 7))
+        test1((5,7,1,4), 3, -1, -2, ())
+        test1((5,7,1,4), -2, 11, 2, (1,))
+        test1((5,7,1,4), -3, 11, 2, (7, 4))
+        test1((5,7,1,4), -5, 11, 2, (7, 4))
 
 if __name__ == '__main__':
     unittest.main()

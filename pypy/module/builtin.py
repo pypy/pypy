@@ -13,6 +13,9 @@ class Builtin(BuiltinModule):
 
     __helper_appfile__ = appfile.AppFile('builtin_helper',["module"])
 
+    # we have None!
+    None = appdata(_b.None)
+
     # temporary hack, until we have a real tuple type for calling
     def tuple(self, w_obj):
         lis = self.space.unpackiterable(w_obj)
