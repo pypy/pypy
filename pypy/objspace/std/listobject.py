@@ -31,6 +31,9 @@ class W_ListObject(W_Object):
     def insert(w_self, w_idx, w_obj):
         return list_insert(w_self.space, w_self, w_idx, w_obj)
 
+    def extend(w_self, w_seq):
+        return list_extend(w_self.space, w_self, w_seq)
+
 
 def list_unwrap(space, w_list):
     items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]
@@ -173,7 +176,7 @@ def setitem_list_slice(space, w_list, w_slice, w_list2):
     w_res.ob_size = slicelength
     return w_res
 
-StdObjSpace.setitem.register(setitem_list_slice, W_ListObject, W_SliceObject, W_ANY)
+StdObjSpace.setitem.register(setitem_list_slice, W_ListObject, W_SliceObject, W_ListObject)
 
 def getattr_list(space, w_list, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('append'))):
@@ -181,6 +184,9 @@ def getattr_list(space, w_list, w_attr):
         return W_InstMethObject(space, w_list, w_builtinfn)
     if space.is_true(space.eq(w_attr, space.wrap('insert'))):
         w_builtinfn = make_builtin_func(space, W_ListObject.insert)
+        return W_InstMethObject(space, w_list, w_builtinfn)
+    if space.is_true(space.eq(w_attr, space.wrap('extend'))):
+        w_builtinfn = make_builtin_func(space, W_ListObject.extend)
         return W_InstMethObject(space, w_list, w_builtinfn)
     raise FailedToImplement(space.w_AttributeError)
 
@@ -245,9 +251,7 @@ def list_resize(w_list, newlen):
             items[p] = old_items[p]
 
 def ins1(w_list, where, w_any):
-    print w_list.ob_size, w_list.ob_item
     list_resize(w_list, w_list.ob_size+1)
-    print w_list.ob_size, w_list.ob_item
     size = w_list.ob_size
     items = w_list.ob_item
     if where < 0:
@@ -258,11 +262,8 @@ def ins1(w_list, where, w_any):
         where = size
     for i in range(size, where, -1):
         items[i] = items[i-1]
-    print w_list.ob_size, w_list.ob_item
     items[where] = w_any
-    print w_list.ob_size, w_list.ob_item
     w_list.ob_size += 1
-    print w_list.ob_size, w_list.ob_item
 
 def list_insert(space, w_list, w_where, w_any):
     ins1(w_list, w_where.intval, w_any)
@@ -270,6 +271,16 @@ def list_insert(space, w_list, w_where, w_any):
 
 def list_append(space, w_list, w_any):
     ins1(w_list, w_list.ob_size, w_any)
+    return space.w_None
+
+def list_extend(space, w_list, w_any):
+    lis = space.unpackiterable(w_any)
+    newlen = w_list.ob_size + len(lis)
+    list_resize(w_list, newlen)
+    d = w_list.ob_size
+    items = w_list.ob_item
+    for i in range(len(lis)):
+        items[d+i] = lis[i]
     return space.w_None
 
 """
