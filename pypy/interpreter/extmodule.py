@@ -14,6 +14,8 @@ class appdata(object):
         return self.data
 
 
+# a little excercise in OOP, Python 2.2-style:
+
 class PyBuiltinCode(pycode.PyBaseCode):
     """The code object implementing a built-in (interpreter-level) hook."""
 
@@ -23,8 +25,6 @@ class PyBuiltinCode(pycode.PyBaseCode):
         co = func.func_code
         self.co_name = func.__name__
         self.co_flags = co.co_flags
-        # extract argument names from 'co',
-        # removing 'self' and the 'w_' prefixes
         if boundmethod:
             assert co.co_varnames[0] == "self"
             start = 1
@@ -36,18 +36,72 @@ class PyBuiltinCode(pycode.PyBaseCode):
             argnames.append(argname[2:])
         self.co_varnames = tuple(argnames)
         self.co_argcount = co.co_argcount - start
+        self.next_arg = self.co_argcount + start
 
-    def eval_code(self, space, w_globals, w_locals):
-        # this isn't quite complete: varargs and kwargs are missing
+    def prepare_args(self, space, w_locals):
         args = []
-        for argname in self.co_varnames:
+        for argname in self.co_varnames[:self.co_argcount]:
             w_arg = space.getitem(w_locals, space.wrap(argname))
             args.append(w_arg)
-        w_ret = self.func(*args)
-        return w_ret
+        return args
+        
+    def eval_code(self, space, w_globals, w_locals):
+        args = self.prepare_args(space, w_locals)
+        return self.func(*args)
+
+
+class PyBuiltinVarCode(PyBuiltinCode):
+
+    def __init__(self, func, boundmethod=False):
+        super(PyBuiltinVarCode, self).__init__(func, boundmethod)
+        self.vararg_name = func.func_code.co_varnames[self.next_arg]
+        self.co_varnames += (self.vararg_name,)
+        assert self.vararg_name.endswith('_w'), "%s, arg %d: %s"%(
+            func.func_name, self.co_argcount + 1, self.vararg_name)
+        self.next_arg += 1
+
+    def prepare_args(self, space, w_locals):
+        args = super(PyBuiltinVarCode, self).prepare_args(space, w_locals)
+        w_args = space.getitem(w_locals, space.wrap(self.vararg_name))
+        args.extend(space.unpackiterable(w_args))
+        return args
+
+
+class PyBuiltinKwCode(PyBuiltinCode):
+    def __init__(self, func, boundmethod=False):
+        super(PyBuiltinKwCode, self).__init__(func, boundmethod)
+        self.kwarg_name = func.func_code.co_varnames[self.next_arg]
+        self.co_varnames += (self.kwarg_name,)
+        assert self.kwarg_name.endswith('_w'), "%s, arg %d: %s"%(
+            func.func_name, self.co_argcount + 1, self.kwarg_name)
+        self.next_arg += 1
+
+    def eval_code(self, space, w_globals, w_locals):
+        args = self.prepare_args(space, w_locals)
+        w_kws = space.getitem(w_locals, space.wrap(self.kwarg_name))
+        kws = {}
+        for w_key in space.unpackiterable(w_kws):
+            kws[space.unwrap(w_key)] = space.getitem(w_kws, w_key)
+        
+        return self.func(*args, **kws)
+
+
+class PyBuiltinVarKwCode(PyBuiltinKwCode, PyBuiltinVarCode):
+    pass
+
 
 def make_builtin_func(space, func, boundmethod=False):
-    code = PyBuiltinCode(func, boundmethod)
+    if func.func_code.co_flags & pycode.CO_VARARGS:
+        if func.func_code.co_flags & pycode.CO_VARKEYWORDS:
+            code_cls = PyBuiltinVarKwCode
+        else:
+            code_cls = PyBuiltinVarCode
+    else:
+        if func.func_code.co_flags & pycode.CO_VARKEYWORDS:
+            code_cls = PyBuiltinKwCode
+        else:
+            code_cls = PyBuiltinCode
+    code = code_cls(func, boundmethod)
     w_defaults = space.wrap(func.func_defaults)
     w_function = space.newfunction(code, space.w_None, w_defaults)
     return w_function

@@ -98,7 +98,34 @@ class TestPyBuiltinCode(testsupport.TestCase):
         self.assertEqual_w(w_res, w(65))
         w_res = space.call_function(builtin_f, w_input, w(100))
         self.assertEqual_w(w_res, w(142))
-        
+
+    def test_varargs(self):
+        s = self.space
+        w = s.wrap
+        def f(w_first, *args_w):
+            w_r = w_first
+            for w_i in args_w:
+                w_r = s.add(w_r, w_i)
+            return w_r
+        builtin_f = extmodule.make_builtin_func(s, f)        
+        self.assertEqual_w(s.call_function(builtin_f, w(1)), w(1))
+        self.assertEqual_w(s.call_function(builtin_f, w(1), w(2), w(3)), w(6))
+
+    def test_kwargs(self):
+        s = self.space
+        w = s.wrap
+        def f(**kws_w):
+            return s.add(kws_w['a'], kws_w['b'])
+        builtin_f = extmodule.make_builtin_func(s, f)
+        self.assertEqual_w(s.call_function(builtin_f, a=w(1), b=w(2)), w(3))
+
+    def test_varkwargs(self):
+        s = self.space
+        w = s.wrap
+        def f(*args_w, **kws_w):
+            return s.add(args_w[0], kws_w['a'])
+        builtin_f = extmodule.make_builtin_func(s, f)
+        self.assertEqual_w(s.call_function(builtin_f, w(2), a=w(1)), w(3))
 
 if __name__ == '__main__':
     testsupport.main()

@@ -25,7 +25,7 @@ CO_VARARGS     = 0x0004
 CO_VARKEYWORDS = 0x0008
 
 
-class PyBaseCode:
+class PyBaseCode(object):
     def __init__(self):
         self.co_name = ""
         self.co_flags = 0
