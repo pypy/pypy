@@ -101,6 +101,12 @@ class AnnotationSet:
             return None
 
     def record(self, recfunc, *args):
+        """ invoke the given 'recording' function by passing it a new 
+        Recorder instance and letting it use its modification API.  This API will
+        make sure that for the typical read/decide/write usage the read 
+        annotations are a perequisite of the later write/modification 
+        operation. Thus if the "causing" annotation gets invalidated we
+        know which "depending" annotations need to be removed. """
         rec = Recorder(self)
         return recfunc(rec, *args)
 
