@@ -44,24 +44,25 @@ class ListFactory:
 
 
 class DictFactory:
-    items = {}
+    s_key   = SomeImpossibleValue()
+    s_value = SomeImpossibleValue()
 
     def __repr__(self):
-        return '%s(items=%r)' % (self.__class__.__name__, self.items)
+        return '%s(s_key=%r, s_value=%r)' % (self.__class__.__name__,
+                                             self.s_key, self.s_value)
 
     def create(self):
-        return SomeDict(factories = {self: True}, items = self.items)
+        return SomeDict(factories = {self: True},
+                        s_key     = self.s_key,
+                        s_value   = self.s_value)
 
-    def generalize(self, key, s_new_value):
-        self.items = self.items.copy()
-        if key not in self.items:
-            self.items[key] = s_new_value
-            return True
-        elif not self.items[key].contains(s_new_value):
-            self.items[key] = unionof(self.items[key], s_new_value)
-            return True
-        else:
+    def generalize(self, s_new_key, s_new_value):
+        if (self.s_key.contains(s_new_key) and
+            self.s_value.contains(s_new_value)):
             return False
+        self.s_key   = unionof(self.s_key,   s_new_key)
+        self.s_value = unionof(self.s_value, s_new_value)
+        return True
 
 
 def generalize(factories, *args):

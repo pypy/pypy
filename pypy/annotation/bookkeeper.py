@@ -85,10 +85,9 @@ class Bookkeeper:
             items_s = [self.immutablevalue(e) for e in x]
             result = SomeList({}, unionof(*items_s))
         elif tp is dict:   # exactly a dict
-            items = {}
-            for key, value in x.items():
-                items[key] = self.immutablevalue(value)
-            result = SomeDict({}, items)
+            keys_s   = [self.immutablevalue(e) for e in x.keys()]
+            values_s = [self.immutablevalue(e) for e in x.values()]
+            result = SomeDict({}, unionof(*keys_s), unionof(*values_s))
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             result = SomeBuiltin(BUILTIN_ANALYZERS[x])
         elif callable(x) or isinstance(x, staticmethod): # XXX

@@ -80,11 +80,6 @@ class __extend__(SomeTuple):
     def iter(tup):
         return SomeIterator(unionof(*tup.items))
 
-class __extend__(SomeDict):
-
-    def len(dic):
-        return immutablevalue(len(dic.items))
-
 
 class __extend__(SomeList):
 

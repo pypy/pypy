@@ -197,27 +197,18 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 class __extend__(pairtype(SomeDict, SomeDict)):
 
     def union((dic1, dic2)):
-        result = dic1.items.copy()
-        for key, s_value in dic2.items.items():
-            if key in result:
-                result[key] = unionof(result[key], s_value)
-            else:
-                result[key] = s_value
-        return SomeDict(setunion(dic1.factories, dic2.factories), result)
+        return SomeDict(setunion(dic1.factories, dic2.factories),
+                        unionof(dic1.s_key, dic2.s_key),
+                        unionof(dic1.s_value, dic2.s_value))
 
 
 class __extend__(pairtype(SomeDict, SomeObject)):
 
     def getitem((dic1, obj2)):
-        if obj2.is_constant():
-            return dic1.items.get(obj2.const, SomeImpossibleValue())
-        else:
-            return unionof(*dic1.items.values())
+        return dic1.s_value
 
     def setitem((dic1, obj2), s_value):
-        assert obj2.is_constant()
-        key = obj2.const
-        generalize(dic1.factories, key, s_value)
+        generalize(dic1.factories, obj2, s_value)
 
 
 class __extend__(pairtype(SomeTuple, SomeInteger)):

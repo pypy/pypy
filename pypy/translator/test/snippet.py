@@ -373,6 +373,11 @@ def knownkeysdict(b=anytype):
         d = {'b': -123}
     return d['b']
 
+def generaldict(key=str, value=int, key2=str, value2=int):
+    d = {key: value}
+    d[key2] = value2
+    return d[key or key2]
+
 def prime(n=int):
     return len([i for i in range(1,n+1) if n%i==0]) == 2
 

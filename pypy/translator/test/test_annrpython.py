@@ -199,11 +199,17 @@ class AnnonateTestCase(testit.IntTestCase):
         self.assertEquals(classes[snippet.H].attrs.keys(), ['attr']) 
         self.assertEquals(classes[snippet.H].about_attribute('attr'),
                           a.bookkeeper.immutablevalue(1))
-       
 
-    def test_knownkeysdict(self):
+    def DISABLED_test_knownkeysdict(self):
+        # disabled, SomeDict() is now a general {s_key: s_value} dict
         a = RPythonAnnotator()
         s = a.build_types(snippet.knownkeysdict, [int])
+        # result should be an integer
+        self.assertEquals(s.knowntype, int)
+
+    def test_generaldict(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.generaldict, [str, int, str, int])
         # result should be an integer
         self.assertEquals(s.knowntype, int)
 

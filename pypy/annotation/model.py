@@ -142,11 +142,12 @@ class SomeTuple(SomeObject):
 
 
 class SomeDict(SomeObject):
-    "Stands for a dict with known keys."
+    "Stands for a dict."
     knowntype = dict
-    def __init__(self, factories, items):
+    def __init__(self, factories, s_key, s_value):
         self.factories = factories
-        self.items = items    # dict {realkey: s_value}
+        self.s_key = s_key
+        self.s_value = s_value
 
 
 class SomeIterator(SomeObject):
