@@ -198,12 +198,11 @@ class MMapFile(Stream):
         hit = self.mm.find("\n", self.pos) + 1
         if not hit:
             # is there more data to read?
-            filesize = self.mm.size() # Actual file size, may be more than mapped
-            if filesize <= len(self.mm):
-                return ""
-            # File grew since opened; remap to get the new data
-            self.remapfile()
-            hit = self.mm.find("\n", self.pos) + 1
+            filesize = self.mm.size() #Actual file size, may be more than mapped
+            if filesize > len(self.mm):
+                # File grew since opened; remap to get the new data
+                self.remapfile()
+                hit = self.mm.find("\n", self.pos) + 1
         if hit:
             # Got a whole line
             data = self.mm[self.pos:hit]
