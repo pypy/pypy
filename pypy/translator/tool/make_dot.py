@@ -43,6 +43,7 @@ edge [fontname=Times];
                   color="black", 
                   dir="forward",
                   decorateP="",
+                  weight="5",
                   ):
         d = locals()
         attrs = [('%s="%s"' % (x, d[x])) for x in d if isinstance(x, str)]
@@ -53,6 +54,8 @@ edge [fontname=Times];
                   shape="diamond", 
                   label="", 
                   color="black",
+                  fillcolor="white", 
+                  style="filled",
                   ):
         d = locals()
         attrs = [('%s="%s"' % (x, d[x])) for x in d if isinstance(x, str)]
@@ -65,8 +68,14 @@ edge [fontname=Times];
     def visit_FunctionGraph(self, funcgraph):
         name = funcgraph.name
         data = name
-        self.emit('%(name)s [shape=circle, label="%(data)s"];' % locals())
+        if hasattr(funcgraph, 'source'):
+            source = funcgraph.source.replace('"', "'")
+            data += "\\n" + "\\l".join(source.split('\n'))
+            
+        self.emit_node(name, label=data, shape="box", fillcolor="green", style="filled")
+        #('%(name)s [fillcolor="green", shape=box, label="%(data)s"];' % locals())
         self.emit_edge(name, self.blockname(funcgraph.startblock), 'startblock')
+        self.emit_edge(name, self.blockname(funcgraph.returnblock), 'returnblock', style="dashed")
 
     def visit_Block(self, block):
         # do the block itself
@@ -75,8 +84,10 @@ edge [fontname=Times];
         lines.append("")
         numblocks = len(block.exits)
         color = "black"
+        fillcolor = "white"
         if not numblocks:
-           shape = "circle"
+           shape = "box"
+           fillcolor="green"
         elif numblocks == 1:
             shape = "box"
         else:
@@ -88,7 +99,7 @@ edge [fontname=Times];
         data = "%s(%s)\\ninputargs: %s\\n\\n" % (name, block.__class__.__name__, iargs)
         data = data + "\l".join(lines)
 
-        self.emit_node(name, label=data, shape=shape, color=color)
+        self.emit_node(name, label=data, shape=shape, color=color, style="filled", fillcolor=fillcolor)
 
         # do links/exits
         if numblocks == 1:
