@@ -11,8 +11,12 @@ class TestModel:
             func = func.im_func
         except AttributeError:
             pass
-        #name = func.func_name
-        return self.space.build_flow(func)
+        # disable implicit exceptions to keep the graphs simple and checkable
+        self.space.handle_implicit_exceptions = lambda exceptions: None
+        try:
+            return self.space.build_flow(func)
+        finally:
+            del self.space.handle_implicit_exceptions
 
     #_____________________________________________
     def simplefunc(x):
