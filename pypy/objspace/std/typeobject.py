@@ -5,6 +5,8 @@ from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 
+from copy_reg import _HEAPTYPE # XXX is it clean to do this?
+
 class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
 
@@ -22,7 +24,9 @@ class W_TypeObject(W_Object):
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
             w_self.hasdict = overridetypedef.hasdict
+            w_self.w__flags__ = space.wrap(0) # not a heaptype
         else:
+            w_self.w__flags__ = space.wrap(_HEAPTYPE)
             # find the most specific typedef
             instancetypedef = object_typedef
             for w_base in bases_w:

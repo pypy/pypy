@@ -89,6 +89,8 @@ def descr__doc(space, w_type):
     else:
         return w_result
 
+def descr__flags(space, w_type):
+    return w_type.w__flags__
 # ____________________________________________________________
 
 type_typedef = StdTypeDef("type",
@@ -100,4 +102,5 @@ type_typedef = StdTypeDef("type",
     __dict__ = GetSetProperty(descr_get_dictproxy),
     __doc__ = GetSetProperty(descr__doc),
     mro = gateway.interp2app(descr_mro),
+    __flags__ = GetSetProperty(descr__flags),
     )
