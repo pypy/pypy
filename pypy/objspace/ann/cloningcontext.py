@@ -18,10 +18,6 @@ class IndeterminateCondition(ControlFlowException):
 
 class CloningExecutionContext(ExecutionContext):
 
-    lastframe = None
-
-    def bytecode_trace(self, frame):
-        self.lastframe = frame
 
     def eval_frame(self, frame):
         from pypy.objspace.ann.objspace import W_Anything
