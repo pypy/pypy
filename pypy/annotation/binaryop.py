@@ -58,12 +58,41 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def inplace_sub((obj1, obj2)):
         return pair(obj1, obj2).sub()   # default
 
-    def lt((obj1, obj2)): return SomeBool()
-    def le((obj1, obj2)): return SomeBool()
-    def eq((obj1, obj2)): return SomeBool()
-    def ne((obj1, obj2)): return SomeBool()
-    def gt((obj1, obj2)): return SomeBool()
-    def ge((obj1, obj2)): return SomeBool()
+    def lt((obj1, obj2)):
+        if obj1.is_constant() and obj2.is_constant():
+            return immutablevalue(obj1.const < obj2.const)
+        else:
+            return SomeBool()
+
+    def le((obj1, obj2)):
+        if obj1.is_constant() and obj2.is_constant():
+            return immutablevalue(obj1.const <= obj2.const)
+        else:
+            return SomeBool()
+
+    def eq((obj1, obj2)):
+        if obj1.is_constant() and obj2.is_constant():
+            return immutablevalue(obj1.const == obj2.const)
+        else:
+            return SomeBool()
+
+    def ne((obj1, obj2)):
+        if obj1.is_constant() and obj2.is_constant():
+            return immutablevalue(obj1.const != obj2.const)
+        else:
+            return SomeBool()
+
+    def gt((obj1, obj2)):
+        if obj1.is_constant() and obj2.is_constant():
+            return immutablevalue(obj1.const > obj2.const)
+        else:
+            return SomeBool()
+
+    def ge((obj1, obj2)):
+        if obj1.is_constant() and obj2.is_constant():
+            return immutablevalue(obj1.const >= obj2.const)
+        else:
+            return SomeBool()
 
     def is_((obj1, obj2)):
         const = None
@@ -73,6 +102,8 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             var = obj2
             vararg = 1
         if obj2.is_constant():
+            if const is not None:
+                return immutablevalue(obj1.const is obj2.const)
             const = obj2
             var = obj1
             vararg = 0
