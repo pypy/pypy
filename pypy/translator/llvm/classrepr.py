@@ -269,3 +269,14 @@ class ExceptionTypeRepr(TypeRepr):
         lblock.instruction("store %%std.class* %s, %%std.class** %s" %
                            (self.l_base.objectname, l_tmp.llvmname()))
 
+    def op_simple_call(self, l_target, args, lblock, l_func):
+        lblock.malloc(l_target)
+        l_args0 = self.gen.get_repr(args[0])
+        l_cast = self.gen.get_local_tmp(PointerTypeRepr("%std.list.sbyte",
+                                                        self.gen), l_func)
+        l_tmp = self.gen.get_local_tmp(PointerTypeRepr("%std.list.sbyte*",
+                                                       self.gen), l_func)
+        l_func.dependencies.update([l_args0, l_cast, l_tmp])
+        lblock.cast(l_cast, l_args0)
+        lblock.getelementptr(l_tmp, l_target, [0, 1])
+        lblock.store(l_cast, l_tmp)

@@ -92,10 +92,15 @@ class BasicBlock(object):
         s = "store %s, %s" % (l_value.typed_name(), l_pter.typed_name())
         self.instructions.append(s)
 
-    def malloc(self, l_target, l_type, num=1):
+    def malloc(self, l_target, l_type=None, num=1):
         self.phi_done = True
-        s = "%s = malloc %s" % (l_target.llvmname(),
-                                l_type.typename_wo_pointer())
+        if l_type is None:
+            #XXX assuming that l_target.llvmtype() ends with an "*" here
+            s = "%s = malloc %s" % (l_target.llvmname(),
+                                    l_target.llvmtype()[:1])
+        else:
+            s = "%s = malloc %s" % (l_target.llvmname(),
+                                    l_type.typename_wo_pointer())
         if num > 1:
             s += ", uint %i" % num
         self.instructions.append(s)
