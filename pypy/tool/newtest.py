@@ -42,6 +42,10 @@ class TestResult:
         self.formatted_traceback = None
 
     def __eq__(self, other):
+        """
+        Return True if both TestResult objects are semantically the same.
+        Else, return False.
+        """
         # trivial case
         if self is other:
             return True
@@ -84,8 +88,8 @@ class TestItem:
 
     def __eq__(self, other):
         """
-        Return true if this and the other item compare equal. This doesn't
-        necessarily mean that they are the same object.
+        Return True if this and the other item compare equal. (This doesn't
+        necessarily mean that they are the same object.) Else, return False.
         """
         # trivial case
         if self is other:
