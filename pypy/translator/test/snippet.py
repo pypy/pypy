@@ -274,3 +274,10 @@ def call_five():
     a = []
     append_five(a)
     return a
+
+
+class C(object): pass
+
+def build_instance():
+    c = C()
+    return c

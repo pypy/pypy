@@ -349,6 +349,9 @@ class RPythonAnnotator:
         elif isinstance(func, FunctionType) and self.translator:
             args = self.decode_simple_call(varargs, kwargs)
             return self.translator.consider_call(self, func, args)
+        elif isinstance(func,type):
+            # XXX flow into __init__/__new__
+            self.heap.settype(result,func)
         return result
 
     def consider_const(self, constvalue):

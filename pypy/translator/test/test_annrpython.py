@@ -136,6 +136,15 @@ class AnnonateTestCase(test.IntTestCase):
         # result should be an integer
         self.assertEquals(a.gettype(graph.getreturnvar()), int)
 
+    def test_build_instance(self):
+        translator = Translator(snippet.build_instance)
+        graph = translator.getflowgraph()
+        a = RPythonAnnotator(translator)
+        a.build_types(graph, [])
+        # result should be a snippet.C instance
+        self.assertEquals(a.gettype(graph.getreturnvar()), snippet.C)
+
+        
 
 def g(n):
     return [0,1,2,n]
