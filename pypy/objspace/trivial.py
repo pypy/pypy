@@ -43,11 +43,11 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
         # connections we have go in the inconvenient direction...
         
         for k in dir(exceptions):
-            if k.startswith('_'):
-                continue
             if k not in done:
                 v = getattr(exceptions, k)
-                if isinstance(v, str):
+                if not isinstance(v, type(Exception)):
+                    continue
+                if not issubclass(v, Exception):
                     continue
                 stack = [k]
                 while stack:

@@ -105,7 +105,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         for k in dir(exceptions):
             if k not in done:
                 v = getattr(exceptions, k)
-                if isinstance(v, str):
+                if not isinstance(v, type(Exception)):
+                    continue
+                if not issubclass(v, Exception):
                     continue
                 stack = [k]
                 while stack:
