@@ -701,10 +701,6 @@ if __name__ == '__main__':
     mods_report = delta(ObjSpaceExplore(space), host_explore, TO_CHECK)
     cls_report = cls_delta_rep()
 
-    reports.insert(1,reports.pop())
-
-    reports.reverse()
-
     if not os.path.isdir(DIR):
         os.mkdir(DIR)
 
