@@ -88,6 +88,25 @@ class TestAnnotationSet(test.IntTestCase):
         clist = a.query(ANN.constant(42)[QUERYARG])
         self.assertEquals(clist, [c1])
 
+    def test_query_blackholevalue(self):
+        lst = [
+            ANN.add[c1, c3, c2],
+            ANN.add[c1, c2, c4],
+            ANN.type[c2, c4],
+            ANN.type[c2, c3],
+        ]
+        a = AnnotationSet(lst)
+        clist = a.query(ANN.add[c1, ..., QUERYARG])
+        clist.sort()
+        expected = [c2, c4]
+        expected.sort()
+        self.assertEquals(clist, expected)
+        clist = a.query(ANN.add[c2, ..., QUERYARG])
+        self.assertEquals(clist, [])
+        clist = a.query(ANN.type[c2, QUERYARG],
+                        ANN.add[c1, QUERYARG, ...])
+        self.assertEquals(clist, [c3])
+
     def test_simplify(self):
         lst = [ANN.add[c1, c3, c2],
                ANN.add[c1, c2, c2],

@@ -76,7 +76,7 @@ class AnnotationSet:
         """ yield annotations matching the given queryannotation. """
         self.normalizeann(queryann)
         testindices = [i for i in range(queryann.predicate.arity)
-                             if queryann.args[i] is not QUERYARG]
+                             if isinstance(queryann.args[i], SomeValue)]
         for ann in self.annlist:
             if ann.predicate == queryann.predicate:
                 for i in testindices:
