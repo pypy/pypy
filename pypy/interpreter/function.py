@@ -189,18 +189,20 @@ class Function(Wrappable):
 
     def app_visible(self):  
         space = self.space
-        def items(**kw):
-            return kw.items()
-        return items(
+        def makedict(**kw):
+            return kw
+        it = makedict(
                 func_defaults = self.defs_w and space.newtuple(self.defs_w) or space.w_None,
                 func_code = space.wrap(self.code),
                 func_dict = self.w_func_dict,
                 func_doc = space.wrap(self.doc),
-                __doc__ = space.wrap(self.doc),
                 func_name = space.wrap(self.name),
-                __name__ = space.wrap(self.name),
                 func_globals = self.w_func_globals,
                 func_closure = space.wrap(self.closure))
+        it['__name__'] = it['func_name']
+        it['__doc__'] = it['func_doc']
+        it['__dict__'] = it['func_dict']
+        return it.items()
 
 class Method(object):
     """A method is a function bound to a specific instance or class."""
