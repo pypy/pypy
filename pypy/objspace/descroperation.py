@@ -1,7 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import *
 
-
 class DescrOperation:
 
     def call(space, w_obj, w_args, w_kwargs):
@@ -10,6 +9,24 @@ class DescrOperation:
             raise OperationError(space.w_TypeError, 
                                  space.wrap('object is not callable'))
         return space.get_and_call(w_descr, w_obj, w_args, w_kwargs)
+
+    def get(space,w_descr,w_obj,w_type):
+        w_get = space.lookup(w_descr,'__get__')
+        if w_get is None:
+            raise OperationError(space.w_TypeError) # xxx error
+        return space.get_and_call(w_descr,w_obj,w_type)
+
+    def set(space,w_descr,w_obj,w_val):
+        w_get = space.lookup(w_descr,'__set__')
+        if w_get is None:
+            raise OperationError(space.w_TypeError) # xxx error
+        return space.get_and_call(w_descr,w_obj,w_val)
+
+    def delete(space,w_descr,w_obj):
+        w_get = space.lookup(w_descr,'__get__')
+        if w_get is None:
+            raise OperationError(space.w_TypeError) # xxx error
+        return space.get_and_call(w_descr,w_obj)
 
     def getattr(space,w_obj,w_name):
         w_descr = space.lookup(w_obj,'__getattribute__')
@@ -41,100 +58,177 @@ class DescrOperation:
         w_descr = space.lookup(w_obj,'__repr__')
         return space.get_and_call_function(w_descr,w_obj)
 
-    def pos(space,w_obj):
-        w_descr = space.lookup(w_obj,'__pos__')
+    def contains(space,w_obj,w_val):
+        w_descr = space.lookup(w_obj,'__contains__')
+        if w_descr is None:
+            raise OperationError(space.w_TypeError) # xxx error
+        return space.get_and_call_function(w_descr,w_obj,w_val)
+        
+    def iter(space,w_obj):
+        w_descr = space.lookup(w_obj,'__delattr__')
         if w_descr is None:
             raise OperationError(space.w_TypeError) # xxx error
         return space.get_and_call_function(w_descr,w_obj)
 
-    # xxx todo rest of 0 args methods
-    # rest of 1 args methods
+    def getitem(space,w_obj,w_key):
+        w_descr = space.lookup(w_obj,'__getitem__')
+        if w_descr is None:
+            raise OperationError(space.w_TypeError) # xxx error
+        return space.get_and_call_function(w_descr,w_obj,w_key)
+
+    def setitem(space,w_obj,w_key,w_val):
+        w_descr = space.lookup(w_obj,'__setitem__')
+        if w_descr is None:
+            raise OperationError(space.w_TypeError) # xxx error
+        return space.get_and_call_function(w_descr,w_obj,w_key,w_val)
+
+    def delitem(space,w_obj,w_key):
+        w_descr = space.lookup(w_obj,'__delitem__')
+        if w_descr is None:
+            raise OperationError(space.w_TypeError) # xxx error
+        return space.get_and_call_function(w_descr,w_obj,w_key)
+
+
     # special cases
 
+    # xxx what about not_,round,ord
 
 # helpers
 
-def _invoke_binop(self,methname,w_obj1,w_obj2):
-    w__impl = space.lookup(w_obj1, methoname)
-    if w_left_impl is not None:
-        w_res = space.get_and_call_function(w_left_impl,w_obj1,w_obj2)
-    else:
-        return space.w_NotImplemented
-
-
-def _isnt_notimplemented(space,w_obj):
-    return not space.is_true(space.is_(w_res.space.w_NotImplemented)):
-    
-
+def _invoke_binop(self,w_impl,w_obj1,w_obj2):
+    if w_impl is not None:
+        w_res = space.get_and_call_function(w_impl,w_obj1,w_obj2)
+        if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
+            return w_res
+    return None
 
 # helper for invoking __cmp__
+
+def _conditional_neg(space,w_obj,flag):
+    if flag:
+        return space.neg(w_obj)
+    else:
+        return w_obj
 
 def _cmp(space,w_obj1,w_obj2):
     w_typ1 = space.type(w_obj1)
     w_typ2 = space.type(w_obj2)
-    if space.issubtype(w_typ1,w_typ2):
-        w_right_impl = space.lookup(w_obj2, '__cmp__')
-        if w_right_impl is not None:
-            w_res = space.get_and_call_function(w_right_impl,w_obj2,w_obj1)
-            if 
-                return space.neg(w_res)
-        w_left_impl = space.lookup(w_obj1, '__cmp__')
-        if w_left_impl is not None:
-            w_res = space.get_and_call_function(w_left_impl,w_obj1,w_obj2)
-            if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
-                return w_res
+    w_left_impl = space.lookup(w_obj1,'__cmp__')
+    do_neg1 = False
+    do_neg2 = True
+    if space.is_true(space.is_(w_typ1,w_typ2)):
+        w_right_impl = None
     else:
-        w_left_impl = space.lookup(w_obj1, '__cmp__')
-        if w_left_impl is not None:
-            w_res = space.get_and_call_function(w_left_impl,w_obj1,w_obj2)
-            if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
-                return w_res
-        w_right_impl = space.lookup(w_obj2, '__cmp__')
-        if w_right_impl is not None:
-            w_res = space.get_and_call_function(w_right_impl,w_obj2,w_obj1)
-            if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
-                return space.neg(w_res)
-    raise OperationError(space.w_TypeError) # xxx error
-    
+        w_right_impl = space.lookup(w_obj2,'__cmp__')
+        if space.issubtype(w_typ1,w_typ2):
+            w_obj1,w_obj2 = w_obj2,w_obj1
+            w_left_impl,w_right_impl = w_right_impl,w_left_impl
+            do_neg1,do_neg2 = do_neg2,do_neg1
 
-        
+    w_res = _invoke_binop(w_left_impl,w_obj1,w_obj2)
+    if w_res is not None:
+        return _conditional_neg(space,w_res,do_neg1)
+    w_res = _invoke_binop(w_right_impl,w_obj2,w_obj1)
+    if w_res is not None:
+        return _conditional_neg(space,w_res,do_neg2)
+    raise OperationError(space.w_TypeError) # xxx error
+
 # regular methods def helpers
-def _make_binary_impl(specialnames):
+
+def _make_binop_impl(specialnames):
     left, right = specialnames
-    def binary_impl(space,w_obj1,w_obj2):
+    def binop_impl(space,w_obj1,w_obj2):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
-        if space.issubtype(w_typ1,w_typ2):
-            w_right_impl = space.lookup(w_obj2, right)
-            if w_right_impl is not None:
-                w_res = space.get_and_call_function(w_right_impl,w_obj2,w_obj1)
-                if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
-                    return w_res
-            w_left_impl = space.lookup(w_obj1, left)
-            if w_left_impl is not None:
-                w_res = space.get_and_call_function(w_left_impl,w_obj1,w_obj2)
-                if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
-                    return w_res
+        w_left_impl = space.lookup(w_obj1,left)
+        if space.is_true(space.is_(w_typ1,w_typ2)):
+            w_right_impl = None
         else:
-            w_left_impl = space.lookup(w_obj1, left)
-            if w_left_impl is not None:
-                w_res = space.get_and_call_function(w_left_impl,w_obj1,w_obj2)
-                if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
-                    return w_res
-            w_right_impl = space.lookup(w_obj2, right)
-            if w_right_impl is not None:
-                w_res = space.get_and_call_function(w_right_impl,w_obj2,w_obj1)
-                if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
-                    return w_res
-        raise OperationError(space.w_TypeError) # xxx error
-    return binary_impl
-    
-# add regular methods
-for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
-    if not hasattr(DescrObjSpace,_name):
-        if _arity == 2 and len(_specialnames) == 2: # binary
-            setattr(DescrObjSpace,_name,_make_binary_impl(_specialnames))
-        
+            w_right_impl = space.lookup(w_obj2,right)
+            if space.issubtype(w_typ1,w_typ2):
+                w_obj1,w_obj2 = w_obj2,w_obj1
+                w_left_impl,w_right_impl = w_right_impl,w_left_impl
 
- 
+        w_res = _invoke_binop(w_left_impl,w_obj1,w_obj2)
+        if w_res is not None:
+            return w_res
+        w_res = _invoke_binop(w_right_impl,w_obj2,w_obj1)
+        if w_res is not None:
+            return w_res
+        raise OperationError(space.w_TypeError) # xxx error
+    return binop_impl
+
+def _make_comparison_impl(specialnames):
+    left, right = specialnames
+    def comparison_impl(space,w_obj1,w_obj2):
+        w_typ1 = space.type(w_obj1)
+        w_typ2 = space.type(w_obj2)
+        w_left_impl = space.lookup(w_obj1,left)
+        w_first = w_obj1
+        w_second = w_obj2
+        
+        if space.is_true(space.is_(w_typ1,w_typ2)):
+            w_right_impl = None
+        else:
+            w_right_impl = space.lookup(w_obj2,right)
+            if space.issubtype(w_typ1,w_typ2):
+                w_obj1,w_obj2 = w_obj2,w_obj1
+                w_left_impl,w_right_impl = w_right_impl,w_left_impl
+
+        w_res = _invoke_binop(w_left_impl,w_obj1,w_obj2)
+        if w_res is not None:
+            return w_res
+        w_res = _invoke_binop(w_right_impl,w_obj2,w_obj1)
+        if w_res is not None:
+            return w_res
+        w_res = _cmp(space,w_first,w_second)
+        # fallback: lt(a,b) <= lt(cmp(a,b),0) ...
+        if space.is_true(comparison_impl(space,w_res,space.wrap(0))):
+            return space.w_True
+        else:
+            return space.w_False
+
+    return comparison_impl
+
+def _make_inplace_impl(specialnames):
+    specialname, = specialnames
+    def inplace_impl(space,w_lhs,w_rhs):
+        w_impl = space.lookup(w_lhs,specialname)
+        if w_impl is None:
+            raise OperationError(space.w_TypeError) # xxx error
+        space.get_and_call_function(w_impl,w_lhs,w_rhs)
+    return inplace_impl
+
+def _make_unaryop_impl(specialnames):
+    def unaryop_impl(space,w_obj):
+        w_impl = space.lookup(w_obj,specialname)
+        if w_impl is None:
+            raise OperationError(space.w_TypeError) # xxx error
+        space.get_and_call_function(w_impl,w_obj)
+    return unaryop_impl
+    
+
+# add regular methods
+
+for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
+    if not hasattr(DescrOperation,_name):
+        _impl_maker = None
+        if _arity ==2 and _name in ['lt','le','gt','ge','ne','eq']:
+            #print "comparison",_specialnames
+            _impl_maker = _make_comparison_impl
+        elif _arity == 2 and _name.startswith('inplace_'):
+            #print "inplace",_specialnames
+            _impl_maker = _make_inplace_impl
+        elif _arity == 2 and len(_specialnames) == 2:
+            #print "binop",_specialnames
+            _impl_maker = _make_binop_impl     
+        elif _arity == 1 and len(_specialnames) == 1:
+            #print "unaryop",_specialnames
+            _impl_maker = _make_unaryop_impl    
+        if _impl_maker:
+            setattr(DescrOperation,_name,_impl_maker(_specialnames))
+        elif _name not in ['id','type','issubtype']:
+            print "missing %s" % _name
+            
+            
 
