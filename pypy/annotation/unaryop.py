@@ -54,6 +54,11 @@ class __extend__(SomeObject):
     def bindcallables(obj, classdef):
         return obj   # default unbound __get__ implementation
 
+    def simple_call(*obj_and_args):
+        #raise Exception, "cannot follow simple_call%r" % (obj_and_args,)
+        print "*** cannot follow simple_call%r" % (obj_and_args,)
+        return SomeObject()
+
 
 class __extend__(SomeBool):
     def is_true(self):
@@ -75,6 +80,9 @@ class __extend__(SomeList):
 
     def method_append(lst, s_item):
         pair(lst, SomeInteger()).setitem(s_item)
+
+    def method_reverse(lst):
+        pass
 
     def iter(lst):
         return SomeIterator(lst.s_item)
