@@ -21,17 +21,8 @@ def app_triggerall():
             
     gen.func_code.co_name
     str({'co_name': ('f',)}), str(object.__init__.im_func.func_code)
-    "for %r" % ({'x': gen}) 
-    ("%02d"%1)
-    ("%05d"%1)
-    ("%-05d"%1)
-    ("%04f"%2.25)
-    ("%05g"%2.25)
-    ("%-05g"%2.25)
-    ("%05s"%2.25)
-    ('<%s>' % [1,2])
-    ('<%s-%s>' % ([1,2], [3,4]))
-    
+    #"for %r" % ({'x': gen}) 
+    "%02d %04f %05g %05s <%s> %r" % (1, 2.25, 2.25, 2.25, [1,2], {'x': gen})
     for x in gen():
         pass
 
