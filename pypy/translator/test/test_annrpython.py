@@ -575,6 +575,26 @@ class TestAnnonateTestCase:
         assert s.items[0].knowntype == int
         assert s.items[1].knowntype == str
 
+    def test_exception_deduction_with_raise1(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.exception_deduction_with_raise1, [bool])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.knowntype is snippet.Exc
+
+
+    def test_exception_deduction_with_raise2(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.exception_deduction_with_raise2, [bool])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.knowntype is snippet.Exc
+
+    def test_exception_deduction_with_raise3(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.exception_deduction_with_raise3, [bool])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.knowntype is snippet.Exc
+
+
 def g(n):
     return [0,1,2,n]
 

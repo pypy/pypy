@@ -721,6 +721,40 @@ def exception_deduction():
     except Exc, e:
         return e
     return Exc()
+
+
+def witness(x):
+    pass
+
+def exception_deduction_with_raise1(x):
+    try:
+        exception_deduction0(2)
+        if x:
+            raise Exc()
+    except Exc, e:
+        witness(e)
+        return e
+    return Exc()
+
+def exception_deduction_with_raise2(x):
+    try:
+        exception_deduction0(2)
+        if x:
+            raise Exc
+    except Exc, e:
+        witness(e)
+        return e
+    return Exc()
+
+def exception_deduction_with_raise3(x):
+    try:
+        exception_deduction0(2)
+        if x:
+            raise Exc, Exc()
+    except Exc, e:
+        witness(e)
+        return e
+    return Exc()
     
 def slice_union(x):
     if x:

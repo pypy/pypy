@@ -22,13 +22,28 @@ def immutablevalue(x):
 
 UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr',
                         'simple_call', 'call_args',
-                        'iter', 'next', 'invert'])
+                        'iter', 'next', 'invert', 'type'])
 
 for opname in UNARY_OPERATIONS:
     missing_operation(SomeObject, opname)
 
 
 class __extend__(SomeObject):
+
+    def type(obj):
+        if obj.is_constant():
+            r = immutablevalue(obj.knowntype)
+        else:
+            r = SomeObject()
+        bk = getbookkeeper()
+        fn, block, i = bk.position_key
+        annotator = bk.annotator
+        op = block.operations[i]
+        assert op.opname == "type" 
+        assert len(op.args) == 1
+        assert annotator.binding(op.args[0]) == obj
+        r.is_type_of = [op.args[0]]
+        return r
     
     def len(obj):
         return SomeInteger(nonneg=True)
