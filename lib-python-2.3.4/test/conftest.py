@@ -37,6 +37,7 @@ working_unittests = (
 'test_commands.py',
 'test_compare.py',
 'test_compile.py',
+'test_datetime.py', # it takes loong time
 'test_dis.py',
 'test_hash.py',
 'test_heapq.py',
@@ -123,7 +124,8 @@ def app_list_testmethods(mod, testcaseclass, classlist):
         assert classlist, ("found %s.test_main() but it returned no " 
                            "test classes" % mod.__name__) 
     else: 
-        # we try to find out fitting tests ourselves 
+        # we try to find out fitting tests ourselves
+        raise Exception, mod.__dict__.items()
         for clsname, cls in mod.__dict__.items(): 
             if hasattr(cls, '__bases__') and \
                issubclass(cls, testcaseclass): 
