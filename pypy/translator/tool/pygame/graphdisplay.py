@@ -41,8 +41,8 @@ class GraphDisplay(Display):
     ANIM_STEP = 0.07
 
     KEYS = {
-        'meta =' : ('zoom', 1),
-        'meta -' : ('zoom', -1),
+        'meta -' : ('zoom', 0.5),
+        'meta =' : ('zoom', 2.0),
         'meta 0' : 'zoom_actual_size',
         'meta 1' : 'zoom_to_fit',
         'meta q' : 'quit',
@@ -71,6 +71,7 @@ class GraphDisplay(Display):
         self.viewer = None
         self.method_cache = {}
         self.key_cache = {}
+        self.status_bar_height = 0
         self.initialize_keys()
         self.setlayout(layout)
 
@@ -104,20 +105,41 @@ class GraphDisplay(Display):
         self.viewer = GraphRenderer(self.screen, layout)
         self.zoom_to_fit()
 
+    def zoom_actual_size(self):
+        # XXX - HACK HACK HACK
+        #self.update_status_bar()
+        #self.drawstatusbar()
+
+        self.viewer.shiftscale(self.viewer.SCALEMAX / self.viewer.scale)
+        #self.viewer.setoffset((self.viewer.width - self.width) // 2,
+        #                      (self.viewer.height - (self.height - self.status_bar_height)) // 2)
+        self.updated_viewer()
+
+    def calculate_zoom_to_fit(self):
+        return min(float(self.width) / self.viewer.width,
+                float(self.height - self.status_bar_height) / self.viewer.height,
+                1.0)
+    
     def zoom_to_fit(self):
         """
         center and scale to view the whole graph
         """
-        self.viewer.setoffset((self.viewer.width - self.width) // 2,
-                              (self.viewer.height - self.height) // 2)
-        f = min(float(self.width-40) / self.viewer.width,
-                float(self.height-40) / self.viewer.height,
-                1.0)
+
+        # XXX - HACK HACK HACK
+        self.update_status_bar()
+        self.drawstatusbar()
+
+        f = self.calculate_zoom_to_fit()
         self.viewer.shiftscale(f)
+        self.viewer.setoffset((self.viewer.width - self.width) // 2,
+                              (self.viewer.height - (self.height - self.status_bar_height)) // 2)
+        self.updated_viewer()
+
+    def zoom(self, scale):
+        self.viewer.shiftscale(max(scale, self.calculate_zoom_to_fit()))
         self.updated_viewer()
     
-    def updated_viewer(self):
-        self.sethighlight()
+    def update_status_bar(self):
         self.statusbarinfo = None
         self.must_redraw = True
         if self.viewers_history:
@@ -126,6 +148,12 @@ class GraphDisplay(Display):
             info = ('Click to move around, or drag mouse buttons '
                     '(left to zoom, right to scroll)')
         self.setstatusbar(info)
+    
+    def updated_viewer(self):
+        self.sethighlight()
+        self.statusbarinfo = None
+        self.must_redraw = True
+        self.update_status_bar()
 
     def layout_back(self):
         if self.viewers_history:
@@ -161,7 +189,8 @@ class GraphDisplay(Display):
             totalh += h
         
         y = self.height - totalh
-        self.screen.fill(bgcolor, (0, y-16, self.width, totalh+16))
+        self.status_bar_height = totalh + 16
+        self.screen.fill(bgcolor, (0, y-16, self.width, self.status_bar_height))
         for img in lines:
             w, h = img.get_size()
             self.screen.blit(img, ((self.width-w)//2, y-8))
@@ -324,6 +353,8 @@ class GraphDisplay(Display):
                     self.viewer.render()
                     if self.statusbarinfo:
                         self.drawstatusbar()
+                    else:
+                        self.status_bar_height = 0
                     pygame.display.flip()
                     self.must_redraw = False
 
