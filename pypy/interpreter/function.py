@@ -92,7 +92,7 @@ class Function(Wrappable):
             # XXX this doesn't check that the keys of kwargs are strings
             scope_w.append(w_kwargs)
         elif space.is_true(w_kwargs):
-            self.raise_unknown_kwds(w_kwds)
+            self.raise_argerr_unknown_kwds(w_kwds)
         return scope_w
 
     # helper functions to build error message for the above

@@ -38,6 +38,7 @@ def main_(argv=None):
         except error.PyPyError, pypyerr:
             pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
     elif args:
+        args = args[0].split()+args[1:]
         try:
             main.run_file(args[0], space)
         except error.PyPyError, pypyerr:
