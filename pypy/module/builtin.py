@@ -23,19 +23,12 @@ class Builtin(BuiltinModule):
     len = appmethod(len)
 
     def compile(self, w_str, w_filename, w_startstr,
-                w_supplied_flags=None, w_dont_inherit=None):
+                w_supplied_flags, w_dont_inherit):
         str = space.unwrap(w_str)
         filename = space.unwrap(w_filename)
         startstr = space.unwrap(w_startstr)
-        if w_supplied_flags is None:
-            supplied_flags = 0
-        else:
-            supplied_flags = space.unwrap(w_supplied_flags)
-        if w_dont_inherit is None:
-            dont_inherit = False
-        else:
-            dont_inherit = space.unwrap(w_dont_inherit)
-
+        supplied_flags = space.unwrap(w_supplied_flags)
+        dont_inherit = space.unwrap(w_dont_inherit)
         c = _b.compile(str, filename, startstr, supplied_flags, dont_inherit)
         res = PyByteCode()
         res._from_code(c)
