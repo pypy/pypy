@@ -1,4 +1,6 @@
 from pypy.interpreter.error import OperationError
+from pypy.interpreter import eval
+from pypy.interpreter.function import Function
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.objspace import W_Object, StdObjSpace
 from pypy.objspace.std.default import UnwrapError
@@ -63,24 +65,41 @@ def fake_type(cpy_type, ignored=None):
     StdObjSpace.unwrap.register(fake_unwrap, W_Fake)
     W_Fake.__name__ = 'W_Fake%s'%(cpy_type.__name__.capitalize())
     W_Fake.typedef.fakedcpytype = cpy_type
-    # XXX obviously this entire file is something of a hack, but it
-    # manages to get worse here:
-    if cpy_type is type(type(None).__repr__):
-        def call_args(self, args):
-            try:
-                unwrappedargs = [self.space.unwrap(w_arg) for w_arg in args.args_w]
-                unwrappedkwds = dict([(key, self.space.unwrap(w_value))
-                                      for key, w_value in args.kwds_w.items()])
-            except UnwrapError, e:
-                raise UnwrapError('calling %s: %s' % (cpy_type, e))
-            try:
-                assert callable(self.val), self.val
-                result = apply(self.val, unwrappedargs, unwrappedkwds)
-            except:
-                wrap_exception(self.space)
-            return self.space.wrap(result)
-
-        setattr(W_Fake, "call_args", call_args)
     _fake_type_cache[cpy_type] = W_Fake
     return W_Fake
 
+# ____________________________________________________________
+#
+# Special case for built-in functions, methods, and slot wrappers.
+
+class CPythonFakeCode(eval.Code):
+    def __init__(self, cpy_callable):
+        eval.Code.__init__(self, getattr(cpy_callable, '__name__', '?'))
+        self.cpy_callable = cpy_callable
+        assert callable(cpy_callable), cpy_callable
+    def create_frame(self, space, w_globals, closure=None):
+        return CPythonFakeFrame(space, self, w_globals)
+    def signature(self):
+        return [], 'args', 'kwds'
+
+class CPythonFakeFrame(eval.Frame):
+    def run(self):
+        fn = self.code.cpy_callable
+        w_args, w_kwds = self.fastlocals_w
+        try:
+            unwrappedargs = self.space.unwrap(w_args)
+            unwrappedkwds = self.space.unwrap(w_kwds)
+        except UnwrapError, e:
+            raise UnwrapError('calling %s: %s' % (cpy_type, e))
+        try:
+            result = apply(fn, unwrappedargs, unwrappedkwds)
+        except:
+            wrap_exception(self.space)
+        return self.space.wrap(result)
+
+def fake_builtin_callable(space, val):
+    return Function(space, CPythonFakeCode(val))
+
+_fake_type_cache[type(len)] = fake_builtin_callable
+_fake_type_cache[type(list.append)] = fake_builtin_callable
+_fake_type_cache[type(type(None).__repr__)] = fake_builtin_callable

@@ -73,8 +73,6 @@ class DescrOperation:
                 if w_result is not None:
                     return w_result
             return descr.call_args(args.prepend(w_obj))
-        elif type(descr) is type(space.wrap(SlotWrapper)):
-            return descr.call_args(args.prepend(w_obj))
         else:
             w_impl = space.get(w_descr, w_obj)
             return space.call_args(w_impl, args)
