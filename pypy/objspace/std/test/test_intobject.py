@@ -334,7 +334,28 @@ class AppTestInt:
         raises(OverflowError,j,10000000000)
         raises(OverflowError,j,"10000000000")
 
-    def test_special_int_method(self):
+    def test_special_int(self):
         class a:
-            def __int__(self): return None
-        raises(TypeError, int, a())
+            def __int__(self): 
+                self.ar = True 
+                return None
+        inst = a()
+        raises(TypeError, int, inst) 
+        assert inst.ar == True 
+
+        class b: 
+            pass 
+        raises(TypeError, int, b()) 
+
+    def test_special_long(self):
+        class a:
+            def __long__(self): 
+                self.ar = True 
+                return None
+        inst = a()
+        raises(TypeError, long, inst) 
+        assert inst.ar == True 
+
+        class b: 
+            pass 
+        raises(TypeError, int, b()) 

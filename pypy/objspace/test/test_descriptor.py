@@ -23,3 +23,22 @@ class AppTest_Descriptor:
         assert sys.stdin.softspace == 0
         raises(TypeError, delattr, sys.stdin, 'softspace')
         raises(TypeError, file.softspace.__delete__, sys.stdin)
+
+    def test_special_methods_returning_strings(self): 
+        class A: 
+            seen = []
+            def __str__(self): 
+                self.seen.append(1) 
+            def __repr__(self): 
+                self.seen.append(2) 
+            def __oct__(self): 
+                self.seen.append(3) 
+            def __hex__(self): 
+                self.seen.append(4) 
+
+        inst = A()
+        raises(TypeError, str, inst) 
+        raises(TypeError, repr, inst) 
+        raises(TypeError, oct, inst) 
+        raises(TypeError, hex, inst) 
+        assert A.seen == [1,2,3,4]

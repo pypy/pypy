@@ -150,30 +150,6 @@ class DescrOperation:
             return space.is_true(w_res)
         return True
 
-    def str(space, w_obj):
-        w_descr = space.lookup(w_obj, '__str__')
-        return space.get_and_call_function(w_descr, w_obj)
-        # XXX PyObject_Str() checks that the result is a string
-
-    def int(space, w_obj):
-        w_impl = space.lookup(w_obj, '__int__')
-        if w_impl is None:
-            raise OperationError(space.w_TypeError,
-                   space.wrap("operand does not support unary %s" % symbol))
-        w_result = space.get_and_call_function(w_impl, w_obj)
-
-        if space.is_true(space.isinstance(w_result, space.w_int)) or \
-           space.is_true(space.isinstance(w_result, space.w_long)):
-            return w_result
-        w_typename = space.getattr(space.type(w_result), space.wrap('__name__'))
-        w_msg = space.mod(space.wrap("__int__ returned non-int (%s)"), w_typename)
-        raise OperationError(space.w_TypeError, w_msg)
-
-    def repr(space, w_obj):
-        w_descr = space.lookup(w_obj, '__repr__')
-        return space.get_and_call_function(w_descr, w_obj)
-        # XXX PyObject_Repr() probably checks that the result is a string
-
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
         if w_descr is None:
@@ -402,9 +378,44 @@ def _make_unaryop_impl(symbol, specialnames):
                    space.wrap("operand does not support unary %s" % symbol))
         return space.get_and_call_function(w_impl, w_obj)
     return func_with_new_name(unaryop_impl, 'unaryop_%s_impl'%specialname.strip('_'))
-    
 
-# add regular methods
+# the following seven operations are really better to generate with
+# string-templating (and maybe we should consider this for
+# more of the above manually-coded operations as well) 
+
+for targetname, specialname, checkerspec in [
+    ('int', '__int__', ("space.w_int", "space.w_long")), 
+    ('long', '__long__', ("space.w_int", "space.w_long")), 
+    ('float', '__float__', ("space.w_float",)), 
+    ('str', '__str__', ("space.w_str",)), 
+    ('repr', '__repr__', ("space.w_str",)), 
+    ('oct', '__oct__', ("space.w_str",)), 
+    ('hex', '__hex__', ("space.w_str",))]: 
+
+    l = ["space.is_true(space.isinstance(w_result, %s))" % x 
+                for x in checkerspec]
+    checker = " or ".join(l) 
+    exec """
+def %(targetname)s(space, w_obj):
+    w_impl = space.lookup(w_obj, %(specialname)r) 
+    if w_impl is None:
+        raise OperationError(space.w_TypeError,
+               space.wrap("operand does not support unary %(targetname)s"))
+    w_result = space.get_and_call_function(w_impl, w_obj)
+
+    if %(checker)s: 
+        return w_result
+    typename = space.str_w(space.getattr(space.type(w_result), 
+                           space.wrap('__name__')))
+    msg = '%(specialname)s returned non-%(targetname)s (type %%s)' %% (typename,) 
+    raise OperationError(space.w_TypeError, space.wrap(msg)) 
+assert not hasattr(DescrOperation, %(targetname)r)
+DescrOperation.%(targetname)s = %(targetname)s
+del %(targetname)s 
+""" % locals() 
+
+
+# add default operation implementations for all still missing ops 
 
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     if not hasattr(DescrOperation, _name):
