@@ -59,7 +59,41 @@ class StdObjSpace(ObjSpace):
         return [value for key, value in result.__dict__.items()
                       if not key.startswith('_')]   # don't look
 
-
+    def clone_exception_heirachy(self):
+	import exceptions
+        from usertype import W_UserType
+        self.w_Exception = W_UserType(self, 
+                                      self.wrap("Exception"),
+                                      self.newtuple([]),
+                                      self.newdict([]))
+        done = {'Exception': self.w_Exception}
+        self.w_IndexError = self.w_Exception
+        for k in dir(exceptions):
+            v = getattr(exceptions, k)
+            if isinstance(v, str):
+                continue
+            stack = [k]
+            while stack:
+                next = stack[-1]
+                nextv = getattr(exceptions, next)
+                if next in done:
+                    stack.pop()
+                else:
+                    nb = nextv.__bases__[0]
+                    w_nb = done.get(nb.__name__)
+                    if w_nb is None:
+                        stack.append(nb.__name__)
+                    else:
+                        w_exc = self.call_function(
+                            self.w_type,
+                            self.wrap(next),
+                            self.newtuple([w_nb]),
+                            self.newdict([]))
+                        setattr(self, 'w_' + next, w_exc)
+                        done[next] = w_exc
+                        stack.pop()
+        return done
+            
     def initialize(self):
         from noneobject    import W_NoneObject
         from boolobject    import W_BoolObject
@@ -75,18 +109,18 @@ class StdObjSpace(ObjSpace):
                     "None" : self.w_None,
                     "NotImplemented": self.w_NotImplemented,
                     }
-        for n, c in __builtin__.__dict__.iteritems():
-            if isinstance(c, types.ClassType) and issubclass(c, Exception):
-                w_c = W_CPythonObject(self, c)
-                setattr(self, 'w_' + c.__name__, w_c)
-                newstuff[c.__name__] = w_c
+#         for n, c in __builtin__.__dict__.iteritems():
+#             if isinstance(c, types.ClassType) and issubclass(c, Exception):
+#                 w_c = W_CPythonObject(self, c)
+#                 setattr(self, 'w_' + c.__name__, w_c)
+#                 newstuff[c.__name__] = w_c
         # make the types
         self.types_w = {}
         for typeclass in self.standard_types():
             w_type = self.get_typeinstance(typeclass)
             setattr(self, 'w_' + typeclass.typename, w_type)
             newstuff[typeclass.typename] = w_type
-        
+        newstuff.update(self.clone_exception_heirachy())
         self.make_builtins()
         self.make_sys()
         # insert these into the newly-made builtins
