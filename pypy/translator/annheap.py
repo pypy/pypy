@@ -133,10 +133,7 @@ class Transaction:
         self.heap = heap
         self.using_annotations = []  # annotations that we have used
 
-    def get(self, opname, args):
-        """Return the Cell with the annotation 'opname(args) -> Cell',
-        or None if there is no such annotation or several different ones.
-        Hack to generalize: a None in the args matches anything."""
+    def _list_annotations(self, opname, args):
         # patch(arglist) -> arglist with None plugged where
         #                   there is a None in the input 'args'
         def patch(arglist):
@@ -152,6 +149,13 @@ class Transaction:
         for ann in self.heap.annlist:
             if ann.opname == opname and patch(ann.args) == args:
                 matchann.append(ann)
+        return matchann
+
+    def get(self, opname, args):
+        """Return the Cell with the annotation 'opname(args) -> Cell',
+        or None if there is no such annotation or several different ones.
+        Hack to generalize: a None in the args matches anything."""
+        matchann = self._list_annotations(opname, args)
         if not matchann:
             return None
         else:
@@ -162,6 +166,11 @@ class Transaction:
             for ann in matchann:
                 self.using(ann)
             return result
+
+    def delete(self, opname, args):
+        """Kill the annotations 'opname(args) -> *'."""
+        matchann = self._list_annotations(opname, args)
+        self.heap.simplify(kill=matchann)
 
     def set(self, opname, args, result):
         """Put a new annotation into the AnnotationHeap."""

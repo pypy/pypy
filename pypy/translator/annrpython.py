@@ -16,6 +16,12 @@ class RPythonAnnotator:
         self.pendingblocks = []  # list of (block, list-of-XCells)
         self.bindings = {}       # map Variables/Constants to XCells/XConstants
         self.annotated = {}      # set of blocks already seen
+        # build default annotations
+        t = self.transaction()
+        self.any_immutable = XCell()
+        t.set('immutable', [], self.any_immutable)
+        self.any_int = XCell()
+        t.set_type(self.any_int, int)
 
 
     #___ convenience high-level interface __________________
@@ -156,8 +162,28 @@ class RPythonAnnotator:
             t.set_type(result, str)
         if type1 is list and type2 is list:
             t.set_type(result, list)
+            # XXX propagate information about the type of the elements
 
-    consider_op_inplace_add = consider_op_add
+    def consider_op_inplace_add(self, (arg1,arg2), result, t):
+        type1 = t.get_type(arg1)
+        type2 = t.get_type(arg1)
+        if type1 is list and type2 is list:
+            # Annotations about the items of arg2 are merged with the ones about
+            # the items of arg1.  arg2 is not modified during this operation.
+            # result is arg1.
+            result.share(arg1)
+            t.delete('len', [arg1])
+            item1 = t.get('getitem', [arg1, None])
+            if item1 is not None:
+                item2 = t.get('getitem', [arg2, None])
+                if item2 is None:
+                    item2 = XCell()   # anything at all
+                item3 = self.heap.merge(item1, item2)
+                if item3 != item1:
+                    t.delete('getitem', [arg1, None])
+                    t.set('getitem', [arg1, self.any_int], item3)
+        else:
+            self.consider_op_add((arg1,arg2), result, t)
 
     def consider_op_sub(self, (arg1,arg2), result, t):
         type1 = t.get_type(arg1)
@@ -192,6 +218,11 @@ class RPythonAnnotator:
 
     def consider_op_newlist(self, args, result, t):
         t.set_type(result, list)
+        t.set("len", [result], self.constant(len(args)))
+        item_cell = nothingyet
+        for a in args:
+            item_cell = self.heap.merge(item_cell, a)
+        t.set("getitem", [result, self.any_int], item_cell)
 
     def consider_op_newslice(self, args, result, t):
         t.set_type(result, slice)
@@ -219,9 +250,7 @@ class RPythonAnnotator:
         t = self.transaction()
         t.set('immutable', [], to_var)
         t.set_type(to_var,type(const.value))
-        if isinstance(const.value, list):
-            pass # XXX say something about the type of the elements
-        elif isinstance(const.value, tuple):
+        if isinstance(const.value, tuple):
             pass # XXX say something about the elements
 
 

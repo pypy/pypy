@@ -6,6 +6,8 @@ from pypy.tool.udir import udir
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.objspace.flow.model import *
 
+from pypy.translator.test import snippet
+
 class AnnonateTestCase(test.IntTestCase):
     def setUp(self):
         self.space = test.objspace('flow')
@@ -109,12 +111,26 @@ class AnnonateTestCase(test.IntTestCase):
         end_cell = a.binding(fun.getreturnvar())
         self.assertEquals(a.transaction().get_type(end_cell), int)
 
-    def test_simplify_calls(self):
-        fun = self.make_fun(f_calls_g)
+    #def test_simplify_calls(self):
+    #    fun = self.make_fun(f_calls_g)
+    #    a = RPythonAnnotator()
+    #    a.build_types(fun, [int])
+    #    a.simplify_calls()
+    #    #self.reallyshow(fun)
+    # XXX write test_transform.py
+
+    def test_lists(self):
+        fun = self.make_fun(snippet.poor_man_rev_range)
         a = RPythonAnnotator()
         a.build_types(fun, [int])
-        a.simplify_calls()
-        #self.reallyshow(fun)
+        # result should be a list of integers
+        t = a.transaction()
+        end_cell = a.binding(fun.getreturnvar())
+        self.assertEquals(t.get_type(end_cell), list)
+        item_cell = t.get('getitem', [end_cell, None])
+        self.failIf(item_cell is None)
+        self.assertEquals(t.get_type(item_cell), int)
+
 
 def g(n):
     return [0,1,2,n]

@@ -105,6 +105,13 @@ def poor_man_range(i):
     lst.reverse()
     return lst
 
+def poor_man_rev_range(i):
+    lst = []
+    while i > 0:
+        i = i - 1
+        lst += [i]
+    return lst
+
 def simple_id(x):
     return x
 
