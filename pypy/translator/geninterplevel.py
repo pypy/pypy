@@ -14,7 +14,7 @@ This module appears to be already quite usable.
 But I need to ask how we want to integrate it.
 
 XXX open questions:
-- do we wantamoduleperapp-spaceoperation?
+- do we want a moduleperapp-spaceoperation?
 - do we want to auto-generate stuff?
 - do we want to create code that is more similar to the app code?
 - do we want to create specialized code for constants?
@@ -30,7 +30,7 @@ from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.translator.simplify import remove_direct_loops
-from pypy.interpreter.pycode import CO_VARARGS
+from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from pypy.annotation import model as annmodel
 from types import FunctionType, CodeType
 from pypy.interpreter.error import OperationError
@@ -851,69 +851,63 @@ class GenRpy:
         localnames = [self.expr(a, locals) for a in uniqueitems(localslst)]
 
         # collect all the arguments
+        vararg = varkw = None
+        varargname = varkwname = None
+        all_args = graph.getargs()
+        p = len(all_args)
+        if func.func_code.co_flags & CO_VARKEYWORDS:
+            p -= 1
+            varkw = graph.getargs()[p]
+            varkwname = func.func_code.co_varnames[p]
         if func.func_code.co_flags & CO_VARARGS:
-            vararg = graph.getargs()[-1]
-            positional_args = graph.getargs()[:-1]
-        else:
-            vararg = None
-            positional_args = graph.getargs()
-        min_number_of_args = len(positional_args) - len(name_of_defaults)
+            p -= 1
+            vararg = graph.getargs()[p]
+            varargname = func.func_code.co_varnames[p]
+        positional_args = all_args[:p]
 
         fast_args = [self.expr(a, locals) for a in positional_args]
         if vararg is not None:
             fast_args.append(self.expr(vararg, locals))
+        if varkw is not None:
+            fast_args.append(self.expr(varkw, locals))
         fast_name = 'fast' + f_name
 
         fast_set = dict(zip(fast_args, fast_args))
 
         # create function declaration
         name = self.trans_funcname(func.__name__) # for <lambda>
-        argstr = ", ".join(fast_args)
-        fast_function_header = ('def %s(space, %s):'
+        argstr = ", ".join(['space'] + fast_args)
+        fast_function_header = ('def %s(%s):'
                                 % (name, argstr))
 
-        print >> f, 'def %s(space, *args_w):' % (name,)
+        print >> f, 'def %s(space, __args__):' % (name,)
         if docstr is not None:
             print >> f, docstr
-        kwlist = ['"%s"' % var for var in
-                      func.func_code.co_varnames[:func.func_code.co_argcount]]
-        print >> f, '    kwlist = [%s]' % (', '.join(kwlist),)
-
-        # argument unpacking
-        if vararg is not None:
-            varname = self.expr(vararg, locals)
-            lenargs = len(positional_args)
-            print >> f, '    %s = space.newtuple(list(args_w[%d:]))' % (
-                varname, lenargs)
-            print >> f, '    _args_w = args_w[:%d]' % (lenargs,)
-        else:
-            print >> f, '    _args_w = args_w'
-            varname = None
-
+            print >> f
         def tupstr(seq):
             if len(seq) == 1:
                 fmt = '%s,'
             else:
                 fmt = '%s'
             return fmt % ', '.join(seq)
+        def tupassstr(seq):
+            if not seq:
+                return ""
+            else:
+                return tupstr(seq) + " = "
 
-        print >> f, '    defaults_w = (%s)' % tupstr(name_of_defaults)
-
-        theargs = [arg for arg in fast_args if arg != varname]
-        txt = inspect.getsource(PyArg_ParseMini) + ('\n'
-               'm.PyArg_ParseMini = PyArg_ParseMini\n'
-               'from pypy.interpreter.error import OperationError\n'
-               'm.OperationError = OperationError')
-        self.initcode.append(txt)
         print >> f, '    funcname = "%s"' % func.__name__
-        if theargs:
-            txt = '    %s = PyArg_ParseMini(space, funcname, %d, %d, _args_w, defaults_w)'
-            print >>f, txt % (tupstr(theargs),
-                              min_number_of_args, len(positional_args))
-        else:
-            txt = '    PyArg_ParseMini(space, funcname, %d, %d, _args_w, defaults_w)'
-            print >>f, txt % (min_number_of_args, len(positional_args))
-        print >> f, '    return %s(space, %s)' % (fast_name, ', '.join(fast_args))
+
+        kwlist = list(func.func_code.co_varnames[:func.func_code.co_argcount])
+        signature = '    signature = %r' % kwlist
+        signature = ", ".join([signature, repr(varargname), repr(varkwname)])
+        print >> f, signature
+
+        print >> f, '    def_w = [%s]' % ", ".join(name_of_defaults)
+
+        print >> f, '    %s__args__.parse(funcname, signature, def_w)' % (
+            tupassstr(fast_args),)
+        print >> f, '    return %s(%s)' % (fast_name, ', '.join(["space"]+fast_args))
         print >> f, '%s = globals().pop("%s")' % (f_name, name)
         print >> f
 
@@ -1340,3 +1334,11 @@ def crazy_test():
     t = Translator(test, verbose=False, simplifying=True)
     gen = GenRpy(t)
     gen.gen_source("/tmp/look2.py")
+
+##>>> def f_foo(space, __args__):
+##... 	signature = ["a", "b"], "args", "kwds"
+##... 	defaults_w = space.w_int(42) # is this the default for b?
+##... 	w_a, w_b, w_args, w_kwds = __args__.parse("foo", signature, defaults_w)
+##... 	return fastf_foo(w_a, w_b, w_args, w_kwds)
+##... 	# args/kwds can be None.
+##... 	# then I don't receive w_xxx for them as well.
