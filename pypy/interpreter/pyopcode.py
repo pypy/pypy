@@ -614,8 +614,11 @@ class PyInterpFrame(pyframe.PyFrame):
                 raise
             raise OperationError(space.w_ImportError,
                                  space.wrap("__import__ not found"))
+        w_locals = f.w_locals
+        if w_locals is None:            # CPython does this
+            w_locals = space.w_None
         w_obj = space.call_function(w_import, space.wrap(modulename),
-                                    f.w_globals, f.w_locals, w_fromlist)
+                                    f.w_globals, w_locals, w_fromlist)
         f.valuestack.push(w_obj)
 
     def IMPORT_STAR(f):

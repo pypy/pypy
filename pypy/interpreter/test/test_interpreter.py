@@ -1,4 +1,5 @@
 import autopath
+import textwrap
 from pypy.tool import testit
 
 class TestInterpreter(testit.TestCase):
@@ -141,6 +142,24 @@ def f(n):
         self.assertEquals(self.codetest(code, 'f', [4]), 1+2+3+400)
         self.assertEquals(self.codetest(code, 'f', [9]),
                           1+2+3 + 5+6+7+8+900)
+
+    def test_import(self):
+        # Regression test for a bug in PyInterpFrame.IMPORT_NAME: when an
+        # import statement was executed in a function without a locals dict, a
+        # plain unwrapped None could be passed into space.call_function causing
+        # assertion errors later on.
+        real_call_function = self.space.call_function
+        def safe_call_function(w_obj, *arg_w):
+            for arg in arg_w:
+                assert arg is not None
+            return real_call_function(w_obj, *arg_w)
+        self.space.call_function = safe_call_function
+        code = textwrap.dedent('''
+            def f():
+                import sys
+            ''')
+        self.codetest(code, 'f', [])
+
 
 class AppTestInterpreter(testit.AppTestCase):
     def test_trivial(self):
