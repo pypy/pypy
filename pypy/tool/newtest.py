@@ -10,6 +10,7 @@ import vpath
 #TODO
 # - add support for ignored/skipped tests
 # - support TestItem.run with different object spaces
+# - find out why some modules can't be loaded
 
 class TestStatus:
     def __init__(self, name, longstring, shortstring):
@@ -39,7 +40,7 @@ class TestResult:
         # formatted traceback (a string)
         self.formatted_traceback = None
 
-    def _setstatus(self, statuscode):
+    def _setexception(self, statuscode):
         self.status = statuscode
         self.excinfo = sys.exc_info()
         self.traceback = self.excinfo[2]
@@ -47,7 +48,8 @@ class TestResult:
         output = StringIO.StringIO()
         args = self.excinfo + (None, output)
         traceback.print_exception(*args)
-        self.formatted_traceback = output.getvalue().strip()
+        # strip trailing newline
+        self.formatted_traceback = output.getvalue().rstrip()
 
 
 class TestItem:
@@ -100,23 +102,28 @@ class TestItem:
         if pretest is not None:
             pretest(self)
         try:
+            #XXX possibly will have to change
+            from pypy.tool import test
             try:
                 testobject.setUp()
             except KeyboardInterrupt:
                 raise
+            except test.TestSkip:
+                result.status = SKIPPED
+                return result
             except:
-                result._setstatus(ERROR)
+                result._setexception(ERROR)
                 return result
 
             try:
                 testmethod()
                 result.status = SUCCESS
             except AssertionError:
-                result._setstatus(FAILURE)
+                result._setexception(FAILURE)
             except KeyboardInterrupt:
                 raise
             except:
-                result._setstatus(ERROR)
+                result._setexception(ERROR)
 
             try:
                 testobject.tearDown()
@@ -126,7 +133,7 @@ class TestItem:
                 # if we already had an exception in the test method,
                 # don't overwrite it
                 if result.status not in (ERROR, FAILURE):
-                    result._setstatus(ERROR)
+                    result._setexception(ERROR)
         finally:
             if posttest is not None:
                 posttest(self)
@@ -216,13 +223,15 @@ class TestSuite:
 
 
 def main():
+    #filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
     ts = TestSuite()
     ts.initfromdir(autopath.pypydir)
     for res in ts.testresults():
         if res.status == SUCCESS:
             continue
         print 79 * '-'
-        print "%s: %s" % (res.item, res.status)
+        print "%s.%s: %s" % (res.item.module.__name__, res.item.method.__name__,
+                             res.status)
         if res.traceback:
             print
             print res.formatted_traceback
