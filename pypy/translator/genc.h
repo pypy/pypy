@@ -111,24 +111,20 @@ static PyObject *this_module_globals;
 
 #define OP_NEWSLICE(x,y,z,r,err)  if (!(r=PySlice_New(x,y,z)))       FAIL(err)
 
-#define AS_LONG(x) PyInt_AsLong(x)
-
-#define FAIL_IF_ERR(r,err) \
-	if (PyErr_Occurred()) { \
-		r = NULL; \
-		FAIL(err) \
-	}
-
-#define OP_GETSLICE(x,y,z,r,err)  { \
-		int __y = (y == Py_None) ? 0 : AS_LONG(y); \
-		int __z = (z == Py_None) ? INT_MAX : AS_LONG(z); \
-		FAIL_IF_ERR(r,err) \
-		if (!(r=PySequence_GetSlice(x, __y, __z)))	FAIL(err) \
+#define OP_GETSLICE(x,y,z,r,err)  {					\
+		PyObject *__yo = y, *__zo = z;				\
+		int __y = 0, __z = INT_MAX;				\
+		if (__yo == Py_None) __yo = NULL;			\
+		if (__zo == Py_None) __zo = NULL;			\
+		if (!_PyEval_SliceIndex(__yo, &__y) ||			\
+		    !_PyEval_SliceIndex(__zo, &__z) ||			\
+		    !(r=PySequence_GetSlice(x, __y, __z))) FAIL(err)	\
 	}
 
 #define OP_ALLOC_AND_SET(x,y,r,err) { \
-		int __i, __x = AS_LONG(x); \
-		FAIL_IF_ERR(r,err) \
+		/* XXX check for long/int overflow */ \
+		int __i, __x = PyInt_AsLong(x); \
+		if (PyErr_Occurred()) FAIL(err) \
 		if (!(r = PyList_New(__x))) FAIL(err) \
 		for (__i=0; __i<__x; __i++) { \
 			Py_INCREF(y); \
