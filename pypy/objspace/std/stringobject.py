@@ -57,10 +57,13 @@ class W_StringObject(W_Object):
             return W_StringObject(w_self.space, res.value())
         else:
             return W_StringObject(w_self.space, "")
-   
-    def isspace(self):
-        space = self.space   
-        v = self._value
+
+    def char_isspace(ch):
+        return ord(ch) in (9, 10, 11, 12, 13, 32)  
+ 
+    def isspace(w_self):
+        space = w_self.space   
+        v = w_self._value
         if v.len == 0:
             return space.w_False
         if v.len == 1:
@@ -73,7 +76,34 @@ class W_StringObject(W_Object):
                     return space.w_False
             return space.w_True
 
+    def isdigit(w_self):
+        pass
+
+    def isupper(w_self):
+        pass
+
+    def isupper(w_self):
+        pass
+    
+    def islower(w_self):
+        pass
+
+    def istitle(w_self):
+        pass
+
+    def isalnum(w_self):
+        pass
+
+    def isalpha(w_self):
+        pass
+
     isspace = implmethod().register(isspace)
+    isdigit = implmethod().register(isdigit)
+    isupper = implmethod().register(isupper)
+    islower = implmethod().register(islower)
+    istitle = implmethod().register(istitle)
+    isalnum = implmethod().register(isalnum)
+    isalpha = implmethod().register(isalpha)
 
     join = implmethod().register(join, W_ANY)
     split = implmethod()
