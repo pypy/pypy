@@ -1,3 +1,4 @@
+from __future__ import generators
 import weakref
 from pypy.translator.flowmodel import *
 
