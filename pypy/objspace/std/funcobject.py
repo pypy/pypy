@@ -39,7 +39,7 @@ def call__Func_ANY_ANY(space, w_function, w_arguments, w_keywords):
     return w_ret
 
 def get__Func_ANY_ANY(space, w_function, w_instance, w_cls):
-    return W_InstMethObject(space, w_instance, w_function)
+    return W_InstMethObject(space, w_function, w_instance, w_cls)
 
 def getattr__Func_ANY(space, w_function, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('func_code'))):

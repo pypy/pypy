@@ -21,17 +21,28 @@ from instmethtype import W_InstMethType
 class W_InstMethObject(W_Object):
     statictype = W_InstMethType
     
-    def __init__(w_self, space, w_im_self, w_im_func):
+    def __init__(w_self, space, w_im_func, w_im_self, w_im_class):
         W_Object.__init__(w_self, space)
         w_self.w_im_self = w_im_self
         w_self.w_im_func = w_im_func
+        w_self.w_im_class = w_im_class
 
 
 registerimplementation(W_InstMethObject)
 
-def call__InstMeth_ANY_ANY(space, w_instmeth, w_arguments, w_keywords):
-    w_args = space.add(space.newtuple([w_instmeth.w_im_self]),
-                       w_arguments)
+def call__InstMeth_ANY_ANY(space, w_instmeth, w_args, w_keywords):
+    if w_instmeth.w_im_self == None:
+        w_self = space.getitem(w_args, space.wrap(0))
+        w_selftype = space.type(w_self)
+        w_issubtype = space.issubtype(w_selftype, w_instmeth.w_im_class)
+        if not space.is_true(w_issubtype):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("unbound method %s() must be "
+                                            "called with %s instance as first "
+                                            "argument (got %s instance instead)"))
+    else:
+        w_args = space.add(space.newtuple([w_instmeth.w_im_self]),
+                           w_args)
     w_ret = space.call(w_instmeth.w_im_func, w_args, w_keywords)
     return w_ret
 
