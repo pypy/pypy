@@ -261,6 +261,8 @@ def delattr(w_object, w_name):
     return space.w_None
 
 def getattr(w_object, w_name, w_defvalue=NoneNotWrapped):
+    if space.is_true(space.isinstance(w_name, space.w_unicode)):
+        w_name = space.call_method(w_name, 'encode')
     try:
         return space.getattr(w_object, w_name)
     except OperationError, e:
