@@ -14,20 +14,16 @@ def run_tb_server(option, opt, value, parser):
 def get_standard_options():
     options = []
 
-    def objspace_callback(option, opt, value, parser, space):
-        parser.values.spaces.append(space)
+    def objspace_callback(option, opt, value, parser):
+        parser.values.spaces.append(value)
 
     options.append(make_option(
-        '-S', action="callback",
-        callback=objspace_callback, callback_args=("std",),
-        help="run in std object space"))
+        '-o', '--objspace', action="callback",
+        callback=objspace_callback, type="string",
+        help="object space to run PyPy on."))
     options.append(make_option(
         '--oldstyle', action="store_true",dest="oldstyle",
         help="enable oldstyle classes as default metaclass (std objspace only)"))    
-    options.append(make_option(
-        '-T', action="callback",
-        callback=objspace_callback, callback_args=("trivial",),
-        help="run in trivial object space"))
     options.append(make_option(
         '-w', action="store_true", dest="showwarning",
         help="enable warnings (disabled by default)"))

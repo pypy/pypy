@@ -31,7 +31,7 @@ class PyPyConsole(code.InteractiveConsole):
             #    self.space.__class__.__name__)
             elapsed = time.time() - self.space._starttime
             banner = "PyPy in %s on top of Python %s (startupttime: %.2f secs)" % (
-                self.space.__class__.__name__, sys.version.split()[0], elapsed)
+                self.space.__repr__(), sys.version.split()[0], elapsed)
         code.InteractiveConsole.interact(self, banner)
 
     def raw_input(self, prompt=""):
