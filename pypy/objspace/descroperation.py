@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import *
 
 
-class DescrObjSpace(ObjSpace):
+class DescrOperation:
 
     def call(space, w_obj, w_args, w_kwargs):
         w_descr = space.lookup(w_obj, '__call__')
