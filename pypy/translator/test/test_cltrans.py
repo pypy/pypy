@@ -15,10 +15,10 @@ def get_cl():
 def cl_detect():
     if is_on_path("clisp"):
         return "clisp"
-    elif is_on_path("lisp"):
+    if is_on_path("lisp"):
         if is_on_path("cmuclinvoke.sh"):
             return "cmuclinvoke.sh"
-    elif is_on_path("sbcl"):
+    if is_on_path("sbcl"):
         if is_on_path("sbclinvoke.sh"):
             return "sbclinvoke.sh"
     return None
