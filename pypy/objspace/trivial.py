@@ -178,6 +178,19 @@ def %(_name)s(self, *args):
         return ''.join([chr(ascii) for ascii in asciilist])
 
     def call(self, callable, args, kwds):
+        if isinstance(callable, types.ClassType):
+            import new
+            try:
+                r = new.instance(callable)
+            except:
+                raise OperationError(*sys.exc_info()[:2])
+            if hasattr(r, '__init__'):
+                self.call(r.__init__, args, kwds)
+            return r
+        if (isinstance(callable, types.MethodType)
+            and callable.im_self is not None):
+            args = (callable.im_self,) + args
+            callable = callable.im_func
         if isinstance(callable, types.FunctionType):
             bytecode = callable.func_code
             ec = self.getexecutioncontext()
