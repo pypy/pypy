@@ -202,11 +202,24 @@ class TestStringObject(test.AppTestCase):
 
     def test_split_maxsplit(self):
         self.assertEquals("/a/b/c".split('/', 2), ['','a','b/c'])
+        self.assertEquals("a/b/c".split("/"), ['a', 'b', 'c'])
         self.assertEquals(" a ".split(None, 0), ['a '])
         self.assertEquals(" a ".split(None, 1), ['a'])
         self.assertEquals(" a a ".split(" ", 0), [' a a '])
         self.assertEquals(" a a ".split(" ", 1), ['', 'a a '])
 
+    def test_join(self):
+        self.assertEquals(", ".join(['a', 'b', 'c']), "a, b, c")
+        self.assertEquals("".join([]), "")
+        self.assertEquals("-".join(['a', 'b']), 'a-b')
+
+    def test_lower(self):
+        self.assertEquals("aaa AAA".lower(), "aaa aaa")
+        self.assertEquals("".lower(), "")
+
+    def test_upper(self):
+        self.assertEquals("aaa AAA".upper(), "AAA AAA")
+        self.assertEquals("".upper(), "")
 
 if __name__ == '__main__':
     test.main()

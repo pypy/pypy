@@ -42,8 +42,8 @@ decode            !Unicode not supported now
 encode            !Unicode not supported now
 endswith          str_endswith__String_String    [optional arguments not supported now]
 expandtabs        str_expandtabs__String_Int
-find              *Tomek
-index             *Tomek
+find              OK, nur noch tests
+index             OK, nur noch tests
 isalnum           def str_isalnum__String(space, w_self): def _isalnum(ch):
 isalpha           def str_isalpha__String(space, w_self): def _isalpha(ch):
 isdigit           def str_isdigit__String(space, w_self): def _isdigit(ch):
@@ -53,11 +53,11 @@ istitle           def str_istitle(space, w_self):
 isupper           def str_isupper__String(space, w_self): def _isupper(ch):
 join              def str_join__String_ANY(space, w_self, w_list):
 ljust             def str_ljust__String_ANY(space, w_self, w_arg):
-lower
+lower             OK
 lstrip            def str_lstrip__String(space, w_self):
 replace           *Tomek
-rfind             *Tomek
-rindex            *Tomek
+rfind             OK, nur noch tests
+rindex            OK, nur noch tests
 rjust             def str_rjust__String_ANY(space, w_self, w_arg):
 rstrip            def str_rstrip__String(space, w_self):
 split             def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
@@ -164,11 +164,25 @@ def str_upper__String(space, w_self):
         ch = self[i]
         if _islower(ch):
             o = ord(ch) - 32
-            buf[i] = chr(o)
+            res[i] = chr(o)
         else:
-            buf[i] = ch
+            res[i] = ch
 
     return space.wrap("".join(res))
+
+def str_lower__String(space, w_self):
+    self = space.unwrap(w_self)
+    res = [' '] * len(self)
+    for i in range(len(self)):
+        ch = self[i]
+        if _isupper(ch):
+            o = ord(ch) + 32
+            res[i] = chr(o)
+        else:
+            res[i] = ch
+
+    return space.wrap("".join(res))
+
     
 def str_capitalize__String(space, w_self):
     input = space.unwrap(w_self)
@@ -296,12 +310,12 @@ def str_join__String_ANY(space, w_self, w_list):
                 pos = pos + len(item)
             else:
                 for i in range(len(self)):
-                    res[i+pos] = item[i]
-                    pos = pos + len(self)
-    
+                    res[i+pos] = self[i]
+                pos = pos + len(self)
+                 
                 for i in range(len(item)):
                     res[i+pos] = item[i]
-                    pos = pos + len(item)
+                pos = pos + len(item)
 
         return space.wrap("".join(res))
     else:
@@ -334,34 +348,86 @@ def str_ljust__String_ANY(space, w_self, w_arg):
     return space.wrap(u_self)
 
 def str_find__String_String_Int_Int(space, w_self, w_sub, w_start=None, w_end=None):
-    start = space.unwrap(w_start)
-    end = space.unwrap(w_end)
 
-    self = space.unwrap(w_self)
-    sub = space.unwrap(w_sub)
+    u = space.unwrap 
+    res = _find(u(w_self), u(w_sub), u(w_start), u(w_end), 1)
+    return space.wrap(res)
 
-    if start is None:
+def str_rfind__String_String_Int_Int(space, w_self, w_sub, w_start=None, w_end=None):
+
+    u = space.unwrap
+    res = _find(u(w_self), u(w_sub), u(w_start), u(w_end), -1)
+    return space.wrap(res)
+
+def str_index__String_String_Int_Int(space, w_self, w_sub, w_start=None, w_end=None):
+
+    u = space.unwrap
+    res = _find(u(w_self), u(w_sub), u(w_start), u(w_end), 1)
+    if res == -1:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("substring not found in string.index"))
+
+    return space.wrap(res)
+
+
+def str_rindex__String_String_Int_Int(space, w_self, w_sub, w_start=None, w_end=None):
+
+    u = space.unwrap
+    res = _find(u(w_self), u(w_sub), u(w_start), u(w_end), -1)
+    if res == -1:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("substring not found in string.rindex"))
+
+    return space.wrap(res)
+
+
+def _find(self, sub, start, end, dir):
+
+    length = len(self)
+
+    #adjust_indicies
+    if (end > length):
+        end = length
+    elif (end < 0):
+        end += length
+    if (end < 0):
+        end = 0
+    if (start < 0):
+        start += length
+    if (start < 0):
         start = 0
 
-    if end is None:
-        end = self.len
+    if dir > 0:
+        if len(sub) == 0 and start < end:
+            return start
 
-    maxend = self.len - sub.len
+        end = end - len(sub) + 1
 
-    if end > maxend:
-        end = maxend
+        for i in range(start, end):
+            match = 1
+            for idx in range(len(sub)):
+                if sub[idx] != self[idx+i]:
+                    match = 0
+                    break
+            if match: 
+                return i
+        return -1
+    else:
+        if len(sub) == 0 and start < end:
+            return last
 
-    if sub.len == 0 and start < end:
-        return start
+        end = end - len(sub)
 
-    for i in range(start, end):
-        match = 1
-        for idx in range(sub.len):
-            if not sub[idx] == self[idx+i]:
-                match = 0
-                break
-        return i
-    return -1
+        for j in range(end, start+1, -1):
+            match = 1
+            for idx in range(len(sub)):
+                if sub[idx] != self[idx+j]:
+                    match = 0
+                    break
+            if match:
+                return j
+        return -1        
+
 
 
 def str_strip__String(space, w_self):
