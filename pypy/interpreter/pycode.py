@@ -53,8 +53,8 @@ class PyCode(eval.Code):
         self.co_stacksize = 0        # #entries needed for evaluation stack
         self.co_flags = 0            # CO_..., see above
         self.co_code = None          # string: instruction opcodes
-        self.co_consts_w = ()        # tuple: constants used (wrapped!)
-        self.co_names_w = []         # list of wrapped strings: names (for attrs,...)
+        self.co_consts_w = []        # list of constants used (wrapped!)
+        self.co_names_w = []         # list of wrapped strs: names (for attrs..)
         self.co_varnames = ()        # tuple of strings: local variable names
         self.co_freevars = ()        # tuple of strings: free variable names
         self.co_cellvars = ()        # tuple of strings: cell variable names
