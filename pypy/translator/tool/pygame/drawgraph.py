@@ -19,11 +19,21 @@ COLOR = {
     }
 re_nonword=re.compile(r'(\W+)')
 
+def highlight_color(color):
+    intensity = sum(color)
+    components = []
+    if color == (0,0,0):
+        return (255, 0, 255)
+    elif color == (255,255,255):
+        return (255, 255, 0)
+    return color[1:] + color[:1]
+
 def getcolor(name, default):
     if name in COLOR:
         return COLOR[name]
     elif name.startswith('#') and len(name) == 7:
-        return (int(name[1:3],16), int(name[3:5],16), int(name[5:7],16))
+        rval = COLOR[name] = (int(name[1:3],16), int(name[3:5],16), int(name[5:7],16))
+        return rval
     else:
         return default
 
@@ -70,6 +80,10 @@ class Node:
         self.shape = shape
         self.color = color
         self.fillcolor = fillcolor
+        self.highlight = False
+
+    def sethighlight(self, which):
+        self.highlight = bool(which)
 
 class Edge:
     label = None
@@ -87,6 +101,10 @@ class Edge:
             self.yl = float(yl)
             rest = rest[3:]
         self.style, self.color = rest
+        self.highlight = False
+
+    def sethighlight(self, which):
+        self.highlight = bool(which)
 
     def bezierpoints(self, resolution=8):
         result = []
@@ -266,6 +284,9 @@ class GraphRenderer:
         boxheight = int(node.h * self.scale)
         fgcolor = getcolor(node.color, (0,0,0))
         bgcolor = getcolor(node.fillcolor, (255,255,255))
+        if node.highlight:
+            fgcolor = highlight_color(fgcolor)
+            bgcolor = highlight_color(bgcolor)
 
         text = node.label
         lines = text.replace('\\l','\\l\n').replace('\r','\r\n').split('\n')
@@ -357,6 +378,8 @@ class GraphRenderer:
         edgeheadcmd = []
         for edge in self.graphlayout.edges:
             fgcolor = getcolor(edge.color, (0,0,0))
+            if edge.highlight:
+                fgcolor = highlight_color(fgcolor)
             points = [self.map(*xy) for xy in edge.bezierpoints()]
             
             def drawedgebody(points=points, fgcolor=fgcolor):

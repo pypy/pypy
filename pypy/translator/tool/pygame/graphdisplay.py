@@ -90,6 +90,7 @@ class GraphDisplay(Display):
         self.font = pygame.font.Font(self.STATUSBARFONT, 16)
         self.viewers_history = []
         self.forward_viewers_history = []
+        self.highlight_obj = None
         self.viewer = None
         self.method_cache = {}
         self.key_cache = {}
@@ -249,6 +250,16 @@ class GraphDisplay(Display):
             info = self.layout.links[word]
             self.setstatusbar(info)
             self.sethighlight(word)
+            return
+        node = self.viewer.node_at_position(pos)
+        if node:
+            self.sethighlight(obj=node)
+            return
+        edge = self.viewer.edge_at_position(pos)
+        if edge:
+            self.sethighlight(obj=edge)
+            return
+        self.sethighlight()
 
     def notifyclick(self, pos):
         word = self.viewer.at_position(pos)
@@ -270,12 +281,19 @@ class GraphDisplay(Display):
                 else:
                     self.look_at_node(edge.tail)
 
-    def sethighlight(self, word=None):
+    def sethighlight(self, word=None, obj=None):
         self.viewer.highlightwords = {}
         for name in self.layout.links:
             self.viewer.highlightwords[name] = ((128,0,0), None)
         if word:
             self.viewer.highlightwords[word] = ((255,255,80), (128,0,0))
+        if self.highlight_obj is not None:
+            self.highlight_obj.sethighlight(False)
+        if obj is not None:
+            obj.sethighlight(True)
+        self.highlight_obj = obj
+        self.must_redraw = True
+            
 
     def animation(self, expectedtime=0.6):
         start = time.time()
@@ -317,7 +335,7 @@ class GraphDisplay(Display):
             else:
                 bumpscale = 0.0
             self.statusbarinfo = None
-            self.sethighlight(None)
+            self.sethighlight()
             for t in self.animation():
                 self.viewer.setscale(startscale*(1-t) + endscale*t +
                                      bumpscale*t*(1-t))
