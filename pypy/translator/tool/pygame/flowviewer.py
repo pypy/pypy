@@ -90,6 +90,7 @@ class TranslatorLayout(GraphLayout):
         self.translator = translator
         self.object_by_name = {}
         dotgen = DotGen('translator')
+        dotgen.emit('mclimit=15.0')
         
         # show the call graph
         functions = translator.functions
