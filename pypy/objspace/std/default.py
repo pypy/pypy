@@ -74,4 +74,7 @@ def issubtype__ANY_ANY(space, w_one, w_two):
     # XXX -- mwh
     return space.newbool(0)
 
+def nonzero__ANY(space, w_obj):
+    return space.newbool(space.is_true(w_obj))
+
 register_all(vars())

@@ -271,7 +271,6 @@ class StdObjSpace(ObjSpace):
     unwrap  = MultiMethod('unwrap', 1, [])    # returns an unwrapped object
     is_true = MultiMethod('nonzero', 1, [])   # returns an unwrapped bool
     is_data_descr = MultiMethod('is_data_descr', 1, []) # returns an unwrapped bool
-    # XXX do something about __nonzero__ !
 
     getdict = MultiMethod('getdict', 1, [])  # get '.__dict__' attribute
 
