@@ -33,9 +33,9 @@ class Branch:
 
 class ConditionalBranch:
     def __init__(self, condition, ifbranch, elsebranch):
-	    self.condition = condition
-	    self.ifbranch = ifbranch
-	    self.elsebranch = elsebranch
+        self.condition = condition
+        self.ifbranch = ifbranch
+        self.elsebranch = elsebranch
 
 class EndBranch:
     def __init__(self, returnvalue):
@@ -43,8 +43,8 @@ class EndBranch:
 
 class FunctionGraph:
     def __init__(self, startblock, functionname):
-	    self.startblock = startblock
-	    self.functionname = functionname
+        self.startblock = startblock
+        self.functionname = functionname
 
 class TestCase(test.IntTestCase):
     def test_simple_func(self):
@@ -77,15 +77,15 @@ def f(x):
             return i
         """
         i = Variable("i")
-	    j = Variable("j")
+        j = Variable("j")
 
-	    endbranchelse = EndBranch(i)
+        endbranchelse = EndBranch(i)
         endbranchif = EndBranch(j)
 
-     	conditionres = Variable("conditionres")
-	    conditionop = SpaceOperation("lt", [i, Constant(0)], conditionres)
-	
-	    conditionalbranch = ConditionalBranch(condition, endbranchif, endbranchelse)
+        conditionres = Variable("conditionres")
+        conditionop = SpaceOperation("lt", [i, Constant(0)], conditionres)
+    
+        conditionalbranch = ConditionalBranch(condition, endbranchif, endbranchelse)
 
         startblock = BasicBlock([i, j], [i, j, conditionres], 
                            [conditionop],
