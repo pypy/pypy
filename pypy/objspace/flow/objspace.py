@@ -183,7 +183,14 @@ class FlowObjSpace(ObjSpace):
 
     def exception_match(self, w_exc_type, w_check_class):
         self.executioncontext.recorder.crnt_block.exc_handler = True
-        return ObjSpace.exception_match(self, w_exc_type, w_check_class)
+        if not isinstance(self.unwrap(w_check_class), tuple):
+            # the simple case
+            return ObjSpace.exception_match(self, w_exc_type, w_check_class)
+        # checking a tuple of classes
+        for w_klass in self.unpacktuple(w_check_class):
+            if ObjSpace.exception_match(self, w_exc_type, w_klass):
+                return True
+        return False
 
     def getconstclass(space, w_cls):
         try:
