@@ -346,6 +346,15 @@ def %(_name)s(self, *args):
     def delete(self, descr, ob):
         descr.__delete__(ob)
 
+    def nonzero(self, ob):
+        return not not ob
+
+    def float(self, ob):
+        return float(ob)
+
+    def int(self, ob):
+        return int(ob)
+
 for m in ObjSpace.MethodTable:
     if not hasattr(TrivialObjSpace, m[0]):
         print m[0]
