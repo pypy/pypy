@@ -100,6 +100,12 @@ def find_someobjects(annotator):
         someobjnum, num) 
     print "=" * 70
 
+def run_in_thread(fn, args, cleanup=None, cleanup_args=()):
+    def _run_in_thread():
+        fn(*args)
+        if cleanup is not None:
+            cleanup(*cleanup_args)
+    return threading.Thread(target=_run_in_thread, args=())
 
 if __name__ == '__main__':
 
@@ -142,8 +148,10 @@ if __name__ == '__main__':
     def run_server():
         from pypy.translator.tool.pygame.flowviewer import TranslatorLayout
         from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
+        import pygame
         display = GraphDisplay(TranslatorLayout(t))
-        display.run()
+        async_quit = display.async_quit
+        return display.run, async_quit, pygame.quit
 
     def debug(got_error):
         if got_error:
@@ -160,19 +168,21 @@ if __name__ == '__main__':
                 print '-'*60
 
             print >> sys.stderr
-            th = threading.Thread(target=pdb.post_mortem, args=(tb,))
+            func, args = pdb.post_mortem, (tb,)
         else:
             print '-'*60
             print 'Done.'
             print
-            th = threading.Thread(target=pdb.set_trace, args=())
-        th.start()
+            func, args = pdb.set_trace, ()
         if options['-text']:
-            th.join()
+            func(*args)
         else:
-            run_server()
-            import pygame
-            pygame.quit()
+            start, stop, cleanup = run_server()
+            debugger = run_in_thread(func, args, stop)
+            debugger.start()
+            start()
+            debugger.join()
+            cleanup()
 
     try:
         analyse()

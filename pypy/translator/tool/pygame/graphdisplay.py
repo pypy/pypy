@@ -565,6 +565,9 @@ class GraphDisplay(Display):
     def process_Quit(self, event):
         self.quit()
      
+    def async_quit(self):
+        pygame.event.post(pygame.event.Event(QUIT))
+    
     def quit(self):
         raise StopIteration
     
