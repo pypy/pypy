@@ -5,6 +5,8 @@ General
   compiler, a number of C modules, and some types -- as printed
   when running py.py:  "faking <type xyz>".
 
+* mark debugging variables to make our code more readable 
+
 * re-allow more than one instance of StdObjSpace 
   (probably requiring geninterp to generate less global 
   init-code) 
