@@ -103,6 +103,8 @@ class PyPyItem(py.test.Item):
         try:
             target(*args)
         except OperationError, e:
+            if e.match(space, space.w_KeyboardInterrupt): 
+                raise KeyboardInterrupt 
             raise self.Failed(excinfo=pytestsupport.AppExceptionInfo(space, e))
 
 class IntTestFunction(PyPyItem):
