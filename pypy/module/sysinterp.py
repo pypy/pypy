@@ -12,16 +12,17 @@ import sys as cpy_sys
 def hack_cpython_module(modname):
     "Steal a module from CPython."
     cpy_module = __import__(modname, globals(), locals(), None)
-    # to build the dictionary of the module, we get all the objects
-    # accessible as 'self.xxx'. Methods are bound.
-    contents = []
-    for name in cpy_module.__dict__:
-        # ignore names in '_xyz'
-        if not name.startswith('_') or name.endswith('_'):
-            value = cpy_module.__dict__[name]
-            contents.append((space.wrap(name), space.wrap(value)))
-    w_contents = space.newdict(contents)
-    return Module(space, space.wrap(modname), w_contents)
+    return cpy_module
+##    # to build the dictionary of the module, we get all the objects
+##    # accessible as 'self.xxx'. Methods are bound.
+##    contents = []
+##    for name in cpy_module.__dict__:
+##        # ignore names in '_xyz'
+##        if not name.startswith('_') or name.endswith('_'):
+##            value = cpy_module.__dict__[name]
+##            contents.append((space.wrap(name), space.wrap(value)))
+##    w_contents = space.newdict(contents)
+##    return Module(space, space.wrap(modname), w_contents)
 
 # ____________________________________________________________
 #
