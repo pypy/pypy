@@ -202,29 +202,37 @@ def setitem__List_Slice_Tuple(space, w_list, w_slice, w_tuple):
 def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
     start, stop, step, slicelength = slicetype.indices4(space,w_slice,w_list.ob_size)
     assert slicelength >= 0
-    if step != 1:
-        raise OperationError(space.w_NotImplementedError,
-          space.wrap("Assignment to extended slices not implemented yet."))
-    delta = len2 - slicelength
-    oldsize = w_list.ob_size
-    newsize = oldsize + delta
-    _list_resize(w_list, newsize)
-    items = w_list.ob_item
-    w_list.ob_size = newsize
-    r = range(stop+delta,newsize)
-    if delta > 0:
-        r.reverse()
-	
-    for i in r:
-        items[i] = items[i-delta]
 
-    # Always copy starting from the right to avoid
-    # having to make a shallow copy in the case where
-    # the source and destination lists are the same list.
+    if step == 1:  # Support list resizing for non-extended slices
+        oldsize = w_list.ob_size
+        delta = len2 - slicelength
+        newsize = oldsize + delta
+        _list_resize(w_list, newsize)
+        w_list.ob_size = newsize
+        r = range(stop+delta, newsize)
+        if delta > 0:
+            r.reverse()
+        items = w_list.ob_item
+        for i in r:
+            items[i] = items[i-delta]
+    elif len2 != slicelength:  # No resize for extended slices
+        raise OperationError(space.w_ValueError, space.wrap("attempt to "
+              "assign sequence of size %d to extended slice of size %d" %
+              (len2,slicelength)))
+
     r = range(len2)
-    r.reverse()
+    items = w_list.ob_item
+    if sequence2 is items:
+        if step > 0:
+            # Always copy starting from the right to avoid
+            # having to make a shallow copy in the case where
+            # the source and destination lists are the same list.
+            r.reverse()
+        else:
+            # Make a shallow copy to more easily handle the reversal case
+            sequence2 = list(sequence2)
     for i in r:
-        items[start+i] = sequence2[i]
+        items[start+i*step] = sequence2[i]
     return space.w_None
 
 def repr__List(space, w_list):
