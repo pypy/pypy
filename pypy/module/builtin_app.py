@@ -109,3 +109,27 @@ def range(x, y=None, step=1):
             i += step
 
     return arr
+
+def min(*arr):
+    "docstring"
+
+    if not len(arr):
+        raise TypeError, 'min/max() takes exactly 1 argument (0 given)'
+    
+    min = arr[0]
+    for i in arr:
+        if min > i:
+            min = i
+    return min
+
+def max(*arr):
+    "docstring"
+
+    if not len(arr):
+        raise TypeError, 'min/max() takes exactly 1 argument (0 given)'
+    
+    max = arr[0]
+    for i in arr:
+        if max < i:
+            max = i
+    return max
