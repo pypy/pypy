@@ -35,8 +35,6 @@ class AbstractMultiMethod(object):
     """Abstract base class for MultiMethod and UnboundMultiMethod
     i.e. the classes that are not bound to a specific space instance."""
 
-    class BASE_TYPE_OBJECT: pass
-
     def __init__(self, operatorsymbol, arity):
         self.arity = arity
         self.operatorsymbol = operatorsymbol
@@ -277,11 +275,9 @@ class MultiMethod(AbstractMultiMethod):
         self.unbound_versions = {}
 
 
-    def __get__(self, space, cls=object): # cls is some W_xxxType
-        if issubclass(cls, self.BASE_TYPE_OBJECT):
-            return self.slice(cls).get(space)
-        elif space is None:
-            return self  # hack for "StdObjSpace.xyz" returning xyz
+    def __get__(self, space, cls=None):
+        if space is None:
+            return self
         else:
             return BoundMultiMethod(space, self)
 
@@ -400,6 +396,17 @@ class BoundMultiMethod:
     def __init__(self, space, multimethod):
         self.space = space
         self.multimethod = multimethod
+
+    def __eq__(self, other):
+        return (self.__class__ == other.__class__ and
+                self.space == other.space and
+                self.multimethod == other.multimethod)
+
+    def __ne__(self, other):
+        return self != other
+
+    def __hash__(self):
+        return hash((self.__class__, self.space, self.multimethod))
 
     def __call__(self, *args):
         if len(args) < self.multimethod.arity:
