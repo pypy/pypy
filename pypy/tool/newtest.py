@@ -2,6 +2,8 @@ import autopath
 import inspect
 import os
 import sys
+import cStringIO as StringIO
+import traceback
 import unittest
 import vpath
 
@@ -15,17 +17,24 @@ SKIPPED = 'skipped'
 
 class TestResult:
     """Represent the result of a run of a test item."""
-    def __init__(self, item, status=None, fullname=None, traceback=None):
-        # one of SUCCESS, ERROR, FAILURE, IGNORED, SKIPPED
+    def __init__(self, item):
+        self.item = item
+        # one of None, SUCCESS, ERROR, FAILURE, IGNORED, SKIPPED (see above)
         self.status = None
-        # name of the test method (without class or module name)
-        self.methodname = None
-        # full method name (with module path and class name)
-        self.fullname = None
-        # traceback object if applicable, else None
+        # traceback object for errors and failures, else None
         self.traceback = None
         # formatted traceback (a string)
         self.formatted_traceback = None
+
+    def _setstatus(self, statuscode):
+        self.status = statuscode
+        self.excinfo = sys.exc_info()
+        self.traceback = self.excinfo[2]
+        # store formatted traceback
+        output = StringIO.StringIO()
+        args = self.excinfo + (None, output)
+        traceback.print_exception(*args)
+        self.formatted_traceback = output.getvalue().strip()
 
 
 class TestItem:
@@ -36,40 +45,79 @@ class TestItem:
         self.module = module
         self.cls = cls
         self.method = testmethod
-        # we can only derive this from a frame or traceback?
+        #XXX we can only derive this from a frame or traceback?
         #self.lineno = None
 
-    def run(self):
-        """Run this TestItem and return a corresponding TestResult object."""
+    def run(self, pretest=None, posttest=None):
+        """
+        Run this TestItem and return a corresponding TestResult object.
+
+        pretest, if not None, is a callable which is called before
+        running the setUp method of the TestCase class. It is passed
+        the this TestItem instance as the argument.
+
+        Similarly, posttest is called after running the TestCase
+        class's tearDown method (or after the test method, if that
+        doesn't complete successfully). Like for pretest, the
+        callable gets the TestItem instance as only argument.
+        """
+        # credit: adapted from Python's unittest.TestCase.run
         #XXX at a later time, this method may accept an object space
         #  as argument
+
+        # prepare result object
+        result = TestResult(self)
+        result.status = None
+
+        # prepare test case class and test method
+        methodname = self.method.__name__
+        testobject = self.cls(methodname)
+        testmethod = getattr(testobject, methodname)
+
+        if pretest is not None:
+            pretest(self)
+        try:
+            try:
+                testobject.setUp()
+            except KeyboardInterrupt:
+                raise
+            except:
+                result._setstatus(ERROR)
+                return
+
+            try:
+                testmethod()
+                result.status = SUCCESS
+            except AssertionError:
+                result._setstatus(FAILURE)
+            except KeyboardInterrupt:
+                raise
+            except:
+                result._setstatus(ERROR)
+
+            try:
+                testobject.tearDown()
+            except KeyboardInterrupt:
+                raise
+            except:
+                result._setstatus(ERROR)
+        finally:
+            if posttest is not None:
+                posttest(self)
+        return result
 
     def __str__(self):
         return "TestItem from %s.%s.%s" % (self.module.__name__,\
                self.cls.__name__, self.method.__name__)
 
     def __repr__(self):
-        return "%s at %#x" % (str(self), id(self))
+        return "<%s at %#x>" % (str(self), id(self))
 
 
 class TestSuite:
     """Represent a collection of test items."""
     def __init__(self):
         self.items = []
-
-    def _items_from_module(self, module):
-        """Return a list of TestItems read from the given module."""
-        items = []
-        # scan the module for classes derived from unittest.TestCase
-        for obj in vars(module).values():
-            if inspect.isclass(obj) and issubclass(obj, unittest.TestCase):
-                # we found a TestCase class, now scan it for test methods
-                for obj2 in vars(obj).values():
-                    # ismethod doesn't seem to work here
-                    if inspect.isfunction(obj2) and \
-                      obj2.__name__.startswith("test"):
-                        items.append(TestItem(module, obj, obj2))
-        return items
 
     def _module_from_modpath(self, modpath):
         """
@@ -85,8 +133,21 @@ class TestSuite:
         __import__(modpath)
         return sys.modules[modpath]
 
-    def initfromdir(self, dirname, filterfunc=None, recursive=True,
-                    loader=None):
+    def _items_from_module(self, module):
+        """Return a list of TestItems read from the given module."""
+        items = []
+        # scan the module for classes derived from unittest.TestCase
+        for obj in vars(module).values():
+            if inspect.isclass(obj) and issubclass(obj, unittest.TestCase):
+                # we found a TestCase class, now scan it for test methods
+                for obj2 in vars(obj).values():
+                    # inspect.ismethod doesn't seem to work here
+                    if inspect.isfunction(obj2) and \
+                      obj2.__name__.startswith("test"):
+                        items.append(TestItem(module, obj, obj2))
+        return items
+
+    def initfromdir(self, dirname, filterfunc=None, recursive=True):
         """
         Init this suite by reading the directory denoted by dirname,
         then find all test modules in it. Test modules are files that
@@ -96,13 +157,9 @@ class TestSuite:
         modules by module path. By default, all test modules are used.
 
         If recursive is true, which is the default, find all test modules
-        by scanning the start directory recursively. The argument loader
-        may be set to a test loader class to use. By default, the
-        TestLoader class from the unittest module is used.
+        by scanning the start directory recursively.
         """
         dirname = vpath.getlocal(dirname)
-        if loader is None:
-            loader = unittest.TestLoader()
 
         def testfilefilter(path):
             return path.isfile() and path.fnmatch('test_*.py')
@@ -122,9 +179,27 @@ class TestSuite:
                 else:
                     self.items.extend(items)
 
+    def testresults(self, results=None):
+        """
+        Return a generator to get the test result for each test item.
+
+        If not None, the argument results must be a list which will
+        receive the result objects for later usage.
+        """
+        for item in self.items:
+            result = item.run()
+            if results is not None:
+                results.append(result)
+            yield result
+
 
 if __name__ == '__main__':
     ts = TestSuite()
     ts.initfromdir(".")
-    print ts.items
+    for res in ts.testresults():
+        print 75 * '-'
+        print "%s: %s" % (res.item, res.status)
+        if res.traceback:
+            print '-----'
+            print res.formatted_traceback
 
