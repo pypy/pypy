@@ -86,7 +86,7 @@ def main_(argv=None):
             con = interactive.PyPyConsole(space, verbose=Options.verbose, completer=Options.completer)
             if banner == '':
                 banner = '%s / %s'%(con.__class__.__name__,
-                                    space.__class__.__name__)
+                                    repr(space))
             con.interact(banner)
     except:
         exc_type, value, tb = sys.exc_info()

@@ -9,8 +9,6 @@ class Module(LazyModule):
         self.recursionlimit = 100
         
     interpleveldefs = {
-        'pypy_objspaceclass'    : '(space.wrap(space.__class__.__name__))', 
-
         '__name__'              : '(space.wrap("sys"))', 
         '__doc__'               : '(space.wrap("PyPy sys module"))', 
 
@@ -26,7 +24,7 @@ class Module(LazyModule):
         'stdout'                : 'space.wrap(sys.stdout)',
         '__stdout__'            : 'space.wrap(sys.stdout)',
         'stderr'                : 'space.wrap(sys.stderr)', 
-        'pypy_objspaceclass'    : 'space.wrap(space.__class__.__name__)', 
+        'pypy_objspaceclass'    : 'space.wrap(repr(space))',
 
         'path'                  : 'state.get(space).w_path', 
         'modules'               : 'state.get(space).w_modules', 

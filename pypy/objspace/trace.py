@@ -217,7 +217,7 @@ def create_trace_space(space = None, operations = None):
             if hasattr(self, "_result"):
                 del self._result            
 
-    trace_clz = type("Trace" + space.__class__.__name__, (Trace,), {})
+    trace_clz = type("Trace%s" % repr(space), (Trace,), {})
     space.__oldclass__, space.__class__ = space.__class__, trace_clz
     
     space.settrace()

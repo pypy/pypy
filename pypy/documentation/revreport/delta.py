@@ -160,7 +160,7 @@ def abstract_mro(obj, get_bases, acc=None):
 class ObjSpaceExplore(Explore):
 
     def __init__(self, space):
-        Explore.__init__(self, "PyPy/%s" % space.__class__.__name__)
+        Explore.__init__(self, "PyPy/%s" % repr(space))
         self.space = space
 
     def get_module(self, name):
