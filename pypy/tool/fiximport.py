@@ -73,14 +73,29 @@ def up_down_port(lines):
     skip = npass+nblank == len(lines)
 
     return objspace,skip
+
+
+# option -o let you pick a default objspace wich will be enforced
+# trough a module global objspacename = 
+
+default_objspace = None
+
+if sys.argv[1].startswith('-o'):
+    default_objspace = sys.argv[1][2:]
+    files = sys.argv[2:]
+else:
+    files = sys.argv[1:]
+
+print "-- default-objspace: %s" % default_objspace
 	    
-for fn in sys.argv[1:]:
+for fn in files:
     print fn
     lines = []
     pushback = []
     kind = None
     f = file(fn, 'r')
 
+    global_objspacename = False
     confused = False
     while True:
         if pushback:
@@ -99,13 +114,23 @@ for fn in sys.argv[1:]:
                 print ' * uncommon __main__ lines at the end'
 		confused = True
             break
+	if default_objspace and not global_objspacename and (line.startswith('def ') or line.startswith('class ')):
+	    lines.extend(["objspacename = %r\n" % default_objspace,"\n"])
+	    global_objspacename = True
+
         if line.strip() == 'def setUp(self):':
             base_indent,suite = read_whole_suite(line)
 	    objspace,skip = up_down_port(suite)
 	    #print suite
 	    if objspace:
-		lines.append(base_indent+"objspacename = %s\n" % objspace)
-		lines.append("\n")
+		if default_objspace:
+		    if eval(objspace) != default_objspace:
+			print "* default objspace mismatch: %s" % objspace
+			confused = True
+			continue
+		else:
+		    lines.append(base_indent+"objspacename = %s\n" % objspace)
+		    lines.append("\n")
 	    if not skip:
 		lines.append(base_indent+"def setup_method(self,method):\n")
 		lines.extend(suite)
