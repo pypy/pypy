@@ -193,6 +193,54 @@ ObjSpace.MethodTable = [
     ('call',            'call',      3),
     ]
 
+ObjSpace.BuiltinModuleTable = [
+    '__builtin__',
+    'sys',
+    ]
+
+ObjSpace.ConstantTable = [
+    'None',
+    'False',
+    'True',
+    'Ellipsis',
+    'NotImplemented',
+    ]
+
+ObjSpace.ExceptionTable = [
+    'ArithmeticError',
+    'AssertionError',
+    'AttributeError',
+    'EOFError',
+    'EnvironmentError',
+    'Exception',
+    'FloatingPointError',
+    'IOError',
+    'ImportError',
+    'IndentationError',
+    'IndexError',
+    'KeyError',
+    'KeyboardInterrupt',
+    'LookupError',
+    'MemoryError',
+    'NameError',
+    'NotImplementedError',
+    'OSError',
+    'OverflowError',
+    'ReferenceError',
+    'RuntimeError',
+    'StandardError',
+    'StopIteration',
+    'SyntaxError',
+    'SystemError',
+    'SystemExit',
+    'TabError',
+    'TypeError',
+    'UnboundLocalError',
+    'UnicodeError',
+    'ValueError',
+    'ZeroDivisionError',
+    ]
+
 ## Irregular part of the interface:
 #
 #                        wrap(x) -> w_x
