@@ -64,7 +64,6 @@ def setup_frame_classes():
             x = dic[n]
             if isinstance(x, types.FunctionType):
                 dic[n] = func_with_new_name(x, x.__name__)
-        print dic
         return dic
 
     frame_classes[0]                = PyInterpFrame
