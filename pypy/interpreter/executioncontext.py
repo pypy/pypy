@@ -138,7 +138,8 @@ class OperationError(Exception):
             exc_value    = self.w_value
         else:
             w = space.wrap
-            exc_typename  = space.getattr(self.w_type, w('__name__'))
+            exc_typename  = space.unwrap(
+                space.getattr(self.w_type, w('__name__')))
             exc_value = space.unwrap(space.str(self.w_value))
             print >> file, '(application-level)',
         if exc_value is None:
