@@ -100,7 +100,14 @@ class StdObjSpace(ObjSpace):
         # nyyyaaaaaaaaagh!  what do we do if chars_w is not a list, or
         # if it is a list, but contains things other than wrapped
         # integers -- mwh
-        chars = [chr(self.unwrap(w_c)) for w_c in chars_w]
+        try:
+            chars = [chr(self.unwrap(w_c)) for w_c in chars_w]
+        except TypeError:   # chr(not-an-integer)
+            raise OperationError(self.w_TypeError,
+                                 self.wrap("an integer is required"))
+        except ValueError:  # chr(out-of-range)
+            raise OperationError(self.w_ValueError,
+                                 self.wrap("character code not in range(256)"))
         import stringobject
         return stringobject.W_StringObject(''.join(chars))
 

@@ -85,3 +85,8 @@ def len_str(space, w_str):
     return space.wrap(len(w_str.value))
 
 StdObjSpace.len.register(len_str, W_StringObject)
+
+def str_str(space, w_str):
+    return w_str
+
+StdObjSpace.str.register(str_str, W_StringObject)

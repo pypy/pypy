@@ -4,3 +4,5 @@ def main(aStr):
 
 map(main, ["hello world", "good bye"])
 apply(main, ("apply works, too",))
+
+print chr(65)
