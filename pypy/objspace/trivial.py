@@ -182,7 +182,7 @@ def %(_name)s(self, *args):
                 locals = self.code.build_arguments(self.space, args, kwds,
                     w_defaults = self.defaultarguments,
                     w_closure = self.closure)
-                return self.code.evalcode(self.space, self.globals, locals)
+                return self.code.eval_code(self.space, self.globals, locals)
         return nufun(self, code, globals, defaultarguments, closure)
 
     def newstring(self, asciilist):
