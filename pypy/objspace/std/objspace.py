@@ -207,7 +207,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         ##for_builtins.update(self.clone_exception_hierarchy())
         ## hacking things in
         from pypy.module import exceptionsinterp as ex
-        hold = self.call
         def call(w_type, w_args):
             space = self
             # too early for unpackiterable as well :-(
@@ -222,6 +221,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return res
         w_dic = self.newdict([])
         try:
+            # note that we hide the real call method by an instance variable!
             self.call = call
             ex.inittest_exceptions_1(self)
             for name, w_obj in ex.__dict__.items():
@@ -231,10 +231,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     for_builtins[excname] = w_obj # into builtins
                     self.setitem(w_dic, self.wrap(excname), w_obj) # into exc
         finally:
-            self.call = hold
+            del self.call # revert to the class' method
         
         self.make_builtins(for_builtins)
-        # XXX refine things,clean up, create a builtin module...
+        # XXX refine things, clean up, create a builtin module...
         # but for now, we do a regular one.
         from pypy.interpreter.module import Module
         m = Module(self, self.wrap("exceptions"), w_dic)
