@@ -145,11 +145,21 @@ class floatFFormatter(Formatter):
         self.prec = None
         return self.std_wp(r)
 
+class HexFormatter(Formatter):
+    def format(self):
+        i = maybe_int(self.value)
+        r = hex(i)
+        if not self.flags.f_alt:
+            r = r[2:]
+        if self.char == 'X':
+            r = r.upper()
+        return self.std_wp(r)
+
 format_registry = {
     's':funcFormatter(str),
     'r':funcFormatter(repr),
-    'x':funcFormatter(maybe_int, hex),    
-    'X':funcFormatter(maybe_int, hex, lambda r:r.upper()),
+    'x':HexFormatter,
+    'X':HexFormatter,
     'd':funcFormatter(maybe_int, str),
     'f':floatFFormatter,
     'g':funcFormatter(str),

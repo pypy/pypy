@@ -3,10 +3,6 @@ from pypy.tool import testit
 
 class TestStringObjectWithDict(testit.AppTestCase):
 
-    def setUp(self):
-        # force testing to use standard objspace
-        self.space = testit.objspace('std')
-
     def test_format_item(self):
         d = {'i': 23}
         self.assertEquals('a23b', 'a%(i)sb' % d)
@@ -36,10 +32,6 @@ class TestStringObjectWithDict(testit.AppTestCase):
 
 class TestStringObject(testit.AppTestCase):
 
-    def setUp(self):
-        # force testing to use standard objspace
-        self.space = testit.objspace('std')
-
     def test_format_item(self):
         self.assertEquals('a23b', 'a%sb' % 23)
         self.assertEquals('23b', '%sb' % 23)
@@ -67,19 +59,15 @@ class TestStringObject(testit.AppTestCase):
 
     def test_format_float(self):
         self.assertEquals('23', '%d' % 23.456)
-        self.assertEquals('0x17', '%x' % 23.456)
+        self.assertEquals('17', '%x' % 23.456)
         self.assertEquals('23.456', '%s' % 23.456)
-        # accept either exact or filled-with-9's for %r
-        r = '%r' % 23.45
-        if len(r)==5:
-            self.assertEquals('23.45', r)
-        else:
-            r9 = '23.44' + '9'*(len(r)-5)
-            self.assertEquals(r9, r)
+        # for 'r' use a float that has an exact decimal rep:
+        self.assertEquals('23.125', '%r' % 23.125)
 
     def test_format_int(self):
         self.assertEquals('23', '%d' % 23)
-        self.assertEquals('0x17', '%x' % 23)
+        self.assertEquals('17', '%x' % 23)
+        self.assertEquals('0x17', '%#x' % 23)
         self.assertEquals('23', '%s' % 23)
         self.assertEquals('23', '%r' % 23)
 
@@ -102,9 +90,6 @@ class TestStringObject(testit.AppTestCase):
         self.assertRaises(ValueError, '%'.__mod__, ((23,),))
 
 class TestWidthPrec(testit.AppTestCase):
-    def setUp(self):
-        self.space = testit.objspace()
-
     def test_width(self):
         self.assertEquals("%3s" %'a', '  a')
         self.assertEquals("%-3s"%'a', 'a  ')
