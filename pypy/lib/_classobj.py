@@ -169,11 +169,8 @@ class classobj(object):
         inst = object.__new__(instance)
         dic = inst.__dict__
         dic['__class__'] = self
-        try:
-            init = self.__init__
-        except AttributeError:
-            pass
-        else:
+        init = instance_getattr1(inst,'__init__', False)
+        if init:
             ret = init(inst, *args, **kwds)
             if ret is not None:
                 raise TypeError("__init__() should return None")
@@ -289,6 +286,7 @@ class instance(object):
             ret = _hash()
             if not isinstance(ret, int):
                 raise TypeError("__hash__() should return an int")
+            return ret
         else:
             return id(self)
 
@@ -305,21 +303,21 @@ class instance(object):
         if isinstance(key, slice) and key.step is None:
             func = instance_getattr1(self, '__getslice__', False)
             if func:
-                return func(key.start, key.end)
+                return func(key.start, key.stop)
         return instance_getattr1(self, '__getitem__')(key)
 
     def __setitem__(self, key, value):
         if isinstance(key, slice) and key.step is None:
             func = instance_getattr1(self, '__setslice__', False)
             if func:
-                func(key.start, key.end, value)
+                func(key.start, key.stop, value)
         instance_getattr1(self, '__setitem__')(key, value)
 
     def __delitem__(self, key):
         if isinstance(key, slice) and key.step is None:
             func = instance_getattr1(self, '__delslice__', False)
             if func:
-                func(key.start, key.end)
+                func(key.start, key.stop)
         instance_getattr1(self, '__delitem__')(key)
 
     def __contains__(self, obj):
@@ -333,12 +331,13 @@ class instance(object):
         return False
 
     # unary operators
-    def __neg__(self):
-        return instance_getattr1(self, '__neg__')()
-    def __pos__(self):
-        return instance_getattr1(self, '__abs__')()
-    def __abs__(self):
-        return instance_getattr1(self, '__abs__')()
+    for op in "neg pos abs invert int long float oct hex".split():
+        exec ("""
+def __%(op)s__(self):
+   return instance_getattr1(self, '__%(op)s__')()
+""") % {"op": op}        
+    del op
+
 
     # binary operators    
     for op in "or and xor lshift rshift add sub mul div mod divmod floordiv truediv".split():
@@ -378,3 +377,60 @@ def __i%(op)s__(self, other):
 """) % {"op": op}
     del op
 
+
+    def __pow__(self, other, modulo=None):
+        if modulo is None:
+            coerced = coerce(self, other)
+            if coerced is None or coerced[0] is self:
+                func = instance_getattr1(self, '__pow__', False)
+                if func:
+                    return func(other)
+                return NotImplemented
+            else:
+                return operator.pow(self, other)
+        else:
+            # CPython also doesn't try coercion in this case
+            func = instance_getattr1(self, '__pow__', False)
+            if func:
+                return func(other, modulo)
+            return NotImplemented
+
+
+    def __rpow__(self, other, modulo=None):
+        if modulo is None:
+            coerced = coerce(self, other)
+            if coerced is None or coerced[0] is self:
+                func = instance_getattr1(self, '__rpow__', False)
+                if func:
+                    return func(other)
+                return NotImplemented
+            else:
+                return operator.pow(other, self)
+        else:
+            # CPython also doesn't try coercion in this case
+            func = instance_getattr1(self, '__rpow__', False)
+            if func:
+                return func(other, modulo)
+            return NotImplemented
+
+
+    def __nonzero__(self):
+        func = instance_getattr1(self, '__nonzero__', False)
+        if not func:
+            func = instance_getattr1(self, '__nonzero__', False)
+            if not func: # default to true
+                return True
+        ret = func()
+        if isinstance(ret, int):
+            if ret < 0:
+                raise ValueError("__nonzero__() should return >= 0")
+            return ret > 0
+        else:
+            raise TypeError("__nonzero__() should return an int")        
+
+
+    def __call__(self, *args, **kwds):
+        func = instance_getattr1(self, '__call__', False)
+        if not func:
+            raise AttributeError, "%s instance has no __call__ method" % (self.__class__.__name__)            
+        return func(*args, **kwds)
