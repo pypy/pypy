@@ -27,9 +27,13 @@ def make_module_from_pyxstring(name, dirpath, string):
 
 def enable_fast_compilation():
     from distutils import sysconfig
-    opt = sysconfig.get_config_vars()['OPT']
-    opt = re.sub('-O.', '-O0', opt)
-    sysconfig.get_config_vars()['OPT'] = opt
+    gcv = sysconfig.get_config_vars()
+    opt = gcv.get('OPT') # not always existent
+    if opt:
+        opt = re.sub('-O.', '-O0', opt)
+    else:
+        opt = '-O0'
+    gcv['OPT'] = opt
 
 def make_module_from_c(cfile):
     from distutils.core import setup
