@@ -13,20 +13,20 @@ class nugen(object):
         self.space = space
         self.frame = frame
         self.running = 0
-    def next(g_self):
-        if g_self.running:
-            raise OperationError(self.w_ValueError,
+    def next(self):
+        if self.running:
+            raise OperationError(self.space.w_ValueError,
                                  "generator already executing")
-        ec = g_self.space.getexecutioncontext()
+        ec = self.space.getexecutioncontext()
 
-        g_self.running = 1
+        self.running = 1
         try:
             try:
-                ret = ec.eval_frame(g_self.frame)
+                ret = ec.eval_frame(self.frame)
             except NoValue:
                 raise StopIteration
         finally:
-            g_self.running = 0
+            self.running = 0
 
         return ret
     def __iter__(self):
@@ -329,13 +329,12 @@ def %(_name)s(self, *args):
             and callable.im_self is not None):
             args = (callable.im_self,) + args
             callable = callable.im_func
-        if callable == nugen.next.im_func:
-            try:
-                return apply(callable, args, kwds or {})
-            except:
-                self.reraise()
-        else:
+        try:
             return apply(callable, args, kwds or {})
+        except OperationError:
+            raise
+        except:
+            self.reraise()
                 
     def hex(self, ob):
         try:
