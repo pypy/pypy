@@ -211,13 +211,9 @@ if __name__ == '__main__':
     optparser.add_option("-c", "--copy", action="callback",
                          callback=select_output,
                          callback_kwargs={'output':'copy'},
-                         help="copy files ... fn.py --> fn.cp.py")
+                         help="copy files ... fn.py --> fn_cp.py")
 
     options, args = optparser.parse_args()
-
-
-
-    
 
     output = getattr(optparser, 'output', 'stdout')
 
@@ -240,7 +236,7 @@ if __name__ == '__main__':
             if output == 'inplace':
                 outfile = file(infilename, 'w+')
             elif output == 'copy': # yes, just go clobber any existing .cp
-                outfile = file (infilename[:-3]+ '.cp.py', 'w+')
+                outfile = file (infilename[:-3]+ '_cp.py', 'w+')
             else:
                 outfile = sys.stdout
 
