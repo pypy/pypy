@@ -125,6 +125,14 @@ class ObjSpace(object):
     def not_(self, w_obj):
         return self.wrap(not self.is_true(w_obj))
 
+    def eq_w(self, w_obj1, w_obj2):
+        """shortcut for space.is_true(space.eq(w_obj1, w_obj2))"""
+        return self.is_true(self.eq(w_obj1, w_obj2))
+
+    def is_w(self, w_obj1, w_obj2):
+        """shortcut for space.is_true(space.is_(w_obj1, w_obj2))"""
+        return self.is_true(self.is_(w_obj1, w_obj2))
+    
     def newbool(self, b):
         if b:
             return self.w_True

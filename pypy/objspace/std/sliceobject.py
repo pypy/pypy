@@ -25,4 +25,22 @@ def app_repr__Slice(aslice):
 
 repr__Slice = gateway.app2interp(app_repr__Slice)
 
+def eq__Slice_Slice(space, w_slice1, w_slice2):
+    # We need this because CPython considers that slice1 == slice1
+    # is *always* True (e.g. even if slice1 was built with non-comparable
+    # parameters
+    if space.is_w(w_slice1, w_slice2):
+        return space.w_True
+    if space.eq_w(w_slice1.w_start, w_slice2.w_start) and \
+        space.eq_w(w_slice1.w_stop, w_slice2.w_stop) and \
+        space.eq_w(w_slice1.w_step, w_slice2.w_step):
+        return space.w_True
+    else:
+        return space.w_False
+
+def hash__Slice(space, w_slice):
+    """space are not hashables but they must have a __hash__ method"""
+    raise OperationError(space.w_TypeError,
+                         space.wrap("unhashable type"))
+
 register_all(vars())
