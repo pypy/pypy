@@ -374,6 +374,13 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals("aaa AAA 111".swapcase(), "AAA aaa 111")
         self.assertEquals("".swapcase(), "")
 
+    def test_translate(self):
+        import string
+        string.maketrans('ae','ea')
+        s="abcde"
+        self.assertEquals('ebcda', s.translate(string.maketrans('ea','ae')))
+        self.assertEquals('eda',   s.translate(string.maketrans('ea','ae'),'bc'))
+
     def test_iter(self):
         l=[]
         for i in iter("42"):
