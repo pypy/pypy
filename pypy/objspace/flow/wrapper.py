@@ -26,9 +26,12 @@ class W_Object(object):
 
     def __repr__(self):
         s = self.argsrepr()
+        name = getattr(self, "symname", "")
+        if not name:
+            name = self.__class__.__name__
         if len(s) > 100:
             s = s[:25] + "..." + s[-25:]
-        return "%s(%s)" % (self.__class__.__name__, s)
+        return "%s(%s)" % (name, s)
 
     def argsrepr(self):
         return ""
@@ -47,6 +50,7 @@ class W_Object(object):
 
 class W_Variable(W_Object, Variable):
     counter = 0
+    symname = "var"
 
     def __init__(self):
         Variable.__init__(self, 'v%d' % W_Variable.counter)
@@ -60,6 +64,7 @@ class W_Variable(W_Object, Variable):
 class W_Constant(W_Object, Constant):
     """A specific constant value."""
 
+    symname = "const"
     def __init__(self, value):
         Constant.__init__(self, value)
 

@@ -169,6 +169,9 @@ edge [fontname=Times];
         if node:
             self.nodes[obj] = node
             for name, attr in obj.__dict__.items():
+                ##XXX it makes the graph not very readeable
+                if name == "framestate":
+                    continue
                 trynode = self.traverse(attr, name)
                 if trynode:
                     node.addedge(trynode, name)
