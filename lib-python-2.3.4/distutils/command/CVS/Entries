@@ -1,0 +1,22 @@
+/__init__.py/1.18/Tue Mar  4 11:39:45 2003//Tr234
+/bdist.py/1.28/Wed Feb 19 17:22:32 2003//Tr234
+/bdist_dumb.py/1.23/Wed Feb 19 17:22:32 2003//Tr234
+/bdist_rpm.py/1.37/Wed Feb 19 17:22:32 2003//Tr234
+/bdist_wininst.py/1.46.8.1/Thu May 27 22:54:14 2004//Tr234
+/build.py/1.34/Wed Feb 19 17:22:32 2003//Tr234
+/build_clib.py/1.27/Wed Feb 19 17:22:32 2003//Tr234
+/build_ext.py/1.91/Wed Feb 19 17:22:32 2003//Tr234
+/build_py.py/1.42/Tue Mar  4 11:39:45 2003//Tr234
+/build_scripts.py/1.21.8.1/Thu May 27 22:54:14 2004//Tr234
+/clean.py/1.15/Wed Feb 19 17:22:32 2003//Tr234
+/command_template/1.3/Tue May 30 02:04:54 2000/-kk/Tr234
+/config.py/1.17/Wed Feb 19 19:26:44 2003//Tr234
+/install.py/1.67/Wed Feb 19 17:22:33 2003//Tr234
+/install_data.py/1.21/Wed Feb 19 17:22:33 2003//Tr234
+/install_headers.py/1.10/Wed Feb 19 17:22:33 2003//Tr234
+/install_lib.py/1.42/Wed Feb 19 17:22:33 2003//Tr234
+/install_scripts.py/1.15/Wed Feb 19 17:22:33 2003//Tr234
+/register.py/1.6/Thu May 22 14:23:47 2003//Tr234
+/sdist.py/1.56.14.1/Thu May 27 22:54:14 2004//Tr234
+/wininst.exe/1.1.16.2/Thu May 27 22:54:14 2004/-kb/Tr234
+D

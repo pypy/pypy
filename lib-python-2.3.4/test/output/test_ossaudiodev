@@ -1,0 +1,6 @@
+test_ossaudiodev
+playing test sound file...
+elapsed time: 2.9 sec
+setparameters: got OSSAudioError as expected
+setparameters: got OSSAudioError as expected
+setparameters: got OSSAudioError as expected
