@@ -1,5 +1,5 @@
 Task: review and implement the annotation procedure described in
-        doc/translation/annotation.txt
+      doc/translation/annotation.txt
 
 Task: update pypy homepage
 
@@ -8,11 +8,12 @@ Task: add more builtins! (like e.g. 'dir')
 Task: fix interpreter-level object introspection from app-level 
       (make dis.dis(dis.dis) goal work as a side effect)
 
-Task: provide an importer that can include packages (we can't at the 
-      moment)
+Task: provide an importer that can import packages
+      consider PEP 302, new import hooks
+      try to write as much as possible in app-level
+      how would PyPy import CPython extension when it runs on top of CPython?
 
 Task: slicing with assigments & more small things (finish StdObjSpace review!)
-
       lst[::-2] = lst2
 
 Task: try tests of CPython in PyPy
