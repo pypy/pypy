@@ -3,6 +3,8 @@ from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.error import OperationError
 from pypy.tool import pytestsupport
 
+rootdir = py.magic.autopath().dirpath()
+
 #
 # PyPy's command line extra options (these are added 
 # to py.test's standard options) 
