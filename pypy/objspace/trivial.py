@@ -83,6 +83,8 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             )
         # make a wrapped None object
         none_typedef = TypeDef('NoneType',
+            __nonzero__ = gateway.interp2app(lambda space, w_None:
+                                             space.w_False),
             __repr__ = gateway.interp2app(lambda space, w_None:
                                           space.wrap('None')))
         nonewrapperclass = self.hackwrapperclass(none_typedef)
@@ -250,6 +252,12 @@ def %(name)s(self, x, *args):
 
     def not_(self, w_obj):  # default implementation
         return self.wrap(not self.is_true(w_obj))
+
+    def iter(self, w_obj):
+        if isinstance(w_obj, str) and not hasattr(w_obj, '__iter__'):
+            return iter(w_obj)   # str.__iter__ is missing in CPython
+        else:
+            return DescrOperation.iter(self, w_obj)
 
 #    for _name in ('id', 'type', 'iter', 'repr', 'str', 'len',
 #                  'pow', 'divmod', 'hash', 'setattr', 'delattr', 'hex',
