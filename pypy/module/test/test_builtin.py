@@ -27,6 +27,20 @@ class TestBuiltinApp(test.AppTestCase):
     def test_type_selftest(self):
         self.assert_(type(type) is type)
 
+    def test_iter(self):
+        class count(object):
+            def __init__(self):
+                self.value = 0
+            def __call__(self):
+                self.value += 1
+                return self.value
+        self.assertRaises(TypeError,iter,3)
+        self.assertRaises(TypeError,iter,3,5)
+        x = iter(count(),3)
+        self.assertEquals(x.next(),1)
+        self.assertEquals(x.next(),2)
+        self.assertRaises(StopIteration,x.next)
+        
     def test_xrange_args(self):
         x = xrange(2)
         self.assertEquals(x.start, 0)

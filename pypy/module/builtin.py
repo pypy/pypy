@@ -3,6 +3,7 @@ from pypy.interpreter import executioncontext
 from pypy.interpreter.module import Module
 from pypy.interpreter.extmodule import ExtModule
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import app2interp
 
 import os.path
 import sys
@@ -19,6 +20,15 @@ class _noarg:
         values if you want to recognize that no specific value was
         passed. 
     """
+
+def app_iter_generator(callable_,sentinel):
+    while 1:
+        result = callable_()
+        if result == sentinel:
+            raise StopIteration
+        yield result
+
+iter_generator = app2interp(app_iter_generator)
 
 class __builtin__(ExtModule):
     """ Template for PyPy's '__builtin__' module.
@@ -283,9 +293,14 @@ class __builtin__(ExtModule):
     def issubclass(self, w_cls1, w_cls2):
         return self.space.issubtype(w_cls1, w_cls2)
 
-    #XXX missing: second form of iter (callable, sentintel) 
-    def iter(self, w_collection):
-        return self.space.iter(w_collection)
+    def iter(self, w_collection_or_callable, w_sentinel = _noarg):
+        if w_sentinel is _noarg:
+            return self.space.iter(w_collection_or_callable)
+        else:
+            if not self.space.is_true(self.callable(w_collection_or_callable)):
+                raise OperationError(self.space.w_TypeError,
+                        self.space.wrap('iter(v, w): v must be callable'))
+            return iter_generator(self.space, w_collection_or_callable, w_sentinel)
 
     def ord(self, w_val):
         return self.space.ord(w_val)
