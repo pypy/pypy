@@ -302,6 +302,7 @@ class RPythonAnnotator:
         return result
 
     consider_op_and_ = consider_op_sub # trailing underline
+    consider_op_mod  = consider_op_sub
     consider_op_inplace_lshift = consider_op_sub
 
     def consider_op_is_true(self, arg):
