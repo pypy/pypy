@@ -12,6 +12,7 @@ Command-line options for translate_pypy:
    --not-mark-some-objects
             Mark all functions that have SomeObject in their signature.
    -tcc     Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
+                -- http://fabrice.bellard.free.fr/tcc/
 """
 import autopath, sys, threading, pdb, os
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
