@@ -141,6 +141,7 @@ class Member(Wrappable):
         if space.is_w(w_obj, space.w_None):
             return w_member
         else:
+            self = space.interpclass_w(w_member)
             w_result = w_obj.slots_w[self.index]
             if w_result is None:
                 raise OperationError(space.w_AttributeError,
@@ -148,9 +149,11 @@ class Member(Wrappable):
             return w_result
 
     def descr_member_set(space, w_member, w_obj, w_value):
+        self = space.interpclass_w(w_member)
         w_obj.slots_w[self.index] = w_value
 
     def descr_member_del(space, w_member, w_obj):
+        self = space.interpclass_w(w_member)
         w_obj.slots_w[self.index] = None
 
     typedef = TypeDef("member",
