@@ -434,7 +434,7 @@ __interplevel__execfile('__builtin__interp.py')
 from __interplevel__ import abs, chr, len, ord, pow, repr
 from __interplevel__ import hash, oct, hex, round
 from __interplevel__ import getattr, setattr, delattr, iter, hash, id
-from __interplevel__ import issubclass, _pypy_get
+from __interplevel__ import issubclass
 from __interplevel__ import compile, eval
 from __interplevel__ import globals, locals, _caller_globals, _caller_locals
 
@@ -520,7 +520,7 @@ class property(object):
     def __delete__(self, obj):
         if self.fdel is None:
             raise AttributeError, "can't delete attribute"
-        self.fdel(obj, value)
+        self.fdel(obj)
 
 
 # XXX there is an interp-level pypy.interpreter.function.StaticMethod
@@ -949,124 +949,7 @@ class complex(object):
 
 
 # ________________________________________________________________________
-##    def app___import__(*args):
-##        # NOTE: No import statements can be done in this function,
-##        # as that would involve a recursive call to this function ...
-##
-##        # args => (name[, globals[, locals[, fromlist]]])
-##        
-##        l = len(args)
-##        if l >= 1:
-##            modulename = args[0]
-##        else:
-##            raise TypeError('__import__() takes at least 1 argument (0 given)')
-##        if l >= 2:
-##            globals = args[1]
-##            try:
-##                local_context = self.imp_dirname(globals['__file__'])
-##            except KeyError:
-##                local_context = ''
-##        else:
-##            local_context = ''
-##        if l >= 4:
-##            fromlist = args[3]
-##        else:
-##            fromlist = []
-##        if l > 4:
-##            raise TypeError('__import__() takes at most 4 arguments (%i given)' % l)
-##            
-##        def inner_load(f, fullname):
-##            """Load module from file `f` with canonical name `fullname`.
-##            """
-##            mod = self.imp_module(fullname) # XXX - add in docstring
-##            self.imp_modules[fullname] = mod
-##            mod.__file__ = f
-##            dict = mod.__dict__
-##            execfile(f, dict, dict)
-##            return mod
-##
-##        def load(path, modulename, fullname):
-##            """Create a module.
-##
-##            Create a mnodule with canonical name `fullname` from file
-##            `modulename`+'.py' in path `path`, if it exist.
-##            Or alternatively from the package
-##            `path`/`modulename`/'__init__.py'.
-##            If neither are found, return None.
-##            """
-##                
-##            f = self.imp_join(path, modulename + '.py')
-##            if self.imp_exists(f):
-##                return inner_load(f, fullname)
-##            f = self.imp_join(path, modulename, '__init__.py')
-##            if self.imp_exists(f):
-##                return inner_load(f, fullname)
-##            else:
-##                return None
-##
-##        names = modulename.split('.')
-##
-##        if not names:
-##            raise ValueError("Cannot import an empty module name.")
-##        if len(names) == 1:
-##            if self.imp_modules.has_key(modulename):
-##                return self.imp_modules[modulename]
-##            #Relative Import
-##            if local_context:
-##                #Regular Module
-##                module = load(local_context, modulename, modulename)
-##                if module:
-##                    return module
-##            #Standard Library Module Import
-##            for path in self.imp_path:
-##                #Regular Module
-##                module = load(path, modulename, modulename)
-##                if module:
-##                    return module                
-##            #Module Not Found
-##            raise ImportError(modulename)
-##        else:
-##            #Find most specific module already imported.
-##            for i in range(len(names),0,-1):
-##                base_name = '.'.join(names[0:i])
-##                if self.imp_modules.has_key(base_name):
-##                    break
-##            #Top level package not imported - import it.
-##            else:
-##                base_name = names[0]
-##                i = 1
-##                #Relative Import
-##                if ((not local_context) or
-##                    not load(local_context, base_name, base_name)):
-##                     #Standard Module Import
-##                    for path in self.imp_path:
-##                        if load(path, base_name, base_name):
-##                            break
-##                    else:
-##                        #Module Not Found
-##                        raise ImportError(base_name)                
-##            path = self.imp_dirname(self.imp_modules[base_name].__file__)
-##            full_name = base_name
-##            for j in range(i,len(names)):
-##                path = self.imp_join(path, names[j])
-##                full_name = '.'.join((full_name, names[j]))
-##                if not load(path, '__init__', full_name):
-##                    raise ImportError(full_name)
-##                ### load module from path
-##            if fromlist:
-##                return self.imp_modules[modulename]
-##            else:
-##                return self.imp_modules[names[0]]
-##            
-##    # Interpreter level helpers for app level import
-##    def imp_dirname(*args_w):
-##        return self.space.wrap(os.path.dirname(*self.space.unwrap(args_w)))
-##
-##    def imp_join(*args_w):
-##        return self.space.wrap(os.path.join(*self.space.unwrap(args_w)))
-##
-##    def imp_exists(*args_w):
-##        return self.space.wrap(os.path.exists(*self.space.unwrap(args_w)))
-##    
-##    def imp_module(w_name):
-##        return self.space.wrap(Module(self.space, w_name))
+
+class buffer:
+    def __init__(self, object, offset=None, size=None):
+        raise NotImplementedError, "XXX nobody needs this anyway"
