@@ -228,6 +228,20 @@ class DescrOperation:
             if space.is_true(space.eq(w_next, w_item)):
                 return space.w_True
     
+    def hash(space, w_obj):
+        w_hash = space.lookup(w_obj, '__hash__')
+        if w_hash is None:
+            if space.lookup(w_obj, '__eq__') is not None or \
+               space.lookup(w_obj, '__cmp__') is not None: 
+                raise OperationError(space.w_TypeError, 
+                                     space.wrap("unhashable type"))
+            return space.id(w_obj) 
+        w_result = space.get_and_call_function(w_hash, w_obj)
+        if space.is_true(space.isinstance(w_result, space.w_int)): 
+            return w_result 
+        else: 
+            raise OperationError(space.w_TypeError, 
+                     space.wrap("__hash__() should return an int"))
 
     # xxx round, ord
 

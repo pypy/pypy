@@ -50,3 +50,26 @@ class AppTest_Descriptor:
         raises(TypeError, oct, inst) 
         raises(TypeError, hex, inst) 
         assert A.seen == [1,2,3,4]
+
+class TestDesciprtorOnStd: 
+    objspacename = 'std' 
+    def test_hash(self): 
+        class A:
+            pass 
+        hash(A()) 
+        class B: 
+            def __eq__(self, other): pass 
+        raises(TypeError, hash, B()) 
+        class C: 
+            def __cmp__(self, other): pass 
+        raises(TypeError, "hash(C())")
+
+        class D: 
+            def __hash__(self): 
+                return 23L
+        raises(TypeError, hash, D())
+
+        class E: 
+            def __hash__(self): 
+                return "something"
+        raises(TypeError, hash, E())
