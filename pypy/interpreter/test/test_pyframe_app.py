@@ -1,5 +1,5 @@
 import unittest
-import support
+import testsupport
 from pypy.interpreter.pyframe_app import decode_frame_arguments
 
 class CodeObject:
