@@ -466,12 +466,21 @@ from __interplevel__ import __import__
 
 class xrange:
     def __init__(self, start, stop=None, step=1):
-        if stop is None: 
+        if not isinstance(start, (int, long, float)):
+            raise TypeError('an integer is required')
+        start = int(start)
+        if stop is None:
             self.start = 0
             self.stop = start
         else:
+            if not isinstance(stop, (int, long, float)):
+                raise TypeError('an integer is required')
+            stop = int(stop)
             self.start = start
             self.stop = stop
+        if not isinstance(step, (int, long, float)):
+            raise TypeError('an integer is required')
+        step = int(step)
         if step == 0:
             raise ValueError, 'xrange() step-argument (arg 3) must not be zero'
         self.step = step
@@ -931,10 +940,10 @@ class buffer:
     def __init__(self, object, offset=None, size=None):
         raise NotImplementedError, "XXX nobody needs this anyway"
 
-def sorted(lst):
+def sorted(lst, cmp=None, key=None, reverse=None):
     "sorted(iterable, cmp=None, key=None, reverse=False) --> new sorted list"
     sorted_lst = list(lst)
-    sorted_lst.sort()
+    sorted_lst.sort(cmp, key, reverse)
     return sorted_lst
 
 def reversed(iterable):

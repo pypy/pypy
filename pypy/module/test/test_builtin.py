@@ -132,6 +132,11 @@ class AppTestBuiltinApp:
         assert x.stop == 10
         assert x.step == 2
 
+        x = xrange(2.3, 10.5, 2.4)
+        assert x.start == 2
+        assert x.stop == 10
+        assert x.step == 2
+
         raises(ValueError, xrange, 0, 1, 0)
 
     def test_xrange_up(self):
@@ -159,9 +164,13 @@ class AppTestBuiltinApp:
     def test_xrange_len(self):
         x = xrange(33)
         assert len(x) == 33
+        x = xrange(33.2)
+        assert len(x) == 33
         x = xrange(33,0,-1)
         assert len(x) == 33
         x = xrange(33,0)
+        assert len(x) == 0
+        x = xrange(33,0.2)
         assert len(x) == 0
         x = xrange(0,33)
         assert len(x) == 33
@@ -180,6 +189,15 @@ class AppTestBuiltinApp:
         raises(IndexError, x.__getitem__, -18)
         raises(TypeError, x.__getitem__, slice(0,3,1))
 
+    def test_xrange_bad_args(self):
+        raises(TypeError, xrange, '1')
+        raises(TypeError, xrange, None)
+        raises(TypeError, xrange, 3+2j)
+        raises(TypeError, xrange, 1, '1')
+        raises(TypeError, xrange, 1, 3+2j)
+        raises(TypeError, xrange, 1, 2, '1')
+        raises(TypeError, xrange, 1, 2, 3+2j)
+    
     def test_sorted(self):
         l = []
         sorted_l = sorted(l)
@@ -188,6 +206,15 @@ class AppTestBuiltinApp:
         l = [1, 5, 2, 3]
         sorted_l = sorted(l)
         assert sorted_l == [1, 2, 3, 5]
+
+    def test_sorted_with_keywords(self):
+        l = ['a', 'C', 'b']
+        sorted_l = sorted(l, reverse = True)
+        assert sorted_l is not l
+        assert sorted_l == ['b', 'a', 'C']
+        sorted_l = sorted(l, reverse = True, key = lambda x: x.lower())
+        assert sorted_l is not l
+        assert sorted_l == ['C', 'b', 'a']
         
     def test_reversed_simple_sequences(self):
         l = range(5)
