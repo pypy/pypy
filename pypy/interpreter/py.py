@@ -33,6 +33,10 @@ def main_(argv=None):
     go_interactive = Options.interactive
     banner = ''
     if Options.command:
+        args = ['-c']
+    for arg in args:
+        space.call_method(space.sys.w_argv, 'append', space.wrap(arg))
+    if Options.command:
         try:
             main.run_string(Options.command[0], '<string>', space)
         except error.PyPyError, pypyerr:

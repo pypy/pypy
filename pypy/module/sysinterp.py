@@ -54,6 +54,7 @@ for fn in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
 # Common data structures
 w_modules              = space.newdict([])
 w_warnoptions          = space.newlist([])
+w_argv                 = space.newlist([])
 builtin_module_names.sort()
 w_builtin_module_names = space.newtuple([space.wrap(fn)
                                          for fn in builtin_module_names])
