@@ -48,8 +48,7 @@ class GraphDisplay(Display):
         'meta q' : 'quit',
         'escape' : 'quit',
         'meta f4' : 'quit',
-        #'meta left' : 'go_back',
-        #'meta right' : 'go_forward',
+        'meta right' : 'layout_forward',
         'meta left': 'layout_back',
         'p' : 'layout_back',
         'backspace' : 'layout_back',
@@ -68,6 +67,7 @@ class GraphDisplay(Display):
         super(GraphDisplay, self).__init__()
         self.font = pygame.font.Font(self.STATUSBARFONT, 16)
         self.viewers_history = []
+        self.forward_viewers_history = []
         self.viewer = None
         self.method_cache = {}
         self.key_cache = {}
@@ -101,6 +101,7 @@ class GraphDisplay(Display):
     def setlayout(self, layout):
         if self.viewer:
             self.viewers_history.append(self.viewer)
+            del self.forward_viewers_history[:]
         self.layout = layout
         self.viewer = GraphRenderer(self.screen, layout)
         self.zoom_to_fit()
@@ -158,7 +159,15 @@ class GraphDisplay(Display):
 
     def layout_back(self):
         if self.viewers_history:
+            self.forward_viewers_history.append(self.viewer)
             self.viewer = self.viewers_history.pop()
+            self.layout = self.viewer.graphlayout
+            self.updated_viewer()
+
+    def layout_forward(self):
+        if self.forward_viewers_history:
+            self.viewers_history.append(self.viewer)
+            self.viewer = self.forward_viewers_history.pop()
             self.layout = self.viewer.graphlayout
             self.updated_viewer()
 
