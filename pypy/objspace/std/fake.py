@@ -59,7 +59,9 @@ def really_build_fake_type(cpy_type, ignored):
             if not (cpy_type is unicode and s in ['__add__', '__contains__']):
                 if s != '__getattribute__' or cpy_type is type(sys):
                     kw[s] = v
-            
+
+    kw['__module__'] = cpy_type.__module__
+
     def fake__new__(space, w_type, args_w):
         args = [space.unwrap(w_arg) for w_arg in args_w]
         try:

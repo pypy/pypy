@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.dictproxyobject import descr_get_dictproxy
 
+from copy_reg import _HEAPTYPE
 
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
     "This is used to create user-defined classes only."
@@ -89,7 +90,37 @@ def descr__doc(space, w_type):
         return w_result
 
 def descr__flags(space, w_type):
-    return w_type.w__flags__
+    return space.wrap(w_type.__flags__)
+
+def defunct_descr_get__module(space, w_type):
+    if w_type.__flags__ & _HEAPTYPE:
+        return w_type.dict_w['__module__']
+    else:
+        # here CPython checks for a module.name in the type description.
+        # we skip that here and only provide the default
+        return space.wrap('__builtin__')
+
+# heaptypeness is not really the right criteria, because we
+# also might get a module attribute from a faked type.
+# therefore, we use the module attribute whenever it exists.
+
+def descr_get__module(space, w_type):
+    if '__module__' in w_type.dict_w:
+        return w_type.dict_w['__module__']
+    else:
+        return space.wrap('__builtin__')
+
+def descr_set__module(space, w_type, w_value):
+    if not (w_type.__flags__ & _HEAPTYPE):
+        raise OperationError(space.w_TypeError, 
+                             space.wrap("can't set %s.__module__" %
+                                        w_type.name))
+    if w_value is None:
+        raise OperationError(space.w_TypeError, 
+                             space.wrap("can't delete %s.__module__" %
+                                        w_type.name))
+    w_type.dict_w['__module__'] = w_value
+
 # ____________________________________________________________
 
 type_typedef = StdTypeDef("type",
@@ -102,4 +133,5 @@ type_typedef = StdTypeDef("type",
     __doc__ = GetSetProperty(descr__doc),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
+    __module__ = GetSetProperty(descr_get__module, descr_set__module),
     )
