@@ -8,7 +8,6 @@ The factory remembers how general an object it has to create here.
 
 from __future__ import generators
 from types import FunctionType
-from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeImpossibleValue, SomeList, SomeDict
 from pypy.annotation.model import SomeObject, SomeInstance
 from pypy.annotation.model import unionof, immutablevalue
