@@ -31,8 +31,11 @@ def execfile(filename, glob=None, loc=None):
     co = compile(source, filename, 'exec')
     exec co in glob, loc
 
-def raw_input():
+def raw_input(prompt=None):
     import sys
+    if prompt is not None:
+        sys.stdout.write(prompt)
+        sys.stdout.flush()
     return sys.stdin.readline()   # XXX review
 
 def input():

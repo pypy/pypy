@@ -52,8 +52,8 @@ def try_getattr(w_obj,w_name):
     try:
         return space.getattr(w_obj, w_name)
     except OperationError, e:
-        if not e.match(space, space.w_AttributeError):
-            raise
+        # ugh, but blame CPython :-/ this is supposed to emulate
+        # hasattr, which eats all exceptions.
         return None
 
 def try_getitem(w_obj,w_key):
