@@ -35,6 +35,15 @@ class Code(object):
             argnames = argnames + [kwargname]
         return argnames
 
+    def getformalargcount(self):
+        argnames, varargname, kwargname = self.signature()
+        argcount = len(argnames)
+        if varargname is not None:
+            argcount += 1
+        if kwargname is not None:
+            argcount += 1
+        return argcount
+
 
 UNDEFINED = object()  # marker for undefined local variables
 

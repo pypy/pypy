@@ -181,8 +181,8 @@ def make_png(fun):
     dest = Path('/tmp/testgraph.dot')
     #print dotgen.get_source(fun)
     dest.write(dotgen.get_source(fun))
-    psdest = dest.newsuffix('.png')
-    out = exec_cmd('dot -Tpng %s' % str(dest))
+    psdest = dest.newsuffix('.ps')
+    out = exec_cmd('dot -Tps %s' % str(dest))
     psdest.write(out)
     print "wrote", psdest
 

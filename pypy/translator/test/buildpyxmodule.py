@@ -5,7 +5,7 @@ from pypy.tool import test
 from vpath.local import Path, mkdtemp
 import os, sys
 
-debug = 0
+debug = 1
 
 def make_module_from_pyxstring(string, num=[0]):
     tmpdir = mkdtemp()

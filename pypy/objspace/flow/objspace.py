@@ -16,16 +16,17 @@ class FlowObjSpace(ObjSpace):
         #self.make_sys()
 
     def newdict(self, items_w):
-        # XXX Issue a delayed command to create a dictionary
-        return W_Variable()
+        flatlist_w = []
+        for w_key, w_value in items_w:
+            flatlist_w.append(w_key)
+            flatlist_w.append(w_value)
+        return self.do_operation('newdict', *flatlist_w)
 
     def newtuple(self, args_w):
-        # XXX Issue a delayed command to create a tuple and assign to a new W_Variable
-        return W_Variable()
+        return self.do_operation('newtuple', *args_w)
 
-    #def getattr(self, w_obj, w_key):
-    #    # XXX Issue a delayed command
-    #    return W_Variable()
+    def newlist(self, args_w):
+        return self.do_operation('newlist', *args_w)
 
     def wrap(self, obj):
         if isinstance(obj, W_Object):
