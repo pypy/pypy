@@ -469,7 +469,11 @@ class BoundMultiMethod:
             return self.perform_call(args)
         except FailedToImplement, e:
             if e.args:
-                raise OperationError(*e.args)
+                if len(e.args) == 1:
+                    w_value = self.space.w_None
+                else:
+                    w_value = e.args[1]
+                raise OperationError(e.args[0], w_value)
             else:
                 # raise a TypeError for a FailedToImplement
                 initialtypes = [a.__class__
