@@ -661,3 +661,6 @@ def simple_slice(x):
 
 def simple_iter(x):
     return iter(x)
+
+def dict_copy(d):
+    return d.copy()

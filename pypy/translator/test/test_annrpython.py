@@ -409,6 +409,14 @@ class TestAnnonateTestCase:
         s = a.build_types(snippet.simple_iter, [t])
         assert isinstance(s, annmodel.SomeIterator)
 	
+    def test_dict_copy(self):
+        a = RPythonAnnotator()
+	t = annmodel.SomeDict({}, annmodel.SomeInteger(), annmodel.SomeInteger())
+        s = a.build_types(snippet.dict_copy, [t])
+	assert isinstance(s, annmodel.SomeDict)
+	assert isinstance(s.s_key, annmodel.SomeInteger)
+	assert isinstance(s.s_value, annmodel.SomeInteger)
+
 
 def g(n):
     return [0,1,2,n]

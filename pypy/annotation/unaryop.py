@@ -112,7 +112,9 @@ class __extend__(SomeDict):
     def iter(dct):
 	return SomeIterator(dct.s_key)
 
-
+    def method_copy(dct):
+	return SomeDict(dct.factories, dct.s_key, dct.s_value)
+    
 class __extend__(SomeString):
 
     def method_join(str, s_list):
