@@ -30,9 +30,9 @@ class StdObjSpace(ObjSpace):
         from noneobject    import W_NoneObject
         from boolobject    import W_BoolObject
         from cpythonobject import W_CPythonObject
-        self.w_None  = W_NoneObject()
-        self.w_False = W_BoolObject(False)
-        self.w_True  = W_BoolObject(True)
+        self.w_None  = W_NoneObject(self)
+        self.w_False = W_BoolObject(self, False)
+        self.w_True  = W_BoolObject(self, True)
         # hack in the exception classes
         import __builtin__, types
         newstuff = {"False": self.w_False,
@@ -41,7 +41,7 @@ class StdObjSpace(ObjSpace):
                     }
         for n, c in __builtin__.__dict__.iteritems():
             if isinstance(c, types.ClassType) and issubclass(c, Exception):
-                w_c = W_CPythonObject(c)
+                w_c = W_CPythonObject(self, c)
                 setattr(self, 'w_' + c.__name__, w_c)
                 newstuff[c.__name__] = w_c
         self.make_builtins()
@@ -67,7 +67,7 @@ class StdObjSpace(ObjSpace):
             return stringobject.W_StringObject(self, x)
         #if isinstance(x, float):
         #    import floatobject
-        #    return floatobject.W_FloatObject(x)
+        #    return floatobject.W_FloatObject(self, x)
         if isinstance(x, tuple):
             wrappeditems = [self.wrap(item) for item in x]
             import tupleobject
