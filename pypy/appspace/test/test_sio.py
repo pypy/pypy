@@ -2,7 +2,7 @@
 
 import os
 import time
-import tempfile
+from pypy.tool.udir import udir
 
 from pypy.appspace import sio 
 
@@ -477,6 +477,7 @@ class TestCRLFFilter:
 
 class TestMMapFile(TestBufferingInputStreamTests): 
     tfn = None
+    Counter = 0
 
     def teardown_method(self, method):
         tfn = self.tfn
@@ -488,7 +489,9 @@ class TestMMapFile(TestBufferingInputStreamTests):
                 print "can't remove %s: %s" % (tfn, msg)
 
     def makeStream(self, tell=None, seek=None, bufsize=None, mode="r"):
-        self.tfn = tempfile.mktemp()
+        self.teardown_method(None) # for tests calling makeStream() several time
+        self.tfn = str(udir.join('sio%03d' % TestMMapFile.Counter))
+        TestMMapFile.Counter += 1
         f = open(self.tfn, "wb")
         f.writelines(self.packets)
         f.close()
