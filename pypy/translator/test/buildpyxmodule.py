@@ -43,7 +43,7 @@ def make_module_from_c(pyxfile):
           ],
           cmdclass = {'build_ext': build_ext},
           script_name = 'setup.py',
-          script_args = ['build_ext', '--inplace', '-q', '--quiet']
+          script_args = ['-q', 'build_ext', '--inplace']
         )
         # XXX not a nice way to import a module
         if debug: print "inserting path to sys.path", dirpath
