@@ -128,7 +128,7 @@ class Function(Wrappable):
         if self.closure is not None:
             w_res = space.newtuple( [ space.wrap(i) for i in self.closure ] )
         else:
-            w_res= space.w_None
+            w_res = space.w_None
         return w_res
 
 

@@ -24,7 +24,7 @@ XXX open questions:
 """
 
 from __future__ import generators
-import autopath, os, sys, exceptions, inspect
+import autopath, os, sys, exceptions, inspect, types
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import last_exception, last_exc_value
@@ -32,7 +32,7 @@ from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.translator.simplify import remove_direct_loops
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from pypy.annotation import model as annmodel
-from types import FunctionType, CodeType
+from types import FunctionType, CodeType, ModuleType
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.restricted_int import r_int, r_uint
@@ -99,6 +99,18 @@ class UniqueList(list):
     def appendnew(self, arg):
         "always append"
         list.append(self, arg)
+
+def eval_helper(self, typename, expr):
+    name = self.uniquename("gtype_%s" % typename)
+    bltinsname = self.nameof('__builtins__')
+    self.initcode.append(
+        'def eval_helper(expr):\n'
+        '    import types\n'
+        '    dic = space.newdict([(%s, space.w_builtins)])\n'
+        '    space.exec_("import types", dic, dic)\n'
+        '    return space.eval(expr, dic, dic)' % bltinsname)
+    self.initcode.append('m.%s = eval_helper(%r)' % (name, expr))
+    return name
 
 class GenRpy:
     def __init__(self, translator, modname=None):
@@ -319,12 +331,14 @@ class GenRpy:
 
     def nameof_object(self, value):
         if type(value) is not object:
-            #raise Exception, "nameof(%r) in %r" % (value, self.currentfunc)
-            name = self.uniquename('g_unknown_%r' % value)
-            self.initcode.append('# cannot build %s as %r' % (name, object))
+            # try to just wrap it?
+            name = self.uniquename('g_%sinst_%r' % (type(value).__name__, value))
+            self.initcode.append('m.%s = space.wrap(%r)' % (name, value))
             return name
         name = self.uniquename('g_object')
-        self.initcode.append('m.%s = object()'%name)
+        self.initcode.appendnew('_tup= space.newtuple([])\n'
+                                'm.%s = space.call(space.w_object, _tup)'
+                                % name)
         return name
 
     def nameof_module(self, value):
@@ -398,6 +412,14 @@ class GenRpy:
         name = self.uniquename('gskippedfunc_' + func.__name__)
         self.globaldecl.append('# global decl %s' % (name, ))
         self.initcode.append('# build func %s' % name)
+        return name
+
+    def skipped_class(self, cls):
+        # debugging only!  Generates a placeholder for missing classes
+        # that raises an exception when called.
+        name = self.uniquename('gskippedclass_' + cls.__name__)
+        self.globaldecl.append('# global decl %s' % (name, ))
+        self.initcode.append('# build class %s' % name)
         return name
 
     def trans_funcname(self, s):
@@ -474,7 +496,7 @@ class GenRpy:
                             yield 'space.setattr(%s, %s, %s)' % (
                                 name, self.nameof(key), self.nameof(value))
                     except:
-                        print >>sys.stderr, "Problem while generating %s of %r" % (
+                        print >> sys.stderr, "Problem while generating %s of %r" % (
                                 name, instance)
                         raise
         if isinstance(instance, Exception):
@@ -523,8 +545,11 @@ class GenRpy:
         return name
 
     def nameof_classobj(self, cls):
+        printable_name = cls.__name__
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
-            raise Exception, "%r should never be reached" % (cls,)
+            #raise Exception, "%r should never be reached" % (cls,)
+            print "skipped class", printable_name
+            return self.skipped_class(cls)
 
         metaclass = "space.w_type"
         name = self.uniquename('gcls_' + cls.__name__)
@@ -559,8 +584,6 @@ class GenRpy:
                     if key in ['__module__', '__doc__', '__dict__',
                                '__weakref__', '__repr__', '__metaclass__']:
                         continue
-                    # XXX some __NAMES__ are important... nicer solution sought
-                    #raise Exception, "unexpected name %r in class %s"%(key, cls)
 
                 # redirect value through class interface, in order to
                 # get methods instead of functions.
@@ -620,39 +643,43 @@ class GenRpy:
         type:   'space.w_type',
         complex:'space.wrap(types.ComplexType)',
         unicode:'space.w_unicode',
-        file:   'space.wrap(file)',
-        type(None): 'space.wrap(types.NoneType)',
-        CodeType: 'space.wrap(types.CodeType)',
+        file:   (eval_helper, 'file', 'file'),
+        type(None): (eval_helper, 'NoneType', 'types.NoneType'),
+        CodeType: (eval_helper, 'code', 'types.CodeType'),
+        ModuleType: (eval_helper, 'ModuleType', 'types.ModuleType'),
+        xrange: (eval_helper, 'xrange', 'types.XRangeType'),
 
         ##r_int:  'space.w_int',
         ##r_uint: 'space.w_int',
 
-        # XXX we leak 5 references here, but that's the least of the
-        #     problems with this section of code
-        # type 'builtin_function_or_method':
-        type(len): 'space.wrap(types.FunctionType)',
+        type(len): (eval_helper, 'FunctionType', 'types.FunctionType'),
         # type 'method_descriptor':
         # XXX small problem here:
         # XXX with space.eval, we get <W_TypeObject(method)>
         # XXX but with wrap, we get <W_TypeObject(instancemethod)>
-        type(list.append): 'eval_helper(space, "list.append")',
+        type(list.append): (eval_helper, "method_descriptor", "list.append"),
         # type 'wrapper_descriptor':
-        type(type(None).__repr__): 'eval_helper(space, ".type(None).__repr__")',
+        type(type(None).__repr__): (eval_helper, "wrapper_descriptor",
+                                    "type(type(None).__repr__)"),
         # type 'getset_descriptor':
         # XXX here we get <W_TypeObject(FakeDescriptor)>,
         # while eval gives us <W_TypeObject(GetSetProperty)>
-        type(type.__dict__['__dict__']): 'eval_helper(space,'\
-            ' "type(type.__dict__[\'__dict__\'])")',
+        type(type.__dict__['__dict__']): (eval_helper, "getset_descriptor", '\
+            ' "type(type.__dict__[\'__dict__\'])"),
         # type 'member_descriptor':
         # XXX this does not work in eval!
         # type(type.__dict__['__basicsize__']): "cannot eval type(type.__dict__['__basicsize__'])",
         # XXX there seems to be no working support for member descriptors ???
-        type(type.__dict__['__basicsize__']): "space.wrap(type(type.__dict__['__basicsize__']))",
-        }
+        type(types.GeneratorType.gi_frame):
+            (eval_helper, "member_descriptor", 'type(types.GeneratorType.gi_frame)')
+    }
 
     def nameof_type(self, cls):
         if cls in self.typename_mapping:
-            return self.typename_mapping[cls]
+            ret = self.typename_mapping[cls]
+            if type(ret) is tuple:
+                ret = ret[0](self, ret[1], ret[2])
+            return ret
         assert cls.__module__ != '__builtin__', \
             "built-in class %r not found in typename_mapping" % (cls,)
         return self.nameof_classobj(cls)
@@ -755,7 +782,8 @@ class GenRpy:
             for line in txt.split("\n"):
                 ign, name, value = line.split(None, 2)
                 dic[name] = eval(value)
-            key = dic["filename"], dic["firstlineno"], uniqueno
+            key = (dic["filename"], dic["firstlineno"],
+                   dic["function"], uniqueno)
             return key
 
         order_sections(fname)
@@ -770,6 +798,7 @@ class GenRpy:
                 self.translator.functions[0].__name__),
             'entrypoint': self.nameof(self.translator.functions[0]),
             }
+        self.entrypoint = info['entrypoint']
         # header
         print >> f, self.RPY_HEADER
         print >> f
@@ -895,7 +924,12 @@ class GenRpy:
         def install_func(f_name, name):
             yield ''
             yield '%s = %s' % (f_name, name)
-            yield 'del %s' % (name,)
+            import __builtin__
+            dic = __builtin__.__dict__
+            if dic.get(name):
+                yield 'del %s # hiding a builtin!' % name
+            else:
+                self.initcode.append('del m.%s' % (name,))
 
         print >> f, 'def %s(space, __args__):' % (name,)
         if docstr is not None:
@@ -920,9 +954,9 @@ class GenRpy:
         signature = ", ".join([signature, repr(varargname), repr(varkwname)])
         print >> f, signature
 
-        print >> f, '    def_w = [%s]' % ", ".join(name_of_defaults)
+        print >> f, '    defaults_w = [%s]' % ", ".join(name_of_defaults)
 
-        print >> f, '    %s__args__.parse(funcname, signature, def_w)' % (
+        print >> f, '    %s__args__.parse(funcname, signature, defaults_w)' % (
             tupassstr(fast_args),)
         print >> f, '    return %s(%s)' % (fast_name, ', '.join(["space"]+fast_args))
 
@@ -1112,36 +1146,6 @@ C_IDENTIFIER = ''.join([(('0' <= chr(i) <= '9' or
                           'A' <= chr(i) <= 'Z') and chr(i) or '_')
                         for i in range(256)])
 
-# temporary arg parsing
-# what about keywords? Gateway doesn't support it.
-def PyArg_ParseMini(space, name, minargs, maxargs, args_w, defaults_w):
-    err = None
-    if len(args_w) < minargs:
-        txt = "%s() takes at least %d argument%s (%d given)"
-        plural = ['s', ''][minargs == 1]
-        err = (name, minargs, plural, len(args_w))
-    if len(args_w) > maxargs:
-        plural = ['s', ''][maxargs == 1]
-        if minargs == maxargs:
-            if minargs == 0:
-                txt = '%s() takes no arguments (%d given)'
-                err = (name, len(args_w))
-            elif minargs == 1:
-                txt = '%s() takes exactly %d argument%s (%d given)'
-                err = (name, maxargs, plural, len(args_w))
-        else:
-            txt = '%s() takes at most %d argument%s (%d given)'
-            err = (name, maxargs, plural, len(args_w))
-    if err:
-        w_txt = space.wrap(txt)
-        w_tup = space.wrap(err)
-        w_txt = space.mod(w_txt, w_tup)
-        raise OperationError(space.w_TypeError, w_txt)
-
-    # finally, we create the result ;-)
-    res_w = args_w + defaults_w[len(args_w) - minargs:]
-    assert len(res_w) == maxargs
-    return res_w
 # _____________________________________________________________________
 
 ## this should go into some test file
@@ -1294,7 +1298,7 @@ def test_struct():
     res2 = struct.unpack('f', struct.pack('f',1.23))
     return res1, res2
 
-def test_exceptions_helper():
+def exceptions_helper():
     import pypy
     prefix = os.path.dirname(pypy.__file__)
     libdir = os.path.join(prefix, "lib")
@@ -1320,6 +1324,12 @@ def make_class_instance_helper():
     def make_class_instance():
         return _classobj.classobj, _classobj.instance
     return None, make_class_instance
+
+def test_complex():
+    return 1j
+
+def test_NoneType():
+    return types.NoneType
     
 def all_entries():
     res = [func() for func in entrypoints[:-1]]
@@ -1338,19 +1348,25 @@ entrypoints = (small_loop,
                 test_exc,
                 test_strutil,
                 test_struct,
-                test_exceptions_helper,
+                exceptions_helper,
                 make_class_instance_helper,
+                test_complex,
+                test_NoneType,
                 all_entries)
-entrypoint = entrypoints[-6]
+entrypoint = entrypoints[-2]
 
 if __name__ == "__main__":
-    dic, entrypoint = test_exceptions_helper()
+    # XXX TODO:
+    # extract certain stuff like a general module maker
+    # and put this into tools/compile_exceptions, maybe???
+    dic, entrypoint = exceptions_helper()
     t = Translator(entrypoint, verbose=False, simplifying=True)
     gen = GenRpy(t)
     gen.use_fast_call = True
     gen.moddict = dic
     gen.gen_source('/tmp/look.py')
-    '''
+    
+    _oldcodetogointotestcases = '''
     import os, sys
     from pypy.interpreter import autopath
     srcdir = os.path.dirname(autopath.pypydir)
@@ -1375,22 +1391,13 @@ if __name__ == "__main__":
 
 def crazy_test():
     """ this thingy is generating the whole interpreter in itself"""
-    # but doesn't work, my goto's give a problem for flow space
     dic = {"__builtins__": __builtins__, "__name__": "__main__"}
     execfile("/tmp/look.py", dic)
-    
+
+    entrypoint = dic[gen.entrypoint]
     def test():
-        f_ff(space, 2, 3)
-    test = type(test)(test.func_code, dic)
+        entrypoint()
         
     t = Translator(test, verbose=False, simplifying=True)
-    gen = GenRpy(t)
-    gen.gen_source("/tmp/look2.py")
-
-##>>> def f_foo(space, __args__):
-##... 	signature = ["a", "b"], "args", "kwds"
-##... 	defaults_w = space.w_int(42) # is this the default for b?
-##... 	w_a, w_b, w_args, w_kwds = __args__.parse("foo", signature, defaults_w)
-##... 	return fastf_foo(w_a, w_b, w_args, w_kwds)
-##... 	# args/kwds can be None.
-##... 	# then I don't receive w_xxx for them as well.
+    gen2 = GenRpy(t)
+    gen2.gen_source("/tmp/look2.py")
