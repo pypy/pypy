@@ -1,15 +1,6 @@
 import autopath
 from pypy.tool import testit
 
-    def test_zero_pad(self):
-        self.assertEquals("%02d"%1,   "01")
-        self.assertEquals("%05d"%1,   "00001")
-        self.assertEquals("%-05d"%1,  "1    ")
-        self.assertEquals("%04f"%2.3, "2.300000")
-        self.assertEquals("%04g"%2.3, "02.3")
-        self.assertEquals("%-04g"%2.3,"2.3 ")
-        self.assertEquals("%04s"%2.3, " 2.3")
-
 class TestStringObjectWithDict(testit.AppTestCase):
 
     def setUp(self):
@@ -112,6 +103,16 @@ class TestWidthPrec(testit.AppTestCase):
         self.assertEquals("%5.3s"%'abcde',  '  abc')
         self.assertEquals("%-5.3s"%'a',     'a    ')
         self.assertEquals("%-5.3s"%'abcde', 'abc  ')
+
+    def test_zero_pad(self):
+        self.assertEquals("%02d"%1,   "01")
+        self.assertEquals("%05d"%1,   "00001")
+        self.assertEquals("%-05d"%1,  "1    ")
+        self.assertEquals("%04f"%2.3, "2.300000")
+        self.assertEquals("%04g"%2.3, "02.3")
+        self.assertEquals("%-04g"%2.3,"2.3 ")
+        self.assertEquals("%04s"%2.3, " 2.3")
+
         
 
 if __name__ == '__main__':
