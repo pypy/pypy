@@ -120,6 +120,9 @@ def builtin_type(s_obj, *moreargs):
 def builtin_str(s_obj):
     return SomeString()
 
+def builtin_repr(s_obj):
+    return SomeString()
+
 def builtin_list(s_iterable):
     factory = getbookkeeper().getfactory(ListFactory)
     s_iter = s_iterable.iter()
