@@ -188,3 +188,15 @@ def pypy_getudir():
 def getdefaultencoding():
     """getdefaultencoding() -> return the default encoding used for UNICODE"""
     return space.wrap(cpy_sys.getdefaultencoding())
+
+def getrefcount(w_obj):
+    """getrefcount(object) -> integer
+
+Return the reference count of object.  The count returned is generally
+one higher than you might expect, because it includes the (temporary)
+reference as an argument to getrefcount().
+"""
+    # From the results i get when using this i need to apply a fudge
+    # value of 6 to get results comparable to cpythons. /Arre
+    return space.wrap(cpy_sys.getrefcount(w_obj) - 6)
+

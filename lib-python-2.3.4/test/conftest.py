@@ -35,6 +35,7 @@ working_unittests = (
 'test_compile.py',
 'test_operator.py',
 'test_heapq.py',
+'test_sys.py',
 )
 
 working_outputtests = (

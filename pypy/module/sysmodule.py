@@ -20,7 +20,7 @@ from __interplevel__ import exec_prefix, prefix
 from __interplevel__ import _getframe, exc_info, exc_clear, pypy_getudir
 from __interplevel__ import getrecursionlimit, setrecursionlimit
 from __interplevel__ import getcheckinterval, setcheckinterval
-from __interplevel__ import getdefaultencoding
+from __interplevel__ import getdefaultencoding, getrefcount
 
 # Dummy
 executable = 'py.py'
