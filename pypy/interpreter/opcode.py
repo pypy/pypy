@@ -290,9 +290,8 @@ def EXEC_STMT(f):
     w_prog = f.space.getitem(w_tuple,f.space.wrap(0))
     w_globals = f.space.getitem(w_tuple,f.space.wrap(1))
     w_locals = f.space.getitem(w_tuple,f.space.wrap(2))
-    newframe = pyframe.PyFrame(f.space,f.space.unwrap(w_prog),w_globals,w_locals)
-    ec = f.space.getexecutioncontext()
-    ec.eval_frame(newframe) #discard return value
+
+    w_prog.eval_code(f.space, w_globals, w_locals)
     
 def POP_BLOCK(f):
     block = f.blockstack.pop()

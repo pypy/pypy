@@ -151,7 +151,7 @@ def exec_statement(prog, globals, locals,
     """
     import types
     if (globals is None and locals is None and
-        isinstance(prog, builtins.tuple) and
+        isinstance(prog, builtins['tuple']) and
         (len(prog) == 2 or len(prog) == 3)):
         globals = prog[1]
         if len(prog) == 3:
@@ -169,7 +169,7 @@ def exec_statement(prog, globals, locals,
         globals['__builtins__'] = builtins
     if not isinstance(locals, types.DictType):
         raise TypeError("exec: arg 3 must be a dictionary or None")
-    #HACK to check for code object
+    # XXX - HACK to check for code object
     co = compile('1','<string>','eval')
     if isinstance(prog, type(co)):
         return (prog, globals, locals)

@@ -3,11 +3,12 @@
 New for PyPy - Could be incorporated into CPython regression tests.
 """
 import autopath
-
-import unittest
 from pypy.tool import test 
 
-class TestExecStmt(test.TestCase):
+class TestExecStmt(test.AppTestCase):
+
+    def setUp(self):
+        self.space = test.objspace()
 
     def test_string(self):
         g = {}
@@ -26,10 +27,14 @@ class TestExecStmt(test.TestCase):
         self.failUnless(g.has_key('__builtins__'))
 
     def test_invalidglobal(self):
-        self.failUnlessRaises(TypeError,"exec 'pass' in 1")
+        def f():
+            exec 'pass' in 1
+        self.failUnlessRaises(TypeError,f)
 
     def test_invalidlocal(self):
-        self.failUnlessRaises(TypeError,"exec 'pass' in {}, 2")
+        def f():
+            exec 'pass' in {}, 2
+        self.failUnlessRaises(TypeError,f)
 
     def test_codeobject(self):
         co = compile("a = 3", '<string>', 'exec')
@@ -63,7 +68,9 @@ class TestExecStmt(test.TestCase):
         self.failUnlessEqual(g['a'], 3)
 
     def test_exceptionfallthrough(self):
-        self.failUnlessRaises(TypeError,"exec 'raise TypeError' in {}")
+        def f():
+            exec 'raise TypeError' in {}
+        self.failUnlessRaises(TypeError,f)
 
 if __name__ == "__main__":
-    unittest.main()
+    test.main()
