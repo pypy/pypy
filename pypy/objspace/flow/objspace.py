@@ -39,7 +39,7 @@ class FlowObjSpace(ObjSpace):
             self.executioncontext.crnt_ops = flowcontext.ConcreteNoOp()
             self.concrete_mode += 1
             try:
-                return self.generalcache.setdefault(key, builder(self))
+                return self.generalcache.setdefault(key, builder(key, self))
             finally:
                 self.executioncontext.crnt_ops = previous_ops
                 self.concrete_mode -= 1
@@ -103,7 +103,7 @@ class FlowObjSpace(ObjSpace):
     def setup_executioncontext(self, ec):
         self.executioncontext = ec
         from pypy.objspace.flow import specialcase
-        self.specialcases = specialcase.setup(self)
+        specialcase.setup(self)
 
     def build_flow(self, func, constargs={}):
         """
@@ -123,6 +123,19 @@ class FlowObjSpace(ObjSpace):
             name = name.replace(c, '_')
         ec.graph.name = name
         return ec.graph
+
+    def unpacktuple(self, w_tuple, expected_length=None):
+        # special case to accept either Constant tuples
+        # or real tuples of Variables/Constants
+        if isinstance(w_tuple, tuple):
+            result = w_tuple
+        else:
+            unwrapped = self.unwrap(w_tuple)
+            result = tuple([Constant(x) for x in unwrapped])
+        if expected_length is not None and len(result) != expected_length:
+            raise ValueError, "got a tuple of length %d instead of %d" % (
+                len(result), expected_length)
+        return result
 
     # ____________________________________________________________
     def do_operation(self, name, *args_w):
@@ -154,8 +167,8 @@ class FlowObjSpace(ObjSpace):
 
     def call_args(self, w_callable, args):
         try:
-            sc = self.specialcases[self.unwrap(w_callable)]
-        except (UnwrapException, KeyError):
+            sc = self.unwrap(w_callable)._flowspecialcase_
+        except (UnwrapException, AttributeError):
             pass
         else:
             return sc(self, args)

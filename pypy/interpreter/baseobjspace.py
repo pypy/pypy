@@ -33,7 +33,7 @@ class ObjSpace:
         try:
             return self.generalcache[key]
         except KeyError:
-            return self.generalcache.setdefault(key, builder(self))
+            return self.generalcache.setdefault(key, builder(key, self))
 
     def make_builtins(self, for_builtins):
         # initializing builtins may require creating a frame which in

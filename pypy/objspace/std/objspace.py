@@ -4,6 +4,7 @@ from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.interpreter.typedef import instantiate, UserSubclass
 from pypy.objspace.std.multimethod import *
 from pypy.objspace.descroperation import DescrOperation
+from pypy.objspace.std import stdtypedef
 import types
 
 
@@ -207,12 +208,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def gettypeobject(self, typedef):
         # types_w maps each StdTypeDef instance to its
         # unique-for-this-space W_TypeObject instance
-        try:
-            w_type = self.types_w[typedef]
-        except KeyError:
-            from pypy.objspace.std.stdtypedef import buildtypeobject
-            w_type = self.types_w[typedef] = buildtypeobject(typedef, self)
-        return w_type
+        return self.loadfromcache(typedef, stdtypedef.buildtypeobject)
 
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."

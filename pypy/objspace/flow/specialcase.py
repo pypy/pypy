@@ -1,8 +1,8 @@
 import types
-from pypy.interpreter import pyframe
+from pypy.interpreter import pyframe, baseobjspace
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.objspace import UnwrapException
-from pypy.objspace.flow.model import Variable
+from pypy.objspace.flow.model import Variable, Constant
 
 
 def getconstclass(space, w_cls):
@@ -16,7 +16,7 @@ def getconstclass(space, w_cls):
     return None
 
 
-def prepare_raise(space, args):
+def normalize_exception(space, args):
     """Special-case for 'raise' statements.
 
     Only accept the following syntaxes:
@@ -26,14 +26,10 @@ def prepare_raise(space, args):
     """
     assert len(args.args_w) == 2 and args.kwds_w == {}
     w_arg1, w_arg2 = args.args_w
-    #
-    # Note that we immediately raise the correct OperationError to
-    # prevent further processing by pyopcode.py.
-    #
     etype = getconstclass(space, w_arg1)
     if etype is not None:
         # raise Class or raise Class, Arg: ignore the Arg
-        raise OperationError(w_arg1, Variable())
+        return (w_arg1, Variable())
     else:
         # raise Instance: we need a hack to figure out of which class it is.
         # Normally, Instance should have been created by the previous operation
@@ -43,10 +39,20 @@ def prepare_raise(space, args):
         assert spaceop.opname == 'simple_call'
         assert spaceop.result is w_arg1
         w_type = spaceop.args[0]
-        raise OperationError(w_type, w_arg2)
+        return (w_type, w_arg2)
+    # this function returns a real tuple that can be handled
+    # by FlowObjSpace.unpacktuple()
+
+def loadfromcache(space, args):
+    # XXX need some way to know how to fully initialize the cache
+    assert len(args.args_w) == 2 and args.kwds_w == {}
+    w_key, w_builder = args.args_w
+    w_cache = Constant('space_cache')   # temporary
+    return space.do_operation('getitem', w_cache, w_key)
 
 
 def setup(space):
-    return {
-        pyframe.normalize_exception.get_function(space): prepare_raise,
-        }
+    fn = pyframe.normalize_exception.get_function(space)
+    fn._flowspecialcase_ = normalize_exception
+    fn = baseobjspace.ObjSpace.loadfromcache.im_func
+    fn._flowspecialcase_ = loadfromcache

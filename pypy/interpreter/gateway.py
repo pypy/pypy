@@ -173,7 +173,7 @@ class Gateway(Wrappable):
         return self.get_function(space)
 
     def get_function(self, space):
-        return space.loadfromcache(self, self.build_all_functions)
+        return space.loadfromcache(self, Gateway.build_all_functions)
 
     def build_all_functions(self, space):
         # the construction is supposed to be done only once in advance,

@@ -132,7 +132,7 @@ class TraceObjSpace:
             saved = self.__result
             self.settrace()
             try:
-                return self.generalcache.setdefault(key, builder(self))
+                return self.generalcache.setdefault(key, builder(key, self))
             finally:
                 self.__result = saved
 

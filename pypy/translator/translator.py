@@ -62,7 +62,10 @@ class Translator:
             graph = self.flowgraphs[func]
         except KeyError:
             if self.verbose:
-                print 'getflowgraph:', func.__name__
+                print 'getflowgraph (%s:%d) %s' % (
+                    func.func_globals.get('__name__', '?'),
+                    func.func_code.co_firstlineno,
+                    func.__name__)
             im_func = getattr(func, 'im_func', func)
             im_self = getattr(func, 'im_self', None)
             if im_self is not None:    # bound method?
