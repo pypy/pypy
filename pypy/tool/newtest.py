@@ -10,6 +10,8 @@ import vpath
 #TODO
 # - add support for ignored tests
 # - support TestItem.run with different object spaces
+# - perhaps we have to be able to compare TestResult and TestItem values
+#   which were pickled
 
 class TestStatus:
     def __init__(self, name, longstring, shortstring):
@@ -38,6 +40,18 @@ class TestResult:
         self.traceback = None
         # formatted traceback (a string)
         self.formatted_traceback = None
+
+    def __eq__(self, other):
+        # trivial case
+        if self is other:
+            return True
+        if (self.item is other.item) and (self.status == other.status) and \
+          (self.formatted_traceback == other.formatted_traceback):
+            return True
+        return False
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def _setexception(self, statuscode):
         self.status = statuscode
@@ -73,6 +87,7 @@ class TestItem:
         Return true if this and the other item compare equal. This doesn't
         necessarily mean that they are the same object.
         """
+        # trivial case
         if self is other:
             return True
         # If module, cls and unbound method are the same, the files must
