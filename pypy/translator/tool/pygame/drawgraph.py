@@ -245,7 +245,7 @@ class GraphRenderer:
         bgcolor = getcolor(node.fillcolor, (255,255,255))
 
         text = node.label
-        lines = text.replace('\l','\l\n').replace('\r','\r\n').split('\n')
+        lines = text.replace('\\l','\\l\n').replace('\r','\r\n').split('\n')
         # ignore a final newline
         if not lines[-1]:
             del lines[-1]
@@ -255,12 +255,12 @@ class GraphRenderer:
         bkgndcommands = []
 
         for line in lines:
-            raw_line = line.replace('\l','').replace('\r','') or ' '
+            raw_line = line.replace('\\l','').replace('\r','') or ' '
             img = TextSnippet(self, raw_line, (0, 0, 0), bgcolor)
             w, h = img.get_size()
             if w>wmax: wmax = w
             if raw_line.strip():
-                if line.endswith('\l'):
+                if line.endswith('\\l'):
                     def cmd(img=img, y=hmax):
                         img.draw(xleft, ytop+y)
                 elif line.endswith('\r'):
