@@ -415,7 +415,6 @@ a.reverse()
 if a != [2,1,0,-1,-2]: raise TestFailed, 'list reverse'
 a.sort()
 if a != [-2,-1,0,1,2]: raise TestFailed, 'list sort'
-''' TODO: Support comparison functions XXX
 def revcmp(a, b): return cmp(b, a)
 a.sort(revcmp)
 if a != [2,1,0,-1,-2]: raise TestFailed, 'list sort with cmp func'
@@ -429,17 +428,18 @@ try: z.sort(2)
 except TypeError: pass
 else: raise TestFailed, 'list sort compare function is not callable'
 
+''' XXX TODO: add detection of list modification during sort
 def selfmodifyingComparison(x,y):
     z.append(1)
     return cmp(x, y)
 try: z.sort(selfmodifyingComparison)
 except ValueError: pass
 else: raise TestFailed, 'modifying list during sort'
+'''
 
 try: z.sort(lambda x, y: 's')
 except TypeError: pass
 else: raise TestFailed, 'list sort compare function does not return int'
-'''
 
 # Test extreme cases with long ints
 a = [0,1,2,3,4]
@@ -788,3 +788,4 @@ try: a[0:1] = 'g'
 except TypeError: pass
 else: raise TestFailed, "buffer slice assignment should raise TypeError"
 '''
+print '6.99999999...   All tests ran to completion'
