@@ -27,7 +27,7 @@ class TestInterpreter(testsupport.TestCase):
         try:
             w_output = space.call(wrappedfunc, wrappedargs, wrappedkwds)
         except baseobjspace.OperationError, e:
-            e.print_detailed_traceback(space)
+            #e.print_detailed_traceback(space)
             return '<<<%s>>>' % e.errorstr(space)
         else:
             return space.unwrap(w_output)
@@ -73,8 +73,7 @@ def f():
 ''', 'f', [])
         self.assertEquals(x, 1)
 
-    def XXXtest_exception(self):
-        """ exception raising currently semi-broken """
+    def test_exception(self):
         x = self.codetest('''
 def f():
     try:
@@ -97,16 +96,14 @@ def f(a):
         self.assertEquals(self.codetest(code, 'f', [0]), -12)
         self.assertEquals(self.codetest(code, 'f', [1]), 1)
 
-    def XXXtest_raise(self):
-        """ depends on being able to import types """
+    def test_raise(self):
         x = self.codetest('''
 def f():
     raise 1
 ''', 'f', [])
         self.assertEquals(x, '<<<TypeError: exceptions must be classes, instances, or strings (deprecated), not int>>>')
 
-    def XXXtest_except2(self):
-        """ depends on being able to import types """
+    def test_except2(self):
         x = self.codetest('''
 def f():
     try:
@@ -135,7 +132,7 @@ def f(v):
         self.assertEquals(self.codetest(code, 'f', [0]), "infinite result")
         ess = "TypeError: unsupported operand type"
         res = self.codetest(code, 'f', ['x'])
-        self.failUnless(res.index(ess) >= 0)
+        self.failUnless(res.find(ess) >= 0)
         # the following (original) test was a bit too strict...:
         # self.assertEquals(self.codetest(code, 'f', ['x']), "<<<TypeError: unsupported operand type(s) for //: 'int' and 'str'>>>")
 
