@@ -383,6 +383,90 @@ class __builtin__(ExtModule):
         except AttributeError:
             return False
 
+    def app_dir(self, *args):
+        """dir([object]) -> list of strings
+        
+        Return an alphabetized list of names comprising (some of) the attributes
+        of the given object, and of attributes reachable from it:
+        
+        No argument:  the names in the current scope.
+        Module object:  the module attributes.
+        Type or class object:  its attributes, and recursively the attributes of
+            its bases.
+        Otherwise:  its attributes, its class's attributes, and recursively the
+            attributes of its class's base classes.
+        """
+        import types
+        def _classdir(klass):
+            """Return a dict of the accessible attributes of class/type klass.
+
+            This includes all attributes of klass and all of the
+            base classes recursively.
+
+            The values of this dict have no meaning - only the keys have
+            meaning.  
+            """
+            Dict = {}
+            try:
+                Dict.update(klass.__dict__)
+            except AttributeError: pass 
+            try:
+                # XXX - Use of .__mro__ would be suggested, if the existance
+                #   of that attribute could be guarranted.
+                bases = klass.__bases__
+            except AttributeError: pass 
+            try:
+                #Note that since we are only interested in the keys,
+                #  the order we merge classes is unimportant
+                for base in bases:
+                    Dict.update(_classdir(base))
+            except TypeError: pass
+        #End _classdir
+
+        if len(args) > 1:
+            raise TypeError("dir expected at most 1 arguments, got %d"
+                            % len(args))
+        if len(args) == 0:
+            return self._getlocalkeys()
+        
+        obj = args[0]
+        
+        if isinstance(obj, types.ModuleType):
+            try:
+                return module.__dict__.keys()
+            except AttributeError:
+                return []
+
+        elif isinstance(obj, (types.TypeType, types.ClassType)):
+            #Don't look at __class__, as metaclass methods would be confusing.
+            return _classdir(obj).keys()
+
+        else: #(regular item)
+            Dict = {}
+            try:
+                Dict.update(obj.__dict__)
+            except AttributeError: pass
+            try:
+                Dict.update(_classdir(obj.__class__))
+            except AttributeError: pass
+            
+            ## Comment from object.c:
+            ## /* Merge in __members__ and __methods__ (if any).
+            ## XXX Would like this to go away someday; for now, it's
+            ## XXX needed to get at im_self etc of method objects. */
+            for attr in ['__members__','__methods__']:
+                try:
+                    for item in getattr(obj, attr):
+                        if isinstance(item, types.StringTypes):
+                            Dict[item] = None
+                except (AttributeError, TypeError): pass
+                
+            return Dict.keys()
+
+    def _getlocalkeys(self):
+        """Return the local keys of the currenly executing frame."""
+        raise NotImplementedError
+
 # source code for the builtin xrange-class
 xrange_appsource = """if 1: 
     class xrange:
