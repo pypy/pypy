@@ -20,6 +20,7 @@ def immutablevalue(x):
 
 # XXX unify this with ObjSpace.MethodTable
 BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
+                         'and_', 'or_', 'xor',
                          'getitem', 'setitem',
                          'inplace_add', 'inplace_sub',
                          'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_',
@@ -125,14 +126,14 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         return SomeInteger(nonneg = int1.nonneg and int2.nonneg,
                            unsigned = int1.unsigned or int2.unsigned)
 
-    def add((int1, int2)):
-        return SomeInteger(nonneg = int1.nonneg and int2.nonneg,
-                           unsigned = int1.unsigned or int2.unsigned)
-
-    mul = div = mod = add
+    add = mul = div = mod = or_ = xor = union
 
     def sub((int1, int2)):
         return SomeInteger(unsigned = int1.unsigned or int2.unsigned)
+
+    def and_((int1, int2)):
+        return SomeInteger(nonneg = int1.nonneg or int1.nonneg,
+                           unsigned = int1.unsigned or int2.unsigned)
 
 
 class __extend__(pairtype(SomeBool, SomeBool)):
