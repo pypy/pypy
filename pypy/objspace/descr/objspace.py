@@ -109,7 +109,7 @@ def _make_binary_impl(specialnames):
 # add regular methods
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     if not hasattr(DescrObjSpace,_name):
-        if _arity == 2: # binary
+        if _arity == 2 and len(_specialnames) == 2: # binary
             setattr(DescrObjSpace,_name,_make_binary_impl(_specialnames))
         
 
