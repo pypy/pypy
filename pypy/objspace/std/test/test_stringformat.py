@@ -108,10 +108,10 @@ class TestWidthPrec(testit.AppTestCase):
         self.assertEquals("%02d"%1,   "01")
         self.assertEquals("%05d"%1,   "00001")
         self.assertEquals("%-05d"%1,  "1    ")
-        self.assertEquals("%04f"%2.3, "2.300000")
-        self.assertEquals("%04g"%2.3, "02.3")
-        self.assertEquals("%-04g"%2.3,"2.3 ")
-        self.assertEquals("%04s"%2.3, " 2.3")
+        self.assertEquals("%04f"%2.25, "2.250000")
+        self.assertEquals("%05g"%2.25, "02.25")
+        self.assertEquals("%-05g"%2.25,"2.25  ")
+        self.assertEquals("%05s"%2.25, " 2.25")
 
         
     def test_star_width(self):
