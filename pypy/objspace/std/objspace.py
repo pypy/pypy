@@ -87,6 +87,8 @@ class StdObjSpace(ObjSpace):
 #        self.setitem(self.w_builtins, self.wrap("__import__"), w_import)
 
     def get_typeinstance(self, typeclass):
+        assert hasattr(typeclass, 'typename'),  \
+               "get_typeinstance() cannot be used for W_UserType"
         # types_w maps each W_XxxType class to its unique-for-this-space instance
         try:
             w_type = self.types_w[typeclass]

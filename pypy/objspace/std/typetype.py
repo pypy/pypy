@@ -19,9 +19,13 @@ def typetype_new(space, w_typetype, w_args, w_kwds):
     args = space.unpackiterable(w_args)
     if len(args) == 1:
         return space.type(args[0])
+    elif len(args) == 3:
+        from usertype import W_UserType
+        w_name, w_bases, w_dict = args
+        w_usertype = W_UserType(space, w_name, w_bases, w_dict)
+        return w_usertype
     else:
         raise OperationError(space.w_TypeError,
-                             space.wrap("XXX sorry, type() with anything else "
-                                        "but 1 argument is for later"))
+                             space.wrap("type() takes 1 or 3 arguments"))
 
 StdObjSpace.new.register(typetype_new, W_TypeType, W_ANY, W_ANY)

@@ -16,6 +16,17 @@ class W_TypeObject(W_Object):
             for i in range(len(multimethod.specialnames)):
                 w_self.multimethods[multimethod.specialnames[i]] = multimethod, i
 
+    def getbases(w_self, space):
+        return ()
+
+    def getmro(w_self, space):
+        # XXX this is something that works not too bad right now
+        # XXX do the complete mro thing later
+        mro = [w_self]
+        for w_parent in w_self.getbases(space):
+            mro += w_parent.getmro(space)
+        return tuple(mro)
+
 ##    XXX remove me
 ##    def setup_builtin_type(w_self, implementation):
 ##        implementation.statictype = w_self
@@ -34,6 +45,15 @@ class W_TypeObject(W_Object):
 
     def lookup(w_self, space, w_key):
         "XXX at some point, turn this into a multimethod"
+        # note that this doesn't call __get__ on the result at all
+        for w_class in w_self.getmro(space):
+            try:
+                return w_class.lookup_exactly_here(space, w_key)
+            except KeyError:
+                pass
+        raise KeyError
+
+    def lookup_exactly_here(w_self, space, w_key):
         key = space.unwrap(w_key)
         assert isinstance(key, str)
         try:
