@@ -305,8 +305,8 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
         items[start+i*step] = sequence2[i]
     return space.w_None
 
-listrepr = gateway.appdef("""
-    listrepr(currently_in_repr, l):
+app = gateway.applevelinterp("""
+    def listrepr(currently_in_repr, l):
         'The app-level part of repr().'
         list_id = id(l)
         if list_id in currently_in_repr:
@@ -320,7 +320,9 @@ listrepr = gateway.appdef("""
             except:
                 pass
 """) 
-        
+
+listrepr = app.interphook("listrepr")
+
 def repr__List(space, w_list):
     if w_list.ob_size == 0:
         return space.wrap('[]')
