@@ -37,6 +37,9 @@ class __builtin__(ExtModule):
 
     def __init__(self, space):
         self.w___debug__ = space.newbool(1)
+        # Fix this later to show Ctrl-D on Unix
+        self.w_quit = self.w_exit = space.wrap("Use Ctrl-Z (i.e. EOF) to exit.")
+        # XXX To-do: Add copyright, credits, and license
         ExtModule.__init__(self, space)
 
     def _initcompiledbuiltins(self):
