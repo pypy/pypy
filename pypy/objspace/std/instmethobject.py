@@ -22,9 +22,9 @@ class W_InstMethObject(object):
 
 
 def instmeth_call(space, w_instmeth, w_arguments, w_keywords):
-    w_ret = space.call(self.w_im_func,
-                       space.wrap((space.add(space.newtuple([self.w_im_self]),space.unwrap(w_arguments)),
-                       w_keywords)
+    w_args = space.add(space.newtuple([self.w_im_self]),
+                       w_arguments)
+    w_ret = space.call(self.w_im_func, w_args, w_keywords)
     return w_ret
 
 StdObjSpace.call.register(instmeth_call, W_InstMeth, W_ANY, W_ANY)
