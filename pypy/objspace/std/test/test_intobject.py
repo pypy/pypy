@@ -7,8 +7,7 @@ from pypy.tool import test
 class TestW_IntObject(test.TestCase):
 
     def setUp(self):
-        # only run when testing StdObjSpace
-        test.objspace('std')
+        self.space = test.objspace('std')
 
     def tearDown(self):
         pass
