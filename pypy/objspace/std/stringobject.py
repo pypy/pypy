@@ -910,20 +910,20 @@ def iter__String(space, w_list):
 
 
 def app_repr__String(s):
-    quote = '\''
-    if quote in s and not '"' in s:
+    quote = "'"
+    if quote in s and '"' not in s:
         quote = '"'
 
     repr = quote
 
-    for i in range(len(s)):
-        c = s[i]
-        if c == '\\' or c == quote:  repr += '\\'+c
-        elif c == '\t': repr+= '\\t'
-        elif c == '\r': repr+= '\\r'
-        elif c == '\n': repr+= '\\n'
-        elif not chr(32) <= c < chr(127) :
-            repr +=  '\\' + hex(ord(c))[-3:]
+    for c in s:
+        if c == '\\' or c == quote: repr += '\\'+c
+        elif c == '\t': repr += '\\t'
+        elif c == '\r': repr += '\\r'
+        elif c == '\n': repr += '\\n'
+        elif not '\x20' <= c < '\x7f':
+            n = ord(c)
+            repr += '\\x'+"0123456789abcdef"[n>>4]+"0123456789abcdef"[n&0xF]
         else:
             repr += c
 

@@ -469,6 +469,7 @@ class TestStringObject(testit.AppTestCase):
         self.assertEquals(repr('\\')    ,"'\\\\'")
         self.assertEquals(repr("'''\"") ,'\'\\\'\\\'\\\'"\'')
         self.assertEquals(repr(chr(19)) ,"'\\x13'")
+        self.assertEquals(repr(chr(2))  ,"'\\x02'")
     
 
 if __name__ == '__main__':
