@@ -34,7 +34,7 @@ C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
 debug = 0
 
 
-def llvmcompile(transl, optimize=True):
+def llvmcompile(transl, optimize=False):
     gen = LLVMGenerator(transl)
     return gen.compile(optimize)
 
@@ -53,7 +53,7 @@ class LLVMGenerator(object):
         self.llvm_reprs = {}
         self.l_entrypoint = self.get_repr(self.translator.functions[0])
 
-    def compile(self, optimize=True):
+    def compile(self, optimize=False):
         from pypy.tool.udir import udir
         name = self.l_entrypoint.llvmname()[1:]
         llvmfile = udir.join('%s.ll' % name)

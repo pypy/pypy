@@ -19,34 +19,30 @@ debug = 1
 class CompileError(exceptions.Exception):
     pass
 
-def system_trace(cmd):
-    print cmd
-    return old_system(cmd)
+OPTIMIZATION_SWITCHES = "-simplifycfg -mem2reg -instcombine -dce -inline"
 
-old_system = os.system
-os.system = system_trace
-
-def make_module_from_llvm(llvmfile, pyxfile, optimize=True):
+def make_module_from_llvm(llvmfile, pyxfile, optimize=False):
     include_dir = autopath.this_dir
     dirpath = llvmfile.dirpath()
     lastdir = path.local()
     os.chdir(str(dirpath))
     modname = pyxfile.purebasename
     ops1 = ["llvm-as %s -f -o %s.bc" % (llvmfile, llvmfile.purebasename), 
-            "llvmc -f -O3 %s.bc -o %s_optimized.o" % (llvmfile.purebasename,
-                                                      llvmfile.purebasename),
-            "llc %s_optimized.o.bc -f -o %s.s" % (llvmfile.purebasename,
-                                                   llvmfile.purebasename),
+            "opt %s -f %s.bc -o %s_optimized.bc" % (OPTIMIZATION_SWITCHES,
+                                                    llvmfile.purebasename,
+                                                    llvmfile.purebasename),
+            "llc %s_optimized.bc -f -o %s.s" % (llvmfile.purebasename,
+                                                llvmfile.purebasename),
             "as %s.s -o %s.o" % (llvmfile.purebasename, llvmfile.purebasename)]
     if not optimize:
         ops1 = ["llvm-as %s -f" % llvmfile,
                 "llc %s.bc -f -o %s.s" % (llvmfile.purebasename,
                                           llvmfile.purebasename),
                 "as %s.s -o %s.o" % (llvmfile.purebasename,
-                                          llvmfile.purebasename)]
+                                     llvmfile.purebasename)]
     ops2 = ["gcc -c -fPIC -I/usr/include/python %s.c" % pyxfile.purebasename,
            "gcc -shared %s.o %s.o -o %s.so" % (llvmfile.purebasename,
-                                                modname, modname)]
+                                               modname, modname)]
     try:
         if debug: print "modname", modname
         c = stdoutcapture.Capture(mixed_out_err = True)
