@@ -24,7 +24,7 @@ class Sys(BuiltinModule):
         w = space.wrap
         if w_x != space.w_None:
             try:
-                print space.unwrap(self.space.str(w_x))
+                print space.unwrap(self.space.repr(w_x))
             except OperationError:
                 print "! could not print", w_x
             space.setitem(space.w_builtins, w('_'), w_x)
