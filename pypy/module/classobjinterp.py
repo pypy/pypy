@@ -6,7 +6,7 @@ from pypy.interpreter.argument import Arguments
 
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '_coerce'
 ## firstlineno 7
 ##SECTION##
@@ -68,7 +68,7 @@ def _coerce(space, w_left, w_right):
 fastf__coerce = _coerce
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'uid'
 ## firstlineno 18
 ##SECTION##
@@ -118,7 +118,7 @@ def uid(space, w_o):
 fastf_uid = uid
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'type_err'
 ## firstlineno 35
 ##SECTION##
@@ -156,7 +156,7 @@ def type_err(space, w_arg, w_expected, w_v):
 fastf_type_err = type_err
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'set_name'
 ## firstlineno 38
 ##SECTION##
@@ -207,7 +207,7 @@ def set_name(space, w_cls, w_name):
 fastf_set_name = set_name
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'set_bases'
 ## firstlineno 43
 ##SECTION##
@@ -292,7 +292,7 @@ def set_bases(space, w_cls, w_bases):
 fastf_set_bases = set_bases
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'set_dict'
 ## firstlineno 51
 ##SECTION##
@@ -342,7 +342,7 @@ def set_dict(space, w_cls, w_dic):
 fastf_set_dict = set_dict
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'retrieve'
 ## firstlineno 56
 ##SECTION##
@@ -416,7 +416,7 @@ def retrieve(space, w_obj, w_attr):
 fastf_retrieve = retrieve
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'lookup'
 ## firstlineno 63
 ##SECTION##
@@ -548,7 +548,7 @@ def lookup(space, w_cls, w_attr):
 fastf_lookup = lookup
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'get_class_module'
 ## firstlineno 75
 ##SECTION##
@@ -628,7 +628,7 @@ def get_class_module(space, w_cls):
 fastf_get_class_module = get_class_module
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'mro_lookup'
 ## firstlineno 84
 ##SECTION##
@@ -705,7 +705,7 @@ def mro_lookup(space, w_v, w_name):
 fastf_mro_lookup = mro_lookup
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__new__'
 ## firstlineno 112
 ##SECTION##
@@ -911,7 +911,7 @@ def __new__(space, w_subtype, w_name, w_bases, w_dic):
 
         if goto == 15:
             try:
-                w_42 = space.call_function((space.getattr(space.w_sys, gs__getframe)), w_i)
+                w_42 = space.call_function((space.sys.get(space.str_w(gs__getframe))), w_i)
                 (w_name_15, w_bases_15, w_dic_15, w_i_1, w_43) = (w_name_13,
                  w_bases_13, w_dic_13, w_i, w_42)
                 goto = 16
@@ -1086,7 +1086,7 @@ def __new__(space, w_subtype, w_name, w_bases, w_dic):
 
         if goto == 29:
             w_74 = space.call_function(space.w_type, w_b_2)
-            w_75 = space.call_function((space.getattr(space.w_builtin, gs_callable)), w_74)
+            w_75 = space.call_function((space.builtin.get(space.str_w(gs_callable))), w_74)
             v76 = space.is_true(w_75)
             if v76 == True:
                 (w_name_28, w_bases_28, w_dic_28, w_b_3) = (w_name_27, w_bases_27,
@@ -1122,7 +1122,7 @@ def __new__(space, w_subtype, w_name, w_bases, w_dic):
 fastf___new__ = __new__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__setattr__'
 ## firstlineno 162
 ##SECTION##
@@ -1210,7 +1210,7 @@ def __setattr__(space, w_self, w_attr, w_value):
 fastf_classobj___setattr__ = __setattr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__delattr__'
 ## firstlineno 172
 ##SECTION##
@@ -1261,7 +1261,7 @@ def __delattr__(space, w_self, w_attr):
 fastf_classobj___delattr__ = __delattr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__getattribute__'
 ## firstlineno 179
 ##SECTION##
@@ -1402,7 +1402,7 @@ def __getattribute__(space, w_self, w_attr):
 fastf_classobj___getattribute__ = __getattribute__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__repr__'
 ## firstlineno 196
 ##SECTION##
@@ -1441,7 +1441,7 @@ def __repr__(space, w_self):
 fastf_classobj___repr__ = __repr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__str__'
 ## firstlineno 200
 ##SECTION##
@@ -1497,7 +1497,7 @@ def __str__(space, w_self):
 fastf_classobj___str__ = __str__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__call__'
 ## firstlineno 207
 ##SECTION##
@@ -1567,7 +1567,7 @@ def __call__(space, w_self, w_args, w_kwds):
 fastf_classobj___call__ = __call__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'instance_getattr1'
 ## firstlineno 228
 ##SECTION##
@@ -1787,7 +1787,7 @@ def instance_getattr1(space, w_inst, w_name, w_exc):
 fastf_instance_getattr1 = instance_getattr1
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__getattribute__'
 ## firstlineno 252
 ##SECTION##
@@ -1894,7 +1894,7 @@ def __getattribute__(space, w_self, w_name):
 fastf_instance___getattribute__ = __getattribute__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__new__'
 ## firstlineno 261
 ##SECTION##
@@ -1983,7 +1983,7 @@ def __new__(space, w_typ, w_klass, w_dic):
 fastf___new___1 = __new__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__setattr__'
 ## firstlineno 274
 ##SECTION##
@@ -2107,7 +2107,7 @@ def __setattr__(space, w_self, w_name, w_value):
 fastf_instance___setattr__ = __setattr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__delattr__'
 ## firstlineno 290
 ##SECTION##
@@ -2249,7 +2249,7 @@ def __delattr__(space, w_self, w_name):
 fastf_instance___delattr__ = __delattr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__repr__'
 ## firstlineno 306
 ##SECTION##
@@ -2343,7 +2343,7 @@ def __repr__(space, w_self):
 fastf_instance___repr__ = __repr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__str__'
 ## firstlineno 315
 ##SECTION##
@@ -2423,7 +2423,7 @@ def __str__(space, w_self):
 fastf_instance___str__ = __str__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__hash__'
 ## firstlineno 322
 ##SECTION##
@@ -2536,7 +2536,7 @@ def __hash__(space, w_self):
 fastf_instance___hash__ = __hash__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__len__'
 ## firstlineno 336
 ##SECTION##
@@ -2601,7 +2601,7 @@ def __len__(space, w_self):
 fastf_instance___len__ = __len__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__getitem__'
 ## firstlineno 345
 ##SECTION##
@@ -2683,7 +2683,7 @@ def __getitem__(space, w_self, w_key):
 fastf_instance___getitem__ = __getitem__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__setitem__'
 ## firstlineno 352
 ##SECTION##
@@ -2771,7 +2771,7 @@ def __setitem__(space, w_self, w_key, w_value):
 fastf_instance___setitem__ = __setitem__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__delitem__'
 ## firstlineno 359
 ##SECTION##
@@ -2853,7 +2853,7 @@ def __delitem__(space, w_self, w_key):
 fastf_instance___delitem__ = __delitem__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__contains__'
 ## firstlineno 366
 ##SECTION##
@@ -2925,7 +2925,295 @@ def __contains__(space, w_self, w_obj):
 fastf_instance___contains__ = __contains__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
+## function    '__abs__'
+## firstlineno 381
+##SECTION##
+def __abs__(space, __args__):
+    funcname = "__abs__"
+    signature = ['self'], None, None
+    defaults_w = []
+    w_self, = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___abs__(space, w_self)
+
+f_instance___abs__ = __abs__
+
+def __abs__(space, w_self):
+
+    w_0=w_2=w_3=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___abs__)
+            w_2 = space.call_function(w_0, )
+            w_3 = w_2
+            goto = 2
+
+        if goto == 2:
+            return w_3
+
+fastf_instance___abs__ = __abs__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__float__'
+## firstlineno 381
+##SECTION##
+def __float__(space, __args__):
+    funcname = "__float__"
+    signature = ['self'], None, None
+    defaults_w = []
+    w_self, = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___float__(space, w_self)
+
+f_instance___float__ = __float__
+
+def __float__(space, w_self):
+
+    w_0=w_2=w_3=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___float__)
+            w_2 = space.call_function(w_0, )
+            w_3 = w_2
+            goto = 2
+
+        if goto == 2:
+            return w_3
+
+fastf_instance___float__ = __float__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__hex__'
+## firstlineno 381
+##SECTION##
+def __hex__(space, __args__):
+    funcname = "__hex__"
+    signature = ['self'], None, None
+    defaults_w = []
+    w_self, = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___hex__(space, w_self)
+
+f_instance___hex__ = __hex__
+
+def __hex__(space, w_self):
+
+    w_0=w_2=w_3=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___hex__)
+            w_2 = space.call_function(w_0, )
+            w_3 = w_2
+            goto = 2
+
+        if goto == 2:
+            return w_3
+
+fastf_instance___hex__ = __hex__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__int__'
+## firstlineno 381
+##SECTION##
+def __int__(space, __args__):
+    funcname = "__int__"
+    signature = ['self'], None, None
+    defaults_w = []
+    w_self, = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___int__(space, w_self)
+
+f_instance___int__ = __int__
+
+def __int__(space, w_self):
+
+    w_0=w_2=w_3=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___int__)
+            w_2 = space.call_function(w_0, )
+            w_3 = w_2
+            goto = 2
+
+        if goto == 2:
+            return w_3
+
+fastf_instance___int__ = __int__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__invert__'
+## firstlineno 381
+##SECTION##
+def __invert__(space, __args__):
+    funcname = "__invert__"
+    signature = ['self'], None, None
+    defaults_w = []
+    w_self, = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___invert__(space, w_self)
+
+f_instance___invert__ = __invert__
+
+def __invert__(space, w_self):
+
+    w_0=w_2=w_3=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___invert__)
+            w_2 = space.call_function(w_0, )
+            w_3 = w_2
+            goto = 2
+
+        if goto == 2:
+            return w_3
+
+fastf_instance___invert__ = __invert__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__long__'
+## firstlineno 381
+##SECTION##
+def __long__(space, __args__):
+    funcname = "__long__"
+    signature = ['self'], None, None
+    defaults_w = []
+    w_self, = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___long__(space, w_self)
+
+f_instance___long__ = __long__
+
+def __long__(space, w_self):
+
+    w_0=w_2=w_3=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___long__)
+            w_2 = space.call_function(w_0, )
+            w_3 = w_2
+            goto = 2
+
+        if goto == 2:
+            return w_3
+
+fastf_instance___long__ = __long__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__neg__'
+## firstlineno 381
+##SECTION##
+def __neg__(space, __args__):
+    funcname = "__neg__"
+    signature = ['self'], None, None
+    defaults_w = []
+    w_self, = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___neg__(space, w_self)
+
+f_instance___neg__ = __neg__
+
+def __neg__(space, w_self):
+
+    w_0=w_2=w_3=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___neg__)
+            w_2 = space.call_function(w_0, )
+            w_3 = w_2
+            goto = 2
+
+        if goto == 2:
+            return w_3
+
+fastf_instance___neg__ = __neg__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__oct__'
+## firstlineno 381
+##SECTION##
+def __oct__(space, __args__):
+    funcname = "__oct__"
+    signature = ['self'], None, None
+    defaults_w = []
+    w_self, = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___oct__(space, w_self)
+
+f_instance___oct__ = __oct__
+
+def __oct__(space, w_self):
+
+    w_0=w_2=w_3=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___oct__)
+            w_2 = space.call_function(w_0, )
+            w_3 = w_2
+            goto = 2
+
+        if goto == 2:
+            return w_3
+
+fastf_instance___oct__ = __oct__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__pos__'
+## firstlineno 381
+##SECTION##
+def __pos__(space, __args__):
+    funcname = "__pos__"
+    signature = ['self'], None, None
+    defaults_w = []
+    w_self, = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___pos__(space, w_self)
+
+f_instance___pos__ = __pos__
+
+def __pos__(space, w_self):
+
+    w_0=w_2=w_3=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___pos__)
+            w_2 = space.call_function(w_0, )
+            w_3 = w_2
+            goto = 2
+
+        if goto == 2:
+            return w_3
+
+fastf_instance___pos__ = __pos__
+
+##SECTION##
+## filename    '_classobj.py'
 ## function    '__coerce__'
 ## firstlineno 387
 ##SECTION##
@@ -2967,7 +3255,2558 @@ def __coerce__(space, w_self, w_other):
 fastf_instance___coerce__ = __coerce__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
+## function    '__add__'
+## firstlineno 404
+##SECTION##
+def __add__(space, __args__):
+    funcname = "__add__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___add__(space, w_self, w_other)
+
+f_instance___add__ = __add__
+
+def __add__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___add__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.add(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___add__ = __add__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__and__'
+## firstlineno 404
+##SECTION##
+def __and__(space, __args__):
+    funcname = "__and__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___and__(space, w_self, w_other)
+
+f_instance___and__ = __and__
+
+def __and__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___and__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.and_(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___and__ = __and__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__div__'
+## firstlineno 404
+##SECTION##
+def __div__(space, __args__):
+    funcname = "__div__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___div__(space, w_self, w_other)
+
+f_instance___div__ = __div__
+
+def __div__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___div__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.div(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___div__ = __div__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__divmod__'
+## firstlineno 404
+##SECTION##
+def __divmod__(space, __args__):
+    funcname = "__divmod__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___divmod__(space, w_self, w_other)
+
+f_instance___divmod__ = __divmod__
+
+def __divmod__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___divmod__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.divmod(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___divmod__ = __divmod__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__floordiv__'
+## firstlineno 404
+##SECTION##
+def __floordiv__(space, __args__):
+    funcname = "__floordiv__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___floordiv__(space, w_self, w_other)
+
+f_instance___floordiv__ = __floordiv__
+
+def __floordiv__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___floordiv__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.floordiv(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___floordiv__ = __floordiv__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__lshift__'
+## firstlineno 404
+##SECTION##
+def __lshift__(space, __args__):
+    funcname = "__lshift__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___lshift__(space, w_self, w_other)
+
+f_instance___lshift__ = __lshift__
+
+def __lshift__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___lshift__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.lshift(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___lshift__ = __lshift__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__mod__'
+## firstlineno 404
+##SECTION##
+def __mod__(space, __args__):
+    funcname = "__mod__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___mod__(space, w_self, w_other)
+
+f_instance___mod__ = __mod__
+
+def __mod__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___mod__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.mod(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___mod__ = __mod__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__mul__'
+## firstlineno 404
+##SECTION##
+def __mul__(space, __args__):
+    funcname = "__mul__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___mul__(space, w_self, w_other)
+
+f_instance___mul__ = __mul__
+
+def __mul__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___mul__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.mul(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___mul__ = __mul__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__or__'
+## firstlineno 404
+##SECTION##
+def __or__(space, __args__):
+    funcname = "__or__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___or__(space, w_self, w_other)
+
+f_instance___or__ = __or__
+
+def __or__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___or__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.or_(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___or__ = __or__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rshift__'
+## firstlineno 404
+##SECTION##
+def __rshift__(space, __args__):
+    funcname = "__rshift__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rshift__(space, w_self, w_other)
+
+f_instance___rshift__ = __rshift__
+
+def __rshift__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rshift__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.rshift(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rshift__ = __rshift__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__sub__'
+## firstlineno 404
+##SECTION##
+def __sub__(space, __args__):
+    funcname = "__sub__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___sub__(space, w_self, w_other)
+
+f_instance___sub__ = __sub__
+
+def __sub__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___sub__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.sub(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___sub__ = __sub__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__truediv__'
+## firstlineno 404
+##SECTION##
+def __truediv__(space, __args__):
+    funcname = "__truediv__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___truediv__(space, w_self, w_other)
+
+f_instance___truediv__ = __truediv__
+
+def __truediv__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___truediv__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.truediv(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___truediv__ = __truediv__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__xor__'
+## firstlineno 404
+##SECTION##
+# global declaration
+# global object gfunc__coerce
+
+def __xor__(space, __args__):
+    funcname = "__xor__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___xor__(space, w_self, w_other)
+
+f_instance___xor__ = __xor__
+
+def __xor__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___xor__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.xor(w_self_4, w_other_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___xor__ = __xor__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__radd__'
+## firstlineno 414
+##SECTION##
+def __radd__(space, __args__):
+    funcname = "__radd__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___radd__(space, w_self, w_other)
+
+f_instance___radd__ = __radd__
+
+def __radd__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___radd__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.add(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___radd__ = __radd__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rand__'
+## firstlineno 414
+##SECTION##
+def __rand__(space, __args__):
+    funcname = "__rand__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rand__(space, w_self, w_other)
+
+f_instance___rand__ = __rand__
+
+def __rand__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rand__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.and_(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rand__ = __rand__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rdiv__'
+## firstlineno 414
+##SECTION##
+def __rdiv__(space, __args__):
+    funcname = "__rdiv__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rdiv__(space, w_self, w_other)
+
+f_instance___rdiv__ = __rdiv__
+
+def __rdiv__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rdiv__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.div(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rdiv__ = __rdiv__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rdivmod__'
+## firstlineno 414
+##SECTION##
+def __rdivmod__(space, __args__):
+    funcname = "__rdivmod__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rdivmod__(space, w_self, w_other)
+
+f_instance___rdivmod__ = __rdivmod__
+
+def __rdivmod__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rdivmod__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.divmod(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rdivmod__ = __rdivmod__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rfloordiv__'
+## firstlineno 414
+##SECTION##
+def __rfloordiv__(space, __args__):
+    funcname = "__rfloordiv__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rfloordiv__(space, w_self, w_other)
+
+f_instance___rfloordiv__ = __rfloordiv__
+
+def __rfloordiv__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rfloordiv__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.floordiv(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rfloordiv__ = __rfloordiv__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rlshift__'
+## firstlineno 414
+##SECTION##
+def __rlshift__(space, __args__):
+    funcname = "__rlshift__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rlshift__(space, w_self, w_other)
+
+f_instance___rlshift__ = __rlshift__
+
+def __rlshift__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rlshift__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.lshift(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rlshift__ = __rlshift__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rmod__'
+## firstlineno 414
+##SECTION##
+def __rmod__(space, __args__):
+    funcname = "__rmod__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rmod__(space, w_self, w_other)
+
+f_instance___rmod__ = __rmod__
+
+def __rmod__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rmod__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.mod(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rmod__ = __rmod__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rmul__'
+## firstlineno 414
+##SECTION##
+def __rmul__(space, __args__):
+    funcname = "__rmul__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rmul__(space, w_self, w_other)
+
+f_instance___rmul__ = __rmul__
+
+def __rmul__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rmul__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.mul(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rmul__ = __rmul__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__ror__'
+## firstlineno 414
+##SECTION##
+def __ror__(space, __args__):
+    funcname = "__ror__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___ror__(space, w_self, w_other)
+
+f_instance___ror__ = __ror__
+
+def __ror__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___ror__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.or_(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___ror__ = __ror__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rrshift__'
+## firstlineno 414
+##SECTION##
+def __rrshift__(space, __args__):
+    funcname = "__rrshift__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rrshift__(space, w_self, w_other)
+
+f_instance___rrshift__ = __rrshift__
+
+def __rrshift__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rrshift__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.rshift(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rrshift__ = __rrshift__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rsub__'
+## firstlineno 414
+##SECTION##
+def __rsub__(space, __args__):
+    funcname = "__rsub__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rsub__(space, w_self, w_other)
+
+f_instance___rsub__ = __rsub__
+
+def __rsub__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rsub__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.sub(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rsub__ = __rsub__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rtruediv__'
+## firstlineno 414
+##SECTION##
+def __rtruediv__(space, __args__):
+    funcname = "__rtruediv__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rtruediv__(space, w_self, w_other)
+
+f_instance___rtruediv__ = __rtruediv__
+
+def __rtruediv__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rtruediv__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.truediv(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rtruediv__ = __rtruediv__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__rxor__'
+## firstlineno 414
+##SECTION##
+def __rxor__(space, __args__):
+    funcname = "__rxor__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___rxor__(space, w_self, w_other)
+
+f_instance___rxor__ = __rxor__
+
+def __rxor__(space, w_self, w_other):
+
+    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
+    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
+    w_func=v10=w_other_5=w_func_1=w_12=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_coerced = fastf__coerce(space, w_self, w_other)
+            w_3 = space.is_(w_coerced, space.w_None)
+            v4 = space.is_true(w_3)
+            if v4 == True:
+                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
+                goto = 3
+            else:
+                assert v4 == False
+                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
+                goto = 2
+
+        if goto == 2:
+            w_6 = space.getitem(w_coerced_1, gi_0)
+            w_7 = space.is_(w_6, w_self_2)
+            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
+            goto = 3
+
+        if goto == 3:
+            v8 = space.is_true(w_5)
+            if v8 == True:
+                w_self_3, w_other_3 = w_self_1, w_other_1
+                goto = 4
+            else:
+                assert v8 == False
+                w_self_4, w_other_4 = w_self_1, w_other_1
+                goto = 6
+
+        if goto == 4:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rxor__, space.w_False)
+            v10 = space.is_true(w_func)
+            if v10 == True:
+                w_other_5, w_func_1 = w_other_3, w_func
+                goto = 5
+            else:
+                assert v10 == False
+                w_11 = space.w_NotImplemented
+                goto = 7
+
+        if goto == 5:
+            w_12 = space.call_function(w_func_1, w_other_5)
+            w_11 = w_12
+            goto = 7
+
+        if goto == 6:
+            w_13 = space.xor(w_other_4, w_self_4)
+            w_11 = w_13
+            goto = 7
+
+        if goto == 7:
+            return w_11
+
+fastf_instance___rxor__ = __rxor__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__iadd__'
+## firstlineno 432
+##SECTION##
+def __iadd__(space, __args__):
+    funcname = "__iadd__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___iadd__(space, w_self, w_other)
+
+f_instance___iadd__ = __iadd__
+
+def __iadd__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___iadd__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___iadd__ = __iadd__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__iand__'
+## firstlineno 432
+##SECTION##
+def __iand__(space, __args__):
+    funcname = "__iand__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___iand__(space, w_self, w_other)
+
+f_instance___iand__ = __iand__
+
+def __iand__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___iand__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___iand__ = __iand__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__idiv__'
+## firstlineno 432
+##SECTION##
+def __idiv__(space, __args__):
+    funcname = "__idiv__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___idiv__(space, w_self, w_other)
+
+f_instance___idiv__ = __idiv__
+
+def __idiv__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___idiv__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___idiv__ = __idiv__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__ifloordiv__'
+## firstlineno 432
+##SECTION##
+def __ifloordiv__(space, __args__):
+    funcname = "__ifloordiv__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___ifloordiv__(space, w_self, w_other)
+
+f_instance___ifloordiv__ = __ifloordiv__
+
+def __ifloordiv__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___ifloordiv__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___ifloordiv__ = __ifloordiv__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__ilshift__'
+## firstlineno 432
+##SECTION##
+def __ilshift__(space, __args__):
+    funcname = "__ilshift__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___ilshift__(space, w_self, w_other)
+
+f_instance___ilshift__ = __ilshift__
+
+def __ilshift__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___ilshift__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___ilshift__ = __ilshift__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__imod__'
+## firstlineno 432
+##SECTION##
+def __imod__(space, __args__):
+    funcname = "__imod__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___imod__(space, w_self, w_other)
+
+f_instance___imod__ = __imod__
+
+def __imod__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___imod__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___imod__ = __imod__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__imul__'
+## firstlineno 432
+##SECTION##
+def __imul__(space, __args__):
+    funcname = "__imul__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___imul__(space, w_self, w_other)
+
+f_instance___imul__ = __imul__
+
+def __imul__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___imul__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___imul__ = __imul__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__ior__'
+## firstlineno 432
+##SECTION##
+def __ior__(space, __args__):
+    funcname = "__ior__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___ior__(space, w_self, w_other)
+
+f_instance___ior__ = __ior__
+
+def __ior__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___ior__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___ior__ = __ior__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__ipow__'
+## firstlineno 432
+##SECTION##
+def __ipow__(space, __args__):
+    funcname = "__ipow__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___ipow__(space, w_self, w_other)
+
+f_instance___ipow__ = __ipow__
+
+def __ipow__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___ipow__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___ipow__ = __ipow__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__irshift__'
+## firstlineno 432
+##SECTION##
+def __irshift__(space, __args__):
+    funcname = "__irshift__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___irshift__(space, w_self, w_other)
+
+f_instance___irshift__ = __irshift__
+
+def __irshift__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___irshift__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___irshift__ = __irshift__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__isub__'
+## firstlineno 432
+##SECTION##
+def __isub__(space, __args__):
+    funcname = "__isub__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___isub__(space, w_self, w_other)
+
+f_instance___isub__ = __isub__
+
+def __isub__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___isub__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___isub__ = __isub__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__itruediv__'
+## firstlineno 432
+##SECTION##
+def __itruediv__(space, __args__):
+    funcname = "__itruediv__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___itruediv__(space, w_self, w_other)
+
+f_instance___itruediv__ = __itruediv__
+
+def __itruediv__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___itruediv__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___itruediv__ = __itruediv__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__ixor__'
+## firstlineno 432
+##SECTION##
+def __ixor__(space, __args__):
+    funcname = "__ixor__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___ixor__(space, w_self, w_other)
+
+f_instance___ixor__ = __ixor__
+
+def __ixor__(space, w_self, w_other):
+
+    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___ixor__, space.w_False)
+            v2 = space.is_true(w_func)
+            if v2 == True:
+                w_other_1, w_func_1 = w_other, w_func
+                goto = 2
+            else:
+                assert v2 == False
+                w_4 = space.w_NotImplemented
+                goto = 3
+
+        if goto == 2:
+            w_5 = space.call_function(w_func_1, w_other_1)
+            w_4 = w_5
+            goto = 3
+
+        if goto == 3:
+            return w_4
+
+fastf_instance___ixor__ = __ixor__
+
+##SECTION##
+## filename    '_classobj.py'
 ## function    '__pow__'
 ## firstlineno 441
 ##SECTION##
@@ -3073,7 +5912,7 @@ def __pow__(space, w_self, w_other, w_modulo):
 fastf_instance___pow__ = __pow__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__rpow__'
 ## firstlineno 459
 ##SECTION##
@@ -3179,7 +6018,7 @@ def __rpow__(space, w_self, w_other, w_modulo):
 fastf_instance___rpow__ = __rpow__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__nonzero__'
 ## firstlineno 477
 ##SECTION##
@@ -3271,7 +6110,7 @@ def __nonzero__(space, w_self):
 fastf_instance___nonzero__ = __nonzero__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__call__'
 ## firstlineno 492
 ##SECTION##
@@ -3328,14 +6167,463 @@ def __call__(space, w_self, w_args, w_kwds):
 fastf_instance___call__ = __call__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
+## function    '__eq__'
+## firstlineno 503
+##SECTION##
+def __eq__(space, __args__):
+    funcname = "__eq__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___eq__(space, w_self, w_other)
+
+f_instance___eq__ = __eq__
+
+def __eq__(space, w_self, w_other):
+
+    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
+    w_9=v11=w_etype=w_evalue=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            try:
+                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___eq__)
+                w_other_1, w_3 = w_other, w_0
+                goto = 2
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 2:
+            try:
+                w_7 = space.call_function(w_3, w_other_1)
+                w_8 = w_7
+                goto = 6
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 3:
+            w_9 = space.issubtype(w_10, space.w_AttributeError)
+            v11 = space.is_true(w_9)
+            if v11 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v11 == False
+                w_etype, w_evalue = w_12, w_14
+                goto = 5
+
+        if goto == 4:
+            w_16 = space.is_(w_6, space.w_AttributeError)
+            v17 = space.is_true(w_16)
+            if v17 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v17 == False
+                w_12, w_14, w_10 = w_4, w_5, w_6
+                goto = 3
+                continue
+
+        if goto == 5:
+            raise OperationError(w_etype, w_evalue)
+
+        if goto == 6:
+            return w_8
+
+fastf_instance___eq__ = __eq__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__ge__'
+## firstlineno 503
+##SECTION##
+def __ge__(space, __args__):
+    funcname = "__ge__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___ge__(space, w_self, w_other)
+
+f_instance___ge__ = __ge__
+
+def __ge__(space, w_self, w_other):
+
+    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
+    w_9=v11=w_etype=w_evalue=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            try:
+                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___ge__)
+                w_other_1, w_3 = w_other, w_0
+                goto = 2
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 2:
+            try:
+                w_7 = space.call_function(w_3, w_other_1)
+                w_8 = w_7
+                goto = 6
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 3:
+            w_9 = space.issubtype(w_10, space.w_AttributeError)
+            v11 = space.is_true(w_9)
+            if v11 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v11 == False
+                w_etype, w_evalue = w_12, w_14
+                goto = 5
+
+        if goto == 4:
+            w_16 = space.is_(w_6, space.w_AttributeError)
+            v17 = space.is_true(w_16)
+            if v17 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v17 == False
+                w_12, w_14, w_10 = w_4, w_5, w_6
+                goto = 3
+                continue
+
+        if goto == 5:
+            raise OperationError(w_etype, w_evalue)
+
+        if goto == 6:
+            return w_8
+
+fastf_instance___ge__ = __ge__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__gt__'
+## firstlineno 503
+##SECTION##
+def __gt__(space, __args__):
+    funcname = "__gt__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___gt__(space, w_self, w_other)
+
+f_instance___gt__ = __gt__
+
+def __gt__(space, w_self, w_other):
+
+    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
+    w_9=v11=w_etype=w_evalue=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            try:
+                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___gt__)
+                w_other_1, w_3 = w_other, w_0
+                goto = 2
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 2:
+            try:
+                w_7 = space.call_function(w_3, w_other_1)
+                w_8 = w_7
+                goto = 6
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 3:
+            w_9 = space.issubtype(w_10, space.w_AttributeError)
+            v11 = space.is_true(w_9)
+            if v11 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v11 == False
+                w_etype, w_evalue = w_12, w_14
+                goto = 5
+
+        if goto == 4:
+            w_16 = space.is_(w_6, space.w_AttributeError)
+            v17 = space.is_true(w_16)
+            if v17 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v17 == False
+                w_12, w_14, w_10 = w_4, w_5, w_6
+                goto = 3
+                continue
+
+        if goto == 5:
+            raise OperationError(w_etype, w_evalue)
+
+        if goto == 6:
+            return w_8
+
+fastf_instance___gt__ = __gt__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__le__'
+## firstlineno 503
+##SECTION##
+def __le__(space, __args__):
+    funcname = "__le__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___le__(space, w_self, w_other)
+
+f_instance___le__ = __le__
+
+def __le__(space, w_self, w_other):
+
+    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
+    w_9=v11=w_etype=w_evalue=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            try:
+                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___le__)
+                w_other_1, w_3 = w_other, w_0
+                goto = 2
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 2:
+            try:
+                w_7 = space.call_function(w_3, w_other_1)
+                w_8 = w_7
+                goto = 6
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 3:
+            w_9 = space.issubtype(w_10, space.w_AttributeError)
+            v11 = space.is_true(w_9)
+            if v11 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v11 == False
+                w_etype, w_evalue = w_12, w_14
+                goto = 5
+
+        if goto == 4:
+            w_16 = space.is_(w_6, space.w_AttributeError)
+            v17 = space.is_true(w_16)
+            if v17 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v17 == False
+                w_12, w_14, w_10 = w_4, w_5, w_6
+                goto = 3
+                continue
+
+        if goto == 5:
+            raise OperationError(w_etype, w_evalue)
+
+        if goto == 6:
+            return w_8
+
+fastf_instance___le__ = __le__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__lt__'
+## firstlineno 503
+##SECTION##
+def __lt__(space, __args__):
+    funcname = "__lt__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___lt__(space, w_self, w_other)
+
+f_instance___lt__ = __lt__
+
+def __lt__(space, w_self, w_other):
+
+    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
+    w_9=v11=w_etype=w_evalue=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            try:
+                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___lt__)
+                w_other_1, w_3 = w_other, w_0
+                goto = 2
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 2:
+            try:
+                w_7 = space.call_function(w_3, w_other_1)
+                w_8 = w_7
+                goto = 6
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 3:
+            w_9 = space.issubtype(w_10, space.w_AttributeError)
+            v11 = space.is_true(w_9)
+            if v11 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v11 == False
+                w_etype, w_evalue = w_12, w_14
+                goto = 5
+
+        if goto == 4:
+            w_16 = space.is_(w_6, space.w_AttributeError)
+            v17 = space.is_true(w_16)
+            if v17 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v17 == False
+                w_12, w_14, w_10 = w_4, w_5, w_6
+                goto = 3
+                continue
+
+        if goto == 5:
+            raise OperationError(w_etype, w_evalue)
+
+        if goto == 6:
+            return w_8
+
+fastf_instance___lt__ = __lt__
+
+##SECTION##
+## filename    '_classobj.py'
+## function    '__ne__'
+## firstlineno 503
+##SECTION##
+def __ne__(space, __args__):
+    funcname = "__ne__"
+    signature = ['self', 'other'], None, None
+    defaults_w = []
+    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___ne__(space, w_self, w_other)
+
+f_instance___ne__ = __ne__
+
+def __ne__(space, w_self, w_other):
+
+    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
+    w_9=v11=w_etype=w_evalue=None
+
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            try:
+                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___ne__)
+                w_other_1, w_3 = w_other, w_0
+                goto = 2
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 2:
+            try:
+                w_7 = space.call_function(w_3, w_other_1)
+                w_8 = w_7
+                goto = 6
+            except OperationError, e:
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
+                    goto = 4
+                else:raise # unhandled case, should not happen
+
+        if goto == 3:
+            w_9 = space.issubtype(w_10, space.w_AttributeError)
+            v11 = space.is_true(w_9)
+            if v11 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v11 == False
+                w_etype, w_evalue = w_12, w_14
+                goto = 5
+
+        if goto == 4:
+            w_16 = space.is_(w_6, space.w_AttributeError)
+            v17 = space.is_true(w_16)
+            if v17 == True:
+                w_8 = space.w_NotImplemented
+                goto = 6
+            else:
+                assert v17 == False
+                w_12, w_14, w_10 = w_4, w_5, w_6
+                goto = 3
+                continue
+
+        if goto == 5:
+            raise OperationError(w_etype, w_evalue)
+
+        if goto == 6:
+            return w_8
+
+fastf_instance___ne__ = __ne__
+
+##SECTION##
+## filename    '_classobj.py'
 ## function    '__iter__'
 ## firstlineno 512
 ##SECTION##
 # global declarations
 # global object gs___iter___returned_non_iterator_o
 # global object gs_iteration_over_non_sequence
-# global object gs__seqiter
 
 def __iter__(space, __args__):
     funcname = "__iter__"
@@ -3397,7 +6685,7 @@ def __iter__(space, w_self):
                 goto = 6
 
         if goto == 5:
-            w_13 = space.call_function((space.getattr(space.w_builtin, gs__seqiter)), w_self_2)
+            w_13 = space.builtin.get('_seqiter')(w_self_2)
             w_6 = w_13
             goto = 7
 
@@ -3410,7 +6698,7 @@ def __iter__(space, w_self):
 fastf_instance___iter__ = __iter__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'next'
 ## firstlineno 527
 ##SECTION##
@@ -3459,7 +6747,7 @@ def next(space, w_self):
 fastf_instance_next = next
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    '__cmp__'
 ## firstlineno 533
 ##SECTION##
@@ -3660,7 +6948,7 @@ def __cmp__(space, w_self, w_other):
 fastf_instance___cmp__ = __cmp__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '_classobj.py'
 ## function    'purify'
 ## firstlineno 571
 ##SECTION##
@@ -3869,3295 +7157,6 @@ fastf_purify = purify
 # global object gfunc_classobj___repr__
 # global object gfunc_classobj___setattr__
 # global object gfunc_classobj___str__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__abs__'
-## firstlineno 4
-##SECTION##
-def __abs__(space, __args__):
-    funcname = "__abs__"
-    signature = ['self'], None, None
-    defaults_w = []
-    w_self, = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___abs__(space, w_self)
-
-f_instance___abs__ = __abs__
-
-def __abs__(space, w_self):
-
-    w_0=w_2=w_3=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___abs__)
-            w_2 = space.call_function(w_0, )
-            w_3 = w_2
-            goto = 2
-
-        if goto == 2:
-            return w_3
-
-fastf_instance___abs__ = __abs__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__add__'
-## firstlineno 4
-##SECTION##
-def __add__(space, __args__):
-    funcname = "__add__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___add__(space, w_self, w_other)
-
-f_instance___add__ = __add__
-
-def __add__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___add__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.add(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___add__ = __add__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__and__'
-## firstlineno 4
-##SECTION##
-def __and__(space, __args__):
-    funcname = "__and__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___and__(space, w_self, w_other)
-
-f_instance___and__ = __and__
-
-def __and__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___and__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.and_(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___and__ = __and__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__div__'
-## firstlineno 4
-##SECTION##
-def __div__(space, __args__):
-    funcname = "__div__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___div__(space, w_self, w_other)
-
-f_instance___div__ = __div__
-
-def __div__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___div__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.div(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___div__ = __div__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__divmod__'
-## firstlineno 4
-##SECTION##
-def __divmod__(space, __args__):
-    funcname = "__divmod__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___divmod__(space, w_self, w_other)
-
-f_instance___divmod__ = __divmod__
-
-def __divmod__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___divmod__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.divmod(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___divmod__ = __divmod__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__eq__'
-## firstlineno 4
-##SECTION##
-def __eq__(space, __args__):
-    funcname = "__eq__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___eq__(space, w_self, w_other)
-
-f_instance___eq__ = __eq__
-
-def __eq__(space, w_self, w_other):
-
-    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
-    w_9=v11=w_etype=w_evalue=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            try:
-                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___eq__)
-                w_other_1, w_3 = w_other, w_0
-                goto = 2
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 2:
-            try:
-                w_7 = space.call_function(w_3, w_other_1)
-                w_8 = w_7
-                goto = 6
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 3:
-            w_9 = space.issubtype(w_10, space.w_AttributeError)
-            v11 = space.is_true(w_9)
-            if v11 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v11 == False
-                w_etype, w_evalue = w_12, w_14
-                goto = 5
-
-        if goto == 4:
-            w_16 = space.is_(w_6, space.w_AttributeError)
-            v17 = space.is_true(w_16)
-            if v17 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v17 == False
-                w_12, w_14, w_10 = w_4, w_5, w_6
-                goto = 3
-                continue
-
-        if goto == 5:
-            raise OperationError(w_etype, w_evalue)
-
-        if goto == 6:
-            return w_8
-
-fastf_instance___eq__ = __eq__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__float__'
-## firstlineno 4
-##SECTION##
-def __float__(space, __args__):
-    funcname = "__float__"
-    signature = ['self'], None, None
-    defaults_w = []
-    w_self, = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___float__(space, w_self)
-
-f_instance___float__ = __float__
-
-def __float__(space, w_self):
-
-    w_0=w_2=w_3=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___float__)
-            w_2 = space.call_function(w_0, )
-            w_3 = w_2
-            goto = 2
-
-        if goto == 2:
-            return w_3
-
-fastf_instance___float__ = __float__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__floordiv__'
-## firstlineno 4
-##SECTION##
-def __floordiv__(space, __args__):
-    funcname = "__floordiv__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___floordiv__(space, w_self, w_other)
-
-f_instance___floordiv__ = __floordiv__
-
-def __floordiv__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___floordiv__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.floordiv(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___floordiv__ = __floordiv__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__ge__'
-## firstlineno 4
-##SECTION##
-def __ge__(space, __args__):
-    funcname = "__ge__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___ge__(space, w_self, w_other)
-
-f_instance___ge__ = __ge__
-
-def __ge__(space, w_self, w_other):
-
-    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
-    w_9=v11=w_etype=w_evalue=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            try:
-                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___ge__)
-                w_other_1, w_3 = w_other, w_0
-                goto = 2
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 2:
-            try:
-                w_7 = space.call_function(w_3, w_other_1)
-                w_8 = w_7
-                goto = 6
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 3:
-            w_9 = space.issubtype(w_10, space.w_AttributeError)
-            v11 = space.is_true(w_9)
-            if v11 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v11 == False
-                w_etype, w_evalue = w_12, w_14
-                goto = 5
-
-        if goto == 4:
-            w_16 = space.is_(w_6, space.w_AttributeError)
-            v17 = space.is_true(w_16)
-            if v17 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v17 == False
-                w_12, w_14, w_10 = w_4, w_5, w_6
-                goto = 3
-                continue
-
-        if goto == 5:
-            raise OperationError(w_etype, w_evalue)
-
-        if goto == 6:
-            return w_8
-
-fastf_instance___ge__ = __ge__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__gt__'
-## firstlineno 4
-##SECTION##
-def __gt__(space, __args__):
-    funcname = "__gt__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___gt__(space, w_self, w_other)
-
-f_instance___gt__ = __gt__
-
-def __gt__(space, w_self, w_other):
-
-    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
-    w_9=v11=w_etype=w_evalue=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            try:
-                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___gt__)
-                w_other_1, w_3 = w_other, w_0
-                goto = 2
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 2:
-            try:
-                w_7 = space.call_function(w_3, w_other_1)
-                w_8 = w_7
-                goto = 6
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 3:
-            w_9 = space.issubtype(w_10, space.w_AttributeError)
-            v11 = space.is_true(w_9)
-            if v11 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v11 == False
-                w_etype, w_evalue = w_12, w_14
-                goto = 5
-
-        if goto == 4:
-            w_16 = space.is_(w_6, space.w_AttributeError)
-            v17 = space.is_true(w_16)
-            if v17 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v17 == False
-                w_12, w_14, w_10 = w_4, w_5, w_6
-                goto = 3
-                continue
-
-        if goto == 5:
-            raise OperationError(w_etype, w_evalue)
-
-        if goto == 6:
-            return w_8
-
-fastf_instance___gt__ = __gt__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__hex__'
-## firstlineno 4
-##SECTION##
-def __hex__(space, __args__):
-    funcname = "__hex__"
-    signature = ['self'], None, None
-    defaults_w = []
-    w_self, = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___hex__(space, w_self)
-
-f_instance___hex__ = __hex__
-
-def __hex__(space, w_self):
-
-    w_0=w_2=w_3=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___hex__)
-            w_2 = space.call_function(w_0, )
-            w_3 = w_2
-            goto = 2
-
-        if goto == 2:
-            return w_3
-
-fastf_instance___hex__ = __hex__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__iadd__'
-## firstlineno 4
-##SECTION##
-def __iadd__(space, __args__):
-    funcname = "__iadd__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___iadd__(space, w_self, w_other)
-
-f_instance___iadd__ = __iadd__
-
-def __iadd__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___iadd__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___iadd__ = __iadd__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__iand__'
-## firstlineno 4
-##SECTION##
-def __iand__(space, __args__):
-    funcname = "__iand__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___iand__(space, w_self, w_other)
-
-f_instance___iand__ = __iand__
-
-def __iand__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___iand__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___iand__ = __iand__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__idiv__'
-## firstlineno 4
-##SECTION##
-def __idiv__(space, __args__):
-    funcname = "__idiv__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___idiv__(space, w_self, w_other)
-
-f_instance___idiv__ = __idiv__
-
-def __idiv__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___idiv__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___idiv__ = __idiv__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__ifloordiv__'
-## firstlineno 4
-##SECTION##
-def __ifloordiv__(space, __args__):
-    funcname = "__ifloordiv__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___ifloordiv__(space, w_self, w_other)
-
-f_instance___ifloordiv__ = __ifloordiv__
-
-def __ifloordiv__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___ifloordiv__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___ifloordiv__ = __ifloordiv__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__ilshift__'
-## firstlineno 4
-##SECTION##
-def __ilshift__(space, __args__):
-    funcname = "__ilshift__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___ilshift__(space, w_self, w_other)
-
-f_instance___ilshift__ = __ilshift__
-
-def __ilshift__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___ilshift__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___ilshift__ = __ilshift__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__imod__'
-## firstlineno 4
-##SECTION##
-def __imod__(space, __args__):
-    funcname = "__imod__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___imod__(space, w_self, w_other)
-
-f_instance___imod__ = __imod__
-
-def __imod__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___imod__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___imod__ = __imod__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__imul__'
-## firstlineno 4
-##SECTION##
-def __imul__(space, __args__):
-    funcname = "__imul__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___imul__(space, w_self, w_other)
-
-f_instance___imul__ = __imul__
-
-def __imul__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___imul__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___imul__ = __imul__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__int__'
-## firstlineno 4
-##SECTION##
-def __int__(space, __args__):
-    funcname = "__int__"
-    signature = ['self'], None, None
-    defaults_w = []
-    w_self, = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___int__(space, w_self)
-
-f_instance___int__ = __int__
-
-def __int__(space, w_self):
-
-    w_0=w_2=w_3=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___int__)
-            w_2 = space.call_function(w_0, )
-            w_3 = w_2
-            goto = 2
-
-        if goto == 2:
-            return w_3
-
-fastf_instance___int__ = __int__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__invert__'
-## firstlineno 4
-##SECTION##
-def __invert__(space, __args__):
-    funcname = "__invert__"
-    signature = ['self'], None, None
-    defaults_w = []
-    w_self, = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___invert__(space, w_self)
-
-f_instance___invert__ = __invert__
-
-def __invert__(space, w_self):
-
-    w_0=w_2=w_3=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___invert__)
-            w_2 = space.call_function(w_0, )
-            w_3 = w_2
-            goto = 2
-
-        if goto == 2:
-            return w_3
-
-fastf_instance___invert__ = __invert__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__ior__'
-## firstlineno 4
-##SECTION##
-def __ior__(space, __args__):
-    funcname = "__ior__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___ior__(space, w_self, w_other)
-
-f_instance___ior__ = __ior__
-
-def __ior__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___ior__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___ior__ = __ior__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__ipow__'
-## firstlineno 4
-##SECTION##
-def __ipow__(space, __args__):
-    funcname = "__ipow__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___ipow__(space, w_self, w_other)
-
-f_instance___ipow__ = __ipow__
-
-def __ipow__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___ipow__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___ipow__ = __ipow__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__irshift__'
-## firstlineno 4
-##SECTION##
-def __irshift__(space, __args__):
-    funcname = "__irshift__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___irshift__(space, w_self, w_other)
-
-f_instance___irshift__ = __irshift__
-
-def __irshift__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___irshift__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___irshift__ = __irshift__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__isub__'
-## firstlineno 4
-##SECTION##
-def __isub__(space, __args__):
-    funcname = "__isub__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___isub__(space, w_self, w_other)
-
-f_instance___isub__ = __isub__
-
-def __isub__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___isub__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___isub__ = __isub__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__itruediv__'
-## firstlineno 4
-##SECTION##
-def __itruediv__(space, __args__):
-    funcname = "__itruediv__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___itruediv__(space, w_self, w_other)
-
-f_instance___itruediv__ = __itruediv__
-
-def __itruediv__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___itruediv__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___itruediv__ = __itruediv__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__ixor__'
-## firstlineno 4
-##SECTION##
-def __ixor__(space, __args__):
-    funcname = "__ixor__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___ixor__(space, w_self, w_other)
-
-f_instance___ixor__ = __ixor__
-
-def __ixor__(space, w_self, w_other):
-
-    w_func=v2=w_4=w_other_1=w_func_1=w_5=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self, gs___ixor__, space.w_False)
-            v2 = space.is_true(w_func)
-            if v2 == True:
-                w_other_1, w_func_1 = w_other, w_func
-                goto = 2
-            else:
-                assert v2 == False
-                w_4 = space.w_NotImplemented
-                goto = 3
-
-        if goto == 2:
-            w_5 = space.call_function(w_func_1, w_other_1)
-            w_4 = w_5
-            goto = 3
-
-        if goto == 3:
-            return w_4
-
-fastf_instance___ixor__ = __ixor__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__le__'
-## firstlineno 4
-##SECTION##
-def __le__(space, __args__):
-    funcname = "__le__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___le__(space, w_self, w_other)
-
-f_instance___le__ = __le__
-
-def __le__(space, w_self, w_other):
-
-    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
-    w_9=v11=w_etype=w_evalue=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            try:
-                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___le__)
-                w_other_1, w_3 = w_other, w_0
-                goto = 2
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 2:
-            try:
-                w_7 = space.call_function(w_3, w_other_1)
-                w_8 = w_7
-                goto = 6
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 3:
-            w_9 = space.issubtype(w_10, space.w_AttributeError)
-            v11 = space.is_true(w_9)
-            if v11 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v11 == False
-                w_etype, w_evalue = w_12, w_14
-                goto = 5
-
-        if goto == 4:
-            w_16 = space.is_(w_6, space.w_AttributeError)
-            v17 = space.is_true(w_16)
-            if v17 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v17 == False
-                w_12, w_14, w_10 = w_4, w_5, w_6
-                goto = 3
-                continue
-
-        if goto == 5:
-            raise OperationError(w_etype, w_evalue)
-
-        if goto == 6:
-            return w_8
-
-fastf_instance___le__ = __le__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__long__'
-## firstlineno 4
-##SECTION##
-def __long__(space, __args__):
-    funcname = "__long__"
-    signature = ['self'], None, None
-    defaults_w = []
-    w_self, = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___long__(space, w_self)
-
-f_instance___long__ = __long__
-
-def __long__(space, w_self):
-
-    w_0=w_2=w_3=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___long__)
-            w_2 = space.call_function(w_0, )
-            w_3 = w_2
-            goto = 2
-
-        if goto == 2:
-            return w_3
-
-fastf_instance___long__ = __long__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__lshift__'
-## firstlineno 4
-##SECTION##
-def __lshift__(space, __args__):
-    funcname = "__lshift__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___lshift__(space, w_self, w_other)
-
-f_instance___lshift__ = __lshift__
-
-def __lshift__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___lshift__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.lshift(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___lshift__ = __lshift__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__lt__'
-## firstlineno 4
-##SECTION##
-def __lt__(space, __args__):
-    funcname = "__lt__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___lt__(space, w_self, w_other)
-
-f_instance___lt__ = __lt__
-
-def __lt__(space, w_self, w_other):
-
-    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
-    w_9=v11=w_etype=w_evalue=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            try:
-                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___lt__)
-                w_other_1, w_3 = w_other, w_0
-                goto = 2
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 2:
-            try:
-                w_7 = space.call_function(w_3, w_other_1)
-                w_8 = w_7
-                goto = 6
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 3:
-            w_9 = space.issubtype(w_10, space.w_AttributeError)
-            v11 = space.is_true(w_9)
-            if v11 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v11 == False
-                w_etype, w_evalue = w_12, w_14
-                goto = 5
-
-        if goto == 4:
-            w_16 = space.is_(w_6, space.w_AttributeError)
-            v17 = space.is_true(w_16)
-            if v17 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v17 == False
-                w_12, w_14, w_10 = w_4, w_5, w_6
-                goto = 3
-                continue
-
-        if goto == 5:
-            raise OperationError(w_etype, w_evalue)
-
-        if goto == 6:
-            return w_8
-
-fastf_instance___lt__ = __lt__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__mod__'
-## firstlineno 4
-##SECTION##
-def __mod__(space, __args__):
-    funcname = "__mod__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___mod__(space, w_self, w_other)
-
-f_instance___mod__ = __mod__
-
-def __mod__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___mod__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.mod(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___mod__ = __mod__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__mul__'
-## firstlineno 4
-##SECTION##
-def __mul__(space, __args__):
-    funcname = "__mul__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___mul__(space, w_self, w_other)
-
-f_instance___mul__ = __mul__
-
-def __mul__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___mul__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.mul(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___mul__ = __mul__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__ne__'
-## firstlineno 4
-##SECTION##
-def __ne__(space, __args__):
-    funcname = "__ne__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___ne__(space, w_self, w_other)
-
-f_instance___ne__ = __ne__
-
-def __ne__(space, w_self, w_other):
-
-    w_0=w_other_1=w_3=w_7=w_8=w_4=w_5=w_6=w_16=v17=w_12=w_14=w_10=None
-    w_9=v11=w_etype=w_evalue=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            try:
-                w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___ne__)
-                w_other_1, w_3 = w_other, w_0
-                goto = 2
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 2:
-            try:
-                w_7 = space.call_function(w_3, w_other_1)
-                w_8 = w_7
-                goto = 6
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_4, w_5, w_6 = e.w_type, e.w_value, e.w_type
-                    goto = 4
-                else:raise # unhandled case, should not happen
-
-        if goto == 3:
-            w_9 = space.issubtype(w_10, space.w_AttributeError)
-            v11 = space.is_true(w_9)
-            if v11 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v11 == False
-                w_etype, w_evalue = w_12, w_14
-                goto = 5
-
-        if goto == 4:
-            w_16 = space.is_(w_6, space.w_AttributeError)
-            v17 = space.is_true(w_16)
-            if v17 == True:
-                w_8 = space.w_NotImplemented
-                goto = 6
-            else:
-                assert v17 == False
-                w_12, w_14, w_10 = w_4, w_5, w_6
-                goto = 3
-                continue
-
-        if goto == 5:
-            raise OperationError(w_etype, w_evalue)
-
-        if goto == 6:
-            return w_8
-
-fastf_instance___ne__ = __ne__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__neg__'
-## firstlineno 4
-##SECTION##
-def __neg__(space, __args__):
-    funcname = "__neg__"
-    signature = ['self'], None, None
-    defaults_w = []
-    w_self, = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___neg__(space, w_self)
-
-f_instance___neg__ = __neg__
-
-def __neg__(space, w_self):
-
-    w_0=w_2=w_3=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___neg__)
-            w_2 = space.call_function(w_0, )
-            w_3 = w_2
-            goto = 2
-
-        if goto == 2:
-            return w_3
-
-fastf_instance___neg__ = __neg__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__oct__'
-## firstlineno 4
-##SECTION##
-def __oct__(space, __args__):
-    funcname = "__oct__"
-    signature = ['self'], None, None
-    defaults_w = []
-    w_self, = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___oct__(space, w_self)
-
-f_instance___oct__ = __oct__
-
-def __oct__(space, w_self):
-
-    w_0=w_2=w_3=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___oct__)
-            w_2 = space.call_function(w_0, )
-            w_3 = w_2
-            goto = 2
-
-        if goto == 2:
-            return w_3
-
-fastf_instance___oct__ = __oct__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__or__'
-## firstlineno 4
-##SECTION##
-def __or__(space, __args__):
-    funcname = "__or__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___or__(space, w_self, w_other)
-
-f_instance___or__ = __or__
-
-def __or__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___or__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.or_(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___or__ = __or__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__pos__'
-## firstlineno 4
-##SECTION##
-def __pos__(space, __args__):
-    funcname = "__pos__"
-    signature = ['self'], None, None
-    defaults_w = []
-    w_self, = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___pos__(space, w_self)
-
-f_instance___pos__ = __pos__
-
-def __pos__(space, w_self):
-
-    w_0=w_2=w_3=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_0 = space.call_function(gfunc_instance_getattr1, w_self, gs___pos__)
-            w_2 = space.call_function(w_0, )
-            w_3 = w_2
-            goto = 2
-
-        if goto == 2:
-            return w_3
-
-fastf_instance___pos__ = __pos__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rshift__'
-## firstlineno 4
-##SECTION##
-def __rshift__(space, __args__):
-    funcname = "__rshift__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rshift__(space, w_self, w_other)
-
-f_instance___rshift__ = __rshift__
-
-def __rshift__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rshift__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.rshift(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rshift__ = __rshift__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__sub__'
-## firstlineno 4
-##SECTION##
-def __sub__(space, __args__):
-    funcname = "__sub__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___sub__(space, w_self, w_other)
-
-f_instance___sub__ = __sub__
-
-def __sub__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___sub__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.sub(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___sub__ = __sub__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__truediv__'
-## firstlineno 4
-##SECTION##
-def __truediv__(space, __args__):
-    funcname = "__truediv__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___truediv__(space, w_self, w_other)
-
-f_instance___truediv__ = __truediv__
-
-def __truediv__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___truediv__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.truediv(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___truediv__ = __truediv__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__xor__'
-## firstlineno 4
-##SECTION##
-# global declaration
-# global object gfunc__coerce
-
-def __xor__(space, __args__):
-    funcname = "__xor__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___xor__(space, w_self, w_other)
-
-f_instance___xor__ = __xor__
-
-def __xor__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___xor__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.xor(w_self_4, w_other_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___xor__ = __xor__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__radd__'
-## firstlineno 14
-##SECTION##
-def __radd__(space, __args__):
-    funcname = "__radd__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___radd__(space, w_self, w_other)
-
-f_instance___radd__ = __radd__
-
-def __radd__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___radd__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.add(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___radd__ = __radd__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rand__'
-## firstlineno 14
-##SECTION##
-def __rand__(space, __args__):
-    funcname = "__rand__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rand__(space, w_self, w_other)
-
-f_instance___rand__ = __rand__
-
-def __rand__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rand__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.and_(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rand__ = __rand__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rdiv__'
-## firstlineno 14
-##SECTION##
-def __rdiv__(space, __args__):
-    funcname = "__rdiv__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rdiv__(space, w_self, w_other)
-
-f_instance___rdiv__ = __rdiv__
-
-def __rdiv__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rdiv__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.div(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rdiv__ = __rdiv__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rdivmod__'
-## firstlineno 14
-##SECTION##
-def __rdivmod__(space, __args__):
-    funcname = "__rdivmod__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rdivmod__(space, w_self, w_other)
-
-f_instance___rdivmod__ = __rdivmod__
-
-def __rdivmod__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rdivmod__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.divmod(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rdivmod__ = __rdivmod__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rfloordiv__'
-## firstlineno 14
-##SECTION##
-def __rfloordiv__(space, __args__):
-    funcname = "__rfloordiv__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rfloordiv__(space, w_self, w_other)
-
-f_instance___rfloordiv__ = __rfloordiv__
-
-def __rfloordiv__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rfloordiv__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.floordiv(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rfloordiv__ = __rfloordiv__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rlshift__'
-## firstlineno 14
-##SECTION##
-def __rlshift__(space, __args__):
-    funcname = "__rlshift__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rlshift__(space, w_self, w_other)
-
-f_instance___rlshift__ = __rlshift__
-
-def __rlshift__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rlshift__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.lshift(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rlshift__ = __rlshift__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rmod__'
-## firstlineno 14
-##SECTION##
-def __rmod__(space, __args__):
-    funcname = "__rmod__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rmod__(space, w_self, w_other)
-
-f_instance___rmod__ = __rmod__
-
-def __rmod__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rmod__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.mod(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rmod__ = __rmod__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rmul__'
-## firstlineno 14
-##SECTION##
-def __rmul__(space, __args__):
-    funcname = "__rmul__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rmul__(space, w_self, w_other)
-
-f_instance___rmul__ = __rmul__
-
-def __rmul__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rmul__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.mul(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rmul__ = __rmul__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__ror__'
-## firstlineno 14
-##SECTION##
-def __ror__(space, __args__):
-    funcname = "__ror__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___ror__(space, w_self, w_other)
-
-f_instance___ror__ = __ror__
-
-def __ror__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___ror__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.or_(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___ror__ = __ror__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rrshift__'
-## firstlineno 14
-##SECTION##
-def __rrshift__(space, __args__):
-    funcname = "__rrshift__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rrshift__(space, w_self, w_other)
-
-f_instance___rrshift__ = __rrshift__
-
-def __rrshift__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rrshift__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.rshift(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rrshift__ = __rrshift__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rsub__'
-## firstlineno 14
-##SECTION##
-def __rsub__(space, __args__):
-    funcname = "__rsub__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rsub__(space, w_self, w_other)
-
-f_instance___rsub__ = __rsub__
-
-def __rsub__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rsub__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.sub(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rsub__ = __rsub__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rtruediv__'
-## firstlineno 14
-##SECTION##
-def __rtruediv__(space, __args__):
-    funcname = "__rtruediv__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rtruediv__(space, w_self, w_other)
-
-f_instance___rtruediv__ = __rtruediv__
-
-def __rtruediv__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rtruediv__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.truediv(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rtruediv__ = __rtruediv__
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
-## function    '__rxor__'
-## firstlineno 14
-##SECTION##
-def __rxor__(space, __args__):
-    funcname = "__rxor__"
-    signature = ['self', 'other'], None, None
-    defaults_w = []
-    w_self, w_other = __args__.parse(funcname, signature, defaults_w)
-    return fastf_instance___rxor__(space, w_self, w_other)
-
-f_instance___rxor__ = __rxor__
-
-def __rxor__(space, w_self, w_other):
-
-    w_coerced=w_3=v4=w_self_2=w_other_2=w_coerced_1=w_6=w_7=w_self_1=None
-    w_other_1=w_5=v8=w_self_4=w_other_4=w_13=w_11=w_self_3=w_other_3=None
-    w_func=v10=w_other_5=w_func_1=w_12=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            w_coerced = fastf__coerce(space, w_self, w_other)
-            w_3 = space.is_(w_coerced, space.w_None)
-            v4 = space.is_true(w_3)
-            if v4 == True:
-                w_self_1, w_other_1, w_5 = w_self, w_other, w_3
-                goto = 3
-            else:
-                assert v4 == False
-                w_self_2, w_other_2, w_coerced_1 = w_self, w_other, w_coerced
-                goto = 2
-
-        if goto == 2:
-            w_6 = space.getitem(w_coerced_1, gi_0)
-            w_7 = space.is_(w_6, w_self_2)
-            w_self_1, w_other_1, w_5 = w_self_2, w_other_2, w_7
-            goto = 3
-
-        if goto == 3:
-            v8 = space.is_true(w_5)
-            if v8 == True:
-                w_self_3, w_other_3 = w_self_1, w_other_1
-                goto = 4
-            else:
-                assert v8 == False
-                w_self_4, w_other_4 = w_self_1, w_other_1
-                goto = 6
-
-        if goto == 4:
-            w_func = space.call_function(gfunc_instance_getattr1, w_self_3, gs___rxor__, space.w_False)
-            v10 = space.is_true(w_func)
-            if v10 == True:
-                w_other_5, w_func_1 = w_other_3, w_func
-                goto = 5
-            else:
-                assert v10 == False
-                w_11 = space.w_NotImplemented
-                goto = 7
-
-        if goto == 5:
-            w_12 = space.call_function(w_func_1, w_other_5)
-            w_11 = w_12
-            goto = 7
-
-        if goto == 6:
-            w_13 = space.xor(w_other_4, w_self_4)
-            w_11 = w_13
-            goto = 7
-
-        if goto == 7:
-            return w_11
-
-fastf_instance___rxor__ = __rxor__
 
 ##SECTION##
 #*************************************************************
@@ -7540,7 +7539,6 @@ def initclassobj(space):
     del m.__itruediv__
     m.gs___iter___returned_non_iterator_o = space.wrap('__iter__ returned non-iterator of type %s')
     m.gs_iteration_over_non_sequence = space.wrap('iteration over non-sequence')
-    m.gs__seqiter = space.wrap('_seqiter')
     del m.__iter__
     del m.__isub__
     del m.__irshift__
