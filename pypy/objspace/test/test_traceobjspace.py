@@ -1,16 +1,14 @@
 import autopath
-from pypy.tool import testit
 from pypy.objspace import trace 
 from pypy.tool import pydis
 from pypy.interpreter import gateway 
     
-class Test_TraceObjSpace(testit.IntTestCase):
+class Test_TraceObjSpace:
 
-    def setUp(self):
-        self.space = testit.objspace()       
+    def setup_method(self,method):
         trace.create_trace_space(self.space)
         
-    def tearDown(self):
+    def teardown_method(self,method):
         self.space.reset_trace()
 
     def perform_trace(self, app_func):
@@ -24,7 +22,7 @@ class Test_TraceObjSpace(testit.IntTestCase):
 
     def test_traceobjspace_basic(self):
         tspace = self.space
-        self.assert_(tspace.is_true(tspace.w_builtins))
+        assert tspace.is_true(tspace.w_builtins)
         #for name, value in vars(self.space).items():
         #    if not name.startswith('_'):
         #        self.assert_(value is getattr(t, name))
@@ -35,21 +33,21 @@ class Test_TraceObjSpace(testit.IntTestCase):
             pass
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
-        self.assertEquals(disresult.bytecodes, list(res.getbytecodes()))
+        assert disresult.bytecodes == list(res.getbytecodes())
 
     def test_some_builtin1(self):
         def app_f():
             len([1,2,3,4,5])
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
-        self.assertEquals(len(disresult.bytecodes), len(list(res.getbytecodes())))
+        assert len(disresult.bytecodes) == len(list(res.getbytecodes()))
 
     def test_some_builtin2(self):
         def app_f(): 
             filter(None, []) # filter implemented in appspace -> has many more bytecodes        
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
-        self.failUnless(len(disresult.bytecodes) < len(list(res.getbytecodes())))
+        assert len(disresult.bytecodes) < len(list(res.getbytecodes()))
 
     def get_operation(self, iter, optype, name):
         for op in iter:
@@ -66,9 +64,6 @@ class Test_TraceObjSpace(testit.IntTestCase):
         ops = res.getoperations()
         op_start = self.get_operation(ops, trace.CallBegin, "add")
         args = [uw(x) for x in op_start.callinfo.args]
-        self.assertEquals(args, [1, 1])
+        assert args == [1, 1]
         op_end = self.get_operation(ops, trace.CallFinished, "add")        
-        self.assertEquals(uw(op_end.res), 2)
-
-if __name__ == '__main__':
-    testit.main()
+        assert uw(op_end.res) == 2
