@@ -133,6 +133,16 @@ class RPythonAnnotator:
 
     def recursivecall(self, func, factory, *args):
         parent_fn, parent_block, parent_index = factory.position_key
+        # detect unbound methods with a constant first argument
+        # and turn them into bound methods
+        if (hasattr(func, 'im_self') and func.im_self is None and
+            len(args) > 0 and args[0].is_constant()):
+            try:
+                func = func.__get__(args[0].const, type(args[0].const))
+            except TypeError:
+                pass
+            else:
+                args = args[1:]
         graph = self.translator.getflowgraph(func, parent_fn,
                                              factory.position_key)
         # self.notify[graph.returnblock] is a dictionary of
