@@ -34,7 +34,7 @@ Whitespace between formats is ignored.
  
 The variable struct.error is an exception raised on errors."""
 
-import math,sys
+import math, sys
 
 # TODO: XXX Find a way to get information on native sizes and alignments
 class StructError(Exception):
@@ -60,6 +60,8 @@ def unpack_float(data,index,size,le):
     bytes = [ord(b) for b in data[index:index+size]]
     if len(bytes) != size:
         raise StructError,"Not enough data to unpack"
+    if min(bytes) == 0:
+        return 0.0
     if le == 'big':
         bytes.reverse()
     if size == 4:
@@ -126,13 +128,15 @@ def sane_float(man,e):
     # TODO: XXX Implement checks for floats
     return True
     
-def pack_float(number,size,le):
+def pack_float(number, size, le):
     
     if number < 0:
-        sign=1
+        sign = 1
         number *= -1
+    elif number == 0.0:
+       return "\x00" * size
     else:
-        sign =0
+        sign = 0
     if size == 4:
         bias = 127
         exp = 8
@@ -142,7 +146,7 @@ def pack_float(number,size,le):
         exp = 11
         prec = 52
     
-    man,e = math.frexp(number)
+    man, e = math.frexp(number)
     if 0.5 <= man and man < 1.0:
         man *= 2
         e -= 1
