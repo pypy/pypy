@@ -6,6 +6,15 @@ from sys import pypy
 import __builtin__
 import _types
 
+__all__ = ['BooleanType', 'BufferType', 'BuiltinFunctionType',
+           'BuiltinMethodType', 'ClassType', 'CodeType', 'ComplexType',
+           'DictProxyType', 'DictType', 'DictionaryType', 'EllipsisType',
+           'FileType', 'FloatType', 'FrameType', 'FunctionType',
+           'GeneratorType', 'InstanceType', 'IntType', 'LambdaType',
+           'ListType', 'LongType', 'MethodType', 'ModuleType', 'NoneType',
+           'NotImplementedType', 'ObjectType', 'SliceType', 'StringType',
+           'TracebackType', 'TupleType', 'TypeType', 'UnboundMethodType',
+           'UnicodeType', 'XRangeType']
 
 def _register(factory, cls, in_builtin=True, synonym=True):
     """
@@ -481,12 +490,3 @@ _register(pypy.XrangeObjectFactory, xrange, synonym='XRangeType')
 
 
 
-__all__ = ['BooleanType', 'BufferType', 'BuiltinFunctionType',
-           'BuiltinMethodType', 'ClassType', 'CodeType', 'ComplexType',
-           'DictProxyType', 'DictType', 'DictionaryType', 'EllipsisType',
-           'FileType', 'FloatType', 'FrameType', 'FunctionType',
-           'GeneratorType', 'InstanceType', 'IntType', 'LambdaType',
-           'ListType', 'LongType', 'MethodType', 'ModuleType', 'NoneType',
-           'NotImplementedType', 'ObjectType', 'SliceType', 'StringType',
-           'TracebackType', 'TupleType', 'TypeType', 'UnboundMethodType',
-           'UnicodeType', 'XRangeType']
