@@ -8,6 +8,8 @@ union of constants or other types too, in some cases.
 
 """
 
+import copy
+
 class W_Object(object):
     """Abstract base class.  do not instantiate."""
 
@@ -67,13 +69,24 @@ class W_Constant(W_Object):
     def __eq__(self, other):
         return type(other) is type(self) and self.value == other.value
 
+    def __len__(self):
+        return len(self.value)
+
+    def __getitem__(self, key):
+        return self.value[key]
+
+    def __setitem__(self, key, value):
+        self.value[key] = value
+
     def clone(self):
-        return self
+        return W_Constant(copy.deepcopy(self.value))
 
 class W_KnownKeysContainer(W_Object):
     """A dict with a known set of keys or a list with known length.
 
     XXX This is mutable!  Is that a good idea?
+
+    XXX Should unify some of this with W_Constant.
     """
 
     def __init__(self, args_w):
@@ -100,15 +113,37 @@ class W_KnownKeysContainer(W_Object):
     def __len__(self):
         return len(self.args_w)
 
-    def __getitem__(self, i):
-        return self.args_w[i]
+    def __getitem__(self, key):
+        return self.args_w[key]
+
+    def __setitem__(self, key, w_value):
+        self.args_w[key] = w_value
 
     def clone(self):
         args_w = self.args_w
         if isinstance(args_w, dict):
             args_w = args_w.copy()
-        # XXX Recurse down the values?
         return W_KnownKeysContainer(args_w)
+
+class W_ConstantIterator(W_Object):
+
+    def __init__(self, seq, start=0):
+        self.seq = seq
+        self.start = start
+
+    def argsrepr(self):
+        return "%r, %r" % (self.seq, self.start)
+
+    def clone(self):
+        return W_ConstantIterator(self.seq, self.start)
+
+    def next(self):
+        try:
+            value = self.seq[self.start]
+        except IndexError:
+            raise StopIteration
+        self.start += 1
+        return value
 
 class W_Module(W_Object):
     """A module object.  It supports getattr and setattr (yikes!)."""
@@ -117,8 +152,8 @@ class W_Module(W_Object):
         # The wrapped module name and wrapped docstring must be known
         self.w_name = w_name
         self.w_doc = w_doc
-        self.contents = W_KnownKeysContainer({"__name__": w_name,
-                                              "__doc__": w_doc})
+        self.w_dict = W_KnownKeysContainer({"__name__": w_name,
+                                            "__doc__": w_doc})
 
     def argsrepr(self):
         return repr(self.w_name) + ", " + repr(self.w_doc)
@@ -126,11 +161,11 @@ class W_Module(W_Object):
     def getattr(self, name):
         # Returned a wrapped object or raise an unwrapped KeyError exception
         if name == "__dict__":
-            return self.contents
-        return self.contents[name]
+            return self.w_dict
+        return self.w_dict[name]
 
     def setattr(self, name, w_obj):
-        self.contents.args_w[name] = w_obj
+        self.w_dict.args_w[name] = w_obj
 
 class W_BuiltinFunction(W_Object):
     """A function that executes in interpreter space."""

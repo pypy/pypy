@@ -7,6 +7,7 @@ from pypy.interpreter.baseobjspace \
 from pypy.interpreter.pycode import PyByteCode
 from pypy.interpreter.extmodule import PyBuiltinCode
 from pypy.objspace.ann.cloningcontext import CloningExecutionContext
+from pypy.objspace.ann.cloningcontext import HelperExecutionContext
 from pypy.objspace.ann.cloningcontext import IndeterminateCondition
 
 from pypy.objspace.ann.wrapper import *
@@ -40,14 +41,19 @@ class AnnotationObjSpace(ObjSpace):
     # Service methods whose interface is in the abstract base class
 
     def wrapboot(self, obj):
+        # Wrapper around wrap() to initialize the wrappercache
         w_obj = self.wrap(obj)
-        self.wrappercache[obj] = w_obj
+        self.wrappercache[obj] = (obj, w_obj)
         return w_obj
 
     def wrap(self, obj):
+        if isinstance(obj, W_Object):
+            raise TypeError("already wrapped: " + repr(obj))
         try:
             if obj in self.wrappercache:
-                return self.wrappercache[obj]
+                key, w_obj = self.wrappercache[obj]
+                if obj is key:
+                    return w_obj
         except (TypeError, AttributeError):
             # This can happen when obj is not hashable, for instance
             # XXX What about other errors???
@@ -77,17 +83,15 @@ class AnnotationObjSpace(ObjSpace):
             pass
         else:
             return bool(obj)
-        # It's indeterminate!!!  Aargh!!!
+        # It's indeterminate!!!
         # Raise an exception that will clone the interpreter.
         raise IndeterminateCondition(w_obj)
 
     def createexecutioncontext(self):
         return CloningExecutionContext(self)
 
-    def clone_locals(self, w_locals):
-        assert isinstance(w_locals, (W_KnownKeysContainer, W_Constant))
-        return w_locals.clone()
-
+    def gethelperspace(self):
+        return HelperObjSpace()
 
     # Specialized creators whose interface is in the abstract base class
     
@@ -109,7 +113,7 @@ class AnnotationObjSpace(ObjSpace):
                 d[key] = value
         else:
             # All keys and values were unwrappable
-            return W_Constant(d)
+            return self.wrap(d)
         # It's not quite constant.
         # Maybe the keys are constant?
         values_w = {}
@@ -143,7 +147,7 @@ class AnnotationObjSpace(ObjSpace):
         except UnwrapException:
             return W_Anything()
         else:
-            return W_Constant(unwrappedlist)
+            return self.wrap(unwrappedlist)
 
     def newstring(self, listofwrappedints):
         unwrappedints = []
@@ -155,10 +159,11 @@ class AnnotationObjSpace(ObjSpace):
             return W_Anything()
         else:
             try:
-                s = "".join(map(chr, unwrappedints))
+                result = "".join(map(chr, unwrappedints))
             except:
                 self.reraise()
-            return W_Constant(s)
+            else:
+                return self.wrap(result)
 
     def newslice(self, w_start, w_stop, w_end=None):
         try:
@@ -184,7 +189,12 @@ class AnnotationObjSpace(ObjSpace):
 
     def str(self, w_left):
         if isinstance(w_left, W_Constant):
-            return self.wrap(str(w_left.value))
+            try:
+                result = str(w_left.value)
+            except:
+                self.reraise()
+            else:
+                return self.wrap(result)
         else:
             return W_Anything()
 
@@ -192,7 +202,7 @@ class AnnotationObjSpace(ObjSpace):
         if w_left is w_right:
             return self.w_True
         if isinstance(w_left, W_Constant) and isinstance(w_right, W_Constant):
-            # XXX Is this really safe?
+            # XXX Is this really correct?
             if w_left.value is w_right.value:
                 return self.w_True
             else:
@@ -207,10 +217,11 @@ class AnnotationObjSpace(ObjSpace):
             pass
         else:
             try:
-                sum = left + right
+                result = left + right
             except:
                 self.reraise()
-            return self.wrap(sum)
+            else:
+                return self.wrap(result)
         if is_int(w_left) and is_int(w_right):
             return W_Integer()
         else:
@@ -223,7 +234,12 @@ class AnnotationObjSpace(ObjSpace):
         except UnwrapException:
             pass
         else:
-            return self.wrap(left - right)
+            try:
+                result = left - right
+            except:
+                self.reraise()
+            else:
+                return self.wrap(result)
         if is_int(w_left) and is_int(w_right):
             return W_Integer()
         else:
@@ -236,15 +252,26 @@ class AnnotationObjSpace(ObjSpace):
         except UnwrapException:
             pass
         else:
-            return self.wrap(left * right)
+            try:
+                result = left * right
+            except:
+                self.reraise()
+            else:
+                return self.wrap(result)
         if is_int(w_left) and is_int(w_right):
             return W_Integer()
         else:
             return W_Anything()
 
     def iter(self, w_iterable):
+        # XXX Should return an actual iterable, so that
+        # (1) if a true constant, a loop using next() will work correctly
+        #     (e.g. unpackiterable())
+        # (2) otherwise, we can at least unify the result types for next()
         if isinstance(w_iterable, W_Constant):
             value = w_iterable.value
+            if isinstance(value, list):
+                return W_ConstantIterator(value)
             try:
                 it = iter(value)
             except:
@@ -259,9 +286,17 @@ class AnnotationObjSpace(ObjSpace):
                 return W_Anything()
             else:
                 raise NoValue
+        if isinstance(w_iterator, W_ConstantIterator):
+            try:
+                value = w_iterator.next()
+            except StopIteration:
+                raise NoValue
+            else:
+                return self.wrap(value)
         raise IndeterminateCondition(w_iterator)
 
     def call(self, w_func, w_args, w_kwds):
+        # XXX Need to move this (or most of it) into the W_*Function classes
         w_closure = None
         if isinstance(w_func, W_BuiltinFunction):
             bytecode = w_func.code
@@ -280,7 +315,20 @@ class AnnotationObjSpace(ObjSpace):
             try:
                 code = func.func_code
             except AttributeError:
-                return W_Anything()
+                # Hmmm...  A built-in funtion?  Call it if constant args.
+                try:
+                    args = self.unwrap(w_args)
+                    kwds = self.unwrap(w_kwds)
+                except UnwrapException:
+                    return W_Anything()
+                else:
+                    try:
+                        result = func(*args, **kwds)
+                    except:
+                        self.reraise()
+                    else:
+                        w_result = self.wrap(result)
+                        return w_result
             bytecode = self.bytecodecache.get(code)
             if bytecode is None:
                 bytecode = PyByteCode()
@@ -310,23 +358,37 @@ class AnnotationObjSpace(ObjSpace):
             return W_Anything()
         else:
             try:
-                return self.wrap(getattr(obj, name))
+                result = getattr(obj, name)
             except:
                 return self.reraise()
+            else:
+                return self.wrap(result)
 
     def setattr(self, w_obj, w_name, w_value):
         if isinstance(w_obj, W_Module) and isinstance(w_name, W_Constant):
             name = self.unwrap(w_name)
             w_obj.setattr(name, w_value)
+            return
         # Space setattr shouldn't return anything, so no w_None here
 
     def setitem(self, w_obj, w_key, w_value):
-        if (isinstance(w_obj, W_KnownKeysContainer) and
-            isinstance(w_key, W_Constant)):
+        if isinstance(w_key, W_Constant):
             key = self.unwrap(w_key)
-            w_obj.args_w[key] = w_value
-            return
-        # XXX How to record the side effect?
+            if isinstance(w_obj, W_KnownKeysContainer):
+                try:
+                    w_obj[key] = w_value
+                except:
+                    self.reraise()
+                return
+            elif (isinstance(w_obj, W_Constant) and
+                  isinstance(w_value, W_Constant)):
+                try:
+                    w_obj[key] = self.unwrap(w_value)
+                except:
+                    self.reraise()
+                return
+        # XXX What if isinstance(w_obj, W_Constant) ???
+        # XXX Otherwise, how to record the side effect?
 
     def len(self, w_obj):
         if isinstance(w_obj, W_KnownKeysContainer):
@@ -336,7 +398,12 @@ class AnnotationObjSpace(ObjSpace):
         except UnwrapException:
             return W_Anything()
         else:
-            return self.wrap(len(obj))
+            try:
+                result = len(obj)
+            except:
+                self.reraise()
+            else:
+                return self.wrap(result)
 
     def getitem(self, w_obj, w_key):
         try:
@@ -354,29 +421,53 @@ class AnnotationObjSpace(ObjSpace):
             else:
                 return W_Anything()
         try:
-            return self.wrap(obj[key])
+            result = obj[key]
         except:
             self.reraise()
+        else:
+            return self.wrap(result)
+
+class HelperObjSpace(AnnotationObjSpace):
+
+    def __init__(self):
+        self.ec = None
+        AnnotationObjSpace.__init__(self)
+
+    def getexecutioncontext(self):
+        if self.ec is None:
+            self.ec = self.createexecutioncontext()
+        return self.ec
+
+    def createexecutioncontext(self):
+        return HelperExecutionContext(self)
 
 def make_op(name, symbol, arity, specialnames):
-
-    if not hasattr(operator, name):
-        return # Can't do it
 
     if hasattr(AnnotationObjSpace, name):
         return # Shouldn't do it
 
-    def generic_operator(space, *args_w):
-        assert len(args_w) == arity, "got a wrong number of arguments"
+    op = getattr(operator, name, None)
+    if not op:
+        return # Can't do it
+
+    def generic_operator(self, *args_w):
+        assert len(args_w) == arity, name+" got the wrong number of arguments"
+        args = []
         for w_arg in args_w:
-            if not isinstance(w_arg, W_Constant):
+            try:
+                arg = self.unwrap(w_arg)
+            except UnwrapException:
                 break
+            else:
+                args.append(arg)
         else:
-            # all arguments are constants, call the operator now
-            op = getattr(operator, name)
-            args = [space.unwrap(w_arg) for w_arg in args_w]
-            result = op(*args)
-            return space.wrap(result)
+            # All arguments are constants: call the operator now
+            try:
+                result = op(*args)
+            except:
+                self.reraise()
+            else:
+                return self.wrap(result)
 
         return W_Anything()
 
@@ -384,3 +475,5 @@ def make_op(name, symbol, arity, specialnames):
 
 for line in ObjSpace.MethodTable:
     make_op(*line)
+
+call_level = 0

@@ -32,17 +32,6 @@ class PyFrame:
         self.last_exception = None
         self.next_instr = 0
 
-    def clone(self):
-        # XXX assume locals and globals are constant
-        f = PyFrame(self.space, self.bytecode, self.w_globals, self.w_locals)
-        f.valuestack = self.valuestack.clone()
-        f.blockstack = self.blockstack.clone()
-        f.last_exception = self.last_exception
-        f.next_instr = self.next_instr
-        f.localcells = clonecells(self.localcells)
-        f.nestedcells = clonecells(self.nestedcells)
-        return f
-
     def eval(self, executioncontext):
         "Interpreter main loop!"
         from pypy.interpreter import opcode
@@ -154,10 +143,12 @@ class PyFrame:
         # object.  Here we will just try to read its __dict__ attribute and
         # if it fails we assume that it was a dictionary in the first place.
         w_attrname = self.space.wrap("__dict__")
-        try:
-            w_builtins = self.space.getattr(w_builtins, w_attrname)
-        except OperationError:
-            pass # catch and ignore any error
+        # XXX Commented out the following; it doesn't work for Ann space,
+        # and doesn't seem to be needed for other spaces AFAICT.
+##        try:
+##            w_builtins = self.space.getattr(w_builtins, w_attrname)
+##        except OperationError:
+##            pass # XXX catch and ignore any error
         return w_builtins
 
     ### exception stack ###
@@ -377,15 +368,3 @@ class Cell:
         else:
             return "%s(%s)" % (self.__class__.__name__, self.w_value)
 
-def clonecells(cells):
-    """Clone a list of cells."""
-    newcells = []
-    for cell in cells:
-        try:
-            value = cell.get()
-        except ValueError:
-            newcell = Cell()
-        else:
-            newcell = Cell(value)
-        newcells.append(newcell)
-    return newcells
