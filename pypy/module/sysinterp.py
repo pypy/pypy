@@ -38,7 +38,7 @@ for fn in builtin_module_names:
 # The following built-in modules are not written in PyPy, so we
 # steal them from Python.
 for fn in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
-           'itertools', 'math', '_codecs', 'md5', 'sha',
+           'itertools', 'math', '_codecs',
            '_random', '_sre', 'time', '_socket', 'errno',
            'marshal', 'struct', 'binascii', 'parser']:
     if fn not in builtin_modules:
