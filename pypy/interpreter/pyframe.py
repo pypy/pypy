@@ -6,6 +6,11 @@ from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 
+import __future__
+compiler_flags = 0
+for fname in __future__.all_feature_names:
+    compiler_flags |= getattr(__future__, fname).compiler_flag
+
 
 class PyFrame(eval.Frame):
     """Represents a frame for a regular Python function
@@ -49,6 +54,9 @@ class PyFrame(eval.Frame):
         
     def getclosure(self):
         return None
+
+    def get_compile_flags(self):
+        return self.code.co_flags & compiler_flags
 
     def eval(self, executioncontext):
         "Interpreter main loop!"

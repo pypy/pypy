@@ -344,7 +344,9 @@ class PyInterpFrame(pyframe.PyFrame):
         w_locals  = f.valuestack.pop()
         w_globals = f.valuestack.pop()
         w_prog    = f.valuestack.pop()
-        w_resulttuple = f.prepare_exec(w_prog, w_globals, w_locals)
+        w_compile_flags = f.space.wrap(f.get_compile_flags())
+        w_resulttuple = f.prepare_exec(w_prog, w_globals, w_locals,
+                                       w_compile_flags)
         w_prog, w_globals, w_locals = f.space.unpacktuple(w_resulttuple, 3)
 
         plain = f.space.is_true(f.space.is_(w_locals, f.w_locals))
@@ -355,7 +357,7 @@ class PyInterpFrame(pyframe.PyFrame):
         if plain:
             f.setdictscope(w_locals)
 
-    def app_prepare_exec(f, prog, globals, locals):
+    def app_prepare_exec(f, prog, globals, locals, compile_flags):
         """Manipulate parameters to exec statement to (codeobject, dict, dict).
         """
         # XXX INCOMPLETE
@@ -387,14 +389,10 @@ class PyInterpFrame(pyframe.PyFrame):
     ##             isinstance(prog, types.FileType)):
             raise TypeError("exec: arg 1 must be a string, file, or code object")
     ##     if isinstance(prog, types.FileType):
-    ##         flags = 0
-    ##         ## XXX add in parent flag merging
-    ##         co = compile(prog.read(),prog.name,'exec',flags,1)
+    ##         co = compile(prog.read(),prog.name,'exec',comple_flags,1)
     ##         return (co,globals,locals)
         else: # prog is a string
-            flags = 0
-            ## XXX add in parent flag merging
-            co = compile(prog,'<string>','exec',flags,1)
+            co = compile(prog,'<string>','exec', compile_flags, 1)
             return (co, globals, locals)
 
     def POP_BLOCK(f):

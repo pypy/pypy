@@ -196,14 +196,21 @@ def load_part(w_path, prefix, partname, w_parent, tentative):
         w_exc = space.call_function(space.w_ImportError, w_failing)
         raise OperationError(space.w_ImportError, w_exc)
 
-
 def compile(str_, filename, startstr,
             supplied_flags=0, dont_inherit=0):
     #print (str_, filename, startstr, supplied_flags, dont_inherit)
     # XXX we additionally allow GENERATORS because compiling some builtins
     #     requires it. doesn't feel quite right to do that here.
+    supplied_flags |= 4096 
+    if not dont_inherit:
+        try:
+            frame = _actframe()
+        except IndexError:
+            pass
+        else:
+            supplied_flags |= frame.get_compile_flags()
     try:
-        c = cpy_builtin.compile(str_, filename, startstr, supplied_flags|4096, dont_inherit)
+        c = cpy_builtin.compile(str_, filename, startstr, supplied_flags, 1)
     # It would be nice to propagate all exceptions to app level,
     # but here we only propagate the 'usual' ones, until we figure
     # out how to do it generically.
