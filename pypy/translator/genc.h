@@ -198,30 +198,15 @@ static PyCodeObject* getcode(char* func_name, int lineno);
 static int trace_frame(PyThreadState *tstate, PyFrameObject *f, int code, PyObject *val);
 static int trace_frame_exc(PyThreadState *tstate, PyFrameObject *f);
 
-static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char *filename, int c_lineno) {
-	/*
-		STEALS a reference to allargs
-	*/
+static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, char *c_signature, char *filename, int c_lineno, PyThreadState *tstate) {
 	PyCodeObject *c;
 	PyFrameObject *f;
-	PyObject *rval;
-	PyThreadState *tstate;
 	PyObject *locals;
-	PyObject *function;
-	PyObject *args;
 	PyObject *locals_signature;
 	PyObject *locals_lineno;
 	PyObject *locals_filename;
 
-	if (allargs == NULL) {
-		return NULL;
-	}
-	tstate = PyThreadState_GET();
 	locals = PyDict_New();
-	args = PyTuple_GetSlice(allargs, 1, PyTuple_Size(allargs));
-	function = PyTuple_GetItem(allargs, 0);
-	Py_INCREF(function);
-	Py_DECREF(allargs);
 	locals_signature = PyString_FromString(c_signature);
 	locals_lineno = PyInt_FromLong(c_lineno);
 	locals_filename = PyString_FromString(filename);
@@ -229,7 +214,6 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 		locals_signature == NULL || locals_lineno == NULL ||
 		locals_filename == NULL) {
 		Py_XDECREF(locals);
-		Py_XDECREF(args);
 		Py_XDECREF(locals_signature);
 		Py_XDECREF(locals_lineno);
 		Py_XDECREF(locals_filename);
@@ -243,43 +227,33 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 	Py_DECREF(locals_signature);
 	Py_DECREF(locals_lineno);
 	Py_DECREF(locals_filename);
-	callstack_depth++;
 	c = getcode(c_signature, c_lineno);
 	if (c == NULL) {
-		callstack_depth--;
-		Py_DECREF(function);
-		Py_DECREF(args);
 		Py_DECREF(locals);
 		return NULL;
 	}
 	f = PyFrame_New(tstate, c, PyEval_GetGlobals(), locals);
 	if (f == NULL) {
-		callstack_depth--;
-		Py_DECREF(c);
-		Py_DECREF(locals);
-		Py_DECREF(function);
-		Py_DECREF(args);
 		return NULL;
 	}
 	Py_DECREF(c);
 	Py_DECREF(locals);
 	tstate->frame = f;
-	
 	if (trace_frame(tstate, f, PyTrace_CALL, Py_None) < 0) {
-		callstack_depth--;
 		Py_DECREF(args);
 		return NULL;
 	}
-	rval = PyObject_Call(function, args, NULL);
-	Py_DECREF(function);
-	Py_DECREF(args);
-	callstack_depth--;
+
+	return f;
+}
+
+static PyObject *traced_function_tail(PyObject *rval, PyFrameObject *f, PyThreadState *tstate) {
 	if (rval == NULL) {
 		if (tstate->curexc_traceback == NULL) {
 			PyTraceBack_Here(f);
 		}
 		if (trace_frame_exc(tstate, f) < 0) {
-			return NULL;
+			goto end;
 		}
 	} else {
 		if (trace_frame(tstate, f, PyTrace_RETURN, rval) < 0) {
@@ -287,8 +261,47 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 			rval = NULL;
 		}
 	}
+end:
 	tstate->frame = f->f_back;
-	Py_DECREF(f);
+	return rval;
+}
+
+static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char *filename, int c_lineno) {
+	/*
+		STEALS a reference to allargs
+	*/
+	PyFrameObject *f;
+	PyObject *rval;
+	PyThreadState *tstate;
+	PyObject *function;
+	PyObject *args;
+
+	if (allargs == NULL) {
+		return NULL;
+	}
+	args = PyTuple_GetSlice(allargs, 1, PyTuple_Size(allargs));
+	function = PyTuple_GetItem(allargs, 0);
+	if (args == NULL || function == NULL) {
+		return NULL;
+	}
+	Py_INCREF(function);
+	Py_DECREF(allargs);
+
+	tstate = PyThreadState_GET();
+	callstack_depth++;
+	f = traced_function_head(function, args, c_signature, filename, c_lineno, tstate);
+	if (f == NULL) {
+		callstack_depth--;
+		Py_DECREF(function);
+		Py_DECREF(args);
+		return NULL;
+	}
+
+	rval = PyObject_Call(function, args, NULL);
+	Py_DECREF(function);
+	Py_DECREF(args);
+	rval = traced_function_tail(rval, f, tstate);
+	callstack_depth--;
 	return rval;
 }
 
