@@ -208,7 +208,11 @@ class TestBuiltinApp(testit.AppTestCase):
                     "Builtin function 'callable' misreads int")
 
     def test_uncallable(self):
-        class NoCall:
+        # XXX TODO: I made the NoCall class explicitly newstyle to try and 
+        # remedy the failure in this test observed when running this with
+        # the trivial objectspace, but the test _still_ fails then (it
+        # doesn't fail with the standard objectspace, though).
+        class NoCall(object):
             pass
         a = NoCall()
         self.failIf(callable(a),
