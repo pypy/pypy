@@ -251,10 +251,17 @@ class TestTuple(object):
         assert f(30) == 30
 
 class TestException(object):
-    def setup_method(self, method):
+    def setup_method(self,method):
         if not llvm_found:
-            py.test.skip("llvm-as not found on path.")
-            
+            py.test.skip("llvm-as not found on path")
+
+    def test_simple_exception(self):
+        f = compile_function(llvmsnippet.simple_exception, [int])
+        for i in range(10):
+            assert f(i) == 4
+        for i in range(10, 20):
+            assert f(i) == 2
+        
     def test_two_exception(self):
         f = compile_function(llvmsnippet.two_exceptions, [int])
         for i in range(10):

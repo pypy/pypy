@@ -99,6 +99,7 @@ class FunctionRepr(LLVMRepr):
         remove_double_links(self.translator, self.graph)
         self.get_bbs()
         self.se = False
+        self.lblocks = []
 
     def setup(self):
         if self.se:
@@ -123,173 +124,23 @@ class FunctionRepr(LLVMRepr):
         self.same_origin_block = [False] * len(self.allblocks)
 
     def build_bbs(self):
-        checkgraph(self.graph)
-        a = self.annotator
         for number, pyblock in enumerate(self.allblocks):
-            if debug:
-                print "#" * 20, self.graph.name, number, pyblock
-            pyblock = self.allblocks[number]
             is_tryblock = isinstance(pyblock.exitswitch, Constant) and \
                           pyblock.exitswitch.value == last_exception
             if is_tryblock:
-                regularblock = "block%i" % self.blocknum[
-                    pyblock.exits[0].target]
-                exceptblock = "block%i.except" % self.blocknum[pyblock]
-                lblock = llvmbc.TryBasicBlock("block%i" % number,
-                                              regularblock, exceptblock)
+                block = TryBlockRepr(self, pyblock, self.gen)
+            elif pyblock == self.graph.returnblock:
+                block = ReturnBlockRepr(self, pyblock, self.gen)
+            elif pyblock == self.graph.exceptblock:
+                block = ExceptBlockRepr(self, pyblock, self.gen)
             else:
-                lblock = llvmbc.BasicBlock("block%i" % number)
-            if number == 0:
-                self.llvm_func = llvmbc.Function(self.llvmfuncdef(), lblock)
-            else:
-                self.llvm_func.basic_block(lblock)
-            if is_tryblock:
-                self.build_exc_blocks(number, pyblock)
-            #Create Phi nodes
-            incoming_links = []
-            def visit(node):
-                if isinstance(node, Link) and node.target == pyblock:
-                    incoming_links.append(node)
-            traverse(visit, self.graph)
-            print "***** phi nodes *****"
-            if len(incoming_links) != 0:
-                for i, arg in enumerate(pyblock.inputargs):
-                    print "___", i, arg, "___", 
-                    l_arg = self.gen.get_repr(arg)
-                    l_values = [self.gen.get_repr(l.args[i])
-                                for l in incoming_links]
-                    for j in range(len(l_values)):
-                        print j, l_values[j].llvmtype(), l_arg.llvmtype()
-                        if l_values[j].llvmtype() != l_arg.llvmtype():
-                            try:
-                                l_values[j] = \
-                                        l_values[j].alt_types[l_arg.llvmtype()]
-                            except KeyError:
-                                pass
-                    self.dependencies.add(l_arg)
-                    self.dependencies.update(l_values)
-                    lblock.phi(l_arg, l_values,
-                               ["%%block%i" % self.blocknum[l.prevblock]
-                                for l in incoming_links])
-            #Handle SpaceOperations
-            for opnumber, op in enumerate(pyblock.operations):
-                if opnumber == len(pyblock.operations) - 1 and is_tryblock:
-                    lblock.last_op = True                    
-                l_target = self.gen.get_repr(op.result)
-                self.dependencies.add(l_target)
-                l_arg0 = self.gen.get_repr(op.args[0])
-                self.dependencies.add(l_arg0)
-                l_op = getattr(l_arg0, "op_" + op.opname, None)
-                if l_op is not None:
-                    l_op(l_target, op.args, lblock, self)
-                #XXX need to find more elegant solution for this special case
-                elif op.opname == "newtuple":
-                    l_target.type.t_op_newtuple(l_target, op.args,
-                                                lblock, self)
-                elif op.opname in INTRINSIC_OPS:
-                    l_args = [self.gen.get_repr(arg) for arg in op.args[1:]]
-                    self.dependencies.update(l_args)
-                    lblock.spaceop(l_target, op.opname, [l_arg0] + l_args)
-                else:
-                        s = "SpaceOperation %s not supported. Target: %s " \
-                            "Args: %s " % (op.opname, l_target, op.args) + \
-                            "Dispatched on: %s" % l_arg0
-                            
-                        raise CompileError, s
-            # XXX: If a variable is passed to another block and has a different
-            # type there, we have to make the cast in this block since the phi
-            # instructions in the next block cannot be preceded by any other
-            # instruction
-            print "******Casts:******"
-            for link in pyblock.exits:
-                print "____________block:", link.target
-                for i, arg in enumerate(link.args):
-                    print arg,
-                    l_target = self.gen.get_repr(link.target.inputargs[i])
-                    l_local = self.gen.get_repr(arg)
-                    self.dependencies.update([l_target, l_local])
-                    print "local", l_local.typed_name()
-                    print "target", l_target.typed_name()
-                    print "from ", l_local.llvmtype(),
-                    print "to", l_target.llvmtype(),
-                    if l_target.llvmtype() != l_local.llvmtype():
-                        print "change: ", 
-                        l_tmp = self.gen.get_local_tmp(l_target.type, self)
-                        lblock.cast(l_tmp, l_local)
-                        try:
-                            print l_local.alt_types
-                            l_local.alt_types[l_target.llvmtype()] = l_tmp
-                        except (AttributeError, TypeError):
-                            l_local.alt_types = {l_target.llvmtype(): l_tmp}
-                            print l_local.alt_types
-                    else:
-                        print
-            #Create branches
-            if pyblock.exitswitch is None:
-                if pyblock == self.graph.returnblock:
-                    l_returnvalue = self.gen.get_repr(pyblock.inputargs[0])
-                    self.dependencies.add(l_returnvalue)
-                    lblock.ret(l_returnvalue)
-                elif pyblock == self.graph.exceptblock:
-                    l_exc = self.gen.get_repr(pyblock.inputargs[0])
-                    l_val = self.gen.get_repr(pyblock.inputargs[1])
-                    l_last_exception = self.gen.get_repr(last_exception)
-                    l_last_exc_value = self.gen.get_repr(last_exc_value)
-                    self.dependencies.update([l_exc, l_val, l_last_exception,
-                                              l_last_exc_value])
-                    if "%std.class" != l_exc.llvmtype():
-                        l_tmp = self.gen.get_local_tmp(
-                            PointerTypeRepr("%std.class", self.gen), self)
-                        lblock.cast(l_tmp, l_exc)
-                        l_exc = l_tmp
-                    if  "%std.exception" != l_val.llvmtype():
-                        l_tmp = self.gen.get_local_tmp(
-                            PointerTypeRepr("%std.exception", self.gen), self)
-                        lblock.cast(l_tmp, l_val)
-                        l_val = l_tmp
-                    lblock.store(l_exc, l_last_exception)
-                    lblock.store(l_val, l_last_exc_value)
-                    lblock.unwind()
-                else:
-                    lblock.uncond_branch(
-                        "%%block%i" % self.blocknum[pyblock.exits[0].target])
-            elif isinstance(pyblock.exitswitch, Constant) and \
-                 pyblock.exitswitch.value == last_exception:
-                #The branch has already be created by the last space op
-                assert lblock.closed
-            else:
-                assert isinstance(a.binding(pyblock.exitswitch),
-                                  annmodel.SomeBool)
-                l_switch = self.gen.get_repr(pyblock.exitswitch)
-                self.dependencies.add(l_switch)
-                lblock.cond_branch(
-                    l_switch,
-                    "%%block%i" % self.blocknum[pyblock.exits[1].target],
-                    "%%block%i" % self.blocknum[pyblock.exits[0].target])
+                block = BlockRepr(self, pyblock, self.gen)
+        self.llvm_func = llvmbc.Function(self.llvmfuncdef(), self.lblocks[0])
+        for bl in self.lblocks[1:]:
+            self.llvm_func.basic_block(bl)
 
-    def build_exc_blocks(self, number, pyblock):
-        lexcblock = llvmbc.BasicBlock("block%i.except" % number)
-        self.llvm_func.basic_block(lexcblock)
-        l_excp = self.gen.get_repr(last_exception)
-        l_exc = self.gen.get_local_tmp(PointerTypeRepr("%std.class", self.gen),
-                                       self)
-        l_uip = self.gen.get_local_tmp(PointerTypeRepr("uint", self.gen), self)
-        l_ui = self.gen.get_local_tmp(
-            self.gen.get_repr(annmodel.SomeInteger(True, True)), self)
-        self.dependencies.update([l_excp, l_exc, l_uip, l_ui])
-        lexcblock.load(l_exc, l_excp)
-        lexcblock.getelementptr(l_uip, l_exc, [0, 1])
-        lexcblock.load(l_ui, l_uip)
-        exits = pyblock.exits[1:]
-        l_exitcases = [self.gen.get_repr(ex.exitcase) for ex in exits]
-        self.dependencies.update(l_exitcases)
-        sw = [(str(abs(id(ex.exitcase))),
-               "%%block%i" % self.blocknum[ex.target])
-              for ex in exits]
-        lexcblock.switch(l_ui, "%%block%i.unwind" % number, sw)
-        lunwindblock = llvmbc.BasicBlock("block%i.unwind" % number)
-        lunwindblock.unwind()
-        self.llvm_func.basic_block(lunwindblock)
+    def add_block(self, lblock):
+        self.lblocks.append(lblock)
 
     def llvmfuncdef(self):
         s = "internal %s %s(" % (self.retvalue.llvmtype(), self.name)
@@ -315,6 +166,222 @@ class FunctionRepr(LLVMRepr):
         l_func.dependencies.update(l_args)
         lblock.call(l_target, l_args[0], l_args[1:])
 
+class BlockRepr(object):
+    def __init__(self, l_func, pyblock, gen):
+        print "BlockRepr"
+        self.l_func = l_func
+        self.pyblock = pyblock
+        self.gen = gen
+        self.l_args = [self.gen.get_repr(a) for a in pyblock.inputargs]
+        self.l_func.dependencies.update(self.l_args)
+        self.lblock = llvmbc.BasicBlock("block%i" % l_func.blocknum[pyblock])
+        l_func.add_block(self.lblock)
+        self.build_bb()
+
+    def build_bb(self):
+        self.create_phi_nodes()
+        self.create_space_ops()
+        self.create_terminator_instr()
+
+    def create_phi_nodes(self):
+        pyblock = self.pyblock
+        l_incoming_links = []
+        def visit(node):
+            if isinstance(node, Link) and node.target == pyblock:
+                l_incoming_links.append(LinkRepr.get_link(node, self.l_func,
+                                                          self.gen))
+        traverse(visit, self.l_func.graph)
+        if len(l_incoming_links) != 0:
+            for i, arg in enumerate(pyblock.inputargs):
+                l_arg = self.gen.get_repr(arg)
+                l_values = [l_l.l_args[i] for l_l in l_incoming_links]
+                self.l_func.dependencies.add(l_arg)
+                self.lblock.phi(l_arg, l_values, ["%" + l_l.blockname
+                                                  for l_l in l_incoming_links])
+
+    def create_space_ops(self):
+        for opnumber, op in enumerate(self.pyblock.operations):
+            self.create_op(opnumber, op)
+
+    def create_op(self, opnumber, op):
+        l_target = self.gen.get_repr(op.result)
+        l_arg0 = self.gen.get_repr(op.args[0])
+        self.l_func.dependencies.update([l_arg0, l_target])
+        l_op = getattr(l_arg0, "op_" + op.opname, None)
+        if l_op is not None:
+            l_op(l_target, op.args, self.lblock, self.l_func)
+        #XXX need to find more elegant solution for this special case
+        elif op.opname == "newtuple":
+            l_target.type.t_op_newtuple(l_target, op.args,
+                                        self.lblock, self.l_func)
+        elif op.opname in INTRINSIC_OPS:
+            l_args = [self.gen.get_repr(arg) for arg in op.args[1:]]
+            self.l_func.dependencies.update(l_args)
+            self.lblock.spaceop(l_target, op.opname, [l_arg0] + l_args)
+        else:
+            s = "SpaceOperation %s not supported. Target: %s " \
+                "Args: %s " % (op.opname, l_target, op.args) + \
+                "Dispatched on: %s" % l_arg0
+            raise CompileError, s
+
+    def create_terminator_instr(self):
+        print "create_terminator_instr"
+        pyblock = self.pyblock
+        l_func = self.l_func
+        l_link = LinkRepr.get_link(pyblock.exits[0], l_func, self.gen)
+        if self.pyblock.exitswitch is None:
+            self.lblock.uncond_branch("%" + l_link.blockname)
+        else:
+            l_switch = self.gen.get_repr(pyblock.exitswitch)
+            l_link = LinkRepr.get_link(pyblock.exits[0], l_func, self.gen)
+            l_link2 = LinkRepr.get_link(pyblock.exits[1], l_func, self.gen)
+            l_func.dependencies.add(l_switch)
+            self.lblock.cond_branch(l_switch, "%" + l_link2.blockname,
+                                    "%" + l_link.blockname)
+        #1 / 0
+
+
+class ReturnBlockRepr(BlockRepr):
+    def create_space_ops(self):
+        pass
+    
+    def create_terminator_instr(self):
+        l_returnvalue = self.gen.get_repr(self.pyblock.inputargs[0])
+        self.l_func.dependencies.add(l_returnvalue)
+        self.lblock.ret(l_returnvalue)
+
+
+class TryBlockRepr(BlockRepr):
+    def __init__(self, l_func, pyblock, gen):
+        print "TryBlockRepr"
+        self.l_func = l_func
+        self.pyblock = pyblock
+        self.gen = gen
+        self.l_args = [self.gen.get_repr(a) for a in pyblock.inputargs]
+        self.l_func.dependencies.update(self.l_args)
+        #XXXXXXXXXXX
+        regularblock = "DUMMY"
+        exceptblock = "block%i.except" % l_func.blocknum[pyblock]
+        self.lblock = llvmbc.TryBasicBlock("block%i" % \
+                                           l_func.blocknum[pyblock],
+                                           regularblock, exceptblock)
+        l_func.add_block(self.lblock)
+        l_link = LinkRepr.get_link(pyblock.exits[0], l_func, gen)
+        self.lblock.regularblock = l_link.blockname
+        self.build_bb()
+        self.build_exc_block()
+
+    def create_space_ops(self):
+        for opnumber, op in enumerate(self.pyblock.operations):
+            if opnumber == len(self.pyblock.operations) - 1:
+                self.lblock.last_op = True
+            self.create_op(opnumber, op)
+
+    def create_terminator_instr(self):
+        #The branch has already be created by the last space op
+        assert self.lblock.closed
+
+    def build_exc_block(self):
+        lexcblock = llvmbc.BasicBlock(self.lblock.label + ".except")
+        self.l_func.add_block(lexcblock)
+        l_excp = self.gen.get_repr(last_exception)
+        l_exc = self.gen.get_local_tmp(PointerTypeRepr("%std.class", self.gen),
+                                       self.l_func)
+        l_uip = self.gen.get_local_tmp(PointerTypeRepr("uint", self.gen),
+                                       self.l_func)
+        l_ui = self.gen.get_local_tmp(
+            self.gen.get_repr(annmodel.SomeInteger(True, True)), self.l_func)
+        self.l_func.dependencies.update([l_excp, l_exc, l_uip, l_ui])
+        lexcblock.load(l_exc, l_excp)
+        lexcblock.getelementptr(l_uip, l_exc, [0, 1])
+        lexcblock.load(l_ui, l_uip)
+        l_exits = [LinkRepr.get_link(l, self.l_func, self.gen)
+                                     for l in self.pyblock.exits[1:]]
+        l_exitcases = [self.gen.get_repr(ex.exitcase)
+                       for ex in self.pyblock.exits[1:]]
+        self.l_func.dependencies.update(l_exitcases)
+        sw = [(str(abs(id(ex.exitcase))), "%" + l_l.blockname)
+              for ex, l_l in zip(self.pyblock.exits[1:], l_exits)]
+        lexcblock.switch(l_ui, "%" + self.lblock.label + ".unwind", sw)
+        lunwindblock = llvmbc.BasicBlock(self.lblock.label + ".unwind")
+        lunwindblock.unwind()
+        self.l_func.add_block(lunwindblock)
+
+class ExceptBlockRepr(BlockRepr):
+    def create_space_ops(self):
+        pass
+
+    def create_terminator_instr(self):
+        l_exc = self.gen.get_repr(self.pyblock.inputargs[0])
+        l_val = self.gen.get_repr(self.pyblock.inputargs[1])
+        l_last_exception = self.gen.get_repr(last_exception)
+        l_last_exc_value = self.gen.get_repr(last_exc_value)
+        self.l_func.dependencies.update([l_exc, l_val, l_last_exception,
+                                         l_last_exc_value])
+        if "%std.class" != l_exc.llvmtype():
+            l_tmp = self.gen.get_local_tmp(
+                PointerTypeRepr("%std.class", self.gen), self.l_func)
+            self.lblock.cast(l_tmp, l_exc)
+            l_exc = l_tmp
+        if  "%std.exception" != l_val.llvmtype():
+            l_tmp = self.gen.get_local_tmp(
+                PointerTypeRepr("%std.exception", self.gen), self.l_func)
+            self.lblock.cast(l_tmp, l_val)
+            l_val = l_tmp
+        self.lblock.store(l_exc, l_last_exception)
+        self.lblock.store(l_val, l_last_exc_value)
+        self.lblock.unwind()
+
+
+class LinkRepr(object):
+    l_links = {}
+    def get_link(link, l_func, gen):
+        if (link, gen) not in LinkRepr.l_links:
+            LinkRepr.l_links[(link, gen)] = LinkRepr(link, l_func, gen)
+        return LinkRepr.l_links[(link, gen)]
+    get_link = staticmethod(get_link)
+            
+    def __init__(self, link, l_func, gen):
+        self.link = link
+        self.l_func = l_func
+        self.gen = gen
+        self.l_args = [self.gen.get_repr(a) for a in self.link.args]
+        self.l_targetargs = [self.gen.get_repr(a)
+                             for a in self.link.target.inputargs]
+        self.l_func.dependencies.update(self.l_args)
+        self.l_func.dependencies.update(self.l_targetargs)
+        assert len(self.l_args) == len(self.l_targetargs)
+        self.create_link_block()
+
+    def create_link_block(self):
+        link = self.link
+        l_func = self.l_func
+        self.blockname = "bl%i_to_bl%i" % (l_func.blocknum[link.prevblock],
+                                           l_func.blocknum[link.target])
+        self.lblock = llvmbc.BasicBlock(self.blockname)
+        if isinstance(link.prevblock.exitswitch, Constant) and \
+           link.prevblock.exitswitch.value == last_exception and \
+           len(self.l_args) == 2:
+            l_tmp1 = self.gen.get_local_tmp(PointerTypeRepr("%std.class",
+                                                            self.gen),
+                                            self.l_func)
+            l_tmp2 = self.gen.get_local_tmp(PointerTypeRepr("%std.exception",
+                                                            self.gen),
+                                            self.l_func)
+            self.l_func.dependencies.update([l_tmp1, l_tmp2])
+            self.lblock.load(self.l_args[0], l_tmp1)
+            self.lblock.load(self.l_args[1], l_tmp2)
+            self.l_args[0] = l_tmp1
+            self.l_args[1] = l_tmp2
+        for i, (l_a, l_ta) in enumerate(zip(self.l_args, self.l_targetargs)):
+            if l_a.llvmtype() != l_ta.llvmtype():
+                l_tmp = self.gen.get_local_tmp(l_ta.type, l_func)
+                self.lblock.cast(l_tmp, l_a)
+                self.l_args[i] = l_tmp
+        self.lblock.uncond_branch("%%block%i" % l_func.blocknum[link.target])
+        self.l_func.add_block(self.lblock)
+
+
 class EntryFunctionRepr(LLVMRepr):
     def __init__(self, name, function, gen):
         self.gen = gen
@@ -336,7 +403,8 @@ class EntryFunctionRepr(LLVMRepr):
         self.init_block = llvmbc.BasicBlock("init")
         self.init_block.instruction("store bool true, bool* %Initialized.0__")
         real_entry = llvmbc.BasicBlock("real_entry")
-        l_ret = self.gen.get_local_tmp(self.l_function.retvalue.type, self)
+        l_ret = self.gen.get_local_tmp(self.l_function.retvalue.type,
+                                       self)
         self.l_function.op_simple_call(
             l_ret, [self.function] + self.l_function.l_args, real_entry, self)
         real_entry.ret(l_ret)

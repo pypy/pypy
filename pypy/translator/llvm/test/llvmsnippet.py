@@ -269,6 +269,14 @@ def tuple_f3(i):
 
 
 #exception snippets:
+def simple_exception(n):
+    lst = range(10)
+    try:
+        lst[n]
+    except IndexError:
+        return 2
+    return 4
+    
 def two_exceptions(n):
     lst = range(10)
     try:
@@ -287,3 +295,18 @@ def catch_base_exception(n):
         return 2
     return 4
 
+
+#doesn't work yet!
+class MyException(Exception):
+    pass
+
+def raises(i):
+    if i:
+        raise MyException
+    return 1
+
+def catches(i):
+    try:
+        return raises(i)
+    except MyException:
+        return 2

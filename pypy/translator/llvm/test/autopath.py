@@ -46,10 +46,8 @@ def __dirinfo(part):
     
     while checkpaths:
         orig = checkpaths.pop()
-        fullorig = os.path.join(os.path.realpath(orig), '')
-        if fullorig.startswith(pypy_root):
-            if os.path.exists(os.path.join(fullorig, '__init__.py')):
-                sys.path.remove(orig)
+        if os.path.join(os.path.realpath(orig), '').startswith(pypy_root):
+            sys.path.remove(orig)
     sys.path.insert(0, head)
 
     munged = {}
