@@ -50,7 +50,8 @@ class __builtin__(ExtModule):
     def globals(self):
         return self._actframe().w_globals
 
-    def caller_locals(self):
+    def private_caller_locals(self):
+        #print self.__dict__.keys()
         return self._actframe(-2).getdictscope()
         
     def locals(self):
@@ -542,7 +543,7 @@ class __builtin__(ExtModule):
         called with no argument, return the variables bound in local scope."""
 
         if len(obj) == 0:
-            return caller_locals()
+            return _caller_locals()
         elif len(obj) != 1:
             raise TypeError, "vars() takes at most 1 argument."
         else:
@@ -607,7 +608,7 @@ class __builtin__(ExtModule):
             raise TypeError("dir expected at most 1 arguments, got %d"
                             % len(args))
         if len(args) == 0:
-            local_names = self.caller_locals().keys() # 2 stackframes away
+            local_names = _caller_locals().keys() # 2 stackframes away
             local_names.sort()
             return local_names
         
