@@ -168,11 +168,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # exceptions
         for_builtins.update(self.clone_exception_hierarchy())
         
-        self.make_builtins()
-        
-        # insert stuff into the newly-made builtins
-        for key, w_value in for_builtins.items():
-            self.setitem(self.w_builtins, self.wrap(key), w_value)
+        self.make_builtins(for_builtins)
 
     def gettypeobject(self, typedef):
         # types_w maps each StdTypeDef instance to its

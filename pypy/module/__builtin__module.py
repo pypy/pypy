@@ -537,6 +537,15 @@ class classmethod(object):
             return self.f(klass, *args)
         return newfunc
 
+def _fromkeys(cls, seq, value=None):
+    r = cls()
+    for s in seq:
+        r[s] = value
+    return r
+
+dict.fromkeys = classmethod(_fromkeys)
+del _fromkeys
+
 
 # super is a modified version from Guido's tutorial
 #     http://www.python.org/2.2.3/descrintro.html

@@ -23,10 +23,14 @@ class ObjSpace:
         # sets all the internal descriptors 
         self.initialize()
 
-    def make_builtins(self):
+    def make_builtins(self, for_builtins):
         # initializing builtins may require creating a frame which in
         # turn already accesses space.w_builtins, provide a dummy one ...
         self.w_builtins = self.newdict([])
+
+        # insert stuff into the newly-made builtins
+        for key, w_value in for_builtins.items():
+            self.setitem(self.w_builtins, self.wrap(key), w_value)
 
         assert not hasattr(self, 'builtin')
         if not hasattr(self, 'sys'):
