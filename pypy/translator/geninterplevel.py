@@ -568,7 +568,7 @@ class GenRpy:
                 return "(space.sys.get(space.str_w(%s)))" % self.nameof(func.__name__)                
             else:
                 print ("WARNING: accessing builtin modules different from sys or __builtin__"
-                       " is likely producing non-sense")
+                       " is likely producing non-sense: %s %s" % (module.__name__, func.__name__))
                 name = self.uniquename('gbltin_' + func.__name__)
                 self.initcode.append('m.%s = space.getattr(%s, %s)' % (
                     name, self.nameof(module), self.nameof(func.__name__)))
