@@ -292,5 +292,16 @@ class AppTestW_ListObject(test.AppTestCase):
         l.extend((2,))
         self.assertEquals(l, [1,2])
 
+    def test_extended_slice(self):
+        l = range(10)
+        del l[::2]
+        self.assertEquals(l,[1,3,5,7,9])
+        l[-2::-1] = l[:-1]
+        self.assertEquals(l,[7,5,3,1,9])
+        del l[-1:2:-1]
+        self.assertEquals(l,[7,5,3])
+        del l[:2]
+        self.assertEquals(l,[3])
+        
 if __name__ == '__main__':
     test.main()
