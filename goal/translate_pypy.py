@@ -185,15 +185,26 @@ if __name__ == '__main__':
             c_entry_point = t.ccompile()
             if not options['-o']:
                 print 'Running!'
-                import os
-                if os.path.exists('/tmp/usession'):
-                    import glob
-                    from pypy.tool.udir import udir
-                    for fn in glob.glob('/tmp/usession/*'):
+                import os, shutil
+                from pypy.tool.udir import udir
+                d = str(udir)
+                linkdir = os.path.join(os.path.dirname(d), 'usession')
+                if os.path.exists(linkdir):
+                    def globexps(dirname, *exps):
+                        import glob
+                        rval = []
+                        for exp in exps:
+                            rval.extend(glob.glob(os.path.join(dirname, exp)))
+                        return rval
+                    exts = ('*.c', '*.so')
+                    for fn in globexps(linkdir, *exts):
                         os.remove(fn)
-                    d = str(udir)
-                    for fn in glob.glob(d+'/*.c') + glob.glob(d+'/*.so'):
-                        os.link(fn, os.path.join('/tmp/usession', os.path.basename(fn)))
+                    for fn in globexps(d, *exts):
+                        args = fn, os.path.join(linkdir, os.path.basename(fn))
+                        try:
+                            os.link(*args)
+                        except OSError:
+                            shutil.copy2(*args)
                 c_entry_point()
     except:
         debug(True)
