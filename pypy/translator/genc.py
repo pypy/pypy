@@ -114,7 +114,7 @@ class GenC:
                     value.__file__.endswith('.pyo')), \
                "%r is not a builtin module (probably :)"%value
         name = self.uniquename('mod%s'%value.__name__)
-        self.initcode.append('INITCHK(%s = PyImport_Import("%s"))'%(name, value.__name__))
+        self.initcode.append('INITCHK(%s = PyImport_ImportModule("%s"))'%(name, value.__name__))
         return name
         
 
