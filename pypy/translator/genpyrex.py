@@ -2,8 +2,6 @@
 generate Pyrex files from the flowmodel. 
 
 """
-import autopath
-from pypy.tool import test
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.translator.flowmodel import *
 from pypy.translator.annotation import Annotator, set_type, get_type
