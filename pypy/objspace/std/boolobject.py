@@ -43,5 +43,6 @@ def repr__Bool(space, w_bool):
     else:
         return space.wrap('False')
 
+str__Bool = repr__Bool
 
 register_all(vars())
