@@ -121,7 +121,7 @@ class LLClass(LLTyper):
         return op
 
     def make_fn_new(self):
-        # generate the flow graph of the xxx_new() function
+        # generate the flow graph of the new_xxx() function
         b = Block([])
         op = self.put_op(b)
         cls = self.cdef.cls
@@ -134,13 +134,13 @@ class LLClass(LLTyper):
                 op('setattr', v1, Constant(fld.name), Constant(value),
                    s_result = annmodel.SomeImpossibleValue())
         # finally, return v1
-        graph = FunctionGraph('%s_new' % self.name, b)
+        graph = FunctionGraph('new_%s' % self.name, b)
         self.bindings[graph.getreturnvar()] = self.bindings[v1]
         b.closeblock(Link([v1], graph.returnblock))
         return self.build_llfunc(graph)
 
     def make_fn_typenew(self):
-        # generate the flow graph of the xxx_typenew() function that
+        # generate the flow graph of the typenew_xxx() function that
         # initializes the class attributes of the type object
         b = Block([])
         op = self.put_op(b)
@@ -155,7 +155,7 @@ class LLClass(LLTyper):
                 op('initclassattr', v1, Constant(fld.name), Constant(value),
                    s_result = annmodel.SomeImpossibleValue())
         # finally, return None
-        graph = FunctionGraph('%s_typenew' % self.name, b)
+        graph = FunctionGraph('typenew_%s' % self.name, b)
         self.bindings[graph.getreturnvar()] = annmodel.immutablevalue(None)
         b.closeblock(Link([Constant(None)], graph.returnblock))
         return self.build_llfunc(graph)

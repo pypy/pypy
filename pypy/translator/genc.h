@@ -111,26 +111,26 @@
 #define OP_CALL_PYOBJ(args, r, err)    if (!(r=PyObject_CallFunction args)) \
 						goto err;
 
-#define OP_INSTANTIATE(cls, r, err)    if (!(r=cls##_new())) goto err;
+#define OP_INSTANTIATE(cls, r, err)    if (!(r=new_##cls())) goto err;
 #define ALLOC_INSTANCE(cls, r, err)                             \
-		if (!(r=PyType_GenericAlloc(&cls##_Type.type, 0))) goto err;
+		if (!(r=PyType_GenericAlloc(&g_Type_##cls.type, 0))) goto err;
 #define SETUP_TYPE(cls)                         \
-		PyType_Ready(&cls##_Type.type); \
-		cls##_typenew();
+		PyType_Ready(&g_Type_##cls.type); \
+		typenew_##cls();
 
-#define OP_GETINSTATTR(cls, o, f, r)    r=((cls##_Object*) o)->f;
-#define OP_GETINSTATTR_o(cls, o, f, r)  r=((cls##_Object*) o)->f; Py_INCREF(r);
-#define OP_GETCLASSATTR(cls, o, f, r)   r=((cls##_TypeObject*)(o->ob_type))->f;
-#define OP_GETCLASSATTR_o(cls, o, f, r) r=((cls##_TypeObject*)(o->ob_type))->f;\
+#define OP_GETINSTATTR(cls,o,f,r)    r=((PyObj_##cls*) o)->f;
+#define OP_GETINSTATTR_o(cls,o,f,r)  r=((PyObj_##cls*) o)->f; Py_INCREF(r);
+#define OP_GETCLASSATTR(cls,o,f,r)   r=((PyTypeObject_##cls*)(o->ob_type))->f;
+#define OP_GETCLASSATTR_o(cls,o,f,r) r=((PyTypeObject_##cls*)(o->ob_type))->f;\
 								  Py_INCREF(r);
-#define OP_SETINSTATTR(cls, o, f, v)    ((cls##_Object*) o)->f=v;
+#define OP_SETINSTATTR(cls, o, f, v)    ((PyObj_##cls*) o)->f=v;
 #define OP_SETINSTATTR_o(cls, o, f, v)  { PyObject* tmp;                    \
 					  OP_GETINSTATTR(cls, o, f, tmp)    \
 					  OP_SETINSTATTR(cls, o, f, v)      \
 					  Py_INCREF(v); Py_XDECREF(tmp);    \
 					}
-#define OP_INITCLASSATTR(cls, f, v)     cls##_Type.f=v;
-#define OP_INITCLASSATTR_o(cls, f, v)   cls##_Type.f=v; Py_INCREF(v);
+#define OP_INITCLASSATTR(cls, f, v)     g_Type_##cls.f=v;
+#define OP_INITCLASSATTR_o(cls, f, v)   g_Type_##cls.f=v; Py_INCREF(v);
 
 #define OP_DUMMYREF(r)                  r = Py_None; Py_INCREF(r);
 

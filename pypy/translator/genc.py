@@ -122,7 +122,7 @@ class GenC:
             assert func not in self.llfunctions, '%r duplicate' % (func,)
             llfunc = LLFunction(
                 typeset = self.typeset,
-                name    = '%s__%d' % (func.func_name, n),
+                name    = 'f%d_%s' % (n, func.func_name),
                 graph   = self.translator.flowgraphs[func])
             self.llfunctions[func] = llfunc
             self.functionslist.append(llfunc)
@@ -256,7 +256,7 @@ class GenC:
             'base': '0',
             }
         if llclass.llparent is not None:
-            info['base'] = '&%s_Type.type' % llclass.llparent.name
+            info['base'] = '&g_Type_%s.type' % llclass.llparent.name
 
         # print the C struct declaration
         print >> f, self.C_STRUCT_HEADER % info
@@ -265,7 +265,7 @@ class GenC:
                 print >> f, '\t%s;' % cdecl(llvar.type, llvar.name)
         print >> f, self.C_STRUCT_FOOTER % info
 
-        # print the struct Xxx_TypeObject, which is an extension of
+        # print the struct PyTypeObject_Xxx, which is an extension of
         # PyTypeObject with the class attributes of this class
         print >> f, self.C_TYPESTRUCT_HEADER % info
         for fld in llclass.class_fields:
@@ -299,7 +299,7 @@ class GenC:
                 t = 'T_INT'
             else:
                 continue   # ignored
-            print >> f, '\t{"%s",\t%s,\toffsetof(%s_Object, %s)},' % (
+            print >> f, '\t{"%s",\t%s,\toffsetof(PyObj_%s, %s)},' % (
                 fld.name, t, llclass.name, fld.llvars[0].name)
         print >> f, self.C_MEMBERLIST_FOOTER % info
 
@@ -321,7 +321,7 @@ static PyObject* c_%(exported)s(PyObject* self, PyObject* args)
     C_ENTRYPOINT_FOOTER = '''}'''
 
     C_METHOD_TABLE = '''
-static PyMethodDef %(modname)sMethods[] = {
+static PyMethodDef g_methods_%(modname)s[] = {
 \t{"%(exported)s", (PyCFunction)c_%(exported)s, METH_VARARGS},
 \t{NULL, NULL}
 };'''
@@ -329,7 +329,7 @@ static PyMethodDef %(modname)sMethods[] = {
     C_INIT_HEADER = '''
 void init%(modname)s(void)
 {
-\tPy_InitModule("%(modname)s", %(modname)sMethods);'''
+\tPy_InitModule("%(modname)s", g_methods_%(modname)s);'''
 
     C_INIT_FOOTER = '''}'''
 
@@ -339,17 +339,17 @@ void init%(modname)s(void)
 typedef struct {
 	PyObject_HEAD'''
 
-    C_STRUCT_FOOTER = '''} %(name)s_Object;
+    C_STRUCT_FOOTER = '''} PyObj_%(name)s;
 '''
 
-    C_DEALLOC_HEADER = '''static void %(name)s_dealloc(%(name)s_Object* op)
+    C_DEALLOC_HEADER = '''static void dealloc_%(name)s(PyObj_%(name)s* op)
 {'''
 
     C_DEALLOC_FOOTER = '''	PyObject_Del((PyObject*) op);
 }
 '''
 
-    C_MEMBERLIST_HEADER = '''static PyMemberDef %(name)s_memberlist[] = {'''
+    C_MEMBERLIST_HEADER = '''static PyMemberDef g_memberlist_%(name)s[] = {'''
 
     C_MEMBERLIST_FOOTER = '''	{NULL}	/* Sentinel */
 };
@@ -361,7 +361,7 @@ typedef struct {
     #     tp_base.  This is ok because we expect all RPython classes to exist
     #     and be analyzed in advance.  This allows class attributes to be stored
     #     as an extensison of the PyTypeObject structure, which are then
-    #     accessed with ((PyXxxTypeObject*)op->ob_type)->classattrname.
+    #     accessed with ((PyTypeObject_Xxx*)op->ob_type)->classattrname.
     #     This doesn't work if op->ob_type can point to a heap-allocated
     #     type object over which we have no control.
 
@@ -369,16 +369,16 @@ typedef struct {
 	PyTypeObject type;
 	/* class attributes follow */'''
 
-    C_TYPESTRUCT_FOOTER = '''} %(name)s_TypeObject;
+    C_TYPESTRUCT_FOOTER = '''} PyTypeObject_%(name)s;
 '''
 
-    C_TYPEOBJECT = '''static %(name)s_TypeObject %(name)s_Type = {
+    C_TYPEOBJECT = '''static PyTypeObject_%(name)s g_Type_%(name)s = {
 	PyObject_HEAD_INIT(&PyType_Type)
 	0,
 	"%(name)s",
-	sizeof(%(name)s_Object),
+	sizeof(PyObj_%(name)s),
 	0,
-	(destructor)%(name)s_dealloc,		/* tp_dealloc */
+	(destructor)dealloc_%(name)s,		/* tp_dealloc */
 	0,					/* tp_print */
 	0,					/* tp_getattr */
 	0,					/* tp_setattr */
@@ -402,7 +402,7 @@ typedef struct {
 	0,					/* tp_iter */
 	0,					/* tp_iternext */
 	0,					/* tp_methods */
-	%(name)s_memberlist,			/* tp_members */
+	g_memberlist_%(name)s,			/* tp_members */
 	0,					/* tp_getset */
 	%(base)s,				/* tp_base */
 	0,					/* tp_dict */
