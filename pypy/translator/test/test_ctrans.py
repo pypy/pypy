@@ -136,6 +136,14 @@ class TypedTestCase(testit.IntTestCase):
         #     that can't be inspected from Python.
         self.assertEquals(result.__class__.__name__[:8], "list of ")
 
+    def test_call_five_six(self):
+        call_five_six = self.getcompiled(snippet.call_five_six)
+        result = call_five_six()
+        #self.assertEquals(result, [5, 6])
+        # --  currently result isn't a real list, but a pseudo-array
+        #     that can't be inspected from Python.
+        self.assertEquals(result.__class__.__name__[:8], "list of ")
+
     def test_class_defaultattr(self):
         class K:
             n = "hello"

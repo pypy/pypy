@@ -237,6 +237,20 @@ class AnnonateTestCase(testit.IntTestCase):
         # XXX not sure this is the best behavior...
         self.assertEquals(s, annmodel.immutablevalue(42))
 
+    def test_call_five(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.call_five, [])
+        # returns should be a list of constants (= 5)
+        self.assert_(isinstance(s, annmodel.SomeList))
+        self.assertEquals(s.s_item, annmodel.immutablevalue(5))
+
+    def test_call_five_six(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.call_five_six, [])
+        # returns should be a list of positive integers
+        self.assert_(isinstance(s, annmodel.SomeList))
+        self.assertEquals(s.s_item, annmodel.SomeInteger(nonneg=True))
+
 def g(n):
     return [0,1,2,n]
 

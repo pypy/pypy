@@ -254,6 +254,15 @@ def call_five():
     _append_five(a)
     return a
 
+def _append_six(lst): 
+    lst += [6]
+
+def call_five_six():
+    a = []
+    _append_five(a)
+    _append_six(a)
+    return a
+
 # INHERITANCE / CLASS TESTS  
 class C(object): pass
 
