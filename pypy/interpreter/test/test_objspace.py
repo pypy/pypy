@@ -38,6 +38,12 @@ class TestStdObjectSpace(testsupport.TestCase):
         d = dict(items)
         w_d = self.space.newdict(items_w)
         self.assertEqual_w(w_d, w(d))
+
+    def test_newtuple(self):
+        w = self.space.wrap
+        t = tuple(range(10))
+        w_t = self.space.newtuple([w(i) for i in t])
+        self.assertEqual_w(w_t, w(t))
         
 if __name__ == '__main__':
     testsupport.main()
