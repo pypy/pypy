@@ -63,10 +63,23 @@ class SomeObject:
 
     def fmt_knowntype(self, t):
         return t.__name__
-    
-    def contains(self, other):
-        return self == other or pair(self, other).union() == self
 
+    def contains(self, other):
+        if self == other:
+            return True
+        if self.__class__ == other.__class__:
+            return self.hom_contains(other)
+        s_union = pair(self, other).union()
+        if s_union.__class__ != self.__class__:
+            return False
+        if s_union == self:
+            return True
+        return self.hom_contains(s_union)
+
+    # default hom_contains, hom_contains can assume self.__class__ == other.__class__
+    def hom_contains(self, other):
+        return pair(self, other).union() == self
+    
     def is_constant(self):
         return hasattr(self, 'const')
 
@@ -128,6 +141,9 @@ class SomeList(SomeObject):
         self.factories = factories
         self.s_item = s_item     # general enough for any element
 
+    def hom_contains(self, other):
+        return self.s_item.contains(other.s_item)
+
 
 class SomeSlice(SomeObject):
     knowntype = slice
@@ -135,6 +151,11 @@ class SomeSlice(SomeObject):
         self.start = start
         self.stop = stop
         self.step = step
+
+    def hom_contains(self, other):
+        return (self.start.contains(other.start) and
+                self.stop.contains(other.stop) and
+                self.step.contains(other.step))
 
 
 class SomeTuple(SomeObject):
@@ -148,6 +169,17 @@ class SomeTuple(SomeObject):
         else:
             self.const = tuple([i.const for i in items])
 
+    def hom_contains(self, other):
+        self_items = self.items
+        other_items = other.items
+        if len(self.items) != len(self.items):
+            return False
+        for i1, i2 in zip(self_items, other_items):
+            if not i1.contains(i2):
+                return False
+        return True
+
+
 
 class SomeDict(SomeObject):
     "Stands for a dict."
@@ -157,6 +189,9 @@ class SomeDict(SomeObject):
         self.s_key = s_key
         self.s_value = s_value
 
+    def hom_contains(self, other):
+        return self.s_key.contains(other.s_key) and self.s_value.contains(other.s_value)
+
 
 class SomeIterator(SomeObject):
     "Stands for an iterator returning objects of a known type."
@@ -164,6 +199,8 @@ class SomeIterator(SomeObject):
     def __init__(self, s_item=SomeObject()):
         self.s_item = s_item
 
+    def hom_contains(self, other):
+        return self.s_item.contains(other.s_item)
 
 class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
@@ -175,6 +212,11 @@ class SomeInstance(SomeObject):
         return None
     def fmt_classdef(self, cd):
         return cd.cls.__name__
+
+    def hom_contains(self, other):
+        if self.classdef is other.classdef:
+            return self.revision >= other.revision
+        return self.classdef.commonbase(other.classdef) is self.classdef
 
 def new_or_old_class(c):
     if hasattr(c, '__class__'):
@@ -238,6 +280,9 @@ class SomeBuiltin(SomeObject):
     def __init__(self, analyser, s_self=None):
         self.analyser = analyser
         self.s_self = s_self
+
+    def hom_contains(self, other):
+        return self.analyser == other.analyser and (not self.s_self or self.s_self.contains(other.s_self))
 
 
 class SomeImpossibleValue(SomeObject):

@@ -9,10 +9,12 @@ s3 = SomeInteger(nonneg=False)
 s4 = SomeList({}, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
 s5 = SomeList({}, SomeTuple([SomeInteger(nonneg=False), SomeString()]))
 s6 = SomeImpossibleValue()
-slist = [s1,s2,s3,s4,s5,s6]
+s7 = SomeInteger(nonneg=True)
+s7.const = 7
+slist = [s1,s2,s3,s4,s5,s6, s7]
 
 def test_equality():
-    assert s1 != s2 != s3 != s4 != s5 != s6
+    assert s1 != s2 != s3 != s4 != s5 != s6 != s7
     assert s1 == SomeObject()
     assert s2 == SomeInteger(nonneg=True)
     assert s3 == SomeInteger(nonneg=False)
@@ -20,23 +22,26 @@ def test_equality():
     assert s5 == SomeList({}, SomeTuple([SomeInteger(nonneg=False), SomeString()]))
     assert s6 == SomeImpossibleValue()
 
+
 def test_contains():
     assert ([(s,t) for s in slist for t in slist if s.contains(t)] ==
-            [(s1,s1), (s1,s2), (s1,s3), (s1,s4), (s1,s5), (s1,s6),
-                      (s2,s2),                            (s2,s6),
-                      (s3,s2), (s3,s3),                   (s3,s6),
+            [(s1,s1), (s1,s2), (s1,s3), (s1,s4), (s1,s5), (s1,s6), (s1,s7),
+                      (s2,s2),                            (s2,s6), (s2,s7),
+                      (s3,s2), (s3,s3),                   (s3,s6), (s3,s7),
                                         (s4,s4),          (s4,s6),
                                         (s5,s4), (s5,s5), (s5,s6),
-                                                          (s6,s6)])
+                                                          (s6,s6),
+                                                          (s7,s6), (s7, s7)])
 
 def test_union():
     assert ([unionof(s,t) for s in slist for t in slist] ==
-            [s1, s1, s1, s1, s1, s1,
-             s1, s2, s3, s1, s1, s2,
-             s1, s3, s3, s1, s1, s3,
-             s1, s1, s1, s4, s5, s4,
-             s1, s1, s1, s5, s5, s5,
-             s1, s2, s3, s4, s5, s6])
+            [s1, s1, s1, s1, s1, s1, s1,
+             s1, s2, s3, s1, s1, s2, s2,
+             s1, s3, s3, s1, s1, s3, s3,
+             s1, s1, s1, s4, s5, s4, s1,
+             s1, s1, s1, s5, s5, s5, s1,
+             s1, s2, s3, s4, s5, s6, s7,
+             s1, s2, s3, s1, s1, s7, s7])
 
 def test_commonbase_simple():
     class A0: 
