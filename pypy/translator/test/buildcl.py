@@ -15,16 +15,18 @@ def make_cl_func(func, cl, path):
     gen = GenCL(fun)
     out = gen.emitcode()
     i = 1
-    fp = path.join("test%d.lisp" % i)
-    while fp.exists():
-        fp = path.join("test%d.lisp" % i)
+    fpath = path.join("test%d.lisp" % i)
+    while fpath.exists():
+        fpath = path.join("test%d.lisp" % i)
         i += 1
     def _(*args):
-        fp.write(out)
+        fpath.write(out)
+        fp = file(str(fpath), "a")
         print >>fp, "(write (", fun.functionname,
         for arg in args:
             print >>fp, gen.conv(arg),
         print >>fp, "))"
-        output = exec_cmd("%s %s" % (cl, fname))
+        fp.close()
+        output = exec_cmd("%s %s" % (cl, str(fpath)))
         return readlisp(output)
     return _
