@@ -17,7 +17,7 @@ class Test_TraceObjSpace(testit.IntTestCase):
         func_gw = app2interp(app_func) 
         func = func_gw.get_function(tspace)
         tspace.settrace()
-        func() 
+        self.space.call_function(self.space.wrap(func))
         res = tspace.getresult()
         return res 
 

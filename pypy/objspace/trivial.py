@@ -114,11 +114,7 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
                 setattr(self, 'w_' + c.__name__, c)
                 newstuff[c.__name__] = c
         newstuff.update(self.clone_exception_hierarchy())
-        self.make_builtins()
-        # insert these into the newly-made builtins
-        for key, w_value in newstuff.items():
-            self.w_builtins.setdefault(key, w_value)
-            # I'm tired of wrapping correctly here -- armin
+        self.make_builtins(newstuff)
 
     # general stuff
     def wrap(self, x):
