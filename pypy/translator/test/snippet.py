@@ -725,6 +725,31 @@ def nested_exception_deduction():
         return (e, Exc2())
     return (Exc(), Exc2())
 
+class Exc3(Exception):
+    def m(self):
+        return 1
+
+class Sp:
+    def o(self):
+        raise Exc3
+
+class Mod:
+    def __init__(self, s):
+        self.s = s
+
+    def p(self):
+        s = self.s
+        try:
+            s.o()
+        except Exc3, e:
+            return e.m()
+        return 0
+
+mod = Mod(Sp())
+
+def exc_deduction_our_exc_plus_others():
+    return mod.p()
+
 
 class BltinCode:
   def __init__(self, func, framecls):

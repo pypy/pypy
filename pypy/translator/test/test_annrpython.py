@@ -483,7 +483,12 @@ class TestAnnonateTestCase:
         assert isinstance(s.items[1], annmodel.SomeInstance)
         assert s.items[0].knowntype is snippet.Exc
         assert s.items[1].knowntype is snippet.Exc2
-        
+
+    def test_exc_deduction_our_exc_plus_others(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.exc_deduction_our_exc_plus_others, [])
+        assert isinstance(s, annmodel.SomeInteger)
+
     def test_slice_union(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.slice_union, [int])
