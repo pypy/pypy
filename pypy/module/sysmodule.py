@@ -14,8 +14,10 @@ class Sys(BuiltinModule):
         opd = os.path.dirname
         
         pypydir = opd(opd(os.path.abspath(pypy.__file__)))
+        
+        appdir = os.path.join(pypydir, 'pypy', 'appspace')
 
-        self.path = appdata([p for p in sys.path if p != pypydir])        
+        self.path = appdata([appdir] + [p for p in sys.path if p != pypydir])
     
     stdout = appdata(sys.stdout)
 
