@@ -105,6 +105,11 @@ def str_unwrap(space, w_str):
 
 StdObjSpace.unwrap.register(str_unwrap, W_StringObject)
 
+def str_is_true(space, w_str):
+    return w_str._value.len != 0
+
+StdObjSpace.is_true.register(str_is_true, W_StringObject)
+
 def str_str_lt(space, w_str1, w_str2):
     i = w_str1._value.value()
     j = w_str2._value.value()
@@ -149,7 +154,15 @@ StdObjSpace.ge.register(str_str_ge, W_StringObject, W_StringObject)
 
 
 def getitem_str_int(space, w_str, w_int):
-    return W_StringObject(space, w_str._value.value()[w_int.intval])
+    ival = w_int.intval
+    slen = w_str._value.len
+    if ival < 0:
+        ival += slen
+    if ival < 0 or ival >= slen:
+        exc = space.call_function(space.w_IndexError,
+                                  space.wrap("string index out of range"))
+        raise OperationError(space.w_IndexError, exc)
+    return W_StringObject(space, w_str._value.charat(ival))
 
 StdObjSpace.getitem.register(getitem_str_int, 
                              W_StringObject, W_IntObject)
