@@ -439,7 +439,7 @@ def help():
     print "You must be joking."
 
 def unichr(code):
-    return (chr((code >> 24) & 0xff) + chr((code >> 16) & 0xff)+ chr((code >> 8) &0xff) + chr(code & 0xff)).decode('ucs-4')
+    return unicode('\\U%08x' %(code), 'unicode-escape')
 # ______________________________________________________________________
 #
 #   Interpreter-level function definitions
