@@ -33,7 +33,7 @@ class TestBuiltinApp(testit.AppTestCase):
         d = {"foo":"bar"}
         exec "def f(): return globals()" in d
         d2 = d["f"]()
-        self.assertEquals(d2,d)
+        self.assert_(d2 is d)
 
     def test_locals(self):
         def f():
