@@ -1,3 +1,12 @@
+"""
+state of W_ModuleObject
+
+- old style registration
+
+getattr ok,tested
+setattr ok,tested
+delattr ok,tested
+"""
 from pypy.objspace.std.objspace import *
 from moduletype import W_ModuleType
 from dictobject import W_DictObject
@@ -14,9 +23,7 @@ class W_ModuleObject(W_Object):
                  (w_key_doc,  space.w_None)]
         w_self.w_dict = W_DictObject(w_self.space, items)
 
-
 registerimplementation(W_ModuleObject)
-
 
 def getattr_module_any(space, w_module, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
