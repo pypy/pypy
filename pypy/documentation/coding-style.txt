@@ -64,4 +64,4 @@ Test conventions
 
 - see some more information about tests at the test-design_ document. 
 
-.. _test-design: ../devel/testdesign.html
+.. _test-design: testdesign.html

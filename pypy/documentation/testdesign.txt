@@ -2,7 +2,8 @@
 Test Design
 =============
 
-Our tests are based on the unittest framework.  All tests of modules
+Our tests are based on the new `py.test`_ tool which lets you write
+unittests without boilerplate.  All tests of modules
 in a directory usually reside in a subdirectory **test**.  There are
 basically two types of unit tests:
 
@@ -14,26 +15,15 @@ basically two types of unit tests:
 
 Both types of tests need an objectspace they can run with (the interpreter
 dispatches operations on objects to an objectspace).  If you run a test you
-can usually give the '-S' or '-T' switch for using the Standard or the Trivial
-ObjectSpace respectively.
+can usually give the '-o' switch to select an object space.  E.g. '-o trivial' 
+will select the trivial object space. The default is the "Standard Object Space". 
+
+.. _`py.test`: http://codespeak.net/py/current/doc/test.html 
 
 Writing a test
 --------------
 
-The best reference is to go to some test files and look how they are done.
-Almost all tests start with the following lines::
-
-  import autopath
-  from pypy.tool import test 
-
-of which the first line determines the package path automatically by searching
-for **pypy** among the parents of the test-file's directory.  The second
-line imports PyPy's test-hook of which ''test.main()'' is the most important
-and is usually the last line of the testfile.  Further below you will find
-some preliminary information about a new test module that was recently
-developed at the Amsterdam Sprint (Dec. 2003) and still is under development. 
-
-Note that we are using a unittest2 framework (but not for long)
+Currently the best reference is to go to some test files and look how they are done.
 
 Command line tool test_all
 --------------------------
@@ -45,94 +35,10 @@ You can run almost all of PyPy's tests by invoking::
 which will run all tests against the Standard Object Space. If you want
 to test against the TrivialObjectSpace then issue::
 
-  python test_all.py -T
+  python test_all.py -o trivial 
 
 For more switches invoke "python test_all.py -h".
 
 This used to be reversed -- the TrivialObjectSpace was the default, and
 you had to specify the StandardObjectSpace.  You may find some documentation
 that has not been changed to reflect the new reality.
-
--------------------------------------------------------------------------------
-
-.. _mail: http://codespeak.net/pipermail/pypy-dev/2003q2/000789.html
-
-New unit testing framework (not ready yet)
-------------------------------------------
-
-Current implementation
-~~~~~~~~~~~~~~~~~~~~~~
-
-The following picture is an UML class diagram of the framework. This
-diagram is taken from the source code, which can currently be found
-at src/pypy/tool/newtest.py as of 2003-12-19. (Most probably, the name
-of the file will change, however.)
-
-::
-
-  +------------+ 1                                    1 +----------+
-  | TestResult |----------------------------------------| TestItem |
-  | (abstract) |                                        +----------+
-  +------------+                                             | *
-      A                                                      |
-      -                                                      |
-      |                                                      | 1
-      +----------------------------+-----------+        +-----------+
-      |                            |           |        | TestSuite |
-  +-------------------------+ +---------+ +---------+   +-----------+
-  | TestResultWithTraceback | | Success | | Skipped |         A
-  | (abstract)              | +---------+ +---------+         |
-  +-------------------------+                                 | loaded by
-      A          A                                            |
-      -          -                                            | *
-      |          |                                      +------------+
-      |          |                                      | TestCase   |
-  +-------+ +---------+                                 | (abstract) |
-  | Error | | Failure |                                 +------------+
-  +-------+ +---------+                                       A
-                                                              -
-                                                              |
-                                                              |
-                                                         concrete test
-                                                         case classes
-
-Like the unittest framework of Python, our framework implements
-tests as test methods in TestCase classes. Custom test case classes
-derive from the shown TestCase class, defined in this module. As in
-Python's unittest, a test case class can contain setUp and tearDown
-methods. Additionally, it contains a method 'skip' which can be
-called to stop a test prematurely. This won't be counted as a failure
-or error.
-
-Test cases are loaded by a TestSuite class via the method init_from_dir.
-This method will read all test modules in and below a specified
-directory, inspect them for classes derived from TestCase (i. e. *our*
-TestCase), and in turn inspect them for test methods (like in
-unittest, all methods which start with "test").
-
-For every found method, TestSuite will store its module, class and
-unbound method objects in a TestItem object. There are also other
-properties stored, e. g. the source code for each method and its
-docstring.
-
-When the TestSuite's method 'run' is called, all collected TestItems
-are run and, according to the outcome of the test, a TestResult object
-is generated which holds a reference to "its" TestItem object.
-
-The TestResult classes Success and Skipped denote a passed test. A
-skipped test means that not all test code has been run (and no error
-or failure occurred before the skip method was called). If a test
-fails, resulting in a Failure object, a test, e. g. tested with
-assertEqual, has failed. An Error object is generated if something
-else causes an unforeseen exception to be raised.
-
-Outlook
-~~~~~~~
-
-To be directly usable for the PyPy project, the selection of specific
-object spaces has to be implemented. Moreover, the existing test
-modules have to be converted. Because the TestCase class interface
-remains compatible, this should only involve changes which can be
-performed automatically, that is, changing the import statement for
-this test module and the base class of test cases.
-
