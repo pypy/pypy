@@ -2,6 +2,7 @@ import autopath
 from pypy.tool import test
 from pypy.tool.udir import udir
 from pypy.translator.test.buildcl import make_cl_func
+from vpath.adapter.process import exec_cmd, ExecutionFailed
 
 class GenCLTestCase(test.IntTestCase):
 
@@ -11,7 +12,13 @@ class GenCLTestCase(test.IntTestCase):
         if cl:
             self.cl = cl
         else:
-            raise test.TestSkip
+            try:
+                out = exec_cmd('clisp --version')
+            except ExecutionFailed:
+                raise test.TestSkip, "no list interpreter configured and no 'clisp' found"
+            else:
+                self.cl = 'clisp'
+
     def cl_func(self, func):
         return make_cl_func(func, self.cl, udir)
 
