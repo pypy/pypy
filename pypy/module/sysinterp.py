@@ -122,13 +122,6 @@ def _getframe(w_depth=0):
 
 # directly from the C code in ceval.c, might be moved somewhere else.
 
-# this variable is living here, but we
-# access it this way, later:
-# space.sys.recursion_limit = 1000
-# note that we cannot do it *here* because
-# space.sys does not exist, yet.
-recursion_limit = 1000
-
 def setrecursionlimit(w_new_limit):
     """setrecursionlimit(n)
 
@@ -142,7 +135,7 @@ dependent."""
                              space.wrap("recursion limit must be positive"))
     # global recursion_limit
     # we need to do it without writing globals.
-    space.sys.recursion_limit = new_limit
+    space.recursion_limit = new_limit
 
 def getrecursionlimit():
     """getrecursionlimit()
@@ -151,7 +144,7 @@ Return the current value of the recursion limit, the maximum depth
 of the Python interpreter stack.  This limit prevents infinite
 recursion from causing an overflow of the C stack and crashing Python."""
 
-    return space.newint(recursion_limit)
+    return space.newint(space.recursion_limit)
 
 checkinterval = 100
 

@@ -10,6 +10,9 @@ class ExecutionContext:
         self.framestack = Stack()
 
     def enter(self, frame):
+        if self.framestack.depth() > self.space.recursion_limit:
+            raise OperationError(self.space.w_RuntimeError,
+                                 self.space.wrap("maximum recursion depth exceeded"))
         locals = getthreadlocals()
         previous_ec = locals.executioncontext
         locals.executioncontext = self

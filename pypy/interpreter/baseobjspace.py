@@ -34,6 +34,8 @@ class ObjSpace(object):
     def __init__(self):
         "NOT_RPYTHON: Basic initialization of objects."
         self._gatewaycache = Cache()
+        # set recursion limit
+        self.recursion_limit = 1000
         # sets all the internal descriptors
         self.initialize()
         
