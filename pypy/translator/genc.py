@@ -55,13 +55,19 @@ class GenC:
         self.globaldecl = []
         self.pendingfunctions = []
         self.initglobals = []
+        self.debugstack = ()  # linked list of nested nameof()
         self.gen_source()
 
-    def nameof(self, obj):
+    def nameof(self, obj, debug=None):
         key = Constant(obj).key
         try:
             return self.cnames[key]
         except KeyError:
+            if debug:
+                stackentry = debug, obj
+            else:
+                stackentry = obj
+            self.debugstack = (self.debugstack, stackentry)
             if type(obj).__module__ != '__builtin__':
                 # assume it's a user defined thingy
                 name = self.nameof_instance(obj)
@@ -75,6 +81,8 @@ class GenC:
                 else:
                     raise Exception, "nameof(%r)" % (obj,)
                 name = meth(obj)
+            self.debugstack, x = self.debugstack
+            assert x is stackentry
             self.cnames[key] = name
             return name
 
@@ -247,6 +255,9 @@ class GenC:
             return True
         return False
 
+    def later(self, gen):
+        self.latercode.append((gen, self.debugstack))
+
     def nameof_instance(self, instance):
         name = self.uniquename('ginst_' + instance.__class__.__name__)
         cls = self.nameof(instance.__class__)
@@ -261,7 +272,7 @@ class GenC:
         self.initcode.append('INITCHK(SETUP_INSTANCE(%s, %s))' % (
             name, cls))
         self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
-        self.latercode.append(initinstance())
+        self.later(initinstance())
         return name
 
     def nameof_builtin_function_or_method(self, func):
@@ -277,6 +288,9 @@ class GenC:
         return name
 
     def nameof_classobj(self, cls):
+        if cls.__doc__ and cls.__doc__.startswith('NOT_RPYTHON'):
+            raise Exception, "%r should never be reached" % (cls,)
+
         if issubclass(cls, Exception):
             if cls.__module__ == 'exceptions':
                 return 'PyExc_%s'%cls.__name__
@@ -316,7 +330,7 @@ class GenC:
                              %("O"*len(basenames), cls.__name__, baseargs))
         
         self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
-        self.latercode.append(initclassobj())
+        self.later(initclassobj())
         return name
 
     nameof_class = nameof_classobj   # for Python 2.2
@@ -383,7 +397,7 @@ class GenC:
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyList_New(%d))' % (name, len(lis)))
         self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
-        self.latercode.append(initlist())
+        self.later(initlist())
         return name
 
     def nameof_dict(self, dic):
@@ -404,7 +418,7 @@ class GenC:
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyDict_New())' % (name,))
         self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
-        self.latercode.append(initdict())
+        self.later(initdict())
         return name
 
     # strange prebuilt instances below, don't look too closely
@@ -451,10 +465,11 @@ class GenC:
             self.gen_cfunction(func)
             # collect more of the latercode after each function
             while self.latercode:
-                gen = self.latercode.pop(0)
+                gen, self.debugstack = self.latercode.pop(0)
                 #self.initcode.extend(gen) -- eats TypeError! bad CPython!
                 for line in gen:
                     self.initcode.append(line)
+                self.debugstack = ()
             self.gen_global_declarations()
 
         # footer
@@ -482,7 +497,8 @@ class GenC:
 ##             func.__name__)
         f = self.f
         body = list(self.cfunction_body(func))
-        name_of_defaults = [self.nameof(x) for x in (func.func_defaults or ())]
+        name_of_defaults = [self.nameof(x, debug=('Default argument of', func))
+                            for x in (func.func_defaults or ())]
         self.gen_global_declarations()
 
         # print header
@@ -585,7 +601,8 @@ class GenC:
             if isinstance(v, Variable):
                 return v.name
             elif isinstance(v, Constant):
-                return self.nameof(v.value)
+                return self.nameof(v.value,
+                                   debug=('Constant in the graph of',func))
             else:
                 raise TypeError, "expr(%r)" % (v,)
 
