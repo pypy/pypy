@@ -266,7 +266,7 @@ class ClassDef:
             self.generalize(name, s_value, bookkeeper)
 
     def __repr__(self):
-        return '<ClassDef %s.%s>' % (self.cls.__module__, self.cls.__name__)
+        return "<ClassDef '%s.%s'>" % (self.cls.__module__, self.cls.__name__)
 
     def commonbase(self, other):
         while other is not None and not issubclass(self.cls, other.cls):
