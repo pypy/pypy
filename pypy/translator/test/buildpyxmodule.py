@@ -53,7 +53,8 @@ def make_module_from_c(pyxfile):
         sys.path.pop(0)
     finally:
         os.chdir(str(lastdir))
-        dirpath.rmtree()
+        if not debug:
+            dirpath.rmtree()
     return testmodule
 
 def make_c_from_pyxfile(pyxfile):

@@ -6,6 +6,7 @@ from pypy.translator.genpyrex import GenPyrex
 from pypy.translator.controlflow import *
 
 from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
+#from pypy.translator.test.make_dot import make_ps
 
 class TestCase(test.IntTestCase):
     def test_simple_func(self):
@@ -83,6 +84,8 @@ class TestCase(test.IntTestCase):
                                 [], headerbranch)
 
         fun = FunctionGraph(startblock, "f")
+        #make_ps(fun)
+        
         result = GenPyrex(fun).emitcode()
         mod = make_module_from_pyxstring(result)
         self.assertEquals(mod.f(42), 0)
