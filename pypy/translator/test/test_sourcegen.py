@@ -5,7 +5,7 @@ from pypy.tool import test
 from pypy.translator.genpyrex import GenPyrex
 from pypy.translator.controlflow import *
 
-from buildpyxmodule import make_module_from_pyxstring
+from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
 
 class TestCase(test.IntTestCase):
     def test_simple_func(self):
