@@ -35,17 +35,23 @@ class AppFrame(py.code.Frame):
     def is_true(self, w_value):
         return self.space.is_true(w_value)
 
-
 class AppExceptionInfo(py.code.ExceptionInfo):
     """An ExceptionInfo object representing an app-level exception."""
 
     def __init__(self, space, operr):
         self.space = space
         self.operr = operr
-        self.exprinfo = None
+        self.traceback = AppTraceback(self.operr.application_traceback)
 
     def __str__(self):
-        return '(app-level) ' + self.operr.errorstr(self.space)
+        return '[app-level] ' + self.operr.errorstr(self.space)
+
+class AppTracebackEntry(py.code.Traceback.Entry):
+    exprinfo = None
+
+    def __init__(self, tb):
+        self.frame = AppFrame(tb.frame)
+        self.lineno = tb.lineno - 1
 
     def reinterpret(self):
         # XXX we need to solve a general problem: how to prevent
@@ -57,16 +63,15 @@ class AppExceptionInfo(py.code.ExceptionInfo):
         # XXX this reinterpret() is only here to prevent reinterpretation.
         return self.exprinfo
 
-    def __iter__(self):
-        tb = self.operr.application_traceback
-        while tb is not None:
-            yield AppTracebackEntry(tb)
-            tb = tb.next
+class AppTraceback(py.code.Traceback): 
+    Entry = AppTracebackEntry 
 
-class AppTracebackEntry(py.code.TracebackEntry):
-    def __init__(self, tb):
-        self.frame = AppFrame(tb.frame)
-        self.lineno = tb.lineno - 1
+    def __init__(self, apptb):
+        l = []
+        while apptb is not None: 
+            l.append(self.Entry(apptb))
+            apptb = apptb.next 
+        list.__init__(self, l) 
 
 # ____________________________________________________________
 
@@ -89,7 +94,7 @@ def build_pytest_assertion(space):
             source = str(source).strip()
         except py.error.ENOENT: 
             source = None
-        if source:
+        if source and not py.test.config.option.nomagic:
             msg = exprinfo.interpret(source, runner, should_fail=True)
             space.setattr(w_self, space.wrap('args'),
                           space.newtuple([space.wrap(msg)]))
@@ -120,7 +125,7 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
                                             "after a string expression"))
         expr = space.unwrap(w_expr)
         source = py.code.Source(expr)
-        frame = space.executioncontext.framestack.top()
+        frame = space.getexecutioncontext().framestack.top()
         w_locals = frame.getdictscope()
         w_locals = space.call_method(w_locals, 'copy')
         for key, w_value in kwds_w.items():
