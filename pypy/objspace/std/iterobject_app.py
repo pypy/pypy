@@ -15,3 +15,5 @@ class SequenceIterator:
     # Yes, the implementation is complete, I think
 
 # XXX design a way to have this working and get rid of iterobject.py
+# (a very long term design goal, when the interpreter is so fast that
+# we can do almost everything in app space -- for now, we just svn rm this!)
