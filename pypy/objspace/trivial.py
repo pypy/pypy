@@ -66,10 +66,17 @@ class TrivialObjSpace(ObjSpace):
         self.w_None = None
         self.w_True = True
         self.w_False = False
+        self.w_NotImplemented = NotImplemented
+        self.w_Ellipsis = Ellipsis
         import __builtin__, types
         newstuff = {"False": self.w_False,
                     "True" : self.w_True,
+                    "NotImplemented" : self.w_NotImplemented,
                     "None" : self.w_None,
+                    "Ellipsis" : self.w_Ellipsis,
+                    "buffer": buffer,
+                    "xrange": xrange,
+                    "slice": slice,
                     }
         for n, c in __builtin__.__dict__.iteritems():
             if isinstance(c, types.TypeType):
@@ -255,7 +262,7 @@ def %(_name)s(self, *args):
             def __init__(self, space, code, globals, defaultarguments, closure):
                 self.space = space
                 self.__name__ = code.co_name
-                self.code = code
+                self.func_code = self.code = code
                 self.globals = globals
                 self.defaultarguments = defaultarguments
                 self.closure = closure
