@@ -5,6 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.tool import pytestsupport
 from pypy.conftest import gettestobjspace, options
 from pypy.interpreter.module import Module as PyPyModule 
+from pypy.interpreter.main import run_string, run_file
 
 #
 # PyPy's command line extra options (these are added 
@@ -23,7 +24,7 @@ from pypy.interpreter.module import Module as PyPyModule
 
 mydir = py.magic.autopath().dirpath()
 
-workingTests = (
+working_unittests = (
 'test_urlparse.py',
 'test_base64.py',
 'test_binop.py',
@@ -32,6 +33,10 @@ workingTests = (
 'test_codeop.py',
 'test_compile.py',
 'test_operator.py',
+)
+
+working_outputtests = (
+    # well 
 )
 
 def make_module(space, dottedname, filepath): 
@@ -49,11 +54,7 @@ def make_module(space, dottedname, filepath):
 class Directory(py.test.collect.Directory): 
     def __iter__(self): 
         for x in self.fspath.listdir('test_*.py'): 
-            if x.read().find('unittest') != -1: 
-                # we can try to run ...  
-                if x.basename not in workingTests: 
-                    continue
-                yield Module(x) 
+            yield Module(x) 
 
 def app_list_testmethods(mod, testcaseclass): 
     """ return [(instance.setUp, instance.tearDown, 
@@ -75,11 +76,38 @@ def app_list_testmethods(mod, testcaseclass):
             l.append((instance.setUp, instance.tearDown, methods))
     return l 
 list_testmethods = app2interp_temp(app_list_testmethods) 
-            
-    
-class Module(py.test.collect.Module): 
+           
+def Module(fspath): 
+    output = fspath.dirpath('output', fspath.purebasename)
+    if output.check(file=1):
+        # ok this is an output test 
+        if fspath.basename not in working_outputtests: 
+            return 
+        return OutputTestItem(fspath, output) 
+    content = fspath.read() 
+    if content.find('unittest') != -1: 
+        # we can try to run ...  
+        if fspath.basename not in working_unittests: 
+            return 
+        return UnittestModule(fspath) 
+   
+class OutputTestItem(py.test.Item): 
+    def __init__(self, fspath, output): 
+        self.fspath = fspath 
+        self.outputpath = output 
+        self.extpy = py.path.extpy(fspath) 
+
+    def run(self, driver): 
+        space = gettestobjspace('std') 
+        try: 
+            run_file(str(self.fspath), space=space) 
+        except OperationError, e: 
+            raise self.Failed(
+                excinfo=pytestsupport.AppExceptionInfo(space, e))
+        
+class UnittestModule(py.test.collect.Module): 
     def __init__(self, fspath): 
-        super(Module, self).__init__(fspath) 
+        super(UnittestModule, self).__init__(fspath) 
     
     def _prepare(self): 
         if hasattr(self, 'space'): 
