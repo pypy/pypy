@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import OperationError
 from pypy.interpreter.extmodule import *
-import sys
+import sys, os, pypy
 
 class Sys(BuiltinModule):
     __pythonname__ = 'sys'
@@ -8,8 +8,6 @@ class Sys(BuiltinModule):
     def __init__(self, space):
         BuiltinModule.__init__(self, space)
 
-        import sys, os
-        import pypy
 
         opd = os.path.dirname
         
