@@ -120,7 +120,7 @@ class FlowObjSpace(ObjSpace):
                                               constargs, closure)
         self.setup_executioncontext(ec)
         ec.build_flow()
-        name = ec.graph.name
+        name = func.func_name
         for c in "<>&!":
             name = name.replace(c, '_')
         ec.graph.name = name
