@@ -18,6 +18,13 @@ class TestRange(testsupport.TestCase):
    def test_range_one(self):
       self.assertEqual(range(1), [0])
 
+   def test_range_posstartisstop(self):
+      self.assertEqual(range(1, 1), [])
+
+   def test_range_negstartisstop(self):
+      self.assertEqual(range(-1, -1), [])
+
+
    def test_range_zero(self):
       self.assertEqual(range(0), [])
 
@@ -32,6 +39,24 @@ class TestRange(testsupport.TestCase):
 
    def test_range_decreasing_negativestep(self):
       self.assertEqual(range(5, -2, -1), [5, 4, 3, 2, 1, 0 , -1])
+
+   def test_range_posfencepost1(self):
+       self.assertEqual(range (1, 10, 3), [1, 4, 7])
+
+   def test_range_posfencepost2(self):
+       self.assertEqual(range (1, 11, 3), [1, 4, 7, 10])
+
+   def test_range_posfencepost3(self):
+       self.assertEqual(range (1, 12, 3), [1, 4, 7, 10])
+
+   def test_range_negfencepost1(self):
+       self.assertEqual(range (-1, -10, -3), [-1, -4, -7])
+
+   def test_range_negfencepost2(self):
+       self.assertEqual(range (-1, -11, -3), [-1, -4, -7, -10])
+
+   def test_range_negfencepost3(self):
+       self.assertEqual(range (-1, -12, -3), [-1, -4, -7, -10])
 
    def test_range_decreasing_negativelargestep(self):
       self.assertEqual(range(5, -2, -3), [5, 2, -1])
