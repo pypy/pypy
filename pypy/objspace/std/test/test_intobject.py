@@ -316,5 +316,10 @@ class AppIntTest(testit.AppTestCase):
         assert (1 << 0) == 1
         assert (1 >> 0) == 1
 
+    def test_overflow(self):
+        import sys
+        n = sys.maxint + 1
+        self.assert_(isinstance(n, long))
+
 if __name__ == '__main__':
     testit.main()

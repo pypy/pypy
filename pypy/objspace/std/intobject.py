@@ -166,9 +166,19 @@ def _floordiv(space, w_int1, w_int2):
     return W_IntObject(space, z)
 
 def _truediv(space, w_int1, w_int2):
-    # cannot implement, since it gives floats
-    raise FailedToImplement(space.w_OverflowError,
-                            space.wrap("integer division"))
+    x = w_int1.intval
+    y = w_int2.intval
+    try:
+        z = x // y
+        t = x % y
+    except ZeroDivisionError:
+        raise OperationError(space.w_ZeroDivisionError,
+                             space.wrap("integer division by zero"))
+    except OverflowError:
+        return space.div(space.newfloat(x), w_int2)
+    if t != 0:   # gives a float
+        return space.div(space.newfloat(x), w_int2)
+    return W_IntObject(space, z)
 
 def mod__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval

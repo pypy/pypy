@@ -365,7 +365,8 @@ class UnboundMultiMethod(AbstractMultiMethod):
         # Only accept an exact match; having merely subclass should
         # be taken care of by the general look-up rules.
         t = types[self.bound_position].typedef
-        return t is self.typeclass
+        return t is self.typeclass or (
+            getattr(t, 'could_also_match', None) is self.typeclass)
 
     def __get__(self, space, cls=None):
         if space is None:
