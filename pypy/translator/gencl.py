@@ -2,6 +2,11 @@ import autopath
 from pypy.translator.flowmodel import *
 from pypy.translator.annotation import Annotator
 
+# For 2.2 -- sanxiyn
+if not isinstance(bool, type):
+    class bool(int):
+        pass
+
 class Op:
     def __init__(self, gen, op):
         self.str = gen.str
@@ -46,9 +51,7 @@ class GenCL:
         else:
             return "#<"
     def conv(self, val):
-        if val is None:
-            return "nil"
-        elif isinstance(val, bool): # should precedes int
+        if isinstance(val, bool): # should precedes int
             if val:
                 return "t"
             else:
