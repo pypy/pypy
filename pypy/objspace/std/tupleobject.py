@@ -108,5 +108,8 @@ def repr__Tuple(space, w_tuple):
     # XXX slimy! --mwh
     return space.wrap(repr(space.unwrap(w_tuple)))
 
+def hash__Tuple(space, w_tuple):
+    # silly-ish, but _correct_, while lacking it would be WRONG
+    return space.len(w_tuple)
 
 register_all(vars())
