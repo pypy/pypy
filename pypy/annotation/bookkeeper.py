@@ -158,6 +158,8 @@ class Bookkeeper:
             return o
 
     def pycall(self, func, *args):
+        if func is None:   # consider None as a NULL function pointer
+            return SomeImpossibleValue()
         if isinstance(func, (type, ClassType)) and \
             func.__module__ != '__builtin__':
             cls = func
