@@ -13,8 +13,7 @@ def delegate__ANY(space, w_obj):
 delegate__ANY.result_class = W_ObjectObject
 delegate__ANY.priority = PRIORITY_PARENT_TYPE
 
-#def object_init__Object(space, w_object, w_args, w_kwds):
-#    pass
+# ____________________________________________________________
 
 
 register_all(vars())

@@ -85,7 +85,7 @@ def unwrap__Dict(space, w_dict):
         result[space.unwrap(w_key)] = space.unwrap(cell.get())
     return result
 
-def object_init__Dict(space, w_dict, w_args, w_kwds):
+def init__Dict(space, w_dict, w_args, w_kwds):
     dict_clear__Dict(space, w_dict)
     args = space.unpackiterable(w_args)
     if len(args) == 0:

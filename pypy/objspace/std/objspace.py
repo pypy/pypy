@@ -315,6 +315,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         is_true = MultiMethod('nonzero', 1, [])   # returns an unwrapped bool
         issubtype = MultiMethod('issubtype', 2, [])
         id = MultiMethod('id', 1, [])
+        init = MultiMethod('__init__', 1, varargs=True, keywords=True)
 
     unwrap = MM.unwrap
     delegate = MM.delegate

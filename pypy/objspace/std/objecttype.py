@@ -3,14 +3,6 @@ from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.objspace import StdObjSpace
 
-object_init = MultiMethod('__init__', 1, varargs=True, keywords=True)
-
-def object_init__ANY(space, w_obj, w_args, w_kwds):
-    pass
-
-register_all(vars(), globals())
-
-# ____________________________________________________________
 
 def descr__repr__(space, w_obj):
     w = space.wrap
