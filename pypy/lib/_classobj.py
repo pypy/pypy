@@ -236,7 +236,7 @@ class instance(object):
             # for now, we need to copy things, because we are using
             # the __dict__for our class as well. This will vanish!
             value['__class__'] = self.__class__
-            obj_setattr(inst, '__dict__', value)
+            obj_setattr(self, '__dict__', value)
         elif name == '__class__':
             if not isinstance(value, classobj):
                 raise TypeError("__class__ must be set to a class")
