@@ -1451,9 +1451,13 @@ import py.code
 import cStringIO as StringIO
 
 def translate_as_module(sourcetext, modname="app2interpexec", tmpname=None):
-    """ compile sourcetext as a module, translatingto interp level.
+    """ compile sourcetext as a module, translating to interp level.
     The result is the init function that creates the wrapped module dict.
     This init function needs a space as argument.
+    tmpname can be passed for debugging purposes. Note that the generated
+    output is not sorted, because it is not meant to be persistent.
+    For persistent output, please use pypy/translator/tool/tointerplevel.py
+    
     Example:
 
     initfunc = translate_as_module(text)
@@ -1491,6 +1495,10 @@ def translate_as_module(sourcetext, modname="app2interpexec", tmpname=None):
     # which then needs to be called with the space to return the dict.
     return dic['init%s' % modname]
 
+#___________________________________________________________________
+
+# some testing code
+
 testcode = """
 def f(a, b):
     return a + b
@@ -1501,4 +1509,3 @@ def g():
 
 if __name__ == '__main__':
     res = translate_as_module(testcode)#, tmpname='/tmp/look.py')
-    
