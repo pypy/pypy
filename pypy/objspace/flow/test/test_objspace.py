@@ -203,6 +203,14 @@ class TestFlowObjSpace:
         self.show(x)
 
     #__________________________________________________________
+    def const_pow():
+        return 2 ** 5
+
+    def test_const_pow(self):
+        x = self.codetest(self.const_pow)
+        self.show(x)
+
+    #__________________________________________________________
     def implicitIndexError(lst):
         try:
             x = lst[5]

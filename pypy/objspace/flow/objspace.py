@@ -462,7 +462,10 @@ def make_op(name, symbol, arity, specialnames):
     if hasattr(FlowObjSpace, name):
         return # Shouldn't do it
 
-    op = getattr(operator, name, None)
+    if name == 'pow':
+        op = pow
+    else:
+        op = getattr(operator, name, None)
     if not op:
         #if name == 'call':
         #    op = apply
