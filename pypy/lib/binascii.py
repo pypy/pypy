@@ -59,6 +59,32 @@ def triples(s):
         s = s[3:]
         yield ord(a), ord(b), ord(c)
 
+def b2a_base64(s):
+    length = len(s)
+    final_length = length % 3
+    
+    a = triples(s[:length - final_length])
+    result = [''.join(
+        [chr(0x20 + (( A >> 2                    ) & 0x3F)),
+         chr(0x20 + (((A << 4) | ((B >> 4) & 0xF)) & 0x3F)),
+         chr(0x20 + (((B << 2) | ((C >> 6) & 0x3)) & 0x3F)),
+         chr(0x20 + (( C                         ) & 0x3F))]) for A, B, C in a]
+    final = s[length - final_length:]
+    if len(final) == 0:
+        snippet = ''
+    elif len(final) == 1:
+        a = ord(final[0])
+        print a
+        snippet = chr(0x20 + ((a >> 2 ) & 0x3F)) + \
+                  chr((0x20 + (a << 4 )) & 0x3F) + '=='
+    else:
+        a = ord(final[0])
+        b = ord(final[1])
+        snippet = chr(0x20 + ((a >> 2 ) & 0x3F)) + \
+                  chr(0x20 + (((a << 4) | ((b >> 4) & 0xF))
+                              & 0x3F)) + chr((0x20 + (b << 2)) & 0x3F) + '='
+    return ''.join(result) + snippet + '\n'
+
 #print b2a_uu('1234567')
 #print b2a_uu('123456789012345678901234567890123456789012345')
 #print b2a_uu('1234567890123456789012345678901234567890123456')
