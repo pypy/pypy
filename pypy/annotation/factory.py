@@ -458,7 +458,7 @@ class ClassDef:
     def about_attribute(self, name):
         for cdef in self.getmro():
             if name in cdef.attrs:
-                return cdef.attrs[name].getvalue()
+                return cdef.attrs[name]
         return None
 
 
