@@ -325,6 +325,12 @@ class AnnonateTestCase(testit.IntTestCase):
         # but let's at least check *something*
         #self.assert_(isinstance(s, SomeCallable))
 
+    def test_tuple_unpack_from_const_tuple_with_different_types(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.func_arg_unpack, [])
+        self.assert_(isinstance(s, annmodel.SomeInteger)) 
+        self.assertEquals(s.const, 3) 
+
 def g(n):
     return [0,1,2,n]
 

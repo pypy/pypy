@@ -583,3 +583,7 @@ def func_producing_exception():
 def funccallsex():
     return func_producing_exception()
 
+
+def func_arg_unpack():
+    a,b = 3, "hello"
+    return a
