@@ -46,6 +46,7 @@ working_unittests = (
 'test_isinstance.py',
 'test_operator.py',
 'test_pprint.py',
+'test_profilehooks.py',
 'test_sgmllib.py',
 'test_string.py',
 'test_sys.py',
