@@ -12,8 +12,9 @@ from pypy.annotation.factory import BlockedInference, getbookkeeper
 
 
 # XXX unify this with ObjSpace.MethodTable
-BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'getitem', 'setitem',
-                         'inplace_add',
+BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
+                         'getitem', 'setitem',
+                         'inplace_add', 'inplace_sub',
                          'lt', 'le', 'eq', 'ne', 'gt', 'ge',
                          'union'])
 
@@ -29,6 +30,9 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def inplace_add((obj1, obj2)):
         return pair(obj1, obj2).add()   # default
 
+    def inplace_sub((obj1, obj2)):
+        return pair(obj1, obj2).sub()   # default
+
 
 class __extend__(pairtype(SomeInteger, SomeInteger)):
 
@@ -38,7 +42,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     def add((int1, int2)):
         return SomeInteger(nonneg = int1.nonneg and int2.nonneg)
 
-    mul = add
+    mul = div = mod = add
 
     def sub((int1, int2)):
         return SomeInteger()
