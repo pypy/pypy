@@ -18,15 +18,26 @@ class PyPyConsole(code.InteractiveConsole):
 
     def interact(self, banner=None):
         if banner is None:
-            banner = "Python %s in pypy\n%s / %s" % (
-                sys.version, self.__class__.__name__,
-                self.space.__class__.__name__)
+            #banner = "Python %s in pypy\n%s / %s" % (
+            #    sys.version, self.__class__.__name__,
+            #    self.space.__class__.__name__)
+            banner = "PyPy in %s on top of Python %s" % (
+                self.space.__class__.__name__, sys.version.split()[0])
         code.InteractiveConsole.interact(self, banner)
 
     def raw_input(self, prompt=""):
         # add a character to the PyPy prompt so that you know where you
         # are when you debug it with "python -i py.py"
-        return code.InteractiveConsole.raw_input(self, prompt[0] + prompt)
+        try:
+            return code.InteractiveConsole.raw_input(self, prompt[0] + prompt)
+        except KeyboardInterrupt:
+            # fires into an interpreter-level console
+            print
+            banner = ("Python %s on %s\n" % (sys.version, sys.platform) +
+                      "*** Entering interpreter-level console ***")
+            code.interact(banner=banner, local=self.__dict__)
+            print '*** Leaving interpreter-level console ***'
+            raise
 
     def runcode(self, code):
         # 'code' is a CPython code object
