@@ -9,6 +9,8 @@ def compile2(source, filename='', mode='exec', flags=
     key = (source, filename, mode, flags)
     try:
         co = cache[key]
+        #print "***** duplicate code ******* "
+        #print source 
     except KeyError: 
         co = compile(source, filename, mode, flags) 
         cache[key] = co 
