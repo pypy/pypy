@@ -31,10 +31,10 @@ class RPythonAnnotator:
         self.blocked_functions = {} # set of functions that have blocked blocks
         self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
         self.bindingshistory = {}# map Variables to lists of SomeValues
-        self.binding_caused_by = {}     # map Variables to Factories
-                # records the FuncCallFactory that caused bindings of inputargs
-                # to be updated
-        self.binding_cause_history = {} # map Variables to lists of Factories
+        self.binding_caused_by = {}     # map Variables to position_keys
+               # records the caller position that caused bindings of inputargs
+               # to be updated
+        self.binding_cause_history = {} # map Variables to lists of positions
                 # history of binding_caused_by, kept in sync with
                 # bindingshistory
         self.bookkeeper = Bookkeeper(self)

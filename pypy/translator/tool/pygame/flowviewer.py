@@ -30,7 +30,7 @@ class VariableHistoryGraphLayout(GraphLayout):
         if info.origin is not None:
             label += "\\n" + self.createlink(info.origin, 'Originated at')
         if caused_by is not None:
-            label += '\\n' + self.createlink(caused_by.position_key)
+            label += '\\n' + self.createlink(caused_by)
         if info.caused_by_merge is not None:
             data = 'unionof%r' % (info.caused_by_merge,)
             label += '\\n%s' % nottoowide(data)
@@ -41,7 +41,7 @@ class VariableHistoryGraphLayout(GraphLayout):
             if data.origin is not None:
                 label += "\\n" + self.createlink(data.origin, 'Originated at')
             if caused_by is not None:
-                label += '\\n' + self.createlink(caused_by.position_key)
+                label += '\\n' + self.createlink(caused_by)
             dotgen.emit_node(str(n+1), shape="box", label=label)
             dotgen.emit_edge(str(n+1), str(n))
         links = self.links  # GraphLayout.__init__ will override it with {}
