@@ -96,6 +96,11 @@ class StdObjSpace(ObjSpace):
         import moduleobject
         return moduleobject.W_ModuleObject(self, w_name)
 
+    def newstring(self, chars_w):
+        chars = [chr(self.unwrap(w_c)) for w_c in chars_w]
+        import stringobject
+        return stringobject.W_StringObject(''.join(chars))
+
     # special multimethods
     unwrap  = MultiMethod('unwrap', 1)   # returns an unwrapped object
     is_true = MultiMethod('nonzero', 1)  # returns an unwrapped bool
