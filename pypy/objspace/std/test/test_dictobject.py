@@ -46,6 +46,17 @@ class TestW_DictObject(testsupport.TestCase_w):
         self.assertEqual_w(space.getitem(d,space.wrap('two')),space.wrap(2))
         self.failUnlessRaises(OperationError,space.getitem,d,space.wrap('one'))
 
+    def test_cell(self):
+       space = self.space
+       wk1 = space.wrap('key')
+       d = dobj.W_DictObject([])
+       w_cell = d.cell(space,wk1)
+       cell = space.unwrap(w_cell)
+       self.failUnless(cell.is_empty())
+       cell.set(space.wrap(1))
+       self.assertEqual_w(space.getitem(d,wk1),space.wrap(1))
+       
+       
 
 if __name__ == '__main__':
     unittest.main()
