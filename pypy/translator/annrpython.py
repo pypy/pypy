@@ -19,6 +19,7 @@ class RPythonAnnotator:
     def __init__(self, translator=None):
         self.heap = AnnotationHeap()
         self.pendingblocks = []  # list of (block, list-of-XCells)
+        self.delayedblocks = []  # list of blocked blocks
         self.bindings = {}       # map Variables/Constants to XCells/XConstants
         self.annotated = {}      # set of blocks already seen
         self.translator = translator
@@ -58,23 +59,14 @@ class RPythonAnnotator:
 
     def complete(self):
         """Process pending blocks until none is left."""
-        delayed = []
         while self.pendingblocks:
             # XXX don't know if it is better to pop from the head or the tail.
             # let's do it breadth-first and pop from the head (oldest first).
             # that's more stacklessy.
             block, cells = self.pendingblocks.pop(0)
-            try:
-                self.processblock(block, cells)
-            except DelayAnnotation:
-                delayed.append((block, cells))
-            else:
-                # when processblock succeed, i.e. when the analysis progress,
-                # we can tentatively re-schedlue the delayed blocks.
-                self.pendingblocks += delayed
-                del delayed[:]
-        if delayed:
-            raise AnnotatorError('%d delayed and suspended block(s)' %
+            self.processblock(block, cells)
+        if self.delayedblocks:
+            raise AnnotatorError('%d block(s) are still blocked' %
                                  len(delayed))
 
     def binding(self, arg):
@@ -136,28 +128,58 @@ class RPythonAnnotator:
     #___ flowing annotations in blocks _____________________
 
     def processblock(self, block, cells):
+        # Important: this is not called recursively.
+        # self.flowin() can only issue calls to self.addpendingblock().
+        # The analysis of a block can be in three states:
+        #  * block not in self.annotated:
+        #      never seen the block.
+        #  * self.annotated[block] == False:
+        #      the input variables of the block are in self.bindings but we
+        #      still have to consider all the operations in the block.
+        #  * self.annotated[block] == True:
+        #      analysis done (at least until we find we must generalize the
+        #      input variables).
+
         #print '* processblock', block, cells
         if block not in self.annotated:
-            self.annotated[block] = True
-            self.flowin(block, cells)
-        else:
-            # already seen; merge each of the block's input variable
-            oldcells = []
-            newcells = []
-            for a, cell2 in zip(block.inputargs, cells):
-                cell1 = self.bindings[a]   # old binding
-                oldcells.append(cell1)
-                newcells.append(self.heap.merge(cell1, cell2))
-            #print '** oldcells = ', oldcells
-            #print '** newcells = ', newcells
-            # re-flowin unless the newcells are equal to the oldcells
-            if newcells != oldcells:
-                self.flowin(block, newcells)
+            self.bindinputargs(block, cells)
+        elif cells is not None:
+            self.mergeinputargs(block, cells)
+        if not self.annotated[block]:
+            try:
+                self.flowin(block)
+            except DelayAnnotation:
+                self.delayedblocks.append(block) # failed, hopefully temporarily
+            else:
+                self.annotated[block] = True
+                # When flowin succeeds, i.e. when the analysis progress,
+                # we can tentatively re-schedlue the delayed blocks.
+                for block in self.delayedblocks:
+                    self.pendingblocks.append((block, None))
+                del self.delayedblocks[:]
 
-    def flowin(self, block, inputcells):
-        #print '...'
+    def bindinputargs(self, block, inputcells):
+        # Create the initial bindings for the input args of a block.
         for a, cell in zip(block.inputargs, inputcells):
             self.bindings[a] = cell
+        self.annotated[block] = False  # must flowin.
+
+    def mergeinputargs(self, block, inputcells):
+        # Merge the new 'cells' with each of the block's existing input
+        # variables.
+        oldcells = []
+        newcells = []
+        for a, cell2 in zip(block.inputargs, inputcells):
+            cell1 = self.bindings[a]   # old binding
+            oldcells.append(cell1)
+            newcells.append(self.heap.merge(cell1, cell2))
+        #print '** oldcells = ', oldcells
+        #print '** newcells = ', newcells
+        # if the merged cells changed, we must redo the analysis
+        if newcells != oldcells:
+            self.bindinputargs(block, newcells)
+
+    def flowin(self, block):
         for op in block.operations:
             self.consider_op(op)
         for link in block.exits:
@@ -172,11 +194,7 @@ class RPythonAnnotator:
         resultcell = self.bindnew(op.result)
         consider_meth = getattr(self,'consider_op_'+op.opname,None)
         if consider_meth is not None:
-            newresult = consider_meth(argcells, resultcell, self.transaction())
-            # XXX not too clean: most consider_op_xxx() implicitely return None,
-            # but consider_op_call() needs to return an explicit resultcell.
-            if newresult is not None:
-                self.bindings[op.result] = newresult
+            consider_meth(argcells, resultcell, self.transaction())
 
     def consider_op_add(self, (arg1,arg2), result, t):
         type1 = t.get_type(arg1)
@@ -190,6 +208,14 @@ class RPythonAnnotator:
         if type1 is list and type2 is list:
             t.set_type(result, list)
             # XXX propagate information about the type of the elements
+
+    def consider_op_mul(self, (arg1,arg2), result, t):
+        type1 = t.get_type(arg1)
+        type2 = t.get_type(arg2)
+        if type1 is int and type2 is int:
+            t.set_type(result, int)
+        elif type1 in (int, long) and type2 in (int, long):
+            t.set_type(result, long)
 
     def consider_op_inplace_add(self, (arg1,arg2), result, t):
         type1 = t.get_type(arg1)
@@ -292,7 +318,15 @@ class RPythonAnnotator:
                 result_cell = self.translator.consider_call(self, func, args)
                 if result_cell is nothingyet:
                     raise DelayAnnotation
-                return result_cell
+                # 'result' is made shared with 'result_cell'.  This has the
+                # effect that even if result_cell is actually an XConstant,
+                # result stays an XCell, but the annotations about the constant
+                # are also appliable to result.  This is bad because it means
+                # functions returning constants won't propagate the constant
+                # but only e.g. its type.  This is needed at this point because
+                # XConstants are not too well supported in the forward_deps
+                # lists: forward_deps cannot downgrade XConstant to XCell.
+                result.share(result_cell)
 
         # XXX: generalize this later
         if func is range:
