@@ -323,6 +323,30 @@ class AppTestBuiltinApp:
         raises(TypeError, issubclass, int, 6)
         raises(TypeError, issubclass, int, (float, 6))
 
+    def test_staticmethod(self):
+        class X:
+            def f(*args, **kwds): return args, kwds
+            f = staticmethod(f)
+        assert X.f() == ((), {})
+        assert X.f(42, x=43) == ((42,), {'x': 43})
+        assert X().f() == ((), {})
+        assert X().f(42, x=43) == ((42,), {'x': 43})
+
+    def test_classmethod(self):
+        class X:
+            def f(*args, **kwds): return args, kwds
+            f = classmethod(f)
+        class Y(X):
+            pass
+        assert X.f() == ((X,), {})
+        assert X.f(42, x=43) == ((X, 42), {'x': 43})
+        assert X().f() == ((X,), {})
+        assert X().f(42, x=43) == ((X, 42), {'x': 43})
+        assert Y.f() == ((Y,), {})
+        assert Y.f(42, x=43) == ((Y, 42), {'x': 43})
+        assert Y().f() == ((Y,), {})
+        assert Y().f(42, x=43) == ((Y, 42), {'x': 43})
+
 
 class TestInternal:
 
