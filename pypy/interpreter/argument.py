@@ -110,6 +110,23 @@ class Arguments:
         according to the signature of code object.
         """
         space = self.space
+        # If w_stararg is not exactly a tuple, unpack it now:
+        # self.match_signature() assumes that it can use it directly for
+        # a matching *arg in the callee's signature.
+        if self.w_stararg is not None:
+            if not space.is_true(space.is_(space.type(self.w_stararg),
+                                           space.w_tuple)):
+                self.unpack()
+        try:
+            return self.match_signature(signature, defaults_w)
+        except ArgErr, e:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap(e.getmsg(self, fnname)))
+
+    def match_signature(self, signature, defaults_w=[]):
+        """Parse args and kwargs according to the signature of a code object,
+        or raise ArgumentMatch in case of failure.
+        """
         argnames, varargname, kwargname = signature
         #
         #   args_w = list of the normal actual parameters, wrapped
@@ -117,16 +134,11 @@ class Arguments:
         #   argnames = list of formal parameter names
         #   scope_w = resulting list of wrapped values
         #
-        # We try to give error messages following CPython's, which are
-        # very informative.
-        #
         co_argcount = len(argnames) # expected formal arguments, without */**
         if self.w_stararg is not None:
             # There is a case where we don't have to unpack() a w_stararg:
             # if it matches exactly a *arg in the signature.
-            if (len(self.arguments_w) == co_argcount and varargname is not None
-                and space.is_true(space.is_(space.type(self.w_stararg),
-                                            space.w_tuple))):
+            if len(self.arguments_w) == co_argcount and varargname is not None:
                 pass
             else:
                 self.unpack()   # sets self.w_stararg to None
@@ -144,7 +156,7 @@ class Arguments:
         if kwds_w:
             for name in argnames[self.blind_arguments:input_argcount]:
                 if name in kwds_w:
-                    self.raise_argerr_multiple_values(fnname, name)
+                    raise ArgErrMultipleValues(name)
 
         remainingkwds_w = kwds_w.copy()
         if input_argcount < co_argcount:
@@ -158,31 +170,64 @@ class Arguments:
                 elif i >= def_first:
                     scope_w.append(defaults_w[i-def_first])
                 else:
-                    self.raise_argerr(fnname, signature, defaults_w, False)
+                    raise ArgErrCount(signature, defaults_w, False)
                     
         # collect extra positional arguments into the *vararg
         if varargname is not None:
             if self.w_stararg is None:   # common case
-                scope_w.append(space.newtuple(args_w[co_argcount:]))
+                scope_w.append(self.space.newtuple(args_w[co_argcount:]))
             else:      # shortcut for the non-unpack() case above
                 scope_w.append(self.w_stararg)
         elif len(args_w) > co_argcount:
-            self.raise_argerr(fnname, signature, defaults_w, True)
+            raise ArgErrCount(signature, defaults_w, True)
 
         # collect extra keyword arguments into the **kwarg
         if kwargname is not None:
-            w_kwds = space.newdict([(space.wrap(key), w_value)
-                                    for key, w_value in remainingkwds_w.items()])
+            w_kwds = self.space.newdict([])
+            for key, w_value in remainingkwds_w.items():
+                self.space.setitem(w_kwds, self.space.wrap(key), w_value)
             scope_w.append(w_kwds)
         elif remainingkwds_w:
-            self.raise_argerr_unknown_kwds(fnname, remainingkwds_w)
+            raise ArgErrUnknownKwds(remainingkwds_w)
         return scope_w
 
-    # helper functions to build error message for the above
+    ### Argument <-> list of w_objects together with "shape" information
 
-    def raise_argerr(self, fnname, signature, defaults_w, too_many):
+    def flatten(self):
+        shape_cnt  = len(self.arguments_w)        # Number of positional args
+        shape_keys = self.kwds_w.keys()           # List of keywords (strings)
+        shape_star = self.w_stararg is not None   # Flag: presence of *arg
+        data_w = self.arguments_w + [self.kwds_w[key] for key in shape_keys]
+        if shape_star:
+            data_w.append(self.w_stararg)
+        return (shape_cnt, tuple(shape_keys), shape_star), data_w
+
+    def fromshape(space, (shape_cnt, shape_keys, shape_star), data_w):
+        args_w = data_w[:shape_cnt]
+        kwds_w = {}
+        for i in range(len(shape_keys)):
+            kwds_w[shape_keys[i]] = data_w[shape_cnt+i]
+        if shape_star:
+            w_star = data_w[-1]
+        else:
+            w_star = None
+        return Arguments(space, args_w, kwds_w, w_star)
+    fromshape = staticmethod(fromshape)
+
+
+#
+# ArgErr family of exceptions raised in case of argument mismatch.
+# We try to give error messages following CPython's, which are very informative.
+#
+
+class ArgErr(Exception):
+    pass
+
+class ArgErrCount(ArgErr):
+    def getmsg(self, args, fnname):
+        signature, defaults_w, too_many = self.args   # from self.__init__()
         argnames, varargname, kwargname = signature
-        args_w, kwds_w = self.unpack()
+        args_w, kwds_w = args.unpack()
         nargs = len(args_w)
         n = len(argnames)
         if n == 0:
@@ -219,15 +264,19 @@ class Arguments:
                 msg2,
                 plural,
                 nargs)
-        raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
+        return msg
 
-    def raise_argerr_multiple_values(self, fnname, argname):
+class ArgErrMultipleValues(ArgErr):
+    def getmsg(self, args, fnname):
+        argname, = self.args   # from self.__init__()
         msg = "%s() got multiple values for keyword argument '%s'" % (
             fnname,
             argname)
-        raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
+        return msg
 
-    def raise_argerr_unknown_kwds(self, fnname, kwds_w):
+class ArgErrUnknownKwds(ArgErr):
+    def getmsg(self, args, fnname):
+        kwds_w, = self.args    # from self.__init__()
         if len(kwds_w) == 1:
             msg = "%s() got an unexpected keyword argument '%s'" % (
                 fnname,
@@ -236,27 +285,4 @@ class Arguments:
             msg = "%s() got %d unexpected keyword arguments" % (
                 fnname,
                 len(kwds_w))
-        raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
-
-    ### Argument <-> list of w_objects together with "shape" information
-
-    def flatten(self):
-        shape_cnt  = len(self.arguments_w)        # Number of positional args
-        shape_keys = self.kwds_w.keys()           # List of keywords (strings)
-        shape_star = self.w_stararg is not None   # Flag: presence of *arg
-        data_w = self.arguments_w + [self.kwds_w[key] for key in shape_keys]
-        if shape_star:
-            data_w.append(self.w_stararg)
-        return (shape_cnt, tuple(shape_keys), shape_star), data_w
-
-    def fromshape(space, (shape_cnt, shape_keys, shape_star), data_w):
-        args_w = data_w[:shape_cnt]
-        kwds_w = {}
-        for i in range(len(shape_keys)):
-            kwds_w[shape_keys[i]] = data_w[shape_cnt+i]
-        if shape_star:
-            w_star = data_w[-1]
-        else:
-            w_star = None
-        return Arguments(space, args_w, kwds_w, w_star)
-    fromshape = staticmethod(fromshape)
+        return msg

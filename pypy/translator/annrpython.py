@@ -9,6 +9,7 @@ from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
 from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.interpreter.pycode import cpython_code_signature
+from pypy.interpreter.argument import ArgErr
 
 
 class AnnotatorError(Exception):
@@ -187,13 +188,16 @@ class RPythonAnnotator:
         callpositions[position_key] = True
 
         # parse the arguments according to the function we are calling
+        signature = cpython_code_signature(func.func_code)
         defs_s = []
         if func.func_defaults:
             for x in func.func_defaults:
                 defs_s.append(self.bookkeeper.immutablevalue(x))
-        inputcells = args.parse(func.func_name,
-                                cpython_code_signature(func.func_code),
-                                defs_s)
+        try:
+            inputcells = args.match_signature(signature, defs_s)
+        except ArgErr, e:
+            print 'IGNORED', e     # hopefully temporary hack
+            return SomeImpossibleValue()
 
         # generalize the function's input arguments
         self.addpendingblock(func, graph.startblock, inputcells, position_key)

@@ -65,11 +65,11 @@ class __extend__(SomeObject):
         return obj   # default unbound __get__ implementation
 
     def simple_call(obj, *args_s):
-        space = RPythonCallsSpace(getbookkeeper())
+        space = RPythonCallsSpace()
         return obj.call(Arguments(space, args_s))
 
     def call_args(obj, s_shape, *args_s):
-        space = RPythonCallsSpace(getbookkeeper())
+        space = RPythonCallsSpace()
         return obj.call(Arguments.fromshape(space, s_shape.const, args_s))
 
     def call(obj, args):
@@ -240,14 +240,11 @@ class RPythonCallsSpace:
     For the Arguments class: if it really needs other operations, it means
     that the call pattern is too complex for R-Python.
     """
-    def __init__(self, bookkeeper):
-        self.bookkeeper = bookkeeper
-
     def newtuple(self, items_s):
         return SomeTuple(items_s)
 
     def newdict(self, stuff):
-        raise Exception, "call pattern too complicated (** argument)"
+        raise CallPatternTooComplex, "'**' argument"
 
     def unpackiterable(self, s_obj, expected_length=None):
         if isinstance(s_obj, SomeTuple):
@@ -255,14 +252,7 @@ class RPythonCallsSpace:
                 expected_length != len(s_obj.items)):
                 raise ValueError
             return s_obj.items
-        raise Exception, "RPythonCallsSpace.unpackiterable(): only for tuples"
+        raise CallPatternTooComplex, "'*' argument must be SomeTuple"
 
-    # XXX the following is only a hack to lead Arguments.parse() believe
-    # XXX that the *arg is always a tuple!
-    w_tuple = object()
-    def type(self, w_obj):
-        return self.w_tuple
-    def is_(self, w1, w2):
-        return w1 is w2
-    def is_true(self, x):
-        return bool(x)
+class CallPatternTooComplex(Exception):
+    pass
