@@ -53,6 +53,12 @@ class AppTestAppFloatTest:
     def test_float_string(self):
         assert 42.0 == float("42")
 
+    def test_float_long(self):
+        assert 42.0 == float(42L)
+        assert 10000000000.0 == float(10000000000L)
+        raises(OverflowError, float, 10**400)
+        
+        
     def test_round(self):
         assert 1.0 == round(1.0)
         assert 1.0 == round(1.1)

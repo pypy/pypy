@@ -39,7 +39,11 @@ def int__Long(space, w_value):
         return w_value   # 9999999999999L.__int__() == 9999999999999L
 
 def float__Long(space, w_longobj):
-    return space.newfloat(float(w_longobj.longval))
+    try:
+        return space.newfloat(float(w_longobj.longval))
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("long int too large to convert to float"))
 
 def long__Float(space, w_floatobj):
     return W_LongObject(space, long(w_floatobj.floatval))
