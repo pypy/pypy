@@ -79,6 +79,8 @@ class W_Constant(W_Object):
         self.value[key] = value
 
     def clone(self):
+        if type(self.value) is type(lambda:0): # XXX
+            return W_Constant(self.value)
         return W_Constant(copy.deepcopy(self.value))
 
 class W_KnownKeysContainer(W_Object):
@@ -127,21 +129,18 @@ class W_KnownKeysContainer(W_Object):
 
 class W_ConstantIterator(W_Object):
 
-    def __init__(self, seq, start=0, changed=False):
+    def __init__(self, seq, start=0): # XXX should we copy seq, and roll our own definition of identity?
         self.seq = seq
         self.start = start
-        self.changed = changed
 
     def argsrepr(self):
-        return "%r, %r, chg=%r" % (self.seq, self.start,self.changed)
+        return "%r, %r" % (self.seq, self.start)
 
     def __eq__(self,other):
-        return self is other
+        return type(self) is type(other) and self.seq is other.seq and self.start == other.start
 
-    def clone(self, changed=None):
-        if changed is None:
-            changed = self.changed
-        return W_ConstantIterator(self.seq, self.start, changed)
+    def clone(self):
+        return W_ConstantIterator(self.seq, self.start)
 
     def next(self):
         try:
@@ -291,8 +290,6 @@ def equivalent(w1, w2):
 def union(r1, r2):
     """Return the union of two wrappers."""
     if r1 is r2:
-        if isinstance(r1,W_ConstantIterator):
-            if r1.changed: return r1.clone(changed=False)
         return r1
     if r1 is None:
         return r2
@@ -311,6 +308,10 @@ def union(r1, r2):
         isinstance(r2, W_KnownKeysContainer) and
         r1.args_w == r2.args_w):
         return W_KnownKeysContainer(r1.args_w)
+    if (isinstance(r1, W_ConstantIterator) and
+        isinstance(r2, W_ConstantIterator) and
+        r1.seq is r2.seq):
+        return W_ConstantIterator(r1.seq,max(r1.start,r2.start))
     # XXX Could do more cases.
     # XXX This will blow up as we add more types.  Refactor when that happens.
     return W_Anything()

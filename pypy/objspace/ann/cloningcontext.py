@@ -1,4 +1,4 @@
-from pypy.interpreter.executioncontext import ExecutionContext
+from pypy.interpreter.executioncontext import ExecutionContext, Stack
 from pypy.interpreter.pyframe \
      import ControlFlowException, ExitFrame, PyFrame, Cell
 from pypy.objspace.ann.wrapper \
@@ -118,8 +118,8 @@ class CloningExecutionContext(ExecutionContext):
 
     def clone_frame(self, frame):
         f = PyFrame(self.space, frame.bytecode, frame.w_globals, frame.w_locals)
-        f.valuestack = frame.valuestack.clone()
-        f.blockstack = frame.blockstack.clone()
+        f.valuestack = clonevaluestack(frame.valuestack)
+        f.blockstack = cloneblockstack(frame.blockstack)
         f.last_exception = frame.last_exception
         f.next_instr = frame.next_instr
         f.localcells = clonecells(frame.localcells)
@@ -141,6 +141,21 @@ class HelperExecutionContext(CloningExecutionContext):
         f.key = frame.key
         return f
 
+def cloneblockstack(stk):
+    newstk = Stack()
+    newstk.items = stk.items[:]
+    return newstk
+
+def clonevaluestack(stk):
+    newstk = Stack()
+    for item in stk.items:
+        try:
+           newitem = item.clone()
+        except AttributeError:
+           newitem = item
+        newstk.push(newitem)
+    return newstk
+          
 def clonecells(cells):
     """Clone a list of cells."""
     newcells = []
