@@ -63,7 +63,7 @@ class PyList extends PySequence {
         throw new TypeError();
     }
 
-    PyObject meth_append_1(PyObject item) {
+    PyObject meth_append(PyObject item) {
         PyObject[] nitems = new PyObject[items.length + 1];
         System.arraycopy(items, 0, nitems, 0, items.length);
         nitems[items.length] = item;

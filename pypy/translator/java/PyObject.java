@@ -26,19 +26,21 @@ class PyObject {
     PyObject op_inplace_mul(PyObject other) { return op_mul(other); }
 
     int len() { throw new TypeError(); }
-    PyObject op_len() { return new PyInt(len()); }
     PyObject op_getitem(PyObject index) { throw new TypeError(); }
     PyObject op_setitem(PyObject index, PyObject o) { throw new TypeError(); }
     PyObject[] unpack(int expected_length, PyObject[] defaults) {
         throw new TypeError();
     }
 
-    /* CUT HERE -- automatically generated code below this line */
-    PyObject meth_append_1(PyObject x) {
-        return op_getattr_append().op_call_1(x);
+    PyObject getattr(String attr) { throw new TypeError(); }
+    PyObject op_getattr(PyObject attr) {
+        return getattr(((PyString) attr).string);
     }
-    PyObject op_getattr_append() { throw new TypeError(); }
-    PyObject op_call_0() { throw new TypeError(); }
-    PyObject op_call_1(PyObject x) { throw new TypeError(); }
-    PyObject op_call_0_5tar(PyObject stararg) { throw new TypeError(); }
+
+    /* CUT HERE -- automatically generated code below this line */
+    PyObject meth_append(PyObject x) {
+        return getattr("append").op_simple_call(x);
+    }
+    PyObject op_simple_call() { throw new TypeError(); }
+    PyObject op_simple_call(PyObject x) { throw new TypeError(); }
 };

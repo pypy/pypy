@@ -59,3 +59,17 @@ class TestNoTypeCGenTestCase:
     def test_sieve_of_eratosthenes(self):
         self.build_jfunc(snippet.sieve_of_eratosthenes)
         self.check([], 1028)
+
+    def test_string(self):
+        def tstring(name):
+            return len("hello " + name)
+        self.build_jfunc(tstring)
+        self.check(["world"], 11)
+
+    def DONT_test_list_append(self):
+        def tlistappend():
+            l = []
+            l.append(5)
+            return l[0]
+        self.build_jfunc(tlistappend)
+        self.check([], 5)

@@ -57,7 +57,7 @@ class GenJava:
         self.globaldecl = []
         self.globalobjects = []
         self.pendingfunctions = []
-        self.callpatterns = {}
+        self.callpatterns = {}    # for now, arities seen in simple_call()
 
         # special constructors:
         self.has_listarg = {
@@ -75,9 +75,8 @@ class GenJava:
         f = self.jdir.join('test.java').open('w')
         print >> f, 'class test extends PyObject {'
         print >> f, '    static public void main(String[] argv) {'
-        print >> f, '        PyObject result = %s.op_call_%d(%s);' % (
-            entrypoint, len(inputargs),
-            ', '.join([self.nameof(x) for x in inputargs]))
+        print >> f, '        PyObject result = %s.op_simple_call(%s);' % (
+            entrypoint, ', '.join([self.nameof(x) for x in inputargs]))
         print >> f, '        if (result.eq(%s))' % (
             self.nameof(expectedresult),)
         print >> f, '            System.out.println("OK");'
@@ -155,7 +154,12 @@ class GenJava:
         return "w(%s)" % value
 
     def nameof_str(self, value):
-        return "w(%s)" % repr(value)
+        content = []
+        for c in value:
+            if not (' ' <= c < '\x7f'):
+                c = '\\%03o' % ord(c)
+            content.append(c)
+        return 'new PyString("%s")' % (''.join(content),)
 
     def skipped_function(self, func):
         # debugging only!  Generates a placeholder for missing functions
@@ -247,33 +251,10 @@ class GenJava:
     def nameof_builtin_function_or_method(self, func):
         if func.__self__ is None:
             # builtin function
-            # where does it come from? Python2.2 doesn't have func.__module__
-            for modname, module in sys.modules.items():
-                if hasattr(module, '__file__'):
-                    if (module.__file__.endswith('.py') or
-                        module.__file__.endswith('.pyc') or
-                        module.__file__.endswith('.pyo')):
-                        continue    # skip non-builtin modules
-                if func is getattr(module, func.__name__, None):
-                    break
-            else:
-                raise Exception, '%r not found in any built-in module' % (func,)
-            name = self.uniquename('gbltin_' + func.__name__)
-            if modname == '__builtin__':
-                self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
-                                     'PyEval_GetBuiltins(), "%s"))' % (
-                    name, func.__name__))
-            else:
-                self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
-                                     '%s, "%s"))' % (
-                    name, self.nameof(module), func.__name__))
+            return "Builtin.%s" % func.__name__
         else:
             # builtin (bound) method
-            name = self.uniquename('gbltinmethod_' + func.__name__)
-            self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
-                                 '%s, "%s"))' % (
-                name, self.nameof(func.__self__), func.__name__))
-        return name
+            assert False, "to do"
 
     def nameof_classobj(self, cls):
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
@@ -429,11 +410,12 @@ class GenJava:
                     f.write(data[:i])
                     print >> f
                     print >> f, '    /* call patterns */'
-                    callpatterns = self.callpatterns.items()
-                    callpatterns.sort()
-                    for callpattern, args in callpatterns:
-                        print >> f, ('    PyObject %s(%s) { throw new '
-                                     'TypeError(); }' % (callpattern, args))
+                    arities = self.callpatterns.keys()
+                    arities.sort()
+                    for arity in arities:
+                        args = ['PyObject x%d' % i for i in range(arity)]
+                        print >> f, ('    PyObject op_simple_call(%s) { throw '
+                                     'new TypeError(); }' % ', '.join(args))
                     print >> f
                     self.gen_initcode(f)
                     print >> f, '};'
@@ -527,10 +509,9 @@ class GenJava:
                 localvars += block.inputargs
 
         # create function declaration
-        callpattern = "op_call_%d" % len(start.inputargs)
         args = arglist(start.inputargs, prefix='PyObject ')
-        self.callpatterns[callpattern] = args
-        print >> f, "    PyObject %s(%s) {" % (callpattern, args)
+        self.callpatterns[len(start.inputargs)] = True
+        print >> f, "    PyObject op_simple_call(%s) {" % args
         for v in localvars:
             print >> f, "        PyObject %s = null;" % v
         print >> f, "        int block = %d; // startblock" % blocknum[start]
