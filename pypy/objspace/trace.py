@@ -7,6 +7,7 @@ from pypy.objspace.trivial import TrivialObjSpace
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter import gateway
 debug = 0
 
 class TraceExecutionContext(ExecutionContext):        
@@ -32,21 +33,24 @@ class Logger(object):
         self.printme = printme
         
     def __call__(self, cls, *args, **kwds):
-        print self.name
+        assert (not kwds)
+
+        #print self.name
         #print "%s %s(%s, %s)" % (self.printme, , str(args), str(kwds)) 
-        self.space.notify_on_operation(self.name)
+        self.space.notify_on_operation(self.name, None)
         return self.fn(*args, **kwds)
 
     def __getattr__(self, name):
         return getattr(self.fn, name)
 
 
-class InteractiveLogger(Logger):
+## XXX Interaction not in scope (yet)
+## class InteractiveLogger(Logger):
         
-    def __call__(self, cls, *args, **kwds):
-        res = Logger.__call__(self, cls, *args, **kwds)
-        raw_input()
-        return res
+##     def __call__(self, cls, *args, **kwds):
+##         res = Logger.__call__(self, cls, *args, **kwds)
+##         raw_input()
+##         return res
         
 # ______________________________________________________________________
 
@@ -56,11 +60,8 @@ def Trace(spacecls = StdObjSpace, logger_cls = Logger):
         full_exceptions = False
         
         def initialize(self):
-            self.log_list = []
-            self.current_frame = None
+            self.tracing = 0
             spacecls.initialize(self)
-            self.current_frame = None
-            self.log_list = []
             method_names = [ii[0] for ii in ObjSpace.MethodTable]
             for key in method_names:
                 if key in method_names:
@@ -68,26 +69,38 @@ def Trace(spacecls = StdObjSpace, logger_cls = Logger):
                     l = logger_cls(key, item, self, "class method")
                     setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
 
+
+        def start_tracing(self):
+            self.tracing = 1
+            self.log_list = []
+
+
+        def stop_tracing(self):
+            self.tracing = 0 
+
+
         def createexecutioncontext(self):
             "Factory function for execution contexts."
             return TraceExecutionContext(self)
 
 
         def notify_on_bytecode(self, frame):
-            if self.current_frame is None:
-                self.current_frame = frame
-            elif self.current_frame is frame:
-                bytecode, name = frame.examineop()
-                self.log_list.append((name, []))
+            if self.tracing:
+                opcode, opname = frame.examineop()
+                self.log_list.append((opname, []))
 
 
-        def notify_on_operation(self, name):
-            self.log_list[-1][1].append(name)
+        def notify_on_operation(self, name, args):
+            if self.tracing:
+                self.log_list[-1][1].append((name, args))
+
 
         def dump(self):
             return self.log_list
+
         
     return TraceObjSpace()
+
 
 Space = Trace
 s = Trace(TrivialObjSpace)
@@ -95,23 +108,48 @@ s = Trace(TrivialObjSpace)
 # ______________________________________________________________________
 # End of trace.py
 
+def add_func(space, func, w_globals):
+    """ Add a function to globals. """
+    func_name = func.func_name
+    w_func_name = space.wrap(func_name)
+    w_func = space.wrap(func)
+    space.setitem(w_globals, w_func_name, w_func)
 
-def runx(space, func, *args):
-    args_w = [space.wrap(ii) for ii in args]
+
+def run_function(space, func, *args):
+    # Get execution context and globals
     ec = space.getexecutioncontext()
+    w_globals = ec.make_standard_w_globals()
+
+    # Add the function to globals
+    add_func(space, func, w_globals)
+
+    # Create wrapped args
+    args_w = [space.wrap(ii) for ii in args]
     code = func.func_code
     code = PyCode()._from_code(code)
-    w_globals = ec.make_standard_w_globals()  
+
+    # Create frame
     frame = code.create_frame(space, w_globals)
     frame.setfastscope(args_w)
-    return frame.run()
+
+    # start/stop tracing while running frame
+    space.start_tracing()
+    res = frame.run()
+    space.stop_tracing()
+
+    return res
+
 
 if __name__ == "__main__":
+    
     def a(b):
-        print b
-        return b+1
+        if b > 0:
+            return a(b-1)
+        else:
+            return b
 
-    print runx(s, a, 1)
+    print run_function(s, a, 3)
 
     print ">>>>>>"
     print s.dump()
