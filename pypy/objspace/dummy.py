@@ -8,16 +8,16 @@ class W_Obj(W_Root):
         return True
 
     def str_w(self, space):
-        raise OperatioError(space.w_TypeError,space.wrap("!")) 
+        raise OperationError(space.w_TypeError,space.wrap("!")) 
 
     def int_w(self, space):
-        raise OperatioError(space.w_TypeError,space.wrap("!")) 
+        raise OperationError(space.w_TypeError,space.wrap("!")) 
 
     def float_w(self, space):
-        raise OperatioError(space.w_TypeError,space.wrap("!")) 
+        raise OperationError(space.w_TypeError,space.wrap("!")) 
 
     def unwrap(self, space):
-        raise OperatioError(space.w_TypeError,space.wrap("!")) 
+        raise OperationError(space.w_TypeError,space.wrap("!")) 
 
 class W_Str(W_Obj):
     def __init__(self, s):
