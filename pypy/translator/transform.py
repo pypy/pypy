@@ -193,108 +193,108 @@ def transform_dead_op_vars(self):
 #  |     |
 #  `-----'  (pass all variables, with i=i1)
 #
-def transform_listextend(self):
-    allblocks = list(self.annotated)
-    for block in allblocks:
-        for j in range(len(block.operations)):
-            op = block.operations[j]
-            if op.opname != 'inplace_add':
-                continue
-            a = op.result
-            b, c = op.args
-            s_list = self.bindings.get(b)
-            if not isinstance(s_list, annmodel.SomeList):
-                continue
+##def transform_listextend(self):
+##    allblocks = list(self.annotated)
+##    for block in allblocks:
+##        for j in range(len(block.operations)):
+##            op = block.operations[j]
+##            if op.opname != 'inplace_add':
+##                continue
+##            a = op.result
+##            b, c = op.args
+##            s_list = self.bindings.get(b)
+##            if not isinstance(s_list, annmodel.SomeList):
+##                continue
 
-            # new variables
-            clen  = Variable()
-            i     = Variable()
-            i1    = Variable()
-            z     = Variable()
-            x     = Variable()
-            dummy = Variable()
-            self.setbinding(clen,  annmodel.SomeInteger(nonneg=True))
-            self.setbinding(i,     annmodel.SomeInteger(nonneg=True))
-            self.setbinding(i1,    annmodel.SomeInteger(nonneg=True))
-            self.setbinding(z,     annmodel.SomeBool())
-            self.setbinding(x,     s_list.s_item)
-            self.setbinding(dummy, annmodel.SomeImpossibleValue())
+##            # new variables
+##            clen  = Variable()
+##            i     = Variable()
+##            i1    = Variable()
+##            z     = Variable()
+##            x     = Variable()
+##            dummy = Variable()
+##            self.setbinding(clen,  annmodel.SomeInteger(nonneg=True))
+##            self.setbinding(i,     annmodel.SomeInteger(nonneg=True))
+##            self.setbinding(i1,    annmodel.SomeInteger(nonneg=True))
+##            self.setbinding(z,     annmodel.SomeBool())
+##            self.setbinding(x,     s_list.s_item)
+##            self.setbinding(dummy, annmodel.SomeImpossibleValue())
 
-            sequel_operations = block.operations[j+1:]
-            sequel_exitswitch = block.exitswitch
-            sequel_exits      = block.exits
+##            sequel_operations = block.operations[j+1:]
+##            sequel_exitswitch = block.exitswitch
+##            sequel_exits      = block.exits
 
-            del block.operations[j:]
-            block.operations += [
-                SpaceOperation('len', [c], clen),
-                SpaceOperation('growlist', [b, clen], dummy),
-                ]
-            block.exitswitch = None
-            allvars = block.getvariables()
+##            del block.operations[j:]
+##            block.operations += [
+##                SpaceOperation('len', [c], clen),
+##                SpaceOperation('growlist', [b, clen], dummy),
+##                ]
+##            block.exitswitch = None
+##            allvars = block.getvariables()
 
-            condition_block = Block(allvars+[i])
-            condition_block.operations += [
-                SpaceOperation('lt', [i, clen], z),
-                ]
-            condition_block.exitswitch = z
+##            condition_block = Block(allvars+[i])
+##            condition_block.operations += [
+##                SpaceOperation('lt', [i, clen], z),
+##                ]
+##            condition_block.exitswitch = z
 
-            loopbody_block = Block(allvars+[i])
-            loopbody_block.operations += [
-                SpaceOperation('getitem', [c, i], x),
-                SpaceOperation('fastappend', [b, x], dummy),
-                SpaceOperation('add', [i, Constant(1)], i1),
-                ]
+##            loopbody_block = Block(allvars+[i])
+##            loopbody_block.operations += [
+##                SpaceOperation('getitem', [c, i], x),
+##                SpaceOperation('fastappend', [b, x], dummy),
+##                SpaceOperation('add', [i, Constant(1)], i1),
+##                ]
 
-            sequel_block = Block(allvars+[a])
-            sequel_block.operations = sequel_operations
-            sequel_block.exitswitch = sequel_exitswitch
+##            sequel_block = Block(allvars+[a])
+##            sequel_block.operations = sequel_operations
+##            sequel_block.exitswitch = sequel_exitswitch
 
-            # link the blocks together
-            block.recloseblock(
-                Link(allvars+[Constant(0)], condition_block),
-                )
-            condition_block.closeblock(
-                Link(allvars+[i],           loopbody_block,  exitcase=True),
-                Link(allvars+[b],           sequel_block,    exitcase=False),
-                )
-            loopbody_block.closeblock(
-                Link(allvars+[i1],          condition_block),
-                )
-            sequel_block.closeblock(*sequel_exits)
+##            # link the blocks together
+##            block.recloseblock(
+##                Link(allvars+[Constant(0)], condition_block),
+##                )
+##            condition_block.closeblock(
+##                Link(allvars+[i],           loopbody_block,  exitcase=True),
+##                Link(allvars+[b],           sequel_block,    exitcase=False),
+##                )
+##            loopbody_block.closeblock(
+##                Link(allvars+[i1],          condition_block),
+##                )
+##            sequel_block.closeblock(*sequel_exits)
 
-            # now rename the variables -- so far all blocks use the
-            # same variables, which is forbidden
-            renamevariables(self, condition_block)
-            renamevariables(self, loopbody_block)
-            renamevariables(self, sequel_block)
+##            # now rename the variables -- so far all blocks use the
+##            # same variables, which is forbidden
+##            renamevariables(self, condition_block)
+##            renamevariables(self, loopbody_block)
+##            renamevariables(self, sequel_block)
 
-            allblocks.append(sequel_block)
-            break
+##            allblocks.append(sequel_block)
+##            break
 
-def renamevariables(self, block):
-    """Utility to rename the variables in a block to fresh variables.
-    The annotations are carried over from the old to the new vars."""
-    varmap = {}
-    block.inputargs = [varmap.setdefault(a, Variable())
-                       for a in block.inputargs]
-    operations = []
-    for op in block.operations:
-        result = varmap.setdefault(op.result, Variable())
-        args = [varmap.get(a, a) for a in op.args]
-        op = SpaceOperation(op.opname, args, result)
-        operations.append(op)
-    block.operations = operations
-    block.exitswitch = varmap.get(block.exitswitch, block.exitswitch)
-    exits = []
-    for exit in block.exits:
-        args = [varmap.get(a, a) for a in exit.args]
-        exits.append(Link(args, exit.target, exit.exitcase))
-    block.recloseblock(*exits)
-    # carry over the annotations
-    for a1, a2 in varmap.items():
-        if a1 in self.bindings:
-            self.setbinding(a2, self.bindings[a1])
-    self.annotated[block] = True
+##def renamevariables(self, block):
+##    """Utility to rename the variables in a block to fresh variables.
+##    The annotations are carried over from the old to the new vars."""
+##    varmap = {}
+##    block.inputargs = [varmap.setdefault(a, Variable())
+##                       for a in block.inputargs]
+##    operations = []
+##    for op in block.operations:
+##        result = varmap.setdefault(op.result, Variable())
+##        args = [varmap.get(a, a) for a in op.args]
+##        op = SpaceOperation(op.opname, args, result)
+##        operations.append(op)
+##    block.operations = operations
+##    block.exitswitch = varmap.get(block.exitswitch, block.exitswitch)
+##    exits = []
+##    for exit in block.exits:
+##        args = [varmap.get(a, a) for a in exit.args]
+##        exits.append(Link(args, exit.target, exit.exitcase))
+##    block.recloseblock(*exits)
+##    # carry over the annotations
+##    for a1, a2 in varmap.items():
+##        if a1 in self.bindings:
+##            self.setbinding(a2, self.bindings[a1])
+##    self.annotated[block] = True
 
 
 def transform_graph(ann):
@@ -303,7 +303,7 @@ def transform_graph(ann):
         ann.translator.checkgraphs()
     transform_allocate(ann)
     transform_slice(ann)
-    transform_listextend(ann)
+    ##transform_listextend(ann)
     # do this last, after the previous transformations had a
     # chance to remove dependency on certain variables
     transform_dead_op_vars(ann)
