@@ -499,6 +499,9 @@ class BoundMultiMethod:
     def is_empty(self):
         return self.multimethod.is_empty()
 
+    def __repr__(self):
+        return '<Bound %r>'%(self.multimethod,)
+
 
 class error(Exception):
     "Thrown to you when you do something wrong with multimethods."
