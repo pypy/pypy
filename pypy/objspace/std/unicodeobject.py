@@ -29,6 +29,8 @@ def delegate_String2Unicode(w_str):
     space = w_str.space
     return W_UnicodeObject(space, unicode(space.str_w(w_str)))
 
+def str_w__Unicode(space, w_uni):
+    return space.str_w(space.call_method(w_uni, 'encode'))
 
 def eq__Unicode_ANY(space, w_uni, w_other):
     try:

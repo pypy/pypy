@@ -12,7 +12,7 @@ class TestInterpreter:
 
         compile = space.builtin.compile
         w = space.wrap
-        w_code = compile(source, '<string>', 'exec', 0, 0)
+        w_code = compile(w(source), '<string>', 'exec', 0, 0)
 
         ec = executioncontext.ExecutionContext(space)
 

@@ -16,7 +16,7 @@ def _run_eval_string(source, filename, space, eval):
 
         compile = space.builtin.compile
         w = space.wrap
-        w_code = compile(source, filename, cmd, 0, 0)
+        w_code = compile(w(source), filename, cmd, 0, 0)
 
         w_main = space.wrap('__main__')
         mainmodule = module.Module(space, w_main)
