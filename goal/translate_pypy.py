@@ -20,11 +20,11 @@ def entry_point(space):
 # __________  Main  __________
 
 def analyse(entry_point=entry_point):
+    global t
     t = Translator(entry_point, verbose=True, simplifying=True)
     space = StdObjSpace()
     a = t.annotate([annmodel.immutablevalue(space)])
     a.simplify()
-    return t
 
 
 if __name__ == '__main__':
@@ -80,9 +80,10 @@ if __name__ == '__main__':
         pdb.post_mortem(tb)
 
     try:
-        t = analyse()
+        analyse()
         print '-'*60
-        t.compile()
+        print 'Generating C code...'
+        t.ccompile()
     except:
         debug()
     else:
