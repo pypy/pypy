@@ -1,6 +1,6 @@
 import autopath
 from pypy.tool import test
-from pypy.objspace.ann.objspace import W_Object, W_Anything, W_Integer
+from pypy.objspace.ann.objspace import W_Object, W_Anything, W_Integer, W_Constant
 from pypy.objspace.ann.objspace import AnnotationObjSpace
 from pypy.interpreter import baseobjspace, pyframe
 
@@ -111,14 +111,14 @@ class TestAnnotationObjSpace(test.TestCase):
                           'f', [])
         self.assertEquals(self.space.unwrap(x), 3)
 
-    def dont_test_assign_local_w_flow_control(self):
+    def test_assign_local_w_flow_control(self):
         # XXX This test doesn't work any more -- disabled for now
         code = """
 def f(n):
     total = 0
     for i in range(n):
-        total = total + 1
-    return n
+        total = total + 2
+    return total
 """
         x = self.codetest(code, 'f', [self.space.wrap(3)])
         self.assertEquals(type(x), W_Integer)

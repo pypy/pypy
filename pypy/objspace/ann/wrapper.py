@@ -130,9 +130,13 @@ class W_ConstantIterator(W_Object):
     def __init__(self, seq, start=0):
         self.seq = seq
         self.start = start
+        self.changed = False
 
     def argsrepr(self):
-        return "%r, %r" % (self.seq, self.start)
+        return "%r, %r, chg=%r" % (self.seq, self.start,self.changed)
+
+    def __eq__(self,other):
+        return self is other
 
     def clone(self):
         return W_ConstantIterator(self.seq, self.start)
@@ -142,6 +146,7 @@ class W_ConstantIterator(W_Object):
             value = self.seq[self.start]
         except IndexError:
             raise StopIteration
+        self.changed = True
         self.start += 1
         return value
 
@@ -217,14 +222,13 @@ def unify_frames(f1, f2):
     for i in range(n):
         v1 = s1[i]
         v2 = s2[i]
-        if v1 != v2:
-            u = union(v1, v2)
-            if v1 != u:
-                c1 = True
-                s1[i] = u
-            if v2 != u:
-                c2 = True
-                s2[i] = u
+        u = union(v1, v2)
+        if v1 != u:
+            c1 = True
+            s1[i] = u
+        if v2 != u:
+            c2 = True
+            s2[i] = u
 
     # Compare locals.
     # XXX This uses the fast locals now and ignores w_locals.
@@ -285,6 +289,8 @@ def equivalent(w1, w2):
 def union(r1, r2):
     """Return the union of two wrappers."""
     if r1 is r2:
+        if isinstance(r1,W_ConstantIterator):
+            if r1.changed: return r1.clone()
         return r1
     if r1 is None:
         return r2
