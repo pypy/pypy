@@ -113,5 +113,18 @@ class C:
         self.assertEquals(type(float(x)), float)
         self.assertEquals(float(x), 5.5)
 
+    def test_meth_doc(self):
+        class C:
+            def meth_no_doc(self):
+                pass
+            def meth_doc(self):
+                """this is a docstring"""
+                pass
+        c = C()
+        self.assertEquals(C.meth_no_doc.__doc__, None)
+        self.assertEquals(c.meth_no_doc.__doc__, None)
+        self.assertEquals(C.meth_doc.__doc__, """this is a docstring""")
+        self.assertEquals(c.meth_doc.__doc__, """this is a docstring""")
+
 if __name__ == '__main__':
     testit.main()

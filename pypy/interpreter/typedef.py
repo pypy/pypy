@@ -237,6 +237,7 @@ Method.typedef = TypeDef("method",
     im_func  = attrproperty_w('w_function'), 
     im_self  = attrproperty_w('w_instance'), 
     im_class = attrproperty_w('w_class'),
+    __getattribute__ = interp2app(Method.descr_method_getattribute.im_func),
     # XXX getattribute/setattribute etc.pp 
     )
 

@@ -115,6 +115,12 @@ class Method(Wrappable):
     def descr_method_call(self, __args__):
         return self.call_args(__args__)
 
+    def descr_method_getattribute(self, w_attr):
+        space = self.space
+        w_result = space.lookup(space.wrap(self), w_attr)
+        if w_result is None:
+            return space.getattr(self.w_function, w_attr)
+
 class StaticMethod(Wrappable):
     """A static method.  Note that there is one class staticmethod at
     app-level too currently; this is only used for __new__ methods."""
