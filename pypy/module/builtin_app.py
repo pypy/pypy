@@ -47,25 +47,34 @@ def zip(*collections):
     if len(collections) == 0:
        raise TypeError, "zip() requires at least one sequence"
     res = []
+    idx = 0
     while 1:
        try:
           elems = []
           for collection in collections:
-             elems.append(collection.pop(0))
+             elems.append(collection[idx])
           res.append(tuple(elems))
        except IndexError:
           break
+       idx = idx + 1
     return res
 
 
 def reduce(function, list, initial = None):
     if initial is None:
        try:
-          initial = list.pop(0)
+          initial = list[0]
        except IndexError:
           raise TypeError, "reduce() of empty sequence with no initial value"
-    for value in list:
-       initial = function(initial, value)
+       idx = 1
+    else
+       idx = 0
+    while 1:
+       try:
+         initial = function(initial, list[idx])
+         idx = idx + 1
+       except:
+         break
     return initial
     
 def isinstance(obj, klass_or_tuple):
