@@ -506,7 +506,7 @@ def renderline(text, font, fgcolor, width):
     lines = []
     while words:
         line = words.pop(0)
-        img = font.render(line, 1, fgcolor)
+        img = font.render(line or ' ', 1, fgcolor)
         while words:
             longerline = line + ' ' + words[0]
             longerimg = font.render(longerline, 1, fgcolor)
