@@ -26,6 +26,11 @@ class ExtModule(Module):
                     value = cls.__dict__[name]
                     if isinstance(value, gateway.Gateway):
                         name = value.name
+                        # This hack allows a "leakage" of a private
+                        # module function (starts off prefixed with
+                        # 'private_'; ends up prefixed with '_')
+                        if name.startswith('private_'):
+                            name = name[7:]
                         value = value.__get__(self)  # get a Method
                     elif hasattr(value, '__get__'):
                         continue  # ignore CPython functions
