@@ -151,34 +151,33 @@ class SomeInstance(SomeObject):
         self.knowntype = classdef.cls
         self.revision = classdef.revision
 
-
-class SomeCallable(SomeObject):
-    """Stands for a (callable) function, method, 
-    prebuiltconstant or class"""
-    def __init__(self, callables):
-        # callables is a dictionary containing concrete python 
-        # callable objects as keys and - in the case of a method - 
-        # the value contains the classdef (see SomeMethod below) 
-        self.callables = callables
-        if len(callables) == 1:
-            self.const, = callables
-
-
-class SomeBuiltin(SomeCallable):
-    "Stands for a built-in function or method with special-cased analysis."
-    knowntype = BuiltinFunctionType  # == BuiltinMethodType
-    def __init__(self, analyser, s_self=None):
-        self.analyser = analyser
-        self.s_self = s_self
-
+def new_or_old_class(c):
+    if hasattr(c, '__class__'):
+        return c.__class__
+    else:
+        return type(c)
 
 class SomePBC(SomeObject):
     """Stands for a global user instance, built prior to the analysis,
     or a set of such instances."""
     def __init__(self, prebuiltinstances):
+        # prebuiltinstances is a dictionary containing concrete python
+        # objects as keys.
+        # if the key is a function, the value can be a classdef to
+        # indicate that it is really a method.
         self.prebuiltinstances = prebuiltinstances  
         self.knowntype = reduce(commonbase,
-                                [x.__class__ for x in prebuiltinstances])
+                                [new_or_old_class(x) for x in prebuiltinstances])
+        if len(prebuiltinstances) == 1:
+            self.const, = prebuiltinstances
+
+
+class SomeBuiltin(SomePBC):
+    "Stands for a built-in function or method with special-cased analysis."
+    knowntype = BuiltinFunctionType  # == BuiltinMethodType
+    def __init__(self, analyser, s_self=None):
+        self.analyser = analyser
+        self.s_self = s_self
 
 
 class SomeImpossibleValue(SomeObject):

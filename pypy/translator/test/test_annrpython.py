@@ -7,8 +7,6 @@ from pypy.translator.annrpython import RPythonAnnotator, annmodel
 from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import *
 
-from pypy.annotation.model import SomeCallable
-
 from pypy.translator.test import snippet
 
 class AnnonateTestCase(testit.IntTestCase):
@@ -318,7 +316,7 @@ class AnnonateTestCase(testit.IntTestCase):
         s = a.build_types(snippet.mergefunctions, [int])
         # the test is mostly that the above line hasn't blown up
         # but let's at least check *something*
-        self.assert_(isinstance(s, SomeCallable))
+        self.assert_(isinstance(s, annmodel.SomePBC))
 
     def test_func_calls_func_which_just_raises(self):
         a = RPythonAnnotator()

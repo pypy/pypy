@@ -6,7 +6,7 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import mkentrymap, last_exception
 from pypy.translator.annrpython import RPythonAnnotator
-from pypy.annotation.model import SomeCallable
+#from pypy.annotation.model import SomeCallable
 from pypy.annotation.factory import isclassdef
 import inspect
 

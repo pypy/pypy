@@ -29,7 +29,7 @@ class RPythonAnnotator:
                                     # records the location of BlockedInference
                                     # exceptions that blocked some blocks.
         self.blocked_functions = {} # set of functions that have blocked blocks
-        self.notify = {}         # {block: {factory-to-invalidate-when-done}}
+        self.notify = {}        # {block: {positions-to-reflow-from-when-done}}
         self.bindingshistory = {}# map Variables to lists of SomeValues
         self.binding_caused_by = {}     # map Variables to Factories
                 # records the FuncCallFactory that caused bindings of inputargs
@@ -168,15 +168,15 @@ class RPythonAnnotator:
 
     #___ interface for annotator.factory _______
 
-    def recursivecall(self, func, factory, *args):
-        parent_fn, parent_block, parent_index = factory.position_key
+    def recursivecall(self, func, position_key, *args):
+        parent_fn, parent_block, parent_index = position_key
         graph = self.translator.getflowgraph(func, parent_fn,
-                                             factory.position_key)
-        # self.notify[graph.returnblock] is a dictionary of
-        # FuncCallFactories (call points to this func) which triggers a
-        # reflow whenever the return block of this graph has been analysed.
-        callfactories = self.notify.setdefault(graph.returnblock, {})
-        callfactories[factory] = True
+                                             position_key)
+        # self.notify[graph.returnblock] is a dictionary of call
+        # points to this func which triggers a reflow whenever the
+        # return block of this graph has been analysed.
+        callpositions = self.notify.setdefault(graph.returnblock, {})
+        callpositions[position_key] = True
         # generalize the function's input arguments
         block = graph.startblock
         inputcells = list(args)
@@ -214,7 +214,7 @@ class RPythonAnnotator:
             for extra in func.func_defaults[-missingargs:]:
                 inputcells.append(self.bookkeeper.immutablevalue(extra))
         inputcells.extend(extracells)
-        self.addpendingblock(func, block, inputcells, factory)
+        self.addpendingblock(func, block, inputcells, position_key)
 
         # get the (current) return value
         v = graph.getreturnvar()
@@ -355,9 +355,9 @@ class RPythonAnnotator:
                 cells.append(cell)
             self.addpendingblock(fn, link.target, cells)
         if block in self.notify:
-            # invalidate some factories when this block is done
-            for factory in self.notify[block]:
-                self.reflowfromposition(factory.position_key)
+            # reflow from certain positions when this block is done
+            for position_key in self.notify[block]:
+                self.reflowfromposition(position_key)
 
 
     #___ creating the annotations based on operations ______

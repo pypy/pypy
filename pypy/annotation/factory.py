@@ -126,7 +126,7 @@ class Bookkeeper:
                 s_name = self.immutablevalue(x.__name__)
                 result = s_self.getattr(s_name)
             else:
-                result = SomeCallable({x : True})
+                result = SomePBC({x : True})
         elif hasattr(x, '__class__') \
                  and x.__class__.__module__ != '__builtin__':
             if isinstance(x, Cache) and not x.frozen:
@@ -158,17 +158,95 @@ class Bookkeeper:
                  t.__module__ != '__builtin__':
             classdef = self.getclassdef(t)
             if self.is_in_an_operation():
-                # woha! instantiating a "mutable" SomeXxx like SomeInstance
-                # is always dangerous, because we need to record this fact
-                # in a factory, to allow reflowing from the current operation
-                # if/when the classdef later changes.
-                factory = self.getfactory(CallableFactory)
-                classdef.instancefactories[factory] = True
+                # woha! instantiating a "mutable" SomeXxx like
+                # SomeInstance is always dangerous, because we need to
+                # allow reflowing from the current operation if/when
+                # the classdef later changes.
+                classdef.instantiation_locations[self.position_key] = True
             return SomeInstance(classdef)
         else:
             o = SomeObject()
             o.knowntype = t
             return o
+
+    def pycall(self, func, *args):
+        if isinstance(func, (type, ClassType)) and \
+            func.__module__ != '__builtin__':
+            cls = func
+            x = getattr(cls, "_specialize_", False)
+            if x:
+                if x == "location":
+                    cls = self.specialize_by_key(cls, self.position_key)
+                else:
+                    raise Exception, \
+                          "unsupported specialization type '%s'"%(x,)
+
+            classdef = self.getclassdef(cls)
+            classdef.instantiation_locations[self.position_key] = True 
+            s_instance = SomeInstance(classdef)
+            # flow into __init__() if the class has got one
+            init = getattr(cls, '__init__', None)
+            if init is not None and init != object.__init__:
+                attrdef = classdef.find_attribute('__init__')
+                attrdef.getvalue()
+                self.pycall(init, s_instance, *args)
+            else:
+                assert not args, "no __init__ found in %r" % (cls,)
+            return s_instance
+        if hasattr(func, '__call__') and \
+           isinstance(func.__call__, MethodType):
+            func = func.__call__
+        if hasattr(func, 'im_func'):
+            if func.im_self is not None:
+                s_self = self.immutablevalue(func.im_self)
+                args = [s_self] + list(args)
+            try:
+                func.im_func.class_ = func.im_class
+            except AttributeError:
+                # probably a builtin function, we don't care to preserve
+                # class information then
+                pass
+            func = func.im_func
+        assert isinstance(func, FunctionType), "expected function, got %r"%func
+        # do we need to specialize this function in several versions?
+        x = getattr(func, '_specialize_', False)
+        #if not x: 
+        #    x = 'argtypes'
+        if x:
+            if x == 'argtypes':
+                key = short_type_name(args)
+                func = self.specialize_by_key(func, key,
+                                              func.__name__+'__'+key)
+            elif x == "location":
+                # fully specialize: create one version per call position
+                func = self.specialize_by_key(func, self.position_key)
+            else:
+                raise Exception, "unsupported specialization type '%s'"%(x,)
+
+        elif func.func_code.co_flags & CO_VARARGS:
+            # calls to *arg functions: create one version per number of args
+            func = self.specialize_by_key(func, len(args),
+                                          name='%s__%d' % (func.func_name,
+                                                           len(args)))
+        return self.annotator.recursivecall(func, self.position_key, *args)
+
+    def specialize_by_key(self, thing, key, name=None):
+        key = thing, key
+        try:
+            thing = self.cachespecializations[key]
+        except KeyError:
+            if isinstance(thing, FunctionType):
+                # XXX XXX XXX HAAAAAAAAAAAACK
+                self.annotator.translator.getflowgraph(thing)
+                thing = func_with_new_name(thing, name or thing.func_name)
+            elif isinstance(thing, (type, ClassType)):
+                assert not "not working yet"
+                thing = type(thing)(name or thing.__name__, (thing,))
+            else:
+                raise Exception, "specializing %r?? why??"%thing
+            self.cachespecializations[key] = thing
+        return thing
+        
 
 def getbookkeeper():
     """Get the current Bookkeeper.
@@ -227,84 +305,6 @@ class DictFactory:
         else:
             return False
 
-
-class CallableFactory:
-    def pycall(self, func, *args):
-        if isinstance(func, (type, ClassType)) and \
-            func.__module__ != '__builtin__':
-            cls = func
-            x = getattr(cls, "_specialize_", False)
-            if x:
-                if x == "location":
-                    cls = self.specialize_by_key(cls, self.position_key)
-                else:
-                    raise Exception, \
-                          "unsupported specialization type '%s'"%(x,)
-
-            classdef = self.bookkeeper.getclassdef(cls)
-            classdef.instancefactories[self] = True
-            s_instance = SomeInstance(classdef)
-            # flow into __init__() if the class has got one
-            init = getattr(cls, '__init__', None)
-            if init is not None and init != object.__init__:
-                self.pycall(init, s_instance, *args)
-            else:
-                assert not args, "no __init__ found in %r" % (cls,)
-            return s_instance
-        if hasattr(func, '__call__') and \
-           isinstance(func.__call__, MethodType):
-            func = func.__call__
-        if hasattr(func, 'im_func'):
-            if func.im_self is not None:
-                s_self = self.bookkeeper.immutablevalue(func.im_self)
-                args = [s_self] + list(args)
-            try:
-                func.im_func.class_ = func.im_class
-            except AttributeError:
-                # probably a builtin function, we don't care to preserve
-                # class information then
-                pass
-            func = func.im_func
-        assert isinstance(func, FunctionType), "expected function, got %r"%func
-        # do we need to specialize this function in several versions?
-        x = getattr(func, '_specialize_', False)
-        #if not x: 
-        #    x = 'argtypes'
-        if x:
-            if x == 'argtypes':
-                key = short_type_name(args)
-                func = self.specialize_by_key(func, key,
-                                              func.__name__+'__'+key)
-            elif x == "location":
-                # fully specialize: create one version per call position
-                func = self.specialize_by_key(func, self.position_key)
-            else:
-                raise Exception, "unsupported specialization type '%s'"%(x,)
-
-        elif func.func_code.co_flags & CO_VARARGS:
-            # calls to *arg functions: create one version per number of args
-            func = self.specialize_by_key(func, len(args),
-                                          name='%s__%d' % (func.func_name,
-                                                           len(args)))
-        return self.bookkeeper.annotator.recursivecall(func, self, *args)
-
-    def specialize_by_key(self, thing, key, name=None):
-        key = thing, key
-        try:
-            thing = self.bookkeeper.cachespecializations[key]
-        except KeyError:
-            if isinstance(thing, FunctionType):
-                # XXX XXX XXX HAAAAAAAAAAAACK
-                self.bookkeeper.annotator.translator.getflowgraph(thing)
-                thing = func_with_new_name(thing, name or thing.func_name)
-            elif isinstance(thing, (type, ClassType)):
-                assert not "not working yet"
-                thing = type(thing)(name or thing.__name__, (thing,))
-            else:
-                raise Exception, "specializing %r?? why??"%thing
-            self.bookkeeper.cachespecializations[key] = thing
-        return thing
-
 def short_type_name(args):
     l = []
     for x in args:
@@ -353,7 +353,7 @@ class ClassDef:
         self.bookkeeper = bookkeeper
         self.attrs = {}          # {name: Attribute}
         self.revision = 0        # which increases the revision number
-        self.instancefactories = {}
+        self.instantiation_locations = {}
         self.cls = cls
         self.subdefs = {}
         assert (len(cls.__bases__) <= 1 or
@@ -418,11 +418,11 @@ class ClassDef:
                     pending.append(sub)
                     seen[sub] = True
 
-    def getallfactories(self):
-        factories = {}
+    def getallinstantiations(self):
+        locations = {}
         for clsdef in self.getallsubdefs():
-            factories.update(clsdef.instancefactories)
-        return factories
+            locations.update(clsdef.instantiation_locations)
+        return locations
 
     def _generalize_attr(self, attr, s_value):
         # first remove the attribute from subclasses -- including us!
@@ -444,8 +444,8 @@ class ClassDef:
         self.attrs[attr] = newattr
 
         # reflow from all factories
-        for factory in self.getallfactories():
-            self.bookkeeper.annotator.reflowfromposition(factory.position_key)
+        for position in self.getallinstantiations():
+            self.bookkeeper.annotator.reflowfromposition(position)
 
     def generalize_attr(self, attr, s_value=None):
         # if the attribute exists in a superclass, generalize there.

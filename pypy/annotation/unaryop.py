@@ -8,11 +8,10 @@ from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin 
-from pypy.annotation.model import SomeCallable, SomeIterator
-from pypy.annotation.model import SomePBC
+from pypy.annotation.model import SomeIterator, SomePBC
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
-from pypy.annotation.factory import CallableFactory, isclassdef 
+from pypy.annotation.factory import isclassdef 
 
 # convenience only!
 def immutablevalue(x):
@@ -82,11 +81,17 @@ class __extend__(SomeDict):
 
 class __extend__(SomeList):
 
-    def method_append(lst, s_item):
-        pair(lst, SomeInteger()).setitem(s_item)
+    def method_append(lst, s_value):
+        pair(lst, SomeInteger()).setitem(s_value)
 
     def method_reverse(lst):
         pass
+
+    def method_insert(lst, s_index, s_value):
+        pair(lst, SomeInteger()).setitem(s_value)
+        
+    def method_pop(lst, s_index=None):
+        return lst.s_item
 
     def iter(lst):
         return SomeIterator(lst.s_item)
@@ -144,48 +149,13 @@ class __extend__(SomeInstance):
             raise BlockedInference
         return
 
+
 class __extend__(SomeBuiltin):
     def simple_call(bltn, *args):
         if bltn.s_self is not None:
             return bltn.analyser(bltn.s_self, *args)
         else:
             return bltn.analyser(*args)
-
-class __extend__(SomeCallable):
-    def simple_call(cal, *args):
-        factory = getbookkeeper().getfactory(CallableFactory) 
-        results = []
-        for func, classdef in cal.callables.items():
-            if isclassdef(classdef): 
-                # create s_self and record the creation in the factory
-                s_self = SomeInstance(classdef)
-                classdef.instancefactories[factory] = True
-                results.append(factory.pycall(func, s_self, *args))
-            else:
-                results.append(factory.pycall(func, *args))
-        return unionof(*results) 
-
-    def bindcallables(cal, classdef):   
-        """ turn the callables in the given SomeCallable 'cal' 
-            into bound versions.
-        """
-        d = cal.callables.copy()
-        for func, value in cal.callables.items():
-            if isinstance(func, FunctionType): 
-                if isclassdef(value): 
-                    print ("!!! rebinding an already bound"
-                           " method %r with %r" % (func, value))
-                d[func] = classdef
-            elif isinstance(func, staticmethod):
-                d[func.__get__(43)] = value
-            else:
-                d[func] = value 
-        return SomeCallable(d)
-                
-    #def simple_call(fun, *args):
-    #    factory = getbookkeeper().getfactory(CallableFactory)
-    #    results = [factory.pycall(func, *args) for func in fun.funcs]
-    #    return unionof(*results)
 
 
 class __extend__(SomePBC):
@@ -204,3 +174,35 @@ class __extend__(SomePBC):
         #raise Exception, "oops!"
         print "*** WARNING: setattr not wanted on %r" % pbc 
         pass
+
+    def simple_call(pbc, *args):
+        bookkeeper = getbookkeeper()
+        results = []
+        for func, classdef in pbc.prebuiltinstances.items():
+            if isclassdef(classdef): 
+                # create s_self and record the creation in the factory
+                s_self = SomeInstance(classdef)
+                classdef.instantiation_locations[
+                    bookkeeper.position_key] = True
+                results.append(bookkeeper.pycall(func, s_self, *args))
+            else:
+                results.append(bookkeeper.pycall(func, *args))
+        return unionof(*results) 
+
+    def bindcallables(pbc, classdef):   
+        """ turn the callables in the given SomeCallable 'cal' 
+            into bound versions.
+        """
+        d = {}
+        for func, value in pbc.prebuiltinstances.items():
+            if isinstance(func, FunctionType): 
+                if isclassdef(value): 
+                    print ("!!! rebinding an already bound"
+                           " method %r with %r" % (func, value))
+                d[func] = classdef
+            elif isinstance(func, staticmethod):
+                d[func.__get__(43)] = value
+            else:
+                d[func] = value 
+        return SomePBC(d)
+

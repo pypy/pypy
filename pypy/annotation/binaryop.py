@@ -6,8 +6,7 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
-from pypy.annotation.model import SomeInstance, SomeCallable
-from pypy.annotation.model import SomeBuiltin, SomeIterator
+from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import generalize, isclassdef, getbookkeeper
@@ -269,25 +268,27 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
 
     def union((bltn1, bltn2)):
         if bltn1.analyser != bltn2.analyser:
+            assert False, "merging incompatible builtins == BAD!"
             return SomeObject()
         else:
             s_self = unionof(bltn1.s_self, bltn2.s_self)
             return SomeBuiltin(bltn1.analyser, s_self)
 
-class __extend__(pairtype(SomeCallable, SomeCallable)):
-
-    def union((cal1, cal2)):
-        d = cal1.callables.copy()
-        for cal, classdef in cal2.callables.items():
-            if cal in d:
-                if bool(isclassdef(classdef)) ^ bool(isclassdef(d[cal])):
+class __extend__(pairtype(SomePBC, SomePBC)):
+    def union((pbc1, pbc2)):
+        if isinstance(pbc1, SomeBuiltin) or isinstance(pbc2, SomeBuiltin):
+            assert False, "merging builtin & PBC == BAD!"
+        d = pbc1.prebuiltinstances.copy()
+        for x, classdef in pbc2.prebuiltinstances.items():
+            if x in d:
+                if bool(isclassdef(classdef)) ^ bool(isclassdef(d[x])):
                     raise Exception(
                         "union failed for %r with classdefs %r and %r" % 
-                        (cal, classdef, d[cal]))
+                        (x, classdef, d[x]))
                 if isclassdef(classdef):
-                    classdef = classdef.commonbase(d[cal])
-            d[cal] = classdef
-        return SomeCallable(d)
+                    classdef = classdef.commonbase(d[x])
+            d[x] = classdef
+        return SomePBC(d)
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):
@@ -296,12 +297,6 @@ class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
 class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
     def union((obj1, imp2)):
         return obj1
-
-
-class __extend__(pairtype(SomePBC, SomePBC)):
-    def union((pbc1, pbc2)):
-        return SomePBC(setunion(pbc1.prebuiltinstances,
-                                pbc2.prebuiltinstances))
 
 class __extend__(pairtype(SomeInstance, SomePBC)):
     def union((ins, pbc)):
