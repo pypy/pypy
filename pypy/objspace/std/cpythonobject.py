@@ -1,6 +1,6 @@
 from pypy.objspace.std.objspace import *
 from stringobject import W_StringObject
-import sys, operator
+import sys, operator, types
 
 class W_CPythonObject:
     "This class wraps an arbitrary CPython object."
@@ -20,6 +20,11 @@ def cpython_unwrap(space, w_obj):
 
 StdObjSpace.unwrap.register(cpython_unwrap, W_CPythonObject)
 
+
+# real-to-wrapped exceptions
+def wrap_exception(space):
+    exc, value, tb = sys.exc_info()
+    raise OperationError(space.wrap(exc), space.wrap(value))
 
 # in-place operators
 def inplace_pow(x1, x2):
@@ -126,7 +131,7 @@ for _name, _symbol, _arity in ObjSpace.MethodTable:
                 try:
                     y = f(x)
                 except:
-                    raise OperationError(*sys.exc_info()[:2])
+                    wrap_exception(space)
                 return space.wrap(y)
         elif _arity == 2:
             def cpython_f(space, w_1, w_2, f=f):
@@ -135,7 +140,7 @@ for _name, _symbol, _arity in ObjSpace.MethodTable:
                 try:
                     y = f(x1, x2)
                 except:
-                    raise OperationError(*sys.exc_info()[:2])
+                    wrap_exception(space)
                 return space.wrap(y)
         elif _arity == 3:
             def cpython_f(space, w_1, w_2, w_3, f=f):
@@ -145,7 +150,7 @@ for _name, _symbol, _arity in ObjSpace.MethodTable:
                 try:
                     y = f(x1, x2, x3)
                 except:
-                    raise OperationError(*sys.exc_info()[:2])
+                    wrap_exception(space)
                 return space.wrap(y)
         else:
             raise ValueError, '_arity too large'
@@ -160,7 +165,7 @@ def cpython_is_true(space, w_obj):
     try:
         return operator.truth(obj)
     except:
-        raise OperationError(*sys.exc_info()[:2])
+        wrap_exception(space)
 
 
 # slicing
@@ -186,7 +191,7 @@ def cpython_getitem(space, w_obj, w_index):
         else:
             result = operator.getslice(obj, sindex[0], sindex[1])
     except:
-        raise OperationError(*sys.exc_info()[:2])
+        wrap_exception(space)
     return space.wrap(result)
 
 def cpython_setitem(space, w_obj, w_index, w_value):
@@ -200,7 +205,7 @@ def cpython_setitem(space, w_obj, w_index, w_value):
         else:
             operator.setslice(obj, sindex[0], sindex[1], value)
     except:
-        raise OperationError(*sys.exc_info()[:2])
+        wrap_exception(space)
 
 def cpython_delitem(space, w_obj, w_index):
     obj = space.unwrap(w_obj)
@@ -212,7 +217,7 @@ def cpython_delitem(space, w_obj, w_index):
         else:
             operator.delslice(obj, sindex[0], sindex[1])
     except:
-        raise OperationError(*sys.exc_info()[:2])
+        wrap_exception(space)
 
 StdObjSpace.getitem.register(cpython_getitem, W_CPythonObject, W_ANY)
 StdObjSpace.setitem.register(cpython_getitem, W_CPythonObject, W_ANY, W_ANY)
@@ -226,7 +231,7 @@ def cpython_next(space, w_obj):
     except StopIteration:
         raise NoValue
     except:
-        raise OperationError(*sys.exc_info()[:2])
+        wrap_exception(space)
     return space.wrap(result)
 
 StdObjSpace.next.register(cpython_next, W_CPythonObject)
@@ -241,7 +246,7 @@ def cpython_call(space, w_obj, w_arguments, w_keywords):
         result = apply(callable, args, keywords)
     except:
         import sys
-        raise OperationError(*sys.exc_info()[:2])
+        wrap_exception(space)
     return space.wrap(result)
 
 StdObjSpace.call.register(cpython_call, W_CPythonObject, W_ANY, W_ANY)

@@ -53,9 +53,9 @@ class StdObjSpace(ObjSpace):
         if isinstance(x, str):
             import stringobject
             return stringobject.W_StringObject(x)
-        if isinstance(x, float):
-            import floatobject
-            return floatobject.W_FloatObject(x)
+        #if isinstance(x, float):
+        #    import floatobject
+        #    return floatobject.W_FloatObject(x)
         if isinstance(x, tuple):
             wrappeditems = [self.wrap(item) for item in x]
             import tupleobject
