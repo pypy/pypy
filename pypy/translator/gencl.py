@@ -67,45 +67,14 @@ class GenCL:
             print "(setq", var, init, ")"
         self.emit_block(branch.target)
     def emit_conditional_branch(self, branch):
-        # XXX: Fix this
-        print "(if (not (zerop", self.str(branch.condition), "))"
+        print "(if"
+        self.emit_truth_test(branch.condition)
         self.emit_branch(branch.ifbranch)
         self.emit_branch(branch.elsebranch)
         print ")"
     def emit_end_branch(self, branch):
         retval = self.str(branch.returnvalue)
         print "(return", retval, ")"
-
-def my_gcd(a, b):
-    r = a % b
-    while r:
-        a = b
-        b = r
-        r = a % b
-    return b
-
-import sys
-from pypy.objspace.flow import Space
-from vpath.adapter.process import exec_cmd
-from cStringIO import StringIO
-
-def test(func, *args):
-    fun = Space().build_flow(func)
-    gen = GenCL(fun)
-    out = StringIO()
-    sys.stdout = out
-    gen.emit()
-    sys.stdout = sys.__stdout__
-    fp = file("test.lisp", "w")
-    fp.write(out.getvalue())
-    print >>fp, "(write (", fun.functionname,
-    for arg in args:
-        print >>fp, str(arg),
-    print >>fp, "))"
-    fp.close()
-    output = exec_cmd("clisp test.lisp")
-    print "Python:", func(*args)
-    print "Lisp:", output
-
-if __name__ == "__main__":
-    test(my_gcd, 96, 64)
+    def emit_truth_test(self, obj):
+        # XXX: Fix this
+        print "(not (zerop", self.str(obj), "))"
