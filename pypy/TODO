@@ -9,6 +9,15 @@ General
   (probably requiring geninterp to generate less global 
   init-code) 
 
+* extend the testing mechanisms to specifically allow: 
+  - running plain CPython regrtests (including outputtests, 
+    unittests, doctests, ...)  
+  - running modified CPython regrtests againat CPython 
+    as well as against PyPy 
+  - running pure app-level py-test style regrtests 
+  - running interp-level py-test style regrtests 
+  - running doctests with py.test modules 
+
 * not all of CPython's exceptions use the same __init__!
 
 * refactor the cmdline-entrypoints to PyPy aka py.py main.py 
