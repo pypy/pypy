@@ -247,7 +247,8 @@ class GenC:
             content.sort()
             for key, value in content:
                 if self.should_translate_attr(instance, key):
-                    yield '%s.%s = %s' % (name, key, self.nameof(value))
+                    line = '%s.%s = %s' % (name, key, self.nameof(value))
+                    yield line
         if hasattr(instance,'__reduce_ex__'):
             import copy_reg
             reduced = instance.__reduce_ex__()
@@ -445,7 +446,7 @@ class GenC:
         print >> f, self.C_HEADER
 
         # function implementations
-        while self.pendingfunctions:
+        while self.pendingfunctions or self.latercode:
             func = self.pendingfunctions.pop()
             self.gen_cfunction(func)
             # collect more of the latercode after each function

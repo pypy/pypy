@@ -814,3 +814,15 @@ def bltin_code_frame_reorg():
   return (a,a1,b,b1)
 
 
+# constant instances with __init__ vs. __new__
+
+class Thing1:
+
+    def __init__(self):
+        self.thingness = 1
+
+thing1 = Thing1()
+
+def one_thing1():
+    return thing1
+

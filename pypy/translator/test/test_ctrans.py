@@ -193,6 +193,10 @@ class TestNoTypeCGenTestCase:
         assert l == [3, 'c', 8, 11, 'h', 9]
         assert result == ([3, 'c'], [9], [11, 'h'])
 
+    def test_global_const_w_init(self):
+        fn = self.build_cfunc(snippet.one_thing1)
+        assert fn().thingness == 1
+
 class TestTypedTestCase:
 
     def getcompiled(self, func):
@@ -292,3 +296,4 @@ class TestTypedTestCase:
         assert result == list('abc')
         result = fn(l, 2**64)
         assert result == list('abc')
+        
