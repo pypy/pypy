@@ -68,9 +68,6 @@ class W_Constant(W_Object, Constant):
     def unwrap(self):
         return self.value
 
-    def __eq__(self, other):
-        return type(other) is type(self) and self.value == other.value
-
     def __len__(self):
         return len(self.value)
 

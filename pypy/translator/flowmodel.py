@@ -25,7 +25,13 @@ class Variable:
 class Constant:
     def __init__(self, value):
         self.value = value
-    
+
+    def __eq__(self, other):
+        return type(other) is type(self) and self.value == other.value
+
+    def __hash__(self):
+        return hash(self.value)
+
     def __repr__(self):
         return str(self.value)
 
@@ -40,6 +46,10 @@ class SpaceOperation:
                 self.opname == other.opname and
                 self.args == other.args and
                 self.result == other.result)
+
+    def __hash__(self):
+        return hash((self.opname,tuple(self.args),self.result))
+        
 
     def __repr__(self):
         return "%s(%s) -> %s" % (self.opname, ", ".join(map(str, self.args)), self.result)
