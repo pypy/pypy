@@ -1,9 +1,8 @@
 import autopath
-
 import new, sys
 
-if sys.version_info >= (2, 3):
-
+if (sys.version_info >= (2, 3) and
+    not hasattr(sys, 'pypy_objspaceclass')):
     def func_with_new_name(func, newname):
         f = new.function(func.func_code, func.func_globals,
                             newname, func.func_defaults,
@@ -12,9 +11,7 @@ if sys.version_info >= (2, 3):
             f.func_dict = {}
             f.func_dict.update(func.func_dict) 
         return f 
-
 else:
-
     def func_with_new_name(func, newname):
         return func
 
