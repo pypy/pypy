@@ -9,7 +9,7 @@ class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
 
     def __init__(w_self, space, name, bases_w, dict_w,
-                 overridetypedef=None, forcedict=True):
+                 overridetypedef=None):
         W_Object.__init__(w_self, space)
         w_self.name = name
         w_self.bases_w = bases_w
@@ -34,10 +34,9 @@ class W_TypeObject(W_Object):
                                                     "multiple inheritance"))
                 w_self.hasdict = w_self.hasdict or w_base.hasdict
             w_self.instancetypedef = instancetypedef
-         if forcedict and not w_self.hasdict:
-            w_self.dict_w['__dict__'] = space.wrap(std_dict_descr)
-            w_self.hasdict = True
-        if overridetypedef is None:
+            if not w_self.hasdict:
+                w_self.dict_w['__dict__'] = space.wrap(std_dict_descr)
+                w_self.hasdict = True                
             w_type = space.type(w_self)
             if not space.is_true(space.is_(w_type, space.w_type)):
                 mro_func = w_type.lookup('mro')
@@ -45,6 +44,7 @@ class W_TypeObject(W_Object):
                 w_mro = space.call_args(mro_func, mro_func_args)
                 w_self.mro_w = space.unpackiterable(w_mro)
                 return
+
         w_self.mro_w = w_self.compute_mro()
 
     def compute_mro(w_self):

@@ -101,7 +101,7 @@ def buildtypeobject(typedef, space):
         dict_w[descrname] = w(descrvalue)
 
     return W_TypeObject(space, typedef.name, bases_w, dict_w,
-                        overridetypedef=typedef, forcedict=False)
+                        overridetypedef=typedef)
 
 def hack_out_multimethods(ns):
     "NOT_RPYTHON: initialization-time only."
