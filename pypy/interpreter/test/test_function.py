@@ -2,8 +2,11 @@
 import autopath
 from pypy.tool import test 
 import unittest
+from pypy.interpreter.function import Function, Method
+from pypy.interpreter.pycode import PyCode
 
-class ArgParseTest(test.AppTestCase):
+
+class AppTestFunction(test.AppTestCase):
     def test_simple_call(self):
         def func(arg1, arg2):
             return arg1, arg2
@@ -80,27 +83,34 @@ class ArgParseTest(test.AppTestCase):
             return arg1, kw
         self.assertRaises(TypeError, func, 42, **{'arg1': 23})
 
-class ModuleMinimalTest(test.IntTestCase):
+
+class TestMethod(test.IntTestCase):
     def setUp(self):
         self.space = test.objspace()
+        def c(self, bar):
+            return bar
+        code = PyCode()._from_code(c.func_code)
+        self.fn = Function(self.space, code)
+        
+    def test_get(self):
+        class X(object):
+            fn = self.fn
+        x = X()
+        meth = x.fn
+        self.failUnless(isinstance(meth, Method))
 
-    def test_sys_exists(self):
-        w_sys = self.space.get_builtin_module('sys')
-        self.assert_(self.space.is_true(w_sys))
+    def test_call(self):
+        class X(object):
+            fn = self.fn
+        x = X()
+        self.assertEquals(x.fn(42), 42)
 
-    def test_import_exists(self):
-        space = self.space
-        w_builtin = space.get_builtin_module('__builtin__')
-        self.assert_(space.is_true(w_builtin))
-        w_name = space.wrap('__import__')
-        w_import = self.space.getattr(w_builtin, w_name)
-        self.assert_(space.is_true(w_import))
+    def test_fail_call(self):
+        class X(object):
+            fn = self.fn
+        x = X()
+        self.assertRaises_w(self.space.w_TypeError, x.fn, "spam", "egg")
 
-    def test_sys_import(self):
-        from pypy.interpreter.main import run_string
-        run_string('import sys', space=self.space)
 
 if __name__ == '__main__':
     test.main()
-
-        

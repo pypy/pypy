@@ -31,8 +31,40 @@ class BuiltinCode(eval.Code):
         # extract the signature from the (CPython-level) code object
         tmp = pycode.PyCode(None)
         tmp._from_code(func.func_code)
-        self.sig = tmp.signature()
-        self.ismethod = False
+        # signature-based hacks: renaming arguments from w_xyz to xyz.
+        # Currently we enforce the following signature tricks:
+        #  * the first arg must be either 'self' or 'space'
+        #  * 'w_' prefixes for the rest
+        #  * '_w' suffixes on * and **
+        # Not exactly a clean approach XXX.
+        argnames, varargname, kwargname = tmp.signature()
+        argnames = list(argnames)
+        if argnames[0] == 'self':
+            self.ismethod = True
+        elif argnames[0] == 'space':
+            self.ismethod = False
+            del argnames[0]
+        else:
+            raise AssertionError, (
+                "first argument must be called 'self' in methods "
+                "and 'space' in global functions")
+        for i in range(self.ismethod, len(argnames)):
+            a = argnames[i]
+            assert a.startswith('w_'), (
+                "argument %s of built-in function %r should start with 'w_'" %
+                (a, func))
+            argnames[i] = a[2:]
+        if varargname is not None:
+            assert varargname.endswith('_w'), (
+                "argument *%s of built-in function %r should end in '_w'" %
+                (varargname, func))
+            varargname = varargname[:-2]
+        if kwargname is not None:
+            assert kwargname.endswith('_w'), (
+                "argument **%s of built-in function %r should end in '_w'" %
+                (kwargname, func))
+            kwargname = kwargname[:-2]
+        self.sig = argnames, varargname, kwargname
 
     def create_frame(self, space, w_globals, closure=None):
         return BuiltinFrame(space, self, w_globals)
@@ -113,8 +145,11 @@ class Gateway(object):
             return self   # Gateways as unbound methods not implemented
         else:
             # the object space is implicitely fetched out of the instance
+            if isinstance(self.code, BuiltinCode):
+                assert self.code.ismethod, (
+                    'global built-in function %r used as method' %
+                    self.code.func)
             fn = self.get_function(obj.space)
-            self.code.ismethod = True   # that's a hack all right
             return fn.__get__(obj, cls)
 
     def get_function(self, space):
@@ -193,11 +228,18 @@ def interp2app(f, app_name=None):
 def exportall(d):
     """Publish every function from a dict."""
     for name, obj in d.items():
-        # ignore names in '_xyz'
-        if not name.startswith('_') or name.endswith('_'):
-            if isinstance(obj, types.FunctionType):
-                if 'app_'+name not in d:
-                    d['app_'+name] = interp2app(obj, name)
+        if isinstance(obj, types.FunctionType):
+            # names starting in 'app_' are supposedly already app-level
+            if name.startswith('app_'):
+                continue
+            # ignore tricky functions with another interp-level meaning
+            if name in ('__init__', '__new__'):
+                continue
+            # ignore names in '_xyz'
+            if name.startswith('_') and not name.endswith('_'):
+                continue
+            if 'app_'+name not in d:
+                d['app_'+name] = interp2app(obj, name)
 
 def importall(d):
     """Import all app_-level functions as Gateways into a dict."""

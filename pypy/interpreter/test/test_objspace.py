@@ -94,5 +94,25 @@ class TestObjSpace(test.TestCase):
         self.failIf(self.space.exception_match(self.space.w_ValueError,
                                                self.space.w_LookupError))
 
+class ModuleMinimalTest(test.IntTestCase):
+    def setUp(self):
+        self.space = test.objspace()
+
+    def test_sys_exists(self):
+        w_sys = self.space.get_builtin_module('sys')
+        self.assert_(self.space.is_true(w_sys))
+
+    def test_import_exists(self):
+        space = self.space
+        w_builtin = space.get_builtin_module('__builtin__')
+        self.assert_(space.is_true(w_builtin))
+        w_name = space.wrap('__import__')
+        w_import = self.space.getattr(w_builtin, w_name)
+        self.assert_(space.is_true(w_import))
+
+    def test_sys_import(self):
+        from pypy.interpreter.main import run_string
+        run_string('import sys', space=self.space)
+
 if __name__ == '__main__':
     test.main()
