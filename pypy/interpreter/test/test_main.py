@@ -27,7 +27,7 @@ def checkoutput(space, expected_output,f,*args):
     finally:
         space.setattr(w_sys, space.wrap("stdout"), w_oldout)
     capturefile.close() 
-    return capturefn.read() == expected_output
+    assert capturefn.read(mode='rU') == expected_output
 
 
 testfn = 'tmp_hello_world.py'
@@ -43,10 +43,10 @@ class TestMain:
         os.remove(testfn)
 
     def test_run_file(self):
-        assert checkoutput(self.space, testresultoutput,main.run_file,testfn)
+        checkoutput(self.space, testresultoutput,main.run_file,testfn)
 
     def test_run_string(self):
-        assert checkoutput(self.space, testresultoutput,
+        checkoutput(self.space, testresultoutput,
                                  main.run_string,testcode,testfn)
 
     def test_eval_string(self):
