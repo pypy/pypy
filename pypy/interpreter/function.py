@@ -7,8 +7,9 @@ attribute.
 """
 
 from error import OperationError
+from baseobjspace import Wrappable
 
-class Function(object):
+class Function(Wrappable):
     """A function is a code object captured with some environment:
     an object space, a dictionary of globals, default arguments,
     and an arbitrary 'closure' passed to the code object."""
@@ -18,14 +19,14 @@ class Function(object):
         self.name = forcename or code.co_name
         self.doc = getattr(code, 'co_consts', (None,))[0]
         self.code = code       # Code instance
-        self.w_globals = w_globals  # the globals dictionary
+        self.w_func_globals = w_globals  # the globals dictionary
         self.closure   = closure    # normally, list of Cell instances or None
         self.defs_w    = defs_w     # list of w_default's
-        self.w_dict = space.newdict([])
+        self.w_func_dict = space.newdict([])
 
     def call(self, w_args, w_kwds=None):
         scope_w = self.parse_args(w_args, w_kwds)
-        frame = self.code.create_frame(self.space, self.w_globals,
+        frame = self.code.create_frame(self.space, self.w_func_globals,
                                             self.closure)
         frame.setfastscope(scope_w)
         return frame.run()
@@ -182,26 +183,23 @@ class Function(object):
         # (for FlowObjSpace)
         return self.space.call(wrap(self), w_args, w_kwds)
 
-    def pypy_getattr(self, name):
+    def pypy_getattr(self, w_name):
         space = self.space
-        if name == 'func_defaults':
-            if not self.defs_w:
-                return space.w_None
-            else:
-                return space.newtuple(self.defs_w)
-        elif name == 'func_code':
-            return space.wrap(self.code)
-        elif name == 'func_dict':
-            return space.wrap(self.w_dict)
-        elif name == 'func_doc' or name == '__doc__':
-            return space.wrap(self.doc)
-        elif name == 'func_globals':
-            return self.w_globals
-        elif name == 'func_closure':
-            return space.wrap(self.closure)
-        elif name == 'func_name' or name == '__name__': 
-            return space.wrap(self.name)
-        raise OperationError(space.w_AttributeError, space.wrap(name))
+        raise OperationError(space.w_AttributeError, w_name)
+
+    def app_visible(self):  
+        space = self.space
+        def f(*kw):
+            return kw.items()
+        return f(
+                func_defaults = self.defs_w and space.newtuple(self.defs_w) or space.w_None,
+                func_code = space.wrap(self.code),
+                func_dict = self.w_func_dict,
+                func_doc = space.wrap(self.doc),
+                __doc__ = space.wrap(self.doc),
+                func_name = space.wrap(self.name),
+                __name__ = space.wrap(self.name),
+                func_globals = self.w_func_globals)
 
 class Method(object):
     """A method is a function bound to a specific instance or class."""
