@@ -76,6 +76,10 @@ class FlowObjSpace(ObjSpace):
         ec = flowcontext.FlowExecutionContext(self, code, func.func_globals)
         self.executioncontext = ec
         ec.build_flow()
+        name = ec.graph.name
+        for c in "<>&!":
+            name = name.replace(c, '_')
+        ec.graph.name = name
         return ec.graph
 
     # ____________________________________________________________
