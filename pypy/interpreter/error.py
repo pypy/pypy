@@ -21,6 +21,7 @@ class OperationError(Exception):
     """
 
     def __init__(self, w_type, w_value, tb=None):
+        assert w_type is not None, w_value
         self.w_type = w_type
         self.w_value = w_value
         self.application_traceback = tb

@@ -150,7 +150,7 @@ class TestNoTypeCGenTestCase:
         raises(TypeError, call_with_star, [4,7,12,63])
         raises(TypeError, call_with_star, 521)
 
-    def XXX_test_call_with_keyword(self):
+    def test_call_with_keyword(self):
         call_with_keyword = self.build_cfunc(snippet.call_with_keyword)
         assert call_with_keyword(100) == 82
 

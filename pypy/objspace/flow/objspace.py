@@ -34,6 +34,12 @@ class FlowObjSpace(ObjSpace):
                     AssertionError]:
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, Constant(exc))
+        # the following exceptions are the ones that should not show up
+        # during flow graph construction; they are triggered by
+        # non-R-Pythonic constructs or real bugs like typos.
+        for exc in [NameError, UnboundLocalError]:
+            clsname = exc.__name__
+            setattr(self, 'w_'+clsname, None)
         self.specialcases = {}
         #self.make_builtins()
         #self.make_sys()

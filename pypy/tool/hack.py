@@ -2,7 +2,7 @@ import autopath
 
 import new, sys
 
-if sys.version_info > (2, 2):
+if sys.version_info >= (2, 3):
 
     def func_with_new_name(func, newname):
         f = new.function(func.func_code, func.func_globals,

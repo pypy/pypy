@@ -225,7 +225,7 @@ class FloatFormatter(Formatter):
 class FloatFFormatter(FloatFormatter):
     def _format(self, v):
         if v/1e25 > 1e25:
-            return floatGFormatter('g', self.flags, self.width,
+            return FloatGFormatter('g', self.flags, self.width,
                                    self.prec, self.value).format()
         ds, k = flonum2digits(v)
         digits = self.fDigits(ds, k)

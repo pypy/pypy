@@ -19,29 +19,6 @@ class W_LongObject(W_Object):
 
 registerimplementation(W_LongObject)
 
-# int-to-long delegation
-def delegate__Int(space, w_intobj):
-    return W_LongObject(space, long(w_intobj.intval))
-delegate__Int.result_class = W_LongObject
-delegate__Int.priority = PRIORITY_CHANGE_TYPE
-
-# long-to-int delegation
-def delegate__Long(space, w_longobj):
-    if -sys.maxint-1 <= w_longobj.longval <= sys.maxint:
-        return W_IntObject(space, int(w_longobj.longval))
-    else:
-        # note the 'return' here -- hack
-        return FailedToImplement(space.w_OverflowError,
-                   space.wrap("long int too large to convert to int"))
-delegate__Long.result_class = W_IntObject
-delegate__Long.priority = PRIORITY_CHANGE_TYPE
-delegate__Long.can_fail = True
-
-## # long-to-float delegation
-## def delegate__Long(space, w_longobj):
-##     return W_FloatObject(space, float(w_longobj.longval))
-## delegate__Long.result_class = W_FloatObject
-## delegate__Long.priority = PRIORITY_CHANGE_TYPE
 
 # long__Long is supposed to do nothing, unless it has
 # a derived long object, where it should return
@@ -224,3 +201,36 @@ def hex__Long(space, w_long1):
 
 
 register_all(vars())
+
+# delegations must be registered manually because we have more than one
+# long-to-something delegation
+
+# int-to-long delegation
+def delegate_from_int(space, w_intobj):
+    return W_LongObject(space, long(w_intobj.intval))
+delegate_from_int.result_class = W_LongObject
+delegate_from_int.priority = PRIORITY_CHANGE_TYPE
+
+StdObjSpace.delegate.register(delegate_from_int, W_IntObject)
+
+# long-to-int delegation
+def delegate_to_int(space, w_longobj):
+    if -sys.maxint-1 <= w_longobj.longval <= sys.maxint:
+        return W_IntObject(space, int(w_longobj.longval))
+    else:
+        # note the 'return' here -- hack
+        return FailedToImplement(space.w_OverflowError,
+                   space.wrap("long int too large to convert to int"))
+delegate_to_int.result_class = W_IntObject
+delegate_to_int.priority = PRIORITY_CHANGE_TYPE
+delegate_to_int.can_fail = True
+
+StdObjSpace.delegate.register(delegate_to_int, W_LongObject)
+
+# long-to-float delegation
+def delegate_to_float(space, w_longobj):
+    return W_FloatObject(space, float(w_longobj.longval))
+delegate_to_float.result_class = W_FloatObject
+delegate_to_float.priority = PRIORITY_CHANGE_TYPE
+
+StdObjSpace.delegate.register(delegate_to_float, W_LongObject)

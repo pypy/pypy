@@ -38,8 +38,6 @@ def go_figure_out_this_name(source):
 
 class GenC:
     MODNAMES = {}
-    # XXX - I don't know how to make a macro do this.. so..
-    USE_CALL_TRACE = True
 
     def __init__(self, f, translator, modname=None, f2=None, f2name=None):
         self.f = f
@@ -454,8 +452,6 @@ class GenC:
             'entrypoint': self.nameof(self.translator.functions[0]),
             }
         # header
-        if self.USE_CALL_TRACE:
-            print >> f, '#define USE_CALL_TRACE'
         print >> f, self.C_HEADER
 
         # function implementations
@@ -510,9 +506,9 @@ class GenC:
         self.gen_global_declarations()
 
         # print header
-        name = self.nameof(func)
-        assert name.startswith('gfunc_')
-        f_name = 'f_' + name[6:]
+        cname = self.nameof(func)
+        assert cname.startswith('gfunc_')
+        f_name = 'f_' + cname[6:]
 
         # collect all the local variables
         graph = self.translator.getflowgraph(func)
@@ -540,21 +536,30 @@ class GenC:
         fast_set = dict(zip(fast_args, fast_args))
 
         declare_fast_args = [('PyObject *' + a) for a in fast_args]
-        if self.USE_CALL_TRACE:
-            declare_fast_args[:0] = ['PyFrameObject *__f', 'PyThreadState *__tstate']
+        if declare_fast_args:
+            declare_fast_args = 'TRACE_ARGS ' + ', '.join(declare_fast_args)
+        else:
+            declare_fast_args = 'TRACE_ARGS_VOID'
+        fast_function_header = ('static PyObject *\n'
+                                '%s(%s)' % (fast_name, declare_fast_args))
 
-        print >> f, 'static PyObject *'
-        print >> f, '%s(%s);' % (fast_name, ', '.join(declare_fast_args))
+        print >> f, fast_function_header + ';'  # forward
         print >> f
 
         print >> f, 'static PyObject *'
-        print >> f, '%s(PyObject* self, PyObject* args)' % (f_name,)
+        print >> f, '%s(PyObject* self, PyObject* args, PyObject* kwds)' % (
+            f_name,)
         print >> f, '{'
         print >> f, '\tFUNCTION_HEAD(%s, %s, args, %s, __FILE__, __LINE__ - 2)' % (
-            c_string('%s(%s)' % (name, ', '.join(name_of_defaults))),
-            name,
+            c_string('%s(%s)' % (cname, ', '.join(name_of_defaults))),
+            cname,
             '(%s)' % (', '.join(map(c_string, name_of_defaults) + ['NULL']),),
         )
+
+        kwlist = ['"%s"' % name for name in
+                      func.func_code.co_varnames[:func.func_code.co_argcount]]
+        kwlist.append('0')
+        print >> f, '\tstatic char* kwlist[] = {%s};' % (', '.join(kwlist),)
 
         if fast_args:
             print >> f, '\tPyObject *%s;' % (', *'.join(fast_args))
@@ -586,24 +591,27 @@ class GenC:
             print >> f, '\t%s = %s;' % (
                 positional_args[min_number_of_args+i],
                 name_of_defaults[i])
-        lst = ['args',
-               '"%s"' % func.__name__,
-               '%d' % min_number_of_args,
-               '%d' % len(positional_args),
+        fmt = 'O'*min_number_of_args
+        if min_number_of_args < len(positional_args):
+            fmt += '|' + 'O'*(len(positional_args)-min_number_of_args)
+        lst = ['args', 'kwds',
+               '"%s:%s"' % (fmt, func.__name__),
+               'kwlist',
                ]
         lst += ['&' + a.name for a in positional_args]
-        print >> f, '\tif (!PyArg_UnpackTuple(%s))' % ', '.join(lst),
+        print >> f, '\tif (!PyArg_ParseTupleAndKeywords(%s))' % ', '.join(lst),
         print >> f, tail
 
         call_fast_args = list(fast_args)
-        if self.USE_CALL_TRACE:
-            call_fast_args[:0] = ['__f', '__tstate']
-        print >> f, '\treturn %s(%s);' % (fast_name, ', '.join(call_fast_args))
+        if call_fast_args:
+            call_fast_args = 'TRACE_CALL ' + ', '.join(call_fast_args)
+        else:
+            call_fast_args = 'TRACE_CALL_VOID'
+        print >> f, '\treturn %s(%s);' % (fast_name, call_fast_args)
         print >> f, '}'
         print >> f
 
-        print >> f, 'static PyObject *'
-        print >> f, '%s(%s)' % (fast_name, ', '.join(declare_fast_args))
+        print >> f, fast_function_header
         print >> f, '{'
 
         fast_locals = [arg for arg in localnames if arg not in fast_set]
@@ -630,8 +638,9 @@ class GenC:
         print >> f, '}'
 
         # print the PyMethodDef
-        print >> f, 'static PyMethodDef ml_%s = { "%s", %s, METH_VARARGS };' % (
-            name, func.__name__, f_name)
+        print >> f, ('static PyMethodDef ml_%s = {\n'
+            '    "%s", (PyCFunction)%s, METH_VARARGS|METH_KEYWORDS };' % (
+            cname, func.__name__, f_name))
         print >> f
 
         if not self.translator.frozen:

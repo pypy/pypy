@@ -193,7 +193,7 @@ class GenCL:
             return "'last-exc-value"
         else:
             return "#<%r>" % (val,)
-    def emitcode(self):
+    def emitcode(self, public=True):
         import sys
         from cStringIO import StringIO
         out = StringIO()

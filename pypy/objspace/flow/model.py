@@ -153,7 +153,7 @@ class Constant:
         if (r.startswith('<') and r.endswith('>') and
             hasattr(self.value, '__name__')):
             r = '%s %s' % (type(self.value).__name__, self.value.__name__)
-        elif len(r) > 30:
+        elif len(r) > 60 or (len(r) > 30 and type(self.value) is not str):
             r = r[:20] + '...' + r[-8:]
         return '(%s)' % r
 

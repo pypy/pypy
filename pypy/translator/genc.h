@@ -199,6 +199,11 @@ static PyObject *this_module_globals;
 
 #if defined(USE_CALL_TRACE)
 
+#define TRACE_CALL       __f, __tstate,
+#define TRACE_ARGS       PyFrameObject *__f, PyThreadState *__tstate,
+#define TRACE_CALL_VOID  __f, __tstate
+#define TRACE_ARGS_VOID  PyFrameObject *__f, PyThreadState *__tstate
+
 #define FAIL(err) { __f->f_lineno = __f->f_code->co_firstlineno = __LINE__; goto err; }
 
 #define FUNCTION_HEAD(signature, self, args, names, file, line) \
@@ -214,6 +219,11 @@ static PyObject *this_module_globals;
 #define FUNCTION_RETURN(rval) return traced_function_tail(rval, __f, __tstate);
 
 #else /* !defined(USE_CALL_TRACE) */
+
+#define TRACE_CALL       /* nothing */
+#define TRACE_ARGS       /* nothing */
+#define TRACE_CALL_VOID  /* nothing */
+#define TRACE_ARGS_VOID  void
 
 #define FAIL(err) { goto err; }
 
