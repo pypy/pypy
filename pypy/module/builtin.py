@@ -298,7 +298,7 @@ class __builtin__(ExtModule):
     # This function was not in the original builtins,
     # but is quite useful for some aspects of PyPy
     # implementation.
-    def app_sign(self,a):
+    def app_sign(self, a):
         if a > 0:
             return 1
         elif a < 0:
