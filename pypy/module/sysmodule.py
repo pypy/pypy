@@ -40,3 +40,17 @@ def displayhook(obj):
         # NB. this is slightly more complicated in CPython,
         # see e.g. the difference with  >>> print 5,; 8
         print `obj`
+
+def getfilesystemencoding():
+    """getfilesystemencoding() -> string
+
+Return the encoding used to convert Unicode filenames in
+operating system filenames."""
+    
+    if platform == "win32":
+        encoding = "mcbs"
+    elif platform == "darwin":
+        encoding = "utf-8"
+    else:
+        encoding = None
+    return encoding
