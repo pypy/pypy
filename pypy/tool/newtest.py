@@ -8,12 +8,22 @@ import unittest
 import vpath
 
 
+class TestStatus:
+    def __init__(self, name, longstring, shortstring):
+        self.name = name
+        self.longstring = longstring
+        self.shortstring = shortstring
+
+    def __str__(self):
+        return self.longstring
+
 # named constants for test result status values
-SUCCESS = 'success'
-ERROR = 'error'
-FAILURE = 'failure'
-IGNORED = 'ignored'
-SKIPPED = 'skipped'
+SUCCESS = TestStatus('success', 'success', '.')
+ERROR = TestStatus('error', 'ERROR', 'E')
+FAILURE = TestStatus('failure', 'FAILURE', 'F')
+IGNORED = TestStatus('ignored', 'ignored', 'i')
+SKIPPED = TestStatus('skipped', 'skipped', 's')
+
 
 class TestResult:
     """Represent the result of a run of a test item."""
@@ -41,12 +51,12 @@ class TestItem:
     """Represent a single test method from a TestCase class."""
     def __init__(self, module, cls, testmethod):
         self.file = inspect.getsourcefile(module)
-        self.source = inspect.getsource(testmethod)
         self.module = module
         self.cls = cls
         self.method = testmethod
-        #XXX we can only derive this from a frame or traceback?
-        #self.lineno = None
+        lines, self.lineno = inspect.getsourcelines(testmethod)
+        # removing trailing newline(s) but not the indentation
+        self.source = ''.join(lines).rstrip()
 
     def run(self, pretest=None, posttest=None):
         """
@@ -176,6 +186,7 @@ class TestSuite:
                     items = self._items_from_module(module)
                 except:
                     print "skipping testfile (failed loading it)", modpath
+                    raise
                 else:
                     self.items.extend(items)
 
