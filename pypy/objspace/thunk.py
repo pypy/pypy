@@ -45,6 +45,10 @@ app_thunk = gateway.interp2app(thunk, unwrap_spec=[baseobjspace.ObjSpace,
                                                    baseobjspace.W_Root,
                                                    argument.Arguments])
 
+def is_thunk(space, w_obj):
+    return space.newbool(isinstance(w_obj, W_Thunk))
+app_is_thunk = gateway.interp2app(is_thunk)
+
 # __________________________________________________________________________
 
 operation_args_that_dont_force = {
@@ -67,4 +71,6 @@ def Space(space=None):
     space = create_proxy_space('thunk', proxymaker, space=space)
     space.setitem(space.builtin.w_dict, space.wrap('thunk'),
                   space.wrap(app_thunk))
+    space.setitem(space.builtin.w_dict, space.wrap('is_thunk'),
+                  space.wrap(app_is_thunk))
     return space
