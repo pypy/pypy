@@ -170,13 +170,20 @@ def %(_name)s(self, *args):
             raise NoValue
 
     def newfunction(self, code, globals, defaultarguments, closure=None):
-        def newfun(self, *args, **kwds):
-            locals = code.build_arguments(self, args, kwds,
-                w_defaults = defaultarguments,
-                w_closure = closure)
-            return code.evalcode(self, globals, locals)
-        newfun.__name__ = code.co_name
-        return newfun
+        class nufun(object):
+            def __init__(self, space, code, globals, defaultarguments, closure):
+                self.space = space
+                self.__name__ = code.co_name
+                self.code = code
+                self.globals = globals
+                self.defaultarguments = defaultarguments
+                self.closure = closure
+            def __call__(self, *args, **kwds):
+                locals = self.code.build_arguments(self.space, args, kwds,
+                    w_defaults = self.defaultarguments,
+                    w_closure = self.closure)
+                return self.code.evalcode(self.space, self.globals, locals)
+        return nufun(self, code, globals, defaultarguments, closure)
 
     def newstring(self, asciilist):
         return ''.join([chr(ascii) for ascii in asciilist])
