@@ -31,6 +31,7 @@ working_unittests = (
 'test_bisect.py',
 'test_call',
 'test_codeop.py',
+'test_operator.py',
 'test_compile.py',
 'test_operator.py',
 'test_heapq.py',
