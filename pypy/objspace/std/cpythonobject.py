@@ -90,6 +90,9 @@ def wrap_exception(space):
         w_value = space.call(w_exc,
             space.newtuple([space.wrap(a) for a in value.args]),
             space.newdict([]))
+        for key, value in value.__dict__.items():
+            if not key.startswith('_'):
+                space.setattr(w_value, space.wrap(key), space.wrap(value))
     else:
         w_exc = space.wrap(exc)
         w_value = space.wrap(value)
