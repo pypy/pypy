@@ -1,0 +1,9 @@
+1.  You need to have docutils installed.
+2.  docutils/tools/buildhtml.py  converts your ReST .txt files into .html
+    files, and complains when your document has errors.
+3.  There is one problem.  It converts _every_ .txt to an .html, and there
+    is no option to just specify one file.  I get around this problem by
+    making a directory and moving my new file there for testing, and then
+    moving it back when I am done.  0 Elegance points for that fix ...
+
+    Laura

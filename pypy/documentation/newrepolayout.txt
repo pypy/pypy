@@ -1,0 +1,75 @@
+===========================================
+Proposition: new svn repository layout 
+===========================================
+
+Motivation
+----------
+
+The `PyPy repository layout`_ has evolved for two 
+years into something that needs some refactoring 
+to become more practical. 
+
+For example, the `trunk/doc`_ directory was originally intended
+to hold developer documentation but nowadays it contains
+funding, negotiations, mails and misc-other-stuff documents.  It is
+not easy and obvious anymore to know which files are relevant.
+Moreover, `trunk/doc`_ is too far away from the source code:
+developers currently checkout the 'trunk/src' directory and
+don't even get the documentation. This also makes it more
+difficult to keep the documentation up-to-date. 
+
+.. _`trunk/doc`: http://codespeak.net/svn/pypy/trunk/doc 
+.. _`PyPy repository layout`: http://codespeak.net/svn/pypy/
+
+New repo layout proposal Nr. 1
+------------------------------
+
+Based on experiences in various repositories here is a
+new proposition describing a possible new structure 
+(starting at /svn/pypy):: 
+
+    branch                  # holds branches 
+    tag                     # holds tagged dist-versions
+
+    dist                    # holds current development 
+        pypy                # current trunk/src/pypy 
+            documentation   # developer documentation (inside pypy!) 
+        py                  # and other 'externals' 
+        setup.py            # should be there at some point 
+        README.txt          # tell how to run PyPy, the translator, tests 
+        LICENSE.txt         # copyright notices for tree parts including pypy 
+
+    doc                     # non-dist documentations (papers etc.pp.) 
+        talk                # various pypy-talks 
+        paper               # various pypy-related papers (including our own)
+        sprint              # sprint related information (reports etc.pp.)
+        irclog              # IRC logs (snipped appropriately) 
+
+    www                     # website-related stuff (needs its own reconsideration) 
+
+    funding                 # funding related documents 
+        eu-info             # official information from the EU 
+        contract            # contract material (EU-contract, amendments) 
+        eu-report           # eu reports (time/cost/budget) 
+        ...                 # probably more, we'll see later 
+
+The idea is that developers can use a simple url::
+    
+    svn co https://codespeak.net/svn/pypy/dist dist-pypy 
+
+in order to get everything neccessary for sourcecode, documentation
+and test development.  Obviously, if you care about the funding 
+or web site application/contents you can do an appropriate checkout
+as well.  
+
+Note, that having documentation inside the source tree will help
+with keeping a closer eye on documentation - especially when we 
+have special ref-integrity tests for the documentation (which itself
+should reference real source-code/functions at some point). For 
+example, the refactoring of unitest.py-style tests to `py.test`_ based ones
+"forgot" to modify our test-documentation in the too-far-away doc-folder. 
+We should move to a scheme where such an omission will raise real 
+test errors. 
+
+.. _`py.test`: http://codespeak.net/py/current/doc/test.html 
+

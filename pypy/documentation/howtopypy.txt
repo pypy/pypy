@@ -1,0 +1,205 @@
+==================================
+Getting started with PyPy
+==================================
+
+PyPy sources can be browsed on the web at:
+
+    ``http://codespeak.net/svn/pypy/trunk/``
+
+Once you are ready to download and try PyPy out,
+follow these instructions, which assume that you
+are working in a DOS box (Windows) or terminal (MacOS/X or Linux).
+
+1. Download subversion_ if you do not already have it.
+
+
+2. Change to the directory where you wish to install the source tree,
+   and use subversion to download the source::
+
+        svn co http://codespeak.net/svn/pypy/trunk/src
+
+   This will create a subdirectory named ``src``, and will create
+   the PyPy source tree under this directory.
+
+
+   If desired, you can also download the documentation::
+   
+        svn co http://codespeak.net/svn/pypy/trunk/doc
+
+   
+3. To start interpreting Python with PyPy, use Python 2.3 or greater::
+
+        cd src/pypy/interpreter
+        python py.py
+
+   After a few seconds, you should be at the PyPy prompt, which is
+   the same as the Python prompt, but with an extra ">".
+
+
+4. Now you are ready to start running Python code.  Some real Python
+   modules will not run yet, and others will run too slowly to be
+   worth waiting for, but a few are fun to run::
+   
+        >>>> import pystone
+        >>>> pystone.main(10)
+
+   Note that this is a slightly modified version of pystone -- the
+   original version does not accept the parameter to main().  The
+   parameter is the number of loops to run through the test, and the
+   default is 50000, which is far too many to run in a reasonable time
+   on the current PyPy implementation.
+
+
+5. To list the PyPy interpreter command line options, type::
+
+        python py.py --help
+
+   As an example of using PyPy from the command line, you could type::
+
+        python py.py -c "import pystone; pystone.main(10)"
+
+   Alternatively, as with regular Python, you can simply give a
+   script name on the command line::
+
+        python py.py ../appspace/pystone.py
+
+   (Note that this will run "forever" -- actually, "just" for many
+   hours, with the current implementation of PyPy.)
+
+
+6. The PyPy project uses test-driven-development.  Right now, there are
+   a couple of different categories of tests which you can run.
+   To run all the unit tests::
+
+        cd src/pypy
+        python test_all.py
+
+   Alternatively, you may run subtests by going to the correct subdirectory
+   and running them individually::
+
+        cd src/pypy/module/test
+        python test_builtin.py
+
+   Finally, there are some more advanced tests (which are derived from
+   some of the standard CPython tests).  These are not part of the unit
+   tests, because they take longer than the standard unit tests::
+
+        cd src/pypy/interpreter
+        python py.py ../appspace/builtin_types_test.py
+
+
+Trying out the translator
+=========================
+
+The translator is a tool based on the PyPy interpreter which can translate
+sufficiently static Python programs into low-level code.
+
+1. Download and install `Dot Graphviz`_.
+
+2. Download and install Pygame_ if you do not already have it.
+
+3. Type::
+
+        cd src/pypy/translator
+        python -i translator.py
+
+   Test snippets of translatable code are provided in the file
+   ``test/snippet.py``.  For example::
+
+        >>> t = Translator(test.is_perfect_number)
+        >>> t.simplify()
+        >>> t.view()
+
+4. We have a type annotator that can completely infer types for functions like
+   ``is_perfect_number``::
+
+        >>> t.annotate([int])
+        >>> t.view()
+
+   Move the mouse over variable names (in red) to see their inferred types.
+
+5. The graph can be turned into Pyrex code, with types if ``annotate()`` was
+   called::
+
+        >>> print t.pyrex()
+        >>> f = t.compile()
+        >>> f(28)
+        1
+
+   Note how the strange-looking Pyrex code is unrelated to the original
+   Python source code.  This is because the Pyrex code is generated from the
+   graph only, without reference to the original source.
+
+
+Where to start reading the sources
+==================================
+
+PyPy is made from parts that are relatively independent from each other.
+You should start looking at the part that attracts you most:
+
+*  `src/pypy/interpreter`_ contains the basic interpreter: bytecode dispatcher
+   in pyopcode.py_, frame and code objects in eval.py_ and pyframe.py_,
+   function objects and argument passing in function.py_ and argument.py_,
+   the object space interface definition in baseobjspace.py_, modules in
+   module.py_ and extmodule.py_.  Core types supporting the interpreter are
+   defined in typedef.py_.
+
+*  `src/pypy/objspace/std`_ contains the `Standard object space`_.  The main file
+   is objspace.py_.  For each type, the files ``xxxtype.py`` and
+   ``xxxobject.py`` contain respectively the definition of the type and its
+   (default) implementation.
+
+*  `src/pypy/objspace`_ contains a few other object spaces: the trivial one
+   (but let's forget about it), the trace_ one, the flow_ one.  The latter
+   is a relatively short piece of code that builds the control flow graphs
+   when the interpreter runs in it.
+
+*  `src/pypy/translator`_ contains the code analysis and generation stuff.
+   Start reading from translator.py_, from which it should be easy to follow
+   the pieces of code involved in the various translation phases.
+
+*  `src/pypy/annotation`_ contains the data model for the type annotation that
+   can be inferred about a graph.  The graph "walker" that uses this is in
+   `src/pypy/translator/annrpython.py`_.
+
+
+To learn more
+=============
+
+*  To learn more about PyPy and its development process, read the documentation_
+   and the wiki_, and consider subscribing to the `mailing lists`_ (or simply
+   read the archives online) or communicating via irc.freenode.net:6667, channel #pypy.
+
+*  To help PyPy become Python-the-next-generation, write some `unit tests`_ and
+   file some `bug reports`_!
+
+--------------------------------------------------------------------------------
+
+.. _subversion:             http://codespeak.net/pypy/index.cgi?doc/devel/howtosvn.html
+.. _Dot Graphviz:           http://www.research.att.com/sw/tools/graphviz/
+.. _Pygame:                 http://www.pygame.org/
+.. _src/pypy/interpreter:   http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/
+.. _pyopcode.py:            http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/pyopcode.py
+.. _eval.py:                http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/eval.py
+.. _pyframe.py:             http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/pyframe.py
+.. _function.py:            http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/function.py
+.. _argument.py:            http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/argument.py
+.. _baseobjspace.py:        http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/baseobjspace.py
+.. _module.py:              http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/module.py
+.. _extmodule.py:           http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/extmodule.py
+.. _typedef.py:             http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/typedef.py
+.. _src/pypy/objspace/std:  http://codespeak.net/svn/pypy/trunk/src/pypy/objspace/std/
+.. _Standard object space:  http://codespeak.net/pypy/index.cgi?doc/objspace/stdobjspace.html
+.. _objspace.py:            http://codespeak.net/svn/pypy/trunk/src/pypy/objspace/std/objspace.py
+.. _src/pypy/objspace:      http://codespeak.net/svn/pypy/trunk/src/pypy/objspace/
+.. _trace:                  http://codespeak.net/svn/pypy/trunk/src/pypy/objspace/trace.py
+.. _flow:                   http://codespeak.net/svn/pypy/trunk/src/pypy/objspace/flow/
+.. _src/pypy/translator:    http://codespeak.net/svn/pypy/trunk/src/pypy/translator/
+.. _translator.py:          http://codespeak.net/svn/pypy/trunk/src/pypy/translator/translator.py
+.. _src/pypy/annotation:    http://codespeak.net/svn/pypy/trunk/src/pypy/annotation/
+.. _src/pypy/translator/annrpython.py: http://codespeak.net/svn/pypy/trunk/src/pypy/translator/annrpython.py
+.. _mailing lists:          http://codespeak.net/pypy/index.cgi?lists
+.. _documentation:          http://codespeak.net/pypy/index.cgi?doc
+.. _wiki:                   http://codespeak.net/moin/pypy/moin.cgi/FrontPage?action=show
+.. _unit tests:             http://codespeak.net/pypy/index.cgi?doc/devel/testdesign.html
+.. _bug reports:            http://codespeak.net/issues/pypy/

@@ -1,0 +1,95 @@
+=========================
+     Wrapping rules
+=========================
+
+Introduction
+------------
+
+PyPy is made of Python source code at two levels: there is on the one hand *application-level code* that looks like normal Python code, and that implements some functionalities as one would expect from Python code (e.g. one can give a pure Python implementation of some built-in functions like ``zip()``).  There is also *interpreter-level code* for the functionalities that must more directly manipulate interpreter data and objects (e.g. the main loop of the interpreter, and the various object spaces).
+
+Application-level code doesn't see object spaces explicitely: it runs using an object space to support the objects it manipulates, but this is implicit.  There is no need for particular conventions for application-level code.  The sequel is only about interpreter-level code.  (Ideally, no application-level variable should be called ``space`` or ``w_xxx`` to avoid confusion.)
+
+
+Naming conventions
+------------------
+
+* ``space``: the object space is only visible at interpreter-level, where it is by convention in a variable called ``space``.
+
+* ``w_xxx``: any object seen by application-level code is an object explicitely managed by the object space.  From the interpreter-level point of view, this is called a *wrapped* object.  The ``w_`` prefix is used for any type of application-level object.
+
+* ``xxx_w``: an interpreter-level container for wrapped objects, for example a list or a dict containing wrapped objects.  Not to be confused with a wrapped object that would be a list or a dict: these are normal wrapped objects, so they use the ``w_`` prefix.
+
+
+Operations on ``w_xxx``
+-----------------------
+
+The core interpreter considers wrapped objects as black boxes.  It is not allowed to inspect them directly.  The allowed operations are all dependent on the object space: they are called ``space.xxx()``, where ``xxx`` is a standard operation name (``add``, ``getattr``, ``call``, ``eq``...).  The list of standard operations is found in the large table near the end of ``pypy.interpreter.baseobjspace``.  These operations take wrapped arguments and return a wrapped result (or sometimes just None).
+
+Also note some helpers:
+
+* ``space.call_function(w_callable, ...)``: collects the given (already-wrapped) arguments, builds a wrapped tuple for them, and uses ``space.call()`` to perform the call.
+
+* ``space.call_method(w_object, 'method', ...)``: uses ``space.getattr()`` to get the method object, and then ``space.call_function()`` to invoke it.
+
+
+Building ``w_xxx`` objects
+--------------------------
+
+From the core interpreter, wrapped objects are usually built as the result of an object space operation.  The ways to directly create a wrapped object are:
+
+* ``space.wrap(x)``: returns a wrapped object containing the value ``x``.  Only works if ``x`` is either a simple value (integer, float, string) or an instance of an internal interpreter class (Function, Code, Frame...).
+
+* ``space.newlist([w_x, w_y, w_z...])``: returns a wrapped list from a list of already-wrapped objects.
+
+* ``space.newtuple([w_x, w_y, w_z...])``: returns a wrapped tuple from a list of already-wrapped objects.
+
+* ``space.newdict([])``: returns a new, empty wrapped dictionary.  (The argument list can contain tuples ``(w_key, w_value)`` but it seems that such a use is not common.)
+
+* ``space.newbool(x)``: returns ``space.w_False`` or ``space.w_True`` depending on the truth value of ``x``.
+
+There are a few less common constructors, described in the comments at the end of ``pypy.interpreter.baseobjspace``.
+
+
+Constant ``w_xxx`` objects
+--------------------------
+
+The object space holds a number of predefined wrapped objects.  The most common ones are ``space.w_None`` and ``space.w_XxxError`` for each exception class ``XxxError`` (e.g. ``space.w_KeyError``, ``space.w_IndexError``, etc.).
+
+
+Inspecting ``w_xxx`` objects
+----------------------------
+
+The most delicate operation is for the interpreter to inspect a wrapped object, which must be done via the object space.
+
+* ``space.is_true(w_x)``: checks if the given wrapped object is considered to be ``True`` or ``False``.  You must never use the truth-value of ``w_x`` directly; doing so (e.g. writing ``if w_x:``) will give you an error reminding you of the problem.
+
+* ``w_x == w_y`` or ``w_x is w_y``: DON'T DO THAT.  The only half-official exception is to check if ``w_x`` contains a wrapped ``None``: you can write ``w_x == space.w_None``.  Follow this rule; the case of ``None`` is easy to fix globally later if we find out that we need to.  The rationale for this rule is that there is no reason that two wrappers are related in any way even if they contain what looks like the same object at application-level.  To check for equality, use ``space.is_true(space.eq(w_x, w_y))``.  To check for identity, use ``space.is_true(space.is_(w_x, w_y))``.
+
+* ``space.unpackiterable(w_x)``: this helper iterates ``w_x`` (using ``space.iter()`` and ``space.next()``) and collects the resulting wrapped objects in a list.  Of course, in cases where iterating directly is better than collecting the elements in a list first, you should use ``space.iter()`` and ``space.next()`` directly.
+
+* ``space.unwrap(w_x)``: inverse of ``space.wrap()``.  Attention! Using ``space.unwrap()`` must be avoided whenever possible.  Actually, it should only be used when you are sure that ``w_x`` contains a simple object or an internal interpreter object that was wrapped with ``space.wrap()``.  This function is a bit buggy anyway, and it should probably be fixed at some point: we should specify what kind of unwrapped result is expected (and raise a TypeError appropriately).
+
+Remember that you can usually obtain the information you want by invoking operations or methods on the wrapped objects; e.g. ``space.call_method(w_dict, 'iterkeys')`` returns a wrapped iterable that you can decode with ``space.unpackiterable()``.
+
+
+Application-level exceptions
+----------------------------
+
+Interpreter-level code can use exceptions freely.  However, all application-level exceptions are represented as an ``OperationError`` at interpreter-level.  In other words, all exceptions that are potentially visible at application-level are internally an ``OperationError``.  This is the case of all errors reported by the object space operations (``space.add()`` etc.).
+
+To raise an application-level exception::
+
+    raise OperationError(space.w_XxxError, space.wrap("message"))
+
+To catch a specific application-level exception::
+
+    try:
+        ...
+    except OperationError, e:
+        if not e.match(space, space.w_XxxError):
+            raise
+        ...
+
+This construct catches all application-level exceptions, so we have to match it against the particular ``w_XxxError`` we are interested in and re-raise other exceptions.  The exception instance ``e`` holds two attributes that you can inspect: ``e.w_type`` and ``e.w_value``.  Do not use ``e.w_type`` to match an exception, as this will miss exceptions that are instances of subclasses.
+
+We are thinking about replacing ``OperationError`` with a family of common exception classes (e.g. ``AppKeyError``, ``AppIndexError``...) so that we can more easily catch them.  The generic ``AppError`` would stand for all other application-level classes.
