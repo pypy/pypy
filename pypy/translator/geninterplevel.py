@@ -112,6 +112,12 @@ def eval_helper(self, typename, expr):
     self.initcode.append('m.%s = eval_helper(%r)' % (name, expr))
     return name
 
+def builtin_base(obj):
+    typ = type(obj)
+    while typ.__module__ != '__builtin__':
+        typ = typ.__base__
+    return typ
+
 class GenRpy:
     def __init__(self, translator, entrypoint=None, modname=None, moddict=None):
         self.translator = translator
@@ -121,11 +127,24 @@ class GenRpy:
         self.modname = self.trans_funcname(modname or
                         uniquemodulename(entrypoint))
         self.moddict = moddict # the dict if we translate a module
+        
+        def late_OperationError():
+            self.initcode.append(
+                'from pypy.interpreter.error import OperationError\n'
+                'm.OperationError = OperationError')
+            return 'OperationError'
+        def late_Arguments():
+            self.initcode.append(
+                'from pypy.interpreter.argument import Arguments\n'
+                'm.Arguments = Arguments')
+            return 'Arguments'
+
         self.rpynames = {Constant(None).key:  'space.w_None',
                          Constant(False).key: 'space.w_False',
                          Constant(True).key:  'space.w_True',
+                         Constant(OperationError).key: late_OperationError,
+                         Constant(Arguments).key: late_Arguments,
                        }
-        
         self.seennames = {}
         u = UniqueList
         self.initcode = u()    # list of lines for the module's initxxx()
@@ -215,6 +234,7 @@ class GenRpy:
         if op.opname == "call_args":
             v = op.args[0]
             exv = self.expr(v, localnames)
+            self.nameof(Arguments) # trigger init
             fmt = (
                 "_args = Arguments.fromshape(space, %(shape)s, [%(data_w)s])\n"
                 "%(res)s = space.call_args(%(func)s, _args)")
@@ -285,15 +305,22 @@ class GenRpy:
     def nameof(self, obj, debug=None, namehint=None):
         key = Constant(obj).key
         try:
-            return self.rpynames[key]
+            txt = self.rpynames[key]
+            if type(txt) is not str:
+                # this is a predefined constant, initialized on first use
+                func = txt
+                txt = func()
+                self.rpynames[key] = txt
+            return txt
+            
         except KeyError:
             if debug:
                 stackentry = debug, obj
             else:
                 stackentry = obj
             self.debugstack = (self.debugstack, stackentry)
-            if (type(obj).__module__ != '__builtin__' and
-                not isinstance(obj, type)):   # skip user-defined metaclasses
+            obj_builtin_base = builtin_base(obj)
+            if obj_builtin_base in (object, int, long) and type(obj) is not obj_builtin_base:
                 # assume it's a user defined thingy
                 name = self.nameof_instance(obj)
             else:
@@ -306,7 +333,7 @@ class GenRpy:
                 else:
                     raise Exception, "nameof(%r)" % (obj,)
 
-                code=meth.im_func.func_code
+                code = meth.im_func.func_code
                 if namehint and 'namehint' in code.co_varnames[:code.co_argcount]:
                     name = meth(obj, namehint=namehint)
                 else:
@@ -357,7 +384,7 @@ class GenRpy:
                     value.__file__.endswith('.py') or
                     value.__file__.endswith('.pyo')), \
                "%r is not a builtin module (probably :)"%value
-        name = self.uniquename('mod_%s'%value.__name__)
+        name = self.uniquename('mod_%s' % value.__name__)
         self.initcode.append('import %s as _tmp' % value.__name__)
         self.initcode.append('m.%s = space.wrap(_tmp)' % (name))
         return name
@@ -455,6 +482,7 @@ class GenRpy:
         name = self.uniquename('gfunc_' + self.trans_funcname(
             namehint + func.__name__))
         f_name = 'f_' + name[6:]
+        self.initcode.append('from pypy.interpreter import gateway')
         self.initcode.append('m.%s = space.wrap(gateway.interp2app(%s, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))' % (name, f_name))
         self.pendingfunctions.append(func)
         return name
@@ -475,9 +503,10 @@ class GenRpy:
             ob = self.nameof(meth.im_self)
             func = self.nameof(meth.im_func)
             typ = self.nameof(meth.im_class)
-            name = self.uniquename('gmeth_'+meth.im_func.__name__)
+            name = self.uniquename('gmeth_' + meth.im_func.__name__)
+            funcname = self.nameof(meth.im_func.__name__)
             self.initcode.append(
-                '%s = space.getattr(%s, %s)'%(name, ob, func))
+                '%s = space.getattr(%s, %s)' % (name, ob, funcname))
             return name
 
     def should_translate_attr(self, pbc, attr):
@@ -517,12 +546,17 @@ class GenRpy:
                                  'm.%s = space.wrap(_ins)' % (
                 instance.__class__.__name__, name))
         else:
-            # this seems to hardly work with the faked stuff
-            self.initcode.append('from types import InstanceType')
-            self.initcode.append('w_InstanceType = space.wrap(InstanceType)')
-            self.initcode.append('_tup = space.newtuple([%s])\n'
-                                 'm.%s = space.call(w_InstanceType, _tup)' % (
-                cls, name))
+            if isinstance(instance.__class__, type):
+                self.initcode.append(
+                    '_new = space.getattr(%s, %s)\n'
+                    '_tup = space.newtuple([%s])\n'
+                    'm.%s = space.call(_new, _tup)' % (
+                        cls, self.nameof('__new__'), cls, name))
+            else:
+                self.initcode.append(
+                    '_tup = space.newtuple([%s])\n'
+                    'm.%s = space.call(space.w_instance, _tup)' % (
+                        cls, name))
         self.later(initinstance())
         return name
 
@@ -591,19 +625,13 @@ class GenRpy:
         if issubclass(cls, Exception):
             if cls.__module__ == 'exceptions':
                 # exception are defined on the space
-                return 'space.w_%s'%cls.__name__
-
+                return 'space.w_%s' % cls.__name__
 
         # For the moment, use old-style classes exactly when the
         # pypy source uses old-style classes, to avoid strange problems.
         if not isinstance(cls, type):
             assert type(cls) is type(Exception)
-            # self.initcode.append("import types\n"
-            #                      "m.classtype = space.wrap(types.ClassType)\n")
-            # metaclass = "m.classtype"
-            # XXX I cannot instantiate these.
-            # XXX using type instead, since we still inherit from exception
-            # XXX what is the future of classes in pypy?
+            metaclass = 'space.w_classobj'
 
         basenames = [self.nameof(base) for base in cls.__bases__]
         def initclassobj():
@@ -623,7 +651,7 @@ class GenRpy:
                     print "skipped staticmethod:", value
                     continue
                 if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
-                    print "skippedfunction:", value
+                    print "skipped function:", value
                     continue
                     
                 yield 'space.setattr(%s, %s, %s)' % (
@@ -710,8 +738,9 @@ class GenRpy:
             if type(ret) is tuple:
                 ret = ret[0](self, ret[1], ret[2])
             return ret
-        assert cls.__module__ != '__builtin__', \
-            "built-in class %r not found in typename_mapping" % (cls,)
+        assert cls.__module__ != '__builtin__', (
+            "built-in class %r not found in typename_mapping "
+            "while compiling %s" % (cls, self.currentfunc.__name__))
         return self.nameof_classobj(cls)
 
     def nameof_tuple(self, tup):
@@ -727,8 +756,8 @@ class GenRpy:
             for i in range(len(lis)):
                 item = self.nameof(lis[i])
                 yield 'space.setitem(%s, %s, %s);' % (
-                    name, self.nameof(i), self.nameof(item))
-        self.initcode.append('m.%s = space.newlist(%s)' % (name, self.nameof(0)))
+                    name, self.nameof(i), item)
+        self.initcode.append('m.%s = space.newlist([space.w_None])' % (name,))
         self.initcode.append('m.%s = space.mul(%s, %s)' % (name, name, self.nameof(len(lis))))
         self.later(initlist())
         return name
@@ -824,7 +853,7 @@ class GenRpy:
         f = self.f
         info = {
             'modname': self.modname,
-             # the side-effects of this kick-start the process
+             # the side-effects of this is kick-start the process
             'entrypoint': self.nameof(self.entrypoint),
             }
         # header
@@ -1080,6 +1109,7 @@ class GenRpy:
                     # exceptional return block
                     exc_cls = self.expr(block.inputargs[0], localvars)
                     exc_val = self.expr(block.inputargs[1], localvars)
+                    self.nameof(OperationError) # trigger init
                     yield "raise OperationError(%s, %s)" % (exc_cls, exc_val)
                 else:
                     # regular return block
@@ -1101,6 +1131,7 @@ class GenRpy:
                 # we must catch the exception raised by the last operation,
                 # which goes to the last err%d_%d label written above.
                 # Since we only have OperationError, we need to select:
+                self.nameof(OperationError) # trigger init
                 yield "except OperationError, e:"
                 q = "if"
                 for link in block.exits[1:]:
@@ -1148,10 +1179,6 @@ class GenRpy:
 
     RPY_HEADER = '''#!/bin/env python
 # -*- coding: LATIN-1 -*-
-
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.argument import Arguments
-from pypy.interpreter import gateway
 '''
 
     RPY_SEP = "#*************************************************************"
