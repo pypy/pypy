@@ -152,6 +152,9 @@ class ExceptBlock(FrameBlock):
             if frame.space.full_exceptions:
                 w_normalized = normalize_exception(frame.space, w_type, w_value)
                 w_type, w_value = frame.space.unpacktuple(w_normalized, 2)
+                # this is to make sure that sys.exc_info() etc see
+                # normalized exception -- not sure here is best place!
+                operationerr.w_value = w_value
             # the stack setup is slightly different than in CPython:
             # instead of the traceback, we store the unroller object,
             # wrapped.

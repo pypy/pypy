@@ -80,7 +80,16 @@ class AppSysTests(testit.AppTestCase):
         self.assertEquals(exc_type2,Exception)
         self.assertEquals(exc_val2,e2)
         self.assertEquals(tb2.tb_lineno - tb.tb_lineno, 5)
-        
+
+    def test_exc_info_normalization(self):
+        import sys
+        try:
+            1/0
+        except ZeroDivisionError:
+            etype, val, tb = sys.exc_info()
+            self.assert_(isinstance(val, etype))
+        else:
+            self.fail("ZeroDivisionError not caught")
 
 if __name__ == '__main__':
     testit.main()
