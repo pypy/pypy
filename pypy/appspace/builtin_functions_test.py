@@ -311,8 +311,6 @@ class BuiltinTest(test.AppTestCase):
             f.write('z = z*2\n')
             f.close()
             execfile(TESTFN)
-        '\''
-        '''
     
         def test_execfile(self):
             globals = {'a': 1, 'b': 2}
@@ -330,6 +328,8 @@ class BuiltinTest(test.AppTestCase):
             import os
             self.assertRaises(IOError, execfile, os.curdir)
             self.assertRaises(IOError, execfile, "I_dont_exist")
+        '\''
+        '''
     
     if 0:
         def test_filter(self):
