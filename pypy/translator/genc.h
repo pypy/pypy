@@ -258,6 +258,7 @@ static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, c
 		for (i = 0; i < max_locals; ++i) {
 			PyDict_SetItem(locals, PyList_GET_ITEM(extra_local_names, i), PyTuple_GET_ITEM(args, i));
 		}
+		Py_DECREF(extra_local_names);
 	}
 
 	callstack_depth++;
