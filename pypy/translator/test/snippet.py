@@ -144,4 +144,9 @@ def time_waster(n):
 
 def half_of_n(n):
     """Slice test"""
-    return len(range(n)[0:n:2])
+    i = 0
+    lst = range(n)
+    while lst:
+        lst = lst[1:-1]
+        i = i + 1
+    return i

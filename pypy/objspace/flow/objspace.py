@@ -17,6 +17,7 @@ class FlowObjSpace(ObjSpace):
     def initialize(self):
         import __builtin__
         self.w_builtins = Constant(__builtin__.__dict__)
+        self.w_None     = Constant(None)
         self.w_KeyError = Constant(KeyError)
         #self.make_builtins()
         #self.make_sys()
@@ -34,7 +35,10 @@ class FlowObjSpace(ObjSpace):
     def newlist(self, args_w):
         return self.do_operation('newlist', *args_w)
 
-    def newslice(self, w_start, w_stop, w_step):
+    def newslice(self, w_start=None, w_stop=None, w_step=None):
+        if w_start is None: w_start = self.w_None
+        if w_stop  is None: w_stop  = self.w_None
+        if w_step  is None: w_step  = self.w_None
         return self.do_operation('newslice', w_start, w_stop, w_step)
 
     def wrap(self, obj):

@@ -129,6 +129,9 @@ class Annotator:
             ann = SpaceOperation("getitem",[op.result,Constant(i)],op.args[i])
             annotations.add(ann)
 
+    def consider_op_newslice(self,op,annotations):
+        annotations.set_type(op.result, slice)
+
     def consider_const(self,to_var,const,annotations):
         if getattr(const, 'dummy', False):
             return   # undefined local variables

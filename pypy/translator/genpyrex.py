@@ -61,7 +61,28 @@ class Op:
         return "\n".join(lines)
 
     def op_getitem(self):
-        return "%s = %s[%s]" % ((self.resultname,) + tuple(self.argnames))
+        direct = "%s = %s[%s]" % ((self.resultname,) + tuple(self.argnames))
+        w_sequence, w_index = self.op.args
+        tp = self.gen.get_type(w_index)
+        if tp is int:
+            return direct
+        else:
+            # the index could be a slice
+            indexname = self.argnames[1]
+            lines = []
+            if tp is slice:  # XXX do this better
+                lines.append('if 1:')
+            else:
+                lines.append('from types import SliceType')
+                lines.append('if isinstance(%s, SliceType):' % indexname)
+            lines.append('    assert %s.step is None' % indexname)
+            lines.append('    %s = %s[%s.start:%s.stop]' % (self.resultname,
+                                                            self.argnames[0],
+                                                            indexname,
+                                                            indexname))
+            lines.append('else:')
+            lines.append('    ' + direct)
+            return "\n".join(lines)
 
     def op_newtuple(self):
         if self.argnames:
@@ -182,6 +203,8 @@ class GenPyrex:
         if var in self.variables_ann:
             ann = self.variables_ann[var]
             return ann.get_type(var)
+        elif isinstance(var, Constant):
+            return type(var.value)
         else:
             return None
 
