@@ -87,19 +87,23 @@ def zip(*collections):
     return res
 
 
-def reduce(function, list, *initialt):
+def reduce(function, l, *initialt):
+    """ Apply function of two arguments cumulatively to the items of
+        sequence, from left to right, so as to reduce the sequence to a
+        single value."""
+    
     if initialt:
        initial, = initialt
        idx = 0
     else:
        try:
-          initial = list[0]
+          initial = l[0]
        except IndexError:
           raise TypeError, "reduce() of empty sequence with no initial value"
        idx = 1
     while 1:
        try:
-         initial = function(initial, list[idx])
+         initial = function(initial, l[idx])
          idx = idx + 1
        except IndexError:
          break
