@@ -15,10 +15,15 @@ class BasicBlock:
 class Variable:
     def __init__(self, pseudoname):
         self.pseudoname = pseudoname
+    def __repr__(self):
+        return "<%s>" % self.pseudoname
 
 class Constant:
     def __init__(self, value):
         self.value = value
+    
+    def __repr__(self):
+        return str(self.value)
 
 class SpaceOperation:
     def __init__(self, opname, args, result):
@@ -30,13 +35,14 @@ class SpaceOperation:
                 self.opname == other.opname and
                 self.args == other.args and
                 self.result == other.result)
+
     def __repr__(self):
-        return '<%s = %s(%s)>' % (self.result, self.opname,
-                                  ', '.join([repr(a) for a in self.args]))
+        return "%s(%s) -> %s" % (self.opname, ", ".join(map(str, self.args)), self.result)
 
 class Branch:
     def __init__(self, args=None, target=None):
         self.set(args, target)
+
     def set(self, args, target):
         self.args = args     # list of variables
         self.target = target # basic block instance
