@@ -291,7 +291,7 @@ class TestFlowObjSpace(testit.TestCase):
     
     def test_catch_simple_call(self):
         x = self.codetest(self.catch_simple_call)
-        self.show(x)
+        self.reallyshow(x)
 
     #__________________________________________________________
     def dellocal():

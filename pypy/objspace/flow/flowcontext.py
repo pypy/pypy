@@ -148,7 +148,8 @@ class FlowExecutionContext(ExecutionContext):
             newblock.patchframe(frame, self)
             self.joinpoints[next_instr].insert(0, newblock)
 
-    def guessbool(self, w_condition, cases=[False,True]):
+    def guessbool(self, w_condition, cases=[False,True],
+                  ignore_last_variable_except_in_first_case = False):
         if isinstance(self.crnt_ops, list):
             block = self.crnt_block
             vars = block.getvariables()
@@ -158,6 +159,9 @@ class FlowExecutionContext(ExecutionContext):
                 self.pendingblocks.append(egg)
                 link = Link(vars, egg, case)
                 links.append(link)
+                if ignore_last_variable_except_in_first_case:
+                    vars.remove(block.operations[-1].result)
+                    ignore_last_variable_except_in_first_case = False
             block.exitswitch = w_condition
             block.closeblock(*links)
             # forked the graph. Note that False comes before True by default
@@ -176,7 +180,8 @@ class FlowExecutionContext(ExecutionContext):
 
     def guessexception(self, *classes):
         return self.guessbool(Constant(last_exception),
-                              cases = [None] + list(classes))
+                              cases = [None] + list(classes),
+                              ignore_last_variable_except_in_first_case = True)
 
     def build_flow(self):
         from pypy.objspace.flow.objspace import UnwrapException
