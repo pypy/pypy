@@ -8,6 +8,85 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.translator.flowmodel import *
 from pypy.translator.annotation import Annotator, set_type, get_type
 
+class Op:
+    def __init__(self, operation, gen, block):
+        self._str = gen._str
+        self.gen = gen
+        self.argnames = [self._str(arg, block) for arg in operation.args]
+        self.resultname = self._str(operation.result, block)
+        self.op = operation
+        #op.opname
+
+    def __call__(self):
+        operator = self.gen.ops.get(self.op.opname, self.op.opname)
+        #print "operator, ", self.op.opname, operator, self.gen.ops
+
+        args = self.argnames
+        if not (operator[0] >= "a" and operator[0] <= "z"):
+            if len(args) == 1:
+                return "%s = %s %s" % (self.resultname, operator) + args
+            elif len(args) == 2:
+                return "%s = %s %s %s" % (self.resultname, args[0], operator, args[1])
+            elif len(args) == 3 and operator == "**": #special case, have to handle it manually
+                return "%s = pow(%s, %s, %s)" % (self.resultname,) + args
+            else:
+                raise NotImplementedError, "I don't know to handle the operator %s (arity %s)" \
+                      % (operator, len(args))
+        else:
+            method = getattr(self, "op_%s" % operator, self.generic_op)
+            return method() 
+
+
+    def generic_op(self): 
+        """Generic handler for all operators, which I don't handle explicitly"""
+
+        return "%s = %s(%s)" % (self.resultname, self.op.opname, ", ".join(self.argnames)) 
+    
+    def op_next_and_flag(self):
+        lines = []
+        args = self.argnames
+        lines.append("try:")
+        lines.append("    _nextval = %s.next()" % args[0])
+        lines.append("except StopIteration:")
+        lines.append("    %s = None, 0" % self.resultname)
+        lines.append("else:")
+        lines.append("    %s = _nextval, 1" % self.resultname)
+        return "\n".join(lines)
+
+    def op_getitem(self):
+        return "%s = %s[%s]" % (self.resultname,) + self.argnames
+
+    def op_newtuple(self):
+        if self.argnames:
+            return "%s = (%s,)" % (self.resultname, ", ".join(self.argnames))
+        else:
+            return "%s = ()" % self.resultname
+
+    def op_newlist(self):  
+        if self.argnames: 
+            return "%s = [%s,]" % (self.resultname, ", ".join(self.argnames))
+        else:
+            return "%s = []" % self.resultname
+
+    def op_newdict(self):
+        pairs = []
+        for i in range(0, len(self.argnames), 2):
+            pairs.append("%s: %s, " % (self.argnames[i], self.argnames[i+1]))
+        return "%s = {%s}" % (self.resultname, "".join(pairs))
+
+    def op_call(self):
+        a = self.argnames
+        return "%s = %s(*%s, **%s)" % (self.resultname, a[0], a[1], a[2])
+
+    def op_getattr(self):
+        args = self.argnames
+        attr = self.op.args[1]
+        if isinstance(attr, Constant):  ###don't we have only the strings here?
+            return "%s = %s.%s" % (self.resultname, args[0], attr.value)
+        else: 
+            return "%s = getattr(%s)" % (self.resultname, ", ".join(args))
+
+
 class GenPyrex:
     def __init__(self, functiongraph):
         self.functiongraph = functiongraph
@@ -94,64 +173,10 @@ class GenPyrex:
         blockids = self.blockids
         blockids.setdefault(block, len(blockids))
 
-        
         self.putline('cinline "Label%s:"' % blockids[block])
         for op in block.operations:
-            argnames = [self._str(arg, block) for arg in op.args]
-            resultname = self._str(op.result, block)
-            # XXX refactor me
-            if op.opname == 'next_and_flag':
-                self.putline("try:")
-                self.putline("    _nextval = %s.next()" % argnames[0])
-                self.putline("except StopIteration:")
-                self.putline("    %s = None, 0" % resultname)
-                self.putline("else:")
-                self.putline("    %s = _nextval, 1" % resultname)
-            elif op.opname == 'getitem':
-                self.putline("%s = %s[%s]" % (resultname, argnames[0],
-                                              argnames[1]))
-            elif op.opname == 'newtuple':
-                self.putline("%s = (%s)" % (
-                    resultname, "".join([s+", " for s in argnames])))
-            elif op.opname == 'newlist':
-                self.putline("%s = [%s]" % (
-                    resultname, "".join([s+", " for s in argnames])))
-            elif op.opname == 'newdict':
-                pairs = []
-                for i in range(0, len(argnames), 2):
-                    pairs.append("%s: %s, " % (argnames[i], argnames[i+1]))
-                self.putline("%s = {%s}" % (resultname, "".join(pairs)))
-            elif op.opname == 'call':
-                self.putline("%s = %s(*%s, **%s)" % (resultname, argnames[0],
-                                                     argnames[1], argnames[2]))
-            elif op.opname == 'simple_call':
-                self.putline("%s = %s(%s)" % (resultname, argnames[0],
-                                              ", ".join(argnames[1:])))
-            else:
-                # short-cuts [getattr,]
-                if op.opname == 'getattr':
-                    attr = op.args[1]
-                    if isinstance(attr,Constant):
-                        # XXX check that attr.value is a string and a
-                        # XXX valid Python identifiers
-                        self.putline("%s = %s.%s" % (resultname,argnames[0],
-                                                     attr.value))
-                        continue
-                opsymbol = self.ops[op.opname]
-                arity = self.oparity[op.opname]
-                assert(arity == len(op.args))
-                if arity == 1 or arity == 3 or "a" <= opsymbol[0] <= "z":
-                    self.putline("%s = %s(%s)" % (resultname, opsymbol,
-                                                  ", ".join(argnames)))
-                elif 0:
-                    # XXX in-place operators don't work, fixme
-                    self.putline("%s = %s; %s += %s" % (
-                        resultname, argnames[0],
-                        resultname, argnames[1]))
-                else:
-                    # infix operator
-                    self.putline("%s = %s %s %s" % (resultname, argnames[0],
-                                                    opsymbol, argnames[1]))
+            opg = Op(op, self, block)
+            self.putline(opg())
 
         self.dispatchBranch(block, block.branch)
 
