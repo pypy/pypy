@@ -122,6 +122,11 @@ class ExecutionContext:
                 return frame.last_exception
         return None
 
+    def clear_exception(self):
+        if operror is not None:
+            operror.clear(space)
+
+
     def get_state_dict(self):
         """A mechanism to store arbitrary per ExecutionContext data.
         Similar to cpython's PyThreadState_GetDict.
@@ -173,8 +178,10 @@ class ExecutionContext:
         if self.w_profilefunc is not None:
             if event not in ['leaveframe', 'call']:
                 return
-            
+
+            last_exception = None
             if event == 'leaveframe':
+                last_exception = frame.last_exception
                 event = 'return'
 
             assert self.is_tracing == 0 
@@ -185,7 +192,8 @@ class ExecutionContext:
                                                         self.space.wrap(frame),
                                                         self.space.wrap(event), w_arg)
                 except:
-                    raise
+                    pass
             finally:
+                frame.last_exception = last_exception
                 self.is_tracing -= 1
 
