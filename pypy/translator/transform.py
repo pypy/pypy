@@ -36,7 +36,7 @@ def transform_allocate(self):
                 new_op = SpaceOperation('alloc_and_set',
                                         (op2.args[1], op1.args[0]),
                                         op2.result)
-                block.operations[i:i+2] = [new_op]
+                block.operations[i+1:i+2] = [new_op]
 
 # a[b:c]
 # -->
@@ -61,7 +61,7 @@ def transform_slice(self):
                 new_op = SpaceOperation('getslice',
                                         (op2.args[0], op1.args[0], op1.args[1]),
                                         op2.result)
-                block.operations[i:i+2] = [new_op]
+                block.operations[i+1:i+2] = [new_op]
 
 # a(*b)
 # -->

@@ -118,10 +118,15 @@ class Op:
         s = self.str
         result, (seq,) = self.result, self.args
         print "(setq", s(result), "(make-iterator", s(seq), "))"
-    def op_next_and_flag(self):
+    def op_next(self):
         s = self.str
         result, (iterator,) = self.result, self.args
-        print "(setq", s(result), "(funcall", s(iterator), "))"
+        print "(let ((result (funcall", s(iterator), ")))"
+        print "  (setq", s(result), "(car result))"
+        print "  (setq last-exc (cdr result)))"
+    def op_exception(self):
+        s = self.str
+        print "(psetq", s(self.result), "last-exc last-exc nil)"
     builtin_map = {
         pow: "expt",
         range: "python-range",
@@ -171,7 +176,7 @@ class GenCL:
         elif isinstance(obj, Constant):
             return self.conv(obj.value)
         else:
-            return "#<"
+            return "#<%r>" % (obj,)
     def conv(self, val):
         if isinstance(val, bool): # should precedes int
             if val:
@@ -187,8 +192,10 @@ class GenCL:
             val.replace("\"", "\\\"")
             val = '"' + val + '"'
             return val
+        elif isinstance(val, type(Exception)) and issubclass(val, Exception):
+            return "'%s" % val.__name__
         else:
-            return "#<"
+            return "#<%r>" % (val,)
     def emitcode(self):
         import sys
         from cStringIO import StringIO
@@ -221,7 +228,7 @@ class GenCL:
             self.blockref[block] = tag
             for var in block.getvariables():
                 vardict[var] = self.get_type(var)
-        print "(",
+        print "( last-exc",
         for var in vardict:
             if var in arglist:
                 print "(", self.str(var), self.str(var), ")",
@@ -233,6 +240,7 @@ class GenCL:
             tp = vardict[var]
             if tp:
                 print ";;", self.str(var), "is", tp.__name__
+        print "(setq last-exc nil)"
         for block in blocklist:
             self.emit_block(block)
         print ")"
@@ -249,16 +257,32 @@ class GenCL:
             self.emit_link(exits[0])
         elif len(exits) > 1:
             # only works in the current special case
-            assert len(exits) == 2
-            assert exits[0].exitcase == False
-            assert exits[1].exitcase == True
-            print "(if", self.str(block.exitswitch)
-            print "(progn"
-            self.emit_link(exits[1])
-            print ") ; else"
-            print "(progn"
-            self.emit_link(exits[0])
-            print "))"
+            if (len(exits) == 2 and
+                exits[0].exitcase == False and
+                exits[1].exitcase == True):
+                print "(if", self.str(block.exitswitch)
+                print "(progn"
+                self.emit_link(exits[1])
+                print ") ; else"
+                print "(progn"
+                self.emit_link(exits[0])
+                print "))"
+            else:
+                # this is for the more general case.  The previous special case
+                # shouldn't be needed but in Python 2.2 we can't tell apart
+                # 0 vs nil  and  1 vs t  :-(
+                for exit in exits[:-1]:
+                    print "(if (equalp", self.str(block.exitswitch),
+                    print self.conv(exit.exitcase), ')'
+                    print "(progn"
+                    self.emit_link(exit)
+                    print ")"
+                print "(progn ; else should be", self.conv(exits[-1].exitcase)
+                self.emit_link(exits[-1])
+                print ")" * len(exits)
+        elif hasattr(block, 'exc_type'):
+            excname = block.exc_type.__name__
+            print "(something-like-throw-exception '%s)" % excname
         else:
             retval = self.str(block.inputargs[0])
             print "(return", retval, ")"
@@ -309,8 +333,8 @@ prelude = """\
   (let ((i 0))
     (lambda ()
       (if (< i (length seq))
-          (let ((v (elt seq i))) (incf i) (list v t))
-          (list nil nil)))))
+          (let ((v (elt seq i))) (incf i) (cons v nil))
+          (cons nil 'StopIteration)))))
 (defun python-slice (seq start end)
   (let ((l (length seq)))
     (if (not start) (setf start 0))
