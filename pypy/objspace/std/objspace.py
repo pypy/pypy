@@ -144,11 +144,13 @@ class StdObjSpace(ObjSpace):
         self.w_False = W_BoolObject(self, False)
         self.w_True  = W_BoolObject(self, True)
         self.w_NotImplemented = self.wrap(NotImplemented)  # XXX do me
+        self.w_Ellipsis = self.wrap(Ellipsis)  # XXX do me too
 
         for_builtins = {"False": self.w_False,
                         "True" : self.w_True,
                         "None" : self.w_None,
                         "NotImplemented": self.w_NotImplemented,
+                        "Ellipsis": self.w_Ellipsis,
                         }
 
         # types
