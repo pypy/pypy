@@ -2,10 +2,12 @@
 
 New for PyPy - Could be incorporated into CPython regression tests.
 """
+import autopath
 
 import unittest
+from pypy.tool import test
 
-class TestExceptionComp(unittest.TestCase):
+class TestExceptionComp(test.TestCase):
 
     def test_string(self):
         string = "string"
@@ -121,4 +123,4 @@ class TestExceptionComp(unittest.TestCase):
             self.fail("Exception does not match self in nested tuple.") 
 
 if __name__ == "__main__":
-    unittest.main()
+    test.main()

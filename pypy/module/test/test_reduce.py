@@ -1,7 +1,8 @@
-import testsupport
+import autopath
 from pypy.module.builtin_app import reduce
+from pypy.tool import test
 
-class TestReduce(testsupport.TestCase):
+class TestReduce(test.TestCase):
    def test_None(self):
        self.assertRaises(TypeError, reduce, lambda x, y: x+y, [1,2,3], None)
 
@@ -14,6 +15,6 @@ class TestReduce(testsupport.TestCase):
        self.assertEqual(reduce(lambda x, y: x-y, [2, 8], 10), 0)
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()
 
 

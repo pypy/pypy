@@ -1,11 +1,13 @@
-import testsupport
+import autopath
+
 from pypy.module.builtin_app import cmp
+from pypy.tool import test
 
 
-class TestBuiltin(testsupport.TestCase):
+class TestBuiltin(test.TestCase):
 
    def setUp(self):
-      self.space = testsupport.objspace()
+      self.space = test.objspace()
 
    def tearDown(self):
       pass
@@ -39,7 +41,7 @@ class TestBuiltin(testsupport.TestCase):
        # sufficiently simple
        s.call_function(w_import, w('quopri'), w_dict, w_dict, w_fromlist)
      
-class TestCmp(testsupport.TestCase):
+class TestCmp(test.TestCase):
    
     def test_cmp(self):
        self.failUnless(cmp(9, 9) == 0)
@@ -47,5 +49,5 @@ class TestCmp(testsupport.TestCase):
        self.failUnless(cmp(9,0) > 0)
  
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()
  

@@ -1,7 +1,8 @@
-import testsupport
+import autopath
 from pypy.module.builtin_app import zip
+from pypy.tool import test
 
-class TestZip(testsupport.TestCase):
+class TestZip(test.TestCase):
 
    def test_zip_no_arguments(self):
       self.assertRaises(TypeError, zip)
@@ -32,6 +33,6 @@ class TestZip(testsupport.TestCase):
                        [('h', 1, 7), ('e', 2, 8), ('l', 3, 9), ('l', 4, 10)])
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()
 
 

@@ -1,12 +1,14 @@
-import testsupport
+import autopath
+
 from pypy.module.builtin_app import apply, min, max
+from pypy.tool import test
 
 def myminmax(*arr, **dict):
    # trivial function which has the signature *args, **kw
    v = list(arr) + dict.values()
    return min(v), max(v)
   
-class TestApply(testsupport.TestCase):
+class TestApply(test.TestCase):
 
    def setUp(self):
       pass
@@ -33,6 +35,6 @@ class TestApply(testsupport.TestCase):
                              (-4, 2))
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()
 
 

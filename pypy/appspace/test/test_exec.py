@@ -2,10 +2,12 @@
 
 New for PyPy - Could be incorporated into CPython regression tests.
 """
+import autopath
 
 import unittest
+from pypy.tool import test 
 
-class TestExecStmt(unittest.TestCase):
+class TestExecStmt(test.TestCase):
 
     def test_string(self):
         g = {}

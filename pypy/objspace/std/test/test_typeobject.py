@@ -1,10 +1,11 @@
-import testsupport
+import autopath
+from pypy.tool import test
 from pypy.objspace.std.typeobject import PyMultimethodCode
 
-class TestPyMultimethodCode(testsupport.TestCase):
+class TestPyMultimethodCode(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.stdobjspace()
+        self.space = test.objspace('std')
 
     def tearDown(self):
         pass
@@ -55,4 +56,4 @@ class TestPyMultimethodCode(testsupport.TestCase):
 
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

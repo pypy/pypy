@@ -1,9 +1,11 @@
-import testsupport
+import autopath
 
 # need pypy.module.builtin first to make other imports work (???)
 from pypy.module import builtin
-
 from pypy.interpreter import extmodule
+from pypy.tool import test
+
+import unittest
 
 class EmptyBM(extmodule.BuiltinModule):
     __pythonname__ = 'empty_bm'
@@ -18,11 +20,10 @@ class BM_with_appdata(extmodule.BuiltinModule):
     somedata = 'twentythree'
     somedata = extmodule.appdata(somedata)
 
-
-class TestBuiltinModule(testsupport.TestCase):
+class TestBuiltinModule(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.objspace()
+        self.space = test.objspace()
 
     def tearDown(self):
         pass
@@ -71,10 +72,10 @@ class TestBuiltinModule(testsupport.TestCase):
         self.assertEqual(thedata, 'twentythree')
 
 
-class TestPyBuiltinCode(testsupport.TestCase):
+class TestPyBuiltinCode(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.objspace()
+        self.space = test.objspace()
 
     def tearDown(self):
         pass
@@ -128,4 +129,4 @@ class TestPyBuiltinCode(testsupport.TestCase):
         self.assertEqual_w(s.call_function(builtin_f, w(2), a=w(1)), w(3))
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

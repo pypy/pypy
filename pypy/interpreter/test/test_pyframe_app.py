@@ -1,5 +1,6 @@
-import unittest
-import testsupport
+import autopath
+
+from pypy.tool import test
 from pypy.interpreter.pyframe_app import decode_frame_arguments
 
 class CodeObject:
@@ -10,7 +11,7 @@ class CodeObject:
         self.co_flags = 4 * vflag + 8 * kflag
 
 
-class Testdecode_frame_arguments(unittest.TestCase):
+class Testdecode_frame_arguments(test.TestCase):
     
     def test_plain_parameters(self):
         self.assertEqual(
@@ -88,4 +89,4 @@ class Testdecode_frame_arguments(unittest.TestCase):
             (1, 2, 3, 4), {}, (), None, CodeObject(kflag=1))
         
 if __name__ == "__main__":
-    unittest.main()   
+    test.main()   

@@ -1,6 +1,7 @@
-import testsupport
+import autopath
+from pypy.tool import test
 
-class TestInterpreter(testsupport.TestCase):
+class TestInterpreter(test.TestCase):
 
     def codetest(self, source, functionname, args):
         """Compile and run the given code string, and then call its function
@@ -33,7 +34,7 @@ class TestInterpreter(testsupport.TestCase):
             return space.unwrap(w_output)
 
     def setUp(self):
-        self.space = testsupport.objspace()
+        self.space = test.objspace()
 
     def test_exception_trivial(self):
         x = self.codetest('''
@@ -141,7 +142,7 @@ def f(n):
         self.assertEquals(self.codetest(code, 'f', [9]),
                           1+2+3 + 5+6+7+8+900)
 
-class AppTestInterpreter(testsupport.AppTestCase):
+class AppTestInterpreter(test.AppTestCase):
     def test_exception(self):
         try:
             raise Exception, 1
@@ -192,7 +193,21 @@ class AppTestInterpreter(testsupport.AppTestCase):
         self.assertEquals(f(), 2)
 
     def test_print(self):
-        print 10
+        #import sys
+        #save = sys.stdout 
+        #class Out:
+        #    def __init__(self):
+        #        self.args = []
+        #    def write(self, *args):
+        #        self.args.extend(args)
+        #out = Out()
+        #try:
+        #    sys.stdout = out
+        #    print 10
+        #    self.assertEquals(out.args, ['10','\n'])
+        #finally:
+        #    sys.stdout = save
+        print 42
 
     def test_identity(self):
         def f(x): return x
@@ -200,4 +215,4 @@ class AppTestInterpreter(testsupport.AppTestCase):
 
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

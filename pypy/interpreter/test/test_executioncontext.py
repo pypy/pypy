@@ -1,14 +1,14 @@
-import testsupport
+import autopath
 
+from pypy.tool import test
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter import baseobjspace, executioncontext
 
-
-class TestExecutionContext(testsupport.TestCase):
+class TestExecutionContext(test.TestCase):
 
     def test_trivial1(self):
         # build frame
-        space = testsupport.objspace()
+        space = test.objspace()
         ec = executioncontext.ExecutionContext(space)
         compile = space.builtin.compile
         bytecode = space.unwrap(compile(space.wrap('def f(x): return x+1'),
@@ -22,4 +22,4 @@ class TestExecutionContext(testsupport.TestCase):
 
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

@@ -1,0 +1,283 @@
+import autopath
+import os, sys, unittest, re, warnings, unittest
+from unittest import TestCase, TestLoader
+
+import pypy.interpreter.unittest_w
+
+IntTestCase = pypy.interpreter.unittest_w.IntTestCase
+AppTestCase = pypy.interpreter.unittest_w.AppTestCase
+TestCase = IntTestCase
+
+class MyTestSuite(unittest.TestSuite):
+    def __call__(self, result):
+        """ execute the tests, invokes underlyning unittest.__call__"""
+
+        # XXX here is probably not the best place 
+        #     to check for test/objspace mismatch 
+        count = self.countTestCases()
+        if not count:
+            return result
+
+        fm = getattr(self, 'frommodule','')
+        if fm and fm.startswith('pypy.objspace.std') and \
+           Options.spacename != 'std':
+            sys.stderr.write("\n%s skip for objspace %r" % (
+                fm, Options.spacename))
+            return result
+
+        if fm and Options.verbose==0:
+            sys.stderr.write('\n%s [%d]' %(fm, count))
+        result = unittest.TestSuite.__call__(self, result)
+        return result
+
+    def addTest(self, test, frommodule=None):
+        if test.countTestCases()>0:
+            test.frommodule = frommodule
+            unittest.TestSuite.addTest(self, test)
+
+    def __nonzero__(self):
+        return self.countTestCases()>0
+
+
+# register MyTestSuite to unittest
+unittest.TestLoader.suiteClass = MyTestSuite
+
+class MyTestResult(unittest.TestResult):
+    def __init__(self):
+        unittest.TestResult.__init__(self)
+        self.successes = []
+    def addSuccess(self, test):
+        self.successes.append(test)
+
+class CtsTestRunner:
+    def run(self, test):
+        import pickle
+
+        result = MyTestResult()
+        sys.stdout = open('/dev/null', 'w')
+        sys.stderr = open('/dev/null', 'w')
+        test(result)
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
+
+        ostatus = {}
+        if os.path.exists('testcts.pickle'):
+            ostatus = pickle.load(open('testcts.pickle','r'))
+
+        status = {}
+
+        for e in result.errors:
+            name = e[0].__class__.__name__ + '.' + e[0]._TestCase__testMethodName
+            status[name] = 'ERROR'
+        for f in result.failures:
+            name = f[0].__class__.__name__ + '.' + f[0]._TestCase__testMethodName
+            status[name] = 'FAILURE'
+        for s in result.successes:
+            name = s.__class__.__name__ + '.' + s._TestCase__testMethodName
+            status[name] = 'success'
+
+        keys = status.keys()
+        keys.sort()
+
+        for k in keys:
+            old = ostatus.get(k, 'success')
+            if k in ostatus:
+                del ostatus[k]
+            new = status[k]
+            if old != new:
+                print k, 'has transitioned from', old, 'to', new
+            elif new != 'success':
+                print k, "is still a", new
+
+        for k in ostatus:
+            print k, 'was a', ostatus[k], 'was not run this time'
+            status[k] = ostatus[k]
+
+        pickle.dump(status, open('testcts.pickle','w'))
+
+        return result
+
+def testsuite_from_main():
+    """ return test modules from __main__
+
+    """
+    loader = unittest.TestLoader()
+    m = __import__('__main__')
+    return loader.loadTestsFromModule(m)
+
+def testsuite_from_dir(root, filterfunc=None, recursive=0, loader=None):
+    """ return test modules that optionally match filterfunc. 
+
+    all files matching the glob-pattern "test_*.py" are considered.
+    additionally their fully qualified python module path has
+    to be accepted by filterfunc (if it is not None). 
+    """
+    if Options.verbose>2:
+        print >>sys.stderr, "scanning for test files in", root
+
+    if loader is None:
+        loader = unittest.TestLoader()
+
+    root = os.path.abspath(root)
+
+    suite = unittest.TestLoader.suiteClass()
+    for fn in os.listdir(root):
+        if fn.startswith('.'):
+            continue
+        fullfn = os.path.join(root, fn)
+        if os.path.isfile(fullfn) and \
+               fn.startswith('test_') and \
+               fn.endswith('.py'):
+            modpath = fullfn[len(autopath.pypydir)+1:-3]
+            modpath = 'pypy.' + modpath.replace(os.sep, '.')
+            if not filterfunc or filterfunc(modpath):
+                subsuite = loader.loadTestsFromName(modpath)
+                suite.addTest(subsuite, modpath)
+        elif recursive and os.path.isdir(fullfn):
+            subsuite = testsuite_from_dir(fullfn, filterfunc, 1, loader)
+            if subsuite:
+                suite._tests.extend(subsuite._tests)
+    return suite
+
+def objspace(name='', _spacecache={}):
+    """ return singleton ObjSpace instance. 
+
+    this is configured via the environment variable OBJSPACE
+    """
+    name = name or Options.spacename or os.environ.get('OBJSPACE', 'trivial')
+    if name == 'std':
+        from pypy.objspace.std import Space
+    elif name == 'trivial':
+        from pypy.objspace.trivial import Space
+    else:
+        raise ValueError, "no objectspace named %s" % repr(name)
+
+    try:
+        return _spacecache[name]
+    except KeyError:
+        return _spacecache.setdefault(name, Space())
+
+class Options:
+    """ Options set by command line """
+    verbose = 0
+    spacename = ''
+    showwarning = 0
+    allspaces = []
+    testreldir = 0
+    runcts = 0
+
+class RegexFilterFunc:
+    """ stateful function to filter included/excluded strings via
+    a Regular Expression. 
+
+    An 'excluded' regular expressions has a '%' prependend. 
+    """
+
+    def __init__(self, *regex):
+        self.exclude = []
+        self.include = []
+        for x in regex:
+            if x[:1]=='%':
+                self.exclude.append(re.compile(x[1:]).search)
+            else:
+                self.include.append(re.compile(x).search)
+
+    def __call__(self, arg):
+        for exclude in self.exclude:
+            if exclude(arg):
+                return
+        if not self.include:
+            return arg
+        for include in self.include:
+            if include(arg):
+                return arg
+
+def print_usage():
+    print >>sys.stderr, """\
+%s [-chrvST] [regex1] [regex2] [...]
+
+  -c  run CtsTestRunner (catches stdout and prints report after testing)
+  -h  this help message
+  -r  gather only tests relative to current dir
+  -v  increase verbosity level (including unittest-verbosity)
+  -w  enable warnings from warnings framework (default is off)
+  -S  run in standard object space 
+  -T  run in trivial object space (default)
+
+  The regular expressions regex1, regex2 ... are matched
+  against the full python path of a test module. A leading
+  '%%' before a regex means that the matching result is to
+  be inverted.
+""" % sys.argv[0]
+    raise SystemExit(1)
+
+def process_options(argv=[]):
+    """ invoke this if you want to process test-switches from sys.argv"""
+
+    if not argv:
+        argv[:] = sys.argv[1:]
+
+    try:
+        import getopt
+        opts, args = getopt.getopt(argv, "chrvST")
+    except getopt.error, msg:
+        print msg
+        print "Try `python %s -h' for help" % sys.argv[0]
+        sys.exit(2)
+
+    for k,v in opts:
+        if k == '-h':
+            print_usage()
+        elif k == '-c':
+            Options.runcts = 1
+        elif k == '-r':
+            Options.testreldir = 1
+        elif k == '-w':
+            Options.showwarning = 1
+        elif k == '-h':
+            print_usage()
+        elif k == '-v':
+            Options.verbose += 1
+        elif k == '-S':
+            Options.spacename = 'std'
+            Options.allspaces.append('std')
+        elif k == '-T':
+            Options.spacename = 'trivial'
+            Options.allspaces.append('trivial')
+            
+    return args
+
+def run_tests(suite):
+    for spacename in Options.allspaces or ['']:
+        run_tests_on_space(suite, spacename)
+
+def run_tests_on_space(suite, spacename=''):
+    """ run the suite on the given space """
+    if Options.runcts:
+        runner = CtsTestRunner() # verbosity=Options.verbose+1)
+    else:
+        runner = unittest.TextTestRunner(verbosity=Options.verbose+1)
+
+    if spacename:
+        Options.spacename = spacename
+
+    warnings.defaultaction = Options.showwarning and 'default' or 'ignore'
+    print >>sys.stderr, "running tests via", repr(objspace())
+    runner.run(suite)
+
+def main(root=None):
+    """ run this to test everything in the __main__ or
+    in the given root-directory (recursive)"""
+    args = process_options()
+    filterfunc = RegexFilterFunc(*args)
+    if Options.testreldir:
+        root = os.path.abspath('.')
+    if root is None:
+        suite = testsuite_from_main()
+    else:
+        suite = testsuite_from_dir(root, filterfunc, 1)
+    run_tests(suite)
+
+if __name__ == '__main__':
+    # test all of pypy
+    main(autopath.pypydir)

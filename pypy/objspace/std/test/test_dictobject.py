@@ -1,11 +1,12 @@
-import testsupport
+import autopath
+from pypy.tool import test
 from pypy.objspace.std.dictobject import W_DictObject
 
 
-class TestW_DictObject(testsupport.TestCase):
+class TestW_DictObject(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.stdobjspace()
+        self.space = test.objspace('std')
 
     def tearDown(self):
         pass
@@ -80,4 +81,4 @@ class TestW_DictObject(testsupport.TestCase):
         
                                  
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

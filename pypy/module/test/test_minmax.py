@@ -1,7 +1,8 @@
-import testsupport
+import autopath
 from pypy.module.builtin_app import min, max
+from pypy.tool import test
 
-class TestMin(testsupport.TestCase):
+class TestMin(test.TestCase):
 
    def setUp(self):
       pass
@@ -39,7 +40,7 @@ class TestMin(testsupport.TestCase):
    def test_min_empty(self):
       self.assertRaises(ValueError, min, [])
 
-class TestMax(testsupport.TestCase):
+class TestMax(test.TestCase):
 
    def setUp(self):
       pass
@@ -78,4 +79,4 @@ class TestMax(testsupport.TestCase):
       self.assertRaises(ValueError, max, [])
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

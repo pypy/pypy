@@ -1,13 +1,14 @@
 #from __future__ import nested_scopes
-import testsupport
+import autopath
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.objspace import NoValue
+from pypy.tool import test
 
 
-class TestW_ListObject(testsupport.TestCase):
+class TestW_ListObject(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.stdobjspace()
+        self.space = test.objspace('std')
 
     def tearDown(self):
         pass
@@ -119,4 +120,4 @@ class TestW_ListObject(testsupport.TestCase):
 
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

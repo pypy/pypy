@@ -1,10 +1,11 @@
-import testsupport
+import autopath
+from pypy.tool import test
 
 
-class TestW_NoneObject(testsupport.TestCase):
+class TestW_NoneObject(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.stdobjspace()
+        self.space = test.objspace()
 
     def tearDown(self):
         pass
@@ -21,4 +22,4 @@ class TestW_NoneObject(testsupport.TestCase):
         
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

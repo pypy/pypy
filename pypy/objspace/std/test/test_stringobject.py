@@ -1,14 +1,14 @@
-import testsupport
+import autopath
+from pypy.tool import test
 from pypy.objspace.std import stringobject
-
 from pypy.objspace.std.stringobject import \
      string_richcompare, W_StringObject, EQ, LT, GT, NE, LE, GE
 
 
-class TestW_StringObject(testsupport.TestCase):
+class TestW_StringObject(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.objspace()
+        self.space = test.objspace('std')
 
     def tearDown(self):
         pass
@@ -115,4 +115,4 @@ class TestW_StringObject(testsupport.TestCase):
         self.assertEqual_w(space.getitem(w_str, w_slice), w('el'))
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

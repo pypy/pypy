@@ -1,5 +1,6 @@
-import testsupport
+import autopath
 from pypy.module.builtin_app import map
+from pypy.tool import test
 
 # trivial functions for testing 
 
@@ -14,7 +15,7 @@ def add_both_with_none(x, y):
       y = 1000
    return x + y
 
-class TestMap(testsupport.TestCase):
+class TestMap(test.TestCase):
 
    def test_map_no_arguments(self):
       self.assertRaises(TypeError, map)
@@ -77,6 +78,6 @@ class TestMap(testsupport.TestCase):
       self.assertEqual(map(lambda x, y: x, a, b), a)
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()
 
 

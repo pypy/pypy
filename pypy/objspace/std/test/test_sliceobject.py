@@ -1,9 +1,10 @@
-import testsupport
+import autopath
+from pypy.tool import test
 
-class TestW_SliceObject(testsupport.TestCase):
+class TestW_SliceObject(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.stdobjspace()
+        self.space = test.objspace('std')
 
     def tearDown(self):
         pass
@@ -32,4 +33,4 @@ class TestW_SliceObject(testsupport.TestCase):
                             w_slice.indices, w(10))
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

@@ -1,8 +1,7 @@
-import unittest
-import testsupport
+import autopath
 
 from pypy.objspace.std.multimethod import *
-
+from pypy.tool import test
 
 # default delegator
 
@@ -85,7 +84,7 @@ class FakeObjSpace:
     w_TypeError = 'w_TypeError'
 
 
-class TestMultiMethod(unittest.TestCase):
+class TestMultiMethod(test.TestCase):
 
     def test_base(self):
         space = FakeObjSpace()
@@ -133,4 +132,4 @@ class TestMultiMethod(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    test.main()

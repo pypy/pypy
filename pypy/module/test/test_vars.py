@@ -1,5 +1,6 @@
-import testsupport
+import autopath
 from pypy.module.builtin_app import map
+from pypy.tool import test
 
 # trivial objects for testing 
 
@@ -15,7 +16,7 @@ t = TrivialObject()
 t1 = TrivialObject()
 t1.do_something()
 
-class TestVars(testsupport.TestCase):
+class TestVars(test.TestCase):
 
    def test_vars_no_arguments(self):
       self.assertEqual(vars(), locals())
@@ -29,6 +30,6 @@ class TestVars(testsupport.TestCase):
       self.assertNotEqual(vars(t1), t.__dict__)
       
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()
 
 

@@ -1,9 +1,10 @@
-import testsupport
+import autopath
+from pypy.tool import test
 
-class TestW_StdObjSpace(testsupport.TestCase):
+class TestW_StdObjSpace(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.stdobjspace()
+        self.space = test.objspace('std')
 
     def tearDown(self):
         pass
@@ -19,4 +20,4 @@ class TestW_StdObjSpace(testsupport.TestCase):
 
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

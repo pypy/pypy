@@ -1,12 +1,13 @@
-import testsupport
+import autopath
+from pypy.tool import test 
 
 # this test isn't so much to test that the objspace interface *works*
 # -- it's more to test that it's *there*
 
-class TestStdObjectSpace(testsupport.TestCase):
+class TestStdObjectSpace(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.objspace()
+        self.space = test.objspace()
 
     def tearDown(self):
         pass
@@ -76,4 +77,4 @@ class TestStdObjectSpace(testsupport.TestCase):
                            self.space.wrap(1))
     
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

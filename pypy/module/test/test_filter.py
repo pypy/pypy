@@ -1,6 +1,6 @@
-import testsupport
+import autopath
 from pypy.module.builtin_app import filter
-
+from pypy.tool import test
 
 # trivial functions for testing 
 
@@ -16,7 +16,7 @@ def larger_than_a(c):
    else:
       return False
 
-class TestFilter(testsupport.TestCase):
+class TestFilter(test.TestCase):
 
    def test_filter_no_arguments(self):
       self.assertRaises(TypeError, filter)
@@ -52,4 +52,4 @@ class TestFilter(testsupport.TestCase):
       self.assertEqual(filter(larger_than_a, 'xyzabcd'), 'xyzbcd')
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

@@ -1,11 +1,12 @@
-import testsupport
+import autopath
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.objspace.std.objspace import NoValue
+from pypy.tool import test
 
-class TestW_IterObject(testsupport.TestCase):
+class TestW_IterObject(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.stdobjspace()
+        self.space = test.objspace('std')
 
     def tearDown(self):
         pass
@@ -27,4 +28,4 @@ class TestW_IterObject(testsupport.TestCase):
         self.assertRaises(NoValue, self.space.next, w_iter)
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

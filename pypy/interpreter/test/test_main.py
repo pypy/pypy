@@ -1,7 +1,8 @@
 import unittest
-import testsupport
+import autopath
 from cStringIO import StringIO
 
+from pypy.tool import test
 from pypy.interpreter.baseobjspace import OperationError
 
 testcode = """\
@@ -17,7 +18,7 @@ testresultoutput = '11\n'
 capture = StringIO()
 
 def checkoutput(expected_output,f,*args):
-    space = testsupport.objspace()
+    space = test.objspace()
     w_sys = space.get_builtin_module(space.wrap("sys"))
     w_oldout = space.getattr(w_sys, space.wrap("stdout"))
     capture.reset()

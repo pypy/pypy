@@ -1,12 +1,13 @@
 import sys
-import testsupport
+import autopath
 from pypy.objspace.std import intobject as iobj
 from pypy.objspace.std.objspace import FailedToImplement
+from pypy.tool import test
 
-class TestW_IntObject(testsupport.TestCase):
+class TestW_IntObject(test.TestCase):
 
     def setUp(self):
-        self.space = testsupport.stdobjspace()
+        self.space = test.objspace('std')
 
     def tearDown(self):
         pass
@@ -286,4 +287,4 @@ class TestW_IntObject(testsupport.TestCase):
         self.assertEquals(self.space.unwrap(result), hex(x))
 
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()

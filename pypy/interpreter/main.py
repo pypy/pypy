@@ -1,4 +1,5 @@
-import testsupport
+import autopath
+from pypy.tool import test
 from pypy.objspace.std import StdObjSpace
 from pypy.module.builtin import Builtin
 from pypy.interpreter import executioncontext, baseobjspace, pyframe
@@ -29,23 +30,22 @@ def run_string(source, fname, space=None):
         ec.eval_frame(frame)
 
 def run_file(fname, space=None):
+    if __name__=='__main__':
+        print "Running %r with %r" % (fname, space)
     istring = open(fname).read()
     run_string(istring, fname, space)
 
 def main(argv=None):
     if argv is None:
         argv = sys.argv
-    if os.environ.get('OBJSPACE'):
-        space = testsupport.objspace()
-        print "Running with %r" % os.environ.get('OBJSPACE')
-    else:
-        space = None
 
+    argv = test.process_options(argv[1:])
+    space = test.objspace()
     try:
-        run_file(argv[1], space)
+        run_file(argv[0], space)
     except baseobjspace.PyPyError, pypyerr:
         pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    main(sys.argv)
     

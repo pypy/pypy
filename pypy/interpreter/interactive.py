@@ -1,3 +1,5 @@
+import autopath
+
 from pypy.interpreter import executioncontext, pyframe, baseobjspace
 import sys
 import code
@@ -18,7 +20,7 @@ def offset2lineno(c, stopat):
 class PyPyConsole(code.InteractiveConsole):
     def __init__(self, objspace):
         code.InteractiveConsole.__init__(self)
-        self.space = objspace()
+        self.space = objspace
         self.ec = executioncontext.ExecutionContext(self.space)
         self.w_globals = self.ec.make_standard_w_globals()
         self.space.setitem(self.w_globals,
@@ -66,14 +68,9 @@ if __name__ == '__main__':
         import readline
     except ImportError:
         pass
-    # object space selection
-    if len(sys.argv) < 2:
-        choice = 'trivial'   # default
-    else:
-        choice = sys.argv[1]
-    classname = choice.capitalize() + 'ObjSpace'
-    module = __import__('pypy.objspace.%s' % choice,
-                        globals(), locals(), [classname])
-    ObjSpace = getattr(module, classname)
-    con = PyPyConsole(ObjSpace)
+
+    from pypy.tool import test
+    args = test.process_options()
+    objspace = test.objspace()
+    con = PyPyConsole(objspace)
     con.interact()

@@ -1,7 +1,8 @@
-import testsupport
+import autopath
 from pypy.module.builtin_app import range
+from pypy.tool import test
 
-class TestRange(testsupport.TestCase):
+class TestRange(test.TestCase):
 
    def setUp(self):
       pass
@@ -74,6 +75,6 @@ class TestRange(testsupport.TestCase):
       """
       
 if __name__ == '__main__':
-    testsupport.main()
+    test.main()
 
 

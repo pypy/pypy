@@ -1,8 +1,9 @@
 import unittest
-import testsupport
+import autopath
+from pypy.tool import test
 from pypy.objspace.std.restricted_int import *
 
-class Test_r_int(unittest.TestCase):
+class Test_r_int(test.TestCase):
 
     def setUp(self):
         pass
@@ -129,4 +130,4 @@ class Test_r_uint(unittest.TestCase):
                     self.assertEquals(res, cmp)
 
 if __name__ == '__main__':
-    unittest.main()
+    test.main()

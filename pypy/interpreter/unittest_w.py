@@ -1,6 +1,7 @@
+import autopath
+
 import sys, os
 import unittest
-import testtools
 
 def wrap_func(space, func):
     # this is generally useful enough that it should probably go
@@ -10,7 +11,6 @@ def wrap_func(space, func):
     code._from_code(func.func_code)
     return space.newfunction(code, space.newdict([]),
                              space.wrap(func.func_defaults), None)
-
 
 def make_testcase_class(space, tc_w):
     # XXX this is all a bit insane (but it works)
@@ -114,12 +114,14 @@ class AppTestCase(IntTestCase):
         unittest.TestCase.__init__(self, methodName)
 
     def __call__(self, result=None):
-        setattr(self, self.methodName,
+        if type(getattr(self, self.methodName)) != WrappedFunc:
+            setattr(self, self.methodName,
                 WrappedFunc(self, getattr(self, self.methodName)))
         return unittest.TestCase.__call__(self, result)
 
     def setUp(self):
-        self.space = testtools.objspace()
+        from pypy.tool import test
+        self.space = test.objspace()
 
     def app_fail(self, w_self, w_msg=None):
         msg = self.space.unwrap(w_msg)

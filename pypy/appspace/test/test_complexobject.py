@@ -10,14 +10,15 @@ the __div__ and __divmod__ methods which have to be
 sorted out.
 """
 
+import autopath
 
 import math
 import cmath
 import sys
 import types
 import unittest
-import testsupport
 
+from pypy.tool import test
 from pypy.appspace.complexobject import complex as pycomplex
     
 
