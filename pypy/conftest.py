@@ -20,7 +20,7 @@ def getobjspace(name=None, _spacecache={}):
     if name is None: 
         name = py.test.config.option.objspacename  
         if name is None:
-            name = os.environ.get('OBJSPACE', 'std')
+            name = py.std.os.environ.get('OBJSPACE', 'std')
     try:
         return _spacecache[name]
     except KeyError:
