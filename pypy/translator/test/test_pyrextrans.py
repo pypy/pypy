@@ -100,10 +100,10 @@ class TestCase(test.IntTestCase):
 
     #_____________________________________________________
 
-    def builtinusage(self):
+    def builtinusage():
         return pow(2,2)
 
-    def _test_builtinusage(self):
+    def test_builtinusage(self):
         fun = self.make_cfunc(self.builtinusage)
         self.assertEquals(fun(), 4)
 

@@ -78,6 +78,10 @@ class Op:
         a = self.argnames
         return "%s = %s(*%s, **%s)" % (self.resultname, a[0], a[1], a[2])
 
+    def op_simple_call(self):
+        a = self.argnames
+        return "%s = %s(%s)" % (self.resultname, a[0], ", ".join(a[1:]))
+
     def op_getattr(self):
         args = self.argnames
         attr = self.op.args[1]
@@ -170,9 +174,16 @@ class GenPyrex:
             self.variablelocations[obj] = block
             return self.get_varname(obj)
         elif isinstance(obj, Constant):
+            try:
+                name = obj.value.__name__
+            except AttributeError:
+                pass
+            else:
+                if __builtins__.get(name) is obj.value:
+                    return name    # built-in functions represented as their name only
             return repr(obj.value)
         else:
-            raise ValueError("Unknow class: %s" % obj.__class__)
+            raise TypeError("Unknown class: %s" % obj.__class__)
 
     def gen_BasicBlock(self, block):
         if self.blockids.has_key(block):

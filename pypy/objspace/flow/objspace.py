@@ -45,28 +45,9 @@ class FlowObjSpace(ObjSpace):
         return self.executioncontext
 
     def reraise(self):
-        #import traceback
-        #traceback.print_exc()
-        #ec = self.getexecutioncontext() # .framestack.items[-1]
-        #ec.print_detailed_traceback(self)
-
         etype, evalue, etb = sys.exc_info()
-        if etype is OperationError:
-            raise etype, evalue, etb   # just re-raise it
-        name = etype.__name__
-        if hasattr(self, 'w_' + name):
-            nt = getattr(self, 'w_' + name)
-            nv = object.__new__(nt)
-            if isinstance(evalue, etype):
-                nv.args = evalue.args
-            else:
-                print [etype, evalue, nt, nv], 
-                print '!!!!!!!!'
-                nv.args = (evalue,)
-        else:
-            nt = etype
-            nv = evalue
-        raise OperationError, OperationError(nt, nv), etb
+        print >> sys.stderr, '*** reraise', etype, evalue
+        raise OperationError, OperationError(self.wrap(etype), self.wrap(evalue)), etb
 
     def build_flow(self, func):
         """
@@ -124,6 +105,12 @@ def make_op(name, symbol, arity, specialnames):
     if not op:
         if name == 'call':
             op = apply
+        elif name == 'issubtype':
+            op = issubclass
+        elif name == 'id':
+            op = id
+        else:
+            print >> sys.stderr, "XXX missing operator:", name
 
     def generic_operator(self, *args_w):
         assert len(args_w) == arity, name+" got the wrong number of arguments"
@@ -138,7 +125,7 @@ def make_op(name, symbol, arity, specialnames):
         else:
             if op:
                 # All arguments are constants: call the operator now
-                #print >> sys.stderr, 'Constant operation:', op, args
+                #print >> sys.stderr, 'Constant operation', op
                 try:
                     result = op(*args)
                 except:
@@ -146,6 +133,7 @@ def make_op(name, symbol, arity, specialnames):
                 else:
                     return self.wrap(result)
 
+        #print >> sys.stderr, 'Variable operation', name, args_w
         return self.do_operation(name, *args_w)
 
     setattr(FlowObjSpace, name, generic_operator)
