@@ -732,6 +732,11 @@ class PyInterpFrame(pyframe.PyFrame):
         w_slice = f.space.newslice(w_start, w_end, w_step)
         f.valuestack.push(w_slice)
 
+    def LIST_APPEND(f):
+        w = f.valuestack.pop()
+        v = f.valuestack.pop()
+        f.space.call_method(v, 'append', w)
+
     def SET_LINENO(f, lineno):
         pass
 
