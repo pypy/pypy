@@ -224,6 +224,9 @@ def _impl_int_int_pow(space, iv, iw, iz=None):
             raise OperationError(space.w_TypeError,
                              space.wrap("pow() 2nd argument "
                  "cannot be negative when 3rd argument specified"))
+        return space.pow(space.float(space.wrap(iv)),
+                         space.float(space.wrap(iw)),
+                         space.w_None)
         ## bounce it, since it always returns float
         raise FailedToImplement(space.w_ValueError,
                                 space.wrap("integer exponentiation"))
@@ -250,7 +253,7 @@ def _impl_int_int_pow(space, iv, iw, iz=None):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer exponentiation"))
-    return ix
+    return W_IntObject(space, ix)
 
 """
 def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
@@ -265,14 +268,12 @@ def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
     y = w_int2.intval
     z = w_int3.intval
-    ret = _impl_int_int_pow(space, x, y, z)
-    return W_IntObject(space, ret)
+    return _impl_int_int_pow(space, x, y, z)
 
 def pow__Int_Int_None(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
     y = w_int2.intval
-    ret = _impl_int_int_pow(space, x, y)
-    return W_IntObject(space, ret)
+    return _impl_int_int_pow(space, x, y)
 
 def neg__Int(space, w_int1):
     a = w_int1.intval

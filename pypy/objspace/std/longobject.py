@@ -17,7 +17,6 @@ class W_LongObject(W_Object):
         assert isinstance(longval, long)
         w_self.longval = longval
 
-
 registerimplementation(W_LongObject)
 
 # int-to-long delegation
@@ -38,6 +37,11 @@ delegate__Long.result_class = W_IntObject
 delegate__Long.priority = PRIORITY_CHANGE_TYPE
 delegate__Long.can_fail = True
 
+## # long-to-float delegation
+## def delegate__Long(space, w_longobj):
+##     return W_FloatObject(space, float(w_longobj.longval))
+## delegate__Long.result_class = W_FloatObject
+## delegate__Long.priority = PRIORITY_CHANGE_TYPE
 
 # long__Long is supposed to do nothing, unless it has
 # a derived long object, where it should return
@@ -145,6 +149,10 @@ def divmod__Long_Long(space, w_long1, w_long2):
 def pow__Long_Long_None(space, w_long1, w_long2, w_none3):
     x = w_long1.longval
     y = w_long2.longval
+    if y < 0:
+        return space.pow(space.float(w_long1),
+                         space.float(w_long2),
+                         space.w_None)        
     z = x ** y
     return W_LongObject(space, z)
 

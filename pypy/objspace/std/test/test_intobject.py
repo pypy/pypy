@@ -170,9 +170,6 @@ class TestW_IntObject(testit.TestCase):
         f1, f2 = [iobj.W_IntObject(self.space, i) for i in (10, 20)]
         self.assertEquals(self.space.w_OverflowError,
                           self._unwrap_nonimpl(iobj.pow__Int_Int_None, self.space, f1, f2, self.space.w_None))
-        f1, f2 = [iobj.W_IntObject(self.space, i) for i in (10, -1)]
-        self.assertEquals(self.space.w_ValueError,
-                          self._unwrap_nonimpl(iobj.pow__Int_Int_None, self.space, f1, f2, self.space.w_None))
 
     def test_neg(self):
         x = 42
@@ -321,6 +318,9 @@ class AppIntTest(testit.AppTestCase):
         import sys
         n = sys.maxint + 1
         self.assert_(isinstance(n, long))
+
+    def test_pow(self):
+        self.assertEquals(pow(2, -10), 1/1024.)
 
 if __name__ == '__main__':
     testit.main()
