@@ -112,6 +112,7 @@ _fake_type_cache.content[type(type(None).__repr__)] = fake_builtin_callable
 from pypy.interpreter.typedef import GetSetProperty
 
 def fake_descriptor(space, d):
+    "NOT_RPYTHON (don't try to fake extra descriptors after initialization!)"
     n = d.__name__
     return space.wrap(GetSetProperty(lambda x:getattr(x, n),
                                      lambda x,y:setattr(x, n, y)))
