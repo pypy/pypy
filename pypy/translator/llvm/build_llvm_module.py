@@ -14,7 +14,7 @@ from pypy.translator.genpyrex import GenPyrex
 from pypy.translator.tool.buildpyxmodule import make_c_from_pyxfile
 from pypy.translator.tool import stdoutcapture
 
-debug = 0
+debug = 1
 
 class CompileError(exceptions.Exception):
     pass
@@ -26,18 +26,26 @@ def system_trace(cmd):
 old_system = os.system
 os.system = system_trace
 
-def make_module_from_llvm(llvmfile, pyxfile):
+def make_module_from_llvm(llvmfile, pyxfile, optimize=True):
     include_dir = autopath.this_dir
     dirpath = llvmfile.dirpath()
     lastdir = path.local()
     os.chdir(str(dirpath))
     modname = pyxfile.purebasename
-    ops1 = ["llvm-as %s -f" % llvmfile,
-           "llvmc -O3 %s.bc -o _%s.o" % (llvmfile.purebasename, modname),
-           "llc _%s.o.bc -f -o _%s.s" % (modname, modname),
-           "as _%s.s -o _%s.o" % (modname, modname)]
+    ops1 = ["llvm-as %s -f -o %s.bc" % (llvmfile, llvmfile.purebasename), 
+            "llvmc -f -O3 %s.bc -o %s_optimized.o" % (llvmfile.purebasename,
+                                                      llvmfile.purebasename),
+            "llc %s_optimized.o.bc -f -o %s.s" % (llvmfile.purebasename,
+                                                   llvmfile.purebasename),
+            "as %s.s -o %s.o" % (llvmfile.purebasename, llvmfile.purebasename)]
+    if not optimize:
+        ops1 = ["llvm-as %s -f" % llvmfile,
+                "llc %s.bc -f -o %s.s" % (llvmfile.purebasename,
+                                          llvmfile.purebasename),
+                "as %s.s -o %s.o" % (llvmfile.purebasename,
+                                          llvmfile.purebasename)]
     ops2 = ["gcc -c -fPIC -I/usr/include/python %s.c" % pyxfile.purebasename,
-           "gcc -shared %s.o _%s.o -o %s.so" % (pyxfile.purebasename,
+           "gcc -shared %s.o %s.o -o %s.so" % (llvmfile.purebasename,
                                                 modname, modname)]
     try:
         if debug: print "modname", modname
@@ -46,9 +54,11 @@ def make_module_from_llvm(llvmfile, pyxfile):
         try:
             try:
                 for op in ops1:
+                    print op
                     cmdexec(op)
                 make_c_from_pyxfile(pyxfile)
                 for op in ops2:
+                    print op
                     cmdexec(op)
             finally:
                 foutput, foutput = c.done()

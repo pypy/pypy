@@ -34,9 +34,9 @@ C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
 debug = 0
 
 
-def llvmcompile(transl):
+def llvmcompile(transl, optimize=True):
     gen = LLVMGenerator(transl)
-    return gen.compile()
+    return gen.compile(optimize)
 
 
 class CompileError(exceptions.Exception):
@@ -53,7 +53,7 @@ class LLVMGenerator(object):
         self.llvm_reprs = {}
         self.l_entrypoint = self.get_repr(self.translator.functions[0])
 
-    def compile(self):
+    def compile(self, optimize=True):
         from pypy.tool.udir import udir
         name = self.l_entrypoint.llvmname()[1:]
         llvmfile = udir.join('%s.ll' % name)
@@ -64,7 +64,8 @@ class LLVMGenerator(object):
         f = pyxfile.open('w')
         f.write(self.l_entrypoint.get_pyrex_source())
         f.close()
-        mod = build_llvm_module.make_module_from_llvm(llvmfile, pyxfile)
+        mod = build_llvm_module.make_module_from_llvm(llvmfile, pyxfile,
+                                                      optimize)
         return getattr(mod, "wrap_%s" % name)
 
     def get_global_tmp(self, used_by=None):
