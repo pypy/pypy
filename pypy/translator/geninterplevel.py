@@ -105,7 +105,7 @@ class GenRpy:
         self.space = FlowObjSpace() # for introspection
 
         self.use_fast_call = True
-        self.specialize_goto = True
+        self.specialize_goto = False
         self._labeltable = {} # unique label names, reused per func
 
         self._space_arities = None
@@ -956,13 +956,13 @@ class GenRpy:
             print >> f, docstr
 
         fast_locals = [arg for arg in localnames if arg not in fast_set]
-        # if goto is specialized, the false detection of
-        # uninitialized variables goes away.
-        if fast_locals and not self.specialize_goto:
-            print >> f
-            for line in self.large_initialize(fast_locals):
-                print >> f, "    %s" % line
-            print >> f
+##        # if goto is specialized, the false detection of
+##        # uninitialized variables goes away.
+##        if fast_locals and not self.specialize_goto:
+##            print >> f
+##            for line in self.large_initialize(fast_locals):
+##                print >> f, "    %s" % line
+##            print >> f
 
         # print the body
         for line in body:
