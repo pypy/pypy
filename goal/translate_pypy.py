@@ -61,6 +61,7 @@ def count_someobjects(annotator):
             return binding.__class__.__name__
 
     header = True
+    num = someobjnum = 0
     for func, graph in translator.flowgraphs.items():
         unknown_input_args = len(filter(is_someobject, graph.getargs()))
         unknown_return_value = is_someobject(graph.getreturnvar())
@@ -77,6 +78,14 @@ def count_someobjects(annotator):
                       'lineno': func.func_code.co_firstlineno,
                       'args': ', '.join(map(short_binding, graph.getargs())),
                       'result': short_binding(graph.getreturnvar())})
+            someobjnum += 1
+        num += 1
+    print "=" * 70
+    percent = int(num and (100.0*someobjnum / num) or 0)
+    print "somobjectness: %2d percent" % (percent)
+    print "(%d out of %d functions get or return SomeObjects" % (
+        someobjnum, num) 
+    print "=" * 70
 
 
 if __name__ == '__main__':
@@ -170,3 +179,4 @@ if __name__ == '__main__':
         debug(True)
     else:
         debug(False)
+    
