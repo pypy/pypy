@@ -1,8 +1,6 @@
 """
 Implementation of interpreter-level 'sys' routines.
 """
-import os
-from pypy.interpreter import autopath
 #from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 
@@ -60,8 +58,12 @@ w_builtin_module_names = space.newtuple([space.wrap(fn)
                                          for fn in builtin_module_names])
 
 # Initialize the default path
+import os
+from pypy.interpreter import autopath
 srcdir = os.path.dirname(autopath.pypydir)
 appdir = os.path.join(autopath.pypydir, 'appspace')
+del os, autopath # XXX for the translator. Something is very wrong around here.
+
 w_initialpath = space.newlist([space.wrap(''), space.wrap(appdir)] +
                        [space.wrap(p) for p in cpy_sys.path if p!= srcdir])
 
@@ -115,4 +117,3 @@ def exc_info():
     else:
         return space.newtuple([operror.w_type,operror.w_value,
                                space.wrap(operror.application_traceback)])
-    

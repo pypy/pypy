@@ -3,7 +3,7 @@ Generate a C source file from the flowmodel.
 
 """
 from __future__ import generators
-import autopath, os
+import autopath, os, sys
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link, last_exception
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
@@ -104,9 +104,9 @@ class GenC:
         return name
 
     def nameof_module(self, value):
-##         assert not hasattr(value, "__file__") or \
-##                not (value.__file__.endswith('.pyc') or value.__file__.endswith('.py')), \
-##                "%r is not a builtin module (probably :)"%value
+        assert not hasattr(value, "__file__") or \
+               not (value.__file__.endswith('.pyc') or value.__file__.endswith('.py') or value.__file__.endswith('.pyo')), \
+               "%r is not a builtin module (probably :)"%value
         name = self.uniquename('mod%s'%value.__name__)
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyImport_Import("%s"))'%(name, value.__name__))
@@ -278,16 +278,29 @@ class GenC:
         return name
 
     def nameof_builtin_function_or_method(self, func):
-        import __builtin__
         if func.__self__ is None:
             # builtin function
-            assert func is getattr(__builtin__, func.__name__, None), (
-                '%r is not from __builtin__' % (func,))
+            # where does it come from? Python2.2 doesn't have func.__module__
+            for modname, module in sys.modules.items():
+                if hasattr(module, '__file__'):
+                    if (module.__file__.endswith('.py') or
+                        module.__file__.endswith('.pyc') or
+                        module.__file__.endswith('.pyo')):
+                        continue    # skip non-builtin modules
+                if func is getattr(module, func.__name__, None):
+                    break
+            else:
+                raise Exception, '%r not found in any built-in module' % (func,)
             name = self.uniquename('gbltin_' + func.__name__)
             self.globaldecl.append('static PyObject* %s;' % name)
-            self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
-                                 'PyEval_GetBuiltins(), "%s"))' % (
-                name, func.__name__))
+            if modname == '__builtin__':
+                self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
+                                     'PyEval_GetBuiltins(), "%s"))' % (
+                    name, func.__name__))
+            else:
+                self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
+                                     '%s, "%s"))' % (
+                    name, self.nameof(module), func.__name__))
             self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         else:
             # builtin (bound) method
@@ -453,7 +466,6 @@ class GenC:
     nameof_wrapper_descriptor = nameof_member_descriptor
 
     def nameof_file(self, fil):
-        import sys
         if fil is sys.stdin:
             return 'PySys_GetObject("stdin")'
         if fil is sys.stdout:

@@ -1,7 +1,6 @@
 """
 Implementation of interpreter-level builtins.
 """
-import os
 from pypy.interpreter.module import Module
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
@@ -32,6 +31,7 @@ def _caller_locals(w_index=None):
 
 
 def try_import_mod(w_modulename, f, w_parent, w_name, pkgdir=None):
+    import os
     w = space.wrap
     if os.path.exists(f):
         w_mod = space.wrap(Module(space, w_modulename))
@@ -171,6 +171,7 @@ def load_part(w_path, prefix, partname, w_parent, tentative):
         w_mod = space.get_builtin_module(modulename)
         if w_mod is not None:
             return w_mod
+        import os
         for path in space.unpackiterable(w_path):
             dir = os.path.join(space.unwrap(path), partname)
             if os.path.isdir(dir):
