@@ -249,4 +249,19 @@ def Func3(EnumParIn):
     return FALSE
 
 if __name__ == '__main__':
-    main()
+    import sys
+    def error(msg):
+        print >>sys.stderr, msg,
+        print >>sys.stderr, "usage: %s [number_of_loops]" % sys.argv[0]
+        sys.exit(100)
+    nargs = len(sys.argv) - 1
+    if nargs > 1:
+        error("%d arguments are too many;" % nargs)
+    elif nargs == 1:
+        try: loops = int(sys.argv[1])
+        except ValueError:
+            error("Invalid argument %r;" % sys.argv[1])
+    else:
+        loops = LOOPS
+    main(loops)
+
