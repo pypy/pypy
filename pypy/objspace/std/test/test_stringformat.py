@@ -69,6 +69,7 @@ class AppTestStringObject:
         assert '23' == '%d' % 23
         assert '17' == '%x' % 23
         assert '0x17' == '%#x' % 23
+        assert '0x0' == '%#x' % 0
         assert '23' == '%s' % 23
         assert '23' == '%r' % 23
 
