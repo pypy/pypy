@@ -37,3 +37,13 @@ def test_myexception(space):
         assert space.unwrap(space.str(e.w_value)) == 'assert 42 == 43'
     else:
         assert False, "got no exception!"
+
+def app_test_exception(): 
+    try: 
+        raise AssertionError("42")
+    except AssertionError: 
+        pass 
+    else: 
+        raise AssertionError, "app level AssertionError mixup!"
+    
+    
