@@ -111,6 +111,10 @@ class FlowExecutionContext(ExecutionContext):
             return
         next_instr = frame.next_instr
         self.crnt_offset = next_instr # save offset for opcode
+        varnames = frame.code.getvarnames()
+        for name, w_value in zip(varnames, frame.getfastscope()):
+            if isinstance(w_value, Variable):
+                w_value.rename(name)
         if next_instr in self.joinpoints:
             currentstate = FrameState(frame)
             # can 'currentstate' be merged with one of the blocks that
@@ -223,6 +227,6 @@ class FlowExecutionContext(ExecutionContext):
             if isinstance(node, EggBlock):
                 mapping = {}
                 for a in node.inputargs:
-                    mapping[a] = Variable()
+                    mapping[a] = Variable(a)
                 node.renamevariables(mapping)
         traverse(fixegg, self.graph)

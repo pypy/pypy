@@ -118,14 +118,30 @@ class Block:
 class Variable:
     counter = 0
     instances = {}
+    renamed = False
+
     def __init__(self, name=None):
-        if name is None:
-            name = 'v%d' % Variable.counter
-            Variable.counter += 1
-        self.name = name
-        Variable.instances[name] = self
+        self.name = 'v%d' % Variable.counter
+        Variable.instances[self.name] = self
+        Variable.counter += 1
+        if name is not None:
+            self.rename(name)
+
     def __repr__(self):
         return '%s' % self.name
+
+    def rename(self, name):
+        if self.renamed:
+            return
+        if isinstance(name, Variable):
+            if not name.renamed:
+                return
+            name = name.name[:name.name.rfind('_')]
+        del Variable.instances[self.name]
+        self.renamed = True
+        self.name = name + '_' + self.name[1:]
+        Variable.instances[self.name] = self
+
 
 class Constant:
     def __init__(self, value):
