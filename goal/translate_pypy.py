@@ -49,9 +49,12 @@ def analyse(entry_point=entry_point):
         a = t.annotate([])
         a.simplify()
         t.frozen = True   # cannot freeze if we don't have annotations
+        if not options['-no-mark-some-objects']:
+            options['-no-mark-some-objects'] = True # Do not do this again
+            find_someobjects(t)
 
 
-def find_someobjects(translator):
+def find_someobjects(translator, quiet=False):
     """Find all functions in that have SomeObject in their signature."""
     annotator = translator.annotator
     if not annotator:
@@ -84,27 +87,31 @@ def find_someobjects(translator):
         unknown_input_args = len(filter(is_someobject, graph.getargs()))
         unknown_return_value = is_someobject(graph.getreturnvar())
         if unknown_input_args or unknown_return_value:
-            if header:
-                header = False
-                print "=" * 70
-                print "Functions that have SomeObject in their signature"
-                print "=" * 70
-            translator.highlight_functions[func] = True
-            print ("%(name)s(%(args)s) -> %(result)s\n"
-                   "%(filename)s:%(lineno)s\n"
-                   % {'name': graph.name,
-                      'filename': func.func_globals.get('__name__', '?'),
-                      'lineno': func.func_code.co_firstlineno,
-                      'args': ', '.join(map(short_binding, graph.getargs())),
-                      'result': short_binding(graph.getreturnvar())})
             someobjnum += 1
+            translator.highlight_functions[func] = True
+            if not quiet:
+                if header:
+                    header = False
+                    print "=" * 70
+                    print "Functions that have SomeObject in their signature"
+                    print "=" * 70
+                print ("%(name)s(%(args)s) -> %(result)s\n"
+                       "%(filename)s:%(lineno)s\n"
+                       % {'name': graph.name,
+                          'filename': func.func_globals.get('__name__', '?'),
+                          'lineno': func.func_code.co_firstlineno,
+                          'args': ', '.join(map(short_binding,
+                                                graph.getargs())),
+                          'result': short_binding(graph.getreturnvar())})
         num += 1
-    print "=" * 70
-    percent = int(num and (100.0*someobjnum / num) or 0)
-    print "somobjectness: %2d percent" % (percent)
-    print "(%d out of %d functions get or return SomeObjects" % (
-        someobjnum, num) 
-    print "=" * 70
+    if not quiet:
+        print "=" * 70
+        percent = int(num and (100.0*someobjnum / num) or 0)
+        print "somobjectness: %2d percent" % (percent)
+        print "(%d out of %d functions get or return SomeObjects" % (
+            someobjnum, num) 
+        print "=" * 70
+
 
 def update_usession_dir(stabledir = udir.dirpath('usession')): 
     from py import path 
@@ -180,7 +187,7 @@ if __name__ == '__main__':
         import pygame
 
         if not options['-no-mark-some-objects']:
-            find_someobjects(t)
+            find_someobjects(t, quiet=True)
 
         display = GraphDisplay(TranslatorLayout(t))
         async_quit = display.async_quit
