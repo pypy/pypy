@@ -209,7 +209,7 @@ class RPythonAnnotator:
         # Merge the new 'cells' with each of the block's existing input
         # variables.
         oldcells = [self.binding(a) for a in block.inputargs]
-        unions = [pair(c1,c2).union() for c1, c2 in zip(oldcells, inputcells)]
+        unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
             self.bindinputargs(block, unions)

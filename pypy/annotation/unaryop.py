@@ -9,7 +9,7 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeClass
 from pypy.annotation.model import SomeFunction
 from pypy.annotation.model import immutablevalue, decode_simple_call
-from pypy.annotation.model import set, setunion, missing_operation
+from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
 from pypy.annotation.factory import InstanceFactory, FuncCallFactory
 
@@ -28,10 +28,11 @@ class __extend__(SomeObject):
     def is_true(obj):
         return SomeBool()
 
-    def getattr(obj, attr):
-        # get a SomeBuiltin if the object has a corresponding method
-        if attr.is_constant() and isinstance(attr.const, str):
-            attr = attr.const
+    def getattr(obj, s_attr):
+        # get a SomeBuiltin if the SomeObject has
+        # a corresponding method to handle it
+        if s_attr.is_constant() and isinstance(s_attr.const, str):
+            attr = s_attr.const
             if hasattr(obj, 'method_' + attr):
                 return SomeBuiltin(getattr(obj, 'method_' + attr))
         return SomeObject()
@@ -57,9 +58,9 @@ class __extend__(SomeInstance):
             raise BlockedInference()
         return ins.classdef
 
-    def getattr(ins, attr):
-        if attr.is_constant() and isinstance(attr.const, str):
-            attr = attr.const
+    def getattr(ins, s_attr):
+        if s_attr.is_constant() and isinstance(s_attr.const, str):
+            attr = s_attr.const
             # look for the attribute in the MRO order
             for clsdef in ins.currentdef().getmro():
                 if attr in clsdef.attrs:
@@ -70,9 +71,9 @@ class __extend__(SomeInstance):
             raise BlockedInference(clsdef.getallfactories())
         return SomeObject()
 
-    def setattr(ins, attr, s_value):
-        if attr.is_constant() and isinstance(attr.const, str):
-            attr = attr.const
+    def setattr(ins, s_attr, s_value):
+        if s_attr.is_constant() and isinstance(s_attr.const, str):
+            attr = s_attr.const
             for clsdef in ins.currentdef().getmro():
                 if attr in clsdef.attrs:
                     # look for the attribute in ins.classdef or a parent class
@@ -114,8 +115,5 @@ class __extend__(SomeFunction):
         arglist = decode_simple_call(args, kwds)
         assert arglist is not None
         factory = getbookkeeper().getfactory(FuncCallFactory)
-        s_result = SomeImpossibleValue()
-        for func in fun.funcs:
-            s_next_result = factory.pycall(func, arglist)
-            s_result = pair(s_result, s_next_result).union()
-        return s_result
+        results = [factory.pycall(func, arglist) for func in fun.funcs]
+        return unionof(*results)

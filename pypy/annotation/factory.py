@@ -10,6 +10,7 @@ from __future__ import generators
 from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeImpossibleValue, SomeList
 from pypy.annotation.model import SomeObject, SomeInstance
+from pypy.annotation.model import unionof
 from pypy.interpreter.miscutils import getthreadlocals
 
 
@@ -111,7 +112,7 @@ class ListFactory:
         return SomeList(factories = {self: True}, s_item = self.s_item)
 
     def generalize(self, s_new_item):
-        self.s_item = pair(self.s_item, s_new_item).union()
+        self.s_item = unionof(self.s_item, s_new_item)
 
 
 class FuncCallFactory:
@@ -188,10 +189,11 @@ class ClassDef:
         for clsdef in self.getmro():
             assert clsdef is self or attr not in clsdef.attrs
         # (2) remove the attribute from subclasses
+        subclass_values = []
         for subdef in self.getallsubdefs():
             if attr in subdef.attrs:
-                s_value = pair(s_value, subdef.attrs[attr]).union()
+                subclass_values.append(subdef.attrs[attr])
                 del subdef.attrs[attr]
             # bump the revision number of this class and all subclasses
             subdef.revision += 1
-        self.attrs[attr] = s_value
+        self.attrs[attr] = unionof(s_value, *subclass_values)

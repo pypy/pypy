@@ -111,6 +111,14 @@ class SomeImpossibleValue(SomeObject):
     will never show up at run-time, e.g. elements of an empty list."""
 
 
+def unionof(*somevalues):
+    "The most precise SomeValue instance that contains all the values."
+    s1 = SomeImpossibleValue()
+    for s2 in somevalues:
+        if s1 != s2:
+            s1 = pair(s1, s2).union()
+    return s1
+
 def immutablevalue(x):
     "The most precise SomeValue instance that contains the immutable value x."
     if isinstance(bool, type) and isinstance(x, bool):

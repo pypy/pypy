@@ -7,7 +7,7 @@ from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeList
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeFunction
-from pypy.annotation.model import set, setunion, missing_operation
+from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference
 
 
@@ -70,7 +70,7 @@ class __extend__(pairtype(SomeList, SomeList)):
 
     def union((lst1, lst2)):
         return SomeList(setunion(lst1.factories, lst2.factories),
-                        s_item = pair(lst1.s_item, lst2.s_item).union())
+                        s_item = unionof(lst1.s_item, lst2.s_item))
 
     add = union
 
@@ -84,7 +84,7 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
         if len(tup1.items) != len(tup2.items):
             return SomeObject()
         else:
-            unions = [pair(x,y).union() for x,y in zip(tup1.items, tup2.items)]
+            unions = [unionof(x,y) for x,y in zip(tup1.items, tup2.items)]
             return SomeTuple(items = unions)
 
     def add((tup1, tup2)):
@@ -97,10 +97,7 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
         if int2.is_constant():
             return tup1.items[int2.const]
         else:
-            result = SomeImpossibleValue()
-            for a in tup1.items:
-                result = pair(result, a).union()
-            return result
+            return unionof(*tup1.items)
 
 
 class __extend__(pairtype(SomeList, SomeInteger)):

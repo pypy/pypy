@@ -30,7 +30,7 @@ def test_contains():
                                                           (s6,s6)])
 
 def test_union():
-    assert ([pair(s,t).union() for s in slist for t in slist] ==
+    assert ([unionof(s,t) for s in slist for t in slist] ==
             [s1, s1, s1, s1, s1, s1,
              s1, s2, s3, s1, s1, s2,
              s1, s3, s3, s1, s1, s3,
