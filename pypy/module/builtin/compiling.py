@@ -20,7 +20,7 @@ def compile(space, w_str_, filename, startstr,
     supplied_flags |= 4096 
     if not dont_inherit:
         try:
-            frame = space.call_function(space.sys.get('_getframe')) 
+            frame = space.sys.call('_getframe') 
         except OperationError, e: 
             if not e.match(space, space.w_ValueError): 
                 raise 

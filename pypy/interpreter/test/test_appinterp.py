@@ -125,3 +125,4 @@ class TestMixedModule:
                 for name in ('somefunc', 'someappfunc', '__doc__', '__name__'): 
                     assert name in module.__dict__
         """)
+        assert space.is_true(w_module.call('somefunc'))

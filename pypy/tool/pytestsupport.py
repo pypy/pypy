@@ -140,14 +140,14 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
                               w_locals)
         except OperationError, e:
             if e.match(space, w_ExpectedException):
-                return space.call_function(space.sys.get('exc_info'))
+                return space.sys.call('exc_info')
             raise
     else:
         try:
             space.call_args(w_expr, __args__)
         except OperationError, e:
             if e.match(space, w_ExpectedException):
-                return space.call_function(space.sys.get('exc_info'))
+                return space.sys.call('exc_info')
             raise
     raise OperationError(space.w_AssertionError,
                          space.wrap("DID NOT RAISE"))

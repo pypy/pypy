@@ -14,9 +14,8 @@ def _run_eval_string(source, filename, space, eval):
             from pypy.objspace.std import StdObjSpace
             space = StdObjSpace()
 
-        w_compile = space.builtin.get('compile') 
         w = space.wrap
-        w_code = space.call_function(w_compile, 
+        w_code = space.builtin.call('compile', 
                  w(source), w(filename), w(cmd), w(0), w(0))
         w_main = space.wrap('__main__')
         mainmodule = module.Module(space, w_main)

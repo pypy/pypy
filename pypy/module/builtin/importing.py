@@ -24,8 +24,7 @@ def try_import_mod(space, w_modulename, f, w_parent, w_name, pkgdir=None):
         if pkgdir is not None:
             space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
         w_dict = space.getattr(w_mod, w('__dict__'))
-        w_execfile = space.builtin.get("execfile") 
-        space.call_function(w_execfile, w(f), w_dict, w_dict)
+        space.builtin.call('execfile', w(f), w_dict, w_dict)
         w_mod = check_sys_modules(space, w_modulename)
         if w_mod is not None and w_parent is not None:
             space.setattr(w_parent, w_name, w_mod)

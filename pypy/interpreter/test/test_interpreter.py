@@ -10,10 +10,8 @@ class TestInterpreter:
 
         source = str(py.code.Source(source).strip()) + '\n'
 
-        #from pypy.module.builtin.compiling import compile 
-        w_compile = space.builtin.get('compile')
         w = space.wrap
-        w_code = space.call_function(w_compile, 
+        w_code = space.builtin.call('compile', 
                 w(source), w('<string>'), w('exec'), w(0), w(0))
         ec = executioncontext.ExecutionContext(space)
 

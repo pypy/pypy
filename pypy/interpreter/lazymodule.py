@@ -22,6 +22,10 @@ class LazyModule(Module):
             raise OperationError(space.w_AttributeError, space.wrap(name))
         return w_value 
 
+    def call(self, name, *args_w): 
+        w_builtin = self.get(name) 
+        return self.space.call_function(w_builtin, *args_w)
+
     def getdictvalue(self, space, name): 
         try: 
             return space.getitem(self.w_dict, space.wrap(name))
