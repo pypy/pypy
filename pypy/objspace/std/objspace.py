@@ -250,7 +250,6 @@ class StdObjSpace(ObjSpace):
         import stringobject
         return stringobject.W_StringObject(self, ''.join(chars))
 
-    # special multimethods
     unwrap  = MultiMethod('unwrap', 1, [])   # returns an unwrapped object
     is_true = MultiMethod('nonzero', 1, [])  # returns an unwrapped bool
     # XXX do something about __nonzero__ !
@@ -269,9 +268,50 @@ class StdObjSpace(ObjSpace):
             return self.newbool(w_one is w_two)
 
 
+
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     setattr(StdObjSpace, _name, MultiMethod(_symbol, _arity, _specialnames))
+
+
+_name_mappings = {
+    'and': 'and_',
+    'or': 'or_',
+    'not': 'not_',
+    }
+    
+def register_all(module_dict, alt_ns=None):
+    """register implementations for multimethods. 
+
+    By default a (name, object) pair of the given module dictionary
+    is registered on the multimethod 'name' of StdObjSpace.
+    If the name doesn't exist then the alternative namespace is tried
+    for registration. 
+    """
+
+    for name, obj in module_dict.items():
+        if name.find('__')<1:
+            continue
+        funcname, sig = name.split('__')
+        l=[]
+        for i in sig.split('_'):
+            if i == 'ANY':
+                i = W_ANY
+            else:
+                i = module_dict.get('W_%s' % i) or module_dict.get('W_%sObject'%i)
+            l.append(i)
+
+        if len(l) != obj.func_code.co_argcount-1:
+            raise ValueError, \
+                  "function name %s doesn't specify exactly %d arguments" % (
+                     repr(name), obj.func_code.co_argcount-1)
+
+        funcname =  _name_mappings.get(funcname, funcname)
+
+        if hasattr(StdObjSpace, funcname):
+            getattr(StdObjSpace, funcname).register(obj, *l)
+        else:
+            getattr(alt_ns, funcname).register(obj, *l)
 
 # import the common base W_ObjectObject as well as
 # default implementations of some multimethods for all objects

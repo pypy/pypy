@@ -162,14 +162,12 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
         multimethod.register(cpython_f, *arglist)
 
 
-def cpython_is_true(space, w_obj):
+def is_true__CPython(space, w_obj):
     obj = space.unwrap(w_obj)
     try:
         return operator.truth(obj)
     except:
         wrap_exception(space)
-
-StdObjSpace.is_true.register(cpython_is_true, W_CPythonObject)
 
 
 # slicing
@@ -185,7 +183,7 @@ def old_slice(index):
             return start, stop
     return None
 
-def cpython_getitem(space, w_obj, w_index):
+def getitem__CPython_ANY(space, w_obj, w_index):
     obj = space.unwrap(w_obj)
     index = space.unwrap(w_index)
     sindex = old_slice(index)
@@ -198,7 +196,7 @@ def cpython_getitem(space, w_obj, w_index):
         wrap_exception(space)
     return space.wrap(result)
 
-def cpython_setitem(space, w_obj, w_index, w_value):
+def setitem__CPython_ANY_ANY(space, w_obj, w_index, w_value):
     obj = space.unwrap(w_obj)
     index = space.unwrap(w_index)
     value = space.unwrap(w_value)
@@ -211,7 +209,7 @@ def cpython_setitem(space, w_obj, w_index, w_value):
     except:
         wrap_exception(space)
 
-def cpython_delitem(space, w_obj, w_index):
+def delitem__CPython_ANY(space, w_obj, w_index):
     obj = space.unwrap(w_obj)
     index = space.unwrap(w_index)
     sindex = old_slice(index)
@@ -223,12 +221,7 @@ def cpython_delitem(space, w_obj, w_index):
     except:
         wrap_exception(space)
 
-StdObjSpace.getitem.register(cpython_getitem, W_CPythonObject, W_ANY)
-StdObjSpace.setitem.register(cpython_getitem, W_CPythonObject, W_ANY, W_ANY)
-StdObjSpace.delitem.register(cpython_getitem, W_CPythonObject, W_ANY)
-
-
-def cpython_next(space, w_obj):
+def next__CPython(space, w_obj):
     obj = space.unwrap(w_obj)
     try:
         result = obj.next()
@@ -238,10 +231,7 @@ def cpython_next(space, w_obj):
         wrap_exception(space)
     return space.wrap(result)
 
-StdObjSpace.next.register(cpython_next, W_CPythonObject)
-
-
-def cpython_call(space, w_obj, w_arguments, w_keywords):
+def call__CPython_ANY_ANY(space, w_obj, w_arguments, w_keywords):
     # XXX temporary hack similar to objspace.trivial.call()
     callable = space.unwrap(w_obj)
     args = space.unwrap(w_arguments)
@@ -253,4 +243,4 @@ def cpython_call(space, w_obj, w_arguments, w_keywords):
         wrap_exception(space)
     return space.wrap(result)
 
-StdObjSpace.call.register(cpython_call, W_CPythonObject, W_ANY, W_ANY)
+register_all(vars())

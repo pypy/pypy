@@ -68,35 +68,27 @@ class W_DictObject(W_Object):
 registerimplementation(W_DictObject)
 
 
-def dict_is_true(space, w_dict):
+def is_true__Dict(space, w_dict):
     return not not w_dict.non_empties()
 
-StdObjSpace.is_true.register(dict_is_true, W_DictObject)
-
-def dict_unwrap(space, w_dict):
+def unwrap__Dict(space, w_dict):
     result = {}
     for w_key, cell in w_dict.non_empties():
         result[space.unwrap(w_key)] = space.unwrap(cell.get())
     return result
 
-StdObjSpace.unwrap.register(dict_unwrap, W_DictObject)
-
-def getitem_dict_any(space, w_dict, w_lookup):
+def getitem__Dict_ANY(space, w_dict, w_lookup):
     data = w_dict.non_empties()
     for w_key, cell in data:
         if space.is_true(space.eq(w_lookup, w_key)):
             return cell.get()
     raise OperationError(space.w_KeyError, w_lookup)
 
-StdObjSpace.getitem.register(getitem_dict_any, W_DictObject, W_ANY)
-
-def setitem_dict_any_any(space, w_dict, w_newkey, w_newvalue):
+def setitem__Dict_ANY_ANY(space, w_dict, w_newkey, w_newvalue):
     cell = w_dict._cell(space,w_newkey)
     cell.set(w_newvalue)
 
-StdObjSpace.setitem.register(setitem_dict_any_any, W_DictObject, W_ANY, W_ANY)
-
-def delitem_dict_any(space, w_dict, w_lookup):
+def delitem__Dict_ANY(space, w_dict, w_lookup):
     data = w_dict.non_empties()
     for w_key,cell in data:
         if space.is_true(space.eq(w_lookup, w_key)):
@@ -104,21 +96,15 @@ def delitem_dict_any(space, w_dict, w_lookup):
             return
     raise OperationError(space.w_KeyError, w_lookup)
     
-StdObjSpace.delitem.register(delitem_dict_any, W_DictObject, W_ANY)
-
-def len_dict(space, w_dict):
+def len__Dict(space, w_dict):
     return space.wrap(len(w_dict.non_empties()))
 
-StdObjSpace.len.register(len_dict, W_DictObject)
-
-def contains_dict_any(space, w_dict, w_lookup):
+def contains__Dict_ANY(space, w_dict, w_lookup):
     data = w_dict.non_empties()
     for w_key,cell in data:
         if space.is_true(space.eq(w_lookup, w_key)):
             return space.w_True
     return space.w_False
-
-StdObjSpace.contains.register(contains_dict_any, W_DictObject, W_ANY)
 
 ##def getattr_dict(space, w_dict, w_attr):
 ##    if space.is_true(space.eq(w_attr, space.wrap('copy'))):
@@ -137,7 +123,7 @@ StdObjSpace.contains.register(contains_dict_any, W_DictObject, W_ANY)
 
 ##StdObjSpace.getattr.register(getattr_dict, W_DictObject, W_ANY)
 
-def eq_dict_dict(space, w_left, w_right):
+def eq__Dict_Dict(space, w_left, w_right):
     if len(w_left.data) != len(w_right.data):
         return space.newbool(0)
     for w_k, hash, cell in w_left.data:
@@ -150,29 +136,24 @@ def eq_dict_dict(space, w_left, w_right):
             return space.newbool(r)
     return space.newbool(1)
         
-StdObjSpace.eq.register(eq_dict_dict, W_DictObject, W_DictObject)
-
-
-def dict_copy(space, w_self):
+def dict_copy__Dict(space, w_self):
     return W_DictObject(space, [(w_key,cell.get())
                                       for w_key,cell in
                                       w_self.non_empties()])
-def dict_items(space, w_self):
+def dict_items__Dict(space, w_self):
     return space.newlist([ space.newtuple([w_key,cell.get()])
                            for w_key,cell in
                            w_self.non_empties()])
 
-def dict_keys(space, w_self):
+def dict_keys__Dict(space, w_self):
     return space.newlist([ w_key
                            for w_key,cell in
                            w_self.non_empties()])
 
-def dict_values(space, w_self):
+def dict_values__Dict(space, w_self):
     return space.newlist([ cell.get()
                            for w_key,cell in
                            w_self.non_empties()])
 
-W_DictType.dict_copy  .register(dict_copy,   W_DictObject)
-W_DictType.dict_items .register(dict_items,  W_DictObject)
-W_DictType.dict_keys  .register(dict_keys,   W_DictObject)
-W_DictType.dict_values.register(dict_values, W_DictObject)
+
+register_all(vars(), W_DictType)

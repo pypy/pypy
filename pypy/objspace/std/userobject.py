@@ -71,18 +71,13 @@ def getsinglebuiltintype(space, w_type):
     return mostspecialized
 
 
-def user_type(space, w_userobj):
+def type__User(space, w_userobj):
     return w_userobj.w_uo_type
 
-StdObjSpace.type.register(user_type, W_UserObject)
 
-
-def user_getdict(space, w_userobj):
+def getdict__User(space, w_userobj):
     # XXX check getdict() of the base built-in implementation
     return w_userobj.w_uo_dict
-
-StdObjSpace.getdict.register(user_getdict, W_UserObject)
-
 
 # We register here all multimethods with at least one W_UserObject.
 # No multimethod must be explicitely registered on W_UserObject except
@@ -126,3 +121,6 @@ for multimethod in typeobject.hack_out_multimethods(StdObjSpace):
             signature = [W_ANY] * multimethod.arity
             signature[i] = W_UserObject
             multimethod.register(user_operation, *signature)
+
+
+register_all(vars())

@@ -20,24 +20,18 @@ class W_TupleObject(W_Object):
 registerimplementation(W_TupleObject)
 
 
-def tuple_unwrap(space, w_tuple):
+def unwrap__Tuple(space, w_tuple):
     items = [space.unwrap(w_item) for w_item in w_tuple.wrappeditems]
     return tuple(items)
 
-StdObjSpace.unwrap.register(tuple_unwrap, W_TupleObject)
-
-def tuple_is_true(space, w_tuple):
+def is_true__Tuple(space, w_tuple):
     return not not w_tuple.wrappeditems
 
-StdObjSpace.is_true.register(tuple_is_true, W_TupleObject)
-
-def tuple_len(space, w_tuple):
+def len__Tuple(space, w_tuple):
     result = len(w_tuple.wrappeditems)
     return W_IntObject(space, result)
 
-StdObjSpace.len.register(tuple_len, W_TupleObject)
-
-def getitem_tuple_int(space, w_tuple, w_index):
+def getitem__Tuple_Int(space, w_tuple, w_index):
     items = w_tuple.wrappeditems
     try:
         w_item = items[w_index.intval]
@@ -46,9 +40,7 @@ def getitem_tuple_int(space, w_tuple, w_index):
                              space.wrap("tuple index out of range"))
     return w_item
 
-StdObjSpace.getitem.register(getitem_tuple_int, W_TupleObject, W_IntObject)
-
-def getitem_tuple_slice(space, w_tuple, w_slice):
+def getitem__Tuple_Slice(space, w_tuple, w_slice):
     items = w_tuple.wrappeditems
     w_length = space.wrap(len(items))
     w_start, w_stop, w_step, w_slicelength = w_slice.indices(w_length)
@@ -62,34 +54,25 @@ def getitem_tuple_slice(space, w_tuple, w_slice):
         start += step
     return W_TupleObject(space, subitems)
 
-StdObjSpace.getitem.register(getitem_tuple_slice, W_TupleObject, W_SliceObject)
-
-def tuple_iter(space, w_tuple):
+def iter__Tuple(space, w_tuple):
     import iterobject
     return iterobject.W_SeqIterObject(space, w_tuple)
 
-StdObjSpace.iter.register(tuple_iter, W_TupleObject)
-
-def tuple_add(space, w_tuple1, w_tuple2):
+def add__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
     return W_TupleObject(space, items1 + items2)
 
-StdObjSpace.add.register(tuple_add, W_TupleObject, W_TupleObject)
-
-def tuple_int_mul(space, w_tuple, w_int):
+def mul__Tuple_Int(space, w_tuple, w_int):
     items = w_tuple.wrappeditems
     times = w_int.intval
     return W_TupleObject(space, items * times)
 
-StdObjSpace.mul.register(tuple_int_mul, W_TupleObject, W_IntObject)
 
-def int_tuple_mul(space, w_int, w_tuple):
-    return tuple_int_mul(space, w_tuple, w_int)
+def mul__Int_Tuple(space, w_int, w_tuple):
+    return mul__Tuple_Int(space, w_tuple, w_int)
 
-StdObjSpace.mul.register(int_tuple_mul, W_IntObject, W_TupleObject)
-
-def tuple_eq(space, w_tuple1, w_tuple2):
+def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
     if len(items1) != len(items2):
@@ -99,14 +82,12 @@ def tuple_eq(space, w_tuple1, w_tuple2):
             return space.w_False
     return space.w_True
 
-StdObjSpace.eq.register(tuple_eq, W_TupleObject, W_TupleObject)
-
 def _min(a, b):
     if a < b:
         return a
     return b
 
-def tuple_lt(space, w_tuple1, w_tuple2):
+def lt__Tuple_Tuple(space, w_tuple1, w_tuple2):
     # XXX tuple_le, tuple_gt, tuple_ge, tuple_ne must also be explicitely done
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
@@ -118,10 +99,9 @@ def tuple_lt(space, w_tuple1, w_tuple2):
     # No more items to compare -- compare sizes
     return space.newbool(len(items1) < len(items2))
 
-StdObjSpace.lt.register(tuple_lt, W_TupleObject, W_TupleObject)
-
-def tuple_repr(space, w_tuple):
+def repr__Tuple(space, w_tuple):
     # XXX slimy! --mwh
     return space.wrap(repr(space.unwrap(w_tuple)))
 
-StdObjSpace.repr.register(tuple_repr, W_TupleObject)
+
+register_all(vars())

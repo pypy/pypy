@@ -32,24 +32,18 @@ class W_ListObject(W_Object):
 registerimplementation(W_ListObject)
 
 
-def list_unwrap(space, w_list):
+def unwrap__List(space, w_list):
     items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]
     return list(items)
 
-StdObjSpace.unwrap.register(list_unwrap, W_ListObject)
-
-def list_is_true(space, w_list):
+def is_true__List(space, w_list):
     return not not w_list.ob_size
 
-StdObjSpace.is_true.register(list_is_true, W_ListObject)
-
-def list_len(space, w_list):
+def len__List(space, w_list):
     result = w_list.ob_size
     return W_IntObject(space, result)
 
-StdObjSpace.len.register(list_len, W_ListObject)
-
-def getitem_list_int(space, w_list, w_index):
+def getitem__List_Int(space, w_list, w_index):
     items = w_list.ob_item
     idx = w_index.intval
     if idx < 0:
@@ -60,9 +54,7 @@ def getitem_list_int(space, w_list, w_index):
     w_item = items[idx]
     return w_item
 
-StdObjSpace.getitem.register(getitem_list_int, W_ListObject, W_IntObject)
-
-def getitem_list_slice(space, w_list, w_slice):
+def getitem__List_Slice(space, w_list, w_slice):
     items = w_list.ob_item
     w_length = space.wrap(w_list.ob_size)
     w_start, w_stop, w_step, w_slicelength = w_slice.indices(w_length)
@@ -79,15 +71,11 @@ def getitem_list_slice(space, w_list, w_slice):
     w_res.ob_size = slicelength
     return w_res
 
-StdObjSpace.getitem.register(getitem_list_slice, W_ListObject, W_SliceObject)
-
-def list_iter(space, w_list):
+def iter__List(space, w_list):
     import iterobject
     return iterobject.W_SeqIterObject(space, w_list)
 
-StdObjSpace.iter.register(list_iter, W_ListObject)
-
-def list_add(space, w_list1, w_list2):
+def add__List_List(space, w_list1, w_list2):
     w_res = W_ListObject(space, [])
     newlen = w_list1.ob_size + w_list2.ob_size
     _list_resize(w_res, newlen)
@@ -104,9 +92,7 @@ def list_add(space, w_list1, w_list2):
     w_res.ob_size = p
     return w_res
 
-StdObjSpace.add.register(list_add, W_ListObject, W_ListObject)
-
-def list_int_mul(space, w_list, w_int):
+def mul__List_Int(space, w_list, w_int):
     w_res = W_ListObject(space, [])
     times = w_int.intval
     src = w_list.ob_item
@@ -122,14 +108,10 @@ def list_int_mul(space, w_list, w_int):
     w_res.ob_size = p
     return w_res
 
-StdObjSpace.mul.register(list_int_mul, W_ListObject, W_IntObject)
+def mul__Int_List(space, w_int, w_list):
+    return mul__List_Int(space, w_list, w_int)
 
-def int_list_mul(space, w_int, w_list):
-    return list_int_mul(space, w_list, w_int)
-
-StdObjSpace.mul.register(int_list_mul, W_IntObject, W_ListObject)
-
-def list_eq(space, w_list1, w_list2):
+def eq__List_List(space, w_list1, w_list2):
     items1 = w_list1.ob_item
     items2 = w_list2.ob_item
     if w_list1.ob_size != w_list2.ob_size:
@@ -139,14 +121,12 @@ def list_eq(space, w_list1, w_list2):
             return space.w_False
     return space.w_True
 
-StdObjSpace.eq.register(list_eq, W_ListObject, W_ListObject)
-
 def _min(a, b):
     if a < b:
         return a
     return b
 
-def list_lt(space, w_list1, w_list2):
+def lt__List_List(space, w_list1, w_list2):
     # XXX list_le, list_gt, list_ge, list_ne must also be explicitely done
     items1 = w_list1.ob_item
     items2 = w_list2.ob_item
@@ -158,12 +138,10 @@ def list_lt(space, w_list1, w_list2):
     # No more items to compare -- compare sizes
     return space.newbool(w_list1.ob_size < w_list2.ob_size)
 
-StdObjSpace.lt.register(list_lt, W_ListObject, W_ListObject)
-
 # upto here, lists are nearly identical to tuples, despite the
 # fact that we now support over-allocation!
 
-def setitem_list_int(space, w_list, w_index, w_any):
+def setitem__List_Int_ANY(space, w_list, w_index, w_any):
     items = w_list.ob_item
     idx = w_index.intval
     if idx < 0:
@@ -174,10 +152,8 @@ def setitem_list_int(space, w_list, w_index, w_any):
     items[idx] = w_any
     return space.w_None
 
-StdObjSpace.setitem.register(setitem_list_int, W_ListObject, W_IntObject, W_ANY)
-
 # not trivial!
-def setitem_list_slice(space, w_list, w_slice, w_list2):
+def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
     items = w_list.ob_item
     w_length = space.wrap(w_list.ob_size)
     w_start, w_stop, w_step, w_slicelength = w_slice.indices(w_length)
@@ -194,9 +170,7 @@ def setitem_list_slice(space, w_list, w_slice, w_list2):
     w_res.ob_size = slicelength
     return w_res
 
-StdObjSpace.setitem.register(setitem_list_slice, W_ListObject, W_SliceObject, W_ListObject)
-
-def repr_list(space, w_list):
+def repr__List(space, w_list):
     w = space.wrap
     a = space.add
     reprs_w = map(space.repr, space.unpackiterable(w_list))
@@ -204,8 +178,6 @@ def repr_list(space, w_list):
     w_bm = space.getattr(space.wrap(', '), space.wrap('join'))
     return a(a(w('['), space.call_function(w_bm, space.newlist(reprs_w))), w(']'))
     return space.newstring([])
-
-StdObjSpace.repr.register(repr_list, W_ListObject)
 
 # adapted C code
 def _roundupsize(n):
@@ -280,15 +252,15 @@ def _ins1(w_list, where, w_any):
     items[where] = w_any
     w_list.ob_size += 1
 
-def list_insert(space, w_list, w_where, w_any):
+def list_insert__List_Int_ANY(space, w_list, w_where, w_any):
     _ins1(w_list, w_where.intval, w_any)
     return space.w_None
 
-def list_append(space, w_list, w_any):
+def list_append__List_ANY(space, w_list, w_any):
     _ins1(w_list, w_list.ob_size, w_any)
     return space.w_None
 
-def list_extend(space, w_list, w_any):
+def list_extend__List_List(space, w_list, w_any):
     lis = space.unpackiterable(w_any)
     newlen = w_list.ob_size + len(lis)
     _list_resize(w_list, newlen)
@@ -322,7 +294,7 @@ def _del_slice(w_list, ilow, ihigh):
     w_list.ob_size -= d
 
 # note that the default value will come back wrapped!!!
-def list_pop(space, w_list, w_idx=-1):
+def list_pop__List_Int(space, w_list, w_idx=-1):
     if w_list.ob_size == 0:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
@@ -336,7 +308,7 @@ def list_pop(space, w_list, w_idx=-1):
     _del_slice(w_list, i, i+1)
     return w_res
 
-def list_remove(space, w_list, w_any):
+def list_remove__List_ANY(space, w_list, w_any):
     eq = space.eq
     items = w_list.ob_item
     for i in range(w_list.ob_size):
@@ -347,7 +319,7 @@ def list_remove(space, w_list, w_any):
     raise OperationError(space.w_IndexError,
                          space.wrap("list.remove(x): x not in list"))
 
-def list_index(space, w_list, w_any):
+def list_index__List_ANY(space, w_list, w_any):
     eq = space.eq
     items = w_list.ob_item
     for i in range(w_list.ob_size):
@@ -357,7 +329,7 @@ def list_index(space, w_list, w_any):
     raise OperationError(space.w_ValueError,
                          space.wrap("list.index(x): x not in list"))
 
-def list_count(space, w_list, w_any):
+def list_count__List_ANY(space, w_list, w_any):
     eq = space.eq
     items = w_list.ob_item
     count = r_int(0)
@@ -379,7 +351,7 @@ def _reverse_slice(lis, lo, hi):
         lo += 1
         hi -= 1
 
-def list_reverse(space, w_list):
+def list_reverse__List(space, w_list):
     if w_list.ob_size > 1:
         _reverse_slice(w_list.ob_item, 0, w_list.ob_size)
     return space.w_None
@@ -428,23 +400,13 @@ def _quicksort(space, list, start, end):
         _quicksort(space, list, start, split-1)        # ... and sort both halves.
         _quicksort(space, list, split+1, end)
 
-def list_sort(space, w_list):
+def list_sort__List(space, w_list):
     # XXX Basic quicksort implementation
     # XXX this is not stable !!
     # XXX no optional argument yet !
     _quicksort(space, w_list.ob_item, 0, w_list.ob_size-1)
     return space.w_None
 
-
-W_ListType.list_append .register(list_append, W_ListObject, W_ANY)
-W_ListType.list_insert .register(list_insert, W_ListObject, W_IntObject, W_ANY)
-W_ListType.list_extend .register(list_extend, W_ListObject, W_ANY)
-W_ListType.list_pop    .register(list_pop,    W_ListObject, W_IntObject)
-W_ListType.list_remove .register(list_remove, W_ListObject, W_ANY)
-W_ListType.list_index  .register(list_index,  W_ListObject, W_ANY)
-W_ListType.list_count  .register(list_count,  W_ListObject, W_ANY)
-W_ListType.list_reverse.register(list_reverse,W_ListObject)
-W_ListType.list_sort   .register(list_sort,   W_ListObject)
 
 """
 static PyMethodDef list_methods[] = {
@@ -460,3 +422,5 @@ static PyMethodDef list_methods[] = {
     {NULL,      NULL}       /* sentinel */
 };
 """
+
+register_all(vars(), W_ListType)

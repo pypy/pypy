@@ -121,8 +121,8 @@ class PyMultimethodCode(pycode.PyBaseCode):
             #    self.w_type.typename, self.bound_position)
             # slice the multimethod and cache the result
             sliced = multimethod.slicetable(self.bound_position, self.w_type)
-            if sliced.is_empty():
-                print "the slice is empty"
+            #if sliced.is_empty():
+            #    print "the slice is empty"
             self.slicedmultimethod = sliced.__get__(self.w_type.space, None)
             multimethod.cache_dependency(self)
         return self.slicedmultimethod
@@ -154,27 +154,23 @@ class PyMultimethodCode(pycode.PyBaseCode):
         return w_result
 
 
-def type_call(space, w_type, w_args, w_kwds):
+def call__Type_ANY_ANY(space, w_type, w_args, w_kwds):
     w_newobject = space.new(w_type, w_args, w_kwds)
     # XXX call __init__() later
     return w_newobject
 
-StdObjSpace.call.register(type_call, W_TypeObject, W_ANY, W_ANY)
-
-def type_issubtype(space, w_type1, w_type2):
+def issubtype__Type_Type(space, w_type1, w_type2):
     return space.newbool(w_type2 in w_type1.getmro())
 
-StdObjSpace.issubtype.register(type_issubtype, W_TypeObject, W_TypeObject)
-
-def type_repr(space, w_obj):
+def repr__Type(space, w_obj):
     return space.wrap("<type '%s'>" % w_obj.typename) 
 
-StdObjSpace.repr.register(type_repr, W_TypeObject)
-
-def type_getattr(space, w_type, w_attr):
+def getattr__Type_ANY(space, w_type, w_attr):
     # XXX mwh doubts this is the Right Way to do this...
     if space.is_true(space.eq(w_attr, space.wrap('__name__'))):
         return w_type.w_tpname
     raise FailedToImplement
 
-StdObjSpace.getattr.register(type_getattr, W_TypeObject, W_ANY)
+
+register_all(vars())
+

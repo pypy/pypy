@@ -1,4 +1,4 @@
-from pypy.objspace.std.objspace import MultiMethod, StdObjSpace, W_ANY
+from pypy.objspace.std.objspace import MultiMethod, StdObjSpace, W_ANY, register_all
 from typeobject import W_TypeObject
 
 
@@ -20,7 +20,7 @@ class W_StringType(W_TypeObject):
     str_rjust   = MultiMethod('rjust', 2)
 
 # XXX we'll worry about the __new__/__init__ distinction later
-def stringtype_new(space, w_stringtype, w_args, w_kwds):
+def new__StringType_ANY_ANY(space, w_stringtype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))
@@ -33,4 +33,4 @@ def stringtype_new(space, w_stringtype, w_args, w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("str() takes at most 1 argument"))
 
-StdObjSpace.new.register(stringtype_new, W_StringType, W_ANY, W_ANY)
+register_all(vars())

@@ -14,12 +14,10 @@ class W_SeqIterObject(W_Object):
 registerimplementation(W_SeqIterObject)
 
 
-def iter_seqiter(space, w_seqiter):
+def iter__SeqIter(space, w_seqiter):
     return w_seqiter
 
-StdObjSpace.iter.register(iter_seqiter, W_SeqIterObject)
-
-def next_seqiter(space, w_seqiter):
+def next__SeqIter(space, w_seqiter):
     try:
         w_item = space.getitem(w_seqiter.w_seq, space.wrap(w_seqiter.index))
     except OperationError, e:
@@ -29,4 +27,4 @@ def next_seqiter(space, w_seqiter):
     w_seqiter.index += 1
     return w_item
 
-StdObjSpace.next.register(next_seqiter, W_SeqIterObject)
+register_all(vars())

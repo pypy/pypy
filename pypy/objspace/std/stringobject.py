@@ -6,7 +6,6 @@ from listobject import W_ListObject
 from instmethobject import W_InstMethObject
 from noneobject import W_NoneObject
 from tupleobject import W_TupleObject
-from pypy.interpreter.extmodule import make_builtin_func
 
 from rarray import CharArrayFromStr, CharArraySize
 
@@ -26,7 +25,6 @@ class W_StringObject(W_Object):
 
 
 registerimplementation(W_StringObject)
-
 
 def _isspace(ch):
     return ord(ch) in (9, 10, 11, 12, 13, 32)  
@@ -68,28 +66,28 @@ def _is_generic(w_self, fun):
                 return space.w_False
         return space.w_True
 
-def str_isspace(space, w_self):
+def str_isspace__String(space, w_self):
     return _is_generic(w_self, _isspace)
 
-def str_isdigit(space, w_self):
+def str_isdigit__String(space, w_self):
     return _is_generic(w_self, _isdigit)
 
-def str_isalpha(space, w_self):
+def str_isalpha__String(space, w_self):
     return _is_generic(w_self, _isalpha)
 
-def str_isalnum(space, w_self):
+def str_isalnum__String(space, w_self):
     return _is_generic(w_self, _isalnum)
 
-def str_isupper(space, w_self):
+def str_isupper__String(space, w_self):
     return _is_generic(w_self, _isupper)
 
-def str_islower(space, w_self):
+def str_islower__String(space, w_self):
     return _is_generic(w_self, _islower)
 
 def str_istitle(space, w_self):
     pass
 
-def str_splitByWhitespace(space, w_self, w_none):
+def str_split__String_None(space, w_self, w_none):
     res = []
     inword = 0
     value = w_self._value.value()
@@ -107,7 +105,7 @@ def str_splitByWhitespace(space, w_self, w_none):
         res[i] = W_StringObject(space, res[i])
     return W_ListObject(space, res)
 
-def str_split(space, w_self, w_by):
+def str_split__String_String(space, w_self, w_by):
     res = []
     start = 0
     value = w_self._value.value()
@@ -123,23 +121,8 @@ def str_split(space, w_self, w_by):
         res[i] = W_StringObject(w_self.space, res[i])
     return W_ListObject(w_self.space, res)
 
-# XXX temporary hack
-W_StringType.str_split.register(str_split, W_StringObject, W_StringObject)
-W_StringType.str_split.register(str_splitByWhitespace,
-                                           W_StringObject, W_NoneObject)
-#We should erase the W_NoneObject, but register takes always
-#the same number of parameters. So you have to call split with
-#None as parameter instead of calling it without any parameter
 
-W_StringType.str_isspace.register(str_isspace, W_StringObject)
-W_StringType.str_isdigit.register(str_isdigit, W_StringObject)
-W_StringType.str_isalpha.register(str_isalpha, W_StringObject)
-W_StringType.str_isupper.register(str_isupper, W_StringObject)
-W_StringType.str_islower.register(str_islower, W_StringObject)
-W_StringType.str_istitle.register(str_istitle, W_StringObject)
-W_StringType.str_isalnum.register(str_isalnum, W_StringObject)
-
-def str_join(space, w_self, w_list):
+def str_join__String_ANY(space, w_self, w_list):
     list = space.unpackiterable(w_list)
     if list:
         firstelem = 1
@@ -167,38 +150,27 @@ def str_join(space, w_self, w_list):
     else:
         return W_StringObject(space, "")
 
-W_StringType.str_join.register(str_join, W_StringObject, W_ANY)
 
-def str_ljust(space, w_str, w_arg):
+def str_ljust__String_ANY(space, w_str, w_arg):
     # XXX look away for three lines, please :-) -- mwh
     u = space.unwrap
     w = space.wrap
     return w(u(w_str).ljust(u(w_arg)))
 
-W_StringType.str_ljust.register(str_ljust, W_StringObject, W_ANY)
-
-def str_rjust(space, w_str, w_arg):
+def str_rjust__String_ANY(space, w_str, w_arg):
     # XXX and another three -- mwh
     u = space.unwrap
     w = space.wrap
     return w(u(w_str).rjust(u(w_arg)))
 
-W_StringType.str_rjust.register(str_rjust, W_StringObject, W_ANY)
-
-def str_unwrap(space, w_str):
+def unwrap__String(space, w_str):
     return w_str._value.value()
 
-StdObjSpace.unwrap.register(str_unwrap, W_StringObject)
-
-def str_is_true(space, w_str):
+def is_true__String(space, w_str):
     return w_str._value.len != 0
 
-StdObjSpace.is_true.register(str_is_true, W_StringObject)
-
-def str_hash(space, w_str):
+def hash__String(space, w_str):
     return W_IntObject(space, w_str._value.hash())
-
-StdObjSpace.hash.register(str_hash, W_StringObject)
 
 
 EQ = 1
@@ -264,37 +236,25 @@ def string_richcompare(space, w_str1, w_str2, op):
         else:
             raise NotImplemented
 
-def str_str_lt(space, w_str1, w_str2):
+def lt__String_String(space, w_str1, w_str2):
     return string_richcompare(space, w_str1, w_str2, LT)
 
-StdObjSpace.lt.register(str_str_lt, W_StringObject, W_StringObject)
-
-def str_str_le(space, w_str1, w_str2):
+def le__String_String(space, w_str1, w_str2):
     return string_richcompare(space, w_str1, w_str2, LE)
 
-StdObjSpace.le.register(str_str_le, W_StringObject, W_StringObject)
-
-def str_str_eq(space, w_str1, w_str2):
+def eq__String_String(space, w_str1, w_str2):
     return string_richcompare(space, w_str1, w_str2, EQ)
 
-StdObjSpace.eq.register(str_str_eq, W_StringObject, W_StringObject)
-
-def str_str_ne(space, w_str1, w_str2):
+def ne__String_String(space, w_str1, w_str2):
     return string_richcompare(space, w_str1, w_str2, NE)
-StdObjSpace.ne.register(str_str_ne, W_StringObject, W_StringObject)
 
-def str_str_gt(space, w_str1, w_str2):
+def gt__String_String(space, w_str1, w_str2):
     return string_richcompare(space, w_str1, w_str2, GT)
 
-StdObjSpace.gt.register(str_str_gt, W_StringObject, W_StringObject)
-
-def str_str_ge(space, w_str1, w_str2):
+def ge__String_String(space, w_str1, w_str2):
     return string_richcompare(space, w_str1, w_str2, GE)
 
-StdObjSpace.ge.register(str_str_ge, W_StringObject, W_StringObject)
-
-
-def getitem_str_int(space, w_str, w_int):
+def getitem__String_Int(space, w_str, w_int):
     ival = w_int.intval
     slen = w_str._value.len
     if ival < 0:
@@ -305,10 +265,7 @@ def getitem_str_int(space, w_str, w_int):
         raise OperationError(space.w_IndexError, exc)
     return W_StringObject(space, w_str._value.charat(ival))
 
-StdObjSpace.getitem.register(getitem_str_int, 
-                             W_StringObject, W_IntObject)
-
-def getitem_str_slice(space, w_str, w_slice):
+def getitem__String_Slice(space, w_str, w_slice):
     return space.gethelper(applicationfile).call(
         "getitem_string_slice", [w_str, w_slice])
     w = space.wrap
@@ -325,53 +282,39 @@ def getitem_str_slice(space, w_str, w_slice):
     w_empty = space.newstring([])
     return str_join(space, w_empty, w_r)
 
-StdObjSpace.getitem.register(getitem_str_slice, 
-                             W_StringObject, W_SliceObject)
-
-def add_str_str(space, w_left, w_right):
+def add__String_String(space, w_left, w_right):
     buf = CharArraySize(w_left._value.len + w_right._value.len)
     buf.setsubstring(0, w_left._value.value())
     buf.setsubstring(w_left._value.len, w_right._value.value())
     return W_StringObject(space, buf.value())
 
-StdObjSpace.add.register(add_str_str, W_StringObject, W_StringObject)
-
-def mod_str_ANY(space, w_left, w_right):
-    notImplemented
- 
 def mod_str_tuple(space, w_format, w_args):
     notImplemented
 
-def len_str(space, w_str):
+def len__String(space, w_str):
     return space.wrap(w_str._value.len)
 
-StdObjSpace.len.register(len_str, W_StringObject)
-
-def str_str(space, w_str):
+def str__String(space, w_str):
     return w_str
 
-StdObjSpace.str.register(str_str, W_StringObject)
-
-def str_repr(space, w_str):
+def repr__String(space, w_str):
     # XXX this is bogus -- mwh
     return space.wrap(repr(space.unwrap(w_str)))
     a = space.add
     q = space.wrap("'")
     return a(a(q, w_str), q)
 
-StdObjSpace.repr.register(str_repr, W_StringObject)
-
-def str_ord(space, w_str):
+def ord__String(space, w_str):
     return space.wrap(ord(space.unwrap(w_str)))
 
-StdObjSpace.ord.register(str_ord, W_StringObject)
+def mod__String_ANY(space, w_str, w_item):
+    return mod_str_tuple(space, w_str, space.newtuple([w_item]))
 
-def str_mod_any(space, w_str, w_item):
-    return str_mod_tuple(space, w_str, space.newtuple([w_item]))
-
-StdObjSpace.mod.register(str_mod_any, W_StringObject, W_ANY)
-
-def str_mod_tuple(space, w_str, w_tuple):
+def mod__String_Tuple(space, w_str, w_tuple):
     return space.wrap(space.unwrap(w_str)%space.unwrap(w_tuple))
 
-StdObjSpace.mod.register(str_mod_tuple, W_StringObject, W_TupleObject)
+
+# register all methods 
+register_all(vars(), W_StringType)
+
+

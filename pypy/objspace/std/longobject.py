@@ -15,7 +15,7 @@ class W_LongObject(W_Object):
 def long(space,w_value):
     return applicationfile.call(space,"long_long",[w_value])
 
-def long_long_add(space, w_long1, w_long2):
+def add__Long_Long(space, w_long1, w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -24,7 +24,7 @@ def long_long_add(space, w_long1, w_long2):
         raise OperationError(OverflowError, "long addition")
     return W_LongObject(space, z)
 
-def long_long_sub(space, w_long1, w_long2):
+def sub__Long_Long(space, w_long1, w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -33,7 +33,7 @@ def long_long_sub(space, w_long1, w_long2):
         raise OperationError(Error, e)
     return W_LongObject(space, z)
 
-def long_long_mul(space, w_long1, w_long2):
+def mul__Long_Long(space, w_long1, w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -42,7 +42,7 @@ def long_long_mul(space, w_long1, w_long2):
         raise OperationError(OverflowError, "long multiplication")
     return W_LongObject(space, z)
 
-def long_long_floordiv(space, w_long1, w_long2):
+def floordiv__Long_Long(space, w_long1, w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -52,7 +52,7 @@ def long_long_floordiv(space, w_long1, w_long2):
 	# no overflow
     return W_LongObject(space, z)
 
-def long_long_truediv(space, w_long1, w_long2):
+def truediv__Long_Long(space, w_long1, w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -67,7 +67,7 @@ if 1L / 2L == 1L // 2L:
 else:
 	long_long_div = long_long_truediv
 
-def long_long_mod(space, w_long1, w_long2):
+def mod__Long_Long(space, w_long1, w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -77,7 +77,7 @@ def long_long_mod(space, w_long1, w_long2):
 	# no overflow
     return W_LongObject(space, z)
 
-def long_long_divmod(space, w_long1, w_long2):
+def divmod__Long_Long(space, w_long1, w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -89,7 +89,7 @@ def long_long_divmod(space, w_long1, w_long2):
     return W_TupleObject(space, [W_LongObject(space, z),
                                  W_LongObject(space, m)])
 
-def long_long_pow(space, w_long1,w_long2):
+def pow__Long_Long(space, w_long1,w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -98,7 +98,7 @@ def long_long_pow(space, w_long1,w_long2):
         raise OperationError(OverflowError, "long multiplication")
     return W_LongObject(space, z)
 
-def long_long_long_pow(space, w_long1,w_long2,w_long3):
+def pow__Long_Long_ANY(space, w_long1,w_long2,w_long3):
     x = w_long1.longval
     y = w_long2.longval
     z = w_long3.longval
@@ -108,7 +108,7 @@ def long_long_long_pow(space, w_long1,w_long2,w_long3):
         raise OperationError(Error(e), "long multiplication")
     return W_LongObject(space, z)
 
-def long_long_lshift(space, w_long1,w_long2):
+def lshift__Long_Long(space, w_long1,w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -117,7 +117,7 @@ def long_long_lshift(space, w_long1,w_long2):
         raise OperationError(OverflowError, "long multiplication")
     return W_LongObject(space, z)
 
-def long_long_rshift(space, w_long1,w_long2):
+def rshift__Long_Long(space, w_long1,w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -126,7 +126,7 @@ def long_long_rshift(space, w_long1,w_long2):
         raise OperationError(OverflowError, "long multiplication")
     return W_LongObject(space, z)
 
-def long_long_and(space, w_long1,w_long2):
+def and__Long_Long(space, w_long1,w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -135,7 +135,7 @@ def long_long_and(space, w_long1,w_long2):
         raise OperationError(OverflowError, "long multiplication")
     return W_LongObject(space, z)
 
-def long_long_xor(space, w_long1,w_long2):
+def xor__Long_Long(space, w_long1,w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -144,7 +144,7 @@ def long_long_xor(space, w_long1,w_long2):
         raise OperationError(OverflowError, "long multiplication")
     return W_LongObject(space, z)
 
-def long_long_or(space, w_long1,w_long2):
+def or__Long_Long(space, w_long1,w_long2):
     x = w_long1.longval
     y = w_long2.longval
     try:
@@ -154,20 +154,4 @@ def long_long_or(space, w_long1,w_long2):
     return W_LongObject(space, z)
 
 
-
-StdObjSpace.add.register(long_long_add, W_LongObject, W_LongObject)
-StdObjSpace.sub.register(long_long_sub, W_LongObject, W_LongObject)
-StdObjSpace.mul.register(long_long_mul, W_LongObject, W_LongObject)
-StdObjSpace.div.register(long_long_div, W_LongObject, W_LongObject)
-StdObjSpace.floordiv.register(long_long_floordiv, W_LongObject, W_LongObject)
-StdObjSpace.truediv.register(long_long_truediv, W_LongObject, W_LongObject)
-StdObjSpace.mod.register(long_long_mod, W_LongObject, W_LongObject)
-StdObjSpace.divmod.register(long_long_divmod, W_LongObject, W_LongObject)
-StdObjSpace.pow.register(long_long_pow, W_LongObject, W_LongObject)
-StdObjSpace.pow.register(long_long_long_mod, W_LongObject, W_LongObject, W_LongObject)
-StdObjSpace.lshift.register(long_long_lshift, W_LongObject, W_LongObject)
-StdObjSpace.rshift.register(long_long_rshift, W_LongObject, W_LongObject)
-StdObjSpace.and_.register(long_long_and, W_LongObject, W_LongObject)
-StdObjSpace.xor.register(long_long_xor, W_LongObject, W_LongObject)
-StdObjSpace.or_.register(long_long_or, W_LongObject, W_LongObject)
-
+register_all(vars())

@@ -19,20 +19,17 @@ class W_FuncObject(W_Object):
 registerimplementation(W_FuncObject)
 
 
-def function_unwrap(space, w_function):
+def unwrap__Func(space, w_function):
     # XXX this is probably a temporary hack
     def proxy_function(*args, **kw):
         w_arguments = space.wrap(args)
         w_keywords  = space.wrap(kw)
-        w_result = func_call(space, w_function, w_arguments, w_keywords)
+        w_result = call__Func_ANY_ANY(space, w_function, w_arguments, w_keywords)
         return space.unwrap(w_result)
     # XXX no closure implemented
     return proxy_function
 
-StdObjSpace.unwrap.register(function_unwrap, W_FuncObject)
-
-
-def func_call(space, w_function, w_arguments, w_keywords):
+def call__Func_ANY_ANY(space, w_function, w_arguments, w_keywords):
     somecode = w_function.code
     w_globals = w_function.w_globals
     w_locals = somecode.build_arguments(space, w_arguments, w_keywords,
@@ -41,18 +38,13 @@ def func_call(space, w_function, w_arguments, w_keywords):
     w_ret = somecode.eval_code(space, w_globals, w_locals)
     return w_ret
 
-StdObjSpace.call.register(func_call, W_FuncObject, W_ANY, W_ANY)
-
-
-def func_get(space, w_function, w_instance, w_cls):
+def get__Func_ANY_ANY(space, w_function, w_instance, w_cls):
     return W_InstMethObject(space, w_instance, w_function)
 
-StdObjSpace.get.register(func_get, W_FuncObject, W_ANY, W_ANY)
-
-def func_getattr(space, w_function, w_attr):
+def getattr__Func_ANY(space, w_function, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('func_code'))):
         return space.wrap(w_function.code)
     else:
         raise FailedToImplement
 
-StdObjSpace.getattr.register(func_getattr, W_FuncObject, W_ANY)
+register_all(vars())

@@ -13,7 +13,6 @@ class W_BoolObject(W_Object):
     def __nonzero__(w_self):
         raise Exception, "you cannot do that, you must use space.is_true()"
 
-
 registerimplementation(W_BoolObject)
 
 # bool-to-int delegation requires translating the .boolvar attribute
@@ -24,17 +23,17 @@ def bool_to_int(space, w_bool):
 W_BoolObject.delegate_once[intobject.W_IntObject] = bool_to_int
 
 
-def bool_is_true(space, w_bool):
+def is_true__Bool(space, w_bool):
     return w_bool.boolval
 
-StdObjSpace.is_true.register(bool_is_true, W_BoolObject)
-StdObjSpace.unwrap. register(bool_is_true, W_BoolObject)
+def unwrap__Bool(space, w_bool):
+    return w_bool.boolval
 
-def bool_repr(space, w_bool):
+def repr__Bool(space, w_bool):
     if w_bool.boolval:
         return space.wrap('True')
     else:
         return space.wrap('False')
 
-StdObjSpace.repr.register(bool_repr, W_BoolObject)
-        
+
+register_all(vars())

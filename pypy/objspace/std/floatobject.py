@@ -39,69 +39,55 @@ def float_float(space,w_value):
 
 #?StdObjSpace.float.register(float_float, W_FloatObject)
 
-def float_unwrap(space, w_float):
+def unwrap__Float(space, w_float):
     return w_float.floatval
 
-StdObjSpace.unwrap.register(float_unwrap, W_FloatObject)
-
-def float_repr(space, w_float):
+def repr__Float(space, w_float):
     ## %reimplement%
     # uses CPython "repr" builtin function
     return space.wrap(repr(w_float.floatval))
 
-StdObjSpace.repr.register(float_repr, W_FloatObject)
-
-def float_str(space, w_float):
+def str__Float(space, w_float):
     ## %reimplement%
     # uses CPython "str" builtin function
     return space.wrap(str(w_float.floatval))
 
-StdObjSpace.str.register(float_str, W_FloatObject)
-
-def float_float_lt(space, w_float1, w_float2):
+def lt__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval
     j = w_float2.floatval
     return space.newbool( i < j )
-StdObjSpace.lt.register(float_float_lt, W_FloatObject, W_FloatObject)
 
-def float_float_le(space, w_float1, w_float2):
+def le__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval
     j = w_float2.floatval
     return space.newbool( i <= j )
-StdObjSpace.le.register(float_float_le, W_FloatObject, W_FloatObject)
 
-def float_float_eq(space, w_float1, w_float2):
+def eq__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval
     j = w_float2.floatval
     return space.newbool( i == j )
-StdObjSpace.eq.register(float_float_eq, W_FloatObject, W_FloatObject)
 
-def float_float_ne(space, w_float1, w_float2):
+def ne__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval
     j = w_float2.floatval
     return space.newbool( i != j )
-StdObjSpace.ne.register(float_float_ne, W_FloatObject, W_FloatObject)
 
-def float_float_gt(space, w_float1, w_float2):
+def gt__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval
     j = w_float2.floatval
     return space.newbool( i > j )
-StdObjSpace.gt.register(float_float_gt, W_FloatObject, W_FloatObject)
 
-def float_float_ge(space, w_float1, w_float2):
+def ge__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval
     j = w_float2.floatval
     return space.newbool( i >= j )
-StdObjSpace.ge.register(float_float_ge, W_FloatObject, W_FloatObject)
     
-def float_hash(space,w_value):
+def hash__Float(space,w_value):
     ## %reimplement%
     # real Implementation should be taken from _Py_HashDouble in object.c
     return space.wrap(hash(w_value.floatval))
 
-StdObjSpace.hash.register(float_hash, W_FloatObject)
-
-def float_float_add(space, w_float1, w_float2):
+def add__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     try:
@@ -110,9 +96,7 @@ def float_float_add(space, w_float1, w_float2):
         raise FailedToImplement(space.w_FloatingPointError, space.wrap("float addition"))
     return W_FloatObject(space, z)
 
-StdObjSpace.add.register(float_float_add, W_FloatObject, W_FloatObject)
-
-def float_float_sub(space, w_float1, w_float2):
+def sub__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     try:
@@ -121,9 +105,7 @@ def float_float_sub(space, w_float1, w_float2):
         raise FailedToImplement(space.w_FloatingPointError, space.wrap("float substraction"))
     return W_FloatObject(space, z)
 
-StdObjSpace.sub.register(float_float_sub, W_FloatObject, W_FloatObject)
-
-def float_float_mul(space, w_float1, w_float2):
+def mul__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     try:
@@ -132,9 +114,7 @@ def float_float_mul(space, w_float1, w_float2):
         raise FailedToImplement(space.w_FloatingPointError, space.wrap("float multiplication"))
     return W_FloatObject(space, z)
 
-StdObjSpace.mul.register(float_float_mul, W_FloatObject, W_FloatObject)
-
-def float_float_div(space, w_float1, w_float2):
+def div__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     try:
@@ -144,9 +124,7 @@ def float_float_div(space, w_float1, w_float2):
 	# no overflow
     return W_FloatObject(space, z)
 
-StdObjSpace.div.register(float_float_div, W_FloatObject, W_FloatObject)
-
-def float_float_mod(space, w_float1, w_float2):
+def mod__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
@@ -161,9 +139,7 @@ def float_float_mod(space, w_float1, w_float2):
 
     return W_FloatObject(space, mod)
 
-StdObjSpace.mod.register(float_float_mod, W_FloatObject, W_FloatObject)
-
-def float_float_divmod(space, w_float1, w_float2):
+def divmod__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
@@ -193,9 +169,7 @@ def float_float_divmod(space, w_float1, w_float2):
     return space.newtuple([W_FloatObject(space, floordiv),
                            W_FloatObject(space, mod)])
 
-StdObjSpace.divmod.register(float_float_divmod, W_FloatObject, W_FloatObject)
-
-def float_float_pow(space, w_float1,w_float2,thirdArg=None):
+def pow__Float_Float_ANY(space, w_float1,w_float2,thirdArg=None):
     if thirdArg is not None:
         raise FailedToImplement(space.w_TypeError,space.wrap("pow() 3rd argument not allowed unless all arguments are integers"))
     x = w_float1.floatval
@@ -206,30 +180,20 @@ def float_float_pow(space, w_float1,w_float2,thirdArg=None):
         raise FailedToImplement(space.w_OverflowError, space.wrap("float power"))
     return W_FloatObject(space, z)
 
-StdObjSpace.pow.register(float_float_pow, W_FloatObject, W_FloatObject)
-
-def float_neg(space, w_float1):
+def neg__Float(space, w_float1):
     return W_FloatObject(space, w_float1.floatval)
 
-StdObjSpace.neg.register(float_neg, W_FloatObject)
-
-def float_pos(space, w_float):
+def pos__Float(space, w_float):
     if w_float.__class__ == W_FloatObject:
         return w_float
     else:
         return W_FloatObject(space, w_float.floatval)
 
-StdObjSpace.pos.register(float_pos, W_FloatObject)
-
-def float_abs(space, w_float):
+def abs__Float(space, w_float):
     return W_FloatObject(space, fabs(w_float.floatval))
 
-StdObjSpace.abs.register(float_abs, W_FloatObject)
-
-def float_nonzero(space, w_float):
+def is_true__Float(space, w_float):
     return w_float.floatval != 0.0
-
-StdObjSpace.is_true.register(float_nonzero, W_FloatObject)
 
 ######## coersion must be done later
 later = """
@@ -241,3 +205,6 @@ def float_coerce(space, w_float):
 
 StdObjSpace.coerce.register(float_coerce, W_FloatObject)
 """
+
+
+register_all(vars())
