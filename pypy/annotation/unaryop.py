@@ -100,6 +100,9 @@ class __extend__(SomeList):
 
 class __extend__(SomeString):
 
+    def method_join(str, s_list):
+        return SomeString()
+
     def iter(str):
         return SomeIterator(SomeChar())
 
