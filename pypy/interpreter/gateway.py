@@ -175,7 +175,7 @@ class Gateway(object):
                         if space in value.functioncache:
                             # yes, we share its w_globals
                             fn = value.functioncache[space]
-                            w_globals = fn.w_globals
+                            w_globals = fn.w_func_globals
                             break
                 else:
                     # no, we build all Gateways in the staticglobals now.
