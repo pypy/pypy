@@ -291,6 +291,7 @@ def app_listrepr(currently_in_repr, l):
             del currently_in_repr[list_id]
         except:
             pass
+listrepr = gateway.app2interp(app_listrepr)
         
 def repr__List(space, w_list):
     if w_list.ob_size == 0:
@@ -613,7 +614,5 @@ static PyMethodDef list_methods[] = {
 };
 """
 
-from pypy.interpreter import gateway
-gateway.importall(globals())
 from pypy.objspace.std import listtype
 register_all(vars(), listtype)

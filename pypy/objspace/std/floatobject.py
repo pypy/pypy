@@ -63,6 +63,7 @@ def app_repr__Float(f):
             return r
     else:
         return r + '.0'    
+repr__Float = gateway.app2interp(app_repr__Float)
 
 def app_str__Float(f):
     r = "%.12g"%f
@@ -71,6 +72,7 @@ def app_str__Float(f):
             return r
     else:
         return r + '.0'    
+str__Float = gateway.app2interp(app_str__Float)
 
 def lt__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval
@@ -274,5 +276,4 @@ def float_coerce(space, w_float):
 StdObjSpace.coerce.register(float_coerce, W_FloatObject)
 """
 
-gateway.importall(globals())
 register_all(vars())

@@ -2,7 +2,7 @@ from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std import slicetype
-
+from pypy.interpreter import gateway
 
 class W_TupleObject(W_Object):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
@@ -117,10 +117,10 @@ def app_repr__Tuple(t):
     else:
         return "(" + ", ".join([repr(x) for x in t]) + ')'
 
+repr__Tuple = gateway.app2interp(app_repr__Tuple)
+
 def hash__Tuple(space, w_tuple):
     # silly-ish, but _correct_, while lacking it would be WRONG
     return space.len(w_tuple)
 
-from pypy.interpreter import gateway
-gateway.importall(globals())
 register_all(vars())
