@@ -5,11 +5,15 @@ transformation may introduce new space operation.
 """
 
 import autopath
+import types
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 
-# b = newlist(a)
-# d = mul(b, int c)
-# --> d = alloc_and_set(c, a)
+# [a] * b
+# -->
+# c = newlist(a)
+# d = mul(c, int b)
+# -->
+# d = alloc_and_set(b, a)
 
 def transform_allocate(self):
     """Transforms [a] * b to alloc_and_set(b, a) where b is int."""
@@ -30,9 +34,12 @@ def transform_allocate(self):
                                         op2.result)
                 block.operations[i:i+2] = [new_op]
 
-# c = newslice(a, b, None)
-# e = getitem(d, c)
-# --> e = getslice(d, a, b)
+# a[b:c]
+# -->
+# d = newslice(b, c, None)
+# e = getitem(a, d)
+# -->
+# e = getslice(a, b, c)
 
 def transform_slice(self):
     """Transforms a[b:c] to getslice(a, b, c)."""
@@ -44,7 +51,7 @@ def transform_slice(self):
             op1 = operations[i]
             op2 = operations[i+1]
             if (op1.opname == 'newslice' and
-                t.get_type(self.binding(op1.args[2])) is type(None) and
+                t.get_type(self.binding(op1.args[2])) is types.NoneType and
                 op2.opname == 'getitem' and
                 op1.result is op2.args[1]):
                 new_op = SpaceOperation('getslice',
