@@ -7,35 +7,8 @@ from pypy.interpreter.pycode import PyByteCode
 from pypy.objspace.ann.cloningcontext import CloningExecutionContext
 from pypy.objspace.ann.cloningcontext import IndeterminateCondition
 
+from pypy.objspace.ann.wrapper import *
 
-class W_Object(object):
-    pass
-
-class W_Anything(W_Object):
-    pass
-
-class W_Integer(W_Object):
-    pass
-
-class W_Constant(W_Object):
-    def __init__(self, value):
-        self.value = value
-    def __repr__(self):
-        return '<constant %r>' % self.value
-
-class W_KnownKeysContainer(W_Object):
-    def __init__(self, args_w):
-        self.args_w = args_w
-    def __len__(self):
-        return len(self.args_w)
-    def __getitem__(self, i):
-        return self.args_w[i]
-    def clone(self):
-        args_w = self.args_w
-        if isinstance(args_w, dict):
-            args_w = args_w.copy()
-        # XXX Recurse down the values?
-        return W_KnownKeysContainer(args_w)
 
 
 class AnnException(Exception):
@@ -98,27 +71,6 @@ class AnnotationObjSpace(ObjSpace):
         assert isinstance(w_locals, W_KnownKeysContainer)
         return w_locals.clone()
 
-    def union(self, r1, r2):
-        # Unite two results
-        if r1 is r2:
-            return r1
-        if r1 is None:
-            return r2
-        if r2 is None:
-            return r1
-        if isinstance(r1, W_Anything) or isinstance(r2, W_Anything):
-            return W_Anything()
-        if (isinstance(r1, W_Constant) and isinstance(r2, W_Constant) and
-            r1.value == r2.value):
-            return W_Constant(r1.value)
-        if self.is_int(r1) and self.is_int(r2):
-            return W_Integer()
-        if (isinstance(r1, W_KnownKeysContainer) and
-            isinstance(r2, W_KnownKeysContainer) and
-            r1.args_w == r2.args_w):
-            return W_KnownKeysContainer(r1.args_w)
-        # XXX Could do more cases.  This will blow up as we add more types
-        return W_Anything()
 
     # Specialized creators whose interface is in the abstract base class
     
@@ -158,18 +110,10 @@ class AnnotationObjSpace(ObjSpace):
             pass
         else:
             return self.wrap(left + right)
-        if self.is_int(w_left) and self.is_int(w_right):
+        if is_int(w_left) and is_int(w_right):
             return W_Integer()
         else:
             return W_Anything()
-
-    def is_int(self, w_obj):
-        if isinstance(w_obj, W_Integer):
-            return True
-        if isinstance(w_obj, W_Constant):
-            return isinstance(w_obj.value, int)
-        else:
-            return False
 
     def call(self, w_func, w_args, w_kwds):
         func = self.unwrap(w_func) # Would be bad it it was W_Anything

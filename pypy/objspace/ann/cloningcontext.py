@@ -1,5 +1,6 @@
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.pyframe import ControlFlowException
+from pypy.objspace.ann.wrapper import union
 
 class IndeterminateCondition(ControlFlowException):
 
@@ -34,7 +35,7 @@ class CloningExecutionContext(ExecutionContext):
                 assert w_obj.force == True
                 w_obj.force = False
             r = ExecutionContext.eval_frame(self, f)
-            result = space.union(result, r)
+            result = union(result, r)
             if isinstance(result, W_Anything):
                 break
         return result
