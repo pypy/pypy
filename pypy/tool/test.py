@@ -26,21 +26,22 @@ class MyTestSuite(unittest.TestSuite):
         return result
 
     def addTest(self, test, frommodule=None):
-        if test.countTestCases()>0:
+        if test.countTestCases() > 0:
             test.frommodule = frommodule
             unittest.TestSuite.addTest(self, test)
 
     def __nonzero__(self):
-        return self.countTestCases()>0
-
+        return self.countTestCases() > 0
 
 # register MyTestSuite to unittest
 unittest.TestLoader.suiteClass = MyTestSuite
+
 
 class MyTestResult(unittest.TestResult):
     def __init__(self):
         unittest.TestResult.__init__(self)
         self.successes = []
+
     def addError(self, test, err):
         # XXX not nice:
         from pypy.interpreter.baseobjspace import OperationError
@@ -49,13 +50,15 @@ class MyTestResult(unittest.TestResult):
                 self.addFailure(test, err)
                 return
         unittest.TestResult.addError(self, test, err)
+
     def addSuccess(self, test):
         self.successes.append(test)
+
     def addSkip(self, test):
         self.testsRun -= 1
 
+
 class MyTextTestResult(unittest._TextTestResult):
-        
     def addError(self, test, err):
         from pypy.interpreter.baseobjspace import OperationError
         if isinstance(err[1], OperationError) and test.space.full_exceptions:
@@ -64,7 +67,7 @@ class MyTextTestResult(unittest._TextTestResult):
                 return
         unittest._TextTestResult.addError(self, test, err)
         self.errors[-1] = (test, sys.exc_info())
-        
+
     def addFailure(self, test, err):
         unittest._TextTestResult.addFailure(self, test, err)
         self.failures[-1] = (test, sys.exc_info())
@@ -121,13 +124,15 @@ class MyTextTestResult(unittest._TextTestResult):
             self.stream.writeln(self.separator2)
             t1 = self._exc_info_to_string(err)
             t2 = ''
-            if isinstance(err[1], OperationError) and test.space.full_exceptions:
+            if isinstance(err[1],
+                          OperationError) and test.space.full_exceptions:
                 t2 = '\nand at app-level:\n\n'
                 sio = StringIO.StringIO()
                 err[1].print_application_traceback(test.space, sio)
                 t2 += sio.getvalue()
 
             self.stream.writeln("%s" % (t1 + t2,))
+
 
 class CtsTestRunner:
     def run(self, test):
@@ -172,9 +177,9 @@ class CtsTestRunner:
                 del ostatus[k]
             new = status[k]
             if old != new:
-                print >>output, k, 'has transitioned from', old, 'to', new
+                print >> output, k, 'has transitioned from', old, 'to', new
             elif new != 'success':
-                print >>output, k, "is still a", new
+                print >> output, k, "is still a", new
 
         for k in ostatus:
             print >>output, k, 'was a', ostatus[k], 'was not run this time'
@@ -184,6 +189,7 @@ class CtsTestRunner:
 
         return result
 
+
 class MyTextTestRunner(unittest.TextTestRunner):
     def _makeResult(self):
         return MyTextTestResult(self.stream, self.descriptions, self.verbosity)
@@ -191,18 +197,17 @@ class MyTextTestRunner(unittest.TextTestRunner):
 
 def testsuite_from_main():
     """ return test modules from __main__
-
     """
     loader = unittest.TestLoader()
     m = __import__('__main__')
     return loader.loadTestsFromModule(m)
 
 def testsuite_from_dir(root, filterfunc=None, recursive=0, loader=None):
-    """ return test modules that optionally match filterfunc. 
+    """ return test modules that optionally match filterfunc.
 
     all files matching the glob-pattern "test_*.py" are considered.
     additionally their fully qualified python module path has
-    to be accepted by filterfunc (if it is not None). 
+    to be accepted by filterfunc (if it is not None).
     """
     if Options.verbose>2:
         print >>sys.stderr, "scanning for test files in", root
@@ -237,6 +242,7 @@ def testsuite_from_dir(root, filterfunc=None, recursive=0, loader=None):
                 suite._tests.extend(subsuite._tests)
     return suite
 
+
 class Options(option.Options):
     testreldir = 0
     runcts = 0
@@ -247,6 +253,7 @@ class Options(option.Options):
         return 0
     ensure_value = staticmethod(ensure_value)
 
+
 class TestSkip(Exception):
     pass
 
@@ -255,11 +262,12 @@ def objspace(name=''):
         raise TestSkip
     return option.objspace(name)
 
+
 class RegexFilterFunc:
     """ stateful function to filter included/excluded strings via
-    a Regular Expression. 
+    a Regular Expression.
 
-    An 'excluded' regular expressions has a '%' prependend. 
+    An 'excluded' regular expressions has a '%' prependend.
     """
 
     def __init__(self, *regex):
@@ -313,14 +321,14 @@ def run_tests_on_space(suite, spacename=''):
         Options.spacename = spacename
 
     warnings.defaultaction = Options.showwarning and 'default' or 'ignore'
-    print >>sys.stderr, "running tests via", repr(objspace())
+    print >> sys.stderr, "running tests via", repr(objspace())
     runner.run(suite)
 
 def main(root=None):
     """ run this to test everything in the __main__ or
     in the given root-directory (recursive)"""
     args = option.process_options(get_test_options(), Options)
-    
+
     filterfunc = RegexFilterFunc(*args)
     if Options.testreldir:
         root = os.path.abspath('.')
@@ -340,6 +348,7 @@ def main(root=None):
     if Options.verbose:
         from pypy.tool.udir import udir
         print "testdata (unittestsession) directory was:", str(udir)
+
 
 if __name__ == '__main__':
     # test all of pypy
