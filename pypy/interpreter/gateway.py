@@ -566,7 +566,7 @@ def applevel(source, filename = None,
             klass = ApplevelClass
     return klass(source, filename, modname, do_imports)
 
-# comment this out to check against applevel without translation
+# uncomment this to check against applevel without translation
 ##ApplevelInterpClass = ApplevelClass
 
 def appdef(source, applevel=ApplevelClass):
