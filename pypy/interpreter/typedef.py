@@ -266,6 +266,13 @@ def descr_get_dict(space, obj):
 def descr_set_dict(space, obj, w_dict):
     obj.setdict(w_dict)
 
+def generic_ne(space, w_obj1, w_obj2):
+    if space.eq_w(w_obj1, w_obj2):
+        return space.w_False
+    else:
+        return space.w_True
+descr_generic_ne = interp2app(generic_ne)
+
 # co_xxx interface emulation for built-in code objects
 def fget_co_varnames(space, w_code):
     code = space.interpclass_w(w_code)
@@ -306,6 +313,7 @@ Frame.typedef = TypeDef('internal-frame',
 PyCode.typedef = TypeDef('code',
     __new__ = interp2app(PyCode.descr_code__new__.im_func),
     __eq__ = interp2app(PyCode.descr_code__eq__),
+    __ne__ = descr_generic_ne,
     co_argcount = interp_attrproperty('co_argcount', cls=PyCode),
     co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode),
     co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode),
@@ -385,6 +393,8 @@ Method.typedef = TypeDef("method",
     im_self  = interp_attrproperty_w('w_instance', cls=Method), 
     im_class = interp_attrproperty_w('w_class', cls=Method),
     __getattribute__ = interp2app(Method.descr_method_getattribute),
+    __eq__ = interp2app(Method.descr_method_eq),
+    __ne__ = descr_generic_ne,
     # XXX getattribute/setattribute etc.pp 
     )
 

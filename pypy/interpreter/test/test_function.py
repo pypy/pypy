@@ -180,6 +180,19 @@ class AppTestMethod:
         d = D()
         assert d.m() == d
 
+    def test_method_eq(self):
+        class C:
+            def m(): pass
+        c = C()
+        assert C.m == C.m
+        assert c.m == c.m
+        assert not (C.m == c.m)
+        assert not (c.m == C.m)
+        c2 = C()
+        assert (c.m == c2.m) is False
+        assert (c.m != c2.m) is True
+        assert (c.m != c.m) is False
+
 class TestMethod: 
     def setup_method(self, method):
         def c(self, bar):

@@ -196,6 +196,15 @@ class Method(Wrappable):
         else:
             return space.get(w_result, w_self)
 
+    def descr_method_eq(self, w_other):
+        space = self.space
+        other = space.interpclass_w(w_other)
+        if not isinstance(other, Method):
+            return space.w_False
+        if not space.is_w(self.w_instance, other.w_instance):
+            return space.w_False
+        return space.eq(self.w_function, other.w_function)
+
 class StaticMethod(Wrappable):
     """A static method.  Note that there is one class staticmethod at
     app-level too currently; this is only used for __new__ methods."""
