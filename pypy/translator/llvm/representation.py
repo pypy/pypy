@@ -830,7 +830,7 @@ class FunctionRepr(LLVMRepr):
                 self.llvm_func = llvmbc.Function(self.llvmfuncdef(), lblock)
             else:
                 self.llvm_func.basic_block(lblock)
-            #Create Phi nodes (but not for the first node)
+            #Create Phi nodes (but not for the first block)
             incoming_links = []
             def visit(node):
                 if isinstance(node, Link) and node.target == pyblock:
@@ -847,25 +847,14 @@ class FunctionRepr(LLVMRepr):
                     l_v2 = self.gen.get_repr(incoming_links[0].args[i])
                     self.dependencies.update([l_arg, l_switch, l_v1, l_v2])
                     lblock.select(l_arg, l_select, l_v1, l_v2)
-            #special case for isinstance blocks:
-            #if the type changes a cast is neccessary
-            elif len(incoming_links) == 1:
-                link = incoming_links[0]
-                for i, arg in enumerate(pyblock.inputargs):
-                    l_arg = self.gen.get_repr(arg)
-                    l_value = self.gen.get_repr(link.args[i])
-                    self.dependencies.update([l_arg, l_value])
-                    if l_arg.llvmtype() == l_value.llvmtype():
-                        lblock.phi(
-                            l_arg, [l_value],
-                            ["%%block%i" % self.blocknum[link.prevblock]])
-                    else:
-                        lblock.cast(l_arg, l_value)
             elif len(incoming_links) != 0:
                 for i, arg in enumerate(pyblock.inputargs):
                     l_arg = self.gen.get_repr(arg)
                     l_values = [self.gen.get_repr(l.args[i])
                                 for l in incoming_links]
+                    for j in range(len(l_values)):
+                        if l_values[j].llvmtype() != l_arg.llvmtype():
+                            l_values[j] = l_values[j].alt_types[l_arg.llvmtype()]
                     self.dependencies.add(l_arg)
                     self.dependencies.update(l_values)
                     lblock.phi(l_arg, l_values,
@@ -894,6 +883,24 @@ class FunctionRepr(LLVMRepr):
                             "Dispatched on: %s" % l_arg0
                             
                         raise CompileError, s
+            # XXX: If a variable is passed to another block and has a different
+            # type there, we have to make the cast in this block since the phi
+            # instructions in the next block cannot be preceded by any other
+            # instrcution
+            for link in pyblock.exits:
+                for i, arg in enumerate(link.args):
+                    localtype = self.annotator.binding(arg)
+                    targettype = self.annotator.binding(
+                        link.target.inputargs[i])
+                    l_targettype = self.gen.get_repr(targettype)
+                    l_localtype = self.gen.get_repr(localtype)
+                    l_local = self.gen.get_repr(arg)
+                    self.dependencies.update([l_targettype, l_localtype,
+                                              l_local])
+                    if l_targettype.llvmname() != l_localtype.llvmname():
+                        l_tmp = self.gen.get_local_tmp(l_targettype, self)
+                        lblock.cast(l_tmp, l_local)
+                        l_local.alt_types = {l_targettype.llvmname(): l_tmp}
             #Create branches
             if pyblock.exitswitch is None:
                 if pyblock.exits == ():

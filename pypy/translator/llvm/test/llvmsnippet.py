@@ -226,6 +226,23 @@ def flow_type():
     c = CCC()
     return ifisinstance(a) + ifisinstance(b) + ifisinstance(c)
 
+class CLA(object):
+    def __init__(self):
+        self.a = 1
+
+class CLB(CLA):
+    def __init__(self):
+        self.a = 2
+        self.b = 1
+
+def merge_classes(flag):
+    if flag:
+        a = CLA()
+    else:
+        a = CLB()
+    return a.a
+
+
 #string snippets
 def string_f1(i):
     j = 0

@@ -73,6 +73,9 @@ class BasicBlock(object):
         self.instructions.append(s +
             ", ".join([a.typed_name() for a in l_args]) + ")")
 
+    def invoke(self, l_target, l_func, l_args, errorblock):
+        pass
+
     def ret(self, l_value):
         self.instructions.append("ret %s" % l_value.typed_name())
 
@@ -134,3 +137,11 @@ class BasicBlock(object):
             s += ["\t%s\n" % ins]
         return "".join(s)
 
+
+class ExceptionBasicBlock(BasicBlock):
+    def __init__(self, label, regularblock, exceptblock):
+        self.label = label
+        self.exceptblock = exceptblock
+        self.regularblock = regularblock
+        self.llvmblocks = []
+        self.instructions = []

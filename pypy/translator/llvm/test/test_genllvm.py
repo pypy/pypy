@@ -219,6 +219,11 @@ class TestClass(object):
     def test_flow_type(self):
         f = compile_function(llvmsnippet.flow_type, [])
         assert f() == 16
+
+    def test_merge_class(self):
+        f = compile_function(llvmsnippet.merge_classes, [bool])
+        assert f(True) == 1
+        assert f(False) == 2
     
 class TestString(object):
     def setup_method(self, method):
