@@ -21,7 +21,7 @@ class Module(Wrappable):
     def setdict(self, w_dict):
         self.w_dict = w_dict
 
-    def descr_module__new__(space, w_subtype, *args_w, **kwds_w):
+    def descr_module__new__(space, w_subtype, __args__):
         module = space.allocate_instance(Module, w_subtype)
         module.__init__(space, space.wrap('?'))
         return space.wrap(module)

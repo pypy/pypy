@@ -182,10 +182,10 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             for descrname, descr in typedef.rawdict.items():
                 if isinstance(descr, interp2app):
                     def make_stuff(descr=descr, descrname=descrname, space=self):
-                        def stuff(w_obj, *args, **kwds):
+                        def stuff(w_obj, *args):
                             fn = descr.get_function(space)
                             try:
-                                return fn.descr_function_call(w_obj, *args, **kwds)
+                                return fn.interplevel_call(w_obj, *args)
                             except OperationError, e:
                                 if not hasattr(e.w_type, 'originalex'):
                                     raise # XXX

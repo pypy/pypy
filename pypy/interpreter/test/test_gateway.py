@@ -9,27 +9,50 @@ class TestBuiltinCode(testit.IntTestCase):
         self.space = testit.objspace()
 
     def test_signature(self):
-        def c(space, w_x, w_y, *args_w, **kw_w):
+        def c(space, w_x, w_y, *hello_w):
             pass
         code = gateway.BuiltinCode(c)
-        self.assertEqual(code.signature(), (['x', 'y'], 'args', 'kw'))
+        self.assertEqual(code.signature(), (['x', 'y'], 'hello', None))
         def d(self, w_boo):
             pass
         code = gateway.BuiltinCode(d)
         self.assertEqual(code.signature(), (['self', 'boo'], None, None))
+        def e(space, w_x, w_y, __args__):
+            pass
+        code = gateway.BuiltinCode(e)
+        self.assertEqual(code.signature(), (['x', 'y'], 'args', 'keywords'))
 
     def test_call(self):
-        def c(space, w_x, w_y, *args_w, **kw_w):
+        def c(space, w_x, w_y, *hello_w):
             u = space.unwrap
             w = space.wrap
-            return w((u(w_x) - u(w_y) + len(args_w)) * u(kw_w['boo']))
+            self.assertEquals(len(hello_w), 2)
+            self.assertEquals(u(hello_w[0]), 0)
+            self.assertEquals(u(hello_w[1]), True)
+            return w((u(w_x) - u(w_y) + len(hello_w)))
+        code = gateway.BuiltinCode(c)
+        w = self.space.wrap
+        w_dict = self.space.newdict([
+            (w('x'), w(123)),
+            (w('y'), w(23)),
+            (w('hello'), self.space.newtuple([w(0), w(True)])),
+            ])
+        w_result = code.exec_code(self.space, w_dict, w_dict)
+        self.assertEqual_w(w_result, w(102))
+
+    def test_call_args(self):
+        def c(space, w_x, w_y, __args__):
+            u = space.unwrap
+            w = space.wrap
+            return w((u(w_x) - u(w_y) + len(__args__.args_w))
+                     * u(__args__.kwds_w['boo']))
         code = gateway.BuiltinCode(c)
         w = self.space.wrap
         w_dict = self.space.newdict([
             (w('x'), w(123)),
             (w('y'), w(23)),
             (w('args'), self.space.newtuple([w(0), w(True)])),
-            (w('kw'), self.space.newdict([(w('boo'), w(10))])),
+            (w('keywords'), self.space.newdict([(w('boo'), w(10))])),
             ])
         w_result = code.exec_code(self.space, w_dict, w_dict)
         self.assertEqual_w(w_result, w(1020))

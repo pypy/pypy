@@ -21,19 +21,19 @@ def descr__hash__(space, w_obj):
 def descr__class__(space, w_obj):
     return space.type(w_obj)
 
-def descr__new__(space, w_type, *args_w, **kwds_w):
+def descr__new__(space, w_type, __args__):
     from pypy.objspace.std.objectobject import W_ObjectObject
     # don't allow arguments if the default object.__init__() is about
     # to be called
     w_parentinit, w_ignored = w_type.lookup_where('__init__')
-    if w_parentinit is space.w_object and (args_w or kwds_w):
+    if w_parentinit is space.w_object and (__args__.args_w or __args__.kwds_w):
         raise OperationError(space.w_TypeError,
                              space.wrap("default __new__ takes no parameters"))
     w_obj = space.allocate_instance(W_ObjectObject, w_type)
     w_obj.__init__(space)
     return w_obj
 
-def descr__init__(space, *args_w, **kwds_w):
+def descr__init__(space, __args__):
     pass
 
 # ____________________________________________________________

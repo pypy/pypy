@@ -148,7 +148,7 @@ class TestMethod(testit.IntTestCase):
         space = self.space
         w_meth = self.fn.descr_function_get(space.wrap(5), space.type(space.wrap(5)))
         meth = space.unwrap(w_meth)
-        w_result = meth.descr_method_call(space.wrap(42))
+        w_result = meth.interplevel_call(space.wrap(42))
         self.assertEquals(space.unwrap(w_result), 42)
 
     def test_fail_call(self):
@@ -156,7 +156,7 @@ class TestMethod(testit.IntTestCase):
         w_meth = self.fn.descr_function_get(space.wrap(5), space.type(space.wrap(5)))
         meth = space.unwrap(w_meth)
         self.assertRaises_w(self.space.w_TypeError,
-                            meth.descr_method_call,
+                            meth.interplevel_call,
                             space.wrap("spam"), space.wrap("egg"))
 
 if __name__ == '__main__':

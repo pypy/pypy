@@ -14,6 +14,7 @@ import types
 from pypy.interpreter import eval, pycode
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.argument import Arguments
 
 
 class BuiltinCode(eval.Code):
@@ -34,7 +35,8 @@ class BuiltinCode(eval.Code):
         # Currently we enforce the following signature tricks:
         #  * the first arg must be either 'self' or 'space'
         #  * 'w_' prefixes for the rest
-        #  * '_w' suffixes on * and **
+        #  * '_w' suffix for the optional '*' argument
+        #  * alternatively a final '__args__' means an Arguments()
         # Not exactly a clean approach XXX.
         argnames, varargname, kwargname = tmp.signature()
         argnames = list(argnames)
@@ -47,22 +49,31 @@ class BuiltinCode(eval.Code):
         self.spacearg = spacearg
         if spacearg:
             del argnames[0]
-        for i in range(ismethod, len(argnames)):
-            a = argnames[i]
-            assert a.startswith('w_'), (
-                "argument %s of built-in function %r should start with 'w_'" %
-                (a, func))
-            argnames[i] = a[2:]
-        if varargname is not None:
+
+        assert kwargname is None, (
+            "built-in function %r should not take a ** argument" % func)
+
+        self.generalargs = argnames[-1:] == ['__args__']
+        self.starargs = varargname is not None
+        assert not (self.generalargs and self.starargs), (
+            "built-in function %r has both __args__ and a * argument" % func)
+        if self.generalargs:
+            del argnames[-1]
+            varargname = "args"
+            kwargname = "keywords"
+        elif self.starargs:
             assert varargname.endswith('_w'), (
                 "argument *%s of built-in function %r should end in '_w'" %
                 (varargname, func))
             varargname = varargname[:-2]
-        if kwargname is not None:
-            assert kwargname.endswith('_w'), (
-                "argument **%s of built-in function %r should end in '_w'" %
-                (kwargname, func))
-            kwargname = kwargname[:-2]
+
+        for i in range(ismethod, len(argnames)):
+            a = argnames[i]
+            assert a.startswith('w_'), (
+                "argument %s of built-in function %r should "
+                "start with 'w_'" % (a, func))
+            argnames[i] = a[2:]
+
         self.sig = argnames, varargname, kwargname
 
     def create_frame(self, space, w_globals, closure=None):
@@ -79,34 +90,19 @@ class BuiltinFrame(eval.Frame):
     # via the interface defined in eval.Frame.
 
     def run(self):
-        argarray = self.fastlocals_w
+        argarray = list(self.fastlocals_w)
+        if self.code.generalargs:
+            w_kwds = argarray.pop()
+            w_args = argarray.pop()
+            argarray.append(Arguments.frompacked(self.space, w_args, w_kwds))
+        elif self.code.starargs:
+            w_args = argarray.pop()
+            argarray += self.space.unpacktuple(w_args)
         if self.code.ismethod:
-            argarray = [self.space.unwrap(argarray[0])] + argarray[1:]
+            argarray[0] = self.space.unwrap(argarray[0])
         if self.code.spacearg:
-            argarray = [self.space] + argarray
-        return call_with_prepared_arguments(self.space, self.code.func,
-                                            argarray)
-
-
-def call_with_prepared_arguments(space, function, argarray):
-    """Call the given function. 'argarray' is a correctly pre-formatted
-    list of values for the formal parameters, including one for * and one
-    for **."""
-    # XXX there is no clean way to do this in Python,
-    # we have to hack back an arguments tuple and keywords dict.
-    # This algorithm is put in its own well-isolated function so that
-    # you don't need to look at it :-)
-    keywords = {}
-    co = function.func_code
-    if co.co_flags & 8:  # CO_VARKEYWORDS
-        w_kwds = argarray[-1]
-        for w_key in space.unpackiterable(w_kwds):
-            keywords[space.unwrap(w_key)] = space.getitem(w_kwds, w_key)
-        argarray = argarray[:-1]
-    if co.co_flags & 4:  # CO_VARARGS
-        w_varargs = argarray[-1]
-        argarray = argarray[:-1] + space.unpacktuple(w_varargs)
-    return function(*argarray, **keywords)
+            argarray.insert(0, self.space)
+        return self.code.func(*argarray)
 
 
 class Gateway(Wrappable):
@@ -203,18 +199,18 @@ class app2interp(Gateway):
     def getdefaults(self, space):
         return [space.wrap(val) for val in self.staticdefs]
 
-    def __call__(self, space, *args_w, **kwds_w):
+    def __call__(self, space, *args_w):
         # to call the Gateway as a non-method, 'space' must be explicitely
         # supplied. We build the Function object and call it.
         fn = self.get_function(space)
-        return fn.descr_function_call(*args_w, **kwds_w)
+        return fn.interplevel_call(*args_w)
 
     def __get__(self, obj, cls=None):
         if obj is None:
             return self
         else:
             method = self.get_method(obj)
-            return method.descr_method_call
+            return method.interplevel_call
 
 class interp2app(Gateway):
     """Build a Gateway that calls 'f' at interp-level."""

@@ -13,7 +13,7 @@ list_sort   = MultiMethod('sort',   2, defaults=(None,))
 
 # ____________________________________________________________
 
-def descr__new__(space, w_listtype, *args_w, **kwds_w):
+def descr__new__(space, w_listtype, __args__):
     from pypy.objspace.std.listobject import W_ListObject
     w_obj = space.allocate_instance(W_ListObject, w_listtype)
     w_obj.__init__(space, [])

@@ -48,7 +48,7 @@ class Object:
                     raise
         raise OperationError(space.w_AttributeError,w_name)
 
-    def descr__init__(space, w_obj, *args_w, **kwds_w):
+    def descr__init__(space, w_obj, __args__):
         pass   # XXX some strange checking maybe
 
 class DescrOperation:
