@@ -251,17 +251,17 @@ def app_str__Dict(d):
     if len(d) == 0:
         return '{}'
     if '_currently_in_repr' not in globals():
-        _currently_in_repr = []
+        _currently_in_repr = {}
     if id(d) in _currently_in_repr:
         return '{...}'
     try:
-        _currently_in_repr.append(id(d))
+        _currently_in_repr[id(d)] = 1
         items = []
         for k, v in d.iteritems():
             items.append(repr(k) + ": " + repr(v))
         return "{" +  ', '.join(items) + "}"
     finally:
-        _currently_in_repr.remove(id(d))
+        del _currently_in_repr[id(d)]
 
 repr__Dict = str__Dict = gateway.app2interp(app_str__Dict)
 from pypy.objspace.std import dicttype

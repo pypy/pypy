@@ -283,14 +283,14 @@ def app_repr__List(l):
     if len(l) == 0:
         return '[]'
     if '_currently_in_repr' not in globals():
-        _currently_in_repr = []
+        _currently_in_repr = {}
     if id(l) in _currently_in_repr:
         return '[...]'
     try:
-        _currently_in_repr.append(id(l))
+        _currently_in_repr[id(l)] = 1
         return "[" + ", ".join([repr(x) for x in l]) + ']'
     finally:
-        _currently_in_repr.remove(id(l))
+        del _currently_in_repr[id(l)]
 
 def hash__List(space,w_list):
     raise OperationError(space.w_TypeError,space.wrap("list objects are unhashable"))
