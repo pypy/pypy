@@ -187,6 +187,11 @@ class RPythonAnnotator:
             missingargs = expectedargs - len(inputcells)
             nbdefaults = len(func.func_defaults or ())
             if not (0 <= missingargs <= nbdefaults):
+                # XXX hack to avoid "*args" related processing 
+                #     to bail out
+                #v = graph.getreturnvar()
+                #return self.bindings.get(v, annmodel.SomeImpossibleValue())
+                # XXX end hack 
                 if nbdefaults:
                     msg = "%d to %d" % (expectedargs-nbdefaults,
                                         expectedargs)
