@@ -156,8 +156,8 @@ class FlowExecutionContext(ExecutionContext):
             try:
                 w_result = frame.eval(self)
             except OperationError, e:
-                exc_type = self.space.unwrap(e.w_type)   # e.w_value ignored
-                link = Link([], self.graph.getexceptblock(exc_type))
+                exc_type = self.space.unwrap(e.w_type)
+                link = Link([e.w_value], self.graph.getexceptblock(exc_type))
                 self.crnt_block.closeblock(link)
             else:
                 if w_result is not None:

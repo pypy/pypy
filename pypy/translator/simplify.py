@@ -2,6 +2,7 @@
 """
 
 from pypy.objspace.flow.model import *
+from pypy.objspace.flow.objspace import implicitexc
 
 def eliminate_empty_blocks(graph):
     """Eliminate basic blocks that do not contain any operations.
@@ -60,8 +61,19 @@ def join_blocks(graph):
                     visit(exit)
     traverse(visit, graph)
 
+def remove_implicit_exceptions(graph):
+    def visit(link):
+        if isinstance(link, Link) and link in link.prevblock.exits:
+            if (link.args == [Constant(implicitexc)] and not link.target.exits
+                and hasattr(link.target, 'exc_type')):
+                lst = list(link.prevblock.exits)
+                lst.remove(link)
+                link.prevblock.exits = tuple(lst)
+    traverse(visit, graph)
+
 def simplify_graph(graph):
     """Apply all the existing optimisations to the graph."""
     eliminate_empty_blocks(graph)
     join_blocks(graph)
+    remove_implicit_exceptions(graph)
     return graph

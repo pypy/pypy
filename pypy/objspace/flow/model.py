@@ -25,7 +25,7 @@ class FunctionGraph:
         try:
             block = self.exceptblocks[exc_type]
         except KeyError:
-            block = self.exceptblocks[exc_type] = Block([])
+            block = self.exceptblocks[exc_type] = Block([Variable()])
             block.exc_type = exc_type
             block.operations = ()
             block.exits      = ()

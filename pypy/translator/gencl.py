@@ -1,5 +1,6 @@
 import autopath
 from pypy.objspace.flow.model import *
+from pypy.objspace.flow.objspace import implicitexc
 from pypy.translator.annrpython import RPythonAnnotator
 
 from pypy.translator.simplify import simplify_graph
@@ -194,6 +195,8 @@ class GenCL:
             return val
         elif isinstance(val, type(Exception)) and issubclass(val, Exception):
             return "'%s" % val.__name__
+        elif val is implicitexc:
+            return "'implicitexc"
         else:
             return "#<%r>" % (val,)
     def emitcode(self):

@@ -110,6 +110,10 @@ class FlowObjSpace(ObjSpace):
 implicit_exceptions = {
     'getitem': [IndexError],
     }
+class ImplicitExcValue:
+    def __repr__(self):
+        return 'implicitexc'
+implicitexc = ImplicitExcValue()
 
 def make_op(name, symbol, arity, specialnames):
     if hasattr(FlowObjSpace, name):
@@ -161,7 +165,8 @@ def make_op(name, symbol, arity, specialnames):
             context = self.getexecutioncontext()
             outcome = context.guessbool(w_curexc, [None] + exceptions)
             if outcome is not None:
-                raise OperationError(self.wrap(outcome), self.w_None)
+                raise OperationError(self.wrap(outcome),
+                                     self.wrap(implicitexc))
         return w_result
 
     setattr(FlowObjSpace, name, generic_operator)
