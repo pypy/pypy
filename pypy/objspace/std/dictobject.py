@@ -246,23 +246,27 @@ def dict_get__Dict_ANY_ANY(space, w_dict, w_lookup, w_default):
 # The fix is to move this to dicttype.py, and do a
 # multimethod lookup mapping str to StdObjSpace.str
 # This cannot happen until multimethods are fixed. See dicttype.py
-def app_str__Dict(d):
-    global _currently_in_repr
-    if len(d) == 0:
-        return '{}'
-    if '_currently_in_repr' not in globals():
-        _currently_in_repr = {}
-    if id(d) in _currently_in_repr:
-        return '{...}'
-    try:
-        _currently_in_repr[id(d)] = 1
+def app_dictstr(d):
         items = []
         for k, v in d.iteritems():
             items.append(repr(k) + ": " + repr(v))
         return "{" +  ', '.join(items) + "}"
-    finally:
-        del _currently_in_repr[id(d)]
 
-repr__Dict = str__Dict = gateway.app2interp(app_str__Dict)
+dictstr = gateway.app2interp(app_dictstr)
+
+def str__Dict(space, w_dict):
+    if w_dict.used == 0:
+        return space.wrap('{}')
+    d = space.get_ec_state_dict().setdefault('Py_Repr', {})
+    dict_id = space.int_w(space.id(w_dict))
+    if dict_id in d:
+        return space.wrap('{...}')
+    d[dict_id] = 1
+    try:
+        return dictstr(space, w_dict)
+    finally:
+        del d[dict_id]
+
+repr__Dict = str__Dict
 from pypy.objspace.std import dicttype
 register_all(vars(), dicttype)

@@ -278,19 +278,22 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
         items[start+i*step] = sequence2[i]
     return space.w_None
 
-def app_repr__List(l):
-    global _currently_in_repr
-    if len(l) == 0:
-        return '[]'
-    if '_currently_in_repr' not in globals():
-        _currently_in_repr = {}
-    if id(l) in _currently_in_repr:
-        return '[...]'
+def app_listrepr(l):
+    'The app-level part of repr().'
+    return "[" + ", ".join([repr(x) for x in l]) + ']'
+
+def repr__List(space, w_list):
+    if w_list.ob_size == 0:
+        return space.wrap('[]')
+    d = space.get_ec_state_dict().setdefault('Py_Repr', {})
+    list_id = space.int_w(space.id(w_list))
+    if list_id in d:
+        return space.wrap('[...]')
+    d[list_id] = 1
     try:
-        _currently_in_repr[id(l)] = 1
-        return "[" + ", ".join([repr(x) for x in l]) + ']'
+        return listrepr(space, w_list)
     finally:
-        del _currently_in_repr[id(l)]
+        del d[list_id]
 
 def hash__List(space,w_list):
     raise OperationError(space.w_TypeError,space.wrap("list objects are unhashable"))
