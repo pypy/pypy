@@ -131,7 +131,7 @@ class TypedTestCase(testit.IntTestCase):
         nested_whiles = self.getcompiled(snippet.nested_whiles)
         self.assertEquals(nested_whiles(5,3), '!!!!!')
 
-    def xxxtest_call_five(self):
+    def test_call_five(self):
         call_five = self.getcompiled(snippet.call_five)
         self.assertEquals(call_five(), [5])
 
