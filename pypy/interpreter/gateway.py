@@ -11,7 +11,10 @@ Gateway between app-level and interpreter-level:
 """
 
 import types
-from weakref import WeakKeyDictionary
+try:
+    from weakref import WeakKeyDictionary
+except ImportError:
+    WeakKeyDictionary = dict   # XXX for PyPy
 from pypy.interpreter import eval, pycode
 from pypy.interpreter.baseobjspace import Wrappable, ObjSpace
 from pypy.interpreter.function import Function, Method

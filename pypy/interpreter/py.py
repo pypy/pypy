@@ -1,6 +1,10 @@
 #!/usr/bin/env python 
 
-import autopath
+try:
+    import autopath
+except ImportError:
+    pass
+
 from pypy.tool import option
 from pypy.tool.optik import make_option
 from pypy.interpreter import main, interactive, baseobjspace, error

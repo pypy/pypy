@@ -162,11 +162,12 @@ class LinePrefixer:
             self.file.write('\n')
 
 # installing the excepthook for OperationErrors
-def operr_excepthook(exctype, value, traceback):
-    if issubclass(exctype, OperationError):
-        value.debug_tbs.append(traceback)
-        value.print_detailed_traceback()
-    else:
-        old_excepthook(exctype, value, traceback)
-old_excepthook = sys.excepthook
-sys.excepthook = operr_excepthook
+if hasattr(sys, 'excepthook'):   # not implemented on PyPy
+    def operr_excepthook(exctype, value, traceback):
+        if issubclass(exctype, OperationError):
+            value.debug_tbs.append(traceback)
+            value.print_detailed_traceback()
+        else:
+            old_excepthook(exctype, value, traceback)
+    old_excepthook = sys.excepthook
+    sys.excepthook = operr_excepthook
