@@ -7,7 +7,6 @@ The bytecode interpreter itself is implemented by the PyFrame class.
 import dis
 from pypy.interpreter import eval
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import Wrappable
 
 
 # code object contants, for co_flags below
@@ -17,33 +16,6 @@ CO_VARARGS      = 0x0004
 CO_VARKEYWORDS  = 0x0008
 CO_NESTED       = 0x0010
 CO_GENERATOR    = 0x0020
-
-class AppPyCode(Wrappable):
-    """ applevel representation of a PyCode object. """
-    def __init__(self, pycode, space):
-        self.space = space
-        self.pycode = pycode
-
-    def __unwrap__(self):
-        return self.pycode
-        
-    def pypy_id(self):
-        # XXX we need a type system for internal objects!
-        return id(self.pycode)
-
-    def pypy_type(self):
-        # XXX we need a type system for internal objects!
-        return self.space.wrap(self.__class__)
-       
-    def app_visible(self):
-
-        # XXX change that if we have type objects ...
-        l = []
-        for name,value in self.pycode.__dict__.items():
-            if name.startswith('co_'):
-                l.append( (name, self.space.wrap(value)))
-        l.append(('__class__', self.pypy_type()))
-        return l
 
 class PyCode(eval.Code):
     "CPython-style code objects."
@@ -65,9 +37,6 @@ class PyCode(eval.Code):
         #self.co_name (in base class)# string: name, for reference
         self.co_firstlineno = 0      # first source line number
         self.co_lnotab = ""          # string: encoding addr<->lineno mapping
-
-    def __wrap__(self, space):
-        return space.wrap(AppPyCode(self, space))
 
     def _from_code(self, code):
         """ Initialize the code object from a real (CPython) one.

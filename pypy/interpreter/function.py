@@ -8,7 +8,6 @@ attribute.
 
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import attrproperty, attrproperty_w, TypeDef
 from pypy.interpreter.gateway import interp2app 
 
 class Function(Wrappable):
@@ -167,16 +166,6 @@ class Function(Wrappable):
         else:
             return wrap(Method(space, wrap(self), None, w_cls))
 
-    typedef = TypeDef("function", { 
-        '__call__' : interp2app(call),
-        '__get__' : interp2app(descr_function_get),
-        'func_code' : attrproperty('code'), 
-        'func_doc' : attrproperty('doc'), 
-        'func_name' : attrproperty('name'), 
-        'func_dict' : attrproperty_w('w_func_dict'), 
-        '__dict__' : attrproperty_w('w_func_dict'), 
-        # XXX getattribute/setattribute etc.pp 
-        })
 
 class Method(object):
     """A method is a function bound to a specific instance or class."""
@@ -204,35 +193,3 @@ class Method(object):
                 raise OperationError(self.space.w_TypeError,
                                      self.space.wrap(msg))
         return self.space.call(self.w_function, w_args, w_kwds)
-
-
-    typedef = TypeDef("method", { 
-        '__call__': interp2app(call),
-        'im_func' :  attrproperty_w('w_function'), 
-        'im_self' :  attrproperty_w('w_instance'), 
-        'im_class':  attrproperty_w('w_class'), 
-        # XXX getattribute/setattribute etc.pp 
-#        it['__name__'] = it['func_name']
-#        it['__doc__'] = it['func_doc']
-#        it['__dict__'] = it['func_dict']
-#        it['__call__'] = space.wrap(self)
-        })
-
-#    def app_visible(self):  
-#        space = self.space
-#        def makedict(**kw):
-#            return kw
-#        #print "APPVISI", self.code, "INTO", space.wrap(self.code)
-#        it = makedict(
-#                func_defaults = self.defs_w and space.newtuple(self.defs_w) or space.w_None,
-#                func_code = space.wrap(self.code),
-#                func_dict = self.w_func_dict,
-#                func_doc = space.wrap(self.doc),
-#                func_name = space.wrap(self.name),
-#                func_globals = self.w_func_globals,
-#                func_closure = space.wrap(self.closure))
-#        it['__name__'] = it['func_name']
-#        it['__doc__'] = it['func_doc']
-#        it['__dict__'] = it['func_dict']
-#        it['__call__'] = space.wrap(self)
-#        return it.items()

@@ -2,9 +2,11 @@
 This module defines the abstract base classes that support execution:
 Code and Frame.
 """
-from error import OperationError
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.baseobjspace import Wrappable
 
-class Code(object):
+
+class Code(Wrappable):
     """A code is a compiled version of some source code.
     Abstract base class."""
 
@@ -48,7 +50,7 @@ class Code(object):
 UNDEFINED = object()  # marker for undefined local variables
 
 
-class Frame(object):
+class Frame(Wrappable):
     """A frame is an environment supporting the execution of a code object.
     Abstract base class."""
 

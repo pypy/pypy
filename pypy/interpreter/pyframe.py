@@ -7,7 +7,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter import pytraceback
 
 
-class PyFrame(eval.Frame, baseobjspace.Wrappable):
+class PyFrame(eval.Frame):
     """Represents a frame for a regular Python function
     that needs to be interpreted.
 

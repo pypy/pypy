@@ -5,9 +5,9 @@
 from pypy.interpreter.gateway import interp2app 
 
 class TypeDef:
-    def __init__(self, name, rawdict):
-        self.name = name
-        self.rawdict = rawdict 
+    def __init__(self, __name, **rawdict):
+        self.name = __name
+        self.rawdict = rawdict
 
     def mro(self, space):
         return [self, space.object_typedef]
@@ -22,9 +22,9 @@ class GetSetProperty:
     def descr_property_get(space, w_property, w_obj, w_ignored):
         return space.unwrap(w_property).fget(space, w_obj)
 
-    typedef = TypeDef("GetSetProperty", { 
-        '__get__' : interp2app(descr_property_get),
-    })
+    typedef = TypeDef("GetSetProperty",
+        __get__ = interp2app(descr_property_get),
+        )
 
 def attrproperty(name):
     def fget(space, w_obj):
@@ -42,3 +42,68 @@ def attrproperty_w(name):
             return w_value 
 
     return GetSetProperty(fget)
+
+# ____________________________________________________________
+#
+# Definition of the type's descriptors for all the internal types
+
+from pypy.interpreter.eval import Code, Frame
+from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.pyframe import PyFrame
+from pypy.interpreter.module import Module
+from pypy.interpreter.function import Function, Method
+
+Code.typedef = TypeDef('internal-code',
+    co_name = attrproperty('co_name'),
+    # XXX compute more co_xxx from the methods in Code
+    )
+
+Frame.typedef = TypeDef('internal-frame',
+    f_code = attrproperty('code'),
+    #f_locals = GetSetProperty(getdictscope, setdictscope), XXX
+    f_globals = attrproperty_w('w_globals'),
+    )
+
+PyCode.typedef = TypeDef('code',
+    co_argcount = attrproperty('co_argcount'),
+    co_nlocals = attrproperty('co_nlocals'),
+    co_stacksize = attrproperty('co_stacksize'),
+    co_flags = attrproperty('co_flags'),
+    co_code = attrproperty('co_code'),
+    co_consts = attrproperty('co_consts'),
+    co_names = attrproperty('co_names'),
+    co_varnames = attrproperty('co_varnames'),
+    co_freevars = attrproperty('co_freevars'),
+    co_cellvars = attrproperty('co_cellvars'),
+    co_filename = attrproperty('co_filename'),
+    co_name = attrproperty('co_name'),
+    co_firstlineno = attrproperty('co_firstlineno'),
+    co_lnotab = attrproperty('co_lnotab'),
+    )
+
+PyFrame.typedef = TypeDef('frame',
+    f_builtins = attrproperty_w('w_builtins'),
+    **Frame.typedef.rawdict)
+
+Module.typedef = TypeDef("module",
+    __dict__ = attrproperty_w('w_dict'), 
+    )
+
+Function.typedef = TypeDef("function",
+    __call__ = interp2app(Function.call.im_func),
+    __get__ = interp2app(Function.descr_function_get.im_func),
+    func_code = attrproperty('code'), 
+    func_doc = attrproperty('doc'), 
+    func_name = attrproperty('name'), 
+    func_dict = attrproperty_w('w_func_dict'), 
+    __dict__ = attrproperty_w('w_func_dict'), 
+    # XXX func_closure, __name__, __doc__, etc.pp
+    )
+
+Method.typedef = TypeDef("method",
+    __call__ = interp2app(Method.call.im_func),
+    im_func  = attrproperty_w('w_function'), 
+    im_self  = attrproperty_w('w_instance'), 
+    im_class = attrproperty_w('w_class'),
+    # XXX getattribute/setattribute etc.pp 
+    )
