@@ -17,6 +17,10 @@ from pypy.interpreter.module import Module
 class BuiltinModule(Module):
     """A Module subclass specifically for built-in modules."""
 
+    # '__builtins__' is stored in self.__dict__ by
+    # self.interplevel{exec,eval,execfile}()
+    NOT_RPYTHON_ATTRIBUTES = ['__builtins__']
+
     def __init__(self, space, modulename, w_dict=None, sourcefile=None):
         """Load the named built-in module, by default from the source file
         'pypy/module/<name>module.py', which is app-level Python code

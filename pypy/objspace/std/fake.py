@@ -37,6 +37,7 @@ def fake_type(cpy_type):
     return _fake_type_cache.getorbuild(cpy_type, really_build_fake_type, None)
 
 def really_build_fake_type(cpy_type, ignored):
+    "NOT_RPYTHON (not remotely so!)."
     print 'faking %r'%(cpy_type,)
     kw = {}
     for s, v in cpy_type.__dict__.items():

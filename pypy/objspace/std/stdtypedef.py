@@ -12,10 +12,12 @@ __all__ = ['StdTypeDef', 'newmethod', 'gateway',
 class StdTypeDef(TypeDef):
 
     def __init__(self, __name, __base=None, **rawdict):
+        "NOT_RPYTHON: initialization-time only."
         TypeDef.__init__(self, __name, __base, **rawdict)
         self.local_multimethods = []
 
     def registermethods(self, namespace):
+        "NOT_RPYTHON: initialization-time only."
         self.local_multimethods += hack_out_multimethods(namespace)
 
 def issubtypedef(a, b):
@@ -30,6 +32,7 @@ def issubtypedef(a, b):
 
 
 def newmethod(descr_new):
+    "NOT_RPYTHON: initialization-time only."
     # this is turned into a static method by the constructor of W_TypeObject.
     return gateway.interp2app(descr_new)
 
@@ -40,6 +43,7 @@ def newmethod(descr_new):
 #
 
 def buildtypeobject(typedef, space):
+    "NOT_RPYTHON: initialization-time only."
     # build a W_TypeObject from this StdTypeDef
     from pypy.objspace.std.typeobject import W_TypeObject
     from pypy.objspace.std.objecttype import object_typedef
@@ -76,6 +80,7 @@ def buildtypeobject(typedef, space):
                         overridetypedef=typedef, forcedict=False)
 
 def hack_out_multimethods(ns):
+    "NOT_RPYTHON: initialization-time only."
     result = []
     for value in ns.itervalues():
         if isinstance(value, MultiMethod):
@@ -115,6 +120,7 @@ class MultimethodCode(eval.Code):
     """A code object that invokes a multimethod."""
     
     def __init__(self, multimethod, framecls, typeclass, bound_position=0):
+        "NOT_RPYTHON: initialization-time only."
         eval.Code.__init__(self, multimethod.operatorsymbol)
         self.basemultimethod = multimethod
         self.typeclass = typeclass
@@ -131,6 +137,7 @@ class MultimethodCode(eval.Code):
         self.sig = argnames, varargname, kwargname
 
     def computeslice(self, space):
+        "NOT_RPYTHON: initialization-time only."
         if self.typeclass is None:
             slice = self.basemultimethod
         else:

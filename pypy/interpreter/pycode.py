@@ -38,7 +38,8 @@ class PyCode(eval.Code):
         self.co_lnotab = ""          # string: encoding addr<->lineno mapping
 
     def _from_code(self, code):
-        """ Initialize the code object from a real (CPython) one.
+        """ NOT_RPYTHON
+            Initialize the code object from a real (CPython) one.
             This is just a hack, until we have our own compile.
             At the moment, we just fake this.
             This method is called by our compile builtin function.

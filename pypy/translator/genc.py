@@ -196,7 +196,8 @@ class GenC:
                 print "NOT GENERATING", printable_name
                 return self.skipped_function(func)
         else:
-            if func.func_doc and func.func_doc.startswith('NOT_RPYTHON'):
+            if (func.func_doc and
+                func.func_doc.lstrip().startswith('NOT_RPYTHON')):
                 print "skipped", printable_name
                 return self.skipped_function(func)
             print "nameof", printable_name
@@ -243,8 +244,9 @@ class GenC:
     def should_translate_attr(self, pbc, attr):
         ann = self.translator.annotator
         if ann is None:
-            if attr.startswith('_'):
-                return False   # ignore _xyz and __xyz__ attributes
+            ignore = getattr(pbc.__class__, 'NOT_RPYTHON_ATTRIBUTES', [])
+            if attr in ignore:
+                return False
             else:
                 return "probably"   # True
         if attr in ann.getpbcattrs(pbc):
@@ -277,18 +279,28 @@ class GenC:
 
     def nameof_builtin_function_or_method(self, func):
         import __builtin__
-        assert func is getattr(__builtin__, func.__name__, None), (
-            '%r is not from __builtin__' % (func,))
-        name = self.uniquename('gbltin_' + func.__name__)
-        self.globaldecl.append('static PyObject* %s;' % name)
-        self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
-                             'PyEval_GetBuiltins(), "%s"))' % (
-            name, func.__name__))
-        self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
+        if func.__self__ is None:
+            # builtin function
+            assert func is getattr(__builtin__, func.__name__, None), (
+                '%r is not from __builtin__' % (func,))
+            name = self.uniquename('gbltin_' + func.__name__)
+            self.globaldecl.append('static PyObject* %s;' % name)
+            self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
+                                 'PyEval_GetBuiltins(), "%s"))' % (
+                name, func.__name__))
+            self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
+        else:
+            # builtin (bound) method
+            name = self.uniquename('gbltinmethod_' + func.__name__)
+            self.globaldecl.append('static PyObject* %s;' % name)
+            self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
+                                 '%s, "%s"))' % (
+                name, self.nameof(func.__self__), func.__name__))
+            self.initglobals.append('REGISTER_GLOBAL(%s)' % (name,))
         return name
 
     def nameof_classobj(self, cls):
-        if cls.__doc__ and cls.__doc__.startswith('NOT_RPYTHON'):
+        if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r should never be reached" % (cls,)
 
         if issubclass(cls, Exception):
@@ -465,7 +477,7 @@ class GenC:
             self.gen_cfunction(func)
             # collect more of the latercode after each function
             while self.latercode:
-                gen, self.debugstack = self.latercode.pop(0)
+                gen, self.debugstack = self.latercode.pop()
                 #self.initcode.extend(gen) -- eats TypeError! bad CPython!
                 for line in gen:
                     self.initcode.append(line)

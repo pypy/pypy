@@ -24,6 +24,7 @@ class BuiltinCode(eval.Code):
     # you get the functionality of CPython's built-in function type.
 
     def __init__(self, func, ismethod=None, spacearg=None):
+        "NOT_RPYTHON"
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
         eval.Code.__init__(self, func.__name__)
@@ -176,6 +177,8 @@ class Gateway(Wrappable):
         #   _staticglobals 
         #   _staticdefs 
 
+    NOT_RPYTHON_ATTRIBUTES = ['_staticglobals', '_staticdefs']
+
     def __spacebind__(self, space):
         # to wrap a Gateway, we first make a real Function object out of it
         # and the result is a wrapped version of this Function.
@@ -187,6 +190,7 @@ class Gateway(Wrappable):
                                    self.getcache(space))
 
     def build_all_functions(self, space):
+        "NOT_RPYTHON"
         # the construction is supposed to be done only once in advance,
         # but must be done lazily when needed only, because
         #   1) it depends on the object space
@@ -216,6 +220,7 @@ class Gateway(Wrappable):
         return space._gatewaycache 
 
     def _build_function(self, space, w_globals):
+        "NOT_RPYTHON"
         cache = self.getcache(space) 
         try: 
             return cache.content[self] 
@@ -243,6 +248,7 @@ class Gateway(Wrappable):
 class app2interp(Gateway):
     """Build a Gateway that calls 'app' at app-level."""
     def __init__(self, app, app_name=None):
+        "NOT_RPYTHON"
         Gateway.__init__(self)
         # app must be a function whose name starts with 'app_'.
         if not isinstance(app, types.FunctionType):
@@ -259,6 +265,7 @@ class app2interp(Gateway):
         self._staticdefs = list(app.func_defaults or ())
 
     def getdefaults(self, space):
+        "NOT_RPYTHON"
         return [space.wrap(val) for val in self._staticdefs]
 
     def __call__(self, space, *args_w):
@@ -268,6 +275,7 @@ class app2interp(Gateway):
         return space.call_function(space.wrap(fn), *args_w)
 
     def __get__(self, obj, cls=None):
+        "NOT_RPYTHON"
         if obj is None:
             return self
         else:
@@ -280,6 +288,7 @@ class app2interp(Gateway):
 class interp2app(Gateway):
     """Build a Gateway that calls 'f' at interp-level."""
     def __init__(self, f, app_name=None):
+        "NOT_RPYTHON"
         Gateway.__init__(self)
         # f must be a function whose name does NOT starts with 'app_'
         if not isinstance(f, types.FunctionType):
@@ -295,10 +304,11 @@ class interp2app(Gateway):
         self._staticglobals = None
 
     def getdefaults(self, space):
+        "NOT_RPYTHON"
         return self._staticdefs
 
 def exportall(d, temporary=False):
-    """Publish every function from a dict."""
+    """NOT_RPYTHON: Publish every function from a dict."""
     if temporary:
         i2a = interp2app_temp
     else:
@@ -318,6 +328,7 @@ def exportall(d, temporary=False):
                 d['app_'+name] = i2a(obj, name)
 
 def export_values(space, dic, w_namespace):
+    "NOT_RPYTHON"
     for name, w_value in dic.items():
         if name.startswith('w_'):
             if name == 'w_dict':
@@ -329,7 +340,7 @@ def export_values(space, dic, w_namespace):
             space.setitem(w_namespace, w_name, w_value)
 
 def importall(d, temporary=False):
-    """Import all app_-level functions as Gateways into a dict."""
+    """NOT_RPYTHON: Import all app_-level functions as Gateways into a dict."""
     if temporary:
         a2i = app2interp_temp
     else:
@@ -340,7 +351,8 @@ def importall(d, temporary=False):
                 d[name[4:]] = a2i(obj, name[4:])
 
 def build_dict(d, space):
-    """Search all Gateways and put them into a wrapped dictionary."""
+    """NOT_RPYTHON:
+    Search all Gateways and put them into a wrapped dictionary."""
     w_globals = space.newdict([])
     for value in d.itervalues():
         if isinstance(value, Gateway):
@@ -356,12 +368,14 @@ def build_dict(d, space):
 # 
 # the next gateways are to be used only for 
 # temporary/initialization purposes 
-class app2interp_temp(app2interp): 
+class app2interp_temp(app2interp):
+    "NOT_RPYTHON"
     def getcache(self, space): 
         return self.__dict__.setdefault(space, Cache())
         #                               ^^^^^
         #                          armin suggested this 
      
 class interp2app_temp(interp2app): 
+    "NOT_RPYTHON"
     def getcache(self, space): 
         return self.__dict__.setdefault(space, Cache())

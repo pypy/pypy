@@ -115,7 +115,7 @@ class FlowObjSpace(ObjSpace):
     def build_flow(self, func, constargs={}):
         """
         """
-        if func.func_doc and func.func_doc.startswith('NOT_RPYTHON'):
+        if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
         code = func.func_code
         code = PyCode()._from_code(code)
