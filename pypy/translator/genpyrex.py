@@ -233,14 +233,17 @@ class GenPyrex:
 
     def _paramvardecl(self, var):
         vartype = self.get_type(var)
+        ctype=self._gettypename(vartype)
+        return (ctype, self.get_varname(var))
+
+    def _gettypename(self, vartype):
         if vartype in (int, bool):
             ctype = "int"
         elif self.annotator and vartype in self.annotator.getuserclasses():
             ctype = self.get_classname(vartype)
         else:
             ctype = "object"
-
-        return (ctype, self.get_varname(var))
+        return ctype
 
     def get_classname(self, userclass):
         return userclass.__name__
@@ -332,14 +335,17 @@ class GenPyrex:
         if self.annotator:
             self.lines = []
             self.indent = 0
-            for cls in self.annotator.getuserclasses():
-                self.putline("cdef class %s:" % self.get_classname(cls))
+            for cls in self.annotator.getuserclassdefinitions():
+                if cls.basedef:
+                    bdef="(%s)" % (self.get_classname(cls.basedef))
+                else:
+                    bdef=""
+                self.putline("cdef class %s%s:" % (self.get_classname(cls.cls),bdef))
                 self.indent += 1
                 empty = True
-                for var in self.annotator.getuserattributes(cls):
-                    vartype, varname = self._paramvardecl(var)
-                    varname = var.name   # no 'i_' prefix
-                    self.putline("cdef %s %s" % (vartype, varname))
+                for attr,s_value in cls.attrs.items():
+                    vartype=self._gettypename(s_value.knowntype)
+                    self.putline("cdef public %s %s" % (vartype, attr))
                     empty = False
                 else:
                     if empty:
