@@ -16,10 +16,11 @@ while 1:
             sys.path.insert(0, PYPYDIR)
         break
 
-def find_tests(root):
+def find_tests(root, no_appspace=0):
     testmods = []
     def callback(arg, dirname, names):
-        if os.path.basename(dirname) == 'test':
+        if ( os.path.basename(dirname) == 'test'
+             and ((not no_appspace) or dirname.find('appspace') == -1) ):
             package = dirname[len(PYPYDIR)+1:].replace(os.sep, '.')
             testfiles = [f[:-3] for f in names
                          if f.startswith('test_') and f.endswith('.py')]
@@ -32,8 +33,11 @@ def find_tests(root):
     
     return tl.loadTestsFromNames(testmods)
 
-if __name__ == '__main__':
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
     runner = unittest.TextTestRunner()
-    runner.run(find_tests(PYPYDIR))
+    runner.run(find_tests(PYPYDIR, '--noappspace' in sys.argv))
     
-    
+if __name__ == '__main__':
+    main()
