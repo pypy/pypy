@@ -77,6 +77,7 @@ zfill             OK
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from pypy.objspace.std.intobject   import W_IntObject
+from pypy.objspace.std.restricted_int import intmask
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.listobject import W_ListObject
@@ -638,7 +639,7 @@ def str_endswith__String_String(space, w_self, w_end):
     else:
         found = 1
         
-    return W_IntObject(space, found)
+    return space.newbool(found)
     
     
 def str_startswith__String_String_ANY(space, w_self, w_prefix, w_start):
@@ -654,7 +655,7 @@ def str_startswith__String_String_ANY(space, w_self, w_prefix, w_start):
     else:
         found = 1
         
-    return W_IntObject(space, found)    
+    return space.newbool(found)    
     
     
 def _tabindent(u_token, u_tabsize):
@@ -752,7 +753,17 @@ def str_w__String(space, w_str):
 def hash__String(space, w_str):
     w_hash = w_str.w_hash
     if w_hash is None:
-        w_hash = W_IntObject(space, hash(w_str._value))
+        s = w_str._value
+        try:
+            x = ord(s[0]) << 7
+        except IndexError:
+            x = 0
+        else:
+            for c in s:
+		x = (1000003*x) ^ ord(c)
+            x ^= len(s)
+        # unlike CPython, there is no reason to avoid to return -1
+        w_hash = W_IntObject(space, intmask(x))
         w_str.w_hash = w_hash
     return w_hash
 

@@ -147,6 +147,15 @@ while _itest == _Ltest and type(_itest) is int:
 
 LONG_BIT = _bits+1
 LONG_MASK = _Ltest*2-1
+LONG_TEST = _Ltest
+
+def intmask(n):
+    if isinstance(n, int):
+        return n
+    n &= LONG_MASK
+    if n >= LONG_TEST:
+        n -= 2*LONG_TEST
+    return int(n)
 
 del _bits, _itest, _Ltest
 

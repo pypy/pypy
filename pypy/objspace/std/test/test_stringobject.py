@@ -268,31 +268,31 @@ class AppTestStringObject:
         assert 'aaa'.count('a', 0, -10) == 0
      
     def test_startswith(self):
-        assert 'ab'.startswith('ab') == 1
-        assert 'ab'.startswith('a') == 1
-        assert 'ab'.startswith('') == 1
-        assert 'x'.startswith('a') == 0
-        assert 'x'.startswith('x') == 1
-        assert ''.startswith('') == 1
-        assert ''.startswith('a') == 0
-        assert 'x'.startswith('xx') == 0
-        assert 'y'.startswith('xx') == 0
+        assert 'ab'.startswith('ab') is True
+        assert 'ab'.startswith('a') is True
+        assert 'ab'.startswith('') is True
+        assert 'x'.startswith('a') is False
+        assert 'x'.startswith('x') is True
+        assert ''.startswith('') is True
+        assert ''.startswith('a') is False
+        assert 'x'.startswith('xx') is False
+        assert 'y'.startswith('xx') is False
 
     def test_startswith_more(self):
-        assert 'ab'.startswith('a', 0) == 1
-        assert 'ab'.startswith('a', 1) == 0
-        assert 'ab'.startswith('b', 1) == 1
+        assert 'ab'.startswith('a', 0) is True
+        assert 'ab'.startswith('a', 1) is False
+        assert 'ab'.startswith('b', 1) is True
 
     def test_endswith(self):
-        assert 'ab'.endswith('ab') == 1
-        assert 'ab'.endswith('b') == 1
-        assert 'ab'.endswith('') == 1
-        assert 'x'.endswith('a') == 0
-        assert 'x'.endswith('x') == 1
-        assert ''.endswith('') == 1
-        assert ''.endswith('a') == 0
-        assert 'x'.endswith('xx') == 0
-        assert 'y'.endswith('xx') == 0
+        assert 'ab'.endswith('ab') is True
+        assert 'ab'.endswith('b') is True
+        assert 'ab'.endswith('') is True
+        assert 'x'.endswith('a') is False
+        assert 'x'.endswith('x') is True
+        assert ''.endswith('') is True
+        assert ''.endswith('a') is False
+        assert 'x'.endswith('xx') is False
+        assert 'y'.endswith('xx') is False
       
     def test_expandtabs(self):
         assert 'abc\rab\tdef\ng\thi'.expandtabs() ==    'abc\rab      def\ng       hi'
@@ -521,3 +521,9 @@ class AppTestStringObject:
         assert 'hello'.decode('rot-13') == 'uryyb'
         assert 'hello'.decode('string-escape') == 'hello'
         
+    def test_hash(self):
+        # check that we have the same hash as CPython for at least 31 bits
+        # (but don't go checking CPython's special case -1)
+        assert hash('') == 0
+        assert hash('hello') & 0x7fffffff == 0x347697fd
+        assert hash('hello world!') & 0x7fffffff == 0x2f0bb411
