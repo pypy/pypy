@@ -2,6 +2,8 @@ from pypy.objspace.std.objspace import *
 from listtype import W_ListType
 from intobject import W_IntObject
 from sliceobject import W_SliceObject
+from tupleobject import W_TupleObject
+
 import slicetype
 from pypy.interpreter import gateway
 from restricted_int import r_int, r_uint
@@ -178,13 +180,18 @@ def setitem__List_Int_ANY(space, w_list, w_index, w_any):
     return space.w_None
 
 def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
-    w_length = space.wrap(w_list.ob_size)
+    return _setitem_slice_helper(space, w_list, w_slice, w_list2.ob_item, w_list2.ob_size)
+
+def setitem__List_Slice_Tuple(space, w_list, w_slice, w_tuple):
+    t = w_tuple.wrappeditems
+    return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
+
+def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
     start, stop, step, slicelength = slicetype.indices4(space,w_slice,w_list.ob_size)
     assert slicelength >= 0
     if step != 1:
         raise OperationError(space.w_NotImplementedError,
           space.wrap("Assignment to extended slices not implemented yet."))
-    len2 = w_list2.ob_size
     delta = len2 - slicelength
     oldsize = w_list.ob_size
     newsize = oldsize + delta
@@ -194,7 +201,7 @@ def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
     r = range(stop+delta,newsize)
     if delta > 0:
         r.reverse()
-
+	
     for i in r:
         items[i] = items[i-delta]
 
@@ -204,7 +211,7 @@ def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
     r = range(len2)
     r.reverse()
     for i in r:
-        items[start+i] = w_list2.ob_item[i]
+        items[start+i] = sequence2[i]
     return space.w_None
 
 def repr__List(space, w_list):
