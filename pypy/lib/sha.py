@@ -111,7 +111,7 @@ K = [
     0xCA62C1D6L  # (60 <= t <= 79)
     ]
 
-class MD5:
+class sha:
     "An implementation of the MD5 hash function in pure Python."
 
     def __init__(self):
@@ -326,16 +326,20 @@ class MD5:
 # for consistency with the md5 module of the standard library.
 # ======================================================================
 
-digest_size = 16
+# These are mandatory variables in the module. They have constant values
+# in the SHA standard.
+
+digest_size = digestsize = 20
+blocksize = 1
 
 def new(arg=None):
-    """Return a new md5 object.
+    """Return a new sha crypto object.
 
     If arg is present, the method call update(arg) is made.
     """
 
-    md5 = MD5()
+    crypto = sha()
     if arg:
-        md5.update(arg)
+        crypto.update(arg)
 
-    return md5
+    return crypto

@@ -3,16 +3,17 @@
 This is a py.test conversion of the test cases in the CVS sandbox of
 CPython.
 """
+import autopath
 
 import sys
 import pickle
 import cPickle
 
-from datetime import MINYEAR, MAXYEAR
-from datetime import timedelta
-from datetime import tzinfo
-from datetime import time
-from datetime import date, datetime
+from pypy.appspace.datetime import MINYEAR, MAXYEAR
+from pypy.appspace.datetime import timedelta
+from pypy.appspace.datetime import tzinfo
+from pypy.appspace.datetime import time
+from pypy.appspace.datetime import date, datetime
 
 
 # Before Python 2.3, proto=2 was taken as a synonym for proto=1.
@@ -33,7 +34,7 @@ OTHERSTUFF = (10, 10L, 34.5, "abc", {}, [], ())
 class TestModule(object):
 
     def test_constants(self):
-        import datetime
+        from pypy.appspace import datetime
         assert datetime.MINYEAR == 1
         assert datetime.MAXYEAR == 9999
 

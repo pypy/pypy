@@ -412,16 +412,16 @@ class MD5Type:
 digest_size = 16
 
 def new(arg=None):
-    """Return a new md5 object.
+    """Return a new md5 crypto object.
 
     If arg is present, the method call update(arg) is made.
     """
 
-    md5 = MD5Type()
+    crypto = MD5Type()
     if arg:
-        md5.update(arg)
+        crypto.update(arg)
 
-    return md5
+    return crypto
 
 
 def md5(arg=None):
