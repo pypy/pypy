@@ -94,6 +94,9 @@ def builtin_hasattr(s_obj, s_attr):
               'hasattr(%r, %r) is not RPythonic enough' % (s_obj, s_attr)
     return SomeBool()
 
+def builtin_hash(s_obj):
+    return SomeInteger()
+
 def builtin_callable(s_obj):
     return SomeBool()
 
