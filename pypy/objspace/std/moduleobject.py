@@ -4,6 +4,7 @@ from dictobject import W_DictObject
 
 class W_ModuleObject(W_Object):
     delegate_once = {}
+    statictypename = 'module'
 
     def __init__(w_self, space, w_name):
         W_Object.__init__(w_self, space)
