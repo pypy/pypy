@@ -52,8 +52,8 @@ class W_UserType(W_TypeObject):
 #   The problem is actually that, currently, several types such as
 #   int and float just cannot be CALLED -- this needs to be fixed soon.
 def new__UserType_ANY_ANY(space, w_usertype, w_args, w_kwds):
-    from userobject import W_UserObject
-    newobj = W_UserObject(space, w_usertype, w_args, w_kwds)
+    from userobject import make_user_object
+    newobj = make_user_object(space, w_usertype, w_args, w_kwds)
     try:
         init = space.getattr(newobj, space.wrap('__init__'))
     except OperationError, err:

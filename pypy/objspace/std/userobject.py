@@ -17,21 +17,43 @@ class W_UserObject(W_Object):
     class."""
     statictype = W_UserType
 
-    def __init__(w_self, space, w_type, w_args, w_kwds):
-        # the restriction that a single built-in type is allowed among the
-        # bases is specific to our W_UserObject implementation of user
-        # objects, and should thus not be enforced in W_UserType.
-        # Note: w_type may be any object, not necessarily a W_UserType
-        # (in case 'type' is subclassed).
-        
-        # create an instance of the parent built-in type
-        w_builtintype = getsinglebuiltintype(space, w_type)
-        w_self.w_embedded = space.call(w_builtintype, w_args, w_kwds)
-        w_self.w_type = w_type
-        w_self.w_dict = space.newdict([])
+def make_user_object(space, w_type, w_args, w_kwds):
+    # the restriction that a single built-in type is allowed among the
+    # bases is specific to our W_UserObject implementation of user
+    # objects, and should thus not be enforced in W_UserType.
+    # Note: w_type may be any object, not necessarily a W_UserType
+    # (in case 'type' is subclassed).
+
+    # create an instance of the parent built-in type
+    w_builtintype = getsinglebuiltintype(space, w_type)
+    newobj = space.call(w_builtintype, w_args, w_kwds)
+
+    morph_into_user_object(space,w_type,newobj)
+    
+    return newobj
 
 
 registerimplementation(W_UserObject)
+
+_bltin_subclass_cache = {}
+
+def _make_bltin_subclass(cls):
+    global _bltin_subclass_cache
+    try:
+        return _bltin_subclass_cache[cls]
+    except:
+        _bltin_subclass_cache[cls] = subcls = type(W_Object)("%s_sub" % cls.__name__,(cls,),
+                                                       {'statictype': W_UserType,
+                                                        'bltbase': cls,
+                                                        'dispatchtype': W_UserObject})
+        return subcls
+
+def morph_into_user_object(space,w_type,newobj):
+    newobj.__class__ = _make_bltin_subclass(newobj.__class__)
+    newobj.w_type = w_type
+    if not hasattr(newobj,'w_dict'):
+        newobj.w_dict = space.newdict([])
+    return newobj
 
 
 def getsinglebuiltintype(space, w_type):
@@ -54,7 +76,7 @@ def getsinglebuiltintype(space, w_type):
 # So far this is the only delegation that produces a result
 # of a variable type.
 def delegate__User(space, w_userobj):
-    return w_userobj.w_embedded
+    return [(w_userobj.bltbase,w_userobj)]
 delegate__User.priority = PRIORITY_PARENT_TYPE
 
 
