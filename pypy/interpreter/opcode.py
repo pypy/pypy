@@ -375,9 +375,32 @@ def DELETE_GLOBAL(f, nameindex):
 def LOAD_NAME(f, nameindex):
     varname = f.getname(nameindex)
     w_varname = f.space.wrap(varname)
-    w_value = f.space.gethelper(appfile).call(
-        "load_name", [w_varname, f.w_locals, f.w_globals, f.w_builtins])
+    try:
+        w_value = f.space.getitem(f.w_locals, w_varname)
+    except OperationError, e:
+        if not e.match(f.space, f.space.w_KeyError):
+            raise
+        try:
+            w_value = f.space.getitem(f.w_globals, w_varname)
+        except OperationError, e:
+            if not e.match(f.space, f.space.w_KeyError):
+                raise
+            try:
+                w_value = f.space.getitem(f.w_builtins, w_varname)
+            except OperationError, e:
+                if not e.match(f.space, f.space.w_KeyError):
+                    raise
+                message = "global name '%s' is not defined" % varname
+                w_exc_type = f.space.w_NameError
+                w_exc_value = f.space.wrap(message)
+                raise OperationError(w_exc_type, w_exc_value)
     f.valuestack.push(w_value)
+    # XXX the implementation can be pushed back into app-space as an
+    # when exception handling begins to behave itself.  For now, it
+    # was getting on my nerves -- mwh
+#    w_value = f.space.gethelper(appfile).call(
+#        "load_name", [w_varname, f.w_locals, f.w_globals, f.w_builtins])
+#    f.valuestack.push(w_value)
 
 def LOAD_GLOBAL(f, nameindex):
     varname = f.getname(nameindex)
