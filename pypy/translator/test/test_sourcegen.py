@@ -54,5 +54,40 @@ class TestCase(test.IntTestCase):
         self.assertEquals(mod.f(-1, 42), 42)
         self.assertEquals(mod.f(3, 5), 3)
 
+    def test_while(self):
+        """
+        one test source:
+        def f(i):
+            while i > 0:
+                i = i - 1
+            return i
+        """
+        i = Variable("i")
+        conditionres = Variable("conditionres")
+        conditionop = SpaceOperation("gt", [i, Constant(0)], conditionres)
+        decop = SpaceOperation("add", [i, Constant(-1)], i)
+
+        conditionbranch = ConditionalBranch()
+        headerbranch = Branch()
+        whileblock = BasicBlock([i], [i], [decop], headerbranch)
+        whilebranch = Branch([i], whileblock)
+        endbranch = EndBranch(i)
+        conditionbranch.set(conditionres, whilebranch, endbranch)
+
+        headerblock = BasicBlock([i], [i, conditionres],
+                                 [conditionop], conditionbranch)
+
+        headerbranch.set([i], headerblock)
+
+        startblock = BasicBlock([i], [i], 
+                                [], headerbranch)
+
+
+        fun = FunctionGraph(startblock, "f")
+        result = GenPyrex(fun).emitcode()
+        mod = make_module_from_pyxstring(result)
+        self.assertEquals(mod.f(42), 0)
+        self.assertEquals(mod.f(-3), -3)
+
 if __name__ == '__main__':
     test.main()

@@ -24,12 +24,17 @@ class SpaceOperation:
         self.result = result # <Variable/Constant instance>
 
 class Branch:
-    def __init__(self, args, target):
+    def __init__(self, args=None, target=None):
+        self.set(args, target)
+    def set(self, args, target):
         self.args = args     # list of variables
         self.target = target # basic block instance
 
 class ConditionalBranch:
-    def __init__(self, condition, ifbranch, elsebranch):
+    def __init__(self, condition=None, ifbranch=None, elsebranch=None):
+        self.set(condition, ifbranch, elsebranch)
+
+    def set(self, condition, ifbranch, elsebranch):
         self.condition = condition
         self.ifbranch = ifbranch
         self.elsebranch = elsebranch
