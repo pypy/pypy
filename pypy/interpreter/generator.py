@@ -59,7 +59,7 @@ class GeneratorIterator(object):
         try:
             try: return Frame.run(self.frame)
             except OperationError, e:
-                if e.w_type is self.space.w_StopIteration:
+                if e.match(self.space, self.space.w_StopIteration):
                     raise NoValue
                 else:
                     raise

@@ -302,6 +302,7 @@ class PyInterpFrame(pyframe.PyFrame):
         if nbargs >= 1: w_type      = f.valuestack.pop()
         w_resulttuple = prepare_raise(f.space, w_type, w_value, w_traceback)
         w_type, w_value, w_traceback = f.space.unpacktuple(w_resulttuple, 3)
+        # XXX the three-arguments 'raise' is not supported yet
         raise OperationError(w_type, w_value)
 
     def LOAD_LOCALS(f):
