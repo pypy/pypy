@@ -10,6 +10,8 @@ class complex(object):
     PREC_REPR = 17
     PREC_STR = 12
 
+    __slots__ = ['real', 'imag']
+
     # XXX this class is not well tested
 
     # provide __new__to prevend the default which has no parameters
@@ -22,7 +24,8 @@ class complex(object):
         return (complex(self.real, self.imag),)
     
     def __reduce__(self):
-        return self.__class__, (self.real, self.imag), self.__dict__
+        return (self.__class__, (self.real, self.imag),
+                getattr(self, '__dict__', None))
 
     def _init(self, real=0.0, imag=None):
         if isinstance(real, str): 
@@ -46,15 +49,8 @@ class complex(object):
         elif imag is not None:
             im += float(imag)
 
-        self.__dict__['real'] = re
-        self.__dict__['imag'] = im
-
-    def __setattr__(self, name, value):
-        if name in ('real', 'imag'):
-            raise AttributeError, "readonly attribute"
-        elif self.__class__ is complex:
-            raise AttributeError, "'complex' object has no attribute %s" % name
-        self.__dict__[name] = value
+        real_slot.__set__(self, re)
+        imag_slot.__set__(self, im)
 
     def _makeComplexFromString(self, string):
         import re
@@ -212,6 +208,13 @@ class complex(object):
         mod = self - div*other
         return div, mod
 
+    def __rdivmod__(self, other):
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
+        return other.__divmod__(self)
+
 
     def __pow__(self, other, mod=None):
         if mod is not None:
@@ -320,3 +323,11 @@ class complex(object):
 
     def __float__(self):
         raise TypeError, "can't convert complex to float; use e.g. float(abs(z))"
+
+
+real_slot = complex.real
+imag_slot = complex.imag
+
+# make the slots read-only
+complex.real = property(real_slot.__get__)
+complex.imag = property(imag_slot.__get__)
