@@ -101,6 +101,25 @@ def tuple_eq(space, w_tuple1, w_tuple2):
 
 StdObjSpace.eq.register(tuple_eq, W_TupleObject, W_TupleObject)
 
+def _min(a, b):
+    if a < b:
+        return a
+    return b
+
+def tuple_lt(space, w_tuple1, w_tuple2):
+    # XXX tuple_le, tuple_gt, tuple_ge, tuple_ne must also be explicitely done
+    items1 = w_tuple1.wrappeditems
+    items2 = w_tuple2.wrappeditems
+    ncmp = _min(len(items1), len(items2))
+    # Search for the first index where items are different
+    for p in range(ncmp):
+        if not space.is_true(space.eq(items1[p], items2[p])):
+            return space.lt(items1[p], items2[p])
+    # No more items to compare -- compare sizes
+    return space.newbool(len(items1) < len(items2))
+
+StdObjSpace.lt.register(tuple_lt, W_TupleObject, W_TupleObject)
+
 def tuple_repr(space, w_tuple):
     # XXX slimy! --mwh
     return space.wrap(repr(space.unwrap(w_tuple)))
