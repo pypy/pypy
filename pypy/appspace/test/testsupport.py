@@ -49,4 +49,4 @@ main = unittest.main
 
 if __name__ == '__main__':
     runner = unittest.TextTestRunner()
-    runner.run(get_tests_for_dir(os.path.dirname(sys.argv[0])))
+    runner.run(get_tests_for_dir(this_path))
