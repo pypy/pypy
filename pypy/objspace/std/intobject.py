@@ -321,7 +321,7 @@ def int_abs(space, w_int1):
 StdObjSpace.abs.register(int_abs, W_IntObject)
 
 def int_is_true(space, w_int1):
-    return w_int1.intval != 0
+    return space.newbool(w_int1.intval != 0)
 
 StdObjSpace.is_true.register(int_is_true, W_IntObject)
 
