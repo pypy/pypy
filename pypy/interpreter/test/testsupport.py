@@ -21,7 +21,9 @@ or without any dot in it).
 When run as a script, runs all tests found in files called 'test_*.py'
 in the same directory.
 """
-import sys, os
+import sys
+import os
+import unittest
 
 try:
     head = this_path = os.path.abspath(__file__)
@@ -39,26 +41,11 @@ while 1:
         break
 
 import pypy.interpreter.unittest_w
+from pypy.interpreter.testtools import *
+
 TestCase = pypy.interpreter.unittest_w.TestCase_w
-import unittest
 main = unittest.main
-
-from pypy.interpreter import testtools
-
-def objspace():
-    objspace_path = os.environ.get('OBJSPACE')
-    if not objspace_path or '.' not in objspace_path:
-        import pypy.objspace.trivial
-        return pypy.objspace.trivial.TrivialObjSpace()
-    else:
-        objspace_pieces = objspace_path.split('.')
-        objspace_path = '.'.join(objspace_pieces[:-1])
-        objspace_module = __import__(objspace_path)
-        for piece in objspace_pieces[1:-1]:
-            objspace_module = getattr(objspace_module, piece)
-        objspace_classname = objspace_pieces[-1]
-        return getattr(objspace_module, objspace_classname)()
 
 if __name__ == '__main__':
     runner = unittest.TextTestRunner()
-    runner.run(testtools.get_tests_for_dir(os.path.dirname(sys.argv[0])))
+    runner.run(get_tests_for_dir(os.path.dirname(sys.argv[0])))
