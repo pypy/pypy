@@ -290,12 +290,10 @@ class TestSkip(Exception):
 def objspace(name='', new_flag=False):
     if name and Options.spacename and name != Options.spacename:
         raise TestSkip
-
     if new_flag:
         space = option.objspace(name, _spacecache={})    
     else:
-        space = option.objspace(name)
-        
+        space = option.objspace(name)        
     if Options.trace_flag:
         # XXX This really sucks as a means to turn on tracing for a sole unit
         # test (esp at app level).  I can't see an obvious way to do this
@@ -304,7 +302,6 @@ def objspace(name='', new_flag=False):
         from pypy.objspace.trace import create_trace_space
         create_trace_space(space)
         space.settrace()
-
     return space
 
 def new_objspace(name=''):
@@ -338,7 +335,6 @@ class RegexFilterFunc:
 
 def get_test_options():
     options = option.get_standard_options()
-
     options.append(make_option(
         '-p', action="store_true", dest="trace_flag",
         help="augment object space with tracing capabilities"))
@@ -365,7 +361,6 @@ def run_tests(suite):
         run_tests_on_space(suite, spacename)
 
 def run_tests_on_space(suite, spacename=''):
-
     """Run the suite on the given space."""
     if Options.runcts:
         runner = CtsTestRunner() # verbosity=Options.verbose+1)
