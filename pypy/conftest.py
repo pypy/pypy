@@ -21,6 +21,10 @@ def getobjspace(name=None, _spacecache={}):
         name = py.test.config.option.objspacename  
         if name is None:
             name = py.std.os.environ.get('OBJSPACE', 'std')
+    else:
+        optionname = py.test.config.option.objspacename
+        if optionname is not None and optionname != name:
+            return None
     try:
         return _spacecache[name]
     except KeyError:
@@ -44,17 +48,24 @@ class Module(py.test.collect.Module):
         if extpy.check(class_=1, basestarts="AppTest"): 
             yield AppClassCollector(extpy) 
 
+def gettestobjspace(name=None):
+    space = getobjspace(name)
+    if space is None:
+        py.test.skip('test requires object space %r' % (name,))
+    return space
+
 class IntTestMethod(py.test.Item): 
-    def run(self, driver): 
-        cls = self.extpy.resolve().im_class 
-        space = getobjspace()
-        cls.space = space 
-        return super(IntTestMethod, self).run(driver) 
+    def execute(self, target, *args):
+        name = getattr(target.im_class, 'objspacename', None)
+        instance = target.im_self
+        instance.space = gettestobjspace(name)
+        return target(*args)
 
 class AppTestMethod(py.test.Item): 
     def execute(self, target, *args): 
+        name = getattr(target.im_class, 'objspacename', None)
+        space = gettestobjspace(name)
         func = app2interp_temp(target.im_func, target.__name__) 
-        space = getobjspace()
         func(space, space.w_None) 
 
 class AppClassCollector(py.test.collect.Class): 
