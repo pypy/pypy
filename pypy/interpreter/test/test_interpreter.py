@@ -97,16 +97,18 @@ def f():
         self.assertEquals(x, 5)
 
     def test_except3(self):
-        x = self.codetest('''
-def f():
+        code = '''
+def f(v):
     z = 0
     try:
-        "x"+1
-    except TypeError, e:
-        z = 5
+        z = 1//v
+    except ZeroDivisionError, e:
+        z = "infinite result"
     return z
-''', 'f', [])
-        self.assertEquals(x, 5)
+'''
+        self.assertEquals(self.codetest(code, 'f', [2]), 0)
+        self.assertEquals(self.codetest(code, 'f', [0]), "infinite result")
+        self.assertEquals(self.codetest(code, 'f', ['x']), "<<<TypeError: unsupported operand type(s) for //: 'int' and 'str'>>>")
 
     def test_break(self):
         code = '''
