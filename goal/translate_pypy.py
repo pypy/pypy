@@ -87,6 +87,8 @@ if __name__ == '__main__':
         print '-'*60
         print 'Generating C code...'
         t.ccompile()
+        ep = sys.modules['entry_point_1']
+        ep.entry_point()
     except:
         debug()
     else:
