@@ -100,7 +100,7 @@ class AppTestFunction(PyPyItem):
         name = target.func_globals.get('objspacename', None) 
         space = gettestobjspace(name) 
         func = app2interp_temp(target, target.__name__)
-        self.execute_in_space(space, target)
+        self.execute_in_space(space, func, space)
 
 class IntTestMethod(PyPyItem): 
     def execute(self, target, *args):
