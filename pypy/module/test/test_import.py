@@ -26,6 +26,21 @@ class TestImport(testit.AppTestCase):
       import pkg
       self.assert_('pkg' in sys.modules)
 
+   def test_import_dotted(self):
+      import sys
+      sys.path.append('impsubdir')
+      import pkg.a
+      self.assert_('pkg' in sys.modules)
+      self.assert_('pkg.a' in sys.modules)
+
+   def test_import_dotted2(self):
+      import sys
+      sys.path.append('impsubdir')
+      import pkg.pkg1.a
+      self.assert_('pkg' in sys.modules)
+      self.assert_('pkg.pkg1' in sys.modules)
+      self.assert_('pkg.pkg1.a' in sys.modules)
+      
 if __name__ == '__main__':
     testit.main()
 
