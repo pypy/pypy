@@ -158,7 +158,9 @@ class Function(Wrappable):
     def descr_function_get(self, w_obj, w_cls):
         space = self.space
         wrap = space.wrap
-        if not space.is_true(space.is_(w_obj, space.w_None)):
+        asking_for_bound = (not space.is_true(space.is_(w_obj, space.w_None)) or
+                      space.is_true(space.is_(w_cls, space.type(space.w_None))))
+        if asking_for_bound:
             if space.is_true(space.is_(w_cls, space.w_None)):
                 w_cls = space.type(w_obj)
             return wrap(Method(space, wrap(self), w_obj, w_cls))

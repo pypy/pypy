@@ -74,7 +74,7 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             __getattribute__ = gateway.interp2app(Object.descr__getattribute__.im_func),
             __setattr__ = gateway.interp2app(Object.descr__setattr__.im_func),
             __delattr__ = gateway.interp2app(Object.descr__delattr__.im_func),
-            __str__ = gateway.interp2app(lambda space, w_x: str(w_x)),
+            __str__ = gateway.interp2app(lambda space, w_x: space.repr(w_x)),
             __repr__ = gateway.interp2app(lambda space, w_x: repr(w_x)),
             __class__ = GetSetProperty(self.__class__.type),
             __init__ = gateway.interp2app(Object.descr__init__.im_func),
@@ -146,6 +146,8 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
         try:
             return typedef.trivialwrapperclass
         except AttributeError:
+            from pypy.interpreter.gateway import interp2app
+            
             # make the base first (assuming single inheritance)
             mro = typedef.mro(self)
             if len(mro) > 1:
@@ -156,12 +158,24 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             # in rawdict
             descrdict = {'__internalpypytypedef__': typedef}
             for descrname, descr in typedef.rawdict.items():
-                def fget(w_obj, w_descr=descr, space=self):
-                    return space.get(w_descr, w_obj, space.type(w_obj))
-                def fset(w_obj, w_value, w_descr=descr, space=self):
-                    return space.set(w_descr, w_obj, w_value)
-                def fdel(w_obj, w_descr=descr, space=self):
-                    return space.set(w_descr, w_obj)
+                if isinstance(descr, interp2app):
+                    def fget(w_obj, descr=descr, space=self):
+                        fn = descr.get_function()
+                        return space.wrap(Method(space, space.wrap(fn), w_obj,
+                                                 space.type(w_obj)))
+                    fset = None
+                    fdel = None
+                else:
+                    # more generally, defining a property
+                    def fget(w_obj, descr=descr, space=self):
+                        w_descr = space.wrap(descr)
+                        return space.get(w_descr, w_obj, space.type(w_obj))
+                    def fset(w_obj, w_value, descr=descr, space=self):
+                        w_descr = space.wrap(descr)
+                        return space.set(w_descr, w_obj, w_value)
+                    def fdel(w_obj, descr=descr, space=self):
+                        w_descr = space.wrap(descr)
+                        return space.set(w_descr, w_obj)
                 descrdict[descrname] = property(fget, fset, fdel)
             cls = type('CPyWrapped '+typedef.name, bases, descrdict)
             typedef.trivialwrapperclass = cls
