@@ -16,7 +16,7 @@ compile is found in the builtin.py file.
 # look at this if it makes sense
 # think of a proper base class???
 
-import baseobjspace
+import baseobjspace, pyframe
 from appfile import AppFile
 
 appfile = AppFile(__name__, ["interpreter"])
@@ -72,6 +72,7 @@ class PyByteCode(PyBaseCode):
 
     def __init__(self):
         """ initialize all attributes to just something. """
+        PyBaseCode.__init__(self)
         self.co_filename = ""
         self.co_code = None
         self.co_consts = ()
@@ -98,8 +99,7 @@ class PyByteCode(PyBaseCode):
             setattr(self, name, value)
 
     def eval_code(self, space, w_globals, w_locals):
-        frame = pypy.interpreter.pyframe.PyFrame(space, self,
-                                             w_globals, w_locals)
+        frame = pyframe.PyFrame(space, self, w_globals, w_locals)
         ec = space.getexecutioncontext()
         w_ret = ec.eval_frame(frame)
         return w_ret

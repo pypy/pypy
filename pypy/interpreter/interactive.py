@@ -1,6 +1,4 @@
-from pypy.interpreter import executioncontext
-from pypy.interpreter import pyframe
-from pypy.interpreter import baseobjspace
+import executioncontext, pyframe, baseobjspace
 import sys
 import code
 import linecache
