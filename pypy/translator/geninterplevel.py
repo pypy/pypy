@@ -652,7 +652,8 @@ class GenRpy:
         # type(type.__dict__['__basicsize__']): "cannot eval type(type.__dict__['__basicsize__'])",
         # XXX there seems to be no working support for member descriptors ???
         type(types.GeneratorType.gi_frame):
-            (eval_helper, "member_descriptor", 'type(types.GeneratorType.gi_frame)')
+            (eval_helper, "member_descriptor", 'type(types.GeneratorType.gi_frame)'),
+        types.ClassType: 'space.w_classobj',
     }
 
     def nameof_type(self, cls):
