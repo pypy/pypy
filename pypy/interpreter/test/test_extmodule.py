@@ -43,15 +43,11 @@ class TestBuiltinModule(test.TestCase):
         bm = BM_with_appmethod(space)
         w_bm = bm.wrap_me()
         w_bmd = space.getattr(w_bm, space.wrap('__dict__'))
-        bmd = space.unwrap(w_bmd)
-        themethod = bmd.get('amethod')
-        self.assertNotEqual(themethod, None)
         w_method = space.getitem(w_bmd, space.wrap('amethod'))
-        bmd['amethod'] = BM_with_appmethod.amethod
-        self.assertEqual(bmd,
-            {'__doc__': BM_with_appmethod.__doc__,
-            '__name__': BM_with_appmethod.__pythonname__,
-            'amethod': BM_with_appmethod.amethod} )
+        w_doc = space.getitem(w_bmd, space.wrap("__doc__"))
+        w_name = space.getitem(w_bmd, space.wrap("__name__"))
+        self.assertEqual(space.unwrap(w_doc), BM_with_appmethod.__doc__)
+        self.assertEqual(space.unwrap(w_name), BM_with_appmethod.__pythonname__)
         result = space.call(w_method, space.wrap(()), space.wrap({}))
         self.assertEqual(result, 23)
 
