@@ -340,6 +340,11 @@ def %(_name)s(self, *args):
     def init(self, type, args, kw):
         pass
 
+    def set(self, descr, ob, val):
+        descr.__set__(ob, val)
+
+    def delete(self, descr, ob):
+        descr.__delete__(ob)
 
 for m in ObjSpace.MethodTable:
     if not hasattr(TrivialObjSpace, m[0]):
