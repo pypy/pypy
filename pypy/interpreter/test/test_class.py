@@ -126,5 +126,15 @@ class C:
         self.assertEquals(C.meth_doc.__doc__, """this is a docstring""")
         self.assertEquals(c.meth_doc.__doc__, """this is a docstring""")
 
+    def test_getattribute(self):
+        class C:
+            def __getattribute__(self, attr):
+                if attr == 'one':
+                    return 'two'
+                return super(C, self).__getattribute__(attr)
+        c = C()
+        self.assertEquals(c.one, "two")
+        self.assertRaises(AttributeError, getattr, c, "two")
+
 if __name__ == '__main__':
     testit.main()

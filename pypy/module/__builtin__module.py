@@ -581,7 +581,7 @@ class super(object):
         self.__thisclass__ = type
         self.__self__ = obj
         if obj is not None and isinstance(obj, type):
-            self.__self_class__ = obj.__class__
+            self.__self_class__ = object.__getattribute__(obj, "__class__")
         else:
             self.__self_class__ = obj
     def __get__(self, obj, type=None):
