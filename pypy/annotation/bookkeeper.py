@@ -99,10 +99,10 @@ class Bookkeeper:
                 x.im_self.freeze()
             if hasattr(x, '__self__') and x.__self__ is not None:
                 s_self = self.immutablevalue(x.__self__)
-                # stop infinite recursion getattr<->immutablevalue
-                del s_self.const
-                s_name = self.immutablevalue(x.__name__)
-                result = s_self.getattr(s_name)
+                try:
+                    result = s_self.find_method(x.__name__)
+                except AttributeError:
+                    result = SomeObject()
             else:
                 return self.getpbc(x)
         elif hasattr(x, '__class__') \

@@ -40,14 +40,20 @@ class __extend__(SomeObject):
             else:
                 return SomeBool()
 
+    def find_method(obj, name):
+        "Look for a special-case implementation for the named method."
+        analyser = getattr(obj.__class__, 'method_' + name)
+        return SomeBuiltin(analyser, obj)
+
     def getattr(obj, s_attr):
         # get a SomeBuiltin if the SomeObject has
         # a corresponding method to handle it
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            analyser = getattr(obj.__class__, 'method_' + attr, None)
-            if analyser is not None:
-                return SomeBuiltin(analyser, obj)
+            try:
+                return obj.find_method(attr)
+            except AttributeError:
+                pass
             # if the SomeObject is itself a constant, allow reading its attrs
             if obj.is_constant() and hasattr(obj.const, attr):
                 return immutablevalue(getattr(obj.const, attr))
