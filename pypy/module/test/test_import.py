@@ -63,5 +63,13 @@ class TestImport(testit.AppTestCase):
       self.assert_('pkg.a' in sys.modules)
       self.assertEquals(imamodule, 1)
 
+   def test_from_pkg_import_module(self):
+      import sys
+      sys.path.append('impsubdir')
+      from pkg import a
+      self.assert_('pkg' in sys.modules)
+      self.assert_('pkg.a' in sys.modules)
+      self.assert_(hasattr(a, 'imamodule'))
+
 if __name__ == '__main__':
     testit.main()
