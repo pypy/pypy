@@ -49,8 +49,8 @@ def raw_input(prompt=None):
         raise EOFError
     return line
 
-def input():
-    return eval(raw_input())
+def input(prompt=None):
+    return eval(raw_input(prompt))
 
 
 def sum(sequence, total=0):
@@ -145,7 +145,7 @@ def filter(function, collection):
     else:
         res = [item for item in collection if function(item)]
 
-    if type(collection) is tuple:
+    if isinstance(collection, tuple):
        return tuple(res)
     else:
        return res
@@ -233,12 +233,20 @@ def range(x, y=None, step=1):
         to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
         get a list in decending order."""
 
+
     if y is None: 
             start = 0
             stop = x
     else:
             start = x
             stop = y
+
+    if not isinstance(start, (int, long)):
+        raise TypeError('range() interger start argument expected, got %s' % type(start))
+    if not isinstance(stop, (int, long)):
+        raise TypeError('range() interger stop argument expected, got %s' % type(stop))
+    if not isinstance(step, (int, long)):
+        raise TypeError('range() interger step argument expected, got %s' % type(step))
 
     if step == 0:
         raise ValueError, 'range() arg 3 must not be zero'
@@ -656,7 +664,7 @@ class super(object):
                     x = x.__get__(d['__self__'], type(d['__self__']))
                 return x
         return object.__getattribute__(self, attr)     # fall-back
-
+    
 class complex(object):
     """complex(real[, imag]) -> complex number
 
@@ -984,6 +992,39 @@ def reversed(iterable):
         for index in range(len_iterable-1, -1, -1):
             yield local_iterable[index]
     return reversed_gen(seq)
+
+def reload(module):
+    import imp, sys, errno
+
+    if type(module) not in (type(imp), type(errno)):
+        raise TypeError("reload() argument must be module")
+
+    name = module.__name__
+    if module is not sys.modules[name]:
+        raise ImportError("reload(): module %.200s not in sys.modules" % name)
+
+    namepath = name.split('.')
+    subname = namepath[-1]
+    parent_name = '.'.join(namepath[:-1])
+    parent = None
+    path = None
+    if parent_name:
+        try:
+            parent = sys.modules[parent_name]
+        except KeyError:
+            raise ImportError("reload(): parent %.200s not in sys.modules" %
+                              parent_name)
+        path = parent.__path__
+
+    f, filename, description = imp.find_module(subname, path)
+    try:
+        new_module = imp.load_module(name, f, filename, description)
+    finally:
+        sys.modules[name] = module
+        if f is not None:
+            f.close()
+
+    return new_module
 
 #from _file import file
 #open = file
