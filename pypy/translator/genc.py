@@ -171,6 +171,15 @@ class GenC:
     def skipped_function(self, func):
         # debugging only!  Generates a placeholder for missing functions
         # that raises an exception when called.
+        if self.translator.frozen:
+            warning = 'NOT GENERATING'
+        else:
+            warning = 'skipped'
+        printable_name = '(%s:%d) %s' % (
+            func.func_globals.get('__name__', '?'),
+            func.func_code.co_firstlineno,
+            func.__name__)
+        print warning, printable_name
         name = self.uniquename('gskippedfunc_' + func.__name__)
         self.initcode.append('def %s(*a,**k):' % name)
         self.initcode.append('  raise NotImplementedError')
@@ -178,6 +187,13 @@ class GenC:
 
     def getfuncdef(self, func):
         if func not in self.funcdefs:
+            if self.translator.frozen:
+                if func not in self.translator.flowgraphs:
+                    return None
+            else:
+                if (func.func_doc and
+                    func.func_doc.lstrip().startswith('NOT_RPYTHON')):
+                    return None
             funcdef = FunctionDef(func, self)
             self.funcdefs[func] = funcdef
             self.allfuncdefs.append(funcdef)
@@ -186,23 +202,13 @@ class GenC:
 
     def nameof_function(self, func, progress=['-\x08', '\\\x08',
                                               '|\x08', '/\x08']):
-        printable_name = '(%s:%d) %s' % (
-            func.func_globals.get('__name__', '?'),
-            func.func_code.co_firstlineno,
-            func.__name__)
-        if self.translator.frozen:
-            if func not in self.translator.flowgraphs:
-                print "NOT GENERATING", printable_name
-                return self.skipped_function(func)
-        else:
-            if (func.func_doc and
-                func.func_doc.lstrip().startswith('NOT_RPYTHON')):
-                print "skipped", printable_name
-                return self.skipped_function(func)
+        funcdef = self.getfuncdef(func)
+        if funcdef is None:
+            return self.skipped_function(func)
+        if not self.translator.frozen:
             p = progress.pop(0)
             sys.stderr.write(p)
             progress.append(p)
-        funcdef = self.getfuncdef(func)
         return funcdef.get_globalobject()
 
     def nameof_staticmethod(self, sm):

@@ -374,19 +374,31 @@ class FunctionDef:
         args.insert(0, '%d' % len(args))
         return 'OP_NEWTUPLE((%s), %s, %s)' % (', '.join(args), r, err)
 
-    def OP_SIMPLE_CALL(self, target_args, r, err):
-        # try to use the shortcut: a direct call to
-        # the ff_xxx() function, using its C signature.
-        target = target_args[0].args[0]
-        args = [arg.compute() for arg in target_args[1:]]
-        if (isinstance(target, Constant) and
-            isinstance(target.value, FunctionType) and not USE_CALL_TRACE):
-            funcdef = self.genc.getfuncdef(target.value)
-            if len(funcdef.positional_args) == len(args) and not funcdef.vararg:
-                return 'if (!(%s=%s(%s))) FAIL(%s);' % (
-                    r, funcdef.fast_name, ', '.join(args), err)
+    def fast_simple_call(self, args, r, err):
+        # try to generate a SIMPLE_CALL using a shortcut:
+        # a direct call to the ff_xxx() function, using its C signature.
+        if USE_CALL_TRACE:
+            return None
+        target = args[0].args[0]
+        args = [arg.compute() for arg in args[1:]]
+        if not isinstance(target, Constant):
+            return None
+        if not isinstance(target.value, FunctionType):
+            return None
+        funcdef = self.genc.getfuncdef(target.value)
+        if funcdef is None:
+            return None
+        if len(funcdef.positional_args) != len(args) or funcdef.vararg:
+            return None
+        return 'if (!(%s=%s(%s))) FAIL(%s);' % (
+            r, funcdef.fast_name, ', '.join(args), err)
+
+    def OP_SIMPLE_CALL(self, args, r, err):
+        result = self.fast_simple_call(args, r, err)
+        if result is not None:
+            return result
         # fall-back
-        args.insert(0, target_args[0].compute())
+        args = [arg.compute() for arg in args]
         args.append('NULL')
         return 'OP_SIMPLE_CALL((%s), %s, %s)' % (', '.join(args), r, err)
 
