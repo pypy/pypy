@@ -169,7 +169,7 @@ Please <a href="%s">click here</a> to continue.
             f.close()
 
 
-def my_host():
-    import gamesrv
-    port = gamesrv.socketports[gamesrv.openhttpsocket()]
-    return '127.0.0.1:%d' % port
+def serve(port=8000):
+    server_address = ('', port)
+    httpd = BaseHTTPServer.HTTPServer(server_address, MiniHandler)
+    httpd.serve_forever()

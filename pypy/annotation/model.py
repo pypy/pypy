@@ -142,6 +142,14 @@ def unionof(*somevalues):
             s1 = pair(s1, s2).union()
     return s1
 
+def ishashable(x):
+    try:
+        hash(x)
+    except TypeError:
+        return False
+    else:
+        return True
+
 def immutablevalue(x):
     "The most precise SomeValue instance that contains the immutable value x."
     if isinstance(bool, type) and isinstance(x, bool):
@@ -152,7 +160,7 @@ def immutablevalue(x):
         result = SomeString()
     elif isinstance(x, tuple):
         result = SomeTuple(items = [immutablevalue(e) for e in x])
-    elif x in BUILTIN_FUNCTIONS:
+    elif ishashable(x) and x in BUILTIN_FUNCTIONS:
         result = SomeBuiltin(BUILTIN_FUNCTIONS[x])
     elif isinstance(x, (type, ClassType)) and x.__module__ != '__builtin__':
         result = SomeClass(x)

@@ -132,8 +132,16 @@ class RPythonAnnotator:
         # add default arguments if necessary
         missingargs = len(block.inputargs) - len(inputcells)
         if missingargs:
-            assert missingargs >= 0
-            assert missingargs <= len(func.func_defaults or ())
+            nbdefaults = len(func.func_defaults or ())
+            if not (0 <= missingargs <= nbdefaults):
+                if nbdefaults:
+                    msg = "%d to %d" % (len(block.inputargs)-nbdefaults,
+                                        len(block.inputargs))
+                else:
+                    msg = "%d" % len(block.inputargs)
+                raise AnnotatorError, (
+                    "got %d inputcells in call to %r; expected %s" % (
+                    len(inputcells), func, msg))
             for extra in func.func_defaults[-missingargs:]:
                 inputcells.append(annmodel.immutablevalue(extra))
         self.addpendingblock(block, inputcells)
@@ -209,6 +217,10 @@ class RPythonAnnotator:
                 #import traceback, sys
                 #traceback.print_tb(sys.exc_info()[2])
                 self.annotated[block] = False   # failed, hopefully temporarily
+            except AnnotatorError, e:
+                if not hasattr(e, 'block'):
+                    e.block = block
+                raise
 
     def reflowpendingblock(self, block):
         self.pendingblocks.append((block, None))

@@ -99,7 +99,14 @@ class Constant:
         return hash(self.value)
 
     def __repr__(self):
-        return '(%r)' % (self.value,)
+        # try to limit the size of the repr to make it more readable
+        r = repr(self.value)
+        if (r.startswith('<') and r.endswith('>') and
+            hasattr(self.value, '__name__')):
+            r = '%s %s' % (type(self.value).__name__, self.value.__name__)
+        elif len(r) > 30:
+            r = r[:20] + '...' + r[-8:]
+        return '(%s)' % r
 
 # hack! it is useful to have UNDEFINED be an instance of Constant too.
 # PyFrame then automatically uses this Constant as a marker for

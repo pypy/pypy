@@ -59,12 +59,12 @@ class Server:
         data = '=== %s ===\n\n%s' % (n, data)
         return StringIO(data), 'text/plain'
 
-    def serve(self):
+    def serve(self, port=8000):
         httpserver.register('', self.indexloader)
         httpserver.register('func', self.funcloader)
         httpserver.register('img', self.imgloader)
         httpserver.register('var', self.varloader)
-        BaseHTTPServer.test(HandlerClass=httpserver.MiniHandler)
+        httpserver.serve(port)
 
 # ____________________________________________________________
 

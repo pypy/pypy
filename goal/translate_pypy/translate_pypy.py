@@ -6,6 +6,7 @@ import autopath
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.translator.translator import Translator
+from pypy.translator.annrpython import AnnotatorError
 
 
 # __________  Entry point  __________
@@ -44,9 +45,15 @@ if __name__ == '__main__':
             return
         print "don't know about", x
 
-    import graphserver
-    def run_server():
-        graphserver.Server(t).serve()
+    def run_server(background=False, port=8000):
+        import graphserver
+        server = graphserver.Server(t)
+        print >> sys.stderr, '* View the blocks at http://127.0.0.1:%d/' % port
+        if background:
+            import thread
+            thread.start_new_thread(server.serve, ())
+        else:
+            server.serve()
 
     t = Translator(entry_point, verbose=True, simplifying=True)
     try:
@@ -58,7 +65,14 @@ if __name__ == '__main__':
         print >> sys.stderr
         traceback.print_exception(exc, val, tb)
         print >> sys.stderr
-        thread.start_new_thread(run_server, ())
+
+        if isinstance(val, AnnotatorError) and hasattr(val, 'block'):
+            print '-'*60
+            about(val.block)
+            print '-'*60
+        
+        run_server(background=True)
+        print >> sys.stderr
         import pdb
         pdb.post_mortem(tb)
     else:
