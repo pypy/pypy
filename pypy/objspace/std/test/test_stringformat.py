@@ -87,5 +87,24 @@ class TestStringObject(testit.AppTestCase):
     def test_format_wrong_char(self):
         self.assertRaises(ValueError, 'a%Zb'.__mod__, ((23,),))
 
+class TestWidthPrec(testit.AppTestCase):
+    def setUp(self):
+        self.space = testit.objspace()
+
+    def test_width(self):
+        self.assertEquals("%3s"%'a', '  a')
+        self.assertEquals("%-3s"%'a', 'a  ')
+
+    def test_prec_string(self):
+        self.assertEquals("%.3s"%'a', 'a')
+        self.assertEquals("%.3s"%'abcde', 'abc')
+
+    def test_prec_width_string(self):
+        self.assertEquals("%5.3s"%'a',      '    a')
+        self.assertEquals("%5.3s"%'abcde',  '  abc')
+        self.assertEquals("%-5.3s"%'a',     'a    ')
+        self.assertEquals("%-5.3s"%'abcde', 'abc  ')
+        
+
 if __name__ == '__main__':
     testit.main()

@@ -986,6 +986,25 @@ def app_mod__String_ANY(format, values):
             if c=='%':
                 pieces.append('%')
             else:
+                width = None
+                prec = None
+                if c in '-0123456789':
+                    j = i
+                    while format[j] in '-0123456789':
+                        j += 1
+                    if format[i:j] != '-':
+                        width = int(format[i:j])
+                    i = j
+                    c = format[j]
+                if c == '.':
+                    i += 1
+                    j = i
+                    while format[j] in '0123456789':
+                        j += 1
+                    prec = int(format[i:j])
+                    i = j
+                    c = format[j]
+                    
                 if c == '(':
                     # read name 
                     j = format.find(')', i+1)
@@ -1028,6 +1047,17 @@ def app_mod__String_ANY(format, values):
                 else:
                     raise ValueError, "unsupported format character '%s' (%x) at index %d" % (
                             c, ord(c), i)
+                if prec is not None:
+                    pieces[-1] = pieces[-1][:prec]
+                if width is not None:
+                    p = pieces[-1]
+                    if width < 0:
+                        d = max(-width - len(p), 0)
+                        p = p + ' '*d
+                    else:
+                        d = max(width - len(p), 0)
+                        p = ' '*d + p
+                    pieces[-1] = p
             state = 0
             start = i+1
         i += 1
