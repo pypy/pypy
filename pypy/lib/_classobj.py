@@ -21,13 +21,22 @@ def uid(o):
         v += 1
     return v & MASK
 
+# we use slots that we remove from type __dict__ for special attributes
+#
+# for classobj they are __bases__ and __name__ (classobj_bases_slot, classobj_name_slot)
+# for instance it's __class__ (instance_class_slot)
+
+
+# ____________________________________________________________
+# classobj def
+
 def type_err(arg, expected, v):
    return TypeError("argument %s must be %s, not %s" % (arg, expected, type(v).__name__))
 
 def set_name(cls, name):
     if not isinstance(name, str):
         raise TypeError, "__name__ must be a string object"
-    obj_setattr(cls, '__name__', name)
+    classobj_name_slot.__set__(cls, name)
 
 def set_bases(cls, bases):
     if not isinstance(bases, tuple):
@@ -35,14 +44,11 @@ def set_bases(cls, bases):
     for b in bases:
         if not isinstance(b, classobj):
             raise TypeError, "__bases__ items must be classes"
-    obj_setattr(cls, '__bases__', bases)
+    classobj_bases_slot.__set__(cls, bases)
 
 def set_dict(cls, dic):
     if not isinstance(dic, dict):
         raise TypeError, "__dict__ must be a dictionary object"
-    # preserved __name__ and __bases__
-    dic['__name__'] = cls.__name__
-    dic['__bases__'] = cls.__bases__
     obj_setattr(cls, '__dict__', dic)
 
 def retrieve(obj, attr):
@@ -58,7 +64,7 @@ def lookup(cls, attr):
         v = retrieve(cls, attr)
         return v, cls
     except AttributeError:
-        for b in obj_getattribute(cls, '__bases__'):
+        for b in classobj_bases_slot.__get__(cls):
             v, found = lookup(b, attr)
             if found:
                 return v, found
@@ -94,6 +100,8 @@ def seqiter(func): # XXX may want to access and instatiate the internal
         i += 1
 
 class classobj(object):
+
+    __slots__ = ('_name', '_bases', '__dict__')
 
     def __new__(subtype, name, bases, dic):
         if not isinstance(name, str):
@@ -135,8 +143,8 @@ class classobj(object):
         new_class = object.__new__(classobj)
 
         obj_setattr(new_class, '__dict__', dic)
-        obj_setattr(new_class, '__name__', name)
-        obj_setattr(new_class, '__bases__', bases)
+        classobj_name_slot.__set__(new_class, name)
+        classobj_bases_slot.__set__(new_class, bases)
 
         return new_class
 
@@ -160,11 +168,14 @@ class classobj(object):
     def __getattribute__(self, attr):
         if attr == '__dict__':
             return obj_getattribute(self, '__dict__')
+        if attr == '__name__':
+            return classobj_name_slot.__get__(self)
+        if attr == '__bases__':
+            return classobj_bases_slot.__get__(self)
+            
         v, found = lookup(self, attr)
         if not found:
             raise AttributeError, "class %s has no attribute %s" % (self.__name__, attr)
-        if attr in ('__name__', '__bases__'):
-            return v
 
         descr_get = mro_lookup(v, '__get__')
         if descr_get is None:
@@ -185,7 +196,7 @@ class classobj(object):
     def __call__(self, *args, **kwds):
         inst = object.__new__(instance)
         dic = inst.__dict__
-        dic['__class__'] = self
+        instance_class_slot.__set__(inst, self)
         init = instance_getattr1(inst,'__init__', False)
         if init:
             ret = init(*args, **kwds)
@@ -193,21 +204,25 @@ class classobj(object):
                 raise TypeError("__init__() should return None")
         return inst
 
-# first we use the object's dict for the instance dict.
-# with a little more effort, it should be possible
-# to provide a clean extra dict with no other attributes
-# in it.
+# capture _name, _bases slots for usage and then hide them!
+
+classobj_name_slot  = classobj._name
+classobj_bases_slot = classobj._bases
+
+del classobj._name, classobj._bases
+
+# ____________________________________________________________
+# instance def
 
 def instance_getattr1(inst, name, exc=True):
     if name == "__dict__":
         return obj_getattribute(inst, name)
     elif name == "__class__":
-        # for now, it lives in the instance dict
-        return retrieve(inst, name)
+        return instance_class_slot.__get__(inst)
     try:
         return retrieve(inst, name)
     except AttributeError:
-        cls = retrieve(inst, "__class__")
+        cls = instance_class_slot.__get__(inst)
         v, found = lookup(cls, name)
         if not found:
             if exc:
@@ -220,6 +235,9 @@ def instance_getattr1(inst, name, exc=True):
         return descr_get(v, inst, cls)
 
 class instance(object):
+
+    __slots__ = ('_class', '__dict__')
+    
     def __getattribute__(self, name):
         try:
             return instance_getattr1(self, name)
@@ -238,7 +256,7 @@ class instance(object):
         elif not isinstance(dic, dict):
             raise TypeError("instance() second arg must be dictionary or None")
         inst = object.__new__(instance)
-        dic['__class__'] = klass
+        instance_class_slot.__set__(inst, klass)
         obj_setattr(inst, '__dict__', dic)
         return inst
 
@@ -246,14 +264,11 @@ class instance(object):
         if name == '__dict__':
             if not isinstance(value, dict):
                 raise TypeError("__dict__ must be set to a dictionary")
-            # for now, we need to copy things, because we are using
-            # the __dict__for our class as well. This will vanish!
-            value['__class__'] = self.__class__
             obj_setattr(self, '__dict__', value)
         elif name == '__class__':
             if not isinstance(value, classobj):
                 raise TypeError("__class__ must be set to a class")
-            self.__dict__['__class__'] = value
+            instance_class_slot.__set__(inst, value)
         else:
             setattr = instance_getattr1(self, '__setattr__', exc=False)
             if setattr is not None:
@@ -530,5 +545,9 @@ class instance(object):
                     return 0
                 raise TypeError,"__cmp__ must return int"
         return NotImplemented
+
+# capture _class slot for usage and then hide them!
+instance_class_slot = instance._class
+del instance._class
     
 del _compile, NiceCompile
