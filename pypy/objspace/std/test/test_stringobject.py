@@ -179,7 +179,27 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals("".count(""),1)
         self.assertEquals("Python".count(""),7)
         self.assertEquals("ab aaba".count("ab"),2)
-        
+    
+    def test_endswith(self):
+        self.assertEquals('ab'.endswith('ab'),1)
+        self.assertEquals('ab'.endswith('b'),1)
+        self.assertEquals('ab'.endswith(''),1)
+        self.assertEquals('x'.endswith('a'),0)
+        self.assertEquals('x'.endswith('x'),1)
+        self.assertEquals(''.endswith(''),1)
+        self.assertEquals(''.endswith('a'),0)
+        self.assertEquals('x'.endswith('xx'),0)
+        self.assertEquals('y'.endswith('xx'),0)
+   
+            
+    def test_expandtabs(self):
+        s = '\txy\t'
+        self.assertEquals(s.expandtabs(),'        xy        ')
+        self.assertEquals(s.expandtabs(1),' xy ')
+        self.assertEquals('xy'.expandtabs(),'xy')
+        self.assertEquals(''.expandtabs(),'')
+
+
     def test_split_maxsplit(self):
         self.assertEquals("/a/b/c".split('/', 2), ['','a','b/c'])
         self.assertEquals(" a ".split(None, 0), ['a '])

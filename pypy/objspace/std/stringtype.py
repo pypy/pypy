@@ -28,8 +28,9 @@ class W_StringType(W_TypeObject):
     str_rstrip     = MultiMethod('rstrip', 1)
     str_lstrip     = MultiMethod('lstrip', 1)
     str_center     = MultiMethod('center', 2)
-    str_count      = MultiMethod('count', 2)
-
+    str_count      = MultiMethod('count', 2)      #[optional arguments not supported now]
+    str_endswith   = MultiMethod('endswith', 2)   #[optional arguments not supported now]
+    str_expandtabs = MultiMethod('expandtabs', 2, defaults=(8,))
 
 
 # XXX we'll worry about the __new__/__init__ distinction later

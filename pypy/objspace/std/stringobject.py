@@ -1,7 +1,7 @@
 """
 stringobject.py
 
-Syopsis of implemented methods (* marks work in progress)
+Synopsis of implemented methods (* marks work in progress)
 
 Py                PyPy
 
@@ -31,17 +31,17 @@ __mul__
 __ne__            def ne__String_String(space, w_str1, w_str2):
 __new__
 __reduce__
-__repr__          def repr__String(space, w_str):
+__repr__          def repr__String(space, w_str): #fake
 __rmul__
 __setattr__
 __str__           def str__String(space, w_str):
 capitalize        def str_capitalize__String(space, w_self):
 center            def str_center__String_Int(space, w_self):
-count             Günter def str_count__String_String(space, w_self):
+count             def str_count__String_String(space, w_self): [optional arguments not supported now]
 decode            !Unicode not supported now
 encode            !Unicode not supported now
-endswith          *Guenter
-expandtabs        *Guenter
+endswith          str_endswith__String_String    [optional arguments not supported now]
+expandtabs        str_expandtabs__String_Int
 find              *Tomek
 index             *Tomek
 isalnum           def str_isalnum__String(space, w_self): def _isalnum(ch):
@@ -70,8 +70,6 @@ translate
 upper             def str_upper__String(space, w_self):
 zfill
 """
-
-
 
 from pypy.objspace.std.objspace import *
 from stringtype import W_StringType
@@ -412,27 +410,55 @@ def str_center__String_Int(space, w_self, w_arg):
 
     return W_StringObject(space, u_centered)
     
-    
+#[optional arguments not supported now]    
 def str_count__String_String(space, w_self, w_arg): 
     u_self = space.unwrap(w_self)
     u_arg  = space.unwrap(w_arg)
     
     count = 0  
     if u_arg == "":
-        count = len(u_self) +1 #as in CPytnon
+        count = len(u_self) +1 #behaves as in Python
     elif u_self == "":
-        pass                    #as in CPython
+        pass                   #behaves as in Python
     else:
         pos = 0
         while 1: 
            count += 1
-           pos = u_self.find(u_arg, pos+1)
+           pos = u_self.find(u_arg, pos+1) #XXX use pypy find
            if pos == -1:
               break
        
-   
     return W_IntObject(space, count)
+
+#[optional arguments not supported now]    
+def str_endswith__String_String(space, w_self, w_end): 
+    u_self = space.unwrap(w_self)
+    u_end  = space.unwrap(w_end)
     
+    found = 0
+    if u_end:
+        endlen = len(u_end)
+        if endlen <= len(u_self):
+           found = (u_end == u_self[-endlen:]) 
+    else:
+        found = 1
+        
+    return W_IntObject(space, found)
+
+def str_expandtabs__String_Int(space, w_self, w_tabsize):   
+    u_self = space.unwrap(w_self)
+    u_tabsize  = space.unwrap(w_tabsize)
+
+    u_expanded = ""
+    if u_self:
+        for token in u_self.split("\t"): #XXX use pypy split
+            if token:
+                u_expanded += token
+            else:
+                u_expanded += " " * u_tabsize
+
+    return W_StringObject(space, u_expanded)        
+   
     
 def unwrap__String(space, w_str):
     return w_str._value
