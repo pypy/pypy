@@ -74,17 +74,17 @@ class ObjSpace:
                 #print "setitem: space instance %-20s into builtins" % name
                 self.setitem(self.w_builtins, self.wrap(name), value)
 
-        self.sys._setbuiltinmodule(self.w_builtin)
+        self.sys.setbuiltinmodule(self.w_builtin)
 
         #Now we can load all the builtin (interpreter level) modules.
         self.make_builtin_modules()
 
     def make_sys(self):
+        from pypy.interpreter.extmodule import BuiltinModule
         assert not hasattr(self, 'sys')
-        from pypy.module import sysmodule
-        self.sys = sysmodule.Sys(self)
+        self.sys = BuiltinModule(self, 'sys')
         self.w_sys = self.wrap(self.sys)
-        self.sys._setbuiltinmodule(self.w_sys)
+        self.sys.setbuiltinmodule(self.w_sys)
 
     def make_builtin_modules(self):
         for filename, classname, spaces in pypy.module._builtin_modules:
@@ -95,7 +95,7 @@ class ObjSpace:
             klass = getattr(mod, classname)
             module = klass(self)
             if module is not None:
-                self.sys._setbuiltinmodule(self.wrap(module))
+                self.sys.setbuiltinmodule(self.wrap(module))
         
     # XXX get rid of this. 
     def get_builtin_module(self, name):

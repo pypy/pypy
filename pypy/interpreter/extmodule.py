@@ -18,6 +18,7 @@ class BuiltinModule(Module):
 
     def __init__(self, space, modulename, w_dict=None):
         Module.__init__(self, space, space.wrap(modulename), w_dict)
+        w_dict = self.w_dict
 
         # Compile the xxxmodule.py source file
         modulefile = os.path.join(autopath.pypydir, 'module',
@@ -32,8 +33,9 @@ class BuiltinModule(Module):
         # Set the hooks that call back from app-level to interp-level
         w_builtins = space.w_builtins
         self.__saved_hooks = {}
-        self.__interplevelfile = os.path.join(autopath.pypydir, 'module',
-                                              modulename+'interp.py')
+        self.__file__ = os.path.join(autopath.pypydir, 'module',
+                                     modulename+'interp.py')
+        self.__import_interplevel = True
         newhooks = {}
         for name, hook in [('__interplevel__exec', self.app_interplevelexec),
                            ('__interplevel__eval', self.app_interpleveleval),
@@ -50,6 +52,7 @@ class BuiltinModule(Module):
                       space.w_builtins)
 
         # Run the app-level module definition (xxxmodule.py)
+        space.setitem(w_dict, space.wrap('__file__'), space.wrap(modulefile))
         pycode.exec_code(space, w_dict, w_dict)
 
         # Run the interp-level definition (xxxinterp.py)
@@ -74,29 +77,15 @@ class BuiltinModule(Module):
 
     def loadinterplevelfile(self):
         try:
-            filename = self.__interplevelfile
+            self.__import_interplevel
         except AttributeError:
             pass  # already loaded
         else:
-            del self.__interplevelfile
+            del self.__import_interplevel
             # temporarily install an '__applevel__' pseudo-module
             sys.modules['__applevel__'] = BuiltinModule.AppModuleHack(self)
-            execfile(filename, self.__dict__)
+            execfile(self.__file__, self.__dict__)
             del sys.modules['__applevel__']
-
-    def get_interp2app(self, result):
-        space = self.space
-        if result is None:
-            result = space.w_None
-        elif isinstance(result, types.FunctionType):
-            f = result
-            code = gateway.BuiltinCode(f, ismethod=False, spacearg=False)
-            defs_w = list(f.func_defaults or ())
-            func = Function(space, code, self.w_dict, defs_w)
-            result = space.wrap(func)
-        else:
-            pass  # assume that 'result' is a wrapped object in other cases
-        return result
 
     def interplevelexec(self, w_codestring):
         codestring = self.space.unwrap(w_codestring)
@@ -106,8 +95,10 @@ class BuiltinModule(Module):
     def interpleveleval(self, w_codestring):
         space = self.space
         codestring = space.unwrap(w_codestring)
-        result = eval(codestring, self.__dict__)
-        return self.get_interp2app(result)
+        w_result = eval(codestring, self.__dict__)
+        if w_result is None:
+            w_result = space.w_None   # else assume that it is already wrapped
+        return w_result
 
     def interplevelimport(self, w_modulename, w_globals, w_locals, w_fromlist):
         space = self.space
@@ -117,8 +108,16 @@ class BuiltinModule(Module):
             if w_fromlist == space.w_None:
                 raise ImportError, "must use 'from __interplevel__ import xx'"
             for w_name in space.unpacktuple(w_fromlist):
-                result = getattr(self, space.unwrap(w_name))
-                w_result = self.get_interp2app(result)
+                name = space.unwrap(w_name)
+                if hasattr(self, name):
+                    f = getattr(self, name)
+                    code = gateway.BuiltinCode(f, ismethod=False,
+                                                  spacearg=False)
+                    defs_w = list(f.func_defaults or ())
+                    func = Function(space, code, self.w_dict, defs_w)
+                    w_result = space.wrap(func)
+                else:
+                    w_result = getattr(self, 'w_' + name)
                 space.setitem(self.w_dict, w_name, w_result)
             return space.wrap(self)
         else:
