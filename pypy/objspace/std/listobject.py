@@ -227,6 +227,10 @@ def setitem__List_Slice_Tuple(space, w_list, w_slice, w_tuple):
     t = w_tuple.wrappeditems
     return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
 
+def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
+    t = space.unpackiterable(w_iterable)
+    return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
+
 def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
     start, stop, step, slicelength = slicetype.indices4(space, w_slice, w_list.ob_size)
     assert slicelength >= 0

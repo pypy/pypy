@@ -370,3 +370,8 @@ class AppTestW_ListObject:
         l = ['a', 'b', 'c', 'd', 'e', 'f']
         raises(TypeError, l.index, 'c', 0, 4.3)
         raises(TypeError, l.index, 'c', 1.0, 5.6)
+
+    def test_ass_slice(self):
+        l = range(6)
+        l[1:3] = 'abc'
+        assert l == [0, 'a', 'b', 'c', 3, 4, 5]
