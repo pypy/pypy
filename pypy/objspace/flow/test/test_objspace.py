@@ -35,7 +35,9 @@ class TestFlowOjSpace(test.TestCase):
 
     def test_nothing(self):
         x = self.codetest(self.nothing)
-        self.assertEquals(x.startblock.branch.__class__, EndBranch)
+        self.assertEquals(len(x.startblock.exits), 1)
+        link, = x.startblock.exits
+        self.assertEquals(link.target, x.returnblock)
         self.show(x)
 
     #__________________________________________________________

@@ -4,17 +4,20 @@ import pypy
 from pypy.interpreter.baseobjspace import ObjSpace, NoValue
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
-from pypy.objspace.flow.wrapper import *
-from pypy.translator.flowmodel import *
+from pypy.objspace.flow.model import *
 from pypy.objspace.flow import flowcontext
 
 debug = 0
+
+class UnwrapException(Exception):
+    "Attempted to unwrap a Variable."
+
 # ______________________________________________________________________
 class FlowObjSpace(ObjSpace):
     def initialize(self):
         import __builtin__
-        self.w_builtins = W_Constant(__builtin__.__dict__)
-        self.w_KeyError = W_Constant(KeyError)
+        self.w_builtins = Constant(__builtin__.__dict__)
+        self.w_KeyError = Constant(KeyError)
         #self.make_builtins()
         #self.make_sys()
 
@@ -35,13 +38,15 @@ class FlowObjSpace(ObjSpace):
         return self.do_operation('newslice', w_start, w_stop, w_step)
 
     def wrap(self, obj):
-        if isinstance(obj, W_Object):
+        if isinstance(obj, (Variable, Constant)):
             raise TypeError("already wrapped: " + repr(obj))
-        return W_Constant(obj)
+        return Constant(obj)
 
     def unwrap(self, w_obj):
-        if isinstance(w_obj, W_Object):
-            return w_obj.unwrap()
+        if isinstance(w_obj, Variable):
+            raise UnwrapException
+        elif isinstance(w_obj, Constant):
+            return w_obj.value
         else:
             raise TypeError("not wrapped: " + repr(w_obj))
 
@@ -65,7 +70,7 @@ class FlowObjSpace(ObjSpace):
 
     # ____________________________________________________________
     def do_operation(self, name, *args_w):
-        spaceop = SpaceOperation(name, args_w, W_Variable())
+        spaceop = SpaceOperation(name, args_w, Variable())
         self.executioncontext.crnt_ops.append(spaceop)
         return spaceop.result
     
@@ -81,10 +86,10 @@ class FlowObjSpace(ObjSpace):
 
     def next(self, w_iter):
         w_tuple = self.do_operation("next_and_flag", w_iter)
-        w_flag = self.do_operation("getitem", w_tuple, W_Constant(1))
+        w_flag = self.do_operation("getitem", w_tuple, Constant(1))
         context = self.getexecutioncontext()
         if context.guessbool(w_flag):
-            return self.do_operation("getitem", w_tuple, W_Constant(0))
+            return self.do_operation("getitem", w_tuple, Constant(0))
         else:
             raise NoValue
 

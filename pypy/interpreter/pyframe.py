@@ -94,33 +94,6 @@ class PyFrame(eval.Frame):
         if attr == 'f_code':     return self.space.wrap(self.code)
         raise OperationError(self.space.w_AttributeError, w_attr)
 
-    ### cloning (for FlowObjSpace) ###
-
-    def getflowstate(self):
-        mergeablestate = self.getfastscope() + self.valuestack.items
-        nonmergeablestate = (
-            self.blockstack.items[:],
-            self.last_exception,
-            self.next_instr,
-            )
-        return mergeablestate, nonmergeablestate
-
-    def setflowstate(self, (mergeablestate, nonmergeablestate)):
-        self.setfastscope(mergeablestate[:len(self.fastlocals_w)])
-        self.valuestack.items[:] = mergeablestate[len(self.fastlocals_w):]
-        (
-            self.blockstack.items[:],
-            self.last_exception,
-            self.next_instr,
-            ) = nonmergeablestate
-        
-    def clone(self):
-        # Clone the frame, making a copy of the mutable state
-        cls = self.__class__
-        f = cls(self.space, self.code, self.w_globals, self.getclosure())
-        f.setflowstate(self.getflowstate())
-
-
 ### Frame Blocks ###
 
 class FrameBlock:
