@@ -60,11 +60,14 @@ class GenCL:
         else:
             print branch.__class__, "is missing"
     def emit_branch(self, branch):
-        source = branch.args
-        target = branch.target.input_args
-        for item in zip(source, target):
-            init, var = map(self.str, item)
-            print "(setq", var, init, ")"
+        if branch.target.has_renaming:
+            source = branch.args
+            target = branch.target.input_args
+            print "(psetq",   # parallel assignment
+            for item in zip(source, target):
+                init, var = map(self.str, item)
+                print var, init,
+            print ")"
         self.emit_block(branch.target)
     def emit_conditional_branch(self, branch):
         print "(if"
