@@ -23,7 +23,7 @@ class TestInterpreter(testit.TestCase):
         code = space.unwrap(w_code)
         code.exec_code(space, w_glob, w_glob)
 
-        wrappedargs = space.newtuple(args)
+        wrappedargs = space.newtuple([w(a) for a in args])
         wrappedfunc = space.getitem(w_glob, w(functionname))
         wrappedkwds = space.newdict([])
         try:
