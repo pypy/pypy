@@ -19,7 +19,7 @@ class W_DictType(W_TypeObject):
     dict_get        = MultiMethod('get',        3, defaults=(None,))
     dict_pop        = MultiMethod('pop',        2, varargs=True)
     dict_popitem    = MultiMethod('popitem',    1)
-    dict_setdefault = MultiMethod('setdefault', 3)
+    dict_setdefault = MultiMethod('setdefault', 3, defaults=(None,))
     dict_update     = MultiMethod('update',     2)
     dict_iteritems  = MultiMethod('iteritems',  1)
     dict_iterkeys   = MultiMethod('iterkeys',   1)
@@ -41,7 +41,10 @@ def app_dict_update__ANY_ANY(d, o):
         d[k] = o[k]
 
 def app_dict_popitem__ANY(d):
-    k = d.keys()[0]
+    k = d.keys()
+    if not k:
+        raise KeyError("popitem(): dictionary is empty")
+    k = k[0]
     v = d[k]
     del d[k]
     return k, v
