@@ -151,6 +151,7 @@ class RPythonAnnotator:
 
     def setbinding(self, arg, s_value, called_from=None):
         if arg in self.bindings:
+            assert s_value.contains(self.bindings[arg])
             # for debugging purposes, record the history of bindings that
             # have been given to this variable
             history = self.bindingshistory.setdefault(arg, [])
