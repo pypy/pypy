@@ -41,26 +41,30 @@ class Annotation:
         return tuple(lst)
 
 
+def debugname(xcell, name=None, _seen = {}):
+    """ return a simple name for an xcell. """
+    try:
+        return _seen[id(xcell)]
+    except KeyError:
+        if name is None:
+            name = "X%d" % len(seen)
+        _seen[id(xcell)] = name
+        return name
+
 class XCell:
     """A placeholder for a heap object contained in an AnnotationHeap.
     It represents an object that will actually appear at run-time in the heap.
     XCells are the arguments and return value of Annotations."""
 
-    counter = 0
-
     # Multiple XCells can be "shared"; a group of shared cells
     # act essentially like a single cell (they become all equal).
     
-    def __init__(self, name=None):
-        if not name:
-            name = 'X%d' % XCell.counter
-            XCell.counter += 1
-        self.name = name
+    def __init__(self):
         self.shared = []    # list of weakrefs to XCells
                             # defining a group of shared cells.
 
     def __repr__(self):
-        names = [cell.name for cell in self.cellsingroup()]
+        names = [debugname(cell) for cell in self.cellsingroup()]
         names.sort()
         return '=='.join(names)
 
@@ -130,4 +134,6 @@ class XConstant(XCell):
 # This is specified by using nothingyet instead of a real XCell().
 # Conversely, *no* annotation stands for any object.
 
-nothingyet = XCell('nothingyet')
+nothingyet = XCell()
+debugname(nothingyet, 'nothingyet')
+
