@@ -135,8 +135,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return done
                             
     def initialize(self):
-        self.fake_type_cache = {}
-        
         # The object implementations that we want to 'link' into PyPy must be
         # imported here.  This registers them into the multimethod tables,
         # *before* the type objects are built from these multimethod tables.
@@ -243,30 +241,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result
-        if isinstance(x, complex):
-            w_complex = self.getitem(self.w_builtins, self.wrap('complex'))
-            return self.call_function(w_complex, self.newfloat(x.real), self.newfloat(x.imag))
         # anything below this line is implicitly XXX'ed
         if isinstance(x, type(Exception)) and issubclass(x, Exception):
             if hasattr(self, 'w_' + x.__name__):
                 return getattr(self, 'w_' + x.__name__)
+        import fake
         if isinstance(x, type):
-            if x in self.fake_type_cache:
-                return self.gettypeobject(self.fake_type_cache[x].typedef)
-            print 'faking %r'%(x,)
-            import fake
-            ft = fake.fake_type(self, x)
-            self.fake_type_cache[x] = ft
-            return self.gettypeobject(self.fake_type_cache[x].typedef)
-        if type(x) in self.fake_type_cache:
-            ft = self.fake_type_cache[type(x)]
-            return ft(self, x)
-        else:
-            print 'faking %r'%(type(x),)
-            import fake
-            ft = fake.fake_type(self, type(x))
-            self.fake_type_cache[type(x)] = ft
-            return ft(self, x)
+            return self.gettypeobject(fake.fake_type(x).typedef)
+        return fake.fake_type(type(x))(self, x)
 
     def newint(self, intval):
         return W_IntObject(self, intval)
