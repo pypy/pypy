@@ -9,6 +9,8 @@ from pypy.annotation.classdef import ClassDef
 from pypy.interpreter.miscutils import getthreadlocals
 from pypy.tool.hack import func_with_new_name
 from pypy.interpreter.pycode import CO_VARARGS
+from pypy.interpreter.pycode import cpython_code_signature
+from pypy.interpreter.argument import ArgErr
 
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
@@ -234,7 +236,20 @@ class Bookkeeper:
             func = self.specialize_by_key(func, nbargs,
                                           name='%s__%d' % (func.func_name,
                                                            nbargs))
-        return self.annotator.recursivecall(func, self.position_key, args)
+
+        # parse the arguments according to the function we are calling
+        signature = cpython_code_signature(func.func_code)
+        defs_s = []
+        if func.func_defaults:
+            for x in func.func_defaults:
+                defs_s.append(self.immutablevalue(x))
+        try:
+            inputcells = args.match_signature(signature, defs_s)
+        except ArgErr, e:
+            print 'IGNORED', e     # hopefully temporary hack
+            return SomeImpossibleValue()
+
+        return self.annotator.recursivecall(func, self.position_key, inputcells)
 
     def specialize_by_key(self, thing, key, name=None):
         key = thing, key

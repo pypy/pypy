@@ -8,8 +8,6 @@ from pypy.annotation.bookkeeper import Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
 from pypy.objspace.flow.model import last_exception, last_exc_value
-from pypy.interpreter.pycode import cpython_code_signature
-from pypy.interpreter.argument import ArgErr
 
 
 class AnnotatorError(Exception):
@@ -177,7 +175,7 @@ class RPythonAnnotator:
 
     #___ interface for annotator.factory _______
 
-    def recursivecall(self, func, position_key, args):
+    def recursivecall(self, func, position_key, inputcells):
         parent_fn, parent_block, parent_index = position_key
         graph = self.translator.getflowgraph(func, parent_fn,
                                              position_key)
@@ -186,18 +184,6 @@ class RPythonAnnotator:
         # return block of this graph has been analysed.
         callpositions = self.notify.setdefault(graph.returnblock, {})
         callpositions[position_key] = True
-
-        # parse the arguments according to the function we are calling
-        signature = cpython_code_signature(func.func_code)
-        defs_s = []
-        if func.func_defaults:
-            for x in func.func_defaults:
-                defs_s.append(self.bookkeeper.immutablevalue(x))
-        try:
-            inputcells = args.match_signature(signature, defs_s)
-        except ArgErr, e:
-            print 'IGNORED', e     # hopefully temporary hack
-            return annmodel.SomeImpossibleValue()
 
         # generalize the function's input arguments
         self.addpendingblock(func, graph.startblock, inputcells, position_key)
