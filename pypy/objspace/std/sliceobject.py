@@ -1,3 +1,10 @@
+"""
+Reviewed 03-06-21
+
+slice object construction   tested, OK
+indices method              tested, OK
+"""
+
 from pypy.objspace.std.objspace import *
 from pypy.interpreter.appfile import AppFile
 from pypy.interpreter.extmodule import make_builtin_func
@@ -16,10 +23,12 @@ class W_SliceObject(W_Object):
         w_self.w_stop = w_stop
         w_self.w_step = w_step
     def indices(w_self, w_length):
+        # this is used internally, analogous to CPython's PySlice_GetIndicesEx
         w_ret = w_self.space.gethelper(appfile).call("sliceindices", [w_self, w_length])
         w_start, w_stop, w_step, w_slicelength = w_self.space.unpackiterable(w_ret, 4)
         return w_start, w_stop, w_step, w_slicelength
     def indices2(w_self, w_length):
+        # this is used to implement the user-visible method 'indices' of slice objects
         return w_self.space.newtuple(w_self.indices(w_length)[:-1])
 
 

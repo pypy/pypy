@@ -20,6 +20,9 @@ def slicetype_new(space, w_slicetype, w_args, w_kwds):
         start, stop = args
     elif len(args) == 3:
         start, stop, step = args        
+    elif len(args) > 3:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("slice() takes at most 3 arguments"))
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("slice() takes at least 1 argument"))
