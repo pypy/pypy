@@ -101,7 +101,7 @@ def _seqiter(obj):
             return
         i += 1
 # let geninterplevel retrieve the PyPy builtin instead
-_seqiter.geninterplevel_name = lambda gen: "(space.getattr(space.w_builtin, %s))" % gen.nameof('_seqiter')
+_seqiter.geninterplevel_name = lambda gen: "space.builtin.get('_seqiter')"
 
 OLD_STYLE_CLASSES_IMPL = object()
 
