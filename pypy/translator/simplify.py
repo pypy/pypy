@@ -73,8 +73,10 @@ def remove_implicit_exceptions(graph):
                 link.prevblock.exitswitch == Constant(last_exception) and
                 isinstance(link.exitcase, type(Exception)) and
                 issubclass(link.exitcase, Exception) and
-                list(link.args) == [Constant(last_exception),
-                                    Constant(last_exc_value)]):
+                len(link.args) == 2 and
+                link.args[1] == Constant(last_exc_value) and
+                link.args[0] in [Constant(last_exception),
+                                 Constant(link.exitcase)]):
                 # remove the link
                 lst = list(link.prevblock.exits)
                 lst.remove(link)
