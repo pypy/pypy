@@ -20,7 +20,11 @@ def run_string(source, fname):
     except baseobjspace.OperationError, operationerr:
         raise baseobjspace.PyPyError(space, operationerr)
     else:
-        ec.eval_frame(frame)
+        try:
+            ec.eval_frame(frame)
+        except baseobjspace.OperationError, operationerr:
+            operationerr.space = space
+            raise
 
 def run_file(fname):
     ifile = open(fname)
@@ -33,8 +37,9 @@ def main(argv=None):
     try:
         run_file(argv[1])
     except baseobjspace.PyPyError, pypyerr:
-        # XXX insert exception info into the application-level sys.last_xxx
         pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
+    except baseobjspace.OperationError, operationerr:
+        operationerr.print_detailed_traceback(operationerr.space)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
