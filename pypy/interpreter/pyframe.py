@@ -51,6 +51,7 @@ class PyFrame(eval.Frame):
                     except OperationError, e:
                         pytraceback.record_application_traceback(
                             self.space, e, self, last_instr)
+                        executioncontext.exception_trace(e)
                         # convert an OperationError into a control flow
                         # exception
                         import sys
@@ -250,7 +251,6 @@ class SApplicationException(ControlFlowException):
     def action(self, frame, last_instr, executioncontext):
         e = self.args[0]
         frame.last_exception = e
-        executioncontext.exception_trace(e)
 
         ControlFlowException.action(self, frame,
                                     last_instr, executioncontext)

@@ -65,12 +65,13 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
         return done
 
     def initialize(self):
-        from pypy.interpreter.typedef import TypeDef
+        from pypy.interpreter.typedef import TypeDef, GetSetProperty
 
         self.object_typedef = TypeDef('object', 
             __getattribute__ = gateway.interp2app(Object.descr__getattribute__.im_func),
             __str__ = gateway.interp2app(lambda space, w_x: str(w_x)),
             __repr__ = gateway.interp2app(lambda space, w_x: repr(w_x)),
+            __class__ = GetSetProperty(self.__class__.type),
             )
  
         self.w_None = None
