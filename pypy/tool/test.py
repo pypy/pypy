@@ -138,8 +138,8 @@ class CtsTestRunner:
     def __methodname(self, result):
         """Return a normalized form of the method name for result."""
         return "%s.%s" % (result.__class__.__name__,
-                          result._TestCase__testMethodName) 
-        
+                          result._TestCase__testMethodName)
+
     def run(self, test):
         import pickle
         import cStringIO as StringIO
@@ -152,13 +152,14 @@ class CtsTestRunner:
         finally:
             sys.stdout = sys.__stdout__
             sys.stderr = sys.__stderr__
-            
-        # load status from previous run
-        oldstatus = {}
+
+        # load status from previous run if available
         if os.path.exists('testcts.pickle'):
             oldstatus = pickle.load(open('testcts.pickle', 'r'))
+        else:
+            oldstatus = {}
 
-        # store status from this run in dictionary named status
+        # store status from this run in a dictionary named status
         status = {}
         for e in result.errors:
             name = self.__methodname(e[0])
@@ -171,24 +172,36 @@ class CtsTestRunner:
             status[name] = 'success'
 
         # compare statuses from previous and this run
-        keys = status.keys()
-        keys.sort()
+        oldmethods = oldstatus.keys()
+        methods = status.keys()
+        allmethods = dict([(m, 1) for m in oldmethods+methods]).keys()
+        allmethods.sort()
 
-        for k in keys:
-            old = oldstatus.get(k, 'success')
-            if k in oldstatus:
-                del oldstatus[k]
-            new = status[k]
-            if old != new:
-                print k, 'has transitioned from', old, 'to', new
-            elif new != 'success':
-                print k, "is still a", new
+        for m in allmethods:
+            is_old = (m in oldstatus)
+            is_new = (m in status)
+            # case: test was run previously _and_ now
+            if is_old and is_new:
+                old = oldstatus[m]
+                new = status[m]
+                if old != new:
+                    # print all transitions
+                    print "%s has transitioned from %s to %s" % (m, old, new)
+                elif new != "success":
+                    # print old statuses only if they weren't successes
+                    print "%s is still a %s" % (m, new)
+            # case: test was run previously but not now
+            elif is_old and not is_new:
+                print "%s was a %s but not run this time" % (m, oldstatus[m])
+                # retain status from previous run
+                status[m] = oldstatus[m]
+            # case: test was not run previously but now
+            elif not is_old and is_new:
+                # print nothing, just keep the old status
+                pass
 
-        for k in oldstatus:
-            print k, 'was a', oldstatus[k], 'was not run this time'
-            status[k] = oldstatus[k]
-
-        pickle.dump(status, open('testcts.pickle','w'))
+        # save result from this run
+        pickle.dump(status, open('testcts.pickle', 'w'))
 
         return result
 
