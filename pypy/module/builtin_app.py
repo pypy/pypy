@@ -169,8 +169,13 @@ def min(*arr):
     if len(arr) == 1:
         arr = arr[0]
      
-    min = arr[0]
-    for i in arr:
+    iterator = iter(arr)
+    try:
+        min = iterator.next()
+    except StopIteration:
+        raise ValueError, 'min() arg is an empty sequence'
+    
+    for i in iterator:
         if min > i:
             min = i
     return min
@@ -183,9 +188,14 @@ def max(*arr):
 
     if len(arr) == 1:
         arr = arr[0]
-    
-    max = arr[0]
-    for i in arr:
+
+    iterator = iter(arr)
+    try:
+        max = iterator.next()
+    except StopIteration:
+        raise ValueError, 'max() arg is an empty sequence'
+
+    for i in iterator:
         if max < i:
             max = i
     return max
@@ -210,6 +220,6 @@ def vars(*obj):
         raise TypeError, "vars() takes at most 1 argument."
     else:
         try:
-            return obj.__dict__
+            return obj[0].__dict__
         except AttributeError:
             raise TypeError, "vars() argument must have __dict__ attribute"

@@ -36,6 +36,9 @@ class TestMin(testsupport.TestCase):
    def test_min_noargs(self):
       self.assertRaises(TypeError, min)
 
+   def test_min_empty(self):
+      self.assertRaises(ValueError, min, [])
+
 class TestMax(testsupport.TestCase):
 
    def setUp(self):
@@ -71,7 +74,8 @@ class TestMax(testsupport.TestCase):
    def test_max_noargs(self):
       self.assertRaises(TypeError, max)
 
+   def test_max_empty(self):
+      self.assertRaises(ValueError, max, [])
+
 if __name__ == '__main__':
     testsupport.main()
-
-
