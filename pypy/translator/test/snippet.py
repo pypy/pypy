@@ -480,7 +480,7 @@ def star_args(x, y, *args):
 def call_star_args(z):
     return star_args(z, 5, 10, 15, 20)
 
-def default_args(x, y=2, z=3):
+def default_args(x, y=2, z=3L):
     return x+y+z
 
 def call_default_args(u):

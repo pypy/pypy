@@ -110,6 +110,17 @@ class GenC:
                              'PyInt_FromLong(%d))' % (name, value))
         return name
 
+    def nameof_long(self, value):
+        assert type(int(value)) is int, "your literal long is too long"
+        if value >= 0:
+            name = 'glong%d' % value
+        else:
+            name = 'glong_minus%d' % abs(value)
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('INITCHK(%s = '
+                             'PyLong_FromLong(%d))' % (name, value))
+        return name
+
     def nameof_str(self, value):
         chrs = [c for c in value if ('a' <= c <='z' or
                                      'A' <= c <='Z' or
