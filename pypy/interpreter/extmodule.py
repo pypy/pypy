@@ -47,12 +47,12 @@ class PyBuiltinCode(pycode.PyBaseCode):
 
 class BuiltinModule:
     __appfile__ = None
-    __apphelperfile__ = None
+    __helper_appfile__ = None
 
     def __init__(self, space):
         self.space = space
-        if self.__apphelperfile__ is not None:
-            self._helper = AppHelper(self.space, self.__apphelperfile__)
+        if self.__helper_appfile__ is not None:
+            self._helper = AppHelper(self.space, self.__helper_appfile__)
             
     def wrap_me(self):
         space = self.space
