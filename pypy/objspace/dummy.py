@@ -1,6 +1,8 @@
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root, BaseWrappable
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
+
+from pypy.tool.cache import Cache
 
 class W_Obj(W_Root):
     
@@ -75,11 +77,13 @@ class DummyObjSpace(ObjSpace):
         for en in ObjSpace.ExceptionTable:
             setattr(self, 'w_'+en, self.wrap(en))
 
+        self._gatewaycache = Cache()
+
     for n, symbol, arity, ign in ObjSpace.MethodTable+[('newdict',"",1,[]), ('newlist',"",1,[]),
                                                        ('newtuple',"",1,[]), ('newslice',"",3,[]), ]:
         source = ("""if 1:
         def %s(self, %s):
-            return W_Obj()
+            return W_Root()
 """ % (n, ', '.join(["w_a%d" % i for i in range(arity)])))
         #print source
         exec source
@@ -93,26 +97,39 @@ class DummyObjSpace(ObjSpace):
             return W_Str(obj)
         if isinstance(obj, int):
             return W_Int(obj)
-        return W_Obj()
+        return W_Root()
     wrap._specialize_ = "argtypes"
 
     def call_args(self, w_obj, args):
-        return W_Obj()
+        return W_Root()
     
     def is_true(self, w_obj):
-        return w_obj.is_true()
+        if isinstance(w_obj, W_Obj):
+            return w_obj.is_true()
+        return True
 
     def str_w(self, w_obj):
+        if not isinstance(w_obj, W_Obj):
+            w_obj = self.w_None
+        
         return w_obj.str_w(self)
 
     def int_w(self, w_obj):
+        if not isinstance(w_obj, W_Obj):
+            w_obj = self.w_None
+        
         return w_obj.int_w(self)
 
     def float_w(self, w_obj):
+        if not isinstance(w_obj, W_Obj):
+            w_obj = self.w_None
+               
         return w_obj.float_w(self)
-                     
+
     def unwrap(self, w_obj):
-        return w_obj.unwrap(self)
+        if isinstance(w_obj, BaseWrappable):
+            return w_obj
+        return w_obj.unwrap()
 
 
 if __name__ == '__main__':
