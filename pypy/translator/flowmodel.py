@@ -114,3 +114,11 @@ class FunctionGraph:
 
     def flatten(self):
         return self.startblock.flatten()
+
+    def mkentrymap(self):
+        """Create a map from nodes in the graph to back edge lists"""
+        entrymap = {}
+        for node in self.flatten():
+            for edge in node.getedges():
+                entrymap.setdefault(edge, []).append(node)
+        return entrymap
