@@ -153,14 +153,17 @@ class PyFrame(eval.Frame):
         try:
             new_lineno = space.int_w(w_new_lineno)
         except OperationError, e:
-            raise OperationError(space.w_ValueError, space.wrap("lineno must be an integer"))
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("lineno must be an integer"))
             
         self = space.interpclass_w(w_self)
         if self.w_f_trace is None:
-            raise OperationError(space.w_ValueError, space.wrap("f_lineo can only be set by a trace function."))
+            raise OperationError(space.w_ValueError,
+                  space.wrap("f_lineo can only be set by a trace function."))
 
         if new_lineno < self.code.co_firstlineno:
-            raise OperationError(space.w_ValueError, space.wrap("line %d comes before the current code." % new_lineno))
+            raise OperationError(space.w_ValueError,
+                  space.wrap("line %d comes before the current code." % new_lineno))
         code = self.code.co_code
         addr = 0
         line = self.code.co_firstlineno
@@ -176,13 +179,14 @@ class PyFrame(eval.Frame):
                 break
 
         if new_lasti == -1:
-            raise OperationError(space.w_ValueError, space.wrap("line %d comes after the current code." % new_lineno))
+            raise OperationError(space.w_ValueError,
+                  space.wrap("line %d comes after the current code." % new_lineno))
 
         # Don't jump to a line with an except in it.
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
-            raise OperationError(space.w_ValueError, space.wrap("can't jump to 'except' line as there's no exception"))
+            raise OperationError(space.w_ValueError,
+                  space.wrap("can't jump to 'except' line as there's no exception"))
             
-
         # Don't jump into or out of a finally block.
         f_lasti_setup_addr = -1
         new_lasti_setup_addr = -1
@@ -205,7 +209,8 @@ class PyFrame(eval.Frame):
                         blockstack.pop()
 
             if addr == new_lasti or addr == self.last_instr:
-                for setup_addr, in_finally in blockstack:
+                for ii in range(blockstack.depth()):
+                    setup_addr, in_finally = blockstack.top(ii)
                     if in_finally:
                         if addr == new_lasti:
                             new_lasti_setup_addr = setup_addr
@@ -221,7 +226,9 @@ class PyFrame(eval.Frame):
         assert blockstack.empty()
 
         if new_lasti_setup_addr != f_lasti_setup_addr:
-            raise OperationError(space.w_ValueError, space.wrap("can't jump into or out of a 'finally' block %d -> %d"%(f_lasti_setup_addr, new_lasti_setup_addr)))
+            raise OperationError(space.w_ValueError,
+                  space.wrap("can't jump into or out of a 'finally' block %d -> %d" %
+                             (f_lasti_setup_addr, new_lasti_setup_addr)))
 
         if new_lasti < self.last_instr:
             min_addr = new_lasti
@@ -255,7 +262,8 @@ class PyFrame(eval.Frame):
             new_iblock = f_iblock - delta_iblock
 
         if new_iblock > min_iblock:
-            raise OperationError(space.w_ValueError, space.wrap("can't jump into the middle of a block"))
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("can't jump into the middle of a block"))
 
         while f_iblock > new_iblock:
             block = self.blockstack.pop()

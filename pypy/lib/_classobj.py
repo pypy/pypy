@@ -1,3 +1,7 @@
+# - classobjinterp obtained from _classobj with:
+# translator/tool/tointerplevel.py --modname=classobj --out module/classobjinterp.py lib/_classobj.py classobj instance purify
+
+
 import sys, operator
 
 # producing nicer code objects by exec

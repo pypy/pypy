@@ -6,13 +6,13 @@ program introspection.
 import sys
 
 def globals():
-    return sys._getframe(1).f_globals
+    return sys._getframe(0).f_globals
 
 def locals():
-    return sys._getframe(1).f_locals
+    return sys._getframe(0).f_locals
 
 def _caller_locals(): 
-    return sys._getframe(2).f_locals 
+    return sys._getframe(0).f_locals 
 
 def _recursive_issubclass(cls, klass_or_tuple):
     if cls is klass_or_tuple:

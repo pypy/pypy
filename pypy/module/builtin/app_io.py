@@ -6,10 +6,10 @@ import sys
 
 def execfile(filename, glob=None, loc=None):
     if glob is None:
-        caller = sys._getframe(1)
-        glob = caller.f_globals
+        # Warning this is at hidden_applevel
+        glob = globals()
         if loc is None:
-            loc = caller.f_locals
+            loc = locals()
     elif loc is None:
         loc = glob
     f = file(filename, 'rU')

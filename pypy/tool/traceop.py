@@ -15,11 +15,14 @@ class Stack(list):
 
 class ResultPrinter:
 
-    def __init__(self, show_applevel = False, recursive_operations = False, indentor = '  '):
+    def __init__(self,
+                 show_hidden_applevel = False,
+                 recursive_operations = False,
+                 indentor = '  '):
         
         # Configurable stuff
         self.indentor = indentor        
-        self.show_applevel = show_applevel
+        self.show_hidden_applevel = show_hidden_applevel
         self.recursive_operations = recursive_operations
 
         # Keeps a stack of current state to handle
@@ -83,7 +86,7 @@ class ResultPrinter:
         
         if isinstance(event, trace.EnterFrame):
             frame = event.frame
-            if self.show_applevel or not frame.code.getapplevel():
+            if self.show_hidden_applevel or not frame.code.hidden_applevel:
                 show = True
             else:
                 show = False
@@ -116,8 +119,8 @@ class ResultPrinter:
             show = True
 
             # Check if we are in applevel?
-            if not self.show_applevel:
-                if lastframe is None or lastframe.code.getapplevel():
+            if not self.show_hidden_applevel:
+                if lastframe is None or lastframe.code.hidden_applevel:
                     show = False
 
             # Check if recursive operations?

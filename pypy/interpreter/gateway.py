@@ -485,7 +485,7 @@ class applevel:
     interp-level function that invokes the callable with the given
     name at app-level."""
 
-    applevel = True
+    hidden_applevel = True
     NOT_RPYTHON_ATTRIBUTES = ['code']
 
     def __init__(self, source, filename=None):
@@ -513,7 +513,7 @@ class applevel:
     def _buildcode(cls, space, code):
         "NOT_RPYTHON"
         from pypy.interpreter.pycode import PyCode
-        return PyCode(space)._from_code(code, applevel=cls.applevel)
+        return PyCode(space)._from_code(code, hidden_applevel=cls.hidden_applevel)
     _buildcode = classmethod(_buildcode) 
 
     def wget(self, space, name): 
@@ -583,12 +583,12 @@ app2interp = appdef   # backward compatibility
 
 # the following two will probably get merged into one
 class applevel_temp(applevel):
-    applevel = False
+    hidden_applevel = False
     def getwdict(self, space):
         return self._builddict(space)   # no cache
 
 class applevelinterp_temp(applevelinterp):
-    applevel = False
+    hidden_applevel = False
     def getwdict(self, space):
         return self._builddict(space)   # no cache
 

@@ -91,7 +91,9 @@ class PyPyConsole(code.InteractiveConsole):
         self.space = objspace
         self.verbose = verbose
         self.ec = executioncontext.ExecutionContext(self.space)
-
+        # Need a way for the object space to get the execution context
+        setattr(self.space, "createexecutioncontext", self.get_ec)
+        
         space=self.space
 
         mainmodule = main.ensure__main__(space)
@@ -99,10 +101,13 @@ class PyPyConsole(code.InteractiveConsole):
         space.setitem(self.w_globals, space.wrap('__builtins__'), space.builtin)
         if completer:
             self.enable_command_line_completer()
-        # XXX check: do we need self.ec, self.w_globals?
 
         space.exec_("__pytrace__ = 0", self.w_globals, self.w_globals) 
         self.tracelevel = 0
+
+    def get_ec(self):
+        # XXX Wont handle threads
+        return self.ec
 
     def enable_command_line_completer(self):
         try:

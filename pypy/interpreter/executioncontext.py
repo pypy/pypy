@@ -7,7 +7,6 @@ class ExecutionContext:
     in the Python interpreter."""
     
     def __init__(self, space):
-        # Note that self.framestack only contains PyFrames
         self.space = space
         self.framestack = Stack()
         self.stateDict = {}
@@ -23,21 +22,22 @@ class ExecutionContext:
         previous_ec = locals.executioncontext
         locals.executioncontext = self
 
-        frame.f_back = None
-        for ff in self.framestack:
-            if not frame.code.getapplevel():
-                frame.f_back = ff
-                break
+        try:
+            frame.f_back = self.framestack.top()
+        except:
+            frame.f_back = None
 
-        self.framestack.push(frame)
+        if not frame.code.hidden_applevel:
+            self.framestack.push(frame)
         return previous_ec
     
-    def leave(self, previous_ec):
+    def leave(self, previous_ec, frame):
         if self.w_profilefunc:
-            frame = self.framestack.top()
             self._trace(frame, 'leaveframe', None)
                 
-        self.framestack.pop()
+        if not frame.code.hidden_applevel:
+            self.framestack.pop()
+
         locals = getthreadlocals()
         locals.executioncontext = previous_ec
 
@@ -126,7 +126,6 @@ class ExecutionContext:
         if operror is not None:
             operror.clear(space)
 
-
     def get_state_dict(self):
         """A mechanism to store arbitrary per ExecutionContext data.
         Similar to cpython's PyThreadState_GetDict.
@@ -148,7 +147,7 @@ class ExecutionContext:
             self.w_profilefunc = w_func
 
     def _trace(self, frame, event, w_arg):
-        if self.is_tracing or frame.code.getapplevel():
+        if self.is_tracing or frame.code.hidden_applevel:
             return
         
         # Tracing cases
@@ -192,7 +191,9 @@ class ExecutionContext:
                                                         self.space.wrap(frame),
                                                         self.space.wrap(event), w_arg)
                 except:
-                    pass
+                    self.w_profilefunc = None
+                    raise
+
             finally:
                 frame.last_exception = last_exception
                 self.is_tracing -= 1

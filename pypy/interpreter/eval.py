@@ -69,7 +69,7 @@ class Frame(Wrappable):
         try:
             result = self.eval(executioncontext)
         finally:
-            executioncontext.leave(previous)
+            executioncontext.leave(previous, self)
         return result
 
     # running a frame is usually the same as resuming it from its
