@@ -28,6 +28,7 @@ generic element in some specific subset of the set of all objects.
 #
 
 
+from types import ClassType, BuiltinFunctionType
 from pypy.annotation.pairtype import pair, extendabletype
 
 
@@ -78,8 +79,13 @@ class SomeTuple(SomeObject):
     knowntype = tuple
     def __init__(self, items):
         self.items = tuple(items)   # tuple of s_xxx elements
-    def len(self):
-        return immutablevalue(len(self.items))
+
+class SomeClass(SomeObject):
+    "Stands for a user-defined class object."
+    # only used when the class object is loaded in a variable
+    knowntype = ClassType
+    def __init__(self, cls):
+        self.cls = cls
 
 class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
@@ -87,6 +93,12 @@ class SomeInstance(SomeObject):
         self.classdef = classdef
         self.knowntype = classdef.cls
         self.revision = classdef.revision
+
+class SomeBuiltin(SomeObject):
+    "Stands for a built-in function or method with special-cased analysis."
+    knowntype = BuiltinFunctionType  # == BuiltinMethodType
+    def __init__(self, analyser):
+        self.analyser = analyser
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
@@ -103,6 +115,10 @@ def immutablevalue(x):
         result = SomeString()
     elif isinstance(x, tuple):
         result = SomeTuple(items = [immutablevalue(e) for e in x])
+    elif x in BUILTIN_FUNCTIONS:
+        result = SomeBuiltin(BUILTIN_FUNCTIONS[x])
+    elif isinstance(x, (type, ClassType)) and x.__module__ != '__builtin__':
+        result = SomeClass(x)
     else:
         result = SomeObject()
     result.const = x
@@ -120,6 +136,18 @@ def valueoftype(t):
         return SomeList(factories={})
     else:
         return SomeObject()
+
+def decode_simple_call(s_args, s_kwds):
+    s_nbargs = s_args.len()
+    if not s_nbargs.is_constant():
+        return None
+    nbargs = s_nbargs.const
+    arglist = [pair(s_args, immutablevalue(j)).getitem()
+               for j in range(nbargs)]
+##        nbkwds = self.heap.get(ANN.len, varkwds_cell)
+##        if nbkwds != 0:
+##            return None  # XXX deal with dictionaries with constant keys
+    return arglist
 
 
 # ____________________________________________________________
@@ -140,11 +168,12 @@ def set(it):
 
 def missing_operation(cls, name):
     def default_op(*args):
-        print '* warning, no type available for %s(%s)' % (
-            name, ', '.join([repr(a) for a in args]))
+        #print '* warning, no type available for %s(%s)' % (
+        #    name, ', '.join([repr(a) for a in args]))
         return SomeObject()
     setattr(cls, name, default_op)
 
 # this has the side-effect of registering the unary and binary operations
-from pypy.annotation.unaryop import UNARY_OPERATIONS
+from pypy.annotation.unaryop  import UNARY_OPERATIONS
 from pypy.annotation.binaryop import BINARY_OPERATIONS
+from pypy.annotation.builtin  import BUILTIN_FUNCTIONS

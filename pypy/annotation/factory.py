@@ -10,6 +10,7 @@ from __future__ import generators
 from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeImpossibleValue, SomeList
 from pypy.annotation.model import SomeObject, SomeInstance
+from pypy.interpreter.miscutils import getthreadlocals
 
 
 class BlockedInference(Exception):
@@ -19,6 +20,71 @@ class BlockedInference(Exception):
     def __init__(self, factories = ()):
         # factories that need to be invalidated
         self.invalidatefactories = factories
+        self.position_key = getattr(getbookkeeper(), 'position_key', None)
+
+
+class Bookkeeper:
+    """The log of choices that have been made while analysing the operations.
+    It ensures that the same 'choice objects' will be returned if we ask
+    again during reflowing.  Like ExecutionContext, there is an implicit
+    Bookkeeper that can be obtained from a thread-local variable.
+
+    Currently used for factories and user-defined classes."""
+
+    def __init__(self):
+        self.creationpoints = {} # map positions-in-blocks to Factories
+        self.userclasses = {}    # map classes to ClassDefs
+
+    def enter(self, position_key):
+        """Start of an operation.
+        The operation is uniquely identified by the given key."""
+        self.position_key = position_key
+        self.choice_id = 0
+        getthreadlocals().bookkeeper = self
+
+    def leave(self):
+        """End of an operation."""
+        del getthreadlocals().bookkeeper
+        del self.position_key
+        del self.choice_id
+
+    def nextchoice(self):
+        """Get the next choice key.  The keys are unique, but they follow
+        the same sequence while reflowing."""
+        # 'position_key' is an arbitrary key that identifies a specific
+        # operation, but calling nextchoice() several times during the same
+        # operation returns a different choice key.
+        key = self.position_key, self.choice_id
+        self.choice_id += 1
+        return key
+
+    def getfactory(self, factorycls, *factoryargs):
+        """Get the Factory associated with the current position,
+        or if it doesn't exist yet build it with factorycls(*factoryargs)."""
+        key = self.nextchoice()
+        try:
+            return self.creationpoints[key]
+        except KeyError:
+            factory = factorycls(*factoryargs)
+            factory.position_key = self.position_key
+            self.creationpoints[key] = factory
+            return factory
+
+    def getclassdef(self, cls):
+        """Get the ClassDef associated with the given user cls."""
+        if cls is object:
+            return None
+        try:
+            return self.userclasses[cls]
+        except KeyError:
+            self.userclasses[cls] = ClassDef(cls, self)
+            return self.userclasses[cls]
+
+
+def getbookkeeper():
+    """Get the current Bookkeeper.
+    Only works during the analysis of an operation."""
+    return getthreadlocals().bookkeeper
 
 
 #
@@ -37,8 +103,8 @@ class ListFactory:
 
 class InstanceFactory:
 
-    def __init__(self, cls, userclasses):
-        self.classdef = getclassdef(cls, userclasses)
+    def __init__(self, classdef):
+        self.classdef = classdef
         self.classdef.instancefactories[self] = True
 
     def create(self):
@@ -48,7 +114,7 @@ class InstanceFactory:
 class ClassDef:
     "Wraps a user class."
 
-    def __init__(self, cls, userclasses):
+    def __init__(self, cls, bookkeeper):
         self.attrs = {}          # attrs is updated with new information
         self.revision = 0        # which increases the revision number
         self.instancefactories = {}
@@ -59,7 +125,7 @@ class ClassDef:
             base = cls.__bases__[0]
         else:
             base = object
-        self.basedef = getclassdef(base, userclasses)
+        self.basedef = bookkeeper.getclassdef(base)
         if self.basedef:
             self.basedef.subdefs[cls] = self
 
@@ -106,13 +172,3 @@ class ClassDef:
             # bump the revision number of this class and all subclasses
             subdef.revision += 1
         self.attrs[attr] = s_value
-
-
-def getclassdef(cls, cache):
-    if cls is object:
-        return None
-    try:
-        return cache[cls]
-    except KeyError:
-        cache[cls] = ClassDef(cls, cache)
-        return cache[cls]

@@ -6,12 +6,14 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeList
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
-from pypy.annotation.model import SomeInstance
+from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeClass
+from pypy.annotation.model import immutablevalue, decode_simple_call
 from pypy.annotation.model import set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference
+from pypy.annotation.factory import InstanceFactory, getbookkeeper
 
 
-UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr'])
+UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'call'])
 
 for opname in UNARY_OPERATIONS:
     missing_operation(SomeObject, opname)
@@ -24,6 +26,26 @@ class __extend__(SomeObject):
 
     def is_true(obj):
         return SomeBool()
+
+    def getattr(obj, attr):
+        # get a SomeBuiltin if the object has a corresponding method
+        if attr.is_constant() and isinstance(attr.const, str):
+            attr = attr.const
+            if hasattr(obj, 'method_' + attr):
+                return SomeBuiltin(getattr(obj, 'method_' + attr))
+        return SomeObject()
+
+
+class __extend__(SomeTuple):
+
+    def len(tup):
+        return immutablevalue(len(tup.items))
+
+
+class __extend__(SomeList):
+
+    def method_append(lst, s_item):
+        pair(lst, SomeInteger()).setitem(s_item)
 
 
 class __extend__(SomeInstance):
@@ -64,3 +86,24 @@ class __extend__(SomeInstance):
             clsdef.generalize(attr, s_value)
             raise BlockedInference(clsdef.getallfactories())
         return SomeObject()
+
+
+class __extend__(SomeBuiltin):
+
+    def call(meth, args, kwds):
+        # decode the arguments and forward the analysis of this builtin
+        arglist = decode_simple_call(args, kwds)
+        if arglist is not None:
+            return meth.analyser(*arglist)
+        else:
+            return SomeObject()
+
+
+class __extend__(SomeClass):
+
+    def call(cls, args, kwds):
+        # XXX flow into __init__
+        bookkeeper = getbookkeeper()
+        classdef = bookkeeper.getclassdef(cls.cls)
+        factory = bookkeeper.getfactory(InstanceFactory, classdef)
+        return factory.create()

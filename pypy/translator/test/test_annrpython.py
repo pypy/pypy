@@ -182,6 +182,16 @@ class AnnonateTestCase(testit.IntTestCase):
                               annmodel.SomeObject()
                               ]))
 
+    def test_poor_man_range(self):
+        translator = Translator(snippet.poor_man_range)
+        graph = translator.getflowgraph()
+        a = RPythonAnnotator(translator)
+        a.build_types(graph, [int])
+        # result should be a list of integers
+        self.assertEquals(a.gettype(graph.getreturnvar()), list)
+        end_cell = a.binding(graph.getreturnvar())
+        self.assertEquals(end_cell.s_item.knowntype, int)
+
 
 def g(n):
     return [0,1,2,n]

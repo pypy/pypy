@@ -4,7 +4,7 @@ from types import FunctionType, ClassType
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import pair
 from pypy.annotation.factory import ListFactory, InstanceFactory
-from pypy.annotation.factory import BlockedInference
+from pypy.annotation.factory import BlockedInference, Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation
 
@@ -21,9 +21,8 @@ class RPythonAnnotator:
         self.pendingblocks = []  # list of (block, list-of-SomeValues-args)
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
-        self.creationpoints = {} # map positions-in-blocks to Factories
+        self.bookkeeper = Bookkeeper()
         self.translator = translator
-        self.userclasses = {}    # set of user classes
 
     #___ convenience high-level interface __________________
 
@@ -58,11 +57,11 @@ class RPythonAnnotator:
 
     def getuserclasses(self):
         """Return a set of known user classes."""
-        return self.userclasses
+        return self.bookkeeper.userclasses
 
     def getuserattributes(self, cls):
         """Enumerate the attributes of the given user class, as Variable()s."""
-        clsdef = self.userclasses[cls]
+        clsdef = self.bookkeeper.userclasses[cls]
         for attr, s_value in clsdef.attrs.items():
             v = Variable(name=attr)
             self.bindings[v] = s_value
@@ -159,12 +158,13 @@ class RPythonAnnotator:
                 self.flowin(block)
             except BlockedInference, e:
                 #print '_'*60
-                #print 'Blocked at %r:' % (self.curblockpos,)
+                #print 'Blocked at %r:' % (e.position_key,)
                 #import traceback, sys
                 #traceback.print_tb(sys.exc_info()[2])
                 self.annotated[block] = False   # failed, hopefully temporarily
                 for factory in e.invalidatefactories:
-                    self.reflowpendingblock(factory.block)
+                    oldblock, oldindex = factory.position_key
+                    self.reflowpendingblock(oldblock)
 
     def reflowpendingblock(self, block):
         self.pendingblocks.append((block, None))
@@ -189,26 +189,14 @@ class RPythonAnnotator:
     def flowin(self, block):
         #print 'Flowing', block, [self.binding(a) for a in block.inputargs]
         for i in range(len(block.operations)):
-            self.curblockpos = block, i
-            self.consider_op(block.operations[i])
+            try:
+                self.bookkeeper.enter((block, i))
+                self.consider_op(block.operations[i])
+            finally:
+                self.bookkeeper.leave()
         for link in block.exits:
             cells = [self.binding(a) for a in link.args]
             self.addpendingblock(link.target, cells)
-
-    def getfactory(self, factorycls, *factoryargs):
-        try:
-            factory = self.creationpoints[self.curblockpos]
-        except KeyError:
-            block = self.curblockpos[0]
-            factory = factorycls(*factoryargs)
-            factory.block = block
-            self.creationpoints[self.curblockpos] = factory
-        # self.curblockpos is an arbitrary key that identifies a specific
-        # position, so that asking twice for a factory from the same position
-        # returns the same factory object.  Because we can ask for several
-        # factories in the same operation, we change self.curblockpos here
-        self.curblockpos = self.curblockpos, 'bis'
-        return factory
 
 
     #___ creating the annotations based on operations ______
@@ -250,50 +238,42 @@ def consider_op_%s(self, arg1, arg2, *args):
         return annmodel.SomeTuple(items = args)
 
     def consider_op_newlist(self, *args):
-        factory = self.getfactory(ListFactory)
+        factory = self.bookkeeper.getfactory(ListFactory)
         for a in args:
             factory.generalize(a)
         return factory.create()
 
     def decode_simple_call(self, s_varargs, s_varkwds):
-        s_nbargs = s_varargs.len()
-        if not s_nbargs.is_constant():
-            return None
-        nbargs = s_nbargs.const
-        arg_cells = [pair(s_varargs, annmodel.immutablevalue(j)).getitem()
-                     for j in range(nbargs)]
-##        nbkwds = self.heap.get(ANN.len, varkwds_cell)
-##        if nbkwds != 0:
-##            return None  # XXX deal with dictionaries with constant keys
-        return arg_cells
+        # XXX replace all uses of this with direct calls into annmodel
+        return annmodel.decode_simple_call(s_varargs, s_varkwds)
 
-    def consider_op_call(self, s_func, s_varargs, s_kwargs):
-        if not s_func.is_constant():
-            return annmodel.SomeObject()
-        func = s_func.const
+##    def consider_op_call(self, s_func, s_varargs, s_kwargs):
+##        if not s_func.is_constant():
+##            return annmodel.SomeObject()
+##        func = s_func.const
         
-        # XXX: generalize this later
-        if func is range:
-            factory = self.getfactory(ListFactory)
-            factory.generalize(annmodel.SomeInteger())  # XXX nonneg=...
-            return factory.create()
-        elif func is pow:
-            args = self.decode_simple_call(s_varargs, s_kwargs)
-            if args is not None and len(args) == 2:
-                if (issubclass(args[0].knowntype, int) and
-                    issubclass(args[1].knowntype, int)):
-                    return annmodel.SomeInteger()
-        elif isinstance(func, FunctionType) and self.translator:
-            args = self.decode_simple_call(s_varargs, s_kwargs)
-            return self.translator.consider_call(self, func, args)
-        elif (isinstance(func, (type, ClassType)) and
-              func.__module__ != '__builtin__'):
-            # XXX flow into __init__/__new__
-            factory = self.getfactory(InstanceFactory, func, self.userclasses)
-            return factory.create()
-        elif isinstance(func,type):
-            return annmodel.valueoftype(func)
-        return annmodel.SomeObject()
+##        # XXX: generalize this later
+##        if func is range:
+##            factory = self.getfactory(ListFactory)
+##            factory.generalize(annmodel.SomeInteger())  # XXX nonneg=...
+##            return factory.create()
+##        elif func is pow:
+##            args = self.decode_simple_call(s_varargs, s_kwargs)
+##            if args is not None and len(args) == 2:
+##                if (issubclass(args[0].knowntype, int) and
+##                    issubclass(args[1].knowntype, int)):
+##                    return annmodel.SomeInteger()
+##        elif isinstance(func, FunctionType) and self.translator:
+##            args = self.decode_simple_call(s_varargs, s_kwargs)
+##            return self.translator.consider_call(self, func, args)
+##        elif (isinstance(func, (type, ClassType)) and
+##              func.__module__ != '__builtin__'):
+##            # XXX flow into __init__/__new__
+##            factory = self.getfactory(InstanceFactory, func, self.userclasses)
+##            return factory.create()
+##        elif isinstance(func,type):
+##            return annmodel.valueoftype(func)
+##        return annmodel.SomeObject()
 
 
 ##    def consider_op_setattr(self,obj,attr,newval):
