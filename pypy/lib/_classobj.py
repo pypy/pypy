@@ -365,3 +365,16 @@ def __r%(op)s__(self, other):
 """) % {"op": op, "op2": (op, op+'_')[op in ('and', 'or', 'not')]}
     del op
 
+
+    # inplace operators    
+    for op in 'mod and pow truediv lshift xor rshift floordiv div sub mul add or'.split():
+        exec ("""
+def __i%(op)s__(self, other):
+   func = instance_getattr1(self, '__i%(op)s__', False)
+   if func:
+       return func(other)
+   return NotImplemented
+
+""") % {"op": op}
+    del op
+
