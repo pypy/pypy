@@ -28,21 +28,23 @@ class Renderer:
     
 
 class TracebackView(Renderer):
-    def __init__(self, tb):
+    def __init__(self, exc):
         self.name = 'traceback%d' % len(views) 
         views[self.name] = self
-        self.tb = tb 
+        self.exc = exc
         
     def render_self(self, args):
         lines = html.pre()
-        for tb in dyncode.listtb(self.tb):
+        for tb in dyncode.listtb(self.exc[2]):
             filename = tb.tb_frame.f_code.co_filename 
             lineno = tb.tb_lineno
             name = tb.tb_frame.f_code.co_name
             lines.append('  File "%s", line %d, in %s\n'%(
                 html.a(filename, href='/file' + filename + '#' + str(lineno)).to_unicode().encode('utf-8'),
                 lineno, name))
-            lines.append(dyncode.getline(filename, lineno))
+            lines.append('        '+dyncode.getline(filename, lineno).lstrip())
+        lines.append(xml.escape(
+            ''.join(traceback.format_exception_only(self.exc[0], self.exc[1]))))
         return lines
 
 

@@ -85,11 +85,11 @@ def wait_until_interrupt():
     except KeyboardInterrupt:
         stop()
 
-def publish_tb(tb):
+def publish_exc(exc):
     if server_thread is None:
         return 
     from pypy.tool.tb_server.render import TracebackView
-    x = TracebackView(tb)
+    x = TracebackView(exc)
     print "traceback is at http://localhost:%d/%s" % (server_port, x.name)
 
 if __name__ == "__main__":

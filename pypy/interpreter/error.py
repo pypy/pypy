@@ -1,3 +1,4 @@
+from pypy.tool.tb_server import publish_exc
 import os, sys
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
@@ -24,7 +25,7 @@ class OperationError(Exception):
         self.w_type = w_type
         self.w_value = w_value
         self.application_traceback = tb
-        self.debug_tbs = []
+        self.debug_excs = []
 
     def match(self, space, w_check_class):
         "Check if this application-level exception matches 'w_check_class'."
@@ -52,7 +53,7 @@ class OperationError(Exception):
         """Records the current traceback inside the interpreter.
         This traceback is only useful to debug the interpreter, not the
         application."""
-        self.debug_tbs.append(sys.exc_info()[2])
+        self.debug_excs.append(sys.exc_info())
 
     def print_application_traceback(self, space, file=None):
         "Dump a standard application-level traceback."
@@ -90,13 +91,13 @@ class OperationError(Exception):
         """Dump a nice detailed interpreter- and application-level traceback,
         useful to debug the interpreter."""
         if file is None: file = sys.stderr
-        for i in range(len(self.debug_tbs)-1, -1, -1):
+        for i in range(len(self.debug_excs)-1, -1, -1):
             import traceback
             interpr_file = LinePrefixer(file, '||')
             print >> interpr_file, "Traceback (interpreter-level):"
-            traceback.print_tb(self.debug_tbs[i], file=interpr_file)
+            traceback.print_tb(self.debug_excs[i][2], file=interpr_file)
         from pypy.tool import tb_server
-        tb_server.publish_tb(self.debug_tbs[0])
+        tb_server.publish_exc(self.debug_excs[-1])
         self.print_app_tb_only(file)
         if space is None:
             exc_typename = str(self.w_type)
@@ -152,9 +153,11 @@ class LinePrefixer:
 if hasattr(sys, 'excepthook'):   # not implemented on PyPy
     def operr_excepthook(exctype, value, traceback):
         if issubclass(exctype, OperationError):
-            value.debug_tbs.append(traceback)
+            value.debug_excs.append((exctype, value, traceback))
             value.print_detailed_traceback()
         else:
             old_excepthook(exctype, value, traceback)
+            publish_exc((exctype, value, traceback))
+            
     old_excepthook = sys.excepthook
     sys.excepthook = operr_excepthook
