@@ -143,7 +143,7 @@ class RPythonAnnotator:
                         import traceback
                         print '-+' * 30
                         print 'BLOCKED block at:',
-                        print self.why_not_annotated[block][1].break_at
+                        print self.whereami(self.why_not_annotated[block][1].break_at)
                         print 'because of:'
                         traceback.print_exception(*self.why_not_annotated[block])
                         print '-+' * 30
@@ -185,11 +185,11 @@ class RPythonAnnotator:
                 cause_history.append(self.binding_caused_by[arg])
         self.bindings[arg] = s_value
         if annmodel.DEBUG:
-            #if arg in self.return_bindings:
-            #    ansi_print("%s -> %s" % (self.whereami((self.return_bindings[arg],
-            #                                             None, None)),
-            #                             s_value),
-            #               esc="1") # bold
+            if arg in self.return_bindings:
+                ansi_print("%s -> %s" % (self.whereami((self.return_bindings[arg],
+                                                         None, None)),
+                                         s_value),
+                           esc="1") # bold
 
             if arg in self.return_bindings and s_value == annmodel.SomeObject():
                 ansi_print("*** WARNING: %s result degenerated to SomeObject" %
@@ -333,7 +333,15 @@ class RPythonAnnotator:
         else:
             name = 'UNKNOWN'
             firstlineno = -1
-        return "(%s:%d) %s" % (mod, firstlineno, name)
+        blk = ""
+        if block:
+            at = block.at()
+            if at:
+                blk = " block"+at
+        opid=""
+        if i is not None:
+            opid = " op=%d" % i
+        return "(%s:%d) %s%s%s" % (mod, firstlineno, name, blk, opid)
 
     def flowin(self, fn, block):
         #print 'Flowing', block, [self.binding(a) for a in block.inputargs]
@@ -422,7 +430,7 @@ class RPythonAnnotator:
         if resultcell is None:
             resultcell = annmodel.SomeImpossibleValue()  # no return value
         elif resultcell == annmodel.SomeImpossibleValue():
-            raise BlockedInference  # the operation cannot succeed
+            raise BlockedInference(info=op)  # the operation cannot succeed
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
         self.setbinding(op.result, resultcell)  # bind resultcell to op.result

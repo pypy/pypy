@@ -162,15 +162,18 @@ class __extend__(SomeInstance):
 
     def currentdef(ins):
         if ins.revision != ins.classdef.revision:
-            #print ins.revision, ins.classdef.revision
-            raise BlockedInference
+            raise BlockedInference(info="stale inst of %s" % ins.classdef.cls)
         return ins.classdef
 
     def getattr(ins, s_attr):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
             #print 'getattr:', ins, attr, ins.classdef.revision
-            s_result = ins.currentdef().find_attribute(attr).getvalue()
+            try:
+                s_result = ins.currentdef().find_attribute(attr).getvalue()
+            except BlockedInference, blocked:
+                blocked.info = "%s .%s" % (blocked.info, attr)
+                raise blocked
             # we call this because it might raise BlockedInference if
             # the above line caused generalization.
             ins.currentdef()
@@ -180,7 +183,11 @@ class __extend__(SomeInstance):
     def setattr(ins, s_attr, s_value):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
-            clsdef = ins.currentdef().locate_attribute(attr)
+            try:
+                clsdef = ins.currentdef().locate_attribute(attr)
+            except BlockedInference, blocked:
+                blocked.info = "%s .%s" % (blocked.info, attr)
+                raise blocked                
             attrdef = clsdef.attrs[attr]
             attrdef.readonly = False
 

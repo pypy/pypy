@@ -69,6 +69,12 @@ class Block:
 
         self.exc_handler = False          # block at the start of exception handling code
 
+    def at(self):
+        if self.operations:
+            return "@%d" % self.operations[0].offset
+        else:
+            return ""
+
     def __str__(self):
         if self.operations:
             txt = "block@%d" % self.operations[0].offset

@@ -15,14 +15,25 @@ class BlockedInference(Exception):
     """This exception signals the type inference engine that the situation
     is currently blocked, and that it should try to progress elsewhere."""
 
-    def __init__(self):
+    def __init__(self, info=None):
         try:
+            self.annotator = getbookkeeper().annotator
             self.break_at = getbookkeeper().position_key
         except AttributeError:
             self.break_at = None
+        self.info = info
 
     def __repr__(self):
-        return "<BlockedInference break_at %r>" %(self.break_at,)
+        if self.info:
+            info = "[%s]" % self.info
+        else:
+            info = ""
+        if not self.break_at:
+            break_at = "?"
+        else:
+            break_at = self.annotator.whereami(self.break_at)
+        return "<BlockedInference break_at %s %s>" %(break_at, info)
+
     __str__ = __repr__
 
 
