@@ -1,3 +1,9 @@
+"""
+Reviewed 03-06-22
+Sequence-iteration is correctly implemented, thoroughly
+tested, and complete. The only missing feature is support
+for function-iteration.
+"""
 from pypy.objspace.std.objspace import *
 from itertype import W_SeqIterType
 
