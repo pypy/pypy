@@ -271,10 +271,6 @@ def timeit(num, func, *args):
     return now() - start
 
 if __name__ == '__main__':
-    from earthenware.common import chunk
-    from earthenware.utils.stacktrace import init_module
-    init_module(True)
-
     from pypy.objspace.std import Space
     space = Space()
 

@@ -74,7 +74,7 @@ class LLClass(LLTyper):
             hltype = typeset.gethltype(s_value, unbound=is_class_attr)
             fld = ClassField(hltype, attr, self, is_class_attr)
             self.fields_here.append(fld)
-        # fields are divided in instance attributes and class attributes
+        # fields are categorized as instance attributes and class attributes
         # according to whether they are ever accessed with SET_ATTR or not
         if self.llparent:
             self.instance_fields = list(self.llparent.instance_fields)

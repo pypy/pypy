@@ -241,8 +241,8 @@ class CTypeSet:
             opsimplecall = self.lloperations.setdefault('OP_SIMPLE_CALL', {})
             for sig, opcls in opsimplecall.items():
                 if sig[1:2] == (R_INSTANCE,):
-                    r = method_representation(sig[0])
-                    sig2 = (r,) + sig[2:]
+                    r_meth = method_representation(sig[0])
+                    sig2 = (r_meth,) + sig[2:]
                     yield sig2, opcls
             # Note that we are reusing the same opcls.  Indeed, both the
             # original 'sig' and the modified one expand to the same list
@@ -252,7 +252,7 @@ class CTypeSet:
             #          /-----\    /------------\
             # LLVars:  funcptr,   PyObject* self,  arguments..., result
             #          \-----------------------/
-            # sig2 =               r                ...
+            # sig2 =            r_meth              ...
 
         if isinstance(r, CConstant):
             # maybe it is a well-known constant non-user-defined function
