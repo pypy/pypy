@@ -203,7 +203,6 @@ class ClassRepr(TypeRepr):
 def create_builtin_exceptions(gen, dependencies):
     import exceptions
     for exc in dir(exceptions):
-        print exc, "#############"
         if "__" not in exc:
             l_exc = gen.get_repr(getattr(exceptions, exc))
             dependencies.add(l_exc)
