@@ -81,6 +81,7 @@ def remove_implicit_exceptions(graph):
                 lst = list(link.prevblock.exits)
                 lst.remove(link)
                 link.prevblock.exits = tuple(lst)
+                link.prevblock.exitswitch = None
     traverse(visit, graph)
 
 def simplify_graph(graph):
