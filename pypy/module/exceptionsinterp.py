@@ -976,7 +976,7 @@ fastf_UnicodeDecodeError___str__ = globals().pop("__str__")
 ##SECTION##
 ## filename    'D:\\pypy\\dist\\pypy\\translator\\geninterplevel.py'
 ## function    'test_exceptions'
-## firstlineno 1261
+## firstlineno 1272
 ##SECTION##
 # global declarations
 # global object gfunc_test_exceptions
@@ -1140,6 +1140,8 @@ def inittest_exceptions_1(space):
     """NOT_RPYTHON"""
     class m: pass # fake module
     m.__dict__ = globals()
+    # make sure that this function is run only once:
+    m.inittest_exceptions_1 = lambda *ign:True
 
     from pypy.interpreter.gateway import interp2app
     m.gfunc_test_exceptions = space.wrap(interp2app(f_test_exceptions))
