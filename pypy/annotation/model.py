@@ -103,6 +103,11 @@ class SomeTuple(SomeObject):
     knowntype = tuple
     def __init__(self, items):
         self.items = tuple(items)   # tuple of s_xxx elements
+        for i in items:
+            if not i.is_constant():
+                break
+        else:
+            self.const = tuple([i.const for i in items])
 
 class SomeDict(SomeObject):
     "Stands for a dict with known keys."

@@ -7,6 +7,8 @@ from pypy.translator.annrpython import RPythonAnnotator, annmodel
 from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import *
 
+from pypy.annotation.model import immutablevalue
+
 from pypy.translator.test import snippet
 
 class AnnonateTestCase(testit.IntTestCase):
@@ -273,6 +275,21 @@ class AnnonateTestCase(testit.IntTestCase):
         s = a.build_types(snippet.call_cpbc, [])
         self.assertEquals(s, annmodel.immutablevalue(42))
 
+    def test_flow_type_info(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.flow_type_info, [object])
+        a.translator.simplify()
+        a.simplify()
+        #a.translator.view()
+        self.assertEquals(s.knowntype, int)
+
+    def test_flow_identity_info(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.flow_identity_info, [object, object])
+        a.translator.simplify()
+        a.simplify()
+        #a.translator.view()
+        self.assertEquals(s, immutablevalue((None, None)))
 
 def g(n):
     return [0,1,2,n]

@@ -10,7 +10,7 @@ from pypy.annotation.model import SomeInstance, SomeCallable
 from pypy.annotation.model import SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePrebuiltConstant, immutablevalue
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.factory import generalize, isclassdef 
+from pypy.annotation.factory import generalize, isclassdef, getbookkeeper
 from pypy.objspace.flow.model import Constant
 
 
@@ -64,7 +64,36 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def ne((obj1, obj2)): return SomeBool()
     def gt((obj1, obj2)): return SomeBool()
     def ge((obj1, obj2)): return SomeBool()
-    def is_((obj1, obj2)): return SomeBool()
+
+    def is_((obj1, obj2)):
+        const = None
+        vararg = None
+        if obj1.is_constant():
+            const = obj1
+            var = obj2
+            vararg = 1
+        if obj2.is_constant():
+            const = obj2
+            var = obj1
+            vararg = 0
+        if const is not None:
+            # XXX HACK HACK HACK
+            # XXX HACK HACK HACK
+            # XXX HACK HACK HACK
+            # XXX HACK HACK HACK
+            # XXX HACK HACK HACK
+            fn, block, i = getbookkeeper().position_key
+            annotator = getbookkeeper().annotator
+            op = block.operations[i]
+            assert op.opname == "is_" 
+            assert len(op.args) == 2
+            assert annotator.binding(op.args[vararg]) is var
+            assert op.args[1-vararg].value is const.const
+            r = SomeBool()
+            r.knowntypedata = (op.args[vararg], const)
+            return r
+            
+        return SomeBool()
 
 
 class __extend__(pairtype(SomeInteger, SomeInteger)):

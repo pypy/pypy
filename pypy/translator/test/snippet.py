@@ -454,7 +454,25 @@ def multiple_inheritance():
 
 def global_badinit():
     return global_bi.read()
-    
+
+def flow_type_info(i):
+    if isinstance(i, int):
+        a = i + 1
+    else:
+        a = len(str(i))
+    return a
+
+def flow_identity_info(x=object, y=object):
+    if x is None:
+        if None is y:
+            return (x, y)
+        else:
+            return (x, None)
+    else:
+        if y is None:
+            return (None, y)
+        else:
+            return (None, None)
 
 def powerset(setsize=int):
     """Powerset
