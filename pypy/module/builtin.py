@@ -453,18 +453,18 @@ class __builtin__(ExtModule):
            ignoring the trailing items in the other collections."""
 
         if len(collections) == 0:
-           raise TypeError, "zip() requires at least one sequence"
+            raise TypeError, "zip() requires at least one sequence"
         res = []
         idx = 0
         while 1:
-           try:
-              elems = []
-              for collection in collections:
-                 elems.append(collection[idx])
-              res.append(tuple(elems))
-           except IndexError:
-              break
-           idx = idx + 1
+            try:
+                elems = []
+                for collection in collections:
+                    elems.append(collection[idx])
+                res.append(tuple(elems))
+            except IndexError:
+                break
+            idx = idx + 1
         return res
 
     def app_reduce(self, function, l, *initialt):
