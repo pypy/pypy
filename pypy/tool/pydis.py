@@ -44,7 +44,7 @@ class Bytecode:
         
         s = repr(oparg).rjust(5) + " "
         if op in hasconst:
-            s += '(' + `co.co_consts[oparg]` + ')'
+            s += '(' + `co.co_consts_w[oparg]` + ')'
         elif op in hasname:
             s +=  '(' + co.co_names[oparg] + ')'
         elif op in hasjrel:
