@@ -144,3 +144,14 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
                          space.wrap("DID NOT RAISE"))
 
 app_raises = interp2app_temp(pypyraises)
+
+def raises_w(space, w_ExpectedException, *args, **kwds):
+    try:
+        excinfo = py.test.raises(OperationError, *args, **kwds)
+        type, value, tb = excinfo._excinfo
+        if not value.match(space, w_ExpectedException):
+            raise type, value, tb
+        return excinfo
+    except py.test.Item.ExceptionFailure, e:
+        e.tbindex = getattr(e, 'tbindex', -1) - 1
+        raise

@@ -37,6 +37,7 @@ def getobjspace(name=None, _spacecache={}):
                       pytestsupport.build_pytest_assertion(space))
         space.setitem(space.w_builtins, space.wrap('raises'),
                       space.wrap(pytestsupport.app_raises))
+        space.raises_w = pytestsupport.raises_w.__get__(space)
         return space
 
 # 
