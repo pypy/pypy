@@ -41,6 +41,10 @@ class NoTypePyrexGenTestCase(testit.IntTestCase):
         poor_man_range = self.build_cfunc(snippet.poor_man_range)
         self.assertEquals(poor_man_range(10), range(10))
 
+    def poor_man_rev_range(self):
+        poor_man_rev_range = self.build_cfunc(snippet.poor_man_rev_range)
+        self.assertEquals(poor_man_rev_range(10), range(9,-1,-1))
+
     def test_simple_id(self):
         #we just want to see, if renaming of parameter works correctly
         #if the first branch is the end branch

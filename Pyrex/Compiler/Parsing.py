@@ -637,6 +637,23 @@ def p_global_statement(s):
 
 def p_expression_or_assignment(s):
     expr_list = [p_expr(s)]
+    if s.sy in augassign_ops:
+        n1 = expr_list[0]
+        op = s.sy[:-1]
+        pos = s.position()
+        s.next()
+        n2 = p_expr(s)
+        # Parse a limited form of augmented assignment:
+        #    'name += expr'  -->  'name = name + y'
+        # with a specially marked binop node.
+        # Augmented assignment to more complex expressions isn't supported yet.
+        if isinstance(n1, ExprNodes.NameNode):
+            n1copy = ExprNodes.NameNode(n1.pos, name = n1.name)
+        else:
+            s.error("not implemented: augmented assignment to an expression more complex than a variable name")
+        binop = ExprNodes.binop_node(pos, op, n1, n2)
+        binop.inplace = 1
+        return Nodes.SingleAssignmentNode(pos, lhs = n1copy, rhs = binop)
     while s.sy == '=':
         s.next()
         expr_list.append(p_expr(s))
@@ -662,6 +679,11 @@ def p_expression_or_assignment(s):
         else:
             #return Nodes.StatListNode(nodes[0].pos, stats = nodes)
             return Nodes.ParallelAssignmentNode(nodes[0].pos, stats = nodes)
+
+augassign_ops = (
+    '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=',
+    '<<=', '>>=', '**='
+)
 
 def flatten_parallel_assignments(input, output):
     #  The input is a list of expression nodes, representing 

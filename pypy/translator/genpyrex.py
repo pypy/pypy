@@ -26,12 +26,11 @@ class Op:
                 return "%s = %s %s" % (self.resultname, operator) + args
             elif len(args) == 2:
                 #Inplace operators
-                inp=['+=','-=','*=','/=','%=','^=','//=','div=','**=','<<=','>>=','!=','&=']
+                inp=['+=','-=','*=','/=','%=','&=','|=','^=','//=',
+                     '<<=','>>=','**=']
                 if operator in inp:
-                    temp_str="temp_xx12=%s %s %s\n"%(args[0], operator[:-1], args[1])
-                    temp_str+="%s=temp_xx12\n"%args[0]
-                    temp_str+="%s=temp_xx12"%self.resultname
-                    return temp_str
+                    return "%s = %s; %s %s %s" % (self.resultname, args[0],
+                                        self.resultname, operator, args[1])
                 else:
                     return "%s = %s %s %s" % (self.resultname, args[0], operator, args[1])
             elif len(args) == 3 and operator == "**": #special case, have to handle it manually

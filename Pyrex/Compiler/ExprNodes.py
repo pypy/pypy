@@ -2268,7 +2268,7 @@ class BinopNode(ExprNode):
     def generate_result_code(self, code):
         if self.operand1.type.is_pyobject:
             function = self.py_operation_function()
-            if function == "PyNumber_Power":
+            if self.operator == "**":
                 extra_args = ", Py_None"
             else:
                 extra_args = ""
@@ -2296,6 +2296,7 @@ class BinopNode(ExprNode):
 
 class NumBinopNode(BinopNode):
     #  Binary operation taking numeric arguments.
+    inplace = 0
     
     def analyse_c_operation(self, env):
         type1 = self.operand1.type
@@ -2320,7 +2321,10 @@ class NumBinopNode(BinopNode):
             self.operand2.result)
     
     def py_operation_function(self):
-        return self.py_functions[self.operator]
+        function = self.py_functions[self.operator]
+        if self.inplace:
+            function = function.replace("PyNumber_", "PyNumber_InPlace")
+        return function
 
     py_functions = {
         "|":		"PyNumber_Or",
