@@ -5,6 +5,10 @@ from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import FrameState
 
 
+class OperationThatShouldNotBePropagatedError(OperationError):
+    pass
+
+
 class SpamBlock(Block):
     dead = False
       
@@ -210,6 +214,11 @@ class FlowExecutionContext(ExecutionContext):
                 continue   # restarting a dead SpamBlock
             try:
                 w_result = frame.resume()
+            except OperationThatShouldNotBePropagatedError, e:
+                raise Exception(
+                    'found an operation that always raises %s: %s' % (
+                        self.space.unwrap(e.w_type).__name__,
+                        self.space.unwrap(e.w_value)))
             except OperationError, e:
                 link = Link([e.w_type, e.w_value], self.graph.exceptblock)
                 self.crnt_block.closeblock(link)
