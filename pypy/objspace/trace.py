@@ -7,8 +7,18 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.pycode import PyCode
 debug = 0
 
+class Logger(object):
+    def __init__(self, fn, printme):
+        self.fn = fn
+        self.printme = printme
+        
+    def __call__(self, cls, *args, **kwds):
+        print "%s (%s, %s)" % (self.printme, str(args), str(kwds)) 
+        return self.fn(*args, **kwds)
+
+        
 # ______________________________________________________________________
-class TraceObjSpace(ObjSpace):
+class TraceObjSpace(StdObjSpace):
     full_exceptions = False
     
     def initialize(self):
@@ -19,19 +29,16 @@ class TraceObjSpace(ObjSpace):
                 print "key: %s" % key
                 setattr(self, key, item)
             else:
-                def logger(self, *args, **kwargs):
-                    print "instance method %s, args: %s" % (key, args)
-                    return item(*args, **kwargs)
-                setattr(self, key, new.instancemethod(logger, self, TraceObjSpace))
+                l = Logger(item, "instance method")
+                print l
+                setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
 
         for key in space.__class__.__dict__.keys():
             item = getattr(space, key)
             if callable(item) and not key.startswith('__'):
-                def logger(self, *args, **kwargs):
-                    print "class method %s, args: %s" % (key, args)
-                    return item(*args, **kwargs)
-
-                setattr(self, key, new.instancemethod(logger, self, TraceObjSpace))
+                l = Logger(item, "class method")
+                print l
+                setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
 
     def runx(self, func, *args):
         globals = {}
@@ -57,12 +64,11 @@ s = Space()
 
 
 def runx(space, func, *args):
-    globals = {}
-    w_globals = space.wrap(globals) 
     args_w = [space.wrap(ii) for ii in args]
     ec = space.getexecutioncontext()
     code = func.func_code
     code = PyCode()._from_code(code)
+    w_globals = ec.make_standard_w_globals()  
     frame = code.create_frame(space, w_globals)
     frame.setfastscope(args_w)
     return frame.run()
