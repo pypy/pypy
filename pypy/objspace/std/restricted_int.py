@@ -141,8 +141,8 @@ _bits = 0
 _itest = 1
 _Ltest = 1L
 while _itest == _Ltest and type(_itest) is int:
-    _itest <<= 1
-    _Ltest <<= 1
+    _itest *= 2
+    _Ltest *= 2
     _bits += 1
 
 LONG_BIT = _bits+1
