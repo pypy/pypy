@@ -26,7 +26,7 @@ KEYS = dict([
 
 class Display(object):
     
-    def __init__(self, (w,h)=(800,740)):
+    def __init__(self, (w,h)=(800,680)):
         pygame.init()
         self.resize((w,h))
 
