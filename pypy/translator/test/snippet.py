@@ -131,7 +131,7 @@ def yast(lst):
     return total
 
 def time_waster(n):
-    "Arbitrary test function"
+    """Arbitrary test function"""
     i = 0
     x = 1
     while i<n:
@@ -141,3 +141,7 @@ def time_waster(n):
             x = x + (i&j)
         i = i + 1
     return x
+
+def half_of_n(n):
+    """Slice test"""
+    return len(range(n)[0:n:2])

@@ -294,6 +294,6 @@ ObjSpace.ExceptionTable = [
 #        newlist([w_1, w_2,...]) -> w_list
 #      newstring([w_1, w_2,...]) -> w_string from ascii numbers (bytes)
 # newdict([(w_key,w_value),...]) -> w_dict
-# newslice(w_start,w_stop,w_end) -> w_slice     (w_end may be a real None)
+#newslice(w_start,w_stop,w_step) -> w_slice (w_step may be a real None)
 #                   next(w_iter) -> w_value or raise NoValue
 #

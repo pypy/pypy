@@ -81,6 +81,10 @@ class Op:
             pairs.append("%s: %s, " % (self.argnames[i], self.argnames[i+1]))
         return "%s = {%s}" % (self.resultname, "".join(pairs))
 
+    def op_newslice(self):
+        a = self.argnames
+        return "%s = slice(%s, %s, %s)" % (self.resultname, a[0], a[1], a[2])
+
     def op_call(self):
         a = self.argnames
         return "%s = %s(*%s, **%s)" % (self.resultname, a[0], a[1], a[2])

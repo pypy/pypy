@@ -81,5 +81,9 @@ class PyrexGenTestCase(test.IntTestCase):
         sieve = make_cfunc(t.sieve_of_eratosthenes)
         self.assertEquals(sieve(), 1028)
 
+    def test_slice(self):
+        half = make_cfunc(t.half_of_n)
+        self.assertEquals(half(10), 5)
+
 if __name__ == '__main__':
     test.main()

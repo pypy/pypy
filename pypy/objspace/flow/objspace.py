@@ -31,6 +31,9 @@ class FlowObjSpace(ObjSpace):
     def newlist(self, args_w):
         return self.do_operation('newlist', *args_w)
 
+    def newslice(self, w_start, w_stop, w_step):
+        return self.do_operation('newslice', w_start, w_stop, w_step)
+
     def wrap(self, obj):
         if isinstance(obj, W_Object):
             raise TypeError("already wrapped: " + repr(obj))
