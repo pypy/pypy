@@ -5,7 +5,10 @@ def apply(function, args, kwds={}):
 def map(function, *collections):
     if len(collections) == 1:
        #it's the most common case, so make it faster
-       return [function(x) for x in collections[0]]
+       if function is None:
+          return collections[0]
+       else:
+          return [function(x) for x in collections[0]]
     else:
        res = []
        idx = 0   
@@ -20,7 +23,10 @@ def map(function, *collections):
                  elem = None
               args.append(elem)
           if cont:
-              res.append(function(*args))
+              if function is None:
+                 res.append(tuple(args))
+              else:
+                 res.append(function(*args))
           else:
               return res
           idx = idx + 1
@@ -60,15 +66,16 @@ def zip(*collections):
     return res
 
 
-def reduce(function, list, initial = None):
-    if initial is None:
+def reduce(function, list, *initialt):
+    if initialt:
+       initial, = initialt
+       idx = 0
+    else:
        try:
           initial = list[0]
        except IndexError:
           raise TypeError, "reduce() of empty sequence with no initial value"
        idx = 1
-    else:
-       idx = 0
     while 1:
        try:
          initial = function(initial, list[idx])
