@@ -357,7 +357,7 @@ def run_tests_on_space(suite, spacename=''):
         Options.spacename = spacename
 
     warnings.defaultaction = Options.showwarning and 'default' or 'ignore'
-    print >> sys.stderr, "running tests via", repr(objspace())
+    #print >> sys.stderr, "running tests via", repr(objspace())
     runner.run(suite)
 
 def main(root=None):

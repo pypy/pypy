@@ -25,6 +25,8 @@ def get_standard_options():
         '-T', action="callback",
         callback=objspace_callback, callback_args=("trivial",),
         help="run in trivial object space"))
+    """
+    unneeded options that don't even make sense any more?
     options.append(make_option(
         '-P', action="callback",
         callback=objspace_callback, callback_args=("trace",),
@@ -33,6 +35,7 @@ def get_standard_options():
         '-A', action="callback",
         callback=objspace_callback, callback_args=("ann",),
         help="run in annotation object space"))
+    """
     options.append(make_option(
         '-v', action="count", dest="verbose",
         help="verbose"))
