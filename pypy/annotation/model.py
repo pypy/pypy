@@ -257,7 +257,7 @@ def immutablevalue(x):
     result.const = x
     return result
 
-def valueoftype(t):
+def valueoftype(t, bookkeeper=None):
     "The most precise SomeValue instance that contains all objects of type t."
     if t is bool:
         return SomeBool()
@@ -267,8 +267,14 @@ def valueoftype(t):
         return SomeString()
     elif t is list:
         return SomeList(factories={})
+    # can't do dict, tuple
+    elif isinstance(t, (type, ClassType)) and \
+             t.__module__ != '__builtin__' and bookkeeper is not None:
+        return SomeInstance(bookkeeper.getclassdef(t))
     else:
-        return SomeObject()
+        o = SomeObject()
+        o.knowntype = t
+        return o
 
 ##def decode_simple_call(s_args, s_kwds):
 ##    s_nbargs = s_args.len()

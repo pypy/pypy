@@ -462,6 +462,12 @@ def flow_type_info(i):
         a = len(str(i))
     return a
 
+def flow_usertype_info(ob):
+    if isinstance(ob, WithInit):
+        return ob
+    else:
+        return WithMoreInit(1, 2)
+
 def flow_identity_info(x=object, y=object):
     if x is None:
         if None is y:

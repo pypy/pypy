@@ -291,6 +291,18 @@ class AnnonateTestCase(testit.IntTestCase):
         # actually more precise information that i is non-negative
         self.assertEquals(s, annmodel.SomeInteger(nonneg=True))
 
+    def test_flow_usertype_info(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.flow_usertype_info, [object])
+        #a.translator.view()
+        self.assertEquals(s.knowntype, snippet.WithInit)
+
+    def test_flow_usertype_info2(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.flow_usertype_info, [snippet.WithMoreInit])
+        #a.translator.view()
+        self.assertEquals(s.knowntype, snippet.WithMoreInit)
+
     def test_flow_identity_info(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.flow_identity_info, [object, object])

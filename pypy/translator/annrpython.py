@@ -58,7 +58,7 @@ class RPythonAnnotator:
         inputcells = []
         for t in input_arg_types:
             if not isinstance(t, annmodel.SomeObject):
-                t = annmodel.valueoftype(t)
+                t = annmodel.valueoftype(t, self.bookkeeper)
             inputcells.append(t)
         
         # register the entry point

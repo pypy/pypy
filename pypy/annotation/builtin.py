@@ -33,6 +33,10 @@ def restricted_uint(s_obj):    # for r_uint
 def builtin_chr(s_int):
     return SomeChar()
 
+def our_issubclass(cls1, cls2):
+    """ we're going to try to be less silly in the face of old-style classes"""
+    return cls2 is object or issubclass(cls1, cls2)
+
 def builtin_isinstance(s_obj, s_type):
     if s_type.is_constant():
         typ = s_type.const
@@ -41,25 +45,26 @@ def builtin_isinstance(s_obj, s_type):
             typ = int
         if s_obj.is_constant():
             return immutablevalue(isinstance(s_obj.const, typ))
-        elif issubclass(s_obj.knowntype, typ):
+        elif our_issubclass(s_obj.knowntype, typ):
             return immutablevalue(True)
-        elif not issubclass(typ, s_obj.knowntype): 
-            return immutablevalue(False) 
+        elif not our_issubclass(typ, s_obj.knowntype): 
+            return immutablevalue(False)
         else:
             # XXX HACK HACK HACK
             # XXX HACK HACK HACK
             # XXX HACK HACK HACK
             # XXX HACK HACK HACK
             # XXX HACK HACK HACK
-            fn, block, i = getbookkeeper().position_key
-            annotator = getbookkeeper().annotator
+            bk = getbookkeeper()
+            fn, block, i = bk.position_key
+            annotator = bk.annotator
             op = block.operations[i]
             assert op.opname == "simple_call" 
             assert len(op.args) == 3
             assert op.args[0] == Constant(isinstance)
             assert annotator.binding(op.args[1]) is s_obj
             r = SomeBool()
-            r.knowntypedata = (op.args[1], valueoftype(typ))
+            r.knowntypedata = (op.args[1], valueoftype(typ, bk))
             return r
     return SomeBool()
 
