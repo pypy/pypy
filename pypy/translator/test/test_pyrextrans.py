@@ -5,7 +5,8 @@ from pypy.translator.genpyrex import GenPyrex
 from pypy.translator.flowmodel import *
 from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
 
-make_dot = True
+
+make_dot = False
 
 if make_dot: 
     from pypy.translator.test.make_dot import make_dot
