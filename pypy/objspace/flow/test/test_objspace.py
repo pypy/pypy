@@ -282,6 +282,18 @@ class TestFlowObjSpace(testit.TestCase):
         self.show(x)
 
     #__________________________________________________________
+    def catch_simple_call():
+        try:
+            user_defined_function()
+        except IndexError:
+            return -1
+        return 0
+    
+    def test_catch_simple_call(self):
+        x = self.codetest(self.catch_simple_call)
+        self.show(x)
+
+    #__________________________________________________________
     def dellocal():
         x = 1
         del x
@@ -331,6 +343,9 @@ class TestFlowObjSpace(testit.TestCase):
 
 DATA = {'x': 5,
         'y': 6}
+
+def user_defined_function():
+    pass
 
 if __name__ == '__main__':
     testit.main()

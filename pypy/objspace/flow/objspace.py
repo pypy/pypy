@@ -1,5 +1,5 @@
 # ______________________________________________________________________
-import sys, operator
+import sys, operator, types
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
@@ -216,9 +216,53 @@ class FlowObjSpace(ObjSpace):
 
         if args.kwds_w:
             w_args, w_kwds = args.pack()
-            return self.do_operation('call', w_callable, w_args, w_kwds)
+            w_res = self.do_operation('call', w_callable, w_args, w_kwds)
         else:
-            return self.do_operation('simple_call', w_callable, *args.args_w)
+            w_res = self.do_operation('simple_call', w_callable, *args.args_w)
+
+        # maybe the call has generated an exception (any one)
+        # but, let's say, not if we are calling a built-in class or function
+        # because this gets in the way of the special-casing of
+        #
+        #    raise SomeError(x)
+        #
+        # as shown by test_objspace.test_raise3.
+        
+        exceptions = True   # *any* exception by default
+        if isinstance(w_callable, Constant):
+            c = w_callable.value
+            if isinstance(c, (types.BuiltinFunctionType,
+                              types.BuiltinMethodType)):
+                exceptions = None
+            elif (isinstance(c, (type, types.ClassType)) and
+                  c.__module__ in ['__builtin__', 'exceptions']):
+                exceptions = None
+        self.handle_implicit_exceptions(exceptions)
+        return w_res
+
+    def handle_implicit_exceptions(self, exceptions):
+        if exceptions:
+            # catch possible exceptions implicitly.  If the OperationError
+            # below is not caught in the same function, it will produce an
+            # exception-raising return block in the flow graph.  The special
+            # value 'wrap(last_exception)' is used as a marker for this kind
+            # of implicit exceptions, and simplify.py will remove it as per
+            # the RPython definition: implicit exceptions not explicitly
+            # caught in the same function are assumed not to occur.
+            context = self.getexecutioncontext()
+            if exceptions == True:
+                # any exception
+                outcome = context.guessexception(Exception)
+                if outcome is not None:
+                    w_value = self.wrap(last_exception)
+                    w_type = self.do_operation('type', w_value)
+                    raise OperationError(w_type, w_value)
+            else:
+                # only the specified exception(s)
+                outcome = context.guessexception(*exceptions)
+                if outcome is not None:
+                    raise OperationError(self.wrap(outcome),
+                                         self.wrap(last_exception))
 
 # ______________________________________________________________________
 
@@ -280,19 +324,7 @@ def make_op(name, symbol, arity, specialnames):
 
         #print >> sys.stderr, 'Variable operation', name, args_w
         w_result = self.do_operation(name, *args_w)
-        if exceptions:
-            # catch possible exceptions implicitly.  If the OperationError
-            # below is not caught in the same function, it will produce an
-            # exception-raising return block in the flow graph.  The special
-            # value 'wrap(last_exception)' is used as a marker for this kind
-            # of implicit exceptions, and simplify.py will remove it as per
-            # the RPython definition: implicit exceptions not explicitly
-            # caught in the same function are assumed not to occur.
-            context = self.getexecutioncontext()
-            outcome = context.guessexception(*exceptions)
-            if outcome is not None:
-                raise OperationError(self.wrap(outcome),
-                                     self.wrap(last_exception))
+        self.handle_implicit_exceptions(exceptions)
         return w_result
 
     setattr(FlowObjSpace, name, generic_operator)
