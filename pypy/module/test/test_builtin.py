@@ -223,13 +223,18 @@ class TestInternal(test.IntTestCase):
                 return a+2
         self.failIf(not callable(Call()),
                     "Builtin function 'callable' misreads callable object")
+        self.assert_(callable(int),
+                    "Builtin function 'callable' misreads int")
 
     def test_uncallable(self):
         class NoCall:
             pass
-        self.failIf(callable(NoCall()),
+        a = NoCall()
+        self.failIf(callable(a),
                     "Builtin function 'callable' misreads uncallable object")
-        
+        a.__call__ = lambda: "foo"
+        self.failIf(callable(a), 
+                    "Builtin function 'callable' tricked by instance-__call__")
 
 
 if __name__ == '__main__':
