@@ -131,7 +131,7 @@ class DescrOperation:
 
     # not_ has a default implementation
 
-    # xxx round, not_ 
+    # xxx round, ord
 
 
 
@@ -173,11 +173,12 @@ def _cmp(space,w_obj1,w_obj2):
     w_res = _invoke_binop(w_right_impl,w_obj2,w_obj1)
     if w_res is not None:
         return _conditional_neg(space,w_res,do_neg2)
-    raise OperationError(space.w_TypeError) # xxx error
+    raise OperationError(space.w_TypeError,
+                         space.wrap("operands do not support comparison"))
 
 # regular methods def helpers
 
-def _make_binop_impl(specialnames):
+def _make_binop_impl(symbol,specialnames):
     left, right = specialnames
     def binop_impl(space,w_obj1,w_obj2):
         w_typ1 = space.type(w_obj1)
@@ -197,10 +198,11 @@ def _make_binop_impl(specialnames):
         w_res = _invoke_binop(w_right_impl,w_obj2,w_obj1)
         if w_res is not None:
             return w_res
-        raise OperationError(space.w_TypeError) # xxx error
+        raise OperationError(space.w_TypeError,
+                space.wrap("operands do not support binary %s" % symbol))
     return binop_impl
 
-def _make_comparison_impl(specialnames):
+def _make_comparison_impl(symbol,specialnames):
     left, right = specialnames
     def comparison_impl(space,w_obj1,w_obj2):
         w_typ1 = space.type(w_obj1)
@@ -232,20 +234,22 @@ def _make_comparison_impl(specialnames):
 
     return comparison_impl
 
-def _make_inplace_impl(specialnames):
+def _make_inplace_impl(symbol,specialnames):
     specialname, = specialnames
     def inplace_impl(space,w_lhs,w_rhs):
         w_impl = space.lookup(w_lhs,specialname)
         if w_impl is None:
-            raise OperationError(space.w_TypeError) # xxx error
+            raise OperationError(space.w_TypeError,
+                    space.wrap("operands do not support inplace %s" % symbol))
         space.get_and_call_function(w_impl,w_lhs,w_rhs)
     return inplace_impl
 
-def _make_unaryop_impl(specialnames):
+def _make_unaryop_impl(symbol,specialnames):
     def unaryop_impl(space,w_obj):
         w_impl = space.lookup(w_obj,specialname)
         if w_impl is None:
-            raise OperationError(space.w_TypeError) # xxx error
+            raise OperationError(space.w_TypeError,
+                   space.wrap("operand does not support unary %s" % symbol))
         space.get_and_call_function(w_impl,w_obj)
     return unaryop_impl
     
@@ -268,7 +272,7 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
             #print "unaryop",_specialnames
             _impl_maker = _make_unaryop_impl    
         if _impl_maker:
-            setattr(DescrOperation,_name,_impl_maker(_specialnames))
+            setattr(DescrOperation,_name,_impl_maker(_symbol,_specialnames))
         elif _name not in ['id','type','issubtype',
                            # not really to be defined in DescrOperation
                            'ord','not_','round']:
