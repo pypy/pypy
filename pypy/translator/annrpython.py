@@ -208,9 +208,10 @@ class RPythonAnnotator:
                                         expectedargs)
                 else:
                     msg = "%d" % expectedargs
-                raise AnnotatorError, (
+                print ("!!! AnnotatorError, (ignored!!!)" 
                     "got %d inputcells in call to %r; expected %s" % (
                     len(inputcells), func, msg))
+                return annmodel.SomeImpossibleValue()
             for extra in func.func_defaults[-missingargs:]:
                 inputcells.append(self.bookkeeper.immutablevalue(extra))
         inputcells.extend(extracells)
