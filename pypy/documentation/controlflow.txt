@@ -18,145 +18,85 @@ it will do whatever bytecode dispatching and stack-shuffling needed, during whic
 For example, if the placeholder ``v1`` is given as the argument to the above function, the interpreter will call ``v2 = space.mul(space.wrap(3), v1)`` and then ``v3 = space.add(v2, space.wrap(2))`` and return ``v3`` as the result.  During these calls the FlowObjSpace will record a basic block::
 
   Block(v1):     # input argument
-    v2 = mul(constant(3), v1)
-    v3 = add(v2, constant(2))
+    v2 = mul(Constant(3), v1)
+    v3 = add(v2, Constant(2))
 
 
-Joining basic blocks
---------------------
+The Flow model
+--------------
 
-A basic block ends in one of two cases: when the interpreters calls ``is_true()``, or when a joinpoint is reached.
+``pypy.objspace.flow.model`` defines the data model used by the flow graphs, as created by the FlowObjSpace, manipulated by ``pypy.translator.simplify`` and ``pypy.translator.transform``, and in general read by almost all the modules in ``pypy.translator``.
 
-* A joinpoint is a specially marked position in the bytecode.  This is the only bytecode dependency in FlowObjSpace.  Intuitively, there should be one joinpoint at each bytecode position where two different paths can "join" together, e.g. the entry point of a loop.  A joinpoint forces a basic block to end and the next one to begin.  A snapshot of the current frame is taken (a FrameState) and recorded on the joinpoint.  If the control flow later reaches this point again, we put a "backwards" jump to the old basic block that starts at this point.  (The control flow is actually just a graph, with basic blocks pointing to each other, so there is not really a notion of "backwards".)
+It is recommended to play with ``python translator.py`` on a few examples to get an idea of the structure of flow graphs.  Here is a short summary of the non-obvious parts.
+
+
+FunctionGraph
+    A container for one graph (corresponding to one function).
+
+    :startblock:   the first block.  It is where the control goes when the function is called.  The input arguments of the startblock are the function's arguments.  If the function takes a ``*args`` argument, the ``args`` tuple is given as the last input argument of the startblock.
+    :returnblock:  the (unique) block that performs a function return.  It is empty, not actually containing any ``return`` operation; the return is implicit.  The returned value is the unique input variable of the returnblock.
+    :exceptblock:  the (unique) block that raises an exception out of the function.  The two input variables are the exception class and the exception value, respectively.  (No other block will actually link to the exceptblock if the function does not explicitely raise exceptions.)
+
+
+Block
+    A basic block, containing a list of operations and ending in jumps to other basic blocks.  All the values that are "live" during the execution of the block are stored in Variables.  Each basic block uses its own distinct Variables.
+
+    :inputargs:   list of fresh, distinct Variables that represent all the values that can enter this block from any of the previous blocks.
+    :operations:  list of SpaceOperations.
+    :exitswitch:  see below
+    :exits:       list of Links representing possible jumps from the end of this basic block to the beginning of other basic blocks.
+
+    Each Block ends in one of the following ways:
+
+    * unconditional jump: exitswitch is None, exits contains a single Link.
+    * conditional jump: exitswitch is one of the Variables that appear in the Block, and exits contains one or more Links (usually 2).  Each Link's exitcase gives a concrete value.  This is the equivalent of a "switch": the control follows the Link whose exitcase matches the run-time value of the exitswitch Variable.  It is a run-time error if the Variable doesn't match any exitcase.  (Currently only used with 2 Links whose exitcase are False and True, respectively.)
+    * exception catching: exitswitch is ``Constant(last_exception)``.  The first Link has exitcase set to None and represents the non-exceptional path.  The next Links have exitcase set to a subclass of Exception, and are taken when the *last* operation of the basic block raises a matching exception.  (Thus the basic block must not be empty, and only the last operation is protected by the handler.)
+    * return or except: the returnblock and the exceptblock have operations set to an empty tuple, exitswitch to None, and exits empty.
+
+
+Link
+    A link from one basic block to another.
+
+    :prevblock:  the Block that this Link is an exit of.
+    :target:     the target Block to which this Link points to.
+    :args:       a list of Variables and Constants, of the same size as the target Block's inputargs, which gives all the values passed into the next block.  (Note that each Variable used in the prevblock may appear zero, one or more times in the ``args`` list.)
+    :exitcase:   see above.
+
+    Note that ``args`` uses Variables from the prevblock, which are matched to the target block's ``inputargs`` by position, as in a tuple assignment or function call would do.
+
+
+SpaceOperation
+    A recorded (or otherwise generated) basic operation.
+
+    :opname:  the name of the operation.  Generally one from the list in ``pypy.interpreter.baseobjspace``.
+    :args:    list of arguments.  Each one is a Constant or a Variable seen previously in the basic block.
+    :result:  a *new* Variable into which the result is to be stored.
+
+    Note that operations usually cannot implicitely raise exceptions at run-time; so for example, code generators can assume that a ``getitem`` operation on a list is safe and can be performed without bound checking.  The exceptions to this rule are: (1) if the operation is the last in the block, which ends with ``exitswitch == Constant(last_exception)``, then the implicit exceptions must be checked for, generated, and caught appropriately; (2) calls to other functions, as per ``simple_call`` or ``call_args``, can always raise whatever the called function can raise --- and such exceptions must be passed through to the parent unless they are caught as above.
+
+
+Variable
+    A placeholder for a run-time value.  There is mostly debugging stuff here.
+
+    :name:  it is good style to use the Variable object itself instead of its ``name`` attribute to reference a value, although the ``name`` is guaranteed unique.
+
+
+Constant
+    A constant value used as argument to a SpaceOperation, or as value to pass across a Link to initialize an input Variable in the target Block.
+
+    :value:  the concrete value represented by this Constant.
+    :key:    a hashable object representing the value.
+
+    A Constant can occasionally store a mutable Python object.  It represents a static, pre-initialized, read-only version of that object.  The flow graph should not attempt to actually mutate such Constants.
+
+
+How the FlowObjSpace works
+--------------------------
+
+The FlowObjSpace works by recording all operations issued by the interpreter into basic blocks.  A basic block ends in one of two cases: when the interpreters calls ``is_true()``, or when a joinpoint is reached.
+
+* A joinpoint occurs when the next operation is about to be recorded into the current block, but there is already another block that records an operation for the same bytecode position.  This means that the interpreter has closed a loop and is interpreting already-seen code again.  In this situation, we interrupt the interpreter and we make a link from the end of the current block back to the previous block, thus closing the loop in the flow graph as well.  (Note that this occurs only when an operation is about to be recorded, which allows some amount of constant-folding.)
 
 * If the interpreter calls ``is_true()``, the FlowObjSpace doesn't generally know if the answer should be True or False, so it puts a conditional jump and generates two successor blocks for the current basic block.  There is some trickery involved so that the interpreter is fooled into thinking that ``is_true()`` first returns False (and the subsequent operations are recorded in the first successor block), and later the *same* call to ``is_true()`` also returns True (and the subsequent operations go this time to the other successor block).
 
-
-Passing variables between basic blocks
---------------------------------------
-
-XXX
-
-
-FlowExecutionContext
---------------------
-
-The FlowExecutionContext is a modified ExecutionContext that drives the interpreter in a fashion that is quite different from the one needed for normal interpretation.  XXX
-
-
-Interface
----------
-
-We make one instance of FlowExecutionContext per function to analyse.  The instance has a cache of FrameStates to detect when the control is looping (``self.joinpoints``).  XXX
-
-
-Old stuff to remove
--------------------
-
-::
-
-  Hello again
-  
-                             def f(i):
-                                 return g(i)+2
-                             def g(i):
-                                 return i+1
-  
-  f(3)
-  tspace:
-  pyxcode.putln('def f(%s):' % sig)
-  res = frame.eval(executioncontext)
-  pyxcode.putln('return %s' % res)
-  
-  
-  Pyrex: def f(v1):
-  dis.dis(f) -->
-   2            0 LOAD_GLOBAL              0 (g)
-                 w_result =  space.getitem(f.w_globals, w_varname)
-  
-                3 LOAD_FAST                0 (i)
-                6 CALL_FUNCTION            1
-  space.call(w_function, w_arguments, w_kwds)
-  space.call(w_g, ("v1",), {})
-  Pyrex: v2 = g(v1)
-                9 LOAD_CONST               1 (2)
-  space.wrap(2)
-               12 BINARY_ADD
-  space.add("v2", "constant 2")
-  Pyrex: v3 = v2 + 2
-               13 RETURN_VALUE
-               14 LOAD_CONST               0 (None)
-               17 RETURN_VALUE
-  Pyrex: return v3
-  
-  
-  Result:
-  def f(v1):
-    v2 = g(v1)
-    v3 = v2 + 2
-    return v3
-  
-  
-  def h(i, j):
-    if i < 0:
-      i = j
-    return i+1
-  
-  Pyrex: def h(v1, v2):
-  --> interpreter
-    3           0 LOAD_FAST                0 (i)
-                3 LOAD_CONST               1 (0)
-                6 COMPARE_OP               0 (<)
-  "v3" = space.lt("v1", "constant 0")
-  Pyrex: v3 = v1 < 0
-                9 JUMP_IF_FALSE           10 (to 22)
-  space.is_true("v3")
-  Pyrex: if v3: cinline "goto Label1;"
-               12 POP_TOP
-  
-    4          13 LOAD_FAST                1 (j)
-               16 STORE_FAST               0 (i)
-               19 JUMP_FORWARD             1 (to 23)
-          >>   22 POP_TOP
-  
-  Pyrex: cinline "LabelBytecode23:"   # just in case for later
-    5     >>   23 LOAD_FAST                0 (i)
-               26 LOAD_CONST               2 (1)
-               29 BINARY_ADD
-  space.add("v1", "constant 2")
-  Pyrex: v4 = v1 + 2
-               30 RETURN_VALUE
-               31 LOAD_CONST               0 (None)
-               34 RETURN_VALUE
-  Pyrex: return v4
-  
-  pyrex: cinline "Label1:"
-               12 POP_TOP
-  
-    4          13 LOAD_FAST                1 (j)
-               16 STORE_FAST               0 (i)
-  (in the interpreter fastlocals now: i="v2" j="v2")
-               19 JUMP_FORWARD             1 (to 23)
-          >>   22 POP_TOP
-  
-  (bytecode 23 already seen!)
-  Pyrex: v1 = v2
-  Pyrex: cinline "goto LabelBytecode23;"
-    5     >>   23 LOAD_FAST                0 (i)
-  
-  def h(i, j):
-    if i < 0:
-      i = j
-    return i+1
-  
-  def h(v1, v2):
-      v3 = v1 < 0
-      if v3: cinline "goto label1;"
-  
-      cinline "labelBytecode23:"
-      v4=v1+1
-      return v4
-      cinline "label1:"
-      v1=v2
-      cinline "goto labelBytecode23;"
-  
+(This section to be extended...)
