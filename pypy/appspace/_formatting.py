@@ -378,7 +378,12 @@ def format(fmt, values, valuedict=None):
                     raise ValueError("unsupported format character "
                                      "'%s' (%x) at index %d"
                                      %(t[0], ord(t[0]), fmtiter.i))
-                r.append(f(*t).format())
+                # Trying to translate this using the flow space.
+                # Currently, star args give a problem there,
+                # so let's be explicit about the args:
+                # r.append(f(*t).format())
+                char, flags, width, prec, value = t
+                r.append(f(char, flags, width, prec, value).format())
             else:
                 # efficiency hack:
                 r.append(c + fmtiter.skip_to_fmt())
