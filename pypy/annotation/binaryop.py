@@ -104,6 +104,9 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         if obj2.is_constant():
             if const is not None:
                 return immutablevalue(obj1.const is obj2.const)
+            # we are in the case "SomeXXX is None" here 
+            if obj2.const is None and obj1.__class__ != SomeObject: 
+                return immutablevalue(False) 
             const = obj2
             var = obj1
             vararg = 0
