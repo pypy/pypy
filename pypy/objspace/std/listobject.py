@@ -439,16 +439,21 @@ def _del_slice(w_list, ilow, ihigh):
         ihigh = w_list.ob_size
     items = w_list.ob_item
     d = ihigh-ilow
-    # keep a reference to the objects to be removed,
     # preventing side effects during destruction
-    recycle = [items[i] for i in range(ilow, ihigh)]
-    for i in range(ilow, w_list.ob_size - d):
+    # first, re-arrange the list so unused elements are at the end.
+    newsize = w_list.ob_size - d
+    for i in range(ilow, newsize):
+        hold = items[i]
         items[i] = items[i+d]
-        items[i+d] = None
-    w_list.ob_size -= d
-    # set the unused items to None to make sure the objects are freed
-    for i in range(w_list.ob_size, ilow+d):
-        items[i] = None
+        items[i+d] = hold
+    # now get rid of the objects at the end, always
+    # keeping the list consistent
+    while w_list.ob_size > newsize:
+        p = w_list.ob_size-1
+        hold = w_list.ob_item[p]
+        w_list.ob_size = p
+        w_list.ob_item[p] = None
+        del hold
 
 # note that the default value will come back wrapped!!!
 def list_pop__List_ANY(space, w_list, w_idx=-1):
