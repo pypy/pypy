@@ -88,19 +88,24 @@ def build_pytest_assertion(space):
         if frame.code.co_name == 'normalize_exception': 
             frame = framestack.top(1)
         
-        runner = AppFrame(frame)
-        try:
-            source = runner.statement
-            source = str(source).strip()
-        except py.error.ENOENT: 
-            source = None
-        if source and not py.test.config.option.nomagic:
-            msg = exprinfo.interpret(source, runner, should_fail=True)
-            space.setattr(w_self, space.wrap('args'),
-                          space.newtuple([space.wrap(msg)]))
-            w_msg = space.wrap(msg)
+        # if the assertion provided a message, don't do magic
+        args_w, kwargs_w = __args__.unpack()
+        if args_w: 
+            w_msg = args_w[0]
         else:
-            w_msg = space.w_None
+            runner = AppFrame(frame)
+            try:
+                source = runner.statement
+                source = str(source).strip()
+            except py.error.ENOENT: 
+                source = None
+            if source and not py.test.config.option.nomagic:
+                msg = exprinfo.interpret(source, runner, should_fail=True)
+                space.setattr(w_self, space.wrap('args'),
+                            space.newtuple([space.wrap(msg)]))
+                w_msg = space.wrap(msg)
+            else:
+                w_msg = space.w_None
         space.setattr(w_self, space.wrap('msg'), w_msg)
 
     # build a new AssertionError class to replace the original one.

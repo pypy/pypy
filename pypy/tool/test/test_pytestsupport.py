@@ -46,4 +46,11 @@ def app_test_exception():
     else: 
         raise AssertionError, "app level AssertionError mixup!"
     
+def app_test_exception_with_message():
+    try:
+        assert 0, "Failed"
+    except AssertionError, e:
+        assert e.msg == "Failed"
+
+
     
