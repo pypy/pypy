@@ -168,6 +168,19 @@ def gt__List_List(space, w_list1, w_list2):
 # upto here, lists are nearly identical to tuples, despite the
 # fact that we now support over-allocation!
 
+def delitem__List_Int(space, w_list, w_idx):
+    i = w_idx.intval
+    if i < 0:
+        i += w_list.ob_size
+    if i < 0 or i >= w_list.ob_size:
+        raise OperationError(space.w_IndexError,
+                             space.wrap("list deletion index out of range"))
+    _del_slice(w_list, i, i+1)
+    return space.w_None
+
+def delitem__List_Slice(space, w_list, w_slice):
+    return _setitem_slice_helper(space, w_list, w_slice, [], 0)
+
 def setitem__List_Int_ANY(space, w_list, w_index, w_any):
     items = w_list.ob_item
     idx = w_index.intval
