@@ -108,9 +108,6 @@ class __extend__(SomeInstance):
             # look for the attribute in the MRO order
             for clsdef in ins.currentdef().getmro():
                 if attr in clsdef.attrs:
-                    # XXX we can't see the difference between function objects
-                    # XXX on classes or on instances, so this will incorrectly
-                    # XXX turn functions read from instances into methods
                     return clsdef.attrs[attr]
             # maybe the attribute exists in some subclass? if so, lift it
             clsdef = ins.classdef
