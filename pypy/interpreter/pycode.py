@@ -4,6 +4,7 @@ PyCode instances have the same co_xxx arguments as CPython code objects.
 The bytecode interpreter itself is implemented by the PyFrame class.
 """
 
+import dis
 from pypy.interpreter import eval
 
 
@@ -92,6 +93,12 @@ class PyCode(eval.Code):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         return not (self.co_flags & CO_OPTIMIZED)
+
+    def getjoinpoints(self):
+        """Compute the bytecode positions that are potential join points
+        (for FlowObjSpace)"""
+        # first approximation
+        return dis.findlabels(self.co_code)
 
 
 def enhanceclass(baseclass, newclass, cache={}):

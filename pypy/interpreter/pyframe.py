@@ -33,21 +33,8 @@ class PyFrame(eval.Frame):
         if code.dictscope_needed():
             self.w_locals = space.newdict([])  # set to None by Frame.__init__
 
-
-##    def XXXclone(self):
-##        f = self.__class__()
-##        f.space = self.space
-##        f.bytecode = self.bytecode
-##        f.w_globals = self.w_globals
-##        f.w_locals = self.w_locals
-##        f.w_builtins = self.w_builtins
-##        f.valuestack = self.valuestack.clone()
-##        f.blockstack = self.blockstack.clone()
-##        f.localcells = [x.clone() for x in self.localcells]
-##        f.nestedcells = [x.clone() for x in self.nestedcells]
-##        f.last_exception = self.last_exception
-##        f.next_instr = self.next_instr
-##        return f
+    def getclosure(self):
+        return None
 
     def eval(self, executioncontext):
         "Interpreter main loop!"
@@ -106,6 +93,32 @@ class PyFrame(eval.Frame):
         if attr == 'f_builtins': return self.w_builtins
         if attr == 'f_code':     return self.space.wrap(self.code)
         raise OperationError(self.space.w_AttributeError, w_attr)
+
+    ### cloning (for FlowObjSpace) ###
+
+    def getflowstate(self):
+        mergeablestate = self.getfastscope() + self.valuestack.items
+        nonmergeablestate = (
+            self.blockstack.items[:],
+            self.last_exception,
+            self.next_instr,
+            )
+        return mergeablestate, nonmergeablestate
+
+    def setflowstate(self, (mergeablestate, nonmergeablestate)):
+        self.setfastscope(mergeablestate[:len(self.fastlocals_w)])
+        self.valuestack.items = mergeablestate[len(self.fastlocals_w):]
+        (
+            self.blockstack.items,
+            self.last_exception,
+            self.next_instr,
+            ) = nonmergeablestate
+        
+    def clone(self):
+        # Clone the frame, making a copy of the mutable state
+        cls = self.__class__
+        f = cls(self.space, self.code, self.w_globals, self.getclosure())
+        f.setflowstate(self.getflowstate())
 
 
 ### Frame Blocks ###

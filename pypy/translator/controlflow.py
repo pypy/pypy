@@ -3,10 +3,13 @@ import autopath
 
 
 class BasicBlock:
-    def __init__(self, input_args, locals, operations, branch):
+    def __init__(self, input_args, locals, operations, branch=None):
         self.input_args = input_args
         self.locals = locals
         self.operations = operations
+        self.branch = branch
+    def closeblock(self, branch):
+        self.operations = tuple(self.operations)  # should no longer change
         self.branch = branch
 
 class Variable:
@@ -22,6 +25,11 @@ class SpaceOperation:
         self.opname = opname
         self.args = args # list of variables
         self.result = result # <Variable/Constant instance>
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self.opname == other.opname and
+                self.args == other.args and
+                self.result == other.result)
 
 class Branch:
     def __init__(self, args=None, target=None):

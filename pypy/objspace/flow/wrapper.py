@@ -5,6 +5,8 @@
 # This is kinda a hack, but at the same time, I don't see why this was defined
 # in the object space module in the annotation object space.
 
+from pypy.translator.controlflow import Variable, Constant
+
 class UnwrapException(Exception):
     pass
 
@@ -43,16 +45,20 @@ class W_Object(object):
 
 # ______________________________________________________________________
 
-class W_Variable(W_Object):
-    pass
+class W_Variable(W_Object, Variable):
+    counter = 0
+
+    def __init__(self):
+        Variable.__init__(self, 'v%d' % W_Variable.counter)
+        W_Variable.counter += 1
 
 # ______________________________________________________________________
 
-class W_Constant(W_Object):
+class W_Constant(W_Object, Constant):
     """A specific constant value."""
 
     def __init__(self, value):
-        self.value = value
+        Constant.__init__(self, value)
 
     def argsrepr(self):
         return repr(self.value)

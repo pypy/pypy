@@ -8,27 +8,34 @@ class TestFlowOjSpace(test.TestCase):
     def setUp(self):
         self.space = test.objspace('flow')
 
-    def codetest(self, source, functionname, args_w):
+    def codetest(self, source, functionname):
         glob = {}
         exec source in glob
         func = glob[functionname]
-        w_args = self.space.newtuple(args_w)
-        w_kwds = self.space.newdict([])
-        return self.space.build_flow(func, w_args, w_kwds)
+        return self.space.build_flow(func)
 
     def test_nothing(self):
         x = self.codetest("def f():\n"
                           "    pass\n",
-                          'f', [])
+                          'f')
         self.assertEquals(x.functionname, 'f')
         self.assertEquals(x.startblock.branch.__class__, EndBranch)
 
-    def test_ifthenelse(self):
+    def test_simplebranch(self):
         x = self.codetest("def f(i, j):\n"
+                          "    if i < 0:\n"
+                          "        return i\n"
+                          "    return j\n",
+                          'f')
+
+    def test_ifthenelse(self):
+        x = self.codetest("def g(i):\n"
+                          "    pass\n"
+                          "def f(i, j):\n"
                           "    if i < 0:\n"
                           "        i = j\n"
                           "    return g(i) + 1\n",
-                          'f', [W_Variable()])
+                          'f')
         
 
 if __name__ == '__main__':

@@ -65,6 +65,10 @@ class PyNestedScopeFrame(PyInterpFrame):
                                  "an unexpected number of free variables")
         self.cells = [Cell() for i in range(ncellvars)] + closure
 
+    def getclosure(self):
+        ncellvars = len(self.code.co_cellvars)  # not part of the closure
+        return self.cells[ncellvars:]
+
     def fast2locals(self):
         PyInterpFrame.fast2locals(self)
         freevarnames = self.code.co_cellvars + self.code.co_freevars

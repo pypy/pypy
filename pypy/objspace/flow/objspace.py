@@ -1,11 +1,12 @@
 # ______________________________________________________________________
-import operator
+import sys, operator
 import pypy
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.wrapper import *
 from pypy.translator.controlflow import *
-from pypy.objspace.flow.cloningcontext import IndeterminateCondition
+from pypy.objspace.flow import flowcontext
 
 # ______________________________________________________________________
 class FlowObjSpace(ObjSpace):
@@ -37,19 +38,43 @@ class FlowObjSpace(ObjSpace):
         else:
             raise TypeError("not wrapped: " + repr(w_obj))
 
-    def build_flow(self, func, w_args, w_kwds):
+    def getexecutioncontext(self):
+        return self.executioncontext
+
+    def reraise(self):
+        #import traceback
+        #traceback.print_exc()
+        #ec = self.getexecutioncontext() # .framestack.items[-1]
+        #ec.print_detailed_traceback(self)
+
+        etype, evalue, etb = sys.exc_info()
+        if etype is OperationError:
+            raise etype, evalue, etb   # just re-raise it
+        name = etype.__name__
+        if hasattr(self, 'w_' + name):
+            nt = getattr(self, 'w_' + name)
+            nv = object.__new__(nt)
+            if isinstance(evalue, etype):
+                nv.args = evalue.args
+            else:
+                print [etype, evalue, nt, nv], 
+                print '!!!!!!!!'
+                nv.args = (evalue,)
+        else:
+            nt = etype
+            nv = evalue
+        raise OperationError, OperationError(nt, nv), etb
+
+    def build_flow(self, func):
         """
         """
         code = func.func_code
-        bytecode = PyCode()
-        bytecode._from_code(code)
-        w_globals = self.wrap(func.func_globals)
-        frame = bytecode.create_frame(self, w_globals)
-        arg_list = [W_Variable() for w in frame.fastlocals_w]
-        frame.setfastscope(arg_list)
-        self._crnt_ops = []
-        self._crnt_block = BasicBlock(arg_list, [], self._crnt_ops, None)
-        self._graph = FunctionGraph(self._crnt_block, code.co_name)
+        code = PyCode()._from_code(code)
+        ec = flowcontext.FlowExecutionContext(self, code, func.func_globals)
+        self.executioncontext = ec
+        ec.build_flow()
+        return ec.graph
+        
         frames = [frame]
         while len(frames) > 0:
             crnt_frame = frames.pop()
@@ -70,7 +95,7 @@ class FlowObjSpace(ObjSpace):
         else:
             return bool(obj)
         context = self.getexecutioncontext()
-        return context.guessbool()
+        return context.guessbool(w_obj)
 
 # ______________________________________________________________________
 
@@ -94,6 +119,7 @@ def make_op(name, symbol, arity, specialnames):
                 args.append(arg)
         else:
             # All arguments are constants: call the operator now
+            #print >> sys.stderr, 'Constant operation:', op, args
             try:
                 result = op(*args)
             except:
@@ -102,7 +128,8 @@ def make_op(name, symbol, arity, specialnames):
                 return self.wrap(result)
 
         w_result = W_Variable()
-        self._crnt_ops.append(SpaceOperation(name, args_w, w_result))
+        spaceop = SpaceOperation(name, args_w, w_result)
+        self.executioncontext.crnt_ops.append(spaceop)
         return w_result
 
     setattr(FlowObjSpace, name, generic_operator)
