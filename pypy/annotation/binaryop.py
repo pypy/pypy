@@ -260,6 +260,9 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
             else: 
                 return ins2 
         basedef = ins1.classdef.commonbase(ins2.classdef)
+        if basedef is None:
+            # print warning?
+            return SomeObject()
         return SomeInstance(basedef)
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):
