@@ -30,8 +30,14 @@ delegate__Int.result_class = W_FloatObject
 delegate__Int.priority = PRIORITY_CHANGE_TYPE
 
 
-def float__Float(space, w_value):
-    return w_value
+# float__Float is supposed to do nothing, unless it has
+# a derived float object, where it should return
+# an exact one.
+def float__Float(space, w_float1):
+    if space.is_true(space.is_(space.type(w_float1), space.w_float)):
+        return w_float1
+    a = w_float1.floatval
+    return W_FloatObject(space, a)
 
 def int__Float(space, w_value):
     return space.newint(int(w_value.floatval))
@@ -231,10 +237,7 @@ def neg__Float(space, w_float1):
     return W_FloatObject(space, -w_float1.floatval)
 
 def pos__Float(space, w_float):
-    if w_float.__class__ == W_FloatObject:
-        return w_float
-    else:
-        return W_FloatObject(space, w_float.floatval)
+    return float__Float(space, w_float)
 
 def abs__Float(space, w_float):
     return W_FloatObject(space, abs(w_float.floatval))

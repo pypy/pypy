@@ -39,8 +39,14 @@ delegate__Long.priority = PRIORITY_CHANGE_TYPE
 delegate__Long.can_fail = True
 
 
-def long__Long(space, w_value):
-    return w_value
+# long__Long is supposed to do nothing, unless it has
+# a derived long object, where it should return
+# an exact one.
+def long__Long(space, w_long1):
+    if space.is_true(space.is_(space.type(w_long1), space.w_long)):
+        return w_long1
+    a = w_long1.longval
+    return W_LongObject(space, a)
 
 def long__Int(space, w_intobj):
     return W_LongObject(space, long(w_intobj.intval))
@@ -65,6 +71,11 @@ def repr__Long(space, w_long):
 
 def str__Long(space, w_long):
     return space.wrap(str(w_long.longval))
+
+def eq__Long_Long(space, w_long1, w_long2):
+    i = w_long1.longval
+    j = w_long2.longval
+    return space.newbool( i == j )
 
 def lt__Long_Long(space, w_long1, w_long2):
     i = w_long1.longval
@@ -148,10 +159,7 @@ def neg__Long(space, w_long1):
     return W_LongObject(space, -w_long1.longval)
 
 def pos__Long(space, w_long):
-    if space.is_true(space.is_(space.type(w_long), space.w_long)):
-        return w_long
-    else:
-        return W_LongObject(space, w_long.longval)
+    return long__Long(space, w_long)
 
 def abs__Long(space, w_long):
     return W_LongObject(space, abs(w_long.longval))

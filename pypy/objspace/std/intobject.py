@@ -175,9 +175,9 @@ def _truediv(space, w_int1, w_int2):
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer division by zero"))
     except OverflowError:
-        return space.div(space.newfloat(x), w_int2)
+        return space.div(space.newfloat(float(x)), w_int2)
     if t != 0:   # gives a float
-        return space.div(space.newfloat(x), w_int2)
+        return space.div(space.newfloat(float(x)), w_int2)
     return W_IntObject(space, z)
 
 def mod__Int_Int(space, w_int1, w_int2):

@@ -95,5 +95,23 @@ class C:
         self.assertEquals(type(int(x)), int)
         self.assertEquals(int(x), 5)
 
+    def test_long_subclass(self):
+        class R(long):
+            pass
+        x = R(5L)
+        self.assertEquals(type(x), R)
+        self.assertEquals(x, 5L)
+        self.assertEquals(type(long(x)), long)
+        self.assertEquals(long(x), 5L)
+
+    def test_float_subclass(self):
+        class R(float):
+            pass
+        x = R(5.5)
+        self.assertEquals(type(x), R)
+        self.assertEquals(x, 5.5)
+        self.assertEquals(type(float(x)), float)
+        self.assertEquals(float(x), 5.5)
+
 if __name__ == '__main__':
     testit.main()

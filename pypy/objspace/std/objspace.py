@@ -259,11 +259,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
             #raise TypeError, "cannot wrap classes"
         return W_CPythonObject(self, x)
 
-    def newint(self, int_w):
-        return W_IntObject(self, int_w)
+    def newint(self, intval):
+        return W_IntObject(self, intval)
 
-    def newfloat(self, int_w):
-        return W_FloatObject(self, int_w)
+    def newfloat(self, floatval):
+        return W_FloatObject(self, floatval)
 
     def newtuple(self, list_w):
         assert isinstance(list_w, list)
