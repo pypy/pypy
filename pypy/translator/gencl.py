@@ -119,7 +119,7 @@ class GenCL:
         print "(",
         for var in varlist:
             if var in arglist:
-                print "(", self.str(var), self.str(var), ")"
+                print "(", self.str(var), self.str(var), ")",
             else:
                 print self.str(var),
         print ")"
