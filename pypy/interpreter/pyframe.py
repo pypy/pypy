@@ -76,15 +76,15 @@ class PyFrame(eval.Frame):
                         # into OperationErrors
                         except KeyboardInterrupt:
                             import sys; tb = sys.exc_info()[2]
-                            raise OperationError, (self.space.w_KeyboardInterrupt,
+                            raise OperationError, OperationError(self.space.w_KeyboardInterrupt,
                                                    self.space.w_None), tb
                         except MemoryError:
                             import sys; tb = sys.exc_info()[2]
-                            raise OperationError, (self.space.w_MemoryError,
+                            raise OperationError, OperationError(self.space.w_MemoryError,
                                                    self.space.w_None), tb
                         except RuntimeError, e:
                             import sys; tb = sys.exc_info()[2]
-                            raise OperationError, (self.space.w_RuntimeError,
+                            raise OperationError, OperationError(self.space.w_RuntimeError,
                                 self.space.wrap("internal error: " + str(e))), tb
 
                     except OperationError, e:
@@ -95,7 +95,7 @@ class PyFrame(eval.Frame):
                         # exception
                         import sys
                         tb = sys.exc_info()[2]
-                        raise SApplicationException(e, tb)
+                        raise SApplicationException(e)
 
                 except ControlFlowException, ctlflowexc:
                     # we have a reason to change the control flow
