@@ -68,6 +68,12 @@ class AbstractMultiMethod(object):
             return result
 
     def internal_compilecalllist(self, argclasses, calllist):
+        source, glob = self.internal_sourcecalllist(argclasses, calllist)
+        # compile the function
+        exec source in glob
+        return glob['do']
+
+    def internal_sourcecalllist(self, argclasses, calllist):
         """Translate a call list into the source of a Python function
         which is optimized and doesn't do repeated conversions on the
         same arguments."""
@@ -76,7 +82,7 @@ class AbstractMultiMethod(object):
             if conversions.count([]) == len(conversions):
                 # no conversion, just calling a single function: return
                 # that function directly
-                return fn
+                return '', {'do': fn}
         
         #print '**** compile **** ', self.operatorsymbol, [
         #    t.__name__ for t in argclasses]
@@ -137,16 +143,10 @@ class AbstractMultiMethod(object):
             source.append(' raise FailedToImplement()')
         source.append('')
 
-        # compile the function
         glob = {'FailedToImplement': FailedToImplement}
         for fn, fname in all_functions.items():
             glob[fname] = fn
-        #for key, value in glob.items():
-        #    print key, '=', value
-        #for line in source:
-        #    print line
-        exec '\n'.join(source) in glob
-        return glob['do']
+        return '\n'.join(source), glob
 
     def internal_buildcalllist(self, argclasses, delegate, calllist):
         """Build a list of calls to try for the given classes of the
