@@ -7,9 +7,13 @@
 #include "frameobject.h"
 #include "structmember.h"
 
+static PyObject *this_module_globals;
+
 /* Turn this off if you don't want the call trace frames to be built */
 #define USE_CALL_TRACE
+#if 0
 #define OBNOXIOUS_PRINT_STATEMENTS
+#endif
 #define INSIDE_FUNCTION "<unknown>"
 
 #define op_richcmp(x,y,r,err,dir)   \
@@ -179,10 +183,16 @@ static PyTypeObject PyGenCFunction_Type = {
 	0,					/* tp_descr_set */
 };
 
-#define SETUP_MODULE						\
+#define MODULE_INITFUNC(modname) \
+	static PyMethodDef no_methods[] = { NULL, NULL }; \
+	void init##modname(void)
+
+#define SETUP_MODULE(modname)					\
+	PyObject *m = Py_InitModule(#modname, no_methods); \
+	this_module_globals = PyModule_GetDict(m); \
 	PyGenCFunction_Type.tp_base = &PyCFunction_Type;	\
 	PyType_Ready(&PyGenCFunction_Type);			\
-	PyExc_OperationError = PyErr_NewException("bah.OperationError", NULL, NULL);
+	PyExc_OperationError = PyErr_NewException(#modname ".OperationError", NULL, NULL);
 
 
 /*** operations with a variable number of arguments ***/
@@ -194,7 +204,7 @@ static PyTypeObject PyGenCFunction_Type = {
 #if defined(USE_CALL_TRACE)
 
 static int callstack_depth = -1;
-static PyCodeObject* getcode(char* func_name, int lineno);
+static PyCodeObject* getcode(char *func_name, char *func_filename, int lineno);
 static int trace_frame(PyThreadState *tstate, PyFrameObject *f, int code, PyObject *val);
 static int trace_frame_exc(PyThreadState *tstate, PyFrameObject *f);
 
@@ -206,6 +216,11 @@ static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, c
 	PyObject *locals_lineno;
 	PyObject *locals_filename;
 
+	if (function == NULL || args == NULL || tstate == NULL) {
+		printf("BAD ARGUMENTS!\n");
+		printf("function = 0x%08X args = %08X tstate = %08X\n", function, args, tstate);
+		return NULL;
+	}
 	locals = PyDict_New();
 	locals_signature = PyString_FromString(c_signature);
 	locals_lineno = PyInt_FromLong(c_lineno);
@@ -227,13 +242,16 @@ static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, c
 	Py_DECREF(locals_signature);
 	Py_DECREF(locals_lineno);
 	Py_DECREF(locals_filename);
-	c = getcode(c_signature, c_lineno);
+	callstack_depth++;
+	c = getcode(c_signature, filename, c_lineno);
 	if (c == NULL) {
 		Py_DECREF(locals);
+		callstack_depth--;
 		return NULL;
 	}
-	f = PyFrame_New(tstate, c, PyEval_GetGlobals(), locals);
+	f = PyFrame_New(tstate, c, this_module_globals, locals);
 	if (f == NULL) {
+		callstack_depth--;
 		return NULL;
 	}
 	Py_DECREF(c);
@@ -241,6 +259,7 @@ static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, c
 	tstate->frame = f;
 	if (trace_frame(tstate, f, PyTrace_CALL, Py_None) < 0) {
 		Py_DECREF(args);
+		callstack_depth--;
 		return NULL;
 	}
 
@@ -248,6 +267,12 @@ static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, c
 }
 
 static PyObject *traced_function_tail(PyObject *rval, PyFrameObject *f, PyThreadState *tstate) {
+	/*
+		STEALS a reference to f
+	*/
+	if (f == NULL) {
+		goto bad_args;
+	}
 	if (rval == NULL) {
 		if (tstate->curexc_traceback == NULL) {
 			PyTraceBack_Here(f);
@@ -263,6 +288,9 @@ static PyObject *traced_function_tail(PyObject *rval, PyFrameObject *f, PyThread
 	}
 end:
 	tstate->frame = f->f_back;
+	Py_DECREF(f);
+bad_args:
+	callstack_depth--;
 	return rval;
 }
 
@@ -288,10 +316,8 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 	Py_DECREF(allargs);
 
 	tstate = PyThreadState_GET();
-	callstack_depth++;
 	f = traced_function_head(function, args, c_signature, filename, c_lineno, tstate);
 	if (f == NULL) {
-		callstack_depth--;
 		Py_DECREF(function);
 		Py_DECREF(args);
 		return NULL;
@@ -300,18 +326,30 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 	rval = PyObject_Call(function, args, NULL);
 	Py_DECREF(function);
 	Py_DECREF(args);
-	rval = traced_function_tail(rval, f, tstate);
-	callstack_depth--;
-	return rval;
+	return traced_function_tail(rval, f, tstate);
 }
 
 #define OP_SIMPLE_CALL(args, r, err) if ((r = traced_function_call(PyTuple_CrazyPack args, INSIDE_FUNCTION " OP_SIMPLE_CALL" #args, __FILE__, __LINE__)) == NULL) \
 					goto err;
 
+#define FUNCTION_HEAD(signature, self, args) \
+	PyThreadState *__tstate = PyThreadState_GET(); \
+	PyFrameObject *__f = traced_function_head(self, args, signature, __FILE__, __LINE__, __tstate); \
+	if (__f == NULL) { \
+		printf("frame is null, wtf?!\n"); \
+		return NULL; \
+	}
+
+#define FUNCTION_RETURN(rval) return traced_function_tail(rval, __f, __tstate);
+
+
 #else
 
 #define OP_SIMPLE_CALL(args,r,err) if (!(r=PyObject_CallFunctionObjArgs args)) \
 					goto err;
+
+#define FUNCTION_HEAD(signature, self, args)
+#define FUNCTION_RETURN(rval) return rval;
 
 #endif
 
@@ -562,7 +600,7 @@ trace_frame_exc(PyThreadState *tstate, PyFrameObject *f)
 }
 
 static PyCodeObject*
-getcode(char* func_name, int lineno)
+getcode(char *func_name, char *func_filename, int lineno)
 {
 	PyObject *code = NULL;
 	PyObject *name = NULL;
@@ -590,7 +628,7 @@ getcode(char* func_name, int lineno)
 	nulltuple = PyTuple_New(0);
 	if (nulltuple == NULL)
 		goto failed;
-	filename = PyString_FromString(__FILE__);
+	filename = PyString_FromString(func_filename);
 	tb_code = PyCode_New(0,       /* argcount */
 						 0,       /* nlocals */
 						 0,       /* stacksize */

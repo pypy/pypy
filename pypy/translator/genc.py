@@ -16,6 +16,9 @@ from pypy.objspace.std.restricted_int import r_int, r_uint
 
 # ____________________________________________________________
 
+def c_string(s):
+    return '"%s"' % (s.replace('\\', '\\\\').replace('"', '\"'),)
+
 def uniquemodulename(name, SEEN={}):
     # never reuse the same module name within a Python session!
     i = 0
@@ -418,8 +421,11 @@ class GenC:
         print >> f, 'static PyObject* %s(PyObject* self, PyObject* args)' % (
             f_name,)
         print >> f, '{'
-        print >> f, '#undef INSIDE_FUNCTION'
-        print >> f, '#define INSIDE_FUNCTION "%s"' % (f_name,)
+        print >> f, '\t#undef INSIDE_FUNCTION'
+        print >> f, '\t#define INSIDE_FUNCTION "%s"' % (f_name,)
+        print >> f, '\tFUNCTION_HEAD(%s, %s, args)' % (
+            c_string('%s(%s)' % (name, ', '.join(name_of_defaults))),
+            name)
 
         # collect and print all the local variables
         graph = self.translator.getflowgraph(func)
@@ -439,22 +445,22 @@ class GenC:
             print >> f, '\t%s = PyTuple_GetSlice(args, %d, INT_MAX);' % (
                 vararg, len(positional_args))
             print >> f, '\tif (%s == NULL)' % vararg
-            print >> f, '\t\treturn NULL;'
+            print >> f, '\t\tFUNCTION_RETURN(NULL)'
             print >> f, '\targs = PyTuple_GetSlice(args, 0, %d);' % (
                 len(positional_args),)
             print >> f, '\tif (args == NULL) {'
             print >> f, '\t\tPy_DECREF(%s);' % vararg
-            print >> f, '\t\treturn NULL;'
+            print >> f, '\t\tFUNCTION_RETURN(NULL)'
             print >> f, '\t}'
             tail = """{
 \t\tPy_DECREF(args);
 \t\tPy_DECREF(%s);
-\t\treturn NULL;
+\t\tFUNCTION_RETURN(NULL);
 \t}
 \tPy_DECREF(args);""" % vararg
         else:
             positional_args = graph.getargs()
-            tail = '\n\t\treturn NULL;'
+            tail = '\n\t\tFUNCTION_RETURN(NULL)'
         min_number_of_args = len(positional_args) - len(name_of_defaults)
         for i in range(len(name_of_defaults)):
             print >> f, '\t%s = %s;' % (
@@ -558,10 +564,10 @@ class GenC:
                     # exceptional return block
                     yield 'PyErr_SetObject(PyExc_%s, %s);' % (
                         block.exc_type.__name__, retval)
-                    yield 'return NULL;'
+                    yield 'FUNCTION_RETURN(NULL)'
                 else:
                     # regular return block
-                    yield 'return %s;' % retval
+                    yield 'FUNCTION_RETURN(%s)' % retval
                 continue
             elif block.exitswitch is None:
                 # single-exit block
@@ -613,7 +619,7 @@ class GenC:
                 yield 'err%d_%d:' % (blocknum[block], len(to_release))
                 err_reachable = True
             if err_reachable:
-                yield 'return NULL;'
+                yield 'FUNCTION_RETURN(NULL)'
 
 # ____________________________________________________________
 
@@ -623,11 +629,9 @@ class GenC:
 
     C_INIT_HEADER = C_SEP + '''
 
-static PyMethodDef no_methods[] = { NULL, NULL };
-void init%(modname)s(void)
+MODULE_INITFUNC(%(modname)s)
 {
-\tPyObject* m = Py_InitModule("%(modname)s", no_methods);
-\tSETUP_MODULE
+\tSETUP_MODULE(%(modname)s)
 '''
 
     C_INIT_FOOTER = '''
