@@ -80,6 +80,7 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             __repr__ = gateway.interp2app(lambda space, w_x: repr(w_x)),
             __class__ = GetSetProperty(self.__class__.type),
             __init__ = gateway.interp2app(Object.descr__init__.im_func),
+            __dict__ = GetSetProperty(self.__class__.getdict_or_complain),
             )
         # make a wrapped None object
         none_typedef = TypeDef('NoneType',
@@ -143,6 +144,29 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             return w
 
     unwrap_builtin = unwrap
+
+    def getdict(self, w_obj):
+        if isinstance(w_obj, CPyWrapper):
+            obj = self.unwrap(w_obj)
+            if obj.hasdict:
+                return obj.getdict()
+            else:
+                return None
+        else:
+            try:
+                return w_obj.__dict__
+            except:
+                self.reraise()
+
+    def getdict_or_complain(self, w_obj):
+        result = self.getdict(w_obj)
+        if result is None:
+            raise OperationError(self.w_AttributeError,
+                                 self.wrap('no __dict__'))
+        return result
+
+    def allocate_instance(self, cls, w_subtype):
+        raise NotImplementedError("cannot manually instantiate built-in types")
 
     def hackwrapperclass(self, typedef):
         try:
