@@ -107,7 +107,7 @@ class ExecutionContext:
 
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
-        #operationerr.record_interpreter_traceback()
+        operationerr.record_interpreter_traceback()
         exc_info = self.sys_exc_info()
         self._trace(frame, 'exception',
                     exc_info)
