@@ -24,10 +24,10 @@ class W_SliceObject(W_Object):
 
 registerimplementation(W_SliceObject)
 
-repr__Slice = gateway.appdef("""
-    repr__Slice(aslice):
+repr__Slice = gateway.applevelinterp("""
+    def repr__Slice(aslice):
         return 'slice(%r, %r, %r)' % (aslice.start, aslice.stop, aslice.step)
-""") 
+""").interphook("repr__Slice")
 
 def eq__Slice_Slice(space, w_slice1, w_slice2):
     # We need this because CPython considers that slice1 == slice1

@@ -536,10 +536,8 @@ class applevel:
     def _freeze_(self):
         return True  # hint for the annotator: applevel instances are constants
 
-## XXX experimental code using geninterplevel
-
 class applevelinterp(applevel):
-    """ same as applevel, but using translation to interp-level.
+    """ similar to applevel, but using translation to interp-level.
     """
     NOT_RPYTHON_ATTRIBUTES = []
 
@@ -564,9 +562,6 @@ class applevelinterp(applevel):
 
 # comment this out to check against applevel without translation
 ##applevelinterp = applevel
-
-## XXX there is a problem with the naming convention of app_xxx not allowed
-## for interp2app! What shall we do?
 
 def appdef(source, applevel=applevel):
     """ NOT_RPYTHON: build an app-level helper function, like for example:

@@ -242,8 +242,8 @@ def dict_get__Dict_ANY_ANY(space, w_dict, w_lookup, w_default):
     else:
         return w_default
 
-dictstr = gateway.appdef('''
-    dictstr(currently_in_repr, d):
+app = gateway.applevelinterp('''
+    def dictstr(currently_in_repr, d):
         # Now we only handle one implementation of dicts, this one.
         # The fix is to move this to dicttype.py, and do a
         # multimethod lookup mapping str to StdObjSpace.str
@@ -263,6 +263,8 @@ dictstr = gateway.appdef('''
                 except:
                     pass
 ''')
+
+dictstr = app.interphook("dictstr")
 
 def str__Dict(space, w_dict):
     if w_dict.used == 0:

@@ -277,8 +277,8 @@ def delattr__Type_ANY(space, w_type, w_name):
 # ____________________________________________________________
 
 
-abstract_mro = gateway.appdef("""
-    abstract_mro(klass):
+abstract_mro = gateway.applevelinterp("""
+    def abstract_mro(klass):
         # abstract/classic mro
         mro = []
         def fill_mro(klass):
@@ -289,7 +289,7 @@ abstract_mro = gateway.appdef("""
                 fill_mro(base)
         fill_mro(klass)
         return mro
-""") 
+""").interphook("abstract_mro")
 
 def get_mro(space, klass):
     if isinstance(klass, W_TypeObject):
