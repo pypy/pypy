@@ -207,14 +207,17 @@ class app2interp(Gateway):
         # to call the Gateway as a non-method, 'space' must be explicitely
         # supplied. We build the Function object and call it.
         fn = self.get_function(space)
-        return fn.interplevel_call(*args_w)
+        return space.call_function(space.wrap(fn), *args_w)
 
     def __get__(self, obj, cls=None):
         if obj is None:
             return self
         else:
-            method = self.get_method(obj)
-            return method.interplevel_call
+            space = obj.space
+            w_method = space.wrap(self.get_method(obj))
+            def helper_method_caller(*args_w):
+                return space.call_function(w_method, *args_w)
+            return helper_method_caller
 
 class interp2app(Gateway):
     """Build a Gateway that calls 'f' at interp-level."""

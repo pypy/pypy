@@ -61,7 +61,7 @@ class TestFlowObjSpace(testit.TestCase):
     def print_(i):
         print i
     
-    def dont_test_print(self):   # app-level helpers confuse replay
+    def test_print(self):
         x = self.codetest(self.print_)
         self.show(x)
 

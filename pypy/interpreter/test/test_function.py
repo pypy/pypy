@@ -4,6 +4,7 @@ from pypy.tool import testit
 import unittest
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.argument import Arguments
 
 
 class AppTestFunctionIntrospection(testit.AppTestCase):
@@ -148,16 +149,15 @@ class TestMethod(testit.IntTestCase):
         space = self.space
         w_meth = self.fn.descr_function_get(space.wrap(5), space.type(space.wrap(5)))
         meth = space.unwrap(w_meth)
-        w_result = meth.interplevel_call(space.wrap(42))
+        w_result = meth.call_args(Arguments(space, [space.wrap(42)]))
         self.assertEquals(space.unwrap(w_result), 42)
 
     def test_fail_call(self):
         space = self.space
         w_meth = self.fn.descr_function_get(space.wrap(5), space.type(space.wrap(5)))
         meth = space.unwrap(w_meth)
-        self.assertRaises_w(self.space.w_TypeError,
-                            meth.interplevel_call,
-                            space.wrap("spam"), space.wrap("egg"))
+        args = Arguments(space, [space.wrap("spam"), space.wrap("egg")])
+        self.assertRaises_w(self.space.w_TypeError, meth.call_args, args)
 
 if __name__ == '__main__':
     testit.main()

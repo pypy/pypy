@@ -32,9 +32,6 @@ class Function(Wrappable):
         frame.setfastscope(scope_w)
         return frame.run()
 
-    def interplevel_call(self, *args_w):
-        return self.call_args(Arguments(self.space, list(args_w)))
-
     def getdict(self):
         return self.w_func_dict
 
@@ -103,9 +100,6 @@ class Method(Wrappable):
                 raise OperationError(self.space.w_TypeError,
                                      self.space.wrap(msg))
         return self.space.call_args(self.w_function, args)
-
-    def interplevel_call(self, *args_w):
-        return self.call_args(Arguments(self.space, list(args_w)))
 
     def descr_method_call(self, __args__):
         return self.call_args(__args__)
