@@ -162,3 +162,8 @@ def repr(w_object):
 def setattr(w_object, w_name, w_val):
     space.setattr(w_object, w_name, w_val)
     return space.w_None
+
+def _pypy_get(w_value, w_self, w_class=None):   # XXX temporary
+    if w_class is None:
+        w_class = space.w_None
+    return space.get(w_value, w_self, w_class)

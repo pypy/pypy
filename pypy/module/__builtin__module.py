@@ -426,7 +426,7 @@ __interplevel__execfile('__builtin__interp.py')
 from __interplevel__ import abs, chr, len, ord, pow, repr
 from __interplevel__ import hash, oct, hex, round
 from __interplevel__ import getattr, setattr, delattr, iter, hash, id
-from __interplevel__ import issubclass
+from __interplevel__ import issubclass, _pypy_get
 from __interplevel__ import compile
 from __interplevel__ import globals, locals, _caller_globals, _caller_locals
 
@@ -487,14 +487,15 @@ class xrange:
                 i+=step
 
 
-# XXX the following comes from http://<<<fill this blank>>>
+# Descriptor code, shamelessly stolen to Raymond Hettinger:
+#    http://users.rcn.com/python/download/Descriptor.htm
 class property(object):
 
     def __init__(self, fget=None, fset=None, fdel=None, doc=None):
         self.fget = fget
         self.fset = fset
         self.fdel = fdel
-        self.__doc__ = doc or ""
+        self.__doc__ = doc or ""   # XXX why:  or ""  ?
 
     def __get__(self, obj, objtype=None):
         if obj is None:
@@ -534,6 +535,42 @@ class classmethod(object):
         def newfunc(*args):
             return self.f(klass, *args)
         return newfunc
+
+
+# super is a modified version from Guido's tutorial
+#     http://www.python.org/2.2.3/descrintro.html
+# it exposes the same special attributes as CPython's.
+class super(object):
+    def __init__(self, type, obj=None):
+        self.__thisclass__ = type
+        self.__self__ = obj
+        if obj is not None and isinstance(obj, type):
+            self.__self_class__ = obj.__class__
+        else:
+            self.__self_class__ = obj
+    def __get__(self, obj, type=None):
+        if self.__self__ is None and obj is not None:
+            return super(self.__thisclass__, obj)
+        else:
+            return self
+    def __getattr__(self, attr):
+        mro = iter(self.__self_class__.__mro__)
+        for cls in mro:
+            if cls is self.__thisclass__:
+                break
+        # Note: mro is an iterator, so the second loop
+        # picks up where the first one left off!
+        for cls in mro:
+            try:
+                # XXX
+                # XXX  build-in classes have no __dict__ currently!
+                # XXX
+                x = getattr(cls, attr)
+            except AttributeError:
+                continue
+            x = _pypy_get(x, self.__self__)    # XXX replace with x.__get__
+            return x
+        raise AttributeError, attr
 
 
 # ________________________________________________________________________
