@@ -79,7 +79,7 @@ class FlowGraphLayout(GraphLayout):
         functions = functions or translator.functions
         graphs = [translator.getflowgraph(func) for func in functions]
         gs = [(graph.name, graph) for graph in graphs]
-        fn = make_dot_graphs(graphs[0].name, gs, target='plain')
+        fn = make_dot_graphs(graphs[0].name + "_graph", gs, target='plain')
         GraphLayout.__init__(self, fn)
         # make the dictionary of links -- one per annotated variable
         self.binding_history = {}
