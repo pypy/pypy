@@ -291,14 +291,11 @@ class GenC:
 
     def nameof_tuple(self, tup):
         name = self.uniquename('g%dtuple' % len(tup))
-        def inittuple():
-            for i in range(len(tup)):
-                item = self.nameof(tup[i])
-                yield '\tPy_INCREF(%s);' % item
-                yield '\tPyTuple_SET_ITEM(%s, %d, %s);' % (name, i, item)
         self.globaldecl.append('static PyObject* %s;' % name)
-        self.initcode.append('INITCHK(%s = PyTuple_New(%d))' % (name, len(tup)))
-        self.latercode.append(inittuple())
+        args = [self.nameof(x) for x in tup]
+        args.insert(0, '%d' % len(tup))
+        args = ', '.join(args)
+        self.initcode.append('INITCHK(%s = PyTuple_Pack(%s))' % (name, args))
         return name
 
     def nameof_list(self, lis):
