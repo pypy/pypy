@@ -55,6 +55,9 @@ class Bookkeeper:
         del getthreadlocals().bookkeeper
         del self.position_key
 
+    def is_in_an_operation(self):
+        return hasattr(self, 'position_key')
+
     def getfactory(self, factorycls):
         """Get the Factory associated with the current position,
         or build it if it doesn't exist yet."""

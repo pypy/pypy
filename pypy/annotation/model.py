@@ -270,7 +270,16 @@ def valueoftype(t, bookkeeper=None):
     # can't do dict, tuple
     elif isinstance(t, (type, ClassType)) and \
              t.__module__ != '__builtin__' and bookkeeper is not None:
-        return SomeInstance(bookkeeper.getclassdef(t))
+        classdef = bookkeeper.getclassdef(t)
+        if bookkeeper.is_in_an_operation():
+            # woha! instantiating a "mutable" SomeXxx like SomeInstance
+            # is always dangerous, because we need to record this fact
+            # in a factory, to allow reflowing from the current operation
+            # if/when the classdef later changes.
+            from pypy.annotation.factory import CallableFactory
+            factory = bookkeeper.getfactory(CallableFactory)
+            classdef.instancefactories[factory] = True
+        return SomeInstance(classdef)
     else:
         o = SomeObject()
         o.knowntype = t
