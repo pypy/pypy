@@ -1,10 +1,13 @@
+# ______________________________________________________________________
 import operator
 import pypy
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.pycode import PyCode
 from pypy.objspace.flow.wrapper import *
 from pypy.translator.controlflow import *
+from pypy.objspace.flow.cloningcontext import IndeterminateCondition
 
+# ______________________________________________________________________
 class FlowObjSpace(ObjSpace):
     def initialize(self):
         self.w_builtins = W_Variable()
@@ -57,6 +60,17 @@ class FlowObjSpace(ObjSpace):
         del self._crnt_block
         del self._crnt_ops
         return g
+
+    # ____________________________________________________________
+    def is_true(self, w_obj):
+        try:
+            obj = self.unwrap(w_obj)
+        except UnwrapException:
+            pass
+        else:
+            return bool(obj)
+        context = self.getexecutioncontext()
+        return context.guessbool()
 
 # ______________________________________________________________________
 
