@@ -1,35 +1,35 @@
-discussion from 4th of october 2003
+basic discussion from 4th of october 2003
 
 class FunctionGraph:
-    startblock 
-    returnblock
-    name
+    startblock  # 
+    returnblock # 
+    name        # function name (possibly mangled already)
 
 class Link:
-    exitcase
-    args
-    target
+    exitcase    # Constant (or so)
+    args        # mixed list of variable/const
+    target      # block 
 
 class Block:
-    input_args
-    operations
+    input_args  # mixed list of variable/const 
+    operations  # list of SpaceOperation(s)
     exitswitch  # variable
-    exits
+    exits       # list of Link(s)
 
 class ReturnBlock:
     input_args  # a single variable 
-    operations = None
-    exits = ()
+    operations = None # for uniformity
+    exits = ()  # ?
 
 class Variable:
     name
 
 class Const:
-    value
+    value     # a concrete value
 
 class SpaceOperation:
-    opname
-    args      # list of variable or Constant (can be mixed)
+    opname    # operation name
+    args      # mixed list of variables/Constants (can be mixed)
     result    # either Variable or Constant instance
 
 
