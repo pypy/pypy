@@ -698,13 +698,13 @@ class __builtin__(ExtModule):
             return result
 
     def app_intern(self, s):
-        """
-        We don't have a string table, making intern a null operation.
-        This is here for backwards compatibility.
-        """
         if not isinstance(s, str):
             raise TypeError("intern() argument 1 must be string.")
-        return s
+        try:
+            t = self._stringtable
+        except AttributeError:
+            t = self._stringtable = {}
+        return t.setdefault(s,s)
 
     def app_copyright(self):
         print 'Copyright 2002-2004 Pypy development team.\nAll rights reserved.\nFor further information see http://www.codespaek.net/pypy.\nSome materials may have a different copyright.\nIn these cases, this is explicitly noted in the source code file.'
