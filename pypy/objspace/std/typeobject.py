@@ -97,3 +97,34 @@ class PyMultimethodCode(pycode.PyBaseCode):
                 raise OperationError(*e.args)
             else:
                 return space.w_NotImplemented
+
+
+def type_call(space, w_type, w_args, w_kwds):
+    
+    #        H  H   AA    CCC  K  K
+    #        H  H  A  A  C     K K
+    #        HHHH  A  A  C     KK
+    #        H  H  AAAA  C     K K
+    #        H  H  A  A   CCC  K  K
+
+    tpname = space.unwrap(w_type.w_tpname)
+    args = space.unpackiterable(w_args)
+    if tpname == 'type':
+        assert len(args) == 1
+        return space.type(args[0])
+    if tpname == 'list':
+        assert len(args) == 1
+        return space.newlist(space.unpackiterable(args[0]))
+    if tpname == 'tuple':
+        assert len(args) == 1
+        return space.newtuple(space.unpackiterable(args[0]))
+    if tpname == 'str':
+        assert len(args) == 1
+        return space.str(args[0])
+
+    import __builtin__
+    hacky = getattr(__builtin__, tpname)(
+        *space.unwrap(w_args), **space.unwrap(w_kwds))
+    return space.wrap(hacky)
+
+StdObjSpace.call.register(type_call, W_TypeObject, W_ANY, W_ANY)

@@ -11,6 +11,10 @@ from rarray import CharArrayFromStr, CharArraySize
 applicationfile = StdObjSpace.AppFile(__name__)
 
 class W_StringObject(W_Object):
+
+    delegate_once = {}
+    statictypename = 'str'
+
     def __init__(w_self, space, str):
         W_Object.__init__(w_self, space)
         w_self._value = CharArrayFromStr(str)

@@ -52,8 +52,9 @@ class StdObjSpace(ObjSpace):
         'W_FloatObject': 'floatobject',
         'W_ListObject':  'listobject',
         'W_DictObject':  'dictobject',
-        #'W_StringObject': 'stringobject',
+        'W_StringObject':'stringobject',
         'W_ModuleObject':'moduleobject',
+        'W_TupleObject': 'tupleobject',
         }
 
     def initialize(self):
