@@ -142,10 +142,11 @@ def string_richcompare(space, w_str1, w_str2, op):
             else:
                 min_len = str1.len
 
+            c = 0
             idx = 0
             if (min_len > 0):
                 while (c == 0) and (idx < min_len):
-                    c = ord(str1.charat[idx]) - ord(str2.charat[idx])
+                    c = ord(str1.charat(idx)) - ord(str2.charat(idx))
                     idx = idx + 1
             else:
                 c = 0
@@ -153,7 +154,7 @@ def string_richcompare(space, w_str1, w_str2, op):
         if (c == 0):
             if str1.len < str2.len:
                 c = -1
-            elif str1.len > str2.leb:
+            elif str1.len > str2.len:
                 c = 1
             else:
                 c = 0
@@ -165,7 +166,7 @@ def string_richcompare(space, w_str1, w_str2, op):
         elif op == NE:
             return space.newbool(c != 0)
         elif op == GT:
-            return space.newbook(c > 0)
+            return space.newbool(c > 0)
         elif op == GE:
             return space.newbool(c >= 0)
         else:
