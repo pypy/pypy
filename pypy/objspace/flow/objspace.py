@@ -23,9 +23,9 @@ class FlowObjSpace(ObjSpace):
         # XXX Issue a delayed command to create a tuple and assign to a new W_Variable
         return W_Variable()
 
-    def getattr(self, w_obj, w_key):
-        # XXX Issue a delayed command
-        return W_Variable()
+    #def getattr(self, w_obj, w_key):
+    #    # XXX Issue a delayed command
+    #    return W_Variable()
 
     def wrap(self, obj):
         if isinstance(obj, W_Object):
@@ -127,10 +127,9 @@ def make_op(name, symbol, arity, specialnames):
             else:
                 return self.wrap(result)
 
-        w_result = W_Variable()
-        spaceop = SpaceOperation(name, args_w, w_result)
+        spaceop = SpaceOperation(name, args_w, W_Variable())
         self.executioncontext.crnt_ops.append(spaceop)
-        return w_result
+        return spaceop.result
 
     setattr(FlowObjSpace, name, generic_operator)
 

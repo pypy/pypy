@@ -52,6 +52,9 @@ class W_Variable(W_Object, Variable):
         Variable.__init__(self, 'v%d' % W_Variable.counter)
         W_Variable.counter += 1
 
+    def argsrepr(self):
+        return self.pseudoname
+
 # ______________________________________________________________________
 
 class W_Constant(W_Object, Constant):

@@ -82,6 +82,7 @@ class ReplayList:
         
     def append(self, operation):
         assert operation == self.listtoreplay[self.index]
+        operation.result = self.listtoreplay[self.index].result
         self.index += 1
 
     def finished(self):

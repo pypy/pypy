@@ -30,6 +30,9 @@ class SpaceOperation:
                 self.opname == other.opname and
                 self.args == other.args and
                 self.result == other.result)
+    def __repr__(self):
+        return '<%s = %s(%s)>' % (self.result, self.opname,
+                                  ', '.join([repr(a) for a in self.args]))
 
 class Branch:
     def __init__(self, args=None, target=None):
