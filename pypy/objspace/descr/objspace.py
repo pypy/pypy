@@ -4,6 +4,13 @@ from pypy.interpreter.baseobjspace import *
 
 class DescrObjSpace(ObjSpace):
 
+    def call(space, w_obj, w_args, w_kwargs):
+        w_descr = space.lookup(w_obj, '__call__')
+        if w_descr is None:
+            raise OperationError(space.w_TypeError, 
+                                 space.wrap('object is not callable'))
+        return space.get_and_call(w_descr, w_obj, w_args, w_kwargs)
+
     def getattr(space,w_obj,w_name):
         w_descr = space.lookup(w_obj,'__getattribute__')
         try:

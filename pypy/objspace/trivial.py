@@ -384,6 +384,20 @@ def %(name)s(self, x, *args):
     def round(self, *args):
         return round(*args)
 
+    def lookup(space, w_obj, name):
+        if isinstance(w_obj, Wrappable):
+            for basedef in w_obj.TypeDef.mro():
+                if name in basedef.rawdict:
+                    return space.wrap(basedef.rawdict[name])
+            return None 
+        else:
+            for cls in w_obj.__class__.__mro__:
+                if name in cls.__dict__:
+                    return cls.__dict__[name]
+            return None
+
+
+
 for m in ObjSpace.MethodTable:
     if not hasattr(TrivialObjSpace, m[0]):
         print m[0] # this should raise something
