@@ -34,6 +34,7 @@ def get_main_options():
 def main_(argv=None):
     from pypy.tool import tb_server
     args = option.process_options(get_main_options(), Options, argv[1:])
+    space = None
     try:
         space = option.objspace()
         go_interactive = Options.interactive
@@ -63,13 +64,14 @@ def main_(argv=None):
             con.interact(banner)
     except:
         exc_type, value, tb = sys.exc_info()
-        if (isinstance(exc_type, type(SystemExit)) and
-            issubclass(exc_type, SystemExit)):
+        sys.last_type = exc_type
+        sys.last_value = value
+        sys.last_traceback = tb
+        if issubclass(exc_type, SystemExit):
             pass   # don't print tracebacks for SystemExit
+        elif isinstance(value, error.OperationError):
+            value.print_detailed_traceback(space=space)
         else:
-            sys.last_type = exc_type
-            sys.last_value = value
-            sys.last_traceback = tb
             sys.excepthook(exc_type, value, tb)
         tb_server.wait_until_interrupt()
             

@@ -95,8 +95,9 @@ class OperationError(Exception):
             interpr_file = LinePrefixer(file, '||')
             print >> interpr_file, "Traceback (interpreter-level):"
             traceback.print_tb(self.debug_excs[i][2], file=interpr_file)
-        from pypy.tool import tb_server
-        tb_server.publish_exc(self.debug_excs[-1])
+        if self.debug_excs:
+            from pypy.tool import tb_server
+            tb_server.publish_exc(self.debug_excs[-1])
         self.print_app_tb_only(file)
         if space is None:
             exc_typename = str(self.w_type)
@@ -148,15 +149,15 @@ class LinePrefixer:
         if self.linestart:
             self.file.write('\n')
 
-# installing the excepthook for OperationErrors
-def operr_excepthook(exctype, value, traceback):
-    if issubclass(exctype, OperationError):
-        value.debug_excs.append((exctype, value, traceback))
-        value.print_detailed_traceback()
-    else:
-        old_excepthook(exctype, value, traceback)
-        from pypy.tool import tb_server
-        tb_server.publish_exc((exctype, value, traceback))
+### installing the excepthook for OperationErrors
+##def operr_excepthook(exctype, value, traceback):
+##    if issubclass(exctype, OperationError):
+##        value.debug_excs.append((exctype, value, traceback))
+##        value.print_detailed_traceback()
+##    else:
+##        old_excepthook(exctype, value, traceback)
+##        from pypy.tool import tb_server
+##        tb_server.publish_exc((exctype, value, traceback))
 
-old_excepthook = sys.excepthook
-sys.excepthook = operr_excepthook
+##old_excepthook = sys.excepthook
+##sys.excepthook = operr_excepthook
