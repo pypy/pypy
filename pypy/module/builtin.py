@@ -312,8 +312,10 @@ class __builtin__(ExtModule):
     def ord(self, w_val):
         return self.space.ord(w_val)
 
-    def pow(self, w_val):
-        return self.space.pow(w_val)
+    def pow(self, w_base, w_exponent, w_modulus=None):
+        if w_modulus is None:
+            w_modulus = self.space.w_None
+        return self.space.pow(w_base, w_exponent, w_modulus)
 
     def repr(self, w_object):
         return self.space.repr(w_object)
