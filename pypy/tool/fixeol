@@ -6,7 +6,7 @@ import sys, os
 forbidden = range(0,32)
 forbidden.remove(9)    # tab
 forbidden.remove(10)   # lf
-forbidden.remove(12)   # ^L
+forbidden.remove(12)   # ff, ^L
 forbidden.remove(13)   # cr
 
 
