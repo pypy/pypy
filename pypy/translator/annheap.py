@@ -135,22 +135,33 @@ class Transaction:
 
     def get(self, opname, args):
         """Return the Cell with the annotation 'opname(args) -> Cell',
-        or None if there is no such annotation or several different ones."""
-        matchann = None
+        or None if there is no such annotation or several different ones.
+        Hack to generalize: a None in the args matches anything."""
+        # patch(arglist) -> arglist with None plugged where
+        #                   there is a None in the input 'args'
+        def patch(arglist):
+            return arglist
+        for i in range(len(args)):
+            if args[i] is None:
+                def patch(arglist, prevpatch=patch, i=i):
+                    arglist = prevpatch(arglist)[:]
+                    arglist[i] = None
+                    return arglist
+        
+        matchann = []
         for ann in self.heap.annlist:
-            if ann.opname == opname and ann.args == args:
-                if matchann is None:
-                    matchann = ann     # first possible annotation
-                elif matchann != ann:
-                    return None        # more than one annotation would match
-        if matchann is None:
+            if ann.opname == opname and patch(ann.args) == args:
+                matchann.append(ann)
+        if not matchann:
             return None
         else:
-            self.using(matchann)
-            return matchann.result
-        # a note about duplicate Annotations in annlist: their forward_deps
-        # lists will automatically be merged during the next simplify(),
-        # so that we only need to record the dependency from one of them.
+            result = matchann[0].result
+            for ann in matchann[1:]:
+                if result != ann.result:
+                    return None   # conflicting results
+            for ann in matchann:
+                self.using(ann)
+            return result
 
     def set(self, opname, args, result):
         """Put a new annotation into the AnnotationHeap."""
@@ -160,9 +171,11 @@ class Transaction:
         self.heap.annlist.append(ann)
 
     def get_type(self, cell):
-        """Get the type of 'cell', as specified by the annotations, or None."""
-        # Returns None if cell is None.
-        assert isinstance(cell, XCell) or cell is None
+        """Get the type of 'cell', as specified by the annotations, or None.
+        Returns None if cell is None."""
+        if cell is None:
+            return None
+        assert isinstance(cell, XCell)
         c = self.get('type', [cell])
         if isinstance(c, XConstant):
             return c.value

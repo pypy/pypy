@@ -203,6 +203,13 @@ class TestTransaction(test.IntTestCase):
         self.assertEquals(t.get('add', [self.c1, self.c2]), None)
         self.assertEquals(t.get('sub', [self.c1, self.c3]), None)
 
+    def test_get_None(self):
+        t = Transaction(self.a)
+        self.assertEquals(t.get('add', [self.c1, None]), self.c2)
+        self.assertEquals(t.get('add', [None, self.c3]), self.c2)
+        self.assertEquals(t.get('add', [self.c2, None]), None)
+        self.assertEquals(t.get('type', [None]), None)
+
     def test_get_type(self):
         t = Transaction(self.a)
         self.assertEquals(t.get_type(self.c1), -2)
