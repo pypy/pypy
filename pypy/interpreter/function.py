@@ -117,9 +117,12 @@ class Method(Wrappable):
 
     def descr_method_getattribute(self, w_attr):
         space = self.space
-        w_result = space.lookup(space.wrap(self), w_attr)
+        w_self = space.wrap(self)
+        w_result = space.lookup(w_self, space.unwrap(w_attr))
         if w_result is None:
             return space.getattr(self.w_function, w_attr)
+        else:
+            return space.get(w_result, w_self)
 
 class StaticMethod(Wrappable):
     """A static method.  Note that there is one class staticmethod at
