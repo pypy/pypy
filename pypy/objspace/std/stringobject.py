@@ -7,7 +7,6 @@ Synopsis of implemented methods (* marks work in progress)
 Py                PyPy
 
                   def _is_generic(w_self, fun):
-                  def is_true__String(space, w_str):
                   def mod__String_ANY(space, w_str, w_item):def mod__String_Tuple(space, w_str, w_tuple):def mod_str_tuple(space, w_format, w_args):
                   def ord__String(space, w_str):
                   def string_richcompare(space, w_str1, w_str2, op):
@@ -614,9 +613,6 @@ def str_zfill__String_Int(space, w_self, w_width):
     
 def unwrap__String(space, w_str):
     return w_str._value
-
-def is_true__String(space, w_str):
-    return len(space.unwrap(w_str)) != 0
 
 def hash__String(space, w_str):
     return W_IntObject(space, hash(space.unwrap(w_str)))

@@ -35,9 +35,6 @@ def unwrap__List(space, w_list):
     items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]
     return list(items)
 
-def is_true__List(space, w_list):
-    return not not w_list.ob_size
-
 def len__List(space, w_list):
     result = w_list.ob_size
     return W_IntObject(space, result)

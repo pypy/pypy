@@ -82,9 +82,6 @@ class W_DictObject(W_Object):
 registerimplementation(W_DictObject)
 
 
-def is_true__Dict(space, w_dict):
-    return not not w_dict.non_empties()
-
 def unwrap__Dict(space, w_dict):
     result = {}
     for w_key, cell in w_dict.non_empties():

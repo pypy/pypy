@@ -24,9 +24,6 @@ def unwrap__Tuple(space, w_tuple):
     items = [space.unwrap(w_item) for w_item in w_tuple.wrappeditems]
     return tuple(items)
 
-def is_true__Tuple(space, w_tuple):
-    return not not w_tuple.wrappeditems
-
 def len__Tuple(space, w_tuple):
     result = len(w_tuple.wrappeditems)
     return W_IntObject(space, result)
