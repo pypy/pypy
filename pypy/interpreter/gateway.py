@@ -173,8 +173,8 @@ class Gateway(Wrappable):
         # after initialization the following attributes should be set
         #   name
         #   code 
-        #   staticglobals 
-        #   staticdefs 
+        #   _staticglobals 
+        #   _staticdefs 
 
     def __spacebind__(self, space):
         # to wrap a Gateway, we first make a real Function object out of it
@@ -191,16 +191,16 @@ class Gateway(Wrappable):
         # but must be done lazily when needed only, because
         #   1) it depends on the object space
         #   2) the w_globals must not be built before the underlying
-        #      staticglobals is completely initialized, because
+        #      _staticglobals is completely initialized, because
         #      w_globals must be built only once for all the Gateway
-        #      instances of staticglobals
-        if self.staticglobals is None:
+        #      instances of _staticglobals
+        if self._staticglobals is None:
             w_globals = None
         else:
-            # is there another Gateway in staticglobals for which we
+            # is there another Gateway in _staticglobals for which we
             # already have a w_globals for this space ?
             cache = self.getcache(space) 
-            for value in self.staticglobals.itervalues():
+            for value in self._staticglobals.itervalues():
                 if isinstance(value, Gateway):
                     if value in cache.content: 
                         # yes, we share its w_globals
@@ -208,8 +208,8 @@ class Gateway(Wrappable):
                         w_globals = fn.w_func_globals
                         break
             else:
-                # no, we build all Gateways in the staticglobals now.
-                w_globals = build_dict(self.staticglobals, space)
+                # no, we build all Gateways in the _staticglobals now.
+                w_globals = build_dict(self._staticglobals, space)
         return self._build_function(space, w_globals)
 
     def getcache(self, space):
@@ -237,7 +237,7 @@ class Gateway(Wrappable):
         fn = self.get_function(space)
         w_obj = space.wrap(obj)
         return Method(space, space.wrap(fn),
-                      w_obj, space.type(w_obj)) 
+                      w_obj, space.type(w_obj))
 
 
 class app2interp(Gateway):
@@ -255,11 +255,11 @@ class app2interp(Gateway):
         self.name = app_name
         self.code = pycode.PyCode(None)
         self.code._from_code(app.func_code)
-        self.staticglobals = app.func_globals
-        self.staticdefs = list(app.func_defaults or ())
+        self._staticglobals = app.func_globals
+        self._staticdefs = list(app.func_defaults or ())
 
     def getdefaults(self, space):
-        return [space.wrap(val) for val in self.staticdefs]
+        return [space.wrap(val) for val in self._staticdefs]
 
     def __call__(self, space, *args_w):
         # to call the Gateway as a non-method, 'space' must be explicitly
@@ -291,11 +291,11 @@ class interp2app(Gateway):
             app_name = f.func_name
         self.code = BuiltinCode(f)
         self.name = app_name
-        self.staticdefs = list(f.func_defaults or ())
-        self.staticglobals = None
+        self._staticdefs = list(f.func_defaults or ())
+        self._staticglobals = None
 
     def getdefaults(self, space):
-        return self.staticdefs
+        return self._staticdefs
 
 def exportall(d, temporary=False):
     """Publish every function from a dict."""
