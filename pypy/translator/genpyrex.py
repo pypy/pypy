@@ -128,6 +128,13 @@ class GenPyrex:
                 self.putline("%s = %s(*%s, **%s)" % (resultname, argnames[0],
                                                      argnames[1], argnames[2]))
             else:
+                # short-cuts [getattr,]
+                if op.opname == 'getattr':
+                    attr = op.args[1]
+                    if isinstance(attr,Constant):
+                        self.putline("%s = %s.%s" % (resultname,argnames[0],
+                                                     attr.value))
+                        continue
                 opsymbol = self.ops[op.opname]
                 arity = self.oparity[op.opname]
                 assert(arity == len(op.args))
