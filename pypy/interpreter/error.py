@@ -1,6 +1,7 @@
 import os, sys
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
+INTERP_LEVEL_TRACEBACK = os.getenv('PYPY_TB')
 
 
 class PyPyError(Exception):
@@ -97,12 +98,18 @@ class OperationError(Exception):
     def print_detailed_traceback(self, space=None, file=None):
         """NOT_RPYTHON: Dump a nice detailed interpreter- and
         application-level traceback, useful to debug the interpreter."""
+        import traceback, cStringIO
         if file is None: file = sys.stderr
-        for i in range(len(self.debug_excs)-1, -1, -1):
-            import traceback
-            interpr_file = LinePrefixer(file, '||')
-            print >> interpr_file, "Traceback (interpreter-level):"
-            traceback.print_tb(self.debug_excs[i][2], file=interpr_file)
+        f = cStringIO.StringIO()
+        if not INTERP_LEVEL_TRACEBACK:
+            print >> f, ("Traceback (interpreter-level): "
+                         "hidden ($PYPY_TB not set)")
+        else:
+            for i in range(len(self.debug_excs)-1, -1, -1):
+                print >> f, "Traceback (interpreter-level):"
+                traceback.print_tb(self.debug_excs[i][2], file=f)
+        f.seek(0)
+        debug_print(''.join(['|| ' + line for line in f.readlines()]), file)
         if self.debug_excs:
             from pypy.tool import tb_server
             tb_server.publish_exc(self.debug_excs[-1])
@@ -143,24 +150,15 @@ def inlinecompile(source, space, symbol='exec'):
     return compile(source, '<inline>\n%s'%source, symbol, 0, 0)
 
 
-class LinePrefixer:
-    """File-like class that inserts a prefix string
-    at the beginning of each line it prints."""
-    def __init__(self, file, prefix):
-        self.file = file
-        self.prefix = prefix
-        self.linestart = True
-    def write(self, data):
-        if self.linestart:
-            self.file.write(self.prefix)
-        if data.endswith('\n'):
-            data = data[:-1]
-            self.linestart = True
-        else:
-            self.linestart = False
-        self.file.write(data.replace('\n', '\n'+self.prefix))
-        if self.linestart:
-            self.file.write('\n')
+def debug_print(text, file=None):
+    if file is None: file = sys.stderr
+    text = text.rstrip()
+    if file.isatty():
+        text = ('\x1b[31m' +   # ANSI color code "red"
+                text +
+                '\x1b[0m')     # ANSI color code "reset"
+    file.write(text + '\n')
+
 
 ### installing the excepthook for OperationErrors
 ##def operr_excepthook(exctype, value, traceback):

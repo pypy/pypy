@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter import baseobjspace
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function
@@ -39,7 +39,7 @@ def fake_type(cpy_type):
 
 def really_build_fake_type(cpy_type, ignored):
     "NOT_RPYTHON (not remotely so!)."
-    print 'faking %r'%(cpy_type,)
+    debug_print('faking %r'%(cpy_type,))
     kw = {}
     for s, v in cpy_type.__dict__.items():
         if cpy_type is not unicode or s not in ['__add__', '__contains__']:
