@@ -61,6 +61,7 @@ class PyFrame(eval.Frame):
     def eval(self, executioncontext):
         "Interpreter main loop!"
         try:
+            last_instr = -1
             while True:
                 try:
                     try:
