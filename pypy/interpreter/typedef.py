@@ -123,10 +123,10 @@ Method.typedef = TypeDef("method",
     )
 
 PyTraceback.typedef = TypeDef("traceback",
-    tb_frame  = attrproperty('tb_frame'),
-    tb_lasti  = attrproperty('tb_lasti'),
-    tb_lineno = attrproperty('tb_line'),
-    tb_next   = attrproperty('tb_next'),
+    tb_frame  = attrproperty('frame'),
+    tb_lasti  = attrproperty('lasti'),
+    tb_lineno = attrproperty('lineno'),
+    tb_next   = attrproperty('next'),
     )
 
 GeneratorIterator.typedef = TypeDef("generator",

@@ -33,7 +33,8 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
         # of the exceptions...
         
         self.w_Exception = type('Exception', (),
-                                {'__init__':__init__, '__str__': __str__})
+                                {'__init__':__init__, '__str__': __str__, 
+                                 'originalex': Exception})
         
         done = {'Exception': self.w_Exception}
 
@@ -61,6 +62,7 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
                             base = done[b.__name__]
                             newtype = type(next, (base,), {})
                             setattr(self, 'w_' + next, newtype)
+                            newtype.originalex = v
                             done[next] = newtype
                             stack.pop()
                     else:
@@ -163,7 +165,14 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
                         def make_stuff(descr=descr, descrname=descrname, space=self):
                             def stuff(w_obj, *args, **kwds):
                                 fn = descr.get_function(space)
-                                return fn.descr_function_call(w_obj, *args, **kwds)
+                                try:
+                                    return fn.descr_function_call(w_obj, *args, **kwds)
+                                except OperationError, e:
+                                    if not hasattr(e.w_type, 'originalex'):
+                                        raise # XXX
+                                    # XXX normalize ...
+                                    #if isinstance(e.w_value, e.w_type):
+                                    raise e.w_type.originalex(repr(e.w_value)) # e.w_value) 
                             return stuff
                         descrdict[descrname] = make_stuff()
                     else:
@@ -203,7 +212,6 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
         #traceback.print_exc()
         #ec = self.getexecutioncontext() # .framestack.items[-1]
         #ec.print_detailed_traceback(self)
-
         etype, evalue, etb = sys.exc_info()
         if etype is OperationError:
             raise etype, evalue, etb   # just re-raise it

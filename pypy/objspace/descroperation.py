@@ -1,6 +1,6 @@
 import operator
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import ObjSpace, NoValue
+from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function
 
 class Object:
@@ -167,12 +167,7 @@ class DescrOperation:
         if w_descr is None:
             raise OperationError(space.w_TypeError,
                    space.wrap("iterator has no next() method"))
-        try:
-            return space.get_and_call_function(w_descr,w_obj)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            raise NoValue
+        return space.get_and_call_function(w_descr,w_obj)
 
     def getitem(space,w_obj,w_key):
         w_descr = space.lookup(w_obj,'__getitem__')

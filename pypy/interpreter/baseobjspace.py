@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.miscutils import Stack, getthreadlocals
 import pypy.module
 
-__all__ = ['ObjSpace', 'OperationError', 'NoValue', 'Wrappable']
+__all__ = ['ObjSpace', 'OperationError', 'Wrappable']
 
 
 class Wrappable(object):
@@ -11,11 +11,6 @@ class Wrappable(object):
     that can nevertheless be exposed at application-level by space.wrap()."""
     def __spacebind__(self, space):
         return self
-
-class NoValue(Exception):
-    """Raised to signal absence of value, e.g. in the iterator accessing
-    method 'op.next()' of object spaces."""
-
 
 class ObjSpace:
     """Base class for the interpreter-level implementations of object spaces.
@@ -121,7 +116,9 @@ class ObjSpace:
         while True:
             try:
                 w_item = self.next(w_iterator)
-            except NoValue:
+            except OperationError, e:
+                if not e.match(self, self.w_StopIteration):
+                    raise
                 break  # done
             if expected_length is not None and len(items) == expected_length:
                 raise ValueError, "too many values to unpack"
@@ -308,5 +305,5 @@ ObjSpace.ExceptionTable = [
 #      newstring([w_1, w_2,...]) -> w_string from ascii numbers (bytes)
 # newdict([(w_key,w_value),...]) -> w_dict
 #newslice(w_start,w_stop,w_step) -> w_slice (any argument may be a real None)
-#                   next(w_iter) -> w_value or raise NoValue
+#                   next(w_iter) -> w_value or raise StopIteration
 #

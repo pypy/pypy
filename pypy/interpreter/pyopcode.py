@@ -4,7 +4,7 @@ The rest, dealing with variables in optimized ways, is in
 pyfastscope.py and pynestedscope.py.
 """
 
-from pypy.interpreter.baseobjspace import OperationError, NoValue
+from pypy.interpreter.baseobjspace import OperationError
 from pypy.interpreter.eval import UNDEFINED
 from pypy.interpreter import baseobjspace, gateway, function
 from pypy.interpreter import pyframe, pytraceback
@@ -649,7 +649,9 @@ class PyInterpFrame(pyframe.PyFrame):
         w_iterator = f.valuestack.top()
         try:
             w_nextitem = f.space.next(w_iterator)
-        except NoValue:
+        except OperationError, e:
+            if not e.match(f.space, f.space.w_StopIteration):
+                raise 
             # iterator exhausted
             f.valuestack.pop()
             f.next_instr += jumpby
