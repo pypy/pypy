@@ -91,11 +91,24 @@ def ordered_blocks(graph):
 
 
 class GenRpy:
-    def __init__(self, f, translator):
+    def __init__(self, f, translator, modname=None):
         self.f = f
         self.translator = translator
-        self.rpynames = {}
+        self.modname = (modname or
+                        translator.functions[0].__name__)
+        self.rpynames = {Constant(None).key:  'w(None)',
+                         Constant(False).key: 'w(False)',
+                         Constant(True).key:  'w(True)',
+                       }
+        
         self.seennames = {}
+        self.initcode = []     # list of lines for the module's initxxx()
+        self.latercode = []    # list of generators generating extra lines
+                               #   for later in initxxx() -- for recursive
+                               #   objects
+        self.globaldecl = []
+        self.globalobjects = []
+        self.pendingfunctions = []
 
         # special constructors:
         self.has_listarg = {}
@@ -156,14 +169,7 @@ class GenRpy:
         
 
     def nameof_int(self, value):
-        if value >= 0:
-            name = 'gint_%d' % value
-        else:
-            name = 'gint_minus%d' % abs(value)
-        name = self.uniquename(name)
-        self.initcode.append('INITCHK(%s = '
-                             'PyInt_FromLong(%d))' % (name, value))
-        return name
+        return "w(%d)" % value
 
     def nameof_long(self, value):
         assert type(int(value)) is int, "your literal long is too long"
@@ -177,36 +183,10 @@ class GenRpy:
         return name
 
     def nameof_float(self, value):
-        name = 'gfloat_%s' % value
-        name = (name.replace('-', 'minus')
-                    .replace('.', 'dot'))
-        chrs = [c for c in name if ('a' <= c <='z' or
-                                    'A' <= c <='Z' or
-                                    '0' <= c <='9' or
-                                    '_' == c )]
-        name = ''.join(chrs)
-        name = self.uniquename(name)
-        self.initcode.append('INITCHK(%s = '
-                             'PyFloat_FromDouble(%r))' % (name, value))
-        return name
+        return "w(%s)" % value
 
     def nameof_str(self, value):
-        chrs = [c for c in value[:32] if ('a' <= c <='z' or
-                                          'A' <= c <='Z' or
-                                          '0' <= c <='9' or
-                                          '_' == c )]
-        name = self.uniquename('gstr_' + ''.join(chrs))
-        if [c for c in value if c<' ' or c>'~' or c=='"' or c=='\\']:
-            # non-printable string
-            s = 'chr_%s' % name
-            self.globaldecl.append('static char %s[] = { %s };' % (
-                s, ', '.join(['%d' % ord(c) for c in value])))
-        else:
-            # printable string
-            s = '"%s"' % value
-        self.initcode.append('INITCHK(%s = PyString_FromStringAndSize('
-                             '%s, %d))' % (name, s, len(value)))
-        return name
+        return "w(%s)" % repr(value)
 
     def skipped_function(self, func):
         # debugging only!  Generates a placeholder for missing functions
@@ -219,8 +199,7 @@ class GenRpy:
         self.initcode.append('\tPyCFunction_GET_SELF(%s) = %s;' % (name, name))
         return name
 
-    def nameof_function(self, func, progress=['-\x08', '\\\x08',
-                                              '|\x08', '/\x08']):
+    def nameof_function(self, func):
         printable_name = '(%s:%d) %s' % (
             func.func_globals.get('__name__', '?'),
             func.func_code.co_firstlineno,
@@ -234,9 +213,6 @@ class GenRpy:
                 func.func_doc.lstrip().startswith('NOT_RPYTHON')):
                 print "skipped", printable_name
                 return self.skipped_function(func)
-            p = progress.pop(0)
-            sys.stderr.write(p)
-            progress.append(p)
         name = self.uniquename('gfunc_' + func.__name__)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
                              '&ml_%s, NULL))' % (name, name))
@@ -284,7 +260,7 @@ class GenRpy:
         return False
 
     def later(self, gen):
-        self.latercode.append((gen, self.debugstack))
+        self.latercode.append(gen)
 
     def nameof_instance(self, instance):
         name = self.uniquename('ginst_' + instance.__class__.__name__)
@@ -339,7 +315,7 @@ class GenRpy:
         metaclass = "&PyType_Type"
         if issubclass(cls, Exception):
             if cls.__module__ == 'exceptions':
-                return 'PyExc_%s'%cls.__name__
+                return 'w(%s)'%cls.__name__
             #else:
             #    # exceptions must be old-style classes (grr!)
             #    metaclass = "&PyClass_Type"
@@ -386,6 +362,7 @@ class GenRpy:
 
 
     def nameof_type(self, cls):
+        return "w(%s)" % cls.__name__ ##??
         if cls in self.typename_mapping:
             return '(PyObject*) %s' % self.typename_mapping[cls]
         assert cls.__module__ != '__builtin__', \
@@ -512,7 +489,7 @@ class GenRpy:
         
         f = self.f
         t = self.translator
-        t.simplify(func, rpython=False)
+        t.simplify(func)
         graph = t.getflowgraph(func)
 
         start = graph.startblock
@@ -553,13 +530,13 @@ class GenRpy:
                 else:
                     # regular return block
                     retval = expr(block.inputargs[0])
-                    yield"return %s" % retval
+                    yield "return %s" % retval
                 return
             elif block.exitswitch is None:
                 # single-exit block
                 assert len(block.exits) == 1
                 for op in gen_link(block.exits[0]):
-                    yield "    %s" % op
+                    yield "%s" % op
             elif catch_exception:
                 # block catching the exceptions raised by its last operation
                 # we handle the non-exceptional case first
@@ -604,12 +581,10 @@ class GenRpy:
             for line in render_block(block):
                 print "            %s" % line
 
-entry_point = (f, ff, fff, app_str_decode__String_ANY_ANY) [2]
+entry_point = (f, ff, fff, app_str_decode__String_ANY_ANY) [0]
 
-t = Translator(entry_point, verbose=False, simplifying=False)
-# hack: replace class
-
-#t.simplify(rpython=False)
+t = Translator(entry_point, verbose=False, simplifying=True)
+#t.simplify()
 #t.view()
 gen = GenRpy(sys.stdout, t)
 gen.gen_rpyfunction(t.functions[0])
