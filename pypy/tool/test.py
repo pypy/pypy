@@ -61,8 +61,7 @@ class MyTestResult(unittest.TestResult):
         self.successes.append(test)
 
 class MyTextTestResult(unittest._TextTestResult):
-    def addFailure(self, test, err):
-        unittest._TextTestResult.addFailure(self, test, err)
+
     def munge(self, list, test, err):
         import StringIO
         from pypy.interpreter.baseobjspace import OperationError
@@ -195,6 +194,10 @@ class Options(option.Options):
     testreldir = 0
     runcts = 0
     spacename = ''
+    individualtime=0
+    def ensure_value(*args):
+        return 0
+    ensure_value = staticmethod(ensure_value)
 
 class RegexFilterFunc:
     """ stateful function to filter included/excluded strings via
@@ -227,6 +230,9 @@ def get_test_options():
     options.append(make_option(
         '-r', action="store_true", dest="testreldir",
         help="gather only tests relative to current dir"))
+    options.append(make_option(
+        '-i', action="store_true", dest="individualtime",
+        help="time each test individually"))
     options.append(make_option(
         '-c', action="store_true", dest="runcts",
         help="run CtsTestRunner (catches stdout and prints report "
@@ -263,7 +269,15 @@ def main(root=None):
         suite = testsuite_from_main()
     else:
         suite = testsuite_from_dir(root, filterfunc, 1)
-    run_tests(suite)
+    if Options.individualtime and hasattr(suite, '_tests'):
+        for test in suite._tests:
+            if hasattr(test, '_tests'):
+                for subtest in test._tests:
+                    run_tests(subtest)
+            else:
+                run_tests(test)
+    else:
+        run_tests(suite)
 
 if __name__ == '__main__':
     # test all of pypy
