@@ -115,6 +115,7 @@ def _isalnum(ch):
     return (o>=97 and o<=122) \
         or (o>=65 and o<=90) \
         or (o>=48 and o<=57)
+
 def _isupper(ch):
     o = ord(ch)
     return (o>=65 and o<=90)
@@ -122,7 +123,7 @@ def _isupper(ch):
 def _islower(ch):   
     o = ord(ch)
     return (o>=97 and o<=122)
-    
+
 def _is_generic(self, fun): 
     space = w_self.space   
     v = space.unwrap(w_self)
@@ -156,8 +157,19 @@ def str_isupper__String(space, w_self):
 def str_islower__String(space, w_self):
     return _is_generic(w_self, _islower)
 
-def str_istitle(space, w_self):
-    pass
+def str_istitle__String(space, w_self):
+    input = space.unwrap(w_self)
+    prev_letter='!'
+
+    for pos in range(0, len(input)):
+        ch = input[pos]
+        if ch.isalpha():
+            if (prev_letter.isalpha() and ch.isupper()) or \
+               (not prev_letter.isalpha() and  ch.islower()):
+                    return space.w_False
+        prev_letter = ch
+
+    return space.w_True
 
 def str_upper__String(space, w_self):
     self = space.unwrap(w_self)
@@ -224,23 +236,19 @@ def str_capitalize__String(space, w_self):
     return space.wrap("".join(buffer))
          
 def str_title__String(space, w_self):
-    u = space.unwrap
-    input = u(w_self)
+    input = space.unwrap(w_self)
     buffer = [' '] * len(input)
-    inword = 0
+    prev_letter=' '
 
     for pos in range(0, len(input)):
         ch = input[pos]
-        buffer[pos] = ch
-        if ch.isspace():
-            if inword:
-                inword = 0
+        if not prev_letter.isalpha():
+            buffer[pos] = ch.upper()
         else:
-            if not inword:
-                if _islower(ch):
-                    o = ord(ch) - 32
-                    buffer[pos] = chr(o)
-                inword = 1
+             buffer[pos] = ch.lower()
+
+        prev_letter = buffer[pos]
+
     return space.wrap("".join(buffer))
 
 def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):
