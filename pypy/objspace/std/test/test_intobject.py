@@ -149,15 +149,15 @@ class TestW_IntObject(test.TestCase):
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
         f3 = iobj.W_IntObject(self.space, z)
-        v = iobj.pow__Int_Int_ANY(self.space, f1, f2, f3)
+        v = iobj.pow__Int_Int_Int(self.space, f1, f2, f3)
         self.assertEquals(v.intval, pow(x, y, z))
         f1, f2, f3 = [iobj.W_IntObject(self.space, i) for i in (10, -1, 42)]
         self.assertRaises_w(self.space.w_TypeError,
-                            iobj.pow__Int_Int_ANY,
+                            iobj.pow__Int_Int_Int,
                             self.space, f1, f2, f3)
         f1, f2, f3 = [iobj.W_IntObject(self.space, i) for i in (10, 5, 0)]
         self.assertRaises_w(self.space.w_ValueError,
-                            iobj.pow__Int_Int_ANY,
+                            iobj.pow__Int_Int_Int,
                             self.space, f1, f2, f3)
 
     def test_pow_iin(self):
@@ -165,14 +165,14 @@ class TestW_IntObject(test.TestCase):
         y = 2
         f1 = iobj.W_IntObject(self.space, x)
         f2 = iobj.W_IntObject(self.space, y)
-        v = iobj.pow__Int_Int_ANY(self.space, f1, f2, self.space.w_None)
+        v = iobj.pow__Int_Int_None(self.space, f1, f2, self.space.w_None)
         self.assertEquals(v.intval, x ** y)
         f1, f2 = [iobj.W_IntObject(self.space, i) for i in (10, 20)]
         self.assertEquals(self.space.w_OverflowError,
-                          self._unwrap_nonimpl(iobj.pow__Int_Int_ANY, self.space, f1, f2, self.space.w_None))
+                          self._unwrap_nonimpl(iobj.pow__Int_Int_None, self.space, f1, f2, self.space.w_None))
         f1, f2 = [iobj.W_IntObject(self.space, i) for i in (10, -1)]
         self.assertEquals(self.space.w_ValueError,
-                          self._unwrap_nonimpl(iobj.pow__Int_Int_ANY, self.space, f1, f2, self.space.w_None))
+                          self._unwrap_nonimpl(iobj.pow__Int_Int_None, self.space, f1, f2, self.space.w_None))
 
     def test_neg(self):
         x = 42

@@ -252,14 +252,17 @@ def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     return W_IntObject(space, ret)
 """
 
-def pow__Int_Int_ANY(space, w_int1, w_int2, w_int3):
+def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
     y = w_int2.intval
-    if w_int3 is space.w_None:
-        ret = _impl_int_int_pow(space, x, y)
-    else:
-        z = w_int3.intval
-        ret = _impl_int_int_pow(space, x, y, z)
+    z = w_int3.intval
+    ret = _impl_int_int_pow(space, x, y, z)
+    return W_IntObject(space, ret)
+
+def pow__Int_Int_None(space, w_int1, w_int2, w_int3):
+    x = w_int1.intval
+    y = w_int2.intval
+    ret = _impl_int_int_pow(space, x, y)
     return W_IntObject(space, ret)
 
 def neg__Int(space, w_int1):
