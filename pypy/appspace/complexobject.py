@@ -146,21 +146,6 @@ class complex(object):
         return complex(real, imag)
 
 
-    def __d_i_v__(self, other):
-        # the canonical alternative, which is said to have problems 
-        # with floating point precision...
-        if other.__class__ != complex:
-            return complex(self.real/other, self.imag/other)
-
-        a, b = self.real, self.imag
-        c, d = other.real, other.imag
-        zr = a*c + b*d
-        zi = b*c - a*d
-        n = c*c + d*d
-
-        return complex(zr/n, zi/n)
-
-
     def __floordiv__(self, other):
         return self / other
         
@@ -251,7 +236,9 @@ class complex(object):
             return self, complex(other)
         elif other.__class__ == complex:
             return self, other
-
+        elif typ is types.ComplexType: # cough
+            return self, complex(other.real, other.imag)
+            
         raise TypeError, "number coercion failed"
 
 
@@ -260,6 +247,7 @@ class complex(object):
 
 
     def __ne__(self, other):
+        self, other = self.__coerce__(other)
         if self.real != other.real:
             return 1
         if self.imag != other.imag:

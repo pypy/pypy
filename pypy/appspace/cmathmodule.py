@@ -131,7 +131,7 @@ def log10(x):
     Return the base-10 logarithm of x."""
     
     l = math.hypot(x.real, x.imag)
-    imag = math.atan2(x.imag, x.real)/log(10.)
+    imag = math.atan2(x.imag, x.real)/math.log(10.)
     real = math.log10(l)
     return complex(real, imag)
 
