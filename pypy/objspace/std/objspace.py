@@ -71,7 +71,19 @@ class StdObjSpace(ObjSpace):
         code._from_code(__init__.func_code)
         w_init = W_FuncObject(self, code,
                               self.newdict([]), self.newtuple([]), None)
-#        w_init = w(__init__) # should this work? --mwh
+##        w_init = w(__init__) # should this work? --mwh
+        def __str__(self):
+            l = len(self.args)
+            if l == 0:
+                return ''
+            elif l == 1:
+                return str(self.args[0])
+            else:
+                return str(self.args)
+        code = PyByteCode()
+        code._from_code(__str__.func_code)
+        w_str = W_FuncObject(self, code,
+                              self.newdict([]), self.newtuple([]), None)
         import exceptions
 
         # to create types, we should call the standard type object;
@@ -82,7 +94,8 @@ class StdObjSpace(ObjSpace):
             self,
             w('Exception'),
             self.newtuple([]),
-            self.newdict([(w('__init__'), w_init)]))
+            self.newdict([(w('__init__'), w_init),
+                          (w('__str__'), w_str)]))
         self.w_IndexError = self.w_Exception
         
         done = {'Exception': self.w_Exception}
