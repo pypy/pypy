@@ -426,9 +426,15 @@ class GraphRenderer:
         for cmd in self.draw_commands():
             cmd()
 
-    def search_for_node(self, searchstr):
+    def search_for_node(self, searchstr, start_at=None):
         """Find a node that contains a search string."""
-        for node in self.graphlayout.nodes.itervalues():
+        iter = self.graphlayout.nodes.itervalues()
+        if start_at:
+            # Skip all nodes up to and including 'start_at'
+            for node in iter:
+                if node is start_at:
+                    break
+        for node in iter:
             if searchstr in node.label:
                 return node
         return None

@@ -82,6 +82,7 @@ class GraphDisplay(Display):
         'backspace' : 'layout_back',
         'f': 'search',
         '/': 'search',
+        'n': 'find_next',
         'left' : ('pan', (-1, 0)),
         'right' : ('pan', (1, 0)),
         'up' : ('pan', (0, -1)),
@@ -110,6 +111,7 @@ class GraphDisplay(Display):
         Meta Right      Go forward in history
 
         F or /          Search for text
+        N               Find next occurrence
 
         H               This help message
 
@@ -135,6 +137,8 @@ class GraphDisplay(Display):
         self.method_cache = {}
         self.key_cache = {}
         self.status_bar_height = 0
+        self.searchstr = None
+        self.searchpos = None
         self.initialize_keys()
         self.setlayout(layout)
 
@@ -255,13 +259,22 @@ class GraphDisplay(Display):
         searchstr = self.input('Find: ')
         if not searchstr:
             return
-        node = self.viewer.search_for_node(searchstr)
+        self.searchstr = searchstr
+        self.searchpos = None
+        self.find_next()
+
+    def find_next(self):
+        if not self.searchstr:
+            return
+        node = self.viewer.search_for_node(self.searchstr,
+                                           start_at=self.searchpos)
         if node:
+            self.searchpos = node
             self.sethighlight(obj=node)
             self.look_at_node(node, keep_highlight=True)
             self.sethighlight(obj=node)
         else:
-            self.setstatusbar('Not found: %s' % searchstr)
+            self.setstatusbar('Not found: %s' % self.searchstr)
 
     def setlayout(self, layout):
         if self.viewer:
