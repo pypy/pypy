@@ -102,7 +102,7 @@ class FlowGraphDotGen(DotGen):
         name = self.prefix # +'_'+funcgraph.name
         data = funcgraph.name
         if hasattr(funcgraph, 'source'):
-            source = funcgraph.source.replace('"', '\\"')
+            source = funcgraph.source
             data += "\\n" + "\\l".join(source.split('\n'))
         if hasattr(funcgraph, 'func'):
             self.func = funcgraph.func
@@ -153,7 +153,6 @@ class FlowGraphDotGen(DotGen):
                                                              maxlineno, source)
 
         data = data + "\l".join(lines)
-        data = data.replace('"', '\\"') # make dot happy
 
         self.emit_node(name, label=data, shape=shape, color=color, style="filled", fillcolor=fillcolor)
 
