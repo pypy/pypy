@@ -19,6 +19,18 @@ class W_Object:
         return w_self.__class__
 
 
+class implmethod(object):
+    def __init__(self):
+        self.dispatch_table = {}
+    def register(self, function, *types):
+        if types in self.dispatch_table:
+            raise error, "we already got an implementation for %r" % types
+        self.dispatch_table[types] = function
+        return self
+    def __get__(self, instance, cls=None):
+        raise "XXX come back later"
+
+
 ##################################################################
 
 class StdObjSpace(ObjSpace):
@@ -37,10 +49,11 @@ class StdObjSpace(ObjSpace):
         'W_IntObject':   'intobject',
         'W_FloatObject': 'floatobject',
         #'W_ListObject': 'listobject',
+        'W_DictObject':  'dictobject',
         }
-    TYPE_CACHE = {}
 
     def initialize(self):
+        self.TYPE_CACHE = {}
         from noneobject    import W_NoneObject
         from boolobject    import W_BoolObject
         from cpythonobject import W_CPythonObject

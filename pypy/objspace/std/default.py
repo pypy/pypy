@@ -49,12 +49,23 @@ def default_getattr(space, w_obj, w_attr):
     #w_type = space.type(w_obj)
     #w_typename = space.getattr(w_type, space.wrap('__name__'))
     #...
-    
-    # XXX as long as don't have types...
-    if space.is_true(space.eq(w_attr, space.wrap('__class__'))):
-        return space.wrap(space.unwrap(w_obj).__class__)
 
+    w_type = space.type(w_obj)
+    if space.is_true(space.eq(w_attr, space.wrap('__class__'))):
+        return w_type
+
+    # XXX implement lookup as a multimethod
+    from typeobject import W_TypeObject
+    if isinstance(w_type, W_TypeObject):  # XXX must always be true at some point
+        try:
+            w_value = w_type.lookup(space, w_attr)
+        except KeyError:
+            pass
+        else:
+            return space.get(w_value, w_obj, w_type)
+        
     raise OperationError(space.w_AttributeError, w_attr)
+
 
 StdObjSpace.getattr.register(default_getattr, W_ANY, W_ANY)
 
@@ -92,3 +103,23 @@ def default_contains(space, w_iterable, w_lookfor):
             return space.w_True
 
 StdObjSpace.contains.register(default_contains, W_ANY, W_ANY)
+
+
+# '__get__(descr, inst, cls)' returns 'descr' by default
+
+def default_get(space, w_descr, w_inst, w_cls):
+    return w_descr
+
+StdObjSpace.get.register(default_get, W_ANY, W_ANY, W_ANY)
+
+
+# static types
+
+def default_type(space, w_obj):
+    w_type = w_obj.statictype
+    if w_type is None:
+        # XXX remove me, temporary
+        return space.wrap(space.unwrap(w_obj).__class__)
+    return w_type
+
+StdObjSpace.type.register(default_type, W_ANY)

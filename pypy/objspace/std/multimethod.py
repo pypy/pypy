@@ -103,7 +103,7 @@ class BoundMultiMethod:
                 w_value = self.space.wrap(message)
                 raise OperationError(self.space.w_TypeError, w_value)
 
-    def perform_call(self, args, initialtypes):
+    def perform_call(self, args, initialtypes, prepend_space_argument=True):
         extraargs = args[self.multimethod.arity:]
         choicelist = self.multimethod.buildchoices(initialtypes)
         firstfailure = None
@@ -114,8 +114,10 @@ class BoundMultiMethod:
                     arg = delegator(self.space, arg)
                 newargs.append(arg)
             newargs = tuple(newargs) + extraargs
+            if prepend_space_argument:
+                newargs = (self.space,) + newargs
             try:
-                return function(self.space, *newargs)
+                return function(*newargs)
             except FailedToImplement, e:
                 # we got FailedToImplement, record the first such error
                 if firstfailure is None:

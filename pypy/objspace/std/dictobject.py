@@ -33,6 +33,7 @@ class Cell:
 
 class W_DictObject(W_Object):
     delegate_once = {}
+    statictypename = 'dict'
 
     def __init__(w_self, space, list_pairs_w):
         W_Object.__init__(w_self, space)
@@ -79,7 +80,13 @@ class W_DictObject(W_Object):
         return space.newlist([ cell.get()
                                for w_key,cell in
                                w_self.non_empties()])
-                
+
+    copy   = implmethod().register(copy)
+    items  = implmethod().register(items)
+    keys   = implmethod().register(keys)
+    values = implmethod().register(values)
+    
+
 def dict_is_true(space, w_dict):
     return not not w_dict.non_empties()
 
@@ -132,22 +139,22 @@ def contains_dict_any(space, w_dict, w_lookup):
 
 StdObjSpace.contains.register(contains_dict_any, W_DictObject, W_ANY)
 
-def getattr_dict(space, w_dict, w_attr):
-    if space.is_true(space.eq(w_attr, space.wrap('copy'))):
-        w_builtinfn = make_builtin_func(space, W_DictObject.copy)
-        return W_InstMethObject(space, w_dict, w_builtinfn)
-    if space.is_true(space.eq(w_attr, space.wrap('items'))):
-        w_builtinfn = make_builtin_func(space, W_DictObject.items)
-        return W_InstMethObject(space, w_dict, w_builtinfn)
-    if space.is_true(space.eq(w_attr, space.wrap('keys'))):
-        w_builtinfn = make_builtin_func(space, W_DictObject.keys)
-        return W_InstMethObject(space, w_dict, w_builtinfn)
-    if space.is_true(space.eq(w_attr, space.wrap('values'))):
-        w_builtinfn = make_builtin_func(space, W_DictObject.values)
-        return W_InstMethObject(space, w_dict, w_builtinfn)
-    raise FailedToImplement(space.w_AttributeError)
+##def getattr_dict(space, w_dict, w_attr):
+##    if space.is_true(space.eq(w_attr, space.wrap('copy'))):
+##        w_builtinfn = make_builtin_func(space, W_DictObject.copy)
+##        return W_InstMethObject(space, w_dict, w_builtinfn)
+##    if space.is_true(space.eq(w_attr, space.wrap('items'))):
+##        w_builtinfn = make_builtin_func(space, W_DictObject.items)
+##        return W_InstMethObject(space, w_dict, w_builtinfn)
+##    if space.is_true(space.eq(w_attr, space.wrap('keys'))):
+##        w_builtinfn = make_builtin_func(space, W_DictObject.keys)
+##        return W_InstMethObject(space, w_dict, w_builtinfn)
+##    if space.is_true(space.eq(w_attr, space.wrap('values'))):
+##        w_builtinfn = make_builtin_func(space, W_DictObject.values)
+##        return W_InstMethObject(space, w_dict, w_builtinfn)
+##    raise FailedToImplement(space.w_AttributeError)
 
-StdObjSpace.getattr.register(getattr_dict, W_DictObject, W_ANY)
+##StdObjSpace.getattr.register(getattr_dict, W_DictObject, W_ANY)
 
 def eq_dict_dict(space, w_left, w_right):
     if len(w_left.data) != len(w_right.data):

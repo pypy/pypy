@@ -29,3 +29,6 @@ def instmeth_call(space, w_instmeth, w_arguments, w_keywords):
     return w_ret
 
 StdObjSpace.call.register(instmeth_call, W_InstMethObject, W_ANY, W_ANY)
+
+
+# XXX do __get__ for instance methods

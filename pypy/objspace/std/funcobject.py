@@ -1,6 +1,7 @@
 from __future__ import nested_scopes
 from pypy.objspace.std.objspace import *
 import pypy.interpreter.pyframe
+from pypy.objspace.std.instmethobject import W_InstMethObject
 
 
 class W_FuncObject(W_Object):
@@ -35,3 +36,9 @@ def func_call(space, w_function, w_arguments, w_keywords):
     return w_ret
 
 StdObjSpace.call.register(func_call, W_FuncObject, W_ANY, W_ANY)
+
+
+def func_get(space, w_function, w_instance, w_cls):
+    return W_InstMethObject(space, w_instance, w_function)
+
+StdObjSpace.get.register(func_get, W_FuncObject, W_ANY, W_ANY)

@@ -5,6 +5,9 @@ from sliceobject import W_SliceObject
 
 class W_TupleObject(W_Object):
 
+    delegate_once = {}
+    statictypename = 'tuple'
+
     def __init__(w_self, space, wrappeditems):
         W_Object.__init__(w_self, space)
         w_self.wrappeditems = wrappeditems   # a list of wrapped values
