@@ -3,24 +3,6 @@
 from pypy.objspace.std.objspace import *
 
 
-# The default delegation mecanism is to allow any W_XxxObject class
-# to be regarded as an instance of any of its parent classes.
-
-def class_to_parent_classes(space, w_obj):
-    converted = []
-    W_Cls = w_obj.__class__
-    while W_Cls is not W_Object:
-        assert len(W_Cls.__bases__) == 1, (
-            "multimethod call with non wrapped argument: %r" % w_obj)
-        W_Cls, = W_Cls.__bases__
-        converted.append((W_Cls, w_obj))
-    return converted
-
-class_to_parent_classes.priority = PRIORITY_PARENT_IMPL
-StdObjSpace.delegate.register(class_to_parent_classes, Ellipsis)
-# 'Ellipsis' should not be used in other calls to register()
-
-
 # These are operations that must fall back to some default behavior,
 # but that should not appear explicitly at application-level.
 # There is no default object.__xxx__() method for these.

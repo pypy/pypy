@@ -3,17 +3,7 @@ import autopath
 from pypy.objspace.std.multimethod import *
 from pypy.tool import test
 
-# default delegator
-
-def class_to_parent_classes(space, w_obj):
-    converted = []
-    W_Cls = w_obj.__class__
-    while len(W_Cls.__bases__) == 1:
-        W_Cls, = W_Cls.__bases__
-        converted.append((W_Cls, w_obj))
-    return converted
-
-class_to_parent_classes.priority = 1
+BoundMultiMethod.ASSERT_BASE_TYPE = None
 
 
 class X:
@@ -77,7 +67,6 @@ class FakeObjSpace:
     delegate = DelegateMultiMethod()
     delegate.register(from_y_to_x,              Y)
     delegate.register(from_x_to_str_sometimes,  X)
-    delegate.register(class_to_parent_classes,  Ellipsis)
     
     def wrap(self, x):
         return '<wrapped %r>' % (x,)

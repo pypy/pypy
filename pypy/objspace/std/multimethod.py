@@ -126,15 +126,23 @@ class DelegateMultiMethod(MultiMethod):
         MultiMethod.__init__(self, 'delegate', 1, [])
     
     def postprocessresult(self, allowedtypes, result):
-        # add the Ellipsis catch-all delegator(s)
-        for function in self.dispatch_table[Ellipsis,]:
-            for t in allowedtypes[0]:
-                result.append(((t,), function))
+        by_priority = {} # classify delegators by priority
         
+        # add delegation from a class to its parent classes
+        arg1types, = allowedtypes
+        parenttypes = []
+        for t in arg1types:
+            parenttypes += list(t.__bases__)
+        if parenttypes:
+            def delegate_to_parent_classes(space, a, parenttypes=parenttypes):
+                return [(t, a) for t in parenttypes]
+            # hard-wire it at priority 0
+            by_priority[0] = [((t,), delegate_to_parent_classes)
+                              for t in arg1types]
+
         # sort the results in priority order, and insert None marks
         # between jumps in the priority values. Higher priority values
         # first.
-        by_priority = {} # classify delegators by priority
         for signature, function in result:
             assert hasattr(function, 'priority'), (
                 "delegator function must have a priority")
@@ -189,6 +197,7 @@ class UnboundMultiMethod(AbstractMultiMethod):
 
 
 class BoundMultiMethod:
+    ASSERT_BASE_TYPE = None
 
     def __init__(self, space, multimethod):
         self.space = space
@@ -220,6 +229,12 @@ class BoundMultiMethod:
     def perform_call(self, args):
         arity = self.multimethod.arity
         extraargs = args[arity:]
+
+        if self.ASSERT_BASE_TYPE:
+            for a in args[:arity]:
+                assert isinstance(a, self.ASSERT_BASE_TYPE), (
+                    "multimethod '%s' call with non wrapped argument: %r" %
+                    (self.multimethod.operatorsymbol, a))
 
         # look for an exact match first
         firstfailure = None
