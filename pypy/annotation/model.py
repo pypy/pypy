@@ -62,11 +62,17 @@ class SomeObject:
         except AttributeError:
             pass
         else:
-            SomeObject._coming_from[id(self)] = position_key
+            SomeObject._coming_from[id(self)] = position_key, None
         return self
     def origin(self):
-        return SomeObject._coming_from.get(id(self), None)
+        return SomeObject._coming_from.get(id(self), (None, None))[0]
     origin = property(origin)
+    def caused_by_merge(self):
+        return SomeObject._coming_from.get(id(self), (None, None))[1]
+    def set_caused_by_merge(self, nvalue):
+        SomeObject._coming_from[id(self)] = self.origin, nvalue
+    caused_by_merge = property(caused_by_merge, set_caused_by_merge)
+    del set_caused_by_merge
 
 
 class SomeInteger(SomeObject):
@@ -190,6 +196,8 @@ def unionof(*somevalues):
     for s2 in somevalues:
         if s1 != s2:
             s1 = pair(s1, s2).union()
+    if s1.caused_by_merge is None and len(somevalues) > 1:
+        s1.caused_by_merge = somevalues
     return s1
 
 def ishashable(x):
