@@ -72,6 +72,12 @@
 #define OP_GETITEM(x,y,r,err)     if (!(r=PyObject_GetItem1(x,y)))   goto err;
 #define OP_SETITEM(x,y,z,r,err)   if ((PyObject_SetItem1(x,y,z))<0)  goto err; \
 				  r=Py_None; Py_INCREF(r);
+#define OP_CONTAINS(x,y,r,err)    switch (PySequence_Contains(x,y)) {	\
+	case 1:								\
+		Py_INCREF(Py_True); r = Py_True; break;			\
+	case 0:								\
+		Py_INCREF(Py_False); r = Py_False; break;		\
+	default: goto err; }
 
 #define OP_GETATTR(x,y,r,err)     if (!(r=PyObject_GetAttr(x,y)))    goto err;
 #define OP_SETATTR(x,y,z,r,err)   if ((PyObject_SetAttr(x,y,z))<0)   goto err; \
@@ -169,7 +175,8 @@ static PyTypeObject PyGenCFunction_Type = {
 
 #define SETUP_MODULE						\
 	PyGenCFunction_Type.tp_base = &PyCFunction_Type;	\
-	PyType_Ready(&PyGenCFunction_Type);
+	PyType_Ready(&PyGenCFunction_Type);			\
+	PyExc_OperationError = PyErr_NewException("bah.OperationError", NULL, NULL);
 
 
 /*** operations with a variable number of arguments ***/
@@ -287,6 +294,7 @@ static PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
 }
 #endif
 
+static PyObject* PyExc_OperationError;
 
 /************************************************************/
  /***  The rest is produced by genc.py                     ***/
