@@ -232,6 +232,8 @@ class GraphDisplay(Display):
                 block.blit(img, (sx, sy))
                 sy += h
             block.set_alpha(int(255 * self.INPUT_ALPHA))
+            # This can be slow.  It would be better to take a screenshot
+            # and use it as the background.
             self.viewer.render()
             if self.statusbarinfo:
                 self.drawstatusbar()
@@ -242,20 +244,23 @@ class GraphDisplay(Display):
         text = ""
         self.must_redraw = True
         while True:
-            e = pygame.event.wait()
-            if e.type == QUIT:
-                return None
-            elif e.type == KEYDOWN:
-                if e.key == K_ESCAPE:
+            events = [pygame.event.wait()]
+            events.extend(pygame.event.get())
+            old_text = text
+            for e in events:
+                if e.type == QUIT:
                     return None
-                elif e.key == K_RETURN:
-                    return text
-                elif e.key == K_BACKSPACE:
-                    text = text[:-1]
-                    draw(prompt + text)
-                elif e.unicode:
-                    text += e.unicode
-                    draw(prompt + text)
+                elif e.type == KEYDOWN:
+                    if e.key == K_ESCAPE:
+                        return None
+                    elif e.key == K_RETURN:
+                        return text
+                    elif e.key == K_BACKSPACE:
+                        text = text[:-1]
+                    elif e.unicode and ord(e.unicode) >= ord(' '):
+                        text += e.unicode
+            if text != old_text:
+                draw(prompt + text)
 
     def search(self):
         searchstr = self.input('Find: ')
