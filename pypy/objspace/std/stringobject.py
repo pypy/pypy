@@ -5,7 +5,7 @@ from listobject import W_ListObject
 from instmethobject import W_InstMethObject
 from pypy.interpreter.extmodule import make_builtin_func
 
-from rarray import CharArrayFromStr
+from rarray import CharArrayFromStr, CharArraySize
 
 
 applicationfile = StdObjSpace.AppFile(__name__)
@@ -26,27 +26,29 @@ class W_StringObject(W_Object):
         return W_IntObject(self, self._value.hash())
 
     def join(w_self, w_list):
-        if w_list:
+        list = w_self.space.unpackiterable(w_list)
+        if list:
             firstelem = 1
             listlen = 0
-            for w_item in w_list.wrappeditems:
-                reslen = reslen + len(w_item)
-                lislen = listlen + 1
+            reslen = 0  
+            for w_item in list:
+                reslen = reslen + w_item._value.len
+                listlen = listlen + 1
 
             reslen = reslen + (listlen - 1) * w_self._value.len
             res = CharArraySize(reslen)
 
             pos = 0
-            for w_item in w_list.wrappeditems:
+            for w_item in list:
                 if firstelem:
-                    res.setsubstring(idx, w_item._value)
-                    idx = idx + w_item._value.len 
+                    res.setsubstring(pos, w_item._value.value())
+                    pos = pos + w_item._value.len 
                     firstelem = 0
                 else:
-                    res.setsubstring(idx, w_self._value)
-                    idx = idx + w_self._value.len
-                    res.setsubstring(idx, w_item._value)
-                    idx = idx + w_item._value.len
+                    res.setsubstring(pos, w_self._value.value())
+                    pos = pos + w_self._value.len
+                    res.setsubstring(pos, w_item._value.value())
+                    pos = pos + w_item._value.len
             return W_StringObject(w_self.space, res.value())
         else:
             return W_StringObject(w_self.space, "")
