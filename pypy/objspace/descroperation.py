@@ -306,13 +306,17 @@ class DescrOperation:
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
         w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
-        if w_res is not None and not space.is_w(w_res, space.w_None):
-            return w_res
-        w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
-        if w_res is not None and not space.is_w(w_res, space.w_None):
-            return w_res
-        raise OperationError(space.w_TypeError,
-                space.wrap("coercion failed"))        
+        if w_res is None or space.is_w(w_res, space.w_None):
+            w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
+            if w_res is None  or space.is_w(w_res, space.w_None):
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("coercion failed"))
+        if (not space.is_true(space.isinstance(w_res, space.w_tuple)) or
+            space.int_w(space.len(w_res)) != 2):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("coercion should return None or 2-tuple"))
+        return w_res
+    
 
 
     # xxx round, ord
