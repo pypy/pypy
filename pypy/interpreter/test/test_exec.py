@@ -10,12 +10,12 @@ class AppTestExecStmt:
         g = {}
         l = {}
         exec "a = 3" in g, l
-        assert not l['a'] != 3
+        assert l['a'] == 3
 
     def test_localfill(self):
         g = {}
         exec "a = 3" in g
-        assert not g['a'] != 3
+        assert g['a'] == 3
         
     def test_builtinsupply(self):
         g = {}
@@ -37,7 +37,7 @@ class AppTestExecStmt:
         g = {}
         l = {}
         exec co in g, l
-        assert not l['a'] != 3
+        assert l['a'] == 3
         
 ##    # Commented out as PyPy give errors using open()
 ##    #     ["Not availible in restricted mode"]
@@ -50,18 +50,18 @@ class AppTestExecStmt:
     def test_implicit(self):
         a = 4
         exec "a = 3"
-        assert not a !=3
+        assert a == 3
 
     def test_tuplelocals(self):
         g = {}
         l = {}
         exec ("a = 3", g, l)
-        assert not l['a'] != 3
+        assert l['a'] == 3
         
     def test_tupleglobals(self):
         g = {}
         exec ("a = 3", g)
-        assert not g['a'] != 3
+        assert g['a'] == 3
 
     def test_exceptionfallthrough(self):
         def f():

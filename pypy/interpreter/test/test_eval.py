@@ -45,7 +45,7 @@ class TestFrame:
     def sameList(self, l1, l2):
         assert len(l1) == len(l2) 
         for w_1, w_2 in zip(l1, l2):
-            assert not ((w_1 is UNDEFINED) != (w_2 is UNDEFINED))
+            assert (w_1 is UNDEFINED) == (w_2 is UNDEFINED)
             if w_1 is not UNDEFINED:
                 assert self.space.eq_w(w_1, w_2) 
 
