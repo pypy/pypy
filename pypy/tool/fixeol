@@ -18,17 +18,7 @@ def looksbinary(data, forbidden = [chr(i) for i in forbidden]):
     return False
 
 
-# hack to get the platform's native end-of-line format
-f = open('@fixeol@tmp.txt', 'w')
-print >> f
-f.close()
-f = open('@fixeol@tmp.txt', 'rb')
-native_eol = f.read()
-f.close()
-os.unlink('@fixeol@tmp.txt')
-
-
-def binary2text(filename, native_eol = native_eol):
+def binary2text(filename):
     "Convert a file to the platform's native end-of-line format if needed."
     f = open(filename, 'rb')
     data = f.read()
@@ -38,7 +28,7 @@ def binary2text(filename, native_eol = native_eol):
     original = data
     data = data.replace('\r\n', '\n')
     data = data.replace('\r',   '\n')
-    data = data.replace('\n', native_eol)
+    data = data.replace('\n', os.linesep)
     if data != original:
         f = open(filename, 'wb')
         f.write(data)
