@@ -41,6 +41,9 @@ class TestW_ListObject(unittest_w.TestCase_w):
         w_lis3 = lobj.W_ListObject(self.space, [arg]*n)
         w_res = self.space.mul(w_lis, w(n))
         self.assertEqual_w(w_lis3, w_res)
+        # commute
+        w_res = self.space.mul(w(n), w_lis)
+        self.assertEqual_w(w_lis3, w_res)
 
     def test_getitem(self):
         w = self.space.wrap

@@ -91,6 +91,9 @@ class TestW_TupleObject(unittest_w.TestCase_w):
         w_tup3 = tobj.W_TupleObject(self.space, [arg]*n)
         w_res = self.space.mul(w_tup, w(n))
         self.assertEqual_w(w_tup3, w_res)
+        # commute
+        w_res = self.space.mul(w(n), w_tup)
+        self.assertEqual_w(w_tup3, w_res)
 
     def test_getslice(self):
         w = self.space.wrap

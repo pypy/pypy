@@ -85,6 +85,11 @@ def list_int_mul(space, w_list, w_int):
 
 StdObjSpace.mul.register(list_int_mul, W_ListObject, W_IntObject)
 
+def int_list_mul(space, w_int, w_list):
+    return list_int_mul(space, w_list, w_int)
+
+StdObjSpace.mul.register(int_list_mul, W_IntObject, W_ListObject)
+
 def list_eq(space, w_list1, w_list2):
     items1 = w_list1.wrappeditems
     items2 = w_list2.wrappeditems
@@ -110,6 +115,23 @@ def setitem_list_int(space, w_list, w_index, w_any):
     return space.w_None
 
 StdObjSpace.setitem.register(setitem_list_int, W_ListObject, W_IntObject, W_ANY)
+
+# not trivial!
+def setitem_list_slice(space, w_list, w_slice, w_list2):
+    items = w_list.wrappeditems
+    w_length = space.wrap(len(items))
+    w_start, w_stop, w_step, w_slicelength = w_slice.indices(space, w_length)
+    start       = space.unwrap(w_start)
+    step        = space.unwrap(w_step)
+    slicelength = space.unwrap(w_slicelength)
+    assert slicelength >= 0
+    subitems = [None] * slicelength
+    for i in range(slicelength):
+        subitems[i] = items[start]
+        start += step
+    return W_ListObject(space, subitems)
+
+StdObjSpace.setitem.register(setitem_list_slice, W_ListObject, W_SliceObject, W_ANY)
 
 def getattr_list(space, w_list, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('append'))):
