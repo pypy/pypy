@@ -14,6 +14,7 @@ class W_LongObject(W_Object):
     
     def __init__(w_self, space, longval=0L):
         W_Object.__init__(w_self, space)
+        assert isinstance(longval, long)
         w_self.longval = longval
 
 
