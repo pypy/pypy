@@ -50,6 +50,10 @@ class AppTestAppFloatTest:
     def test_float_int(self):
         assert 42.0 == float(42)
 
+    def test_int_float(self):
+        assert int(42.1234) == 42
+        assert int(4e10) == 40000000000L
+
     def test_float_string(self):
         assert 42.0 == float("42")
 
