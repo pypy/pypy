@@ -5,10 +5,10 @@ from pypy.tool import newtest
 
 
 def test_function1():
-    raise newtest.Failure("failed test")
+    raise newtest.service.fail("failed test")
 
 def test_function2():
-    newtest.skip()
+    newtest.service.skip()
 
 
 class TestDummy1(newtest.TestCase):
@@ -19,10 +19,10 @@ class TestDummy1(newtest.TestCase):
         self.assertEquals(1+1, 2)
 
     def test_error1(self):
-        raise ValueError
+        raise TypeError("intentional TypeError")
 
     def test_failure1(self):
-        raise newtest.Failure
+        raise self.fail("fail deliberately in test_failure1")
 
 
 class TestDummy2(newtest.TestCase):
@@ -31,10 +31,10 @@ class TestDummy2(newtest.TestCase):
 
     def test_error2(self):
         """Docstring of a method."""
-        raise ValueError
+        raise ValueError("intentional ValueError")
 
     def test_failure2(self):
-        raise newtest.Failure
+        raise self.fail("fail deliberately in test_failure2")
 
 
 class TestSkip1(newtest.TestCase):
@@ -57,4 +57,4 @@ def f():
 
 class X:
     def test_skip(self):
-        newtest.skip()
+        newtest.service.skip()
