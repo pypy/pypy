@@ -132,17 +132,13 @@ class RPythonAnnotator:
     #___ interface for annotator.factory _______
 
     def recursivecall(self, func, factory, *args):
+        # calls to methods: expand the argument
+        if hasattr(func, 'im_func'):
+            if func.im_self is not None:
+                s_self = annmodel.immutablevalue(func.im_self)
+                args = [s_self] + list(args)
+            func = func.im_func
         parent_fn, parent_block, parent_index = factory.position_key
-        # detect unbound methods with a constant first argument
-        # and turn them into bound methods
-        if (hasattr(func, 'im_self') and func.im_self is None and
-            len(args) > 0 and args[0].is_constant()):
-            try:
-                func = func.__get__(args[0].const, type(args[0].const))
-            except TypeError:
-                pass
-            else:
-                args = args[1:]
         graph = self.translator.getflowgraph(func, parent_fn,
                                              factory.position_key)
         # self.notify[graph.returnblock] is a dictionary of

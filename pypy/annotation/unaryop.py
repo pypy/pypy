@@ -38,6 +38,9 @@ class __extend__(SomeObject):
             analyser = getattr(obj.__class__, 'method_' + attr, None)
             if analyser is not None:
                 return SomeBuiltin(analyser, obj)
+            # if the SomeObject is itself a constant, allow reading its attrs
+            if obj.is_constant() and hasattr(obj.const, attr):
+                return immutablevalue(getattr(obj.const, attr))
         return SomeObject()
 
     def classattribute(obj, classdef):

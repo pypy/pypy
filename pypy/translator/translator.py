@@ -68,14 +68,8 @@ class Translator:
                     func.func_globals.get('__name__', '?'),
                     func.func_code.co_firstlineno,
                     func.__name__)
-            im_func = getattr(func, 'im_func', func)
-            im_self = getattr(func, 'im_self', None)
-            if im_self is not None:    # bound method?
-                constargs = {0: im_self}
-            else:
-                constargs = {}
             space = FlowObjSpace()
-            graph = space.build_flow(im_func, constargs)
+            graph = space.build_flow(func)
             if self.simplifying:
                 graph = simplify_graph(graph)
             self.flowgraphs[func] = graph
