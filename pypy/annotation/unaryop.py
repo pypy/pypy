@@ -3,6 +3,7 @@ Unary operations on SomeValues.
 """
 
 from types import FunctionType
+from pypy.tool.ansi_print import ansi_print
 from pypy.interpreter.argument import Arguments
 from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
@@ -74,7 +75,8 @@ class __extend__(SomeObject):
 
     def call(obj, args):
         #raise Exception, "cannot follow call_args%r" % ((obj, args),)
-        print "*** [%s] cannot follow call(%r, %r)" % (getbookkeeper().whereami(), obj, args)
+        ansi_print("*** WARNING: [%s] cannot follow call(%r, %r)" %
+                   (getbookkeeper().whereami(), obj, args), esc="31") # RED
         return SomeObject()
 
 
@@ -233,7 +235,8 @@ class __extend__(SomePBC):
 
     def setattr(pbc, s_attr, s_value):
         #raise Exception, "oops!"
-        print "*** WARNING: setattr not wanted on %r" % pbc 
+        ansi_print("*** WARNING: [%s] setattr not wanted on %r" %
+                   (getbookkeeper().whereami(), pbc), esc="31") # RED
         pass
 
     def call(pbc, args):

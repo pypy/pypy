@@ -1,6 +1,7 @@
 from __future__ import generators
 
 from types import FunctionType, ClassType
+from pypy.tool.ansi_print import ansi_print
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import pair
 from pypy.annotation.factory import ListFactory, DictFactory, BlockedInference
@@ -38,22 +39,35 @@ class RPythonAnnotator:
         self.binding_cause_history = {} # map Variables to lists of positions
                 # history of binding_caused_by, kept in sync with
                 # bindingshistory
+        self.return_bindings = {} # map return Variables to functions
         # --- end of debugging information ---
         self.bookkeeper = Bookkeeper(self)
 
+
+    def _register_returnvar(self, flowgraph, func):
+        if annmodel.DEBUG:
+            self.return_bindings[flowgraph.getreturnvar()] = func
+
     #___ convenience high-level interface __________________
+
+    def getflowgraph(self, func, called_by=None, call_tag=None):        
+        flowgraph = self.translator.getflowgraph(func, called_by=called_by, call_tag=call_tag)
+        self._register_returnvar(flowgraph, func)
+        return flowgraph
+        
 
     def build_types(self, func_or_flowgraph, input_arg_types, func=None):
         """Recursively build annotations about the specific entry point."""
         if isinstance(func_or_flowgraph, FunctionGraph):
             flowgraph = func_or_flowgraph
+            self._register_returnvar(flowgraph, func)
         else:
             func = func_or_flowgraph
             if self.translator is None:
                 from pypy.translator.translator import Translator
                 self.translator = Translator(func, simplifying=True)
                 self.translator.annotator = self
-            flowgraph = self.translator.getflowgraph(func)
+            flowgraph = self.getflowgraph(func)
         # make input arguments and set their type
         input_arg_types = list(input_arg_types)
         nbarg = len(flowgraph.getargs())
@@ -166,6 +180,17 @@ class RPythonAnnotator:
                 cause_history.append(self.binding_caused_by[arg])
         self.bindings[arg] = s_value
         if annmodel.DEBUG:
+            #if arg in self.return_bindings:
+            #    ansi_print("%s -> %s" % (self.whereami((self.return_bindings[arg],
+            #                                             None, None)),
+            #                             s_value),
+            #               esc="1") # bold
+
+            if arg in self.return_bindings and s_value == annmodel.SomeObject():
+                ansi_print("*** WARNING: %s result degenerated to SomeObject" %
+                           self.whereami((self.return_bindings[arg],None, None)),
+                           esc="31") # RED
+                
             self.binding_caused_by[arg] = called_from
 
 
@@ -173,8 +198,7 @@ class RPythonAnnotator:
 
     def recursivecall(self, func, position_key, inputcells):
         parent_fn, parent_block, parent_index = position_key
-        graph = self.translator.getflowgraph(func, parent_fn,
-                                             position_key)
+        graph = self.getflowgraph(func, parent_fn, position_key)
         # self.notify[graph.returnblock] is a dictionary of call
         # points to this func which triggers a reflow whenever the
         # return block of this graph has been analysed.
@@ -297,8 +321,12 @@ class RPythonAnnotator:
         mod = getattr(fn, '__module__', None)
         if mod is None:
             mod = '?'
-        name = fn.__name__
-        firstlineno = fn.func_code.co_firstlineno
+        name = getattr(fn, '__name__', None)
+        if name is not None:
+            firstlineno = fn.func_code.co_firstlineno
+        else:
+            name = 'UNKNOWN'
+            firstlineno = -1
         return "(%s:%d) %s" % (mod, firstlineno, name)
 
     def flowin(self, fn, block):

@@ -3,6 +3,7 @@ Built-in functions.
 """
 
 import types
+from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.bookkeeper import getbookkeeper
@@ -91,15 +92,19 @@ def builtin_issubclass(s_cls1, s_cls2):
 
 def builtin_getattr(s_obj, s_attr, s_default=None):
     if not s_attr.is_constant() or not isinstance(s_attr.const, str):
-        print "UN-RPYTHONIC-WARNING", \
-              'getattr(%r, %r) is not RPythonic enough' % (s_obj, s_attr)
+        ansi_print("UN-RPYTHONIC-WARNING " +
+                   '[%s] getattr(%r, %r) is not RPythonic enough' % (getbookkeeper().whereami(),
+                                                                     s_obj, s_attr),
+                   esc="31") # RED
         return SomeObject()
     return s_obj.getattr(s_attr)
 
 def builtin_hasattr(s_obj, s_attr):
     if not s_attr.is_constant() or not isinstance(s_attr.const, str):
-        print "UN-RPYTHONIC-WARNING", \
-              'hasattr(%r, %r) is not RPythonic enough' % (s_obj, s_attr)
+        ansi_print("UN-RPYTHONIC-WARNING " +
+                   '[%s] hasattr(%r, %r) is not RPythonic enough' % (getbookkeeper().whereami(),
+                                                                     s_obj, s_attr),
+                   esc="31") # RED
     return SomeBool()
 
 def builtin_hash(s_obj):

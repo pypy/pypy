@@ -1,3 +1,4 @@
+import autopath
 import os, sys
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
@@ -123,16 +124,10 @@ class OperationError(Exception):
 
 
 # Utilities
+from pypy.tool.ansi_print import ansi_print
 
 def debug_print(text, file=None):
-    if file is None: file = sys.stderr
-    text = text.rstrip()
-    if sys.platform != "win32" and file.isatty():
-        text = ('\x1b[31m' +   # ANSI color code "red"
-                text +
-                '\x1b[0m')     # ANSI color code "reset"
-    file.write(text + '\n')
-
+    ansi_print(text, esc="31", file=file) # ANSI color code "red"
 
 ### installing the excepthook for OperationErrors
 ##def operr_excepthook(exctype, value, traceback):
