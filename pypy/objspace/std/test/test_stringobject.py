@@ -114,17 +114,6 @@ class TestW_StringObject(test.TestCase):
         w_slice = space.newslice(w(1), w_None, w(2))
         self.assertEqual_w(space.getitem(w_str, w_slice), w('el'))
 
-
-#AttributeError: W_StringObject instance has no attribute 'ljust'
-#    def test_ljust(self):
-#        w = self.space.wrap         
-#        s = "abc"
-#
-#        self.assertEqual_w(w(s).ljust(2), w(s))
-#        self.assertEqual_w(w(s).ljust(3), w(s))
-#        self.assertEqual_w(w(s).ljust(4), w(s + " "))
-#        self.assertEqual_w(w(s).ljust(5), w(s + "  "))    
-
 class TestStringObject(test.AppTestCase):
     def setUp(self):
         self.space = test.objspace('std')
@@ -146,7 +135,6 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('a b c d '.split(), ['a', 'b', 'c', 'd'])
         self.assertEquals('a//b//c//d'.split('//'), ['a', 'b', 'c', 'd'])
         self.assertEquals('endcase test'.split('test'), ['endcase ', ''])
-
 
     def test_split_splitchar(self):
         self.assertEquals("/a/b/c".split('/'), ['','a','b','c'])
@@ -188,7 +176,6 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('abc'.rjust(6), '   abc')
         self.assertEquals('abc'.rjust(3), 'abc')
         self.assertEquals('abc'.rjust(2), 'abc')
-
 
     def test_ljust(self):
         s = "abc"
