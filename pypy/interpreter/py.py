@@ -82,4 +82,7 @@ if __name__ == '__main__':
         import readline
     except:
         pass
+    if hasattr(sys, 'setrecursionlimit'):
+        # for running "python -i py.py -Si -- py.py -Si" 
+        sys.setrecursionlimit(3000)
     main_(sys.argv)
