@@ -332,7 +332,8 @@ implicit_exceptions = {
     'delitem': [IndexError, KeyError],
     'getattr': [AttributeError],
     'delattr': [AttributeError],
-    'iter'   : [TypeError]
+    'iter'   : [TypeError],
+    'coerce' : [TypeError],
     }
 # continuing like above, but in a more programmatic style.
 def _add_exceptions(names, exc):

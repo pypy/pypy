@@ -54,7 +54,7 @@ def main():
     else:
         entrypoint = tuple(objs)
 
-    t = Translator(None, verbose=False, simplifying=True)
+    t = Translator(None, verbose=False, simplifying=True, builtins_can_raise_exceptions=True)
     gen = GenRpy(t, entrypoint, modname, mod.__dict__)
 
     output = options.output or modname + "interp.py"
