@@ -752,88 +752,117 @@ def hash__String(space, w_str):
     return W_IntObject(space, hash(space.unwrap(w_str)))
 
 
-EQ = 1
-LE = 2
-GE = 3
-GT = 4
-LT = 5
-NE = 6
+##EQ = 1
+##LE = 2
+##GE = 3
+##GT = 4
+##LT = 5
+##NE = 6
 
 
-def string_richcompare(space, w_str1, w_str2, op):
-    u = space.unwrap
-    str1 = u(w_str1)
-    str2 = u(w_str2)
+##def string_richcompare(space, w_str1, w_str2, op):
+##    str1 = w_str1._value
+##    str2 = w_str2._value
 
-    if space.is_true(space.is_(w_str1, w_str2)):
-        if op == EQ or op == LE or op == GE:
-            return space.w_True
-        elif op == GT or op == LT or op == NE:
-            return space.w_False
-    if 0:
-        pass
-    else:
-        if op == EQ:
-            if len(str1) == len(str2):
-                for i in range(len(str1)):
-                    if ord(str1[i]) != ord(str2[i]):
-                        return space.w_False
-                return space.w_True
-            else:
-                return space.w_False
-        else:
-            if len(str1) > len(str2):
-                min_len = len(str2)
-            else:
-                min_len = len(str1)
+##    if space.is_true(space.is_(w_str1, w_str2)):
+##        if op == EQ or op == LE or op == GE:
+##            return space.w_True
+##        elif op == GT or op == LT or op == NE:
+##            return space.w_False
+##    if 0:
+##        pass
+##    else:
+##        if op == EQ:
+##            if len(str1) == len(str2):
+##                for i in range(len(str1)):
+##                    if ord(str1[i]) != ord(str2[i]):
+##                        return space.w_False
+##                return space.w_True
+##            else:
+##                return space.w_False
+##        else:
+##            if len(str1) > len(str2):
+##                min_len = len(str2)
+##            else:
+##                min_len = len(str1)
 
-            c = 0
-            idx = 0
-            if (min_len > 0):
-                while (c == 0) and (idx < min_len):
-                    c = ord(str1[idx]) - ord(str2[idx])
-                    idx = idx + 1
-            else:
-                c = 0
+##            c = 0
+##            idx = 0
+##            if (min_len > 0):
+##                while (c == 0) and (idx < min_len):
+##                    c = ord(str1[idx]) - ord(str2[idx])
+##                    idx = idx + 1
+##            else:
+##                c = 0
 
-        if (c == 0):
-            if len(str1) < len(str2):
-                c = -1
-            elif len(str1) > len(str2):
-                c = 1
-            else:
-                c = 0
+##        if (c == 0):
+##            if len(str1) < len(str2):
+##                c = -1
+##            elif len(str1) > len(str2):
+##                c = 1
+##            else:
+##                c = 0
 
-        if op == LT:
-            return space.newbool(c < 0)
-        elif op == LE:
-            return space.newbool(c <= 0)
-        elif op == NE:
-            return space.newbool(c != 0)
-        elif op == GT:
-            return space.newbool(c > 0)
-        elif op == GE:
-            return space.newbool(c >= 0)
-        else:
-            return NotImplemented
+##        if op == LT:
+##            return space.newbool(c < 0)
+##        elif op == LE:
+##            return space.newbool(c <= 0)
+##        elif op == NE:
+##            return space.newbool(c != 0)
+##        elif op == GT:
+##            return space.newbool(c > 0)
+##        elif op == GE:
+##            return space.newbool(c >= 0)
+##        else:
+##            return NotImplemented
 
 def lt__String_String(space, w_str1, w_str2):
-    return string_richcompare(space, w_str1, w_str2, LT)
+    s1 = w_str1._value
+    s2 = w_str2._value
+    if s1 < s2:
+        return space.w_True
+    else:
+        return space.w_False    
 
 def le__String_String(space, w_str1, w_str2):
-    return string_richcompare(space, w_str1, w_str2, LE)
+    s1 = w_str1._value
+    s2 = w_str2._value
+    if s1 <= s2:
+        return space.w_True
+    else:
+        return space.w_False
 
 def eq__String_String(space, w_str1, w_str2):
-    return string_richcompare(space, w_str1, w_str2, EQ)
+    s1 = w_str1._value
+    s2 = w_str2._value
+    if s1 == s2:
+        return space.w_True
+    else:
+        return space.w_False
 
 def ne__String_String(space, w_str1, w_str2):
-    return string_richcompare(space, w_str1, w_str2, NE)
+    s1 = w_str1._value
+    s2 = w_str2._value
+    if s1 != s2:
+        return space.w_True
+    else:
+        return space.w_False
 
 def gt__String_String(space, w_str1, w_str2):
-    return string_richcompare(space, w_str1, w_str2, GT)
+    s1 = w_str1._value
+    s2 = w_str2._value
+    if s1 > s2:
+        return space.w_True
+    else:
+        return space.w_False
 
 def ge__String_String(space, w_str1, w_str2):
-    return string_richcompare(space, w_str1, w_str2, GE)
+    s1 = w_str1._value
+    s2 = w_str2._value
+    if s1 >= s2:
+        return space.w_True
+    else:
+        return space.w_False
 
 def getitem__String_Int(space, w_str, w_int):
     u = space.unwrap

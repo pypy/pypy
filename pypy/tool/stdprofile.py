@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import autopath
 import hotshot, os
 from pypy.objspace.std import StdObjSpace
 
