@@ -26,13 +26,11 @@ class ObjSpace:
         self.builtin = pypy.module.builtin.Builtin(self)
         self.w_builtin = self.builtin.wrap_me()
         self.w_builtins = self.getattr(self.w_builtin, self.wrap("__dict__"))
-        self.setitem(self.w_modules, self.wrap("__builtin__"), self.w_builtin)
 
     def make_sys(self):
         import pypy.module.sysmodule
         self.sys = pypy.module.sysmodule.Sys(self)
         self.w_sys = self.sys.wrap_me()
-        self.setitem(self.w_modules, self.wrap("sys"), self.w_sys)
         self.setattr(self.w_sys, self.wrap("modules"), self.w_modules)
 
     # XXX use a dictionary in the future
