@@ -143,6 +143,8 @@ class PyMultimethodCode(pycode.PyBaseCode):
                 raise OperationError(*e.args)
             else:
                 return space.w_NotImplemented
+        except NoValue:
+            raise OperationError(space.w_StopIteration, space.w_None)
         # XXX hack to accept real Nones from operations with no return value
         if w_result is None:
             w_result = space.w_None

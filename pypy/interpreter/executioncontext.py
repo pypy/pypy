@@ -139,7 +139,10 @@ class OperationError(Exception):
             exc_typename = space.unwrap(self.w_type).__name__
             exc_value    = space.unwrap(self.w_value)
             print >> file, '(application-level)',
-        print >> file, exc_typename+':', exc_value
+        if exc_value is None:
+            print >> file, exc_typename
+        else:
+            print >> file, exc_typename+':', exc_value
 
 
 class NoValue(Exception):
