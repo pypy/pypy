@@ -5,12 +5,14 @@ from pypy.tool import test
 from vpath.local import Path, mkdtemp
 import os, sys
 
+debug = 0
+
 def make_module_from_pyxstring(string, num=[0]):
     tmpdir = mkdtemp()
     n = num[0] = num[0]+1
     pyxfile = tmpdir.join('test%d.pyx' %n) 
     pyxfile.write(string)
-    print "made pyxfile", pyxfile
+    if debug: print "made pyxfile", pyxfile
     make_c_from_pyxfile(pyxfile)
     module = make_module_from_c(pyxfile)
     #print "made module", module
@@ -21,12 +23,19 @@ def make_module_from_c(pyxfile):
     from distutils.extension import Extension
     from Pyrex.Distutils import build_ext
 
+    #try:
+    #    from distutils.log import set_threshold
+    #    set_threshold(10000)
+    #except ImportError:
+    #    print "ERROR IMPORTING"
+    #    pass
+
     dirpath = pyxfile.dirname()
     lastdir = os.curdir
     os.chdir(str(dirpath))
     try:
         modname = pyxfile.purebasename()
-        print "modname", modname
+        if debug: print "modname", modname
         setup(
           name = "testmodules",
           ext_modules=[ 
@@ -34,12 +43,12 @@ def make_module_from_c(pyxfile):
           ],
           cmdclass = {'build_ext': build_ext},
           script_name = 'setup.py',
-          script_args = ['build_ext', '--inplace', '-q'] # , '--quiet']
+          script_args = ['build_ext', '--inplace', '-q', '--quiet']
         )
         # XXX not a nice way to import a module
-        print "inserting path to sys.path", dirpath
+        if debug: print "inserting path to sys.path", dirpath
         sys.path.insert(0, '.')
-        print "import %(modname)s as testmodule" % locals()
+        if debug: print "import %(modname)s as testmodule" % locals()
         exec "import %(modname)s as testmodule" % locals()
         sys.path.pop(0)
     finally:
