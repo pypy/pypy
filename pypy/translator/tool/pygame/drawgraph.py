@@ -24,7 +24,7 @@ class GraphLayout:
 
     def __init__(self, filename):
         # parse the layout file (.plain format)
-        lines = open(filename, 'r').readlines()
+        lines = open(str(filename), 'r').readlines()
         for i in range(len(lines)-2, -1, -1):
             if lines[i].endswith('\\\n'):   # line ending in '\'
                 lines[i] = lines[i][:-2] + lines[i+1]
@@ -44,6 +44,7 @@ class GraphLayout:
                 self.edges.append(Edge(self.nodes, *line[1:]))
             if line[0] == 'stop':
                 break
+        self.links = {}
 
 class Node:
     def __init__(self, name, x, y, w, h, label, style, shape, color, fillcolor):
@@ -441,13 +442,3 @@ except NameError:
         for item in lst:
             total += lst
         return total
-
-
-def build_layout(graphs, name=None):
-    """ Build a GraphLayout from a list of control flow graphs.
-    """
-    from pypy.translator.tool.make_dot import make_dot_graphs
-    name = name or graphs[0].name
-    gs = [(graph.name, graph) for graph in graphs]
-    fn = make_dot_graphs(name, gs, target='plain')
-    return GraphLayout(str(fn))

@@ -9,48 +9,39 @@ from pypy.objspace.flow import Space
 from pypy.tool.udir import udir
 from std.process import cmdexec
 
-debug = 0
-
 class DotGen:
-    def get_source(self, funcgraph):
-        content = "\n".join(self.lines)
-        return """
-digraph test { 
-node [fontname=Times];
-edge [fontname=Times];
-%(content)s
-}""" % locals()
-
-    def getsubgraph(self, name, node):
-        self.blocks = {}
+    
+    def __init__(self, graphname):
+        self.graphname = graphname
         self.lines = []
-        self.prefix = name
-        traverse(self, node)
-        content = "\n".join(self.lines)
-        return "subgraph %s {\n%s}" % (name, content) 
+        self.source = None
+        self.emit("digraph %s {" % graphname)
 
-    def getdigraph(self, name, node):
-        self.blocks = {}
-        self.lines = []
-        self.prefix = name
-        traverse(self, node)
-        content = "\n".join(self.lines)
-        return "digraph %s {\n%s}" % (name, content) 
+    def generate(self, storedir=None, target='ps'):
+        source = self.get_source()
+        if storedir is None:
+            storedir = udir
+        pdot = storedir.join('%s.dot' % self.graphname)
+        pdot.write(source)
+        ptarget = pdot.new(ext=target)
+        cmdexec('dot -T%s %s>%s' % (target, str(pdot),str(ptarget)))
+        return ptarget
 
-    def getgraph(self, name, subgraphlist):
-        content = "\n".join(subgraphlist)
-        return "digraph %s {\n%s}" % (name, content)
-
-    def blockname(self, block):
-        i = id(block)
-        try:
-            return self.blocks[i]
-        except KeyError:
-            self.blocks[i] = name = "%s_%d" % (self.prefix, len(self.blocks))
-            return name
+    def get_source(self):
+        if self.source is None:
+            self.emit("}")
+            self.source = '\n'.join(self.lines)
+            del self.lines
+        return self.source
 
     def emit(self, line):
         self.lines.append(line)
+
+    def enter_subgraph(self, name):
+        self.emit("subgraph %s {" % (name,))
+
+    def leave_subgraph(self):
+        self.emit("}")
 
     def emit_edge(self, name1, name2, label="", 
                   style="dashed", 
@@ -59,7 +50,8 @@ edge [fontname=Times];
                   weight="5",
                   ):
         d = locals()
-        attrs = [('%s="%s"' % (x, d[x])) for x in d if isinstance(x, str)]
+        attrs = [('%s="%s"' % (x, d[x]))
+                 for x in ['label', 'style', 'color', 'dir', 'weight']]
         self.emit('edge [%s];' % ", ".join(attrs))
         self.emit('%s -> %s' % (name1, name2))
 
@@ -71,8 +63,27 @@ edge [fontname=Times];
                   style="filled",
                   ):
         d = locals()
-        attrs = [('%s="%s"' % (x, d[x])) for x in d if isinstance(x, str)]
+        attrs = [('%s="%s"' % (x, d[x]))
+                 for x in ['shape', 'label', 'color', 'fillcolor', 'style']]
         self.emit('%s [%s];' % (name, ", ".join(attrs)))
+
+
+class FlowGraphDotGen(DotGen):
+
+    def emit_subgraph(self, name, node):
+        self.blocks = {}
+        self.prefix = name
+        self.enter_subgraph(name)
+        traverse(self, node)
+        self.leave_subgraph()
+
+    def blockname(self, block):
+        i = id(block)
+        try:
+            return self.blocks[i]
+        except KeyError:
+            self.blocks[i] = name = "%s_%d" % (self.prefix, len(self.blocks))
+            return name
 
     def visit(self, obj):
         # ignore for now 
@@ -138,14 +149,7 @@ def show_dot(graph, storedir = None, target = 'ps'):
     os.system('gv %s' % fn)
 
 def make_dot_graphs(basefilename, graphs, storedir=None, target='ps'):
-    if storedir is None:
-        storedir = udir
-
-    dotgen = DotGen()
-    dest = storedir.join('%s.dot' % basefilename)
-    #dest = storedir.dirname().join('%s.dot' % name)
-    subgraphs = []
-    basefilename = '_'+basefilename
+    dotgen = FlowGraphDotGen(basefilename)
     names = {basefilename: True}
     for graphname, graph in graphs:
         if graphname in names:
@@ -154,17 +158,8 @@ def make_dot_graphs(basefilename, graphs, storedir=None, target='ps'):
                 i += 1
             graphname = graphname + str(i)
         names[graphname] = True
-        subgraphs.append(dotgen.getsubgraph(graphname, graph))
-    source = dotgen.getgraph(basefilename, subgraphs)
-    #print source
-    dest.write(source)
-    psdest = dest.new(ext=target)
-    out = cmdexec('dot -T%s %s>%s' % (target, str(dest),str(psdest)))
-## This is the old code, which doesnt work on binary files on windows    
-##    out = cmdexec('dot -T%s %s' % (target, str(dest)))
-##    psdest.write(out)
-    #print "wrote", psdest
-    return psdest
+        dotgen.emit_subgraph(graphname, graph)
+    return dotgen.generate(storedir, target)
 
 
 if __name__ == '__main__':

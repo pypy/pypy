@@ -1,9 +1,9 @@
 from __future__ import generators
 import autopath
-import sys, os, re, time
+import os, time
 import pygame
 from pygame.locals import *
-from drawgraph import GraphRenderer, build_layout
+from drawgraph import GraphRenderer
 
 
 class Display(object):
@@ -20,24 +20,20 @@ class Display(object):
 
 class GraphDisplay(Display):
     STATUSBARFONT = os.path.join(autopath.this_dir, 'VeraMoBd.ttf')
-    SCALE = 60
     ANIM_STEP = 0.07
 
-    def __init__(self, translator, functions=None):
+    def __init__(self, layout):
         super(GraphDisplay, self).__init__()
-        self.translator = translator
-        self.annotator = translator.annotator
         self.font = pygame.font.Font(self.STATUSBARFONT, 16)
+        self.viewers_history = []
+        self.viewer = None
+        self.setlayout(layout)
 
-        self.variables_by_name = {}
-        if self.annotator:
-            for var in self.annotator.bindings:
-                self.variables_by_name[var.name] = var
-
-        functions = functions or self.translator.functions
-        graphs = [self.translator.getflowgraph(func) for func in functions]
-        layout = build_layout(graphs)
-        self.viewer = GraphRenderer(self.screen, layout, self.SCALE)
+    def setlayout(self, layout):
+        if self.viewer:
+            self.viewers_history.append(self.viewer)
+        self.layout = layout
+        self.viewer = GraphRenderer(self.screen, layout)
         # center and scale to view the whole graph
         self.viewer.setoffset((self.viewer.width - self.width) // 2,
                               (self.viewer.height - self.height) // 2)
@@ -45,10 +41,24 @@ class GraphDisplay(Display):
                 float(self.height-40) / self.viewer.height)
         if f < 1.0:
             self.viewer.shiftscale(f)
+        self.updated_viewer()
+
+    def updated_viewer(self):
         self.sethighlight()
         self.statusbarinfo = None
         self.must_redraw = True
-        self.setstatusbar('Click to move around, or drag mouse buttons (left to zoom, right to scroll)')
+        if self.viewers_history:
+            info = 'Press Left Arrow to go back to previous screen'
+        else:
+            info = ('Click to move around, or drag mouse buttons '
+                    '(left to zoom, right to scroll)')
+        self.setstatusbar(info)
+
+    def layout_back(self):
+        if self.viewers_history:
+            self.viewer = self.viewers_history.pop()
+            self.layout = self.viewer.graphlayout
+            self.updated_viewer()
 
     def setstatusbar(self, text, fgcolor=(255,255,80), bgcolor=(128,0,0)):
         info = (text, fgcolor, bgcolor)
@@ -86,16 +96,30 @@ class GraphDisplay(Display):
 
     def notifymousepos(self, pos):
         word = self.viewer.at_position(pos)
-        if word in self.variables_by_name:
-            var = self.variables_by_name[word]
-            s_value = self.annotator.binding(var)
-            info = '%s: %s' % (var.name, s_value)
+        if word in self.layout.links:
+            info = self.layout.links[word]
             self.setstatusbar(info)
             self.sethighlight(word)
 
+    def notifyclick(self, pos):
+        word = self.viewer.at_position(pos)
+        if word in self.layout.links:
+            newlayout = self.layout.followlink(word)
+            if newlayout is not None:
+                self.setlayout(newlayout)
+                return
+        node = self.viewer.node_at_position(pos)
+        if node:
+            self.look_at_node(node)
+        else:
+            edge = self.viewer.edge_at_position(pos)
+            if edge:
+                if not self.look_at_node(edge.head):
+                    self.look_at_node(edge.tail)
+
     def sethighlight(self, word=None):
         self.viewer.highlightwords = {}
-        for name in self.variables_by_name:
+        for name in self.layout.links:
             self.viewer.highlightwords[name] = ((128,0,0), None)
         if word:
             self.viewer.highlightwords[word] = ((255,255,80), (128,0,0))
@@ -129,7 +153,7 @@ class GraphDisplay(Display):
             # if the target is far off the window, reduce scale along the way
             tx, ty = self.viewer.map(cx2, cy2)
             offview = max(-tx, -ty, tx-self.width, ty-self.height)
-            middlescale = endscale - 0.06 * offview
+            middlescale = endscale * (0.999 ** offview)
             if offview > 150 and middlescale < startscale:
                 bumpscale = 4.0 * (middlescale - 0.5*(startscale+endscale))
             else:
@@ -182,16 +206,12 @@ class GraphDisplay(Display):
                 pygame.event.set_grab(False)
                 if click_time is not None and abs(time.time() - click_time) < 1:
                     # click (no significant dragging)
-                    node = self.viewer.node_at_position(click_origin)
-                    if node:
-                        self.look_at_node(node)
-                    else:
-                        edge = self.viewer.edge_at_position(click_origin)
-                        if edge:
-                            if not self.look_at_node(edge.head):
-                                self.look_at_node(edge.tail)
+                    self.notifyclick(click_origin)
                 click_time = None
                 self.notifymousepos(event.pos)
+            if event.type == KEYDOWN:
+                if event.key in [K_p, K_LEFT, K_BACKSPACE]:
+                    self.layout_back()
             if event.type == VIDEORESIZE:
                 # short-circuit if there are more resize events pending
                 if pygame.event.peek([VIDEORESIZE]):
@@ -203,14 +223,3 @@ class GraphDisplay(Display):
         # cannot safely close and re-open the display, depending on
         # Pygame version and platform.
         pygame.display.set_mode((self.width,1))
-
-
-if __name__ == '__main__':
-    from pypy.translator.translator import Translator
-    from pypy.translator.test import snippet
-    
-    t = Translator(snippet.powerset)
-    #t.simplify()
-    a = t.annotate([int])
-    a.simplify()
-    GraphDisplay(t).run()

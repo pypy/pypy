@@ -54,9 +54,10 @@ class Translator:
         self.annotator = None
         self.flowgraphs = {}  # {function: graph}
         self.functions = []   # the keys of self.flowgraphs, in creation order
+        self.callgraph = {}   # {opaque_tag: (caller, callee)}
         self.getflowgraph()
 
-    def getflowgraph(self, func=None):
+    def getflowgraph(self, func=None, called_by=None, call_tag=None):
         """Get the flow graph for a function (default: the entry point)."""
         func = func or self.entrypoint
         try:
@@ -84,6 +85,8 @@ class Translator:
                 graph.source = inspect.getsource(func)
             except IOError:
                 pass  # e.g. when func is defined interactively
+        if called_by:
+            self.callgraph[called_by, func, call_tag] = called_by, func
         return graph
 
     def gv(self, func=None):
@@ -127,7 +130,7 @@ class Translator:
         if self.annotator is None:
             self.annotator = RPythonAnnotator(self)
         graph = self.getflowgraph(func)
-        self.annotator.build_types(graph, input_args_types)
+        self.annotator.build_types(graph, input_args_types, func)
         return self.annotator
 
     def source(self, func=None):
@@ -182,7 +185,7 @@ class Translator:
         g = gencls(graph)
         g.by_the_way_the_function_was = func   # XXX
         if input_arg_types is not None:
-            ann.build_types(graph, input_arg_types)
+            ann.build_types(graph, input_arg_types, func)
         if ann is not None:
             g.setannotator(ann)
         return g.emitcode()

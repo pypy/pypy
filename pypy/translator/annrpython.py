@@ -20,7 +20,7 @@ class RPythonAnnotator:
 
     def __init__(self, translator=None):
         self.translator = translator
-        self.pendingblocks = []  # list of (block, list-of-SomeValues-args)
+        self.pendingblocks = []  # list of (fn, block, list-of-SomeValues-args)
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
         self.notify = {}         # {block: {factory-to-invalidate-when-done}}
@@ -29,16 +29,17 @@ class RPythonAnnotator:
 
     #___ convenience high-level interface __________________
 
-    def build_types(self, func_or_flowgraph, input_arg_types):
+    def build_types(self, func_or_flowgraph, input_arg_types, func=None):
         """Recursively build annotations about the specific entry point."""
         if isinstance(func_or_flowgraph, FunctionGraph):
             flowgraph = func_or_flowgraph
         else:
+            func = func_or_flowgraph
             if self.translator is None:
                 from pypy.translator.translator import Translator
-                self.translator = Translator(func_or_flowgraph)
+                self.translator = Translator(func)
                 self.translator.annotator = self
-            flowgraph = self.translator.getflowgraph(func_or_flowgraph)
+            flowgraph = self.translator.getflowgraph(func)
         # make input arguments and set their type
         input_arg_types = list(input_arg_types)
         nbarg = len(flowgraph.getargs())
@@ -51,7 +52,7 @@ class RPythonAnnotator:
             inputcells.append(t)
         
         # register the entry point
-        self.addpendingblock(flowgraph.startblock, inputcells)
+        self.addpendingblock(func, flowgraph.startblock, inputcells)
         # recursively proceed until no more pending block is left
         self.complete()
         return self.binding(flowgraph.getreturnvar())
@@ -90,19 +91,20 @@ class RPythonAnnotator:
 
     #___ medium-level interface ____________________________
 
-    def addpendingblock(self, block, cells):
+    def addpendingblock(self, fn, block, cells):
         """Register an entry point into block with the given input cells."""
+        assert fn in self.translator.flowgraphs
         for a in cells:
             assert isinstance(a, annmodel.SomeObject)
-        self.pendingblocks.append((block, cells))
+        self.pendingblocks.append((fn, block, cells))
 
     def complete(self):
         """Process pending blocks until none is left."""
         while self.pendingblocks:
             # XXX don't know if it is better to pop from the head or the tail.
             # but suspect from the tail is better in the new Factory model.
-            block, cells = self.pendingblocks.pop()
-            self.processblock(block, cells)
+            fn, block, cells = self.pendingblocks.pop()
+            self.processblock(fn, block, cells)
         if False in self.annotated.values():
             raise AnnotatorError('%d blocks are still blocked' %
                                  self.annotated.values().count(False))
@@ -130,7 +132,9 @@ class RPythonAnnotator:
     #___ interface for annotator.factory _______
 
     def recursivecall(self, func, factory, *args):
-        graph = self.translator.getflowgraph(func)
+        parent_fn, parent_block, parent_index = factory.position_key
+        graph = self.translator.getflowgraph(func, parent_fn,
+                                             factory.position_key)
         # self.notify[graph.returnblock] is a dictionary of
         # FuncCallFactories (call points to this func) which triggers a
         # reflow whenever the return block of this graph has been analysed.
@@ -168,14 +172,14 @@ class RPythonAnnotator:
             for extra in func.func_defaults[-missingargs:]:
                 inputcells.append(annmodel.immutablevalue(extra))
         inputcells.extend(extracells)
-        self.addpendingblock(block, inputcells)
+        self.addpendingblock(func, block, inputcells)
         # get the (current) return value
         v = graph.getreturnvar()
         return self.bindings.get(v, annmodel.SomeImpossibleValue())
 
     def reflowfromposition(self, position_key):
-        block, index = position_key
-        self.reflowpendingblock(block)
+        fn, block, index = position_key
+        self.reflowpendingblock(fn, block)
 
 
     #___ simplification (should be moved elsewhere?) _______
@@ -213,7 +217,7 @@ class RPythonAnnotator:
 
     #___ flowing annotations in blocks _____________________
 
-    def processblock(self, block, cells):
+    def processblock(self, fn, block, cells):
         # Important: this is not called recursively.
         # self.flowin() can only issue calls to self.addpendingblock().
         # The analysis of a block can be in three states:
@@ -234,7 +238,7 @@ class RPythonAnnotator:
         if not self.annotated[block]:
             self.annotated[block] = True
             try:
-                self.flowin(block)
+                self.flowin(fn, block)
             except BlockedInference, e:
                 #print '_'*60
                 #print 'Blocked at %r:' % (e.break_at,)
@@ -247,8 +251,8 @@ class RPythonAnnotator:
                     setattr(e, '__annotator_block', block)
                 raise
 
-    def reflowpendingblock(self, block):
-        self.pendingblocks.append((block, None))
+    def reflowpendingblock(self, fn, block):
+        self.pendingblocks.append((fn, block, None))
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow
 
@@ -267,17 +271,17 @@ class RPythonAnnotator:
         if unions != oldcells:
             self.bindinputargs(block, unions)
 
-    def flowin(self, block):
+    def flowin(self, fn, block):
         #print 'Flowing', block, [self.binding(a) for a in block.inputargs]
         for i in range(len(block.operations)):
             try:
-                self.bookkeeper.enter((block, i))
+                self.bookkeeper.enter((fn, block, i))
                 self.consider_op(block.operations[i])
             finally:
                 self.bookkeeper.leave()
         for link in block.exits:
             cells = [self.binding(a) for a in link.args]
-            self.addpendingblock(link.target, cells)
+            self.addpendingblock(fn, link.target, cells)
         if block in self.notify:
             # invalidate some factories when this block is done
             for factory in self.notify[block]:

@@ -6,7 +6,6 @@ import autopath, sys
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.translator.translator import Translator
-from pypy.translator.annrpython import AnnotatorError
 
 
 # __________  Entry point  __________
@@ -45,15 +44,15 @@ if __name__ == '__main__':
             return
         print "don't know about", x
 
-    def run_server(background=False, port=8000):
-        import graphserver
-        server = graphserver.Server(t)
-        print >> sys.stderr, '* View the blocks at http://127.0.0.1:%d/' % port
+    def run_server(background=False):
+        from pypy.translator.tool.pygame.flowviewer import TranslatorLayout
+        from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
+        display = GraphDisplay(TranslatorLayout(t))
         if background:
             import thread
-            thread.start_new_thread(server.serve, ())
+            thread.start_new_thread(display.run, ())
         else:
-            server.serve()
+            display.run()
 
     t = Translator(entry_point, verbose=True, simplifying=True)
     try:
@@ -77,4 +76,10 @@ if __name__ == '__main__':
         import pdb
         pdb.post_mortem(tb)
     else:
+##        print '-'*60
+##        src = t.pyrex()
+##        g = open('code.pyx', 'w')
+##        g.write(src)
+##        print 'Wrote', g.name
+##        g.close()
         run_server()
