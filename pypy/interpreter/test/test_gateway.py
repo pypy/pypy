@@ -47,17 +47,20 @@ class TestGateway(testit.IntTestCase):
         self.assertEqual_w(g3(self.space, w('foo'), w('bar')), w('foobar'))
         
     def test_interp2app(self):
-        w = self.space.wrap
+        space = self.space
+        w = space.wrap
         def g3(space, w_a, w_b):
             return space.add(w_a, w_b)
         app_g3 = gateway.interp2app(g3)
         w_app_g3 = space.wrap(app_g3) 
         self.assertEqual_w(
             space.call(w_app_g3, 
-                       space.newtuple(w('foo'), w('bar')), w('foobar'))
+                       space.newtuple([w('foo'), w('bar')]),
+                       space.newdict([])),
+            w('foobar'))
         self.assertEqual_w(
-            space.call_function(w_app_g3, 
-                       w('foo'), w('bar')), w('foobar'))
+            space.call_function(w_app_g3, w('foo'), w('bar')),
+            w('foobar'))
 
     def test_importall(self):
         w = self.space.wrap
