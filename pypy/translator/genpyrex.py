@@ -122,6 +122,7 @@ class GenPyrex:
 
     def gen_Graph(self):
         fun = self.functiongraph
+        self.entrymap = fun.mkentrymap()
         currentlines = self.lines
         self.lines = []
         self.indent += 1 
@@ -193,7 +194,9 @@ class GenPyrex:
         blockids = self.blockids
         blockids.setdefault(block, len(blockids))
 
-        self.putline('cinline "Label%s:"' % blockids[block])
+        #the label is only, if there are more, then are multiple references to the block
+        if len(self.entrymap[block]) > 1:
+            self.putline('cinline "Label%s:"' % blockids[block])
         for op in block.operations:
             opg = Op(op, self, block)
             self.putline(opg())

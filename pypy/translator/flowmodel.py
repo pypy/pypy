@@ -81,7 +81,7 @@ class SpaceOperation:
         
 
     def __repr__(self):
-        return "%s(%s) -> %s" % (self.opname, ", ".join(map(str, self.args)), self.result)
+        return "%s <- %s(%s)" % (self.result, self.opname, ", ".join(map(str, self.args)))
 
 class Branch(FlowNode):
     def __init__(self, args=None, target=None):
