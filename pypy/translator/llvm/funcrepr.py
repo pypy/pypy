@@ -13,7 +13,7 @@ from pypy.translator.unsimplify import remove_double_links
 from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError
 from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
 
-debug = True
+debug = False
 
 INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is_", "is_true", "len",
                  "neg", "pos", "invert", "add", "sub", "mul", "truediv",
@@ -168,7 +168,8 @@ class FunctionRepr(LLVMRepr):
 
 class BlockRepr(object):
     def __init__(self, l_func, pyblock, gen):
-        print "BlockRepr"
+        if debug:
+            print "BlockRepr"
         self.l_func = l_func
         self.pyblock = pyblock
         self.gen = gen
@@ -225,7 +226,8 @@ class BlockRepr(object):
             raise CompileError, s
 
     def create_terminator_instr(self):
-        print "create_terminator_instr"
+        if debug:
+            print "create_terminator_instr"
         pyblock = self.pyblock
         l_func = self.l_func
         l_link = LinkRepr.get_link(pyblock.exits[0], l_func, self.gen)
@@ -253,7 +255,8 @@ class ReturnBlockRepr(BlockRepr):
 
 class TryBlockRepr(BlockRepr):
     def __init__(self, l_func, pyblock, gen):
-        print "TryBlockRepr"
+        if debug:
+            print "TryBlockRepr"
         self.l_func = l_func
         self.pyblock = pyblock
         self.gen = gen
@@ -369,8 +372,8 @@ class LinkRepr(object):
                                                             self.gen),
                                             self.l_func)
             self.l_func.dependencies.update([l_tmp1, l_tmp2])
-            self.lblock.load(self.l_args[0], l_tmp1)
-            self.lblock.load(self.l_args[1], l_tmp2)
+            self.lblock.load(l_tmp1, self.l_args[0])
+            self.lblock.load(l_tmp2, self.l_args[1])
             self.l_args[0] = l_tmp1
             self.l_args[1] = l_tmp2
         for i, (l_a, l_ta) in enumerate(zip(self.l_args, self.l_targetargs)):
@@ -552,7 +555,8 @@ class VirtualMethodRepr(LLVMRepr):
                 if clsdef.cls.__dict__.has_key(name):
                     l_method = self.gen.get_repr(clsdef.cls.__dict__[name])
                     args[0] = l_method
-                    print l_method.llvmname(), l_method
+                    if debug:
+                        print l_method.llvmname(), l_method
                     l_method.op_simple_call(l_target, args, lblock, l_func)
                     return
         if l_args[1].llvmtype() != self.l_args[0].llvmtype():

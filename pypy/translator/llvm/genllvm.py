@@ -175,4 +175,3 @@ def traverse_dependencies(l_repr, seen_reprs):
             yield l_dep1
     yield l_repr
 
-

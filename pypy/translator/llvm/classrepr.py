@@ -194,6 +194,15 @@ class ClassRepr(TypeRepr):
             raise CompileError, ("setattr called with unknown attribute %s" % \
                                  args[1].value)
 
+    def t_op_type(self, l_target, args, lblock, l_func):
+        l_args0 = self.gen.get_repr(args[0])
+        l_func.dependencies.add(l_args0)
+        l_tmp = self.gen.get_local_tmp(
+            PointerTypeRepr("%std.class*", self.gen), l_func)
+        lblock.getelementptr(l_tmp, l_args0, [0, 0])
+        lblock.load(l_target, l_tmp)
+        
+
     def iter_subclasses(self):
         for cls, classdef in self.classdef.subdefs.iteritems():
             l_cls = self.gen.get_repr(classdef)
