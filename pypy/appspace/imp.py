@@ -13,6 +13,9 @@ PY_SOURCE = 1
 PKG_DIRECTORY = 5
 C_BUILTIN = 6
 
+def get_magic():
+    return '\x3b\xf2\x0d\x0a'
+
 def get_suffixes():
     return [('.py', 'U', PY_SOURCE)]
 
