@@ -8,6 +8,8 @@ Command-line options for translate_pypy:
    -no-c    Don't generate the C code
    -c       Generate the C code, but don't compile it
    -o       Generate and compile the C code, but don't run it
+   --mark-some-objects
+            Mark all functions that have SomeObject in their signature.
 """
 import autopath, sys, threading, pdb
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
@@ -42,10 +44,14 @@ def analyse(entry_point=entry_point):
     a = t.annotate([])
     a.simplify()
 
-    count_someobjects(a)
+    if options['--mark-some-objects']:
+        find_someobjects(a)
 
-def count_someobjects(annotator):
+
+def find_someobjects(annotator):
+    """Find all functions in that have SomeObject in their signature."""
     translator = annotator.translator
+    translator.highlight_functions = {}
 
     def is_someobject(var):
         try:
@@ -61,8 +67,11 @@ def count_someobjects(annotator):
             return binding.__class__.__name__
 
     header = True
+    items = [(graph.name, func, graph)
+             for func, graph in translator.flowgraphs.items()]
+    items.sort()
     num = someobjnum = 0
-    for func, graph in translator.flowgraphs.items():
+    for graphname, func, graph in items:
         unknown_input_args = len(filter(is_someobject, graph.getargs()))
         unknown_return_value = is_someobject(graph.getreturnvar())
         if unknown_input_args or unknown_return_value:
@@ -71,6 +80,7 @@ def count_someobjects(annotator):
                 print "=" * 70
                 print "Functions that have SomeObject in their signature"
                 print "=" * 70
+            translator.highlight_functions[func] = True
             print ("%(name)s(%(args)s) -> %(result)s\n"
                    "%(filename)s:%(lineno)s\n"
                    % {'name': graph.name,
@@ -94,6 +104,7 @@ if __name__ == '__main__':
                '-no-c': False,
                '-c':    False,
                '-o':    False,
+               '--mark-some-objects': False,
                }
     for arg in sys.argv[1:]:
         if arg in ('-h', '--help'):

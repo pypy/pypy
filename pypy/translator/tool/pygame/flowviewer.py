@@ -160,11 +160,16 @@ class TranslatorLayout(GraphLayout):
         
         # show the call graph
         functions = translator.functions
+        highlight_functions = getattr(translator, 'highlight_functions', {}) # XXX
         dotgen.emit_node('entry', fillcolor="green", shape="octagon",
                          label="Translator\\nEntry Point")
         for func in functions:
             data = self.labelof(func, func.func_name)
-            dotgen.emit_node(nameof(func), label=data, shape="box")
+            if func in highlight_functions:
+                kw = {'fillcolor': '#ffcccc'}
+            else:
+                kw = {}
+            dotgen.emit_node(nameof(func), label=data, shape="box", **kw)
         dotgen.emit_edge('entry', nameof(functions[0]), color="green")
         for f1, f2 in translator.callgraph.itervalues():
             dotgen.emit_edge(nameof(f1), nameof(f2))
