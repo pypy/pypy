@@ -2,6 +2,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import *
 from pypy.objspace.std.multimethod import *
 from pypy.objspace.descroperation import DescrOperation
+import types
 
 
 class W_Object:
@@ -139,7 +140,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                         "None" : self.w_None,
                         "NotImplemented": self.w_NotImplemented,
                         "Ellipsis": self.w_Ellipsis,
-                        "long": self.wrap(long),  # XXX temporary
+#                        "long": self.wrap(long),  # XXX temporary
                         }
 
         # types
@@ -204,8 +205,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return listobject.W_ListObject(self, wrappeditems)
         if isinstance(x, Wrappable):
             return x.__spacebind__(self)
-        #print "wrapping %r (%s)" % (x, type(x))
         import cpythonobject
+        SlotWrapperType = type(type(None).__repr__)
+        if isinstance(x, (types.FunctionType, types.BuiltinFunctionType, SlotWrapperType)):
+            return cpythonobject.W_BuiltinFunctionObject(self, x) 
+        print "cpython wrapping %r (%s)" % (x, type(x))
+        #if hasattr(x, '__bases__'): 
+        #    print "cpython wrapping a class %r (%s)" % (x, type(x))
+            #raise TypeError, "cannot wrap classes"
         return cpythonobject.W_CPythonObject(self, x)
 
     def newint(self, int_w):
@@ -247,7 +254,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return stringobject.W_StringObject(self, ''.join(chars))
 
     def type(self, w_obj):
-        if hasattr(w_obj, 'w__class__'):
+        from pypy.objspace.std.cpythonobject import W_CPythonObject
+        if isinstance(w_obj, W_CPythonObject):
+            #raise TypeError, str(w_obj.cpyobj)
+            return self.wrap(type(w_obj.cpyobj))
+        elif hasattr(w_obj, 'w__class__'):
             return w_obj.w__class__    # user-defined classes
         else:
             assert w_obj.typedef, w_obj

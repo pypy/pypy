@@ -1,18 +1,34 @@
 """
-Reviewed 03-06-21
-This is an extremely general object, so the tests are
-a carefully choosen sample, rather than a complete coverage.
-Exception wrapping is tested and ok.
-Inplace operators are untested, but quite obvious by inspection.
-Some operators and functions (both unary and binary) are tested.
-Inspection of table MethodImplementations is necessary and
-sufficient to ensure completeness and correctness of this module.
 """
 
 from pypy.objspace.std.objspace import *
+from pypy.interpreter.function import Function
 from stringobject import W_StringObject
 from intobject import W_IntObject
 import sys, operator, types
+
+class W_BuiltinFunctionObject(Function):
+    """This class wraps cpython-functions much like ordinary 'Function' objects 
+       but it avoids wrapping them into CPythonObject which would go badly 
+       with the descroperations. """ 
+
+    def __init__(self, space, cpyfunc):
+        assert callable(cpyfunc), cpyfunc
+        self.space = space
+        self.cpyfunc = cpyfunc
+
+    def call(self, w_args, w_kwds):
+        space = self.space
+        args = space.unwrap(w_args)
+        kwds = {}
+        keys_w = space.unpackiterable(w_kwds)
+        for w_key in keys_w:
+            kwds[space.unwrap(w_key)] = space.unwrap(space.getitem(w_kwds, w_key))
+        try:
+            result = apply(self.cpyfunc, args, kwds)
+        except:
+            wrap_exception(space)
+        return space.wrap(result)
 
 class W_CPythonObject(W_Object):
     "This class wraps an arbitrary CPython object."
@@ -173,23 +189,18 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     f = MethodImplementation.get(_name)
     if f:
         if _arity == 1:
-            def cpython_f(space, w_1, f=f, pypymethod='pypy_'+_name):
+            def cpython_f(space, w_1, f=f): 
                 x1 = w_1.cpyobj 
                 type_x1 = type(x1)
-                if hasattr(type_x1, pypymethod):
-                    return getattr(type_x1, pypymethod)(x1)
                 try:
                     y = f(x1)
                 except:
                     wrap_exception(space)
                 return space.wrap(y)
         elif _arity == 2:
-            def cpython_f(space, w_1, w_2, f=f, pypymethod='pypy_'+_name):
+            def cpython_f(space, w_1, w_2, f=f): 
                 x1 = w_1.cpyobj 
                 type_x1 = type(x1)
-                if hasattr(type_x1, pypymethod):
-                    return getattr(type_x1, pypymethod)(x1, w_2)
-
                 # XXX do we really want to unwrap unknown objects here? 
                 x2 = space.unwrap(w_2)
                 try:
@@ -198,12 +209,9 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
                     wrap_exception(space)
                 return space.wrap(y)
         elif _arity == 3:
-            def cpython_f(space, w_1, w_2, w_3, f=f, pypymethod='pypy_'+_name):
+            def cpython_f(space, w_1, w_2, w_3, f=f): 
                 x1 = w_1.cpyobj 
                 type_x1 = type(x1)
-                if hasattr(type_x1, pypymethod):
-                    return getattr(type_x1, pypymethod)(x1, w_2, w_3)
-
                 x2 = space.unwrap(w_2)
                 x3 = space.unwrap(w_3)
                 try:
@@ -230,7 +238,6 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
                     wrap_exception(space)
                 return space.wrap(y)
             multimethod.register(cpython_f_rev, W_ANY, W_CPythonObject)
-
 
 def is_true__CPython(space, w_obj):
     obj = space.unwrap(w_obj)
@@ -293,8 +300,6 @@ def delitem__CPython_ANY(space, w_obj, w_index):
 
 def next__CPython(space, w_obj):
     obj = space.unwrap(w_obj)
-    if hasattr(obj, 'pypy_next'):
-        return obj.pypy_next()
     try:
         result = obj.next()
     except:
@@ -304,8 +309,6 @@ def next__CPython(space, w_obj):
 def call__CPython(space, w_obj, w_arguments, w_keywords):
     # XXX temporary hack similar to objspace.trivial.call()
     callable = space.unwrap(w_obj)
-    if hasattr(callable, 'pypy_call'):
-        return callable.pypy_call(w_arguments, w_keywords)
     args = space.unwrap(w_arguments)
     keywords = space.unwrap(w_keywords)
     try:

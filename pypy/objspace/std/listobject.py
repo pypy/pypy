@@ -252,14 +252,8 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
         items[start+i*step] = sequence2[i]
     return space.w_None
 
-def repr__List(space, w_list):
-    w = space.wrap
-    a = space.add
-    reprs_w = map(space.repr, space.unpackiterable(w_list))
-    from pypy.objspace.std.stringtype import W_StringType
-    w_bm = space.getattr(space.wrap(', '), space.wrap('join'))
-    return a(a(w('['), space.call_function(w_bm, space.newlist(reprs_w))), w(']'))
-    return space.newstring([])
+def app_repr__List(l):
+    return "[" + ", ".join([repr(x) for x in l]) + ']'
 
 def hash__List(space,w_list):
     raise OperationError(space.w_TypeError,space.wrap("list objects are unhashable"))
@@ -534,5 +528,7 @@ static PyMethodDef list_methods[] = {
 };
 """
 
+from pypy.interpreter import gateway
+gateway.importall(globals())
 from pypy.objspace.std import listtype
 register_all(vars(), listtype)

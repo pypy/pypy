@@ -184,8 +184,9 @@ class Gateway(Wrappable):
                 self.code.func)
         space = obj.space
         fn = self.get_function(space)
+        w_obj = space.wrap(obj)
         return Method(space, space.wrap(fn),
-                      space.wrap(obj), space.wrap(obj.__class__))
+                      w_obj, space.type(w_obj)) 
 
 
 class app2interp(Gateway):
