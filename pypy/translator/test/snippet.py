@@ -602,15 +602,15 @@ def func_arg_unpack():
     return a
 
 class APBC: 
-    def f(self): 
-        pass
-    code = f.func_code 
+    def __init__(self): 
+        self.answer = 42
 
 apbc = APBC()
+apbc.answer = 7
 
 def preserve_pbc_attr_on_instance(cond):
     if cond: 
         x = APBC()
     else: 
         x = apbc 
-    return x.code 
+    return x.answer 

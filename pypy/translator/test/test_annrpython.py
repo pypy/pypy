@@ -336,9 +336,8 @@ class AnnonateTestCase(testit.IntTestCase):
         s = a.build_types(snippet.preserve_pbc_attr_on_instance, [bool])
         #a.simplify()
         #a.translator.view()
-        self.assert_(not s.__class__ is annmodel.SomeObject) 
-        #self.assertEquals(s.const, 3) 
-        
+        self.assertEquals(s, annmodel.SomeInteger(nonneg=True)) 
+        #self.assertEquals(s.__class__, annmodel.SomeInteger) 
 
 def g(n):
     return [0,1,2,n]
