@@ -146,6 +146,9 @@ class GenRpy:
         self.latercode = u()   # list of generators generating extra lines
                                #   for later in initxxx() -- for recursive
                                #   objects
+        # this can stay empty, because we cannot have used a reserved
+        # name as a variable in the same language. But see genc.py
+        self.reserved_names = {}
         self.globaldecl = []
         self.globalobjects = []
         self.pendingfunctions = []
@@ -188,7 +191,7 @@ class GenRpy:
                     else:
                         fmt = "%s_%d"
                     # don't use zero
-                    if len(thesenames) == 0:
+                    if len(thesenames) == 0 and v.name not in self.reserved_names:
                         fmt = fmt[:-3]
                         thesenames[v.name] = ret = fmt % name
                     else:
