@@ -231,7 +231,7 @@ StdObjSpace.getitem.register(getitem_str_int,
 def getitem_str_slice(space, w_str, w_slice):
     w = space.wrap
     u = space.unwrap
-    w_start, w_stop, w_step, w_sl = w_slice.indices(space, w(w_str._value.len))
+    w_start, w_stop, w_step, w_sl = w_slice.indices(w(w_str._value.len))
     start = u(w_start)
     stop = u(w_stop)
     step = u(w_step)

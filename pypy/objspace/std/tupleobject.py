@@ -46,7 +46,7 @@ StdObjSpace.getitem.register(getitem_tuple_int, W_TupleObject, W_IntObject)
 def getitem_tuple_slice(space, w_tuple, w_slice):
     items = w_tuple.wrappeditems
     w_length = space.wrap(len(items))
-    w_start, w_stop, w_step, w_slicelength = w_slice.indices(space, w_length)
+    w_start, w_stop, w_step, w_slicelength = w_slice.indices(w_length)
     start       = space.unwrap(w_start)
     step        = space.unwrap(w_step)
     slicelength = space.unwrap(w_slicelength)

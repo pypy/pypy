@@ -78,7 +78,7 @@ StdObjSpace.getitem.register(getitem_list_int, W_ListObject, W_IntObject)
 def getitem_list_slice(space, w_list, w_slice):
     items = w_list.ob_item
     w_length = space.wrap(w_list.ob_size)
-    w_start, w_stop, w_step, w_slicelength = w_slice.indices(space, w_length)
+    w_start, w_stop, w_step, w_slicelength = w_slice.indices(w_length)
     start       = space.unwrap(w_start)
     step        = space.unwrap(w_step)
     slicelength = space.unwrap(w_slicelength)
@@ -173,7 +173,7 @@ StdObjSpace.setitem.register(setitem_list_int, W_ListObject, W_IntObject, W_ANY)
 def setitem_list_slice(space, w_list, w_slice, w_list2):
     items = w_list.ob_item
     w_length = space.wrap(w_list.ob_size)
-    w_start, w_stop, w_step, w_slicelength = w_slice.indices(space, w_length)
+    w_start, w_stop, w_step, w_slicelength = w_slice.indices(w_length)
     start       = space.unwrap(w_start)
     step        = space.unwrap(w_step)
     slicelength = space.unwrap(w_slicelength)

@@ -12,14 +12,12 @@ class W_SliceObject(W_Object):
         w_self.w_start = w_start
         w_self.w_stop = w_stop
         w_self.w_step = w_step
-    def indices(w_self, space, w_length):
-        w_ret = space.gethelper(appfile).call("sliceindices", [w_self, w_length])
-        w_start, w_stop, w_step, w_slicelength = space.unpackiterable(w_ret, 4)
-        return w_start, w_stop, w_step, w_slicelength
-    def indices2(w_self, w_length):
+    def indices(w_self, w_length):
         w_ret = w_self.space.gethelper(appfile).call("sliceindices", [w_self, w_length])
         w_start, w_stop, w_step, w_slicelength = w_self.space.unpackiterable(w_ret, 4)
-        return w_self.space.newtuple([w_start, w_stop, w_step, w_slicelength])
+        return w_start, w_stop, w_step, w_slicelength
+    def indices2(w_self, w_length):
+        return w_self.space.newtuple(w_self.indices(w_length)[:-1])
 
 
 def getattr_slice_any(space, w_slice, w_attr):
