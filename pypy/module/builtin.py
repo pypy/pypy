@@ -15,6 +15,8 @@ class Builtin(BuiltinModule):
 
     # we have None!
     None = appdata(_b.None)
+    False = appdata(_b.False)
+    True = appdata(_b.True)
     dict = appdata(_b.dict)   # XXX temporary
     tuple = appdata(_b.tuple) # XXX temporary
 
