@@ -60,7 +60,7 @@ class Annotator:
                             op = SpaceOperation('simple_call', args_w, op.result)
                             # XXX check that w_kwargs is empty
                 newops.append(op)
-            block.operations = tuple(newops)
+            block.operations = newops
 
     def simplify(self):
         self.simplify_calls()

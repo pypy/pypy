@@ -7,7 +7,7 @@ from pypy.translator.annotation import Annotator
 
 def transform_allocate(self):
     for block, ann in self.annotated.iteritems():
-        operations = block.operations
+        operations = block.operations[:]
         n_op = len(operations)
         for i in range(0, n_op-1):
             op1 = operations[i]
@@ -20,13 +20,11 @@ def transform_allocate(self):
                 new_op = SpaceOperation('alloc_and_set',
                                         (op2.args[1], op1.args[0]),
                                         op2.result)
-                block.operations = (operations[:i] +
-                                    (new_op,) +
-                                    operations[i+2:])
+                block.operations[i:i+2] = [new_op]
 
 def transform_slice(self):
     for block, ann in self.annotated.iteritems():
-        operations = block.operations
+        operations = block.operations[:]
         n_op = len(operations)
         for i in range(0, n_op-1):
             op1 = operations[i]
@@ -38,9 +36,7 @@ def transform_slice(self):
                 new_op = SpaceOperation('getslice',
                                          (op2.args[0], op1.args[0], op1.args[1]),
                                          op2.result)
-                block.operations = (operations[:i] +
-                                    (new_op,) +
-                                    operations[i+2:])
+                block.operations[i:i+2] = [new_op]
 
 def transform_graph(ann):
     transform_allocate(ann)
