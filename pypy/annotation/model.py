@@ -3,6 +3,9 @@ import types
 class SomeValue:
     pass
 
+class QueryArgument:
+    pass
+
 class Predicate:
     def __init__(self, debugname, arity):
         self.debugname = debugname
@@ -42,7 +45,8 @@ class Annotation:
         # note that for predicates that are simple operations like
         # op.add, the result is stored as the last argument.
         for someval in args:
-            assert someval is Ellipsis or isinstance(someval, SomeValue)  # bug catcher
+            assert isinstance(someval, (SomeValue, QueryArgument,
+                                        type(Ellipsis)))     # bug catcher
 
     def copy(self, renameargs={}):
         args = [renameargs.get(arg, arg) for arg in self.args]
@@ -76,7 +80,7 @@ immutable_types = {
     }
 
 # a conventional value for representing 'all Annotations match this one' 
-blackholevalue = SomeValue()
+blackholevalue = Ellipsis
 
 # a few values representing 'any value of the given type'
 # the following loops creates intvalue, strvalue, etc.

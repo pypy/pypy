@@ -1,7 +1,10 @@
 from __future__ import generators
 import types
-from model import Annotation, SomeValue, ANN
+from model import Annotation, SomeValue, QueryArgument, ANN
 from model import immutable_types, blackholevalue, basicannotations
+
+QUERYARG = QueryArgument()
+
 
 class AnnotationSet:
     """An annotation set is a (large) family of Annotations."""
@@ -61,15 +64,15 @@ class AnnotationSet:
         the queried value. """
 
         # slightly limited implementation for ease of coding :-)
-        assert query.args.count(Ellipsis) == 1, (
+        assert query.args.count(QUERYARG) == 1, (
             "sorry, the algorithm is a bit too naive for this case")
-        queryarg = query.args.index(Ellipsis)
+        queryarg = query.args.index(QUERYARG)
         for ann in self._annmatches(query):
             # does the returned match also agree with the other queries?
             match = ann.args[queryarg]
             depends = [ann]
             for queryann in querylist:
-                boundquery = queryann.copy(renameargs={Ellipsis: match})
+                boundquery = queryann.copy(renameargs={QUERYARG: match})
                 ann = self.findfirst(boundquery)
                 if ann is None:
                     break
@@ -80,7 +83,7 @@ class AnnotationSet:
     def _annmatches(self, queryann):
         """ yield annotations matching the given queryannotation. """
         testindices = [i for i in range(queryann.predicate.arity)
-                             if queryann.args[i] is not Ellipsis]
+                             if queryann.args[i] is not QUERYARG]
         for ann in self.annlist:
             if ann.predicate == queryann.predicate:
                 for i in testindices:
@@ -184,8 +187,8 @@ class Recorder:
             deps.append(ann)
 
     def check_type(self, someval, checktype):
-        return self.query(ANN.type[someval, ...],
-                          ANN.constant(checktype)[...])
+        return bool(self.query(ANN.type[someval, QUERYARG],
+                               ANN.constant(checktype)[QUERYARG]))
 
     def set_type(self, someval, knowntype):
         typeval = SomeValue()

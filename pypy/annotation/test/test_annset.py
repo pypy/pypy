@@ -3,7 +3,7 @@ import autopath
 from pypy.tool import test
 
 from pypy.annotation.model import ANN, SomeValue
-from pypy.annotation.annset import AnnotationSet
+from pypy.annotation.annset import AnnotationSet, QUERYARG
 
 
 class TestAnnotationSet(test.IntTestCase):
@@ -43,15 +43,15 @@ class TestAnnotationSet(test.IntTestCase):
         c1,c2,c3 = SomeValue(), SomeValue(), SomeValue()
         lst = [ANN.add[c1, c3, c2]]
         a = AnnotationSet(lst)
-        c = a.query(ANN.add[c1, c3, ...])
-        self.assertEquals(c, [c2])
-        c = a.query(ANN.add[c1, ..., c2])
-        self.assertEquals(c, [c3])
-        c = a.query(ANN.add[..., c3, c2])
-        self.assertEquals(c, [c1])
+        clist = a.query(ANN.add[c1, c3, QUERYARG])
+        self.assertEquals(clist, [c2])
+        clist = a.query(ANN.add[c1, QUERYARG, c2])
+        self.assertEquals(clist, [c3])
+        clist = a.query(ANN.add[QUERYARG, c3, c2])
+        self.assertEquals(clist, [c1])
 
-        c = a.query(ANN.add[..., c1, c2])
-        self.assertEquals(c, [])
+        clist = a.query(ANN.add[QUERYARG, c1, c2])
+        self.assertEquals(clist, [])
 
     def test_query_multiple_annotations(self):
         c1,c2,c3 = SomeValue(), SomeValue(), SomeValue()
@@ -60,9 +60,9 @@ class TestAnnotationSet(test.IntTestCase):
             ANN.type[c2, c3],
         ]
         a = AnnotationSet(lst)
-        c = a.query(ANN.add[c1, c3, ...],
-                    ANN.type[..., c3])
-        self.assertEquals(c, [c2])
+        clist = a.query(ANN.add[c1, c3, QUERYARG],
+                        ANN.type[QUERYARG, c3])
+        self.assertEquals(clist, [c2])
 
     def test_constant(self):
         c1,c2,c3 = SomeValue(), SomeValue(), SomeValue()
@@ -70,8 +70,8 @@ class TestAnnotationSet(test.IntTestCase):
             ANN.constant(42)[c1],
         ]
         a = AnnotationSet(lst)
-        c = a.query(ANN.constant(42)[...])
-        self.assertEquals(c, [c1])
+        clist = a.query(ANN.constant(42)[QUERYARG])
+        self.assertEquals(clist, [c1])
 
 c1,c2,c3,c4 = SomeValue(), SomeValue(), SomeValue(), SomeValue()
 
@@ -102,7 +102,7 @@ class TestRecording(test.IntTestCase):
     def test_simple(self):
         a = self.annset
         def f(rec):
-            if rec.query(ANN.add[c1, c3, ...]):
+            if rec.query(ANN.add[c1, c3, QUERYARG]):
                 rec.set(ANN.type[c1, c3]) 
         a.record(f)
         self.assertSameSet(a, a, self.lst + [ANN.type[c1, c3]])
@@ -116,8 +116,8 @@ class TestRecording(test.IntTestCase):
             if rec.check_type(c1, int):
                 rec.set_type(c2, str)
         a.record(f)
-        self.assert_(a.query(ANN.type[c2, ...],
-                             ANN.constant(str)[...]))
+        self.assert_(a.query(ANN.type[c2, QUERYARG],
+                             ANN.constant(str)[QUERYARG]))
 
 if __name__ == '__main__':
     test.main()
