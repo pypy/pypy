@@ -38,6 +38,24 @@ def test_union():
              s1, s1, s1, s5, s5, s5,
              s1, s2, s3, s4, s5, s6])
 
+def test_commonbase_simple():
+    class A0: 
+        pass
+    class A1(A0): 
+        pass
+    class A2(A0): 
+        pass
+    class B1(object):
+        pass
+    class B2(object):
+        pass
+    class B3(object, A0):
+        pass
+    assert commonbase(A1,A2) is A0 
+    assert commonbase(A1,A0) is A0
+    assert commonbase(A1,A1) is A1
+    assert commonbase(A2,B2) is object 
+    assert commonbase(A2,B3) is A0 
 
 if __name__ == '__main__':
     for name, value in globals().items():

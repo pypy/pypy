@@ -34,6 +34,7 @@ import pypy
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.objspace.flow.model import Constant
 from pypy.tool.cache import Cache 
+import inspect
 
 class SomeObject:
     """The set of all objects.  Each instance stands
@@ -315,10 +316,16 @@ def set(it):
     return d
 
 def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
-    assert issubclass(cls1, object)
-    while not issubclass(cls1, cls2):
-        cls2, = [x for x in cls2.__bases__ if x is not object] or [object]
-    return cls2
+    l1 = inspect.getmro(cls1) 
+    l2 = inspect.getmro(cls2) 
+    if l1[-1] != object: 
+        l1 = l1 + (object,) 
+    if l2[-1] != object: 
+        l2 = l2 + (object,) 
+    for x in l1: 
+        if x in l2: 
+            return x 
+    assert 0, "couldn't get to commonbase of %r and %r" % (cls1, cls2))
 
 def missing_operation(cls, name):
     def default_op(*args):
