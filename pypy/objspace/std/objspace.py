@@ -303,6 +303,17 @@ _name_mappings = {
     'not': 'not_',
     }
     
+class curry:
+    def __init__(self, fun, *args):
+        self.fun = fun
+        self.pending = args[:]
+
+    def __call__(self, *args):
+        return self.fun(*(self.pending + args))
+
+def inverted_comparison(function, space, w_1, w_2):
+    return space.not_(function(space, w_1, w_2))
+
 def register_all(module_dict, alt_ns=None):
     """register implementations for multimethods. 
 
@@ -340,6 +351,23 @@ def register_all(module_dict, alt_ns=None):
             getattr(alt_ns, funcname).register(obj, *l)
         else:
             getattr(StdObjSpace, funcname).register(obj, *l)
+
+    # If the module has defined eq, lt or gt,
+    # check if it already has ne, ge and le respectively.
+    # If not, then add them as space.not_ on the implemented methods.
+
+    for method, mirror in [('eq', 'ne'), ('lt', 'ge'), ('gt', 'le')]:
+        try:
+            multifunc = StdObjSpace.__dict__[method]
+            mirrorfunc = StdObjSpace.__dict__[mirror]
+            for types, function in multifunc.dispatch_table.iteritems():
+                t1, t2 = types
+                if t1 is t2:
+                    if not mirrorfunc.dispatch_table.has_key(types):
+                        mirrorfunc.register(
+                            curry(inverted_comparison, function[0]), *[t1, t1])
+        except AttributeError:
+            print '%s not found in StdObjSpace' % method
 
 # import the common base W_ObjectObject as well as
 # default implementations of some multimethods for all objects
