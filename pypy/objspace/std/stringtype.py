@@ -29,14 +29,14 @@ class W_StringType(W_TypeObject):
     str_rindex     = MultiMethod('rindex', 4, defaults=(None, None))
     str_replace    = MultiMethod('replace', 4, defaults=(-1,))
     str_zfill      = MultiMethod('zfill', 2)
-    str_strip      = MultiMethod('strip', 1)
-    str_rstrip     = MultiMethod('rstrip', 1)
-    str_lstrip     = MultiMethod('lstrip', 1)
-    str_center     = MultiMethod('center', 2)
-    str_count      = MultiMethod('count', 2)      #[optional arguments not supported now]
+    str_strip      = MultiMethod('strip',  2, defaults=('', ' '))
+    str_rstrip     = MultiMethod('rstrip', 2, defaults=('', ' '))
+    str_lstrip     = MultiMethod('lstrip', 2, defaults=('', ' '))
+    str_center     = MultiMethod('center', 2, )
+    str_count      = MultiMethod('count', 4, defaults=(None,None))      
     str_endswith   = MultiMethod('endswith', 2)   #[optional arguments not supported now]
     str_expandtabs = MultiMethod('expandtabs', 2, defaults=(8,))
-    str_splitlines = MultiMethod('splitlines', 2)
+    str_splitlines = MultiMethod('splitlines', 2, defaults=(0,))
     str_startswith = MultiMethod('startswith', 2) #[optional arguments not supported now]
 
 registerimplementation(W_StringType)

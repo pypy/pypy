@@ -206,7 +206,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('123x123'.replace('123', ''), 'x')
 
 
-    def _test_strip(self):
+    def test_strip(self):
         s = " a b "
         self.assertEquals(s.strip(), "a b")
         self.assertEquals(s.rstrip(), " a b")
@@ -247,17 +247,12 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('abc'.center(2), 'abc')
 
         
-    def _test_count(self):
+    def test_count(self):
         self.assertEquals("".count("x"),0)
         self.assertEquals("".count(""),1)
         self.assertEquals("Python".count(""),7)
         self.assertEquals("ab aaba".count("ab"),2)
         self.assertEquals('aaa'.count('a'), 3)
-        self.assertEquals('aaa'.count('b'), 0)
-        self.assertEquals('aaa'.count('a'), 3)
-        self.assertEquals('aaa'.count('b'), 0)
-        self.assertEquals('aaa'.count('a'), 3)
-        self.assertEquals('aaa'.count('b'), 0)
         self.assertEquals('aaa'.count('b'), 0)
         self.assertEquals('aaa'.count('a', -1), 1)
         self.assertEquals('aaa'.count('a', -10), 3)
@@ -287,22 +282,38 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals(''.endswith('a'),0)
         self.assertEquals('x'.endswith('xx'),0)
         self.assertEquals('y'.endswith('xx'),0)
-   
-   
-    def _test_expandtabs(self):
-        s = '\txy\t'
-        self.assertEquals(s.expandtabs(),'        xy        ')
-        self.assertEquals(s.expandtabs(1),' xy ')
-        self.assertEquals('xy'.expandtabs(),'xy')
-        self.assertEquals(''.expandtabs(),'')
-        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(), 'abc\rab      def\ng       hi')
-        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(8), 'abc\rab      def\ng       hi')
-        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(4), 'abc\rab  def\ng   hi')
+      
+    def test_expandtabs(self):
+        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(),    'abc\rab      def\ng       hi')
+        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(8),   'abc\rab      def\ng       hi')
+        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(4),   'abc\rab  def\ng   hi')
         self.assertEquals('abc\r\nab\tdef\ng\thi'.expandtabs(4), 'abc\r\nab  def\ng   hi')
-        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(), 'abc\rab      def\ng       hi')
-        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(8), 'abc\rab      def\ng       hi')
+        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(),    'abc\rab      def\ng       hi')
+        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(8),   'abc\rab      def\ng       hi')
         self.assertEquals('abc\r\nab\r\ndef\ng\r\nhi'.expandtabs(4), 'abc\r\nab\r\ndef\ng\r\nhi')
 
+        s = 'xy\t'
+        self.assertEquals(s.expandtabs(),'xy      ')
+        
+        s = '\txy\t'
+        self.assertEquals(s.expandtabs(),'        xy      ')
+        self.assertEquals(s.expandtabs(1),' xy ')
+        self.assertEquals(s.expandtabs(2),'  xy  ')
+        self.assertEquals(s.expandtabs(3),'   xy ')
+        
+        self.assertEquals('xy'.expandtabs(),'xy')
+        self.assertEquals(''.expandtabs(),'')
+
+
+    def test_splitlines(self):
+        s="ab\nab\n \n  x\n\n\n"
+        self.assertEquals(s.splitlines(),['ab',    'ab',  ' ',   '  x',   '',    ''])
+        self.assertEquals(s.splitlines(),s.splitlines(0))
+        self.assertEquals(s.splitlines(1),['ab\n', 'ab\n', ' \n', '  x\n', '\n', '\n'])
+        s="\none\n\two\nthree\n\n"
+        self.assertEquals(s.splitlines(),['', 'one', '\two', 'three', ''])
+        self.assertEquals(s.splitlines(1),['\n', 'one\n', '\two\n', 'three\n', '\n'])
+    
     def test_find(self):
         self.assertEquals('abcdefghiabc'.find('abc'), 0)
         self.assertEquals('abcdefghiabc'.find('abc', 1), 9)
