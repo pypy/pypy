@@ -49,9 +49,14 @@ def descr__new__(space, w_stringtype, w_obj=''):
     w_obj.__init__(space, value)
     return w_obj
 
+def descr__getnewargs__(space, w_obj):
+    from pypy.objspace.std.stringobject import W_StringObject
+    return space.newtuple([W_StringObject(space, w_obj._value)])
+
 # ____________________________________________________________
 
 str_typedef = StdTypeDef("str", basestring_typedef,
     __new__ = newmethod(descr__new__),
+    __getnewargs__ = newmethod(descr__getnewargs__),
     )
 str_typedef.registermethods(globals())

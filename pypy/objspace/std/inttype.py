@@ -70,6 +70,7 @@ def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
 def descr__getnewargs__(space, w_obj):
     from pypy.objspace.std.intobject import W_IntObject
     return space.newtuple([W_IntObject(space, w_obj.intval)])
+
 # ____________________________________________________________
 
 int_typedef = StdTypeDef("int",

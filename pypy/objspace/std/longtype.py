@@ -53,10 +53,15 @@ def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
     w_obj.__init__(space, value)
     return w_obj
 
+def descr__getnewargs__(space, w_obj):
+    from pypy.objspace.std.longobject import W_LongObject
+    return space.newtuple([W_LongObject(space, w_obj.longval)])
+
 # ____________________________________________________________
 
 long_typedef = StdTypeDef("long",
     __new__ = newmethod(descr__new__),
+    __getnewargs__ = newmethod(descr__getnewargs__),
     )
 # hack to allow automatic int to long conversion: the int.__xyz__ methods
 # will fall back to their long.__xyz__ counterparts if they fail

@@ -14,8 +14,13 @@ def descr__new__(space, w_tupletype, w_items=NoneNotWrapped):
     w_obj.__init__(space, tuple_w)
     return w_obj
 
+def descr__getnewargs__(space, w_obj):
+    from pypy.objspace.std.tupleobject import W_TupleObject
+    return space.newtuple([W_TupleObject(space, w_obj.wrappeditems)])
+
 # ____________________________________________________________
 
 tuple_typedef = StdTypeDef("tuple",
     __new__ = newmethod(descr__new__),
+    __getnewargs__ = newmethod(descr__getnewargs__),
     )
