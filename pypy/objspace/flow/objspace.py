@@ -22,7 +22,8 @@ class FlowObjSpace(ObjSpace):
         self.w_None     = Constant(None)
         self.w_False    = Constant(False)
         self.w_True     = Constant(True)
-        for exc in [KeyError, ValueError, IndexError, StopIteration]:
+        for exc in [KeyError, ValueError, IndexError, StopIteration,
+                    AssertionError]:
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, Constant(exc))
         self.specialcases = {}
@@ -143,17 +144,22 @@ class FlowObjSpace(ObjSpace):
         if isinstance(w_iterable, Variable) and expected_length is None:
             # XXX TEMPORARY HACK XXX TEMPORARY HACK XXX TEMPORARY HACK
             print ("*** cannot unpack a Variable iterable "
-                   "without knowing its length, assuming up to 7 items")
-            w_iterator = self.iter(w_iterable)
+                   "without knowing its length,")
+            print "    assuming a list or tuple with up to 7 items"
             items = []
-            for i in range(7):
-                try:
-                    w_item = self.next(w_iterator)
-                except OperationError, e:
-                    if not e.match(self, self.w_StopIteration):
-                        raise
+            w_len = self.len(w_iterable)
+            i = 0
+            while True:
+                w_i = self.wrap(i)
+                w_cond = self.eq(w_len, w_i)
+                if self.is_true(w_cond):
                     break  # done
+                if i == 7:
+                    # too many values
+                    raise OperationError(self.w_AssertionError, self.w_None)
+                w_item = self.do_operation('getitem', w_iterable, w_i)
                 items.append(w_item)
+                i += 1
             return items
             # XXX TEMPORARY HACK XXX TEMPORARY HACK XXX TEMPORARY HACK
         return ObjSpace.unpackiterable(self, w_iterable, expected_length)
