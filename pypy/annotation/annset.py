@@ -1,6 +1,6 @@
 from __future__ import generators
 import types
-from model import SomeValue, ANN, immutable_types, debugname
+from model import SomeValue, ANN, immutable_types
 
 
 class MostGeneralValue:
@@ -20,7 +20,7 @@ class About:
         self.annotations = {}
         self.subjects = {}  # set of SomeValues we are about
     def __repr__(self):    # debugging
-        subjs = [debugname(c) for c in self.subjects]
+        subjs = [repr(c) for c in self.subjects]
         subjs.sort()
         lines = ['About %s:' % ' and '.join(subjs)]
         annotations = [(str(pred), value)
@@ -87,7 +87,7 @@ class AnnotationSet:
             about.subjects[somevalue] = True
             return about
 
-    def set(self, predicate, subject, answer=True):
+    def set(self, predicate, subject, answer):
         about = self._about(subject)
         if predicate in about.annotations:
             raise ValueError, "There is already an annotation for %r" % subject
@@ -102,6 +102,15 @@ class AnnotationSet:
             # perform invalidations
             for block in deps:
                 self.callback(block)
+
+    def generalize(self, predicate, subject, otherpossibleanswer):
+        """Generalize the given annotation to also account for the given
+        answer."""
+        oldanswer = self.get(predicate, subject)
+        newanswer = self.merge(oldanswer, otherpossibleanswer)
+        if not self.isshared(oldanswer, newanswer):
+            self.kill(predicate, subject)
+            self.set(predicate, subject, newanswer)
 
     def merge(self, oldvalue, newvalue):
         """Update the heap to account for the merging of oldvalue and newvalue.
@@ -170,10 +179,14 @@ class AnnotationSet:
         
         return about3.subjects.iterkeys().next()
 
+    def checktype(self, someval, checktype):
+        knowntype = self.get(ANN.type, someval)
+        return knowntype and issubclass(knowntype, checktype)
+
     def settype(self, someval, knowntype):
         self.set(ANN.type, someval, knowntype)
         if knowntype in immutable_types:
-            self.set(ANN.immutable, someval)
+            self.set(ANN.immutable, someval, True)
 
     def copytype(self, oldcell, newcell):
         self.set(ANN.type, newcell, self.get(ANN.type, oldcell))

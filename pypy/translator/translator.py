@@ -193,7 +193,7 @@ class Translator:
         except KeyError:
             # typical case for the 1st call, because addpendingblock() did
             # not actually start the analysis of the called function yet.
-            return nothingyet
+            return impossiblevalue
 
 
 if __name__ == '__main__':

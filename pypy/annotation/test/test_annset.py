@@ -19,6 +19,8 @@ def annset(*args, **kwds):
         else:
             groups[-1].append(a)    # hack hack hack
     for args in groups:
+        if len(args) == 2:
+            args = args + [True]    #   "   "    "
         annset.set(*args)
     if 'links' in kwds:
         links = kwds['links']

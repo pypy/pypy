@@ -2,7 +2,7 @@ import types
 
 class SomeValue:
     def __repr__(self):
-        return debugname(self)
+        return debugname(self, 'SV')
 
 class Predicate:
     def __init__(self, debugname):
@@ -26,16 +26,17 @@ class ANN:
     len       = Predicate('len')
     listitems = Predicate('listitems')
     tupleitem = PredicateFamily('tupleitem')
+    const     = Predicate('const')
     type      = Predicate('type')
     immutable = Predicate('immutable')
 
 
-def debugname(someval, _seen = {}):
+def debugname(someval, prefix, _seen = {}):
     """ return a simple name for a SomeValue. """
     try:
         return _seen[id(someval)]
     except KeyError:
-        name = "V%d" % len(_seen)
+        name = "%s%d" % (prefix, len(_seen))
         _seen[id(someval)] = name
         return name
 
