@@ -76,8 +76,7 @@ def w(x, cache={}):
     if type(x) in cache:
         Stub = cache[type(x)]
     else:
-        class Stub(type(x)):
-            pass
+        Stub = type(type(x))('%s_stub' % type(x).__name__, (type(x),), {})
         Stub.dispatchclass = Stub
         cache[type(x)] = Stub
     return Stub(x)
@@ -129,7 +128,7 @@ class TestMultiMethod(test.TestCase):
         self.assertRaises(OperationError, space.add, X(0), w("spam"))
         self.assertRaises(OperationError, space.add, Y(666), w("egg"))
 
-    def _test_delegate_x_to_str_sometimes(self):
+    def test_delegate_x_to_str_sometimes(self):
         space = self.space
         r = space.add(X(42), w("spam"))
         self.assertEquals(repr(r), "('add_string_string', '!42', 'spam')")

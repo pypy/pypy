@@ -140,7 +140,8 @@ class DelegateMultiMethod(MultiMethod):
             parenttypes += list(t.__bases__)
         if parenttypes:
             def delegate_to_parent_classes(space, a, parenttypes=parenttypes):
-                return [(t, a) for t in parenttypes]
+                return [(t, a) for t in parenttypes
+                        if issubclass(a.dispatchclass, t)]
             # hard-wire it at priority 0
             by_priority[0] = [((t,), delegate_to_parent_classes)
                               for t in arg1types]
@@ -265,6 +266,7 @@ class BoundMultiMethod:
 
         for argi in range(arity-1, -1, -1):
             curtypes = types[argi] # growing tuple of types we can delegate to
+            assert len(curtypes) == 1
             curobjs = {curtypes[0]: args[argi]} # maps them to actual objects
             args = args[:argi]   # initial segments of arguments before this one
             types = types[:argi] # same with types (no deleg tried on them yet)
