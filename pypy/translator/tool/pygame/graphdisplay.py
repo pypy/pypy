@@ -178,18 +178,27 @@ class GraphDisplay(Display):
 
     def run(self):
         dragging = click_origin = click_time = None
-        while 1:
-            if self.must_redraw:
+        events = []
+        def peek(typ):
+            for val in events:
+                if val.type == typ:
+                    return True
+            return False
+        while True:
+            if self.must_redraw and not events:
                 self.viewer.render()
                 if self.statusbarinfo:
                     self.drawstatusbar()
                 pygame.display.flip()
                 self.must_redraw = False
             
-            event = pygame.event.wait()
+            if not events:
+                events.append(pygame.event.wait())
+                events.extend(pygame.event.get())
+            event = events.pop(0)
             if event.type == MOUSEMOTION:
                 # short-circuit if there are more motion events pending
-                if pygame.event.peek([MOUSEMOTION]):
+                if peek(MOUSEMOTION):
                     continue
                 if dragging:
                     if (abs(event.pos[0] - click_origin[0]) +
@@ -205,11 +214,11 @@ class GraphDisplay(Display):
                     self.must_redraw = True
                 else:
                     self.notifymousepos(event.pos)
-            if event.type == MOUSEBUTTONDOWN:
+            elif event.type == MOUSEBUTTONDOWN:
                 dragging = click_origin = event.pos
                 click_time = time.time()
                 pygame.event.set_grab(True)
-            if event.type == MOUSEBUTTONUP:
+            elif event.type == MOUSEBUTTONUP:
                 dragging = None
                 pygame.event.set_grab(False)
                 if click_time is not None and abs(time.time() - click_time) < 1:
@@ -217,18 +226,18 @@ class GraphDisplay(Display):
                     self.notifyclick(click_origin)
                 click_time = None
                 self.notifymousepos(event.pos)
-            if event.type == KEYDOWN:
+            elif event.type == KEYDOWN:
                 if event.key in [K_p, K_LEFT, K_BACKSPACE]:
                     self.layout_back()
-                if event.key == K_ESCAPE:
-                    break
-            if event.type == VIDEORESIZE:
+                elif event.key == K_ESCAPE:
+                    events.insert(0, pygame.event.Event(QUIT))
+            elif event.type == VIDEORESIZE:
                 # short-circuit if there are more resize events pending
-                if pygame.event.peek([VIDEORESIZE]):
+                if peek(VIDEORESIZE):
                     continue
                 self.resize(event.size)
                 self.must_redraw = True
-            if event.type == QUIT:
+            elif event.type == QUIT:
                 break
         # cannot safely close and re-open the display, depending on
         # Pygame version and platform.
