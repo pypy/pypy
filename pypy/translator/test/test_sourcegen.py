@@ -4,9 +4,9 @@ from pypy.tool import test
 from pypy.tool.udir import udir
 
 from pypy.translator.genpyrex import GenPyrex
-from pypy.translator.flowmodel import *
+from pypy.objspace.flow.model import *
 
-from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
+from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring
 #from pypy.translator.test.make_dot import make_ps
 
 class SourceGenTestCase(test.IntTestCase):
@@ -19,11 +19,10 @@ class SourceGenTestCase(test.IntTestCase):
         x = Variable("x")
         result = Variable("result")
         op = SpaceOperation("add", [x, Constant(1)], result)
-        endbranch = EndBranch(result)
-        block = BasicBlock([x], [x], 
-                           [op],
-                           endbranch)
-        fun = FunctionGraph(block, "f")
+        block = Block([x])
+        fun = FunctionGraph("f", block)
+        block.operations.append(op)
+        block.closeblock(Link([result], fun.returnblock))
         result = GenPyrex(fun).emitcode()
         mod = make_module_from_pyxstring('test_source1', udir, result)
         self.assertEquals(mod.f(1), 2)
@@ -39,18 +38,16 @@ class SourceGenTestCase(test.IntTestCase):
         i = Variable("i")
         j = Variable("j")
 
-        endbranchelse = EndBranch(i)
-        endbranchif = EndBranch(j)
-
         conditionres = Variable("conditionres")
         conditionop = SpaceOperation("lt", [i, Constant(0)], conditionres)
-    
-        conditionalbranch = ConditionalBranch(conditionres, endbranchif, endbranchelse)
-
-        startblock = BasicBlock([i, j], [i, j, conditionres], 
-                           [conditionop],
-                           conditionalbranch)
-        fun = FunctionGraph(startblock, "f")
+        startblock = Block([i, j])
+        
+        fun = FunctionGraph("f", startblock)
+        startblock.operations.append(conditionop)
+        startblock.exitswitch = conditionres
+        startblock.closeblock(Link([i], fun.returnblock, False),
+                              Link([j], fun.returnblock, True))
+        
         result = GenPyrex(fun).emitcode()
         mod = make_module_from_pyxstring('test_source2', udir, result)
         self.assertEquals(mod.f(-1, 42), 42)
@@ -73,25 +70,20 @@ class SourceGenTestCase(test.IntTestCase):
         conditionop = SpaceOperation("gt", [i, Constant(0)], conditionres)
         decop = SpaceOperation("add", [i, Constant(-1)], i)
         addop = SpaceOperation("add", [i, sum], sum)
+        startblock = Block([i])
+        headerblock = Block([i, sum])
+        whileblock = Block([i, sum])
 
-        conditionbranch = ConditionalBranch()
-        headerbranch = Branch()
-        headerbranch2 = Branch()
-        whileblock = BasicBlock([i, sum], [i, sum], [addop, decop], headerbranch2)
-        whilebranch = Branch([i, sum], whileblock)
-        
-        endbranch = EndBranch(sum)
-        conditionbranch.set(conditionres, whilebranch, endbranch)
+        fun = FunctionGraph("f", startblock)
+        startblock.closeblock(Link([i, Constant(0)], headerblock))
+        headerblock.operations.append(conditionop)
+        headerblock.exitswitch = conditionres
+        headerblock.closeblock(Link([sum], fun.returnblock, False),
+                               Link([i, sum], whileblock, True))
+        whileblock.operations.append(addop)
+        whileblock.operations.append(decop)
+        whileblock.closeblock(Link([i, sum], headerblock))
 
-        headerblock = BasicBlock([i, sum], [i, conditionres],
-                                 [conditionop], conditionbranch)
-
-        headerbranch.set([i, Constant(0)], headerblock)
-        headerbranch2.set([i, sum], headerblock)
-        startblock = BasicBlock([i], [i, sum], 
-                                [], headerbranch)
-
-        fun = FunctionGraph(startblock, "f")
         result = GenPyrex(fun).emitcode()
         mod = make_module_from_pyxstring('test_source4', udir, result)
         self.assertEquals(mod.f(3), 6)
