@@ -121,6 +121,9 @@ class Arguments:
         try:
             return self.match_signature(signature, defaults_w)
         except ArgErr, e:
+            # XXX this hack is necessary because the annotator is
+            # dumb! -- mwh 2005-01-25
+            assert isinstance(e, ArgErr)
             raise OperationError(space.w_TypeError,
                                  space.wrap(e.getmsg(self, fnname)))
 
