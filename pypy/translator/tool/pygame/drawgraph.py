@@ -19,14 +19,25 @@ COLOR = {
     }
 re_nonword=re.compile(r'([^0-9a-zA-Z_.]+)')
 
+def combine(color1, color2, alpha):
+    r1, g1, b1 = color1
+    r2, g2, b2 = color2
+    beta = 1.0 - alpha
+    return (int(r1 * alpha + r2 * beta),
+            int(g1 * alpha + g2 * beta),
+            int(b1 * alpha + b2 * beta))
+
+
 def highlight_color(color):
-    intensity = sum(color)
-    components = []
-    if color == (0,0,0):
+    if color == (0, 0, 0): # black becomes magenta
         return (255, 0, 255)
-    elif color == (255,255,255):
+    elif color == (255, 255, 255): # white becomes yellow
         return (255, 255, 0)
-    return color[1:] + color[:1]
+    intensity = sum(color)
+    if intensity > 191 * 3:
+        return combine(color, (128, 192, 0), 0.2)
+    else:
+        return combine(color, (255, 255, 0), 0.2)
 
 def getcolor(name, default):
     if name in COLOR:
