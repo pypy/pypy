@@ -9,7 +9,7 @@
 
 class _Flags(object):
     def __repr__(self):
-        return "<%s>"%(', '.join([f for f in self.__dict__ 
+        return "<%s>"%(', '.join([f for f in self.__dict__
                                   if f[0] == 'f' and getattr(self, f)]),)
     f_ljust = 0
     f_sign = 0
@@ -22,7 +22,7 @@ def value_next(valueiter):
     try:
         return valueiter.next()
     except StopIteration:
-        raise TypeError('not enough arguments for format string')    
+        raise TypeError('not enough arguments for format string')
 
 
 def peel_num(c, fmtiter, valueiter):
@@ -109,7 +109,7 @@ class Formatter(object):
         self.width = width
         self.prec = prec
         self.value = value
- 
+
     def numeric_preprocess(self, v):
         # negative zeroes?
         # * mwh giggles, falls over
@@ -117,7 +117,7 @@ class Formatter(object):
         import math
         if v < 0 or v == 0 and math.atan2(0, v) != 0:
             sign = '-'
-            v = -v            
+            v = -v
         else:
             if self.flags.f_sign:
                 sign = '+'
@@ -140,7 +140,7 @@ class Formatter(object):
                 if self.flags.f_zero:
                     r = sign+padchar*p + r
                 else:
-                    r = padchar*p + sign + r                    
+                    r = padchar*p + sign + r
         else:
             r = sign + r
         return r
@@ -220,7 +220,7 @@ class FloatFormatter(Formatter):
             self.prec = 6
         r = self._format(v)
         return self.numeric_postprocess(r, sign)
-        
+
 
 class FloatFFormatter(FloatFormatter):
     def _format(self, v):
@@ -336,7 +336,7 @@ format_registry = {
     '%':funcFormatter(lambda x:'%'),
     }
 
-    
+
 class FmtIter(object):
     def __init__(self, fmt):
         self.fmt = fmt
@@ -398,4 +398,4 @@ def format(fmt, values, valuedict=None):
             raise TypeError('not all arguments converted '
                             'during string formatting')
     return ''.join(r)
-            
+
