@@ -20,6 +20,7 @@ class TrivialObjSpace(ObjSpace):
         self.w_None = None
         self.w_True = True
         self.w_False = False
+        self.w_sys = sys
 
     # general stuff
     def wrap(self, x):
