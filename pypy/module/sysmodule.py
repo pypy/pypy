@@ -14,6 +14,7 @@ from __interplevel__ import maxunicode
 from __interplevel__ import stdin, stdout, stderr, maxint
 from __interplevel__ import platform, byteorder
 from __interplevel__ import pypy_objspaceclass
+from __interplevel__ import exec_prefix, prefix
 
 # Functions from interpreter-level
 from __interplevel__ import _getframe, exc_info, exc_clear, pypy_getudir
@@ -21,11 +22,9 @@ from __interplevel__ import getrecursionlimit, setrecursionlimit
 from __interplevel__ import getcheckinterval, setcheckinterval
 
 # Dummy
+executable = 'py.py'
 api_version = 0
 copyright = ''
-exec_prefix = ''
-executable = ''
-prefix = ''
 version = '2.3a0 (pypy build)'
 version_info = (2, 3, 0, 'alpha', 0)
 hexversion = 0x020300a0

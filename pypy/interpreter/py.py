@@ -19,7 +19,11 @@ def get_main_options():
     options.append(make_option(
         '-i', action="store_true", dest="interactive",
         help="inspect interactively after running script"))
-    
+
+    options.append(make_option(
+        '-O', action="store_true", dest="optimize",
+        help="dummy optimization flag for compatibility with C Python"))
+
     def command_callback(option, opt, value, parser):
         parser.values.command = parser.rargs[:]
         parser.rargs[:] = []
@@ -39,8 +43,9 @@ def main_(argv=None):
         space = option.objspace()
         go_interactive = Options.interactive
         banner = ''
+        space.setitem(space.sys.w_dict,space.wrap('executable'),space.wrap(argv[0]))
         if Options.command:
-            args = ['-c']
+            args = ['-c'] + Options.command[1:]
         for arg in args:
             space.call_method(space.sys.w_argv, 'append', space.wrap(arg))
         if Options.command:
@@ -54,6 +59,7 @@ def main_(argv=None):
             except error.PyPyError, pypyerr:
                 pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
         else:
+            space.call_method(space.sys.w_argv, 'append', space.wrap(''))
             go_interactive = 1
             banner = None
         if go_interactive:

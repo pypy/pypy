@@ -71,8 +71,9 @@ w_initialpath = space.newlist([space.wrap(''), space.wrap(appdir)] +
 w_platform   = space.wrap(cpy_sys.platform)
 w_maxint     = space.wrap(cpy_sys.maxint)
 w_byteorder  = space.wrap(cpy_sys.byteorder)
+w_exec_prefix = space.wrap(cpy_sys.exec_prefix)
+w_prefix = space.wrap(cpy_sys.prefix)
 w_maxunicode = space.wrap(cpy_sys.maxunicode)
-
 w_stdin  = space.wrap(cpy_sys.stdin)
 w_stdout = space.wrap(cpy_sys.stdout)
 w_stderr = space.wrap(cpy_sys.stderr)
