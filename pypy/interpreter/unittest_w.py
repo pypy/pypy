@@ -57,6 +57,52 @@ class WrappedFunc(object):
 
 class IntTestCase(unittest.TestCase):
     """ enrich TestCase with wrapped-methods """
+    def __init__(self, methodName='runTest'):
+        self.methodName = methodName
+        unittest.TestCase.__init__(self, methodName)
+
+    def __call__(self, result=None):
+        from pypy.tool.test import TestSkip
+        if result is None: result = self.defaultTestResult()
+        result.startTest(self)
+        testMethod = getattr(self, self.methodName)
+        try:
+            try:
+                self.setUp()
+            except TestSkip: 
+                result.addSkip(self)
+                return
+            except KeyboardInterrupt:
+                raise
+            except:
+                result.addError(self, self._TestCase__exc_info())
+                return
+
+            ok = 0
+            try:
+                testMethod()
+                ok = 1
+            except self.failureException, e:
+                result.addFailure(self, self._TestCase__exc_info())
+            except TestSkip: 
+                result.addSkip(self)
+                return
+            except KeyboardInterrupt:
+                raise
+            except:
+                result.addError(self, self._TestCase__exc_info())
+
+            try:
+                self.tearDown()
+            except KeyboardInterrupt:
+                raise
+            except:
+                result.addError(self, self._TestCase__exc_info())
+                ok = 0
+            if ok: result.addSuccess(self)
+        finally:
+            result.stopTest(self)
+    
 
     def failUnless_w(self, w_condition, msg=None):
         condition = self.space.is_true(w_condition)
@@ -100,15 +146,11 @@ class IntTestCase(unittest.TestCase):
 
 
 class AppTestCase(IntTestCase):
-    def __init__(self, methodName='runTest'):
-        self.methodName = methodName
-        unittest.TestCase.__init__(self, methodName)
-
     def __call__(self, result=None):
         if type(getattr(self, self.methodName)) != WrappedFunc:
             setattr(self, self.methodName,
                 WrappedFunc(self, getattr(self, self.methodName)))
-        return unittest.TestCase.__call__(self, result)
+        return IntTestCase.__call__(self, result)
         
     def setUp(self):
         from pypy.tool import test

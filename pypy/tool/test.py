@@ -1,11 +1,10 @@
 import autopath
-import os, sys, unittest, re, warnings, unittest, traceback
+import os, sys, unittest, re, warnings, unittest, traceback, StringIO
 from unittest import TestCase, TestLoader
 
 import pypy.interpreter.unittest_w
 from pypy.tool.optik import make_option
-from pypy.tool import optik, option
-from pypy.tool.option import objspace
+from pypy.tool import optik, option, ppdb
 
 IntTestCase = pypy.interpreter.unittest_w.IntTestCase
 AppTestCase = pypy.interpreter.unittest_w.AppTestCase
@@ -13,21 +12,13 @@ TestCase = IntTestCase
 
 class MyTestSuite(unittest.TestSuite):
     def __call__(self, result):
-        """ execute the tests, invokes underlyning unittest.__call__"""
+        """ execute the tests, invokes underlying unittest.__call__"""
 
-        # XXX here is probably not the best place 
-        #     to check for test/objspace mismatch 
         count = self.countTestCases()
         if not count:
             return result
 
         fm = getattr(self, 'frommodule','')
-        for spacename  in ('std','trivial','ann'):
-            if fm and fm.startswith('pypy.objspace.' + spacename) and \
-                   Options.spacename != spacename:
-               sys.stderr.write("\n%s skip for objspace %r" % (
-                    fm, Options.spacename))
-               return result
 
         if fm and Options.verbose==0:
             sys.stderr.write('\n%s [%d]' %(fm, count))
@@ -60,21 +51,10 @@ class MyTestResult(unittest.TestResult):
         unittest.TestResult.addError(self, test, err)
     def addSuccess(self, test):
         self.successes.append(test)
+    def addSkip(self, test):
+        self.testsRun -= 1
 
 class MyTextTestResult(unittest._TextTestResult):
-
-    def munge(self, list, test, err):
-        import StringIO
-        from pypy.interpreter.baseobjspace import OperationError
-        text1 = list.pop()[1]
-        if isinstance(err[1], OperationError):
-            sio = StringIO.StringIO()
-            err[1].print_application_traceback(test.space, sio)
-            text2 = sio.getvalue()
-            
-            list.append((test, text1 + "\nand at app-level:\n\n" + text2))
-        else:
-            list.append((test, text1))
         
     def addError(self, test, err):
         from pypy.interpreter.baseobjspace import OperationError
@@ -83,11 +63,71 @@ class MyTextTestResult(unittest._TextTestResult):
                 self.addFailure(test, err)
                 return
         unittest._TextTestResult.addError(self, test, err)
-        self.munge(self.errors, test, err)
+        self.errors[-1] = (test, sys.exc_info())
         
     def addFailure(self, test, err):
         unittest._TextTestResult.addFailure(self, test, err)
-        self.munge(self.failures, test, err)
+        self.failures[-1] = (test, sys.exc_info())
+
+    def addSkip(self, test):
+        self.testsRun -= 1
+        if self.showAll:
+            self.stream.writeln("skipped")
+        elif self.dots:
+            self.stream.write('s')
+
+    def interact(self):
+        efs = self.errors + self.failures
+        from pypy.tool.testpm import TestPM
+        c = TestPM(efs)
+        c.cmdloop()
+        return
+        def proc_input(input):
+            r = int(input)
+            if r < 0 or r >= len(efs):
+                raise ValueError
+            return r
+        while 1:
+            i = 0
+            for t, e in efs:
+                print i, t.methodName
+                i += 1
+            while 1:
+                input = raw_input('itr> ')
+                if not input:
+                    return
+                try:
+                    r = proc_input(input)
+                except ValueError:
+                    continue
+                else:
+                    break
+            s, (t, v, tb) = efs[r]
+            ppdb.post_mortem(s.space, tb, v)
+
+    def printErrors(self):
+        if Options.interactive:
+            print
+            if self.errors or self.failures:
+                self.interact()
+        else:
+            unittest._TextTestResult.printErrors(self)
+
+    def printErrorList(self, flavour, errors):
+        from pypy.interpreter.baseobjspace import OperationError
+        for test, err in errors:
+            self.stream.writeln(self.separator1)
+            self.stream.writeln("%s: %s" % (flavour,self.getDescription(test)))
+            self.stream.writeln(self.separator2)
+            t1 = self._exc_info_to_string(err)
+            t2 = ''
+            if isinstance(err[1], OperationError):
+                t2 = '\nand at app-level:\n\n'
+                sio = StringIO.StringIO()
+                err[1].print_application_traceback(test.space, sio)
+                t2 += sio.getvalue()
+
+            self.stream.writeln("%s" % (t1 + t2,))
 
 class CtsTestRunner:
     def run(self, test):
@@ -197,10 +237,19 @@ class Options(option.Options):
     testreldir = 0
     runcts = 0
     spacename = ''
-    individualtime=0
+    individualtime = 0
+    interactive = 0
     def ensure_value(*args):
         return 0
     ensure_value = staticmethod(ensure_value)
+
+class TestSkip(Exception):
+    pass
+
+def objspace(name=''):
+    if name and Options.spacename and name != Options.spacename:
+        raise TestSkip
+    return option.objspace(name)
 
 class RegexFilterFunc:
     """ stateful function to filter included/excluded strings via
@@ -236,6 +285,9 @@ def get_test_options():
     options.append(make_option(
         '-i', action="store_true", dest="individualtime",
         help="time each test individually"))
+    options.append(make_option(
+        '-k', action="store_true", dest="interactive",
+        help="enter an interactive mode on failure or error"))
     options.append(make_option(
         '-c', action="store_true", dest="runcts",
         help="run CtsTestRunner (catches stdout and prints report "

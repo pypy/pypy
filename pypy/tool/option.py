@@ -40,8 +40,6 @@ def process_options(optionlist, input_options, argv=None):
     op = optik.OptionParser()
     op.add_options(optionlist)
     options, args = op.parse_args(argv, input_options)
-    if not input_options.spaces:
-        input_options.spaces.append(os.environ.get('OBJSPACE', 'trivial'))
     return args
 
 def objspace(name='', _spacecache={}):
@@ -49,12 +47,13 @@ def objspace(name='', _spacecache={}):
 
     this is configured via the environment variable OBJSPACE
     """
+    
     if not name:
-        if hasattr(Options, 'spacename'):
-            name = Options.spacename
-        else:
+        if Options.spaces:
             name = Options.spaces[-1]
-
+        else:
+            name = os.environ.get('OBJSPACE', 'trivial')
+    
     try:
         return _spacecache[name]
     except KeyError:
