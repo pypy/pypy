@@ -77,15 +77,15 @@ def f(x):
             return i
         """
         i = Variable("i")
-	j = Variable("j")
+	    j = Variable("j")
 
-	endbranchelse = EndBranch(i)
+	    endbranchelse = EndBranch(i)
         endbranchif = EndBranch(j)
 
      	conditionres = Variable("conditionres")
-	conditionop = SpaceOperation("lt", [i, Constant(0)], conditionres)
+	    conditionop = SpaceOperation("lt", [i, Constant(0)], conditionres)
 	
-	conditionalbranch = ConditionalBranch(condition, endbranchif, endbranchelse)
+	    conditionalbranch = ConditionalBranch(condition, endbranchif, endbranchelse)
 
         startblock = BasicBlock([i, j], [i, j, conditionres], 
                            [conditionop],
