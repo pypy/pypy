@@ -176,6 +176,12 @@ class TestLLVMArray(object):
         for i in range(10):
             assert f(i) == i
 
+    def test_array_pop(i):
+        f = compile_function(llvmsnippet.array_pop, [int])
+        assert f(0) == 5
+        assert f(1) == 6
+        assert f(2) == 7
+
 class TestClass(object):
     def setup_method(self, method):
         if not llvm_found:

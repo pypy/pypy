@@ -395,7 +395,7 @@ class ListTypeRepr(TypeRepr):
 
     def t_op_getattr(self, l_target, args, lblock, l_func):
         if isinstance(args[1], Constant) and \
-               args[1].value in ["append", "reverse"]:
+               args[1].value in ["append", "reverse", "pop"]:
             l_args0 = self.gen.get_repr(args[0])
             l_func.dependencies.add(l_args0)
             l_method = BoundMethodRepr(l_target.type, l_args0, self, self.gen)

@@ -143,21 +143,3 @@ def traverse_dependencies(l_repr, seen_reprs):
         for l_dep1 in traverse_dependencies(l_dep, seen_reprs):
             yield l_dep1
     yield l_repr
-
-
-def f():
-    a = AAA()
-    b = BBB()
-    return a.g() + b.g() + a.get() + b.get() + AAA.get(b)
-
-t = Translator(f, simplifying=True)
-a = t.annotate([])
-t.simplify()
-a.simplify()
-flg = t.getflowgraph()
-bcls = a.binding(flg.startblock.operations[1].result).classdef
-acls = bcls.basedef
-t.view()
-g = LLVMGenerator(t)
-f1 = g.compile(True)
-print f1(), f()

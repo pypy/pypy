@@ -28,6 +28,7 @@ struct list* newlist() {
     return nlist;
 }
 
+//XXX implement a real newlist with an arbitrary number of args
 struct list* newlist_ALTERNATIVE1(struct item* value) {
     struct list* nlist = malloc(sizeof(struct list));
     nlist->length = 1;
@@ -54,6 +55,19 @@ struct list* newlist_ALTERNATIVE3(struct item* v1, struct item* v2,
     nlist->data[2] = v3;
     return nlist;
 }
+
+struct list* newlist_ALTERNATIVE4(struct item* v1, struct item* v2,
+				  struct item* v3, struct item* v4) {
+    struct list* nlist = malloc(sizeof(struct list));
+    nlist->length = 4;
+    nlist->data = malloc(sizeof(struct item*) * 4);
+    nlist->data[0] = v1;
+    nlist->data[1] = v2;
+    nlist->data[2] = v3;
+    nlist->data[3] = v3;
+    return nlist;
+}
+
 
 struct list* alloc_and_set(int length, struct item* init) {
     unsigned int i = 0;
@@ -119,6 +133,24 @@ void append(struct list* a, struct item* value) {
     free(a->data);
     a->data = newdata;
 }
+
+struct item* pop(struct list* a, int index) {
+    if (index < 0)
+	index = a->length + index;
+    struct item* ret = a->data[index];
+    struct item** newdata = malloc(sizeof(struct item*) * (a->length - 1));
+    copy(a->data, newdata, index);
+    copy(a->data + index + 1, newdata + index, a->length - 1 - index);
+    a->length -= 1;
+    free(a->data);
+    a->data = newdata;
+    return ret;
+}
+
+struct item* pop_ALTERNATIVE1(struct list* a) {
+    return pop(a, a->length - 1);
+}
+
 
 void reverse(struct list* a) {
     unsigned int lo = 0;

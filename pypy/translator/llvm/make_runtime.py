@@ -12,7 +12,7 @@ def get_llvm_code(cfile):
     print cfile 
     bytecode = udir.join("temp.bc")
     lastdir = path.local()
-    ops = ["llvm-gcc -c %s -o %s" % (cfile, bytecode),
+    ops = ["llvm-gcc -O3 -c %s -o %s" % (cfile, bytecode),
            "llvm-dis %s -f" % bytecode]
     for op in ops:
         print op

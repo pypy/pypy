@@ -114,6 +114,11 @@ def array_reverse(i):
 def rangetest(i):
     return range(10)[i]
 
+def array_pop(i):
+    a = [0, 1, 2, 3]
+    return a.pop() + len(a) + a[i]
+
+
 #class snippets
 
 class A(object):
