@@ -302,10 +302,11 @@ def main(skip_selftest=True):
     modules = ts.lastresults.keys()
     modules.sort()
     for module in modules:
+        results = ts.lastresults[module]
         resultstring = ''
-        for result in ts.lastresults[module]:
+        for result in results:
             resultstring += result.status.shortstring
-        print "%s %s" % (module, resultstring)
+        print "%s [%d] %s" % (module, len(results), resultstring)
 
 
 if __name__ == '__main__':
