@@ -122,10 +122,6 @@ class ExecutionContext:
                 return frame.last_exception
         return None
 
-    def clear_exception(self):
-        if operror is not None:
-            operror.clear(space)
-
     def get_state_dict(self):
         """A mechanism to store arbitrary per ExecutionContext data.
         Similar to cpython's PyThreadState_GetDict.

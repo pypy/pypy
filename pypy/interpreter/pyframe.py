@@ -124,18 +124,6 @@ class PyFrame(eval.Frame):
             executioncontext.return_trace(self, w_exitvalue)
             return w_exitvalue
         
-    ### exception stack ###
-
-    def clean_exceptionstack(self):
-        # remove all exceptions that can no longer be re-raised
-        # because the current valuestack is no longer deep enough
-        # to hold the corresponding information
-        while self.exceptionstack:
-            ctlflowexc, valuestackdepth = self.exceptionstack.top()
-            if valuestackdepth <= self.valuestack.depth():
-                break
-            self.exceptionstack.pop()
-
     ### line numbers ###
 
     def fget_f_lineno(space, w_self):
