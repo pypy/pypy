@@ -110,7 +110,7 @@ class FlowGraphDotGen(DotGen):
         lines.append("")
         numblocks = len(block.exits)
         color = "black"
-        fillcolor = "white"
+        fillcolor = getattr(block, "fillcolor", "white")
         if not numblocks:
            shape = "box"
            fillcolor="green"

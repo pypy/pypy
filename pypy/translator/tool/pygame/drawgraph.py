@@ -19,6 +19,14 @@ COLOR = {
     }
 re_nonword=re.compile(r'(\W+)')
 
+def getcolor(name, default):
+    if name in COLOR:
+        return COLOR[name]
+    elif name.startswith('#') and len(name) == 7:
+        return (int(name[1:3],16), int(name[3:5],16), int(name[5:7],16))
+    else:
+        return default
+
 
 class GraphLayout:
 
@@ -233,8 +241,8 @@ class GraphRenderer:
         xcenter, ycenter = self.map(node.x, node.y)
         boxwidth = int(node.w * self.scale)
         boxheight = int(node.h * self.scale)
-        fgcolor = COLOR.get(node.color, (0,0,0))
-        bgcolor = COLOR.get(node.fillcolor, (255,255,255))
+        fgcolor = getcolor(node.color, (0,0,0))
+        bgcolor = getcolor(node.fillcolor, (255,255,255))
 
         text = node.label
         lines = text.replace('\l','\l\n').replace('\r','\r\n').split('\n')
@@ -307,7 +315,7 @@ class GraphRenderer:
         edgebodycmd = []
         edgeheadcmd = []
         for edge in self.graphlayout.edges:
-            fgcolor = COLOR.get(edge.color, (0,0,0))
+            fgcolor = getcolor(edge.color, (0,0,0))
             points = [self.map(*xy) for xy in edge.bezierpoints()]
             
             def drawedgebody(points=points, fgcolor=fgcolor):

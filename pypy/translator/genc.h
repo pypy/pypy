@@ -221,63 +221,59 @@ static PyObject* PyTuple_Pack(int n, ...)
 /* for Python 2.2 only */
 static PyObject* PyObject_GetItem1(PyObject* obj, PyObject* index)
 {
-  int start, stop, step;
-  if (!PySlice_Check(index))
-    return PyObject_GetItem(obj, index);
-  if (((PySliceObject*) index)->start == Py_None)
-    start = -INT_MAX-1;
-  else
-    {
-      start = PyInt_AsLong(((PySliceObject*) index)->start);
-      if (start == -1 && PyErr_Occurred()) return NULL;
-    }
-  if (((PySliceObject*) index)->stop == Py_None)
-    stop = INT_MAX;
-  else
-    {
-      stop = PyInt_AsLong(((PySliceObject*) index)->stop);
-      if (stop == -1 && PyErr_Occurred()) return NULL;
-    }
-  if (((PySliceObject*) index)->step != Py_None)
-    {
-      step = PyInt_AsLong(((PySliceObject*) index)->step);
-      if (step == -1 && PyErr_Occurred()) return NULL;
-      if (step != 1) {
-        PyErr_SetString(PyExc_ValueError, "obj[slice]: no step allowed");
-        return NULL;
-      }
-    }
-  return PySequence_GetSlice(obj, start, stop);
+	int start, stop, step;
+	if (!PySlice_Check(index))
+		return PyObject_GetItem(obj, index);
+	if (((PySliceObject*) index)->start == Py_None)
+		start = -INT_MAX-1;
+	else {
+		start = PyInt_AsLong(((PySliceObject*) index)->start);
+		if (start == -1 && PyErr_Occurred()) return NULL;
+	}
+	if (((PySliceObject*) index)->stop == Py_None)
+		stop = INT_MAX;
+	else {
+		stop = PyInt_AsLong(((PySliceObject*) index)->stop);
+		if (stop == -1 && PyErr_Occurred()) return NULL;
+	}
+	if (((PySliceObject*) index)->step != Py_None) {
+		step = PyInt_AsLong(((PySliceObject*) index)->step);
+		if (step == -1 && PyErr_Occurred()) return NULL;
+		if (step != 1) {
+			PyErr_SetString(PyExc_ValueError,
+					"obj[slice]: no step allowed");
+			return NULL;
+		}
+	}
+	return PySequence_GetSlice(obj, start, stop);
 }
 static PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
 {
-  int start, stop, step;
-  if (!PySlice_Check(index))
-    return PyObject_SetItem(obj, index, v);
-  if (((PySliceObject*) index)->start == Py_None)
-    start = -INT_MAX-1;
-  else
-    {
-      start = PyInt_AsLong(((PySliceObject*) index)->start);
-      if (start == -1 && PyErr_Occurred()) return NULL;
-    }
-  if (((PySliceObject*) index)->stop == Py_None)
-    stop = INT_MAX;
-  else
-    {
-      stop = PyInt_AsLong(((PySliceObject*) index)->stop);
-      if (stop == -1 && PyErr_Occurred()) return NULL;
-    }
-  if (((PySliceObject*) index)->step != Py_None)
-    {
-      step = PyInt_AsLong(((PySliceObject*) index)->step);
-      if (step == -1 && PyErr_Occurred()) return NULL;
-      if (step != 1) {
-        PyErr_SetString(PyExc_ValueError, "obj[slice]: no step allowed");
-        return NULL;
-      }
-    }
-  return PySequence_SetSlice(obj, start, stop, v);
+	int start, stop, step;
+	if (!PySlice_Check(index))
+		return PyObject_SetItem(obj, index, v);
+	if (((PySliceObject*) index)->start == Py_None)
+		start = -INT_MAX-1;
+	else {
+		start = PyInt_AsLong(((PySliceObject*) index)->start);
+		if (start == -1 && PyErr_Occurred()) return NULL;
+	}
+	if (((PySliceObject*) index)->stop == Py_None)
+		stop = INT_MAX;
+	else {
+		stop = PyInt_AsLong(((PySliceObject*) index)->stop);
+		if (stop == -1 && PyErr_Occurred()) return NULL;
+	}
+	if (((PySliceObject*) index)->step != Py_None) {
+		step = PyInt_AsLong(((PySliceObject*) index)->step);
+		if (step == -1 && PyErr_Occurred()) return NULL;
+		if (step != 1) {
+			PyErr_SetString(PyExc_ValueError,
+					"obj[slice]: no step allowed");
+			return NULL;
+		}
+	}
+	return PySequence_SetSlice(obj, start, stop, v);
 }
 #endif
 

@@ -114,7 +114,10 @@ class GraphDisplay(Display):
         else:
             edge = self.viewer.edge_at_position(pos)
             if edge:
-                if not self.look_at_node(edge.head):
+                if (self.distance_to_node(edge.head) >=
+                    self.distance_to_node(edge.tail)):
+                    self.look_at_node(edge.head)
+                else:
                     self.look_at_node(edge.tail)
 
     def sethighlight(self, word=None):
@@ -138,6 +141,11 @@ class GraphDisplay(Display):
             frametime = (now-start) / n
             self.ANIM_STEP = self.ANIM_STEP * 0.9 + frametime * 0.1
         yield 1.0
+
+    def distance_to_node(self, node):
+        cx1, cy1 = self.viewer.getcenter()
+        cx2, cy2 = node.x, node.y
+        return (cx2-cx1)*(cx2-cx1) + (cy2-cy1)*(cy2-cy1)
 
     def look_at_node(self, node):
         """Shift the node in view."""
