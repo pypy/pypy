@@ -309,7 +309,33 @@ class FlowObjSpace(ObjSpace):
 
 implicit_exceptions = {
     'getitem': [IndexError, KeyError],
+    'delitem': [IndexError, KeyError],
+    'getattr': [AttributeError],
+    'delattr': [AttributeError],
+    'iter'   : [TypeError]
     }
+# continuing like above, but in a more programmatic style.
+def _add_exceptions(names, exc):
+    for name in names.split():
+        lis = implicit_exceptions.setdefault(name, [])
+        if exc in lis:
+            raise ValueError, "your list is causing duplication!"
+        lis.append(exc)
+
+_add_exceptions("""div mod divmod truediv floordiv pow
+                   inplace_div inplace_mod inplace_divmod inplace_truediv
+                   inplace_floordiv inplace_pow""", ZeroDivisionError)
+_add_exceptions("""pos neg abs invert add sub mul truediv
+                   floordiv div mod divmod pow lshift
+                   inplace_add inplace_sub inplace_mul inplace_truediv
+                   inplace_floordiv inplace_div inplace_mod inplace_pow
+                   inplace_lshift""", OverflowError)
+_add_exceptions("""pow inplace_pow""", ValueError)
+_add_exceptions("""add sub mul truediv floordiv div mod divmod pow
+                   inplace_add inplace_sub inplace_mul inplace_truediv
+                   inplace_floordiv inplace_div inplace_mod inplace_divmod
+                   inplace_pow""", FloatingPointError)
+del _add_exceptions
 
 def extract_cell_content(c):
     """Get the value contained in a CPython 'cell', as read through
