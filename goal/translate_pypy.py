@@ -18,6 +18,7 @@ Command-line options for translate_pypy:
    -no-d    Disable recording of debugging information
 """
 import autopath, sys, threading, pdb, os
+import buildcache2
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.translator.translator import Translator
@@ -30,7 +31,6 @@ from pypy.tool.udir import udir
 from pypy.translator.tool import buildpyxmodule
 buildpyxmodule.enable_fast_compilation()
 
-#from buildcache import buildcache
 # __________  Entry point  __________
 
 def entry_point():
@@ -38,15 +38,16 @@ def entry_point():
     w_b = W_IntObject(space, -7)
     return space.mul(w_a, w_b)
 
-
 # __________  Main  __________
 
 def analyse(entry_point=entry_point):
     global t, space
     space = StdObjSpace()
-    # call the entry_point once to trigger building of all 
-    # caches (as far as analyzing the entry_point is concerned) 
-    entry_point() 
+    # call cache filling code
+    buildcache2.buildcache(space)    
+    # further call the entry_point once to trigger building remaining
+    # caches (as far as analyzing the entry_point is concerned)
+    entry_point()
     t = Translator(entry_point, verbose=True, simplifying=True)
     if listen_port:
         run_async_server()
