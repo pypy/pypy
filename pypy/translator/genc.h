@@ -97,6 +97,8 @@ static PyObject *this_module_globals;
 #define OP_GETITEM(x,y,r,err)     if (!(r=PyObject_GetItem1(x,y)))   FAIL(err)
 #define OP_SETITEM(x,y,z,r,err)   if ((PyObject_SetItem1(x,y,z))<0)  FAIL(err) \
 				  r=Py_None; Py_INCREF(r);
+#define OP_DELITEM(x,y,r,err)     if ((PyObject_DelItem(x,y))<0)     FAIL(err) \
+				  r=Py_None; Py_INCREF(r);
 #define OP_CONTAINS(x,y,r,err)    op_bool(r,err,(PySequence_Contains(x,y)))
 
 #define OP_GETATTR(x,y,r,err)     if (!(r=PyObject_GetAttr(x,y)))    FAIL(err)
@@ -115,6 +117,7 @@ static PyObject *this_module_globals;
 
 #define OP_SIMPLE_CALL(args,r,err) if (!(r=PyObject_CallFunctionObjArgs args)) \
 					FAIL(err)
+#define OP_CALL(x,y,z,r,err)      if (!(r=PyObject_Call(x,y,z)))     FAIL(err)
 
 /* Needs to act like getattr(x, '__class__', type(x)) */
 #define OP_TYPE(x,r,err) { \
@@ -262,6 +265,8 @@ static PyTypeObject PyGenCFunction_Type = {
 
 #define OP_NEWLIST0(r,err)         if (!(r=PyList_New(0))) FAIL(err)
 #define OP_NEWLIST(args,r,err)     if (!(r=PyList_Pack args)) FAIL(err)
+#define OP_NEWDICT0(r,err)         if (!(r=PyDict_New())) FAIL(err)
+#define OP_NEWDICT(args,r,err)     if (!(r=PyDict_Pack args)) FAIL(err)
 #define OP_NEWTUPLE(args,r,err)    if (!(r=PyTuple_Pack args)) FAIL(err)
 
 #if defined(USE_CALL_TRACE)
@@ -550,6 +555,30 @@ static PyObject* PyList_Pack(int n, ...)
 		o = va_arg(vargs, PyObject *);
 		Py_INCREF(o);
 		PyList_SET_ITEM(result, i, o);
+	}
+	va_end(vargs);
+	return result;
+}
+
+static PyObject* PyDict_Pack(int n, ...)
+{
+	int i;
+	PyObject *key, *val;
+	PyObject *result;
+	va_list vargs;
+
+	va_start(vargs, n);
+	result = PyDict_New();
+	if (result == NULL) {
+		return NULL;
+	}
+	for (i = 0; i < n; i++) {
+		key = va_arg(vargs, PyObject *);
+		val = va_arg(vargs, PyObject *);
+		if (PyDict_SetItem(result, key, val) < 0) {
+			Py_DECREF(result);
+			return NULL;
+		}
 	}
 	va_end(vargs);
 	return result;

@@ -70,7 +70,11 @@ def make_module_from_c(cfile, include_dirs=None):
             finally:
                 foutput, foutput = c.done()
         except:
-            print foutput.read()
+            data = foutput.read()
+            fdump = open("%s.errors" % modname, "w")
+            fdump.write(data)
+            fdump.close()
+            print data
             raise
         # XXX do we need to do some check on fout/ferr?
         # XXX not a nice way to import a module

@@ -159,7 +159,7 @@ class GenC:
                                           '0' <= c <='9' or
                                           '_' == c )]
         name = self.uniquename('gstr_' + ''.join(chrs))
-        if [c for c in value if not (' '<=c<='~')]:
+        if [c for c in value if c<' ' or c>'~' or c=='"' or c=='\\')]:
             # non-printable string
             s = 'chr_%s' % name
             self.globaldecl.append('static char %s[] = { %s };' % (
@@ -766,6 +766,14 @@ MODULE_INITFUNC(%(modname)s)
         else:
             args.insert(0, '%d' % len(args))
             return 'OP_NEWLIST((%s), %s, %s)' % (', '.join(args), r, err)
+
+    def OP_NEWDICT(self, args, r, err):
+        if len(args) == 0:
+            return 'OP_NEWDICT0(%s, %s)' % (r, err)
+        else:
+            assert len(args) % 2 == 0
+            args.insert(0, '%d' % (len(args)//2))
+            return 'OP_NEWDICT((%s), %s, %s)' % (', '.join(args), r, err)
 
     def OP_NEWTUPLE(self, args, r, err):
         args.insert(0, '%d' % len(args))
