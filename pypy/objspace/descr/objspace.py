@@ -44,6 +44,36 @@ class DescrObjSpace(ObjSpace):
     # rest of 1 args methods
     # special cases
     
+# helper for invoking __cmp__
+
+def _cmp(space,w_obj1,w_obj2):
+    w_typ1 = space.type(w_obj1)
+    w_typ2 = space.type(w_obj2)
+    if space.issubtype(w_typ1,w_typ2):
+        w_right_impl = space.lookup(w_obj2, '__cmp__')
+        if w_right_impl is not None:
+            w_res = space.get_and_call_function(w_right_impl,w_obj2,w_obj1)
+            if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
+                return space.neg(w_res)
+        w_left_impl = space.lookup(w_obj1, '__cmp__')
+        if w_left_impl is not None:
+            w_res = space.get_and_call_function(w_left_impl,w_obj1,w_obj2)
+            if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
+                return w_res
+    else:
+        w_left_impl = space.lookup(w_obj1, '__cmp__')
+        if w_left_impl is not None:
+            w_res = space.get_and_call_function(w_left_impl,w_obj1,w_obj2)
+            if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
+                return w_res
+        w_right_impl = space.lookup(w_obj2, '__cmp__')
+        if w_right_impl is not None:
+            w_res = space.get_and_call_function(w_right_impl,w_obj2,w_obj1)
+            if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
+                return space.neg(w_res)
+    raise OperationError(space.w_TypeError) # xxx error
+    
+
         
 # regular methods def helpers
 def _make_binary_impl(specialnames):
