@@ -36,7 +36,7 @@ from pypy.annotation.annset import *
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.genpyrex import GenPyrex
-#from pypy.translator.gencl import GenCL
+from pypy.translator.gencl import GenCL
 from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring
 from pypy.objspace.flow import FlowObjSpace
 
@@ -129,7 +129,7 @@ class Translator:
         """
         return self.generatecode(GenPyrex, input_arg_types, func)
 
-    def cl(self, input_arg_types=None):
+    def cl(self, input_arg_types=None, func=None):
         """cl(self[, input_arg_types][, func]) -> Common Lisp translation
         
         Returns Common Lisp translation. If input_arg_types is provided,
