@@ -71,8 +71,9 @@ class PyInterpFrame(pyframe.PyFrame):
     def getconstant_w(self, index):
         return self.code.co_consts_w[index]
 
-    def getname(self, index):
-        return self.code.co_names[index]
+    def getname_w(self, index):
+        varname = self.code.co_names_w[index]
+        return varname
 
 
     ################################################################
@@ -424,14 +425,12 @@ class PyInterpFrame(pyframe.PyFrame):
         f.valuestack.push(w_newclass)
 
     def STORE_NAME(f, varindex):
-        varname = f.getname(varindex)
-        w_varname = f.space.wrap(varname)
+        w_varname = f.getname_w(varindex)
         w_newvalue = f.valuestack.pop()
         f.space.setitem(f.w_locals, w_varname, w_newvalue)
 
     def DELETE_NAME(f, varindex):
-        varname = f.getname(varindex)
-        w_varname = f.space.wrap(varname)
+        w_varname = f.getname_w(varindex)
         try:
             f.space.delitem(f.w_locals, w_varname)
         except OperationError, e:
@@ -453,33 +452,28 @@ class PyInterpFrame(pyframe.PyFrame):
 
     def STORE_ATTR(f, nameindex):
         "obj.attributename = newvalue"
-        attributename = f.getname(nameindex)
-        w_attributename = f.space.wrap(attributename)
+        w_attributename = f.getname_w(nameindex)
         w_obj = f.valuestack.pop()
         w_newvalue = f.valuestack.pop()
         f.space.setattr(w_obj, w_attributename, w_newvalue)
 
     def DELETE_ATTR(f, nameindex):
         "del obj.attributename"
-        attributename = f.getname(nameindex)
-        w_attributename = f.space.wrap(attributename)
+        w_attributename = f.getname_w(nameindex)
         w_obj = f.valuestack.pop()
         f.space.delattr(w_obj, w_attributename)
 
     def STORE_GLOBAL(f, nameindex):
-        varname = f.getname(nameindex)
-        w_varname = f.space.wrap(varname)
+        w_varname = f.getname_w(nameindex)
         w_newvalue = f.valuestack.pop()
         f.space.setitem(f.w_globals, w_varname, w_newvalue)
 
     def DELETE_GLOBAL(f, nameindex):
-        varname = f.getname(nameindex)
-        w_varname = f.space.wrap(varname)
+        w_varname = f.getname_w(nameindex)
         f.space.delitem(f.w_globals, w_varname)
 
     def LOAD_NAME(f, nameindex):
-        varname = f.getname(nameindex)
-        w_varname = f.space.wrap(varname)
+        w_varname = f.getname_w(nameindex)
 
         if f.w_globals is f.w_locals:
             try_list_w = [f.w_globals, f.w_builtins]
@@ -497,7 +491,7 @@ class PyInterpFrame(pyframe.PyFrame):
             except OperationError, e:
                 if not e.match(f.space, f.space.w_KeyError):
                     raise
-        message = "name '%s' is not defined" % varname
+        message = "name '%s' is not defined" % f.space.str_w(w_varname)
         w_exc_type = f.space.w_NameError
         w_exc_value = f.space.wrap(message)
         raise OperationError(w_exc_type, w_exc_value)
@@ -511,8 +505,7 @@ class PyInterpFrame(pyframe.PyFrame):
 
     def LOAD_GLOBAL(f, nameindex):
         assert f.w_globals is not None
-        varname = f.getname(nameindex)
-        w_varname = f.space.wrap(varname)
+        w_varname = f.getname_w(nameindex)
         try:
             w_value = f.space.getitem(f.w_globals, w_varname)
         except OperationError, e:
@@ -526,7 +519,7 @@ class PyInterpFrame(pyframe.PyFrame):
                 # catch KeyErrors again
                 if not e.match(f.space, f.space.w_KeyError):
                     raise
-                message = "global name '%s' is not defined" % varname
+                message = "global name '%s' is not defined" % f.space.str_w(w_varname)
                 w_exc_type = f.space.w_NameError
                 w_exc_value = f.space.wrap(message)
                 raise OperationError(w_exc_type, w_exc_value)
@@ -559,8 +552,7 @@ class PyInterpFrame(pyframe.PyFrame):
 
     def LOAD_ATTR(f, nameindex):
         "obj.attributename"
-        attributename = f.getname(nameindex)
-        w_attributename = f.space.wrap(attributename)
+        w_attributename = f.getname_w(nameindex)
         w_obj = f.valuestack.pop()
         w_value = f.space.getattr(w_obj, w_attributename)
         f.valuestack.push(w_value)
@@ -608,7 +600,8 @@ class PyInterpFrame(pyframe.PyFrame):
 
     def IMPORT_NAME(f, nameindex):
         space = f.space
-        modulename = f.getname(nameindex)
+        w_modulename = f.getname_w(nameindex)
+        modulename = f.space.str_w(w_modulename)
         w_fromlist = f.valuestack.pop()
         try:
             w_import = space.getitem(f.w_builtins, space.wrap("__import__"))
@@ -631,8 +624,7 @@ class PyInterpFrame(pyframe.PyFrame):
         f.setdictscope(w_locals)
 
     def IMPORT_FROM(f, nameindex):
-        name = f.getname(nameindex)
-        w_name = f.space.wrap(name)
+        w_name = f.getname_w(nameindex)
         w_module = f.valuestack.top()
         try:
             w_obj = f.space.getattr(w_module, w_name)
@@ -640,7 +632,7 @@ class PyInterpFrame(pyframe.PyFrame):
             if not e.match(f.space, f.space.w_AttributeError):
                 raise
             raise OperationError(f.space.w_ImportError,
-                             f.space.wrap("cannot import name '%s'" % name))
+                             f.space.wrap("cannot import name '%s'" % f.space.str_w(w_name) ))
         f.valuestack.push(w_obj)
 
     def JUMP_FORWARD(f, stepby):

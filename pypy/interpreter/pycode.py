@@ -54,7 +54,7 @@ class PyCode(eval.Code):
         self.co_flags = 0            # CO_..., see above
         self.co_code = None          # string: instruction opcodes
         self.co_consts_w = ()        # tuple: constants used (wrapped!)
-        self.co_names = ()           # tuple of strings: names (for attrs,...)
+        self.co_names_w = []         # list of wrapped strings: names (for attrs,...)
         self.co_varnames = ()        # tuple of strings: local variable names
         self.co_freevars = ()        # tuple of strings: free variable names
         self.co_cellvars = ()        # tuple of strings: cell variable names
@@ -87,7 +87,7 @@ class PyCode(eval.Code):
         self.co_code = x
         #self.co_consts = <see below>
         x = code.co_names; assert isinstance(x, tuple)
-        self.co_names = x
+        self.co_names_w = [ self.space.wrap(i) for i in x ] 
         x = code.co_varnames; assert isinstance(x, tuple)
         self.co_varnames = x
         x = code.co_freevars; assert isinstance(x, tuple)
@@ -153,6 +153,10 @@ class PyCode(eval.Code):
     def fget_co_consts(space, w_self):
         self = space.interpclass_w(w_self)
         return space.newtuple(self.co_consts_w)
+    
+    def fget_co_names(space, w_self):
+        self = space.interpclass_w(w_self)
+        return space.newtuple(self.co_names_w)
 
     def descr_code__new__(space, w_subtype,
                           w_argcount, w_nlocals, w_stacksize, w_flags,
@@ -168,7 +172,7 @@ class PyCode(eval.Code):
         code.co_flags      = space.int_w(w_flags)
         code.co_code       = space.str_w(w_codestring)
         code.co_consts_w   = space.unpacktuple(w_constants)
-        code.co_names      = unpack_str_tuple(space, w_names)
+        code.co_names_w    = space.unpacktuple(w_names)
         code.co_varnames   = unpack_str_tuple(space, w_varnames)
         code.co_filename   = space.str_w(w_filename)
         code.co_name       = space.str_w(w_name)
