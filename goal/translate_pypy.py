@@ -42,6 +42,8 @@ def entry_point():
 
 def analyse(entry_point=entry_point):
     global t, space
+    # disable translation of the whole of classobjinterp.py
+    StdObjSpace.setup_old_style_classes = lambda self: None
     space = StdObjSpace()
     # call cache filling code
     buildcache2.buildcache(space)    
