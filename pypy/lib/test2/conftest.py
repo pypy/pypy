@@ -52,7 +52,7 @@ class UnittestModuleOnCPython(py.test.collect.Module):
     def _iter(self): 
         name = self.fspath.purebasename 
         mod = make_cpy_module(name, self.fspath) 
-        tlist = conftest.app_list_testmethods(mod, self.TestCase) 
+        tlist = conftest.app_list_testmethods(mod, self.TestCase, [])
         for (setup, teardown, methods) in tlist: 
             for name, method in methods: 
                 yield CpyTestCaseMethod(self.fspath, name, method, 
