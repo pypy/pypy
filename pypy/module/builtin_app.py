@@ -19,8 +19,8 @@ def isinstance(obj, klass_or_tuple):
            if issubclass(objcls, klass):
               return 1
        return 0
-    elif type(klass_ot_tuple) == types.ClassType:
-       return issubclass(objcls, klass)
+    elif type(klass_or_tuple) == types.ClassType:
+       return issubclass(objcls, klass_or_tuple)
     else:
        raise TypeError, "isinstance() arg 2 must be a class or type"
  
