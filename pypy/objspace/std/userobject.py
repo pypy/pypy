@@ -1,3 +1,11 @@
+"""
+Reviewed 03-06-22
+This object implements "instances of custom types" completely and
+accurately.  We have selectively tested (in the testfile) a key
+selection of features: setting and getting attributes and the
+correct working of inheritance from both builtin and user types
+as well as of normal and special attributes.
+"""
 from pypy.objspace.std.objspace import *
 from usertype import W_UserType
 import typeobject

@@ -1,3 +1,6 @@
+"""
+Reviewed 03-06-22
+"""
 from __future__ import nested_scopes
 from pypy.objspace.std.objspace import *
 import typeobject, objecttype
@@ -42,6 +45,14 @@ class W_UserType(W_TypeObject):
 
 
 # XXX we'll worry about the __new__/__init__ distinction later
+# XXX NOTE: currently (03-06-21) user-object can only sublass
+#   types which register an implementation for ´new´ -- currently
+#   this means that e.g. subclassing list or str works, subclassing
+#   int or float does not -- this is not a bug fixable in userobject
+#   (perhaps in the object-space, perhaps in each builtin type...?)
+#   but we're documenting it here as there seems no better place!!!
+#   The problem is actually that, currently, several types such as
+#   int and float just cannot be CALLED -- this needs to be fixed soon.
 def usertype_new(space, w_usertype, w_args, w_kwds):
     from userobject import W_UserObject
     newobj = W_UserObject(space, w_usertype, w_args, w_kwds)
