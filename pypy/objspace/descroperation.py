@@ -55,6 +55,7 @@ class Object:
         pass   # XXX some strange checking maybe
 
 class DescrOperation:
+    _mixin_ = True
 
     def getdict(space, w_obj):
         return w_obj.getdict()
