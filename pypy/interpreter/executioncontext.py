@@ -123,7 +123,7 @@ class OperationError(Exception):
                         l = ''
                 else:
                     l = linecache.getline(fname, lineno)
-                print >> file, "  File", `fname`+',',
+                print >> file, "  File \"%s\"," % fname,
                 print >> file, "line", lineno, "in", co.co_name
                 if l:
                     if l.endswith('\n'):
