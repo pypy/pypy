@@ -43,7 +43,7 @@ def eq__Slice_Slice(space, w_slice1, w_slice2):
         return space.w_False
 
 def hash__Slice(space, w_slice):
-    """space are not hashables but they must have a __hash__ method"""
+    """slices are not hashables but they must have a __hash__ method"""
     raise OperationError(space.w_TypeError,
                          space.wrap("unhashable type"))
 
