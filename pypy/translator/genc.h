@@ -7,6 +7,10 @@
 #include "frameobject.h"
 #include "structmember.h"
 
+#ifndef MIN
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#endif /* MIN */
+
 static PyObject *this_module_globals;
 
 /* Turn this off if you don't want the call trace frames to be built */
@@ -209,13 +213,19 @@ static PyCodeObject* getcode(char *func_name, char *func_filename, int lineno);
 static int trace_frame(PyThreadState *tstate, PyFrameObject *f, int code, PyObject *val);
 static int trace_frame_exc(PyThreadState *tstate, PyFrameObject *f);
 
-static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, char *c_signature, char *filename, int c_lineno, PyThreadState *tstate) {
+static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, char *c_signature, char *filename, int c_lineno, PyThreadState *tstate, PyObject *extra_local_names) {
+	/*
+		STEALS a reference to extra_local_names if not NULL
+	*/
+
 	PyCodeObject *c;
 	PyFrameObject *f;
 	PyObject *locals;
 	PyObject *locals_signature;
 	PyObject *locals_lineno;
 	PyObject *locals_filename;
+	int i;
+	int max_locals;
 
 	if (function == NULL || args == NULL || tstate == NULL) {
 		printf("BAD ARGUMENTS!\n");
@@ -243,6 +253,13 @@ static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, c
 	Py_DECREF(locals_signature);
 	Py_DECREF(locals_lineno);
 	Py_DECREF(locals_filename);
+	if (extra_local_names != NULL) {
+		int max_locals = MIN(PyList_Size(extra_local_names), PyTuple_Size(args));
+		for (i = 0; i < max_locals; ++i) {
+			PyDict_SetItem(locals, PyList_GET_ITEM(extra_local_names, i), PyTuple_GET_ITEM(args, i));
+		}
+	}
+
 	callstack_depth++;
 	c = getcode(c_signature, filename, c_lineno);
 	if (c == NULL) {
@@ -317,7 +334,7 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 	Py_DECREF(allargs);
 
 	tstate = PyThreadState_GET();
-	f = traced_function_head(function, args, c_signature, filename, c_lineno, tstate);
+	f = traced_function_head(function, args, c_signature, filename, c_lineno, tstate, NULL);
 	if (f == NULL) {
 		Py_DECREF(function);
 		Py_DECREF(args);
@@ -333,9 +350,10 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 #define OP_SIMPLE_CALL(args, r, err) if ((r = traced_function_call(PyTuple_CrazyPack args, INSIDE_FUNCTION " OP_SIMPLE_CALL" #args, __FILE__, __LINE__)) == NULL) \
 					goto err;
 
-#define FUNCTION_HEAD(signature, self, args) \
+#define FUNCTION_HEAD(signature, self, args, names) \
 	PyThreadState *__tstate = PyThreadState_GET(); \
-	PyFrameObject *__f = traced_function_head(self, args, signature, __FILE__, __LINE__, __tstate); \
+	PyObject *__localnames = PyList_CrazyStringPack names; \
+	PyFrameObject *__f = traced_function_head(self, args, signature, __FILE__, __LINE__, __tstate, __localnames); \
 	if (__f == NULL) { \
 		printf("frame is null, wtf?!\n"); \
 		return NULL; \
@@ -411,6 +429,46 @@ static PyObject* PyList_CrazyPack(PyObject *begin, ...)
 	va_end(vargs);
 	return result;
 }
+static PyObject* PyList_CrazyStringPack(char *begin, ...)
+{
+	int i;
+	PyObject *o;
+	PyObject *result;
+	va_list vargs;
+
+	result = PyList_New(0);
+	if (result == NULL || begin == NULL) {
+		return result;
+	}
+	va_start(vargs, begin);
+	o = PyString_FromString(begin);
+	if (o == NULL) {
+		Py_XDECREF(result);
+		return NULL;
+	}
+	if (PyList_Append(result, o) == -1) {
+		Py_DECREF(o);
+		Py_XDECREF(result);
+		return result;
+	}
+	Py_DECREF(o);
+	while ((begin = va_arg(vargs, char *)) != NULL) {
+		o = PyString_FromString(begin);
+		if (o == NULL) {
+			Py_XDECREF(result);
+			return NULL;
+		}
+		if (PyList_Append(result, o) == -1) {
+			Py_DECREF(o);
+			Py_XDECREF(result);
+			return NULL;
+		}
+		Py_DECREF(o);
+	}
+	va_end(vargs);
+	return result;
+}
+
 
 
 static PyObject* PyList_Pack(int n, ...)

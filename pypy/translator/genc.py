@@ -441,9 +441,11 @@ class GenC:
         print >> f, '{'
         print >> f, '\t#undef INSIDE_FUNCTION'
         print >> f, '\t#define INSIDE_FUNCTION "%s"' % (f_name,)
-        print >> f, '\tFUNCTION_HEAD(%s, %s, args)' % (
+        print >> f, '\tFUNCTION_HEAD(%s, %s, args, %s)' % (
             c_string('%s(%s)' % (name, ', '.join(name_of_defaults))),
-            name)
+            name,
+            '(%s)' % (', '.join(map(c_string, name_of_defaults) + ['NULL']),),
+        )
 
         # collect and print all the local variables
         graph = self.translator.getflowgraph(func)
