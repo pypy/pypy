@@ -12,7 +12,7 @@ def execfile(filename, glob=None, loc=None):
             loc = caller.f_locals
     elif loc is None:
         loc = glob
-    f = file(filename)
+    f = file(filename, 'rU')
     try:
         source = f.read()
     finally:

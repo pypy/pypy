@@ -397,3 +397,32 @@ class TestInternal:
             space.wrap(fn), w_dict, space.w_None)
         w_value = space.getitem(w_dict, space.wrap('i'))
         assert self.space.eq_w(w_value, space.wrap(42))
+
+    def test_execfile_different_lineendings(self): 
+        space = self.space
+        from pypy.tool.udir import udir
+        d = udir.ensure('lineending', dir=1)
+        dos = d.join('dos.py') 
+        f = dos.open('wb') 
+        f.write("x=3\r\n\r\ny=4\r\n")
+        f.close() 
+        space.appexec([space.wrap(str(dos))], """
+            (filename): 
+                d = {}
+                execfile(filename, d)
+                assert d['x'] == 3
+                assert d['y'] == 4
+        """)
+
+        unix = d.join('unix.py')
+        f = unix.open('wb') 
+        f.write("x=5\n\ny=6\n")
+        f.close() 
+
+        space.appexec([space.wrap(str(unix))], """
+            (filename): 
+                d = {}
+                execfile(filename, d)
+                assert d['x'] == 5
+                assert d['y'] == 6
+        """)
