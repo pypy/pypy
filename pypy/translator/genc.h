@@ -60,7 +60,7 @@ static PyObject *this_module_globals;
 #define OP_FLOORDIV(x,y,r,err)    if (!(r=PyNumber_FloorDivide(x,y)))FAIL(err)
 #define OP_DIV(x,y,r,err)         if (!(r=PyNumber_Divide(x,y)))     FAIL(err)
 #define OP_MOD(x,y,r,err)         if (!(r=PyNumber_Remainder(x,y)))  FAIL(err)
-#define OP_POW(x,y,r,err)         if (!(r=PyNumber_Power(x,y,Py_None)))FAIL(err)
+#define OP_POW(x,y,z,r,err)       if (!(r=PyNumber_Power(x,y,z)))    FAIL(err)
 #define OP_LSHIFT(x,y,r,err)      if (!(r=PyNumber_Lshift(x,y)))     FAIL(err)
 #define OP_RSHIFT(x,y,r,err)      if (!(r=PyNumber_Rshift(x,y)))     FAIL(err)
 #define OP_AND_(x,y,r,err)        if (!(r=PyNumber_And(x,y)))        FAIL(err)
