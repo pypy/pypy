@@ -182,7 +182,7 @@ class CTypeSet:
         r_obj, r_attr, r_result = hltypes
         if isinstance(r_obj, CInstance) and isinstance(r_attr, CConstant):
             # record the OP_GETATTR operation for this field
-            fld = r_obj.llclass.getfield(r_attr.value)
+            fld = r_obj.llclass.get_instance_field(r_attr.value)
             if fld is not None:
                 sig = (r_obj, constant_representation(fld.name), fld.hltype)
                 yield sig, genc_op.LoGetAttr.With(
@@ -195,7 +195,7 @@ class CTypeSet:
         r_obj, r_attr, r_value, r_voidresult = hltypes
         if isinstance(r_obj, CInstance):
             # record the OP_SETATTR operation for this field
-            fld = r_obj.llclass.getfield(r_attr.value)
+            fld = r_obj.llclass.get_instance_field(r_attr.value)
             if fld is not None:
                 sig = (r_obj, constant_representation(fld.name), fld.hltype,
                        R_VOID)

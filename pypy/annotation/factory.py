@@ -152,6 +152,7 @@ class ClassDef:
 
     def __init__(self, cls, bookkeeper):
         self.attrs = {}          # attrs is updated with new information
+        self.readonly = {}       # {attr: True-or-False}
         self.revision = 0        # which increases the revision number
         self.instancefactories = {}
         self.cls = cls
@@ -208,7 +209,7 @@ class ClassDef:
             factories.update(clsdef.instancefactories)
         return factories
 
-    def generalize(self, attr, s_value, bookkeeper=None):
+    def generalize(self, attr, s_value, bookkeeper=None, readonly=True):
         # we make sure that an attribute never appears both in a class
         # and in some subclass, in two steps:
         # (1) check if the attribute is already in a superclass
@@ -221,10 +222,13 @@ class ClassDef:
         for subdef in self.getallsubdefs():
             if attr in subdef.attrs:
                 subclass_values.append(subdef.attrs[attr])
+                readonly = readonly and subdef.readonly[attr]
                 del subdef.attrs[attr]
+                del subdef.readonly[attr]
             # bump the revision number of this class and all subclasses
             subdef.revision += 1
         self.attrs[attr] = unionof(s_value, *subclass_values)
+        self.readonly[attr] = readonly
         # reflow from all factories
         if bookkeeper:
             for factory in self.getallfactories():

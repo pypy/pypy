@@ -17,10 +17,11 @@ r_ends_in_underscore_digit = re.compile(r'_\d+$')
 class ClassField:
     "An attribute of a class, mapped to some field(s) of a low-level struct."
     
-    def __init__(self, hltype, name, llclass):
+    def __init__(self, hltype, name, llclass, is_class_attr):
         self.hltype  = hltype
         self.name    = name
         self.llclass = llclass
+        self.is_class_attr = is_class_attr
         varname = '%s_%s' % (llclass.field_prefix, name)
         # to avoid name collisions between the 2nd lltype of a field called xyz
         # and another field whose name is exactly xyz_1, forbid field names
@@ -48,49 +49,50 @@ class LLClass(LLTyper):
     """Low-level representation of a class as a structure and
     global functions that operate on it."""
     
-    def __init__(self, typeset, name, cdef):
+    def __init__(self, typeset, name, cdef, llparent):
         LLTyper.__init__(self, typeset)
         self.typeset = typeset
         self.name = name
         self.cdef = cdef    # instance of pypy.annotator.factory.ClassDef
+        self.llparent = llparent
         self.bindings = typeset.bindings
+        self.s_instance = annmodel.SomeInstance(self.cdef)
 
         # collect the fields that the annotator deduced for this class
         cls = cdef.cls
         mainletters = [c.lower() for c in cls.__name__ if 'A' <= c <= 'Z']
         self.field_prefix = ''.join(mainletters[:3] or ['f'])
-        self.fields = [ClassField(typeset.gethltype(s_value), attr, self)
-                       for attr, s_value in cdef.attrs.items()]
-
-        self.pyobj_fields = [  # XXX this should not be necessary
-            fld.name for fld in self.fields if fld.hltype == R_OBJECT]
-        self.s_instance = annmodel.SomeInstance(self.cdef)
-
-    def getparent(self):
-        if self.cdef.basedef is None:
-            return None
+        self.fields_here = [ClassField(typeset.gethltype(s_value), attr, self,
+                                       is_class_attr = cdef.readonly[attr])
+                            for attr, s_value in cdef.attrs.items()]
+        # fields are divided in instance attributes and class attributes
+        # according to whether they are ever accessed with SET_ATTR or not
+        if llparent:
+            self.instance_fields = list(llparent.instance_fields)
+            self.class_fields    = list(llparent.class_fields)
         else:
-            return self.typeset.genc.llclasses[self.cdef.basedef.cls]
+            self.instance_fields = []
+            self.class_fields    = []
+        self.instance_fields += [fld for fld in self.fields_here
+                                 if not fld.is_class_attr]
+        self.class_fields    += [fld for fld in self.fields_here
+                                 if fld.is_class_attr]
 
-    def getfield(self, name):
+    def get_instance_field(self, name):
         """Returns the ClassField corresponding to this attribute name.
         Keep in mind that it might be from some parent LLClass."""
-        while self is not None:
-            for fld in self.fields:
-                if fld.name == name:
-                    return fld
-            self = self.getparent()
+        for fld in self.instance_fields:
+            if fld.name == name:
+                return fld
         return None
 
-    def getfields(self):
-        "Return the list of all fields, including the ones from the parent."
-        parent = self.getparent()
-        if parent is None:
-            fields = []
-        else:
-            fields = parent.getfields()
-        fields += self.fields
-        return fields
+    def get_class_field(self, name):
+        """Returns the ClassField corresponding to this class attribute name.
+        Keep in mind that it might be from some parent LLClass."""
+        for fld in self.class_fields:
+            if fld.name == name:
+                return fld
+        return None
 
     def get_management_functions(self):
         "Generate LLFunctions that operate on this class' structure."
@@ -115,8 +117,8 @@ class LLClass(LLTyper):
         cls = self.cdef.cls
         v1 = op('alloc_instance', Constant(cls),
                 s_result = self.s_instance)
-        # class attributes are used as defaults to initialize fields
-        for fld in self.getfields():
+        # class attributes are used as defaults to initialize instance fields
+        for fld in self.instance_fields:
             if hasattr(cls, fld.name):
                 value = getattr(cls, fld.name)
                 op('setattr', v1, Constant(fld.name), Constant(value),

@@ -107,13 +107,14 @@ class __extend__(SomeInstance):
                     # look for the attribute in ins.classdef or a parent class
                     s_existing = clsdef.attrs[attr]
                     if s_existing.contains(s_value):
+                        clsdef.readonly[attr] = False
                         return   # already general enough, nothing to do
                     break
             else:
                 # if the attribute doesn't exist yet, create it here
                 clsdef = ins.classdef
             # create or update the attribute in clsdef
-            clsdef.generalize(attr, s_value, getbookkeeper())
+            clsdef.generalize(attr, s_value, getbookkeeper(), readonly=False)
             raise BlockedInference
         return SomeObject()
 
