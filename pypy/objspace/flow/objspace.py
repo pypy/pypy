@@ -29,6 +29,8 @@ class FlowObjSpace(ObjSpace):
     full_exceptions = False
 
     resolve_constants = True  # used by the appflowspace    
+
+    builtins_can_raise_exceptions = False
     
     def initialize(self):
         import __builtin__
@@ -290,7 +292,8 @@ class FlowObjSpace(ObjSpace):
             c = w_callable.value
             if isinstance(c, (types.BuiltinFunctionType,
                               types.BuiltinMethodType)):
-                exceptions = None
+                if not self.builtins_can_raise_exceptions:
+                    exceptions = None
             elif (isinstance(c, (type, types.ClassType)) and
                   c.__module__ in ['__builtin__', 'exceptions']):
                 exceptions = None
