@@ -199,7 +199,12 @@ class Test_DictObject(test.AppTestCase):
         self.assertEqual(d, {'a':33, 'b':44, 23:45})
         d = dict(a=33, b=44)
         self.assertEqual(d, {'a':33, 'b':44})
-        
+        try: d = dict(23)
+        except (TypeError, ValueError): pass
+        else: self.fail("dict(23) should raise!")
+        try: d = dict([[1,2,3]])
+        except (TypeError, ValueError): pass
+        else: self.fail("dict([[1,2,3]]) should raise!")
 
 if __name__ == '__main__':
     test.main()

@@ -36,7 +36,11 @@ def dicttype_new(space, w_listtype, w_args, w_kwds):
         list_of_w_pairs = space.unpackiterable(args[0])
         list_of_w_pairs.reverse()
         for pair_w in list_of_w_pairs:
-            k, v = space.unpackiterable(pair_w)
+            pair = space.unpackiterable(pair_w)
+            if len(pair)!=2:
+                raise OperationError(space.w_ValueError,
+                             space.wrap("dict() takes a sequence of pairs"))
+            k, v = pair
             if not space.is_true(space.contains(w_kwds, k)):
                 space.setitem(w_kwds, k, v)
     else:
