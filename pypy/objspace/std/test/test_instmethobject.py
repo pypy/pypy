@@ -19,5 +19,19 @@ class TestInstMethObjectApp(testit.AppTestCase):
         self.assertRaises(TypeError, unboundMethod, 333)
         self.assertRaises(TypeError, unboundMethod, [1,2,3], 333)
 
+    def test_getBound(self):
+        def f(l,x): return l[x+1]
+        bound = _pypy_get(f, 'abcdef')   # XXX replace with f.__get__()
+        self.assertEquals(bound(1), 'c')
+        self.assertRaises(TypeError, bound)
+        self.assertRaises(TypeError, bound, 2, 3)
+    def test_getUnbound(self):
+        def f(l,x): return l[x+1]
+        unbound = _pypy_get(f, None, str)   # XXX replace with f.__get__()
+        self.assertEquals(unbound('abcdef', 2), 'd')
+        self.assertRaises(TypeError, unbound)
+        self.assertRaises(TypeError, unbound, 4)
+        self.assertRaises(TypeError, unbound, 4, 5)
+
 if __name__ == '__main__':
     testit.main()
