@@ -12,7 +12,7 @@ class TestInstMethObject(test.TestCase):
         w_boundmeth = space.getattr(w_list, space.wrap('__len__'))
         w_unboundmeth = W_InstMethObject(space,
                                          w_boundmeth.w_im_func,
-                                         None,
+                                         space.w_Null,
                                          w_boundmeth.w_im_class)
         self.assertEqual_w(space.call_function(w_unboundmeth, w_list),
                            space.wrap(0))
@@ -23,7 +23,7 @@ class TestInstMethObjectApp(test.AppTestCase):
         boundMethod = [1,2,3].__len__
         self.assertEquals(boundMethod(), 3)
         self.assertRaises(TypeError, boundMethod, 333)
-    def notworking_test_callUnbound(self):
+    def test_callUnbound(self):
         unboundMethod = list.__len__
         self.assertEquals(unboundMethod([1,2,3]), 3)
         self.assertRaises(TypeError, unboundMethod)

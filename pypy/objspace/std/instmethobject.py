@@ -31,7 +31,9 @@ class W_InstMethObject(W_Object):
 registerimplementation(W_InstMethObject)
 
 def call__InstMeth_ANY_ANY(space, w_instmeth, w_args, w_keywords):
-    if w_instmeth.w_im_self == None:
+    if w_instmeth.w_im_self == space.w_Null:
+        if space.is_true(space.eq(space.len(w_args), space.wrap(0))):
+            raise OperationError(space.w_TypeError, space.wrap('bleargh'))
         w_self = space.getitem(w_args, space.wrap(0))
         w_selftype = space.type(w_self)
         w_issubtype = space.issubtype(w_selftype, w_instmeth.w_im_class)

@@ -144,11 +144,13 @@ class StdObjSpace(ObjSpace):
                             
     def initialize(self):
         from noneobject    import W_NoneObject
+        from nullobject    import W_NullObject
         from boolobject    import W_BoolObject
         from cpythonobject import W_CPythonObject
 
         # singletons
         self.w_None  = W_NoneObject(self)
+        self.w_Null  = W_NullObject(self)
         self.w_False = W_BoolObject(self, False)
         self.w_True  = W_BoolObject(self, True)
         self.w_NotImplemented = self.wrap(NotImplemented)  # XXX do me

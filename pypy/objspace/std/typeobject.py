@@ -145,7 +145,11 @@ def getattr__Type_ANY(space, w_type, w_attr):
         return w_type.w_tpname
     if space.is_true(space.eq(w_attr, space.wrap('__mro__'))):
         return space.newtuple(list(w_type.getmro()))
-    raise FailedToImplement
+    try:
+        desc = w_type.lookup(w_attr)
+    except KeyError:
+        raise FailedToImplement #OperationError(space.w_AttributeError,w_attr)
+    return space.get(desc, space.w_Null, w_type)
 
 
 register_all(vars())
