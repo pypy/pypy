@@ -32,6 +32,7 @@ class ExecutionContext:
         except IndexError:
             return self.space.builtin
 
+    # XXX this one should probably be dropped in favor of a module
     def make_standard_w_globals(self):
         "Create a new empty 'globals' dictionary."
         w_key = self.space.wrap("__builtins__")

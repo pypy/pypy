@@ -1,7 +1,7 @@
 import autopath
 
 from pypy.interpreter import error
-from pypy.interpreter import executioncontext, baseobjspace
+from pypy.interpreter import executioncontext, baseobjspace, module
 import sys
 import code
 import time
@@ -13,10 +13,16 @@ class PyPyConsole(code.InteractiveConsole):
         self.space = objspace
         self.verbose = verbose
         self.ec = executioncontext.ExecutionContext(self.space)
-        self.w_globals = self.ec.make_standard_w_globals()
-        self.space.setitem(self.w_globals,
-                           self.space.wrap("__name__"),
-                           self.space.wrap("__main__"))
+
+        space=self.space
+        w_main = space.wrap('__main__')
+        mainmodule = module.Module(space, w_main)
+        w_modules = space.sys.get('modules')
+        space.setitem(w_modules, w_main, mainmodule)
+
+        self.w_globals = mainmodule.w_dict
+        space.setitem(self.w_globals, space.wrap('__builtins__'), space.builtin)
+        # XXX check: do we need self.ec, self.w_globals?
 
     def interact(self, banner=None):
         if banner is None:
