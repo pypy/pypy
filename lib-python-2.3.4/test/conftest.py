@@ -7,6 +7,8 @@ from pypy.conftest import gettestobjspace, options
 from pypy.interpreter.module import Module as PyPyModule 
 from pypy.interpreter.main import run_string, run_file
 
+from regrtest import reportdiff
+
 #
 # PyPy's command line extra options (these are added 
 # to py.test's standard options) 
@@ -30,7 +32,6 @@ working_unittests = (
 'test_bisect.py',
 'test_builtin.py',
 'test_call.py',
-'test_cgi.py',
 'test_cmath.py',
 'test_codeop.py',
 'test_commands.py',
@@ -49,7 +50,7 @@ working_unittests = (
 )
 
 working_outputtests = (
-    # well 
+    'test_cgi.py',
 )
 
 # sanity check for when the above lists become long
@@ -124,11 +125,24 @@ class OutputTestItem(py.test.Item):
     def run(self, driver): 
         space = gettestobjspace('std') 
         try: 
-            run_file(str(self.fspath), space=space) 
+            oldsysout = sys.stdout 
+            sys.stdout = capturesysout = py.std.cStringIO.StringIO() 
+            try: 
+                print self.fspath.purebasename 
+                run_file(str(self.fspath), space=space) 
+            finally: 
+                sys.stdout = oldsysout 
         except OperationError, e: 
             raise self.Failed(
                 excinfo=pytestsupport.AppExceptionInfo(space, e))
-        
+        else: 
+            # we want to compare outputs 
+            result = capturesysout.getvalue() 
+            expected = self.outputpath.read(mode='r') 
+            if result != expected: 
+                reportdiff(expected, result) 
+                assert 0, "expected and real output of running test differ" 
+       
 class UnittestModule(py.test.collect.Module): 
     def __init__(self, fspath): 
         super(UnittestModule, self).__init__(fspath) 
@@ -192,4 +206,3 @@ class AppTestCaseMethod(py.test.Item):
 
     def execute(self): 
         self.space.call_function(self.w_method)
-        
