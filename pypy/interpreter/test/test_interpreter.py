@@ -101,7 +101,7 @@ def f(a):
 def f():
     raise 1
 ''', 'f', [])
-        self.assertEquals(x, '<<<TypeError: exceptions must be classes, instances, or strings (deprecated), not int>>>')
+        self.assertEquals(x, '<<<TypeError: exceptions must be instances or subclasses of Exception or strings (deprecated), not int>>>')
 
     def test_except2(self):
         x = self.codetest('''
