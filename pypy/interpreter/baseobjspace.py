@@ -181,6 +181,30 @@ class ObjSpace:
         w_objtype = self.type(w_obj)
         return self.issubtype(w_objtype, w_type)
 
+    def eval(self, expression, w_globals, w_locals):
+        "For internal debugging."
+        import types
+        from pypy.interpreter.pycode import PyCode
+        if isinstance(expression, str):
+            expression = compile(expression, '?', 'eval')
+        if isinstance(expression, types.CodeType):
+            expression = PyCode()._from_code(expression)
+        if not isinstance(expression, PyCode):
+            raise TypeError, 'space.eval(): expected a string, code or PyCode object'
+        return expression.exec_code(self, w_globals, w_locals)
+
+    def exec_(self, statement, w_globals, w_locals):
+        "For internal debugging."
+        import types
+        from pypy.interpreter.pycode import PyCode
+        if isinstance(statement, str):
+            statement = compile(statement, '?', 'exec')
+        if isinstance(statement, types.CodeType):
+            statement = PyCode()._from_code(statement)
+        if not isinstance(statement, PyCode):
+            raise TypeError, 'space.exec_(): expected a string, code or PyCode object'
+        return statement.exec_code(self, w_globals, w_locals)
+
 
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result
