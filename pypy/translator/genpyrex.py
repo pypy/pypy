@@ -337,7 +337,7 @@ class GenPyrex:
             self.indent = 0
             for cls in self.annotator.getuserclassdefinitions():
                 if cls.basedef:
-                    bdef="(%s)" % (self.get_classname(cls.basedef))
+                    bdef="(%s)" % (self.get_classname(cls.basedef.cls))
                 else:
                     bdef=""
                 self.putline("cdef class %s%s:" % (self.get_classname(cls.cls),bdef))
