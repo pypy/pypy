@@ -37,6 +37,9 @@ def is_perfect_number(n=int):
 def my_bool(x=int):
     return not not x
 
+def my_contains(seq=seqtype, elem=anytype):
+    return elem in seq
+
 def two_plus_two():
     """Array test"""
     array = [0] * 3

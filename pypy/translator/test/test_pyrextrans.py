@@ -41,6 +41,10 @@ class TestNoTypePyrexGenTestCase:
         assert nested_whiles(111, 114) == (
                           '...!...!...!...!...!')
 
+    def test_my_contains(self):
+        my_contains = self.build_cfunc(snippet.my_contains)
+        assert my_contains([1, 2, 3], 1)
+
     def test_poor_man_range(self):
         poor_man_range = self.build_cfunc(snippet.poor_man_range)
         assert poor_man_range(10) == range(10)

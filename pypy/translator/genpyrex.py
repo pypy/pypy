@@ -63,6 +63,10 @@ class Op:
         args = self.argnames
         return "%s = %s.next()" % (self.resultname, args[0])
 
+    def op_contains(self):
+        args = self.argnames
+        return "%s = %s in %s" % (self.resultname, args[1], args[0])
+
     def op_getitem(self):
         direct = "%s = %s[%s]" % ((self.resultname,) + tuple(self.argnames))
         w_sequence, w_index = self.op.args
