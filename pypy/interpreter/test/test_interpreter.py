@@ -56,12 +56,12 @@ def g(): return f()''', 'g', [])
 def g(): print 10''', 'g', [])
         self.assertEquals(x, None)
 
-    def aatest_identity(self):
+    def test_identity(self):
         x = self.codetest('''
 def g(x): return x''', 'g', [666])
         self.assertEquals(x, 666)
 
-    def aatest_exception(self):
+    def test_exception(self):
         x = self.codetest('''
 def f():
     try:

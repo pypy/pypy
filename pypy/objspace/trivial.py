@@ -12,16 +12,24 @@ import operator, types, new, sys
 class TrivialObjSpace(ObjSpace):
 
     def initialize(self):
-        import __builtin__, types
-        self.w_builtins.update(__builtin__.__dict__)
-        for n, c in self.w_builtins.iteritems():
-            if isinstance(c, types.ClassType) and issubclass(c, Exception):
-                setattr(self, 'w_' + c.__name__, c)
         self.w_None = None
         self.w_True = True
         self.w_False = False
+        import __builtin__, types
+        newstuff = {"False": self.w_False,
+                    "True" : self.w_True,
+                    "None" : self.w_None,
+                    }
+        for n, c in __builtin__.__dict__.iteritems():
+            if isinstance(c, types.ClassType) and issubclass(c, Exception):
+                w_c = c
+                setattr(self, 'w_' + c.__name__, w_c)
+                newstuff[c.__name__] = w_c
         self.make_builtins()
         self.make_sys()
+        # insert these into the newly-made builtins
+        for key, w_value in newstuff.items():
+            self.setitem(self.w_builtins, self.wrap(key), w_value)
 
     # general stuff
     def wrap(self, x):
