@@ -79,10 +79,10 @@ class GeneratorIterator(object):
     # XXX the following is for TrivialObjSpace only, when iteration is
     # done by C code (e.g. when calling 'list(g())').
     def __iter__(self):
-        class hack:
+        class hack(object):
             def next(h):
                 try:
-                    return self.pypy_next()
+                    return self.descr_next()
                 except NoValue:
                     raise StopIteration
         return hack()
