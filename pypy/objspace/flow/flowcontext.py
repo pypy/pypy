@@ -61,6 +61,7 @@ class SpamBlock(BasicBlock):
             return SpamBlock((newstate, unmergeablestate1))
 
 class EggBlock(BasicBlock):
+    has_renaming = False
 
     def __init__(self, prevblock, booloutcome):
         BasicBlock.__init__(self, [], prevblock.locals, [], None)
@@ -109,9 +110,10 @@ class FlowExecutionContext(ExecutionContext):
         self.w_globals = w_globals = space.wrap(globals)
         frame = code.create_frame(space, w_globals)
         formalargcount = code.getformalargcount()
+        dummy = W_Constant(None)
+        dummy.dummy = True
         arg_list = ([W_Variable() for i in range(formalargcount)] +
-                    [W_Constant(None)] * (len(frame.fastlocals_w) -
-                                          formalargcount))
+                    [dummy] * (len(frame.fastlocals_w) - formalargcount))
         frame.setfastscope(arg_list)
         self.joinpoints = {}
         for joinpoint in code.getjoinpoints():

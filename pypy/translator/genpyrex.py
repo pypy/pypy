@@ -22,11 +22,8 @@ class GenPyrex:
 
     def annotate(self, input_arg_types):
         a = Annotator(self.functiongraph)
-        input_ann = []
-        for arg, arg_type in zip(self.functiongraph.get_args(),
-                                 input_arg_types):
-            set_type(arg, arg_type, input_ann)
-        self.annotations = a.build_annotations(input_ann)
+        self.annotations = a.build_types(input_arg_types)
+        a.simplify_calls()
 
     def emitcode(self):
         self.blockids = {}
@@ -127,11 +124,16 @@ class GenPyrex:
             elif op.opname == 'call':
                 self.putline("%s = %s(*%s, **%s)" % (resultname, argnames[0],
                                                      argnames[1], argnames[2]))
+            elif op.opname == 'simple_call':
+                self.putline("%s = %s(%s)" % (resultname, argnames[0],
+                                              ", ".join(argnames[1:])))
             else:
                 # short-cuts [getattr,]
                 if op.opname == 'getattr':
                     attr = op.args[1]
                     if isinstance(attr,Constant):
+                        # XXX check that attr.value is a string and a
+                        # XXX valid Python identifiers
                         self.putline("%s = %s.%s" % (resultname,argnames[0],
                                                      attr.value))
                         continue
@@ -141,8 +143,8 @@ class GenPyrex:
                 if arity == 1 or arity == 3 or "a" <= opsymbol[0] <= "z":
                     self.putline("%s = %s(%s)" % (resultname, opsymbol,
                                                   ", ".join(argnames)))
-                elif opsymbol[-1] == '=':
-                    # in-place operator
+                elif 0:
+                    # XXX in-place operators don't work, fixme
                     self.putline("%s = %s; %s += %s" % (
                         resultname, argnames[0],
                         resultname, argnames[1]))

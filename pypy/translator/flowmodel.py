@@ -22,6 +22,8 @@ class FlowNode:
         return _visited
 
 class BasicBlock(FlowNode):
+    has_renaming = True
+
     def __init__(self, input_args, locals, operations, branch=None):
         self.input_args = input_args
         self.locals = locals

@@ -7,6 +7,28 @@ from pypy.translator.annotation import Annotator, set_type, get_type
 from pypy.translator.flowmodel import *
 
 class TestCase(test.IntTestCase):
+    def setUp(self):
+        self.space = test.objspace('flow')
+
+    def make_ann(self, func):
+        """ make a pyrex-generated cfunction from the given func """
+        import inspect
+        try:
+            func = func.im_func
+        except AttributeError:
+            pass
+        name = func.func_name
+        funcgraph = self.space.build_flow(func)
+        funcgraph.source = inspect.getsource(func)
+        return Annotator(funcgraph)
+
+    def reallyshow(self, graph):
+        import os
+        from pypy.translator.test.make_dot import make_dot
+        from pypy.tool.udir import udir
+        dest = make_dot(graph, udir, 'ps')
+        os.system('gv %s' % str(dest))
+
     def test_simple_func(self):
         """
         one test source:
@@ -108,6 +130,21 @@ class TestCase(test.IntTestCase):
         import sys; print >> sys.stderr, a.build_annotations(input_ann)
         end_var, end_ann = a.end_annotations()
         self.assertEquals(get_type(end_var, end_ann), int)
+
+    def test_simplify_calls(self):
+        a = self.make_ann(f_calls_g)
+        a.build_types([int])
+        a.simplify_calls()
+        #self.reallyshow(a.flowgraph)
+
+def g(n):
+    return [0,1,2,n]
+
+def f_calls_g(n):
+    total = 0
+    for i in g(n):
+        total += i
+    return total
 
 
 if __name__ == '__main__':

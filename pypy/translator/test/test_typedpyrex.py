@@ -96,5 +96,22 @@ class TestCase(test.IntTestCase):
         poor_man_range = self.make_cfunc(self.poor_man_range, [int])
         self.assertEquals(poor_man_range(10), range(10))
 
+    #____________________________________________________
+    def time_waster(n):
+        "Arbitrary test function."
+        i = 0
+        x = 1
+        while i<n:
+            j = 0
+            while j<=i:
+                j = j + 1
+                x = x + (i&j)
+            i = i + 1
+        return x
+
+    def test_time_waster(self):
+        time_waster = self.make_cfunc(self.time_waster, [int])
+        self.assertEquals(time_waster(30), 3657)
+
 if __name__ == '__main__':
     test.main()
