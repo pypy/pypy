@@ -183,6 +183,21 @@ def pow__Long_Long_Long(space, w_long1, w_long2, w_long3):
                              space.wrap(e.args[0]))
     return W_LongObject(space, t)
 
+def pow__Int_Int_Long(space, w_int1, w_int2, w_long3):
+    x = w_int1.intval
+    y = w_int2.intval
+    z = w_long3.longval
+
+    try:
+        t = long(pow(x, y, z))
+    except TypeError, e:
+        raise OperationError(space.w_TypeError,
+                             space.wrap(e.args[0]))
+    except ValueError, e:
+        raise OperationError(space.w_ValueError,
+                             space.wrap(e.args[0]))
+    return W_LongObject(space, t)
+    
 def neg__Long(space, w_long1):
     return W_LongObject(space, -w_long1.longval)
 
