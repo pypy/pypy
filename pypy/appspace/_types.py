@@ -77,15 +77,18 @@ class builtin_function_or_method(object):
         if cls is builtin_function_or_method:
             return pypy.Builtin_Function_Or_MethodObjectFactory(args)
         else:
-            return pypy.UserObjectFactory(cls, pypy.Builtin_Function_Or_MethodObjectFactory, args)
+            return pypy.UserObjectFactory(cls,
+                     pypy.Builtin_Function_Or_MethodObjectFactory, args)
 
     def __repr__(self):
         return str(self)
 
-_register(pypy.Builtin_Function_Or_MethodObjectFactory, builtin_function_or_method, in_builtin=False, synonym='BuiltinFunctionType')
-
+_register(pypy.Builtin_Function_Or_MethodObjectFactory,
+          builtin_function_or_method, in_builtin=False,
+          synonym='BuiltinFunctionType')
 
 setattr(_types, 'BuiltinMethodType', builtin_function_or_method)
+
 
 class classobj(object):
 
@@ -98,7 +101,8 @@ class classobj(object):
     def __repr__(self):
         return str(self)
 
-_register(pypy.ClassobjObjectFactory, classobj, in_builtin=False, synonym='ClassType')
+_register(pypy.ClassobjObjectFactory, classobj, in_builtin=False,
+          synonym='ClassType')
 
 
 class code(object):
@@ -135,12 +139,14 @@ class dictproxy(object):
         if cls is dictproxy:
             return pypy.DictproxyObjectFactory(args)
         else:
-            return pypy.UserObjectFactory(cls, pypy.DictproxyObjectFactory, args)
+            return pypy.UserObjectFactory(cls, pypy.DictproxyObjectFactory,
+                                          args)
 
     def __repr__(self):
         return str(self)
 
-_register(pypy.DictproxyObjectFactory, dictproxy, in_builtin=False, synonym='DictProxyType')
+_register(pypy.DictproxyObjectFactory, dictproxy, in_builtin=False,
+          synonym='DictProxyType')
 
 
 class dict(object):
@@ -156,8 +162,8 @@ class dict(object):
 
 _register(pypy.DictObjectFactory, dict)
 
-
 setattr(_types, 'DictionaryType', dict)
+
 
 class ellipsis(object):
 
@@ -274,8 +280,8 @@ class int(object):
 
 _register(pypy.IntObjectFactory, int)
 
-
 setattr(_types, 'LambdaType', function)
+
 
 class list(object):
 
@@ -311,12 +317,14 @@ class instancemethod(object):
         if cls is instancemethod:
             return pypy.InstancemethodObjectFactory(args)
         else:
-            return pypy.UserObjectFactory(cls, pypy.InstancemethodObjectFactory, args)
+            return pypy.UserObjectFactory(cls,
+                     pypy.InstancemethodObjectFactory, args)
 
     def __repr__(self):
         return str(self)
 
-_register(pypy.InstancemethodObjectFactory, instancemethod, in_builtin=False, synonym='MethodType')
+_register(pypy.InstancemethodObjectFactory, instancemethod, in_builtin=False,
+          synonym='MethodType')
 
 
 class module(object):
@@ -344,7 +352,8 @@ class NoneType(object):
     def __repr__(self):
         return str(self)
 
-_register(pypy.NonetypeObjectFactory, NoneType, in_builtin=False, synonym='NoneType')
+_register(pypy.NonetypeObjectFactory, NoneType, in_builtin=False,
+          synonym='NoneType')
 
 
 class NotImplementedType(object):
@@ -353,12 +362,14 @@ class NotImplementedType(object):
         if cls is NotImplementedType:
             return pypy.NotimplementedtypeObjectFactory(args)
         else:
-            return pypy.UserObjectFactory(cls, pypy.NotimplementedtypeObjectFactory, args)
+            return pypy.UserObjectFactory(cls,
+                     pypy.NotimplementedtypeObjectFactory, args)
 
     def __repr__(self):
         return str(self)
 
-_register(pypy.NotimplementedtypeObjectFactory, NotImplementedType, in_builtin=False, synonym='NotImplementedType')
+_register(pypy.NotimplementedtypeObjectFactory, NotImplementedType,
+          in_builtin=False, synonym='NotImplementedType')
 
 
 class slice(object):
@@ -395,7 +406,8 @@ class traceback(object):
         if cls is traceback:
             return pypy.TracebackObjectFactory(args)
         else:
-            return pypy.UserObjectFactory(cls, pypy.TracebackObjectFactory, args)
+            return pypy.UserObjectFactory(cls, pypy.TracebackObjectFactory,
+                                          args)
 
     def __repr__(self):
         return str(self)
@@ -430,8 +442,8 @@ class type(object):
 
 _register(pypy.TypeObjectFactory, type)
 
-
 setattr(_types, 'UnboundMethodType', instancemethod)
+
 
 class unicode(object):
 
@@ -462,4 +474,12 @@ _register(pypy.XrangeObjectFactory, xrange, synonym='XRangeType')
 
 
 
-__all__ = ['BooleanType', 'BufferType', 'BuiltinFunctionType', 'BuiltinMethodType', 'ClassType', 'CodeType', 'ComplexType', 'DictProxyType', 'DictType', 'DictionaryType', 'EllipsisType', 'FileType', 'FloatType', 'FrameType', 'FunctionType', 'GeneratorType', 'InstanceType', 'IntType', 'LambdaType', 'ListType', 'LongType', 'MethodType', 'ModuleType', 'NoneType', 'NotImplementedType', 'ObjectType', 'SliceType', 'StringType', 'TracebackType', 'TupleType', 'TypeType', 'UnboundMethodType', 'UnicodeType', 'XRangeType']
+__all__ = ['BooleanType', 'BufferType', 'BuiltinFunctionType',
+           'BuiltinMethodType', 'ClassType', 'CodeType', 'ComplexType',
+           'DictProxyType', 'DictType', 'DictionaryType', 'EllipsisType',
+           'FileType', 'FloatType', 'FrameType', 'FunctionType',
+           'GeneratorType', 'InstanceType', 'IntType', 'LambdaType',
+           'ListType', 'LongType', 'MethodType', 'ModuleType', 'NoneType',
+           'NotImplementedType', 'ObjectType', 'SliceType', 'StringType',
+           'TracebackType', 'TupleType', 'TypeType', 'UnboundMethodType',
+           'UnicodeType', 'XRangeType']
