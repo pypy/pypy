@@ -172,9 +172,10 @@ class Function(Wrappable):
                          space.newdict([(space.wrap(key), w_item)
                                         for key, w_item in kwds_w.items()]))
 
-    def fget_func_defaults(space, self):
+    def fget_func_defaults(space, w_self):
+        self = space.unwrap(w_self)
         values_w = self.defs_w
-        if values_w is None:
+        if not values_w:
             return space.w_None
         return space.newtuple(values_w) 
 
