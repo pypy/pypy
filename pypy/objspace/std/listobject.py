@@ -18,7 +18,7 @@ class W_ListObject(W_Object):
 
     def append(w_self, w_obj):
         w_self.wrappeditems.append(w_obj)
-        return w_self.space
+        return w_self.space.w_None
 
 
 def list_unwrap(space, w_list):

@@ -162,10 +162,10 @@ class TestW_IntObject(unittest_w.TestCase_w):
         f3 = iobj.W_IntObject(self.space, z)
         v = iobj.int_int_int_pow(self.space, f1, f2, f3)
         self.assertEquals(v.intval, pow(x, y, z))
-        f1, f2, f3 = map(iobj.W_IntObject, (10, -1, 42))
+        f1, f2, f3 = [iobj.W_IntObject(space, i) for i in (10, -1, 42)]
         self.assertEquals(self.space.w_TypeError,
                           self._unwrap_except(iobj.int_int_int_pow, self.space, f1, f2, f3))
-        f1, f2, f3 = map(iobj.W_IntObject, (10, 5, 0))
+        f1, f2, f3 = [iobj.W_IntObject(space, i) for i in (10, 5, 0)]
         self.assertEquals(self.space.w_ValueError,
                           self._unwrap_except(iobj.int_int_int_pow, self.space, f1, f2, f3))
 
@@ -176,10 +176,10 @@ class TestW_IntObject(unittest_w.TestCase_w):
         f2 = iobj.W_IntObject(self.space, y)
         v = iobj.int_int_none_pow(self.space, f1, f2)
         self.assertEquals(v.intval, x ** y)
-        f1, f2 = map(iobj.W_IntObject, (10, 20))
+        f1, f2 = [iobj.W_IntObject(space, i) for i in (10, 20)]
         self.assertEquals(self.space.w_OverflowError,
                           self._unwrap_nonimpl(iobj.int_int_none_pow, self.space, f1, f2))
-        f1, f2 = map(iobj.W_IntObject, (10, -1))
+        f1, f2 = [iobj.W_IntObject(space, i) for i in (10, -1)]
         self.assertEquals(self.space.w_ValueError,
                           self._unwrap_nonimpl(iobj.int_int_none_pow, self.space, f1, f2))
 
