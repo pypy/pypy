@@ -7,8 +7,6 @@ from instmethobject import W_InstMethObject
 from noneobject import W_NoneObject
 from tupleobject import W_TupleObject
 
-from rarray import CharArrayFromStr, CharArraySize
-
 applicationfile = StdObjSpace.AppFile(__name__)
 
 class W_StringObject(W_Object):
@@ -16,11 +14,11 @@ class W_StringObject(W_Object):
 
     def __init__(w_self, space, str):
         W_Object.__init__(w_self, space)
-        w_self._value = CharArrayFromStr(str)
+        w_self._value = str
 
     def __repr__(w_self):
         """ representation for debugging purposes """
-        return "%s(%r)" % (w_self.__class__.__name__, w_self._value.value())
+        return "%s(%r)" % (w_self.__class__.__name__, w_self._value)
 
 
 registerimplementation(W_StringObject)
@@ -50,18 +48,18 @@ def _islower(ch):
     return (o>=97 and o<=122)
 
 
-def _is_generic(w_self, fun): 
+def _is_generic(self, fun): 
     space = w_self.space   
-    v = w_self._value
-    if v.len == 0:
+    v = space.unwrap(w_self)
+    if len(v) == 0:
         return space.w_False
-    if v.len == 1:
-        c = v.charat(0)
+    if len(v) == 1:
+        c = v[0]
         return space.newbool(fun(c))
     else:
         res = 1
-        for idx in range(v.len):
-            if not fun(v.charat(idx)):
+        for idx in range(len(v)):
+            if not fun(v[idx]):
                 return space.w_False
         return space.w_True
 
@@ -87,32 +85,39 @@ def str_istitle(space, w_self):
     pass
 
 def str_upper__String(space, w_self):
-    up = W_StringObject(space, w_self._value.value())
-    for i in range(up._value.len):
-        ch = up._value.charat(i)
+    self = space.unwrap(w_self)
+    res = [' '] * len(self)
+    for i in range(len(self)):
+        ch = self[i]
         if _islower(ch):
             o = ord(ch) - 32
-            up._value.setcharat(i, chr(o))
+            buf[i] = chr(o)
+        else:
+            buf[i] = ch
 
-    return up
+    return space.wrap("".join(res))
     
 def str_capitalize__String(space, w_self):
-    w_str = W_StringObject(space, space.unwrap(w_self))
-    buffer = w_str._value
-    if buffer.len > 0:
-        ch = buffer.charat(0)
+    input = space.unwrap(w_self)
+    buffer = [' '] * len(input)
+    if len(input) > 0:
+        ch = input[0]
         if _islower(ch):
             o = ord(ch) - 32
-            buffer.setcharat(0, chr(o))
-    return w_str
+            buffer[0] = chr(o)
+        for i in range(1, len(input)):
+            buffer[i] = input[i]
+    return space.wrap("".join(buffer))
          
 def str_title__String(space, w_self):
-    w_str = W_StringObject(space, space.unwrap(w_self))
-    buffer = w_str._value
+    u = space.unwrap
+    input = u(w_self)
+    buffer = [' '] * len(input)
     inword = 0
 
-    for pos in range(0, buffer.len):
-        ch = buffer.charat(pos)
+    for pos in range(0, len(input)):
+        ch = input[pos]
+        buffer[pos] = ch
         if ch.isspace():
             if inword:
                 inword = 0
@@ -120,15 +125,16 @@ def str_title__String(space, w_self):
             if not inword:
                 if _islower(ch):
                     o = ord(ch) - 32
-                    buffer.setcharat(pos, chr(o))     
+                    buffer[pos] = chr(o)
                 inword = 1
-    return w_str        
+    return space.wrap("".join(buffer))
 
 def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):
     res = []
     inword = 0
-    value = w_self._value.value()
-    maxsplit = space.unwrap(w_maxsplit)
+    u = space.unwrap
+    value = u(w_self)
+    maxsplit = u(w_maxsplit)
     pos = 0
 
     for ch in value:
@@ -153,12 +159,13 @@ def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):
     return W_ListObject(space, res)
 
 def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
+    u = space.unwrap
     res = []
     start = 0
-    value = w_self._value.value()
-    by = w_by._value.value()
-    bylen = space.unwrap(space.len(w_by))
-    maxsplit = space.unwrap(w_maxsplit)
+    value = u(w_self)
+    by = u(w_by)
+    bylen = len(by)
+    maxsplit = u(w_maxsplit)
 
     #if maxsplit is default, then you have no limit
     #of the length of the resulting array
@@ -171,7 +178,7 @@ def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
         next = value.find(by, start)
         if next < 0:
             res.append(value[start:])
-            start = w_self._value.len + 1      
+            start = len(value) + 1      
             break
         res.append(value[start:next])
         start = next + bylen
@@ -180,7 +187,7 @@ def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
         if maxsplit > -1:
             splitcount = splitcount - 1
 
-    if start < w_self._value.len:             
+    if start < len(value):             
         res.append(value[start:])
 
     for i in range(len(res)):
@@ -188,36 +195,44 @@ def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
     return W_ListObject(w_self.space, res)
 
 def str_join__String_ANY(space, w_self, w_list):
+    u = space.unwrap
     list = space.unpackiterable(w_list)
     if list:
+        self = u(w_self)
         firstelem = 1
         listlen = 0
         reslen = 0 
         #compute the length of the resulting string 
         for w_item in list:
-            reslen = reslen + w_item._value.len
+            reslen = reslen + len(u(w_item))
             listlen = listlen + 1
 
-        reslen = reslen + (listlen - 1) * w_self._value.len
+        reslen = reslen + (listlen - 1) * len(self)
 
         #allocate the string buffer
-        res = CharArraySize(reslen)
+        res = [' '] * reslen
 
         pos = 0
         #fill in the string buffer"
         for w_item in list:
+            item = u(w_item)
             if firstelem:
-                res.setsubstring(pos, w_item._value.value())
-                pos = pos + w_item._value.len 
+                for i in range(len(item)):
+                    res[i+pos] = item[i]
                 firstelem = 0
+                pos = pos + len(item)
             else:
-                res.setsubstring(pos, w_self._value.value())
-                pos = pos + w_self._value.len
-                res.setsubstring(pos, w_item._value.value())
-                pos = pos + w_item._value.len
-        return W_StringObject(space, res.value())
+                for i in range(len(self)):
+                    res[i+pos] = item[i]
+                    pos = pos + len(self)
+    
+                for i in range(len(item)):
+                    res[i+pos] = item[i]
+                    pos = pos + len(item)
+
+        return space.wrap("".join(res))
     else:
-        return W_StringObject(space, "")
+        return space.wrap("")
 
 
 def str_rjust__String_ANY(space, w_self, w_arg):
@@ -244,6 +259,36 @@ def str_ljust__String_ANY(space, w_self, w_arg):
         u_self += d * ' '
         
     return W_StringObject(space, u_self)
+
+def str_find__String_String_Int_Int(space, w_self, w_sub, w_start=None, w_end=None):
+    start = space.unwrap(w_start)
+    end = space.unwrap(w_end)
+
+    self = space.unwrap(w_self)
+    sub = space.unwrap(w_sub)
+
+    if start is None:
+        start = 0
+
+    if end is None:
+        end = self.len
+
+    maxend = self.len - sub.len
+
+    if end > maxend:
+        end = maxend
+
+    if sub.len == 0 and start < end:
+        return start
+
+    for i in range(start, end):
+        match = 1
+        for idx in range(sub.len):
+            if not sub[idx] == self[idx+i]:
+                match = 0
+                break
+        return i
+    return -1
 
 
 def str_strip__String(space, w_self):
@@ -285,13 +330,13 @@ def str_lstrip__String(space, w_self):
  
 
 def unwrap__String(space, w_str):
-    return w_str._value.value()
+    return w_str._value
 
 def is_true__String(space, w_str):
-    return w_str._value.len != 0
+    return len(space.unwrap(w_str)) != 0
 
 def hash__String(space, w_str):
-    return W_IntObject(space, w_str._value.hash())
+    return W_IntObject(space, hash(space.unwrap(w_str)))
 
 
 EQ = 1
@@ -301,9 +346,11 @@ GT = 4
 LT = 5
 NE = 6
 
+
 def string_richcompare(space, w_str1, w_str2, op):
-    str1 = w_str1._value
-    str2 = w_str2._value
+    u = space.unwrap
+    str1 = u(w_str1)
+    str2 = u(w_str2)
 
     if space.is_true(space.is_(w_str1, w_str2)):
         if op == EQ or op == LE or op == GE:
@@ -314,32 +361,32 @@ def string_richcompare(space, w_str1, w_str2, op):
         pass
     else:
         if op == EQ:
-            if str1.len == str2.len:
-                for i in range(str1.len):
-                    if ord(str1.charat(i)) != ord(str2.charat(i)):
+            if len(str1) == len(str2):
+                for i in range(len(str1)):
+                    if ord(str1[i]) != ord(str2[i]):
                         return space.w_False
                 return space.w_True
             else:
                 return space.w_False
         else:
-            if str1.len > str2.len:
-                min_len = str2.len
+            if len(str1) > len(str2):
+                min_len = len(str2)
             else:
-                min_len = str1.len
+                min_len = len(str1)
 
             c = 0
             idx = 0
             if (min_len > 0):
                 while (c == 0) and (idx < min_len):
-                    c = ord(str1.charat(idx)) - ord(str2.charat(idx))
+                    c = ord(str1[idx]) - ord(str2[idx])
                     idx = idx + 1
             else:
                 c = 0
 
         if (c == 0):
-            if str1.len < str2.len:
+            if len(str1) < len(str2):
                 c = -1
-            elif str1.len > str2.len:
+            elif len(str1) > len(str2):
                 c = 1
             else:
                 c = 0
@@ -376,22 +423,24 @@ def ge__String_String(space, w_str1, w_str2):
     return string_richcompare(space, w_str1, w_str2, GE)
 
 def getitem__String_Int(space, w_str, w_int):
+    u = space.unwrap
     ival = w_int.intval
-    slen = w_str._value.len
+    str = u(w_str)
+    slen = len(u(w_str))
     if ival < 0:
         ival += slen
     if ival < 0 or ival >= slen:
         exc = space.call_function(space.w_IndexError,
                                   space.wrap("string index out of range"))
         raise OperationError(space.w_IndexError, exc)
-    return W_StringObject(space, w_str._value.charat(ival))
+    return W_StringObject(space, str[ival])
 
 def getitem__String_Slice(space, w_str, w_slice):
     return space.gethelper(applicationfile).call(
         "getitem_string_slice", [w_str, w_slice])
     w = space.wrap
     u = space.unwrap
-    w_start, w_stop, w_step, w_sl = w_slice.indices(w(w_str._value.len))
+    w_start, w_stop, w_step, w_sl = w_slice.indices(w(len(u(w_str._value))))
     start = u(w_start)
     stop = u(w_stop)
     step = u(w_step)
@@ -404,19 +453,26 @@ def getitem__String_Slice(space, w_str, w_slice):
     return str_join(space, w_empty, w_r)
 
 def add__String_String(space, w_left, w_right):
-    buf = CharArraySize(w_left._value.len + w_right._value.len)
-    buf.setsubstring(0, w_left._value.value())
-    buf.setsubstring(w_left._value.len, w_right._value.value())
-    return W_StringObject(space, buf.value())
+    u = space.unwrap
+    right = u(w_right)
+    left = u(w_left)
+    buf = [' '] * (len(left) + len(right))
+    for i in range(len(left)):
+        buf[i] = left[i]
+    for i in range(len(right)):
+        buf[i+len(left)] = right[i]
+    return space.wrap("".join(buf))
 
 def mod_str_tuple(space, w_format, w_args):
     raise NotImplementedError
 
 def len__String(space, w_str):
-    return space.wrap(w_str._value.len)
+    return space.wrap(len(space.unwrap(w_str)))
 
 def str__String(space, w_str):
     return w_str
+
+
 
 def repr__String(space, w_str):
     # XXX this is bogus -- mwh

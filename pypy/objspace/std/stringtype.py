@@ -21,6 +21,9 @@ class W_StringType(W_TypeObject):
     str_upper      = MultiMethod('upper', 1)
     str_capitalize = MultiMethod('capitalize', 1)
     str_title      = MultiMethod('title', 1)
+    #XXX we need to have the possibility to specify, if the a parameter
+    #was given
+    str_find       = MultiMethod('find', 4, defaults=(0, 0))
     str_strip      = MultiMethod('strip', 1)
     str_rstrip     = MultiMethod('rstrip', 1)
     str_lstrip     = MultiMethod('lstrip', 1)
