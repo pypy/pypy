@@ -9,8 +9,8 @@ Command-line options for translate_pypy:
    -no-c    Don't generate the C code
    -c       Generate the C code, but don't compile it
    -o       Generate and compile the C code, but don't run it
-   --not-mark-some-objects
-            Mark all functions that have SomeObject in their signature.
+   -no-mark-some-objects
+            Do not mark functions that have SomeObject in their signature.
    -tcc     Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
                 -- http://fabrice.bellard.free.fr/tcc/
 """
@@ -50,7 +50,7 @@ def analyse(entry_point=entry_point):
         a.simplify()
         t.frozen = True   # cannot freeze if we don't have annotations
 
-        if not options['--not-mark-some-objects']:
+        if not options['-no-mark-some-objects']:
             find_someobjects(a)
 
 
@@ -136,7 +136,7 @@ if __name__ == '__main__':
                '-no-c': False,
                '-c':    False,
                '-o':    False,
-               '--not-mark-some-objects': False,
+               '-no-mark-some-objects': False,
                '-no-a': False,
                '-tcc':  False,
                }
