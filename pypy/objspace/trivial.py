@@ -375,6 +375,9 @@ def %(name)s(self, x, *args):
     def int(self, ob):
         return int(ob)
 
+    def round(self, *args):
+        return round(*args)
+
 for m in ObjSpace.MethodTable:
     if not hasattr(TrivialObjSpace, m[0]):
         print m[0] # this should raise something

@@ -28,40 +28,68 @@ def perform_trace(space, app_func, *args, **kwds):
     traceres = tspace.getresult()
     return funcres, traceres  
 
+def getdisresult(obj, _cache={}):
+    """ return dissassemble result for the given obj which can be a
+        pyframe or function or a code object. 
+    """
+    obj = getattr(obj, 'func_code', obj)
+    obj = getattr(obj, 'code', obj)
+    try:
+        return _cache[obj]
+    except KeyError:
+        disresult = _cache[obj] = pydis.pydis(obj)
+        return disresult
 
 def trace_function(space, fn, *arg, **kwds):
     funcres, traceres = perform_trace(space, fn, *arg, **kwds)
-    disresult = pydis.pydis(fn)
-
+    indentor = '    '
+    indent = ' '
+    lastframe = None
     for event in traceres.getevents():
+        if isinstance(event, trace.EnterFrame):
+            lastframe = event.frame
+
         if isinstance(event, trace.ExecBytecode):
-            print event.index, "      ", disresult.getbytecode(event.index)
+            disresult = getdisresult(event.frame) 
+            print indent, event.index, "      ", disresult.getbytecode(event.index)
+            lastframe = event.frame
+
         elif isinstance(event, trace.CallBegin):
             info = event.callinfo
             if info.name in operations:
-                print info.name, info.args # , info.kwargs
+                print indent, " " * 40, info.name, repr_args(lastframe, info.args)
+                indent += indentor 
+        elif isinstance(event, trace.CallFinished):
+            indent = indent[:-len(indentor)]
         else:
             pass
-
-
     return funcres, traceres
 
+def repr_args(frame, args):
+    l = []
+    
+    space = frame and frame.space or None
+    for arg in args:
+        if frame and space.is_true(space.is_(arg, frame.w_globals)):
+            l.append('w_globals')
+        elif frame and space.is_true(space.is_(arg, space.w_builtins)):
+            l.append('w_builtins')
+        else:
+            l.append(repr(arg) [:50])
+    return ", ".join(l)
 
 def app_test():
     a = 1
-    b = [1,2,3,4,5,6,7,8,9,10]
-    for ii in b:
-        a += ii
-
+    for i in range(10):
+        print i
+    
     return "Hello World"
 
-
 def test():
-    #space = TrivialObjSpace()
-    space = StdObjSpace()
+    space = TrivialObjSpace()
+    #space = StdObjSpace()
     funcres, traceres =  trace_function(space, app_test)
     print "function result -->", funcres
-    
 
 test()
                    

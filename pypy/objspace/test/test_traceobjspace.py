@@ -34,7 +34,7 @@ class Test_TraceObjSpace(test.IntTestCase):
             pass
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
-        self.assertEquals(disresult._bytecodes, list(res.getbytecodes()))
+        self.assertEquals(disresult.bytecodes, list(res.getbytecodes()))
         #self.assertEquals(len(list(res.getoperations())), 0)
 
     def test_some_builtin(self):
@@ -42,7 +42,7 @@ class Test_TraceObjSpace(test.IntTestCase):
             filter(None, []) # mapglobals() # ("c")
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
-        self.assertEquals(disresult._bytecodes, list(res.getbytecodes()))
+        self.assertEquals(disresult.bytecodes, list(res.getbytecodes()))
         #self.assertEquals(len(list(res.getoperations())), 0)
 
     def test_trace_oneop(self):
@@ -51,7 +51,7 @@ class Test_TraceObjSpace(test.IntTestCase):
         w = self.space.wrap
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
-        self.assertEquals(disresult._bytecodes, list(res.getbytecodes()))
+        self.assertEquals(disresult.bytecodes, list(res.getbytecodes()))
         ops = list(res.getoperations())
         self.assert_(len(ops) > 0)
         #op = ops[0]

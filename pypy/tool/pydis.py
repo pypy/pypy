@@ -69,25 +69,26 @@ class DisResult:
     """
     def __init__(self, code):
         self.code = code
-        self._bytecodes = []
+        self.bytecodes = []
    
     def append(self,  bytecodeindex, oparg, lineno):
         """ append bytecode anaylsis information ..."""
         bc = Bytecode(self, bytecodeindex, oparg, lineno)
-        self._bytecodes.append(bc)
+        self.bytecodes.append(bc)
 
     def getbytecode(self, index):
         """ return bytecode instance matching the given index. """
-        for bytecode in self._bytecodes:
+        for bytecode in self.bytecodes:
             if bytecode.index == index:
                 return bytecode
-        raise ValueError, "no bytecode found on index %s" % index
+        raise ValueError, "no bytecode found on index %s in code \n%s" % (
+                index, pydis(self.code))
 
     def format(self):
         lastlineno = -1
         labels = findlabels(self.code.co_code)
         lines = []
-        for bc in self._bytecodes:
+        for bc in self.bytecodes:
             l = []
             if bc.lineno != lastlineno:
                 lastlineno = bc.lineno

@@ -12,9 +12,12 @@ from pypy.tool import pydis
 # __________________________________________________________________________
 
 class ExecBytecode:
+    """ bytecode trace. """
     def __init__(self, frame):
-        self.frame = frame
+        self.frame = frame 
+        self.code = frame.code 
         self.index = frame.next_instr
+        #assert self.index < len(frame.code.co_code)
 
 class EnterFrame:
     def __init__(self, frame):
@@ -142,9 +145,9 @@ class TraceResult:
     def getdisresult(self, frame, _cache = {}):
         """ return (possibly cached) pydis result for the given frame. """
         try:
-            return _cache[id(frame)]
+            return _cache[id(frame.code)]
         except KeyError:
-            res = _cache[id(frame)] = pydis.pydis(frame.code)
+            res = _cache[id(frame.code)] = pydis.pydis(frame.code)
             assert res is not None
             return res
 
