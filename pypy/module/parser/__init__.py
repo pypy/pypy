@@ -6,7 +6,7 @@ class Module(LazyModule):
     """The builtin parser module. 
     """ 
     appleveldefs = {
-        'ParserError'  : 'classes.ParserError', 
+        'ParserError'  : 'app_class.ParserError', 
     }
         
     interpleveldefs = {
@@ -16,7 +16,7 @@ class Module(LazyModule):
         'suite'        : 'pyparser.suite',
         'expr'         : 'pyparser.expr',
         'STType'       : 'pyparser.STType', 
-        'ASTType'      : 'pyparser.STType', 
+#        'ASTType'      : 'pyparser.STType', 
         'sequence2st'  : 'pyparser.sequence2st',
         #'eval_input'   : 'pyparser.eval_input', 
         #'file_input'   : 'pyparser.file_input', 
