@@ -17,17 +17,20 @@ class TestW_StringObject(testsupport.TestCase):
         space = self.space
         def w(txt):
              return W_StringObject(space, txt)
-        strs = ['ala', 'bla', 'ala', 'alaaa', 'blaa', 'g']
+        strs = ['ala', 'bla', 'ala', 'alaaa', '', 'b']
         ops = [ 'EQ', 'LT', 'GT', 'NE', 'LE', 'GE' ]
 
-        for op in ops:
-            pass
-            #print getattr('a', '__%s__' % op.lower())
-        #while strs[1:]:
-            
-            
-
-        self.failUnless_w(string_richcompare(space, w('abc'), w('abc'), EQ))
+        while strs[1:]:
+            str1 = strs.pop()
+            for op in ops:
+                orf = getattr(str1, '__%s__' % op.lower())  #original python function
+                pypyconst = getattr(so, op)
+                for str2 in strs:   
+                    if orf(str2):
+                         self.failUnless_w(string_richcompare(space, w(str1), w(str2), pypyconst))
+                    else:
+                         self.failIf_w(string_richcompare(space, w(str1), w(str2), pypyconst))
+        
         
 
     def test_equality(self):
