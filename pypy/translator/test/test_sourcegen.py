@@ -21,7 +21,7 @@ class TestCase(test.IntTestCase):
                            [op],
                            endbranch)
         fun = FunctionGraph(block, "f")
-        result = genpyrex(fun)
+        result = GenPyrex(fun).emitcode()
         self.assertEquals(result, """
 def f(x):
     result = x + 1
@@ -45,7 +45,7 @@ def f(x):
         conditionres = Variable("conditionres")
         conditionop = SpaceOperation("lt", [i, Constant(0)], conditionres)
     
-        conditionalbranch = ConditionalBranch(condition, endbranchif, endbranchelse)
+        conditionalbranch = ConditionalBranch(conditionres, endbranchif, endbranchelse)
 
         startblock = BasicBlock([i, j], [i, j, conditionres], 
                            [conditionop],

@@ -18,11 +18,10 @@ class Constant:
         self.value = value
 
 class SpaceOperation:
-    def __init__(self, opname, args, result, branch):
+    def __init__(self, opname, args, result):
         self.opname = opname
         self.args = args # list of variables
         self.result = result # <Variable/Constant instance>
-        self.branch = branch # branch
 
 class Branch:
     def __init__(self, args, target):

@@ -55,12 +55,12 @@ class GenPyrex:
             opsymbol = self.ops[op.opname] 
             arity = self.oparity[op.opname]
             assert(arity == len(op.args))
-            argsnames = [self._str(arg) for arg in args]
+            argnames = [self._str(arg) for arg in op.args]
             if arity == 1 or arity == 3 or "a" <= opsymbol[0] <= "z":
                 
-                self.putline("%s = %s(%s)" % (result.pseudoname, opsymbol, ", ".join([argnames])))
+                self.putline("%s = %s(%s)" % (op.result.pseudoname, opsymbol, ", ".join([argnames])))
             else:
-                self.putline("%s = %s %s %s" % (result.pseudoname, argnames[0], opsymbol, argnames[1]))
+                self.putline("%s = %s %s %s" % (op.result.pseudoname, argnames[0], opsymbol, argnames[1]))
 
         self.dispatchBranch(block.branch)
 
@@ -86,9 +86,10 @@ class GenPyrex:
     def createCodeFromConditionalBranch(self, branch):
         self.putline("if %s:" % self._str(branch.condition))
         self.indent += 1
-        self.dispatchBranch(ifbranch)
+        self.dispatchBranch(branch.ifbranch)
         self.indent -= 1
         self.putline("else:")
         self.indent += 1
-        self.dispatchBranch(elsebranch)
+        self.dispatchBranch(branch.elsebranch)
         self.indent -= 1
+
