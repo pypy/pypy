@@ -42,18 +42,18 @@ class TestGenRpyTestCase:
             import copy_reg
             return copy_reg._reconstructor.func_code.co_name"""
 
-    def __init__(self):
+    def setup_class(cls): 
         # simply compile snippets just once
         src = str(Source(snippet))
         # truncate non-compilable stuff for now:
         p = src.index('Non compilable Functions')
         src = src[:p] + '\n'
         # put our ad into snippet
-        exec self.snippet_ad in snippet.__dict__
-        src += self.snippet_ad
+        exec cls.snippet_ad in snippet.__dict__
+        src += cls.snippet_ad
         # just in case of trouble, we produce a tempfile
         ini = translate_as_module(src, tmpname = str(udir.join("_geninterp_test.py")))
-        self.w_glob = ini(self.space)
+        cls.w_glob = ini(cls.space)
 
     def build_interpfunc(self, func, *morefuncs):
         # we ignore morefuncs, since they live in snippets
