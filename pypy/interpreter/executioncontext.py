@@ -25,12 +25,9 @@ class ExecutionContext:
         else:
             frame.f_back = self.framestack.top()
         self.framestack.push(frame)
-        self.call_trace(frame, 'call', self.space.w_None)
         return previous_ec
-
-    def leave(self, previous_ec, w_retval=None):
-        if w_retval is not None:
-            self.call_trace(self.framestack.top(), 'return', w_retval)
+    
+    def leave(self, previous_ec):
         self.framestack.pop()
         locals = getthreadlocals()
         locals.executioncontext = previous_ec
@@ -49,14 +46,24 @@ class ExecutionContext:
         w_globals = self.space.newdict([(w_key, w_value)])
         return w_globals
 
+    def call_trace(self, frame):
+        "Trace the call of a function"
+        self._trace(frame, 'call', self.space.w_None)
+
+    def return_trace(self, frame, w_retval):
+        "Trace the return from a function"
+        self._trace(self.framestack.top(), 'return', w_retval)
+
     def bytecode_trace(self, frame):
         "Trace function called before each bytecode."
 
     def exception_trace(self, operationerr):
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()
-        self.call_trace(self.framestack.top(), 'exception',
-                        self.sys_exc_info())
+        exc_info = self.sys_exc_info()
+        frame = self.framestack.top()
+        self._trace(self.framestack.top(), 'exception',
+                        exc_info)
         #operationerr.print_detailed_traceback(self.space)
 
     def sys_exc_info(self):
@@ -76,12 +83,12 @@ class ExecutionContext:
 
     def settrace(self, w_func):
         """Set the global trace function."""
-        if self.space.is_(w_func, self.space.w_None):
+        if self.space.is_true(self.space.is_(w_func, self.space.w_None)):
             self.w_tracefunc = None
         else:
             self.w_tracefunc = w_func
 
-    def call_trace(self, frame, event, w_arg):
+    def _trace(self, frame, event, w_arg):
         if event == 'call':
             w_callback = self.w_tracefunc
         else:
@@ -91,14 +98,14 @@ class ExecutionContext:
         self.is_tracing += 1
         try:
             try:
-                w_result = self.space.call(w_callback, self.space.wrap(frame), self.space.wrap(event), w_arg)
-                if self.space.is_(w_result, self.space.w_None):
+                w_result = self.space.call_function(w_callback, self.space.wrap(frame), self.space.wrap(event), w_arg)
+                if self.space.is_true(self.space.is_(w_result, self.space.w_None)):
                     frame.w_f_trace = None
                 else:
                     frame.w_f_trace = w_result
             except:
                 self.settrace(self.space.w_None)
                 frame.w_f_trace = None
+                raise
         finally:
-            self.is_traceing -= 1
-            
+            self.is_tracing -= 1

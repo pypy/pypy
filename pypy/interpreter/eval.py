@@ -65,7 +65,12 @@ class Frame(Wrappable):
     def resume(self):
         "Resume the execution of the frame from its current state."
         executioncontext = self.space.getexecutioncontext()
-        return self.eval(executioncontext)
+        previous = executioncontext.enter(self)
+        try:
+            result = self.eval(executioncontext)
+        finally:
+            executioncontext.leave(previous)
+        return result
 
     # running a frame is usually the same as resuming it from its
     # initial state, but not for generator frames

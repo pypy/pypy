@@ -99,7 +99,8 @@ def settrace(space, w_func):
 Set the global debug tracing function.  It will be called on each
 function call.  See the debugger chapter in the library manual.
 """
-
+    space.getexecutioncontext().settrace(w_func)
+    
 def setprofile(space, w_func):
     """setprofile(function)
 

@@ -63,8 +63,8 @@ class PyFrame(eval.Frame):
 
     def eval(self, executioncontext):
         "Interpreter main loop!"
-        previous = executioncontext.enter(self)
         try:
+            executioncontext.call_trace(self)
             self.last_instr = -1
             while True:
                 try:
@@ -109,11 +109,8 @@ class PyFrame(eval.Frame):
         except ExitFrame, e:
             # leave that frame
             w_exitvalue = e.args[0]
-            executioncontext.leave(previous, w_exitvalue)
+            executioncontext.return_trace(self, w_exitvalue)
             return w_exitvalue
-        except:
-            executioncontext.leave(previous)
-            raise
         
     ### exception stack ###
 
