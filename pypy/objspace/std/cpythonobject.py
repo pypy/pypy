@@ -206,6 +206,18 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
         multimethod = getattr(StdObjSpace, _name)
         multimethod.register(cpython_f, *arglist)
 
+        if len(multimethod.specialnames) > 1 and _arity == 2:
+            def cpython_f_rev(space, w_1, w_2, f=f):
+                # XXX do we really want to unwrap unknown objects here? 
+                x1 = space.unwrap(w_1)
+                x2 = w_2.cpyobj 
+                try:
+                    y = f(x1, x2)
+                except:
+                    wrap_exception(space)
+                return space.wrap(y)
+            multimethod.register(cpython_f_rev, W_ANY, W_CPythonObject)
+
 
 def is_true__CPython(space, w_obj):
     obj = space.unwrap(w_obj)
