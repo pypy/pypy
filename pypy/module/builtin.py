@@ -477,7 +477,10 @@ class __builtin__(ExtModule):
         return initial
 
     def app_isinstance(self, obj, klass_or_tuple):
-        objcls = obj.__class__
+        try:
+            objcls = obj.__class__
+        except AttributeError:
+            objcls = type(obj)
         if issubclass(klass_or_tuple.__class__, tuple):
            for klass in klass_or_tuple:
                if issubclass(objcls, klass):
