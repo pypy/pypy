@@ -465,6 +465,21 @@ def multiple_inheritance():
     i = MI_D()
     return i.a + i.b + i.c + i.d
 
+class CBase(object):
+    pass
+class CSub1(CBase):
+    def m(self):
+        self.x = 42
+        return self
+class CSub2(CBase):
+    def m(self):
+        self.x = 'world'
+        return self
+
+def methodcall_is_precise():
+    return (CSub1().m(), CSub2().m())
+
+
 def flow_type_info(i):
     if isinstance(i, int):
         a = i + 1

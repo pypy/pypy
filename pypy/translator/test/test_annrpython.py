@@ -558,6 +558,19 @@ class TestAnnonateTestCase:
         assert s.knowntype == int
         assert not s.is_constant() # !
 
+    def test_methodcall_is_precise(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.methodcall_is_precise, [])
+        classes = a.bookkeeper.userclasses
+        assert s == annmodel.SomeTuple([
+            annmodel.SomeInstance(classes[snippet.CSub1]),
+            annmodel.SomeInstance(classes[snippet.CSub2])])
+        assert 'x' not in classes[snippet.CBase].attrs
+        assert (classes[snippet.CSub1].attrs['x'].s_value ==
+                a.bookkeeper.immutablevalue(42))
+        assert (classes[snippet.CSub2].attrs['x'].s_value ==
+                a.bookkeeper.immutablevalue('world'))
+
 
 def g(n):
     return [0,1,2,n]
