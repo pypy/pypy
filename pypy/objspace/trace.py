@@ -107,7 +107,12 @@ class CallableTracer:
         return getattr(self.__func, name)
 
 class TraceObjSpace:
-    def __init__(self, space):
+    def __init__(self, space=None):
+        if space is None:
+            # make up a TrivialObjSpace by default
+            # ultimately, remove this hack and fix the -P option of tests
+            from pypy.objspace import trivial
+            space = trivial.TrivialObjSpace()
         self.__space = space
         self.settrace()
 

@@ -64,8 +64,16 @@ class MyTestResult(unittest.TestResult):
 
 class MyTextTestResult(unittest._TextTestResult):
     ignored = 0
+    trace_information = ()
+
+    def record_trace(self, test):
+        # XXX hack for TraceObjSpace
+        if hasattr(test.space, 'settrace'):
+            self.trace_information += test.space.getresult(),
+            test.space.settrace()
 
     def addError(self, test, err):
+        self.record_trace(test)
         from pypy.interpreter.baseobjspace import OperationError
         if isinstance(err[1], OperationError) and test.space.full_exceptions:
             if err[1].match(test.space, test.space.w_AssertionError):
@@ -75,6 +83,7 @@ class MyTextTestResult(unittest._TextTestResult):
         self.errors[-1] = (test, sys.exc_info())
 
     def addFailure(self, test, err):
+        self.record_trace(test)
         unittest._TextTestResult.addFailure(self, test, err)
         self.failures[-1] = (test, sys.exc_info())
 
@@ -93,12 +102,19 @@ class MyTextTestResult(unittest._TextTestResult):
             self.stream.write('i')
 
     def interact(self):
-        efs = self.errors + self.failures
-        from pypy.tool.testitpm import TestPM
-        c = TestPM(efs)
-        c.cmdloop()
+        #efs = self.errors + self.failures
+        #from pypy.tool.testitpm import TestPM
+        #c = TestPM(efs)
+        #c.cmdloop()
+        for test, (exc_type, exc_value, exc_tb) in self.errors:
+            import pdb; pdb.post_mortem(exc_tb)
 
     def printErrors(self):
+        if self.trace_information:
+            from pypy.tool.traceop import print_result
+            for trace in self.trace_information:
+                print_result(trace)
+            sys.stdout.flush()
         if Options.interactive:
             print
             if self.errors or self.failures:
