@@ -22,7 +22,7 @@ def long_long_add(space, w_long1, w_long2):
         z = x + y
     except OverflowError:
         raise OperationError(OverflowError, "long addition")
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 def long_long_sub(space, w_long1, w_long2):
     x = w_long1.longval
@@ -31,7 +31,7 @@ def long_long_sub(space, w_long1, w_long2):
         z = x - y
     except Error,e:
         raise OperationError(Error, e)
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 def long_long_mul(space, w_long1, w_long2):
     x = w_long1.longval
@@ -40,7 +40,7 @@ def long_long_mul(space, w_long1, w_long2):
         z = x * y
     except OverflowError:
         raise OperationError(OverflowError, "long multiplication")
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 def long_long_floordiv(space, w_long1, w_long2):
     x = w_long1.longval
@@ -50,7 +50,7 @@ def long_long_floordiv(space, w_long1, w_long2):
     except ZeroDivisionError:
 		raise   # we have to implement the exception or it will be ignored
 	# no overflow
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 def long_long_truediv(space, w_long1, w_long2):
     x = w_long1.longval
@@ -60,7 +60,7 @@ def long_long_truediv(space, w_long1, w_long2):
     except ZeroDivisionError:
 		raise   # we have to implement the exception or it will be ignored
 	# no overflow
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 if 1L / 2L == 1L // 2L:
 	long_long_div = long_long_floordiv
@@ -75,7 +75,7 @@ def long_long_mod(space, w_long1, w_long2):
     except ZeroDivisionError:
 		raise   # we have to implement the exception or it will be ignored
 	# no overflow
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 def long_long_divmod(space, w_long1, w_long2):
     x = w_long1.longval
@@ -86,7 +86,8 @@ def long_long_divmod(space, w_long1, w_long2):
     except ZeroDivisionError:
 		raise   # we have to implement the exception or it will be ignored
 	# no overflow
-    return W_TupleObject([z, m])
+    return W_TupleObject(space, [W_LongObject(space, z),
+                                 W_LongObject(space, m)])
 
 def long_long_pow(space, w_long1,w_long2):
     x = w_long1.longval
@@ -95,7 +96,7 @@ def long_long_pow(space, w_long1,w_long2):
         z = x ** y
     except OverflowError:
         raise OperationError(OverflowError, "long multiplication")
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 def long_long_long_pow(space, w_long1,w_long2,w_long3):
     x = w_long1.longval
@@ -105,7 +106,7 @@ def long_long_long_pow(space, w_long1,w_long2,w_long3):
         z = (x ** y) % z
     except Error,e:
         raise OperationError(Error(e), "long multiplication")
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 def long_long_lshift(space, w_long1,w_long2):
     x = w_long1.longval
@@ -114,7 +115,7 @@ def long_long_lshift(space, w_long1,w_long2):
         z = x << y
     except OverflowError:
         raise OperationError(OverflowError, "long multiplication")
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 def long_long_rshift(space, w_long1,w_long2):
     x = w_long1.longval
@@ -123,7 +124,7 @@ def long_long_rshift(space, w_long1,w_long2):
         z = x >> y
     except OverflowError:
         raise OperationError(OverflowError, "long multiplication")
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 def long_long_and(space, w_long1,w_long2):
     x = w_long1.longval
@@ -132,7 +133,7 @@ def long_long_and(space, w_long1,w_long2):
         z = x & y
     except OverflowError:
         raise OperationError(OverflowError, "long multiplication")
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 def long_long_xor(space, w_long1,w_long2):
     x = w_long1.longval
@@ -141,7 +142,7 @@ def long_long_xor(space, w_long1,w_long2):
         z = x ^ y
     except OverflowError:
         raise OperationError(OverflowError, "long multiplication")
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 def long_long_or(space, w_long1,w_long2):
     x = w_long1.longval
@@ -150,7 +151,7 @@ def long_long_or(space, w_long1,w_long2):
         z = x | y
     except OverflowError:
         raise OperationError(OverflowError, "long multiplication")
-    return W_LongObject(z)
+    return W_LongObject(space, z)
 
 
 

@@ -34,7 +34,7 @@ StdObjSpace.is_true.register(list_is_true, W_ListObject)
 
 def list_len(space, w_list):
     result = len(w_list.wrappeditems)
-    return W_IntObject(result)
+    return W_IntObject(space, result)
 
 StdObjSpace.len.register(list_len, W_ListObject)
 
@@ -61,27 +61,27 @@ def getitem_list_slice(space, w_list, w_slice):
     for i in range(slicelength):
         subitems[i] = items[start]
         start += step
-    return W_ListObject(subitems)
+    return W_ListObject(space, subitems)
 
 StdObjSpace.getitem.register(getitem_list_slice, W_ListObject, W_SliceObject)
 
 def list_iter(space, w_list):
     import iterobject
-    return iterobject.W_SeqIterObject(w_list)
+    return iterobject.W_SeqIterObject(space, w_list)
 
 StdObjSpace.iter.register(list_iter, W_ListObject)
 
 def list_add(space, w_list1, w_list2):
     items1 = w_list1.wrappeditems
     items2 = w_list2.wrappeditems
-    return W_ListObject(items1 + items2)
+    return W_ListObject(space, items1 + items2)
 
 StdObjSpace.add.register(list_add, W_ListObject, W_ListObject)
 
 def list_int_mul(space, w_list, w_int):
     items = w_list.wrappeditems
     times = w_int.intval
-    return W_ListObject(items * times)
+    return W_ListObject(space, items * times)
 
 StdObjSpace.mul.register(list_int_mul, W_ListObject, W_IntObject)
 
@@ -103,7 +103,7 @@ StdObjSpace.eq.register(list_eq, W_ListObject, W_ListObject)
 def getattr_list(space, w_list, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('append'))):
         w_builtinfn = make_builtin_func(space, W_ListObject.append)
-        return W_InstMethObject(w_list, w_builtinfn)
+        return W_InstMethObject(space, w_list, w_builtinfn)
     raise FailedToImplement(space.w_AttributeError)
 
 StdObjSpace.getattr.register(getattr_list, W_ListObject, W_ANY)

@@ -34,7 +34,7 @@ class W_IntObject(W_Object):
 
 
 def bool_to_int(space, w_bool):
-    return W_IntObject(int(w_bool.boolval))
+    return W_IntObject(space, int(w_bool.boolval))
 W_BoolObject.delegate_once[W_IntObject] = bool_to_int
 
 
@@ -74,7 +74,7 @@ StdObjSpace.str.register(int_str, W_IntObject)
 ##        ret = 1
 ##    else:
 ##        ret = 0
-##    return W_IntObject(ret)
+##    return W_IntObject(space, ret)
 ##
 ##StdObjSpace.cmp.register(int_int_cmp, W_IntObject, W_IntObject)
 
@@ -122,7 +122,7 @@ def int_hash_strict(space, w_int1):
     x = w_int1.intval
     if x == -1:
         x = -2
-    return W_IntObject(x)
+    return W_IntObject(space, x)
 
 def int_hash_liberal(space, w_int1):
     # Armin: unlike CPython we have no need to special-case the value -1
@@ -149,7 +149,7 @@ def int_int_add(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer addition"))
-    return W_IntObject(z)
+    return W_IntObject(space, z)
 
 StdObjSpace.add.register(int_int_add, W_IntObject, W_IntObject)
 
@@ -161,7 +161,7 @@ def int_int_sub(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer substraction"))
-    return W_IntObject(z)
+    return W_IntObject(space, z)
 
 StdObjSpace.sub.register(int_int_sub, W_IntObject, W_IntObject)
 
@@ -173,7 +173,7 @@ def int_int_mul(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer multiplication"))
-    return W_IntObject(z)
+    return W_IntObject(space, z)
 
 StdObjSpace.mul.register(int_int_mul, W_IntObject, W_IntObject)
 
@@ -188,7 +188,7 @@ def int_int_floordiv(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer division"))
-    return W_IntObject(z)
+    return W_IntObject(space, z)
 
 StdObjSpace.floordiv.register(int_int_floordiv, W_IntObject, W_IntObject)
 
@@ -210,7 +210,7 @@ def int_int_mod(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer modulo"))
-    return W_IntObject(z)
+    return W_IntObject(space, z)
 
 StdObjSpace.mod.register(int_int_mod, W_IntObject, W_IntObject)
 
@@ -280,7 +280,7 @@ def int_int_int_pow(space, w_int1, w_int2, w_int3):
     y = w_int2.intval
     z = w_int3.intval
     ret = _impl_int_int_pow(space, x, y, z)
-    return W_IntObject(ret)
+    return W_IntObject(space, ret)
 
 StdObjSpace.pow.register(int_int_int_pow, W_IntObject, W_IntObject, W_IntObject)
 
@@ -288,7 +288,7 @@ def int_int_none_pow(space, w_int1, w_int2, w_none=None):
     x = w_int1.intval
     y = w_int2.intval
     ret = _impl_int_int_pow(space, x, y)
-    return W_IntObject(ret)
+    return W_IntObject(space, ret)
 
 StdObjSpace.pow.register(int_int_none_pow, W_IntObject, W_IntObject, W_NoneObject)
 
@@ -299,7 +299,7 @@ def int_neg(space, w_int1):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer negation"))
-    return W_IntObject(x)
+    return W_IntObject(space, x)
 
 StdObjSpace.neg.register(int_neg, W_IntObject)
 
@@ -311,7 +311,7 @@ def int_pos(space, w_int1):
     if w_int1.__class__ is W_IntObject:
         return w_int1
     a = w_int1.intval
-    return W_IntObject(a)
+    return W_IntObject(space, a)
 
 StdObjSpace.pos.register(int_pos, W_IntObject)
 
@@ -331,7 +331,7 @@ StdObjSpace.is_true.register(int_is_true, W_IntObject)
 def int_invert(space, w_int1):
     x = w_int1.intval
     a = ~x
-    return W_IntObject(a)
+    return W_IntObject(space, a)
 
 StdObjSpace.invert.register(int_invert, W_IntObject)
 
@@ -360,7 +360,7 @@ def int_int_lshift(space, w_int1, w_int2):
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer left shift"))
-    return W_IntObject(c);
+    return W_IntObject(space, c)
 
 StdObjSpace.lshift.register(int_int_lshift, W_IntObject, W_IntObject)
 
@@ -381,7 +381,7 @@ def int_int_rshift(space, w_int1, w_int2):
         ## please look into pyport.h, how >> should be implemented!
         ## a = Py_ARITHMETIC_RIGHT_SHIFT(long, a, b);
         a = a >> b
-    return W_IntObject(a)
+    return W_IntObject(space, a)
 
 StdObjSpace.rshift.register(int_int_rshift, W_IntObject, W_IntObject)
 
@@ -389,7 +389,7 @@ def int_int_and(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a & b
-    return W_IntObject(res)
+    return W_IntObject(space, res)
 
 StdObjSpace.and_.register(int_int_and, W_IntObject, W_IntObject)
 
@@ -397,7 +397,7 @@ def int_int_xor(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a ^ b
-    return W_IntObject(res)
+    return W_IntObject(space, res)
 
 StdObjSpace.xor.register(int_int_xor, W_IntObject, W_IntObject)
 
@@ -405,7 +405,7 @@ def int_int_or(space, w_int1, w_int2):
     a = w_int1.intval
     b = w_int2.intval
     res = a | b
-    return W_IntObject(res)
+    return W_IntObject(space, res)
 
 StdObjSpace.or_.register(int_int_or, W_IntObject, W_IntObject)
 
@@ -456,7 +456,7 @@ def int_oct(space, w_int1):
         ret = "0%lo" % x
     return space.wrap(ret)
 
-#?StdObjSpace.oct.register(int_oct, W_IntObject)
+StdObjSpace.oct.register(int_oct, W_IntObject)
 
 def int_hex(space, w_int1):
     x = w_int1.intval
@@ -473,4 +473,4 @@ def int_hex(space, w_int1):
         ret = "0x%lx" % x
     return space.wrap(ret)
 
-#?StdObjSpace.hex.register(int_hex, W_IntObject)
+StdObjSpace.hex.register(int_hex, W_IntObject)
