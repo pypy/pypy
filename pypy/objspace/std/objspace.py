@@ -257,6 +257,17 @@ class StdObjSpace(ObjSpace):
 
     getdict = MultiMethod('getdict', 1, [])  # get '.__dict__' attribute
 
+    def is_(self, w_one, w_two):
+        # XXX this is a hopefully temporary speed hack:
+        from cpythonobject import W_CPythonObject
+        if isinstance(w_one, W_CPythonObject):
+            if isinstance(w_two, W_CPythonObject):
+                return self.newbool(w_one.cpyobj is w_two.cpyobj)
+            else:
+                return self.newbool(0)
+        else:
+            return self.newbool(w_one is w_two)
+
 
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
