@@ -16,7 +16,8 @@ from __interplevel__ import pypy_objspaceclass
 
 # Functions from interpreter-level
 from __interplevel__ import _getframe, exc_info, exc_clear, pypy_getudir
-from __interplevel__ import _getframe, getrecursionlimit, setrecursionlimit
+from __interplevel__ import getrecursionlimit, setrecursionlimit
+from __interplevel__ import getcheckinterval, setcheckinterval
 
 # Dummy
 executable = ''

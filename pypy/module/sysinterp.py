@@ -145,6 +145,21 @@ recursion from causing an overflow of the C stack and crashing Python."""
 
     return space.newint(recursion_limit)
 
+checkinterval = 100
+
+def setcheckinterval(w_interval):
+    """setcheckinterval(n)
+
+Tell the Python interpreter to check for asynchronous events every
+n instructions.  This also affects how often thread switches occur."""
+    global checkinterval
+    checkinterval = space.int_w(w_interval)
+
+def getcheckinterval():
+    """getcheckinterval() -> current check interval; see setcheckinterval()."""
+    return space.newint(checkinterval)
+
+
 def exc_info():
     operror = space.getexecutioncontext().sys_exc_info()
     if operror is None:
