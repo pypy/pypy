@@ -255,3 +255,6 @@ class AppTestInterpreter:
         finally:
             sys.stdout = save
 
+    def test_identity(self):
+        def f(x): return x
+        assert f(666) == 666
