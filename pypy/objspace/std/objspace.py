@@ -209,7 +209,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         SlotWrapperType = type(type(None).__repr__)
         if isinstance(x, (types.FunctionType, types.BuiltinFunctionType, SlotWrapperType)):
             return cpythonobject.W_BuiltinFunctionObject(self, x) 
-        print "cpython wrapping %r (%s)" % (x, type(x))
+        #print "cpython wrapping %r (%s)" % (x, type(x))
         #if hasattr(x, '__bases__'): 
         #    print "cpython wrapping a class %r (%s)" % (x, type(x))
             #raise TypeError, "cannot wrap classes"
