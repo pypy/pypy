@@ -77,10 +77,11 @@ class TypingError(Exception):
 #       function should return the conversion operation (as a subclass of
 #       LLOp).  Otherwise, it should raise CannotConvert.
 #
-#   def typingerror(self, opname, hltypes):
-#       Called when no match is found in lloperations.  This function must
-#       either extend lloperations and return True to retry, or return
-#       False to fail.
+#   def typemismatch(self, opname, hltypes):
+#       Called when no exact match is found in lloperations.  This function
+#       can extend lloperations[opname] to provide a better match for hltypes.
+#       Partial matches (i.e. ones requiring conversions) are only considered
+#       after this function returns.
 # ____________________________________________________________
 
 
@@ -93,7 +94,7 @@ class LLTyper:
         self.lloperations = typeset.lloperations
         self.rawoperations= typeset.rawoperations
         self.getconversion= typeset.getconversion
-        self.typingerror  = typeset.typingerror
+        self.typemismatch = typeset.typemismatch
         self.hltypes = {}
         self.llreprs = {}
 
@@ -215,6 +216,42 @@ class LLFunction(LLTyper):
         # make a new node for the release tree
         self.to_release = ReleaseNode(v, llop, self.to_release)
 
+    def find_best_match(self, opname, args_t, directions):
+        # look for an exact match first
+        llsigs = self.lloperations.setdefault(opname, {})
+        sig = tuple(args_t)
+        if sig in llsigs:
+            return sig, llsigs[sig]
+        # no exact match, give the typeset a chance to provide an
+        # accurate version
+        self.typemismatch(opname, tuple(args_t))
+        if sig in llsigs:
+            return sig, llsigs[sig]
+        # enumerate the existing operation signatures and their costs
+        choices = []
+        for sig, llopcls in llsigs.items():
+            if len(sig) != len(args_t):
+                continue   # wrong number of arguments
+            try:
+                cost = llopcls.cost
+                for hltype1, hltype2, reverse in zip(args_t, sig,
+                                                     directions):
+                    if hltype1 != hltype2:
+                        if reverse:
+                            hltype1, hltype2 = hltype2, hltype1
+                        convop = self.getconversion(hltype1, hltype2)
+                        cost += convop.cost
+                choices.append((cost, sig, llopcls))
+            except CannotConvert:
+                continue   # non-matching signature
+        if choices:
+            cost, sig, llopcls = min(choices)
+            # for performance, cache the approximate match
+            # back into self.lloperations
+            llsigs[sig] = llopcls
+            return sig, llopcls
+        raise TypingError([opname] + list(args_t))
+
     def operation(self, opname, args, result=None, errlabel=None):
         "Helper to build the LLOps for a single high-level operation."
         # get the hltypes of the input arguments
@@ -227,43 +264,9 @@ class LLFunction(LLTyper):
             self.makevar(result)
             args_t.append(self.hltypes[result])
             directions.append(True)
-        # look for an exact match first
-        llsigs = self.lloperations.get(opname, {})
-        sig = tuple(args_t)
-        if sig in llsigs:
-            llopcls = llsigs[sig]
-        else:
-            # enumerate the existing operation signatures and their costs
-            choices = []
-            for sig, llopcls in llsigs.items():
-                if len(sig) != len(args_t):
-                    continue   # wrong number of arguments
-                try:
-                    cost = llopcls.cost
-                    for hltype1, hltype2, reverse in zip(args_t, sig,
-                                                         directions):
-                        if hltype1 != hltype2:
-                            if reverse:
-                                hltype1, hltype2 = hltype2, hltype1
-                            convop = self.getconversion(hltype1, hltype2)
-                            cost += convop.cost
-                    choices.append((cost, sig, llopcls))
-                except CannotConvert:
-                    continue   # non-matching signature
-            if not choices:
-                retry = self.typingerror(opname, tuple(args_t))
-                # if 'typingerror' did not raise an exception, try again.
-                # infinite recursion here means that 'typingerror' did not
-                # correctly extend 'lloperations'.
-                if retry:
-                    try:
-                        self.operation(opname, args, result, errlabel)
-                        return
-                    except RuntimeError:   # infinite recursion
-                        pass
-                raise TypingError([opname] + args_t)
-            cost, sig, llopcls = min(choices)
-        # convert input args to temporary variables
+        # look for the low-level operation class that implements these types
+        sig, llopcls = self.find_best_match(opname, args_t, directions)
+        # convert input args to temporary variables, if needed
         llargs = []
         for v, v_t, s_t in zip(args, args_t, sig):
             if v_t != s_t:

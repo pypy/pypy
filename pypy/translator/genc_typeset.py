@@ -82,31 +82,29 @@ class CTypeSet:
                 self.conversion_errors[sig] = True
                 raise
 
-    def typingerror(self, opname, hltypes):
+    def typemismatch(self, opname, hltypes):
         # build operations on demand, e.g. if they take a variable number
         # of arguments or depend on a constant value (e.g. the class being
         # instantiated).
         try:
-            builder = getattr(self, 'build_' + opname)
+            extender = getattr(self, 'extend_' + opname)
         except AttributeError:
-            return False
-
-        progress = False
-        for newsig, newop in builder(hltypes):
+            return
+        for newsig, newop in extender(hltypes):
+            # record the new operation only if it has a lower cost than
+            # an existing operation with the same signature
             llops = self.lloperations.setdefault(opname, {})
-            if newsig not in llops:
+            if newsig not in llops or newop.cost < llops[newsig].cost:
                 llops[newsig] = newop
-                progress = True
-        return progress
 
     # ____________________________________________________________
 
-    def build_OP_NEWLIST(self, hltypes):
+    def extend_OP_NEWLIST(self, hltypes):
         # LoNewList can build a list of any length from PyObject* args.
         sig = (R_OBJECT,) * len(hltypes)
         yield sig, genc_op.LoNewList
 
-    def build_OP_NEWTUPLE(self, hltypes):
+    def extend_OP_NEWTUPLE(self, hltypes):
         # We can use LoCopy to virtually build a tuple because
         # the tuple representation 'rt' is just the collection of all the
         # representations for the input args.
@@ -114,7 +112,7 @@ class CTypeSet:
         sig = tuple(hltypes[:-1]) + (rt,)
         yield sig, genc_op.LoCopy
 
-    def build_OP_SIMPLE_CALL(self, hltypes):
+    def extend_OP_SIMPLE_CALL(self, hltypes):
         if not hltypes:
             return
         # We can call the function using PyObject_CallFunction(), if
@@ -156,7 +154,7 @@ class CTypeSet:
                     sig = (r,) + sig
                     yield sig, llopcls
 
-    def build_OP_ALLOC_INSTANCE(self, hltypes):
+    def extend_OP_ALLOC_INSTANCE(self, hltypes):
         # OP_ALLOC_INSTANCE is used by the constructor functions xxx_new()
         if not hltypes:
             return
