@@ -181,13 +181,6 @@ class DescrOperation:
         return space.get_and_call_function(w_descr,w_obj)
         # XXX PyObject_Repr() probably checks that the result is a string
 
-    def contains(space,w_obj,w_val):
-        w_descr = space.lookup(w_obj,'__contains__')
-        if w_descr is None:
-            raise OperationError(space.w_TypeError,
-                   space.wrap("object doesn't know about contains"))
-        return space.get_and_call_function(w_descr,w_obj,w_val)
-        
     def iter(space,w_obj):
         w_descr = space.lookup(w_obj,'__iter__')
         if w_descr is None:
