@@ -18,7 +18,7 @@ while 1:
 
 def is_flexible(dirname, modname):
     filecont = open('%s/%s.py'%(dirname,modname)).read()
-    return filecont.index('testsupport.objspace') >= 0
+    return filecont.find('testsupport.objspace') >= 0
 
 def find_tests(root, inc_names=[], exc_names=[]):
     testmods = []
