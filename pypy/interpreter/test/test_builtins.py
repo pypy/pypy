@@ -1,3 +1,6 @@
+# XXX fixme:
+# This test is out of date and not functioning.
+
 import unittest, sys, os
 sys.path.insert(0, '..')
 
