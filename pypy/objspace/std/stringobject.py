@@ -9,7 +9,6 @@ from tupleobject import W_TupleObject
 
 from rarray import CharArrayFromStr, CharArraySize
 
-
 applicationfile = StdObjSpace.AppFile(__name__)
 
 class W_StringObject(W_Object):
@@ -87,10 +86,13 @@ def str_islower__String(space, w_self):
 def str_istitle(space, w_self):
     pass
 
-def str_split__String_None(space, w_self, w_none):
+def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):
     res = []
     inword = 0
     value = w_self._value.value()
+    maxsplit = space.unwrap(w_maxsplit)
+    pos = 0
+
     for ch in value:
         if ch.isspace():
             if inword:
@@ -99,43 +101,72 @@ def str_split__String_None(space, w_self, w_none):
             if inword:
                 res[-1] += ch
             else:
+                if maxsplit > -1:
+                    if maxsplit == 0:
+                        res.append(value[pos:])
+                        break
+                    maxsplit = maxsplit - 1
                 res.append(ch)
                 inword = 1
+        pos = pos + 1
+
     for i in range(len(res)):
         res[i] = W_StringObject(space, res[i])
     return W_ListObject(space, res)
 
-def str_split__String_String(space, w_self, w_by):
+def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
     res = []
     start = 0
     value = w_self._value.value()
     by = w_by._value.value()
-    while 1:
+    bylen = space.unwrap(space.len(w_by))
+    maxsplit = space.unwrap(w_maxsplit)
+
+    #if maxsplit is default, then you have no limit
+    #of the length of the resulting array
+    if maxsplit == -1:
+        splitcount = 1
+    else:
+        splitcount = maxsplit
+
+    while splitcount:             
         next = value.find(by, start)
         if next < 0:
             res.append(value[start:])
+            start = w_self._value.len + 1      
             break
         res.append(value[start:next])
-        start = next + len(by)
+        start = next + bylen
+        #decrese the counter only then, when
+        #we don't have default maxsplit
+        if maxsplit > -1:
+            splitcount = splitcount - 1
+
+    if start < w_self._value.len:             
+        res.append(value[start:])
+
     for i in range(len(res)):
         res[i] = W_StringObject(w_self.space, res[i])
     return W_ListObject(w_self.space, res)
-
 
 def str_join__String_ANY(space, w_self, w_list):
     list = space.unpackiterable(w_list)
     if list:
         firstelem = 1
         listlen = 0
-        reslen = 0  
+        reslen = 0 
+        #compute the length of the resulting string 
         for w_item in list:
             reslen = reslen + w_item._value.len
             listlen = listlen + 1
 
         reslen = reslen + (listlen - 1) * w_self._value.len
+
+        #allocate the string buffer
         res = CharArraySize(reslen)
 
         pos = 0
+        #fill in the string buffer
         for w_item in list:
             if firstelem:
                 res.setsubstring(pos, w_item._value.value())

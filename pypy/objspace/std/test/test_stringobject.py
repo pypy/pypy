@@ -118,6 +118,7 @@ class TestStringObject(test.AppTestCase):
     def test_split(self):
         self.assertEquals("".split(), [])
         self.assertEquals("a".split(), ['a'])
+        self.assertEquals(" a ".split(), ['a'])
         self.assertEquals("a b c".split(), ['a','b','c'])
 
     def test_split_splitchar(self):
@@ -126,8 +127,13 @@ class TestStringObject(test.AppTestCase):
     def test_ljust(self):
         self.assertEquals("abc".ljust(5), "abc  ")
             
-    def _notimpl_test_split_maxsplit(self):
+    def test_split_maxsplit(self):
         self.assertEquals("/a/b/c".split('/', 2), ['','a','b/c'])
+        self.assertEquals(" a ".split(None, 0), ['a '])
+        self.assertEquals(" a ".split(None, 1), ['a'])
+        self.assertEquals(" a a ".split(" ", 0), [' a a '])
+        self.assertEquals(" a a ".split(" ", 1), ['', 'a a '])
+
 
 if __name__ == '__main__':
     test.main()
