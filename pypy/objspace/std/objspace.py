@@ -153,11 +153,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
         from pypy.objspace.std import noneobject
         from pypy.objspace.std import iterobject
         from pypy.objspace.std import unicodeobject
+        from pypy.objspace.std import fake
         # hack to avoid imports in the time-critical functions below
         global W_ObjectObject, W_BoolObject, W_IntObject, W_FloatObject
         global W_TupleObject, W_ListObject, W_DictObject, W_StringObject
         global W_TypeObject, W_SliceObject, W_LongObject, W_NoneObject
-        global W_SeqIterObject, W_UnicodeObject
+        global W_SeqIterObject, W_UnicodeObject, fake_type
         W_ObjectObject = objectobject.W_ObjectObject
         W_BoolObject = boolobject.W_BoolObject
         W_IntObject = intobject.W_IntObject
@@ -172,6 +173,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         W_NoneObject = noneobject.W_NoneObject
         W_SeqIterObject = iterobject.W_SeqIterObject
         W_UnicodeObject = unicodeobject.W_UnicodeObject
+        fake_type = fake.fake_type
         # end of hacks
         # singletons
         self.w_None  = W_NoneObject(self)
@@ -248,10 +250,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, type(Exception)) and issubclass(x, Exception):
             if hasattr(self, 'w_' + x.__name__):
                 return getattr(self, 'w_' + x.__name__)
-        from pypy.objspace.std import fake
         if isinstance(x, type):
-            return self.gettypeobject(fake.fake_type(x).typedef)
-        return fake.fake_type(type(x))(self, x)
+            ft = self.loadfromcache(x, fake_type)
+            return self.gettypeobject(ft.typedef)
+        ft = self.loadfromcache(type(x), fake_type)
+        return ft(self, x)
 
     def newint(self, intval):
         return W_IntObject(self, intval)

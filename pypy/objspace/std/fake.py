@@ -29,7 +29,7 @@ def wrap_exception(space):
         w_value = space.wrap(value)
     raise OperationError, OperationError(w_exc, w_value), tb
 
-def fake_type(cpy_type):
+def fake_type(cpy_type, ignored=None):
     assert type(cpy_type) is type
     if cpy_type in _fake_type_cache:
         return _fake_type_cache[cpy_type]

@@ -7,6 +7,7 @@ from pypy.annotation.factory import ListFactory, DictFactory
 from pypy.annotation.factory import BlockedInference, Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
+from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 
 
 class AnnotatorError(Exception):
@@ -129,21 +130,35 @@ class RPythonAnnotator:
         # generalize the function's input arguments
         block = graph.startblock
         inputcells = list(args)
+        # process *varargs in the called function
+        expectedargs = len(block.inputargs)
+        if func.func_code.co_flags & CO_VARARGS:
+            expectedargs -= 1
+        if func.func_code.co_flags & CO_VARKEYWORDS:
+            expectedargs -= 1
+        extracells = []
+        if func.func_code.co_flags & CO_VARARGS:
+            s_varargs = annmodel.SomeTuple(inputcells[expectedargs:])
+            extracells = [s_varargs]
+            del inputcells[expectedargs:]
+        if func.func_code.co_flags & CO_VARKEYWORDS:
+            raise AnnotatorError, "** argument of %r unsupported" % (func,)
         # add default arguments if necessary
-        missingargs = len(block.inputargs) - len(inputcells)
-        if missingargs:
+        if len(inputcells) != expectedargs:
+            missingargs = expectedargs - len(inputcells)
             nbdefaults = len(func.func_defaults or ())
             if not (0 <= missingargs <= nbdefaults):
                 if nbdefaults:
-                    msg = "%d to %d" % (len(block.inputargs)-nbdefaults,
-                                        len(block.inputargs))
+                    msg = "%d to %d" % (expectedargs-nbdefaults,
+                                        expectedargs)
                 else:
-                    msg = "%d" % len(block.inputargs)
+                    msg = "%d" % expectedargs
                 raise AnnotatorError, (
                     "got %d inputcells in call to %r; expected %s" % (
                     len(inputcells), func, msg))
             for extra in func.func_defaults[-missingargs:]:
                 inputcells.append(annmodel.immutablevalue(extra))
+        inputcells.extend(extracells)
         self.addpendingblock(block, inputcells)
         # get the (current) return value
         v = graph.getreturnvar()
@@ -217,9 +232,10 @@ class RPythonAnnotator:
                 #import traceback, sys
                 #traceback.print_tb(sys.exc_info()[2])
                 self.annotated[block] = False   # failed, hopefully temporarily
-            except AnnotatorError, e:
-                if not hasattr(e, 'block'):
-                    e.block = block
+            except Exception, e:
+                # hack for debug tools only
+                if not hasattr(e, '__annotator_block'):
+                    setattr(e, '__annotator_block', block)
                 raise
 
     def reflowpendingblock(self, block):

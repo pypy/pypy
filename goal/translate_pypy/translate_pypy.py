@@ -1,7 +1,7 @@
 #
 #  
 #
-import autopath
+import autopath, sys
 
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
 from pypy.objspace.std.intobject import W_IntObject
@@ -60,15 +60,16 @@ if __name__ == '__main__':
         a = t.annotate([])
         a.simplify()
     except:
-        import sys, traceback, thread
+        import traceback
         exc, val, tb = sys.exc_info()
         print >> sys.stderr
         traceback.print_exception(exc, val, tb)
         print >> sys.stderr
 
-        if isinstance(val, AnnotatorError) and hasattr(val, 'block'):
+        block = getattr(val, '__annotator_block', None)
+        if block:
             print '-'*60
-            about(val.block)
+            about(block)
             print '-'*60
         
         run_server(background=True)
