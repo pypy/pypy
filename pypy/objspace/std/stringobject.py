@@ -94,6 +94,7 @@ class W_StringObject(W_Object):
     def __init__(w_self, space, str):
         W_Object.__init__(w_self, space)
         w_self._value = str
+        w_self.w_hash = None
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -771,7 +772,11 @@ def unwrap__String(space, w_str):
     return w_str._value
 
 def hash__String(space, w_str):
-    return W_IntObject(space, hash(w_str._value))
+    w_hash = w_str.w_hash
+    if w_hash is None:
+        w_hash = W_IntObject(space, hash(w_str._value))
+        w_str.w_hash = w_hash
+    return w_hash
 
 
 ##EQ = 1
