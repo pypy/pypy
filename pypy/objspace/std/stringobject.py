@@ -940,8 +940,15 @@ def ord__String(space, w_str):
 def mod__String_ANY(space, w_str, w_item):
     return mod_str_tuple(space, w_str, space.newtuple([w_item]))
 
-def mod__String_Tuple(space, w_str, w_tuple):
-    return mod_str_tuple(space, w_str, w_tuple)
+def mod__String_ANY(space, w_str, w_tuple):
+    return mod_str_tuple(space, w_str, w_tuple) 
+
+#def app_mod__String_Tuple(format, values):
+#    l = list(values) 
+#    l.reverse()
+#    for formatchars = list(format) 
+
+#mod__String_Tuple = gateway.app2interp(app_mod__String_Tuple) 
 
 # register all methods 
 register_all(vars(), W_StringType)
