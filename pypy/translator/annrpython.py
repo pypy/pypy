@@ -149,12 +149,13 @@ class RPythonAnnotator:
         elif cells is not None:
             self.mergeinputargs(block, cells)
         if not self.annotated[block]:
+            self.annotated[block] = True
             try:
                 self.flowin(block)
             except DelayAnnotation:
-                self.delayedblocks.append(block) # failed, hopefully temporarily
+                self.annotated[block] = False   # failed, hopefully temporarily
+                self.delayedblocks.append(block)
             else:
-                self.annotated[block] = True
                 # When flowin succeeds, i.e. when the analysis progress,
                 # we can tentatively re-schedlue the delayed blocks.
                 for block in self.delayedblocks:

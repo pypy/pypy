@@ -266,3 +266,11 @@ def factorial(n):
         return 1
     else:
         return n * factorial(n-1)
+
+def append_five(lst):
+    lst += [5]
+
+def call_five():
+    a = []
+    h(a)
+    return a
