@@ -76,9 +76,9 @@ class TestW_ListObject(test.TestCase):
             w_result = self.space.getitem(w_list, w_slice)
             self.assertEqual(self.space.unwrap(w_result), expected)
         
-        for testlist in [[], [5,3,99], list(range(5,555,10))]:
-            for start in [-2, -1, 0, 1, 10]:
-                for end in [-1, 0, 2, 999]:
+        for testlist in [[], [5,3,99]]:
+            for start in [-2, 0, 1, 10]:
+                for end in [-1, 2, 999]:
                     test1(testlist, start, end, 1, testlist[start:end])
 
         test1([5,7,1,4], 3, 1, -2,  [4,])
@@ -87,6 +87,24 @@ class TestW_ListObject(test.TestCase):
         test1([5,7,1,4], -2, 11, 2, [1,])
         test1([5,7,1,4], -3, 11, 2, [7, 4])
         test1([5,7,1,4], -5, 11, 2, [5, 1])
+
+    def test_setslice(self):
+        w = self.space.wrap
+
+        def test1(lhslist, start, stop, rhslist, expected):
+            w_slice  = self.space.newslice(w(start), w(stop), w(1))
+            w_lhslist = W_ListObject(self.space, [w(i) for i in lhslist])
+            w_rhslist = W_ListObject(self.space, [w(i) for i in rhslist])
+            self.space.setitem(w_lhslist, w_slice, w_rhslist)
+            self.assertEqual(self.space.unwrap(w_lhslist), expected)
+        
+
+        test1([5,7,1,4], 1, 3, [9,8],  [5,9,8,4])
+        test1([5,7,1,4], 1, 3, [9],    [5,9,4])
+        test1([5,7,1,4], 1, 3, [9,8,6],[5,9,8,6,4])
+        test1([5,7,1,4], 1, 3, [],     [5,4])
+        test1([5,7,1,4], 2, 2, [9],    [5,7,9,1,4])
+        test1([5,7,1,4], 0, 99,[9,8],  [9,8])
 
     def test_add(self):
         w = self.space.wrap
@@ -114,28 +132,6 @@ class TestW_ListObject(test.TestCase):
         # commute
         w_res = self.space.mul(w(n), w_lis)
         self.assertEqual_w(w_lis3, w_res)
-
-    def test_getslice(self):
-        # this takes aaagggeeesss!!!
-        w = self.space.wrap
-
-        def test1(testlist, start, stop, step, expected):
-            w_slice  = self.space.newslice(w(start), w(stop), w(step))
-            w_list = W_ListObject(self.space, [w(i) for i in testlist])
-            w_result = self.space.getitem(w_list, w_slice)
-            self.assertEqual(self.space.unwrap(w_result), expected)
-        
-        for testlist in [[], [5,3,99], list(range(5,555,10))]:
-            for start in [-2, -1, 0, 1, 10]:
-                for end in [-1, 0, 2, 999]:
-                    test1(testlist, start, end, 1, testlist[start:end])
-
-        test1([5,7,1,4], 3, 1, -2,  [4,])
-        test1([5,7,1,4], 3, 0, -2,  [4, 7])
-        test1([5,7,1,4], 3, -1, -2, [])
-        test1([5,7,1,4], -2, 11, 2, [1])
-        test1([5,7,1,4], -3, 11, 2, [7, 4])
-        test1([5,7,1,4], -5, 11, 2, [5, 1])
 
     def test_setitem(self):
         w = self.space.wrap

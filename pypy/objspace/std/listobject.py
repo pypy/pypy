@@ -177,24 +177,34 @@ def setitem__List_Int_ANY(space, w_list, w_index, w_any):
     items[idx] = w_any
     return space.w_None
 
-# XXX not trivial!
 def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
-    raise Exception, "not done!"
-##    items = w_list.ob_item
-##    w_length = space.wrap(w_list.ob_size)
-##    w_start, w_stop, w_step, w_slicelength = w_slice.indices(w_length)
-##    start       = space.unwrap(w_start)
-##    step        = space.unwrap(w_step)
-##    slicelength = space.unwrap(w_slicelength)
-##    assert slicelength >= 0
-##    w_res = W_ListObject(space, [])
-##    _list_resize(w_res, slicelength)
-##    subitems = w_res.ob_item
-##    for i in range(slicelength):
-##        subitems[i] = items[start]
-##        start += step
-##    w_res.ob_size = slicelength
-##    return w_res
+    w_length = space.wrap(w_list.ob_size)
+    start, stop, step, slicelength = slicetype.indices4(space,w_slice,w_list.ob_size)
+    assert slicelength >= 0
+    if step != 1:
+        raise OperationError(space.w_NotImplementedError,
+          space.wrap("Assignment to extended slices not implemented yet."))
+    len2 = w_list2.ob_size
+    delta = len2 - slicelength
+    oldsize = w_list.ob_size
+    newsize = oldsize + delta
+    _list_resize(w_list, newsize)
+    items = w_list.ob_item
+    w_list.ob_size = newsize
+    if delta > 0:
+        r = range(newsize-1,stop+delta-1,-1)
+    elif delta < 0:
+        r = range(stop+delta,newsize)
+    else:
+        r = ()
+
+    for i in r:
+        items[i] = items[i-delta]
+            
+    for i in range(len2):
+    #    items[start+i] = space.getitem(w_list2,space.wrap(i))
+        items[start+i] = w_list2.ob_item[i]
+    return space.w_None
 
 def repr__List(space, w_list):
     w = space.wrap
