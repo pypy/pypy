@@ -1,6 +1,14 @@
 #
 #  
 #
+"""
+Command-line options for translate_pypy:
+
+   -text    Don't start the Pygame viewer
+   -no-c    Don't generate the C code
+   -c       Generate the C code, but don't compile it
+   -o       Generate and compile the C code, but don't run it
+"""
 import autopath, sys, threading, pdb
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
 from pypy.objspace.std.intobject import W_IntObject
@@ -37,6 +45,9 @@ if __name__ == '__main__':
                '-o':    False,
                }
     for arg in sys.argv[1:]:
+        if arg in ('-h', '--help'):
+            print __doc__.strip()
+            sys.exit()
         assert arg in options, "unknown option %r" % (arg,)
         options[arg] = True
 
