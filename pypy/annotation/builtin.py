@@ -35,6 +35,15 @@ def restricted_uint(s_obj):    # for r_uint
 def builtin_chr(s_int):
     return SomeChar()
 
+def builtin_unicode(s_obj): 
+    return SomeString() 
+
+def builtin_float(s_obj): 
+    return SomeObject() 
+
+def builtin_long(s_str): 
+    return SomeObject() 
+
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""
     return cls2 is object or issubclass(cls1, cls2)
