@@ -24,6 +24,8 @@ class W_FloatObject(W_Object):
     def unwrap(w_self):
         return w_self.floatval
 
+    def __repr__(self):
+        return "<W_FloatObject(%f)>" % self.floatval
 
 registerimplementation(W_FloatObject)
 
