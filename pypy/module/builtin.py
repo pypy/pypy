@@ -312,7 +312,8 @@ class __builtin__(ExtModule):
         return self.space.repr(w_object)
 
     def setattr(self, w_object, w_name, w_val):
-        return self.space.setattr(w_object, w_name, w_val)
+        self.space.setattr(w_object, w_name, w_val)
+        return self.space.w_None
 
     # app-level functions
 
