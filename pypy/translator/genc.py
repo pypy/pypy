@@ -112,6 +112,7 @@ class GenC:
 
     def initcode_python(self, name, pyexpr):
         # generate init code that will evaluate the given Python expression
+        #self.initcode.append("print 'setting up', %r" % name)
         self.initcode.append("%s = %s" % (name, pyexpr))
 
     def nameof_object(self, value):
@@ -247,8 +248,19 @@ class GenC:
             for key, value in content:
                 if self.should_translate_attr(instance, key):
                     yield '%s.%s = %s' % (name, key, self.nameof(value))
+        if hasattr(instance,'__reduce_ex__'):
+            import copy_reg
+            reduced = instance.__reduce_ex__()
+            assert reduced[0] is copy_reg._reconstructor
+            state = reduced[1][2]
+        else:
+            state = None
         self.initcode.append('if isinstance(%s, type):' % cls)
-        self.initcode.append('    %s = %s.__new__(%s)' % (name, cls, cls))
+        if state is not None:
+            #print "INST",'    %s = %s.__new__(%s, %r)' % (name, cls, cls, state)
+            self.initcode.append('    %s = %s.__new__(%s, %r)' % (name, cls, cls, state))
+        else:
+            self.initcode.append('    %s = %s.__new__(%s)' % (name, cls, cls))
         self.initcode.append('else:')
         self.initcode.append('    %s = new.instance(%s)' % (name, cls))
         self.later(initinstance())
@@ -337,6 +349,7 @@ class GenC:
         InstanceType: 'types.InstanceType',
         type(None):   'type(None)',
         CodeType:     'types.CodeType',
+        type(sys):    'type(new)',
 
         r_int:        'int',   # XXX
         r_uint:       'int',   # XXX

@@ -137,6 +137,7 @@ def hack_out_multimethods(ns):
 
 
 def sliced_typeorders(typeorder, multimethod, typedef, i, local=False):
+    """NOT_RPYTHON"""
     list_of_typeorders = [typeorder] * multimethod.arity
     prefix = '_mm_' + multimethod.name
     if not local:
@@ -170,6 +171,7 @@ def typeerrormsg(space, operatorsymbol, args_w):
 
 def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, selfindex=0,
                             allow_NotImplemented_results=False):
+    """NOT_RPYTHON"""    
     # mess to figure out how to put a gateway around executing expr
     argnames = ['_%d'%(i+1) for i in range(multimethod.arity)]
     explicit_argnames = multimethod.extras.get('argnames', [])
@@ -241,6 +243,7 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
     return miniglobals["%s_perform_call" % prefix]
 
 def wrap_trampoline_in_gateway(func, methname, multimethod):
+    """NOT_RPYTHON"""
     unwrap_spec = [gateway.ObjSpace] + [gateway.W_Root]*multimethod.arity
     if multimethod.extras.get('varargs_w', False):
         unwrap_spec.append('args_w')
@@ -251,6 +254,7 @@ def wrap_trampoline_in_gateway(func, methname, multimethod):
     return gateway.interp2app(func, app_name=methname, unwrap_spec=unwrap_spec)
 
 def slicemultimethod(space, multimethod, typedef, result, local=False):
+    """NOT_RPYTHON"""    
     for i in range(len(multimethod.specialnames)):
         methname = multimethod.specialnames[i]
         if methname in result:
@@ -261,6 +265,7 @@ def slicemultimethod(space, multimethod, typedef, result, local=False):
                 continue
 
         def multimethod_loader(i=i, methname=methname):
+            """NOT_RPYTHON"""
             prefix, list_of_typeorders = sliced_typeorders(
                 space.model.typeorder, multimethod, typedef, i, local=local)
             exprargs, expr, miniglobals, fallback = multimethod.install(prefix, list_of_typeorders,
@@ -277,6 +282,7 @@ def slicemultimethod(space, multimethod, typedef, result, local=False):
         result[methname] = multimethod_loader
 
 def slicemultimethods(space, typedef):
+    """NOT_RPYTHON"""
     result = {}
     # import and slice all multimethods of the space.MM container
     for multimethod in hack_out_multimethods(space.MM.__dict__):
