@@ -126,3 +126,8 @@ def default_not(space, w_obj):
     return space.newbool(not space.is_true(w_obj))
 
 StdObjSpace.not_.register(default_not, W_ANY)
+
+def default_is_true(space, w_obj):
+    return True   # everything is True unless otherwise specified
+
+StdObjSpace.is_true.register(default_is_true, W_ANY)
