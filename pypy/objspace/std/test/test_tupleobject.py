@@ -56,6 +56,18 @@ class TestW_TupleObject(unittest_w.TestCase_w):
         self.assertRaises(NoValue, self.space.next, w_iter)
         self.assertRaises(NoValue, self.space.next, w_iter)
 
+    def test_contains(self):
+        w = self.space.wrap
+        w_tuple = tobj.W_TupleObject(self.space, [w(5), w(3), w(99)])
+        self.assertEqual_w(self.space.contains(w_tuple, w(5)),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.contains(w_tuple, w(99)),
+                           self.space.w_True)
+        self.assertEqual_w(self.space.contains(w_tuple, w(11)),
+                           self.space.w_False)
+        self.assertEqual_w(self.space.contains(w_tuple, w_tuple),
+                           self.space.w_False)
+
     def test_add(self):
         w = self.space.wrap
         w_tuple0 = tobj.W_TupleObject(self.space, [])
