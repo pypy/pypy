@@ -28,15 +28,8 @@ class FailedToImplement(Exception):
 
 # for dispatching use the result of this function instead of directly
 # using .__class__
+dispatchtype = lambda obj: getattr(obj, 'dispatchtype', obj.__class__)
 
-def dispatchtype(obj):
-    try:
-        return obj.dispatchtype
-    except AttributeError:
-        return obj.__class__
-
-##def todispatchtype(cls):
-##    return getattr(cls,'dispatchtype',cls)
 
 class AbstractMultiMethod(object):
     """Abstract base class for MultiMethod and UnboundMultiMethod
