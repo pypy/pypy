@@ -148,9 +148,12 @@ class LLClass(LLTyper):
         v1 = Constant(cls)
         # initialize class attributes
         for fld in self.class_fields:
-            value = getattr(cls, fld.name)
-            op('initclassattr', v1, Constant(fld.name), Constant(value),
-               s_result = annmodel.SomeImpossibleValue())
+            # some attributes might be missing from 'cls' if it is an abstract
+            # base class.  We left the field uninitialized in this case.
+            if hasattr(cls, fld.name):
+                value = getattr(cls, fld.name)
+                op('initclassattr', v1, Constant(fld.name), Constant(value),
+                   s_result = annmodel.SomeImpossibleValue())
         # finally, return None
         graph = FunctionGraph('%s_typenew' % self.name, b)
         self.bindings[graph.getreturnvar()] = annmodel.immutablevalue(None)

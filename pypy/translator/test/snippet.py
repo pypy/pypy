@@ -319,7 +319,9 @@ def knownkeysdict(b=anytype):
 def prime(n=int):
     return len([i for i in range(1,n+1) if n%i==0]) == 2
 
-class A1:
+class A0:
+    pass
+class A1(A0):
     clsattr = 123
 class A2(A1):
     clsattr = 456
@@ -327,7 +329,7 @@ class A3(A2):
     clsattr = 789
 class A4(A3):
     pass
-class A5(A1):
+class A5(A0):
     clsattr = 101112
 
 def classattribute(flag=int):
