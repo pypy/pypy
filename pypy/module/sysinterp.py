@@ -38,7 +38,7 @@ for fn in builtin_module_names:
 for fn in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
            'itertools', 'math', '_codecs',
            '_random', '_sre', 'time', '_socket', 'errno',
-           'marshal', 'struct', 'binascii', 'parser']:
+           'marshal', 'binascii', 'parser']:
     if fn not in builtin_modules:
         try:
             builtin_modules[fn] = hack_cpython_module(fn)
