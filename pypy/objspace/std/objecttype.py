@@ -129,24 +129,42 @@ def object_setattr__ANY_ANY_ANY(space, w_obj, w_attr, w_value):
         raise OperationError(space.w_AttributeError, w_attr)
     else:
         space.setitem(w_dict, w_attr, w_value)
+            
 
 def object_delattr__ANY_ANY(space, w_obj, w_attr):
+    w_type = space.type(w_obj)
     if space.is_true(space.eq(w_attr, space.wrap('__class__'))):
         raise OperationError(space.w_AttributeError,
                              space.wrap("read-only attribute"))
+    if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
+        raise OperationError(space.w_AttributeError,
+                             space.wrap("read-only attribute"))
+
+    from typeobject import W_TypeObject
+    if isinstance(w_type, W_TypeObject):
+        try:
+            w_descr = w_type.lookup(w_attr)
+        except KeyError:
+            pass
+        else:
+            #space.type(w_descr).lookup(space.wrap('__delete__'))
+            if space.is_data_descr(w_descr):
+                return space.delete(w_descr, w_obj)
+    
     try:
         w_dict = space.getdict(w_obj)
     except OperationError, e:
-        # catch TypeError("unsupported type for getdict")
-        if not e.match(space, space.w_TypeError):
+        if not e.match(space, space.w_TypeError): # "unsupported type for getdict"
             raise
+        raise OperationError(space.w_AttributeError, w_attr)
     else:
-        if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
-            raise OperationError(space.w_AttributeError,
-                                 space.wrap("read-only attribute"))
-        space.delitem(w_dict, w_attr)
-        return
-    
+        try:
+            space.delitem(w_dict, w_attr)
+        except OperationError, e:
+            if not e.match(space, space.w_KeyError):
+                raise
+            raise OperationError(space.w_AttributeError, w_attr)
+
     raise OperationError(space.w_AttributeError, w_attr)
 
 

@@ -58,9 +58,11 @@ class TestUserObject(test.AppTestCase):
         c.prop = 32
         self.assertEquals(c.wibble, 32)
 
-    def dont_test_descr_delete(self):
+    def test_descr_delete(self):
         class C:
             class desc:
+                def __set__(self, ob, val):
+                    oogabooga
                 def __delete__(self, ob):
                     ob.wibble = 22
             prop = desc()
