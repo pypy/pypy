@@ -229,7 +229,7 @@ def eval(w_source, w_globals=None, w_locals=None):
     w = space.wrap
 
     if space.is_true(space.isinstance(w_source, space.w_str)):
-        w_codeobj = compile(space.str_w(w_source), "<string>", "eval")
+        w_codeobj = compile(space.str_w(w_source).lstrip(' \t'), "<string>", "eval")
     elif isinstance(space.interpclass_w(w_source), PyCode):
         w_codeobj = w_source
     else:
