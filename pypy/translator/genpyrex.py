@@ -415,7 +415,8 @@ class GenPyrex:
                 self.putline("cdef class %s%s:" % (self.getclassname(cls.cls),bdef))
                 self.indent += 1
                 empty = True
-                for attr,s_value in cls.attrs.items():
+                for attr, attrdef in cls.attrs.items():
+                    s_value = attrdef.s_value
                     if isinstance(s_value, SomeCallable):
                         for py_fun,fun_class in s_value.callables.items():
                             assert isclassdef(fun_class), (
