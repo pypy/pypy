@@ -185,6 +185,20 @@ class AppTestInterpreter(testit.AppTestCase):
         else:
             self.fail("shouldn't be able to raise 1")
 
+    def test_raise_three_args(self):
+        import sys
+        try:
+            raise ValueError
+        except:
+            exc_type,exc_val,exc_tb = sys.exc_info()
+        try:
+            raise exc_type,exc_val,exc_tb
+        except:
+            exc_type2,exc_val2,exc_tb2 = sys.exc_info()
+        self.assertEquals(exc_type,exc_type2)
+        self.assertEquals(exc_val,exc_val2)
+        self.assertEquals(exc_tb,exc_tb2)
+
     def test_trivial_call(self):
         def f(): return 42
         self.assertEquals(f(), 42)

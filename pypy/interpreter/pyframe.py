@@ -49,12 +49,8 @@ class PyFrame(eval.Frame, baseobjspace.Wrappable):
                         # dispatch() is abstract, see pyopcode.
                         self.dispatch()
                     except OperationError, e:
-                        #import traceback
-                        #traceback.print_exc()
                         pytraceback.record_application_traceback(
                             self.space, e, self, last_instr)
-                        self.last_exception = e
-                        executioncontext.exception_trace(e)
                         # convert an OperationError into a control flow
                         # exception
                         import sys
@@ -263,10 +259,23 @@ class ControlFlowException(Exception):
 class SApplicationException(ControlFlowException):
     """Unroll the stack because of an application-level exception
     (i.e. an OperationException)."""
+
+    def action(self, frame, last_instr, executioncontext):
+        e = self.args[0]
+        frame.last_exception = e
+        executioncontext.exception_trace(e)
+
+        ControlFlowException.action(self, frame,
+                                    last_instr, executioncontext)
+
     def emptystack(self, frame):
         # propagate the exception to the caller
-        operationerr, tb = self.args
-        raise operationerr.__class__, operationerr, tb
+        if len(self.args) == 2:
+            operationerr, tb = self.args
+            raise operationerr.__class__, operationerr, tb
+        else:
+            operationerr = self.args[0]
+            raise operationerr
 
 class SBreakLoop(ControlFlowException):
     """Signals a 'break' statement."""

@@ -20,10 +20,10 @@ class OperationError(Exception):
     (frame, instruction_position) making the application-level traceback.
     """
 
-    def __init__(self, w_type, w_value):
+    def __init__(self, w_type, w_value, tb=None):
         self.w_type = w_type
         self.w_value = w_value
-        self.application_traceback = None
+        self.application_traceback = tb
         self.debug_tbs = []
 
     def match(self, space, w_check_class):

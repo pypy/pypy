@@ -6,7 +6,8 @@ pyfastscope.py and pynestedscope.py.
 
 from pypy.interpreter.baseobjspace import OperationError, NoValue
 from pypy.interpreter.eval import UNDEFINED
-from pypy.interpreter import baseobjspace, pyframe, gateway, function
+from pypy.interpreter import baseobjspace, gateway, function
+from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.miscutils import InitializedClass
 
 
@@ -302,8 +303,17 @@ class PyInterpFrame(pyframe.PyFrame):
         if nbargs >= 1: w_type      = f.valuestack.pop()
         w_resulttuple = prepare_raise(f.space, w_type, w_value, w_traceback)
         w_type, w_value, w_traceback = f.space.unpacktuple(w_resulttuple, 3)
-        # XXX the three-arguments 'raise' is not supported yet
-        raise OperationError(w_type, w_value)
+        tb = f.space.unwrap(w_traceback)
+        if tb is not None:
+            if not isinstance(tb,pytraceback.PyTraceback):
+                raise OperationError(f.space.w_TypeError,
+                      f.space.wrap("raise: arg 3 must be a traceback or None"))
+            operror = OperationError(w_type,w_value,tb)
+            # re-raise, no new traceback obj will be attached
+            raise pyframe.SApplicationException(operror) 
+        else:
+            # common-case
+            raise OperationError(w_type, w_value)
 
     def LOAD_LOCALS(f):
         f.valuestack.push(f.w_locals)
@@ -850,11 +860,12 @@ def app_prepare_raise(etype, value, traceback):
         value = etype
         etype = value.__class__
     elif isinstance(etype, type) and issubclass(etype, Exception):
-        if value is None:
-            value = ()
-        elif not isinstance(value, tuple):
-            value = (value,)
-        value = etype(*value)
+        if not isinstance(value,etype):
+            if value is None:
+                value = ()
+            elif not isinstance(value, tuple):
+                value = (value,)
+            value = etype(*value)
     else:
         raise TypeError("exceptions must be instances or subclasses of "
                         "Exception or strings (deprecated), not %s" %
