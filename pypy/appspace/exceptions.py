@@ -51,11 +51,11 @@ class UnicodeTranslateError(UnicodeError):
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
-           'start=%s' % self.start),
-           'reason=%s' % self.reason),
-           'args=%s' % self.args),
-           'end=%s' % self.end),
-           'object=%s' % self.object),
+           'start=%s' % self.start,
+           'reason=%s' % self.reason,
+           'args=%s' % self.args,
+           'end=%s' % self.end,
+           'object=%s' % self.object,
         ])
         return res
 
@@ -108,10 +108,10 @@ class EnvironmentError(StandardError):
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
-           'errno=%s' % self.errno),
-           'args=%s' % self.args),
-           'strerror=%s' % self.strerror),
-           'filename=%s' % self.filename),
+           'errno=%s' % self.errno,
+           'args=%s' % self.args,
+           'strerror=%s' % self.strerror,
+           'filename=%s' % self.filename,
         ])
         return res
 
@@ -139,12 +139,12 @@ class UnicodeEncodeError(UnicodeError):
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
-           'object=%s' % self.object),
-           'end=%s' % self.end),
-           'encoding=%s' % self.encoding),
-           'args=%s' % self.args),
-           'start=%s' % self.start),
-           'reason=%s' % self.reason),
+           'object=%s' % self.object,
+           'end=%s' % self.end,
+           'encoding=%s' % self.encoding,
+           'args=%s' % self.args,
+           'start=%s' % self.start,
+           'reason=%s' % self.reason,
         ])
         return res
 
@@ -191,7 +191,7 @@ class SyntaxError(StandardError):
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
-           'args=%s' % self.args),
+           'args=%s' % self.args,
         ])
         return res
 
@@ -251,12 +251,12 @@ class UnicodeDecodeError(UnicodeError):
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
-           'object=%s' % self.object),
-           'end=%s' % self.end),
-           'encoding=%s' % self.encoding),
-           'args=%s' % self.args),
-           'start=%s' % self.start),
-           'reason=%s' % self.reason),
+           'object=%s' % self.object,
+           'end=%s' % self.end,
+           'encoding=%s' % self.encoding,
+           'args=%s' % self.args,
+           'start=%s' % self.start,
+           'reason=%s' % self.reason,
         ])
         return res
 
