@@ -307,7 +307,7 @@ def getitem_str_slice(space, w_str, w_slice):
         r[i] = space.getitem(w_str, w(start + i*step))
     w_r = space.newlist(r)
     w_empty = space.newstring([])
-    return str_join(w_empty, w_r)
+    return str_join(space, w_empty, w_r)
 
 StdObjSpace.getitem.register(getitem_str_slice, 
                              W_StringObject, W_SliceObject)

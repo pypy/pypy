@@ -9,7 +9,7 @@ class MultiMethod(object):
 
     ASSERT_BASE_TYPE = None
 
-    def __init__(self, operatorsymbol, arity, specialnames=None):
+    def __init__(self, operatorsymbol, arity, specialnames=None, defaults=()):
         "MultiMethod dispatching on the first 'arity' arguments."
         self.arity = arity
         self.operatorsymbol = operatorsymbol
@@ -17,6 +17,7 @@ class MultiMethod(object):
         if specialnames is None:
             specialnames = [operatorsymbol]
         self.specialnames = specialnames  # list like ['__xxx__', '__rxxx__']
+        self.defaults = defaults
         self.cache_dependencies = {}
         self.cache_table = {}
 

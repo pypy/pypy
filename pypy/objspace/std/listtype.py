@@ -9,7 +9,7 @@ class W_ListType(W_TypeObject):
     list_append = MultiMethod('append', 2)
     list_insert = MultiMethod('insert', 3)
     list_extend = MultiMethod('extend', 2)
-    list_pop    = MultiMethod('pop',    2)
+    list_pop    = MultiMethod('pop',    2, defaults=(-1,))
     list_remove = MultiMethod('remove', 2)
     list_index  = MultiMethod('index',  2)
     list_count  = MultiMethod('count',  2)

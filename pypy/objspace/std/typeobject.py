@@ -64,7 +64,7 @@ class W_TypeObject(W_Object):
             raise KeyError   # pass on the KeyError
         if code.slice().is_empty():
             raise KeyError
-        return space.newfunction(code, space.w_None, space.w_None)
+        return space.newfunction(code, space.w_None, code.getdefaults(space))
 
     def acceptclass(w_self, cls):
         # For multimethod slicing. This checks whether a Python object of
@@ -105,6 +105,9 @@ class PyMultimethodCode(pycode.PyBaseCode):
         self.slicedmultimethod = None
         self.bound_position = bound_position
         self.w_type = w_type
+
+    def getdefaults(self, space):
+        return space.wrap(self.basemultimethod.defaults)
 
     def cleardependency(self):
         # called when the underlying dispatch table is modified

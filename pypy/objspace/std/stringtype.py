@@ -7,7 +7,7 @@ class W_StringType(W_TypeObject):
     typename = 'str'
 
     str_join    = MultiMethod('join', 2)
-    str_split   = MultiMethod('split', 2)
+    str_split   = MultiMethod('split', 2, defaults=(None,))
 
     str_isdigit = MultiMethod('isdigit', 1)
     str_isalpha = MultiMethod('isalpha', 1)
