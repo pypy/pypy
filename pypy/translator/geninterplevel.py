@@ -18,6 +18,7 @@ still happens.
 
 from __future__ import generators
 import autopath, os, sys, exceptions, inspect, types
+import cPickle as pickle, __builtin__
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import last_exception, last_exc_value
@@ -46,15 +47,35 @@ import py.path
 
 def eval_helper(self, typename, expr):
     name = self.uniquename("gtype_%s" % typename)
-    bltinsname = self.nameof('__builtins__')
+    unique = self.uniquenameofprebuilt("eval_helper", eval_helper)
     self.initcode.append1(
-        'def eval_helper(expr):\n'
-        '    import types\n'
-        '    dic = space.newdict([(%s, space.w_builtins)])\n'
+        'def %s(expr):\n'
+        '    dic = space.newdict([])\n'
         '    space.exec_("import types", dic, dic)\n'
-        '    return space.eval(expr, dic, dic)' % bltinsname)
-    self.initcode.append1('%s = eval_helper(%r)' % (name, expr))
+        '    return space.eval(expr, dic, dic)' % unique)
+    self.initcode.append1('%s = %s(%r)' % (name, unique, expr))
     return name
+
+def unpickle_helper(self, name, value):
+    unique = self.uniquenameofprebuilt("unpickle_helper", unpickle_helper)
+    self.initcode.append1(
+        'def %s(value):\n'
+        '    dic = space.newdict([])\n'
+        '    space.exec_("import cPickle as pickle", dic, dic)\n'
+        '    return space.eval("pickle.loads(%%r)" %% value, dic, dic)' % unique)
+    self.initcode.append1('%s = %s(%r)' % (
+        name, unique, pickle.dumps(value, 2)) )
+
+# hey, for longs we can do even easier:
+def long_helper(self, name, value):
+    unique = self.uniquenameofprebuilt("long_helper", long_helper)
+    self.initcode.append1(
+        'def %s(value):\n'
+        '    dic = space.newdict([])\n'
+        '    space.exec_("", dic, dic) # init __builtins__\n'
+        '    return space.eval("long(%%r, 16)" %% value, dic, dic)' % unique)
+    self.initcode.append1('%s = %s(%r)' % (
+        name, unique, hex(value)[2:-1] ) )
 
 class GenRpy:
     def __init__(self, translator, entrypoint=None, modname=None, moddict=None):
@@ -100,7 +121,6 @@ class GenRpy:
 
         # catching all builtins in advance, to avoid problems
         # with modified builtins
-        import __builtin__
         
         class bltinstub:
             def __init__(self, name):
@@ -294,6 +314,17 @@ class GenRpy:
         self.globaldecl.append('# global object %s' % (name,))
         return name
 
+    def uniquenameofprebuilt(self, basename, obj):
+        # identifying an object and giving it a name,
+        # without the attempt to render it.
+        key = Constant(obj).key
+        try:
+            txt = self.rpynames[key]
+        except KeyError:
+            self.rpynames[key] = txt = self.uniquename(basename)
+        return txt
+            
+
     def nameof_NotImplementedType(self, value):
         return "space.w_NotImplemented"
 
@@ -334,9 +365,6 @@ class GenRpy:
         return name
 
     def nameof_long(self, value):
-        # allow short longs only, meaning they
-        # must fit into a machine word.
-        assert (sys.maxint*2+1)&value==value, "your literal long is too long"
         # assume we want them in hex most of the time
         if value < 256L:
             s = "%dL" % value
@@ -349,7 +377,12 @@ class GenRpy:
             # the prefix  before the initial '_'
             name = 'glong_minus_%d' % abs(value)
         name = self.uniquename(name)
-        self.initcode.append1('%s = space.wrap(%s) # XXX implement long!' % (name, s))
+        # allow literally short longs only, meaning they
+        # must fit into a machine word.
+        if (sys.maxint*2+1)&value == value:
+            self.initcode.append1('%s = space.wrap(%s) # XXX implement long!' % (name, s))
+        else:
+            long_helper(self, name, value)
         return name
 
     def nameof_float(self, value):
@@ -524,8 +557,6 @@ class GenRpy:
                 # be lazy
                 return "(space.sys.get(space.str_w(%s)))" % self.nameof(func.__name__)                
             else:
-                print ("WARNING: accessing builtin modules different from sys or __builtin__"
-                       " is likely producing non-sense: %s %s" % (module.__name__, func.__name__))
                 name = self.uniquename('gbltin_' + func.__name__)
                 self.initcode.append1('%s = space.getattr(%s, %s)' % (
                     name, self.nameof(module), self.nameof(func.__name__)))
@@ -538,6 +569,7 @@ class GenRpy:
 
     def nameof_classobj(self, cls):
         printable_name = cls.__name__
+        gaga = "ssertion" in printable_name
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
             #raise Exception, "%r should never be reached" % (cls,)
             print "skipped class", printable_name
@@ -547,7 +579,9 @@ class GenRpy:
         name = self.uniquename('gcls_' + cls.__name__)
 
         if issubclass(cls, Exception):
-            if cls.__module__ == 'exceptions':
+            # if cls.__module__ == 'exceptions':
+            # don't rely on this, py.magic redefines AssertionError
+            if getattr(__builtin__,cls.__name__) is cls:
                 # exception are defined on the space
                 return 'space.w_%s' % cls.__name__
 
@@ -558,6 +592,11 @@ class GenRpy:
             # metaclass = 'space.w_classobj'
 
         basenames = [self.nameof(base) for base in cls.__bases__]
+        if gaga:
+            print cls
+            print cls.__module__
+            print type(cls)
+            1/0
         def initclassobj():
             content = cls.__dict__.items()
             content.sort()
@@ -1427,7 +1466,7 @@ class memfile(object):
         pass
 
 def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
-                        do_imports=None, tmpname=None):
+                        do_imports=False, tmpname=None):
     """ compile sourcetext as a module, translating to interp level.
     The result is the init function that creates the wrapped module dict.
     This init function needs a space as argument.
@@ -1449,24 +1488,15 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         code = compile(sourcetext, filename, 'exec') 
     dic = {'__name__': modname}
     exec code in dic
-    print do_imports
-    if do_imports:
-        # add lib folder to path
-        hold = sys.path
-        sys.path.insert(0, os.path.join(pypy.__path__[0], "lib"))
-        for modname in do_imports:
-            print 100*modname
-            mod = __import__(modname)
-            try: del mod.__builtins__
-            except:pass
-            dic.update(mod.__dict__)
-        sys.path = hold
     del dic['__builtins__']
     entrypoint = dic
     t = Translator(None, verbose=False, simplifying=True,
                    builtins_can_raise_exceptions=True,
-                   do_imports_immediately=False)
+                   do_imports_immediately=do_imports)
+    hold = sys.path
+    sys.path.insert(0, os.path.join(pypy.__path__[0], "lib"))
     gen = GenRpy(t, entrypoint, modname, dic)
+    sys.path = hold
     if tmpname:
         _file = file
     else:

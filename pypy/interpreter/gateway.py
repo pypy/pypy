@@ -488,7 +488,7 @@ class applevel:
     hidden_applevel = True
     NOT_RPYTHON_ATTRIBUTES = ['code']
 
-    def __init__(self, source, filename=None):
+    def __init__(self, source, filename=None, *args, **kwds):
         "NOT_RPYTHON"
         if filename is None: 
             self.code = py.code.Source(source).compile()

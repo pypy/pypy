@@ -127,7 +127,7 @@ class Formatter(object):
                 sign = ''
         return v, sign
 
-    def numeric_postprocess(self, r, sign,prefix=""):
+    def numeric_postprocess(self, r, sign, prefix=""):
         assert self.char in 'iduoxXeEfFgG'
         padchar = ' '
         if self.flags.f_zero:
@@ -162,6 +162,7 @@ class Formatter(object):
 
 
 def funcFormatter(*funcs):
+    """NOT_RPYTHON"""
     class _F(Formatter):
         def format(self):
             r = self.value
@@ -344,6 +345,7 @@ format_registry = {
     '%':funcFormatter(lambda x:'%'),
     }
 
+del funcFormatter # don't irritate flow space
 
 class FmtIter(object):
     def __init__(self, fmt):

@@ -1021,7 +1021,7 @@ app2 = gateway.applevelinterp('''
                 return _formatting.format(format, (values,), values)
             else:
                 return _formatting.format(format, (values,), None)
-''')## XXX not yet, error in pow:   , do_imports=('_formatting', '_float_formatting'))
+''', do_imports=True)
 
 str_translate__String_ANY_ANY = app.interphook('str_translate__String_ANY_ANY') 
 str_decode__String_ANY_ANY = app.interphook('str_decode__String_ANY_ANY') 
