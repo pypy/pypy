@@ -8,6 +8,17 @@
 #include "structmember.h"
 #include "traceback.h"
 
+#if PY_VERSION_HEX < 0x02040000   /* 2.4 */
+struct _frame;
+typedef struct _traceback {
+	PyObject_HEAD
+	struct _traceback *tb_next;
+	struct _frame *tb_frame;
+	int tb_lasti;
+	int tb_lineno;
+} PyTracebackObject;
+#endif
+
 #if !defined(MIN)
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */
