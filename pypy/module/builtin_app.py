@@ -154,3 +154,16 @@ def cmp(x, y):
      return 0
   else:
      return 1
+
+def vars(*objectt):
+    if len(objectt) == 0:
+        locals()
+    else:
+        try:
+            object, = objectt
+        except ValueError:
+            raise TypeError, "vars() takes at most 1 argument (2 given)"
+        try:
+            return object.__dict__
+        except AttributeError:
+            raise TypeError, "vars() argument must have __dict__ attribute"
