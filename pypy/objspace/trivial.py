@@ -98,6 +98,10 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
         self.w_False = False
         self.w_NotImplemented = NotImplemented
         self.w_Ellipsis = Ellipsis
+
+        self.w_classobj = types.ClassType
+        self.w_instance = types.InstanceType
+
         newstuff = {"False": self.w_False,
                     "True" : self.w_True,
                     "NotImplemented" : self.w_NotImplemented,
