@@ -93,7 +93,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         r = SomeBool()
         if obj2.is_constant():
             if obj1.is_constant(): 
-                r.const = obj1.const is obj2.const 
+                r.const = obj1.const is obj2.const
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
@@ -319,6 +319,8 @@ class __extend__(pairtype(SomePBC, SomeInstance)):
 class __extend__(pairtype(SomeObject, SomePBC)):
     def issubtype((obj, pbc)):
         s = SomeBool()
+        if obj.is_constant() and pbc.is_constant():
+            s.const = issubclass(obj.const, pbc.const)
         if hasattr(obj,'is_type_of') and pbc.is_constant():
             bk = getbookkeeper()
             s.knowntypedata = (obj.is_type_of, bk.valueoftype(pbc.const))
