@@ -110,7 +110,7 @@ class MyTextTestResult(unittest._TextTestResult):
         #from pypy.tool.testitpm import TestPM
         #c = TestPM(efs)
         #c.cmdloop()
-        for test, (exc_type, exc_value, exc_tb) in self.errors:
+        for test, (exc_type, exc_value, exc_tb) in self.errors + self.failures:
             import pdb; pdb.post_mortem(exc_tb)
 
     def printErrors(self):
