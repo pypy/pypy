@@ -1,5 +1,6 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.restricted_int import intmask
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
@@ -122,7 +123,16 @@ app = gateway.applevel("""
 repr__Tuple = app.interphook('repr__Tuple') 
 
 def hash__Tuple(space, w_tuple):
-    # silly-ish, but _correct_, while lacking it would be WRONG
-    return space.len(w_tuple)
+    # this is the CPython 2.4 algorithm (changed from 2.3)
+    mult = 1000003
+    x = 0x345678
+    z = len(w_tuple.wrappeditems)
+    for w_item in w_tuple.wrappeditems:
+        y = space.int_w(space.hash(w_item))
+        x = (x ^ y) * mult
+        z -= 1
+        mult += 82520 + z + z
+    x += 97531
+    return space.wrap(intmask(x))
 
 register_all(vars())

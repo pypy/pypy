@@ -233,3 +233,12 @@ class TestW_TupleObject:
                            self.space.w_True)
         assert self.space.eq_w(self.space.le(w_tuple4, w_tuple3),
                            self.space.w_True)
+
+
+class AppTestW_TupleObject:
+
+    def test_hash(self):
+        # check that hash behaves as in 2.4 for at least 31 bits
+        assert hash(()) & 0x7fffffff == 0x35d373
+        assert hash((12,)) & 0x7fffffff == 0x1cca0557
+        assert hash((12,34)) & 0x7fffffff == 0x153e2a41
