@@ -363,7 +363,7 @@ def __%(op)s__(self, other):
             return func(other)
         return NotImplemented
     else:
-        return operator.%(op2)s(self, other)
+        return %(module)s%(op2)s(self, other)
 
 def __r%(op)s__(self, other):
     coerced = coerce(self, other)
@@ -373,8 +373,9 @@ def __r%(op)s__(self, other):
             return func(other)
         return NotImplemented
     else:
-        return operator.%(op2)s(other, self)
-""") % {"op": op, "op2": (op, op+'_')[op in ('and', 'or', 'not')]}
+        return %(module)s%(op2)s(other, self)
+""") % {"op": op, "op2": (op, op+'_')[op in ('and', 'or', 'not')],
+        "module": ('operator.', '')[op == 'divmod']}
     del op
 
 
@@ -491,7 +492,7 @@ def __%(op)s__(self, other):
             v = coerced[0]
             w = coerced[1]
             if not isinstance(v, instance) and not isinstance(w, instance):
-                return operator.cmp(v,w)
+                return cmp(v,w)
         if isinstance(v, instance):
             func = instance_getattr1(v, '__cmp__', False)
             if func:
