@@ -23,7 +23,6 @@ def hack_cpython_module(modname):
     w_contents = space.newdict(contents)
     return Module(space, space.wrap(modname), w_contents)
 
-
 # ____________________________________________________________
 #
 # List of built-in modules.
@@ -40,7 +39,7 @@ for fn in builtin_module_names:
 # steal them from Python.
 for fn in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
            'cStringIO', 'itertools', 'math',
-           '_random', '_sre', 'time',
+           '_random', '_sre', 'time', 'imp',
            'marshal', 'struct', 'binascii']:
     if fn not in builtin_modules:
         try:

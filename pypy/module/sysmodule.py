@@ -14,3 +14,8 @@ from __interplevel__ import hexversion, platform
 
 # Functions from interpreter-level
 from __interplevel__ import displayhook, _getframe
+
+# Dummy
+executable = ''
+prefix = ''
+version = '0.0.0 (not released yet)'
