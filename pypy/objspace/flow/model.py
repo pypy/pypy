@@ -3,6 +3,7 @@
 # 
 # the below object/attribute model evolved from
 # a discussion in Berlin, 4th of october 2003
+from __future__ import generators
 
 class FunctionGraph:
     def __init__(self, name, startblock, return_var=None):
@@ -90,4 +91,65 @@ def uniqueitems(lst):
             result.append(item)
             seen[item] = True
     return result
+
+
+#_________________________________________________________
+# a visitor for easy traversal of the above model
+
+import inspect   # for getmro
+
+class traverse:
+    edgedef = {
+        FunctionGraph : ('startblock',),
+        Block : ('exits',),
+        Link : ('target',),
+        }
+
+    def __init__(self, visitor, functiongraph):
+        """ send the visitor over all (reachable) nodes. 
+            the visitor needs to have either callable attributes 'visit_typename'
+            or otherwise is callable itself.  
+        """
+        self.visitor = visitor
+        self.seen = {}
+        self.visit(functiongraph)
+
+    def visit(self, node):
+        if id(node) in self.seen:
+            return
+
+        # do the visit
+        cls = node.__class__
+        for subclass in inspect.getmro(cls):
+            consume = getattr(self.visitor, "visit_" + subclass.__name__, None)
+            if consume:
+                break
+        else:
+            consume = self.visitor
+
+        self.seen[id(node)] = consume(node)
+
+        # recurse
+        for dispclass, attrs in self.edgedef.items():
+            for subclass in inspect.getmro(cls):
+                if subclass == dispclass:
+                    for attr in attrs:
+                        for obj in flattenobj(getattr(node, attr)):
+                            self.visit(obj)
+                    return
+
+        raise ValueError, "could not dispatch %r" % cls
+
+def flatten(funcgraph):
+    l = []
+    traverse(l.append, funcgraph)
+    return l
+
+def flattenobj(*args):
+    for arg in args:
+        try:
+            for atom in flattenobj(*arg):
+                yield atom
+        except: yield arg
+
 
