@@ -6,6 +6,8 @@
 * Implements super. Guido's paper, descrintro, has a pure Python
   implementation. Let it run on PyPy. (as of r3461, it doesn't run.)
 
+* Supports traceback. At least sys.exc_info. (Many modules expect it.)
+
 * slicing with assigments & more small things 
   lst[::-2] = lst2
 
