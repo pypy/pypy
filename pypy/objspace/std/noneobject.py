@@ -18,3 +18,10 @@ def none_is_true(space, w_none):
     return False
 
 StdObjSpace.is_true.register(none_is_true, W_NoneObject)
+
+def none_repr(space, w_none):
+    return space.wrap('None')
+
+StdObjSpace.repr.register(none_repr, W_NoneObject)
+
+
