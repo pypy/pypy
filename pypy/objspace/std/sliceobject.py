@@ -1,6 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter.appfile import AppFile
-
+from pypy.interpreter.extmodule import make_builtin_func
+from pypy.objspace.std.instmethobject import W_InstMethObject
 
 appfile = AppFile(__name__, ["objspace.std"])
 
@@ -15,6 +16,10 @@ class W_SliceObject(W_Object):
         w_ret = space.gethelper(appfile).call("sliceindices", [w_self, w_length])
         w_start, w_stop, w_step, w_slicelength = space.unpackiterable(w_ret, 4)
         return w_start, w_stop, w_step, w_slicelength
+    def indices2(w_self, w_length):
+        w_ret = w_self.space.gethelper(appfile).call("sliceindices", [w_self, w_length])
+        w_start, w_stop, w_step, w_slicelength = w_self.space.unpackiterable(w_ret, 4)
+        return w_self.space.newtuple([w_start, w_stop, w_step, w_slicelength])
 
 
 def getattr_slice_any(space, w_slice, w_attr):
@@ -33,6 +38,10 @@ def getattr_slice_any(space, w_slice, w_attr):
             return space.w_None
         else:
             return w_slice.w_step
+    if space.is_true(space.eq(w_attr, space.wrap('indices'))):
+        w_builtinfn = make_builtin_func(space, W_SliceObject.indices2)
+        return W_InstMethObject(space, w_slice, w_builtinfn)
+    
     raise FailedToImplement(space.w_AttributeError)
 
 StdObjSpace.getattr.register(getattr_slice_any, W_SliceObject, W_ANY)

@@ -229,10 +229,24 @@ StdObjSpace.getitem.register(getitem_str_int,
                              W_StringObject, W_IntObject)
 
 def getitem_str_slice(space, w_str, w_slice):
-    return applicationfile.call(space, "getitem_string_slice", [w_str, w_slice])
+    w = space.wrap
+    u = space.unwrap
+    w_start, w_stop, w_step, w_sl = w_slice.indices(space, w(w_str._value.len))
+    start = u(w_start)
+    stop = u(w_stop)
+    step = u(w_step)
+    sl = u(w_sl)
+    r = [None] * sl
+    for i in range(sl):
+        r[i] = space.getitem(w_str, w(start + i*step))
+    w_r = space.newlist(r)
+    w_empty = space.newstring([])
+    return w_empty.join(w_r)
+    return space.gethelper(applicationfile).call(
+        "getitem_string_slice", [w_str, w_slice])
 
 StdObjSpace.getitem.register(getitem_str_slice, 
-                                W_StringObject, W_SliceObject)
+                             W_StringObject, W_SliceObject)
 
 def add_str_str(space, w_left, w_right):
     return W_StringObject(space, w_left._value.value() + w_right._value.value())

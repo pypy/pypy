@@ -46,7 +46,28 @@ class TestW_StringObject(testsupport.TestCase):
                             space.getitem,
                             w_str,
                             w(3))
-        
+
+    def test_slice(self):
+        space = self.space
+        w = space.wrap
+        w_str = w('abc')
+        w_slice = space.newslice(w(0), w(0), None)
+        self.assertEqual_w(space.getitem(w_str, w_slice), w(''))
+        w_slice = space.newslice(w(0), w(1), None)
+        self.assertEqual_w(space.getitem(w_str, w_slice), w('a'))
+        w_slice = space.newslice(w(0), w(10), None)
+        self.assertEqual_w(space.getitem(w_str, w_slice), w('abc'))
+        w_slice = space.newslice(space.w_None, space.w_None, None)
+        self.assertEqual_w(space.getitem(w_str, w_slice), w('abc'))
+        w_slice = space.newslice(space.w_None, w(-1), None)
+        self.assertEqual_w(space.getitem(w_str, w_slice), w('ab'))
+        w_slice = space.newslice(w(-1), space.w_None, None)
+        self.assertEqual_w(space.getitem(w_str, w_slice), w('c'))
+
+    def test_extended_slice(self):
+        space = self.space
+        w = space.wrap
+        w_str = w('abc')
 
 if __name__ == '__main__':
     testsupport.main()
