@@ -352,7 +352,12 @@ class AnnonateTestCase(testit.IntTestCase):
         s = a.build_types(snippet.isinstance_and_knowntype, [x]) 
         #a.simplify()
         #a.translator.view()
-        self.assertEquals(s, x) 
+        self.assertEquals(s, x)
+
+    def test_somepbc_simplify(self):
+        a = RPythonAnnotator()
+        # this example used to trigger an AssertionError
+        a.build_types(snippet.somepbc_simplify, [])
 
 def g(n):
     return [0,1,2,n]

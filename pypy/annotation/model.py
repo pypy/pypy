@@ -165,12 +165,25 @@ class SomePBC(SomeObject):
         # objects as keys.
         # if the key is a function, the value can be a classdef to
         # indicate that it is really a method.
-        self.prebuiltinstances = prebuiltinstances  
+        prebuiltinstances = prebuiltinstances.copy()
+        self.prebuiltinstances = prebuiltinstances
+        self.simplify()
         self.knowntype = reduce(commonbase,
                                 [new_or_old_class(x) for x in prebuiltinstances])
-        if len(prebuiltinstances) == 1:
+        if prebuiltinstances.values() == [True]:
+            # hack for the convenience of direct callers to SomePBC():
+            # only if there is a single object in prebuiltinstances and
+            # it doesn't have an associated ClassDef
             self.const, = prebuiltinstances
-
+    def simplify(self):
+        # We check that the dictionary does not contain at the same time
+        # a function bound to a classdef, and constant bound method objects
+        # on that class.
+        for x, ignored in self.prebuiltinstances.items():
+            if isinstance(x, MethodType) and x.im_func in self.prebuiltinstances:
+                classdef = self.prebuiltinstances[x.im_func]
+                if isinstance(x.im_self, classdef.cls):
+                    del self.prebuiltinstances[x]
 
 class SomeBuiltin(SomePBC):
     "Stands for a built-in function or method with special-cased analysis."

@@ -438,6 +438,14 @@ global_z.my_attribute = 42
 def global_instance():
     return global_z.my_method()
 
+def call_Z_my_method(z):
+    return z.my_method
+
+def somepbc_simplify():
+    z = Z()
+    call_Z_my_method(global_z)
+    call_Z_my_method(z)
+
 
 global_c = C()
 global_c.a = 1
