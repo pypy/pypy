@@ -3,7 +3,7 @@ import autopath
 from pypy.tool import test
 from pypy.tool.udir import udir
 
-from pypy.translator.annotation import Annotator, set_type, get_type
+from pypy.translator.annotation import Annotator
 from pypy.translator.flowmodel import *
 
 class AnnonateTestCase(test.IntTestCase):
@@ -44,11 +44,10 @@ class AnnonateTestCase(test.IntTestCase):
                            endbranch)
         fun = FunctionGraph(block, "f")
         a = Annotator(fun)
-        input_ann = []
-        set_type(fun.get_args()[0], int, input_ann)
-        a.build_annotations(input_ann)
-        end_var, end_ann = a.end_annotations()
-        self.assertEquals(get_type(end_var, end_ann), int)
+        a.build_types([int])
+        end_var = a.get_return_value()
+        end_ann = a.get_variables_ann()[end_var]
+        self.assertEquals(end_ann.get_type(end_var), int)
 
     def test_while(self):
         """
@@ -81,11 +80,10 @@ class AnnonateTestCase(test.IntTestCase):
         fun = FunctionGraph(startblock, "f")
         
         a = Annotator(fun)
-        input_ann = []
-        set_type(fun.get_args()[0], int, input_ann)
-        a.build_annotations(input_ann)
-        end_var, end_ann = a.end_annotations()
-        self.assertEquals(get_type(end_var, end_ann), int)
+        a.build_types([int])
+        end_var = a.get_return_value()
+        end_ann = a.get_variables_ann()[end_var]
+        self.assertEquals(end_ann.get_type(end_var), int)
 
     def test_while_sum(self):
         """
@@ -125,12 +123,11 @@ class AnnonateTestCase(test.IntTestCase):
         fun = FunctionGraph(startblock, "f")
 
         a = Annotator(fun)
-        input_ann = []
-        set_type(fun.get_args()[0], int, input_ann)
         #import sys; print >> sys.stderr, a.build_annotations(input_ann)
-        a.build_annotations(input_ann)
-        end_var, end_ann = a.end_annotations()
-        self.assertEquals(get_type(end_var, end_ann), int)
+        a.build_types([int])
+        end_var = a.get_return_value()
+        end_ann = a.get_variables_ann()[end_var]
+        self.assertEquals(end_ann.get_type(end_var), int)
 
     def test_simplify_calls(self):
         a = self.make_ann(f_calls_g)

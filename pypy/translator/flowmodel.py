@@ -44,6 +44,18 @@ class BasicBlock(FlowNode):
         self.operations = tuple(self.operations)  # should no longer change
         self.branch = branch
 
+    def getlocals(self):
+        locals = {}
+        for arg in self.input_args:
+            locals[arg] = True
+        for op in self.operations:
+            for arg in op.args:
+                if isinstance(arg, Variable):
+                    locals[arg] = True
+            if isinstance(op.result, Variable):
+                locals[op.result] = True
+        return locals
+
 class Variable:
     def __init__(self, pseudoname):
         self.pseudoname = pseudoname
@@ -51,18 +63,27 @@ class Variable:
     def __repr__(self):
         return "<%s>" % self.pseudoname
 
+    def get(self):
+        return self
+
 class Constant:
     def __init__(self, value):
         self.value = value
 
     def __eq__(self, other):
-        return type(other) is type(self) and self.value == other.value
+        return isinstance(other, Constant) and self.value == other.value
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def __hash__(self):
         return hash(self.value)
 
     def __repr__(self):
         return str(self.value)
+
+    def get(self):
+        return self
 
 class SpaceOperation:
     def __init__(self, opname, args, result):
@@ -75,6 +96,9 @@ class SpaceOperation:
                 self.opname == other.opname and
                 self.args == other.args and
                 self.result == other.result)
+
+    def __ne__(self, other):
+        return not (self == other)
 
     def __hash__(self):
         return hash((self.opname,tuple(self.args),self.result))

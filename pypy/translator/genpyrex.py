@@ -4,7 +4,7 @@ generate Pyrex files from the flowmodel.
 """
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.translator.flowmodel import *
-from pypy.translator.annotation import Annotator, set_type, get_type
+from pypy.translator.annotation import Annotator
 
 class Op:
     def __init__(self, operation, gen, block):
@@ -107,16 +107,20 @@ class GenPyrex:
             oparity[opname] = arity
         self.ops = ops  
         self.oparity = oparity
-        self.annotations = {}
+        self.variables_ann = {}
 
     def annotate(self, input_arg_types):
         a = Annotator(self.functiongraph)
-        self.annotations = a.build_types(input_arg_types)
+        a.build_types(input_arg_types)
         a.simplify_calls()
+        self.setannotator(a)
+
+    def setannotator(self, annotator):
+        self.variables_ann = annotator.get_variables_ann()
 
     def emitcode(self):
         self.blockids = {}
-        self.variablelocations = {}
+        #self.variablelocations = {}
         self.lines = []
         self.indent = 0
         self.gen_Graph()
@@ -142,7 +146,7 @@ class GenPyrex:
         self.putline("def %s(%s):" % (fun.functionname, params))
         self.indent += 1
         #self.putline("# %r" % self.annotations)
-        for var in self.variablelocations:
+        for var in self.variables_ann:
             if var not in fun.startblock.input_args:
                 decl = self._vardecl(var)
                 if decl:
@@ -151,9 +155,11 @@ class GenPyrex:
         self.lines.extend(functionbodylines)
 
     def get_type(self, var):
-        block = self.variablelocations.get(var)
-        ann = self.annotations.get(block, [])
-        return get_type(var, ann)
+        if var in self.variables_ann:
+            ann = self.variables_ann[var]
+            return ann.get_type(var)
+        else:
+            return None
 
     def get_varname(self, var):
         if self.get_type(var) == int:
@@ -180,7 +186,7 @@ class GenPyrex:
 
     def _str(self, obj, block):
         if isinstance(obj, Variable):
-            self.variablelocations[obj] = block
+            #self.variablelocations[obj] = block
             return self.get_varname(obj)
         elif isinstance(obj, Constant):
             try:
