@@ -59,10 +59,7 @@ class W_TypeObject(W_AbstractTypeObject):
     def lookup_exactly_here(w_self, w_key):
         space = w_self.space
         key = space.unwrap(w_key)
-        #assert isinstance(key, str)
-        #XXX it's actually not true, because the unwraped string is
-        #a CharArray - a structure with length and char buffer,
-        #which can be quite simple mapped to a C implementation
+        assert isinstance(key, str)
         try:
             code = w_self.multimethods[key]
         except KeyError:

@@ -213,7 +213,7 @@ def str_join__String_ANY(space, w_self, w_list):
         res = [' '] * reslen
 
         pos = 0
-        #fill in the string buffer"
+        #fill in the string buffer
         for w_item in list:
             item = u(w_item)
             if firstelem:
@@ -245,7 +245,7 @@ def str_rjust__String_ANY(space, w_self, w_arg):
     if d>0:
         u_self = d * ' ' + u_self
         
-    return W_StringObject(space, u_self)
+    return space.wrap(u_self)
 
 
 def str_ljust__String_ANY(space, w_self, w_arg):
@@ -258,7 +258,7 @@ def str_ljust__String_ANY(space, w_self, w_arg):
     if d>0:
         u_self += d * ' '
         
-    return W_StringObject(space, u_self)
+    return space.wrap(u_self)
 
 def str_find__String_String_Int_Int(space, w_self, w_sub, w_start=None, w_end=None):
     start = space.unwrap(w_start)
@@ -302,7 +302,7 @@ def str_strip__String(space, w_self):
     while u_self[rpos - 1] == ' ':
        rpos -= 1
        
-    return W_StringObject(space, u_self[lpos:rpos])
+    return space.wrap(u_self[lpos:rpos])
    
    
      
@@ -314,7 +314,7 @@ def str_rstrip__String(space, w_self):
     while u_self[rpos - 1] == ' ':
        rpos -= 1
        
-    return W_StringObject(space, u_self[:rpos])
+    return space.wrap(u_self[:rpos])
    
      
     
@@ -325,7 +325,7 @@ def str_lstrip__String(space, w_self):
     while u_self[lpos] == ' ':
        lpos += 1
             
-    return W_StringObject(space, u_self[lpos:])
+    return space.wrap(u_self[lpos:])
    
  
 
