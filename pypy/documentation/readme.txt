@@ -7,12 +7,11 @@ PyPy Source Code
 Checking out & running PyPy as a two-liner 
 ------------------------------------------ 
 
-There is no public release yet, but you can easily 
-
+There is no public release yet, but you can easily do:: 
 
     svn co http://codespeak.net/svn/pypy/dist dist-pypy 
 
-After checkout you should be able to get a PyPy interpreter via:: 
+and after checkout you can get a PyPy interpreter via:: 
 
     python dist-pypy/pypy/interpreter/py.py 
 
