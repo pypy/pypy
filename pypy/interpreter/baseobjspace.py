@@ -85,10 +85,6 @@ class ObjSpace(object):
         if name not in self.sys.builtin_modules:
             return None
         module = self.sys.builtin_modules[name]
-        if module is None:
-            from pypy.interpreter.extmodule import BuiltinModule
-            module = BuiltinModule(self, name)
-            self.sys.builtin_modules[name] = module
         w_module = self.wrap(module)
         self.sys.setbuiltinmodule(w_module, name)
         return w_module
