@@ -1,7 +1,6 @@
 from pypy.objspace.std.objspace import *
 from dicttype import W_DictType
 from stringobject import W_StringObject
-from instmethobject import W_InstMethObject
 from pypy.interpreter.extmodule import make_builtin_func
 
 class _NoValueInCell: pass
