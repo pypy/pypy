@@ -93,6 +93,7 @@ class GenC:
             return name
 
     def uniquename(self, basename):
+        basename = basename.translate(C_IDENTIFIER)
         n = self.seennames.get(basename, 0)
         self.seennames[basename] = n+1
         if n == 0:
@@ -145,22 +146,13 @@ class GenC:
         name = 'gfloat_%s' % value
         name = (name.replace('-', 'minus')
                     .replace('.', 'dot'))
-        chrs = [c for c in name if ('a' <= c <='z' or
-                                    'A' <= c <='Z' or
-                                    '0' <= c <='9' or
-                                    '_' == c )]
-        name = ''.join(chrs)
         name = self.uniquename(name)
         self.initcode.append('INITCHK(%s = '
                              'PyFloat_FromDouble(%r))' % (name, value))
         return name
 
     def nameof_str(self, value):
-        chrs = [c for c in value[:32] if ('a' <= c <='z' or
-                                          'A' <= c <='Z' or
-                                          '0' <= c <='9' or
-                                          '_' == c )]
-        name = self.uniquename('gstr_' + ''.join(chrs))
+        name = self.uniquename('gstr_' + value[:32])
         if [c for c in value if c<' ' or c>'~' or c=='"' or c=='\\']:
             # non-printable string
             s = 'chr_%s' % name
@@ -837,3 +829,10 @@ def cdecl(type, name):
         return type.replace('@', name)
     else:
         return ('%s %s' % (type, name)).rstrip()
+
+# a translation table suitable for str.translate() to remove
+# non-C characters from an identifier
+C_IDENTIFIER = ''.join([(('0' <= chr(i) <= '9' or
+                          'a' <= chr(i) <= 'z' or
+                          'A' <= chr(i) <= 'Z') and chr(i) or '_')
+                        for i in range(256)])
