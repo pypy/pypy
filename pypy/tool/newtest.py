@@ -313,6 +313,15 @@ class TestItem:
             self.name = name or callable_.__name__
         except AttributeError:
             self.name = '<unnamed object>'
+        # - full name (including module and class, if applicable)
+        try:
+            parts = [self.module.__name__]
+        except AttributeError:
+            parts = []
+        if self.cls:
+            parts.append(self.cls.__name__)
+        parts.append(self.name)
+        self.full_name = '.'.join(parts)
         # - file
         try:
             if self.module is None:
@@ -433,11 +442,7 @@ class TestItem:
         return result
 
     def __str__(self):
-        if self.cls is None:
-            return "TestItem from %s.%s" % (self.module.__name__, self.name)
-        else:
-            return "TestItem from %s.%s.%s" % (self.module.__name__,
-                                               self.cls.__name__, self.name)
+        return "TestItem from %s" % self.full_name
 
     def __repr__(self):
         return "<%s at %#x>" % (str(self), id(self))
@@ -618,12 +623,7 @@ def _print_results(suite):
         print 79 * '-'
         # print a line with the qualified name of the bad callable
         item = result.item
-        if result.item.cls is None:
-            print "%s.%s: %s" % (item.module.__name__, item.callable.__name__,
-                                 result.name.upper())
-        else:
-            print "%s.%s.%s: %s" % (item.module.__name__, item.cls.__name__,
-                                    item.callable.__name__, result.name.upper())
+        print "%s: %s" % (item.full_name, result.name.upper())
         print
         print result.formatted_traceback
     # emit a summary
