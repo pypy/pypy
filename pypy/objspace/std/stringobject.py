@@ -334,7 +334,7 @@ def str_join__String_ANY(space, w_self, w_list):
             if not space.is_true(space.isinstance(list[i], space.w_str)):
                 if space.is_true(space.isinstance(list[i], space.w_unicode)):
                     w_u = space.call_function(space.w_unicode, w_self)
-                    return space.call_method(w_u, "join", w_list)
+                    return space.call_method(w_u, "join", space.newlist(list))
                 raise OperationError(
                     space.w_TypeError,
                     space.wrap("sequence item %d: expected string, %s "

@@ -262,8 +262,7 @@ class AppTestStringObject:
         assert 'aaa'.count('a', -10) == 3
         assert 'aaa'.count('a', 0, -1) == 2
         assert 'aaa'.count('a', 0, -10) == 0
-    
-    
+     
     def test_startswith(self):
         assert 'ab'.startswith('ab') == 1
         assert 'ab'.startswith('a') == 1
@@ -374,6 +373,28 @@ class AppTestStringObject:
         raises(TypeError, ''.join, 1)
         raises(TypeError, ''.join, [1])
         raises(TypeError, ''.join, [[1]])
+
+    def test_unicode_join_endcase(self):
+        # This class inserts a Unicode object into its argument's natural
+        # iteration, in the 3rd position.
+        class OhPhooey:
+            def __init__(self, seq):
+                self.it = iter(seq)
+                self.i = 0
+
+            def __iter__(self):
+                return self
+
+            def next(self):
+                i = self.i
+                self.i = i+1
+                if i == 2:
+                    return unicode("fooled you!")
+                return self.it.next()
+            
+        f = ('a\n', 'b\n', 'c\n')
+        got = " - ".join(OhPhooey(f))
+        assert got == unicode("a\n - b\n - fooled you! - c\n")
 
     def test_lower(self):
         assert "aaa AAA".lower() == "aaa aaa"
