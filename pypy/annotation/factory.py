@@ -251,7 +251,6 @@ class ClassDef:
         if self.basedef:
             self.basedef.subdefs[cls] = self
         # collect the (supposed constant) class attributes
-        s_self = SomeInstance(self)
         for name, value in cls.__dict__.items():
             # ignore some special attributes
             if name.startswith('_') and not isinstance(value, FunctionType):
@@ -263,7 +262,7 @@ class ClassDef:
             # generalizes existing values in parent classes
             s_value = immutablevalue(value)
             s_value = s_value.bindcallables(self)
-            self.generalize(name, s_value, bookkeeper)
+            self.generalize_attr(name, s_value, bookkeeper)
 
     def __repr__(self):
         return "<ClassDef '%s.%s'>" % (self.cls.__module__, self.cls.__name__)
@@ -294,15 +293,8 @@ class ClassDef:
             factories.update(clsdef.instancefactories)
         return factories
 
-    def generalize(self, attr, s_value, bookkeeper=None, readonly=True):
-        # we make sure that an attribute never appears both in a class
-        # and in some subclass, in two steps:
-        # (1) check if the attribute is already in a superclass
-        for clsdef in self.getmro():
-            if attr in clsdef.attrs:
-                self = clsdef   # generalize the parent class instead
-                break
-        # (2) remove the attribute from subclasses
+    def _generalize_attr(self, attr, s_value, bookkeeper, readonly):
+        # first remove the attribute from subclasses -- including us!
         subclass_values = []
         for subdef in self.getallsubdefs():
             if attr in subdef.attrs:
@@ -312,12 +304,25 @@ class ClassDef:
                 del subdef.readonly[attr]
             # bump the revision number of this class and all subclasses
             subdef.revision += 1
+
+        # do the generalization
         self.attrs[attr] = unionof(s_value, *subclass_values)
         self.readonly[attr] = readonly
+        
         # reflow from all factories
         if bookkeeper:
             for factory in self.getallfactories():
                 bookkeeper.annotator.reflowfromposition(factory.position_key)
+
+
+    def generalize_attr(self, attr, s_value, bookkeeper=None, readonly=True):
+        # if the attribute exists in a superclass, generalize there.
+        for clsdef in self.getmro():
+            if attr in clsdef.attrs:
+                clsdef._generalize_attr(attr, s_value, bookkeeper, readonly)
+                return
+        else:
+            self._generalize_attr(attr, s_value, bookkeeper, readonly)
 
     def about_attribute(self, name):
         for cdef in self.getmro():

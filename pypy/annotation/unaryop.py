@@ -126,7 +126,7 @@ class __extend__(SomeInstance):
                     return clsdef.attrs[attr]
             # maybe the attribute exists in some subclass? if so, lift it
             clsdef = ins.classdef
-            clsdef.generalize(attr, SomeImpossibleValue(), getbookkeeper())
+            clsdef.generalize_attr(attr, SomeImpossibleValue(), getbookkeeper())
             raise BlockedInference
         return SomeObject()
 
@@ -145,7 +145,7 @@ class __extend__(SomeInstance):
                 # if the attribute doesn't exist yet, create it here
                 clsdef = ins.classdef
             # create or update the attribute in clsdef
-            clsdef.generalize(attr, s_value, getbookkeeper(), readonly=False)
+            clsdef.generalize_attr(attr, s_value, getbookkeeper(), readonly=False)
             raise BlockedInference
         return SomeObject()
 
