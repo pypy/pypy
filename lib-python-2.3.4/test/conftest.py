@@ -31,6 +31,7 @@ workingTests = (
 'test_call',
 'test_codeop.py',
 'test_compile.py',
+'test_operator.py',
 )
 
 def make_module(space, dottedname, filepath): 
