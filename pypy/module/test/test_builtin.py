@@ -97,6 +97,13 @@ class TestBuiltinApp(test.AppTestCase):
         self.assertEquals(x.next(),2)
         self.assertRaises(StopIteration,x.next)
         
+    def test_enumerate(self):
+        seq = range(2,4)
+        enum = enumerate(seq)
+        self.assertEquals(enum.next(), (0, 2))
+        self.assertEquals(enum.next(), (1, 3))
+        self.assertRaises(StopIteration, enum.next)
+        
     def test_xrange_args(self):
         x = xrange(2)
         self.assertEquals(x.start, 0)
