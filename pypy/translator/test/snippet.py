@@ -690,3 +690,7 @@ def dict_values2():
     d[1] = 12
     return values
 
+def dict_items():
+    d = {'a' : 1}
+    return d.items()
+

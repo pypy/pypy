@@ -128,6 +128,12 @@ class __extend__(SomeDict):
         factory.generalize(dct.s_value)
         return factory.create()
 
+    def method_items(dct):
+        factory = getbookkeeper().getfactory(ListFactory)
+        factory.generalize(SomeTuple((dct.s_key, dct.s_value)))
+        return factory.create()
+        
+
         
 class __extend__(SomeString):
 
