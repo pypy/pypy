@@ -20,6 +20,7 @@ class W_StringType(W_TypeObject):
     str_rjust      = MultiMethod('rjust', 2)
     str_upper      = MultiMethod('upper', 1)
     str_lower      = MultiMethod('lower', 1)
+    str_swapcase   = MultiMethod('swapcase', 1)
     str_capitalize = MultiMethod('capitalize', 1)
     str_title      = MultiMethod('title', 1)
     #XXX we need to have the possibility to specify, if the a parameter

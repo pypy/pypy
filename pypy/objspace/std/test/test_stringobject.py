@@ -233,6 +233,10 @@ class TestStringObject(test.AppTestCase):
     def test_upper(self):
         self.assertEquals("aaa AAA".upper(), "AAA AAA")
         self.assertEquals("".upper(), "")
+    
+    def test_swapcase(self):
+        self.assertEquals("aaa AAA 111".swapcase(), "AAA aaa 111")
+        self.assertEquals("".swapcase(), "")
 
 if __name__ == '__main__':
     test.main()

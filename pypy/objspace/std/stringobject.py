@@ -53,7 +53,7 @@ istitle           def str_istitle(space, w_self):
 isupper           def str_isupper__String(space, w_self): def _isupper(ch):
 join              def str_join__String_ANY(space, w_self, w_list):
 ljust             def str_ljust__String_ANY(space, w_self, w_arg):
-lower      
+lower             OK
 lstrip            def str_lstrip__String(space, w_self):
 replace           *Tomek
 rfind             OK, nur noch tests
@@ -64,7 +64,7 @@ split             def str_split__String_None_Int(space, w_self, w_none, w_maxspl
 splitlines        *Günter
 startswith        *Günter
 strip             def str_strip__String(space, w_self):
-swapcase
+swapcase          OK
 title             def str_title__String(space, w_self):
 translate
 upper             def str_upper__String(space, w_self):
@@ -183,6 +183,22 @@ def str_lower__String(space, w_self):
 
     return space.wrap("".join(res))
 
+def str_swapcase__String(space, w_self):
+    self = space.unwrap(w_self)
+    res = [' '] * len(self)
+    for i in range(len(self)):
+        ch = self[i]
+        if _isupper(ch):
+            o = ord(ch) + 32
+            res[i] = chr(o)
+        elif _islower(ch):
+            o = ord(ch) - 32
+            res[i] = chr(o)
+        else:
+            res[i] = ch
+
+    return space.wrap("".join(res))
+
     
 def str_capitalize__String(space, w_self):
     input = space.unwrap(w_self)
@@ -262,7 +278,9 @@ def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
         splitcount = maxsplit
 
     while splitcount:             
-        next = value.find(by, start)
+        next = _find(value, by, start, len(value), 1)
+        #next = value.find(by, start)    #of course we cannot use 
+                                         #the find method, 
         if next < 0:
             res.append(value[start:])
             start = len(value) + 1      
