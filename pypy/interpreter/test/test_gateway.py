@@ -209,17 +209,5 @@ class TestGateway:
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w(None))
         raises(gateway.OperationError,space.call_function,w_app_g3_f,w("foo"))
 
-
-    def test_importall(self):
-        w = self.space.wrap
-        g = {'app_g3': app_g3}
-        gateway.importall(g, temporary=True)
-        g3 = g['g3']
-        assert self.space.eq_w(g3(self.space, w('bar')), w('foobar'))
-
-##    def test_exportall(self):
-##        not used any more
-
-
 def app_g3(b):
     return 'foo'+b

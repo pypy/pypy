@@ -4,8 +4,6 @@ Gateway between app-level and interpreter-level:
 * BuiltinCode (call interp-level code from app-level)
 * app2interp  (embed an app-level function into an interp-level callable)
 * interp2app  (publish an interp-level object to be visible from app-level)
-* exportall   (mass-call interp2app on a whole dict of objects)
-* importall   (mass-call app2interp on a whole dict of objects)
 
 """
 
@@ -446,49 +444,6 @@ class interp2app(Wrappable):
             fn = Function(space, code, None, defs, forcename = self.name)
             cache.content[self] = fn 
             return fn
-        
-def exportall(d, temporary=False):
-    """NOT_RPYTHON: Publish every function from a dict."""
-    if temporary:
-        i2a = interp2app_temp
-    else:
-        i2a = interp2app
-    for name, obj in d.items():
-        if isinstance(obj, types.FunctionType):
-            # names starting in 'app_' are supposedly already app-level
-            if name.startswith('app_'):
-                continue
-            # ignore tricky functions with another interp-level meaning
-            if name in ('__init__', '__new__'):
-                continue
-            # ignore names in '_xyz'
-            if name.startswith('_') and not name.endswith('_'):
-                continue
-            if 'app_'+name not in d:
-                d['app_'+name] = i2a(obj, name)
-
-def export_values(space, dic, w_namespace):
-    "NOT_RPYTHON"
-    for name, w_value in dic.items():
-        if name.startswith('w_'):
-            if name == 'w_dict':
-                w_name = space.wrap('__dict__')
-            elif name == 'w_name':
-                w_name = space.wrap('__name__')
-            else:
-                w_name = space.wrap(name[2:])
-            space.setitem(w_namespace, w_name, w_value)
-
-def importall(d, temporary=False):
-    """NOT_RPYTHON: Import all app_-level functions as Gateways into a dict."""
-    if temporary:
-        a2i = app2interp_temp
-    else:
-        a2i = app2interp
-    for name, obj in d.items():
-        if name.startswith('app_') and name[4:] not in d:
-            if isinstance(obj, types.FunctionType):
-                d[name[4:]] = a2i(obj)
 
 # 
 # the next gateways are to be used only for 
