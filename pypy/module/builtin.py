@@ -1,5 +1,4 @@
-import baseobjspace
-
+from pypy.interpreter import baseobjspace
 from pypy.interpreter.pycode import PyCode
 
 #######################
@@ -22,4 +21,5 @@ def compile(*args, **kwds):
     res = PyCode()
     res._from_code(c)
     return res
+
 compile.__doc__ = _b.compile.__doc__
