@@ -1,3 +1,18 @@
+"""
+Implementation of a translator from Python to interpreter level RPython.
+
+The idea is that we can automatically transform app-space implementations
+of methods into some equivalent representation at interpreter level.
+Then, the RPython to C translation might hopefully spit out some
+more efficient code than always interpreting these methods.
+
+This module is very much under construction and not yet usable but
+for testing.
+
+XXX to do: Subclass parts of the flow space and translator and teach
+them that this is not to be treated as RPython.
+"""
+
 from pypy.objspace.flow.model import traverse
 from pypy.objspace.flow import FlowObjSpace
 from pypy.objspace.flow.model import FunctionGraph, Block, Link, Variable, Constant
