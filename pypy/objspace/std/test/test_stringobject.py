@@ -1,4 +1,6 @@
 import testsupport
+import pypy.objspace.std.stringobject as so
+
 from pypy.objspace.std.stringobject import string_richcompare, W_StringObject, EQ, LT, GT, NE, LE, GE
 from pypy.objspace.std.objspace import StdObjSpace
 
@@ -15,8 +17,18 @@ class TestW_StringObject(testsupport.TestCase):
         space = self.space
         def w(txt):
              return W_StringObject(space, txt)
+        strs = ['ala', 'bla', 'ala', 'alaaa', 'blaa', 'g']
+        ops = [ 'EQ', 'LT', 'GT', 'NE', 'LE', 'GE' ]
+
+        for op in ops:
+            pass
+            #print getattr('a', '__%s__' % op.lower())
+        #while strs[1:]:
+            
+            
 
         self.failUnless_w(string_richcompare(space, w('abc'), w('abc'), EQ))
+        
 
     def test_equality(self):
         w = self.space.wrap 
