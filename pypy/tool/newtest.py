@@ -423,8 +423,10 @@ class TestSuite:
     def _items_from_module(self, module):
         """Return a list of TestItems read from the given module."""
         items = []
-        # scan the module for classes derived from TestCase
+        # scan the module for test functions, and for classes derived
+        # from TestCase
         for obj in vars(module).values():
+            # find TestCase classes and methods within them
             if inspect.isclass(obj) and issubclass(obj, TestCase):
                 # we found a TestCase class, now scan it for test methods
                 for obj2 in vars(obj).values():
@@ -432,6 +434,7 @@ class TestSuite:
                     if inspect.isfunction(obj2) and \
                       obj2.__name__.startswith("test"):
                         items.append(TestItem(module, cls=obj, callable=obj2))
+            # find test functions
             elif (callable(obj) and hasattr(obj, '__name__') and
                   obj.__name__.startswith('test_')):
                 items.append(TestItem(module, callable=obj))
