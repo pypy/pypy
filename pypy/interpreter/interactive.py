@@ -35,7 +35,11 @@ class PyPyConsole(code.InteractiveConsole):
             print
             banner = ("Python %s on %s\n" % (sys.version, sys.platform) +
                       "*** Entering interpreter-level console ***")
-            code.interact(banner=banner, local=self.__dict__.copy())
+            local = self.__dict__.copy()
+            for w_name in self.space.unpackiterable(self.w_globals):
+                local['w_' + self.space.unwrap(w_name)] = (
+                    self.space.getitem(self.w_globals, w_name))
+            code.interact(banner=banner, local=local)
             print '*** Leaving interpreter-level console ***'
             raise
 
