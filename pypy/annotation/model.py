@@ -162,13 +162,13 @@ def immutablevalue(x):
 
 def valueoftype(t):
     "The most precise SomeValue instance that contains all objects of type t."
-    if isinstance(bool, type) and issubclass(t, bool):
+    if t is bool:
         return SomeBool()
-    elif issubclass(t, int):
+    elif t is int:
         return SomeInteger()
-    elif issubclass(t, str):
+    elif t is str:
         return SomeString()
-    elif issubclass(t, list):
+    elif t is list:
         return SomeList(factories={})
     else:
         return SomeObject()

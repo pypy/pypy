@@ -324,10 +324,18 @@ class Z:
     def my_method(self):
         return self.my_attribute
 
+class WithInit:
+    def __init__(self, n):
+        self.a = n
+
 def simple_method(v=anytype):
     z = Z()
     z.my_attribute = v
     return z.my_method()
+
+def with_init(v=int):
+    z = WithInit(v)
+    return z.a
 
 
 def powerset(setsize=int):

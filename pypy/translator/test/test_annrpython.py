@@ -211,6 +211,12 @@ class AnnonateTestCase(testit.IntTestCase):
         # result should be a built-in method
         self.assert_(isinstance(s, annmodel.SomeBuiltin))
 
+    def test_with_init(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.with_init, [int])
+        # result should be an integer
+        self.assertEquals(s.knowntype, int)
+
 def g(n):
     return [0,1,2,n]
 

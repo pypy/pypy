@@ -130,9 +130,10 @@ class __extend__(SomeBuiltin):
 class __extend__(SomeClass):
 
     def call(cls, args, kwds):
-        # XXX flow into __init__
+        arglist = decode_simple_call(args, kwds)
+        assert arglist is not None
         factory = getbookkeeper().getfactory(InstanceFactory)
-        return factory.create(cls.cls)
+        return factory.create(cls.cls, arglist)
 
 
 class __extend__(SomeFunction):

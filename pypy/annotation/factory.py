@@ -132,12 +132,19 @@ class FuncCallFactory:
         return self.bookkeeper.annotator.recursivecall(func, arglist, self)
 
 
-class InstanceFactory:
+class InstanceFactory(FuncCallFactory):
 
-    def create(self, cls):
+    def create(self, cls, arglist):
         classdef = self.bookkeeper.getclassdef(cls)
         classdef.instancefactories[self] = True
-        return SomeInstance(classdef)
+        s_instance = SomeInstance(classdef)
+        # flow into __init__() if the class has got one
+        init = getattr(cls, '__init__', None)
+        if init is not None and init != object.__init__:
+            self.pycall(init, [s_instance] + arglist)
+        else:
+            assert not arglist, "no __init__ found in %r" % (cls,)
+        return s_instance
 
 
 class ClassDef:
