@@ -1,5 +1,6 @@
 import autopath
 from pypy.interpreter.error import OperationError
+from pypy.tool.pypyrev import pypyrev 
 
 from  py.xml import html
 import py
@@ -313,6 +314,8 @@ class Entry:
 reports = []
 
 class Report(Entry):
+    HEADER = '''<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'''
 
     useshort = False
     notes = None
@@ -324,21 +327,14 @@ class Report(Entry):
         Entry.__init__(self, name)
 
         self.title = title
-
         self.rows = []
-
         reports.append(self)
-
         self.total = 0
         self.missing = 0
-
         self.grandtotal = 0
         self.grandmissing = 0
-
         self._fname = fname
-
         self.__dict__.update(kwds)
-
 
     def add_row(self, entry, rest, name=None, parent=None):
         self.rows.append((name, entry, rest, parent))
@@ -432,8 +428,6 @@ class Report(Entry):
         class_ = st.class_
         bar = incompleteness_bar(dir, st.incompleteness)
 
-        HEADER = '''<?xml version="1.0" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'''
 
         HIDE = 'display: none'
         SHOW = 'display: table'
@@ -481,8 +475,8 @@ class Report(Entry):
                     -cmp(st1.incompleteness, st2.incompleteness))
         self.fill_table(dir, incompleteness_table, rows)
 
-        f = dir.join(self.fname()).write(   
-            HEADER+page.unicode().encode("utf8")
+        dir.join(self.fname()).write(   
+            self.HEADER+page.unicode().encode("utf8")
         )  
 
     def navig(self):
@@ -493,8 +487,11 @@ class ClassReport(Report):
     descr = "methods+attrs"
 
     def navig(self):
-        return html.p(html.span(self.title,**{'class': 'title'}),
-                      "|",mods_report.link(None),"|",cls_report.link(None))
+        return html.p(html.span(self.title, class_='title'),
+                      "|", mods_report.link(None),"|",
+                      cls_report.link(None), '|', 
+                      index_report.link(None), 
+                )
 
     def grandadd(self, parent):
         parent.grandtotal += self.total
@@ -507,8 +504,11 @@ class ModuleReport(Report):
     granddescr = "module funcs+others and contained types/classes methods+attrs"
 
     def navig(self):
-        return html.p(html.span(self.title,**{'class': 'title'}),
-                      "|",mods_report.link(None),"|",cls_report.link(None))    
+        return html.p(html.span(self.title, class_='title'), 
+                      "|", mods_report.link(None), 
+                      "|", cls_report.link(None), 
+                      "|", index_report.link(None), 
+        )
 
     notes = ("(): callable, C: type/class")
     
@@ -519,6 +519,47 @@ class ModuleReport(Report):
         elif self.status == 'PRESENT':
             parent.grandtotal += self.grandtotal
 
+class IndexReport(Report): 
+
+    def __init__(self, name, rev):
+        Report.__init__(self, name)
+        self.shortname = "PyPy rev %d" % rev
+
+    def html(self, DIR): 
+        rev = pypyrev() 
+        title = "PyPy - rev %s - Deltareport Overview" % rev
+        body = html.body(html.h2(title))
+
+        page = html.html(
+            html.head(
+                html.title(title), 
+                html.link(href="delta.css", rel="stylesheet", type="text/css"),
+            ), 
+            body,
+            xmlns="http://www.w3.org/1999/xhtml")
+
+        def percent(incomplete): 
+            return 100 * (1-incomplete) 
+        mod_incomplete = mods_report.status_wrt().incompleteness 
+        modimg = incompleteness_bar(DIR, mod_incomplete) 
+        modlink = mods_report.link(None)
+        modlink.append(modimg)
+        modlink.append(" %.2f %%" % (percent(mod_incomplete),))
+        body.append(html.div(modlink))
+
+        cls_incomplete = cls_report.status_wrt().incompleteness 
+        clsimg = incompleteness_bar(DIR, cls_incomplete) 
+        clslink = cls_report.link(None)
+        clslink.append(clsimg)
+        clslink.append(" %.2f %%" % (percent(cls_incomplete),))
+        body.append(html.div(clslink))
+
+        body.append(html.h2("Quantitative PyPy CPython-Compliance: %.2f %%" % 
+                            percent((cls_incomplete+mod_incomplete)/2)))
+
+        DIR.join(self.fname()).write(   
+            self.HEADER+page.unicode().encode("utf8")
+        )  
 
 def delta(expl1, expl2, modnames):
 
@@ -527,8 +568,10 @@ def delta(expl1, expl2, modnames):
                  granddescr = "of all modules funcs+others and contained types/classes methods+attrs",
                  useshort = True)
     def navig():
-        return html.p(html.span('Modules',**{'class': 'title'}),
-                      "|",cls_report.link(None))        
+        return html.p(html.span('Modules', class_='title'), 
+                      "|", cls_report.link(None), 
+                      "|", index_report.link(None), 
+            )        
 
     rep.navig = navig
         
@@ -658,7 +701,8 @@ def cls_delta_rep():
 
     def navig():
         return html.p(mods_report.link(None),
-                      "|",html.span('Types/Classes',**{'class': 'title'}))
+                      "|",html.span('Types/Classes', class_="title"),
+                      "|", index_report.link(None))
 
     cls_rep.navig = navig
     
@@ -714,16 +758,19 @@ TO_CHECK = (basic +
             mods)
 TO_CHECK.sort()
 
-def getpypyrevision(cache=[]): 
-    try:
-        return cache[0]
-    except IndexError: 
-        import pypy
-        import py
-        pypydir = py.path.svnwc(pypy.__file__).dirpath()
-        rev = pypydir.info().rev 
-        cache.append(rev) 
-        return rev 
+def genreport(DIR): 
+    from pypy.objspace.std.objspace import StdObjSpace
+    space = StdObjSpace()
+   
+    global cls_report, mods_report, index_report 
+    mods_report = delta(ObjSpaceExplore(space), host_explore, TO_CHECK)
+    cls_report = cls_delta_rep()
+    rev = pypyrev()
+    index_report = IndexReport('index', rev) 
+
+    DIR.ensure(dir=1) 
+    for rep in reports:
+        rep.html(DIR)
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
@@ -732,13 +779,5 @@ if __name__ == '__main__':
         sys.exit(0)
 
     DIR = py.path.local(sys.argv[1])
+    genreport(DIR)
     
-    from pypy.objspace.std.objspace import StdObjSpace
-    space = StdObjSpace()
-    
-    mods_report = delta(ObjSpaceExplore(space), host_explore, TO_CHECK)
-    cls_report = cls_delta_rep()
-
-    DIR.ensure(dir=1) 
-    for rep in reports:
-        rep.html(DIR)
