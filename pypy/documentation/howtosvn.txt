@@ -135,6 +135,25 @@ lines in a file ``~/.subversion/servers`` (on Unix) or
     http-proxy-host = codespeak.net
     http-proxy-port = 8080
 
+How to Avoid Line-ending Hell
+-----------------------------
+
+We will assume that whenever you create a .txt or a .py file, you would
+like other people to be able to read it with the line endings their
+OS prefers, even if that is different from the one your OS likes.  This
+could occasionally be wrong -- say when you are specifically testing
+that code you are writing handles line endings properly -- but this is
+what you want by default.  Binary files, on the other hand, should be
+stored exactly as is. This has to be set on every client. Here is how:
+
+In your home directory edit .subversion/config and comment in ::
+
+   enable-auto-props = yes
+
+   *.txt = svn:eol-style=native
+
+and add a line for .py files.
+
 --------------------------------------------------------------------------------
 
 
