@@ -1,19 +1,30 @@
-import unittest
-import support
+import testsupport
 
-class TestInterpreter(unittest.TestCase):
+class TestInterpreter(testsupport.TestCase):
 
-    def codetest(self, code, functionname, args):
+    def codetest(self, source, functionname, args):
         """Compile and run the given code string, and then call its function
         named by 'functionname' with arguments 'args'."""
-        from pypy.interpreter import baseobjspace, executioncontext, appfile
+        from pypy.interpreter import baseobjspace, executioncontext, pyframe
+        space = self.space
 
-        bytecode = executioncontext.inlinecompile(code)
-        apphelper = appfile.AppHelper(self.space, bytecode)
+        compile = space.builtin.compile
+        w = space.wrap
+        w_code = compile(w(source), w('<string>'), w('exec'), w(0), w(0))
 
-        wrappedargs = [self.space.wrap(arg) for arg in args]
+        ec = executioncontext.ExecutionContext(space)
+
+        w_tempmodule = space.newmodule(w("__temp__"))
+        w_glob = space.getattr(w_tempmodule, w("__dict__"))
+        space.setitem(w_glob, w("__builtins__"), space.w_builtins)
+        
+        frame = pyframe.PyFrame(space, space.unwrap(w_code), w_glob, w_glob)
+        ec.eval_frame(frame)
+
+        wrappedargs = w([w(arg) for arg in args])
+        wrappedfunc = space.getitem(w_glob, w(functionname))
         try:
-            w_output = apphelper.call(functionname, wrappedargs)
+            w_output = space.call(wrappedfunc, wrappedargs, None)
         except baseobjspace.OperationError, e:
             e.print_detailed_traceback(self.space)
             return '<<<%s>>>' % e.errorstr(self.space)
@@ -21,8 +32,7 @@ class TestInterpreter(unittest.TestCase):
             return self.space.unwrap(w_output)
 
     def setUp(self):
-        from pypy.objspace.trivial import TrivialObjSpace
-        self.space = TrivialObjSpace()
+        self.space = testsupport.objspace()
 
     def test_trivial(self):
         x = self.codetest('''
@@ -144,4 +154,4 @@ def f(n):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()
