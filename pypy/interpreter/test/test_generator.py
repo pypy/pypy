@@ -27,6 +27,13 @@ class AppTestGenerator(test.AppTestCase):
             yield 1
         g = f()
         self.assertEquals([x for x in g], [1])
+
+    def test_generator_explicit_stopiteration(self):
+        def f():
+            yield 1
+            raise StopIteration
+        g = f()
+        self.assertEquals([x for x in g], [1])
         
     def test_generator_restart(self):
         def g():
