@@ -324,10 +324,6 @@ class TestSuite:
 
     def _items_from_module(self, module):
         """Return a list of TestItems read from the given module."""
-        # make sure that this method and modules import newtest refer
-        # to the same TestCase class
-        from pypy.tool import newtest
-
         items = []
         # scan the module for classes derived from TestCase
         for obj in vars(module).values():
