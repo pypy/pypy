@@ -56,8 +56,9 @@ def really_build_fake_type(cpy_type, ignored):
             kw[meth_name] = __builtin__.eval("lambda m,*args,**kwds: m.%s(*args,**kwds)" % meth_name)
     else:
         for s, v in cpy_type.__dict__.items():
-            if cpy_type is not unicode or s not in ['__add__', '__contains__']:
-                kw[s] = v
+            if not (cpy_type is unicode and s in ['__add__', '__contains__']):
+                if s != '__getattribute__' or cpy_type is type(sys):
+                    kw[s] = v
             
     def fake__new__(space, w_type, args_w):
         args = [space.unwrap(w_arg) for w_arg in args_w]
