@@ -1,3 +1,7 @@
+from dumbre import Pattern
+# from plexre import Pattern
+
+
 # From CPython
 def escape(pattern):
     "Escape all non-alphanumeric characters in pattern."
@@ -11,11 +15,6 @@ def escape(pattern):
                 s[i] = "\\" + c
     return ''.join(s)
 
-class Pattern:
-    def __init__(self, pattern, flags):
-        print 'regex', pattern
-        print 'killed'
-        raise SystemExit
 
 _cache = {}
 
