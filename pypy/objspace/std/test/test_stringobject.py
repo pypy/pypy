@@ -516,3 +516,8 @@ class AppTestStringObject:
         assert 'ab' in 'abc'
         assert not 'd' in 'abc'
         raises(TypeError, 'a'.__contains__, 1)
+
+    def test_decode(self):
+        assert 'hello'.decode('rot-13') == 'uryyb'
+        assert 'hello'.decode('string-escape') == 'hello'
+        
