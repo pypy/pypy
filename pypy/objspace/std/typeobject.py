@@ -8,7 +8,7 @@ from pypy.objspace.std.objecttype import object_typedef
 class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
 
-    lazyloaders = None   # can be overridden by specific instances
+    lazyloaders = {} # can be overridden by specific instances
 
     def __init__(w_self, space, name, bases_w, dict_w,
                  overridetypedef=None):

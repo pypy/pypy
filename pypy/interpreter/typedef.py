@@ -413,3 +413,8 @@ NotImplemented.typedef = TypeDef("NotImplemented",
 )
 
 ControlFlowException.typedef = TypeDef("ControlFlowException")
+
+
+interptypes = [ val.typedef for name,val in globals().items() if hasattr(val, 'typedef') ]
+
+    

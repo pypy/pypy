@@ -1,5 +1,6 @@
 import autopath
 
+from pypy.interpreter.typedef import interptypes
 
 def buildcache(space):
     space.builtin.getdict()
@@ -15,12 +16,19 @@ def buildcache(space):
     space.delitem(w_dic,space.wrap("pypy_getudir"))
     print " * removed pypy_getudir"
 
+    for typedef in interptypes:
+        w_typ = space.gettypeobject(typedef)
+        w_typ.getdict()
+        print "*%s*" % typedef.name
+        
     for typedef in space.model.pythontypes:
         w_typ = getattr(space, 'w_' + typedef.name)
         w_typ.getdict()
 
         print "*%s*" % typedef.name
         #print w_typ.dict_w.keys()
+
+    space.builtin.get('file').getdict()
 
     space.appexec([],"""():
     try:

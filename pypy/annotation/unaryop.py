@@ -268,7 +268,17 @@ class __extend__(SomePBC):
                 d[func] = value 
         return SomePBC(d)
 
-
+    def is_true(pbc):
+        outcome = None
+        for c in pbc.prebuiltinstances:
+            if outcome is None:
+                outcome = bool(c)
+            else:
+                if outcome != bool(c):
+                    return SomeBool()
+        return immutablevalue(outcome)
+            
+            
 class RPythonCallsSpace:
     """Pseudo Object Space providing almost no real operation.
     For the Arguments class: if it really needs other operations, it means
