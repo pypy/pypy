@@ -308,6 +308,9 @@ class AppTestSysModulePortedFromCPython:
             sys.setdlopenflags(oldflags)
 
     def test_refcount(self):
+        if not hasattr(sys, "getrefcount"):
+            skip('Reference counting is not implemented.')
+
         raises(TypeError, sys.getrefcount)
         c = sys.getrefcount(None)
         n = None

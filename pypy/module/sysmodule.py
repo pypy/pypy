@@ -8,6 +8,7 @@ __interplevel__execfile('sysinterp.py')
 from __interplevel__ import initialpath as path
 from __interplevel__ import modules, argv
 from __interplevel__ import warnoptions, builtin_module_names
+from __interplevel__ import maxunicode
 
 # Objects from interpreter-level
 from __interplevel__ import stdin, stdout, stderr, maxint
@@ -20,6 +21,9 @@ from __interplevel__ import getrecursionlimit, setrecursionlimit
 from __interplevel__ import getcheckinterval, setcheckinterval
 
 # Dummy
+api_version = 0
+copyright = ''
+exec_prefix = ''
 executable = ''
 prefix = ''
 version = '2.3a0 (pypy build)'
@@ -27,6 +31,7 @@ version_info = (2, 3, 0, 'alpha', 0)
 hexversion = 0x020300a0
 ps1 = '>>>> '
 ps2 = '.... '
+
 
 # XXX not called by the core yet
 def excepthook(exctype, value, traceback):
