@@ -66,6 +66,11 @@ def filter(function, collection):
        return res
 
 def zip(*collections):
+    """return a list of tuples, where the nth tuple contains every
+       nth item of each collection.  If the collections have different
+       lengths, zip returns a list as long as the shortest collection,
+       ignoring the trailing items in the other collections."""
+    
     if len(collections) == 0:
        raise TypeError, "zip() requires at least one sequence"
     res = []
