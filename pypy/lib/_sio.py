@@ -4,7 +4,7 @@ Based on sio.py from Guido van Rossum.
 
 - This module contains various stream classes which provide a subset of the
   classic Python I/O API: read(n), write(s), tell(), seek(offset, whence=0),
-  readall(), readline(), truncate(size), flush(), close().
+  readall(), readline(), truncate(size), flush(), close(), peek().
 
 - This is not for general usage:
   * read(n) may return less than n bytes, just like os.read().
@@ -12,6 +12,7 @@ Based on sio.py from Guido van Rossum.
   * close() should be called exactly once and no further operations performed;
     there is no __del__() closing the stream for you.
   * some methods may raise NotImplementedError.
+  * peek() returns some (or no) characters that have already been read ahead.
 
 - A 'basis stream' provides I/O using a low-level API, like the os, mmap or
   socket modules.
@@ -61,14 +62,20 @@ class Stream(object):
         return ''.join(result)
 
     def readline(self):
-        # very inefficient
+        # very inefficient unless there is a peek()
         result = []
-        c = self.read(1)
-        while c:
-            result.append(c)
-            if c == '\n':
+        while True:
+            # "peeks" on the underlying stream to see how many characters
+            # we can safely read without reading past an end-of-line
+            peeked = self.peek()
+            pn = peeked.find("\n")
+            if pn < 0: pn = len(peeked)
+            c = self.read(pn + 1)
+            if not c:
                 break
-            c = self.read(1)
+            result.append(c)
+            if c.endswith('\n'):
+                break
         return ''.join(result)
 
     def truncate(self, size):
@@ -79,6 +86,9 @@ class Stream(object):
 
     def close(self):
         pass
+
+    def peek(self):
+        return ''
 
 
 class DiskFile(Stream):
@@ -455,6 +465,12 @@ class BufferingInputStream(Stream):
 
         return "".join(buf)
 
+    def peek(self):
+        if self.lines:
+            return self.lines[0] + "\n"
+        else:
+            return self.buf
+
     write      = PassThrough("write",     flush_buffers=True)
     truncate   = PassThrough("truncate",  flush_buffers=True)
     flush      = PassThrough("flush",     flush_buffers=True)
@@ -636,6 +652,24 @@ class TextInputFilter(Stream):
             
         return data
 
+    def readline(self):
+        result = []
+        while True:
+            # "peeks" on the underlying stream to see how many characters
+            # we can safely read without reading past an end-of-line
+            peeked = self.base.peek()
+            pn = peeked.find("\n")
+            pr = peeked.find("\r")
+            if pn < 0: pn = len(peeked)
+            if pr < 0: pr = len(peeked)
+            c = self.read(min(pn, pr) + 1)
+            if not c:
+                break
+            result.append(c)
+            if c.endswith('\n'):
+                break
+        return ''.join(result)
+
     def seek(self, offset, whence=0):
         """Seeks based on knowledge that does not come from a tell()
            may go to the wrong place, since the number of
@@ -676,6 +710,9 @@ class TextInputFilter(Stream):
                 pass
             else:
                 self.buf = ""
+
+    def peek(self):
+        return self.buf
 
     write      = PassThrough("write",     flush_buffers=True)
     truncate   = PassThrough("truncate",  flush_buffers=True)

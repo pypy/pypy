@@ -123,13 +123,6 @@ Note:  open() is an alias for file().
         reading = basemode == 'r' or plus
         writing = basemode != 'r' or plus
 
-        if universal:     # Wants universal newlines
-            if writing and os.linesep != '\n':
-                self.stream = _sio.TextOutputFilter(self.stream)
-            if reading:
-                self.stream = _sio.TextInputFilter(self.stream)
-                self.getnewlines = self.stream.getnewlines
-
         if bufsize == 0:   # no buffering
             pass
         elif bufsize == 1:   # line-buffering
@@ -145,6 +138,13 @@ Note:  open() is an alias for file().
                 self.stream = _sio.BufferingOutputStream(self.stream, bufsize)
             if reading:
                 self.stream = _sio.BufferingInputStream(self.stream, bufsize)
+
+        if universal:     # Wants universal newlines
+            if writing and os.linesep != '\n':
+                self.stream = _sio.TextOutputFilter(self.stream)
+            if reading:
+                self.stream = _sio.TextInputFilter(self.stream)
+                self.getnewlines = self.stream.getnewlines
 
     def getnewlines(self):
         return None    # can be overridden in the instance
