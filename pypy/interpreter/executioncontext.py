@@ -33,6 +33,10 @@ class ExecutionContext:
         return previous_ec
     
     def leave(self, previous_ec):
+        if self.w_profilefunc:
+            frame = self.framestack.top()
+            self._trace(frame, 'leaveframe', None)
+                
         self.framestack.pop()
         locals = getthreadlocals()
         locals.executioncontext = previous_ec
@@ -64,18 +68,6 @@ class ExecutionContext:
         if self.is_tracing or frame.w_f_trace is None:
             return
         code = getattr(frame, 'code')
-        doTrace = code.co_name == 'arigo_example XXX'
-        if doTrace:
-            print frame.instr_lb, frame.last_instr, frame.instr_ub
-            if not hasattr(self, 'dumpedLineno'):
-                self.dumpedLineno = None
-                l = 0
-                a = 0
-                for i in range(0, len(code.co_lnotab),2):
-                    print 'Line %3d: %3d'%(l, a)
-                    a += ord(code.co_lnotab[i])
-                    l += ord(code.co_lnotab[i+1])
-                print 'Line %3d: %3d'%(l, a)
         if frame.instr_lb <= frame.last_instr < frame.instr_ub:
             return
 
@@ -98,11 +90,7 @@ class ExecutionContext:
             
         if addr == frame.last_instr:
             frame.f_lineno = line
-            if doTrace:
-                print 'At line', line - code.co_firstlineno, 'addr', addr
             self._trace(frame, 'line', self.space.w_None)
-        elif doTrace:
-            print 'Skipping line', line - code.co_firstlineno, 'addr', addr
 
         if size > 0:
             while True:
@@ -122,7 +110,7 @@ class ExecutionContext:
         operationerr.record_interpreter_traceback()
         exc_info = self.sys_exc_info()
         self._trace(frame, 'exception',
-                        exc_info)
+                    exc_info)
         #operationerr.print_detailed_traceback(self.space)
 
     def sys_exc_info(self):
@@ -155,19 +143,16 @@ class ExecutionContext:
             self.w_profilefunc = w_func
 
     def _trace(self, frame, event, w_arg):
-        if frame.code.getapplevel():
-            return
-
-        if self.is_tracing:
+        if self.is_tracing or frame.code.getapplevel():
             return
         
-        # Tracing
+        # Tracing cases
         if event == 'call':
             w_callback = self.w_tracefunc
         else:
             w_callback = frame.w_f_trace
 
-        if w_callback is not None:
+        if w_callback is not None and event != "leaveframe":
 
             self.is_tracing += 1
             try:
@@ -184,11 +169,14 @@ class ExecutionContext:
             finally:
                 self.is_tracing -= 1
 
-        # Profile
-        if event != 'call' or event != 'return':
-            return
-        
+        # Profile cases
         if self.w_profilefunc is not None:
+            if event not in ['leaveframe', 'call']:
+                return
+            
+            if event == 'leaveframe':
+                event = 'return'
+
             assert self.is_tracing == 0 
             self.is_tracing += 1
             try:
@@ -197,7 +185,6 @@ class ExecutionContext:
                                                         self.space.wrap(frame),
                                                         self.space.wrap(event), w_arg)
                 except:
-                    #XXXframe.self.w_profilefunc = None
                     raise
             finally:
                 self.is_tracing -= 1
