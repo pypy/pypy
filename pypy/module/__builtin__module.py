@@ -182,21 +182,26 @@ def reduce(function, l, *initialt):
          break
     return initial
 
+def issubclass(cls, klass_or_tuple):
+    if _issubtype(type(klass_or_tuple), tuple):
+        for klass in klass_or_tuple:
+            if issubclass(cls, klass):
+                return True
+        return False
+    try:
+        return _issubtype(cls, klass_or_tuple)
+    except TypeError:
+        raise TypeError, "arg 2 must be a class or type or a tuple thereof"
+
 def isinstance(obj, klass_or_tuple):
+    if issubclass(type(obj), klass_or_tuple):
+        return True
     try:
         objcls = obj.__class__
     except AttributeError:
-        objcls = type(obj)
-    if issubclass(klass_or_tuple.__class__, tuple):
-       for klass in klass_or_tuple:
-           if issubclass(objcls, klass):
-              return 1
-       return 0
+        return False
     else:
-       try:
-           return issubclass(objcls, klass_or_tuple)
-       except TypeError:
-           raise TypeError, "isinstance() arg 2 must be a class or type"
+        return objcls is not type(obj) and issubclass(objcls, klass_or_tuple)
 
 def range(x, y=None, step=1):
     """ returns a list of integers in arithmetic position from start (defaults
@@ -443,7 +448,7 @@ __interplevel__execfile('__builtin__interp.py')
 from __interplevel__ import abs, chr, len, ord, pow, repr
 from __interplevel__ import hash, oct, hex, round
 from __interplevel__ import getattr, setattr, delattr, iter, hash, id
-from __interplevel__ import issubclass
+from __interplevel__ import _issubtype
 from __interplevel__ import compile, eval
 from __interplevel__ import globals, locals, _caller_globals, _caller_locals
 

@@ -280,7 +280,7 @@ def id(w_object):
 
 #XXX works only for new-style classes.
 #So we have to fix it, when we add support for old-style classes
-def issubclass(w_cls1, w_cls2):
+def _issubtype(w_cls1, w_cls2):
     return space.issubtype(w_cls1, w_cls2)
 
 def iter(w_collection_or_callable, w_sentinel = _noarg):

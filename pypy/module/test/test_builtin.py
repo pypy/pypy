@@ -238,6 +238,27 @@ class TestBuiltinApp(testit.AppTestCase):
         self.assertRaises(ValueError, compile, '1+2', '?', 'maybenot')
         self.assertRaises(TypeError, compile, '1+2', 12, 34)
 
+    def test_isinstance(self):
+        self.assert_(isinstance(5, int))
+        self.assert_(isinstance(5, object))
+        self.assert_(not isinstance(5, float))
+        self.assert_(isinstance(True, (int, float)))
+        self.assert_(not isinstance(True, (type, float)))
+        self.assert_(isinstance(True, ((type, float), bool)))
+        self.assertRaises(TypeError, isinstance, 5, 6)
+        self.assertRaises(TypeError, isinstance, 5, (float, 6))
+
+    def test_issubclass(self):
+        self.assert_(issubclass(int, int))
+        self.assert_(issubclass(int, object))
+        self.assert_(not issubclass(int, float))
+        self.assert_(issubclass(bool, (int, float)))
+        self.assert_(not issubclass(bool, (type, float)))
+        self.assert_(issubclass(bool, ((type, float), bool)))
+        self.assertRaises(TypeError, issubclass, 5, int)
+        self.assertRaises(TypeError, issubclass, int, 6)
+        self.assertRaises(TypeError, issubclass, int, (float, 6))
+
         
 class TestInternal(testit.IntTestCase):
 
