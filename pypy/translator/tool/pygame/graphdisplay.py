@@ -637,6 +637,12 @@ class GraphDisplay(Display):
      
     def async_quit(self):
         pygame.event.post(pygame.event.Event(QUIT))
+
+    def async_cmd(self, **kwds):
+        pygame.event.post(pygame.event.Event(USEREVENT, **kwds))
+
+    def process_UserEvent(self, event):
+        self.setlayout(event.layout)
     
     def quit(self):
         raise StopIteration

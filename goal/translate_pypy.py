@@ -216,9 +216,51 @@ if __name__ == '__main__':
 
         display = GraphDisplay(get_layout(TranslatorPage(t)))
         async_quit = display.async_quit
-        return display.run, async_quit, pygame.quit
+        def show(page):
+            display.async_cmd(layout=get_layout(page))
+        return display.run, show, async_quit, pygame.quit
+
+    class PdbPlusShow(pdb.Pdb):
+
+        def post_mortem(self, t):
+            self.reset()
+            while t.tb_next is not None:
+                t = t.tb_next
+            self.interaction(t.tb_frame, t)        
+
+        show = None
+
+        def _show(self, page):
+            if not self.show:
+                print "*** No display"
+                return
+            self.show(page)
+
+        def do_show(self, arg):
+            if '.' in arg:
+                name = ''
+                obj = None
+                for comp in arg.split('.'):
+                    name += comp
+                    obj = getattr(obj, comp, None)
+                    if obj is None:
+                        try:
+                            obj = __import__(name, {}, {}, ['*'])
+                        except ImportError:
+                            print "*** Not found: %s" % arg
+                            return
+                    name += '.'
+                if hasattr(obj, 'im_func'):
+                    obj = obj.im_func
+                if obj in t.flowgraphs:
+                    from pypy.translator.tool.graphpage import FlowGraphPage                    
+                    self._show(FlowGraphPage(t, [obj]))
+            else:
+                print "*** Nothing to do"
 
     def debug(got_error):
+        pdb_plus_show = PdbPlusShow()
+        
         if got_error:
             import traceback
             exc, val, tb = sys.exc_info()
@@ -233,16 +275,17 @@ if __name__ == '__main__':
                 print '-'*60
 
             print >> sys.stderr
-            func, args = pdb.post_mortem, (tb,)
+            func, args = pdb_plus_show.post_mortem, (tb,)
         else:
             print '-'*60
             print 'Done.'
             print
-            func, args = pdb.set_trace, ()
+            func, args = pdb_plus_show.set_trace, ()
         if options['-text']:
             func(*args)
         else:
-            start, stop, cleanup = run_server()
+            start, show, stop, cleanup = run_server()
+            pdb_plus_show.show = show
             debugger = run_in_thread(func, args, stop)
             debugger.start()
             start()
