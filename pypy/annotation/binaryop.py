@@ -7,7 +7,7 @@ from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
-from pypy.annotation.model import SomePBC
+from pypy.annotation.model import SomePBC, SomeSlice
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import generalize
 from pypy.annotation.bookkeeper import getbookkeeper
@@ -221,6 +221,12 @@ class __extend__(pairtype(SomeList, SomeInteger)):
 
     def setitem((lst1, int2), s_value):
         generalize(lst1.factories, s_value)
+
+
+class __extend__(pairtype(SomeList, SomeSlice)):
+
+    def getitem((lst, slic)):
+        return SomeList(lst.factories, lst.s_item)
 
 
 class __extend__(pairtype(SomeString, SomeInteger)):

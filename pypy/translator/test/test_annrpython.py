@@ -392,6 +392,10 @@ class TestAnnonateTestCase:
                         assert isinstance(a.binding(op.result),
                                           annmodel.SomeSlice)
 
+    def test_simple_slicing(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.simple_slice, [list])
+        assert isinstance(s, annmodel.SomeList)
 
 def g(n):
     return [0,1,2,n]
