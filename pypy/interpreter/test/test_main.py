@@ -1,6 +1,7 @@
 import unittest
 import autopath
 from cStringIO import StringIO
+from pypy.tool.udir import udir
 
 from pypy.tool import testit
 from pypy.interpreter.baseobjspace import OperationError
@@ -17,20 +18,20 @@ main()
 
 testresultoutput = '11\n'
 
-capture = StringIO()
 
 def checkoutput(expected_output,f,*args):
     space = testit.objspace()
     w_sys = space.get_builtin_module("sys")
     w_oldout = space.getattr(w_sys, space.wrap("stdout"))
-    capture.reset()
-    space.setattr(w_sys, space.wrap("stdout"), space.wrap(capture))
+    capturefn = udir.join('capturefile')
+    capturefile = capturefn.open('w') 
+    space.setattr(w_sys, space.wrap("stdout"), space.wrap(capturefile))
     try:
         f(*(args + (space,)))
     finally:
         space.setattr(w_sys, space.wrap("stdout"), w_oldout)
-
-    return capture.getvalue() == expected_output
+    capturefile.close() 
+    return capturefn.read() == expected_output
 
 testfn = 'tmp_hello_world.py'
 
