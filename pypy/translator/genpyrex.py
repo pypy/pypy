@@ -4,7 +4,7 @@ generate Pyrex files from the flowmodel.
 """
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.argument import Arguments
-from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
+from pypy.objspace.flow.model import Variable, Constant, undefined_value
 from pypy.objspace.flow.model import mkentrymap, last_exception
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.annotation.model import SomePBC
@@ -403,10 +403,10 @@ class GenPyrex:
         sourceargs = link.args
         targetargs = block.inputargs
         assert len(sourceargs) == len(targetargs)
-        # get rid of identity-assignments and assignments of UndefinedConstant
+        # get rid of identity-assignments and assignments of undefined_value
         sargs, targs = [], []
         for s,t in zip(sourceargs, targetargs):
-            if s != t and not isinstance(s, UndefinedConstant):
+            if s != t and s != Constant(undefined_value):
                 sargs.append(s)
                 targs.append(t)
         if sargs:

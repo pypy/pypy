@@ -10,7 +10,7 @@ class FrameState:
             data = []
             for w in state.getfastscope():
                 if w is None:
-                    data.append(UNDEFINED)
+                    data.append(Constant(undefined_value))
                 else:
                     data.append(w)
             data.extend(state.valuestack.items)
@@ -43,7 +43,7 @@ class FrameState:
             recursively_unflatten(frame.space, data)
             fastscope = []
             for w in data[:fastlocals]:
-                if w is UNDEFINED:
+                if isinstance(w, Constant) and w.value is undefined_value:
                     fastscope.append(None)
                 else:
                     fastscope.append(w)

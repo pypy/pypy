@@ -108,7 +108,7 @@ class FlowObjSpace(ObjSpace):
         return self.do_operation('newslice', w_start, w_stop, w_step)
 
     def wrap(self, obj):
-        if isinstance(obj, (Variable, Constant)) and obj is not UNDEFINED:
+        if isinstance(obj, (Variable, Constant)):
             raise TypeError("already wrapped: " + repr(obj))
         # method-wrapper have ill-defined comparison and introspection
         # to appear in a flow graph
