@@ -55,7 +55,7 @@ class Translator:
             self.py_source = "<interactive>"
 
     def gv(self):
-        """Show the control flow graph -- requires 'dot' and 'gv'."""
+        """Shows the control flow graph -- requires 'dot' and 'gv'."""
         import os
         from pypy.translator.test.make_dot import make_dot
         from pypy.tool.udir import udir
@@ -63,29 +63,45 @@ class Translator:
         os.system('gv %s' % str(dest))
 
     def simplify(self):
+        """Simplifies the control flow graph."""
         self.flowgraph = simplify_graph(self.flowgraph)
 
     def annotate(self, input_args_types):
+        """annotate(self, input_arg_types) -> Annotator
+
+        Provides type information of arguments. Returns annotator.
+        """
         self.annotator = Annotator(self.flowgraph)
         self.annotator.build_types(input_args_types)
         return self.annotator
 
     def source(self):
+        """Returns original Python source.
+        
+        Returns <interactive> for functions written while the
+        interactive session.
+        """
         return self.py_source
 
     def pyrex(self):
+        """Returns Pyrex translation."""
         g = GenPyrex(self.flowgraph)
         if self.annotator:
             g.setannotator(self.annotator)
         return g.emitcode()
 
     def cl(self):
+        """Returns Common Lisp translation."""
         g = GenCL(self.flowgraph)
         if self.annotator:
             g.ann = self.annotator
         return g.emitcode()
 
     def compile(self):
+        """Returns compiled function.
+
+        Currently function is only compiled using Pyrex.
+        """
         from pypy.tool.udir import udir
         name = self.entrypoint.func_name
         pyxcode = self.pyrex()
@@ -94,6 +110,7 @@ class Translator:
 
 
 if __name__ == '__main__':
+
     def my_bool(x):
         return not not x
 
