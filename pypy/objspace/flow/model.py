@@ -75,7 +75,7 @@ class Block:
         else:
             txt = "codeless block"
         if self.exc_handler:
-            txt = text +" EH"
+            txt = txt +" EH"
         return txt
     
     def __repr__(self):
