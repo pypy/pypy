@@ -106,12 +106,12 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
                     "slice": slice,
                     }
         for n, c in cpy_builtin.__dict__.iteritems():
-            #if n in ['xrange',  # we define this in builtin_app
-            #         'staticmethod',
-            #         'classmethod',
-            #         'property',
-            #         ]:
-            #    continue
+            if n in ['xrange',  # we define this in builtin_app
+                     'staticmethod',
+                     'classmethod',
+                     'property',
+                     ]:
+                continue
             if isinstance(c, types.TypeType):
                 setattr(self, 'w_' + c.__name__, c)
                 newstuff[c.__name__] = c
