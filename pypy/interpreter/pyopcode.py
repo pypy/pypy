@@ -274,6 +274,8 @@ class PyInterpFrame(pyframe.PyFrame):
     def PRINT_ITEM_TO(f):
         w_stream = f.valuestack.pop()
         w_item = f.valuestack.pop()
+        if w_stream == f.space.w_None:
+            w_stream = sys_stdout(f.space)   # grumble grumble special cases
         print_item_to(f.space, w_item, w_stream)
 
     def PRINT_ITEM(f):
@@ -282,6 +284,8 @@ class PyInterpFrame(pyframe.PyFrame):
 
     def PRINT_NEWLINE_TO(f):
         w_stream = f.valuestack.pop()
+        if w_stream == f.space.w_None:
+            w_stream = sys_stdout(f.space)   # grumble grumble special cases
         print_newline_to(f.space, w_stream)
 
     def PRINT_NEWLINE(f):
@@ -824,8 +828,6 @@ def app_sys_stdout():
         raise RuntimeError("lost sys.stdout")
 
 def app_print_item_to(x, stream):
-    if stream is None:
-        return
     if file_softspace(stream, False):
         stream.write(" ")
     stream.write(str(x))
@@ -837,8 +839,6 @@ def app_print_item_to(x, stream):
     file_softspace(stream, True)
 
 def app_print_newline_to(stream):
-    if stream is None:
-        return
     stream.write("\n")
     file_softspace(stream, False)
 
