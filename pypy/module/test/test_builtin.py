@@ -1,10 +1,10 @@
 import autopath
 
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestBuiltinApp(test.AppTestCase):
+class TestBuiltinApp(testit.AppTestCase):
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
     
     def test_import(self):
         m = __import__('pprint')
@@ -229,10 +229,10 @@ class TestBuiltinApp(test.AppTestCase):
 
 
         
-class TestInternal(test.IntTestCase):
+class TestInternal(testit.IntTestCase):
 
     def setUp(self):
-        self.space = space = test.objspace()
+        self.space = space = testit.objspace()
 
     def get_builtin(self, name):
         w = self.space.wrap
@@ -261,5 +261,5 @@ class TestInternal(test.IntTestCase):
             os.remove(fn)
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()
  

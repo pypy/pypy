@@ -1,10 +1,10 @@
 
 import autopath
-from pypy.tool import test 
+from pypy.tool import testit 
 import unittest
 
 
-class AppTestCodeIntrospection(test.AppTestCase):
+class AppTestCodeIntrospection(testit.AppTestCase):
     def test_attributes(self):
         def f(): pass
         code = f.func_code    
@@ -17,4 +17,4 @@ class AppTestCodeIntrospection(test.AppTestCase):
         self.assertEquals(code.co_argcount,0)
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

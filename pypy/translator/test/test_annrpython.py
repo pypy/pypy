@@ -1,6 +1,6 @@
 
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.tool.udir import udir
 
 from pypy.translator.annrpython import RPythonAnnotator, ANN
@@ -9,9 +9,9 @@ from pypy.objspace.flow.model import *
 
 from pypy.translator.test import snippet
 
-class AnnonateTestCase(test.IntTestCase):
+class AnnonateTestCase(testit.IntTestCase):
     def setUp(self):
-        self.space = test.objspace('flow')
+        self.space = testit.objspace('flow')
 
     def make_fun(self, func):
         import inspect
@@ -165,4 +165,4 @@ def f_calls_g(n):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -1,13 +1,13 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.objspace.trace import TraceObjSpace 
 from pypy.interpreter.gateway import app2interp
 from pypy.tool import pydis
     
-class Test_TraceObjSpace(test.IntTestCase):
+class Test_TraceObjSpace(testit.IntTestCase):
 
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
 
     def tearDown(self):
         pass
@@ -61,4 +61,4 @@ class Test_TraceObjSpace(test.IntTestCase):
         #self.assertEquals_w(op.args_w, expected_w)
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

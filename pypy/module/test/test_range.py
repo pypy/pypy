@@ -1,7 +1,7 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestRange(test.AppTestCase):
+class TestRange(testit.AppTestCase):
 
    def test_range_toofew(self):
       self.assertRaises(TypeError, range)
@@ -68,6 +68,6 @@ class TestRange(test.AppTestCase):
       """
       
 if __name__ == '__main__':
-    test.main()
+    testit.main()
 
 

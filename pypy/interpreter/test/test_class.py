@@ -1,8 +1,8 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
 
-class TestClassApp(test.AppTestCase):
+class TestClassApp(testit.AppTestCase):
 
     
     def test_class(self):
@@ -64,4 +64,4 @@ class C:
             
         
 if __name__ == '__main__':
-    test.main()
+    testit.main()

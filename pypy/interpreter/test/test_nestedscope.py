@@ -1,8 +1,8 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
 
-class AppTestNestedScope(test.AppTestCase):
+class AppTestNestedScope(testit.AppTestCase):
 
     def test_nested_scope(self):
         x = 42
@@ -58,4 +58,4 @@ class AppTestNestedScope(test.AppTestCase):
         self.assertEquals(len(outer_locals), 1, "len!=1 for %r" % outer_locals)
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -2,13 +2,13 @@
 import autopath
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.objspace import NoValue
-from pypy.tool import test
+from pypy.tool import testit
 
 
-class TestW_ListObject(test.TestCase):
+class TestW_ListObject(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -271,9 +271,9 @@ class TestW_ListObject(test.TestCase):
         self.assertEqual_w(self.space.le(w_list4, w_list3),
                            self.space.w_True)
 
-class AppTestW_ListObject(test.AppTestCase):
+class AppTestW_ListObject(testit.AppTestCase):
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def test_explicit_new_init(self):
         l = list.__new__(list)
@@ -327,4 +327,4 @@ class AppTestW_ListObject(test.AppTestCase):
         self.assertEquals(l,[3])
         
 if __name__ == '__main__':
-    test.main()
+    testit.main()

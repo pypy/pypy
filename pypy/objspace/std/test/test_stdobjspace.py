@@ -1,10 +1,10 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestW_StdObjSpace(test.TestCase):
+class TestW_StdObjSpace(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -20,4 +20,4 @@ class TestW_StdObjSpace(test.TestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

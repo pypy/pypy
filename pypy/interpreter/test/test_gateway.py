@@ -1,12 +1,12 @@
 
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.interpreter import gateway
 
 
-class TestBuiltinCode(test.IntTestCase):
+class TestBuiltinCode(testit.IntTestCase):
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
 
     def test_signature(self):
         def c(space, w_x, w_y, *args_w, **kw_w):
@@ -35,9 +35,9 @@ class TestBuiltinCode(test.IntTestCase):
         self.assertEqual_w(w_result, w(1020))
 
 
-class TestGateway(test.IntTestCase):
+class TestGateway(testit.IntTestCase):
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
 
     def test_app2interp(self):
         w = self.space.wrap
@@ -81,4 +81,4 @@ def app_g1(x):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

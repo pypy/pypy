@@ -1,10 +1,10 @@
 import autopath
 
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestBuiltinApp(test.AppTestCase):
+class TestBuiltinApp(testit.AppTestCase):
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
 
     def test_staticmethod(self):
         class C:
@@ -49,4 +49,4 @@ class TestBuiltinApp(test.AppTestCase):
         self.assertRaises(KeyError, delattr, a1, 'name')
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -1,12 +1,12 @@
 
 import autopath
-from pypy.tool import test 
+from pypy.tool import testit 
 import unittest
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.pycode import PyCode
 
 
-class AppTestFunctionIntrospection(test.AppTestCase):
+class AppTestFunctionIntrospection(testit.AppTestCase):
     def test_attributes(self):
         def f(): pass
         self.assert_(hasattr(f, 'func_code'))
@@ -30,7 +30,7 @@ class AppTestFunctionIntrospection(test.AppTestCase):
         self.assert_(f.__dict__ is f.func_dict)
         #XXX self.assert_(hasattr(f, '__class__'))
 
-class AppTestFunction(test.AppTestCase):
+class AppTestFunction(testit.AppTestCase):
     def test_simple_call(self):
         def func(arg1, arg2):
             return arg1, arg2
@@ -108,9 +108,9 @@ class AppTestFunction(test.AppTestCase):
         self.assertRaises(TypeError, func, 42, **{'arg1': 23})
 
 
-class TestMethod(test.IntTestCase):
+class TestMethod(testit.IntTestCase):
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
         def c(self, bar):
             return bar
         code = PyCode()._from_code(c.func_code)
@@ -137,4 +137,4 @@ class TestMethod(test.IntTestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

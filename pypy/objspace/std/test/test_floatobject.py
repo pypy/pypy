@@ -1,12 +1,12 @@
 import autopath
 from pypy.objspace.std import floatobject as fobj
 from pypy.objspace.std.objspace import FailedToImplement
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestW_FloatObject(test.TestCase):
+class TestW_FloatObject(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -44,9 +44,9 @@ class TestW_FloatObject(test.TestCase):
                                                self.space, f1, f2,
                                                self.space.w_None))
 
-class AppFloatTest(test.AppTestCase):
+class AppFloatTest(testit.AppTestCase):
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def test_negatives(self):
         self.assert_(-1.1 < 0)
@@ -75,5 +75,5 @@ class AppFloatTest(test.AppTestCase):
         self.assertEquals(0.0, round(22.22222, -2))
         
 if __name__ == '__main__':
-    test.main()
+    testit.main()
 

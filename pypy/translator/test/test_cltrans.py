@@ -1,5 +1,5 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.tool.udir import udir
 
 
@@ -39,11 +39,11 @@ def make_cl_func(func, argtypes=[]):
 from pypy.translator.test import snippet as t
 from pypy.translator.tool.buildcl import Literal
 
-class GenCLTestCase(test.IntTestCase):
+class GenCLTestCase(testit.IntTestCase):
 
     def setUp(self):
         if not global_cl:
-            raise (test.TestSkip,
+            raise (testit.TestSkip,
                    "Common Lisp neither configured nor detected.")
 
     def test_if(self):
@@ -134,4 +134,4 @@ class GenCLTestCase(test.IntTestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -1,11 +1,11 @@
 import autopath
 
-from pypy.tool import test
+from pypy.tool import testit
 
 # This is a very trivial series of tests.  If apply is subtlely broken,
 # we will have to find out some other way.
   
-class TestApply(test.AppTestCase):
+class TestApply(testit.AppTestCase):
 
    def test_trivial_listonly(self):
       def mymin(*args):
@@ -28,6 +28,6 @@ class TestApply(test.AppTestCase):
                              (-4))
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()
 
 

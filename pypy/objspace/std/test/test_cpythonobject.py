@@ -1,14 +1,14 @@
 import unittest, sys, array
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.objspace.std import cpythonobject
 from pypy.objspace.std.objspace import OperationError
 
 
-class TestW_CPythonObject(test.TestCase):
+class TestW_CPythonObject(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
         # arbitrary always-wrapped object
         self.stuff = array.array('b', [5,-2,77])
 
@@ -88,4 +88,4 @@ class TestW_CPythonObject(test.TestCase):
         self.assertEqual_w(self.space.wrap(5), self.space.next(nx))
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

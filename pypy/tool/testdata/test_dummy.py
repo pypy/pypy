@@ -11,7 +11,7 @@ def test_function2():
     newtest.service.skip()
 
 
-class TestDummy1(newtest.TestCase):
+class TestDummy1(newtestit.TestCase):
     """
     Example of a docstring for a class.
     """
@@ -25,7 +25,7 @@ class TestDummy1(newtest.TestCase):
         raise self.fail("fail deliberately in test_failure1")
 
 
-class TestDummy2(newtest.TestCase):
+class TestDummy2(newtestit.TestCase):
     def test_success2(self):
         self.assertEquals(1+1, 2)
 
@@ -37,7 +37,7 @@ class TestDummy2(newtest.TestCase):
         raise self.fail("fail deliberately in test_failure2")
 
 
-class TestSkip1(newtest.TestCase):
+class TestSkip1(newtestit.TestCase):
     def setUp(self):
         self.skip()
 
@@ -45,7 +45,7 @@ class TestSkip1(newtest.TestCase):
         pass
 
 
-class TestSkip2(newtest.TestCase):
+class TestSkip2(newtestit.TestCase):
     def test_skip2(self):
         self.skip()
 
@@ -61,4 +61,4 @@ class X:
 
 
 if __name__ == '__main__':
-    newtest.main()
+    newtestit.main()

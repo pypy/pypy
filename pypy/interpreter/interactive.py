@@ -75,7 +75,7 @@ if __name__ == '__main__':
         pass
 
     from pypy.tool import option
-    from pypy.tool import test
+    from pypy.tool import testit
     args = option.process_options(option.get_standard_options(),
                                   option.Options)
     objspace = option.objspace()

@@ -55,8 +55,8 @@ class Bytecode:
         elif op in hascompare:
             s +=  '(' + cmp_op[oparg] + ')'
         elif op in hasfree:
-            if free is None:
-                free = co.co_cellvars + co.co_freevars
+            #if free is None:
+            free = co.co_cellvars + co.co_freevars
             s +=  '(' + free[oparg] + ')'
         return s 
 

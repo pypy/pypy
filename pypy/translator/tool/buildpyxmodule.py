@@ -1,5 +1,5 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.tool.udir import udir
 
 from vpath.adapter.process import exec_cmd

@@ -78,7 +78,7 @@ def print_result(traceres):
             print line_begin(frame_count) + ("<<<<<leave %s >>>>>>>" % lastframe)
         elif isinstance(event, trace.ExecBytecode):
             disresult = getdisresult(event.frame) 
-            print line_begin(frame_count), event.index, "      ", disresult.getbytecode(event.index)
+            print line_begin(frame_count), "%2d" % event.index, "      ", disresult.getbytecode(event.index)
             lastframe = event.frame
 
         elif isinstance(event, trace.CallBegin):
@@ -260,7 +260,7 @@ def test():
 ## ##         pass
 
 ## ##     from pypy.tool import option
-## ##     from pypy.tool import test
+## ##     from pypy.tool import testit
 ## ##     args = option.process_options(option.get_standard_options(),
 ## ##                                   option.Options)
 ## ##     objspace = option.objspace()

@@ -1,5 +1,5 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.tool.udir import udir
 from pypy.translator.genpyrex import GenPyrex
 from pypy.objspace.flow.model import *
@@ -7,16 +7,16 @@ from pypy.translator.tool.buildpyxmodule import build_cfunc
 
 from pypy.translator.test import snippet as t
 
-class TypedPyrexGenTestCase(test.IntTestCase):
+class TypedPyrexGenTestCase(testit.IntTestCase):
 
     def setUp(self):
-        self.space = test.objspace('flow')
+        self.space = testit.objspace('flow')
 
     def build_cfunc(self, func):
         try: func = func.im_func
         except AttributeError: pass
 
-        dot = test.Options.verbose >0 and 1 or 0
+        dot = testit.Options.verbose >0 and 1 or 0
         options = {
             'simplify' : 1,
             'dot' : dot,
@@ -90,7 +90,7 @@ class NoTypePyrexGenTestCase(TypedPyrexGenTestCase):
         try: func = func.im_func
         except AttributeError: pass
 
-        dot = test.Options.verbose >0 and 1 or 0
+        dot = testit.Options.verbose >0 and 1 or 0
         options = {
             'simplify' : 1,
             'dot' : dot,
@@ -98,4 +98,4 @@ class NoTypePyrexGenTestCase(TypedPyrexGenTestCase):
         return build_cfunc(func, **options)
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

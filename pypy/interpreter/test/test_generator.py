@@ -1,8 +1,8 @@
 from __future__ import generators
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
-class AppTestGenerator(test.AppTestCase):
+class AppTestGenerator(testit.AppTestCase):
 
     def test_generator(self):
         def f():
@@ -51,4 +51,4 @@ class AppTestGenerator(test.AppTestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -2,12 +2,12 @@ import sys
 import autopath
 from pypy.objspace.std import intobject as iobj
 from pypy.objspace.std.objspace import FailedToImplement
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestW_IntObject(test.TestCase):
+class TestW_IntObject(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -288,9 +288,9 @@ class TestW_IntObject(test.TestCase):
         result = iobj.hex__Int(self.space, f1)
         self.assertEquals(self.space.unwrap(result), hex(x))
 
-class AppIntTest(test.AppTestCase):
+class AppIntTest(testit.AppTestCase):
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def test_int_callable(self):
         self.assertEquals(42, int(42))
@@ -314,4 +314,4 @@ class AppIntTest(test.AppTestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -1,12 +1,12 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.objspace.std.dictobject import W_DictObject
 
 
-class TestW_DictObject(test.TestCase):
+class TestW_DictObject(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -168,10 +168,10 @@ class TestW_DictObject(test.TestCase):
 
 
 
-class Test_DictObject(test.AppTestCase):
+class Test_DictObject(testit.AppTestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
        
     def test_equality(self):
         d = {1:2} 
@@ -347,4 +347,4 @@ class Test_DictObject(test.AppTestCase):
                           {1: 'j', '1': 'j'})
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -18,7 +18,7 @@ import sys
 import types
 import unittest
 
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.appspace.complexobject import complex as pycomplex
     
 

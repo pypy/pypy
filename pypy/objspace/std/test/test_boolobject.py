@@ -1,11 +1,11 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
 
-class TestW_BoolObject(test.TestCase):
+class TestW_BoolObject(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
         self.true = self.space.w_True
         self.false = self.space.w_False
         self.wrap = self.space.wrap
@@ -23,9 +23,9 @@ class TestW_BoolObject(test.TestCase):
     def test_false(self):
         self.failIf_w(self.false)
         
-class AppBoolTest(test.AppTestCase):
+class AppBoolTest(testit.AppTestCase):
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def test_bool_callable(self):
         self.assertEquals(True, bool(1))
@@ -39,4 +39,4 @@ class AppBoolTest(test.AppTestCase):
         self.assertEquals("False", repr(False))
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

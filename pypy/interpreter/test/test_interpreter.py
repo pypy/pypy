@@ -1,7 +1,7 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestInterpreter(test.TestCase):
+class TestInterpreter(testit.TestCase):
 
     def codetest(self, source, functionname, args):
         """Compile and run the given code string, and then call its function
@@ -35,7 +35,7 @@ class TestInterpreter(test.TestCase):
             return space.unwrap(w_output)
 
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
 
     def test_exception_trivial(self):
         x = self.codetest('''
@@ -143,7 +143,7 @@ def f(n):
         self.assertEquals(self.codetest(code, 'f', [9]),
                           1+2+3 + 5+6+7+8+900)
 
-class AppTestInterpreter(test.AppTestCase):
+class AppTestInterpreter(testit.AppTestCase):
     def test_exception(self):
         try:
             raise Exception, 1
@@ -215,4 +215,4 @@ class AppTestInterpreter(test.AppTestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

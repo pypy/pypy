@@ -1,12 +1,12 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
 from pypy.objspace.flow.wrapper import *
 from pypy.translator.flowmodel import *
 
-class TestFlowOjSpace(test.TestCase):
+class TestFlowOjSpace(testit.TestCase):
     def setUp(self):
-        self.space = test.objspace('flow')
+        self.space = testit.objspace('flow')
 
     def codetest(self, func):
         import inspect
@@ -216,4 +216,4 @@ class TestFlowOjSpace(test.TestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -173,7 +173,7 @@ def trace_interactive(objspace, banner = None):
 if __name__ == '__main__':
 
     from pypy.tool import option
-    from pypy.tool import test
+    from pypy.tool import testit
     args = option.process_options(option.get_standard_options(),
                                   option.Options)
 

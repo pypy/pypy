@@ -1,13 +1,13 @@
 import autopath
-from pypy.tool import test 
+from pypy.tool import testit 
 
 # this test isn't so much to test that the objspace interface *works*
 # -- it's more to test that it's *there*
 
-class TestObjSpace(test.TestCase):
+class TestObjSpace(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
 
     def tearDown(self):
         pass
@@ -94,9 +94,9 @@ class TestObjSpace(test.TestCase):
         self.failIf(self.space.exception_match(self.space.w_ValueError,
                                                self.space.w_LookupError))
 
-class ModuleMinimalTest(test.IntTestCase):
+class ModuleMinimalTest(testit.IntTestCase):
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
 
     def test_sys_exists(self):
         w_sys = self.space.get_builtin_module('sys')
@@ -115,4 +115,4 @@ class ModuleMinimalTest(test.IntTestCase):
         run_string('import sys', space=self.space)
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

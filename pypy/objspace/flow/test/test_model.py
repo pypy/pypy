@@ -1,11 +1,11 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
 from pypy.objspace.flow.model import *
 
-class TestModel(test.TestCase):
+class TestModel(testit.TestCase):
     def setUp(self):
-        self.space = test.objspace('flow')
+        self.space = testit.objspace('flow')
 
     def getflow(self, func):
         import inspect
@@ -81,4 +81,4 @@ class TestModel(test.TestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

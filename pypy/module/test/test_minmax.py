@@ -1,7 +1,7 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestMin(test.AppTestCase):
+class TestMin(testit.AppTestCase):
 
    def test_min_notseq(self):
       self.assertRaises(TypeError, min, 1)
@@ -34,7 +34,7 @@ class TestMin(test.AppTestCase):
    def test_min_empty(self):
       self.assertRaises(ValueError, min, [])
 
-class TestMax(test.AppTestCase):
+class TestMax(testit.AppTestCase):
 
    def test_max_notseq(self):
       self.assertRaises(TypeError, max, 1)
@@ -68,4 +68,4 @@ class TestMax(test.AppTestCase):
       self.assertRaises(ValueError, max, [])
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

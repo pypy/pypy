@@ -10,7 +10,7 @@ import string as c_py_string
 import unittest
 
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.appspace import string as pypy_string
 
 class TestStringmodule(unittest.TestCase):
@@ -36,4 +36,4 @@ class TestStringmodule(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    test.main()
+    testit.main()

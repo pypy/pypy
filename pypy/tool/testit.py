@@ -94,7 +94,7 @@ class MyTextTestResult(unittest._TextTestResult):
 
     def interact(self):
         efs = self.errors + self.failures
-        from pypy.tool.testpm import TestPM
+        from pypy.tool.testitpm import TestPM
         c = TestPM(efs)
         c.cmdloop()
 

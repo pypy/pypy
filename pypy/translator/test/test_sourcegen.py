@@ -1,6 +1,6 @@
 
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.tool.udir import udir
 
 from pypy.translator.genpyrex import GenPyrex
@@ -9,7 +9,7 @@ from pypy.objspace.flow.model import *
 from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring
 #from pypy.translator.test.make_dot import make_ps
 
-class SourceGenTestCase(test.IntTestCase):
+class SourceGenTestCase(testit.IntTestCase):
     def test_simple_func(self):
         """
         one test source:
@@ -90,4 +90,4 @@ class SourceGenTestCase(test.IntTestCase):
         self.assertEquals(mod.f(-3), 0)
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -1,5 +1,5 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.tool.udir import udir
 from pypy.translator.tool.buildpyxmodule import build_cfunc
 from pypy.translator.test.test_cltrans import global_cl, make_cl_func

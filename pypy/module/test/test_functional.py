@@ -1,8 +1,8 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
 
-class TestMap(test.AppTestCase):
+class TestMap(testit.AppTestCase):
 
    def test_trivial_map_one_seq(self):
       self.assertEqual(map(lambda x: x+2, [1, 2, 3, 4]), [3, 4, 5, 6])
@@ -59,14 +59,14 @@ class TestMap(test.AppTestCase):
       b = []
       self.assertEqual(map(lambda x, y: x, a, b), a)
 
-class TestZip(test.AppTestCase):
+class TestZip(testit.AppTestCase):
    def test_one_list(self):
       self.assertEqual(zip([1,2,3]), [(1,), (2,), (3,)])
 
    def test_three_lists(self):
       self.assertEqual(zip([1,2,3], [1,2], [1,2,3]), [(1,1,1), (2,2,2)])
 
-class TestReduce(test.TestCase):
+class TestReduce(testit.TestCase):
    def test_None(self):
        self.assertRaises(TypeError, reduce, lambda x, y: x+y, [1,2,3], None)
 
@@ -78,7 +78,7 @@ class TestReduce(test.TestCase):
        self.assertEqual(reduce(lambda x, y: x-y, [10, 2, 8]), 0)
        self.assertEqual(reduce(lambda x, y: x-y, [2, 8], 10), 0)
 
-class TestFilter(test.AppTestCase):
+class TestFilter(testit.AppTestCase):
    def test_None(self):
        self.assertEqual(filter(None, ['a', 'b', 1, 0, None]), ['a', 'b', 1])
 
@@ -92,6 +92,6 @@ class TestFilter(test.AppTestCase):
        self.assertEqual(filter(lambda x: x != "a", "a small text"), " smll text")
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()
 
 

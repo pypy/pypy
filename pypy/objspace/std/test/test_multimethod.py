@@ -1,7 +1,7 @@
 import autopath
 
 from pypy.objspace.std.multimethod import *
-from pypy.tool import test
+from pypy.tool import testit
 
 BoundMultiMethod.ASSERT_BASE_TYPE = object
 
@@ -90,10 +90,10 @@ def w(x):
     return x
 
 
-class TestMultiMethod(test.TestCase):
+class TestMultiMethod(testit.TestCase):
     def setUp(self):
         # only run when testing stdobjectspace 
-        #XXX removed: test.objspace('std')
+        #XXX removed: testit.objspace('std')
         self.space = FakeObjSpace()
 
     def test_non_delegate(self):
@@ -146,4 +146,4 @@ class TestMultiMethod(test.TestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -1,10 +1,10 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
-##class TestSpecialMultimethodCode(test.TestCase):
+##class TestSpecialMultimethodCode(testit.TestCase):
 
 ##    def setUp(self):
-##        self.space = test.objspace('std')
+##        self.space = testit.objspace('std')
 
 ##    def tearDown(self):
 ##        pass
@@ -53,9 +53,9 @@ from pypy.tool import test
 ##                                              w({'x1': 5.5, 'x2': 7})),
 ##                               w(-1.5))
 
-class TestTypeObject(test.AppTestCase):
+class TestTypeObject(testit.AppTestCase):
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def test_bases(self):
         self.assertEquals(int.__bases__, (object,))
@@ -90,4 +90,4 @@ class TestTypeObject(test.AppTestCase):
                                                            "c": 3}))
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

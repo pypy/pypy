@@ -1,9 +1,9 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestUserObject(test.AppTestCase):
+class TestUserObject(testit.AppTestCase):
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def test_emptyclass(self):
         class empty: pass
@@ -98,4 +98,4 @@ class TestUserObject(test.AppTestCase):
         self.assertEquals(c1("hello", "world"), ("hello", "world"))
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

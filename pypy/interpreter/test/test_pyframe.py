@@ -1,8 +1,8 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
 
-class AppTestPyFrame(test.AppTestCase):
+class AppTestPyFrame(testit.AppTestCase):
 
     # test for the presence of the attributes, not functionality
 
@@ -30,4 +30,4 @@ class AppTestPyFrame(test.AppTestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

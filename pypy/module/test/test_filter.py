@@ -1,9 +1,9 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
 # trivial functions for testing 
 
-class TestFilter(test.AppTestCase):
+class TestFilter(testit.AppTestCase):
     def test_filter_no_arguments(self):
         self.assertRaises(TypeError, filter)
       
@@ -38,4 +38,4 @@ class TestFilter(test.AppTestCase):
       self.assertEqual(filter(lambda x: x>'a', 'xyzabcd'), 'xyzbcd')
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

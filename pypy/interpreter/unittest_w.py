@@ -70,7 +70,7 @@ class IntTestCase(unittest.TestCase):
         errorfn(self, self._TestCase__exc_info())
 
     def __call__(self, result=None):
-        from pypy.tool.test import TestSkip
+        from pypy.tool.testit import TestSkip
         if result is None: result = self.defaultTestResult()
         result.startTest(self)
         testMethod = getattr(self, self.methodName)
@@ -161,5 +161,5 @@ class AppTestCase(IntTestCase):
         return IntTestCase.__call__(self, result)
         
     def setUp(self):
-        from pypy.tool import test
-        self.space = test.objspace()
+        from pypy.tool import testit
+        self.space = testit.objspace()

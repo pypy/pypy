@@ -1,11 +1,11 @@
 import autopath
 from pypy.objspace.std.moduleobject import W_ModuleObject
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestW_ModuleObject(test.TestCase):
+class TestW_ModuleObject(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -31,4 +31,4 @@ class TestW_ModuleObject(test.TestCase):
         self.assertEqual_w(space.getattr(w_m, space.wrap('yy')), w_yy)
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -1,10 +1,10 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestW_SliceObject(test.TestCase):
+class TestW_SliceObject(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -35,9 +35,9 @@ class TestW_SliceObject(test.TestCase):
         self.assertRaises_w(space.w_ValueError,
                             slicetype.indices3, space, w_slice, 10)
 
-class Test_SliceObject(test.AppTestCase):
+class Test_SliceObject(testit.AppTestCase):
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def test_new(self):
         def cmp_slice(sl1, sl2):
@@ -59,4 +59,4 @@ class Test_SliceObject(test.AppTestCase):
         self.assertEqual(slice(11,4,-2).indices(2), (1, 2, -2))
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -2,7 +2,7 @@ import unittest
 import autopath
 from cStringIO import StringIO
 
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.interpreter.baseobjspace import OperationError
 
 from pypy.interpreter import main
@@ -20,7 +20,7 @@ testresultoutput = '11\n'
 capture = StringIO()
 
 def checkoutput(expected_output,f,*args):
-    space = test.objspace()
+    space = testit.objspace()
     w_sys = space.get_builtin_module("sys")
     w_oldout = space.getattr(w_sys, space.wrap("stdout"))
     capture.reset()
@@ -34,10 +34,10 @@ def checkoutput(expected_output,f,*args):
 
 testfn = 'tmp_hello_world.py'
 
-class TestMain(test.TestCase):
+class TestMain(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
         ofile = open(testfn, 'w')
         ofile.write(testcode)
         ofile.close()
@@ -58,4 +58,4 @@ class TestMain(test.TestCase):
         self.assertEqual_w(w_x, self.space.wrap(4))
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

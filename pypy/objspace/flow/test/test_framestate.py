@@ -1,14 +1,14 @@
 
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
 from pypy.objspace.flow.flowcontext import *
 from pypy.objspace.flow.model import *
 from pypy.interpreter.pycode import PyCode
 
-class TestFrameState(test.TestCase):
+class TestFrameState(testit.TestCase):
     def setUp(self):
-        self.space = test.objspace('flow')
+        self.space = testit.objspace('flow')
 
     def getframe(self, func):
         space = self.space
@@ -99,7 +99,7 @@ class TestFrameState(test.TestCase):
         self.assert_(isinstance(frame.fastlocals_w[-1], Variable)) # generalized
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()
         
 
         

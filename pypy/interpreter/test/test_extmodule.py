@@ -1,12 +1,12 @@
 
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.interpreter.extmodule import ExtModule
 
 
-class TestExtModule(test.IntTestCase):
+class TestExtModule(testit.IntTestCase):
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
 
         class M(ExtModule):
             __name__ = 'm'
@@ -44,4 +44,4 @@ class TestExtModule(test.IntTestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

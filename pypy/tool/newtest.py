@@ -596,10 +596,10 @@ def test(do_selftest=False):
     # possibly ignore dummy unit tests
     if do_selftest:
         # include only selftest module
-        filterfunc = lambda m: m.find("pypy.tool.testdata.") != -1
+        filterfunc = lambda m: m.find("pypy.tool.testitdata.") != -1
     else:
         # exclude selftest module
-        filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
+        filterfunc = lambda m: m.find("pypy.tool.testitdata.") == -1
     # collect tests
     suite = TestSuite()
     print "Loading test modules ..."

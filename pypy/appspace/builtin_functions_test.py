@@ -1,6 +1,6 @@
 # Python test set -- built-in functions
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.interpreter.gateway import app2interp
 
 def app_init_globals():
@@ -105,13 +105,13 @@ def app_init_globals():
     b.L = L
 
 
-class BuiltinTest(test.AppTestCase):
+class BuiltinTest(testit.AppTestCase):
 
     full_test = 1
     fully_initialized = False
 
     def setUp(self):
-        self.space = space = test.objspace('std')
+        self.space = space = testit.objspace('std')
         if self.fully_initialized:
             return
 
@@ -1240,4 +1240,4 @@ class BuiltinTest(test.AppTestCase):
             self.assertRaises(ValueError, zip, BadSeq(), BadSeq())
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

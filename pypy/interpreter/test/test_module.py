@@ -1,12 +1,12 @@
 
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.interpreter.module import Module
 
 
-class TestModule(test.IntTestCase):
+class TestModule(testit.IntTestCase):
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
         self.m = Module(self.space, self.space.wrap('m'))
 
     def test_name(self):
@@ -23,10 +23,10 @@ class TestModule(test.IntTestCase):
         self.assertRaises_w(self.space.w_AttributeError,
                             self.space.delattr, w_m, w('x'))
 
-class Test_ModuleObject(test.AppTestCase):
+class Test_ModuleObject(testit.AppTestCase):
 
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
         
     def test_attr(self):
         m = __import__('__builtin__')
@@ -44,4 +44,4 @@ class Test_ModuleObject(test.AppTestCase):
         self.assertRaises(AttributeError, delattr, m, 'x')
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

@@ -3,12 +3,12 @@
 New for PyPy - Could be incorporated into CPython regression tests.
 """
 import autopath
-from pypy.tool import test 
+from pypy.tool import testit 
 
-class TestExecStmt(test.AppTestCase):
+class TestExecStmt(testit.AppTestCase):
 
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
 
     def test_string(self):
         g = {}
@@ -73,4 +73,4 @@ class TestExecStmt(test.AppTestCase):
         self.failUnlessRaises(TypeError,f)
 
 if __name__ == "__main__":
-    test.main()
+    testit.main()

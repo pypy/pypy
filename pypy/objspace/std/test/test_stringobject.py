@@ -1,14 +1,14 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.stringobject import \
      string_richcompare, W_StringObject, EQ, LT, GT, NE, LE, GE
 
 
-class TestW_StringObject(test.TestCase):
+class TestW_StringObject(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -114,9 +114,9 @@ class TestW_StringObject(test.TestCase):
         w_slice = space.newslice(w(1), w_None, w(2))
         self.assertEqual_w(space.getitem(w_str, w_slice), w('el'))
 
-class TestStringObject(test.AppTestCase):
+class TestStringObject(testit.AppTestCase):
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def test_split(self):
         self.assertEquals("".split(), [])
@@ -472,4 +472,4 @@ class TestStringObject(test.AppTestCase):
     
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

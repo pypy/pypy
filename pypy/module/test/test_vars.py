@@ -1,7 +1,7 @@
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestVars(test.AppTestCase):
+class TestVars(testit.AppTestCase):
 
     def _test_vars_no_arguments(self):
         self.assertEqual(vars(), locals())
@@ -19,6 +19,6 @@ class TestVars(test.AppTestCase):
         self.assertEqual(vars(a1).get('res'),42)
       
 if __name__ == '__main__':
-    test.main()
+    testit.main()
 
 

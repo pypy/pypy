@@ -16,7 +16,7 @@ import unittest
 import autopath
 
 #try:
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.appspace import cmathmodule
 from pypy.appspace.complexobject import complex as pycomplex
 #except ImportError:
@@ -28,7 +28,7 @@ from pypy.appspace.test.test_complexobject import equal, enumerate
 
 if 0:    # DISABLED -- we know it works all right and don't want to see them
          #             take time any more for the time being
-  class TestCMathModule(test.TestCase):
+  class TestCMathModule(testit.TestCase):
 
     def assertAEqual(self, a, b):
         if not equal(a, b):
@@ -70,4 +70,4 @@ if 0:    # DISABLED -- we know it works all right and don't want to see them
 
 
 if __name__ == "__main__":
-    test.main()
+    testit.main()

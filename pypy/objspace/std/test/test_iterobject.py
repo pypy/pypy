@@ -1,12 +1,12 @@
 import autopath
 from pypy.objspace.std.iterobject import W_SeqIterObject
 from pypy.objspace.std.objspace import NoValue
-from pypy.tool import test
+from pypy.tool import testit
 
-class TestW_IterObject(test.TestCase):
+class TestW_IterObject(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -44,9 +44,9 @@ class TestW_IterObject(test.TestCase):
         w_iter = self.space.iter(w_list)
         self.body0(w_iter)
 
-class TestW_IterObjectApp(test.AppTestCase):
+class TestW_IterObjectApp(testit.AppTestCase):
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def test_user_iter(self):
         class C:
@@ -71,4 +71,4 @@ class TestW_IterObjectApp(test.AppTestCase):
         
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

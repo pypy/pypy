@@ -1,12 +1,12 @@
 import unittest
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.objspace.std.restricted_int import *
 
-class Test_r_int(test.TestCase):
+class Test_r_int(testit.TestCase):
 
     def setUp(self):
-        space = test.objspace('std')
+        space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -63,10 +63,10 @@ class Test_r_int(test.TestCase):
                     cmp = f(left(larg), right(rarg))
                     self.assertEquals(res, cmp)
                     
-class Test_r_uint(test.TestCase):
+class Test_r_uint(testit.TestCase):
 
     def setUp(self):
-        space = test.objspace('std')
+        space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -130,4 +130,4 @@ class Test_r_uint(test.TestCase):
                     self.assertEquals(res, cmp)
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

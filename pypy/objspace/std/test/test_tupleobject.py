@@ -1,14 +1,14 @@
 #from __future__ import nested_scopes
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.objspace import NoValue
 
 
-class TestW_TupleObject(test.TestCase):
+class TestW_TupleObject(testit.TestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = testit.objspace('std')
 
     def tearDown(self):
         pass
@@ -240,4 +240,4 @@ class TestW_TupleObject(test.TestCase):
                            self.space.w_True)
         
 if __name__ == '__main__':
-    test.main()
+    testit.main()

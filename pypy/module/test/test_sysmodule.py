@@ -1,9 +1,9 @@
 import autopath
-from pypy.tool import test 
+from pypy.tool import testit 
 
-class SysTests(test.TestCase):
+class SysTests(testit.TestCase):
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
         self.sys_w = self.space.get_builtin_module("sys")
     def tearDown(self):
         pass
@@ -12,7 +12,7 @@ class SysTests(test.TestCase):
         s = self.space
         self.failUnless_w(s.getattr(self.sys_w, s.wrap("stdout")))
 
-class AppSysTests(test.AppTestCase):
+class AppSysTests(testit.AppTestCase):
     def test_path_exists(self):
         import sys
         self.failUnless(hasattr(sys, 'path'), "sys.path gone missing")
@@ -66,5 +66,5 @@ class AppSysTests(test.AppTestCase):
                         "__builtin__ is not listed as a builtin module.")
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()
 

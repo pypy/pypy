@@ -1,13 +1,13 @@
 
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 from pypy.interpreter.eval import Frame, UNDEFINED
 from pypy.interpreter.pycode import PyCode
 
 
-class TestFrame(test.IntTestCase):
+class TestFrame(testit.IntTestCase):
     def setUp(self):
-        self.space = test.objspace()
+        self.space = testit.objspace()
         def c(x, y, *args):
             pass
         code = PyCode()._from_code(c.func_code)
@@ -55,4 +55,4 @@ class TestFrame(test.IntTestCase):
                                             UNDEFINED, UNDEFINED])
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()

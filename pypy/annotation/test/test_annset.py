@@ -1,6 +1,6 @@
 
 import autopath
-from pypy.tool import test
+from pypy.tool import testit
 
 from pypy.annotation.model import SomeValue, ANN, Predicate
 from pypy.annotation.annset import AnnotationSet, mostgeneralvalue,impossiblevalue
@@ -32,7 +32,7 @@ def annset(*args, **kwds):
     return annset
 
 
-class TestAnnotationSet(test.IntTestCase):
+class TestAnnotationSet(testit.IntTestCase):
 
     def assertSameSet(self, annset1, annset2):
         self.assertEquals(repr(annset1), repr(annset2))
@@ -226,4 +226,4 @@ class TestAnnotationSet(test.IntTestCase):
 
 
 if __name__ == '__main__':
-    test.main()
+    testit.main()
