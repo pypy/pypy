@@ -1,5 +1,5 @@
-from pycode import PyBaseCode
-from appfile import AppHelper
+import pycode
+import appfile
 
 class appmethod(object):
     def __init__(self, func):
@@ -14,11 +14,11 @@ class appdata(object):
         return self.data
 
 
-class PyBuiltinCode(PyBaseCode):
+class PyBuiltinCode(pycode.PyBaseCode):
     """The code object implementing a built-in (interpreter-level) hook."""
 
     def __init__(self, bltinmodule, appmethod):
-        PyBaseCode.__init__(self)
+        pycode.PyBaseCode.__init__(self)
         self.bltinmodule = bltinmodule
         self.appmethod = appmethod
         co = appmethod.func.func_code
@@ -63,8 +63,8 @@ class BuiltinModule:
             elif isinstance(value, appdata):
                 w_data = space.wrap(value.data)
                 space.setattr(w_module, space.wrap(key), w_data)
-        appfile = self.__appfile__
-        if appfile:
+        sappfile = self.__appfile__
+        if sappfile:
             w_dict = space.getattr(w_module, space.wrap("__dict__"))
-            AppHelper(space, appfile, w_dict)
+            appfile.AppHelper(space, sappfile, w_dict)
         return w_module

@@ -1,32 +1,17 @@
 import unittest, sys
-sys.path.append('..')
+import testsupport
+from pypy.interpreter import unittest_w
 
-import extmodule
+from pypy.interpreter import extmodule
+from pypy.objspace import trivial
 
 class EmptyBM(extmodule.BuiltinModule):
     __pythonname__ = 'empty_bm'
 
-class wrapper(object):
-    def __init__(self, wrapped):
-        self.wrapped = wrapped
-def is_wrapped(obj):
-    return isinstance(obj, wrapper)
-import new
-class dummyspace(object):
-    w_None = wrapper(None)
-    def wrap(self, obj):
-        return wrapper(obj)
-    def unwrap(self, obj):
-        return obj.wrapped
-    def newmodule(self, name):
-        return self.wrap(new.module(self.unwrap(name)))
-    def newfunction(self, code, w_something, somethingelse):
-
-
-class TestBuiltinModule(unittest.TestCase):
+class TestBuiltinModule(unittest_w.TestCase_w):
 
     def setUp(self):
-        self.space = dummyspace()
+        self.space = trivial.TrivialObjSpace()
 
     def tearDown(self):
         pass
