@@ -16,31 +16,31 @@ def add_both_with_none(x, y):
 
 class TestMap(testsupport.TestCase):
 
-   def test_trivial_map_no_arguments(self):
+   def test_map_no_arguments(self):
       self.assertRaises(TypeError, map)
       
-   def test_trivial_map_no_function_no_seq(self):
+   def test_map_no_function_no_seq(self):
       self.assertRaises(TypeError, map, None)
 
-   def test_trivial_map_no_fuction_one_seq(self):
+   def test_map_no_fuction_one_seq(self):
       self.assertEqual(map(None, [1, 2, 3]), [1, 2, 3])
       
-   def test_trivial_map_no_function(self):
+   def test_map_no_function(self):
       # test that None padding works
       self.assertEqual(map(None, [1,2,3], [4,5,6], [7,8], [1]),
                        [(1, 4, 7, 1), (2, 5, 8, None), (3, 6, None, None)])
 
-   def test_trivial_map_one_seq(self):
+   def test_map_one_seq(self):
       self.assertEqual(map(add_two, [1, 2, 3, 4]), [3, 4, 5, 6])
 
-   def test_trivial_map_two_seq(self):
+   def test_map_two_seq(self):
       self.assertEqual(map(add_both, [1, 2, 3, 4],[1, 2, 3, 4]), [2, 4, 6, 8])
 
-   def test_trivial_map_sizes_dont_match_None_padded_unhappy(self):
+   def test_map_sizes_dont_match_None_padded_unhappy(self):
       # Test that None padding works, making add_both unhappy
       self.assertRaises(TypeError, map, add_both, [1, 2, 3, 4], [1, 2, 3])
 
-   def test_trivial_map_sizes_dont_match_None_padded_happy(self):
+   def test_map_sizes_dont_match_None_padded_happy(self):
       # Test that None padding works, more work for add_both_with_none
       self.assertEqual(map(add_both_with_none, [1, 2, 3, 4], [1, 2, 3]),
                        [2, 4, 6, 1004])
