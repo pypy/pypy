@@ -6,7 +6,6 @@ indices method              tested, OK
 """
 
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.appfile import AppFile
 from pypy.interpreter.extmodule import make_builtin_func
 from pypy.objspace.std.instmethobject import W_InstMethObject

@@ -3,7 +3,6 @@ Reviewed 03-06-22
 """
 from __future__ import nested_scopes
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std.register_all import register_all
 import typeobject, objecttype
 from typeobject import W_TypeObject
 

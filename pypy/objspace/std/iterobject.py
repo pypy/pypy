@@ -5,7 +5,6 @@ tested, and complete. The only missing feature is support
 for function-iteration.
 """
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std.register_all import register_all
 from itertype import W_SeqIterType
 
 

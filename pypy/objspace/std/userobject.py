@@ -7,7 +7,6 @@ correct working of inheritance from both builtin and user types
 as well as of normal and special attributes.
 """
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std.register_all import register_all
 from usertype import W_UserType
 import typeobject
 

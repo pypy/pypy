@@ -1,4 +1,3 @@
-from pypy.objspace.std.objspace import StdObjSpace, W_ANY
 
 _name_mappings = {
     'and': 'and_',
@@ -14,6 +13,7 @@ def register_all(module_dict, alt_ns=None):
     If the name doesn't exist then the alternative namespace is tried
     for registration. 
     """
+    from pypy.objspace.std.objspace import StdObjSpace, W_ANY
 
     for name, obj in module_dict.items():
         if name.find('__')<1:
@@ -63,6 +63,7 @@ def add_extra_comparisons(
     check if it already has ne, ge and le respectively.
     If not, then add them as space.not_ on the implemented methods.
     """
+    from pypy.objspace.std.objspace import StdObjSpace, W_ANY
 
     for method, mirror in operators:
         try:

@@ -5,7 +5,6 @@
 """ 
 
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std.register_all import register_all
 from nulltype import W_NullType
 
 class W_NullObject(W_Object):

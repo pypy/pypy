@@ -5,6 +5,7 @@ XXX further analysis needed.
 """
 
 import pypy.interpreter.appfile
+from register_all import register_all
 from pypy.interpreter.baseobjspace import *
 from multimethod import *
 

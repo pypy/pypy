@@ -1,7 +1,6 @@
 """Default implementation for some operation."""
 
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std.register_all import register_all
 
 
 # These are operations that must fall back to some default behavior,

@@ -5,7 +5,6 @@
 """ 
 
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std.register_all import register_all
 from nonetype import W_NoneType
 
 class W_NoneObject(W_Object):

@@ -15,7 +15,6 @@ unbound-method, which, so far, it doesn't yet.
 
 from __future__ import nested_scopes
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std.register_all import register_all
 from instmethtype import W_InstMethType
 
 

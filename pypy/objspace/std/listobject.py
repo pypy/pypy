@@ -1,5 +1,4 @@
 from pypy.objspace.std.objspace import *
-from pypy.objspace.std.register_all import register_all
 from listtype import W_ListType
 from intobject import W_IntObject
 from sliceobject import W_SliceObject
