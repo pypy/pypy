@@ -100,7 +100,7 @@ class DescrOperation:
     def get(space,w_descr,w_obj,w_type):
         w_get = space.lookup(w_descr,'__get__')
         if w_get is None:
-            return w_obj
+            return w_descr
         return space.get_and_call_function(w_get,w_descr,w_obj,w_type)
 
     def set(space,w_descr,w_obj,w_val):
