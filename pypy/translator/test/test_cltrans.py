@@ -42,13 +42,10 @@ class GenCLTestCase(test.IntTestCase):
             raise (test.TestSkip,
                    "Common Lisp neither configured nor detected.")
 
-    def test_if_bool(self):
+    def test_if(self):
         cl_if = make_cl_func(t.if_then_else)
         self.assertEquals(cl_if(True, 50, 100), 50)
         self.assertEquals(cl_if(False, 50, 100), 100)
-
-    def test_if_int(self):
-        cl_if = make_cl_func(t.if_then_else)
         self.assertEquals(cl_if(0, 50, 100), 100)
         self.assertEquals(cl_if(1, 50, 100), 50)
 
@@ -94,8 +91,6 @@ class GenCLTestCase(test.IntTestCase):
     def test_string(self):
         cl_greet = make_cl_func(t.greet, [str])
         self.assertEquals(cl_greet("world"), "helloworld")
-
-    def test_string2(self):
         cl_stringmaker = make_cl_func(t.nested_whiles)
         self.assertEquals(cl_stringmaker(111, 114),
                           "...!...!...!...!...!")

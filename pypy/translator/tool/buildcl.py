@@ -1,7 +1,5 @@
 import autopath
 
-import sys
-from cStringIO import StringIO
 from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.gencl import GenCL
 from vpath.adapter.process import exec_cmd

@@ -54,11 +54,11 @@ class Op:
         lines = []
         args = self.argnames
         lines.append("try:")
-        lines.append("    _nextval = %s.next()" % args[0])
+        lines.append("  _nextval = %s.next()" % args[0])
         lines.append("except StopIteration:")
-        lines.append("    %s = None, 0" % self.resultname)
+        lines.append("  %s = None, 0" % self.resultname)
         lines.append("else:")
-        lines.append("    %s = _nextval, 1" % self.resultname)
+        lines.append("  %s = _nextval, 1" % self.resultname)
         return "\n".join(lines)
 
     def op_getitem(self):

@@ -49,7 +49,7 @@ class Op:
     def op_add(self):
         s = self.str
         result, (arg1, arg2) = self.result, self.args
-        print "(setq", s(result),
+        print "(setq", s(result)
         table = {
             (int, int): "(+ %s %s)",
             (str, str): "(concatenate 'string %s %s)",
