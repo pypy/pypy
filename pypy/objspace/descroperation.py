@@ -293,6 +293,28 @@ class DescrOperation:
         else:
             return space.wrap(1)
 
+    def coerce(space, w_obj1, w_obj2):
+        w_typ1 = space.type(w_obj1)
+        w_typ2 = space.type(w_obj2)
+        w_left_impl = space.lookup(w_obj1, '__coerce__')
+        if space.is_true(space.is_(w_typ1, w_typ2)):
+            w_right_impl = None
+        else:
+            w_right_impl = space.lookup(w_obj2, '__coerce__')
+            if space.is_true(space.issubtype(w_typ1, w_typ2)):
+                w_obj1, w_obj2 = w_obj2, w_obj1
+                w_left_impl, w_right_impl = w_right_impl, w_left_impl
+
+        w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
+        if w_res is not None and not space.is_w(w_res, space.w_None):
+            return w_res
+        w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
+        if w_res is not None and not space.is_w(w_res, space.w_None):
+            return w_res
+        raise OperationError(space.w_TypeError,
+                space.wrap("coercion failed"))        
+
+
     # xxx round, ord
 
 

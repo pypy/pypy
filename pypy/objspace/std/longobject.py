@@ -93,6 +93,11 @@ def hash__Long(space,w_value):
     # real Implementation should be taken from _Py_HashDouble in object.c
     return space.wrap(hash(w_value.longval))
 
+# coerce
+def coerce__Long_Long(space, w_long1, w_long2):
+    return space.newtuple([w_long1, w_long2])
+
+
 def add__Long_Long(space, w_long1, w_long2):
     x = w_long1.longval
     y = w_long2.longval

@@ -289,6 +289,15 @@ def cmp(w_x, w_y):
     """return 0 when x == y, -1 when x < y and 1 when x > y """
     return space.cmp(w_x, w_y)
 
+def coerce(w_x, w_y):
+    """coerce(x, y) -> (x1, y1)
+
+    Return a tuple consisting of the two numeric arguments converted to
+    a common type, using the same rules as used by arithmetic operations.
+    If coercion is not possible, raise TypeError."""
+    return space.coerce(w_x, w_y)
+
+
 #XXX works only for new-style classes.
 #So we have to fix it, when we add support for old-style classes
 def _issubtype(w_cls1, w_cls2):

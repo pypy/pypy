@@ -466,7 +466,7 @@ def unichr(code):
 __interplevel__execfile('__builtin__interp.py')
 
 from __interplevel__ import abs, chr, len, ord, pow, repr
-from __interplevel__ import hash, oct, hex, round, cmp
+from __interplevel__ import hash, oct, hex, round, cmp, coerce
 from __interplevel__ import getattr, setattr, delattr, iter, hash, id
 from __interplevel__ import _issubtype
 from __interplevel__ import compile, eval

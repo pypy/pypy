@@ -125,6 +125,11 @@ def hash__Int(space, w_int1):
     else:
         return _hash_liberal(space, w_int1)
 
+# coerce
+def coerce__Int_Int(space, w_int1, w_int2):
+    return space.newtuple([w_int1, w_int2])
+
+
 def add__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval

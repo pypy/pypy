@@ -138,6 +138,11 @@ def hash__Float(space,w_value):
     # real Implementation should be taken from _Py_HashDouble in object.c
     return space.wrap(hash(w_value.floatval))
 
+# coerce
+def coerce__Float_Float(space, w_float1, w_float2):
+    return space.newtuple([w_float1, w_float2])
+
+
 def add__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
