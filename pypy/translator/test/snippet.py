@@ -712,3 +712,26 @@ def slice_union(x):
         return slice(1)
     else:
         return slice(0, 10, 2)
+
+def exception_deduction_we_are_dumb():
+    a = 1
+    try:
+        exception_deduction0(2)
+    except Exc, e:
+        a += 1
+        return e
+    return Exc()
+
+class Exc2(Exception):
+    pass
+
+def nested_exception_deduction():
+    try:
+        exception_deduction0(1)
+    except Exc, e:
+        try:
+            exception_deduction0(2)
+        except Exc2, f:
+            return (e, f)
+        return (e, Exc2())
+    return (Exc(), Exc2())

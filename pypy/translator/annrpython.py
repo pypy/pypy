@@ -312,23 +312,25 @@ class RPythonAnnotator:
         for link in exits:
             self.links_followed[link] = True
             import types
-            if isinstance(link.exitcase, types.ClassType) and issubclass(link.exitcase, Exception):
+            in_except_block = False
+            if isinstance(link.exitcase, types.ClassType) \
+                   and issubclass(link.exitcase, Exception):
                 last_exception_object = annmodel.SomeObject()
                 last_exc_value_object = annmodel.SomeObject()
                 last_exc_value_vars = last_exception_object.is_type_of = []
-                cells = []
-                for a,v in zip(link.args,link.target.inputargs):
-                    if a == Constant(last_exception):
-                        cells.append(last_exception_object)
-                    elif a == Constant(last_exc_value):
-                        cells.append(last_exc_value_object)
-                        last_exc_value_vars.append(v)
-                    else:
-                        assert False, "exception handling blocks should only have exception inputargs!!"
-            else:
-                cells = []
-                renaming = dict(zip(link.args,link.target.inputargs))
-                for a in link.args:
+                in_except_block = True
+                
+            cells = []
+            renaming = dict(zip(link.args,link.target.inputargs))
+            for a,v in zip(link.args,link.target.inputargs):
+                if a == Constant(last_exception):
+                    assert in_except_block
+                    cells.append(last_exception_object)
+                elif a == Constant(last_exc_value):
+                    assert in_except_block
+                    cells.append(last_exc_value_object)
+                    last_exc_value_vars.append(v)
+                else:
                     cell = self.binding(a)
                     if link.exitcase is True and knownvars is not None and a in knownvars \
                             and not knownvarvalue.contains(cell):
@@ -342,6 +344,7 @@ class RPythonAnnotator:
                         cell = annmodel.SomeObject()
                         cell.is_type_of = renamed_is_type_of
                     cells.append(cell)
+
             self.addpendingblock(fn, link.target, cells)
         if block in self.notify:
             # reflow from certain positions when this block is done

@@ -468,6 +468,21 @@ class TestAnnonateTestCase:
         assert isinstance(s, annmodel.SomeInstance)
         assert s.knowntype is snippet.Exc
         
+    def test_exception_deduction_we_are_dumb(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.exception_deduction_we_are_dumb, [])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.knowntype is snippet.Exc
+        
+    def test_nested_exception_deduction(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.nested_exception_deduction, [])
+        assert isinstance(s, annmodel.SomeTuple)
+        assert isinstance(s.items[0], annmodel.SomeInstance)
+        assert isinstance(s.items[1], annmodel.SomeInstance)
+        assert s.items[0].knowntype is snippet.Exc
+        assert s.items[1].knowntype is snippet.Exc2
+        
     def test_slice_union(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.slice_union, [int])
