@@ -19,9 +19,15 @@ from pypy.annotation import model as annmodel
 # -->
 # d = alloc_and_set(b, a)
 
+def fully_annotated_blocks(self):
+    """Ignore blocked blocks."""
+    for block, is_annotated in self.annotated.iteritems():
+        if is_annotated:
+            yield block
+
 def transform_allocate(self):
     """Transforms [a] * b to alloc_and_set(b, a) where b is int."""
-    for block in self.annotated:
+    for block in fully_annotated_blocks(self):
         operations = block.operations[:]
         n_op = len(operations)
         for i in range(0, n_op-1):
@@ -46,7 +52,7 @@ def transform_allocate(self):
 
 def transform_slice(self):
     """Transforms a[b:c] to getslice(a, b, c)."""
-    for block in self.annotated:
+    for block in fully_annotated_blocks(self):
         operations = block.operations[:]
         n_op = len(operations)
         for i in range(0, n_op-1):
@@ -112,7 +118,7 @@ def transform_dead_op_vars(self):
     variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
     
     # compute variable_flow and an initial read_vars
-    for block in self.annotated:
+    for block in fully_annotated_blocks(self):
         # figure out which variables are ever read
         for op in block.operations:
             if op.opname not in CanRemove:  # mark the inputs as really needed
@@ -151,7 +157,7 @@ def transform_dead_op_vars(self):
                 read_vars[prevvar] = True
                 pending.append(prevvar)
 
-    for block in self.annotated:
+    for block in fully_annotated_blocks(self):
         
         # look for removable operations whose result is never used
         for i in range(len(block.operations)-1, -1, -1):
@@ -175,12 +181,16 @@ def transform_dead_op_vars(self):
         # link.target.inputargs.
         for link in block.exits:
             assert len(link.args) == len(link.target.inputargs)
+            if not self.annotated.get(link.target, False):
+                # Can't remove -- link.target is not annotated, therefore
+                # link.target.inputargs will never be touched
+                continue
             for i in range(len(link.args)-1, -1, -1):
                 if link.target.inputargs[i] not in read_vars:
                     del link.args[i]
             # the above assert would fail here
 
-    for block in self.annotated:
+    for block in fully_annotated_blocks(self):
         # look for input variables never used
         # The corresponding link.args have already been all removed above
         for i in range(len(block.inputargs)-1, -1, -1):
@@ -314,11 +324,7 @@ def transform_dead_code(self):
     """Remove dead code: these are the blocks that are not annotated at all
     because the annotation considered that no conditional jump could reach
     them."""
-    for block, is_annotated in self.annotated.items():
-        if not is_annotated:
-            # We do not want to accidentally turn blocked blocks into return
-            # blocks
-            continue
+    for block in fully_annotated_blocks(self):
         for link in block.exits:
             if link not in self.links_followed:
                 lst = list(block.exits)
