@@ -253,6 +253,24 @@ class DescrOperation:
         if w_del is not None:
             space.get_and_call_function(w_del, w_obj)
 
+    def cmp(space, w_x, w_y):
+        # full compliant implementation of the built-in cmp().
+        if space.is_w(w_x, w_y):
+            return space.wrap(0)   # identical objects always compare equal.
+        if space.is_w(space.type(w_x), space.type(w_y)):
+            # for object of the same type, prefer __cmp__ over rich comparison.
+            w_cmp = space.lookup(w_x, '__cmp__')
+            w_res = _invoke_binop(space, w_cmp, w_x, w_y)
+            if w_res is not None:
+                return w_res
+        # fall back to rich comparison.
+        if space.eq_w(w_x, w_y):
+            return space.wrap(0)
+        elif space.is_true(space.lt(w_x, w_y)):
+            return space.wrap(-1)
+        else:
+            return space.wrap(1)
+
     # xxx round, ord
 
 

@@ -286,6 +286,10 @@ def round(w_val, w_n=None):
 def id(w_object):
     return space.id(w_object)
 
+def cmp(w_x, w_y):
+    """return 0 when x == y, -1 when x < y and 1 when x > y """
+    return space.cmp(w_x, w_y)
+
 #XXX works only for new-style classes.
 #So we have to fix it, when we add support for old-style classes
 def _issubtype(w_cls1, w_cls2):

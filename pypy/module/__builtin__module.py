@@ -277,20 +277,6 @@ def max(*arr):
 def divmod(x, y):
     return x//y, x%y
 
-def cmp(x, y):
-    """return 0 when x == y, -1 when x < y and 1 when x > y """
-    if x is y:
-        return 0
-    if type(x) is type(y):
-        if hasattr(x, '__cmp__'):
-            return x.__cmp__(y)
-    if x == y:
-        return 0
-    elif x < y:
-        return -1
-    else:
-        return 1
-
 def vars(*obj):
     """return a dictionary of all the attributes currently bound in obj.  If
     called with no argument, return the variables bound in local scope."""
@@ -447,7 +433,7 @@ def unichr(code):
 __interplevel__execfile('__builtin__interp.py')
 
 from __interplevel__ import abs, chr, len, ord, pow, repr
-from __interplevel__ import hash, oct, hex, round
+from __interplevel__ import hash, oct, hex, round, cmp
 from __interplevel__ import getattr, setattr, delattr, iter, hash, id
 from __interplevel__ import _issubtype
 from __interplevel__ import compile, eval

@@ -128,7 +128,7 @@ class ObjSpace(object):
     def is_w(self, w_obj1, w_obj2):
         """shortcut for space.is_true(space.is_(w_obj1, w_obj2))"""
         return self.is_true(self.is_(w_obj1, w_obj2))
-    
+
     def newbool(self, b):
         if b:
             return self.w_True
@@ -310,6 +310,7 @@ ObjSpace.MethodTable = [
     ('ne',              '!=',        2, ['__ne__', '__ne__']),
     ('gt',              '>',         2, ['__gt__', '__lt__']),
     ('ge',              '>=',        2, ['__ge__', '__le__']),
+    ('cmp',             'cmp',       2, ['__cmp__']),   # rich cmps preferred
     ('contains',        'contains',  2, ['__contains__']),
     ('iter',            'iter',      1, ['__iter__']),
     ('next',            'next',      1, ['next']),
