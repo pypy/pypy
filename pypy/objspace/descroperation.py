@@ -140,7 +140,7 @@ class DescrOperation:
 def _invoke_binop(self,w_impl,w_obj1,w_obj2):
     if w_impl is not None:
         w_res = space.get_and_call_function(w_impl,w_obj1,w_obj2)
-        if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
+        if not space.is_true(space.is_(w_res,space.w_NotImplemented)):
             return w_res
     return None
 
