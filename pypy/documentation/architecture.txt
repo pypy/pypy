@@ -1,8 +1,45 @@
-Overview on PyPy's current architecture (Dec. 2003)
+Overview on PyPy's current architecture (Mar. 2004)
 ===================================================
 
 
-Introduction and higher level picture
+PyPy - an implementation of Python in Python
+--------------------------------------------
+
+It has become a tradition in the development of computer languages to
+implement each language in itself. This serves many purposes. By doing so,
+you demonstrate the versatility of the language, and its applicability for
+large projects.  A compiler/interpreter is close to as complex as software
+ever gets.
+
+The PyPy project aims to do this for Python and has made some significant
+progress. In a number of one week sprints, each attracting approximately
+10 developers each, we made an almost complete implementation of Python in
+Python. Currently it is rather slow, benchmarking at a factor 4000 times
+slower than regular Python (henceforth referred to as CPython).
+
+In the next step of the project, we will generate C code from the source
+of PyPy, thereby reducing the speed penalty.
+
+Later in the project, we will introduce optimisation (following the ideas
+of Psyco) that should make PyPy run faster than CPython.
+
+An important aspect of implementing Python in Python is the high level of
+abstraction and compactness of the language. This yields an implementation
+that is easier to understand than the one done in C.
+
+Another carrying idea in PyPy is to build the implementation in the form
+of a number of independent modules with clearly defined API's. This eases
+reuse and allows experimenting with multiple implementations of specific
+features.
+
+Our rather complete and 2.3-compliant interpreter is about 22000 lines of
+code, with another 7000 lines of unit tests (we also pass a number of
+CPython's own tests).  If we include the tools, the parts related to code
+analysis and generation, and the standard library modules ported from C,
+PyPy is now 55000 lines of code and 20000 lines of tests.
+
+
+Higher level picture
 -------------------------------------
 
 The various parts of PyPy have always been under more or less heavy
