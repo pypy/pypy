@@ -25,7 +25,7 @@ d['assertNotAlmostEqual']   = ('assert round',      ' !=', [2,3,4])
 d['failUnlessAlmostEquals'] = ('assert not round',  ' !=', [2,3,4])
 
 #  the list of synonyms
-d['failUnlessRaises']      = d['assertRaises']
+#d['failUnlessRaises']      = d['assertRaises']
 d['failUnless']            = d['assert_']
 d['assertEquals']          = d['assertEqual']
 d['assertNotEquals']       = d['assertNotEqual']
