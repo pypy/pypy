@@ -21,14 +21,17 @@ def dict_setdefault(d, k, v):
     d[k] = v
     return v
 
-class __unique: pass
+def dict_pop_no_default(d, k):
+    v = d[k]
+    del d[k]
+    return v
 
-def dict_pop(d, k, v=__unique):
-    if d.has_key(k):
+def dict_pop_with_default(d, k, v):
+    try:
         v = d[k]
         del d[k]
-    if v is __unique:
-        raise KeyError, k
+    except KeyError:
+        pass
     return v
 
 def dict_iteritems(d):

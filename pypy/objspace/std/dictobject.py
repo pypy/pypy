@@ -175,9 +175,12 @@ def dict_popitem__Dict(space, w_self):
     w_item = w_self.space.gethelper(applicationfile).call("dict_popitem", [w_self])
     return w_item
     
-def dict_get__Dict_ANY_ANY(space, w_self, w_key, w_default):
-    w_value = w_self.space.gethelper(applicationfile).call("dict_get", [w_self, w_key, w_default])
-    return w_value
+def dict_get__Dict_ANY_ANY(space, w_self, w_lookup, w_default):
+    data = w_self.non_empties()
+    for w_key, cell in data:
+        if space.is_true(space.eq(w_lookup, w_key)):
+            return cell.get()
+    return w_default
     
 def dict_setdefault__Dict_ANY_ANY(space, w_self, w_key, w_default):
     w_value = w_self.space.gethelper(applicationfile).call("dict_setdefault", [w_self, w_key, w_default])
@@ -186,9 +189,9 @@ def dict_setdefault__Dict_ANY_ANY(space, w_self, w_key, w_default):
 def dict_pop__Dict_ANY_ANY(space, w_self, w_key, w_default):
     default = space.unwrap(w_default)
     if default is _no_object:
-        w_value = w_self.space.gethelper(applicationfile).call("dict_pop", [w_self, w_key])
+        w_value = w_self.space.gethelper(applicationfile).call("dict_pop_no_default", [w_self, w_key])
     else:
-        w_value = w_self.space.gethelper(applicationfile).call("dict_pop", [w_self, w_key, w_default])
+        w_value = w_self.space.gethelper(applicationfile).call("dict_pop_with_default", [w_self, w_key, w_default])
     return w_value
 
 def dict_iteritems__Dict(space, w_self):

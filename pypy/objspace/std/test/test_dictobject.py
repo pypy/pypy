@@ -98,14 +98,45 @@ class TestW_DictObject(test.TestCase):
         self.assertEqual_w(d, wd(deepwrap([['a',33],['b',44]])))
         self.assertRaises_w(space.w_TypeError, mydict, w([23]))
         self.assertRaises_w(space.w_ValueError, mydict, w([[[1,2,3]]]))
-        '''
-        try: d = dict(23)
-        except (TypeError, ValueError): pass
-        else: self.fail("dict(23) should raise!")
-        try: d = dict([[1,2,3]])
-        except (TypeError, ValueError): pass
-        else: self.fail("dict([[1,2,3]]) should raise!")
-        '''
+
+    def test_dict_pop(self):
+        space = self.space
+        w = space.wrap
+        wd = space.newdict
+        def mydict(w_args=w(()), w_kwds=w({})):
+            return space.new(space.w_dict, w_args, w_kwds)
+        def deepwrap(lp):
+            return [[w(a),w(b)] for a,b in lp]
+        d = mydict(w_kwds=w({1:2, 3:4}))
+        dd = mydict(w_kwds=w({1:2, 3:4})) # means d.copy()
+        pop = space.getattr(dd, w("pop"))
+        result = space.call_function(pop, w(1))
+        self.assertEqual_w(result, w(2))
+        self.assertEqual_w(space.len(dd), w(1))
+
+        dd = mydict(w_kwds=w({1:2, 3:4})) # means d.copy()
+        pop = space.getattr(dd, w("pop"))
+        result = space.call_function(pop, w(1), w(44))
+        self.assertEqual_w(result, w(2))
+        self.assertEqual_w(space.len(dd), w(1))
+        result = space.call_function(pop, w(1), w(44))
+        self.assertEqual_w(result, w(44))
+        self.assertEqual_w(space.len(dd), w(1))
+
+        self.assertRaises_w(space.w_KeyError, space.call_function, pop, w(33))
+
+    def test_get(self):
+        space = self.space
+        w = space.wrap
+        def mydict(w_args=w(()), w_kwds=w({})):
+            return space.new(space.w_dict, w_args, w_kwds)
+        d = mydict(w_kwds=w({1:2, 3:4}))
+        get = space.getattr(d, w("get"))
+        self.assertEqual_w(space.call_function(get, w(1)), w(2))
+        self.assertEqual_w(space.call_function(get, w(1), w(44)), w(2))
+        self.assertEqual_w(space.call_function(get, w(33)), w(None))
+        self.assertEqual_w(space.call_function(get, w(33), w(44)), w(44))
+
 
 
 class Test_DictObject(test.AppTestCase):
@@ -124,14 +155,14 @@ class Test_DictObject(test.AppTestCase):
         self.assertEqual(d, dd)
         self.failIf(d is dd)
         
-    def test_get(self):
+    def tooslow_test_get(self):
         d = {1:2, 3:4}
         self.assertEqual(d.get(1), 2)
         self.assertEqual(d.get(1,44), 2)
         self.assertEqual(d.get(33), None)
         self.assertEqual(d.get(33,44), 44)
 
-    def test_pop(self):
+    def tooslow_test_pop(self):
         d = {1:2, 3:4}
         dd = d.copy()
         result = dd.pop(1)
