@@ -45,13 +45,19 @@ class GenC:
         try:
             return self.cnames[key]
         except KeyError:
-            for cls in type(obj).__mro__:
-                meth = getattr(self, 'nameof_' + cls.__name__.replace(' ', ''), None)
-                if meth:
-                    break
+            if type(obj).__module__ != '__builtin__':
+                # assume it's a user defined thingy
+                name = self.nameof_instance(obj)
             else:
-                raise TypeError, "nameof(%r)" % (obj,)
-            name = meth(obj)
+                for cls in type(obj).__mro__:
+                    meth = getattr(self,
+                                   'nameof_' + cls.__name__.replace(' ', ''),
+                                   None)
+                    if meth:
+                        break
+                else:
+                    raise TypeError, "nameof(%r)" % (obj,)
+                name = meth(obj)
             self.cnames[key] = name
             return name
 

@@ -103,6 +103,11 @@ class NoTypeCGenTestCase(testit.IntTestCase):
         global_instance = self.build_cfunc(snippet.global_instance)
         self.assertEquals(global_instance(), 42)
 
+    def test_global_newstyle_instance(self):
+        global_newstyle_instance = self.build_cfunc(snippet.global_newstyle_instance)
+        self.assertEquals(global_newstyle_instance().a, 1)
+        
+
 class TypedTestCase(testit.IntTestCase):
 
     def getcompiled(self, func):

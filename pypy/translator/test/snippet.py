@@ -395,6 +395,12 @@ def global_instance():
     return global_z.my_method()
 
 
+global_c = C()
+global_c.a = 1
+
+def global_newstyle_instance():
+    return global_c
+
 def powerset(setsize=int):
     """Powerset
 
