@@ -1,43 +1,36 @@
-Task: update pypy homepage
+* provide an importer that can import packages
+  consider PEP 302, new import hooks try to write as much as
+  possible in app-level how would PyPy import CPython extension when
+  it runs on top of CPython?
 
-Task: add more builtins! (like e.g. 'dir')
+* slicing with assigments & more small things 
+  lst[::-2] = lst2
 
-Task: fix interpreter-level object introspection from app-level 
-      (make dis.dis(dis.dis) goal work as a side effect)
+* (documentation) generate a nice dot-graph from the structure of PyPy
 
-Task: provide an importer that can import packages
-      consider PEP 302, new import hooks
-      try to write as much as possible in app-level
-      how would PyPy import CPython extension when it runs on top of CPython?
+* trash the standard unittest framework/enhance it (there already
+  is some new version-in-progress in tool/newtest.py)
 
-Task: slicing with assigments & more small things (finish StdObjSpace review!)
-      lst[::-2] = lst2
-
-Task: try tests of CPython in PyPy
-
-Task: generate a nice dot-graph from the structure of PyPy
-
-Task: integrate the code in translator, with a script that can be
-      invoked from the command-line to play with sample source code
-(Note: partially done with translator.py.)
-
-Task: trash the standard unittest framework/enhance it
-
-Task: complete the list of operations in type inference (annotation.py)
-
-Task: (documentation) remove/retire all web-pages referencing e.g.
-      AnnSpace or other deprecated stuff
-
-Task: (documentation) do more and enhance
-
-==========================================================================
-New bigger tasks that we don't want to address during the Amsterdam sprint
-==========================================================================
+* (documentation) remove/retire all web-pages referencing e.g.
+  AnnSpace or other deprecated stuff
 
 * make application-level types work for (1) StdObjSpace types and (2)
-  core interpreter objects.
+  core interpreter objects. 
+
+* Review, enhance the new mixed-level module mechanism
+  (e.g. the module/builtin*.py files comprise the builtin module)
+  and try to apply the same technique for the application level 
+  type definitions (types.py) 
+
+* review, 
 
 * clear out and do a clean implementation of multimethod delegation.
   The idea is to give 'kinds' to arguments according to their use,
   e.g. 'numeric argument' or 'object whose identity is preserved'.
-  A 'kind' encapsulates a set of delegation functions.
+  A 'kind' encapsulates a set of delegation functions. Armin has
+  already written documentation for the envisioned new multimethod 
+  implementation:
+
+  http://codespeak.net/pypy/index.cgi?doc/objspace/multimethod
+
+* enhance the translator components to accept more of PyPy ...
