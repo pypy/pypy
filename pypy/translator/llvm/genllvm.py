@@ -20,8 +20,10 @@ from pypy.translator.llvm.test import llvmsnippet as test2
 
 from pypy.translator.llvm.representation import *
 
+import rlcompleter2
+rlcompleter2.setup()
 
-debug = 0
+debug = True
 
 
 def llvmcompile(transl, optimize=False):
@@ -142,3 +144,20 @@ def traverse_dependencies(l_repr, seen_reprs):
             yield l_dep1
     yield l_repr
 
+
+def f():
+    a = AAA()
+    b = BBB()
+    return a.g() + b.g() + a.get() + b.get() + AAA.get(b)
+
+t = Translator(f, simplifying=True)
+a = t.annotate([])
+t.simplify()
+a.simplify()
+flg = t.getflowgraph()
+bcls = a.binding(flg.startblock.operations[1].result).classdef
+acls = bcls.basedef
+t.view()
+g = LLVMGenerator(t)
+f1 = g.compile(True)
+print f1(), f()

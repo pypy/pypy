@@ -7,9 +7,9 @@ def simple1():
 def simple2():
     return False
 
-def simple3():
+def simple3(i):
     c = "Hello, Stars!"
-    return c
+    return c[i]
 
 def simple4():
     return 3 + simple1()
@@ -111,6 +111,9 @@ def array_reverse(i):
     a.reverse()
     return a[i]
 
+def rangetest(i):
+    return range(10)[i]
+
 #class snippets
 
 class A(object):
@@ -161,3 +164,57 @@ def id_int(i):
     d = D(1, i + 1)
     d.set_range()
     return d.a[i]
+
+#simple inheritance snippets
+class AAA(object):
+    def __init__(self):
+        self.a = 1
+
+    def get(self):
+        return 4
+
+    def g(self):
+        return self.a
+
+class BBB(AAA):
+    def __init__(self):
+        AAA.__init__(self)
+        self.b = 2
+
+    def get(self):
+        return 5
+
+def attribute_from_base_class():
+    a = AAA()
+    b = BBB()
+    return a.a + b.a + b.b
+
+def method_of_base_class():
+    a = AAA()
+    b = BBB()
+    return a.get() + AAA.get(b) + b.get() + b.g()
+
+
+#string snippets
+def string_f1(i):
+    j = 0
+    ret = ""
+    while j < i:
+         ret += "abc"
+         j += 1
+    return ret
+
+def string_f2(i, j):
+    return string_f1(i)[j]
+
+
+#tuple snippets
+def tuple_f1(i):
+    return (1, "asdf", i)[2]
+
+def tuple_f2(i):
+    return (i, "test", "another one", [1, 2, 3])
+
+def tuple_f3(i):
+    j, s1, s2, l = tuple_f2(i)
+    return j

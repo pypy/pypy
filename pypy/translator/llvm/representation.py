@@ -1,7 +1,8 @@
 import autopath
 import exceptions, sets, StringIO
 
-from types import FunctionType
+from types import FunctionType, MethodType
+import new
 
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
@@ -20,14 +21,19 @@ INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is", "is_true", "len",
                  "inplace_truediv", "inplace_floordiv", "inplace_div",
                  "inplace_mod", "inplace_pow", "inplace_lshift",
                  "inplace_rshift", "inplace_and", "inplace_or", "inplace_xor",
-                 "contains", "newlist", "alloc_and_set"]
+                 "contains", "newlist", "newtuple", "alloc_and_set"]
 
 C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
+                  annmodel.SomeString: "char*",
                   annmodel.SomeBool: "unsigned char",
                   annmodel.SomeInteger: "int"}
 
 
-debug = 0
+LLVM_SIMPLE_TYPES = {annmodel.SomeChar: "sbyte",
+                     annmodel.SomeBool: "bool"}
+
+
+debug = True
 
 
 class CompileError(exceptions.Exception):
@@ -52,7 +58,7 @@ class LLVMRepr(object):
         return ""
 
     def llvmname(self):
-        return ""
+        return self.name
 
     def llvmtype(self):
         return self.type.llvmname()
@@ -69,17 +75,14 @@ class LLVMRepr(object):
 
 class SimpleRepr(LLVMRepr):
     """Representation of values that are directly mapped to types in LLVM:
-int, bool, char (string of length 1)"""
+bool, char (string of length 1)"""
 
-    LLVM_SIMPLE_TYPES = {annmodel.SomeInteger: "int",
-                         annmodel.SomeChar: "sbyte",
-                         annmodel.SomeBool: "bool"}
     def get(obj, gen):
         if not isinstance(obj, Constant):
             return None
         type = gen.annotator.binding(obj)
-        if type.__class__ in SimpleRepr.LLVM_SIMPLE_TYPES:
-            llvmtype = SimpleRepr.LLVM_SIMPLE_TYPES[type.__class__]
+        if type.__class__ in LLVM_SIMPLE_TYPES:
+            llvmtype = LLVM_SIMPLE_TYPES[type.__class__]
             l_repr = SimpleRepr(llvmtype, repr(obj.value), gen)
             return l_repr
         return None
@@ -95,15 +98,48 @@ int, bool, char (string of length 1)"""
         self.gen = gen
         self.dependencies = sets.Set()
 
-    def llvmname(self):
-        return self.name
-
     def llvmtype(self):
         return self.type
 
     def __getattr__(self, name):
         return getattr(self.type, name, None)
 
+class IntRepr(LLVMRepr):
+    def get(obj, gen):
+        if obj.__class__ is int:
+            type = gen.annotator.binding(Constant(obj))
+            return IntRepr(type, obj, gen)
+        if not isinstance(obj, Constant):
+            return None
+        type = gen.annotator.binding(obj)
+        if type.__class__ == annmodel.SomeInteger:
+            return IntRepr(type, obj.value, gen)
+    get = staticmethod(get)
+
+    def __init__(self, annotation, value, gen):
+        if debug:
+            print "IntRepr", annotation, value
+        self.value = value
+        self.annotation = annotation
+        self.type = gen.get_repr(annotation)
+        self.gen = gen
+        self.dependencies = sets.Set()
+
+    def llvmname(self):
+        return repr(self.value)
+
+    def cast_to_unsigned(self, l_val, lblock, l_function):
+        if self.type.annotation.unsigned:
+            return self
+        else:
+            return IntRepr(annmodel.SomeInteger(True, True),
+                           self.value, self.gen)
+
+    def cast_to_signed(self, l_val, lblock, l_function):
+        if not self.type.annotation.unsigned:
+            return self
+        else:
+            return IntRepr(annmodel.SomeInteger(), self.value, self.gen)
 
 class VariableRepr(LLVMRepr):
     def get(obj, gen):
@@ -126,9 +162,12 @@ class VariableRepr(LLVMRepr):
     def __getattr__(self, name):
         if name.startswith("op_"):
             return getattr(self.type, "t_" + name, None)
+        elif name.startswith("cast_"):
+            return getattr(self.type, name, None)
         else:
             raise AttributeError, ("VariableRepr instance has no attribute %s"
                                    % repr(name))
+
 class TmpVariableRepr(LLVMRepr):
     def __init__(self, name, type, gen):
         if debug:
@@ -141,26 +180,43 @@ class TmpVariableRepr(LLVMRepr):
         return "%" + self.name
 
     def llvmtype(self):
-        return self.type
+        return self.type.llvmname()
+
+class NoneRepr(LLVMRepr):
+    def get(obj, gen):
+        if isinstance(obj, Constant) and obj.value is None:
+            return NoneRepr(gen)
+    get = staticmethod(get)
+
+    def __init__(self, gen):
+        self.gen = gen
+        self.type = gen.get_repr(type(None))
+        self.dependencies = sets.Set([self.type])
+        if debug:
+            print "NoneRepr, llvmname: %s, llvmtype: %s" % (self.llvmname(),
+                                                            self.llvmtype())
+    def llvmname(self):
+        return "null"
 
 class StringRepr(LLVMRepr):
     def get(obj, gen):
         if isinstance(obj, Constant):
             type = gen.annotator.binding(obj)
-            if type.__class__ is annmodel.SomeString:
-                l_repr = StringRepr(obj, gen)
-                return l_repr
+            if isinstance(type, annmodel.SomeString):
+                return StringRepr(obj.value, gen)
+        elif isinstance(obj, str):
+            return StringRepr(obj, gen)
         return None
     get = staticmethod(get)
 
     def __init__(self, obj, gen):
         if debug:
-            print "StringRepr: %s" % obj.value
-        self.s = obj.value
+            print "StringRepr: %s" % obj
+        self.s = obj
         self.gen = gen
         self.glvar1 = gen.get_global_tmp("StringRepr")
         self.glvar2 = gen.get_global_tmp("StringRepr")
-        self.type = gen.get_repr(gen.annotator.binding(obj))
+        self.type = gen.get_repr(annmodel.SomeString())
         self.dependencies = sets.Set([self.type])
 
     def llvmname(self):
@@ -169,22 +225,60 @@ class StringRepr(LLVMRepr):
     def get_globals(self):
         d = {"len": len(self.s), "gv1": self.glvar1, "gv2": self.glvar2,
              "type": self.type.llvmname_wo_pointer(), "string": self.s}
-        s = """%(gv1)s = internal constant [%(len)i x sbyte] c"%(string)s"
-%(gv2)s = internal constant %(type)s {uint %(len)i,\
+        s = """%(gv1)s = internal global [%(len)i x sbyte] c"%(string)s"
+%(gv2)s = internal global %(type)s {uint %(len)i,\
 sbyte* getelementptr ([%(len)i x sbyte]* %(gv1)s, uint 0, uint 0)}"""
         return s % d
 
-class TypeRepr(LLVMRepr):
-    l_stringtype = None
+    def __getattr__(self, name):
+        if name.startswith("op_"):
+            return getattr(self.type, "t_" + name, None)
+        else:
+            raise AttributeError, ("VariableRepr instance has no attribute %s"
+                                   % repr(name))
+
+class TupleRepr(LLVMRepr):
     def get(obj, gen):
-##         print "TypeRepr", obj
-        if obj.__class__ is annmodel.SomeString or obj is str:
-            if TypeRepr.l_stringtype is None:
-                l_repr = TypeRepr("%std.string",
-                                  "%std.string = type {uint, sbyte*}",
-                                  "string.ll", gen)
-                TypeRepr.l_stringtype = l_repr
-            return TypeRepr.l_stringtype
+        if isinstance(obj, Constant):
+            type = gen.annotator.binding(obj)
+            if isinstance(type, annmodel.SomeTuple):
+                return TupleRepr(obj, gen)
+        return None
+    get = staticmethod(get)
+
+    def __init__(self, obj, gen):
+        if debug:
+            print "TupleRepr", obj, obj.value
+        self.const = obj
+        self.tuple = obj.value
+        self.gen = gen
+        self.dependencies = sets.Set()
+
+    def setup(self):
+        self.l_tuple = [self.gen.get_repr(l) for l in list(self.tuple)]
+        self.glvar = self.gen.get_global_tmp("TupleRepr")
+        self.dependencies.update(self.l_tuple)
+        self.type = self.gen.get_repr(self.gen.annotator.binding(self.const))
+
+    def get_globals(self):
+        s = "%s = internal global " % self.glvar + " " + self.llvmtype()
+        s += "{" + ", ".join([l.typed_name() for l in self.l_tuple]) + "}"
+        i = self.l_tuple[0]
+        return s
+
+    def llvmname(self):
+        return self.glvar
+
+    def __getattr__(self, name):
+        if name.startswith("op_"):
+            return getattr(self.type, "t_" + name, None)
+        else:
+            raise AttributeError, ("TupleRepr instance has no attribute %s"
+                                   % repr(name))
+
+
+class TypeRepr(LLVMRepr):
+    def get(obj, gen):
         if (isinstance(obj, annmodel.SomePBC) and \
                obj.prebuiltinstances.keys()[0] is None) or obj is type(None):
             return TypeRepr("%std.void", "%std.void = type sbyte", "", gen)
@@ -221,6 +315,34 @@ class TypeRepr(LLVMRepr):
     def llvmname_wo_pointer(self):
         return self.name
 
+class StringTypeRepr(TypeRepr):
+    def get(obj, gen):
+        if obj.__class__ is annmodel.SomeString or obj is str:
+            return StringTypeRepr(gen)
+    get = staticmethod(get)
+
+    def __init__(self, gen):
+        if debug:
+            print "StringTypeRepr"
+        self.gen = gen
+        self.dependencies = sets.Set()
+
+    def setup(self):
+        self.l_charlist = self.gen.get_repr(
+            annmodel.SomeList(None, annmodel.SomeChar()))
+        self.dependencies.add(self.l_charlist)
+        self.name = self.l_charlist.llvmname_wo_pointer()
+
+    def t_op_getitem(self, l_target, args, lblock, l_func):
+        l_args = [self.gen.get_repr(arg) for arg in args]
+        l_func.dependencies.update(l_args)
+        lblock.spaceop(l_target, "getitem", l_args)
+
+    def t_op_inplace_add(self, l_target, args, lblock, l_func):
+        l_args = [self.gen.get_repr(arg) for arg in args]
+        l_func.dependencies.update(l_args)
+        lblock.spaceop(l_target, "add", l_args)
+
 class ListTypeRepr(TypeRepr):
     l_listtypes = {}
     def get(obj, gen):
@@ -250,6 +372,10 @@ class ListTypeRepr(TypeRepr):
         itemtype = self.l_itemtype.llvmname()
         s = s.replace("%(item)s", self.l_itemtype.llvmname())
         s = s.replace("%(name)s", itemtype.strip("%").replace("*", ""))
+        if isinstance(self.l_itemtype, IntTypeRepr):
+            f1 = file(autopath.this_dir + "/int_list.ll", "r")
+            s += f1.read()
+            f1.close()
         return s
 
     def t_op_getitem(self, l_target, args, lblock, l_func):
@@ -278,13 +404,102 @@ class ListTypeRepr(TypeRepr):
         else:
             raise CompileError, "List method %s not supported." % args[1].value
 
+class TupleTypeRepr(TypeRepr):
+    def get(obj, gen):
+        if isinstance(obj, annmodel.SomeTuple):
+            return TupleTypeRepr(obj, gen)
+        return None
+    get = staticmethod(get)
+
+    def __init__(self, obj, gen):
+        self.gen = gen
+        self.l_itemtypes = [gen.get_repr(l) for l in obj.items]
+        self.name = (("{" + ", ".join(["%s"] * len(self.l_itemtypes)) + "}") %
+                     tuple([l.llvmname() for l in self.l_itemtypes]))
+
+    def get_functions(self):
+        s = ("internal int %%std.len(%s %%t) {\n\tret int %i\n}\n" %
+             (self.llvmname(), len(self.l_itemtypes)))
+        return s
+
+    def t_op_newtuple(self, l_target, args, lblock, l_func):
+        l_args = [self.gen.get_repr(arg) for arg in args]
+        l_func.dependencies.update(l_args)
+        lblock.malloc(l_target, self)
+        l_ptrs = [self.gen.get_local_tmp(\
+            PointerTypeRepr(l.llvmname(),self.gen), l_func)
+                  for l in self.l_itemtypes]
+        l_func.dependencies.update(l_ptrs)
+        for i, l in enumerate(self.l_itemtypes):
+            lblock.getelementptr(l_ptrs[i], l_target, [0, i])
+            lblock.store(l_args[i], l_ptrs[i])
+
+    def t_op_getitem(self, l_target, args, lblock, l_func):
+        if not isinstance(args[1], Constant):
+            raise CompileError, "index for tuple's getitem has to be constant"
+        l_args = [self.gen.get_repr(arg) for arg in args]
+        l_func.dependencies.update(l_args)
+        l_tmp = self.gen.get_local_tmp(PointerTypeRepr(l_target.llvmtype(),
+                                                       self.gen), l_func)
+        cast = getattr(l_args[1], "cast_to_unsigned", None)
+        if cast is not None:
+            l_unsigned = cast(l_args[1], lblock, l_func)
+        else:
+            raise CompileError, "Invalid arguments to getitem"
+        lblock.getelementptr(l_tmp, l_args[0], [0, l_unsigned])
+        lblock.load(l_target, l_tmp)
+
+class IntTypeRepr(TypeRepr):
+    def get(obj, gen):
+        if obj.__class__ is annmodel.SomeInteger:
+            return IntTypeRepr(obj, gen)
+        return None
+    get = staticmethod(get)
+
+    def __init__(self, annotation, gen):
+        if debug:
+            print "IntTypeRepr: %s" % annotation
+        self.annotation = annotation
+        if annotation.unsigned:
+            self.name = "uint"
+        else:
+            self.name = "int"
+        self.gen = gen
+
+    def llvmname(self):
+        return self.name
+
+    def cast_to_signed(self, l_val, lblock, l_function):
+        if not self.annotation.unsigned:
+            return l_val
+        ann = annmodel.SomeInteger()
+        l_type = self.gen.get_repr(ann)
+        l_tmp = self.gen.get_local_tmp(l_type, l_function)
+        l_function.dependencies.update([l_type, l_tmp])
+        lblock.cast(l_tmp, l_val, l_type)
+        return l_tmp
+
+    def cast_to_unsigned(self, l_val, lblock, l_function):
+        if self.annotation.unsigned:
+            return l_val
+        ann = annmodel.SomeInteger(True, True)
+        l_type = self.gen.get_repr(ann)
+        l_tmp = self.gen.get_local_tmp(l_type, l_function)
+        l_function.dependencies.update([l_type, l_tmp])
+        lblock.cast(l_tmp, l_val, l_type)
+        return l_tmp
+
+
 class SimpleTypeRepr(TypeRepr):
     def get(obj, gen):
-        if obj.__class__ in [annmodel.SomeInteger, int]:
+        if obj.__class__ is annmodel.SomeInteger:
             l_repr = SimpleTypeRepr("int", gen)
             return l_repr            
-        elif obj.__class__ in [annmodel.SomeBool, bool]:
+        elif obj.__class__ is annmodel.SomeBool:
             l_repr = SimpleTypeRepr("bool", gen)
+            return l_repr            
+        elif obj.__class__ is annmodel.SomeChar:
+            l_repr = SimpleTypeRepr("sbyte", gen)
             return l_repr            
         return None
     get = staticmethod(get)
@@ -299,6 +514,17 @@ class SimpleTypeRepr(TypeRepr):
 
     def llvmname(self):
         return self.name
+
+class PointerTypeRepr(TypeRepr):
+    def get(obj, gen):
+        return None
+    get = staticmethod(get)
+
+    def __init__(self, type, gen):
+        self.type = type
+
+    def llvmname(self):
+        return self.type + "*"
 
 class ImpossibleValueRepr(TypeRepr):
     def get(obj, gen):
@@ -315,71 +541,71 @@ class ImpossibleValueRepr(TypeRepr):
     def llvmname(self):
         return "void"
 
-class NoneRepr(TypeRepr):
-    def get(obj, gen):
-        if isinstance(obj, Constant) and obj.value is None:
-            return NoneRepr(gen)
-    get = staticmethod(get)
-
-    def __init__(self, gen):
-        self.gen = gen
-        self.type = gen.get_repr(type(None))
-        self.dependencies = sets.Set([self.type])
-        if debug:
-            print "NoneRepr, llvmname: %s, llvmtype: %s" % (self.llvmname(),
-                                                            self.llvmtype())
-
-    def llvmname(self):
-        return "null"
-
 
 class ClassRepr(TypeRepr):
+    l_classes = {}
     def get(obj, gen):
+        classdef = None
         if obj.__class__ is Constant:
             bind = gen.annotator.binding(obj)
             if bind.__class__ is annmodel.SomePBC and \
                bind.const.__class__ == type:
                 classdef = gen.annotator.bookkeeper.userclasses[bind.const]
-                return ClassRepr(classdef, gen)
-        if isinstance(obj, annmodel.SomeInstance):
-            return ClassRepr(obj.classdef, gen)
-        return None
+        elif isinstance(obj, annmodel.SomeInstance):
+            classdef = obj.classdef
+        elif isinstance(obj, ClassDef):
+            classdef = obj
+        if classdef is None:
+            return None
+        if (classdef, gen) not in ClassRepr.l_classes:
+            ClassRepr.l_classes[(classdef, gen)] = ClassRepr(classdef, gen)
+        return ClassRepr.l_classes[(classdef, gen)]
     get = staticmethod(get)
 
     def __init__(self, obj, gen):
-        if 1:
-            print "ClassRepr: %s", obj
+        if debug:
+            print "ClassRepr: %s, %s" % (obj, hex(id(self)))
         self.classdef = obj
         self.gen = gen
         self.includefile = ""
         self.name = gen.get_global_tmp("class.%s" % self.classdef.cls.__name__)
+        if debug:
+            print self.name
         self.dependencies = sets.Set()
+        self.setup_done = False
         self.attr_num = {}
-        self.se = False
 
     def setup(self):
-        self.se = True
+        if self.setup_done:
+            return
+        self.setup_done = True
         if debug:
-            print "ClassRepr.setup()", id(self)
+            print "ClassRepr.setup()", id(self), hex(id(self)), self.setup_done
+            print len(ClassRepr.l_classes)
         gen = self.gen
-        attribs = []
+        if self.classdef.basedef is not None:
+            self.l_base = gen.get_repr(self.classdef.basedef)
+            self.dependencies.add(self.l_base)
+            attribs = self.l_base.attributes
+        else:
+            attribs = []
         meth = []
         if debug:
-            print "attributes"
-        for key, attr in self.classdef.attrs.iteritems():
+            print "attributes", self.classdef.attrs
+        for key, attr in self.classdef.attrs.items():
             if debug:
                 print key, attr, attr.sources, attr.s_value,
             if len(attr.sources) != 0:
                 func = self.classdef.cls.__dict__[attr.name]
                 meth.append((key, func))
                 if debug:
-                    print "--> method"
+                    print "--> method1"
             elif isinstance(attr.s_value, annmodel.SomePBC) and \
                attr.s_value.knowntype is FunctionType:
                 func = self.classdef.cls.__dict__[attr.name]
                 meth.append((key, func))
                 if debug:
-                    print "--> method"
+                    print "--> method2"
             else:
                 attribs.append(attr)
                 if debug:
@@ -387,37 +613,71 @@ class ClassRepr(TypeRepr):
         self.l_attrs_types = [gen.get_repr(attr.s_value) for attr in attribs]
         self.dependencies = sets.Set(self.l_attrs_types)
         attributes = ", ".join([at.llvmname() for at in self.l_attrs_types])
-        self.definition = "%s = type {int*, %s}" % (self.name, attributes)
+        self.definition = "%s = type {uint, %s}" % (self.name, attributes)
+        self.attributes = attribs
         self.attr_num = {}
         for i, attr in enumerate(attribs):
             self.attr_num[attr.name] = i + 1
         self.methods = dict(meth)
 
     def op_simple_call(self, l_target, args, lblock, l_func):
-        l_init = self.gen.get_repr(self.methods["__init__"])
-        l_func.dependencies.add(l_init)
-        l_args = [self.gen.get_repr(arg) for arg in args[1:]]
-        self.dependencies.update(l_args)
         lblock.malloc(l_target, self)
-        lblock.call_void(l_init, [l_target] + l_args)
+        l_tmp = self.gen.get_local_tmp(PointerTypeRepr("uint", self.gen),
+                                       l_func)
+        lblock.getelementptr(l_tmp, l_target, [0, 0])
+        #XXX: store the id of the ClassRepr for isinstance checks,
+        #polymorphism etc. Should probably replace this with a pointer to a
+        #virtual function table instead
+        lblock.instruction("store uint %s, %s" %
+                           (id(self), l_tmp.typed_name()))
+        init = None
+        for cls in self.classdef.getmro():
+            if "__init__" in cls.attrs:
+                init = cls.attrs["__init__"].getvalue()
+                break
+        if init is not None:
+            l_init = self.gen.get_repr(init)
+            l_func.dependencies.add(l_init)
+            l_args = [self.gen.get_repr(arg) for arg in args[1:]]
+            self.dependencies.update(l_args)
+            # XXX
+            if isinstance(l_init, VirtualMethodRepr):
+                l_init = l_init.l_funcs[l_init.classes.index(self.classdef)]
+            lblock.call_void(l_init, [l_target] + l_args)
 
     def t_op_getattr(self, l_target, args, lblock, l_func):
-        print "t_op_getattrs", l_target, args
+        if debug:
+            print "t_op_getattr of ClassRepr called", l_target, args, self.name
         if not isinstance(args[1], Constant):
             raise CompileError,"getattr called with non-constant: %s" % args[1]
         if args[1].value in self.attr_num:
             l_args0 = self.gen.get_repr(args[0])
             l_func.dependencies.add(l_args0)
-            l_pter = self.gen.get_local_tmp(l_target.llvmtype() + "*", l_func)
+            l_pter = self.gen.get_local_tmp(
+                PointerTypeRepr(l_target.llvmtype(), self.gen), l_func)
             lblock.getelementptr(l_pter, l_args0,
                                  [0, self.attr_num[args[1].value]])
             lblock.load(l_target, l_pter)
-        elif args[1].value in self.methods:
-            l_args0 = self.gen.get_repr(args[0])
-            l_func.dependencies.add(l_args0)
-            l_method = BoundMethodRepr(l_target.type, l_args0, self, self.gen)
-            l_method.setup()
-            l_target.type = l_method
+            return
+        else:
+            if debug:
+                print list(self.classdef.getmro())
+            for cls in self.classdef.getmro():
+                l_cls = self.gen.get_repr(cls)
+                self.dependencies.add(l_cls)
+                if args[1].value in l_cls.methods:
+                    if debug:
+                        print "class %s, %s matches" % (cls, l_cls)
+                    l_args0 = self.gen.get_repr(args[0])
+                    l_func.dependencies.add(l_args0)
+                    l_method = BoundMethodRepr(l_target.type, l_args0, l_cls,
+                                               self.gen)
+                    l_func.dependencies.add(l_method)
+                    l_method.setup()
+                    l_target.type = l_method
+                    return
+        raise CompileError, ("getattr called with unknown attribute %s" % \
+                             args[1].value)
 
     def t_op_setattr(self, l_target, args, lblock, l_func):
         if not isinstance(args[1], Constant):
@@ -426,11 +686,15 @@ class ClassRepr(TypeRepr):
             l_args0 = self.gen.get_repr(args[0])
             l_value = self.gen.get_repr(args[2])
             self.dependencies.update([l_args0, l_value])
-            l_pter = self.gen.get_local_tmp(l_value.llvmtype() + "*", l_func)
+            l_pter = self.gen.get_local_tmp(
+                PointerTypeRepr(l_value.llvmtype(), self.gen), l_func)
             lblock.getelementptr(l_pter, l_args0,
                                  [0, self.attr_num[args[1].value]])
             lblock.store(l_value, l_pter)
-
+        else:
+            raise CompileError, ("setattr called with unknown attribute %s" % \
+                                 args[1].value)
+        
 
 class BuiltinFunctionRepr(LLVMRepr):
     def get(obj, gen):
@@ -456,18 +720,21 @@ class BuiltinFunctionRepr(LLVMRepr):
         lblock.call(l_target, l_args[0], l_args[1:])
 
 class FunctionRepr(LLVMRepr):
+    l_functions = {}
     def get(obj, gen):
-        if isinstance(obj, Constant) and \
-               type(obj.value).__name__ == 'function':
-            name = obj.value.__name__
-            l_repr = FunctionRepr(name, obj.value, gen)
-            return l_repr
-        elif isinstance(obj, annmodel.SomePBC):
+        if isinstance(obj, annmodel.SomePBC) and \
+                 len(obj.prebuiltinstances) == 1:
             obj = obj.prebuiltinstances.keys()[0]
-        if type(obj).__name__ == 'function':
-            name = obj.__name__
-            l_repr = FunctionRepr(name, obj, gen)
-            return l_repr
+        elif isinstance(obj, Constant):
+            obj = obj.value
+        if isinstance(obj, MethodType):
+            obj = obj.class_.__dict__[obj.__name__]
+        if isinstance(obj, FunctionType):
+            if (obj, gen) in FunctionRepr.l_functions:
+                return FunctionRepr.l_functions[(obj, gen)]
+            l_func = FunctionRepr(obj.__name__, obj, gen)
+            FunctionRepr.l_functions[(obj, gen)] = l_func
+            return l_func
         return None
     get = staticmethod(get)
 
@@ -485,8 +752,15 @@ class FunctionRepr(LLVMRepr):
         self.pyrex_source = ""
         self.dependencies = sets.Set()
         self.get_bbs()
+        self.se = False
 
     def setup(self):
+        if self.se:
+            return
+        self.se = True
+        self.l_args = [self.gen.get_repr(ar)
+                       for ar in self.graph.startblock.inputargs]
+        self.dependencies.update(self.l_args)
         self.retvalue = self.gen.get_repr(self.graph.returnblock.inputargs[0])
         self.dependencies.add(self.retvalue)
         self.build_bbs()
@@ -547,13 +821,19 @@ class FunctionRepr(LLVMRepr):
                 l_op = getattr(l_arg0, "op_" + op.opname, None)
                 if l_op is not None:
                     l_op(l_target, op.args, lblock, self)
+                #XXX need to find more elegant solution for this special case
+                elif op.opname == "newtuple":
+                    l_target.type.t_op_newtuple(l_target, op.args,
+                                                lblock, self)
                 elif op.opname in INTRINSIC_OPS:
                     l_args = [self.gen.get_repr(arg) for arg in op.args[1:]]
                     self.dependencies.update(l_args)
                     lblock.spaceop(l_target, op.opname, [l_arg0] + l_args)
                 else:
                         s = "SpaceOperation %s not supported. Target: %s " \
-                            "Args: %s" % (op.opname, l_target, op.args)
+                            "Args: %s " % (op.opname, l_target, op.args) + \
+                            "Dispatched on: %s" % l_arg0
+                            
                         raise CompileError, s
             #Create branches
             if pyblock.exitswitch is None:
@@ -585,12 +865,8 @@ class FunctionRepr(LLVMRepr):
         return fd
 
     def llvmfuncdef(self):
-        a = self.translator.annotator
-        l_args = [self.gen.get_repr(ar)
-                  for ar in self.graph.startblock.inputargs]
-        self.dependencies.update(l_args)
         s = "%s %s(" % (self.retvalue.llvmtype(), self.name)
-        return s + ", ".join([a.typed_name() for a in l_args]) + ")"
+        return s + ", ".join([a.typed_name() for a in self.l_args]) + ")"
 
     def get_pyrex_source(self):
         name = self.func.func_name
@@ -603,7 +879,6 @@ class FunctionRepr(LLVMRepr):
             t += ["%s" % a]
         t = ", ".join(t)
         self.pyrex_source += t + "):\n\treturn %s(%s)\n\n" % (name, t)
-        self.pyrex_source += "\ndef test(a):\n\treturn a + 1\n\n"
         self.pyrex_source = "".join(self.pyrex_source)
         return self.pyrex_source
 
@@ -622,14 +897,98 @@ class FunctionRepr(LLVMRepr):
 
     def op_simple_call(self, l_target, args, lblock, l_func):
         l_args = [self.gen.get_repr(arg) for arg in args]
-        self.dependencies.update(l_args)
+        for i, (l_a1, l_a2) in enumerate(zip(l_args[1:], self.l_args)):
+            if l_a1.llvmtype() != l_a2.llvmtype():
+                l_tmp = self.gen.get_local_tmp(l_a2.type, l_func)
+                lblock.cast(l_tmp, l_a1)
+                l_args[1 + i] = l_tmp
+        l_func.dependencies.update(l_args)
         lblock.call(l_target, l_args[0], l_args[1:])
+
+class VirtualMethodRepr(LLVMRepr):
+    # Really stupid implementation of virtual functions:
+    # Should be replaced by function pointers
+    def get(obj, gen):
+        if isinstance(obj, annmodel.SomePBC) and \
+                 len(obj.prebuiltinstances) > 1 and \
+                 isinstance(obj.prebuiltinstances.keys()[0], FunctionType):
+            return VirtualMethodRepr(obj.prebuiltinstances, gen)
+        return None
+    get = staticmethod(get)
+
+    def __init__(self, prebuiltinstances, gen):
+        if debug:
+            print "VirtualMethodRepr: %s" % prebuiltinstances
+        self.gen = gen
+        self.classes = prebuiltinstances.values()
+        commonbase = reduce(lambda a, b: a.commonbase(b), self.classes)
+        self.commonbase_index = self.classes.index(commonbase)
+        self.commonbase = commonbase
+        self.funcs = prebuiltinstances.keys()
+        self.name = "%" + self.funcs[0].__name__ + ".virtual"
+        self.dependencies = sets.Set()
+
+    def setup(self):
+        cbi = self.commonbase_index
+        self.l_funcs = [self.gen.get_repr(f) for f in self.funcs]
+        self.dependencies.update(self.l_funcs)
+        self.retvalue = self.l_funcs[cbi].retvalue
+        self.l_classes = [self.gen.get_repr(c) for c in self.classes]
+        self.dependencies.update(self.l_classes)
+        self.l_commonbase = self.l_classes[self.commonbase_index]
+        self.type_numbers = [id(l_c) for l_c in self.l_classes]
+        self.l_args = [self.gen.get_repr(ar)
+                       for ar in self.l_funcs[cbi].graph.startblock.inputargs]
+        l_retvalue = self.retvalue
+        self.dependencies.update(self.l_args)
+        entryblock = llvmbc.BasicBlock("entry")
+        l_ptr = self.gen.get_local_tmp(PointerTypeRepr("uint", self.gen), self)
+        l_type = self.gen.get_local_tmp(self.gen.get_repr(
+            annmodel.SomeInteger(True, True)), self)
+        self.dependencies.update([l_ptr, l_type])
+        entryblock.getelementptr(l_ptr, self.l_args[0], [0, 0])
+        entryblock.load(l_type, l_ptr)
+        entryblock.switch(l_type, "%a" + str(id(self.l_commonbase)),
+                          [(id(l_c), "%a" + str(id(l_c)))
+                           for l_c in self.l_classes])
+        lfunc = llvmbc.Function(self.llvmfuncdef(), entryblock)
+        for i, l_cls in enumerate(self.l_classes):
+            lblock = llvmbc.BasicBlock("a" + str(id(l_cls)))
+            lfunc.basic_block(lblock)
+            l_tmp = self.gen.get_local_tmp(l_cls, self)
+            lblock.cast(l_tmp, self.l_args[0])
+            l_tmp_ret = self.gen.get_local_tmp(l_retvalue.type, self)
+            self.l_funcs[i].op_simple_call(
+                l_tmp_ret, [self.l_funcs[i], l_tmp] + 
+                self.l_funcs[cbi].graph.startblock.inputargs[1:], lblock, self)
+            lblock.ret(l_tmp_ret)
+        self.llvm_func = lfunc
+
+    def op_simple_call(self, l_target, args, lblock, l_func):
+        l_args = [self.gen.get_repr(arg) for arg in args]
+        self.dependencies.update(l_args)
+        if l_args[1].llvmtype() != self.l_args[0].llvmtype():
+            l_tmp = self.gen.get_local_tmp(self.l_args[0].type, l_func)
+            lblock.cast(l_tmp, l_args[1])
+            l_args[1] = l_tmp
+            lblock.call(l_target, l_args[0], l_args[1:])
+        lblock.call(l_target, l_args[0], l_args[1:])
+        
+    def get_functions(self):
+        return str(self.llvm_func)
+
+    def llvmfuncdef(self):
+        cbi  = self.commonbase_index
+        s = "%s %s(" % (self.l_funcs[cbi].retvalue.llvmtype(), self.name)
+        return s + ", ".join([a.typed_name() for a in self.l_args]) + ")"
+
+    def rettype(self):
+        return self.retvalue.llvmtype()
 
 class BoundMethodRepr(LLVMRepr):
     def get(obj, gen):
         return None
     get = staticmethod(get)
-
     def __init__(self, l_func, l_self, l_class, gen):
         self.gen = gen
         self.l_func = l_func
@@ -637,10 +996,14 @@ class BoundMethodRepr(LLVMRepr):
         self.l_class = l_class
         self.dependencies = sets.Set([l_self, l_class, l_func])
 
-    def setup(self):
-        pass
-
     def t_op_simple_call(self, l_target, args, lblock, l_func):
-        self.l_func.op_simple_call(l_target,
-                                   [self.l_func, self.l_self] + args[1:],
-                                   lblock, l_func)
+        if self.l_self.llvmtype() != self.l_class.llvmname():
+            l_tmp = self.gen.get_local_tmp(self.l_class, l_func)
+            lblock.cast(l_tmp, self.l_self)
+            self.l_func.op_simple_call(l_target,
+                                       [self.l_func, l_tmp] + args[1:],
+                                       lblock, l_func)
+        else:
+            self.l_func.op_simple_call(l_target,
+                                       [self.l_func, self.l_self] + args[1:],
+                                       lblock, l_func)

@@ -71,21 +71,34 @@ def internal_functions(code):
             ret.append(line)
     return "\n".join(ret)
 
-def make_list_template():
-    code = get_llvm_code("list.c")
+def cleanup_code(code):
     code = remove_comments(code)
     code = add_std(code)
     code = remove_header(code)
     code = internal_functions(code)
     code = remove_alternatives(code)
+    return code
+
+def make_list_template():
+    code = get_llvm_code("list.c")
+    code = cleanup_code(code)
     code = code.replace("%struct.list", "%std.list.%(name)s")
     code = code.replace("%struct.item*", "%(item)s")
     f = open(autopath.this_dir + "/list_template.ll", "w")
     print (autopath.this_dir + "/list_template.ll")
     f.write(code)
     f.close()
-    
+
+def make_int_list():
+    code = get_llvm_code("intlist.c")
+    code = cleanup_code(code)
+    code = code.replace("struct.list_int", "std.list.int")
+    f = open(autopath.this_dir + "/int_list.ll", "w")
+    print (autopath.this_dir + "/int_list.ll")
+    f.write(code)
+    f.close()
 
 if __name__ == '__main__':
     make_list_template()
+    make_int_list()
 

@@ -27,6 +27,16 @@ entry:
 	ret int %tmp.3
 }
 
+internal %std.list.%(name)s* %std.newlist() {
+entry:
+	%tmp.0 = malloc %std.list.%(name)s
+	%tmp.3 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 0
+	store uint 0, uint* %tmp.3
+	%tmp.5 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 1
+	store %(item)s* null, %(item)s** %tmp.5
+	ret %std.list.%(name)s* %tmp.0
+}
+
 internal %std.list.%(name)s* %std.newlist(%(item)s %value) {
 entry:
 	%tmp.0 = malloc %std.list.%(name)s
@@ -36,6 +46,38 @@ entry:
 	%tmp.6 = malloc %(item)s
 	store %(item)s* %tmp.6, %(item)s** %tmp.5
 	store %(item)s %value, %(item)s* %tmp.6
+	ret %std.list.%(name)s* %tmp.0
+}
+
+internal %std.list.%(name)s* %std.newlist(%(item)s %v1, %(item)s %v2) {
+entry:
+	%tmp.0 = malloc %std.list.%(name)s
+	%tmp.3 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 0
+	store uint 2, uint* %tmp.3
+	%tmp.5 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 1
+	%tmp.6 = malloc [2 x %(item)s]
+	%tmp.6.sub = getelementptr [2 x %(item)s]* %tmp.6, int 0, int 0
+	store %(item)s* %tmp.6.sub, %(item)s** %tmp.5
+	store %(item)s %v1, %(item)s* %tmp.6.sub
+	%tmp.16 = getelementptr [2 x %(item)s]* %tmp.6, int 0, int 1
+	store %(item)s %v2, %(item)s* %tmp.16
+	ret %std.list.%(name)s* %tmp.0
+}
+
+internal %std.list.%(name)s* %std.newlist(%(item)s %v1, %(item)s %v2, %(item)s %v3) {
+entry:
+	%tmp.0 = malloc %std.list.%(name)s
+	%tmp.3 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 0
+	store uint 3, uint* %tmp.3
+	%tmp.5 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 1
+	%tmp.6 = malloc [3 x %(item)s]
+	%tmp.6.sub = getelementptr [3 x %(item)s]* %tmp.6, int 0, int 0
+	store %(item)s* %tmp.6.sub, %(item)s** %tmp.5
+	store %(item)s %v1, %(item)s* %tmp.6.sub
+	%tmp.16 = getelementptr [3 x %(item)s]* %tmp.6, int 0, int 1
+	store %(item)s %v2, %(item)s* %tmp.16
+	%tmp.21 = getelementptr [3 x %(item)s]* %tmp.6, int 0, int 2
+	store %(item)s %v3, %(item)s* %tmp.21
 	ret %std.list.%(name)s* %tmp.0
 }
 

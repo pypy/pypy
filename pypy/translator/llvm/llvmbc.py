@@ -29,8 +29,8 @@ class BasicBlock(object):
         self.label = label
         self.instructions = []
 
-    def instructions(self, instruction): #should not be used
-        self.instructions.append(instruction)
+    def instruction(self, instr): #should not be used
+        self.instructions.append(instr)
 
     def select(self, l_arg, l_select, l_v1, l_v2):
         s = "%s = select bool %s, %s, %s"
@@ -84,6 +84,14 @@ class BasicBlock(object):
                                            blocktrue, blockfalse)
         self.instructions.append(s)
 
+    def switch(self, l_switch, default, rest=None):
+        s = "switch %s, label %s " % (l_switch.typed_name(), default)
+        if rest is not None:
+            s += "[" + "\n\t".join(["%s %s, label %s" % (l_switch.llvmtype(),
+                                                       c, l)
+                                  for c, l in rest]) + "]"
+        self.instructions.append(s)
+
     def malloc(self, l_target, l_type, num=1):
         s = "%s = malloc %s" % (l_target.llvmname(),
                                 l_type.llvmname_wo_pointer())
@@ -96,10 +104,14 @@ class BasicBlock(object):
                                             l_ptr.llvmtype(), l_ptr.llvmname())
         adr = []
         for a in adresses:
-            if a >= 0:
-                adr.append("uint %i" % a)
-            else:
-                adr.append("int %i" % a)
+            try:
+                t = a.typed_name()
+                adr.append(t)
+            except AttributeError:
+                if a >= 0:
+                    adr.append("uint %i" % a)
+                else:
+                    adr.append("int %i" % a)
         self.instructions.append(s + ", ".join(adr))
 
     def load(self, l_target, l_pter):
@@ -108,10 +120,13 @@ class BasicBlock(object):
         self.instructions.append(s)
 
     def store(self, l_value, l_pter):
-        s = "store %s %s, %s %s" % (l_value.llvmtype(), l_value.llvmname(),
-                                     l_pter.llvmtype(), l_pter.llvmname())
+        s = "store %s, %s" % (l_value.typed_name(), l_pter.typed_name())
         self.instructions.append(s)
 
+    def cast(self, l_target, l_value):
+        s = "%s = cast %s to %s" % (l_target.llvmname(), l_value.typed_name(),
+                                    l_target.llvmtype())
+        self.instructions.append(s)
 
     def __str__(self):
         s = [self.label + ":\n"]

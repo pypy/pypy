@@ -16,6 +16,7 @@ def setup_module(mod):
 def compile_function(function, annotate):
     t = Translator(function, simplifying=True)
     a = t.annotate(annotate)
+    a.simplify()
     gen = LLVMGenerator(t)
     return gen.compile()
 
@@ -61,7 +62,7 @@ block1:
         assert l_repr.llvmname() == "false"
         assert l_repr.typed_name() == "bool false"
 
-    def test_typerepr(self):
+    def DONOT_test_typerepr(self):
         t = Translator(llvmsnippet.simple1)
         a = t.annotate([])
         gen = LLVMGenerator(t)
@@ -169,8 +170,11 @@ class TestLLVMArray(object):
         f = compile_function(llvmsnippet.array_reverse, [int])
         assert f(0) == 1
         assert f(1) == 0
-        
 
+    def test_range(self):
+        f = compile_function(llvmsnippet.rangetest, [int])
+        for i in range(10):
+            assert f(i) == i
 
 class TestClass(object):
     def setup_method(self, method):
@@ -185,14 +189,48 @@ class TestClass(object):
         f = compile_function(llvmsnippet.class_simple1, [int])
         assert f(2) == 10
 
-    def test_classsimple2(self):
-        f = compile_function(llvmsnippet.class_simple2, [int])
-        assert f(2) == 10
-
     def test_id_int(self):
         f = compile_function(llvmsnippet.id_int, [int])
         for i in range(1, 20):
             assert f(i) == i
+
+    def test_classsimple2(self):
+        f = compile_function(llvmsnippet.class_simple2, [int])
+        assert f(2) == 10
+
+    def test_method_of_base_class(self):
+        f = compile_function(llvmsnippet.method_of_base_class, [])
+        assert f() == 14
+
+    def test_attribute_from_base_class(self):
+        f = compile_function(llvmsnippet.attribute_from_base_class, [])
+        assert f() == 4
+    
+class TestString(object):
+    def setup_method(self, method):
+        if not llvm_found:
+            py.test.skip("llvm-as not found on path.")
+
+    def test_f2(self):
+        f = compile_function(llvmsnippet.string_f2, [int, int])
+        assert chr(f(1, 0)) == "a"
+
+class TestTuple(object):
+    def setup_method(self, method):
+        if not llvm_found:
+            py.test.skip("llvm-as not found on path.")
+
+    def test_f1(self):
+        f = compile_function(llvmsnippet.tuple_f1, [int])
+        assert f(10) == 10
+        assert f(15) == 15
+
+    def test_f3(self):
+        f = compile_function(llvmsnippet.tuple_f3, [int])
+        assert f(10) == 10
+        assert f(15) == 15
+        assert f(30) == 30
+
 
 class TestSnippet(object):
     def setup_method(self, method):
@@ -229,6 +267,10 @@ class TestSnippet(object):
         f = compile_function(test.sieve_of_eratosthenes, [])
         assert f() == 1028
 
+    def test_simple_func(self):
+        f = compile_function(test.simple_func, [int])
+        assert f(1027) == 1028
+        
     def test_while_func(self):
         while_func = compile_function(test.while_func, [int])
         assert while_func(10) == 55
@@ -240,6 +282,10 @@ class TestSnippet(object):
         assert f(3) == 6
         assert f(4) == 12
 
+    def test_int_id(self):
+        f = compile_function(test.int_id, [int])
+        assert f(1027) == 1027
+
     def test_factorial2(self):
         factorial2 = compile_function(test.factorial2, [int])
         assert factorial2(5) == 120
@@ -248,5 +294,23 @@ class TestSnippet(object):
         factorial = compile_function(test.factorial, [int])
         assert factorial(5) == 120
 
+    def test_set_attr(self):
+        set_attr = compile_function(test.set_attr, [])
+        assert set_attr() == 2
 
+    def test_merge_setattr(self):
+        merge_setattr = compile_function(test.merge_setattr, [bool])
+        assert merge_setattr(1) == 1
 
+    def test_simple_method(self):
+        simple_method = compile_function(test.simple_method, [int])
+        assert simple_method(65) == 65
+
+    def test_with_init(self):
+        with_init = compile_function(test.with_init, [int])
+        assert with_init(42) == 42
+
+    def DONOTtest_with_more_init(self):
+        with_more_init = compile_function(test.with_more_init, [int, bool])
+        assert with_more_init(42, True) == 42
+        assert with_more_init(42, False) == -42
