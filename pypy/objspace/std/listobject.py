@@ -73,23 +73,22 @@ def len__List(space, w_list):
     return W_IntObject(space, result)
 
 def getitem__List_ANY(space, w_list, w_index):
-    items = w_list.ob_item
     idx = space.int_w(w_index)
     if idx < 0:
         idx += w_list.ob_size
     if idx < 0 or idx >= w_list.ob_size:
         raise OperationError(space.w_IndexError,
                              space.wrap("list index out of range"))
-    w_item = items[idx]
+    w_item = w_list.ob_item[idx]
     return w_item
 
 def getitem__List_Slice(space, w_list, w_slice):
-    items = w_list.ob_item
     length = w_list.ob_size
     start, stop, step, slicelength = slicetype.indices4(space, w_slice, length)
     assert slicelength >= 0
     w_res = W_ListObject(space, [])
     _list_resize(w_res, slicelength)
+    items = w_list.ob_item
     subitems = w_res.ob_item
     for i in range(slicelength):
         subitems[i] = items[start]
@@ -98,10 +97,12 @@ def getitem__List_Slice(space, w_list, w_slice):
     return w_res
 
 def contains__List_ANY(space, w_list, w_obj):
-    items = w_list.ob_item
-    for i in range(w_list.ob_size):
-        if space.eq_w(items[i], w_obj):
+    # needs to be safe against eq_w() mutating the w_list behind our back
+    i = 0
+    while i < w_list.ob_size:
+        if space.eq_w(w_list.ob_item[i], w_obj):
             return space.w_True
+        i += 1
     return space.w_False
 
 def iter__List(space, w_list):
@@ -131,10 +132,10 @@ def inplace_add__List_ANY(space, w_list1, w_iterable2):
 
 def mul_list_times(space, w_list, times):
     w_res = W_ListObject(space, [])
-    src = w_list.ob_item
     size = w_list.ob_size
     newlen = size * times  # XXX check overflow
     _list_resize(w_res, newlen)
+    src = w_list.ob_item
     items = w_res.ob_item
     p = 0
     for _ in range(times):
@@ -168,14 +169,15 @@ def inplace_mul__List_ANY(space, w_list, w_times):
     return w_list
 
 def eq__List_List(space, w_list1, w_list2):
-    items1 = w_list1.ob_item
-    items2 = w_list2.ob_item
+    # needs to be safe against eq_w() mutating the w_lists behind our back
     if w_list1.ob_size != w_list2.ob_size:
         return space.w_False
-    for i in range(w_list1.ob_size):
-        if not space.is_true(space.eq(items1[i], items2[i])):
+    i = 0
+    while i < w_list1.ob_size and i < w_list2.ob_size:
+        if not space.eq_w(w_list1.ob_item[i], w_list2.ob_item[i]):
             return space.w_False
-    return space.w_True
+        i += 1
+    return space.newbool(w_list1.ob_size == w_list2.ob_size)
 
 def _min(a, b):
     if a < b:
@@ -183,24 +185,28 @@ def _min(a, b):
     return b
 
 def lt__List_List(space, w_list1, w_list2):
-    items1 = w_list1.ob_item
-    items2 = w_list2.ob_item
-    ncmp = _min(w_list1.ob_size, w_list2.ob_size)
+    # needs to be safe against eq_w() mutating the w_lists behind our back
     # Search for the first index where items are different
-    for p in range(ncmp):
-        if not space.is_true(space.eq(items1[p], items2[p])):
-            return space.lt(items1[p], items2[p])
+    i = 0
+    while i < w_list1.ob_size and i < w_list2.ob_size:
+        w_item1 = w_list1.ob_item[i]
+        w_item2 = w_list2.ob_item[i]
+        if not space.eq_w(w_item1, w_item2):
+            return space.lt(w_item1, w_item2)
+        i += 1
     # No more items to compare -- compare sizes
     return space.newbool(w_list1.ob_size < w_list2.ob_size)
 
 def gt__List_List(space, w_list1, w_list2):
-    items1 = w_list1.ob_item
-    items2 = w_list2.ob_item
-    ncmp = _min(w_list1.ob_size, w_list2.ob_size)
+    # needs to be safe against eq_w() mutating the w_lists behind our back
     # Search for the first index where items are different
-    for p in range(ncmp):
-        if not space.is_true(space.eq(items1[p], items2[p])):
-            return space.gt(items1[p], items2[p])
+    i = 0
+    while i < w_list1.ob_size and i < w_list2.ob_size:
+        w_item1 = w_list1.ob_item[i]
+        w_item2 = w_list2.ob_item[i]
+        if not space.eq_w(w_item1, w_item2):
+            return space.gt(w_item1, w_item2)
+        i += 1
     # No more items to compare -- compare sizes
     return space.newbool(w_list1.ob_size > w_list2.ob_size)
 
@@ -237,14 +243,13 @@ def delitem__List_Slice(space, w_list, w_slice):
     return space.w_None
 
 def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
-    items = w_list.ob_item
     idx = space.int_w(w_index)
     if idx < 0:
         idx += w_list.ob_size
     if idx < 0 or idx >= w_list.ob_size:
         raise OperationError(space.w_IndexError,
                              space.wrap("list index out of range"))
-    items[idx] = w_any
+    w_list.ob_item[idx] = w_any
     return space.w_None
 
 def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
@@ -463,39 +468,38 @@ def list_pop__List_ANY(space, w_list, w_idx=-1):
     return w_res
 
 def list_remove__List_ANY(space, w_list, w_any):
-    eq = space.eq
-    items = w_list.ob_item
-    for i in range(w_list.ob_size):
-        cmp = eq(items[i], w_any)
-        if space.is_true(cmp):
+    # needs to be safe against eq_w() mutating the w_list behind our back
+    i = 0
+    while i < w_list.ob_size:
+        if space.eq_w(w_list.ob_item[i], w_any):
             _del_slice(w_list, i, i+1)
             return space.w_None
+        i += 1
     raise OperationError(space.w_ValueError,
                          space.wrap("list.remove(x): x not in list"))
 
 def list_index__List_ANY_ANY_ANY(space, w_list, w_any, w_start, w_stop):
-    eq = space.eq
-    items = w_list.ob_item
+    # needs to be safe against eq_w() mutating the w_list behind our back
     size = w_list.ob_size
     w_start = slicetype.adapt_bound(space, w_start, space.wrap(size))
     w_stop = slicetype.adapt_bound(space, w_stop, space.wrap(size))
-    start = space.int_w(w_start)
+    i = space.int_w(w_start)
     stop = space.int_w(w_stop)
-    for i in range(start,stop):
-        cmp = eq(items[i], w_any)
-        if space.is_true(cmp):
+    while i < stop and i < w_list.ob_size:
+        if space.eq_w(w_list.ob_item[i], w_any):
             return space.wrap(i)
+        i += 1
     raise OperationError(space.w_ValueError,
                          space.wrap("list.index(x): x not in list"))
 
 def list_count__List_ANY(space, w_list, w_any):
-    eq = space.eq
-    items = w_list.ob_item
-    count = r_int(0)
-    for i in range(w_list.ob_size):
-        cmp = eq(items[i], w_any)
-        if space.is_true(cmp):
+    # needs to be safe against eq_w() mutating the w_list behind our back
+    count = 0
+    i = 0
+    while i < w_list.ob_size:
+        if space.eq_w(w_list.ob_item[i], w_any):
             count += 1
+        i += 1
     return space.wrap(count)
 
 # Reverse a slice of a list in place, from lo up to (exclusive) hi.
