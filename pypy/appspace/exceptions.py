@@ -1,3 +1,7 @@
+# XXX
+# This file is almost auto-generated now and yet
+# not ableto adopt changes by hand. Please don't edit now.
+
 class Exception:
     """Common base class for all exceptions."""
 
@@ -7,7 +11,7 @@ class Exception:
 
     # auto-generated code, please check carefully!
     def __init__(self, *args):
-        pass
+        self.args = args
 
     # auto-generated code, please check carefully!
     # please implement Exception.__str__
@@ -32,9 +36,9 @@ class UnicodeTranslateError(UnicodeError):
     """Unicode translation error."""
 
     # auto-generated code, please check carefully!
-    def __init__(self, *args):
-        pass
-
+    ##def __init__(self, *args):
+    ##    pass
+    ## completely wrong
     # auto-generated code, please check carefully!
     # please implement UnicodeTranslateError.__str__
     # instantiation of UnicodeTranslateError works with 1 solutions
@@ -65,9 +69,9 @@ class EnvironmentError(StandardError):
     """Base class for I/O related errors."""
 
     # auto-generated code, please check carefully!
-    def __init__(self, *args):
-        pass
-
+    ##def __init__(self, *args):
+    ##    pass
+    ## completely wrong
     # auto-generated code, please check carefully!
     # please implement EnvironmentError.__str__
     # instantiation of EnvironmentError works with 13119 solutions
@@ -82,9 +86,9 @@ class UnicodeEncodeError(UnicodeError):
     """Unicode encoding error."""
 
     # auto-generated code, please check carefully!
-    def __init__(self, *args):
-        pass
-
+    ##def __init__(self, *args):
+    ##    pass
+    ## completely wrong
     # auto-generated code, please check carefully!
     # please implement UnicodeEncodeError.__str__
     # instantiation of UnicodeEncodeError works with 1 solutions
@@ -117,9 +121,9 @@ class SyntaxError(StandardError):
     text = None
 
     # auto-generated code, please check carefully!
-    def __init__(self, *args):
-        pass
-
+    ##def __init__(self, *args):
+    ##    pass
+    ## completely wrong
     # auto-generated code, please check carefully!
     # please implement SyntaxError.__str__
     # instantiation of SyntaxError works with 13116 solutions
@@ -132,7 +136,13 @@ class SystemExit(Exception):
 
     # auto-generated code, please check carefully!
     def __init__(self, *args):
-        pass
+        self.args = args
+        if len(args) == 0:
+            self.code = None
+        elif len(args) == 1:
+            self.code = args[0]
+        else:
+            self.code = args
 
 class EOFError(StandardError):
     """Read beyond end of file."""
@@ -159,9 +169,9 @@ class UnicodeDecodeError(UnicodeError):
     """Unicode decoding error."""
 
     # auto-generated code, please check carefully!
-    def __init__(self, *args):
-        pass
-
+    ##def __init__(self, *args):
+    ##    pass
+    ## completely wrong
     # auto-generated code, please check carefully!
     # please implement UnicodeDecodeError.__str__
     # instantiation of UnicodeDecodeError works with 1 solutions
