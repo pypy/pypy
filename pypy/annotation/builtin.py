@@ -2,7 +2,8 @@
 Built-in functions.
 """
 
-from pypy.annotation.model import SomeInteger, SomeObject, SomeChar
+from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
+from pypy.annotation.model import immutablevalue
 from pypy.annotation.factory import ListFactory, getbookkeeper
 import pypy.objspace.std.restricted_int
 
@@ -29,6 +30,14 @@ def restricted_uint(s_obj):    # for r_uint
 
 def builtin_chr(s_int):
     return SomeChar()
+
+def builtin_isinstance(s_obj, s_type):
+    # XXX simple case only
+    if s_type.is_constant():
+        typ = s_type.const
+        if issubclass(s_obj.knowntype, typ):
+            return immutablevalue(True)
+    return SomeBool()
 
 
 # collect all functions

@@ -29,7 +29,9 @@ generic element in some specific subset of the set of all objects.
 
 
 from types import ClassType, BuiltinFunctionType, FunctionType, MethodType
+from types import InstanceType
 from pypy.annotation.pairtype import pair, extendabletype
+from pypy.objspace.flow.model import Constant
 
 
 class SomeObject:
@@ -134,6 +136,14 @@ class SomeMethod(SomeObject):
     def __init__(self, meths):
         self.meths = meths   # map {python_function: classdef}
 
+class SomePrebuiltConstant(SomeObject):
+    """Stands for a global user instance, built prior to the analysis,
+    or a set of such instances."""
+    def __init__(self, prebuiltinstances):
+        self.prebuiltinstances = prebuiltinstances  # set of Constants
+        self.knowntype = reduce(commonbase, [x.value.__class__
+                                             for x in prebuiltinstances])
+
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""
@@ -171,6 +181,8 @@ def immutablevalue(x):
         result = SomeClass(x)
     elif isinstance(x, (FunctionType, MethodType)):
         result = SomeFunction({x: True})
+    elif hasattr(x, '__class__') and x.__class__.__module__ != '__builtin__':
+        result = SomePrebuiltConstant({Constant(x): True}) # pre-built instances
     else:
         result = SomeObject()
     result.const = x
@@ -217,6 +229,11 @@ def set(it):
     for x in it:
         d[x] = True
     return d
+
+def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
+    while not issubclass(cls1, cls2):
+        cls2, = [x for x in cls2.__bases__ if x is not object] or [object]
+    return cls2
 
 def missing_operation(cls, name):
     def default_op(*args):

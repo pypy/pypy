@@ -157,9 +157,10 @@ class GenC:
         bases = [base for base in cls.__bases__ if base is not object]
         assert len(bases) <= 1, "%r needs multiple inheritance" % (cls,)
         if bases:
-            base = self.nameof(bases[0])
+            base = bases[0]
         else:
-            base = '(PyObject*) &PyBaseObject_Type'
+            base = object
+        base = self.nameof(base)
         def initclassobj():
             content = cls.__dict__.items()
             content.sort()
@@ -180,9 +181,22 @@ class GenC:
 
     nameof_class = nameof_classobj   # for Python 2.2
 
+    typename_mapping = {
+        object: 'PyBaseObject_Type',
+        int:    'PyInt_Type',
+        long:   'PyLong_Type',
+        bool:   'PyBool_Type',
+        list:   'PyList_Type',
+        tuple:  'PyTuple_Type',
+        dict:   'PyDict_Type',
+        str:    'PyString_Type',
+        }
+
     def nameof_type(self, cls):
+        if cls in self.typename_mapping:
+            return '(PyObject*) &%s' % self.typename_mapping[cls]
         assert hasattr(cls, '__weakref__'), (
-            "%r is not a user-defined class" % (cls,))
+            "built-in class %r not found in typename_mapping" % (cls,))
         return self.nameof_classobj(cls)
 
     def nameof_tuple(self, tup):

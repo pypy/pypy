@@ -8,8 +8,10 @@ from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeFunction, SomeMethod
 from pypy.annotation.model import SomeBuiltin, SomeIterator
+from pypy.annotation.model import SomePrebuiltConstant, immutablevalue
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import generalize
+from pypy.objspace.flow.model import Constant
 
 
 # XXX unify this with ObjSpace.MethodTable
@@ -217,3 +219,26 @@ class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
 class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
     def union((obj1, imp2)):
         return obj1
+
+
+class __extend__(pairtype(SomePrebuiltConstant, SomePrebuiltConstant)):
+    def union((pbc1, pbc2)):
+        return SomePrebuiltConstant(setunion(pbc1.prebuiltinstances,
+                                             pbc2.prebuiltinstances))
+
+class __extend__(pairtype(SomePrebuiltConstant, SomeObject)):
+    def getitem((pbc1, obj2)):
+        # special case for SomePrebuiltConstants that are dictionaries
+        # (actually frozendicts)
+        possibleresults = []
+        for c_inst in pbc1.prebuiltinstances:
+            assert isinstance(c_inst, Constant)
+            inst = c_inst.value
+            if isinstance(inst, dict):
+                possibleresults += inst.values()
+            elif isinstance(inst, list):
+                possibleresults += inst   # maybe
+            else:
+                raise TypeError, "cannot getitem() from %r" % (inst,)
+        possibleresults = [immutablevalue(x) for x in possibleresults]
+        return unionof(*possibleresults)

@@ -23,7 +23,7 @@ def analyse(entry_point=entry_point):
     global t
     t = Translator(entry_point, verbose=True, simplifying=True)
     space = StdObjSpace()
-    #buildcache.buildcache(space) 
+    buildcache.buildcache(space) 
     a = t.annotate([annmodel.immutablevalue(space)])
     a.simplify()
 
