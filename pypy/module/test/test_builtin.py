@@ -120,6 +120,9 @@ class AppTestBuiltinApp:
         assert enum.next() == (0, 2)
         assert enum.next() == (1, 3)
         raises(StopIteration, enum.next)
+        raises(TypeError, enumerate, 1)
+        raises(TypeError, enumerate, None)
+        
 
     def test_xrange_args(self):
         x = xrange(2)

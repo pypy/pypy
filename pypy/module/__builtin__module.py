@@ -63,13 +63,6 @@ def _iter_generator(callable_, sentinel):
             return
         yield result
 
-def enumerate(collection):
-    'Generates an indexed series:  (0,coll[0]), (1,coll[1]) ...'     
-    i = 0
-    it = iter(collection)
-    while 1:
-        yield (i, it.next())
-        i += 1
 
 def apply(function, args, kwds={}):
     """call a function (or other callable object) and return its result"""
@@ -463,6 +456,20 @@ from __interplevel__ import __import__
 
 
 # ________________________________________________________________________
+class enumerate:
+    'Generates an indexed series:  (0,coll[0]), (1,coll[1]) ...'
+    def __init__(self, collection):
+        self.iter = iter(collection)
+        self.index = 0
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        value = self.iter.next()
+        index = self.index
+        self.index += 1
+        return index, value
 
 class xrange:
     def __init__(self, start, stop=None, step=1):
