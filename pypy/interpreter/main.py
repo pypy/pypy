@@ -19,8 +19,6 @@ def _run_eval_string(source, filename, space, eval):
         w = space.wrap
         w_code = compile(source, filename, cmd, 0, 0)
 
-        ec = executioncontext.ExecutionContext(space)
-
         mainmodule = module.Module(space, space.wrap("__main__"))
         w_globals = mainmodule.w_dict
 
