@@ -1,5 +1,7 @@
+import sys
+
 def uid(obj):
     rval = id(obj)
     if rval < 0:
-        rval += 1L << 32
+        rval += (long(sys.maxint)+1)*2
     return rval
