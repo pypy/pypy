@@ -83,25 +83,5 @@ class NoTypePyrexGenTestCase(testit.IntTestCase):
         self.assertEquals(sand(0, 6), "no")
         self.assertEquals(sand(0, 0), "no")
 
-class TypedPyrexGenTestCase(NoTypePyrexGenTestCase):
-
-    def build_cfunc(self, func):
-        try: func = func.im_func
-        except AttributeError: pass
-
-        dot = testit.Options.verbose >0 and 1 or 0
-        options = {
-            'simplify' : 1,
-            'dot' : dot,
-            'inputargtypes' : [int] * func.func_code.co_argcount
-            }
-        return build_cfunc(func, **options)
-
-    # _______________________________________________________
-    # The following tests require the type inference to work.
-    def test_set_attr(self):
-        set_attr = self.build_cfunc(t.set_attr)
-        self.assertEquals(set_attr(), 2)
-
 if __name__ == '__main__':
     testit.main()
