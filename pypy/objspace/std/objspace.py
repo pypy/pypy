@@ -55,6 +55,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             from stringtype import str_typedef
             from typetype   import type_typedef
             from slicetype  import slice_typedef
+            from longtype   import long_typedef
 	return [value for key, value in result.__dict__.items()
                       if not key.startswith('_')]   # don't look
 
@@ -138,11 +139,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
         import stringobject
         import typeobject
         import sliceobject
+        import longobject
 	import cpythonobject
 	# hack to avoid imports in the time-critical functions below
         global W_ObjectObject, W_BoolObject, W_IntObject, W_FloatObject
 	global W_TupleObject, W_ListObject, W_DictObject, W_StringObject
-	global W_TypeObject, W_SliceObject
+	global W_TypeObject, W_SliceObject, W_LongObject
 	global W_CPythonObject, W_BuiltinFunctionObject
 	W_ObjectObject = objectobject.W_ObjectObject
 	W_BoolObject = boolobject.W_BoolObject
@@ -154,6 +156,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
 	W_StringObject = stringobject.W_StringObject
 	W_TypeObject = typeobject.W_TypeObject
 	W_SliceObject = sliceobject.W_SliceObject
+	W_LongObject = longobject.W_LongObject
 	W_CPythonObject = cpythonobject.W_CPythonObject
 	W_BuiltinFunctionObject = cpythonobject.W_BuiltinFunctionObject
         # end of hacks
@@ -226,6 +229,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, list):
             wrappeditems = [self.wrap(item) for item in x]
             return W_ListObject(self, wrappeditems)
+        if isinstance(x, long):
+            return W_LongObject(self, x)
         if isinstance(x, Wrappable):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
@@ -233,7 +238,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         SlotWrapperType = type(type(None).__repr__)
         if isinstance(x, (types.FunctionType, types.BuiltinFunctionType, SlotWrapperType)):
             return W_BuiltinFunctionObject(self, x)
-        #print "cpython wrapping %r (%s)" % (x, type(x))
+        #print "cpython wrapping %r" % (x,)
         #if hasattr(x, '__bases__'): 
         #    print "cpython wrapping a class %r (%s)" % (x, type(x))
             #raise TypeError, "cannot wrap classes"

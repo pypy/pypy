@@ -46,18 +46,18 @@ registerimplementation(W_CPythonObject)
 
 def cpython_unwrap(space, w_obj):
     cpyobj = w_obj.cpyobj
-    if hasattr(type(cpyobj), '__unwrap__'):
-        cpyobj = cpyobj.__unwrap__()
+    #if hasattr(type(cpyobj), '__unwrap__'):
+    #    cpyobj = cpyobj.__unwrap__()
     return cpyobj
 
 StdObjSpace.unwrap.register(cpython_unwrap, W_CPythonObject)
 
 # XXX we hack a bit to delegate ints to longs here
-def hacky_delegate_to_long(space, w_intobj):
-    return space.wrap(long(w_intobj.intval))
-hacky_delegate_to_long.result_class = W_CPythonObject  # XXX
-hacky_delegate_to_long.priority = PRIORITY_CHANGE_TYPE + 0.1  # XXX too
-StdObjSpace.delegate.register(hacky_delegate_to_long, W_IntObject)
+#def hacky_delegate_to_long(space, w_intobj):
+#    return space.wrap(long(w_intobj.intval))
+#hacky_delegate_to_long.result_class = W_CPythonObject  # XXX
+#hacky_delegate_to_long.priority = PRIORITY_CHANGE_TYPE + 0.1  # XXX too
+#StdObjSpace.delegate.register(hacky_delegate_to_long, W_IntObject)
 
 
 # XXX XXX XXX
@@ -85,9 +85,13 @@ def wrap_exception(space):
     name = exc.__name__
     if hasattr(space, 'w_' + name):
         w_exc = getattr(space, 'w_' + name)
+        w_value = space.call(w_exc,
+            space.newtuple([space.wrap(a) for a in value.args]),
+            space.newdict([]))
     else:
         w_exc = space.wrap(exc)
-    raise OperationError, OperationError(w_exc, space.wrap(value)), tb
+        w_value = space.wrap(value)
+    raise OperationError, OperationError(w_exc, w_value), tb
 
 # in-place operators
 def inplace_pow(x1, x2):

@@ -277,8 +277,7 @@ def neg__Int(space, w_int1):
 # a derived integer object, where it should return
 # an exact one.
 def pos__Int(space, w_int1):
-    #not sure if this should be done this way:
-    if w_int1.__class__ is W_IntObject:
+    if space.is_true(space.is_(space.type(w_int1), space.w_int)):
         return w_int1
     a = w_int1.intval
     return W_IntObject(space, a)
@@ -313,6 +312,9 @@ def lshift__Int_Int(space, w_int1, w_int2):
     ## the overflow checking, using macro Py_ARITHMETIC_RIGHT_SHIFT
     ## we *assume* that the overflow checking is done correctly
     ## in the code generator, which is not trivial!
+    
+    ## XXX also note that Python 2.3 returns a long and never raises
+    ##     OverflowError.
     try:
         c = a << b
         ## the test in C code is

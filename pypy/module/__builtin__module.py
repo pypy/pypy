@@ -946,9 +946,6 @@ class complex(object):
 # add radd, rsub, rmul, rdiv...
 
 
-class long:
-    pass   # XXX do it
-
 # ________________________________________________________________________
 ##    def app___import__(*args):
 ##        # NOTE: No import statements can be done in this function,

@@ -225,6 +225,7 @@ ObjSpace.MethodTable = [
     ('xor',             '^',         2, ['__xor__', '__rxor__']),
     ('int',             'int',       1, ['__int__']),
     ('float',           'float',     1, ['__float__']),
+    ('long',            'long',      1, ['__long__']),
     ('inplace_add',     '+=',        2, ['__iadd__']),
     ('inplace_sub',     '-=',        2, ['__isub__']),
     ('inplace_mul',     '*=',        2, ['__imul__']),
