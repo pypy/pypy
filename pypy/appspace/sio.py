@@ -36,6 +36,7 @@ import os
 
 class Stream(object):
     "All streams except the base ones need to inherit from this class."
+    base = None
     def __getattr__(self, name):
         """
         Delegate all other methods to the underlying file object.
@@ -267,6 +268,7 @@ class BufferingOutputStream(Stream):
     bufsize = 2**13 # 8 K
 
     def __init__(self, base, bufsize=None):
+        self.base = base
         self.do_write = base.write # Flush buffer
         self.do_tell = base.tell
              # Return a byte offset; has to exist or this __init__() will fail

@@ -54,6 +54,20 @@ class file_(object):
                 "Read and write buffered stream."
                 self.fd = sio.BufferingInputOutputStream(self.fd, bufsize)
 
+    def __iter__(self):
+        """
+        Return an iterator for the file.
+        """
+        return self
+
+    def next(self):
+        if self._closed:
+            raise StopIteration
+        line = self.fd.readline()
+        if line == '':
+            raise StopIteration
+        return line
+
     def close(self):
         """
         Close the file
