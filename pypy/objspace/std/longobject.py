@@ -183,21 +183,6 @@ def pow__Long_Long_Long(space, w_long1, w_long2, w_long3):
                              space.wrap(e.args[0]))
     return W_LongObject(space, t)
 
-def pow__Int_Int_Long(space, w_int1, w_int2, w_long3):
-    x = w_int1.intval
-    y = w_int2.intval
-    z = w_long3.longval
-
-    try:
-        t = long(pow(x, y, z))
-    except TypeError, e:
-        raise OperationError(space.w_TypeError,
-                             space.wrap(e.args[0]))
-    except ValueError, e:
-        raise OperationError(space.w_ValueError,
-                             space.wrap(e.args[0]))
-    return W_LongObject(space, t)
-    
 def neg__Long(space, w_long1):
     return W_LongObject(space, -w_long1.longval)
 
@@ -293,11 +278,10 @@ def pow_ovr__Int_Int_None(space, w_int1, w_int2, w_none3):
     w_long2 = delegate_Int2Long(w_int2)
     return pow__Long_Long_None(space, w_long1, w_long2, w_none3)
 
-def pow_ovr__Int_Int_Int(space, w_int1, w_int2, w_int3):
+def pow_ovr__Int_Int_Long(space, w_int1, w_int2, w_long3):
     w_long1 = delegate_Int2Long(w_int1)
     w_long2 = delegate_Int2Long(w_int2)
-    w_long3 = delegate_Int2Long(w_int3)
     return pow__Long_Long_Long(space, w_long1, w_long2, w_long3)
 
 StdObjSpace.MM.pow.register(pow_ovr__Int_Int_None, W_IntObject, W_IntObject, W_NoneObject, order=1)
-StdObjSpace.MM.pow.register(pow_ovr__Int_Int_Int , W_IntObject, W_IntObject, W_IntObject,  order=1)
+StdObjSpace.MM.pow.register(pow_ovr__Int_Int_Long, W_IntObject, W_IntObject, W_LongObject, order=1)
