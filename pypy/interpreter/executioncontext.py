@@ -9,7 +9,8 @@ class ExecutionContext:
         # Note that self.framestack only contains PyFrames
         self.space = space
         self.framestack = Stack()
-
+        self.stateDict = {}
+        
     def enter(self, frame):
         if self.framestack.depth() > self.space.recursion_limit:
             raise OperationError(self.space.w_RuntimeError,
@@ -54,3 +55,9 @@ class ExecutionContext:
             if frame.last_exception is not None:
                 return frame.last_exception
         return None
+
+    def get_state_dict(self):
+        """A mechanism to store arbitrary per ExecutionContext data.
+        Similar to cpython's PyThreadState_GetDict.
+        """
+        return self.stateDict

@@ -251,6 +251,18 @@ class AppTestBuiltinApp:
         c2 = C()
         raises(RuntimeError, cmp, c1, c2)
 
+    def test_cmp_cyclic(self):
+        a = []; a.append(a)
+        b = []; b.append(b)
+        from UserList import UserList
+        c = UserList(); c.append(c)
+        assert cmp(a, b) == 0
+        assert cmp(b, c) == 0
+        assert cmp(c, a) == 0
+        assert cmp(a, c) == 0
+        # okay, now break the cycles
+        a.pop(); b.pop(); c.pop()
+        
     def test_coerce(self):
         assert coerce(1, 2)    == (1, 2)
         assert coerce(1L, 2L)  == (1L, 2L)

@@ -97,6 +97,11 @@ class ObjSpace(object):
         return cache.getorbuild(key, builder, self) 
     loadfromcache._specialize_ = "location" 
 
+
+    def get_ec_state_dict(self):
+        "Return the 'state dict' from the active execution context."
+        return self.getexecutioncontext().get_state_dict()
+    
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
         ec = getthreadlocals().executioncontext
