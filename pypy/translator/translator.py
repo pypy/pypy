@@ -45,10 +45,11 @@ from pypy.objspace.flow import FlowObjSpace
 
 class Translator:
 
-    def __init__(self, func=None, verbose=False, simplifying=False):
+    def __init__(self, func=None, verbose=False, simplifying=False, builtins_can_raise_exceptions=False):
         self.entrypoint = func
         self.verbose = verbose
         self.simplifying = simplifying
+        self.builtins_can_raise_exceptions = builtins_can_raise_exceptions
         self.clear()
 
     def clear(self):
@@ -74,6 +75,7 @@ class Translator:
                     func.__name__)
             assert not self.frozen
             space = FlowObjSpace()
+            space.builtins_can_raise_exceptions = self.builtins_can_raise_exceptions 
             graph = space.build_flow(func)
             if self.simplifying:
                 simplify_graph(graph)
