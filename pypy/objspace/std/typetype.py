@@ -17,10 +17,6 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
         dict_w[key] = space.getitem(w_dict, w_key)
     # XXX classmethod-ify w_dict['__new__']
     w_type = W_TypeObject(space, name, bases_w or [space.w_object], dict_w, None)
-    # provide a __dict__ for the instances if there isn't any yet
-    if w_type.lookup('__dict__') is None:
-        w_type.needs_new_dict = True
-        w_type.dict_w['__dict__'] = space.wrap(attrproperty_w('w__dict__'))
     return space.w_type.check_user_subclass(w_typetype, w_type)
 
 def descr_get__mro__(space, w_type):

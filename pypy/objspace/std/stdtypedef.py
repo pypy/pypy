@@ -1,7 +1,7 @@
 from pypy.interpreter import eval, function, gateway
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.typedef import attrproperty, attrproperty_w
-from pypy.objspace.std.multimethod import MultiMethod
+from pypy.objspace.std.multimethod import MultiMethod, FailedToImplement
 
 __all__ = ['StdTypeDef', 'newmethod', 'gateway',
            'GetSetProperty', 'attrproperty', 'attrproperty_w',

@@ -45,15 +45,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
             "Import here the types you want to have appear in __builtin__."
 
             from objecttype import object_typedef
-            #from booltype   import W_BoolType
+            from booltype   import bool_typedef
             from inttype    import int_typedef
-            #from floattype  import W_FloatType
-            #from tupletype  import W_TupleType
-            #from listtype   import W_ListType
-            #from dicttype   import W_DictType
-            #from stringtype import W_StringType
+            from floattype  import float_typedef
+            from tupletype  import tuple_typedef
+            from listtype   import list_typedef
+            from dicttype   import dict_typedef
+            from stringtype import str_typedef
             from typetype   import type_typedef
-            #from slicetype  import W_SliceType
+            from slicetype  import slice_typedef
         return [value for key, value in result.__dict__.items()
                       if not key.startswith('_')]   # don't look
 
@@ -266,17 +266,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     return self.wrap(cls.__dict__[name])
             return None
 
-    def unpacktuple(self, w_tuple):
+    def unpacktuple(self, w_tuple, expected_length=None):
         import tupleobject
         assert isinstance(w_tuple, tupleobject.W_TupleObject)
-        return w_tuple.wrappeditems
+        t = w_tuple.wrappeditems
+        if expected_length is not None and expected_length != len(t):
+            raise ValueError, "got a tuple of length %d instead of %d" % (
+                len(t), expected_length)
+        return t
 
-    # special visible multimethods
-    delegate = DelegateMultiMethod()          # delegators
-    unwrap  = MultiMethod('unwrap', 1, [])    # returns an unwrapped object
-    is_true = MultiMethod('nonzero', 1, [])   # returns an unwrapped bool
-    issubtype = MultiMethod('issubtype', 2, [])
-    id = MultiMethod('id', 1, [])
 
     class MM:
         "Container for multimethods."
@@ -285,6 +283,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
         next    = MultiMethod('next', 1, ['next'])     # iterator interface
         call    = MultiMethod('call', 1, ['__call__'], varargs=True, keywords=True)
         #getattribute = MultiMethod('getattr', 2, ['__getattribute__'])  # XXX hack
+        # special visible multimethods
+        delegate = DelegateMultiMethod()          # delegators
+        unwrap  = MultiMethod('unwrap', 1, [])    # returns an unwrapped object
+        is_true = MultiMethod('nonzero', 1, [])   # returns an unwrapped bool
+        issubtype = MultiMethod('issubtype', 2, [])
+        id = MultiMethod('id', 1, [])
+
+    unwrap = MM.unwrap
+    delegate = MM.delegate
+    is_true = MM.is_true
 
     def is_(self, w_one, w_two):
         # XXX a bit of hacking to gain more speed 
@@ -302,12 +310,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     if not hasattr(StdObjSpace.MM, _name):
-        if isinstance(getattr(StdObjSpace, _name, None), MultiMethod):
-            mm = getattr(StdObjSpace, _name)
-        else:
-            mm = MultiMethod(_symbol, _arity, _specialnames)
+##         if isinstance(getattr(StdObjSpace, _name, None), MultiMethod):
+##             mm = getattr(StdObjSpace, _name)
+##         else:
+        mm = MultiMethod(_symbol, _arity, _specialnames)
         setattr(StdObjSpace.MM, _name, mm)
-
+    if not hasattr(StdObjSpace, _name):
+        setattr(StdObjSpace, _name, getattr(StdObjSpace.MM, _name))
 
 # import the common base W_ObjectObject as well as
 # default implementations of some multimethods for all objects

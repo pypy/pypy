@@ -75,7 +75,7 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from intobject   import W_IntObject
 from sliceobject import W_SliceObject
-#import slicetype
+import slicetype
 from listobject import W_ListObject
 from noneobject import W_NoneObject
 from tupleobject import W_TupleObject

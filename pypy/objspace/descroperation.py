@@ -201,7 +201,7 @@ class DescrOperation:
             w_right_impl = None
         else:
             w_right_impl = space.lookup(w_obj2,'__rpow__')
-            if space.issubtype(w_typ1,w_typ2):
+            if space.is_true(space.issubtype(w_typ1,w_typ2)):
                 w_obj1,w_obj2 = w_obj2,w_obj1
                 w_left_impl,w_right_impl = w_right_impl,w_left_impl
         if w_left_impl is not None:
@@ -255,7 +255,7 @@ def _cmp(space,w_obj1,w_obj2):
         w_right_impl = None
     else:
         w_right_impl = space.lookup(w_obj2,'__cmp__')
-        if space.issubtype(w_typ1,w_typ2):
+        if space.is_true(space.issubtype(w_typ1,w_typ2)):
             w_obj1,w_obj2 = w_obj2,w_obj1
             w_left_impl,w_right_impl = w_right_impl,w_left_impl
             do_neg1,do_neg2 = do_neg2,do_neg1
@@ -296,7 +296,7 @@ def _make_binop_impl(symbol,specialnames):
             w_right_impl = None
         else:
             w_right_impl = space.lookup(w_obj2,right)
-            if space.issubtype(w_typ1,w_typ2):
+            if space.is_true(space.issubtype(w_typ1,w_typ2)):
                 w_obj1,w_obj2 = w_obj2,w_obj1
                 w_left_impl,w_right_impl = w_right_impl,w_left_impl
 
@@ -324,7 +324,7 @@ def _make_comparison_impl(symbol,specialnames):
             w_right_impl = None
         else:
             w_right_impl = space.lookup(w_obj2,right)
-            if space.issubtype(w_typ1,w_typ2):
+            if space.is_true(space.issubtype(w_typ1,w_typ2)):
                 w_obj1,w_obj2 = w_obj2,w_obj1
                 w_left_impl,w_right_impl = w_right_impl,w_left_impl
 
