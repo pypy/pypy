@@ -8,7 +8,7 @@ Can be used for interactive testing of the translator. Run as:
 Example:
 
     t = Translator(func)
-    t.gv()                             # control flow graph
+    t.view()                           # control flow graph
 
     print t.source()                   # original source
     print t.pyrex()                    # pyrex translation
@@ -17,6 +17,7 @@ Example:
     t.simplify()                       # flow graph simplification
     a = t.annotate([int])              # pass the list of args types
     a.simplify()                       # simplification by annotator
+    t.view()                           # graph + annotations under the mouse
 
     t.call(arg)                        # call original function
     t.dis()                            # bytecode disassemble
@@ -85,6 +86,12 @@ class Translator:
             graph = self.getflowgraph(func)
             dest = make_dot(graph.name, graph)
         os.system('gv %s' % str(dest))
+
+    def view(self):
+        """Shows the control flow graph with annotations if computed.
+        Requires 'dot' and pygame."""
+        from pypy.translator.tool.pygame.graphviewer import GraphDisplay
+        GraphDisplay(self).run()
 
     def simplify(self, func=None):
         """Simplifies the control flow graph (default: for all functions)."""

@@ -1,10 +1,11 @@
 import autopath
-import sys, re
+import sys, os, re
 import pygame
 from pygame.locals import *
+from pypy.translator.tool.make_dot import make_dot_graphs
 
 
-class Display:
+class Display(object):
     
     def __init__(self, (w,h)=(800,740)):
         pygame.init()
@@ -15,8 +16,8 @@ class Display:
         self.height = h
         self.screen = pygame.display.set_mode((w, h), HWSURFACE|RESIZABLE)
 
-class GraphViewer:
-    FONT = 'cyrvetic.ttf'
+class GraphViewer(object):
+    FONT = os.path.join(autopath.this_dir, 'cyrvetic.ttf')
     xscale = 1
     yscale = 1
     offsetx = 0
@@ -152,47 +153,50 @@ def decodepixmap(f):
     return w, h, data
 
 
-if __name__ == '__main__':
-    from pypy.translator.translator import Translator
-    from pypy.translator.test import snippet
-    from pypy.translator.tool.make_dot import make_dot_graphs
-    
-    t = Translator(snippet.poor_man_range)
-    t.simplify()
-    a = t.annotate([int])
-    a.simplify()
+class GraphDisplay(Display):
+    STATUSBARFONT = os.path.join(autopath.this_dir, 'VeraMoBd.ttf')
 
-    variables_by_name = {}
-    for var in a.bindings:
-        variables_by_name[var.name] = var
+    def __init__(self, translator):
+        super(GraphDisplay, self).__init__()
+        self.translator = translator
+        self.annotator = translator.annotator
+        self.font = pygame.font.Font(self.STATUSBARFONT, 16)
 
-    graphs = []
-    for func in t.functions:
-        graph = t.getflowgraph(func)
-        graphs.append((graph.name, graph))
-    xdotfile = make_dot_graphs(t.entrypoint.__name__, graphs, target='xdot')
-    pngfile = make_dot_graphs(t.entrypoint.__name__, graphs, target='png')
-    
-    viewer = GraphViewer(str(xdotfile), str(pngfile))
+        self.variables_by_name = {}
+        if self.annotator:
+            for var in self.annotator.bindings:
+                self.variables_by_name[var.name] = var
 
-    dpy = Display()
-    viewer.render(dpy)
-    dragging = None
+        graphs = []
+        for func in self.translator.functions:
+            graph = self.translator.getflowgraph(func)
+            graphs.append((graph.name, graph))
+        xdotfile = make_dot_graphs(self.translator.entrypoint.__name__, graphs, target='xdot')
+        pngfile = make_dot_graphs(self.translator.entrypoint.__name__, graphs, target='png')
+        self.viewer = GraphViewer(str(xdotfile), str(pngfile))
+        self.viewer.offsetx = (self.viewer.width - self.width) // 2
+        self.statusbarinfo = None
+        self.must_redraw = True
 
-    font = pygame.font.Font('VeraMoBd.ttf', 16)
+    def setstatusbar(self, text, fgcolor=(255,255,80), bgcolor=(128,0,0)):
+        info = (text, fgcolor, bgcolor)
+        if info != self.statusbarinfo:
+            self.statusbarinfo = info
+            self.must_redraw = True
 
-    def setstatusbar(text, fgcolor=(255,255,80), bgcolor=(128,0,0)):
+    def drawstatusbar(self):
+        text, fgcolor, bgcolor = self.statusbarinfo
         words = text.split(' ')
         lines = []
         totalh = 0
         while words:
             line = words.pop(0)
-            img = font.render(line, 1, fgcolor)
+            img = self.font.render(line, 1, fgcolor)
             while words:
                 longerline = line + ' ' + words[0]
-                longerimg = font.render(longerline, 1, fgcolor)
+                longerimg = self.font.render(longerline, 1, fgcolor)
                 w, h = longerimg.get_size()
-                if w > dpy.width:
+                if w > self.width:
                     break
                 words.pop(0)
                 line = longerline
@@ -201,45 +205,67 @@ if __name__ == '__main__':
             w, h = img.get_size()
             totalh += h
         
-        y = dpy.height - totalh
-        viewer.render(dpy)
-        dpy.screen.fill(bgcolor, (0, y-16, dpy.width, totalh+16))
+        y = self.height - totalh
+        self.screen.fill(bgcolor, (0, y-16, self.width, totalh+16))
         for img in lines:
             w, h = img.get_size()
-            dpy.screen.blit(img, ((dpy.width-w)//2, y-8))
+            self.screen.blit(img, ((self.width-w)//2, y-8))
             y += h
 
-    def setmousepos(pos):
-        word, text, name = viewer.at_position(event.pos)
-        if word in variables_by_name:
-            var = variables_by_name[word]
-            s_value = a.binding(var)
+    def notifymousepos(self, pos):
+        word, text, name = self.viewer.at_position(pos)
+        if word in self.variables_by_name:
+            var = self.variables_by_name[word]
+            s_value = self.annotator.binding(var)
             info = '%s: %s' % (var.name, s_value)
-            setstatusbar(info)
+            self.setstatusbar(info)
 
-    while 1:
-        event = pygame.event.wait()
-        if event.type == MOUSEMOTION:
-            # short-circuit if there are more motion events pending
-            if pygame.event.peek([MOUSEMOTION]):
-                continue
-            if dragging:
-                viewer.offsetx -= (event.pos[0] - dragging[0])
-                viewer.offsety -= (event.pos[1] - dragging[1])
+    def run(self):
+        dragging = None
+        while 1:
+            if self.must_redraw:
+                self.viewer.render(self)
+                if self.statusbarinfo:
+                    self.drawstatusbar()
+                pygame.display.flip()
+                self.must_redraw = False
+            
+            event = pygame.event.wait()
+            if event.type == MOUSEMOTION:
+                # short-circuit if there are more motion events pending
+                if pygame.event.peek([MOUSEMOTION]):
+                    continue
+                if dragging:
+                    self.viewer.offsetx -= (event.pos[0] - dragging[0])
+                    self.viewer.offsety -= (event.pos[1] - dragging[1])
+                    dragging = event.pos
+                    self.must_redraw = True
+                else:
+                    self.notifymousepos(event.pos)
+            if event.type == MOUSEBUTTONDOWN:
                 dragging = event.pos
-                viewer.render(dpy)
-            else:
-                setmousepos(event.pos)
-        if event.type == MOUSEBUTTONDOWN:
-            dragging = event.pos
-            pygame.event.set_grab(True)
-        if event.type == MOUSEBUTTONUP:
-            dragging = None
-            pygame.event.set_grab(False)
-            setmousepos(event.pos)
-        if event.type == VIDEORESIZE:
-            dpy.resize(event.size)
-            viewer.render(dpy)
-        if event.type == QUIT:
-            break
-        pygame.display.flip()
+                pygame.event.set_grab(True)
+            if event.type == MOUSEBUTTONUP:
+                dragging = None
+                pygame.event.set_grab(False)
+                self.notifymousepos(event.pos)
+            if event.type == VIDEORESIZE:
+                # short-circuit if there are more resize events pending
+                if pygame.event.peek([VIDEORESIZE]):
+                    continue
+                self.resize(event.size)
+                self.must_redraw = True
+            if event.type == QUIT:
+                break
+        pygame.display.quit()
+
+
+if __name__ == '__main__':
+    from pypy.translator.translator import Translator
+    from pypy.translator.test import snippet
+    
+    t = Translator(snippet.poor_man_range)
+    t.simplify()
+    a = t.annotate([int])
+    a.simplify()
+    GraphDisplay(t).run()
