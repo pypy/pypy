@@ -406,6 +406,17 @@ class TestAnnonateTestCase:
         t = annmodel.SomeDict({}, annmodel.SomeInteger(), annmodel.SomeInteger())
         s = a.build_types(snippet.simple_iter, [t])
         assert isinstance(s, annmodel.SomeIterator)
+
+
+    def test_simple_zip(self):
+        a = RPythonAnnotator()
+        x = annmodel.SomeList({}, annmodel.SomeInteger())
+        y = annmodel.SomeList({}, annmodel.SomeString())
+        s = a.build_types(snippet.simple_zip, [x,y])
+        assert s.knowntype == list
+        assert s.s_item.knowntype == tuple
+        assert s.s_item.items[0].knowntype == int
+        assert s.s_item.items[1].knowntype == str
         
     def test_dict_copy(self):
         a = RPythonAnnotator()

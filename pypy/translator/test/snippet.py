@@ -654,6 +654,9 @@ def simple_slice(x):
 def simple_iter(x):
     return iter(x)
 
+def simple_zip(x,y):
+    return zip(x,y)
+
 def dict_copy(d):
     return d.copy()
 

@@ -147,6 +147,14 @@ def builtin_list(s_iterable):
     factory.generalize(s_iter.next())
     return factory.create()
 
+def builtin_zip(s_iterable1, s_iterable2):
+    factory = getbookkeeper().getfactory(ListFactory)
+    s_iter1 = s_iterable1.iter()
+    s_iter2 = s_iterable2.iter()
+    s_tup = SomeTuple((s_iter1.next(),s_iter2.next()))
+    factory.generalize(s_tup)
+    return factory.create()
+
 def builtin_apply(*stuff):
     print "XXX ignoring apply%r" % (stuff,)
     return SomeObject()
@@ -173,6 +181,9 @@ def builtin_slice(*args):
 
 def exception_init(s_self, *args):
     s_self.setattr(immutablevalue('args'), SomeTuple(args))
+
+def builtin_bool(s_obj):
+    return SomeBool()
 
 def count(s_obj):
     return SomeInteger()
