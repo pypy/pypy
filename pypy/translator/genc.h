@@ -173,26 +173,6 @@ static PyObject *this_module_globals;
 #define REGISTER_GLOBAL(name)  Py_INCREF(name); PyModule_AddObject(m, #name, name);
 
 
-/*** classes ***/
-
-/*#define SETUP_CLASS(t, name, base)				\
-	t = PyObject_CallFunction((PyObject*) &PyType_Type,	\
-				  "s(O){}", name, base)*/
-
-#define SETUP_CLASS_ATTR(t, attr, value)	\
-	(PyObject_SetAttrString(t, attr, value) >= 0)
-
-/*** instances ***/
-
-#define SETUP_INSTANCE_ATTR(t, attr, value)	\
-	(PyObject_SetAttrString(t, attr, value) >= 0)
-
-#define SETUP_INSTANCE(i, cls)						\
-	(PyType_Check(cls) ?						\
-		(i = PyType_GenericAlloc((PyTypeObject *)cls, 0)) :	\
-		(i = PyInstance_NewRaw(cls, NULL)))
-
-
 #if defined(USE_CALL_TRACE)
 
 #define TRACE_CALL       __f, __tstate,
@@ -293,7 +273,95 @@ static PyTypeObject PyGenCFunction_Type = {
 	PyModule_AddStringConstant(m, "__sourcefile__", __FILE__); \
 	this_module_globals = PyModule_GetDict(m); \
 	PyGenCFunction_Type.tp_base = &PyCFunction_Type;	\
-	PyType_Ready(&PyGenCFunction_Type);
+	PyType_Ready(&PyGenCFunction_Type);	\
+	if (setup_globalfunctions(globalfunctiondefs) < 0) \
+		return;	\
+	if (setup_initcode(frozen_initcode, sizeof(frozen_initcode)) < 0) \
+		return;	\
+	if (setup_globalobjects(globalobjectdefs) < 0) \
+		return;
+
+
+/*** table of global objects ***/
+
+typedef struct {
+	PyObject** p;
+	char* name;
+} globalobjectdef_t;
+
+typedef struct {
+	PyObject** p;
+	PyMethodDef ml;
+} globalfunctiondef_t;
+
+static int setup_globalobjects(globalobjectdef_t* def)
+{
+	PyObject* obj;
+	
+	for (; def->p != NULL; def++) {
+		obj = PyDict_GetItemString(this_module_globals, def->name);
+		if (obj == NULL) {
+			PyErr_Format(PyExc_AttributeError,
+				     "initialization code should have "
+				     "created '%s'", def->name);
+			return -1;
+		}
+		Py_INCREF(obj);
+		*def->p = obj;   /* store the object ref in the global var */
+	}
+	return 0;
+}
+
+static int setup_globalfunctions(globalfunctiondef_t* def)
+{
+	PyObject* fn;
+	PyObject* name;
+	int len;
+
+	for (; def->p != NULL; def++) {
+		fn = PyCFunction_New(&def->ml, NULL);
+		if (fn == NULL)
+			return -1;
+		fn->ob_type = &PyGenCFunction_Type;
+		*def->p = fn;   /* store the object ref in the global var */
+
+		len = 0;
+		while (def->ml.ml_name[len] != 0)
+			len++;
+		name = PyString_FromStringAndSize(NULL, 6+len);
+		if (name == NULL)
+			return -1;
+		memcpy(PyString_AS_STRING(name), "gfunc_", 6);
+		memcpy(PyString_AS_STRING(name)+6, def->ml.ml_name, len);
+		if (PyDict_SetItem(this_module_globals, name, fn) < 0)
+			return -1;
+		Py_DECREF(name);
+	}
+	return 0;
+}
+
+static int setup_initcode(unsigned char* frozendata, int len)
+{
+	PyObject* co;
+	PyObject* globals;
+	PyObject* res;
+	co = PyMarshal_ReadObjectFromString((char*) frozendata, len);
+	if (co == NULL)
+		return -1;
+	if (!PyCode_Check(co)) {
+		PyErr_SetString(PyExc_TypeError, "uh?");
+		return -1;
+	}
+	globals = this_module_globals;
+	if (PyDict_GetItemString(globals, "__builtins__") == NULL)
+		PyDict_SetItemString(globals, "__builtins__",
+				     PyEval_GetBuiltins());
+	res = PyEval_EvalCode((PyCodeObject *) co, globals, globals);
+	if (res == NULL)
+		return -1;
+	Py_DECREF(res);
+	return 0;
+}
 
 
 /*** operations with a variable number of arguments ***/
@@ -450,14 +518,6 @@ static PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
 	return PySequence_SetSlice(obj, start, stop, v);
 }
 #endif
-
-static PyObject* skipped(PyObject* self, PyObject* args)
-{
-	PyErr_Format(PyExc_AssertionError,
-		     "calling the skipped function '%s'",
-		     (((PyCFunctionObject *)self) -> m_ml -> ml_name));
-	return NULL;
-}
 
 static PyObject* CallWithShape(PyObject* callable, PyObject* shape, ...)
 {

@@ -3,7 +3,7 @@ Generate a C source file from the flowmodel.
 
 """
 from __future__ import generators
-import autopath, os, sys
+import autopath, os, sys, __builtin__, marshal
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import last_exception, last_exc_value
@@ -11,7 +11,7 @@ from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.translator.simplify import remove_direct_loops
 from pypy.interpreter.pycode import CO_VARARGS
 from pypy.annotation import model as annmodel
-from types import FunctionType, CodeType
+from types import FunctionType, CodeType, InstanceType
 
 from pypy.objspace.std.restricted_int import r_int, r_uint
 
@@ -30,19 +30,18 @@ def uniquemodulename(name, SEEN={}):
             SEEN[result] = True
             return result
 
-def go_figure_out_this_name(source):
-    # ahem
-    return 'PyRun_String("%s", Py_eval_input, PyEval_GetGlobals(), NULL)' % (
-        source, )
+#def go_figure_out_this_name(source):
+#    # ahem
+#    return 'PyRun_String("%s", Py_eval_input, PyEval_GetGlobals(), NULL)' % (
+#        source, )
 
 
 class GenC:
     MODNAMES = {}
 
-    def __init__(self, f, translator, modname=None, f2=None, f2name=None):
+    def __init__(self, f, translator, modname=None, f2=None):
         self.f = f
         self.f2 = f2
-        self.f2name = f2name
         self.translator = translator
         self.modname = (modname or
                         uniquemodulename(translator.functions[0].__name__))
@@ -51,7 +50,12 @@ class GenC:
                        Constant(True).key:  'Py_True',
                        }
         self.seennames = {}
-        self.initcode = []     # list of lines for the module's initxxx()
+        self.initcode = [      # list of lines for the module's initxxx()
+            'import new, types',
+            'Py_None  = None',
+            'Py_False = False',
+            'Py_True  = True',
+            ]
         self.latercode = []    # list of generators generating extra lines
                                #   for later in initxxx() -- for recursive
                                #   objects
@@ -101,11 +105,15 @@ class GenC:
         else:
             return self.uniquename('%s_%d' % (basename, n))
 
+    def initcode_python(self, name, pyexpr):
+        # generate init code that will evaluate the given Python expression
+        self.initcode.append("%s = %s" % (name, pyexpr))
+
     def nameof_object(self, value):
         if type(value) is not object:
             raise Exception, "nameof(%r)" % (value,)
         name = self.uniquename('g_object')
-        self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*)&PyBaseObject_Type, ""))'%name)
+        self.initcode_python(name, "object()")
         return name
 
     def nameof_module(self, value):
@@ -115,7 +123,7 @@ class GenC:
                     value.__file__.endswith('.pyo')), \
                "%r is not a builtin module (probably :)"%value
         name = self.uniquename('mod%s'%value.__name__)
-        self.initcode.append('INITCHK(%s = PyImport_ImportModule("%s"))'%(name, value.__name__))
+        self.initcode_python(name, "__import__(%r)" % (value.__name__,))
         return name
         
 
@@ -125,19 +133,16 @@ class GenC:
         else:
             name = 'gint_minus%d' % abs(value)
         name = self.uniquename(name)
-        self.initcode.append('INITCHK(%s = '
-                             'PyInt_FromLong(%d))' % (name, value))
+        self.initcode_python(name, repr(value))
         return name
 
     def nameof_long(self, value):
-        assert type(int(value)) is int, "your literal long is too long"
         if value >= 0:
             name = 'glong%d' % value
         else:
             name = 'glong_minus%d' % abs(value)
         name = self.uniquename(name)
-        self.initcode.append('INITCHK(%s = '
-                             'PyLong_FromLong(%d))' % (name, value))
+        self.initcode_python(name, repr(value))
         return name
 
     def nameof_float(self, value):
@@ -145,33 +150,28 @@ class GenC:
         name = (name.replace('-', 'minus')
                     .replace('.', 'dot'))
         name = self.uniquename(name)
-        self.initcode.append('INITCHK(%s = '
-                             'PyFloat_FromDouble(%r))' % (name, value))
+        self.initcode_python(name, repr(value))
         return name
 
     def nameof_str(self, value):
         name = self.uniquename('gstr_' + value[:32])
-        if [c for c in value if c<' ' or c>'~' or c=='"' or c=='\\']:
-            # non-printable string
-            s = 'chr_%s' % name
-            self.globaldecl.append('static char %s[] = { %s };' % (
-                s, ', '.join(['%d' % ord(c) for c in value])))
-        else:
-            # printable string
-            s = '"%s"' % value
-        self.initcode.append('INITCHK(%s = PyString_FromStringAndSize('
-                             '%s, %d))' % (name, s, len(value)))
+##        if [c for c in value if c<' ' or c>'~' or c=='"' or c=='\\']:
+##            # non-printable string
+##            s = 'chr_%s' % name
+##            self.globaldecl.append('static char %s[] = { %s };' % (
+##                s, ', '.join(['%d' % ord(c) for c in value])))
+##        else:
+##            # printable string
+##            s = '"%s"' % value
+        self.initcode_python(name, repr(value))
         return name
 
     def skipped_function(self, func):
         # debugging only!  Generates a placeholder for missing functions
         # that raises an exception when called.
         name = self.uniquename('gskippedfunc_' + func.__name__)
-        self.globaldecl.append('static PyMethodDef ml_%s = { "%s", &skipped, METH_VARARGS };' % (name, name))
-        self.initcode.append('INITCHK(%s = PyCFunction_New('
-                             '&ml_%s, NULL))' % (name, name))
-        self.initcode.append('\tPy_INCREF(%s);' % name)
-        self.initcode.append('\tPyCFunction_GET_SELF(%s) = %s;' % (name, name))
+        self.initcode.append('def %s(*a,**k):' % name)
+        self.initcode.append('  raise NotImplementedError')
         return name
 
     def nameof_function(self, func, progress=['-\x08', '\\\x08',
@@ -193,9 +193,6 @@ class GenC:
             sys.stderr.write(p)
             progress.append(p)
         name = self.uniquename('gfunc_' + func.__name__)
-        self.initcode.append('INITCHK(%s = PyCFunction_New('
-                             '&ml_%s, NULL))' % (name, name))
-        self.initcode.append('\t%s->ob_type = &PyGenCFunction_Type;' % name)
         self.pendingfunctions.append(func)
         return name
 
@@ -204,8 +201,7 @@ class GenC:
         func = sm.__get__(42.5)
         name = self.uniquename('gsm_' + func.__name__)
         functionname = self.nameof(func)
-        self.initcode.append('INITCHK(%s = PyCFunction_New('
-                             '&ml_%s, NULL))' % (name, functionname))
+        self.initcode_python(name, 'staticmethod(%s)' % functionname)
         return name
 
     def nameof_instancemethod(self, meth):
@@ -217,9 +213,8 @@ class GenC:
             func = self.nameof(meth.im_func)
             typ = self.nameof(meth.im_class)
             name = self.uniquename('gmeth_'+meth.im_func.__name__)
-            self.initcode.append(
-                'INITCHK(%s = gencfunc_descr_get(%s, %s, %s))'%(
-                name, func, ob, typ))
+            self.initcode_python(name, 'new.instancemethod(%s, %s, %s)' % (
+                func, ob, typ))
             return name
 
     def should_translate_attr(self, pbc, attr):
@@ -246,10 +241,11 @@ class GenC:
             content.sort()
             for key, value in content:
                 if self.should_translate_attr(instance, key):
-                    yield 'INITCHK(SETUP_INSTANCE_ATTR(%s, "%s", %s))' % (
-                        name, key, self.nameof(value))
-        self.initcode.append('INITCHK(SETUP_INSTANCE(%s, %s))' % (
-            name, cls))
+                    yield '%s.%s = %s' % (name, key, self.nameof(value))
+        self.initcode.append('if isinstance(%s, type):' % cls)
+        self.initcode.append('    %s = %s.__new__(%s)' % (name, cls, cls))
+        self.initcode.append('else:')
+        self.initcode.append('    %s = new.instance(%s)' % (name, cls))
         self.later(initinstance())
         return name
 
@@ -269,29 +265,27 @@ class GenC:
                 raise Exception, '%r not found in any built-in module' % (func,)
             name = self.uniquename('gbltin_' + func.__name__)
             if modname == '__builtin__':
-                self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
-                                     'PyEval_GetBuiltins(), "%s"))' % (
-                    name, func.__name__))
+                self.initcode_python(name, func.__name__)
             else:
-                self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
-                                     '%s, "%s"))' % (
-                    name, self.nameof(module), func.__name__))
+                modname = self.nameof(module)
+                self.initcode_python(name, '%s.%s' % (modname, func.__name__))
         else:
             # builtin (bound) method
             name = self.uniquename('gbltinmethod_' + func.__name__)
-            self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
-                                 '%s, "%s"))' % (
-                name, self.nameof(func.__self__), func.__name__))
+            selfname = self.nameof(func.__self__)
+            self.initcode_python(name, '%s.%s' % (selfname, func.__name__))
         return name
 
     def nameof_classobj(self, cls):
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r should never be reached" % (cls,)
 
-        metaclass = "&PyType_Type"
+        metaclass = "type"
         if issubclass(cls, Exception):
             if cls.__module__ == 'exceptions':
-                return 'PyExc_%s'%cls.__name__
+                name = self.uniquename('gexc_' + cls.__name__)
+                self.initcode_python(name, cls.__name__)
+                return name
             #else:
             #    # exceptions must be old-style classes (grr!)
             #    metaclass = "&PyClass_Type"
@@ -299,7 +293,7 @@ class GenC:
         # pypy source uses old-style classes, to avoid strange problems.
         if not isinstance(cls, type):
             assert type(cls) is type(Exception)
-            metaclass = "&PyClass_Type"
+            metaclass = "types.ClassType"
 
         name = self.uniquename('gcls_' + cls.__name__)
         basenames = [self.nameof(base) for base in cls.__bases__]
@@ -320,74 +314,57 @@ class GenC:
                     print value
                     continue
                     
-                yield 'INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
-                    name, key, self.nameof(value))
+                yield '%s.%s = %s' % (name, key, self.nameof(value))
 
         baseargs = ", ".join(basenames)
         if baseargs:
-            baseargs = ', '+baseargs
-        self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*) %s,'
-                             %(name, metaclass))
-        self.initcode.append('\t\t"s(%s){}", "%s"%s))'
-                             %("O"*len(basenames), cls.__name__, baseargs))
-        
+            baseargs = '(%s)' % baseargs
+        self.initcode.append('class %s%s:' % (name, baseargs))
+        self.initcode.append('  __metaclass__ = %s' % metaclass)
         self.later(initclassobj())
         return name
 
     nameof_class = nameof_classobj   # for Python 2.2
 
     typename_mapping = {
-        object: '&PyBaseObject_Type',
-        int:    '&PyInt_Type',
-        long:   '&PyLong_Type',
-        bool:   '&PyBool_Type',
-        list:   '&PyList_Type',
-        tuple:  '&PyTuple_Type',
-        dict:   '&PyDict_Type',
-        str:    '&PyString_Type',
-        float:  '&PyFloat_Type',
-        type(Exception()): '&PyInstance_Type',
-        type:   '&PyType_Type',
-        complex:'&PyComplex_Type',
-        unicode:'&PyUnicode_Type',
-        file:   '&PyFile_Type',
-        type(None): 'Py_None->ob_type',
-        CodeType: '&PyCode_Type',
-        slice:  '&PySlice_Type',
+        InstanceType: 'types.InstanceType',
+        type(None):   'type(None)',
+        CodeType:     'types.CodeType',
 
-        r_int:  '&PyInt_Type',
-        r_uint: '&PyInt_Type',
+        r_int:        'int',   # XXX
+        r_uint:       'int',   # XXX
 
-        # XXX we leak 5 references here, but that's the least of the
-        #     problems with this section of code
+        # XXX more hacks
         # type 'builtin_function_or_method':
-        type(len): go_figure_out_this_name('type(len)'),
+        type(len): 'type(len)',
         # type 'method_descriptor':
-        type(list.append): go_figure_out_this_name('type(list.append)'),
+        type(list.append): 'type(list.append)',
         # type 'wrapper_descriptor':
-        type(type(None).__repr__): go_figure_out_this_name(
-            'type(type(None).__repr__)'),
+        type(type(None).__repr__): 'type(type(None).__repr__)',
         # type 'getset_descriptor':
-        type(type.__dict__['__dict__']): go_figure_out_this_name(
-            "type(type.__dict__['__dict__'])"),
+        type(type.__dict__['__dict__']): "type(type.__dict__['__dict__'])",
         # type 'member_descriptor':
-        type(type.__dict__['__basicsize__']): go_figure_out_this_name(
-            "type(type.__dict__['__basicsize__'])"),
+        type(type.__dict__['__basicsize__']): "type(type.__dict__['__basicsize__'])",
         }
 
     def nameof_type(self, cls):
-        if cls in self.typename_mapping:
-            return '(PyObject*) %s' % self.typename_mapping[cls]
-        assert cls.__module__ != '__builtin__', \
-            "built-in class %r not found in typename_mapping" % (cls,)
-        return self.nameof_classobj(cls)
+        if cls.__module__ != '__builtin__':
+            return self.nameof_classobj(cls)   # user-defined type
+        name = self.uniquename('gtype_%s' % cls.__name__)
+        if getattr(__builtin__, cls.__name__, None) is cls:
+            expr = cls.__name__    # type available from __builtin__
+        else:
+            expr = self.typename_mapping[cls]
+        self.initcode_python(name, expr)
+        return name
 
     def nameof_tuple(self, tup):
         name = self.uniquename('g%dtuple' % len(tup))
         args = [self.nameof(x) for x in tup]
-        args.insert(0, '%d' % len(tup))
         args = ', '.join(args)
-        self.initcode.append('INITCHK(%s = PyTuple_Pack(%s))' % (name, args))
+        if args:
+            args += ','
+        self.initcode_python(name, '(%s)' % args)
         return name
 
     def nameof_list(self, lis):
@@ -395,9 +372,8 @@ class GenC:
         def initlist():
             for i in range(len(lis)):
                 item = self.nameof(lis[i])
-                yield '\tPy_INCREF(%s);' % item
-                yield '\tPyList_SET_ITEM(%s, %d, %s);' % (name, i, item)
-        self.initcode.append('INITCHK(%s = PyList_New(%d))' % (name, len(lis)))
+                yield '%s.append(%s)' % (name, item)
+        self.initcode_python(name, '[]')
         self.later(initlist())
         return name
 
@@ -409,14 +385,11 @@ class GenC:
         def initdict():
             for k in dic:
                 if type(k) is str:
-                    yield ('\tINITCHK(PyDict_SetItemString'
-                           '(%s, "%s", %s) >= 0)'%(
-                               name, k, self.nameof(dic[k])))
+                    yield '%s[%r] = %s' % (name, k, self.nameof(dic[k]))
                 else:
-                    yield ('\tINITCHK(PyDict_SetItem'
-                           '(%s, %s, %s) >= 0)'%(
-                               name, self.nameof(k), self.nameof(dic[k])))
-        self.initcode.append('INITCHK(%s = PyDict_New())' % (name,))
+                    yield '%s[%s] = %s' % (name, self.nameof(k),
+                                           self.nameof(dic[k]))
+        self.initcode_python(name, '{}')
         self.later(initdict())
         return name
 
@@ -426,11 +399,7 @@ class GenC:
         name = self.uniquename('gdescriptor_%s_%s' % (
             md.__objclass__.__name__, md.__name__))
         cls = self.nameof(md.__objclass__)
-        self.initcode.append('INITCHK(PyType_Ready((PyTypeObject*) %s) >= 0)' %
-                             cls)
-        self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
-                             '((PyTypeObject*) %s)->tp_dict, "%s"))' %
-                                (name, cls, md.__name__))
+        self.initcode_python(name, '%s.__dict__[%r]' % (cls, md.__name__))
         return name
     nameof_getset_descriptor  = nameof_member_descriptor
     nameof_method_descriptor  = nameof_member_descriptor
@@ -468,13 +437,31 @@ class GenC:
                 self.debugstack = ()
             self.gen_global_declarations()
 
-        # footer
-        print >> f, self.C_INIT_HEADER % info
-        if self.f2name is not None:
-            print >> f, '#include "%s"' % self.f2name
-        for codeline in self.initcode:
-            print >> f, '\t' + codeline
-        print >> f, self.C_INIT_FOOTER % info
+        # after all the functions: global object table
+        print >> f, self.C_OBJECT_TABLE
+        for name in self.globalobjects:
+            if not name.startswith('gfunc_'):
+                print >> f, '\t{&%s, "%s"},' % (name, name)
+        print >> f, self.C_TABLE_END
+
+        # global function table
+        print >> f, self.C_FUNCTION_TABLE
+        for name in self.globalobjects:
+            if name.startswith('gfunc_'):
+                print >> f, ('\t{&%s, {"%s", (PyCFunction)f_%s, '
+                             'METH_VARARGS|METH_KEYWORDS}},' % (
+                    name, name[6:], name[6:]))
+        print >> f, self.C_TABLE_END
+
+        # frozen init bytecode
+        print >> f, self.C_FROZEN_BEGIN
+        bytecode = self.getfrozenbytecode()
+        for i in range(0, len(bytecode), 20):
+            print >> f, ''.join(['%d,' % ord(c) for c in bytecode[i:i+20]])
+        print >> f, self.C_FROZEN_END
+
+        # the footer proper: the module init function */
+        print >> f, self.C_FOOTER % info
 
     def gen_global_declarations(self):
         g = self.globaldecl
@@ -485,14 +472,21 @@ class GenC:
                 print >> f, line
             print >> f
             del g[:]
-        g = self.globalobjects
-        for name in g:
-            self.initcode.append('REGISTER_GLOBAL(%s)' % (name,))
-        del g[:]
         if self.f2 is not None:
             for line in self.initcode:
                 print >> self.f2, line
             del self.initcode[:]
+
+    def getfrozenbytecode(self):
+        if self.f2 is not None:
+            self.f2.seek(0)
+            self.initcode.insert(0, self.f2.read())
+        self.initcode.append('')
+        source = '\n'.join(self.initcode)
+        del self.initcode[:]
+        co = compile(source, self.modname, 'exec')
+        del source
+        return marshal.dumps(co)
 
     def gen_cfunction(self, func):
 ##         print 'gen_cfunction (%s:%d) %s' % (
@@ -637,12 +631,6 @@ class GenC:
                 fmt = '%s\n'
             f.write(fmt % line)
         print >> f, '}'
-
-        # print the PyMethodDef
-        print >> f, ('static PyMethodDef ml_%s = {\n'
-            '    "%s", (PyCFunction)%s, METH_VARARGS|METH_KEYWORDS };' % (
-            cname, func.__name__, f_name))
-        print >> f
 
         if not self.translator.frozen:
             # this is only to keep the RAM consumption under control
@@ -791,14 +779,28 @@ class GenC:
 
     C_SEP = "/************************************************************/"
 
-    C_INIT_HEADER = C_SEP + '''
+    C_OBJECT_TABLE = C_SEP + '''
+
+/* Table of global objects */
+static globalobjectdef_t globalobjectdefs[] = {'''
+
+    C_FUNCTION_TABLE = '''
+/* Table of functions */
+static globalfunctiondef_t globalfunctiondefs[] = {'''
+
+    C_TABLE_END = '\t{ NULL }\t/* Sentinel */\n};'
+
+    C_FROZEN_BEGIN = '''
+/* Frozen Python bytecode: the initialization code */
+static unsigned char frozen_initcode[] = {'''
+
+    C_FROZEN_END = '''};\n'''
+
+    C_FOOTER = C_SEP + '''
 
 MODULE_INITFUNC(%(modname)s)
 {
 \tSETUP_MODULE(%(modname)s)
-'''
-
-    C_INIT_FOOTER = '''
 \tPyModule_AddObject(m, "%(entrypointname)s", %(entrypoint)s);
 }'''
 

@@ -228,8 +228,8 @@ class Translator:
         name = uniquemodulename(self.entrypoint.func_name)
         cfile = udir.join('%s.c' % name)
         f = cfile.open('w')
-        f2 = udir.join('%s-init.h' % name).open('w')
-        GenC(f, self, name, f2=f2, f2name='%s-init.h' % name)
+        f2 = udir.join('%s-init.py' % name).open('w+')
+        GenC(f, self, name, f2=f2)
         f2.close()
         f.close()
         if not really_compile:
