@@ -9,6 +9,9 @@ making it run fast.
 # ______________________________________________________________________
 # Module imports
 
+from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
+
 import token, compiler
 import PyTokenizer, PyGrammar, DFAParser
 
@@ -30,7 +33,7 @@ class ParserError (Exception):
 
 # ______________________________________________________________________
 
-class STType (object):
+class STType (Wrappable):
     """Class STType
     """
     # ____________________________________________________________
@@ -88,6 +91,9 @@ class STType (object):
         else:
             gen = compiler.pycodegen.ModuleCodeGenerator(compileAST)
         return gen.getCode()
+
+STType.typedef = TypeDef("parser.st", 
+) 
 
 # ______________________________________________________________________
 
@@ -255,21 +261,25 @@ def compileast (st, file_name):
     return st.compile(file_name)
 
 # ______________________________________________________________________
-def expr (source):
+def expr (space, source):
     """expr
     Tries to mock the expr() function in the Python parser module, but returns
     one of those silly tuple/list encoded trees.
     """
-    return _doParse(source, eval_input)
+    st = _doParse(source, eval_input)
+    return space.wrap(st) 
+expr.unwrap_spec = [ObjSpace, str]
 
 # ______________________________________________________________________
 
-def suite (source):
+def suite (space, source):
     """suite
     Tries to mock the suite() function in the Python parser module, but returns
     one of those silly tuple/list encoded trees.
     """
-    return _doParse(source, file_input)
+    st = _doParse(source, file_input)
+    return space.wrap(st) 
+suite.unwrap_spec = [ObjSpace, str]
 
 # ______________________________________________________________________
 

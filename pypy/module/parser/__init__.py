@@ -7,21 +7,23 @@ class Module(LazyModule):
     """ 
     appleveldefs = {
         'ParserError'  : 'classes.ParserError', 
-        'STType'       : 'classes.STType', 
-        'ASTType'      : 'classes.STType', 
     }
         
     interpleveldefs = {
         '__name__'     : '(space.wrap("parser"))', 
         '__doc__'      : '(space.wrap("parser module"))', 
 
+        'suite'        : 'pyparser.suite',
+        'STType'       : 'pyparser.STType', 
+        'ASTType'      : 'pyparser.STType', 
+        'eval_input'   : 'pyparser.eval_input', 
+        'file_input'   : 'pyparser.file_input', 
         'compileast'   : 'pyparser.compileast',
         'st2tuple'     : 'pyparser.st2tuple',
         'st2list'      : 'pyparser.st2list',
         'issuite'      : 'pyparser.issuite',
         'ast2tuple'    : 'pyparser.ast2tuple',
         'tuple2st'     : 'pyparser.tuple2st',
-        'suite'        : 'pyparser.suite',
         'isexpr'       : 'pyparser.isexpr',
         'expr'         : 'pyparser.expr',
         'ast2list'     : 'pyparser.ast2list',
