@@ -98,7 +98,7 @@ class TestTypeObject(testit.AppTestCase):
         else:
             raise AssertionError, "this multiple inheritance should fail"
 
-    def test_metaclass(self):
+    def test_outer_metaclass(self):
         class OuterMetaClass(type):
             pass
 
@@ -108,12 +108,14 @@ class TestTypeObject(testit.AppTestCase):
         self.assertEquals(type(HasOuterMetaclass), OuterMetaClass)
         self.assertEquals(type(HasOuterMetaclass), HasOuterMetaclass.__metaclass__)
 
+    def test_inner_metaclass(self):
         class HasInnerMetaclass(object):
             class __metaclass__(type):
                 pass
 
         self.assertEquals(type(HasInnerMetaclass), HasInnerMetaclass.__metaclass__)
 
+    def test_implicit_metaclass(self):
         class __metaclass__(type):
             pass
 
