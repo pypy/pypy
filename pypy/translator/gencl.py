@@ -31,11 +31,13 @@ class Op:
         print "; Op", self.opname, "is missing"
     binary_ops = {
         "add": "+",
+        "sub": "-",
         "inplace_add": "+", # weird, but it works
         "mod": "mod",
         "lt": "<",
         "le": "<=",
         "eq": "=",
+        "gt": ">",
         "getitem": "elt",
     }
     def op_binary(self, op):

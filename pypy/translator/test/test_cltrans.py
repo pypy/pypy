@@ -75,5 +75,11 @@ class GenCLTestCase(test.IntTestCase):
         cl_sieve = make_cl_func(t.sieve_of_eratosthenes)
         self.assertEquals(cl_sieve(), 1028)
 
+    def test_easy(self):
+        f1 = make_cl_func(t.simple_func)
+        self.assertEquals(f1(1), 2)
+        f2 = make_cl_func(t.while_func)
+        self.assertEquals(f2(10), 55)
+
 if __name__ == '__main__':
     test.main()

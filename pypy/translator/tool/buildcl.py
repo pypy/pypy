@@ -21,10 +21,7 @@ def _make_cl_func(func, cl, path):
     gen = GenCL(fun)
     out = gen.emitcode()
     i = 1
-    fpath = path.join("test%d.lisp" % i)
-    while fpath.exists():
-        fpath = path.join("test%d.lisp" % i)
-        i += 1
+    fpath = path.join("%s.lisp" % fun.name)
     def _(*args):
         fpath.write(out)
         fp = file(str(fpath), "a")
