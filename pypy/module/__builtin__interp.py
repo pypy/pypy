@@ -131,7 +131,9 @@ def absolute_import(modulename, baselevel, w_fromlist, tentative):
     w_mod = None
     parts = modulename.split('.')
     prefix = []
-    w_path = space.sys.w_path
+    # it would be nice if we could do here: w_path = space.sys.w_path
+    # instead:
+    w_path = space.getitem(space.sys.w_dict, space.wrap('path'))
 
     first = None
     level = 0
