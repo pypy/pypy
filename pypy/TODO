@@ -32,8 +32,7 @@ StdObjSpace
 * find a way via hacking or elegance to run CPython's unit tests
   against the StdObjSpace.
 
-* String formatting still needs work.  Mostly done, but surely missing
-  pieces around the edges & it's agonizingly slow.
+* String formatting is agonizingly slow.
 
 * Provide an importer that can import packages. (we have a 
   limited __import__ builtin defined)  <---- done now?
@@ -68,11 +67,17 @@ Translator
 Tools
 =====
 
-* add web server thread (!) that allows inspection of e.g. app-level
-  tracebacks (and stop clogging the user's terminal with them).
-  --> there is some preliminary working code in tool/tb_server 
+* add web server thread (!) that allows inspection of e.g.
+  interpreter-level tracebacks (and stop clogging the user's terminal
+  with them).  --> there is some preliminary working code in
+  tool/tb_server
+
+* Interpreter level tracebacks are spectacular in their uselessness,
+  especially since the advent of descroperation.  It should be
+  possible to construct something like an app-level traceback even
+  when there's no OperationError.
 
 * improve traceobjectspace! currently it only catches 
   calls from outside the space into the space but not
   the ones where space operations involve calling more space 
-  operations (the latter are not traced)! 
+  operations (the latter are not traced)!  (fixed?)
