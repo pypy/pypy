@@ -28,7 +28,7 @@ class Function(Wrappable):
     def __repr__(self):
         # return "function %s.%s" % (self.space, self.name)
         # maybe we want this shorter:
-        return "func %s" % self.name
+        return "<Function %s>" % self.name
 
     def call_args(self, args):
         scope_w = args.parse(self.name, self.code.signature(), self.defs_w)
