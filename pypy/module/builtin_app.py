@@ -30,7 +30,7 @@ def map(function, *collections):
           else:
               return res
           idx = idx + 1
-          print idx
+          #print idx
 
 def filter(function, collection):
     res = []
