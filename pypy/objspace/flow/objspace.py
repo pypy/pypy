@@ -13,6 +13,12 @@ class UnwrapException(Exception):
 
 # ______________________________________________________________________
 class FlowObjSpace(ObjSpace):
+    """NOT_RPYTHON.
+    The flow objspace space is used to produce a flow graph by recording
+    the space operations that the interpreter generates when it interprets
+    (the bytecode of) some function.
+    """
+    
     full_exceptions = False
     
     def initialize(self):

@@ -32,12 +32,13 @@ class ObjSpace(object):
     full_exceptions = True  # full support for exceptions (normalization & more)
 
     def __init__(self):
-        "Basic initialization of objects."
+        "NOT_RPYTHON: Basic initialization of objects."
         self._gatewaycache = Cache()
         # sets all the internal descriptors
         self.initialize()
 
     def make_builtins(self, for_builtins):
+        "NOT_RPYTHON: only for initializing the space."
         # initializing builtins may require creating a frame which in
         # turn already accesses space.w_builtins, provide a dummy one ...
         self.w_builtins = self.newdict([])
@@ -68,6 +69,7 @@ class ObjSpace(object):
         self.sys.setbuiltinmodule(self.w_builtin, '__builtin__')
 
     def make_sys(self):
+        "NOT_RPYTHON: only for initializing the space."
         from pypy.interpreter.extmodule import BuiltinModule
         assert not hasattr(self, 'sys')
         self.sys = BuiltinModule(self, 'sys')
@@ -87,8 +89,8 @@ class ObjSpace(object):
         return w_module
 
     def initialize(self):
-        """Abstract method that should put some minimal content into the
-        w_builtins."""
+        """NOT_RPYTHON: Abstract method that should put some minimal
+        content into the w_builtins."""
 
     def loadfromcache(self, key, builder, cache):
         return cache.getorbuild(key, builder, self) 

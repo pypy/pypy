@@ -48,6 +48,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     PACKAGE_PATH = 'objspace.std'
 
     def standard_types(self):
+        "NOT_RPYTHON: only for initializing the space."
         class result:
             "Import here the types you want to have appear in __builtin__."
 
@@ -68,6 +69,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                       if not key.startswith('_')]   # don't look
 
     def clone_exception_hierarchy(self):
+        "NOT_RPYTHON: only for initializing the space."
         from pypy.objspace.std.typeobject import W_TypeObject
         from pypy.interpreter import gateway
         w = self.wrap
@@ -136,6 +138,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return done
                             
     def initialize(self):
+        "NOT_RPYTHON: only for initializing the space."
         self._typecache = Cache()
 
         # The object implementations that we want to 'link' into PyPy must be
