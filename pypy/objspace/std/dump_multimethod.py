@@ -4,8 +4,6 @@ import sys
 from pypy.objspace.std import StdObjSpace
 from pypy.objspace.std.multimethod import *
 
-# TODO: local multimethods
-
 IMPLEMENTATIONS = [
     "pypy.objspace.std.objectobject.W_ObjectObject",
     "pypy.objspace.std.boolobject.W_BoolObject",
@@ -145,9 +143,9 @@ if __name__ == '__main__':
         if (not restrict and name != 'delegate') or name in restrict:
             print
             print '==========', name, '=========='
-            print >> sys.stderr, name   # progress bar
+            print >> sys.stderr, '[%d] %s' % (mm.dispatch_arity, name)
             print
-            dump_table(mm, impls)
+            #dump_table(mm, impls)
             total += 1
     if not total:
         print >> sys.stderr, "no matching multimethod name"
