@@ -10,20 +10,37 @@ def map(function, list):
     "docstring"
     return [function(x) for x in list]
 
-def filter(function, list):
+def filter(function, collection):
     res = []
     if function is None:
-       for elem in list:
+       for elem in collection:
            if elem:
               res.append(elem)
     else:
-       for elem in list:
+       for elem in collection:
            if function(elem):
               res.append(elem)
-    
+    if type(collection) == tuple:
+       return tuple(res)
+    elif type(collection) == str:
+       return "".join(res)
+    else:
+       return res
 
-def zip(function, list):
-    pass
+def zip(*collections):
+    if len(collections) == 0:
+       raise TypeError, "zip() requires at least one sequence"
+    res = []
+    while 1:
+       try:
+          elems = []
+          for collection in collections:
+             elems.append(collection.pop(0))
+          res.append(tuple(elems))
+       except IndexError:
+          break
+    return res
+
 
 def reduce(function, list, initial = None):
     if initial is None:
