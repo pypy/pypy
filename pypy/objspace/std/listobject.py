@@ -451,6 +451,12 @@ def list_reverse__List(space, w_list):
 
 # Python Quicksort Written by Magnus Lie Hetland
 # http://www.hetland.org/python/quicksort.html
+
+# NOTE:  we cannot yet detect that a user comparision
+#        function modifies the list in-place.  The
+#        CPython sort() should be studied to learn how
+#        to implement this functionality.
+
 def _partition(list, start, end, lt):
     pivot = list[end]                          # Partition around the last value
     bottom = start-1                           # Start outside the area to be partitioned
@@ -497,7 +503,11 @@ def list_sort__List_ANY(space, w_list, w_cmp):
             return space.is_true(space.lt(a,b))
     else:
         def lt(a,b):
-            return space.unwrap(space.call_function(w_cmp, a, b)) < 0
+            result = space.unwrap(space.call_function(w_cmp, a, b))
+            if not isinstance(result,int):
+                raise OperationError(space.w_TypeError,
+                         space.wrap("comparison function must return int"))
+            return result < 0
 
     # XXX Basic quicksort implementation
     # XXX this is not stable !!
