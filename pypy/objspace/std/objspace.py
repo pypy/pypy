@@ -312,14 +312,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # special visible multimethods
         delegate = DelegateMultiMethod()          # delegators
         unwrap  = MultiMethod('unwrap', 1, [])    # returns an unwrapped object
-        is_true = MultiMethod('nonzero', 1, [])   # returns an unwrapped bool
         issubtype = MultiMethod('issubtype', 2, [])
         id = MultiMethod('id', 1, [])
         init = MultiMethod('__init__', 1, varargs=True, keywords=True)
 
     unwrap = MM.unwrap
     delegate = MM.delegate
-    is_true = MM.is_true
+    #is_true = MM.is_true
 
     def is_(self, w_one, w_two):
         # XXX a bit of hacking to gain more speed 
@@ -334,6 +333,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 return self.newbool(self.unwrap(w_one) is self.unwrap(w_two))
         return self.newbool(0)
 
+    def is_true(self, w_obj):
+        # XXX don't look!
+        from dictobject import W_DictObject
+        if isinstance(w_obj, W_DictObject):
+            return not not w_obj.non_empties()
+        else:
+            return DescrOperation.is_true(self, w_obj)
+        
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     if not hasattr(StdObjSpace.MM, _name):

@@ -96,11 +96,6 @@ def slicemultimethods(spaceclass, typeclass):
     # import all multimethods defined directly on the type without slicing
     for multimethod in typeclass.local_multimethods:
         slicemultimethod(multimethod, None, result)
-    # add some more multimethods with a special interface
-    code = MultimethodCode(spaceclass.MM.next, MmFrame, typeclass)
-    result['next'] = code
-    code = MultimethodCode(spaceclass.is_true, NonZeroMmFrame, typeclass)
-    result['__nonzero__'] = code
     # remove the empty slices
     for name, code in result.items():
         if code.slice().is_empty():
@@ -168,21 +163,3 @@ class SpecialMmFrame(eval.Frame):
             else:
                 return self.space.w_NotImplemented
 
-##class NextMmFrame(eval.Frame):
-##    def run(self):
-##        "Call the next() multimethod."
-##        mm = self.code.slice().get(self.space)
-##        args = self.fastlocals_w
-##        try:
-##            return mm(*args)
-##        except NoValue:
-##            raise OperationError(self.space.w_StopIteration,
-##                                 self.space.w_None)
-
-class NonZeroMmFrame(eval.Frame):
-    def run(self):
-        "Call the is_true() multimethods."
-        mm = self.code.slice().get(self.space)
-        args = self.fastlocals_w
-        result = mm(*args)
-        return self.space.newbool(result)

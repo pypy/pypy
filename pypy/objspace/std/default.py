@@ -11,11 +11,6 @@ def id__ANY(space, w_obj):
     import intobject
     return intobject.W_IntObject(space, id(w_obj))
 
-# this 'not' implementation should be fine for most cases
-
-def not__ANY(space, w_obj):
-    return space.newbool(not space.is_true(w_obj))
-
 # __init__ should succeed if called internally as a multimethod
 
 def init__ANY(space, w_obj, w_args, w_kwds):

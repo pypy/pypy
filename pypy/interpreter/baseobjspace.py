@@ -93,6 +93,9 @@ class ObjSpace:
         w_id_y = self.id(w_y)
         return self.eq(w_id_x, w_id_y)
 
+    def not_(self, w_obj):
+        return self.wrap(not self.is_true(w_obj))
+
     def unwrapdefault(self, w_value, default):
         if w_value is None or w_value == self.w_None:
             return default
@@ -195,7 +198,7 @@ ObjSpace.MethodTable = [
     ('delitem',         'delitem',   2, ['__delitem__']),
     ('pos',             'pos',       1, ['__pos__']),
     ('neg',             'neg',       1, ['__neg__']),
-    ('not_',            'not',       1, []),
+    ('nonzero',         'truth',     1, ['__nonzero__']),
     ('abs' ,            'abs',       1, ['__abs__']),
     ('hex',             'hex',       1, ['__hex__']),
     ('oct',             'oct',       1, ['__oct__']),
@@ -239,6 +242,7 @@ ObjSpace.MethodTable = [
     ('ge',              '>=',        2, ['__ge__', '__le__']),
     ('contains',        'contains',  2, ['__contains__']),
     ('iter',            'iter',      1, ['__iter__']),
+    ('next',            'next',      1, ['next']),
     ('call',            'call',      3, ['__call__']),
     ('get',             'get',       3, ['__get__']),
     ('set',             'set',       3, ['__set__']),
@@ -303,5 +307,4 @@ ObjSpace.ExceptionTable = [
 #      newstring([w_1, w_2,...]) -> w_string from ascii numbers (bytes)
 # newdict([(w_key,w_value),...]) -> w_dict
 #newslice(w_start,w_stop,w_step) -> w_slice (any argument may be a real None)
-#                   next(w_iter) -> w_value or raise StopIteration
 #

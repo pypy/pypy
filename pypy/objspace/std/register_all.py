@@ -2,7 +2,6 @@
 _name_mappings = {
     'and': 'and_',
     'or': 'or_',
-    'not': 'not_',
     }
     
 def register_all(module_dict, alt_ns=None):

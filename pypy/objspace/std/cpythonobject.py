@@ -137,7 +137,6 @@ MethodImplementation = {
 #    'delitem':            see below,
     'pos':                operator.pos,
     'neg':                operator.neg,
-    'not_':               operator.not_,
     'abs':                operator.abs,
     'hex':                hex,
     'oct':                oct,
@@ -239,10 +238,10 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
                 return space.wrap(y)
             multimethod.register(cpython_f_rev, W_ANY, W_CPythonObject)
 
-def is_true__CPython(space, w_obj):
+def nonzero__CPython(space, w_obj):
     obj = space.unwrap(w_obj)
     try:
-        return operator.truth(obj)
+        return space.newbool(operator.truth(obj))
     except:
         wrap_exception(space)
 

@@ -125,11 +125,11 @@ def delitem__Dict_ANY(space, w_dict, w_lookup):
             return
     raise OperationError(space.w_KeyError, w_lookup)
 
-def is_true__Dict(space, w_dict):
+def nonzero__Dict(space, w_dict):
     # this must be implemented in addition to len() for dictionaries
     # for infinite recursion reasons (is_true -> len -> call to len ->
     # checking for keywords -> is_true etc.)
-    return not not w_dict.non_empties()
+    return space.newbool(not not w_dict.non_empties())
 
 def len__Dict(space, w_dict):
     return space.wrap(len(w_dict.non_empties()))

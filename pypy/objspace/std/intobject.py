@@ -289,9 +289,8 @@ def abs__Int(space, w_int1):
     else:
         return neg__Int(space, w_int1)
 
-def is_true__Int(space, w_int1):
-    ''' note: this must return an UNWRAPPED bool!!! '''
-    return w_int1.intval != 0
+def nonzero__Int(space, w_int1):
+    return space.newbool(w_int1.intval != 0)
 
 def invert__Int(space, w_int1):
     x = w_int1.intval

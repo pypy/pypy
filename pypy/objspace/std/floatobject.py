@@ -239,8 +239,8 @@ def pos__Float(space, w_float):
 def abs__Float(space, w_float):
     return W_FloatObject(space, abs(w_float.floatval))
 
-def is_true__Float(space, w_float):
-    return w_float.floatval != 0.0
+def nonzero__Float(space, w_float):
+    return space.newbool(w_float.floatval != 0.0)
 
 ######## coersion must be done later
 later = """

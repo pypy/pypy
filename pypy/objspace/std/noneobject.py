@@ -13,8 +13,8 @@ registerimplementation(W_NoneObject)
 def unwrap__None(space, w_none):
     return None
 
-def is_true__None(space, w_none):
-    return False
+def nonzero__None(space, w_none):
+    return space.w_False
 
 def repr__None(space, w_none):
     return space.wrap('None')
