@@ -120,14 +120,14 @@ class Gateway(object):
     # explicitely as the first argument (for plain function), or is read
     # from 'self.space' for methods.
 
-    def __init__(self, name, code, staticglobals=None, staticdefs=[], 
-                 wrapdefaults=0):
-        self.name = name
-        self.code = code
-        self.staticglobals = staticglobals
-        self.staticdefs = staticdefs
+    def __init__(self): 
         self.functioncache = WeakKeyDictionary()  # map {space: Function}
-        self.wrapdefaults = wrapdefaults
+
+        # after initialization the following attributes should be set
+        #   name
+        #   code 
+        #   staticglobals 
+        #   staticdefs 
 
     def __wrap__(self, space):
         # to wrap a Gateway, we first make a real Function object out of it
@@ -186,50 +186,52 @@ class Gateway(object):
         if space in self.functioncache:
             fn = self.functioncache[space]
         else:
-            defs_w = self.staticdefs 
-            if self.wrapdefaults:
-                defs_w = [space.wrap(val) for val in defs_w]
-            fn = Function(space, self.code, w_globals, defs_w)
+            defs = self.getdefaults(space)  # needs to be implemented by subclass
+            fn = Function(space, self.code, w_globals, defs, forcename = self.name)
             self.functioncache[space] = fn
         return fn
 
 
-def app2interp(app, app_name=None):
+class app2interp(Gateway):
     """Build a Gateway that calls 'app' at app-level."""
-    # app must be a function whose name starts with 'app_'.
-    if not isinstance(app, types.FunctionType):
-        if isinstance(app, Gateway):
-            return app
-        raise TypeError, "function expected, got %r instead" % app
-    if app_name is None:
-        if not app.func_name.startswith('app_'):
-            raise ValueError, ("function name must start with 'app_'; "
-                               "%r does not" % app.func_name)
-        app_name = app.func_name[4:]
-    code = pycode.PyCode(None)
-    code._from_code(app.func_code)
-    staticglobals = app.func_globals
-    staticdefs = list(app.func_defaults or ())
-    return Gateway(app_name, code, staticglobals, 
-                   staticdefs, wrapdefaults=1)
+    def __init__(self, app, app_name=None):
+        Gateway.__init__(self)
+        # app must be a function whose name starts with 'app_'.
+        if not isinstance(app, types.FunctionType):
+            raise TypeError, "function expected, got %r instead" % app
+        if app_name is None:
+            if not app.func_name.startswith('app_'):
+                raise ValueError, ("function name must start with 'app_'; "
+                                   "%r does not" % app.func_name)
+            app_name = app.func_name[4:]
+        self.name = app_name
+        self.code = pycode.PyCode(None)
+        self.code._from_code(app.func_code)
+        self.staticglobals = app.func_globals
+        self.staticdefs = list(app.func_defaults or ())
 
-def interp2app(f, app_name=None):
+    def getdefaults(self, space):
+        return [space.wrap(val) for val in self.staticdefs]
+
+class interp2app(Gateway):
     """Build a Gateway that calls 'f' at interp-level."""
-    # f must be a function whose name does NOT starts with 'app_'
-    if not isinstance(f, types.FunctionType):
-        if isinstance(f, Gateway):
-            return f
-        raise TypeError, "function expected, got %r instead" % f
-    if app_name is None:
-        if f.func_name.startswith('app_'):
-            raise ValueError, ("function name %r suspiciously starts "
-                               "with 'app_'" % f.func_name)
-        app_name = f.func_name
-    builtincode = BuiltinCode(f)
-    staticdefs = list(f.func_defaults or ())
-    return Gateway(app_name, builtincode, None, 
-                   staticdefs, wrapdefaults=0)
+    def __init__(self, f, app_name=None):
+        Gateway.__init__(self)
+        # f must be a function whose name does NOT starts with 'app_'
+        if not isinstance(f, types.FunctionType):
+            raise TypeError, "function expected, got %r instead" % f
+        if app_name is None:
+            if f.func_name.startswith('app_'):
+                raise ValueError, ("function name %r suspiciously starts "
+                                   "with 'app_'" % f.func_name)
+            app_name = f.func_name
+        self.code = BuiltinCode(f)
+        self.name = app_name
+        self.staticdefs = list(f.func_defaults or ())
+        self.staticglobals = None
 
+    def getdefaults(self, space):
+        return self.staticdefs
 
 def exportall(d):
     """Publish every function from a dict."""

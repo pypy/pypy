@@ -6,6 +6,23 @@ from pypy.interpreter.function import Function, Method
 from pypy.interpreter.pycode import PyCode
 
 
+class AppTestFunctionIntrospection(test.AppTestCase):
+    def test_attributes(self):
+        def f(): pass
+        self.assert_(hasattr(f, 'func_code'))
+        self.assertEquals(f.func_defaults, None)
+        self.assertEquals(f.func_dict, {})
+        self.assertEquals(type(f.func_globals), dict)
+        self.assertEquals(f.func_closure, None)
+        self.assertEquals(f.func_doc, None)
+        self.assertEquals(f.func_name, 'f')
+
+    def test_underunder_attributes(self):
+        def f(): pass
+        self.assertEquals(f.__name__, 'f')
+        self.assertEquals(f.__doc__, None)
+        #XXX self.assert_(hasattr(f, '__class__'))
+
 class AppTestFunction(test.AppTestCase):
     def test_simple_call(self):
         def func(arg1, arg2):

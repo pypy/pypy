@@ -13,17 +13,19 @@ class Function(object):
     an object space, a dictionary of globals, default arguments,
     and an arbitrary 'closure' passed to the code object."""
     
-    def __init__(self, space, code, w_globals=None, defs_w=[], closure=None):
-        self.space     = space
-        self.func_code = code       # Code instance
+    def __init__(self, space, code, w_globals=None, defs_w=[], closure=None, forcename=None):
+        self.space = space
+        self.name = forcename or code.co_name
+        self.doc = getattr(code, 'co_consts', (None,))[0]
+        self.code = code       # Code instance
         self.w_globals = w_globals  # the globals dictionary
         self.closure   = closure    # normally, list of Cell instances or None
         self.defs_w    = defs_w     # list of w_default's
-        self.__name__  = self.func_code.co_name   # XXX
+        self.w_dict = space.newdict([])
 
     def call(self, w_args, w_kwds=None):
         scope_w = self.parse_args(w_args, w_kwds)
-        frame = self.func_code.create_frame(self.space, self.w_globals,
+        frame = self.code.create_frame(self.space, self.w_globals,
                                             self.closure)
         frame.setfastscope(scope_w)
         return frame.run()
@@ -33,7 +35,7 @@ class Function(object):
         """ parse args and kwargs to initialize the frame.
         """
         space = self.space
-        signature = self.func_code.signature()
+        signature = self.code.signature()
         argnames, varargname, kwargname = signature
         #
         #   w_args = wrapped sequence of the normal actual parameters
@@ -94,7 +96,7 @@ class Function(object):
     # helper functions to build error message for the above
 
     def raise_argerr(self, w_args, w_kwds, too_many):
-        argnames, varargname, kwargname = self.func_code.signature()
+        argnames, varargname, kwargname = self.code.signature()
         nargs = self.space.unwrap(self.space.len(w_args))
         n = len(argnames)
         if n == 0:
@@ -104,7 +106,7 @@ class Function(object):
                 msg2 = ""
                 nargs += self.space.unwrap(self.space.len(w_kwds))
             msg = "%s() takes no %sargument (%d given)" % (
-                self.func_code.co_name,
+                self.name, 
                 msg2,
                 nargs)
         else:
@@ -125,7 +127,7 @@ class Function(object):
             else:
                 plural = "s"
             msg = "%s() takes %s %d %sargument%s (%d given)" % (
-                self.func_code.co_name,
+                self.name,
                 msg1,
                 n,
                 msg2,
@@ -135,7 +137,7 @@ class Function(object):
 
     def raise_argerr_multiple_values(self, argname):
         msg = "%s() got multiple values for keyword argument %s" % (
-            self.func_code.co_name,
+            self.name,
             argname)
         raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
 
@@ -145,11 +147,11 @@ class Function(object):
             w_iter = self.space.iter(w_kwds)
             w_key = self.space.next(w_iter)
             msg = "%s() got an unexpected keyword argument '%s'" % (
-                self.func_code.co_name,
+                self.name,
                 self.space.unwrap(w_key))
         else:
             msg = "%s() got %d unexpected keyword arguments" % (
-                self.func_code.co_name,
+                self.name,
                 nkwds)
         raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
 
@@ -180,6 +182,26 @@ class Function(object):
         # (for FlowObjSpace)
         return self.space.call(wrap(self), w_args, w_kwds)
 
+    def pypy_getattr(self, name):
+        space = self.space
+        if name == 'func_defaults':
+            if not self.defs_w:
+                return space.w_None
+            else:
+                return space.newtuple(self.defs_w)
+        elif name == 'func_code':
+            return space.wrap(self.code)
+        elif name == 'func_dict':
+            return space.wrap(self.w_dict)
+        elif name == 'func_doc' or name == '__doc__':
+            return space.wrap(self.doc)
+        elif name == 'func_globals':
+            return self.w_globals
+        elif name == 'func_closure':
+            return space.wrap(self.closure)
+        elif name == 'func_name' or name == '__name__': 
+            return space.wrap(self.name)
+        raise OperationError(space.w_AttributeError, space.wrap(name))
 
 class Method(object):
     """A method is a function bound to a specific instance or class."""
