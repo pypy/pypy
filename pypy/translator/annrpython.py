@@ -5,8 +5,9 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.model import pair
 from pypy.annotation.factory import ListFactory, InstanceFactory
 from pypy.annotation.factory import BlockedInference, Bookkeeper
+from pypy.objspace.flow import FlowObjSpace
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
-from pypy.objspace.flow.model import SpaceOperation
+from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
 
 
 class AnnotatorError(Exception):
@@ -17,28 +18,37 @@ class RPythonAnnotator:
     """Block annotator for RPython.
     See description in doc/transation/annotation.txt."""
 
-    def __init__(self, translator=None):
+    def __init__(self):
         self.pendingblocks = []  # list of (block, list-of-SomeValues-args)
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
-        self.bookkeeper = Bookkeeper()
-        self.translator = translator
+        self.notify = {}         # {block: {factory-to-invalidate-when-done}}
+        self.bookkeeper = Bookkeeper(self)
 
     #___ convenience high-level interface __________________
 
-    def build_types(self, flowgraph, input_arg_types):
+    def build_types(self, func, input_arg_types):
         """Recursively build annotations about the specific entry point."""
+        if not isinstance(func, FunctionGraph):
+            flowgraph = self.bookkeeper.getflowgraph(func)
+        else:
+            flowgraph = func
         # make input arguments and set their type
         input_arg_types = list(input_arg_types)
         nbarg = len(flowgraph.getargs())
         while len(input_arg_types) < nbarg:
             input_arg_types.append(object)
-        inputcells = [annmodel.valueoftype(t) for t in input_arg_types]
+        inputcells = []
+        for t in input_arg_types:
+            if not isinstance(t, annmodel.SomeObject):
+                t = annmodel.valueoftype(t)
+            inputcells.append(t)
         
         # register the entry point
         self.addpendingblock(flowgraph.startblock, inputcells)
         # recursively proceed until no more pending block is left
         self.complete()
+        return self.binding(flowgraph.getreturnvar())
 
     def gettype(self, variable):
         """Return the known type of a control flow graph variable,
@@ -97,6 +107,24 @@ class RPythonAnnotator:
             return annmodel.immutablevalue(arg.value)
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
+
+
+    #___ interface for annotator.factory _______
+
+    def buildflowgraph(self, func):
+        space = FlowObjSpace()
+        graph = space.build_flow(func)
+        self.notify[graph.returnblock] = graph.funccallfactories = {}
+        return graph
+
+    def generalizeinputargs(self, flowgraph, inputcells):
+        block = flowgraph.startblock
+        assert len(inputcells) == len(block.inputargs)
+        self.addpendingblock(block, inputcells)
+
+    def getoutputvalue(self, flowgraph):
+        v = flowgraph.getreturnvar()
+        return self.bindings.get(v, annmodel.SomeImpossibleValue())
 
 
     #___ simplification (should be moved elsewhere?) _______
@@ -158,7 +186,7 @@ class RPythonAnnotator:
                 self.flowin(block)
             except BlockedInference, e:
                 #print '_'*60
-                #print 'Blocked at %r:' % (e.position_key,)
+                #print 'Blocked at %r:' % (e.break_at,)
                 #import traceback, sys
                 #traceback.print_tb(sys.exc_info()[2])
                 self.annotated[block] = False   # failed, hopefully temporarily
@@ -197,6 +225,13 @@ class RPythonAnnotator:
         for link in block.exits:
             cells = [self.binding(a) for a in link.args]
             self.addpendingblock(link.target, cells)
+        if block in self.notify:
+            # invalidate some factories when this block is done
+            factories = self.notify[block].keys()
+            self.notify[block].clear()  # don't del: the dict can be re-populated
+            for factory in factories:
+                oldblock, oldindex = factory.position_key
+                self.reflowpendingblock(oldblock)
 
 
     #___ creating the annotations based on operations ______

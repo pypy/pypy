@@ -109,13 +109,11 @@ class AnnonateTestCase(testit.IntTestCase):
         a.build_types(fun, [int])
         self.assertEquals(a.gettype(fun.getreturnvar()), int)
 
-    #def test_simplify_calls(self):
-    #    fun = self.make_fun(f_calls_g)
-    #    a = RPythonAnnotator()
-    #    a.build_types(fun, [int])
-    #    a.simplify_calls()
-    #    #self.reallyshow(fun)
-    # XXX write test_transform.py
+    def test_f_calls_g(self):
+        a = RPythonAnnotator()
+        s = a.build_types(f_calls_g, [int])
+        # result should be an integer
+        self.assertEquals(s.knowntype, int)
 
     def test_lists(self):
         fun = self.make_fun(snippet.poor_man_rev_range)
@@ -127,70 +125,59 @@ class AnnonateTestCase(testit.IntTestCase):
         self.assertEquals(end_cell.s_item.knowntype, int)
 
     def test_factorial(self):
-        translator = Translator(snippet.factorial)
-        graph = translator.getflowgraph()
-        a = RPythonAnnotator(translator)
-        a.build_types(graph, [int])
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.factorial, [int])
         # result should be an integer
-        self.assertEquals(a.gettype(graph.getreturnvar()), int)
+        self.assertEquals(s.knowntype, int)
+
+    def test_factorial2(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.factorial2, [int])
+        # result should be an integer
+        self.assertEquals(s.knowntype, int)
 
     def test_build_instance(self):
-        translator = Translator(snippet.build_instance)
-        graph = translator.getflowgraph()
-        a = RPythonAnnotator(translator)
-        a.build_types(graph, [])
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.build_instance, [])
         # result should be a snippet.C instance
-        self.assertEquals(a.gettype(graph.getreturnvar()), snippet.C)
+        self.assertEquals(s.knowntype, snippet.C)
 
     def test_set_attr(self):
-        translator = Translator(snippet.set_attr)
-        graph = translator.getflowgraph()
-        a = RPythonAnnotator(translator)
-        a.build_types(graph, [])
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.set_attr, [])
         # result should be an integer
-        self.assertEquals(a.gettype(graph.getreturnvar()), int)
+        self.assertEquals(s.knowntype, int)
 
     def test_merge_setattr(self):
-        translator = Translator(snippet.merge_setattr)
-        graph = translator.getflowgraph()
-        a = RPythonAnnotator(translator)
-        a.build_types(graph, [int])
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.merge_setattr, [int])
         # result should be an integer
-        self.assertEquals(a.gettype(graph.getreturnvar()), int)
+        self.assertEquals(s.knowntype, int)
 
     def test_inheritance1(self):
-        translator = Translator(snippet.inheritance1)
-        graph = translator.getflowgraph()
-        a = RPythonAnnotator(translator)
-        a.build_types(graph, [])
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.inheritance1, [])
         # result should be exactly:
-        self.assertEquals(a.binding(graph.getreturnvar()),
-                          annmodel.SomeTuple([
-                              annmodel.SomeTuple([]),
-                              annmodel.SomeInteger()
-                              ]))
+        self.assertEquals(s, annmodel.SomeTuple([
+                                annmodel.SomeTuple([]),
+                                annmodel.SomeInteger()
+                                ]))
 
     def test_inheritance2(self):
-        translator = Translator(snippet.inheritance2)
-        graph = translator.getflowgraph()
-        a = RPythonAnnotator(translator)
-        a.build_types(graph, [])
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.inheritance2, [])
         # result should be exactly:
-        self.assertEquals(a.binding(graph.getreturnvar()),
-                          annmodel.SomeTuple([
-                              annmodel.SomeInteger(),
-                              annmodel.SomeObject()
-                              ]))
+        self.assertEquals(s, annmodel.SomeTuple([
+                                annmodel.SomeInteger(),
+                                annmodel.SomeObject()
+                                ]))
 
     def test_poor_man_range(self):
-        translator = Translator(snippet.poor_man_range)
-        graph = translator.getflowgraph()
-        a = RPythonAnnotator(translator)
-        a.build_types(graph, [int])
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.poor_man_range, [int])
         # result should be a list of integers
-        self.assertEquals(a.gettype(graph.getreturnvar()), list)
-        end_cell = a.binding(graph.getreturnvar())
-        self.assertEquals(end_cell.s_item.knowntype, int)
+        self.assertEquals(s.knowntype, list)
+        self.assertEquals(s.s_item.knowntype, int)
 
 
 def g(n):
@@ -198,8 +185,11 @@ def g(n):
 
 def f_calls_g(n):
     total = 0
-    for i in g(n):
+    lst = g(n)
+    i = 0
+    while i < len(lst):
         total += i
+        i += 1
     return total
 
 

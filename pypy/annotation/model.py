@@ -28,7 +28,7 @@ generic element in some specific subset of the set of all objects.
 #
 
 
-from types import ClassType, BuiltinFunctionType
+from types import ClassType, BuiltinFunctionType, FunctionType
 from pypy.annotation.pairtype import pair, extendabletype
 
 
@@ -100,6 +100,12 @@ class SomeBuiltin(SomeObject):
     def __init__(self, analyser):
         self.analyser = analyser
 
+class SomeFunction(SomeObject):
+    "Stands for a Python function (or some function out of a list)."
+    knowntype = FunctionType
+    def __init__(self, funcs):
+        self.funcs = funcs   # set of functions that this one may be
+
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""
@@ -119,6 +125,8 @@ def immutablevalue(x):
         result = SomeBuiltin(BUILTIN_FUNCTIONS[x])
     elif isinstance(x, (type, ClassType)) and x.__module__ != '__builtin__':
         result = SomeClass(x)
+    elif isinstance(x, FunctionType):
+        result = SomeFunction({x: True})
     else:
         result = SomeObject()
     result.const = x

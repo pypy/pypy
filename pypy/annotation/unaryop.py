@@ -7,10 +7,11 @@ from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeList
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeClass
+from pypy.annotation.model import SomeFunction
 from pypy.annotation.model import immutablevalue, decode_simple_call
 from pypy.annotation.model import set, setunion, missing_operation
-from pypy.annotation.factory import BlockedInference
-from pypy.annotation.factory import InstanceFactory, getbookkeeper
+from pypy.annotation.factory import BlockedInference, getbookkeeper
+from pypy.annotation.factory import InstanceFactory, FuncCallFactory
 
 
 UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'call'])
@@ -52,7 +53,7 @@ class __extend__(SomeInstance):
 
     def currentdef(ins):
         if ins.revision != ins.classdef.revision:
-            print ins.revision, ins.classdef.revision
+            #print ins.revision, ins.classdef.revision
             raise BlockedInference()
         return ins.classdef
 
@@ -103,7 +104,18 @@ class __extend__(SomeClass):
 
     def call(cls, args, kwds):
         # XXX flow into __init__
-        bookkeeper = getbookkeeper()
-        classdef = bookkeeper.getclassdef(cls.cls)
-        factory = bookkeeper.getfactory(InstanceFactory, classdef)
+        factory = getbookkeeper().getfactory(InstanceFactory, cls.cls)
         return factory.create()
+
+
+class __extend__(SomeFunction):
+
+    def call(fun, args, kwds):
+        arglist = decode_simple_call(args, kwds)
+        assert arglist is not None
+        factory = getbookkeeper().getfactory(FuncCallFactory)
+        s_result = SomeImpossibleValue()
+        for func in fun.funcs:
+            s_next_result = factory.pycall(func, arglist)
+            s_result = pair(s_result, s_next_result).union()
+        return s_result

@@ -267,6 +267,12 @@ def factorial(n):
     else:
         return n * factorial(n-1)
 
+def factorial2(n):   # analysed in a different order
+    if n > 1:
+        return n * factorial(n-1)
+    else:
+        return 1
+
 def append_five(lst):
     lst += [5]
 

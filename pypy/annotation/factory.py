@@ -20,7 +20,10 @@ class BlockedInference(Exception):
     def __init__(self, factories = ()):
         # factories that need to be invalidated
         self.invalidatefactories = factories
-        self.position_key = getattr(getbookkeeper(), 'position_key', None)
+        try:
+            self.break_at = getbookkeeper().position_key
+        except AttributeError:
+            self.break_at = None
 
 
 class Bookkeeper:
@@ -31,9 +34,11 @@ class Bookkeeper:
 
     Currently used for factories and user-defined classes."""
 
-    def __init__(self):
+    def __init__(self, annotator):
+        self.annotator = annotator
         self.creationpoints = {} # map positions-in-blocks to Factories
         self.userclasses = {}    # map classes to ClassDefs
+        self.flowgraphs = {}     # map functions to flow graphs
 
     def enter(self, position_key):
         """Start of an operation.
@@ -80,6 +85,14 @@ class Bookkeeper:
             self.userclasses[cls] = ClassDef(cls, self)
             return self.userclasses[cls]
 
+    def getflowgraph(self, func):
+        """Get the flow graph associated with the given Python func."""
+        try:
+            return self.flowgraphs[func]
+        except KeyError:
+            self.flowgraphs[func] = self.annotator.buildflowgraph(func)
+            return self.flowgraphs[func]
+
 
 def getbookkeeper():
     """Get the current Bookkeeper.
@@ -101,10 +114,20 @@ class ListFactory:
         self.s_item = pair(self.s_item, s_new_item).union()
 
 
+class FuncCallFactory:
+
+    def pycall(self, func, arglist):
+        bookkeeper = getbookkeeper()
+        graph = bookkeeper.getflowgraph(func)
+        graph.funccallfactories[self] = True
+        bookkeeper.annotator.generalizeinputargs(graph, arglist)
+        return bookkeeper.annotator.getoutputvalue(graph)
+
+
 class InstanceFactory:
 
-    def __init__(self, classdef):
-        self.classdef = classdef
+    def __init__(self, cls):
+        self.classdef = getbookkeeper().getclassdef(cls)
         self.classdef.instancefactories[self] = True
 
     def create(self):

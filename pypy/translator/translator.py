@@ -104,7 +104,7 @@ class Translator:
         """
         func = func or self.entrypoint
         if self.annotator is None:
-            self.annotator = RPythonAnnotator(self)
+            self.annotator = RPythonAnnotator()
         graph = self.getflowgraph(func)
         self.annotator.build_types(graph, input_args_types)
         return self.annotator
@@ -141,7 +141,7 @@ class Translator:
         if input_arg_types is None:
             ann = self.annotator
         else:
-            ann = RPythonAnnotator(self)
+            ann = RPythonAnnotator()
         if func is None:
             codes = [self.generatecode1(gencls, input_arg_types,
                                         self.entrypoint, ann)]
@@ -192,16 +192,16 @@ class Translator:
         from dis import dis
         dis(func or self.entrypoint)
 
-    def consider_call(self, ann, func, args):
-        graph = self.getflowgraph(func)
-        ann.addpendingblock(graph.startblock, args)
-        result_var = graph.getreturnvar()
-        try:
-            return ann.binding(result_var)
-        except KeyError:
-            # typical case for the 1st call, because addpendingblock() did
-            # not actually start the analysis of the called function yet.
-            return impossiblevalue
+##    def consider_call(self, ann, func, args):
+##        graph = self.getflowgraph(func)
+##        ann.addpendingblock(graph.startblock, args)
+##        result_var = graph.getreturnvar()
+##        try:
+##            return ann.binding(result_var)
+##        except KeyError:
+##            # typical case for the 1st call, because addpendingblock() did
+##            # not actually start the analysis of the called function yet.
+##            return impossiblevalue
 
 
 if __name__ == '__main__':

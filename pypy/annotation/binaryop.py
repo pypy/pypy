@@ -6,7 +6,7 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeList
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
-from pypy.annotation.model import SomeInstance
+from pypy.annotation.model import SomeInstance, SomeFunction
 from pypy.annotation.model import set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference
 
@@ -25,6 +25,9 @@ class __extend__(pairtype(SomeObject, SomeObject)):
 
     def union((obj1, obj2)):
         return SomeObject()
+
+    def inplace_add((obj1, obj2)):
+        return pair(obj1, obj2).add()   # default
 
 
 class __extend__(pairtype(SomeInteger, SomeInteger)):
@@ -126,6 +129,12 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
     def union((ins1, ins2)):
         basedef = ins1.classdef.commonbase(ins2.classdef)
         return SomeInstance(basedef)
+
+
+class __extend__(pairtype(SomeFunction, SomeFunction)):
+
+    def union((fun1, fun2)):
+        return SomeFunction(setunion(fun1.funcs, fun2.funcs))
 
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
