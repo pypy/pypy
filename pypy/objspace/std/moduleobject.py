@@ -11,7 +11,7 @@ class W_ModuleObject(W_Object):
         w_key_doc  = space.wrap('__doc__')
         items = [(w_key_name, w_name),
                  (w_key_doc,  space.w_None)]
-        self.w_dict = W_DictObject(self.space, items)
+        w_self.w_dict = W_DictObject(w_self.space, items)
 
 
 def getattr_module_any(space, w_module, w_attr):
