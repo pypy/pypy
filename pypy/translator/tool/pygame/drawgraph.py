@@ -186,13 +186,18 @@ class GraphRenderer:
         self.height = int((h + 2*self.MARGIN)*scale)
         self.bboxh = h
         size = int(15 * (scale-10) / 75)
-        if size in self.FONTCACHE:
-            self.font = self.FONTCACHE[size]
-        elif size < 4:
-            self.font = None
-        else:
-            self.font = self.FONTCACHE[size] = pygame.font.Font(FONT, size)
+        self.font = self.getfont(size)
 
+    def getfont(self, size):
+        if size in self.FONTCACHE:
+            return self.FONTCACHE[size]
+        elif size < 4:
+            self.FONTCACHE[size] = None
+            return None
+        else:
+            font = self.FONTCACHE[size] = pygame.font.Font(FONT, size)
+            return font
+    
     def setoffset(self, offsetx, offsety):
         "Set the (x,y) origin of the rectangle where the graph will be rendered."
         self.ofsx = offsetx - self.margin
@@ -254,24 +259,43 @@ class GraphRenderer:
         commands = []
         bkgndcommands = []
 
-        for line in lines:
-            raw_line = line.replace('\\l','').replace('\r','') or ' '
-            img = TextSnippet(self, raw_line, (0, 0, 0), bgcolor)
-            w, h = img.get_size()
-            if w>wmax: wmax = w
-            if raw_line.strip():
-                if line.endswith('\\l'):
-                    def cmd(img=img, y=hmax):
-                        img.draw(xleft, ytop+y)
-                elif line.endswith('\r'):
-                    def cmd(img=img, y=hmax, w=w):
-                        img.draw(xright-w, ytop+y)
-                else:
-                    def cmd(img=img, y=hmax, w=w):
-                        img.draw(xcenter-w//2, ytop+y)
-                commands.append(cmd)
-            hmax += h
-            #hmax += 8
+        if self.font is None:
+            # does not run for now, we should have a second graph for low detail
+            if lines:
+                raw_line = lines[0].replace('\\l','').replace('\r','')
+                if raw_line:
+                    for size in (12, 10, 8, 6, 4):
+                        font = self.getfont(size)
+                        img = TextSnippet(self, raw_line, (0, 0, 0), bgcolor, font=font)
+                        w, h = img.get_size()
+                        if (w >= boxwidth or h >= boxheight):
+                            continue
+                        else:
+                            if w>wmax: wmax = w
+                            def cmd(img=img, y=hmax, w=w):
+                                img.draw(xcenter-w//2, ytop+y)
+                            commands.append(cmd)
+                            hmax += h
+                            break
+        else:
+            for line in lines:
+                raw_line = line.replace('\\l','').replace('\r','') or ' '
+                img = TextSnippet(self, raw_line, (0, 0, 0), bgcolor)
+                w, h = img.get_size()
+                if w>wmax: wmax = w
+                if raw_line.strip():
+                    if line.endswith('\\l'):
+                        def cmd(img=img, y=hmax):
+                            img.draw(xleft, ytop+y)
+                    elif line.endswith('\r'):
+                        def cmd(img=img, y=hmax, w=w):
+                            img.draw(xright-w, ytop+y)
+                    else:
+                        def cmd(img=img, y=hmax, w=w):
+                            img.draw(xcenter-w//2, ytop+y)
+                    commands.append(cmd)
+                hmax += h
+                #hmax += 8
 
         # we know the bounding box only now; setting these variables will
         # have an effect on the values seen inside the cmd() functions above
@@ -394,11 +418,13 @@ class GraphRenderer:
 
 class TextSnippet:
     
-    def __init__(self, renderer, text, fgcolor, bgcolor=None):
+    def __init__(self, renderer, text, fgcolor, bgcolor=None, font=None):
         self.renderer = renderer
         self.imgs = []
         self.parts = []
-        if renderer.font is None:
+        if font is None:
+            font = renderer.font
+        if font is None:
             return
         parts = self.parts
         for word in re_nonword.split(text):
@@ -427,7 +453,7 @@ class TextSnippet:
             word = part[0]
             antialias = not re_nonword.match(word)  # SDL bug with anti-aliasing
             try:
-                img = renderer.font.render(word, antialias, *part[1:])
+                img = font.render(word, antialias, *part[1:])
             except pygame.error:
                 del parts[i]   # Text has zero width
             else:
