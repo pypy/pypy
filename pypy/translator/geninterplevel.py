@@ -364,15 +364,6 @@ class GenRpy:
         else:
             return self.uniquename('%s_%d' % (basename, n))
 
-    def uniquelocalname(self, basename, seennames):
-        basename = basename.translate(C_IDENTIFIER)
-        n = seennames.get(basename, 0)
-        seennames[basename] = n+1
-        if n == 0:
-            return basename
-        else:
-            return self.uniquelocalname('%s_%d' % (basename, n), seennames)
-
     def nameof_NotImplementedType(self, value):
         return "space.w_NotImplemented"
 
