@@ -147,6 +147,10 @@ class FlowObjSpace(ObjSpace):
         else:
             return w_item
 
+    def call_function(self, w_callable, *args_w, **kwds_w):
+        assert not kwds_w, "don't know yet about keyword arguments"
+        return self.do_operation('simple_call', w_callable, *args_w)
+
 # ______________________________________________________________________
 
 implicit_exceptions = {

@@ -174,17 +174,17 @@ def valueoftype(t):
     else:
         return SomeObject()
 
-def decode_simple_call(s_args, s_kwds):
-    s_nbargs = s_args.len()
-    if not s_nbargs.is_constant():
-        return None
-    nbargs = s_nbargs.const
-    arglist = [pair(s_args, immutablevalue(j)).getitem()
-               for j in range(nbargs)]
-    s_nbkwds = s_kwds.len()
-    if not s_nbkwds.is_constant() or s_nbkwds.const != 0:
-        return None    # XXX deal with dictionaries with keywords
-    return arglist
+##def decode_simple_call(s_args, s_kwds):
+##    s_nbargs = s_args.len()
+##    if not s_nbargs.is_constant():
+##        return None
+##    nbargs = s_nbargs.const
+##    arglist = [pair(s_args, immutablevalue(j)).getitem()
+##               for j in range(nbargs)]
+##    s_nbkwds = s_kwds.len()
+##    if not s_nbkwds.is_constant() or s_nbkwds.const != 0:
+##        return None    # XXX deal with dictionaries with keywords
+##    return arglist
 
 
 # ____________________________________________________________

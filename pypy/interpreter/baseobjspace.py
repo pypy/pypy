@@ -182,10 +182,35 @@ class ObjSpace:
                 check_list.extend(exclst)
         return False
 
-    def call_function(self, w_func, *args_w, **kw_w):
-        w_kw = self.newdict([(self.wrap(k), w_v) for k, w_v in kw_w.iteritems()])
-        w_args = self.newtuple(list(args_w))
-        return self.call(w_func, w_args, w_kw)
+    def unpackdictionary(self, w_mapping):
+        "Turns a wrapped dictionary into a {'string': w_value} dict."
+        if not self.is_mapping(w_mapping):
+            raise OperationError(self.w_TypeError,
+                                 self.wrap("the keywords must be a dictionary"))
+        result = {}
+        for w_key in self.unpackiterable(w_mapping):
+            key = self.unwrap(w_key)
+            if not isinstance(key, str):
+                raise OperationError(self.w_TypeError,
+                                     self.wrap("keywords must be strings"))
+            result[key] = self.getitem(w_mapping, w_key)
+        return result
+
+    def is_mapping(self, w_mapping):
+        # XXX extend to detect general mappings
+        return self.is_true(self.isinstance(w_mapping, self.w_dict))
+
+    def call(self, w_callable, w_args, w_kwds=None):
+        "Deprecated.  Use call_function() instead."
+        args_w = self.unpacktuple(w_args)
+        if w_kwds is None:
+            return self.call_function(w_callable, *args_w)
+        else:
+            kwds_w = self.unpackdictionary(w_kwds)
+            return self.call_function(w_callable, *args_w, **kwds_w)
+
+##    def call_function(self, w_func, *args_w, **kw_w):
+##        implemented by subclasses
 
     def call_method(self, w_obj, methname, *arg_w, **kw_w):
         w_meth = self.getattr(w_obj, self.wrap(methname))
@@ -288,7 +313,7 @@ ObjSpace.MethodTable = [
     ('contains',        'contains',  2, ['__contains__']),
     ('iter',            'iter',      1, ['__iter__']),
     ('next',            'next',      1, ['next']),
-    ('call',            'call',      3, ['__call__']),
+#    ('call',            'call',      3, ['__call__']),
     ('get',             'get',       3, ['__get__']),
     ('set',             'set',       3, ['__set__']),
     ('delete',          'delete',    2, ['__delete__']),
@@ -352,4 +377,4 @@ ObjSpace.ExceptionTable = [
 #      newstring([w_1, w_2,...]) -> w_string from ascii numbers (bytes)
 # newdict([(w_key,w_value),...]) -> w_dict
 #newslice(w_start,w_stop,w_step) -> w_slice (any argument may be a real None)
-#
+#   call_function(w_obj,*args_w,**kwds_w)

@@ -128,22 +128,22 @@ class DictFactory:
 
 class FuncCallFactory:
 
-    def pycall(self, func, arglist):
-        return self.bookkeeper.annotator.recursivecall(func, arglist, self)
+    def pycall(self, func, *args):
+        return self.bookkeeper.annotator.recursivecall(func, self, *args)
 
 
 class InstanceFactory(FuncCallFactory):
 
-    def create(self, cls, arglist):
+    def create(self, cls, *args):
         classdef = self.bookkeeper.getclassdef(cls)
         classdef.instancefactories[self] = True
         s_instance = SomeInstance(classdef)
         # flow into __init__() if the class has got one
         init = getattr(cls, '__init__', None)
         if init is not None and init != object.__init__:
-            self.pycall(init, [s_instance] + arglist)
+            self.pycall(init, s_instance, *args)
         else:
-            assert not arglist, "no __init__ found in %r" % (cls,)
+            assert not args, "no __init__ found in %r" % (cls,)
         return s_instance
 
 

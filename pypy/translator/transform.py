@@ -67,34 +67,35 @@ def transform_slice(self):
 # -->
 # e = simple_call(a, *b)
 
-def transform_simple_call(self):
-    """Transforms call(a, (...), {}) to simple_call(a, ...)"""
-    for block in self.annotated:
-        known_vars = block.inputargs[:]
-        operations = []
-        for op in block.operations:
-            try:
-                if op.opname != 'call':
-                    raise CannotSimplify
-                varargs_cell = self.binding(op.args[1])
-                varkwds_cell = self.binding(op.args[2])
-                arg_cells = self.decode_simple_call(varargs_cell,
-                                                    varkwds_cell)
-                if arg_cells is None:
-                    raise CannotSimplify
+## REMOVED: now FlowObjSpace produces 'simple_call' operations only
+##def transform_simple_call(self):
+##    """Transforms call(a, (...), {}) to simple_call(a, ...)"""
+##    for block in self.annotated:
+##        known_vars = block.inputargs[:]
+##        operations = []
+##        for op in block.operations:
+##            try:
+##                if op.opname != 'call':
+##                    raise CannotSimplify
+##                varargs_cell = self.binding(op.args[1])
+##                varkwds_cell = self.binding(op.args[2])
+##                arg_cells = self.decode_simple_call(varargs_cell,
+##                                                    varkwds_cell)
+##                if arg_cells is None:
+##                    raise CannotSimplify
 
-                args = [self.reverse_binding(known_vars, c) for c in arg_cells]
-                args.insert(0, op.args[0])
-                new_ops = [SpaceOperation('simple_call', args, op.result)]
+##                args = [self.reverse_binding(known_vars, c) for c in arg_cells]
+##                args.insert(0, op.args[0])
+##                new_ops = [SpaceOperation('simple_call', args, op.result)]
                 
-            except CannotSimplify:
-                new_ops = [op]
+##            except CannotSimplify:
+##                new_ops = [op]
 
-            for op in new_ops:
-                operations.append(op)
-                known_vars.append(op.result)
+##            for op in new_ops:
+##                operations.append(op)
+##                known_vars.append(op.result)
 
-        block.operations = operations
+##        block.operations = operations
 
 def transform_dead_op_vars(self):
     """Remove dead operations and variables that are passed over a link
@@ -172,7 +173,6 @@ def transform_graph(ann):
     """Apply set of transformations available."""
     transform_allocate(ann)
     transform_slice(ann)
-    transform_simple_call(ann)
     # do this last, after the previous transformations had a
     # chance to remove dependency on certain variables
     transform_dead_op_vars(ann)

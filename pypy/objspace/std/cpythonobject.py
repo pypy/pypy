@@ -16,14 +16,12 @@ class W_BuiltinFunctionObject(Function):
         self.space = space
         self.cpyfunc = cpyfunc
 
-    def call(self, w_args, w_kwds):
+    def call_function(self, *args_w, **kwds_w):
         space = self.space
         try:
-            args = space.unwrap(w_args)
-            kwds = {}
-            keys_w = space.unpackiterable(w_kwds)
-            for w_key in keys_w:
-                kwds[space.unwrap(w_key)] = space.unwrap(space.getitem(w_kwds, w_key))
+            args = [space.unwrap(w_arg) for w_arg in args_w]
+            kwds = dict([(key, space.unwrap(w_value))
+                         for key, w_value in kwds_w.items()])
         except UnwrapError, e:
             raise UnwrapError('calling %s: %s' % (self.cpyfunc, e))
         try:
@@ -87,9 +85,8 @@ def wrap_exception(space):
     name = exc.__name__
     if hasattr(space, 'w_' + name):
         w_exc = getattr(space, 'w_' + name)
-        w_value = space.call(w_exc,
-            space.newtuple([space.wrap(a) for a in value.args]),
-            space.newdict([]))
+        w_value = space.call_function(w_exc,
+            *[space.wrap(a) for a in value.args])
         for key, value in value.__dict__.items():
             if not key.startswith('_'):
                 space.setattr(w_value, space.wrap(key), space.wrap(value))

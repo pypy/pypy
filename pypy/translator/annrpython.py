@@ -119,7 +119,7 @@ class RPythonAnnotator:
 
     #___ interface for annotator.factory _______
 
-    def recursivecall(self, func, inputcells, factory):
+    def recursivecall(self, func, factory, *args):
         graph = self.translator.getflowgraph(func)
         # self.notify[graph.returnblock] is a dictionary of
         # FuncCallFactories (call points to this func) which triggers a
@@ -128,6 +128,7 @@ class RPythonAnnotator:
         callfactories[factory] = True
         # generalize the function's input arguments
         block = graph.startblock
+        inputcells = list(args)
         assert len(inputcells) == len(block.inputargs)
         self.addpendingblock(block, inputcells)
         # get the (current) return value
@@ -289,9 +290,9 @@ def consider_op_%s(self, arg1, arg2, *args):
         factory = self.bookkeeper.getfactory(DictFactory)
         return factory.create()
 
-    def decode_simple_call(self, s_varargs, s_varkwds):
-        # XXX replace all uses of this with direct calls into annmodel
-        return annmodel.decode_simple_call(s_varargs, s_varkwds)
+##    def decode_simple_call(self, s_varargs, s_varkwds):
+##        # XXX replace all uses of this with direct calls into annmodel
+##        return annmodel.decode_simple_call(s_varargs, s_varkwds)
 
 ##    def consider_op_call(self, s_func, s_varargs, s_kwargs):
 ##        if not s_func.is_constant():

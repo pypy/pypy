@@ -687,37 +687,27 @@ class PyInterpFrame(pyframe.PyFrame):
             w_varkw = f.valuestack.pop()
         if with_varargs:
             w_varargs = f.valuestack.pop()
-        keywords = []
+        keywords = {}
         for i in range(n_keywords):
             w_value = f.valuestack.pop()
             w_key   = f.valuestack.pop()
-            keywords.append((w_key, w_value))
+            key = f.space.unwrap(w_key)   # XXX type check: str
+            keywords[key] = w_value
         arguments = [f.valuestack.pop() for i in range(n_arguments)]
         arguments.reverse()
         w_function  = f.valuestack.pop()
-        w_arguments = f.space.newtuple(arguments)
-        w_keywords  = f.space.newdict(keywords)
-        if with_varargs:
-            w_arguments = f.update_star_args(w_arguments, w_varargs)
-        if with_varkw:
-            w_keywords  = f.update_keyword_args(w_keywords, w_varkw)
-        w_result = f.space.call(w_function, w_arguments, w_keywords)
+        if with_varargs:    # add the arguments provided by the *args syntax
+            arguments += tuple(f.space.unpackiterable(w_varargs))
+        if with_varkw:      # add the arguments provided by the **kwds syntax
+            kwds_w = f.space.unpackdictionary(w_varkw)
+            for key, w_value in kwds_w.items():
+                if key in keywords:
+                    raise OperationError(f.space.w_TypeError,
+                            f.space.wrap("got multiple values for "
+                                         "keyword argument '%s'" % key))
+                keywords[key] = w_value
+        w_result = f.space.call_function(w_function, *arguments, **keywords)
         f.valuestack.push(w_result)
-
-    def app_update_star_args(f, args, extra_args):
-        return args + tuple(extra_args)
-
-    def app_update_keyword_args(f, kw, extra_kw):
-        if not isinstance(extra_kw, dict):
-            raise TypeError, "argument after ** must be a dictionary"
-        result = kw.copy()
-        for key, value in extra_kw.items():
-            if key in result:
-                # XXX should mention the function name in error message
-                raise TypeError, ("got multiple values "
-                                  "for keyword argument '%s'" % key)
-            result[key] = value
-        return result
 
     def CALL_FUNCTION(f, oparg):
         f.call_function_extra(oparg, False, False)

@@ -9,13 +9,13 @@ from pypy.annotation.model import SomeString, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeClass
 from pypy.annotation.model import SomeFunction, SomeMethod, SomeIterator
-from pypy.annotation.model import immutablevalue, decode_simple_call
+from pypy.annotation.model import immutablevalue
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
 from pypy.annotation.factory import InstanceFactory, FuncCallFactory
 
 
-UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'call',
+UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'simple_call',
                         'iter', 'next'])
 
 for opname in UNARY_OPERATIONS:
@@ -117,33 +117,25 @@ class __extend__(SomeInstance):
 
 class __extend__(SomeBuiltin):
 
-    def call(bltn, args, kwds):
-        # decode the arguments and forward the analysis of this builtin
-        arglist = decode_simple_call(args, kwds)
-        if arglist is not None:
-            if bltn.s_self is not None:
-                arglist.insert(0, bltn.s_self)
-            return bltn.analyser(*arglist)
+    def simple_call(bltn, *args):
+        if bltn.s_self is not None:
+            return bltn.analyser(bltn.s_self, *args)
         else:
-            return SomeObject()
+            return bltn.analyser(*args)
 
 
 class __extend__(SomeClass):
 
-    def call(cls, args, kwds):
-        arglist = decode_simple_call(args, kwds)
-        assert arglist is not None
+    def simple_call(cls, *args):
         factory = getbookkeeper().getfactory(InstanceFactory)
-        return factory.create(cls.cls, arglist)
+        return factory.create(cls.cls, *args)
 
 
 class __extend__(SomeFunction):
 
-    def call(fun, args, kwds):
-        arglist = decode_simple_call(args, kwds)
-        assert arglist is not None
+    def simple_call(fun, *args):
         factory = getbookkeeper().getfactory(FuncCallFactory)
-        results = [factory.pycall(func, arglist) for func in fun.funcs]
+        results = [factory.pycall(func, *args) for func in fun.funcs]
         return unionof(*results)
 
     def classattribute(fun, classdef):   # function -> unbound method
@@ -157,10 +149,7 @@ class __extend__(SomeFunction):
 
 class __extend__(SomeMethod):
 
-    def call(met, args, kwds):
-        arglist = decode_simple_call(args, kwds)
-        #print 'methodcall:', met, arglist
-        assert arglist is not None
+    def simple_call(met, *args):
         factory = getbookkeeper().getfactory(FuncCallFactory)
         results = []
         for func, classdef in met.meths.items():
@@ -168,5 +157,5 @@ class __extend__(SomeMethod):
             s_self = SomeInstance(classdef)
             classdef.instancefactories[factory] = True
             # call func(s_self, *arglist)
-            results.append(factory.pycall(func, [s_self]+arglist))
+            results.append(factory.pycall(func, s_self, *args))
         return unionof(*results)

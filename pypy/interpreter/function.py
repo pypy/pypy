@@ -24,93 +24,81 @@ class Function(Wrappable):
         self.defs_w    = defs_w     # list of w_default's
         self.w_func_dict = space.newdict([])
 
-    def call(self, w_args, w_kwds=None):
-        scope_w = self.parse_args(w_args, w_kwds)
+    def call_function(self, *args_w, **kwds_w):
+        scope_w = self.parse_args(list(args_w), kwds_w)
         frame = self.code.create_frame(self.space, self.w_func_globals,
                                             self.closure)
         frame.setfastscope(scope_w)
         return frame.run()
 
-    def parse_args(self, w_args, w_kwds=None):
+    def parse_args(self, args_w, kwds_w):
         """ parse args and kwargs to initialize the frame.
         """
         space = self.space
         signature = self.code.signature()
         argnames, varargname, kwargname = signature
         #
-        #   w_args = wrapped sequence of the normal actual parameters
-        #   args_w = the same, as a list of wrapped actual parameters
-        #   w_kwds = wrapped dictionary of keyword parameters or a real None
+        #   args_w = list of the normal actual parameters, wrapped
+        #   kwds_w = real dictionary {'keyword': wrapped parameter}
         #   argnames = list of formal parameter names
         #   scope_w = resulting list of wrapped values
         #
         # We try to give error messages following CPython's, which are
         # very informative.
         #
-        if w_kwds is not None:
-            if space.is_true(w_kwds):
-                # space.is_true() avoids infinite recursion copy<->parse_args
-                w_kwargs = space.call_method(w_kwds, "copy")
-            else:
-                w_kwargs = None
         co_argcount = len(argnames) # expected formal arguments, without */**
 
         # put as many positional input arguments into place as available
-        args_w = space.unpacktuple(w_args)
         scope_w = args_w[:co_argcount]
         input_argcount = len(scope_w)
 
         # check that no keyword argument conflicts with these
-        if w_kwargs is not None:
+        if kwds_w:
             for name in argnames[:input_argcount]:
-                w_name = space.wrap(name)
-                if space.is_true(space.contains(w_kwargs, w_name)):
+                if name in kwds_w:
                     self.raise_argerr_multiple_values(name)
 
+        remainingkwds_w = kwds_w.copy()
         if input_argcount < co_argcount:
             # not enough args, fill in kwargs or defaults if exists
             def_first = co_argcount - len(self.defs_w)
             for i in range(input_argcount, co_argcount):
-                w_name = space.wrap(argnames[i])
-                if (w_kwargs is not None and
-                        space.is_true(space.contains(w_kwargs, w_name))):
-                    scope_w.append(space.getitem(w_kwargs, w_name))
-                    space.delitem(w_kwargs, w_name)
+                name = argnames[i]
+                if name in remainingkwds_w:
+                    scope_w.append(remainingkwds_w[name])
+                    del remainingkwds_w[name]
                 elif i >= def_first:
                     scope_w.append(self.defs_w[i-def_first])
                 else:
-                    self.raise_argerr(w_args, w_kwds, False)
+                    self.raise_argerr(args_w, kwds_w, False)
                     
         # collect extra positional arguments into the *vararg
         if varargname is not None:
             scope_w.append(space.newtuple(args_w[co_argcount:]))
         elif len(args_w) > co_argcount:
-            self.raise_argerr(w_args, w_kwds, True)
+            self.raise_argerr(args_w, kwds_w, True)
 
         # collect extra keyword arguments into the **kwarg
-        if w_kwargs:
-            if kwargname is not None:
-                # XXX this doesn't check that the keys of kwargs are strings
-                scope_w.append(w_kwargs)
-            elif space.is_true(w_kwargs):
-                self.raise_argerr_unknown_kwds(w_kwds)
-        else:
-            if kwargname is not None:
-                scope_w.append(space.newdict([]))
+        if kwargname is not None:
+            w_kwds = space.newdict([(space.wrap(key), w_value)
+                                    for key, w_value in remainingkwds_w.items()])
+            scope_w.append(w_kwds)
+        elif remainingkwds_w:
+            self.raise_argerr_unknown_kwds(remainingkwds_w)
         return scope_w
 
     # helper functions to build error message for the above
 
-    def raise_argerr(self, w_args, w_kwds, too_many):
+    def raise_argerr(self, args_w, kwds_w, too_many):
         argnames, varargname, kwargname = self.code.signature()
-        nargs = self.space.unwrap(self.space.len(w_args))
+        nargs = len(args_w)
         n = len(argnames)
         if n == 0:
             if kwargname is not None:
                 msg2 = "non-keyword "
             else:
                 msg2 = ""
-                nargs += self.space.unwrap(self.space.len(w_kwds))
+                nargs += len(kwds_w)
             msg = "%s() takes no %sargument (%d given)" % (
                 self.name, 
                 msg2,
@@ -147,18 +135,15 @@ class Function(Wrappable):
             argname)
         raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
 
-    def raise_argerr_unknown_kwds(self, w_kwds):
-        nkwds = self.space.unwrap(self.space.len(w_kwds))
-        if nkwds == 1:
-            w_iter = self.space.iter(w_kwds)
-            w_key = self.space.next(w_iter)
+    def raise_argerr_unknown_kwds(self, kwds_w):
+        if len(kwds_w) == 1:
             msg = "%s() got an unexpected keyword argument '%s'" % (
                 self.name,
-                self.space.unwrap(w_key))
+                kwds_w.keys()[0])
         else:
             msg = "%s() got %d unexpected keyword arguments" % (
                 self.name,
-                nkwds)
+                len(kwds_w))
         raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
 
     def getdict(self):
@@ -181,11 +166,7 @@ class Function(Wrappable):
             return wrap(Method(space, wrap(self), None, w_cls))
 
     def descr_function_call(self, *args_w, **kwds_w):
-        # XXX refactor to avoid unwrapping and rewrapping all around
-        space = self.space
-        return self.call(space.newtuple(list(args_w)),
-                         space.newdict([(space.wrap(key), w_item)
-                                        for key, w_item in kwds_w.items()]))
+        return self.call_function(*args_w, **kwds_w)
 
     def fget_func_defaults(space, w_self):
         self = space.unwrap(w_self)
@@ -218,12 +199,11 @@ class Method(Wrappable):
         self.w_instance = w_instance   # or None
         self.w_class = w_class
 
-    def call(self, w_args, w_kwds=None):
-        args_w = self.space.unpacktuple(w_args)
+    def call_function(self, *args_w, **kwds_w):
         if self.w_instance is not None:
             # bound method
-            args_w = [self.w_instance] + args_w
-            w_args = self.space.newtuple(args_w)
+            return self.space.call_function(self.w_function, self.w_instance,
+                                            *args_w, **kwds_w)
         else:
             # unbound method
             if (len(args_w) >= 1 and self.space.is_true(
@@ -234,14 +214,10 @@ class Method(Wrappable):
                        "instance as first argument")     # XXX fix error msg
                 raise OperationError(self.space.w_TypeError,
                                      self.space.wrap(msg))
-        return self.space.call(self.w_function, w_args, w_kwds)
+            return self.space.call_function(self.w_function, *args_w, **kwds_w)
 
     def descr_method_call(self, *args_w, **kwds_w):
-        # XXX refactor to avoid unwrapping and rewrapping all around
-        space = self.space
-        return self.call(space.newtuple(list(args_w)),
-                         space.newdict([(space.wrap(key), w_item)
-                                        for key, w_item in kwds_w.items()]))
+        return self.call_function(*args_w, **kwds_w)
 
 class StaticMethod(Wrappable):
     """A static method.  Note that there is one class staticmethod at
