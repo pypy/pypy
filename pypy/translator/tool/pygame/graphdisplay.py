@@ -90,6 +90,7 @@ class GraphDisplay(Display):
         self.font = pygame.font.Font(self.STATUSBARFONT, 16)
         self.viewers_history = []
         self.forward_viewers_history = []
+        self.highlight_word = None
         self.highlight_obj = None
         self.viewer = None
         self.method_cache = {}
@@ -269,7 +270,6 @@ class GraphDisplay(Display):
             newlayout = self.layout.followlink(word)
             if newlayout is not None:
                 self.setlayout(newlayout)
-                self.zoom_to_fit()
                 return
         node = self.viewer.node_at_position(pos)
         if node:
@@ -284,18 +284,24 @@ class GraphDisplay(Display):
                     self.look_at_node(edge.tail)
 
     def sethighlight(self, word=None, obj=None):
+        # The initialization of self.viewer.highlightwords should probably be
+        # moved to setlayout()
         self.viewer.highlightwords = {}
         for name in self.layout.links:
             self.viewer.highlightwords[name] = ((128,0,0), None)
         if word:
             self.viewer.highlightwords[word] = ((255,255,80), (128,0,0))
+
+        if word == self.highlight_obj and obj is self.highlight_obj:
+            return # Nothing has changed, so there's no need to redraw
+
         if self.highlight_obj is not None:
             self.highlight_obj.sethighlight(False)
         if obj is not None:
             obj.sethighlight(True)
+        self.highlight_word = word
         self.highlight_obj = obj
         self.must_redraw = True
-            
 
     def animation(self, expectedtime=0.6):
         start = time.time()
