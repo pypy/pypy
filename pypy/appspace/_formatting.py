@@ -187,7 +187,7 @@ def maybe_float(value):
     return floater()
 
 
-from _float_formatting import float_digits
+from _float_formatting import flonum2digits
 
 class FloatFormatter(Formatter):
     def eDigits(self, ds):
@@ -227,7 +227,7 @@ class FloatFFormatter(FloatFormatter):
         if v/1e25 > 1e25:
             return floatGFormatter('g', self.flags, self.width,
                                    self.prec, self.value).format()
-        ds, k = float_digits(v)
+        ds, k = flonum2digits(v)
         digits = self.fDigits(ds, k)
         if  not self.flags.f_alt:
             digits = digits.rstrip('.')
@@ -236,7 +236,7 @@ class FloatFFormatter(FloatFormatter):
 
 class FloatEFormatter(FloatFormatter):
     def _format(self, v):
-        ds, k = float_digits(v)
+        ds, k = flonum2digits(v)
         digits = self.eDigits(ds)
         return "%s%c%+03d"%(digits, self.char, k-1)
 
@@ -247,7 +247,7 @@ class FloatGFormatter(FloatFormatter):
     # Gah, this still isn't quite right in the f_alt case.
     # (One has to wonder who might care).
     def _format(self, v):
-        ds, k = float_digits(v)
+        ds, k = flonum2digits(v)
         ds = ds[:self.prec] # XXX rounding!
         if -4 < k <= self.prec:
             digits = self.fDigits(ds, k)
