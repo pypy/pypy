@@ -258,7 +258,8 @@ class GraphDisplay(Display):
             return
         edge = self.viewer.edge_at_position(pos)
         if edge:
-            info = '%s -> %s' % (edge.tail.label, edge.head.label)
+            info = '%s -> %s' % (shortlabel(edge.tail.label),
+                                 shortlabel(edge.head.label))
             self.setstatusbar(info)
             self.sethighlight(obj=edge)
             return
@@ -447,3 +448,8 @@ class GraphDisplay(Display):
         # cannot safely close and re-open the display, depending on
         # Pygame version and platform.
         pygame.display.set_mode((self.width,1))
+
+
+def shortlabel(label):
+    """Shorten a graph node label."""
+    return label.replace('\\l', '').splitlines()[0]
