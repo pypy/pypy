@@ -32,6 +32,9 @@ class ExecutionContext:
         w_globals = self.space.newdict([(w_key, w_value)])
         return w_globals
 
+    def bytecode_trace(self, frame):
+        "Trace function called before each bytecode."
+
     def exception_trace(self, operationerr):
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()

@@ -36,6 +36,7 @@ class PyFrame:
         try:
             while True:
                 try:
+                    executioncontext.bytecode_trace(self)
                     last_instr = self.next_instr
                     try:
                         # fetch and dispatch the next opcode
@@ -50,15 +51,16 @@ class PyFrame:
                         e.record_application_traceback(self, last_instr)
                         self.last_exception = e
                         executioncontext.exception_trace(e)
-                        # convert an OperationError into a reason to unroll
-                        # the stack
+                        # convert an OperationError into a control flow
+                        # exception
                         raise SApplicationException(e)
                     # XXX some other exceptions could be caught here too,
                     #     like KeyboardInterrupt
 
-                except StackUnroller, unroller:
-                    # we have a reason to unroll the stack
-                    unroller.unrollstack(self)
+                except ControlFlowException, ctlflowexc:
+                    # we have a reason to change the control flow
+                    # (typically unroll the stack)
+                    ctlflowexc.action(self)
             
         except ExitFrame, e:
             # leave that frame
@@ -124,7 +126,7 @@ class PyFrame:
         # because the current valuestack is no longer deep enough
         # to hold the corresponding information
         while self.exceptionstack:
-            unroller, valuestackdepth = self.exceptionstack.top()
+            ctlflowexc, valuestackdepth = self.exceptionstack.top()
             if valuestackdepth <= self.valuestack.depth():
                 break
             self.exceptionstack.pop()
@@ -209,7 +211,7 @@ class FinallyBlock(FrameBlock):
     def cleanup(self, frame):
         # upon normal entry into the finally: part, the standard Python
         # bytecode pushes a single None for END_FINALLY.  In our case we
-        # always push three values into the stack: the wrapped unroller,
+        # always push three values into the stack: the wrapped ctlflowexc,
         # the exception value and the exception type (which are all None
         # here).
         self.cleanupstack(frame)
@@ -229,10 +231,12 @@ class FinallyBlock(FrameBlock):
         raise StopUnrolling
 
 
-### Block Stack unrollers ###
+### Internal exceptions that change the control flow ###
+### and (typically) unroll the block stack           ###
 
-class StackUnroller(Exception):
-    """Abstract base class for interpreter-level exceptions that unroll the
+class ControlFlowException(Exception):
+    """Abstract base class for interpreter-level exceptions that
+    instruct the interpreter to change the control flow and the
     block stack.
 
     The concrete subclasses correspond to the various values WHY_XXX
@@ -247,7 +251,7 @@ class StackUnroller(Exception):
 		WHY_YIELD	SYieldValue
 
     """
-    def unrollstack(self, frame):
+    def action(self, frame):
         "Default unroller implementation."
         try:
             while not frame.blockstack.empty():
@@ -262,7 +266,7 @@ class StackUnroller(Exception):
         # could occur e.g. when a BREAK_LOOP is not actually within a loop
         raise BytecodeCorruption, "block stack exhausted"
 
-class SApplicationException(StackUnroller):
+class SApplicationException(ControlFlowException):
     """Unroll the stack because of an application-level exception
     (i.e. an OperationException)."""
     def emptystack(self, frame):
@@ -270,14 +274,14 @@ class SApplicationException(StackUnroller):
         operationerr = self.args[0]
         raise operationerr
 
-class SBreakLoop(StackUnroller):
+class SBreakLoop(ControlFlowException):
     """Signals a 'break' statement."""
 
-class SContinueLoop(StackUnroller):
+class SContinueLoop(ControlFlowException):
     """Signals a 'continue' statement.
     Argument is the bytecode position of the beginning of the loop."""
 
-class SReturnValue(StackUnroller):
+class SReturnValue(ControlFlowException):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
     def emptystack(self, frame):
@@ -285,10 +289,10 @@ class SReturnValue(StackUnroller):
         w_returnvalue = self.args[0]
         raise ExitFrame(w_returnvalue)
 
-class SYieldValue(StackUnroller):
+class SYieldValue(ControlFlowException):
     """Signals a 'yield' statement.
     Argument is the wrapped object to return."""
-    def unrollstack(self, frame):
+    def action(self, frame):
         # XXX generators
         raise OperationError(frame.space.w_Exception,
                              frame.space.wrap("generators are not ready yet"))
