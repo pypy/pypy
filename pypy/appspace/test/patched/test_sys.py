@@ -208,12 +208,13 @@ class SysModuleTest(unittest.TestCase):
             sys.setdlopenflags(oldflags)
 
     def test_refcount(self):
-        self.assertRaises(TypeError, sys.getrefcount)
-        c = sys.getrefcount(None)
-        n = None
-        self.assertEqual(sys.getrefcount(None), c+1)
-        del n
-        self.assertEqual(sys.getrefcount(None), c)
+        if hasattr(sys, 'getrefcount'):
+            self.assertRaises(TypeError, sys.getrefcount)
+            c = sys.getrefcount(None)
+            n = None
+            self.assertEqual(sys.getrefcount(None), c+1)
+            del n
+            self.assertEqual(sys.getrefcount(None), c)
         if hasattr(sys, "gettotalrefcount"):
             self.assert_(isinstance(sys.gettotalrefcount(), int))
 
