@@ -11,7 +11,7 @@ d={}
 #  function.
 
 # Old Unittest Name             new name         operator  # of args
-#d['assertRaises']           = ('raises',               '', ['Any'])
+d['assertRaises']           = ('raises',               '', ['Any'])
 d['fail']                   = ('raise AssertionError', '', [0,1])
 d['assert_']                = ('assert',               '', [1,2])
 d['failIf']                 = ('assert not',           '', [1,2])
@@ -25,7 +25,7 @@ d['assertNotAlmostEqual']   = ('assert round',      ' !=', [2,3,4])
 d['failUnlessAlmostEquals'] = ('assert not round',  ' !=', [2,3,4])
 
 #  the list of synonyms
-#d['failUnlessRaises']      = d['assertRaises']
+d['failUnlessRaises']      = d['assertRaises']
 d['failUnless']            = d['assert_']
 d['assertEquals']          = d['assertEqual']
 d['assertNotEquals']       = d['assertNotEqual']
@@ -139,30 +139,21 @@ def decompose_unittest(old, block, message_pos):
     if arglist == ['']: # there weren't any
         return indent, [], [], trailer
 
-    if len(arglist) != message_pos:
-        message = None
     else:
-        message = arglist[-1]
-        arglist = arglist[:-1]
-        if message.lstrip('\t ').startswith(linesep):
-            message = '(' + message + ')'
-            # In proper input, message is required to be a string.
-            # Thus we can assume that however the string handled its
-            # line continuations in the original unittest will also work
-            # here.  But if the line happens to break  before the quoting
-            # begins, you will need another set of parens, (or a backslash).
-
-    if arglist:
         for i in range(len(arglist)):
             try:
                 parser.expr(arglist[i].lstrip('\t '))
-                # Again we want to enclose things that happen to have
-                # a linebreak just before the new arg.
             except SyntaxError:
                 if i == 0:
                     arglist[i] = '(' + arglist[i] + ')'
                 else:
                     arglist[i] = ' (' + arglist[i] + ')'
+
+    if len(arglist) != message_pos:
+        message = None
+    else:
+        message = arglist[-1]
+        arglist = arglist[:-1]
 
     return indent, arglist, message, trailer
 

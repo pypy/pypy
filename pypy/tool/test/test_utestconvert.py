@@ -349,11 +349,11 @@ class Testit(unittest.TestCase):
             """
                           )
 
-        self.assertEquals(rewrite_utest(
+        assert rewrite_utest(
             """
             self.failIfAlmostEqual(first, second, 5, 6, 7, 'Too Many Args')
             """
-            ),
+            ) == (
             """
             self.failIfAlmostEqual(first, second, 5, 6, 7, 'Too Many Args')
             """
@@ -384,6 +384,19 @@ class Testit(unittest.TestCase):
             expression ... will this blow up?
             """
                           )
-                              
+
+        assert rewrite_utest(
+            """
+        self.failUnless('__builtin__' in modules, "An entry for __builtin__ "
+                                                    "is not in sys.modules.")
+            """
+            ) == (
+            """
+        assert '__builtin__' in modules, ("An entry for __builtin__ "
+                                                    "is not in sys.modules.")
+            """
+                           )
+            
+               
 if __name__ == '__main__':
     unittest.main()

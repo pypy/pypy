@@ -382,6 +382,18 @@ class Testit(unittest.TestCase):
             expression ... will this blow up?
             """
                           )
+        
+        self.assertEquals(rewrite_utest(
+            """
+        self.failUnless('__builtin__' in modules, "An entry for __builtin__ "
+                                                    "is not in sys.modules.")
+            """
+            ),
+            """
+        assert '__builtin__' in modules, ("An entry for __builtin__ "
+                                                    "is not in sys.modules.")
+            """
+                           )
             
                               
 if __name__ == '__main__':
