@@ -1,8 +1,7 @@
 import autopath
-import unittest
 from pypy.tool.cache import Cache 
 
-class TestCache(unittest.TestCase): 
+class TestCache: 
     def test_getorbuild(self):
         cache = Cache()
         assert cache.getorbuild(1, lambda k,s: 42, None) == 42
@@ -16,9 +15,6 @@ class TestCache(unittest.TestCase):
         cache.freeze()
         hash(cache)
         assert cache.getorbuild(1, lambda k,s: self.fail(), None) == 44
-        self.assertRaises(TypeError, cache.clear)
-        self.assertRaises(AssertionError, cache.getorbuild,
+        raises(TypeError, cache.clear)
+        raises(AssertionError, cache.getorbuild,
                           2, lambda k,s: self.fail(), 4)
-   
-if __name__ == '__main__':
-    unittest.main() 
