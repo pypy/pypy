@@ -18,7 +18,7 @@ def execfile(filename, glob=None, loc=None):
     finally:
         f.close()
     #Don't exec the source directly, as this loses the filename info
-    co = compile(source, filename, 'exec')
+    co = compile(source.rstrip()+"\n", filename, 'exec')
     exec co in glob, loc
 
 def raw_input(prompt=None):
