@@ -30,5 +30,5 @@ def timeit(num, func, *args):
     return now()-start
 
 if __name__ == '__main__':
-    from pypy.translator.test.test_pyrextrans import PyrexGenTestCase
-    benchmark(PyrexGenTestCase.sieve_of_eratosthenes)
+    from pypy.translator.test.snippet import sieve_of_eratosthenes
+    benchmark(sieve_of_eratosthenes)
