@@ -60,7 +60,7 @@ class ClassDefLayout(GraphLayout):
     """
     def __init__(self, translator, cdef):
         self.translator = translator
-        dotgen = DotGen(cdef.cls.__name__)
+        dotgen = DotGen(cdef.cls.__name__, rankdir="LR")
 
         def writecdef(cdef):
             dotgen.emit_node(nameof(cdef), color="red", shape="octagon",
