@@ -1,0 +1,66 @@
+CPython version 2.2 compatibility of PyPy
+
+History
+  Seo Sanghyeon, 2005-04-06 (r10349)
+
+First, you should use CPython version 2.3 or greater to run PyPy.
+Running PyPy on top of 2.2 is definitely NOT supported.
+
+That said, there are some supports in the code to run PyPy
+on top of 2.2, most notably "from __future__ import generators".
+This document lists some of known problems.
+
+* opcode.py
+opcode module is new in 2.3, and is used in the interpreter core.
+Just copying this file from 2.3 should work. Without this, PyPy
+won't even start.
+
+* boolean
+In 2.2, bool is a builtin_function_or_method, not a type. This breaks
+anything boolean related in the annotator.
+
+* func_with_new_name
+pypy.tool.hack has a code to rename already defined function, which
+is disabled for 2.2. You lose descriptive names like binop_xxx_impl,
+and some gateway tests checking function name will fail.
+
+* operator.is_
+In 2.2, operator module doesn't include "is_(a, b)", which should be
+equivalent to "a is b". This causes some problem in the flow objspace.
+
+* issubclass
+2.2 doesn't allow tuple as the second argument to issubclass. This
+affects the annotator.
+
+* extended slice
+2.2 can't do extended slice -- the optional third argument in slicing
+syntax. This affects the trace objspace.
+
+* C module
+Anything using new-in-2.3 features of borrowed C modules won't work.
+For example, socket.settimeout.
+
+* C API
+All genc tests will fail due to difference between Python C headers.
+
+* universal newline
+Universal newline support is new in 2.3. This lets tests for builtin
+module testing this feature to fail.
+
+* int long unification
+In 2.2, int() will raise OverflowError if argument is too large to
+convert to int. In 2.3, this silently returns long. Tests explicitly
+testing this does fail.
+
+* generators
+Files using generators have needed __future__ import at the top
+of the file. This should cause no problem.
+
+* exec without newline
+It is a SyntaxError to exec string without trailing newline in 2.2.
+This is CPython bug #501622. All known instances of this is worked
+around.
+
+* misc features
+"string in string" doesn't work in 2.2. dict.pop and dict.fromkeys
+is new in 2.3. These have caused problems in the past.
