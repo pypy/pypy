@@ -8,7 +8,7 @@ from pypy.objspace.flow.model import traverse
 from pypy.objspace.flow import FlowObjSpace
 from pypy.objspace.flow.model import FunctionGraph, Block, Link, Variable, Constant
 from pypy.objspace.flow.model import last_exception, last_exc_value, checkgraph
-from pypy.translator.simplify import remove_direct_loops
+from pypy.translator.unsimplify import remove_direct_loops
 from pypy.interpreter.error import OperationError
 from types import FunctionType
 
@@ -441,7 +441,7 @@ class GenJava:
         t = self.translator
         #t.simplify(func)
         graph = t.getflowgraph(func)
-        remove_direct_loops(graph)
+        remove_direct_loops(t, graph)
         checkgraph(graph)
 
         name = self.nameof(func)
