@@ -38,45 +38,70 @@ class AnnotationSet:
 
     __iter__ = enumerate
 
-    def query(self, query, *querylist):
-        # slightly limited implementation for ease of coding :-)
-        results = []
-        for match in self._getmatches(query):
-            # does the returned match also agree with the other queries?
-            for queryann in querylist:
-                boundquery = queryann.copy(renameargs={Ellipsis: match})                
-                if not self.contains(boundquery):
-                    break
-            else:
-                results.append(match)
-        return results
-    
-    def contains(self, checkann):
-        for ann in self.annlist:
-            if ann.predicate == checkann.predicate:
-                for a1, a2 in zip(ann.args, checkann.args):
-                    if not self.isshared(a1, a2):
-                        break
-                else:
-                    return True
-        return False
+    def query(self, *querylist):
+        return [match for depends, match in self.getmatches(*querylist)]
 
-    def _getmatches(self, queryann):
-        assert queryann.args.count(Ellipsis) == 1, (
+    def getmatches(self, query, *querylist):
+        # slightly limited implementation for ease of coding :-)
+        assert query.args.count(Ellipsis) == 1, (
             "sorry, the algorithm is a bit too naive for this case")
-        queryarg = queryann.args.index(Ellipsis)
-        testindices = range(queryann.predicate.arity)
-        del testindices[queryarg]
+        queryarg = query.args.index(Ellipsis)
+        for ann in self._annmatch(query):
+            # does the returned match also agree with the other queries?
+            match = ann.args[queryarg]
+            depends = [ann]
+            for queryann in querylist:
+                boundquery = queryann.copy(renameargs={Ellipsis: match})
+                ann = self.findfirst(boundquery)
+                if ann is None:
+                    break
+                depends.append(ann)
+            else:
+                yield depends, match
+
+    def _annmatch(self, queryann):
+        testindices = [i for i in range(queryann.predicate.arity)
+                         if queryann.args[i] is not Ellipsis]
         for ann in self.annlist:
             if ann.predicate == queryann.predicate:
                 for i in testindices:
                     if not self.isshared(ann.args[i], queryann.args[i]):
                         break
                 else:
-                    yield ann.args[queryarg]
+                    yield ann
 
-# do you have an intersection algo somewherE? no mmmh we need to use
-# self._shared too...
+    def findfirst(self, checkann):
+        """ return the first matching annotation.""" 
+        # note that we are usually not interested in multiple matching 
+        # annotations; e.g. killing an annotation will take care
+        # that all matching annotations are removed, and thus also 
+        # all dependencies listed on any of the duplicate annotation.
+        for ann in self._annmatch(checkann):
+            return ann  # :-)
+        else:
+            return None
+
+
+class Recorder:
+    """A recorder contains methods to look for annotations in the
+    AnnotationSet and create new annotations accordingly.  Each
+    Recorder instance records which Annotations were needed, which
+    allows dependencies to be tracked."""
+
+    def __init__(self, annset):
+        self.annset = annset
+        self.using_annotations = []  # annotations that we have used
+
+    def using(self, *annlist):
+        """Mark all 'ann' in 'annlist' as used in this transaction."""
+        self.using_annotations += annlist
+
+    def query(self, *querylist):
+        results = []
+        for depends, match in self.annset.getmatches(*querylist):                
+            self.using(*depends)
+            results.append(match)
+        return results
 
 '''
     def simplify(self, kill=[]):
@@ -169,7 +194,7 @@ class AnnotationSet:
 '''
 
 
-class Transaction:
+class XXXTransaction:
     """A transaction contains methods to look for annotations in the
     AnnotationHeap and create new annotations accordingly.  Each
     Transaction instance records which Annotations were needed, which
