@@ -100,12 +100,12 @@ class TestFile:
             open(TESTFN, bad_mode)
         except IOError, msg:
             pass # We have problems with Exceptions
-            #if msg[0] != 0:
-            #    s = str(msg)
-            #    if s.find(TESTFN) != -1 or s.find(bad_mode) == -1:
-            #        print "bad error message for invalid mode: %s" % s
-            ## if msg[0] == 0, we're probably on Windows where there may be
-            ## no obvious way to discover why open() failed.
+            if msg[0] != 0:
+                s = str(msg)
+                if s.find(TESTFN) != -1 or s.find(bad_mode) == -1:
+                    print "bad error message for invalid mode: %s" % s
+            # if msg[0] == 0, we're probably on Windows where there may be
+            # no obvious way to discover why open() failed.
         else:
             print "no error for invalid mode: %s" % bad_mode
 
