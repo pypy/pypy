@@ -72,8 +72,8 @@ class PyInterpFrame(pyframe.PyFrame):
         return self.code.co_consts_w[index]
 
     def getname_w(self, index):
-        varname = self.code.co_names_w[index]
-        return varname
+        w_varname = self.code.co_names_w[index]
+        return w_varname
 
 
     ################################################################
@@ -435,7 +435,7 @@ class PyInterpFrame(pyframe.PyFrame):
             # catch KeyErrors and turn them into NameErrors
             if not e.match(f.space, f.space.w_KeyError):
                 raise
-            message = "name '%s' is not defined" % varname
+            message = "name '%s' is not defined" % f.space.str_w(w_varname)
             raise OperationError(f.space.w_NameError, f.space.wrap(message))
 
     def UNPACK_SEQUENCE(f, itemcount):
