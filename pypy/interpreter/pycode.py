@@ -17,9 +17,9 @@ compile is found in the builtin.py file.
 # think of a proper base class???
 
 import baseobjspace, pyframe
-from appfile import AppFile
+import appfile
 
-appfile = AppFile(__name__, ["interpreter"])
+appfile = appfile.AppFile(__name__, ["interpreter"])
 
 CO_VARARGS     = 0x0004
 CO_VARKEYWORDS = 0x0008
