@@ -532,6 +532,7 @@ class GenRpy:
             arities = self._space_arities = {}
             for name, sym, arity, specnames in self.space.MethodTable:
                 arities[name] = arity
+            arities['isinstance'] = 2
         return self._space_arities
         
     def try_space_shortcut_for_builtin(self, v, nargs):

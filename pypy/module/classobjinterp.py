@@ -5886,7 +5886,7 @@ def __pow__(space, w_self, w_other, w_modulo):
             goto = 10
 
         if goto == 7:
-            w_16 = space.pow(w_self_6, w_other_6)
+            w_16 = space.pow(w_self_6, w_other_6, space.w_None)
             w_14 = w_16
             goto = 10
 
@@ -5992,7 +5992,7 @@ def __rpow__(space, w_self, w_other, w_modulo):
             goto = 10
 
         if goto == 7:
-            w_16 = space.pow(w_other_6, w_self_6)
+            w_16 = space.pow(w_other_6, w_self_6, space.w_None)
             w_14 = w_16
             goto = 10
 
@@ -6685,7 +6685,7 @@ def __iter__(space, w_self):
                 goto = 6
 
         if goto == 5:
-            w_13 = space.builtin.get('_seqiter')(w_self_2)
+            w_13 = space.call_function(space.builtin.get('_seqiter'), w_self_2)
             w_6 = w_13
             goto = 7
 

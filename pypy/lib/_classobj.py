@@ -447,7 +447,7 @@ class instance(object):
                     return func(other)
                 return NotImplemented
             else:
-                return operator.pow(self, other)
+                return operator.pow(self, other, None)
         else:
             # CPython also doesn't try coercion in this case
             func = instance_getattr1(self, '__pow__', False)
@@ -465,7 +465,7 @@ class instance(object):
                     return func(other)
                 return NotImplemented
             else:
-                return operator.pow(other, self)
+                return operator.pow(other, self, None)
         else:
             # CPython also doesn't try coercion in this case
             func = instance_getattr1(self, '__rpow__', False)
