@@ -127,6 +127,7 @@ class FrameBlock:
     def unroll(self, frame, unroller):
         "Clean up a frame when we abnormally exit the block."
         self.cleanupstack(frame)
+        return False  # continue to unroll
 
 
 class LoopBlock(FrameBlock):
@@ -140,12 +141,13 @@ class LoopBlock(FrameBlock):
             frame.blockstack.push(self)
             jump_to = unroller.args[0]
             frame.next_instr = jump_to
-            raise StopUnrolling
+            return True  # stop unrolling
         self.cleanupstack(frame)
         if isinstance(unroller, SBreakLoop):
             # jump to the end of the loop
             frame.next_instr = self.handlerposition
-            raise StopUnrolling
+            return True  # stop unrolling
+        return False
 
 
 class ExceptBlock(FrameBlock):
@@ -168,7 +170,8 @@ class ExceptBlock(FrameBlock):
             frame.valuestack.push(w_value)
             frame.valuestack.push(w_type)
             frame.next_instr = self.handlerposition   # jump to the handler
-            raise StopUnrolling
+            return True  # stop unrolling
+        return False
 
 def app_normalize_exception(etype, evalue):
     # XXX should really be defined as a method on OperationError,
@@ -215,7 +218,7 @@ class FinallyBlock(FrameBlock):
         frame.valuestack.push(frame.space.w_None)
         frame.valuestack.push(frame.space.w_None)
         frame.next_instr = self.handlerposition   # jump to the handler
-        raise StopUnrolling
+        return True  # stop unrolling
 
 
 ### Internal exceptions that change the control flow ###
@@ -240,13 +243,12 @@ class ControlFlowException(Exception):
     """
     def action(self, frame, last_instr, executioncontext):
         "Default unroller implementation."
-        try:
-            while not frame.blockstack.empty():
-                block = frame.blockstack.pop()
-                block.unroll(frame, self)
+        while not frame.blockstack.empty():
+            block = frame.blockstack.pop()
+            if block.unroll(frame, self):
+                break
+        else:
             self.emptystack(frame)
-        except StopUnrolling:
-            pass
 
     def emptystack(self, frame):
         "Default behavior when the block stack is exhausted."
@@ -275,14 +277,9 @@ class SReturnValue(ControlFlowException):
         w_returnvalue = self.args[0]
         raise ExitFrame(w_returnvalue)
 
-class StopUnrolling(Exception):
-    "Signals the end of the block stack unrolling."
-
 class ExitFrame(Exception):
     """Signals the end of the frame execution.
     The argument is the returned or yielded value, already wrapped."""
 
 class BytecodeCorruption(ValueError):
     """Detected bytecode corruption.  Never caught; it's an error."""
-
-
