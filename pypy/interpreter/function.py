@@ -170,8 +170,13 @@ class Function(Wrappable):
         space = self.space
         return self.call(space.newtuple(args_w),
                          space.newdict([(space.wrap(key), w_item)
-                                        for key, w_item in kwds_w]))
+                                        for key, w_item in kwds_w.items()]))
 
+    def fget_func_defaults(space, self):
+        values_w = self.defs_w
+        if values_w is None:
+            return space.w_None
+        return space.newtuple(values_w) 
 
 class Method(Wrappable): 
     """A method is a function bound to a specific instance or class."""
@@ -205,4 +210,4 @@ class Method(Wrappable):
         space = self.space
         return self.call(space.newtuple(args_w),
                          space.newdict([(space.wrap(key), w_item)
-                                        for key, w_item in kwds_w]))
+                                        for key, w_item in kwds_w.items()]))

@@ -15,6 +15,9 @@ class TypeDef:
 
 class GetSetProperty(Wrappable):
     def __init__(self, fget, fset=None, fdel=None, doc=None):
+        fget = getattr(fget, 'im_func', fget) 
+        fset = getattr(fset, 'im_func', fset) 
+        fdel = getattr(fdel, 'im_func', fdel) 
         self.fget = fget
         self.fset = fset
         self.fdel = fdel
@@ -100,6 +103,7 @@ Function.typedef = TypeDef("function",
     func_doc = attrproperty('doc'), 
     func_name = attrproperty('name'), 
     func_dict = attrproperty_w('w_func_dict'), 
+    func_defaults = GetSetProperty(Function.fget_func_defaults),
     __doc__ = attrproperty('doc'), 
     __name__ = attrproperty('name'), 
     __dict__ = attrproperty_w('w_func_dict'), 
