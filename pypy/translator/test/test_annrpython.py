@@ -595,6 +595,25 @@ class TestAnnonateTestCase:
         assert isinstance(s, annmodel.SomeInstance)
         assert s.knowntype is snippet.Exc
 
+    def test_overrides(self):
+        import sys
+        excs = []
+        def record_exc(e):
+            """NOT_RPYTHON"""
+            excs.append(sys.exc_info)
+        def g():
+            pass
+        def f():
+            try:
+                g()
+            except Exception, e:
+                record_exc(e)
+        def ann_record_exc(s_e):
+            return a.bookkeeper.immutablevalue(None)
+        a = RPythonAnnotator(overrides={record_exc: ann_record_exc})
+        s = a.build_types(f, [])
+        assert s.const is None
+
     def test_freeze_protocol(self):
         class Stuff:
             def __init__(self, flag):

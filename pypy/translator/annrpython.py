@@ -18,7 +18,7 @@ class RPythonAnnotator:
     """Block annotator for RPython.
     See description in doc/translation/annotation.txt."""
 
-    def __init__(self, translator=None):
+    def __init__(self, translator=None, overrides={}):
         self.translator = translator
         self.pendingblocks = {}  # map {block: function}
         self.bindings = {}       # map Variables to SomeValues
@@ -39,6 +39,8 @@ class RPythonAnnotator:
                 # history of binding_caused_by, kept in sync with
                 # bindingshistory
         self.return_bindings = {} # map return Variables to functions
+        # user-supplied annotation logic for functions we don't want to flow into
+        self.overrides = overrides
         # --- end of debugging information ---
         self.bookkeeper = Bookkeeper(self)
 
@@ -202,6 +204,9 @@ class RPythonAnnotator:
     #___ interface for annotator.factory _______
 
     def recursivecall(self, func, position_key, inputcells):
+        override = self.overrides.get(func, None)
+        if override is not None:
+            return override(*inputcells)
         parent_fn, parent_block, parent_index = position_key
         graph = self.getflowgraph(func, parent_fn, position_key)
         # self.notify[graph.returnblock] is a dictionary of call
