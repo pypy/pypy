@@ -141,8 +141,19 @@ class FlowObjSpace(ObjSpace):
 
     def unpackiterable(self, w_iterable, expected_length=None):
         if isinstance(w_iterable, Variable) and expected_length is None:
-            raise UnwrapException, ("cannot unpack a Variable iterable "
-                                    "without knowing its length")
+            print ("*** cannot unpack a Variable iterable "
+                   "without knowing its length, assuming up to 7 items")
+            w_iterator = self.iter(w_iterable)
+            items = []
+            for i in range(7):
+                try:
+                    w_item = self.next(w_iterator)
+                except OperationError, e:
+                    if not e.match(self, self.w_StopIteration):
+                        raise
+                    break  # done
+                items.append(w_item)
+            return items
         return ObjSpace.unpackiterable(self, w_iterable, expected_length)
 
     # ____________________________________________________________
