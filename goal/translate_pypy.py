@@ -72,10 +72,13 @@ if __name__ == '__main__':
             print '-'*60
         
         print >> sys.stderr
-        import thread
+        import threading
         import pdb
-        thread.start_new_thread(pdb.post_mortem, (tb,))
+        t = threading.Thread(target=pdb.post_mortem, args=(tb,))
+        t.start()
         run_server()
+        import pygame
+        pygame.quit()
 
     try:
         analyse()
