@@ -88,7 +88,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             assert op.opname == "is_" 
             assert len(op.args) == 2
             assert annotator.binding(op.args[vararg]) is var
-            assert op.args[1-vararg].value is const.const
+            assert annotator.binding(op.args[1-vararg]).const is const.const
             r = SomeBool()
             r.knowntypedata = (op.args[vararg], const)
             return r
