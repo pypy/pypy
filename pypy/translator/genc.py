@@ -65,7 +65,7 @@ class GenC:
         # I think this should come from some external file,
         # if we want to be complete
         self.reserved_names = {}
-        for each in 'typedef static void'.split():
+        for each in 'typedef static void const'.split():
             self.reserved_names[each] = 1
         self.latercode = []    # list of generators generating extra lines
                                #   for later in initxxx() -- for recursive
