@@ -9,14 +9,18 @@ General
   things too. 
 
 * cleanup the contents of the tool directory 
-  
+
+* an oldie: move interpreter/unittest_w.py somewhere more appropriate
+  and give it a better name.
+
 StdObjSpace
 ===========
 
 * find a way via hacking or elegance to run CPython's unit tests
   against the StdObjSpace.
 
-* String formatting still needs work (field widths, precision, ...)
+* String formatting still needs work.  Mostly done, but surely missing
+  pieces around the edges & it's agonizingly slow.
 
 * Provide an importer that can import packages. (we have a 
   limited __import__ builtin defined)  <---- done now?
