@@ -373,7 +373,7 @@ class UnboundMultiMethod(AbstractMultiMethod):
 
 
 class BoundMultiMethod:
-    #ASSERT_BASE_TYPE = None
+    ASSERT_BASE_TYPE = object
 
     def __init__(self, space, multimethod):
         self.space = space
@@ -404,6 +404,10 @@ class BoundMultiMethod:
                 raise OperationError(self.space.w_TypeError, w_value)
 
     def perform_call(self, args):
+        for a in args:
+            assert isinstance(a, self.ASSERT_BASE_TYPE), (
+                "'%s' multimethod got a non-wrapped argument: %r" % (
+                self.multimethod.operatorsymbol, a))
         arity = self.multimethod.arity
         argclasses = tuple([a.__class__ for a in args[:arity]])
         delegate = self.space.delegate.multimethod

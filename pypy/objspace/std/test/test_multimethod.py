@@ -3,7 +3,7 @@ import autopath
 from pypy.objspace.std.multimethod import *
 from pypy.tool import test
 
-BoundMultiMethod.ASSERT_BASE_TYPE = None
+BoundMultiMethod.ASSERT_BASE_TYPE = object
 
 
 class X:
