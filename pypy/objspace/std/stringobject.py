@@ -3,6 +3,7 @@ from stringtype import W_StringType
 from intobject   import W_IntObject
 from sliceobject import W_SliceObject
 from listobject import W_ListObject
+from instmethobject import W_InstMethObject
 from noneobject import W_NoneObject
 from tupleobject import W_TupleObject
 
@@ -244,6 +245,45 @@ def str_ljust__String_ANY(space, w_self, w_arg):
         
     return W_StringObject(space, u_self)
 
+
+def str_strip__String(space, w_self):
+    u = space.unwrap
+    u_self = u(w_self)
+    lpos = 0
+    while u_self[lpos] == ' ':
+       lpos += 1
+       
+    rpos = len(u_self)
+    while u_self[rpos - 1] == ' ':
+       rpos -= 1
+       
+    return W_StringObject(space, u_self[lpos:rpos])
+   
+   
+     
+def str_rstrip__String(space, w_self):
+    u = space.unwrap
+    u_self = u(w_self)
+       
+    rpos = len(u_self)
+    while u_self[rpos - 1] == ' ':
+       rpos -= 1
+       
+    return W_StringObject(space, u_self[:rpos])
+   
+     
+    
+def str_lstrip__String(space, w_self):
+    u = space.unwrap
+    u_self = u(w_self)
+    lpos = 0
+    while u_self[lpos] == ' ':
+       lpos += 1
+            
+    return W_StringObject(space, u_self[lpos:])
+   
+ 
+
 def unwrap__String(space, w_str):
     return w_str._value.value()
 
@@ -393,7 +433,6 @@ def mod__String_ANY(space, w_str, w_item):
 
 def mod__String_Tuple(space, w_str, w_tuple):
     return space.wrap(space.unwrap(w_str)%space.unwrap(w_tuple))
-
 
 # register all methods 
 register_all(vars(), W_StringType)

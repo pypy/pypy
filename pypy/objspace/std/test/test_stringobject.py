@@ -154,7 +154,12 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals(s.ljust(3), s)
         self.assertEquals(s.ljust(4), s + " ")
         self.assertEquals(s.ljust(5), s + "  ")
-    
+
+    def test_strip(self):
+        s = " a b "
+        self.assertEquals(s.strip(), "a b")
+        self.assertEquals(s.rstrip(), " a b")
+        self.assertEquals(s.lstrip(), "a b ")
             
     def test_split_maxsplit(self):
         self.assertEquals("/a/b/c".split('/', 2), ['','a','b/c'])

@@ -21,7 +21,9 @@ class W_StringType(W_TypeObject):
     str_upper      = MultiMethod('upper', 1)
     str_capitalize = MultiMethod('capitalize', 1)
     str_title      = MultiMethod('title', 1)
-
+    str_strip      = MultiMethod('strip', 1)
+    str_rstrip     = MultiMethod('rstrip', 1)
+    str_lstrip     = MultiMethod('lstrip', 1)
 
 
 # XXX we'll worry about the __new__/__init__ distinction later
