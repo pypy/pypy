@@ -58,15 +58,15 @@ class AppTestUserObject:
 
     def test_descr_get(self):
         class C:
-            class desc:
+            class desc(object):
                 def __get__(self, ob, cls=None):
                     return 42
             prop = desc()
         assert C().prop == 42
 
     def test_descr_set(self):
-        class C:
-            class desc:
+        class C(object):
+            class desc(object):
                 def __set__(self, ob, val):
                     ob.wibble = val
             prop = desc()
@@ -75,8 +75,8 @@ class AppTestUserObject:
         assert c.wibble == 32
 
     def test_descr_delete(self):
-        class C:
-            class desc:
+        class C(object):
+            class desc(object):
                 def __set__(self, ob, val):
                     oogabooga
                 def __delete__(self, ob):
@@ -110,7 +110,7 @@ class AppTestUserObject:
         assert c1("hello", "world") == ("hello", "world")
 
     def test_getattribute(self):
-        class C:
+        class C(object):
             def __getattribute__(self, name):
                 return '->' + name
         c1 = C()

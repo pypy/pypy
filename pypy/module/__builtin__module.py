@@ -15,6 +15,11 @@ unicode = __interplevel__eval('space.wrap(unicode)')
 file = __interplevel__eval('space.wrap(file)')
 open = file
 
+# old-style classes dummy support
+__builtins__['_classobj'] = __interplevel__eval('space.w_classobj')
+__builtins__['_instance'] = __interplevel__eval('space.w_instance')
+
+
 # TODO Fix this later to show Ctrl-D on Unix
 quit = exit = "Use Ctrl-Z (i.e. EOF) to exit."
 
@@ -174,6 +179,14 @@ def reduce(function, seq, *initialt):
 
     return initial
 
+def _recursive_issubclass(cls, klass_or_tuple):
+    if cls is klass_or_tuple:
+        return True
+    for base in cls.__bases__:
+        if _recursive_issubclass(base, klass_or_tuple):
+            return True
+    return False
+
 def issubclass(cls, klass_or_tuple):
     if _issubtype(type(klass_or_tuple), tuple):
         for klass in klass_or_tuple:
@@ -183,7 +196,12 @@ def issubclass(cls, klass_or_tuple):
     try:
         return _issubtype(cls, klass_or_tuple)
     except TypeError:
-        raise TypeError, "arg 2 must be a class or type or a tuple thereof"
+        if not hasattr(cls, '__bases__'):
+            raise TypeError, "arg 1 must be a class or type"
+        if not hasattr(klass_or_tuple, '__bases__'):
+            raise TypeError, "arg 2 must be a class or type or a tuple thereof"
+        return _recursive_issubclass(cls, klass_or_tuple)
+        
 
 def isinstance(obj, klass_or_tuple):
     if issubclass(type(obj), klass_or_tuple):
@@ -441,6 +459,7 @@ from __interplevel__ import globals, locals, _caller_globals, _caller_locals
 
 # The following must be the last import from __interplevel__ because it
 # overwrites the special __import__ hook with the normal one.
+
 from __interplevel__ import __import__
 
 
@@ -455,7 +474,7 @@ def enumerate(collection):
             index += 1
     return do_enumerate(it)
 
-class xrange:
+class xrange(object):
     def __init__(self, start, stop=None, step=1):
         if not isinstance(start, (int, long, float)):
             raise TypeError('an integer is required')
@@ -927,7 +946,7 @@ class complex(object):
 
 # ________________________________________________________________________
 
-class buffer:
+class buffer(object):
     def __init__(self, object, offset=None, size=None):
         raise NotImplementedError, "XXX nobody needs this anyway"
 
@@ -953,3 +972,7 @@ def reversed(iterable):
 
 #from _file import file
 #open = file
+
+#default __metaclass__
+# XXX can use _classobj when we have a working one integrated
+__metaclass__ = type

@@ -55,8 +55,8 @@ class Function(Wrappable):
                       not space.is_true(space.is_(w_obj, space.w_None)) or
                       space.is_true(space.is_(w_cls, space.type(space.w_None))))
         if asking_for_bound:
-            if w_cls == space.w_None:
-                w_cls = space.type(w_obj)
+            #if w_cls == space.w_None:
+            #    w_cls = space.type(w_obj)
             return wrap(Method(space, wrap(self), w_obj, w_cls))
         else:
             return wrap(Method(space, wrap(self), None, w_cls))
@@ -160,7 +160,7 @@ class Method(Wrappable):
             # unbound method
             w_firstarg = args.firstarg()
             if w_firstarg is not None and self.space.is_true(
-                    self.space.isinstance(w_firstarg, self.w_class)):
+                    self.space.abstract_isinstance(w_firstarg, self.w_class)):
                 pass  # ok
             else:
                 msg = ("unbound method must be called with "
@@ -175,9 +175,9 @@ class Method(Wrappable):
             return space.wrap(self)    # already bound
         else:
             # only allow binding to a more specific class than before
-            if w_cls == space.w_None:
-                w_cls = space.type(w_obj)
-            if not space.is_true(space.issubtype(w_cls, self.w_class)):
+            #if w_cls == space.w_None:
+            #    w_cls = space.type(w_obj)
+            if w_cls is not None and w_cls != space.w_None and not space.is_true(space.abstract_issubclass(w_cls, self.w_class)):
                 return space.wrap(self)   # subclass test failed
             return space.get(self.w_function, w_obj, w_cls)
 

@@ -87,4 +87,4 @@ class AppTestAppFloatTest:
 
         class b: 
             pass 
-        raises(TypeError, float, b()) 
+        raises((AttributeError, TypeError), float, b()) 

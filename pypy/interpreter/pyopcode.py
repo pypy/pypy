@@ -417,7 +417,7 @@ class PyInterpFrame(pyframe.PyFrame):
         w_bases       = f.valuestack.pop()
         w_name        = f.valuestack.pop()
         w_metaclass = find_metaclass(f.space, w_bases,
-                                     w_methodsdict, f.w_globals)
+                                     w_methodsdict, f.w_globals, f.w_builtins)
         w_newclass = f.space.call_function(w_metaclass, w_name,
                                            w_bases, w_methodsdict)
         f.valuestack.push(w_newclass)
@@ -824,7 +824,7 @@ def app_print_newline_to(stream):
     stream.write("\n")
     file_softspace(stream, False)
 
-def app_find_metaclass(bases, namespace, globals):
+def app_find_metaclass(bases, namespace, globals, builtins):
     if '__metaclass__' in namespace:
         return namespace['__metaclass__']
     elif len(bases) > 0:
@@ -835,6 +835,8 @@ def app_find_metaclass(bases, namespace, globals):
             return type(base)
     elif '__metaclass__' in globals:
         return globals['__metaclass__']
+    elif '__metaclass__' in builtins:
+        return builtins['__metaclass__']
     else:
         return type
 

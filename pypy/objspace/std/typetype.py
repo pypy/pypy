@@ -1,3 +1,4 @@
+from pypy.interpreter.error import OperationError
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.dictproxyobject import dictproxy_descr
 
@@ -5,10 +6,33 @@ from pypy.objspace.std.dictproxyobject import dictproxy_descr
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
     "This is used to create user-defined classes only."
     from pypy.objspace.std.typeobject import W_TypeObject
-    # XXX check types
+    # XXX check types 
+    bases_w = space.unpackiterable(w_bases)
+
+    w_winner = w_typetype
+    for base in bases_w:
+        w_typ = space.type(base)
+        if space.is_w(w_typ, space.w_classobj):
+            continue # special-case old-style classes
+        if space.is_true(space.issubtype(w_winner, w_typ)):
+            continue
+        if space.is_true(space.issubtype(w_typ, w_winner)):
+            w_winner = w_typ
+            continue
+        raise OperationError(space.w_TypeError,
+                             space.wrap("metaclass conflict: "
+                                        "the metaclass of a derived class "
+                                        "must be a (non-strict) subclass "
+                                        "of the metaclasses of all its bases"))
+
+    if not space.is_w(w_winner, w_typetype):
+        newfunc = space.getattr(w_winner, space.wrap('__new__'))
+        if not space.is_w(newfunc, space.getattr(space.w_type, space.wrap('__new__'))):
+            return space.call_function(newfunc, w_winner, w_name, w_bases, w_dict)
+        w_typetype = w_winner
+        
     name = space.str_w(w_name)
     assert isinstance(name, str)
-    bases_w = space.unpackiterable(w_bases)
     dict_w = {}
     dictkeys_w = space.unpackiterable(w_dict)
     for w_key in dictkeys_w:

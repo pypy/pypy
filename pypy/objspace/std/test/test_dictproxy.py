@@ -4,7 +4,7 @@ objspacename = 'std'
 
 class AppTestUserObject:
     def test_dictproxy(self):
-        class NotEmpty:
+        class NotEmpty(object):
             a = 1
         assert isinstance(NotEmpty.__dict__, dict) == False
         assert 'a' in NotEmpty.__dict__

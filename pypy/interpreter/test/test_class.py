@@ -2,7 +2,7 @@
 class AppTestClass: 
 
     def test_class(self):
-        class C:
+        class C(object):
             pass
         assert C.__class__ == type
         c = C()
@@ -124,7 +124,7 @@ class C:
         assert c.meth_doc.__doc__ == """this is a docstring"""
 
     def test_getattribute(self):
-        class C:
+        class C(object):
             def __getattribute__(self, attr):
                 if attr == 'one':
                     return 'two'

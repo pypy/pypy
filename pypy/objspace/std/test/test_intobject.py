@@ -345,7 +345,7 @@ class AppTestInt:
 
         class b: 
             pass 
-        raises(TypeError, int, b()) 
+        raises((AttributeError,TypeError), int, b()) 
 
     def test_special_long(self):
         class a:
@@ -358,4 +358,4 @@ class AppTestInt:
 
         class b: 
             pass 
-        raises(TypeError, int, b()) 
+        raises((AttributeError,TypeError), long, b()) 

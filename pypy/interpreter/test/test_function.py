@@ -227,5 +227,5 @@ class TestMethod:
         assert meth4.call_args(args) == obj2
         # Check method returned from unbound_method.__get__()
         # --- with an incompatible class
-        w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_None)
+        w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_str)
         assert space.is_true(space.is_(w_meth5, w_meth3))

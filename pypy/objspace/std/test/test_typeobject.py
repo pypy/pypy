@@ -57,7 +57,8 @@ objspacename = 'std'
 class AppTestTypeObject:
     def test_bases(self):
         assert int.__bases__ == (object,)
-        class X: pass
+        class X:
+            __metaclass__ = type
         assert X.__bases__ ==  (object,)
         class Y(X): pass
         assert Y.__bases__ ==  (X,)
@@ -191,3 +192,47 @@ class AppTestTypeObject:
             raise AssertionError, '__doc__ should not be writable'
 
         assert ImmutableDoc.__doc__ == 'foo'
+
+    def test_metaclass_conflict(self):
+
+        class T1(type):
+            pass
+        class T2(type):
+            pass
+        class D1:
+            __metaclass__ = T1
+        class D2:
+            __metaclass__ = T2
+        def conflict():
+            class C(D1,D2):
+                pass
+        raises(TypeError, conflict)
+
+    def test_metaclass_choice(self):
+        events = []
+        
+        class T1(type):
+            def __new__(*args):
+                events.append(args)
+                return type.__new__(*args)
+
+        class D1:
+            __metaclass__ = T1
+
+        class C(D1):
+            pass
+
+        class F(object):
+            pass
+
+        class G(F,D1):
+            pass
+
+        assert len(events) == 3
+        assert type(D1) is T1
+        assert type(C) is T1
+        assert type(G) is T1
+            
+
+        
+        

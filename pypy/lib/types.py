@@ -70,19 +70,16 @@ except:
 del g
 
 # checking whether we can make copy_reg happy
-##class _C:
-##    def _m(self): pass
-##ClassType = type(_C)
-class ClassType: pass
 class _C:
-    def _m(self):pass
-## end of testing hack
+    def _m(self): pass
+
+ClassType = _classobj # from builtins
 try:
     UnboundMethodType = type(_C._m)         # Same as MethodType
 except AttributeError:
     pass
 _x = _C()
-InstanceType = type(_x)
+InstanceType = _instance # from builtins
 MethodType = type(_x._m)
 
 BuiltinFunctionType = type(len)

@@ -1,6 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef
 from pypy.objspace.std.objecttype import object_typedef
 
@@ -15,13 +16,15 @@ class W_TypeObject(W_Object):
         w_self.dict_w = dict_w
         w_self.ensure_static__new__()
 
-        w_self.mro_w = compute_C3_mro(w_self)
+        w_self.mro_w = compute_C3_mro(space, w_self)
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
         else:
             # find the most specific typedef
             instancetypedef = object_typedef
             for w_base in bases_w:
+                if not space.is_true(space.isinstance(w_base, space.w_type)):
+                    continue
                 if issubtypedef(w_base.instancetypedef, instancetypedef):
                     instancetypedef = w_base.instancetypedef
                 elif not issubtypedef(instancetypedef, w_base.instancetypedef):
@@ -56,7 +59,14 @@ class W_TypeObject(W_Object):
         space = w_self.space
         for w_class in w_self.mro_w:
             try:
-                return w_class.dict_w[key]
+                if isinstance(w_class, W_TypeObject):
+                    return w_class.dict_w[key]
+                else:
+                    try:
+                        return space.getitem(space.getdict(w_class),space.wrap(key))
+                    except OperationError,e:
+                        if not e.match(space, space.w_KeyError):
+                            raise
             except KeyError:
                 pass
         return None
@@ -67,7 +77,14 @@ class W_TypeObject(W_Object):
         space = w_self.space
         for w_class in w_self.mro_w:
             try:
-                return w_class, w_class.dict_w[key]
+                if isinstance(w_class, W_TypeObject):
+                    return w_class, w_class.dict_w[key]
+                else:
+                    try:
+                        return w_class, space.getitem(space.getdict(w_class),space.wrap(key))
+                    except OperationError,e:
+                        if not e.match(space, space.w_KeyError):
+                            raise                
             except KeyError:
                 pass
         return None, None
@@ -167,9 +184,31 @@ def unwrap__Type(space, w_type):
 
 # ____________________________________________________________
 
-def compute_C3_mro(cls):
+
+def app_abstract_mro(klass): # abstract/classic mro
+    mro = []
+    def fill_mro(klass):
+        if klass not in mro:
+            mro.append(klass)
+        assert isinstance(klass.__bases__, tuple)
+        for base in klass.__bases__:
+            fill_mro(base)
+    fill_mro(klass)
+    return mro
+
+abstract_mro = gateway.app2interp(app_abstract_mro)
+    
+
+def get_mro(space, klass):
+    if isinstance(klass, W_TypeObject):
+        return list(klass.mro_w)
+    else:
+        return space.unpackiterable(abstract_mro(space, klass))
+
+
+def compute_C3_mro(space, cls):
     order = []
-    orderlists = [list(base.mro_w) for base in cls.bases_w]
+    orderlists = [get_mro(space, base) for base in cls.bases_w]
     orderlists.append([cls] + cls.bases_w)
     while orderlists:
         for candidatelist in orderlists:

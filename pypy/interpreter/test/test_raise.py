@@ -117,9 +117,9 @@ class AppTestRaise:
         try:
             raise B
         except A, b:
-            assert type(b) == B
+            assert b.__class__ == B
         try:
             raise A, B(42)
         except B, b:
-            assert type(b) == B
+            assert b.__class__ == B
             assert b.x == 42

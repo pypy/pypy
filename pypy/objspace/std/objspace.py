@@ -202,6 +202,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_type = self.gettypeobject(typedef)
             setattr(self, 'w_' + typedef.name, w_type)
             for_builtins[typedef.name] = w_type
+
+        # dummy old-style classes types
+        self.w_classobj = W_TypeObject(self, 'classobj', [self.w_object], {})
+        self.w_instance = W_TypeObject(self, 'instance', [self.w_object], {})
         
         # exceptions
         ##for_builtins.update(self.clone_exception_hierarchy())

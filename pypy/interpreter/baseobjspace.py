@@ -189,7 +189,7 @@ class ObjSpace(object):
                 return True
             try:
                 # Match subclasses.
-                if self.is_true(self.issubtype(w_exc_type, w_item)):
+                if self.is_true(self.abstract_issubclass(w_exc_type, w_item, failhard=True)):
                     return True
             except OperationError:
                 # Assume that this is a TypeError: w_item not a type,
@@ -218,6 +218,39 @@ class ObjSpace(object):
     def isinstance(self, w_obj, w_type):
         w_objtype = self.type(w_obj)
         return self.issubtype(w_objtype, w_type)
+
+    def abstract_issubclass(self, w_obj, w_cls, failhard=False):
+        try:
+            return self.issubtype(w_obj, w_cls)
+        except OperationError:
+            try:
+                self.getattr(w_cls, self.wrap('__bases__')) # type sanity check
+                return self.recursive_issubclass(w_obj, w_cls)
+            except OperationError:
+                if failhard:
+                    raise
+                else:
+                    return self.w_False
+
+    def recursive_issubclass(self, w_obj, w_cls):
+        if self.is_w(w_obj, w_cls):
+            return self.w_True
+        for w_base in self.unpackiterable(self.getattr(w_obj, 
+                                                       self.wrap('__bases__'))):
+            if self.is_true(self.recursive_issubclass(w_base, w_cls)):
+                return self.w_True
+        return self.w_False
+
+    def abstract_isinstance(self, w_obj, w_cls):
+        try:
+            return self.isinstance(w_obj, w_cls)
+        except OperationError:
+            try:
+                w_objcls = self.getattr(w_obj, self.wrap('__class__'))
+                return self.abstract_issubclass(w_objcls, w_cls)
+            except OperationError:
+                return self.w_False
+
 
     def eval(self, expression, w_globals, w_locals):
         "NOT_RPYTHON: For internal debugging."

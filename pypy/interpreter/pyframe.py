@@ -223,7 +223,7 @@ def app_normalize_exception(etype, value, tb):
     # mistakes here usually show up as infinite recursion, which is fun.
     while isinstance(etype, tuple):
         etype = etype[0]
-    if isinstance(etype, type):
+    if isinstance(etype, (type, _classobj)):
         if not isinstance(value, etype):
             if value is None:
                 # raise Type: we assume we have to instantiate Type
