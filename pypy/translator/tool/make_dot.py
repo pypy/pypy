@@ -54,7 +54,7 @@ class DotGen:
                   weight="5",
                   ):
         d = locals()
-        attrs = [('%s="%s"' % (x, d[x]))
+        attrs = [('%s="%s"' % (x, d[x].replace('"', '\\"')))
                  for x in ['label', 'style', 'color', 'dir', 'weight']]
         self.emit('edge [%s];' % ", ".join(attrs))
         self.emit('%s -> %s' % (name1, name2))
@@ -67,7 +67,7 @@ class DotGen:
                   style="filled",
                   ):
         d = locals()
-        attrs = [('%s="%s"' % (x, d[x]))
+        attrs = [('%s="%s"' % (x, d[x].replace('"', '\\"')))
                  for x in ['shape', 'label', 'color', 'fillcolor', 'style']]
         self.emit('%s [%s];' % (name, ", ".join(attrs)))
 
