@@ -48,6 +48,14 @@ def try_import_mod(w_modulename, f, w_parent, w_name, pkgdir=None):
     else:
         return None
 
+def try_getattr(w_obj,w_name):
+    try:
+        return space.getattr(w_obj, w_name)
+    except OperationError, e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        return None
+
 def check_sys_modules(w_modulename):
     try:
         w_mod = space.getitem(space.sys.w_modules, w_modulename)
@@ -96,12 +104,8 @@ def __import__(w_modulename, w_globals=None,
         if first is None:
             first = w_mod
         prefix.append(part)
-        try:
-            w_path = space.getattr(w_mod, w('__path__'))
-        except OperationError, e:
-            if not e.match(space, space.w_AttributeError):
-                raise
-            w_path = None
+        w_path = try_getattr(w_mod,w('__path__'))
+
 
     if w_fromlist is not None and space.is_true(w_fromlist):
         if w_path is not None:
