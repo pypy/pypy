@@ -94,33 +94,31 @@ def map(function, *collections):
     if len(collections) == 0:
         raise TypeError, "map() requires at least one sequence"
 
-    elif len(collections) == 1:
+    if len(collections) == 1:
         #it's the most common case, so make it faster
         if function is None:
             return list(collections[0])
+        return [function(x) for x in collections[0]]
+
+    iterators = [ iter(collection) for collection in collections ]
+    res = []
+    while 1:
+        cont = False     #is any collection not empty?
+        args = []
+        for iterator in iterators:
+            try:
+                elem = iterator.next()
+                cont = True
+            except StopIteration:
+                elem = None
+            args.append(elem)
+        if cont:
+            if function is None:
+                res.append(tuple(args))
+            else:
+                res.append(function(*args))
         else:
-            return [function(x) for x in collections[0]]
-    else:
-       res = []
-       idx = 0   
-       while 1:
-          cont = 0     #is any collection not empty?
-          args = []
-          for collection in collections:
-              try:
-                 elem = collection[idx]
-                 cont = cont + 1
-              except IndexError:
-                 elem = None
-              args.append(elem)
-          if cont:
-              if function is None:
-                 res.append(tuple(args))
-              else:
-                 res.append(function(*args))
-          else:
-              return res
-          idx = idx + 1
+            return res
 
 def filter(function, collection):
     """construct a list of those elements of collection for which function
