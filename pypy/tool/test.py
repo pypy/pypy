@@ -337,6 +337,9 @@ def main(root=None):
                 run_tests(test)
     else:
         run_tests(suite)
+    if Options.verbose:
+        from pypy.tool.udir import udir
+        print "testdata (unittestsession) directory was:", str(udir)
 
 if __name__ == '__main__':
     # test all of pypy

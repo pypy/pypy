@@ -11,14 +11,7 @@ from pypy.tool.udir import udir
 debug = 0
 
 class DotGen:
-    def __init__(self):
-        self.nodes = {}
-        self.counters = {}
-
     def get_source(self, funcgraph):
-        self.blocks = {}
-        self.lines = []
-        traverse(self, funcgraph)
         content = "\n".join(self.lines)
         return """
 digraph test { 
@@ -27,12 +20,31 @@ edge [fontname=Times];
 %(content)s
 }""" % locals()
 
+    def getsubgraph(self, name, node):
+        self.blocks = {}
+        self.lines = []
+        self.prefix = name
+        traverse(self, node)
+        content = "\n".join(self.lines)
+        return "subgraph %s {\n%s}" % (name, content) 
+
+    def getdigraph(self, name, node):
+        self.blocks = {}
+        self.lines = []
+        traverse(self, node)
+        content = "\n".join(self.lines)
+        return "digraph %s {\n%s}" % (name, content) 
+
+    def getgraph(self, name, subgraphlist):
+        content = "\n".join(subgraphlist)
+        return "digraph %s {\n%s}" % (name, content)
+
     def blockname(self, block):
         i = id(block)
         try:
             return self.blocks[i]
         except KeyError:
-            self.blocks[i] = name = "block%d" % len(self.blocks)
+            self.blocks[i] = name = "%s_%d" % (self.prefix, len(self.blocks))
             return name
 
     def emit(self, line):
@@ -42,7 +54,6 @@ edge [fontname=Times];
                   style="dashed", 
                   color="black", 
                   dir="forward",
-                  decorateP="",
                   weight="5",
                   ):
         d = locals()
@@ -66,12 +77,12 @@ edge [fontname=Times];
         return
 
     def visit_FunctionGraph(self, funcgraph):
-        name = funcgraph.name
+        name = self.prefix # +'_'+funcgraph.name
         data = name
         if hasattr(funcgraph, 'source'):
             source = funcgraph.source.replace('"', "'")
             data += "\\n" + "\\l".join(source.split('\n'))
-            
+           
         self.emit_node(name, label=data, shape="box", fillcolor="green", style="filled")
         #('%(name)s [fillcolor="green", shape=box, label="%(data)s"];' % locals())
         self.emit_edge(name, self.blockname(funcgraph.startblock), 'startblock')
@@ -114,7 +125,7 @@ edge [fontname=Times];
                 self.emit_edge(name, name2, label, style="dotted", color=color)
 
 
-def make_dot(graph, storedir=None, target='ps'):
+def make_dot(name, graph, storedir=None, target='ps'):
     from vpath.adapter.process import exec_cmd
 
     if storedir is None:

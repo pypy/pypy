@@ -1,9 +1,13 @@
 
 import autopath
 from pypy.tool import test
+from pypy.tool.udir import udir
 
+from vpath.adapter.process import exec_cmd
 from vpath.local import Path
-import os, sys
+from pypy.translator.genpyrex import GenPyrex
+
+import os, sys, inspect
 import stdoutcapture
 
 debug = 0
@@ -82,3 +86,80 @@ def make_c_from_pyxfile(pyxfile):
     except PyrexError, e:
         print >>sys.stderr, e
     cfile = pyxfile.newext('.c')
+
+def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
+    """ return a pyrex-generated cfunction from the given func. 
+
+    simplify is true -> perform simplifications on the flowgraph.
+    dot is true      -> generate a dot-configuration file and postscript.
+    inputargtypes is a list (allowed to be empty) ->
+                        then annotation will be performed before generating 
+                        dot/pyrex/c code. 
+
+    """
+    try: func = func.im_func
+    except AttributeError: pass
+
+    # build the flow graph
+    from pypy.objspace.flow import Space
+    space = Space()
+    name = func.func_name
+    funcgraph = space.build_flow(func)
+
+    if dot:
+        from make_dot import DotGen
+        dotgen = DotGen()
+        subgraphs = []
+        subgraphs.append(dotgen.getsubgraph(name, funcgraph))
+
+    # apply transformations 
+    if simplify:
+        from pypy.translator.simplify import simplify_graph
+        simplify_graph(funcgraph)
+        name += '_s'
+        if dot:
+            subgraphs.append(dotgen.getsubgraph(name, funcgraph))
+
+    # get the pyrex generator
+    genpyrex = GenPyrex(funcgraph)
+
+    # generate pyrex (without type inference)
+
+    # apply type inference 
+    if inputargtypes is not None:
+        genpyrex.annotate(inputargtypes)
+        name += '_t'
+        #a = Annotator(self.functiongraph)
+        #a.build_types(input_arg_types)
+        #a.simplify()
+
+        pyxstring = genpyrex.emitcode()
+        #funcgraph.source = inspect.getsource(func)
+        mod = make_module_from_pyxstring(name, udir, pyxstring)
+    else:
+        pyxstring = genpyrex.emitcode()
+        mod = make_module_from_pyxstring(name, udir, pyxstring)
+
+    if dot:
+        content = dotgen.getgraph("graph_"+func.func_name, subgraphs)
+        base = udir.join(name)
+        base.newext('dot').write(content)
+        base.newext('ps')
+        exec_cmd('dot -Tps -o %s %s' % (
+            str(base.newext('ps')),
+            str(base.newext('.dot'))))
+
+
+    return getattr(mod, func.func_name)
+
+if __name__ == '__main__':
+    def f(x):
+        i = 0
+        while i < x:
+            i = i + 1
+        return i
+
+    cf = make_cfunc(f, inputargtypes = [int])
+    assert cf(3), 3
+
+
