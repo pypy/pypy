@@ -56,6 +56,8 @@ def __dirinfo(part):
         if '.' in name or not isinstance(fn, str):
             continue
         newname = os.path.splitext(os.path.basename(fn))[0]
+        if not newname.startswith(part + '.'):
+            continue
         path = os.path.join(os.path.dirname(os.path.realpath(fn)), '')
         if path.startswith(pypy_root) and newname != part:
             modpaths = os.path.normpath(path[len(pypy_root):]).split(os.sep)
