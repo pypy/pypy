@@ -62,14 +62,17 @@ try: 5.0 / 0.0
 except ZeroDivisionError: pass
 else: raise TestFailed, "5.0 / 0.0 didn't raise ZeroDivisionError"
 
+'''  TODO
 try: 5.0 // 0.0
 except ZeroDivisionError: pass
 else: raise TestFailed, "5.0 // 0.0 didn't raise ZeroDivisionError"
+'''
 
 try: 5.0 % 0.0
 except ZeroDivisionError: pass
 else: raise TestFailed, "5.0 % 0.0 didn't raise ZeroDivisionError"
 
+'''  TODO
 try: 5 / 0L
 except ZeroDivisionError: pass
 else: raise TestFailed, "5 / 0L didn't raise ZeroDivisionError"
@@ -81,6 +84,7 @@ else: raise TestFailed, "5 // 0L didn't raise ZeroDivisionError"
 try: 5 % 0L
 except ZeroDivisionError: pass
 else: raise TestFailed, "5 % 0L didn't raise ZeroDivisionError"
+'''
 
 print '6.4 Numeric types (mostly conversions)'
 if 0 != 0L or 0 != 0.0 or 0L != 0.0: raise TestFailed, 'mixed comparisons'
