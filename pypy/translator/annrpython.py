@@ -62,7 +62,7 @@ class RPythonAnnotator:
 
     #___ medium-level interface ____________________________
 
-    def addpendingblock(self, block, cells=None):
+    def addpendingblock(self, block, cells):
         """Register an entry point into block with the given input cells."""
         self.pendingblocks.append((block, cells))
 
@@ -158,8 +158,13 @@ class RPythonAnnotator:
                 # When flowin succeeds, i.e. when the analysis progress,
                 # we can tentatively re-schedlue the delayed blocks.
                 for block in self.delayedblocks:
-                    self.addpendingblock(block)
+                    self.addpendingblock(block, None)
                 del self.delayedblocks[:]
+
+    def reflowpendingblock(self, block):
+        self.pendingblocks.append((block, None))
+        assert block in self.annotated
+        self.annotated[block] = False  # must re-flow
 
     def bindinputargs(self, block, inputcells):
         # Create the initial bindings for the input args of a block.
@@ -185,7 +190,7 @@ class RPythonAnnotator:
                 return
 
     def flowin(self, block):
-        self.heap.enter(block, self.addpendingblock)
+        self.heap.enter(block, self.reflowpendingblock)
         for op in block.operations:
             self.consider_op(op)
         self.heap.leave()
