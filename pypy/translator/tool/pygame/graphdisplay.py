@@ -40,10 +40,14 @@ class GraphDisplay(Display):
     STATUSBARFONT = os.path.join(autopath.this_dir, 'VeraMoBd.ttf')
     ANIM_STEP = 0.07
     KEY_REPEAT = (500, 30)
+    STATUSBAR_ALPHA = 0.75
+    STATUSBAR_FGCOLOR = (255, 255, 80)
+    STATUSBAR_BGCOLOR = (128, 0, 0)
 
     KEYS = {
         'meta -' : ('zoom', 0.5),
         'meta =' : ('zoom', 2.0),
+        'meta +' : ('zoom', 2.0),
         'meta 0' : 'zoom_actual_size',
         'meta 1' : 'zoom_to_fit',
         'meta q' : 'quit',
@@ -114,7 +118,7 @@ class GraphDisplay(Display):
 
     def calculate_zoom_to_fit(self):
         return min(float(self.width) / self.viewer.width,
-                float(self.height - self.status_bar_height) / self.viewer.height,
+                float(self.height) / self.viewer.height,
                 float(self.viewer.SCALEMAX) / self.viewer.scale)
     
     def zoom_to_fit(self):
@@ -122,14 +126,8 @@ class GraphDisplay(Display):
         center and scale to view the whole graph
         """
 
-        # XXX - HACK HACK HACK
-        self.update_status_bar()
-        self.drawstatusbar()
-
         f = self.calculate_zoom_to_fit()
         self.viewer.shiftscale(f)
-        #self.viewer.setoffset((self.viewer.width - self.width) // 2,
-        #                      (self.viewer.height - (self.height - self.status_bar_height)) // 2)
         self.updated_viewer()
 
     def zoom(self, scale):
@@ -137,7 +135,7 @@ class GraphDisplay(Display):
         self.updated_viewer()
 
     def reoffset(self):
-        self.viewer.reoffset(self.width, self.height - self.status_bar_height)
+        self.viewer.reoffset(self.width, self.height)
     
     def pan(self, (x, y)):
         self.viewer.shiftoffset(x * (self.width // 8), y * (self.height // 8))
@@ -177,8 +175,8 @@ class GraphDisplay(Display):
             self.layout = self.viewer.graphlayout
             self.updated_viewer()
 
-    def setstatusbar(self, text, fgcolor=(255,255,80), bgcolor=(128,0,0)):
-        info = (text, fgcolor, bgcolor)
+    def setstatusbar(self, text, fgcolor=None, bgcolor=None):
+        info = (text, fgcolor or self.STATUSBAR_FGCOLOR, bgcolor or self.STATUSBAR_BGCOLOR)
         if info != self.statusbarinfo:
             self.statusbarinfo = info
             self.must_redraw = True
@@ -213,7 +211,7 @@ class GraphDisplay(Display):
             w, h = img.get_size()
             block.blit(img, ((self.width-w)//2, sy-8))
             sy += h
-        block.set_alpha(int(255 * 0.75))
+        block.set_alpha(int(255 * self.STATUSBAR_ALPHA))
         self.screen.blit(block, (0, y-16))
 
     def notifymousepos(self, pos):
@@ -295,6 +293,7 @@ class GraphDisplay(Display):
                 self.viewer.setscale(startscale*(1-t) + endscale*t +
                                      bumpscale*t*(1-t))
                 self.viewer.setcenter(cx1*(1-t) + cx2*t, cy1*(1-t) + cy2*t)
+                self.updated_viewer()
                 self.viewer.render()
                 pygame.display.flip()
         return moving
@@ -323,9 +322,10 @@ class GraphDisplay(Display):
             dx = event.pos[0] - self.dragging[0]
             dy = event.pos[1] - self.dragging[1]
             if event.buttons[0]:   # left mouse button
-                self.viewer.shiftscale(1.003 ** (dx+dy))
+                self.zoom(1.003 ** (dx+dy))
             else:
                 self.viewer.shiftoffset(-2*dx, -2*dy)
+                self.updated_viewer()
             self.dragging = event.pos
             self.must_redraw = True
         else:
@@ -342,6 +342,7 @@ class GraphDisplay(Display):
         if self.click_time is not None and abs(time.time() - self.click_time) < 1:
             # click (no significant dragging)
             self.notifyclick(self.click_origin)
+        self.update_status_bar()
         self.click_time = None
         self.notifymousepos(event.pos)
 
