@@ -26,15 +26,15 @@ class Builtin(BuiltinModule):
         return self.space.str(w_obj)
     str = appmethod(str)
 
-    def __import__(self,w_modulename,w_locals,w_globals,w_fromlist):
+    def __import__(self, w_modulename, w_locals, w_globals, w_fromlist):
         space = self.space
         try:
-            w_mod = space.getitem(space.w_modules,w_modulename)
+            w_mod = space.getitem(space.w_modules, w_modulename)
             return w_mod
         except OperationError,e:
-            if not e.match(space,space.w_KeyError):
+            if not e.match(space, space.w_KeyError):
                 raise
-            raise OperationError(space.w_ImportError)
+            raise OperationError(space.w_ImportError, w_modulename)
     __import__ = appmethod(__import__)
 
     def compile(self, w_str, w_filename, w_startstr,
