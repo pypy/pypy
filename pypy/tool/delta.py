@@ -189,7 +189,7 @@ class ObjSpaceExplore(Explore):
         space = self.space
         try:
             return space.getattr(obj, space.wrap(name))
-        except OperationError:
+        except OperationError, e:
             return NOTFOUND
 
     def is_faked(self, obj):
@@ -220,11 +220,15 @@ class ObjSpaceExplore(Explore):
 
 
 class Status:
-    def __init__(self, msg, detail_missing, class_, incompleteness):
+    def __init__(self, msg, detail_missing, class_, incompleteness, shortmsg = None):
         self.msg = msg
         self.detail_missing = detail_missing
         self.class_ = class_
         self.incompleteness = incompleteness
+        if shortmsg is None:
+            self.shortmsg = msg
+        else:
+            self.shortmsg = shortmsg
 
 class Entry:
 
@@ -244,8 +248,7 @@ class Entry:
             assert obj2 is not NOTFOUND, "whoopsy %s" % self.name
             self.status = 'MISSING'
             self.specifically = 'missing'
-        elif expl1.is_faked(obj1):
-            assert obj2 is not NOTFOUND, "whoopsy %s" % self.name            
+        elif expl1.is_faked(obj1) and obj2 is not NOTFOUND:
             self.status = 'MISSING'
             self.specifically = 'faked'
         elif obj2 is NOTFOUND:
@@ -321,9 +324,13 @@ reports = []
 
 class Report(Entry):
 
+    useshort = False
+
     notes = None
+
+    descr = granddescr = "<not specified>"
     
-    def __init__(self, name, title=None, fname=None, notes=None):
+    def __init__(self, name, title=None, fname=None, **kwds):
         if title is None:
             title = name
         Entry.__init__(self, name)
@@ -342,45 +349,53 @@ class Report(Entry):
 
         self._fname = fname
 
-        if notes is not None:
-            self.notes = notes
+        self.__dict__.update(kwds)
+
 
     def add_row(self, entry, rest, name=None, parent=None):
         self.rows.append((name, entry, rest, parent))
 
-    def missing_stats(self, missing, total):
-        return "%s/%s missing (%.1f%%)" % (missing, total, float(missing)/total*100)        
+    def missing_stats(self, missing, total, descr):
+        return "%s/%s %s missing (%.1f%%)" % (missing, total, descr, float(missing)/total*100)        
 
     def status_wrt(self, parent=None):
         detail_missing = 0
         incompleteness = 0.0
         
         if self.status == 'MISSING':
-            msg = "%s (%s)" % (self.specifically, self.total)
+            count = "%s %s" % (self.total, self.descr)
+            shortmsg = "%s (%s)" % (self.specifically, count)
             detail_missing = self.total
             if self.grandtotal:
-                msg = "%s or in detail (%s)" % (msg, self.grandtotal)
+                count = "%s or in detail %s %s" % (count, self.granddescr, self.grandtotal)
                 detail_missing = self.grandtotal
-            return Status(msg, detail_missing, class_=self.specifically, incompleteness=1.0)
+            msg = "%s (%s)" % (self.specifically, count)
+            return Status(msg, detail_missing, class_=self.specifically, incompleteness=1.0,
+                          shortmsg = shortmsg)
         elif self.status == 'PRESENT':
             if self.missing == 0 and self.grandmissing == 0:
                 return Status(msg="complete", detail_missing=detail_missing, class_=None,
                               incompleteness=incompleteness)
+            disj = "or "
             if self.missing == 0:
                 msg = "all present but"
                 incompleteness = 1.0
+                disj = ""
             else:
-                msg = self.missing_stats(self.missing, self.total)
+                msg = self.missing_stats(self.missing, self.total, self.descr)
                 detail_missing = self.missing
                 incompleteness = float(self.missing) / self.total
+
+            shortmsg = msg
                 
             if self.grandtotal:
-                msg = "%s in detail %s" % (msg,
-                                           self.missing_stats(self.grandmissing, self.grandtotal))
+                msg = "%s %sin detail %s" % (msg, disj,
+                                             self.missing_stats(self.grandmissing, self.grandtotal,
+                                                                self.granddescr))
                 detail_missing = self.grandmissing
                 incompleteness = (incompleteness + float(self.grandmissing)/self.grandtotal)/2
             return Status(msg, detail_missing, class_='somemissing',
-                          incompleteness=incompleteness)
+                          incompleteness=incompleteness, shortmsg = shortmsg)
         else:
             msg = self.only_in(parent)
             if msg:
@@ -409,7 +424,11 @@ class Report(Entry):
         i = 0
         for name, entry, rest, st in rows:
             tr_class = i%2 == 0 and "even" or "odd"
-            rest = rest + [st.msg, incompleteness_bar(dir, st.incompleteness)]            
+            if self.useshort:
+                msg = st.shortmsg
+            else:
+                msg = st.msg
+            rest = rest + [incompleteness_bar(dir, st.incompleteness), msg]            
             tbl.append(html.tr(
                 html.td(entry.link(name), **set_class(st.class_)),
                 *map(html.td,rest), **{'class': tr_class})
@@ -436,7 +455,7 @@ class Report(Entry):
         class_ = st.class_
         bar = incompleteness_bar(dir, st.incompleteness)
 
-        HEADER = '''<?xml version="1.0" encoding="UTF-8"?>
+        HEADER = '''<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">'''
 
         HIDE = 'display: none'
@@ -487,25 +506,27 @@ class Report(Entry):
 
 class ClassReport(Report):
 
+    descr = "methods+attrs"
+
     def navig(self):
         return html.p(html.span(self.title,**{'class': 'title'}),
                       "|",mods_report.link(None),"|",cls_report.link(None))
 
     def grandadd(self, parent):
-        if self.status == 'MISSING':
-            parent.grandtotal += self.total
-            parent.grandmissing += self.missing
-        elif self.status == 'PRESENT':
-            parent.grandtotal += self.total
+        parent.grandtotal += self.total
+        parent.grandmissing += self.missing
 
 class ModuleReport(Report):
+
+    descr = "module funcs+types+etc"
+
+    granddescr = "module funcs+others and contained types/classes methods+attrs"
 
     def navig(self):
         return html.p(html.span(self.title,**{'class': 'title'}),
                       "|",mods_report.link(None),"|",cls_report.link(None))    
 
-    notes = ("(): callable, C: type/class; detail counts module functions, attrs and "
-             "contained class/type methods and attrs")
+    notes = ("(): callable, C: type/class")
     
     def grandadd(self, parent):
         if self.status == 'MISSING':
@@ -518,8 +539,9 @@ class ModuleReport(Report):
 def delta(expl1, expl2, modnames):
 
     rep = Report('Modules', fname="modules-index",
-                 notes = "detail counts module functions, attrs and "
-                 "contained class/type methods and attrs")
+                 descr = "modules",
+                 granddescr = "of all modules funcs+others and contained types/classes methods+attrs",
+                 useshort = True)
     def navig():
         return html.p(html.span('Modules',**{'class': 'title'}),
                       "|",cls_report.link(None))        
@@ -646,7 +668,9 @@ def cls_delta(clsname, expl1, cls1, expl2, cls2):
 def cls_delta_rep():
     reps = cls_delta_cache.values()
     cls_rep = Report('Types/Classes', fname="types-index",
-                     notes = "detail counts class/type methods and attrs")
+                     descr = "types/classes",
+                     granddescr = "of all types/classes methods+attrs"
+                     )
 
     def navig():
         return html.p(mods_report.link(None),
@@ -669,19 +693,41 @@ def cls_delta_rep():
 
 host_explore = HostExplore()
 
+
+basic = ['__builtin__', 'types', 'sys']
+
 os_layer = []
-for modname in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos']:
+for modname in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos', 'errno', '_socket', 'select', 'thread']:
     if host_explore.get_module(modname) is not NOTFOUND:
         os_layer.append(modname)
 
+mods = """
+_codecs
+_random
+_sre
+_weakref
+array
+binascii
+cPickle
+cStringIO
+struct
+datetime
+gc
+itertools
+math
+cmath
+md5
+operator
+parser
+sha
+unicodedata
+zipimport
+time
+""".split()
 
-TO_CHECK = list(Set(['types', '__builtin__', 'sys']).union(Set(sys.builtin_module_names)).
-                union(Set([
-    'math', '_codecs', 'array',
-    '_random', '_sre', 'time', '_socket', 'errno',
-    'marshal', 'binascii', 'parser']+os_layer)))
-TO_CHECK.remove('__main__')
-TO_CHECK.remove('xxsubtype')
+TO_CHECK = (basic +
+            os_layer +
+            mods)
 TO_CHECK.sort()
 
 def getpypyrevision(cache=[]): 
