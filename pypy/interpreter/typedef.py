@@ -52,6 +52,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, Method
+from pypy.interpreter.pytraceback import PyTraceback
 
 Code.typedef = TypeDef('internal-code',
     co_name = attrproperty('co_name'),
@@ -106,4 +107,11 @@ Method.typedef = TypeDef("method",
     im_self  = attrproperty_w('w_instance'), 
     im_class = attrproperty_w('w_class'),
     # XXX getattribute/setattribute etc.pp 
+    )
+
+PyTraceback.typedef = TypeDef("traceback",
+    tb_frame  = attrproperty('tb_frame'),
+    tb_lasti  = attrproperty('tb_lasti'),
+    tb_lineno = attrproperty('tb_line'),
+    tb_next   = attrproperty('tb_next'),
     )

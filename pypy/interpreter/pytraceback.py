@@ -18,18 +18,6 @@ class PyTraceback(baseobjspace.Wrappable):
         self.lineno = lineno
         self.next = next
 
-    ### application level visible attributes ###
-    def app_visible(self):
-        def makedict(**kw): return kw
-        space = self.space
-        d = makedict(
-            tb_frame = space.wrap(self.frame),
-            tb_lasti = space.wrap(self.lasti),
-            tb_lineno = space.wrap(self.lineno),
-            tb_next = space.wrap(self.next),
-            )
-        return d.items() 
-
 
 def record_application_traceback(space, operror, frame, last_instruction):
     lineno = offset2lineno(frame.code, last_instruction)
