@@ -143,6 +143,23 @@ class DescrOperation:
                     space.wrap("object does not support attribute removal"))
         return space.get_and_call_function(w_descr,w_obj,w_name)
 
+    def is_true(space,w_obj):
+        if w_obj == space.w_False:
+            return False
+        if w_obj == space.w_True:
+            return True
+        if w_obj == space.w_None:
+            return False
+        w_descr = space.lookup(w_obj, '__nonzero__')
+        if w_descr is not None:
+            w_res = space.get_and_call_function(w_descr,w_obj)
+            return space.is_true(w_res)
+        w_descr = space.lookup(w_obj, '__len__')
+        if w_descr is not None:
+            w_res = space.get_and_call_function(w_descr,w_obj)
+            return space.is_true(w_res)
+        return True
+
     def str(space,w_obj):
         w_descr = space.lookup(w_obj,'__str__')
         return space.get_and_call_function(w_descr,w_obj)
@@ -217,9 +234,23 @@ class DescrOperation:
 
         raise OperationError(space.w_TypeError,
                 space.wrap("operands do not support **"))
-        
+
+    def contains(space,w_container,w_item):
+        w_descr = space.lookup(w_container,'__contains__')
+        if w_descr is not None:
+            return space.get_and_call_function(w_descr,w_container,w_item)
+        w_iter = space.iter(w_container)
+        while 1:
+            try:
+                w_next = space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                return space.w_False
+            if space.is_true(space.eq(w_next, w_lookfor)):
+                return space.w_True
     
-    # not_ has a default implementation
+    # XXX not_ has a default implementation
 
     # xxx round, ord
 

@@ -6,34 +6,35 @@ from pypy.objspace.std.objspace import *
 # The following default implementations are used before delegation is tried.
 # 'id' is normally the address of the wrapper.
 
-def id__Object(space, w_obj):
+def id__ANY(space, w_obj):
+    #print 'id:', w_obj
     import intobject
     return intobject.W_IntObject(space, id(w_obj))
 
 # this 'not' implementation should be fine for most cases
 
-def not__Object(space, w_obj):
+def not__ANY(space, w_obj):
     return space.newbool(not space.is_true(w_obj))
 
 # __nonzero__ falls back to __len__
 
-def is_true__Object(space, w_obj):
-    w_descr = space.lookup(w_obj, '__len__')
-    if w_descr is None:
-        return True
-    else:
-        w_len = space.get_and_call_function(w_descr, w_obj)
-        return space.is_true(w_len)
+##def is_true__ANY(space, w_obj):
+##    w_descr = space.lookup(w_obj, '__len__')
+##    if w_descr is None:
+##        return True
+##    else:
+##        w_len = space.get_and_call_function(w_descr, w_obj)
+##        return space.is_true(w_len)
 
-# in-place operators fall back to their non-in-place counterpart
+### in-place operators fall back to their non-in-place counterpart
 
-for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
-    if _name.startswith('inplace_'):
-        def default_inplace(space, w_1, w_2, baseop=_name[8:]):
-            op = getattr(space, baseop)
-            return op(w_1, w_2)
-        getattr(StdObjSpace.MM, _name).register(default_inplace,
-                                                W_Object, W_ANY)
+##for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
+##    if _name.startswith('inplace_'):
+##        def default_inplace(space, w_1, w_2, baseop=_name[8:]):
+##            op = getattr(space, baseop)
+##            return op(w_1, w_2)
+##        getattr(StdObjSpace.MM, _name).register(default_inplace,
+##                                                W_Object, W_ANY)
 
 # '__get__(descr, inst, cls)' returns 'descr' by default
 
@@ -187,30 +188,30 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
 ##def str__Object(space, w_obj):
 ##    return space.repr(w_obj)
 
-def hash__Object(space, w_obj):
-    return space.id(w_obj)
+##def hash__ANY(space, w_obj):
+##    return space.id(w_obj)
 
 
 # The following operations are fall-backs if we really cannot find
 # anything else even with delegation.
 # 'eq' falls back to 'is'
 
-def eq__ANY_ANY(space, w_a, w_b):
-    return space.is_(w_a, w_b)
+##def eq__ANY_ANY(space, w_a, w_b):
+##    return space.is_(w_a, w_b)
 
 # 'contains' falls back to iteration.
 
-def contains__ANY_ANY(space, w_iterable, w_lookfor):
-    w_iter = space.iter(w_iterable)
-    while 1:
-        try:
-            w_next = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            return space.w_False
-        if space.is_true(space.eq(w_next, w_lookfor)):
-            return space.w_True
+##def contains__ANY_ANY(space, w_iterable, w_lookfor):
+##    w_iter = space.iter(w_iterable)
+##    while 1:
+##        try:
+##            w_next = space.next(w_iter)
+##        except OperationError, e:
+##            if not e.match(space, space.w_StopIteration):
+##                raise
+##            return space.w_False
+##        if space.is_true(space.eq(w_next, w_lookfor)):
+##            return space.w_True
 
 # ugh
 

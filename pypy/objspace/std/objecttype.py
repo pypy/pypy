@@ -1,6 +1,7 @@
 from pypy.objspace.descroperation import Object
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.objspace import StdObjSpace
 
 object_init = MultiMethod('__init__', 1, varargs=True, keywords=True)
 
@@ -20,6 +21,10 @@ def descr__repr__(space, w_obj):
 def descr__str__(space, w_obj):
     return space.repr(w_obj)
 
+def descr__hash__(space, w_obj):
+    # XXX detect non-hashable instances (the ones overriding comparison only)
+    return space.id(w_obj)
+
 def descr__class__(space, w_obj):
     return space.type(w_obj)
 
@@ -37,6 +42,7 @@ object_typedef = StdTypeDef("object", [],
     __delattr__ = gateway.interp2app(Object.descr__delattr__.im_func),
     __str__ = gateway.interp2app(descr__str__),
     __repr__ = gateway.interp2app(descr__repr__),
+    __hash__ = gateway.interp2app(descr__hash__),
     __class__ = GetSetProperty(descr__class__),
     __new__ = newmethod(descr__new__),
     )

@@ -13,7 +13,7 @@ class W_Object:
         w_self.space = space     # XXX not sure this is ever used any more
 
     def __repr__(self):
-        return '<objwrapper %s(%s)>' % (
+        return '%s(%s)' % (
             self.__class__.__name__,
            #', '.join(['%s=%r' % keyvalue for keyvalue in self.__dict__.items()])
             getattr(self, 'name', '')
@@ -204,7 +204,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             import listobject
             return listobject.W_ListObject(self, wrappeditems)
         if isinstance(x, Wrappable):
-            return x.__spacebind__(self)
+            w_result = x.__spacebind__(self)
+            #print 'wrapping', x, '->', w_result
+            return w_result
         import cpythonobject
         SlotWrapperType = type(type(None).__repr__)
         if isinstance(x, (types.FunctionType, types.BuiltinFunctionType, SlotWrapperType)):
