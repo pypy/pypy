@@ -1,6 +1,7 @@
 from pypy.objspace.std import StdObjSpace
 from pypy.objspace.trivial import TrivialObjSpace
 import executioncontext, baseobjspace, pyframe
+from pypy.module.builtin import compile
 
 import sys
 

@@ -1,5 +1,5 @@
 import os
-
+from pypy.module.builtin import compile
 
 class AppFile:
     """Dynamic loader of a set of Python functions and objects that
