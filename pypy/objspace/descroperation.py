@@ -52,6 +52,8 @@ class Object:
     def descr__init__(space, w_obj, __args__):
         pass   # XXX some strange checking maybe
 
+SlotWrapper = type(None).__repr__
+
 class DescrOperation:
 
     def getdict(space, w_obj):
@@ -62,14 +64,16 @@ class DescrOperation:
 
     def get_and_call_args(space, w_descr, w_obj, args):
         descr = space.unwrap_builtin(w_descr)
+        # some special cases to avoid infinite recursion
         if type(descr) is Function:
-            # special-case Functions to avoid infinite recursion
             if isinstance(descr.code, BuiltinCode):
                 # this sub-special case is ONLY for performance reasons
-                w_result = descr.code.performance_shortcut_call_meth(space,
-                                                                     w_obj, args)
+                w_result = descr.code.performance_shortcut_call_meth(
+                    space, w_obj, args)
                 if w_result is not None:
                     return w_result
+            return descr.call_args(args.prepend(w_obj))
+        elif type(descr) is type(space.wrap(SlotWrapper)):
             return descr.call_args(args.prepend(w_obj))
         else:
             w_impl = space.get(w_descr, w_obj)

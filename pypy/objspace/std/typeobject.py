@@ -137,6 +137,11 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
 # XXX __delattr__
 # XXX __hash__ ??
 
+def unwrap__Type(space, w_type):
+    if hasattr(w_type.instancetypedef, 'fakedcpytype'):
+        return w_type.instancetypedef.fakedcpytype
+    raise FailedToImplement
+
 # ____________________________________________________________
 
 def compute_C3_mro(cls):

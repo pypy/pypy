@@ -134,6 +134,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return done
                             
     def initialize(self):
+        self.fake_type_cache = {}
+        
         # The object implementations that we want to 'link' into PyPy must be
         # imported here.  This registers them into the multimethod tables,
         # *before* the type objects are built from these multimethod tables.
@@ -150,13 +152,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
         from pypy.objspace.std import longobject
         from pypy.objspace.std import noneobject
         from pypy.objspace.std import iterobject
-        from pypy.objspace.std import cpythonobject
         # hack to avoid imports in the time-critical functions below
         global W_ObjectObject, W_BoolObject, W_IntObject, W_FloatObject
         global W_TupleObject, W_ListObject, W_DictObject, W_StringObject
         global W_TypeObject, W_SliceObject, W_LongObject, W_NoneObject
         global W_SeqIterObject
-        global W_CPythonObject, W_BuiltinFunctionObject
+        global W_FakeFile
         W_ObjectObject = objectobject.W_ObjectObject
         W_BoolObject = boolobject.W_BoolObject
         W_IntObject = intobject.W_IntObject
@@ -170,10 +171,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         W_LongObject = longobject.W_LongObject
         W_NoneObject = noneobject.W_NoneObject
         W_SeqIterObject = iterobject.W_SeqIterObject
-        W_CPythonObject = cpythonobject.W_CPythonObject
-        W_BuiltinFunctionObject = cpythonobject.W_BuiltinFunctionObject
         # end of hacks
-
         # singletons
         self.w_None  = W_NoneObject(self)
         self.w_False = W_BoolObject(self, False)
@@ -197,6 +195,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
             setattr(self, 'w_' + typedef.name, w_type)
             for_builtins[typedef.name] = w_type
 
+        import fake
+        W_FakeFile = fake.fake_type(self, file)
+
+        self.w_file = self.gettypeobject(W_FakeFile.typedef)
+        for_builtins['file'] = self.w_file
+        self.fake_type_cache[file] = W_FakeFile
+        
+        
         # exceptions
         for_builtins.update(self.clone_exception_hierarchy())
         
@@ -240,17 +246,26 @@ class StdObjSpace(ObjSpace, DescrOperation):
             #print 'wrapping', x, '->', w_result
             return w_result
         # anything below this line is implicitly XXX'ed
-        SlotWrapperType = type(type(None).__repr__)
-        if isinstance(x, (types.FunctionType, types.BuiltinFunctionType, SlotWrapperType)):
-            return W_BuiltinFunctionObject(self, x)
         if isinstance(x, type(Exception)) and issubclass(x, Exception):
             if hasattr(self, 'w_' + x.__name__):
                 return getattr(self, 'w_' + x.__name__)
-        print "cpython wrapping %r" % (x,)
-        #if hasattr(x, '__bases__'): 
-        #    print "cpython wrapping a class %r (%s)" % (x, type(x))
-            #raise TypeError, "cannot wrap classes"
-        return W_CPythonObject(self, x)
+        if isinstance(x, type):
+            if x in self.fake_type_cache:
+                return self.gettypeobject(self.fake_type_cache[x].typedef)
+            print 'faking %r'%(x,)
+            import fake
+            ft = fake.fake_type(self, x)
+            self.fake_type_cache[x] = ft
+            return self.gettypeobject(self.fake_type_cache[x].typedef)
+        if type(x) in self.fake_type_cache:
+            ft = self.fake_type_cache[type(x)]
+            return ft(self, x)
+        else:
+            print 'faking %r'%(type(x),)
+            import fake
+            ft = fake.fake_type(self, type(x))
+            self.fake_type_cache[type(x)] = ft
+            return ft(self, x)
 
     def newint(self, intval):
         return W_IntObject(self, intval)
@@ -335,14 +350,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def is_(self, w_one, w_two):
         # XXX a bit of hacking to gain more speed 
-        #
         if w_one is w_two:
             return self.w_True
-        if isinstance(w_one, W_CPythonObject):
-            if isinstance(w_two, W_CPythonObject):
-                if w_one.cpyobj is w_two.cpyobj:
-                    return self.w_True
-                return self.newbool(self.unwrap(w_one) is self.unwrap(w_two))
         return self.w_False
 
     def is_true(self, w_obj):
@@ -353,26 +362,19 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return DescrOperation.is_true(self, w_obj)
 
     def hash(space, w_obj):
-        if isinstance(w_obj, W_CPythonObject):
-            try:
-                return space.newint(hash(w_obj.cpyobj))
-            except:
-                from pypy.objspace.std import cpythonobject
-                cpythonobject.wrap_exception(space)
-        else:
-            w = space.wrap
-            eq = '__eq__'
-            ne = '__ne__'
-            hash_s = '__hash__'
+        w = space.wrap
+        eq = '__eq__'
+        ne = '__ne__'
+        hash_s = '__hash__'
 
-            for w_t in space.type(w_obj).mro_w:
-                d = w_t.dict_w
-                if hash_s in d:
-                    w_descr = d[hash_s]
-                    return space.get_and_call_function(w_descr, w_obj)
-                if eq in d:                
-                    raise OperationError(space.w_TypeError, w("unhashable type"))
-            return space.id(w_obj)
+        for w_t in space.type(w_obj).mro_w:
+            d = w_t.dict_w
+            if hash_s in d:
+                w_descr = d[hash_s]
+                return space.get_and_call_function(w_descr, w_obj)
+            if eq in d:                
+                raise OperationError(space.w_TypeError, w("unhashable type"))
+        return space.id(w_obj)
         
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:

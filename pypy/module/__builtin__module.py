@@ -10,8 +10,9 @@ __builtins__['type']       = __interplevel__eval('space.w_type')
 __builtins__['__debug__']  = True
 
 object = __interplevel__eval('space.w_object')
-basestring = str    # XXX until we have unicode
-
+# XXX these are faked:
+basestring = __interplevel__eval('space.wrap(basestring)')
+unicode = __interplevel__eval('space.wrap(unicode)')
 
 # TODO Fix this later to show Ctrl-D on Unix
 quit = exit = "Use Ctrl-Z (i.e. EOF) to exit."
