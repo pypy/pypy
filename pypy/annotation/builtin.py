@@ -74,9 +74,6 @@ def builtin_type(s_obj, *moreargs):
     #...
     return SomeObject()
 
-def builtin_list(s_obj):
-    return SomeList({})
-
 def builtin_str(s_obj):
     return SomeString()
 
