@@ -23,6 +23,8 @@ class implmethod(object):
     def __init__(self):
         self.dispatch_table = {}
     def register(self, function, *types):
+        assert len(types) == function.func_code.co_argcount - 1, \
+               "wrong number of W_Xxx arguments to .register()"
         if types in self.dispatch_table:
             raise error, "we already got an implementation for %r" % types
         self.dispatch_table[types] = function
