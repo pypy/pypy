@@ -66,6 +66,10 @@ class StdObjSpace(ObjSpace):
             wrappeditems = [self.wrap(item) for item in x]
             import tupleobject
             return tupleobject.W_TupleObject(wrappeditems)
+        if isinstance(x, list):
+            wrappeditems = [self.wrap(item) for item in x]
+            import listobject
+            return listobject.W_ListObject(wrappeditems)
         import cpythonobject
         return cpythonobject.W_CPythonObject(x)
 
