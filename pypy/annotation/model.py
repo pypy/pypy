@@ -325,7 +325,7 @@ def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
     for x in l1: 
         if x in l2: 
             return x 
-    assert 0, "couldn't get to commonbase of %r and %r" % (cls1, cls2))
+    assert 0, "couldn't get to commonbase of %r and %r" % (cls1, cls2)
 
 def missing_operation(cls, name):
     def default_op(*args):
