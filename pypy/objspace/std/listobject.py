@@ -196,6 +196,17 @@ def setitem_list_slice(space, w_list, w_slice, w_list2):
 
 StdObjSpace.setitem.register(setitem_list_slice, W_ListObject, W_SliceObject, W_ListObject)
 
+def repr_list(space, w_list):
+    w = space.wrap
+    a = space.add
+    reprs_w = map(space.repr, space.unpackiterable(w_list))
+    from pypy.objspace.std.stringtype import W_StringType
+    w_bm = space.getattr(space.wrap(', '), space.wrap('join'))
+    return a(a(w('['), space.call_function(w_bm, space.newlist(reprs_w))), w(']'))
+    return space.newstring([])
+
+StdObjSpace.repr.register(repr_list, W_ListObject)
+
 # adapted C code
 def _roundupsize(n):
     nbits = r_uint(0)
