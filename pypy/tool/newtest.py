@@ -313,65 +313,42 @@ class TestItem:
         return id(self.module) ^ id(self.cls)
 
     def run(self, pretest=None, posttest=None):
-        """
-        Run this TestItem and return a corresponding TestResult object.
-
-        pretest, if not None, is a callable which is called before
-        running the setUp method of the TestCase class. It is passed
-        the this TestItem instance as the argument.
-
-        Similarly, posttest is called after running the TestCase
-        class's tearDown method (or after the test method, if that
-        doesn't complete successfully). Like for pretest, the
-        callable gets the TestItem instance as only argument.
-        """
-        # Note on pretest and posttest: I discarded the idea to
-        # supply this functionality by having hypothetical methods
-        # pretest and posttest overwritten in derived classes. That
-        # approach would require to support a factory class for test
-        # items in TestSuite. I wanted to avoid this.
-
+        """Run this TestItem and return a corresponding TestResult object."""
         # credit: adapted from Python's unittest.TestCase.run
 
         testobject = self.cls()
         testmethod = getattr(testobject, self.method.__name__)
 
-        if pretest is not None:
-            pretest(self)
         try:
-            try:
-                testobject.setUp()
-            except KeyboardInterrupt:
-                raise
-            except TestResult, result:
-                # reconstruct TestResult object, implicitly set exception
-                return result.__class__(msg=result.msg, item=self)
-            except Exception, exc:
-                return Error(msg=str(exc), item=self)
+            testobject.setUp()
+        except KeyboardInterrupt:
+            raise
+        except TestResult, result:
+            # reconstruct TestResult object, implicitly set exception
+            return result.__class__(msg=result.msg, item=self)
+        except Exception, exc:
+            return Error(msg=str(exc), item=self)
 
-            try:
-                testmethod()
-                result = Success(msg='success', item=self)
-            except KeyboardInterrupt:
-                raise
-            except TestResult, result:
-                # reconstruct TestResult object, implicitly set exception
-                result = result.__class__(msg=result.msg, item=self)
-            except Exception, exc:
+        try:
+            testmethod()
+            result = Success(msg='success', item=self)
+        except KeyboardInterrupt:
+            raise
+        except TestResult, result:
+            # reconstruct TestResult object, implicitly set exception
+            result = result.__class__(msg=result.msg, item=self)
+        except Exception, exc:
+            result = Error(msg=str(exc), item=self)
+
+        try:
+            testobject.tearDown()
+        except KeyboardInterrupt:
+            raise
+        except Exception, exc:
+            # if we already had an exception in the test method,
+            # don't overwrite it
+            if result.traceback is None:
                 result = Error(msg=str(exc), item=self)
-
-            try:
-                testobject.tearDown()
-            except KeyboardInterrupt:
-                raise
-            except Exception, exc:
-                # if we already had an exception in the test method,
-                # don't overwrite it
-                if result.traceback is None:
-                    result = Error(msg=str(exc), item=self)
-        finally:
-            if posttest is not None:
-                posttest(self)
         return result
 
     def __str__(self):
