@@ -1,6 +1,6 @@
 
 /************************************************************/
- /***  Generic C header section                            ***/
+/***  Generic C header section                            ***/
 
 #include "Python.h"
 #include "compile.h"
@@ -194,6 +194,9 @@ static PyTypeObject PyGenCFunction_Type = {
 #if defined(USE_CALL_TRACE)
 
 static int callstack_depth = -1;
+static PyCodeObject* getcode(char* func_name, int lineno);
+static int trace_frame(PyThreadState *tstate, PyFrameObject *f, int code, PyObject *val);
+static int trace_frame_exc(PyThreadState *tstate, PyFrameObject *f);
 
 static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char *filename, int c_lineno) {
 	/*
@@ -217,7 +220,7 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 	locals = PyDict_New();
 	args = PyTuple_GetSlice(allargs, 1, PyTuple_Size(allargs));
 	function = PyTuple_GetItem(allargs, 0);
-	Py_INCREF(function)
+	Py_INCREF(function);
 	Py_DECREF(allargs);
 	locals_signature = PyString_FromString(c_signature);
 	locals_lineno = PyInt_FromLong(c_lineno);
@@ -287,7 +290,7 @@ static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char
 	return rval;
 }
 
-#define OP_SIMPLE_CALL(args, r, err) if ((r = traced_function_call(PyTuple_CrazyPack args, INSIDE_FUNCTION " OP_SIMPLE_CALL" #arg, __FILE__, __LINE__)) == NULL) \
+#define OP_SIMPLE_CALL(args, r, err) if ((r = traced_function_call(PyTuple_CrazyPack args, INSIDE_FUNCTION " OP_SIMPLE_CALL" #args, __FILE__, __LINE__)) == NULL) \
 					goto err;
 
 #else
@@ -603,4 +606,4 @@ failed:
 #endif
 
 /************************************************************/
- /***  The rest is produced by genc.py                     ***/
+/***  The rest is produced by genc.py                     ***/
