@@ -260,7 +260,6 @@ class GraphRenderer:
         bkgndcommands = []
 
         if self.font is None:
-            # does not run for now, we should have a second graph for low detail
             if lines:
                 raw_line = lines[0].replace('\\l','').replace('\r','')
                 if raw_line:
