@@ -642,16 +642,16 @@ def str_endswith__String_String(space, w_self, w_end):
     return W_IntObject(space, found)
     
     
-#[optional arguments not supported now]    
-def str_startswith__String_String(space, w_self, w_start): 
+def str_startswith__String_String_ANY(space, w_self, w_prefix, w_start):
     u_self = w_self._value
-    u_start  = w_start._value
+    u_prefix  = w_prefix._value
+    u_start = space.int_w(w_start)
     
     found = 0
-    if u_start:
-        startlen = len(u_start)
-        if startlen <= len(u_self):
-           found = (u_start == u_self[:startlen]) 
+    if u_prefix:
+        plen = len(u_prefix)
+        if u_start + plen <= len(u_self):
+           found = (u_prefix == u_self[u_start:u_start+plen])
     else:
         found = 1
         

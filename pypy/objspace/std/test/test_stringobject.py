@@ -273,7 +273,11 @@ class AppTestStringObject:
         assert ''.startswith('a') == 0
         assert 'x'.startswith('xx') == 0
         assert 'y'.startswith('xx') == 0
-                
+
+    def test_startswith_more(self):
+        assert 'ab'.startswith('a', 0) == 1
+        assert 'ab'.startswith('a', 1) == 0
+        assert 'ab'.startswith('b', 1) == 1
 
     def test_endswith(self):
         assert 'ab'.endswith('ab') == 1
