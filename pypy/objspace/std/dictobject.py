@@ -136,6 +136,8 @@ def contains__Dict_ANY(space, w_dict, w_lookup):
             return space.w_True
     return space.w_False
 
+dict_has_key__Dict_ANY = contains__Dict_ANY
+
 def iter__Dict(space, w_dict):
     import iterobject
     w_keys = dict_keys__Dict(space, w_dict)
@@ -199,15 +201,6 @@ def dict_values__Dict(space, w_self):
     return space.newlist([ cell.get()
                            for w_key,cell in
                            w_self.non_empties()])
-
-def dict_has_key__Dict_ANY(space, w_self, w_lookup):
-    data = w_self.non_empties()
-    # XXX hashing? -- mwh
-    for w_key, cell in data:
-        if space.is_true(space.eq(w_lookup, w_key)):
-            return space.newbool(1)
-    else:
-        return space.newbool(0)
 
 def dict_clear__Dict(space, w_self):
     w_self.data = []
