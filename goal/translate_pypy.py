@@ -11,7 +11,7 @@ import buildcache
 
 # __________  Entry point  __________
 
-def entry_point(space):
+def entry_point():
     w_a = W_IntObject(space, -6)
     w_b = W_IntObject(space, -7)
     return space.mul(w_a, w_b)
@@ -20,11 +20,11 @@ def entry_point(space):
 # __________  Main  __________
 
 def analyse(entry_point=entry_point):
-    global t
-    t = Translator(entry_point, verbose=True, simplifying=True)
+    global t, space
     space = StdObjSpace()
     buildcache.buildcache(space) 
-    a = t.annotate([annmodel.immutablevalue(space)])
+    t = Translator(entry_point, verbose=True, simplifying=True)
+    a = t.annotate([])
     a.simplify()
 
 
