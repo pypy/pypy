@@ -98,6 +98,32 @@ class PyCode(eval.Code):
         # first approximation
         return dis.findlabels(self.co_code)
 
+    def descr_code__new__(space, w_subtype,
+                          w_argcount, w_nlocals, w_stacksize, w_flags,
+                          w_codestring, w_constants, w_names,
+                          w_varnames, w_filename, w_name, w_firstlineno,
+                          w_lnotab, w_freevars=None, w_cellvars=None):
+        code = space.allocate_instance(PyCode, w_subtype)
+        code.__init__()
+        # XXX typechecking everywhere!
+        code.co_argcount   = space.unwrap(w_argcount)
+        code.co_nlocals    = space.unwrap(w_nlocals)
+        code.co_stacksize  = space.unwrap(w_stacksize)
+        code.co_flags      = space.unwrap(w_flags)
+        code.co_code       = space.unwrap(w_codestring)
+        code.co_consts     = space.unwrap(w_constants)
+        code.co_names      = space.unwrap(w_names)
+        code.co_varnames   = space.unwrap(w_varnames)
+        code.co_filename   = space.unwrap(w_filename)
+        code.co_name       = space.unwrap(w_name)
+        code.co_firstlineno= space.unwrap(w_firstlineno)
+        code.co_lnotab     = space.unwrap(w_lnotab)
+        if w_freevars is not None:
+            code.co_freevars = space.unwrap(w_freevars)
+        if w_cellvars is not None:
+            code.co_cellvars = space.unwrap(w_cellvars)
+        return space.wrap(code)
+
 
 def enhanceclass(baseclass, newclass, cache={}):
     # this is a bit too dynamic for RPython, but it looks nice
