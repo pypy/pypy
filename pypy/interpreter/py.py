@@ -67,6 +67,9 @@ def main_(argv=None):
             issubclass(exc_type, SystemExit)):
             pass   # don't print tracebacks for SystemExit
         else:
+            sys.last_type = exc_type
+            sys.last_value = value
+            sys.last_traceback = tb
             sys.excepthook(exc_type, value, tb)
         tb_server.wait_until_interrupt()
             
