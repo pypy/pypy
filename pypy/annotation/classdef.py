@@ -77,7 +77,8 @@ class ClassDef:
             if name.startswith('_') and not isinstance(value, FunctionType):
                 continue
             if isinstance(value, FunctionType):
-                value.class_ = cls # remember that this is really a method
+                if not hasattr(value, 'class_'):
+                    value.class_ = cls # remember that this is really a method
             self.add_source_for_attribute(name, sources.get(name, cls), self)
 
     def add_source_for_attribute(self, attr, source, clsdef=None):

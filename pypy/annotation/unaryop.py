@@ -169,6 +169,7 @@ class __extend__(SomeInstance):
             s_result = attrdef.getvalue()
             # hack: if s_result is a set of methods, discard the ones
             #       that can't possibly apply to an instance of ins.classdef.
+            # XXX do it more nicely
             if isinstance(s_result, SomePBC):
                 d = {}
                 for func, value in s_result.prebuiltinstances.items():
