@@ -5,7 +5,7 @@ from pypy.interpreter.main import eval_string
 class MethodChecker(object):
     """ Checks which methods are available on builtin types."""
 
-    def __init__(self, types=(1, 1.0, 'a', [], {}, (), None)):
+    def __init__(self, types=(1, 1.0, "'a'", [], {}, (), None)):
 
         space = Space()
         str = ['-', 'Implemented']
@@ -20,7 +20,7 @@ class MethodChecker(object):
             attribArr = dir(type(oneType))
             for attrib in attribArr:
                 x = space.unwrap(eval_string(
-                    'hasattr("%s","%s")\n' % (oneType, attrib),
+                    'hasattr(%s,"%s")\n' % (oneType, attrib),
                     '<string>', space))
                 print '%-16s%-18s%s' % (type(oneType), attrib, str[x])
                 if x:
