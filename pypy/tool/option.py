@@ -30,7 +30,7 @@ def get_standard_options():
         help="verbose"))
     options.append(make_option(
         '-w', action="store_true", dest="showwarning",
-        help="something to do with warnings (ask Holger!)"))
+        help="enable warnings (disabled by default)"))
 
     return options
 
