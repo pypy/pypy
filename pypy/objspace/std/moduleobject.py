@@ -17,7 +17,13 @@ def getattr_dict_any(space, w_module, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
         return w_module.w_dict
     else:
-        return space.getitem(w_module.w_dict, w_attr)
+        try:
+            return space.getitem(w_module.w_dict, w_attr)
+        except OperationError, e:
+            if e.match(space, space.w_KeyError):
+                raise FailedToImplement(space.w_AttributeError)
+            else:
+                raise
 
 def setattr_dict_any_any(space, w_module, w_attr, w_value):
     if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
@@ -31,7 +37,13 @@ def delattr_dict_any(space, w_module, w_attr):
         raise OperationError(space.w_TypeError,
                              space.wrap("readonly attribute"))
     else:
-        space.delitem(w_module.w_dict, w_attr)
+        try:
+            space.delitem(w_module.w_dict, w_attr)
+        except OperationError, e:
+            if e.match(space, space.w_KeyError):
+                raise FailedToImplement(space.w_AttributeError)
+            else:
+                raise
 
 StdObjSpace.getattr.register(getattr_dict_any, W_ModuleObject, W_ANY)
 StdObjSpace.setattr.register(setattr_dict_any_any, W_ModuleObject, W_ANY, W_ANY)

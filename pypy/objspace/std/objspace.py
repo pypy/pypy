@@ -107,6 +107,9 @@ class StdObjSpace(ObjSpace):
 for _name, _symbol, _arity in ObjSpace.MethodTable:
     setattr(StdObjSpace, _name, MultiMethod(_symbol, _arity))
 
+# default implementations of some multimethods for all objects
+# that don't explicitely override them or that raise FailedToImplement
+
 def default_eq(space, w_a, w_b):
     return space.is_(w_a, w_b)
 
@@ -132,3 +135,22 @@ def default_is_true(space, w_obj):
     return True   # everything is True unless otherwise specified
 
 StdObjSpace.is_true.register(default_is_true, W_ANY)
+
+def default_getattr(space, w_obj, w_attr):
+    # XXX build a nicer error message along these lines:
+    #w_type = space.type(w_obj)
+    #w_typename = space.getattr(w_type, space.wrap('__name__'))
+    #...
+    raise OperationError(space.w_AttributeError, w_attr)
+
+StdObjSpace.getattr.register(default_getattr, W_ANY, W_ANY)
+
+def default_setattr(space, w_obj, w_attr, w_value):
+    raise OperationError(space.w_AttributeError, w_attr)
+
+StdObjSpace.setattr.register(default_getattr, W_ANY, W_ANY, W_ANY)
+
+def default_delattr(space, w_obj, w_attr, w_value):
+    raise OperationError(space.w_AttributeError, w_attr)
+
+StdObjSpace.delattr.register(default_getattr, W_ANY, W_ANY)

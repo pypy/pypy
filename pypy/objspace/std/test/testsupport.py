@@ -29,6 +29,7 @@ class TestCase_w(unittest.TestCase):
         return self.failIf(condition, msg)
 
     def assertRaises_w(self, w_exc_class, callable, *args, **kw):
+        from pypy.objspace.std.objspace import OperationError
         try:
             callable(*args, **kw)
         except OperationError, e:
