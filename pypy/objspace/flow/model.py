@@ -195,13 +195,14 @@ class Constant:
             flags = ''
         return '(%s%s)' % (r, flags)
 
-# hack! it is useful to have UNDEFINED be an instance of Constant too.
-# PyFrame then automatically uses this Constant as a marker for
-# non-initialized variables.
-from pypy.interpreter.eval import UNDEFINED
-UndefinedConstant = UNDEFINED.__class__
-UndefinedConstant.__bases__ += (Constant,)
-Constant.__init__(UNDEFINED, None)
+class UndefinedConstant(Constant):
+    def __init__(self):
+        Constant.__init__(self,object())
+    
+    def __repr__(self):
+        return '(*undefined*)'
+    
+UNDEFINED = UndefinedConstant()
 
 class SpaceOperation:
     def __init__(self, opname, args, result):

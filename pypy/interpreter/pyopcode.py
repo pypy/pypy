@@ -5,7 +5,6 @@ pyfastscope.py and pynestedscope.py.
 """
 
 from pypy.interpreter.baseobjspace import OperationError, BaseWrappable
-from pypy.interpreter.eval import UNDEFINED
 from pypy.interpreter import gateway, function
 from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.miscutils import InitializedClass
@@ -92,7 +91,7 @@ class PyInterpFrame(pyframe.PyFrame):
     def LOAD_FAST(f, varindex):
         # access a local variable directly
         w_value = f.fastlocals_w[varindex]
-        if w_value is UNDEFINED:
+        if w_value is None:
             varname = f.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment" % varname
             raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
@@ -466,11 +465,12 @@ class PyInterpFrame(pyframe.PyFrame):
         f.valuestack.push(w_value)
 
     def DELETE_FAST(f, varindex):
-        if f.fastlocals_w[varindex] is UNDEFINED:
+        if f.fastlocals_w[varindex] is None:
             varname = f.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment" % varname
             raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
-        f.fastlocals_w[varindex] = UNDEFINED
+        f.fastlocals_w[varindex] = None
+        
 
     def BUILD_TUPLE(f, itemcount):
         items = [f.valuestack.pop() for i in range(itemcount)]

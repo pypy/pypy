@@ -1,5 +1,4 @@
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.eval import UNDEFINED
 from pypy.interpreter.pyopcode import PyInterpFrame
 from pypy.interpreter import function, pycode
 from pypy.interpreter.baseobjspace import Wrappable
@@ -7,17 +6,17 @@ from pypy.interpreter.baseobjspace import Wrappable
 class Cell(Wrappable):
     "A simple container for a wrapped value."
     
-    def __init__(self, w_value=UNDEFINED):
+    def __init__(self, w_value=None):
         self.w_value = w_value
 
     def clone(self):
         return self.__class__(self.w_value)
 
     def empty(self):
-        return self.w_value is UNDEFINED
+        return self.w_value is None
 
     def get(self):
-        if self.w_value is UNDEFINED:
+        if self.w_value is None:
             raise ValueError, "get() from an empty cell"
         return self.w_value
 
@@ -25,13 +24,13 @@ class Cell(Wrappable):
         self.w_value = w_value
 
     def delete(self):
-        if self.w_value is UNDEFINED:
+        if self.w_value is None:
             raise ValueError, "delete() on an empty cell"
-        self.w_value = UNDEFINED
+        self.w_value = None
 
     def __repr__(self):
         """ representation for debugging purposes """
-        if self.w_value is UNDEFINED:
+        if self.w_value is None:
             content = ""
         else:
             content = repr(self.w_value)

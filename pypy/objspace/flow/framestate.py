@@ -7,7 +7,13 @@ class FrameState:
 
     def __init__(self, state):
         if isinstance(state, PyFrame):
-            data = state.getfastscope() + state.valuestack.items
+            data = []
+            for w in state.getfastscope():
+                if w is None:
+                    data.append(UNDEFINED)
+                else:
+                    data.append(w)
+            data.extend(state.valuestack.items)
             if state.last_exception is None:
                 data.append(Constant(None))
                 data.append(Constant(None))
@@ -35,7 +41,13 @@ class FrameState:
             fastlocals = len(frame.fastlocals_w)
             data = self.mergeable[:]
             recursively_unflatten(frame.space, data)
-            frame.setfastscope(data[:fastlocals])
+            fastscope = []
+            for w in data[:fastlocals]:
+                if w is UNDEFINED:
+                    fastscope.append(None)
+                else:
+                    fastscope.append(w)
+            frame.setfastscope(fastscope)
             frame.valuestack.items[:] = data[fastlocals:-2]
             if data[-2] == Constant(None):
                 assert data[-1] == Constant(None)

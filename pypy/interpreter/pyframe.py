@@ -39,7 +39,7 @@ class PyFrame(eval.Frame):
         if code.dictscope_needed():
             self.w_locals = space.newdict([])  # set to None by Frame.__init__
 
-        self.fastlocals_w = [eval.UNDEFINED]*self.numlocals
+        self.fastlocals_w = [None]*self.numlocals
 
     def getfastscope(self):
         "Get the fast locals as a list."

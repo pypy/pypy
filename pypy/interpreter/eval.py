@@ -49,11 +49,6 @@ class Code(Wrappable):
     def getdocstring(self):
         return None
 
-class UndefinedClass(object):
-    pass
-UNDEFINED = UndefinedClass()  # marker for undefined local variables
-
-
 class Frame(Wrappable):
     """A frame is an environment supporting the execution of a code object.
     Abstract base class."""
@@ -114,7 +109,7 @@ class Frame(Wrappable):
             self.w_locals = self.space.newdict([])
         varnames = self.code.getvarnames()
         for name, w_value in zip(varnames, self.getfastscope()):
-            if w_value is not UNDEFINED:
+            if w_value is not None:
                 w_name = self.space.wrap(name)
                 self.space.setitem(self.w_locals, w_name, w_value)
 
@@ -123,7 +118,7 @@ class Frame(Wrappable):
         assert self.w_locals is not None
         varnames = self.code.getvarnames()
 
-        new_fastlocals_w = [UNDEFINED]*self.numlocals
+        new_fastlocals_w = [None]*self.numlocals
         
         for name, i in zip(varnames, range(self.numlocals)):
             w_name = self.space.wrap(varnames[i])
