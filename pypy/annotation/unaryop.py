@@ -38,7 +38,7 @@ class __extend__(SomeObject):
             else:
                 return SomeBool()
 
-    def getattr(obj, s_attr, hack=False):
+    def getattr(obj, s_attr):
         # get a SomeBuiltin if the SomeObject has
         # a corresponding method to handle it
         if s_attr.is_constant() and isinstance(s_attr.const, str):
@@ -47,7 +47,7 @@ class __extend__(SomeObject):
             if analyser is not None:
                 return SomeBuiltin(analyser, obj)
             # if the SomeObject is itself a constant, allow reading its attrs
-            if not hack and obj.is_constant() and hasattr(obj.const, attr):
+            if obj.is_constant() and hasattr(obj.const, attr):
                 return immutablevalue(getattr(obj.const, attr))
         return SomeObject()
 

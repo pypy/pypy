@@ -208,9 +208,10 @@ def immutablevalue(x):
         result = SomeBuiltin(BUILTIN_FUNCTIONS[x])
     elif callable(x):
         if hasattr(x, '__self__') and x.__self__ is not None:
-            x_self = immutablevalue(x.__self__)
-            x_name = immutablevalue(x.__name__)
-            result = x_self.getattr(x_name, hack=True)
+            s_self = immutablevalue(x.__self__)
+            del s_self.const # stop infinite recursion getattr<->immutablevalue
+            s_name = immutablevalue(x.__name__)
+            result = s_self.getattr(s_name)
         else:
             result = SomeCallable({x : True})
     elif hasattr(x, '__class__') and x.__class__.__module__ != '__builtin__':
