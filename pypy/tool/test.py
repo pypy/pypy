@@ -109,14 +109,18 @@ class MyTextTestResult(unittest._TextTestResult):
     def printErrorList(self, flavour, errors):
         from pypy.interpreter.baseobjspace import OperationError
         for test, err in errors:
-            self.stream.writeln(self.separator1)
-            self.stream.writeln("%s: %s" % (flavour,self.getDescription(test)))
-            self.stream.writeln(self.separator2)
-            t1 = self._exc_info_to_string(err)
-            t2 = ''
+            if showinterplevelexceptions:
+                self.stream.writeln(self.separator1)
+                self.stream.writeln("%s: %s" % (flavour,self.getDescription(test)))
+                self.stream.writeln(self.separator2)
+                t1 = self._exc_info_to_string(err)
+                t2 = ''
             if isinstance(err[1], OperationError) and \
               test.space.full_exceptions:
-                t2 = '\nand at app-level:\n\n'
+                if showinterplevelexceptions:
+                    t2 = '\nand at app-level:\n\n'
+                else:
+                    t2 = ''
                 sio = StringIO.StringIO()
                 err[1].print_application_traceback(test.space, sio)
                 t2 += sio.getvalue()
