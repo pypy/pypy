@@ -637,11 +637,11 @@ class GenRpy:
                 # exception are defined on the space
                 return 'space.w_%s' % cls.__name__
 
-        # For the moment, use old-style classes exactly when the
-        # pypy source uses old-style classes, to avoid strange problems.
         if not isinstance(cls, type):
             assert type(cls) is type(Exception)
-            metaclass = 'space.w_classobj'
+            # do *not* change metaclass, but leave the
+            # decision to what PyPy thinks is correct.
+            # metaclass = 'space.w_classobj'
 
         basenames = [self.nameof(base) for base in cls.__bases__]
         def initclassobj():
