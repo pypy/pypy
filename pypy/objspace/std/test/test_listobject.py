@@ -275,5 +275,18 @@ class TestW_ListObject(test.TestCase):
         self.assertEqual_w(self.space.le(w_list4, w_list3),
                            self.space.w_True)
 
+class AppTestW_ListObject(test.AppTestCase):
+    def setUp(self):
+        self.space = test.objspace('std')
+    def test_extend_list(self):
+        l = [1]
+        l.extend([2])
+        self.assertEquals(l, [1,2])
+
+    def test_extend_tuple(self):
+        l = [1]
+        l.extend((2,))
+        self.assertEquals(l, [1,2])
+
 if __name__ == '__main__':
     test.main()

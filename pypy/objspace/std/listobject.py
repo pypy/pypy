@@ -266,7 +266,7 @@ def list_append__List_ANY(space, w_list, w_any):
     _ins1(w_list, w_list.ob_size, w_any)
     return space.w_None
 
-def list_extend__List_List(space, w_list, w_any):
+def list_extend__List_ANY(space, w_list, w_any):
     lis = space.unpackiterable(w_any)
     newlen = w_list.ob_size + len(lis)
     _list_resize(w_list, newlen)
