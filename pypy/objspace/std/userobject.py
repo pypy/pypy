@@ -90,9 +90,15 @@ def getdict__User(space, w_userobj):
 def is_data_descr__User(space, w_userobj):
     try:
         space.type(w_userobj).lookup(space.wrap("__set__"))
-        return 1
     except:
-        return 0
+        try:
+            space.type(w_userobj).lookup(space.wrap("__delete__"))
+        except:
+            return 0
+        else:
+            return 1
+    else:
+        return 1        
 
 # register an implementation for all multimethods that define special names
 def user_specialmethod(space, *args_w):
