@@ -452,26 +452,31 @@ class PyInterpFrame(pyframe.PyFrame):
     def LOAD_NAME(f, nameindex):
         varname = f.getname(nameindex)
         w_varname = f.space.wrap(varname)
-        try:
-            w_value = f.space.getitem(f.w_locals, w_varname)
-        except OperationError, e:
-            if not e.match(f.space, f.space.w_KeyError):
-                raise
+
+        if f.w_globals is f.w_locals:
+            try_list_w = [f.w_globals, f.w_builtins]
+
+        else:
+            try_list_w = [f.w_locals, f.w_globals, f.w_builtins]
+
+        w_value = None
+        for wrapped in try_list_w:
             try:
-                w_value = f.space.getitem(f.w_globals, w_varname)
+                w_value = f.space.getitem(wrapped, w_varname)
+                f.valuestack.push(w_value)
+                return
+
             except OperationError, e:
                 if not e.match(f.space, f.space.w_KeyError):
                     raise
-                try:
-                    w_value = f.space.getitem(f.w_builtins, w_varname)
-                except OperationError, e:
-                    if not e.match(f.space, f.space.w_KeyError):
-                        raise
-                    message = "global name '%s' is not defined" % varname
-                    w_exc_type = f.space.w_NameError
-                    w_exc_value = f.space.wrap(message)
-                    raise OperationError(w_exc_type, w_exc_value)
-        f.valuestack.push(w_value)
+        # rxe Why global???
+        #message = "global name '%s' is not defined" % varname
+        message = "name '%s' is not defined" % varname
+        w_exc_type = f.space.w_NameError
+        w_exc_value = f.space.wrap(message)
+        raise OperationError(w_exc_type, w_exc_value)
+
+
         # XXX the implementation can be pushed back into app-space as an
         # when exception handling begins to behave itself.  For now, it
         # was getting on my nerves -- mwh
