@@ -31,7 +31,7 @@ def make_module_from_c(pyxfile):
     #    pass
 
     dirpath = pyxfile.dirname()
-    lastdir = os.curdir
+    lastdir = Path()
     os.chdir(str(dirpath))
     try:
         modname = pyxfile.purebasename()
@@ -52,8 +52,8 @@ def make_module_from_c(pyxfile):
         exec "import %(modname)s as testmodule" % locals()
         sys.path.pop(0)
     finally:
-        os.chdir(lastdir)
-        #dirpath.rmtree()
+        os.chdir(str(lastdir))
+        dirpath.rmtree()
     return testmodule
 
 def make_c_from_pyxfile(pyxfile):
