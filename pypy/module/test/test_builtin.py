@@ -293,6 +293,7 @@ class AppTestBuiltinApp:
 
     def test_eval(self):
         assert eval("1+2") == 3
+        assert eval(" \t1+2\n") == 3
 
     def test_compile(self):
         co = compile('1+2', '?', 'eval')
