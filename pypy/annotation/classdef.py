@@ -170,19 +170,22 @@ class ClassDef:
         # reflow from all factories
         for position in self.getallinstantiations():
             self.bookkeeper.annotator.reflowfromposition(position)
+        return bump
 
     def generalize_attr(self, attr, s_value=None):
         # if the attribute exists in a superclass, generalize there.
         found = 0
+        r = False
         for clsdef in self.getmro():
             if attr in clsdef.attrs:
                 if found == 0:
-                    clsdef._generalize_attr(attr, s_value)
+                    r = clsdef._generalize_attr(attr, s_value)
                 found += 1
         if found == 0:
-            self._generalize_attr(attr, s_value)
+            return self._generalize_attr(attr, s_value)
         else:
             assert found == 1, "generalization itself should prevent this"
+        return r
 
     def about_attribute(self, name):
         for cdef in self.getmro():

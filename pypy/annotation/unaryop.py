@@ -196,8 +196,8 @@ class __extend__(SomeInstance):
                 return
 
             # create or update the attribute in clsdef
-            clsdef.generalize_attr(attr, s_value)
-            raise BlockedInference
+            if clsdef.generalize_attr(attr, s_value): # block only if we bumped a rev number
+                raise BlockedInference
         return
 
     #def contains(self, other):
