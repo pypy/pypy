@@ -57,8 +57,7 @@ def file_softspace(file, newflag):
 def print_item_to(x, stream):
     if file_softspace(stream, False):
         stream.write(" ")
-    # XXX str call should go here!!! for now, only print strings -- mwh
-    stream.write(x) 
+    stream.write(str(x))
     # add a softspace unless we just printed a string which ends in a '\t'
     # or '\n' -- or more generally any whitespace character but ' '
 #    if isinstance(x, str) and len(x) and x[-1].isspace() and x[-1]!=' ':

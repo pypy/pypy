@@ -80,3 +80,8 @@ def mod_str_ANY(space, w_left, w_right):
  
 def mod_str_tuple(space, w_format, w_args):
     notImplemented
+
+def len_str(space, w_str):
+    return space.wrap(len(w_str.value))
+
+StdObjSpace.len.register(len_str, W_StringObject)
