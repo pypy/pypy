@@ -28,7 +28,6 @@ slips=[(1, 'Kals MatMarkn', 6150, 'Chutney for Curry', 'dinner Saturday'),
        (16, 'Kals MatMarkn', 42050, 'grillfest', 'dinner Friday'),
        (16, 'Kals MatMarkn', -1350, 'Deposit on Beer Bottles', 'dinner Friday'),
        (17, 'System Bolaget', 15500, 'Cederlunds Caloric', 'dinner Thursday'),
-       (17, 'System Bolaget', 9800, '2 x Saint Paulin  49SEK', 'various'),
        (17, 'System Bolaget', 22400, '4 x Farnese Sangiovese 56SEK', 'various'),
        (17, 'System Bolaget', 22400, '4 x Farnese Sangiovese 56SEK', 'various'),
        (17, 'System Bolaget', 13800, '2 x Jacobs Creek 69SEK', 'various'),
@@ -45,7 +44,10 @@ slips=[(1, 'Kals MatMarkn', 6150, 'Chutney for Curry', 'dinner Saturday'),
        (22, 'J and Ls cupboard', 3000, 'Rice', ''),
        (22, 'J and Ls cupboard', 4000, 'Charcoal', ''),
        (23, 'Fram', 2975, 'Potatoes', '3.5 kg @ 8.50SEK'),
-       (23, 'Fram', 1421, 'Peas', 'Thursday dinner')
+       (23, 'Fram', 1421, 'Peas', 'Thursday dinner'),
+       (24, 'Kals MatMarkn', 20650, 'Grilling', 'Friday dinner'),
+       (24, 'Kals MatMarkn', -2990, 'TP', 'None'),
+       (24, 'Kals MatMarkn', -2320, 'T-Gul', 'None')
        ]
  
 print [t[2] for t in slips]
