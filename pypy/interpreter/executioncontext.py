@@ -215,7 +215,7 @@ class Stack:
 # installing the excepthook for OperationErrors
 def operr_excepthook(exctype, value, traceback):
     if issubclass(exctype, OperationError):
-        value.debug_tb = traceback
+        value.debug_tb = value.debug_tb or traceback
         value.print_detailed_traceback()
     else:
         old_excepthook(exctype, value, traceback)
