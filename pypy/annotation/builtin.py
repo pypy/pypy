@@ -4,7 +4,7 @@ Built-in functions.
 
 import types
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
-from pypy.annotation.model import SomeList, SomeString, SomeTuple
+from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.factory import ListFactory
 from pypy.objspace.flow.model import Constant
@@ -137,6 +137,21 @@ def builtin_compile(*stuff):
     s = SomeObject()
     s.knowntype = types.CodeType
     return s
+
+def builtin_slice(*args):
+    bk = getbookkeeper()
+    if len(args) == 1:
+        return SomeSlice(
+            bk.immutablevalue(None), args[0], bk.immutablevalue(None))
+    elif len(args) == 2:
+        return SomeSlice(
+            args[0], args[1], bk.immutablevalue(None))
+    elif len(args) == 3:
+        return SomeSlice(
+            args[0], args[1], args[2])
+    else:
+        raise Exception, "bogus call to slice()"
+        
 
 def exception_init(s_self, *args):
     s_self.setattr(immutablevalue('args'), SomeTuple(args))

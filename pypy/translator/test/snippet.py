@@ -694,3 +694,8 @@ def dict_items():
     d = {'a' : 1}
     return d.items()
 
+def slice_union(x):
+    if x:
+        return slice(1)
+    else:
+        return slice(0, 10, 2)

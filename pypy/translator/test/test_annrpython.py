@@ -397,7 +397,6 @@ class TestAnnonateTestCase:
         s = a.build_types(snippet.simple_slice, [list])
         assert isinstance(s, annmodel.SomeList)
 
-
     def test_simple_iter_list(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.simple_iter, [list])
@@ -463,6 +462,10 @@ class TestAnnonateTestCase:
         assert isinstance(s_key, annmodel.SomeString)
         assert isinstance(s_value, annmodel.SomeInteger)
         
+    def test_slice_union(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.slice_union, [int])
+        assert isinstance(s, annmodel.SomeSlice)
         
 
 def g(n):

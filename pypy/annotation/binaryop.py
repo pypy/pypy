@@ -199,6 +199,14 @@ class __extend__(pairtype(SomeDict, SomeObject)):
         generalize(dic1.factories, obj2, s_value)
 
 
+class __extend__(pairtype(SomeSlice, SomeSlice)):
+
+    def union((slic1, slic2)):
+        return SomeSlice(unionof(slic1.start, slic2.start),
+                         unionof(slic1.stop, slic2.stop),
+                         unionof(slic1.step, slic2.step))
+
+
 class __extend__(pairtype(SomeTuple, SomeInteger)):
     
     def getitem((tup1, int2)):
