@@ -1,137 +1,193 @@
-import sys, operator, types, new, autopath
-import pypy
-from pypy.objspace.std import StdObjSpace
-from pypy.objspace.trivial import TrivialObjSpace
-from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.interpreter.executioncontext import ExecutionContext
-from pypy.interpreter.pycode import PyCode
-from pypy.interpreter import gateway
+""" 
+   trace object space traces operations and bytecode execution
+   in frames. 
 
-DONT_TRACK_BYTECODES = ["PRINT_ITEM", "PRINT_NEWLINE", "PRINT_EXPR", "PRINT_ITEM_TO", "PRINT_NEWLINE_TO"]
+"""
+from __future__ import generators
+from pypy.tool import pydis 
 
+# __________________________________________________________________________
+#
+# Tracing Events 
+# __________________________________________________________________________
 
-class TraceExecutionContext(ExecutionContext):        
-    
-    def bytecode_trace(self, frame):
-        "Trace function called before each bytecode."
-        self.space.notify_on_bytecode(frame)
+class ExecBytecode:
+    def __init__(self, frame):
+        self.frame = frame
+        self.index = frame.next_instr
 
+class EnterFrame:
+    def __init__(self, frame):
+        self.frame = frame
 
-class Tracer(object):
-    def __init__(self, name, fn, space):
-        self.fn = fn
-        self.name = name
-        self.space = space
-        
-    def __call__(self, cls, *args, **kwds):
-        assert (not kwds)
+class LeaveFrame:
+    def __init__(self, frame):
+        self.frame = frame
 
-        self.space.notify_on_operation(self.name, args)
-        return self.fn(*args, **kwds)
+class CallBegin:
+    def __init__(self, callinfo):
+        self.callinfo = callinfo
+
+class CallFinished:
+    def __init__(self, callinfo):
+        self.callinfo = callinfo
+
+class CallException:
+    def __init__(self, e, callinfo):
+        self.ex = e
+        self.callinfo = callinfo
+
+# __________________________________________________________________________
+#
+# Tracer Proxy objects 
+# __________________________________________________________________________
+#
+class ExecutionContextTracer:
+    def __init__(self, result, ec):
+        self.ec = ec
+        self.result = result
 
     def __getattr__(self, name):
-        return getattr(self.fn, name)
+        """ generically pass through everything we don'T have explicit
+            interceptors for. 
+    
+        """
+        print "trying", name
+        return getattr(self.ec, name)
 
+    def enter(self, frame):
+        """ called just before (continuing to) evaluating a frame. """
+        self.result.append(EnterFrame(frame))
+        return self.ec.enter(frame)
+
+    def leave(self, previous_ec):
+        """ called just after evaluating of a frame is suspended/finished. """
+        frame = self.ec.framestack.top()
+        self.result.append(LeaveFrame(frame))
+        return self.ec.leave(previous_ec)
+
+    def bytecode_trace(self, frame):
+        "called just before execution of a bytecode."
+        self.result.append(ExecBytecode(frame))
+
+    #def exception_trace(self, operror):
+    #    "called if the current frame raises an operation error. """
+
+class CallInfo:
+    """ encapsulates a function call with its arguments. """
+    def __init__(self, name, func, args, kwargs):
+        self.name = name
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+class CallableTracer:
+    def __init__(self, result, name, func):
+        self.result = result
+        self.name = name
+        self.func = func
+        
+    def __call__(self, *args, **kwargs):
+        callinfo = CallInfo(self.name, self.func, args, kwargs) 
+        self.result.append(CallBegin(callinfo))
+        try:
+            res = self.func(*args, **kwargs)
+        except Exception, e:
+            self.result.append(CallException(e, callinfo))
+            raise 
+        else:
+            self.result.append(CallFinished(callinfo))
+            return res
 
 
 class TraceObjSpace:
-
     def __init__(self, space):
-        self.tracing = 0
-        self.ignore_up_to_frame = None
         self.space = space
-        method_names = [ii[0] for ii in ObjSpace.MethodTable]
-        for key in method_names:
-            if key in method_names:
-                item = getattr(self.space, key)
-                l = Tracer(key, item, self)
-                setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
+        self.settrace()
 
+    def settrace(self):
+        self.result = TraceResult(self)
 
-    def __getattr__(self, name):
-        return getattr(self.space, name)
+    def getresult(self):
+        return self.result
         
+    def __getattr__(self, name):
+        obj = getattr(self.space, name)
+        if callable(obj):
+            return CallableTracer(self.result, name, obj)
+        # XXX some attribute has been accessed, we don't care
+        return obj
 
     def getexecutioncontext(self):
-        return TraceExecutionContext(self)
+        ec = self.space.getexecutioncontext()
+        if isinstance(ec, ExecutionContextTracer):
+            return ec
+        return ExecutionContextTracer(self.result, ec)
 
-
-    def start_tracing(self):
-        self.tracing = 1
-        self.log_list = []
-
-
-    def stop_tracing(self):
-        self.tracing = 0 
-
-
-    def handle_default(self, frame, opcode, opname, oparg, ins_idx):
-        return opcode, opname, "", ins_idx
-
-
-    def handle_SET_LINENO(self, frame, opcode, opname, oparg, ins_idx):
-        return opcode, opname, "%s" % oparg, ins_idx
-
-
-    def handle_LOAD_CONST(self, frame, opcode, opname, oparg, ins_idx):
-        return opcode, opname, "%s (%r)" % (oparg, frame.getconstant(oparg)), ins_idx
-
-
-    def handle_LOAD_FAST(self, frame, opcode, opname, oparg, ins_idx):
-        return opcode, opname, "%s (%s)" % (oparg, frame.getlocalvarname(oparg)), ins_idx
-
-
-    def notify_on_operation(self, name, args):
-        if self.tracing:
-            #args = [self.space.unwrap(arg) for arg in args]
-            self.log_list[-1][1].append((name, args))
-
-
-    def dump(self):
-        return self.log_list
-
-
-    def rdump(self):
-        bytecodes = []
-        res = []
-        for bytecode, ops in self.log_list:
-            bytecodes.append(bytecode)
-            if ops:
-                op = ops.pop(0)
-                res.append((op, bytecodes))
-                bytecodes = []
-                for op in ops:
-                    res.append((op, []))
-
-        #the rest
-        res.append((None, bytecodes))
-        return res        
-
-
-    def notify_on_bytecode(self, frame):
-
-        if not self.tracing and self.ignore_up_to_frame is frame:
-            self.tracing = 1
-            self.ignore_up_to_frame = None
-
-        if self.tracing:
-            opcode, opname, oparg, ins_idx = frame.examineop()
-            handle_method = getattr(self, "handle_%s" % opname, self.handle_default)
-
-            opcode, opname, oparg, ins_idx = handle_method(frame, opcode, opname, oparg, ins_idx)
-            self.log_list.append(((opcode, opname, oparg, ins_idx), []))
-            if opname in DONT_TRACK_BYTECODES:
-                self.ignore_up_to_frame = frame
-                self.tracing = 0
-
+    def createexecutioncontext(self):
+        ec = self.space.createexecutioncontext()
+        return ExecutionContextTracer(self.result, ec)
 
     def __hash__(self):
         return hash(self.space)
 
+class TraceResult:
+    """ this is the state of tracing-in-progress. """
+    def __init__(self, tracespace):
+        self.tracespace = tracespace
+        self.events = []  
 
-Trace = TraceObjSpace
-Space = Trace
+    def append(self, arg):
+        self.events.append(arg)
+
+    def getdisresult(self, frame, _cache = {}):
+        """ return (possibly cached) pydis result for the given frame. """
+        try:
+            return _cache[id(frame)]
+        except KeyError:
+            res = _cache[id(frame)] = pydis.pydis(frame.code)
+            assert res is not None
+            return res
+
+    def getbytecodes(self):
+        lastframe = None
+        for event in self.events:
+            #if isinstance(event, EnterFrame):
+            #    lastframe = event.frame
+            if isinstance(event, ExecBytecode):
+                disres = self.getdisresult(event.frame)
+                yield disres.getbytecode(event.index)
+
+    def getoperations(self):
+        for event in self.events:
+            #if isinstance(event, EnterFrame):
+            #    lastframe = event.frame
+            if isinstance(event, CallBegin):
+                yield event.callinfo
+
+Space = TraceObjSpace
 
 # ______________________________________________________________________
 # End of trace.py
 
+"""
+def display(bytecodedict, codeobject):
+    for i in range(len(codeobject.co_bytecode)):
+        print display_bytecode(codeobject, i)
+        if i in bytecodedict:
+            for opinfo in bytecodedict[i]:
+                print display(*opinfo)
+           
+class FrameIndex:
+    def __init__(self, frame, index):
+        self.frame = frame
+        self.index = index
+
+    def __hash__(self):
+        return hash((id(frame), index))
+    def _getframeindex(self):
+        frame = self.tracespace.space.getexecutioncontext().framestack[-1] 
+        index = frame.next_instr 
+        return FrameIndex(frame, index)
+            
+"""

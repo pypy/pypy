@@ -24,6 +24,17 @@ class Bytecode:
         self.oparg = oparg
         self.lineno = lineno
 
+    def __eq__(self, other):
+        return (self.__class__ == other.__class__ and 
+                self.index == other.index and
+                self.op == other.op and
+                self.name == other.name and
+                self.oparg == other.oparg and
+                self.lineno == other.lineno)
+
+    def __ne__(self, other):
+        return not (self == other)
+
     def reprargstring(self):
         """ return a string representation of any arguments. (empty for no args)"""
         oparg = self.oparg
@@ -49,6 +60,9 @@ class Bytecode:
             s +=  '(' + free[oparg] + ')'
         return s 
 
+    def __repr__(self):
+        return self.name + self.reprargstring()
+
 class DisResult:
     """ an instance of this class gets returned for disassembling 
         objects/functions/code objects whatever.    
@@ -61,6 +75,13 @@ class DisResult:
         """ append bytecode anaylsis information ..."""
         bc = Bytecode(self, bytecodeindex, oparg, lineno)
         self._bytecodes.append(bc)
+
+    def getbytecode(self, index):
+        """ return bytecode instance matching the given index. """
+        for bytecode in self._bytecodes:
+            if bytecode.index == index:
+                return bytecode
+        raise ValueError, "no bytecode found on index %s" % index
 
     def format(self):
         lastlineno = -1
@@ -82,56 +103,11 @@ class DisResult:
 
     __repr__ = format
 
-def pydis(x=None):
-    """pydisassemble classes, methods, functions, or code.
-
-    With no argument, pydisassemble the last traceback.
-
-    """
-    if x is None:
-        distb()
-        return
-    if type(x) is types.InstanceType:
-        x = x.__class__
-    if hasattr(x, 'im_func'):
-        x = x.im_func
-    if hasattr(x, 'func_code'):
-        x = x.func_code
-    if hasattr(x, '__dict__'):
-        items = x.__dict__.items()
-        items.sort()
-        for name, x1 in items:
-            if type(x1) in (types.MethodType,
-                            types.FunctionType,
-                            types.CodeType,
-                            types.ClassType):
-                print "Disassembly of %s:" % name
-                try:
-                    dis(x1)
-                except TypeError, msg:
-                    print "Sorry:", msg
-                print
-    elif hasattr(x, 'co_code'):
-        return pydisassemble(x)
-    #elif isinstance(x, str):
-    #    return pydisassemble_string(x)
-    else:
-        raise TypeError, \
-              "don't know how to pydisassemble %s objects" % \
-              type(x).__name__
-
-def distb(tb=None):
-    """pydisassemble a traceback (default: last traceback)."""
-    if tb is None:
-        try:
-            tb = sys.last_traceback
-        except AttributeError:
-            raise RuntimeError, "no last traceback to pydisassemble"
-        while tb.tb_next: tb = tb.tb_next
-    pydisassemble(tb.tb_frame.f_code, tb.tb_lasti)
-
-def pydisassemble(co): 
+def pydis(co): 
     """return result of dissassembling a code object. """
+
+    if hasattr(co, 'func_code'):
+        co = co.func_code 
 
     disresult = DisResult(co)
     code = co.co_code
@@ -178,6 +154,7 @@ def pydisassemble(co):
                 extended_arg = oparg*65536L
         
         disresult.append(current_bytecodeindex, oparg, lineno)
+    assert disresult is not None
     return disresult
 
 def findlabels(code):
