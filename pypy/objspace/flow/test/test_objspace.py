@@ -1,5 +1,5 @@
 import autopath
-from pypy.objspace.flow.model import Constant, Block, traverse
+from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
 
@@ -366,6 +366,88 @@ class TestFlowObjSpace:
                 for op in node.operations:
                     assert op.opname != 'mul', "mul should have disappeared"
         traverse(visitor, x)
+
+    #__________________________________________________________
+    def test_unfrozen_user_class1(self):
+        class C:
+            def __nonzero__(self):
+                return True
+        c = C()
+        def f():
+            if c:
+                return 1
+            else:
+                return 2
+        graph = self.codetest(f)
+
+        results = []
+        def visit(link):
+            if isinstance(link, Link):
+                if link.target == graph.returnblock:
+                    results.extend(link.args)
+        traverse(visit, graph)
+        assert len(results) == 2
+
+    def test_unfrozen_user_class2(self):
+        class C:
+            def __add__(self, other):
+                return 4
+        c = C()
+        d = C()
+        def f():
+            return c+d
+        graph = self.codetest(f)
+
+        results = []
+        def visit(link):
+            if isinstance(link, Link):
+                if link.target == graph.returnblock:
+                    results.extend(link.args)
+        traverse(visit, graph)
+        assert not isinstance(results[0], Constant)
+
+    def test_frozen_user_class1(self):
+        class C:
+            def __nonzero__(self):
+                return True
+            def _freeze_(self):
+                return True
+        c = C()
+        def f():
+            if c:
+                return 1
+            else:
+                return 2
+
+        graph = self.codetest(f)
+
+        results = []
+        def visit(link):
+            if isinstance(link, Link):
+                if link.target == graph.returnblock:
+                    results.extend(link.args)
+        traverse(visit, graph)
+        assert len(results) == 1
+
+    def test_frozen_user_class2(self):
+        class C:
+            def __add__(self, other):
+                return 4
+            def _freeze_(self):
+                return True
+        c = C()
+        d = C()
+        def f():
+            return c+d
+        graph = self.codetest(f)
+
+        results = []
+        def visit(link):
+            if isinstance(link, Link):
+                if link.target == graph.returnblock:
+                    results.extend(link.args)
+        traverse(visit, graph)
+        assert results == [Constant(4)]
 
 DATA = {'x': 5,
         'y': 6}

@@ -56,15 +56,19 @@ class W_Special(W_Obj):
     def __init__(self, spec):
         self.spec = spec
 
+class BuiltinModule(Module):
+    def __init__(self, space):
+        Module.__init__(self, space, space.wrap('__builtin__'), space.wrap({}))
 
+    def pick_builtin(self, w_globals):
+        return self
+    
 class DummyObjSpace(ObjSpace):
 
     def __init__(self):
         """NOT_RPYTHON"""
-        self.builtin    = Module(self, self.wrap('__builtin__'), self.wrap({}))
-        def pick_builtin(w_globals):
-            return self.builtin
-        self.builtin.pick_builtin = pick_builtin
+        self.builtin    = BuiltinModule(self)
+
         self.sys    = Module(self, self.wrap('sys'), self.wrap({}))
         self.sys.recursionlimit = 1000
 
@@ -131,6 +135,8 @@ class DummyObjSpace(ObjSpace):
             return w_obj
         return w_obj.unwrap()
 
+    def _freeze_(self):
+        return True
 
 if __name__ == '__main__':
   dummy_space = DummyObjSpace()

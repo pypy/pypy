@@ -613,6 +613,16 @@ class TestAnnonateTestCase:
         assert myobj.called
         assert s == annmodel.SomeInstance(a.bookkeeper.getclassdef(Stuff))
 
+    def test_circular_mutable_getattr(self):
+        class C:
+            pass
+        c = C()
+        c.x = c
+        def f():
+            return c.x
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.knowntype == C
 
 def g(n):
     return [0,1,2,n]

@@ -148,6 +148,23 @@ class FlowObjSpace(ObjSpace):
         else:
             raise TypeError("not wrapped: " + repr(w_obj))
 
+    def unwrap_for_computation(self, w_obj):
+        obj = self.unwrap(w_obj)
+        to_check = obj
+        if hasattr(to_check, 'im_self'):
+            to_check = to_check.im_self
+        if (not isinstance(to_check, (type, types.ClassType)) and # classes/types are assumed immutable
+            hasattr(to_check, '__class__') and to_check.__class__.__module__ != '__builtin__'):
+            frozen = hasattr(to_check, '_freeze_') and to_check._freeze_()
+            if not frozen:
+                if self.concrete_mode:
+                    # xxx do we want some warning? notice that some stuff is harmless
+                    # like setitem(dict, 'n', mutable)
+                    pass
+                else: # cannot count on it not mutating at runtime!
+                    raise UnwrapException
+        return obj
+
     def interpclass_w(self, w_obj):
         obj = self.unwrap(w_obj)
         if isinstance(obj, BaseWrappable):
@@ -248,7 +265,7 @@ class FlowObjSpace(ObjSpace):
     
     def is_true(self, w_obj):
         try:
-            obj = self.unwrap(w_obj)
+            obj = self.unwrap_for_computation(w_obj)
         except UnwrapException:
             pass
         else:
@@ -398,7 +415,7 @@ def make_op(name, symbol, arity, specialnames):
             args = []
             for w_arg in args_w:
                 try:
-                    arg = self.unwrap(w_arg)
+                    arg = self.unwrap_for_computation(w_arg)
                 except UnwrapException:
                     break
                 else:

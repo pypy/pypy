@@ -31,6 +31,7 @@ class Bookkeeper:
         self.cachespecializations = {}
         self.pbccache = {}
         self.pbctypes = {}
+        self.seen_mutable = {}
         # import ordering hack
         global BUILTIN_ANALYZERS
         from pypy.annotation.builtin import BUILTIN_ANALYZERS
@@ -120,8 +121,12 @@ class Bookkeeper:
                 return self.getpbc(x)
             else:
                 clsdef = self.getclassdef(x.__class__)
-                for attr in x.__dict__:
-                    clsdef.add_source_for_attribute(attr, x)
+                
+                if x not in self.seen_mutable: # avoid circular reflowing, 
+                                               # see for example test_circular_mutable_getattr
+                    for attr in x.__dict__:
+                        clsdef.add_source_for_attribute(attr, x) # can trigger reflowing
+                    self.seen_mutable[x] = True
                 return SomeInstance(clsdef)
         elif x is None:
             return self.getpbc(None)
