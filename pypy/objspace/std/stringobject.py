@@ -61,8 +61,8 @@ rindex            OK, nur noch tests
 rjust             def str_rjust__String_ANY(space, w_self, w_arg):
 rstrip            def str_rstrip__String(space, w_self):
 split             def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
-splitlines        *Günter
-startswith        *Günter
+splitlines        *Guenter
+startswith        *Guenter
 strip             def str_strip__String(space, w_self):
 swapcase          OK
 title             def str_title__String(space, w_self):
@@ -421,6 +421,55 @@ def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=
                              space.wrap("substring not found in string.rindex"))
 
     return space.wrap(res)
+
+
+def str_replace__String_String_String_Int(space, w_self, w_sub, w_by, w_maxsplit=-1):
+    u = space.unwrap
+
+    input = u(w_self)
+    sub = u(w_sub)
+    by = u(w_by)
+    maxsplit = u(w_maxsplit)   #I don't use it now
+
+    #print "from replace, input: %s, sub: %s, by: %s" % (input, sub, by)
+
+    #what do we have to replace?
+    startidx = 0
+    endidx = len(input)
+    indices = []
+    foundidx = _find(input, sub, startidx, endidx, 1)
+    while foundidx > -1 and (maxsplit == -1 or maxsplit > 0):
+        indices.append(foundidx)
+        if len(sub) == 0:
+            #so that we go forward, even if sub is empty
+            startidx = foundidx + 1
+        else: 
+            startidx = foundidx + len(sub)        
+        foundidx = _find(input, sub, startidx, endidx, 1)
+        if maxsplit != -1:
+            maxsplit = maxsplit - 1
+    indiceslen = len(indices)
+    buf = [' '] * (len(input) - indiceslen * len(sub) + indiceslen * len(by))
+    startidx = 0
+
+    #ok, so do it
+    bufpos = 0
+    for i in range(indiceslen):
+        for j in range(startidx, indices[i]):
+            buf[bufpos] = input[j]
+            bufpos = bufpos + 1
+ 
+        for j in range(len(by)):
+            buf[bufpos] = by[j]
+            bufpos = bufpos + 1
+
+        startidx = indices[i] + len(sub)
+
+    for j in range(startidx, len(input)):
+        buf[bufpos] = input[j]
+        bufpos = bufpos + 1 
+    return space.wrap("".join(buf))
+
 
 
 def _find(self, sub, start, end, dir):

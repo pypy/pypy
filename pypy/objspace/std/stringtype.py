@@ -8,7 +8,6 @@ class W_StringType(W_TypeObject):
 
     str_join    = MultiMethod('join', 2)
     str_split   = MultiMethod('split', 3, defaults=(None,-1))
-
     str_isdigit    = MultiMethod('isdigit', 1)
     str_isalpha    = MultiMethod('isalpha', 1)
     str_isspace    = MultiMethod('isspace', 1)
@@ -23,14 +22,12 @@ class W_StringType(W_TypeObject):
     str_swapcase   = MultiMethod('swapcase', 1)
     str_capitalize = MultiMethod('capitalize', 1)
     str_title      = MultiMethod('title', 1)
-    #XXX we need to have the possibility to specify, if the a parameter
-    #was given
     str_find       = MultiMethod('find', 4, defaults=(None, None))
     str_rfind      = MultiMethod('rfind', 4, defaults=(None, None))
     str_index      = MultiMethod('index', 4, defaults=(None, None))
     str_rindex     = MultiMethod('rindex', 4, defaults=(None, None))
+    str_replace    = MultiMethod('replace', 4, defaults=(-1,))
     str_zfill      = MultiMethod('zfill', 2)
-
     str_strip      = MultiMethod('strip', 1)
     str_rstrip     = MultiMethod('rstrip', 1)
     str_lstrip     = MultiMethod('lstrip', 1)

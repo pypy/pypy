@@ -182,7 +182,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('abc'.ljust(3), 'abc')
         self.assertEquals('abc'.ljust(2), 'abc')
 
-    def _test_replace(self):
+    def test_replace(self):
         self.assertEquals('one!two!three!'.replace('!', '@', 1), 'one@two!three!')
         self.assertEquals('one!two!three!'.replace('!', ''), 'onetwothree')
         self.assertEquals('one!two!three!'.replace('!', '@', 2), 'one@two@three!')
@@ -199,8 +199,8 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('abc'.replace('ab', '--', 0), 'abc')
         self.assertEquals('abc'.replace('xy', '--'), 'abc')
         self.assertEquals('123'.replace('123', ''), '')
-        self.assertEquals('123123'.replace(123, ''), '')
-        self.assertEquals('123x123'.replace(123, ''), 'x')
+        self.assertEquals('123123'.replace('123', ''), '')
+        self.assertEquals('123x123'.replace('123', ''), 'x')
 
 
     def _test_strip(self):
