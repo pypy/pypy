@@ -96,8 +96,32 @@ def transform_simple_call(self):
 
         block.operations = operations
 
+def transform_dead_operations(self):
+    """Remove dead operations."""
+    # the set of operations that can safely be removed (no side effects)
+    CanRemove = {'newtuple': True,
+                 'newlist': True,
+                 'newdict': True}
+    for block in self.annotated:
+        # figure out which variables are ever read
+        read_vars = {}
+        for op in block.operations:
+            for arg in op.args:
+                read_vars[arg] = True
+        for link in block.exits:
+            for arg in link.args:
+                read_vars[arg] = True
+        # look for removable operations whose result is never used
+        for i in range(len(block.operations)-1, -1, -1):
+            op = block.operations[i]
+            if op.opname in CanRemove and op.result not in read_vars:
+                del block.operations[i]
+
 def transform_graph(ann):
     """Apply set of transformations available."""
     transform_allocate(ann)
     transform_slice(ann)
     transform_simple_call(ann)
+    # do this last, after the previous transformations had a
+    # chance to remove dependency on certain variables
+    transform_dead_operations(ann)

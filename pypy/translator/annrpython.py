@@ -164,7 +164,7 @@ class RPythonAnnotator:
     def simplify(self):
         # Generic simpliciations
         from pypy.translator import transform
-        transform.transform_simple_call(self)
+        transform.transform_graph(self)
 
 
     #___ flowing annotations in blocks _____________________
