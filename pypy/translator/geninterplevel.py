@@ -99,17 +99,6 @@ class UniqueList(list):
         "always append"
         list.append(self, arg)
 
-class AugmentedFlowSpace(FlowObjSpace):
-    def __init__(self):
-        FlowObjSpace.__init__(self)
-##        #Eeek
-##        from pypy.objspace.std import Space
-##        other_space = Space()
-##        if not hasattr(self,"w_dict"):
-##            self.w_dict = other_space.w_dict
-##        if not hasattr(self,"w_TypeError"):
-##            self.w_TypeError = other_space.w_TypeError
-                
 class GenRpy:
     def __init__(self, translator, modname=None):
         self.translator = translator
@@ -138,7 +127,7 @@ class GenRpy:
         for name in "newtuple newlist newdict newstring".split():
             self.has_listarg[name] = name
 
-        self.space = AugmentedFlowSpace() # for introspection
+        self.space = FlowObjSpace() # for introspection
 
         self.use_fast_call = False        
         
@@ -853,7 +842,7 @@ class GenRpy:
         f_name = 'f_' + cname[6:]
 
         # collect all the local variables
-        graph = self.translator.getflowgraph(func, SpaceClass=AugmentedFlowSpace)
+        graph = self.translator.getflowgraph(func)
         localslst = []
         def visit(node):
             if isinstance(node, Block):
@@ -957,8 +946,7 @@ class GenRpy:
 
     def rpyfunction_body(self, func, localvars):
         try:
-            graph = self.translator.getflowgraph(func,
-                                                 SpaceClass=AugmentedFlowSpace)
+            graph = self.translator.getflowgraph(func)
         except Exception, e:
             print 20*"*", e
             print func
@@ -972,7 +960,7 @@ class GenRpy:
         f = self.f
         t = self.translator
         #t.simplify(func)
-        graph = t.getflowgraph(func, SpaceClass=AugmentedFlowSpace)
+        graph = t.getflowgraph(func)
 
 
         start = graph.startblock
@@ -1088,10 +1076,15 @@ def init%(modname)s(space):
 # entry point: %(entrypointname)s, %(entrypoint)s)
 if __name__ == "__main__":
     from pypy.objspace.std import StdObjSpace
+    from pypy.objspace.std.default import UnwrapError
     space = StdObjSpace()
     init%(modname)s(space)
-    print space.unwrap(space.call(
-            gfunc_%(entrypointname)s, space.newtuple([])))
+    ret = space.call(gfunc_%(entrypointname)s, space.newtuple([]))
+    try:
+        print space.unwrap(ret)
+    except UnwrapError:
+        print "cannot unwrap, here the wrapped result:"
+        print ret
 '''
 
 # a translation table suitable for str.translate() to remove
