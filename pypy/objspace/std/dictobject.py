@@ -12,6 +12,14 @@ from pypy.objspace.std.restricted_int import r_uint
 
 dummy = object()
 
+class Entry:
+    def __init__(self):
+        self.hash = 0
+        self.w_key = None
+        self.w_value = None
+    def __repr__(self):
+        return '<Entry %r,%r,%r>'%(self.hash, self.w_key, self.w_value)
+
 class W_DictObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
@@ -33,12 +41,14 @@ class W_DictObject(W_Object):
         return r_uint(space.unwrap(space.hash(w_obj)))
 
     def insert(self, h, w_key, w_value):
-        cell = self.lookdict(h, w_key)
-        if cell[2] is None:
+        entry = self.lookdict(h, w_key)
+        if entry.w_value is None:
             self.used += 1
-            cell[:] = [h, w_key, w_value]
+            entry.hash = h
+            entry.w_key = w_key
+            entry.w_value = w_value
         else:
-            cell[2] = w_value
+            entry.w_value = w_value
 
     def resize(self, minused):
         newsize = 4
@@ -47,28 +57,29 @@ class W_DictObject(W_Object):
         od = self.data
 
         self.used = 0
-        self.data = [[r_uint(0), None, None] for i in range(newsize)]
-        for h, k, v in od:
-            if v is not None:
-                self.insert(h, k, v)
+        self.data = [Entry() for i in range(newsize)]
+        for entry in od:
+            if entry.w_value is not None:
+                self.insert(entry.hash, entry.w_key, entry.w_value)
 
     def non_empties(self):
-        return [(h, w_k, w_v) for (h, w_k, w_v) in self.data if w_v is not None]
+        return [(entry.hash, entry.w_key, entry.w_value)
+                for entry in self.data if entry.w_value is not None]
         
     def lookdict(self, lookup_hash, w_lookup):
-        assert isinstance(lookup_hash, r_uint)
+#        assert isinstance(lookup_hash, r_uint)
         space = self.space
         i = lookup_hash % len(self.data)
 
         entry = self.data[i]
-        if entry[1] is None or \
-           space.is_true(space.is_(w_lookup, entry[1])):
+        if entry.w_key is None or \
+           space.is_true(space.is_(w_lookup, entry.w_key)):
             return entry
-        if entry[1] is dummy:
+        if entry.w_key is dummy:
             freeslot = entry
         else:
-            if entry[0] == lookup_hash and space.is_true(
-                space.eq(entry[1], w_lookup)):
+            if entry.hash == lookup_hash and space.is_true(
+                space.eq(entry.w_key, w_lookup)):
                 return entry
             freeslot = None
 
@@ -82,16 +93,16 @@ class W_DictObject(W_Object):
             ##    pdb.set_trace()
             i = (i << 2) + i + perturb + 1
             entry = self.data[i%len(self.data)]
-            if entry[1] is None:
+            if entry.w_value is None:
                 if freeslot:
                     return freeslot
                 else:
                     return entry
-            if entry[0] == lookup_hash and entry[1] is not dummy \
+            if entry.hash == lookup_hash and entry.w_key is not dummy \
                    and space.is_true(
-                space.eq(entry[1], w_lookup)):
+                space.eq(entry.w_key, w_lookup)):
                 return entry
-            if entry[1] is dummy and freeslot is None:
+            if entry.w_key is dummy and freeslot is None:
                 freeslot = entry
             perturb >>= 5
 
@@ -132,8 +143,8 @@ def init__Dict(space, w_dict, w_args, w_kwds):
 
 def getitem__Dict_ANY(space, w_dict, w_lookup):
     entry = w_dict.lookdict(w_dict.hash(w_lookup), w_lookup)
-    if entry[2] is not None:
-        return entry[2]
+    if entry.w_value is not None:
+        return entry.w_value
     else:
         raise OperationError(space.w_KeyError, w_lookup)
 
@@ -144,10 +155,10 @@ def setitem__Dict_ANY_ANY(space, w_dict, w_newkey, w_newvalue):
 
 def delitem__Dict_ANY(space, w_dict, w_lookup):
     entry = w_dict.lookdict(w_dict.hash(w_lookup), w_lookup)
-    if entry[2] is not None:
+    if entry.w_value is not None:
         w_dict.used -= 1
-        entry[1] = dummy
-        entry[2] = None
+        entry.w_key = dummy
+        entry.w_value = None
     else:
         raise OperationError(space.w_KeyError, w_lookup)
     
@@ -156,7 +167,7 @@ def len__Dict(space, w_dict):
 
 def contains__Dict_ANY(space, w_dict, w_lookup):
     entry = w_dict.lookdict(w_dict.hash(w_lookup), w_lookup)
-    return space.newbool(entry[2] is not None)
+    return space.newbool(entry.w_value is not None)
 
 dict_has_key__Dict_ANY = contains__Dict_ANY
 
@@ -209,33 +220,33 @@ def hash__Dict(space,w_dict):
     raise OperationError(space.w_TypeError,space.wrap("dict objects are unhashable"))
 
 def dict_copy__Dict(space, w_self):
-    return W_DictObject(space, [(w_key,w_value)
-                                for hash,w_key,w_value in w_self.data
-                                if w_value is not None])
+    return W_DictObject(space, [(entry.w_key,entry.w_value)
+                                for entry in w_self.data
+                                if entry.w_value is not None])
 
 def dict_items__Dict(space, w_self):
-    return space.newlist([ space.newtuple([w_key,w_value])
-                           for hash,w_key,w_value in w_self.data 
-                           if w_value is not None])
+    return space.newlist([ space.newtuple([entry.w_key,entry.w_value])
+                           for entry in w_self.data
+                           if entry.w_value is not None])
 
 def dict_keys__Dict(space, w_self):
-    return space.newlist([ w_key
-                           for hash,w_key,w_value in w_self.data
-                           if w_value is not None])
+    return space.newlist([ entry.w_key
+                           for entry in w_self.data
+                           if entry.w_value is not None])
 
 def dict_values__Dict(space, w_self):
-    return space.newlist([ w_value
-                           for hash,w_key,w_value in w_self.data 
-                           if w_value is not None])
+    return space.newlist([ entry.w_value
+                           for entry in w_self.data
+                           if entry.w_value is not None])
 
 def dict_clear__Dict(space, w_self):
-    w_self.data = [[0, None, None]]
+    w_self.data = [Entry()]
     w_self.used = 0
 
 def dict_get__Dict_ANY_ANY(space, w_dict, w_lookup, w_default):
     entry = w_dict.lookdict(w_dict.hash(w_lookup), w_lookup)
-    if entry[2] is not None:
-        return entry[2]
+    if entry.w_value is not None:
+        return entry.w_value
     else:
         return w_default
 
