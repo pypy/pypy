@@ -197,7 +197,7 @@ class Arguments:
                 nargs)
         else:
             defcount = len(defaults_w)
-            if defcount == 0:
+            if defcount == 0 and varargname is None:
                 msg1 = "exactly"
             elif too_many:
                 msg1 = "at most"
