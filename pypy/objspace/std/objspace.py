@@ -50,6 +50,7 @@ class StdObjSpace(ObjSpace):
         'W_FloatObject': 'floatobject',
         'W_ListObject':  'listobject',
         'W_DictObject':  'dictobject',
+        #'W_StringObject': 'stringobject',
         'W_ModuleObject':'moduleobject',
         }
 
