@@ -59,11 +59,23 @@ def builtin_isinstance(s_obj, s_type):
             return r
     return SomeBool()
 
+def builtin_issubclass(s_cls1, s_cls2):
+    if s_cls1.is_constant() and s_cls2.is_constant():
+        return immutablevalue(issubclass(s_cls1, s_cls2))
+    else:
+        return SomeBool()
+
 def builtin_getattr(s_obj, s_attr):
     if not s_attr.is_constant() or not isinstance(s_attr.const, str):
         raise Exception, 'getattr(%r, %r) is not RPythonic enough' % (
             s_obj, s_attr)
     return s_obj.getattr(s_attr)
+
+def builtin_hasattr(s_obj, s_attr):
+    if not s_attr.is_constant() or not isinstance(s_attr.const, str):
+        raise Exception, 'hasattr(%r, %r) is not RPythonic enough' % (
+            s_obj, s_attr)
+    return SomeBool()
 
 def builtin_tuple(s_iterable):
     if isinstance(s_iterable, SomeTuple):
