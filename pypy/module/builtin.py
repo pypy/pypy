@@ -27,6 +27,19 @@ class Builtin(BuiltinModule):
     #    return w_res
     #tuple = appmethod(tuple)
 
+    def _actframe(self):
+        return self.space.getexecutioncontext().framestack.top()
+
+
+    def globals(self):
+        return self._actframe().w_globals
+    globals = appmethod(globals)
+
+    def locals(self):
+        return self._actframe().w_locals
+    locals = appmethod(locals)
+
+
     def __import__(self, w_modulename, w_locals, w_globals, w_fromlist):
         space = self.space
         try:

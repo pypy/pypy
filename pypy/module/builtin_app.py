@@ -145,3 +145,12 @@ def max(*arr):
         if max < i:
             max = i
     return max
+
+
+def cmp(x, y):
+  if x < y:
+     return -1
+  elif x == y:
+     return 0
+  else:
+     return 1

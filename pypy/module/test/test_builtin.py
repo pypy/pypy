@@ -1,4 +1,6 @@
 import testsupport
+from pypy.module.builtin_app import cmp
+
 
 class TestBuiltin(testsupport.TestCase):
 
@@ -26,7 +28,14 @@ class TestBuiltin(testsupport.TestCase):
       self.assertWRaises_w(s.w_TypeError,
                            w_chr,
                            w('a'))
-      
+     
+class TestCmp(testsupport.TestCase):
+   
+    def test_cmp(self):
+       self.failUnless(cmp(9, 9) == 0)
+       self.failUnless(cmp(0,9) < 0)
+       self.failUnless(cmp(9,0) > 0)
+ 
 if __name__ == '__main__':
     testsupport.main()
  
