@@ -4,7 +4,6 @@ import os
 import sys
 import cStringIO as StringIO
 import traceback
-import unittest
 import vpath
 
 #TODO
@@ -12,13 +11,126 @@ import vpath
 # - support TestItem.run with different object spaces
 # - perhaps we have to be able to compare TestResult and TestItem values
 #   which were pickled (see -c option of current test_all.py)
+# - add docstring to TestItem
+
+#
+# custom TestCase class (adapted from Python's unittest module)
+#
+class TestCase:
+    """A class whose instances are single test cases.
+
+    By default, the test code itself should be placed in a method named
+    'runTest'.
+
+    If the fixture may be used for many test cases, create as
+    many test methods as are needed. When instantiating such a TestCase
+    subclass, specify in the constructor arguments the name of the test method
+    that the instance is to execute.
+
+    Test authors should subclass TestCase for their own tests. Construction
+    and deconstruction of the test's environment ('fixture') can be
+    implemented by overriding the 'setUp' and 'tearDown' methods respectively.
+    """
+    def setUp(self):
+        "Hook method for setting up the test fixture before exercising it."
+        pass
+
+    def tearDown(self):
+        "Hook method for deconstructing the test fixture after testing it."
+        pass
+
+    def fail(self, msg=None):
+        """Fail immediately, with the given message."""
+        raise Failure(msg=msg)
+
+    def failIf(self, expr, msg=None):
+        """Fail the test if the expression is true."""
+        if expr:
+            raise Failure(msg=msg)
+
+    def failUnless(self, expr, msg=None):
+        """Fail the test unless the expression is true."""
+        if not expr:
+            raise Failure(msg=msg)
+
+    def failUnlessRaises(self, excClass, callableObj, *args, **kwargs):
+        """
+        Fail unless an exception of class excClass is thrown
+        by callableObj when invoked with arguments args and keyword
+        arguments kwargs. If a different type of exception is
+        thrown, it will not be caught, and the test case will be
+        deemed to have suffered an error, exactly as for an
+        unexpected exception.
+        """
+        try:
+            callableObj(*args, **kwargs)
+        except excClass:
+            return
+        else:
+            if hasattr(excClass,'__name__'):
+                excName = excClass.__name__
+            else:
+                excName = str(excClass)
+            raise Failure(msg=excName)
+
+    def failUnlessEqual(self, first, second, msg=None):
+        """
+        Fail if the two objects are unequal as determined by the '=='
+        operator.
+        """
+        if not first == second:
+            raise Failure(msg=(msg or '%s != %s' % (`first`, `second`)))
+
+    def failIfEqual(self, first, second, msg=None):
+        """
+        Fail if the two objects are equal as determined by the '=='
+        operator.
+        """
+        if first == second:
+            raise Failure(msg=(msg or '%s == %s' % (`first`, `second`)))
+
+    def failUnlessAlmostEqual(self, first, second, places=7, msg=None):
+        """
+        Fail if the two objects are unequal as determined by their
+        difference rounded to the given number of decimal places
+        (default 7) and comparing to zero.
+
+        Note that decimal places (from zero) is usually not the same
+        as significant digits (measured from the most signficant digit).
+        """
+        if round(second-first, places) != 0:
+            raise Failure(msg=(msg or '%s != %s within %s places' %
+                                      (`first`, `second`, `places`)))
+
+    def failIfAlmostEqual(self, first, second, places=7, msg=None):
+        """
+        Fail if the two objects are equal as determined by their
+        difference rounded to the given number of decimal places
+        (default 7) and comparing to zero.
+
+        Note that decimal places (from zero) is usually not the same
+        as significant digits (measured from the most signficant digit).
+        """
+        if round(second-first, places) == 0:
+            raise Failure(msg=(msg or '%s == %s within %s places' %
+                                      (`first`, `second`, `places`)))
+
+    # aliases
+    assertEqual = assertEquals = failUnlessEqual
+    assertNotEqual = assertNotEquals = failIfEqual
+    assertAlmostEqual = assertAlmostEquals = failUnlessAlmostEqual
+    assertNotAlmostEqual = assertNotAlmostEquals = failIfAlmostEqual
+    assertRaises = failUnlessRaises
+    assert_ = failUnless
 
 #
 # TestResult class family
 #
-class TestResult:
+class TestResult(Exception):
     """Abstract class representing the outcome of a test."""
-    def __init__(self, item):
+    def __init__(self, msg="", item=None):
+        Exception.__init__(self, msg)
+        self.msg = msg
         self.item = item
         self.name = self.__class__.__name__
         self.traceback = None
@@ -50,7 +162,7 @@ class Ignored(TestResult):
 
 
 class TestResultWithTraceback(TestResult):
-    def __init__(self, item):
+    def __init__(self, msg='', item=None):
         TestResult.__init__(self, item)
         self.setexception()
 
@@ -139,10 +251,8 @@ class TestItem:
 
         # credit: adapted from Python's unittest.TestCase.run
 
-        # prepare test case class and test method
-        methodname = self.method.__name__
-        testobject = self.cls(methodname)
-        testmethod = getattr(testobject, methodname)
+        testobject = self.cls()
+        testmethod = getattr(testobject, self.method.__name__)
 
         if pretest is not None:
             pretest(self)
@@ -153,28 +263,32 @@ class TestItem:
                 testobject.setUp()
             except KeyboardInterrupt:
                 raise
-            except:
-                return Error(self)
+            except TestResult, result:
+                # reconstruct TestResult object, implicitly set exception
+                result = result.__class__(msg=result.msg, item=self)
+            except Exception, exc:
+                return Error(msg=str(exc), item=self)
 
             try:
                 testmethod()
-                result = Success(self)
+                result = Success(msg='success', item=self)
             except KeyboardInterrupt:
                 raise
-            except AssertionError:
-                result = Failure(self)
-            except:
-                result = Error(self)
+            except TestResult, result:
+                # reconstruct TestResult object, implicitly set exception
+                result = result.__class__(msg=result.msg, item=self)
+            except Exception, exc:
+                result = Error(msg=str(exc), item=self)
 
             try:
                 testobject.tearDown()
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception, exc:
                 # if we already had an exception in the test method,
                 # don't overwrite it
-                if not isinstance(result, TestResultWithTraceback):
-                    result = Error(self)
+                if result.traceback is None:
+                    result = Error(msg=str(exc), item=self)
         finally:
             if posttest is not None:
                 posttest(self)
@@ -211,9 +325,11 @@ class TestSuite:
     def _items_from_module(self, module):
         """Return a list of TestItems read from the given module."""
         items = []
-        # scan the module for classes derived from unittest.TestCase
+        # scan the module for classes derived from TestCase
         for obj in vars(module).values():
-            if inspect.isclass(obj) and issubclass(obj, unittest.TestCase):
+            if inspect.isclass(obj):
+                print obj, id(obj)
+            if inspect.isclass(obj) and isinstance(obj, TestCase):
                 # we found a TestCase class, now scan it for test methods
                 for obj2 in vars(obj).values():
                     # inspect.ismethod doesn't seem to work here
@@ -234,6 +350,7 @@ class TestSuite:
         If recursive is true, which is the default, find all test modules
         by scanning the start directory recursively.
         """
+        self.items = []
         dirname = vpath.getlocal(dirname)
 
         def testfilefilter(path):
@@ -270,6 +387,7 @@ class TestSuite:
         self.lastresults = {}
         for item in self.items:
             result = item.run()
+            print result.formatted_traceback
             key = classify(result)
             self.lastresults.setdefault(key, []).append(result)
             yield result
@@ -277,16 +395,18 @@ class TestSuite:
 #
 # demonstrate test framework usage
 #
-def main(skip_selftest=True):
+def main(do_selftest=False):
     # possibly ignore dummy unit tests
-    if skip_selftest:
-        filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
-    else:
+    if do_selftest:
         filterfunc = lambda m: True
+    else:
+        filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
     # collect tests
     ts = TestSuite()
     print "Loading test modules ..."
     ts.initfromdir(autopath.pypydir, filterfunc=filterfunc)
+    print "Loading test modules ..."
+    ts.initfromdir('.', filterfunc=filterfunc)
     # iterate over tests and collect data
     for res in ts.testresults():
         if res.traceback is None:
@@ -311,4 +431,4 @@ def main(skip_selftest=True):
 
 
 if __name__ == '__main__':
-    main()
+    main(do_selftest=True)
