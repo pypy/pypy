@@ -18,6 +18,7 @@ class Options(option.Options):
     verbose = os.getenv('PYPY_TB')
     interactive = 0
     command = []
+    completer = False
 
 def get_main_options():
     options = option.get_standard_options()
@@ -25,6 +26,10 @@ def get_main_options():
     options.append(make_option(
         '-v', action='store_true', dest='verbose',
         help='show verbose interpreter-level traceback'))
+
+    options.append(make_option(
+        '-C', action='store_true', dest='completer',
+        help='use readline commandline completer'))
 
     options.append(make_option(
         '-i', action="store_true", dest="interactive",
@@ -78,7 +83,7 @@ def main_(argv=None):
             else:
                 operationerr.print_application_traceback(space)
         if go_interactive:
-            con = interactive.PyPyConsole(space, Options.verbose)
+            con = interactive.PyPyConsole(space, verbose=Options.verbose, completer=Options.completer)
             if banner == '':
                 banner = '%s / %s'%(con.__class__.__name__,
                                     space.__class__.__name__)
