@@ -11,7 +11,9 @@ Option = py.test.Option
 options = ('pypy options', [
         Option('-o', '--objspace', action="store", default=None, 
                type="string", dest="objspacename", 
-               help="object space to run tests on."), 
+               help="object space to run tests on."),
+        Option('--oldstyle', action="store_true",dest="oldstyle", default=False,
+               help="enable oldstyle classes as default metaclass (std objspace only)"),
 ])
 
 
@@ -32,6 +34,8 @@ def getobjspace(name=None, _spacecache={}):
         module = __import__("pypy.objspace.%s" % name, None, None, ["Space"])
         space = module.Space()
         _spacecache[name] = space
+        if name == 'std' and py.test.config.option.oldstyle:
+            space.enable_old_style_classes_as_default_metaclass()
         if name != 'flow': # not sensible for flow objspace case
             space.setitem(space.w_builtins, space.wrap('AssertionError'), 
                           pytestsupport.build_pytest_assertion(space))

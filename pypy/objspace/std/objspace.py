@@ -81,13 +81,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
         mod = self.setup_exceptions(for_builtins)
 
         # old-style classes
-        #self.setup_old_style_classes()
+        self.setup_old_style_classes()
 
         # install things in the __builtin__ module
         self.make_builtins(for_builtins)
 
         w_exceptions = self.wrap(mod)
         self.sys.setbuiltinmodule(w_exceptions, 'exceptions')
+
+    def enable_old_style_classes_as_default_metaclass(self):
+        self.setitem(self.builtin.w_dict, self.wrap('__metaclass__'), self.w_classobj)
 
     def setup_old_style_classes(self):
         """NOT_RPYTHON"""

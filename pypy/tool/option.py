@@ -5,6 +5,7 @@ make_option = optik.make_option
 class Options:
     showwarning = 0
     spaces = []
+    oldstyle = 0
 
 def run_tb_server(option, opt, value, parser):
     from pypy.tool import tb_server
@@ -20,6 +21,9 @@ def get_standard_options():
         '-S', action="callback",
         callback=objspace_callback, callback_args=("std",),
         help="run in std object space"))
+    options.append(make_option(
+        '--oldstyle', action="store_true",dest="oldstyle",
+        help="enable oldstyle classes as default metaclass (std objspace only)"))    
     options.append(make_option(
         '-T', action="callback",
         callback=objspace_callback, callback_args=("trivial",),
@@ -60,4 +64,7 @@ def objspace(name='', _spacecache={}):
     except KeyError:
         module = __import__("pypy.objspace.%s" % name, None, None, ["Space"])
         Space = module.Space
-        return _spacecache.setdefault(name, Space())
+        space = Space()
+        if name == 'std' and Options.oldstyle:
+            space.enable_old_style_classes_as_default_metaclass()
+        return _spacecache.setdefault(name, space)
