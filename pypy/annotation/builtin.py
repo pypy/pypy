@@ -20,6 +20,12 @@ def builtin_pow(s_base, s_exponent, *args):
     else:
         return SomeObject()
 
+def builtin_int(s_obj):     # we can consider 'int' as a function
+    if isinstance(s_obj, SomeInteger):
+        return s_obj
+    else:
+        return SomeInteger()
+
 
 # collect all functions
 import __builtin__

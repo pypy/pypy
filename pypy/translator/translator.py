@@ -43,8 +43,9 @@ from pypy.objspace.flow import FlowObjSpace
 
 class Translator:
 
-    def __init__(self, func):
+    def __init__(self, func, verbose=False):
         self.entrypoint = func
+        self.verbose = verbose
         self.clear()
 
     def clear(self):
@@ -60,8 +61,17 @@ class Translator:
         try:
             graph = self.flowgraphs[func]
         except KeyError:
+            if self.verbose:
+                print 'getflowgraph:', func.__name__
+            im_func = getattr(func, 'im_func', func)
+            im_self = getattr(func, 'im_self', None)
+            if im_self is not None:    # bound method?
+                constargs = {0: im_self}
+            else:
+                constargs = {}
             space = FlowObjSpace()
-            graph = self.flowgraphs[func] = space.build_flow(func)
+            graph = self.flowgraphs[func] = space.build_flow(im_func,
+                                                             constargs)
             self.functions.append(func)
             try:
                 import inspect

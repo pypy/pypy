@@ -328,6 +328,11 @@ class WithInit:
     def __init__(self, n):
         self.a = n
 
+class WithMoreInit(WithInit):
+    def __init__(self, n, m):
+        WithInit.__init__(self, n)
+        self.b = m
+
 def simple_method(v=anytype):
     z = Z()
     z.my_attribute = v
@@ -336,6 +341,15 @@ def simple_method(v=anytype):
 def with_init(v=int):
     z = WithInit(v)
     return z.a
+
+def with_more_init(v=int, w=bool):
+    z = WithMoreInit(v, w)
+
+global_z = Z()
+global_z.my_attribute = 42
+
+def global_instance():
+    return global_z.my_method()
 
 
 def powerset(setsize=int):

@@ -35,6 +35,7 @@ class RPythonAnnotator:
             if self.translator is None:
                 from pypy.translator.translator import Translator
                 self.translator = Translator(func_or_flowgraph)
+                self.translator.annotator = self
             flowgraph = self.translator.getflowgraph(func_or_flowgraph)
         # make input arguments and set their type
         input_arg_types = list(input_arg_types)

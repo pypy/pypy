@@ -115,7 +115,8 @@ class SomeBuiltin(SomeObject):
         self.s_self = s_self
 
 class SomeFunction(SomeObject):
-    "Stands for a Python function (or some function out of a list)."
+    """Stands for a Python function (or some function out of a list).
+    Alternatively, it can be a constant bound or unbound method."""
     knowntype = FunctionType
     def __init__(self, funcs):
         self.funcs = funcs   # set of functions that this one may be
@@ -153,7 +154,7 @@ def immutablevalue(x):
         result = SomeBuiltin(BUILTIN_FUNCTIONS[x])
     elif isinstance(x, (type, ClassType)) and x.__module__ != '__builtin__':
         result = SomeClass(x)
-    elif isinstance(x, FunctionType):
+    elif isinstance(x, (FunctionType, MethodType)):
         result = SomeFunction({x: True})
     else:
         result = SomeObject()

@@ -217,6 +217,26 @@ class AnnonateTestCase(testit.IntTestCase):
         # result should be an integer
         self.assertEquals(s.knowntype, int)
 
+    def test_with_more_init(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.with_more_init, [int, bool])
+        # the user classes should have the following attributes:
+        classes = a.bookkeeper.userclasses
+        # XXX on which class should the attribute 'a' appear?  We only
+        #     ever flow WithInit.__init__ with a self which is an instance
+        #     of WithMoreInit, so currently it appears on WithMoreInit.
+        self.assertEquals(classes[snippet.WithMoreInit].attrs.get('a'),
+                          annmodel.SomeInteger())
+        self.assertEquals(classes[snippet.WithMoreInit].attrs.get('b'),
+                          annmodel.SomeBool())
+
+    def test_global_instance(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.global_instance, [])
+        # currently this returns the constant 42.
+        # XXX not sure this is the best behavior...
+        self.assertEquals(s, annmodel.immutablevalue(42))
+
 def g(n):
     return [0,1,2,n]
 

@@ -63,15 +63,17 @@ class ReplayList:
 
 class FlowExecutionContext(ExecutionContext):
 
-    def __init__(self, space, code, globals):
+    def __init__(self, space, code, globals, constargs={}):
         ExecutionContext.__init__(self, space)
         self.code = code
         self.w_globals = w_globals = space.wrap(globals)
         frame = self.create_frame()
         formalargcount = code.getformalargcount()
         dummy = UndefinedConstant()
-        arg_list = ([Variable() for i in range(formalargcount)] +
-                    [dummy] * (len(frame.fastlocals_w) - formalargcount))
+        arg_list = [Variable() for i in range(formalargcount)]
+        for position, value in constargs.items():
+            arg_list[position] = Constant(value)
+        arg_list += [dummy] * (len(frame.fastlocals_w) - formalargcount)
         frame.setfastscope(arg_list)
         self.joinpoints = {}
         for joinpoint in code.getjoinpoints():

@@ -67,12 +67,13 @@ class FlowObjSpace(ObjSpace):
         #print >> sys.stderr, '*** reraise', etype, evalue
         raise OperationError, OperationError(self.wrap(etype), self.wrap(evalue)), etb
 
-    def build_flow(self, func):
+    def build_flow(self, func, constargs={}):
         """
         """
         code = func.func_code
         code = PyCode()._from_code(code)
-        ec = flowcontext.FlowExecutionContext(self, code, func.func_globals)
+        ec = flowcontext.FlowExecutionContext(self, code, func.func_globals,
+                                              constargs)
         self.executioncontext = ec
         ec.build_flow()
         name = ec.graph.name
@@ -131,6 +132,8 @@ def make_op(name, symbol, arity, specialnames):
             op = issubclass
         elif name == 'id':
             op = id
+        elif name == 'getattr':
+            op = getattr
         else:
             if debug: print >> sys.stderr, "XXX missing operator:", name
 
