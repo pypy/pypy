@@ -1,3 +1,10 @@
+"""
+Reviewed 03-06-22
+All common dictionary methods are correctly implemented,
+tested, and complete. The only missing feature is support
+for order comparisons.
+"""
+
 from pypy.objspace.std.objspace import *
 from dicttype import W_DictType, _no_object
 from stringobject import W_StringObject
@@ -185,6 +192,17 @@ def dict_pop__Dict_ANY_ANY(space, w_self, w_key, w_default):
     else:
         w_value = w_self.space.gethelper(applicationfile).call("dict_pop", [w_self, w_key, w_default])
     return w_value
-    
+
+def dict_iteritems__Dict(space, w_self):
+    w_item = w_self.space.gethelper(applicationfile).call("dict_iteritems", [w_self])
+    return w_item
+
+def dict_iterkeys__Dict(space, w_self):
+    w_item = w_self.space.gethelper(applicationfile).call("dict_iterkeys", [w_self])
+    return w_item
+
+def dict_itervalues__Dict(space, w_self):
+    w_item = w_self.space.gethelper(applicationfile).call("dict_itervalues", [w_self])
+    return w_item
 
 register_all(vars(), W_DictType)

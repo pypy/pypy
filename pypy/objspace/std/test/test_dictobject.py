@@ -83,30 +83,30 @@ class Test_DictObject(test.AppTestCase):
     
         
     def test_clear(self):
-        self.d = {1:2, 3:4}
-        self.d.clear()
-        self.assertEqual(len(self.d), 0)
+        d = {1:2, 3:4}
+        d.clear()
+        self.assertEqual(len(d), 0)
                          
     def test_copy(self):
-        self.d = {1:2, 3:4}
-        dd = self.d.copy()
-        self.assertEqual(self.d, dd)
-        self.failIf(self.d is dd)
+        d = {1:2, 3:4}
+        dd = d.copy()
+        self.assertEqual(d, dd)
+        self.failIf(d is dd)
         
     def test_get(self):
-        self.d = {1:2, 3:4}
-        self.assertEqual(self.d.get(1), 2)
-        self.assertEqual(self.d.get(1,44), 2)
-        self.assertEqual(self.d.get(33), None)
-        self.assertEqual(self.d.get(33,44), 44)
+        d = {1:2, 3:4}
+        self.assertEqual(d.get(1), 2)
+        self.assertEqual(d.get(1,44), 2)
+        self.assertEqual(d.get(33), None)
+        self.assertEqual(d.get(33,44), 44)
 
     def test_pop(self):
-        self.d = {1:2, 3:4}
-        dd = self.d.copy()
+        d = {1:2, 3:4}
+        dd = d.copy()
         result = dd.pop(1)
         self.assertEqual(result, 2)
         self.assertEqual(len(dd), 1)
-        dd = self.d.copy()
+        dd = d.copy()
         result = dd.pop(1, 44)
         self.assertEqual(result, 2)
         self.assertEqual(len(dd), 1)
@@ -116,68 +116,77 @@ class Test_DictObject(test.AppTestCase):
         self.assertRaises(KeyError, dd.pop, 33)
     
     def test_has_key(self):
-        self.d = {1:2, 3:4}
-        self.failUnless(self.d.has_key(1))
-        self.failIf(self.d.has_key(33))
+        d = {1:2, 3:4}
+        self.failUnless(d.has_key(1))
+        self.failIf(d.has_key(33))
     
     def test_items(self):
-        self.d = {1:2, 3:4}
-        its = self.d.items()
+        d = {1:2, 3:4}
+        its = d.items()
         its.sort()
         self.assertEqual(its, [(1,2),(3,4)])
     
-    def notyet_test_iteritems(self):
-        pass
+    def test_iteritems(self):
+        d = {1:2, 3:4}
+        dd = d.copy()
+        for k, v in d.iteritems():
+            self.assertEqual(v, dd[k])
+            del dd[k]
+        self.failIf(dd)
     
-    def notyet_test_iterkeys(self):
-        pass
+    def test_iterkeys(self):
+        d = {1:2, 3:4}
+        dd = d.copy()
+        for k in d.iterkeys():
+            del dd[k]
+        self.failIf(dd)
     
-    def notyet_test_itervalues(self):
-        pass
+    def test_itervalues(self):
+        d = {1:2, 3:4}
+        values = []
+        for k in d.itervalues():
+            values.append(k)
+        self.assertEqual(values, d.values())
     
     def test_keys(self):
-        self.d = {1:2, 3:4}
-        kys = self.d.keys()
+        d = {1:2, 3:4}
+        kys = d.keys()
         kys.sort()
         self.assertEqual(kys, [1,3])
     
     def test_popitem(self):
-        self.d = {1:2, 3:4}
-        it = self.d.popitem()
-        self.assertEqual(len(self.d), 1)
+        d = {1:2, 3:4}
+        it = d.popitem()
+        self.assertEqual(len(d), 1)
         self.failUnless(it==(1,2) or it==(3,4))
-        it1 = self.d.popitem()
-        self.assertEqual(len(self.d), 0)
+        it1 = d.popitem()
+        self.assertEqual(len(d), 0)
         self.failUnless((it!=it1) and (it1==(1,2) or it1==(3,4)))
     
     def test_setdefault(self):
-        self.d = {1:2, 3:4}
-        dd = self.d.copy()
+        d = {1:2, 3:4}
+        dd = d.copy()
         x = dd.setdefault(1, 99)
-        self.assertEqual(self.d, dd)
+        self.assertEqual(d, dd)
         self.assertEqual(x, 2)
         x = dd.setdefault(33, 99)
-        self.d[33] = 99
-        self.assertEqual(self.d, dd)
+        d[33] = 99
+        self.assertEqual(d, dd)
         self.assertEqual(x, 99)
     
     def test_update(self):
-        self.d = {1:2, 3:4}
-        dd = self.d.copy()
-        self.d.update({})
-        self.assertEqual(self.d, dd)
-        self.d.update({3:5, 6:7})
-        self.assertEqual(self.d, {1:2, 3:5, 6:7})
+        d = {1:2, 3:4}
+        dd = d.copy()
+        d.update({})
+        self.assertEqual(d, dd)
+        d.update({3:5, 6:7})
+        self.assertEqual(d, {1:2, 3:5, 6:7})
     
     def test_values(self):
-        self.d = {1:2, 3:4}
-        vals = self.d.values()
+        d = {1:2, 3:4}
+        vals = d.values()
         vals.sort()
         self.assertEqual(vals, [2,4])
 
-    
-
-        
-                                 
 if __name__ == '__main__':
     test.main()

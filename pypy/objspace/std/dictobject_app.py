@@ -1,4 +1,4 @@
-#empty
+
 
 def dict_update(d,o):
     for k in o.keys():
@@ -30,3 +30,13 @@ def dict_pop(d, k, v=__unique):
     if v is __unique:
         raise KeyError, k
     return v
+
+def dict_iteritems(d):
+    return iter(d.items())
+
+def dict_iterkeys(d):
+    return iter(d.keys())
+
+def dict_itervalues(d):
+    return iter(d.values())
+
