@@ -72,7 +72,10 @@ class W_TypeObject(W_Object):
                 w_self.w_bestbase = w_most_derived_base_with_slots
             else:
                 nslots = 0
-  
+
+            if w_self.w_bestbase is None:
+                w_self.w_bestbase = bases_w[0]
+
             wantdict = True
             if '__slots__' in dict_w:
                 wantdict = False
