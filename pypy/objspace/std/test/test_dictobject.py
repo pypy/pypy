@@ -1,11 +1,10 @@
-import unittest, sys
+import sys
 import testsupport
-from pypy.interpreter import unittest_w
 from pypy.objspace.std import dictobject as dobj
 from pypy.objspace.std.objspace import *
 
 
-class TestW_DictObject(unittest_w.TestCase_w):
+class TestW_DictObject(testsupport.TestCase):
 
     def setUp(self):
         self.space = StdObjSpace()
@@ -61,8 +60,25 @@ class TestW_DictObject(unittest_w.TestCase_w):
        space.setitem(d,wk2,space.wrap(2))
        cell = space.unwrap(d.cell(space,wk2))
        self.assertEqual_w(cell.get(),space.wrap(2))
-       
-       
 
+
+    def test_wrap_dict(self):
+        self.assert_(isinstance(self.space.wrap({}), dobj.W_DictObject))
+
+
+    def test_dict_compare(self):
+        w = self.space.wrap
+        w0, w1, w2, w3 = map(w, range(4))
+        wd1 = self.space.newdict([(w0, w1), (w2, w3)])
+        wd2 = self.space.newdict([(w2, w3), (w0, w1)])
+        self.assertEqual_w(wd1, wd2)
+        wd3 = self.space.newdict([(w2, w2), (w0, w1)])
+        self.assertNotEqual_w(wd1, wd3)
+        wd4 = self.space.newdict([(w3, w3), (w0, w1)])
+        self.assertNotEqual_w(wd1, wd4)
+        wd5 = self.space.newdict([(w3, w3)])
+        self.assertNotEqual_w(wd1, wd4)
+        
+                                 
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()

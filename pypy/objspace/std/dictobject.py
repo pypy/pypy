@@ -24,6 +24,11 @@ class Cell:
 
     def is_empty(self):
         return self.w_value is _NoValueInCell
+
+    def __repr__(self):
+        """ representation for debugging purposes """
+        return "%s(%s)" % (self.__class__.__name__, self.w_value)
+
     
 
 class W_DictObject(W_Object):
@@ -146,15 +151,15 @@ StdObjSpace.getattr.register(getattr_dict, W_DictObject, W_ANY)
 
 def eq_dict_dict(space, w_left, w_right):
     if len(w_left.data) != len(w_right.data):
-        return self.newbool(0)
+        return space.newbool(0)
     for w_k, cell in w_left.data:
         try:
             w_v = space.getitem(w_right, w_k)
         except OperationError:
-            return self.newbool(0)
+            return space.newbool(0)
         r = space.is_true(space.eq(cell.w_value, w_v))
         if not r:
-            return r
+            return space.newbool(r)
     return space.newbool(1)
         
 
