@@ -36,16 +36,19 @@ class W_CPythonObject(W_Object):
     def __init__(w_self, space, cpyobj):
         W_Object.__init__(w_self, space)
         w_self.cpyobj = cpyobj
+        w_self.w_cpytype = None
 
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "cpyobj(%r)" % (w_self.cpyobj,)
 
     def getclass(w_self, space):
-        try:
-            return space.wrap(w_self.cpyobj.__class__)
-        except AttributeError:   # no __class__!
-            return space.wrap(type(w_self.cpyobj))
+        if w_self.w_cpytype is None:
+            try:
+                w_self.w_cpytype = space.wrap(w_self.cpyobj.__class__)
+            except AttributeError:   # no __class__!
+                w_self.w_cpytype = space.wrap(type(w_self.cpyobj))
+        return w_self.w_cpytype
 
     def lookup(w_self, name):
         # hack for wrapped CPython types

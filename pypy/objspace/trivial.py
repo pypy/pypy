@@ -7,6 +7,7 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import *
 from pypy.objspace.descroperation import DescrOperation, Object
+from pypy.interpreter.argument import Arguments
 import types, sys
 import __builtin__ as cpy_builtin
 
@@ -185,11 +186,12 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             for descrname, descr in typedef.rawdict.items():
                 if isinstance(descr, interp2app):
                     def make_stuff(descr=descr, descrname=descrname, space=self):
-                        def stuff(w_obj, *args):
+                        def stuff(w_obj, *args, **kwds):
                             fn = descr.get_function(space)
+                            args = Arguments(space, list(args), kwds)
                             try:
-                                return space.call_function(space.wrap(fn),
-                                                           w_obj, *args)
+                                return space.call_args(space.wrap(fn),
+                                                       args.prepend(w_obj))
                             except OperationError, e:
                                 if not hasattr(e.w_type, 'originalex'):
                                     raise # XXX
