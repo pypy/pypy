@@ -6,9 +6,12 @@ from pypy.interpreter.gateway import BuiltinCode
 from pypy.interpreter.argument import Arguments
 from pypy.tool.compile import compile2 
 
-def raiseattrerror(space, w_obj, name): 
-    w_type = space.type(w_obj) 
-    msg = "'%s' object has no attribute '%s'" %(w_type.name, name)
+def raiseattrerror(space, w_obj, name, w_descr=None):
+    w_type = space.type(w_obj)
+    if w_descr is None:
+        msg = "'%s' object has no attribute '%s'" %(w_type.name, name)
+    else:
+        msg = "'%s' object attribute '%s' is read-only" %(w_type.name, name)
     raise OperationError(space.w_AttributeError, space.wrap(msg))
 
 class Object:
@@ -34,7 +37,7 @@ class Object:
         w_dict = space.getdict(w_obj)
         if w_dict is not None:
             return space.setitem(w_dict, w_name, w_value)
-        raiseattrerror(space, w_obj, name) 
+        raiseattrerror(space, w_obj, name, w_descr)
 
     def descr__delattr__(space, w_obj, w_name):
         name = space.str_w(w_name)
@@ -49,7 +52,7 @@ class Object:
             except OperationError, ex:
                 if not ex.match(space, space.w_KeyError):
                     raise
-        raiseattrerror(space, w_obj, name) 
+        raiseattrerror(space, w_obj, name, w_descr)
 
     def descr__init__(space, w_obj, __args__):
         pass   # XXX some strange checking maybe
