@@ -14,23 +14,17 @@ class FunctionGraph:
         self.returnblock = Block([return_var or Variable()])
         self.returnblock.operations = ()
         self.returnblock.exits      = ()
-        self.exceptblocks = {}  # Blocks corresponding to exception results
+        # block corresponding to exception results
+        self.exceptblock = Block([Variable(),   # exception class
+                                  Variable()])  # exception value
+        self.exceptblock.operations = ()
+        self.exceptblock.exits      = ()
 
     def getargs(self):
         return self.startblock.inputargs
 
     def getreturnvar(self):
         return self.returnblock.inputargs[0]
-
-    def getexceptblock(self, exc_type):
-        try:
-            block = self.exceptblocks[exc_type]
-        except KeyError:
-            block = self.exceptblocks[exc_type] = Block([Variable()])
-            block.exc_type = exc_type
-            block.operations = ()
-            block.exits      = ()
-        return block
 
     def hasonlyexceptionreturns(self):
         try:
@@ -102,6 +96,8 @@ class Block:
         return uniqueitems([w for w in result if isinstance(w, Constant)])
 
     def renamevariables(self, mapping):
+        for a in mapping:
+            assert isinstance(a, Variable), a
         self.inputargs = [mapping.get(a, a) for a in self.inputargs]
         for op in self.operations:
             op.args = [mapping.get(a, a) for a in op.args]
@@ -191,10 +187,14 @@ class SpaceOperation:
     def __repr__(self):
         return "%r = %s(%s)" % (self.result, self.opname, ", ".join(map(repr, self.args)))
 
-class LastExceptionValue:
+class Atom:
+    "NOT_RPYTHON"
+    def __init__(self, name):
+        self.name = name
     def __repr__(self):
-        return 'last_exception'
-last_exception = LastExceptionValue()
+        return self.name
+last_exception = Atom('last_exception')
+last_exc_value = Atom('last_exc_value')
 # if Block().exitswitch == Constant(last_exception), it means that we are
 # interested in catching the exception that the *last operation* of the
 # block could raise.  The exitcases of the links are None for no exception
@@ -286,7 +286,8 @@ def checkgraph(graph):
     "Check the consistency of a flow graph."
     if __debug__:
         this_block = [None]
-        exitblocks = [graph.returnblock] + graph.exceptblocks.values()
+        exitblocks = {graph.returnblock: 1,   # retval
+                      graph.exceptblock: 2}   # exc_cls, exc_value
         
         def visit(block):
             if isinstance(block, Block):
@@ -330,9 +331,9 @@ def checkgraph(graph):
                 vars_previous_blocks.update(vars)
 
         try:
-            for block in exitblocks:
+            for block, nbargs in exitblocks.items():
                 this_block[0] = block
-                assert len(block.inputargs) == 1
+                assert len(block.inputargs) == nbargs
                 assert not block.operations
                 assert not block.exits
 

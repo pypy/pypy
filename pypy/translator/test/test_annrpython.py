@@ -256,7 +256,7 @@ class AnnonateTestCase(testit.IntTestCase):
     def test_constant_result(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.constant_result, [])
-        a.translator.simplify()
+        #a.translator.simplify()
         # must return "yadda"
         self.assertEquals(s, annmodel.immutablevalue("yadda"))
         keys = a.translator.flowgraphs.keys()

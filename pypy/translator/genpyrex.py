@@ -4,7 +4,7 @@ generate Pyrex files from the flowmodel.
 """
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
-from pypy.objspace.flow.model import mkentrymap
+from pypy.objspace.flow.model import mkentrymap, last_exception
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.annotation.model import SomeCallable
 from pypy.annotation.factory import isclassdef
@@ -59,15 +59,8 @@ class Op:
         return "%s = %s(%s)" % (self.resultname, self.op.opname, ", ".join(self.argnames)) 
     
     def op_next(self):
-        lines = []
         args = self.argnames
-        lines.append("try:")
-        lines.append("  %s = %s.next()" % (self.resultname, args[0]))
-        lines.append("except StopIteration:")
-        lines.append("  last_exc = StopIteration")
-        lines.append("else:")
-        lines.append("  last_exc = None")
-        return "\n".join(lines)
+        return "%s = %s.next()" % (self.resultname, args[0])
 
     def op_getitem(self):
         direct = "%s = %s[%s]" % ((self.resultname,) + tuple(self.argnames))
@@ -149,9 +142,6 @@ class Op:
     def op_is_true(self):
         return "%s = not not %s" % (self.resultname, self.argnames[0])
 
-    def op_exception(self):
-        return "%s, last_exc = last_exc, None" % (self.resultname,)
-
 class GenPyrex:
     def __init__(self, functiongraph):
         self.functiongraph = functiongraph
@@ -191,7 +181,6 @@ class GenPyrex:
         currentlines = self.lines
         self.lines = []
         self.indent += 1 
-        self.putline("last_exc = None")
         self.gen_block(fun.startblock)
         self.indent -= 1
         # emit the header after the body
@@ -338,31 +327,60 @@ class GenPyrex:
         #the label is only written if there are multiple refs to the block
         if len(self.entrymap[block]) > 1:
             self.putline('cinline "Label%s:"' % blockids[block])
-        for op in block.operations:
+
+        if block.exitswitch == Constant(last_exception):
+            catch_exc = len(block.operations)-1
+        else:
+            catch_exc = None
+
+        for i, op in zip(range(len(block.operations)), block.operations):
+            if i == catch_exc:
+                self.putline("try:")
+                self.indent += 1
             opg = Op(op, self, block)
             self.putline(opg())
-
-        exits = block.exits
-        if len(exits) == 1:
-            self.gen_link(block, exits[0])
-        elif len(exits) > 1:
-            varname = self._str(block.exitswitch, block)
-            for i in range(len(exits)):
-                exit = exits[-i-1]  # reverse order
-                cond = self._str(Constant(exit.exitcase), block)
-                if i == 0:
-                    self.putline("if %s == %s:" % (varname, cond))
-                elif i < len(exits) - 1:
-                    self.putline("elif %s == %s:" % (varname, cond))
-                else:
-                    self.putline("else: # %s == %s" % (varname, cond))
-                self.indent += 1
-                self.gen_link(block, exit)
+            if i == catch_exc:
+                # generate all exception handlers
                 self.indent -= 1
-        elif hasattr(block, 'exc_type'):
-            self.putline("raise %s" % block.exc_type.__name__)
+                exits = block.exits
+                for exit in exits[1:]:
+                    self.putline("except %s, last_exc_value:" %
+                                 exit.exitcase.__name__)
+                    self.indent += 1
+                    self.putline("last_exception = last_exc_value.__class__")
+                    self.gen_link(block, exit)
+                    self.indent -= 1
+                self.putline("else:")   # no-exception case
+                self.indent += 1
+                assert exits[0].exitcase is None
+                self.gen_link(block, exits[0])
+                self.indent -= 1
+                break
+
         else:
-            self.putline("return %s" % self._str(block.inputargs[0], block))
+            exits = block.exits
+            if len(exits) == 1:
+                self.gen_link(block, exits[0])
+            elif len(exits) > 1:
+                varname = self._str(block.exitswitch, block)
+                for i in range(len(exits)):
+                    exit = exits[-i-1]  # reverse order
+                    cond = self._str(Constant(exit.exitcase), block)
+                    if i == 0:
+                        self.putline("if %s == %s:" % (varname, cond))
+                    elif i < len(exits) - 1:
+                        self.putline("elif %s == %s:" % (varname, cond))
+                    else:
+                        self.putline("else: # %s == %s" % (varname, cond))
+                    self.indent += 1
+                    self.gen_link(block, exit)
+                    self.indent -= 1
+            elif len(block.inputargs) == 2:   # exc_cls, exc_value
+                exc_cls   = self._str(block.inputargs[0], block)
+                exc_value = self._str(block.inputargs[1], block)
+                self.putline("raise %s, %s" % (exc_cls, exc_value))
+            else:
+                self.putline("return %s" % self._str(block.inputargs[0], block))
 
     def gen_link(self, prevblock, link):
         _str = self._str

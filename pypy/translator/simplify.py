@@ -67,38 +67,27 @@ def remove_implicit_exceptions(graph):
     function removes such exceptions entierely.  This gets rid for example
     of possible IndexErrors by 'getitem', assuming they cannot happen unless
     there is an exception handler in the same function."""
-    def is_except_link(link):
-        return (link.args == [Constant(last_exception)] and
-                len(link.target.exits) == 0 and
-                hasattr(link.target, 'exc_type'))
     def visit(link):
         if isinstance(link, Link) and link in link.prevblock.exits:
-            if (isinstance(link.exitcase, type(Exception)) and
-                issubclass(link.exitcase, Exception)):
-                # two cases: a jump directly to an exception-raising end block,
-                # or a jump to a block containing only a 'type' operation
-                # and then jumping to such an exception-raising end block.
-                # Argh.
-                block = link.target
-                if (is_except_link(link) or
-                    (len(block.operations) == 1 and
-                     block.operations[0].opname == 'type' and
-                     len(block.exits) == 1 and
-                     is_except_link(block.exits[0]) and
-                     block.operations[0].result not in block.exits[0].args)):
-                    # remove the link
-                    lst = list(link.prevblock.exits)
-                    lst.remove(link)
-                    link.prevblock.exits = tuple(lst)
+            if (link.target is graph.exceptblock and
+                link.prevblock.exitswitch == Constant(last_exception) and
+                isinstance(link.exitcase, type(Exception)) and
+                issubclass(link.exitcase, Exception) and
+                list(link.args) == [Constant(last_exception),
+                                    Constant(last_exc_value)]):
+                # remove the link
+                lst = list(link.prevblock.exits)
+                lst.remove(link)
+                link.prevblock.exits = tuple(lst)
     traverse(visit, graph)
 
 def simplify_graph(graph, rpython=True):
     """inplace-apply all the existing optimisations to the graph."""
     checkgraph(graph)
     eliminate_empty_blocks(graph)
-    join_blocks(graph)
     if rpython:
         remove_implicit_exceptions(graph)
+    join_blocks(graph)
     checkgraph(graph)
 
 def remove_direct_loops(graph):

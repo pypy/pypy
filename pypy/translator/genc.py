@@ -5,7 +5,8 @@ Generate a C source file from the flowmodel.
 from __future__ import generators
 import autopath, os, sys
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.objspace.flow.model import FunctionGraph, Block, Link, last_exception
+from pypy.objspace.flow.model import FunctionGraph, Block, Link
+from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.translator.simplify import remove_direct_loops
 from pypy.interpreter.pycode import CO_VARARGS
@@ -90,6 +91,8 @@ class GenC:
         n = self.seennames.get(basename, 0)
         self.seennames[basename] = n+1
         if n == 0:
+            self.globalobjects.append(basename)
+            self.globaldecl.append('static PyObject *%s;' % (basename,))
             return basename
         else:
             return self.uniquename('%s_%d' % (basename, n))
@@ -98,7 +101,6 @@ class GenC:
         if type(value) is not object:
             raise Exception, "nameof(%r)" % (value,)
         name = self.uniquename('g_object')
-        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*)&PyBaseObject_Type, ""))'%name)
         return name
 
@@ -109,7 +111,6 @@ class GenC:
                     value.__file__.endswith('.pyo')), \
                "%r is not a builtin module (probably :)"%value
         name = self.uniquename('mod%s'%value.__name__)
-        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyImport_Import("%s"))'%(name, value.__name__))
         return name
         
@@ -119,7 +120,7 @@ class GenC:
             name = 'gint_%d' % value
         else:
             name = 'gint_minus%d' % abs(value)
-        self.globalobjects.append(name)
+        name = self.uniquename(name)
         self.initcode.append('INITCHK(%s = '
                              'PyInt_FromLong(%d))' % (name, value))
         return name
@@ -130,7 +131,7 @@ class GenC:
             name = 'glong%d' % value
         else:
             name = 'glong_minus%d' % abs(value)
-        self.globalobjects.append(name)
+        name = self.uniquename(name)
         self.initcode.append('INITCHK(%s = '
                              'PyLong_FromLong(%d))' % (name, value))
         return name
@@ -145,7 +146,6 @@ class GenC:
                                     '_' == c )]
         name = ''.join(chrs)
         name = self.uniquename(name)
-        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = '
                              'PyFloat_FromFloat(%r))' % (name, value))
         return name
@@ -156,7 +156,6 @@ class GenC:
                                      '0' <= c <='9' or
                                      '_' == c )]
         name = self.uniquename('gstr_' + ''.join(chrs))
-        self.globalobjects.append(name)
         if [c for c in value if not (' '<=c<='~')]:
             # non-printable string
             s = 'chr_%s' % name
@@ -173,7 +172,6 @@ class GenC:
         # debugging only!  Generates a placeholder for missing functions
         # that raises an exception when called.
         name = self.uniquename('gskippedfunc_' + func.__name__)
-        self.globalobjects.append(name)
         self.globaldecl.append('static PyMethodDef ml_%s = { "%s", &skipped, METH_VARARGS };' % (name, name))
         self.initcode.append('INITCHK(%s = PyCFunction_New('
                              '&ml_%s, NULL))' % (name, name))
@@ -197,7 +195,6 @@ class GenC:
                 return self.skipped_function(func)
             #print "nameof", printable_name
         name = self.uniquename('gfunc_' + func.__name__)
-        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
                              '&ml_%s, NULL))' % (name, name))
         self.initcode.append('\t%s->ob_type = &PyGenCFunction_Type;' % name)
@@ -211,7 +208,6 @@ class GenC:
             assert func in self.translator.flowgraphs, func
             
         name = self.uniquename('gsm_' + func.__name__)
-        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
                              '&ml_%s, NULL))' % (name, name))
         self.pendingfunctions.append(func)
@@ -227,7 +223,6 @@ class GenC:
             func = self.nameof(meth.im_func)
             typ = self.nameof(meth.im_class)
             name = self.uniquename('gmeth_'+meth.im_func.__name__)
-            self.globalobjects.append(name)
             self.initcode.append(
                 'INITCHK(%s = gencfunc_descr_get(%s, %s, %s))'%(
                 name, func, ob, typ))
@@ -262,7 +257,6 @@ class GenC:
                 if self.should_translate_attr(instance, key):
                     yield 'INITCHK(SETUP_INSTANCE_ATTR(%s, "%s", %s))' % (
                         name, key, self.nameof(value))
-        self.globalobjects.append(name)
         self.initcode.append('INITCHK(SETUP_INSTANCE(%s, %s))' % (
             name, cls))
         self.later(initinstance())
@@ -283,7 +277,6 @@ class GenC:
             else:
                 raise Exception, '%r not found in any built-in module' % (func,)
             name = self.uniquename('gbltin_' + func.__name__)
-            self.globalobjects.append(name)
             if modname == '__builtin__':
                 self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
                                      'PyEval_GetBuiltins(), "%s"))' % (
@@ -295,7 +288,6 @@ class GenC:
         else:
             # builtin (bound) method
             name = self.uniquename('gbltinmethod_' + func.__name__)
-            self.globalobjects.append(name)
             self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
                                  '%s, "%s"))' % (
                 name, self.nameof(func.__self__), func.__name__))
@@ -334,7 +326,6 @@ class GenC:
                     
                 yield 'INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
                     name, key, self.nameof(value))
-        self.globalobjects.append(name)
 
         baseargs = ", ".join(basenames)
         if baseargs:
@@ -394,7 +385,6 @@ class GenC:
 
     def nameof_tuple(self, tup):
         name = self.uniquename('g%dtuple' % len(tup))
-        self.globalobjects.append(name)
         args = [self.nameof(x) for x in tup]
         args.insert(0, '%d' % len(tup))
         args = ', '.join(args)
@@ -408,7 +398,6 @@ class GenC:
                 item = self.nameof(lis[i])
                 yield '\tPy_INCREF(%s);' % item
                 yield '\tPyList_SET_ITEM(%s, %d, %s);' % (name, i, item)
-        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyList_New(%d))' % (name, len(lis)))
         self.later(initlist())
         return name
@@ -428,7 +417,6 @@ class GenC:
                     yield ('\tINITCHK(PyDict_SetItem'
                            '(%s, %s, %s) >= 0)'%(
                                name, self.nameof(k), self.nameof(dic[k])))
-        self.globalobjects.append(name)
         self.initcode.append('INITCHK(%s = PyDict_New())' % (name,))
         self.later(initdict())
         return name
@@ -438,7 +426,6 @@ class GenC:
     def nameof_member_descriptor(self, md):
         name = self.uniquename('gdescriptor_%s_%s' % (
             md.__objclass__.__name__, md.__name__))
-        self.globalobjects.append(name)
         cls = self.nameof(md.__objclass__)
         self.initcode.append('INITCHK(PyType_Ready((PyTypeObject*) %s) >= 0)' %
                              cls)
@@ -492,8 +479,6 @@ class GenC:
 
     def gen_global_declarations(self):
         g = self.globaldecl
-        for name in self.globalobjects:
-            g.append('static PyObject *%s;' % (name,))
         if g:
             f = self.f
             print >> f, '/* global declaration%s */' % ('s'*(len(g)>1))
@@ -616,21 +601,26 @@ class GenC:
             else:
                 raise TypeError, "expr(%r)" % (v,)
 
-        def gen_link(link):
+        def gen_link(link, linklocalvars=None):
             "Generate the code to jump across the given Link."
             has_ref = {}
+            linklocalvars = linklocalvars or {}
             for v in to_release:
-                has_ref[v] = True
+                linklocalvars[v] = v.name
+            has_ref = linklocalvars.copy()
             for a1, a2 in zip(link.args, link.target.inputargs):
-                line = 'MOVE(%s, %s)' % (expr(a1), a2.name)
+                if a1 in linklocalvars:
+                    src = linklocalvars[a1]
+                else:
+                    src = expr(a1)
+                line = 'MOVE(%s, %s)' % (src, a2.name)
                 if a1 in has_ref:
                     del has_ref[a1]
                 else:
                     line += '\tPy_INCREF(%s);' % a2.name
                 yield line
-            for v in to_release:
-                if v in has_ref:
-                    yield 'Py_DECREF(%s);' % v.name
+            for v in has_ref:
+                yield 'Py_DECREF(%s);' % linklocalvars[v]
             yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks
@@ -659,14 +649,15 @@ class GenC:
 
             err_reachable = False
             if len(block.exits) == 0:
-                retval = expr(block.inputargs[0])
-                if hasattr(block, 'exc_type'):
+                if len(block.inputargs) == 2:   # exc_cls, exc_value
                     # exceptional return block
-                    yield 'PyErr_SetObject(PyExc_%s, %s);' % (
-                        block.exc_type.__name__, retval)
+                    exc_cls   = expr(block.inputargs[0])
+                    exc_value = expr(block.inputargs[1])
+                    yield 'PyErr_SetObject(%s, %s);' % (exc_cls, retval)
                     yield 'FUNCTION_RETURN(NULL)'
                 else:
                     # regular return block
+                    retval = expr(block.inputargs[0])
                     yield 'FUNCTION_RETURN(%s)' % retval
                 continue
             elif block.exitswitch is None:
@@ -690,10 +681,18 @@ class GenC:
                 yield ''
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
-                    yield 'if (PyErr_ExceptionMatches(PyExc_%s)) {' % (
-                        link.exitcase.__name__,)
-                    yield '\tPyErr_Clear();'
-                    for op in gen_link(link):
+                    yield 'if (PyErr_ExceptionMatches(%s)) {' % (
+                        self.nameof(link.exitcase),)
+                    yield '\tPyObject *exc_cls, *exc_value, *exc_tb;'
+                    yield '\tPyErr_Fetch(&exc_cls, &exc_value, &exc_tb);'
+                    yield '\tif (exc_value == NULL) {'
+                    yield '\t\texc_value = Py_None;'
+                    yield '\t\tPy_INCREF(Py_None);'
+                    yield '\t}'
+                    yield '\tPy_XDECREF(exc_tb);'
+                    for op in gen_link(link, {
+                                Constant(last_exception): 'exc_cls',
+                                Constant(last_exc_value): 'exc_value'}):
                         yield '\t' + op
                     yield '}'
                 err_reachable = True
@@ -723,7 +722,7 @@ class GenC:
 
 # ____________________________________________________________
 
-    C_HEADER = '#include "genc.h"'
+    C_HEADER = '#include "genc.h"\n'
 
     C_SEP = "/************************************************************/"
 

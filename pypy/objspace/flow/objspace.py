@@ -199,7 +199,7 @@ class FlowObjSpace(ObjSpace):
     def next(self, w_iter):
         w_item = self.do_operation("next", w_iter)
         context = self.getexecutioncontext()
-        outcome = context.guessexception(StopIteration)
+        outcome, w_exc_cls, w_exc_value = context.guessexception(StopIteration)
         if outcome is StopIteration:
             raise OperationError(self.w_StopIteration, self.w_None)
         else:
@@ -228,7 +228,7 @@ class FlowObjSpace(ObjSpace):
         #
         # as shown by test_objspace.test_raise3.
         
-        exceptions = True   # *any* exception by default
+        exceptions = [Exception]   # *any* exception by default
         if isinstance(w_callable, Constant):
             c = w_callable.value
             if isinstance(c, (types.BuiltinFunctionType,
@@ -250,19 +250,14 @@ class FlowObjSpace(ObjSpace):
             # the RPython definition: implicit exceptions not explicitly
             # caught in the same function are assumed not to occur.
             context = self.getexecutioncontext()
-            if exceptions == True:
-                # any exception
-                outcome = context.guessexception(Exception)
-                if outcome is not None:
-                    w_value = self.wrap(last_exception)
-                    w_type = self.do_operation('type', w_value)
-                    raise OperationError(w_type, w_value)
-            else:
-                # only the specified exception(s)
-                outcome = context.guessexception(*exceptions)
-                if outcome is not None:
-                    raise OperationError(self.wrap(outcome),
-                                         self.wrap(last_exception))
+            outcome, w_exc_cls, w_exc_value = context.guessexception(*exceptions)
+            if outcome is not None:
+                # we assume that the caught exc_cls will be exactly the
+                # one specified by 'outcome', and not a subclass of it,
+                # unless 'outcome' is Exception.
+                if outcome is not Exception:
+                    w_exc_cls = Constant(outcome)
+                raise OperationError(w_exc_cls, w_exc_value)
 
 # ______________________________________________________________________
 

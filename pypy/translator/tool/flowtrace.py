@@ -210,8 +210,12 @@ class FlowTracer(object):
                 if self.trace:
                     print
                 
-            elif hasattr(curblock, 'exc_type'):
-                raise curblock.exc_type
+            elif len(curblock.inputargs) == 2:   # exc_cls, exc_value
+                exc_cls, exc_value = curblock.inputargs
+                if self.trace:
+                    print "Raising -",
+                    print self.pprint(exc_cls), self.pprint(exc_value)
+                raise exc_cls.e_value, exc_value.e_value
 
             else:
                 result = curblock.inputargs[0]

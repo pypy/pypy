@@ -123,8 +123,10 @@ class FlowGraphDotGen(DotGen):
         if not numblocks:
            shape = "box"
            fillcolor="green"
-           if hasattr(block, 'exc_type'):
-               lines.insert(0, 'exc_type: %s' % block.exc_type.__name__)
+           if len(block.inputargs) == 1:
+               lines[-1] += 'return %s' % tuple(block.inputargs)
+           elif len(block.inputargs) == 2:
+               lines[-1] += 'raise %s, %s' % tuple(block.inputargs)
         elif numblocks == 1:
             shape = "box"
         else:

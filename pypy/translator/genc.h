@@ -8,8 +8,6 @@
 #include "structmember.h"
 #include "traceback.h"
 
-/* XXX HACK HACK HACK HACK HACK HACK HACK HACK HACK */
-#define PyExc_unknown_exception PyExc_Exception
 #if !defined(MIN)
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */

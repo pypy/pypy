@@ -139,9 +139,9 @@ def transform_dead_op_vars(self):
                     deps = variable_flow.setdefault(targetarg, [])
                     deps.append(arg)
         else:
-            # return blocks implicitely use their single input variable
-            assert len(block.inputargs) == 1
-            read_vars[block.inputargs[0]] = True
+            # return and except blocks implicitely use their input variable(s)
+            for arg in block.inputargs:
+                read_vars[arg] = True
         # an input block's inputargs should not be modified, even if some
         # of the function's input arguments are not actually used
         if block.isstartblock:
@@ -337,6 +337,8 @@ def transform_dead_code(self):
 
 def transform_graph(ann):
     """Apply set of transformations available."""
+    # WARNING: this produces incorrect results if the graph has been
+    #          modified by t.simplify() after is had been annotated.
     if ann.translator:
         ann.translator.checkgraphs()
     transform_dead_code(ann)

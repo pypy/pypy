@@ -230,12 +230,14 @@ class TestFlowObjSpace(testit.TestCase):
     
     def test_raise1(self):
         x = self.codetest(self.raise1)
+        self.show(x)
         assert len(x.startblock.operations) == 1
         assert x.startblock.operations[0].opname == 'simple_call'
         assert list(x.startblock.operations[0].args) == [Constant(IndexError)]
-        assert x.startblock.operations[0].result is x.startblock.exits[0].args[0]
-        assert x.startblock.exits[0].target is x.exceptblocks[IndexError]
-        self.show(x)
+        assert x.startblock.exits[0].args == [
+            Constant(IndexError),
+            x.startblock.operations[0].result]
+        assert x.startblock.exits[0].target is x.exceptblock
 
     #__________________________________________________________
     def raise2(msg):
@@ -243,9 +245,12 @@ class TestFlowObjSpace(testit.TestCase):
     
     def test_raise2(self):
         x = self.codetest(self.raise2)
-        assert len(x.startblock.operations) == 0
-        assert x.startblock.exits[0].target is x.exceptblocks[IndexError]
         self.show(x)
+        assert len(x.startblock.operations) == 0
+        assert x.startblock.exits[0].args == [
+            Constant(IndexError),
+            x.startblock.inputargs[0]]
+        assert x.startblock.exits[0].target is x.exceptblock
 
     #__________________________________________________________
     def raise3(msg):
@@ -253,13 +258,16 @@ class TestFlowObjSpace(testit.TestCase):
     
     def test_raise3(self):
         x = self.codetest(self.raise3)
+        self.show(x)
         assert len(x.startblock.operations) == 1
         assert x.startblock.operations[0].opname == 'simple_call'
         assert list(x.startblock.operations[0].args) == [
-            Constant(IndexError), x.startblock.inputargs[0]]
-        assert x.startblock.operations[0].result is x.startblock.exits[0].args[0]
-        assert x.startblock.exits[0].target is x.exceptblocks[IndexError]
-        self.show(x)
+            Constant(IndexError),
+            x.startblock.inputargs[0]]
+        assert x.startblock.exits[0].args == [
+            Constant(IndexError),
+            x.startblock.operations[0].result]
+        assert x.startblock.exits[0].target is x.exceptblock
 
     #__________________________________________________________
     def raise4(stuff):
@@ -291,7 +299,7 @@ class TestFlowObjSpace(testit.TestCase):
     
     def test_catch_simple_call(self):
         x = self.codetest(self.catch_simple_call)
-        self.reallyshow(x)
+        self.show(x)
 
     #__________________________________________________________
     def dellocal():

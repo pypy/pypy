@@ -189,6 +189,8 @@ class GenCL:
             return "'%s" % val.__name__
         elif val is last_exception:
             return "last-exc"
+        elif val is last_exc_value:
+            return "'last-exc-value"
         else:
             return "#<%r>" % (val,)
     def emitcode(self):
@@ -274,9 +276,10 @@ class GenCL:
                 print "(progn ; else should be", self.conv(exits[-1].exitcase)
                 self.emit_link(exits[-1])
                 print ")" * len(exits)
-        elif hasattr(block, 'exc_type'):
-            excname = block.exc_type.__name__
-            print "(something-like-throw-exception '%s)" % excname
+        elif len(block.inputargs) == 2:    # exc_cls, exc_value
+            exc_cls   = self.str(block.inputargs[0])
+            exc_value = self.str(block.inputargs[1])
+            print "(something-like-throw-exception %s %s)" % (exc_cls, exc_value)
         else:
             retval = self.str(block.inputargs[0])
             print "(return", retval, ")"

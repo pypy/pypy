@@ -149,19 +149,24 @@ class FlowExecutionContext(ExecutionContext):
             self.joinpoints[next_instr].insert(0, newblock)
 
     def guessbool(self, w_condition, cases=[False,True],
-                  ignore_last_variable_except_in_first_case = False):
+                  replace_last_variable_except_in_first_case = None):
         if isinstance(self.crnt_ops, list):
             block = self.crnt_block
-            vars = block.getvariables()
+            vars = vars2 = block.getvariables()
             links = []
             for case in cases:
-                egg = EggBlock(vars, block, case)
+                egg = EggBlock(vars2, block, case)
                 self.pendingblocks.append(egg)
                 link = Link(vars, egg, case)
                 links.append(link)
-                if ignore_last_variable_except_in_first_case:
-                    vars.remove(block.operations[-1].result)
-                    ignore_last_variable_except_in_first_case = False
+                if replace_last_variable_except_in_first_case is not None:
+                    assert block.operations[-1].result is vars[-1]
+                    vars = vars[:-1]
+                    vars.extend(replace_last_variable_except_in_first_case)
+                    vars2 = vars2[:-1]
+                    while len(vars2) < len(vars):
+                        vars2.append(Variable())
+                    replace_last_variable_except_in_first_case = None
             block.exitswitch = w_condition
             block.closeblock(*links)
             # forked the graph. Note that False comes before True by default
@@ -179,9 +184,16 @@ class FlowExecutionContext(ExecutionContext):
             w_condition,)
 
     def guessexception(self, *classes):
-        return self.guessbool(Constant(last_exception),
-                              cases = [None] + list(classes),
-                              ignore_last_variable_except_in_first_case = True)
+        outcome = self.guessbool(Constant(last_exception),
+                                 cases = [None] + list(classes),
+                                 replace_last_variable_except_in_first_case = [
+                                     Constant(last_exception),   # exc. class
+                                     Constant(last_exc_value)])  # exc. value
+        if outcome is None:
+            w_exc_cls, w_exc_value = None, None
+        else:
+            w_exc_cls, w_exc_value = self.crnt_block.inputargs[-2:]
+        return outcome, w_exc_cls, w_exc_value
 
     def build_flow(self):
         from pypy.objspace.flow.objspace import UnwrapException
@@ -195,11 +207,7 @@ class FlowExecutionContext(ExecutionContext):
             try:
                 w_result = frame.eval(self)
             except OperationError, e:
-                try:
-                    exc_type = self.space.unwrap(e.w_type)
-                except UnwrapException:
-                    exc_type = unknown_exception
-                link = Link([e.w_value], self.graph.getexceptblock(exc_type))
+                link = Link([e.w_type, e.w_value], self.graph.exceptblock)
                 self.crnt_block.closeblock(link)
             else:
                 if w_result is not None:
@@ -218,7 +226,3 @@ class FlowExecutionContext(ExecutionContext):
                     mapping[a] = Variable()
                 node.renamevariables(mapping)
         traverse(fixegg, self.graph)
-
-
-class unknown_exception(object):    # not meant to be raised!
-    pass
