@@ -138,7 +138,7 @@ class ObjSpace(object):
             return w_obj
         return None
 
-    def unpackiterable(self, w_iterable, expected_length=None):
+    def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable object into a real (interpreter-level) list.
         Raise a real ValueError if the length is wrong."""
         w_iterator = self.iter(w_iterable)
@@ -150,10 +150,10 @@ class ObjSpace(object):
                 if not e.match(self, self.w_StopIteration):
                     raise
                 break  # done
-            if expected_length is not None and len(items) == expected_length:
+            if expected_length != -1 and len(items) == expected_length:
                 raise ValueError, "too many values to unpack"
             items.append(w_item)
-        if expected_length is not None and len(items) < expected_length:
+        if expected_length != -1 and len(items) < expected_length:
             i = len(items)
             if i == 1:
                 plural = ""
