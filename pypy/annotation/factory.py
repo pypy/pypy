@@ -185,6 +185,8 @@ class CallableFactory:
         try:
             func = self.bookkeeper.cachespecializedfunctions[key]
         except KeyError:
+            # XXX XXX XXX HAAAAAAAAAAAACK
+            self.bookkeeper.annotator.translator.getflowgraph(func)
             func = new.function(func.func_code, 
                                 func.func_globals, 
                                 name or func.func_name, 
