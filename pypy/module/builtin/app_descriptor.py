@@ -2,57 +2,8 @@
 Plain Python definition of the builtin descriptors.
 """
 
-# Don't look!  This is needed for the property class, which has a slot
-# called __doc__ but also needs a __doc__ string for itself.
-class propertydoc(object):
-    def __get__(self, p, cls=None):
-        if p is None:
-            return PROPERTY_DOCSTRING   # getting __doc__ on the class
-        else:
-            return PROPERTY_DOCSLOT.__get__(p)          # on an instance
-
 # Descriptor code, shamelessly stolen to Raymond Hettinger:
 #    http://users.rcn.com/python/download/Descriptor.htm
-class property(object):
-    __slots__ = ['fget', 'fset', 'fdel', 'doc']   # NB. 'doc' hacked away below
-    __doc__ = propertydoc()
-
-    def __init__(self, fget=None, fset=None, fdel=None, doc=None):
-        self.fget = fget
-        self.fset = fset
-        self.fdel = fdel
-        PROPERTY_DOCSLOT.__set__(self, doc)
-
-    def __get__(self, obj, objtype=None):
-        if obj is None:
-            return self         
-        if self.fget is None:
-            raise AttributeError, "unreadable attribute"
-        return self.fget(obj)
-
-    def __set__(self, obj, value):
-        if self.fset is None:
-            raise AttributeError, "can't set attribute"
-        self.fset(obj, value)
-
-    def __delete__(self, obj):
-        if self.fdel is None:
-            raise AttributeError, "can't delete attribute"
-        self.fdel(obj)
-
-PROPERTY_DOCSTRING = '''property(fget=None, fset=None, fdel=None, doc=None) -> property attribute
-
-fget is a function to be used for getting an attribute value, and likewise
-fset is a function for setting, and fdel a function for deleting, an
-attribute.  Typical use is to define a managed attribute x:
-class C(object):
-    def getx(self): return self.__x
-    def setx(self, value): self.__x = value
-    def delx(self): del self.__x
-    x = property(getx, setx, delx, "I am the 'x' property.")'''
-
-PROPERTY_DOCSLOT = property.doc
-del property.doc
 
 
 # XXX there is an interp-level pypy.interpreter.function.StaticMethod
@@ -79,6 +30,87 @@ class classmethod(object):
         def newfunc(*args, **kwargs):
             return self._f(klass, *args, **kwargs)
         return newfunc
+
+
+# It's difficult to have a class that has both a docstring and a slot called
+# '__doc__', but not impossible...
+class docstring(object):
+
+    def __init__(self, classdocstring):
+        self.classdocstring = classdocstring
+        self.slot = None
+
+    def capture(cls, slotname):
+        self = cls.__dict__['__doc__']
+        slot = cls.__dict__[slotname]
+        if not isinstance(self, docstring):
+            raise TypeError, "the class __doc__ must be a docstring instance"
+        self.slot = slot
+        delattr(cls, slotname)
+    capture = staticmethod(capture)
+
+    def __get__(self, p, cls=None):
+        if p is None:
+            return self.classdocstring  # getting __doc__ on the class
+        elif self.slot is None:
+            raise AttributeError, "'%s' instance has no __doc__" % (
+                p.__class__.__name__,)
+        else:
+            return self.slot.__get__(p) # getting __doc__ on an instance
+
+    def __set__(self, p, value):
+        if hasattr(self.slot, '__set__'):
+            return self.slot.__set__(p, value)
+        else:
+            raise AttributeError, "cannot write __doc__"
+
+    def __delete__(self, p):
+        if hasattr(self.slot, '__delete__'):
+            return self.slot.__delete__(p)
+        else:
+            raise AttributeError, "cannot write __doc__"
+
+
+class property(object):
+    __doc__ = docstring(
+        '''property(fget=None, fset=None, fdel=None, doc=None) -> property attribute
+
+fget is a function to be used for getting an attribute value, and likewise
+fset is a function for setting, and fdel a function for deleting, an
+attribute.  Typical use is to define a managed attribute x:
+class C(object):
+    def getx(self): return self.__x
+    def setx(self, value): self.__x = value
+    def delx(self): del self.__x
+    x = property(getx, setx, delx, "I am the 'x' property.")''')
+
+    __slots__ = ['fget', 'fset', 'fdel', 'slot__doc__']
+
+    def __init__(self, fget=None, fset=None, fdel=None, doc=None):
+        self.fget = fget
+        self.fset = fset
+        self.fdel = fdel
+        self.__doc__ = doc
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self         
+        if self.fget is None:
+            raise AttributeError, "unreadable attribute"
+        return self.fget(obj)
+
+    def __set__(self, obj, value):
+        if self.fset is None:
+            raise AttributeError, "can't set attribute"
+        self.fset(obj, value)
+
+    def __delete__(self, obj):
+        if self.fdel is None:
+            raise AttributeError, "can't delete attribute"
+        self.fdel(obj)
+
+docstring.capture(property, 'slot__doc__')
+
 
 # super is a modified version from Guido's tutorial
 #     http://www.python.org/2.2.3/descrintro.html
