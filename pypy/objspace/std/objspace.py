@@ -243,6 +243,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result
+        if isinstance(x, complex):
+            w_complex = self.getitem(self.w_builtins, self.wrap('complex'))
+            return self.call_function(w_complex, self.newfloat(x.real), self.newfloat(x.imag))
         # anything below this line is implicitly XXX'ed
         if isinstance(x, type(Exception)) and issubclass(x, Exception):
             if hasattr(self, 'w_' + x.__name__):

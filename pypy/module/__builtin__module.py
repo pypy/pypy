@@ -688,13 +688,17 @@ class complex(object):
         imag = self.imag + other.imag
         return complex(real, imag)
 
+    __radd__ == __add__
 
     def __sub__(self, other):
         self, other = self.__coerce__(other)
         real = self.real - other.real
         imag = self.imag - other.imag
         return complex(real, imag)
-
+    
+    def __rsub__(self, other):
+        self, other = self.__coerce__(other)
+        return other.__sub__(self)
 
     def __mul__(self, other):
         if other.__class__ != complex:
@@ -704,6 +708,7 @@ class complex(object):
         imag = self.real*other.imag + self.imag*other.real
         return complex(real, imag)
 
+    __rmul__ == __mul__
 
     def __div__(self, other):
         if other.__class__ != complex:
@@ -737,6 +742,10 @@ class complex(object):
             imag = (self.imag * ratio - self.real) / denom
 
         return complex(real, imag)
+
+    def __rdiv__(self, other):
+        self, other = self.__coerce__(other)
+        return other.__div__(self)
 
 
     def __floordiv__(self, other):
@@ -946,9 +955,6 @@ class complex(object):
     def __idiv__(self, other):
         return self / other
     
-
-    def __radd__(self, other):
-        return self + other
 
 #    def __new__(self, ...):
 #        pass
