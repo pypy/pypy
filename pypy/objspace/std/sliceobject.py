@@ -19,24 +19,4 @@ class W_SliceObject(W_Object):
 
 registerimplementation(W_SliceObject)
 
-
-def getattr__Slice_ANY(space, w_slice, w_attr):
-    # XXX later
-    if space.is_true(space.eq(w_attr, space.wrap('start'))):
-        if w_slice.w_start is None:
-            return space.w_None
-        else:
-            return w_slice.w_start
-    if space.is_true(space.eq(w_attr, space.wrap('stop'))):
-        if w_slice.w_stop is None:
-            return space.w_None
-        else:
-            return w_slice.w_stop
-    if space.is_true(space.eq(w_attr, space.wrap('step'))):
-        if w_slice.w_step is None:
-            return space.w_None
-        else:
-            return w_slice.w_step
-    raise FailedToImplement(space.w_AttributeError)
-
 register_all(vars())

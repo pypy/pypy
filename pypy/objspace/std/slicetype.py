@@ -1,6 +1,7 @@
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std.register_all import register_all
+from pypy.interpreter.error import OperationError
 
 slice_indices = MultiMethod('indices', 2)
 
@@ -90,7 +91,7 @@ def descr__new__(space, w_slicetype, *args_w):
         w_start, w_stop = args_w
     elif len(args_w) == 3:
         w_start, w_stop, w_step = args_w
-    elif len(args) > 3:
+    elif len(args_w) > 3:
         raise OperationError(space.w_TypeError,
                              space.wrap("slice() takes at most 3 arguments"))
     else:
@@ -103,5 +104,8 @@ def descr__new__(space, w_slicetype, *args_w):
 
 slice_typedef = StdTypeDef("slice", [object_typedef],
     __new__ = newmethod(descr__new__),
+    start = attrproperty_w('w_start'),
+    stop  = attrproperty_w('w_stop'),
+    step  = attrproperty_w('w_step'),
     )
 slice_typedef.registermethods(globals())
