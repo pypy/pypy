@@ -168,6 +168,13 @@ class DescrOperation:
         return space.get_and_call_function(w_descr, w_obj)
 
     def getitem(space, w_obj, w_key):
+        if space.is_true(space.isinstance(w_key, space.w_slice)):
+            if space.is_w(space.getattr(w_key, space.wrap('step')), space.w_None):
+                w_descr = space.lookup(w_obj, '__getslice__')
+                if w_descr is not None:
+                    return space.get_and_call_function(w_descr, w_obj,
+                                                       space.getattr(w_key, space.wrap('start')),
+                                                       space.getattr(w_key, space.wrap('stop')))
         w_descr = space.lookup(w_obj, '__getitem__')
         if w_descr is None:
             raise OperationError(space.w_TypeError,
@@ -175,6 +182,14 @@ class DescrOperation:
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
     def setitem(space, w_obj, w_key, w_val):
+        if space.is_true(space.isinstance(w_key, space.w_slice)):
+            if space.is_w(space.getattr(w_key, space.wrap('step')), space.w_None):
+                w_descr = space.lookup(w_obj, '__setslice__')
+                if w_descr is not None:
+                    return space.get_and_call_function(w_descr, w_obj,
+                                                       space.getattr(w_key, space.wrap('start')),
+                                                       space.getattr(w_key, space.wrap('stop')),
+                                                       w_val)                    
         w_descr = space.lookup(w_obj, '__setitem__')
         if w_descr is None:
             raise OperationError(space.w_TypeError,
@@ -182,6 +197,13 @@ class DescrOperation:
         return space.get_and_call_function(w_descr, w_obj, w_key, w_val)
 
     def delitem(space, w_obj, w_key):
+        if space.is_true(space.isinstance(w_key, space.w_slice)):
+            if space.is_w(space.getattr(w_key, space.wrap('step')), space.w_None):
+                w_descr = space.lookup(w_obj, '__delslice__')
+                if w_descr is not None:
+                    return space.get_and_call_function(w_descr, w_obj,
+                                                       space.getattr(w_key, space.wrap('start')),
+                                                       space.getattr(w_key, space.wrap('stop')))
         w_descr = space.lookup(w_obj, '__delitem__')
         if w_descr is None:
             raise OperationError(space.w_TypeError,
