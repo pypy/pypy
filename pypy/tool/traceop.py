@@ -6,6 +6,7 @@ from pypy.objspace import trace
 
 from pypy.objspace.trace import TraceObjSpace
 from pypy.objspace.trivial import TrivialObjSpace
+from pypy.objspace.std import StdObjSpace
 
 from pypy.interpreter.gateway import app2interp
 
@@ -38,7 +39,7 @@ def trace_function(space, fn, *arg, **kwds):
         elif isinstance(event, trace.CallBegin):
             info = event.callinfo
             if info.name in operations:
-                print info.name, info.args, info.kwargs
+                print info.name, info.args # , info.kwargs
         else:
             pass
 
@@ -47,17 +48,17 @@ def trace_function(space, fn, *arg, **kwds):
 
 
 def app_test():
-    #a = 1
-    range(1)
-    #b = [1,2,3,4,5,6,7,8,9,10]
-    #for ii in b:
-    #    a += ii
+    a = 1
+    b = [1,2,3,4,5,6,7,8,9,10]
+    for ii in b:
+        a += ii
 
-    #return "Hello World"
+    return "Hello World"
 
 
 def test():
-    space = TrivialObjSpace()
+    #space = TrivialObjSpace()
+    space = StdObjSpace()
     funcres, traceres =  trace_function(space, app_test)
     print "function result -->", funcres
     
