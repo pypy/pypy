@@ -688,7 +688,7 @@ class complex(object):
         imag = self.imag + other.imag
         return complex(real, imag)
 
-    __radd__ == __add__
+    __radd__ = __add__
 
     def __sub__(self, other):
         self, other = self.__coerce__(other)
@@ -708,7 +708,7 @@ class complex(object):
         imag = self.real*other.imag + self.imag*other.real
         return complex(real, imag)
 
-    __rmul__ == __mul__
+    __rmul__ = __mul__
 
     def __div__(self, other):
         if other.__class__ != complex:
