@@ -20,8 +20,7 @@ class FileTestCase(unittest.TestCase):
         self.assertEquals(f.mode, 'w')
         self.assertEquals(f.closed, False)
         self.assertEquals(f.encoding, None) # Fix when we find out what this is
-        self.assertRaises(TypeError, setattr(f, 'name', 42))
-        #I am totally confused.  This test fails, but a Type Error gets raised.
+        self.assertRaises(TypeError, setattr, f, 'name', 42)
         
 def test_main():
     unittest.main()
