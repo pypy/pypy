@@ -109,6 +109,7 @@ class FlowExecutionContext(ExecutionContext):
         if not isinstance(self.crnt_ops, list):
             return
         next_instr = frame.next_instr
+        self.crnt_offset = next_instr # save offset for opcode
         if next_instr in self.joinpoints:
             currentstate = FrameState(frame)
             # can 'currentstate' be merged with one of the blocks that

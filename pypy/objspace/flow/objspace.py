@@ -172,6 +172,7 @@ class FlowObjSpace(ObjSpace):
     def do_operation(self, name, *args_w):
         spaceop = SpaceOperation(name, args_w, Variable())
         if hasattr(self, 'executioncontext'):  # not here during bootstrapping
+            spaceop.offset = self.executioncontext.crnt_offset
             self.executioncontext.crnt_ops.append(spaceop)
         return spaceop.result
     

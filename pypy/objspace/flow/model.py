@@ -138,10 +138,11 @@ UndefinedConstant.__bases__ += (Constant,)
 Constant.__init__(UNDEFINED, None)
 
 class SpaceOperation:
-    def __init__(self, opname, args, result): 
+    def __init__(self, opname, args, result):
         self.opname = opname      # operation name
         self.args   = list(args)  # mixed list of var/const
         self.result = result      # either Variable or Constant instance
+        self.offset = -1          # offset in code string, to be added later
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and 
