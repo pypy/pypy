@@ -86,6 +86,44 @@ class BuiltinCode(eval.Code):
     def getdocstring(self):
         return self.docstring
 
+    def performance_shortcut_call(self, space, args):
+        # this shortcut is only used for performance reasons
+        if self.generalargs or args.kwds_w:
+            return None
+        args_w = args.args_w
+        if self.ismethod:
+            if not args_w:
+                return None
+            args_w = list(args_w)
+            args_w[0] = space.unwrap(args_w[0])
+        if self.spacearg:
+            w_result = self.func(space, *args_w)
+        else:
+            w_result = self.func(*args_w)
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
+
+    def performance_shortcut_call_meth(self, space, w_obj, args):
+        # this shortcut is only used for performance reasons
+        if self.generalargs:
+            if self.ismethod and not self.spacearg and len(self.sig[0]) == 1:
+                w_result = self.func(space.unwrap(w_obj), args)
+            else:
+                return None
+        else:
+            if args.kwds_w:
+                return None
+            if self.ismethod:
+                w_obj = space.unwrap(w_obj) # abuse name w_obj
+            if self.spacearg:
+                w_result = self.func(space, w_obj, *args.args_w)
+            else:
+                w_result = self.func(w_obj, *args.args_w)
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
+
 
 class BuiltinFrame(eval.Frame):
     "Frame emulation for BuiltinCode."

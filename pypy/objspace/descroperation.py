@@ -2,6 +2,7 @@ import operator
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function
+from pypy.interpreter.gateway import BuiltinCode
 from pypy.interpreter.argument import Arguments
 
 class Object:
@@ -61,8 +62,14 @@ class DescrOperation:
 
     def get_and_call_args(space, w_descr, w_obj, args):
         descr = space.unwrap_builtin(w_descr)
-        if isinstance(descr, Function):
+        if type(descr) is Function:
             # special-case Functions to avoid infinite recursion
+            if isinstance(descr.code, BuiltinCode):
+                # this sub-special case is ONLY for performance reasons
+                w_result = descr.code.performance_shortcut_call_meth(space,
+                                                                     w_obj, args)
+                if w_result is not None:
+                    return w_result
             return descr.call_args(args.prepend(w_obj))
         else:
             w_impl = space.get(w_descr, w_obj)
@@ -84,6 +91,11 @@ class DescrOperation:
 ##        return space.get_and_call(w_descr, w_obj, w_args, w_kwargs)
 
     def call_args(space, w_obj, args):
+        if type(w_obj) is Function and isinstance(w_obj.code, BuiltinCode):
+            # this special case is ONLY for performance reasons
+            w_result = w_obj.code.performance_shortcut_call(space, args)
+            if w_result is not None:
+                return w_result
         w_descr = space.lookup(w_obj, '__call__')
         if w_descr is None:
             raise OperationError(space.w_TypeError, 

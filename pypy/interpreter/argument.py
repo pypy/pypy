@@ -17,8 +17,6 @@ class Arguments:
     blind_arguments = 0
 
     def __init__(self, space, args_w=[], kwds_w={}):
-        assert isinstance(args_w, list)  # I keep forgetting the 'space'
-        assert isinstance(kwds_w, dict)  # argument so hopefully this helps
         self.space = space
         self.args_w = args_w
         self.kwds_w = kwds_w
