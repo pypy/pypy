@@ -435,10 +435,7 @@ def hex__Int(space, w_int1):
         #           "a signed string in Python 2.4 and up") < 0)
         #    return NULL;
         pass
-    if x == 0:
-        ret = "0"
-    else:
-        ret = "0x%lx" % x
+    ret = "0x%lx" % x
     return space.wrap(ret)
 
 register_all(vars())
