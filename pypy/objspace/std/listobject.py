@@ -279,7 +279,18 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
     return space.w_None
 
 def app_repr__List(l):
-    return "[" + ", ".join([repr(x) for x in l]) + ']'
+    global _currently_in_repr
+    if len(l) == 0:
+        return '[]'
+    if '_currently_in_repr' not in globals():
+        _currently_in_repr = []
+    if id(l) in _currently_in_repr:
+        return '[...]'
+    try:
+        _currently_in_repr.append(id(l))
+        return "[" + ", ".join([repr(x) for x in l]) + ']'
+    finally:
+        _currently_in_repr.remove(id(l))
 
 def hash__List(space,w_list):
     raise OperationError(space.w_TypeError,space.wrap("list objects are unhashable"))

@@ -267,6 +267,12 @@ class AppTest_DictObject:
         assert '{1: 2}' == repr({1: 2})
         assert "{'ba': 'bo'}" == repr({'ba': 'bo'})
         assert str({1: 2, 'ba': 'bo'}) in ok_reprs
+
+        # Now test self-containing dict
+        d = {}
+        d[0] = d
+        assert str(d) == '{0: {...}}'
+
         
     def test_new(self):
         d = dict()
