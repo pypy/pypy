@@ -44,19 +44,21 @@ class DescrOperation:
     def get(space,w_descr,w_obj,w_type):
         w_get = space.lookup(w_descr,'__get__')
         if w_get is None:
-            raise OperationError(space.w_TypeError) # xxx error
+            return w_obj
         return space.get_and_call_function(w_descr,w_obj,w_type)
 
     def set(space,w_descr,w_obj,w_val):
         w_get = space.lookup(w_descr,'__set__')
         if w_get is None:
-            raise OperationError(space.w_TypeError) # xxx error
+            raise OperationError(space.w_TypeError,
+                   space.wrap("object is not a descriptor with set"))
         return space.get_and_call_function(w_descr,w_obj,w_val)
 
     def delete(space,w_descr,w_obj):
         w_get = space.lookup(w_descr,'__get__')
         if w_get is None:
-            raise OperationError(space.w_TypeError) # xxx error
+            raise OperationError(space.w_TypeError,
+                   space.wrap("object is not a descriptor with delete"))
         return space.get_and_call_function(w_descr,w_obj)
 
     def getattr(space,w_obj,w_name):
@@ -72,13 +74,15 @@ class DescrOperation:
     def setattr(space,w_obj,w_name,w_val):
         w_descr = space.lookup(w_obj,'__setattr__')
         if w_descr is None:
-            raise OperationError(space.w_AttributeError) # xxx error
+            raise OperationError(space.w_AttributeError,
+                   space.wrap("object is readonly"))
         return space.get_and_call_function(w_descr,w_obj,w_name,w_val)
 
     def delattr(space,w_obj,w_name):
         w_descr = space.lookup(w_obj,'__delattr__')
         if w_descr is None:
-            raise OperationError(space.w_AttributeError) # xxx error
+            raise OperationError(space.w_AttributeError,
+                    space.wrap("object does not support attribute removal"))
         return space.get_and_call_function(w_descr,w_obj,w_name)
 
     def str(space,w_obj):
@@ -92,31 +96,36 @@ class DescrOperation:
     def contains(space,w_obj,w_val):
         w_descr = space.lookup(w_obj,'__contains__')
         if w_descr is None:
-            raise OperationError(space.w_TypeError) # xxx error
+            raise OperationError(space.w_TypeError,
+                   space.wrap("object doesn't know about contains"))
         return space.get_and_call_function(w_descr,w_obj,w_val)
         
     def iter(space,w_obj):
-        w_descr = space.lookup(w_obj,'__delattr__')
+        w_descr = space.lookup(w_obj,'__iter__')
         if w_descr is None:
-            raise OperationError(space.w_TypeError) # xxx error
+            raise OperationError(space.w_TypeError,
+                   space.wrap("object is not iter()-able"))
         return space.get_and_call_function(w_descr,w_obj)
 
     def getitem(space,w_obj,w_key):
         w_descr = space.lookup(w_obj,'__getitem__')
         if w_descr is None:
-            raise OperationError(space.w_TypeError) # xxx error
+            raise OperationError(space.w_TypeError,
+                    space.wrap("cannot get items from object"))
         return space.get_and_call_function(w_descr,w_obj,w_key)
 
     def setitem(space,w_obj,w_key,w_val):
         w_descr = space.lookup(w_obj,'__setitem__')
         if w_descr is None:
-            raise OperationError(space.w_TypeError) # xxx error
+            raise OperationError(space.w_TypeError,
+                    space.wrap("cannot set items on object"))
         return space.get_and_call_function(w_descr,w_obj,w_key,w_val)
 
     def delitem(space,w_obj,w_key):
         w_descr = space.lookup(w_obj,'__delitem__')
         if w_descr is None:
-            raise OperationError(space.w_TypeError) # xxx error
+            raise OperationError(space.w_TypeError,
+                   space.wrap("cannot delete items from object"))
         return space.get_and_call_function(w_descr,w_obj,w_key)
 
 
