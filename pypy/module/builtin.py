@@ -290,6 +290,11 @@ class __builtin__(ExtModule):
     def id(self, w_object):
         return self.space.id(w_object)
 
+    def app_sum(self,sequence,total=0):
+        for item in sequence:
+            total = total+item
+        return total
+
     #XXX works only for new-style classes.
     #So we have to fix it, when we add support for old-style classes
     def issubclass(self, w_cls1, w_cls2):

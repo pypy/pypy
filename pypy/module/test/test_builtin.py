@@ -53,6 +53,13 @@ class TestBuiltinApp(test.AppTestCase):
         self.assertRaises(AttributeError, getattr, a, 'k')
         self.assertEquals(getattr(a, 'k', 42), 42)
 
+    def test_sum(self):
+        self.assertEquals(sum([]),0)
+        self.assertEquals(sum([42]),42)
+        self.assertEquals(sum([1,2,3]),6)
+        self.assertEquals(sum([],5),5)
+        self.assertEquals(sum([1,2,3],4),10)
+        
     def test_type_selftest(self):
         self.assert_(type(type) is type)
 
