@@ -1,3 +1,6 @@
+# for Python 2.2 compatibilty
+from __future__ import generators
+
 import autopath
 import inspect
 import os
@@ -7,11 +10,12 @@ import traceback
 import vpath
 
 #TODO
-# - add support for ignored tests
+# - add support for ignored tests (do we need to differentiate between
+#   skipped and ignored tests at all?)
 # - support TestItem.run with different object spaces
-# - perhaps we have to be able to compare TestResult and TestItem values
-#   which were pickled (see -c option of current test_all.py)
-# - add docstring to TestItem
+# - add docstring of loaded test method to TestItem
+# - unify naming of methods/functions
+# - support for pickling and retrieving TestItems and TestResults?
 
 #
 # custom TestCase class (adapted from Python's unittest module)
@@ -258,6 +262,8 @@ class TestItem:
 
         if pretest is not None:
             pretest(self)
+        #FIXME raising Skipped in setUp should cause the result to be
+        # recognized as "skipped"
         try:
             try:
                 testobject.setUp()
@@ -397,7 +403,7 @@ class TestSuite:
         """
         # perform all the tests by using the existing generator; discard
         # the results; they are then available via self.lastresults
-        [result for result in self.generator()]
+        [result for result in self.result_generator()]
 
 #
 # demonstrate test framework usage
