@@ -90,7 +90,7 @@ class PyPyItem(py.test.Item):
     def setup_class(self, cls): 
         name = getattr(cls, 'objspacename', None) 
         if name is None: 
-            m = __import__(cls.__module__) 
+            m = __import__(cls.__module__, {}, {}, ["objspacename"])
             name = getattr(m, 'objspacename', None) 
         cls.space = gettestobjspace(name) 
         super(PyPyItem, self).setup_class(cls) 
