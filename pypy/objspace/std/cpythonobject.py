@@ -5,6 +5,7 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter.function import Function
 from stringobject import W_StringObject
 from intobject import W_IntObject
+from default import UnwrapError
 import sys, operator, types
 
 class W_BuiltinFunctionObject(Function):
@@ -19,11 +20,14 @@ class W_BuiltinFunctionObject(Function):
 
     def call(self, w_args, w_kwds):
         space = self.space
-        args = space.unwrap(w_args)
-        kwds = {}
-        keys_w = space.unpackiterable(w_kwds)
-        for w_key in keys_w:
-            kwds[space.unwrap(w_key)] = space.unwrap(space.getitem(w_kwds, w_key))
+        try:
+            args = space.unwrap(w_args)
+            kwds = {}
+            keys_w = space.unpackiterable(w_kwds)
+            for w_key in keys_w:
+                kwds[space.unwrap(w_key)] = space.unwrap(space.getitem(w_kwds, w_key))
+        except UnwrapError, e:
+            raise UnwrapError('calling %s: %s' % (self.cpyfunc, e))
         try:
             result = apply(self.cpyfunc, args, kwds)
         except:

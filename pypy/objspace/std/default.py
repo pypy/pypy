@@ -216,11 +216,14 @@ def init__ANY(space, w_obj, w_args, w_kwds):
 
 # ugh
 
+class UnwrapError(Exception):
+    pass
+
 def unwrap__ANY(space, w_obj):
     if isinstance(w_obj, Wrappable):
         return w_obj
     else:
-        raise TypeError, 'cannot unwrap %r' % (w_obj,)
+        raise UnwrapError, 'cannot unwrap %r' % (w_obj,)
 
 
 register_all(vars())

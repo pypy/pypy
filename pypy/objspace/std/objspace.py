@@ -13,11 +13,14 @@ class W_Object:
         w_self.space = space     # XXX not sure this is ever used any more
 
     def __repr__(self):
-        return '%s(%s)' % (
+        s = '%s(%s)' % (
             self.__class__.__name__,
            #', '.join(['%s=%r' % keyvalue for keyvalue in self.__dict__.items()])
             getattr(self, 'name', '')
             )
+        if hasattr(self, 'w__class__'):
+            s += ' instance of %s' % self.w__class__
+        return '<%s>' % s
 
 # delegation priorities
 PRIORITY_SAME_TYPE    = 2  # converting between several impls of the same type
