@@ -178,6 +178,14 @@ class TestBuiltinApp(test.AppTestCase):
         x = xrange(0,32,2)
         self.assertEquals(len(x), 16)
 
+    def test_xrange_indexing(self):
+        x = xrange(0,33,2)
+        self.assertEquals(x[7], 14)
+        self.assertEquals(x[-7], 20)
+        self.assertRaises(IndexError, x.__getitem__, 16)
+        self.assertRaises(IndexError, x.__getitem__, -16)
+        self.assertRaises(TypeError, x.__getitem__, slice(0,3,1))
+
     def test_cmp(self):
         self.assertEquals(cmp(9,9), 0)
         self.assert_(cmp(0,9) < 0)
