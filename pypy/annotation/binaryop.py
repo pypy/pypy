@@ -210,7 +210,7 @@ class __extend__(pairtype(SomeDict, SomeObject)):
         if obj2.is_constant():
             return dic1.items.get(obj2.const, SomeImpossibleValue())
         else:
-            return SomeObject()
+            return unionof(*dic1.items.values())
 
     def setitem((dic1, obj2), s_value):
         assert obj2.is_constant()
