@@ -14,6 +14,8 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */
 
+#include "genc_type.h"
+
 static PyObject *this_module_globals;
 
 /* Set genc_funcdef.USE_CALL_TRACE if you want call trace frames to be built */
@@ -155,13 +157,6 @@ static PyObject *this_module_globals;
 /* Needs to act like instance(x,y) */
 #define OP_ISSUBTYPE(x,y,r,err)  \
 		op_bool(r,err,PyClass_IsSubclass(x, y))
-
-/*** tests ***/
-
-#define EQ_False(o)     (o == Py_False)
-#define EQ_True(o)      (o == Py_True)
-#define EQ_0(o)         (PyInt_Check(o) && PyInt_AS_LONG(o)==0)
-#define EQ_1(o)         (PyInt_Check(o) && PyInt_AS_LONG(o)==1)
 
 
 /*** misc ***/
@@ -533,7 +528,7 @@ static PyObject* CallWithShape(PyObject* callable, PyObject* shape, ...)
 	PyObject* o;
 	PyObject* key;
 	PyObject* t2;
-	int i, nargs, nkwds, nvarargs, starflag, starstarflag;
+	int i, nargs, nkwds, starflag, starstarflag;
 	va_list vargs;
 
 	if (!PyTuple_Check(shape) ||

@@ -8,7 +8,7 @@ from pypy.interpreter.pycode import CO_VARARGS
 from types import FunctionType
 
 from pypy.translator.gensupp import c_string
-
+from pypy.translator.genc_pyobj import ctypeof
 
 # Set this if you want call trace frames to be built
 USE_CALL_TRACE = False
@@ -20,12 +20,14 @@ class FunctionDef:
     The operations of each function are collected in a C function
     with signature:
 
-        static PyObject *fn_xxx(PyObject *arg1, PyObject *arg2, etc);
+        static T fn_xxx(T1 arg1, T2 arg2, etc);
+
+    where the T, T1, T2.. are C types like 'int' or 'PyObject *'.
 
     If needed, another wrapper function is created with a signature
     suitable for the built-in function type of CPython:
 
-        static PyObject *pyfn_xxx(PyObject *self, PyObject *args);
+        static PyObject *pyfn_xxx(PyObject *self, PyObject *args, PyObject* kw);
 
     The built-in function object, if needed, is put in the global
     variable named gfn_xxx.
@@ -43,6 +45,7 @@ class FunctionDef:
         self.globalobject_name = None                                # gfunc_xxx
         self.localscope = namespace.localScope()
         self.graph = graph = genc.translator.getflowgraph(func)
+        graph_args = graph.getargs()
 
         # collect all the local variables
         localslst = []
@@ -50,27 +53,19 @@ class FunctionDef:
             if isinstance(node, Block):
                 localslst.extend(node.getvariables())
         traverse(visit, graph)
-        self.localnames = [self.expr(a) for a in uniqueitems(localslst)]
+        fast_set = dict(zip(graph_args, graph_args))
+        self.localnames = [self.decl(a) for a in localslst if a not in fast_set]
 
         # collect all the arguments
-        if func.func_code.co_flags & CO_VARARGS:
-            vararg = graph.getargs()[-1]
-            positional_args = graph.getargs()[:-1]
-        else:
-            vararg = None
-            positional_args = graph.getargs()
-
-        fast_args = [self.expr(a) for a in positional_args]
-        if vararg is not None:
-            vararg = self.expr(vararg)
-            fast_args.append(vararg)
-
-        declare_fast_args = [('PyObject *' + a) for a in fast_args]
+        fast_args         = [self.expr(a) for a in graph_args]
+        declare_fast_args = [self.decl(a) for a in graph_args]
         if USE_CALL_TRACE:
             declare_fast_args.insert(0, 'TRACE_ARGS')
         declare_fast_args = ', '.join(declare_fast_args) or 'void'
-        fast_function_header = ('static PyObject *\n'
-                                '%s(%s)' % (self.fast_name, declare_fast_args))
+        name_and_arguments = '%s(%s)' % (self.fast_name, declare_fast_args)
+        ctret = ctypeof(graph.getreturnvar())
+        fast_function_header = 'static ' + (
+            ctret.ctypetemplate % (name_and_arguments,))
 
         name_of_defaults = [self.genc.pyobjrepr.nameof(x, debug=('Default argument of',
                                                        self))
@@ -78,11 +73,14 @@ class FunctionDef:
 
         # store misc. information
         self.fast_function_header = fast_function_header
+        self.graphargs = graph_args
+        self.ctret = ctret
+        self.vararg = bool(func.func_code.co_flags & CO_VARARGS)
         self.fast_args = fast_args
-        self.fast_set = dict(zip(fast_args, fast_args))
-        self.vararg = vararg
-        self.positional_args = positional_args
         self.name_of_defaults = name_of_defaults
+        
+        error_return = getattr(ctret, 'error_return', 'NULL')
+        self.return_error = 'FUNCTION_RETURN(%s)' % error_return
 
         # generate the forward header
         self.genc.globaldecl.append(fast_function_header + ';  /* forward */')
@@ -98,8 +96,11 @@ class FunctionDef:
     def clear(self):
         del self.localscope
         del self.localnames
-        del self.fast_set
         del self.graph
+
+    def decl(self, v):
+        assert isinstance(v, Variable)
+        return ctypeof(v).ctypetemplate % (self.localscope.localname(v.name),)
 
     def expr(self, v):
         if isinstance(v, Variable):
@@ -115,11 +116,12 @@ class FunctionDef:
     def gen_wrapper(self, f):
         func             = self.func
         f_name           = self.wrapper_name
-        positional_args  = self.positional_args
-        vararg           = self.vararg
         name_of_defaults = self.name_of_defaults
+        graphargs        = self.graphargs
+        vararg           = self.vararg
+        nb_positional_args = len(graphargs) - vararg
 
-        min_number_of_args = len(self.positional_args) - len(name_of_defaults)
+        min_number_of_args = nb_positional_args - len(name_of_defaults)
         print >> f, 'static PyObject *'
         print >> f, '%s(PyObject* self, PyObject* args, PyObject* kwds)' % (
             f_name,)
@@ -136,53 +138,93 @@ class FunctionDef:
         kwlist.append('0')
         print >> f, '\tstatic char* kwlist[] = {%s};' % (', '.join(kwlist),)
 
-        if self.fast_args:
-            print >> f, '\tPyObject *%s;' % (', *'.join(self.fast_args))
+        numberednames = ['o%d' % (i+1) for i in range(len(graphargs))]
+        if vararg:
+            numberednames[-1] = 'ovararg'
+        numberednames.append('oret')
+        print >> f, '\tPyObject *%s;' % (', *'.join(numberednames))
+        conversions = []
+        call_fast_args = []
+        for a, numberedname in zip(graphargs, numberednames):
+            try:
+                convert_from_obj = a.type_cls.convert_from_obj
+            except AttributeError:
+                call_fast_args.append(numberedname)
+            else:
+                convertedname = numberedname.replace('o', 'a')
+                ct = ctypeof(a)
+                print >> f, '\t%s;' % (ct.ctypetemplate % (convertedname,))
+                conversions.append('\tOP_%s(%s, %s, type_error)' % (
+                    convert_from_obj.upper(), numberedname, convertedname))
+                # XXX successfully converted objects may need to be decrefed
+                # XXX even though they are not PyObjects
+                call_fast_args.append(convertedname)
+        # return value conversion
+        try:
+            convert_to_obj = self.ctret.convert_to_obj
+        except AttributeError:
+            putresultin = 'oret'
+            footer = None
+        else:
+            print >> f, '\t%s;' % (self.ctret.ctypetemplate % ('aret',))
+            putresultin = 'aret'
+            footer = 'OP_%s(aret, oret, type_error)' % convert_to_obj.upper()
         print >> f
 
         if USE_CALL_TRACE:
             print >> f, '\tFUNCTION_CHECK()'
 
         # argument unpacking
-        if vararg is not None:
-            print >> f, '\t%s = PyTuple_GetSlice(args, %d, INT_MAX);' % (
-                vararg, len(positional_args))
-            print >> f, '\tif (%s == NULL)' % (vararg,)
+        if vararg:
+            print >> f, '\tovararg = PyTuple_GetSlice(args, %d, INT_MAX);' % (
+                nb_positional_args,)
+            print >> f, '\tif (ovararg == NULL)'
             print >> f, '\t\tFUNCTION_RETURN(NULL)'
             print >> f, '\targs = PyTuple_GetSlice(args, 0, %d);' % (
-                len(positional_args),)
+                nb_positional_args,)
             print >> f, '\tif (args == NULL) {'
-            print >> f, '\t\tERR_DECREF(%s)' % (vararg,)
+            print >> f, '\t\tERR_DECREF(ovararg)'
             print >> f, '\t\tFUNCTION_RETURN(NULL)'
             print >> f, '\t}'
             tail = """{
 \t\tERR_DECREF(args)
-\t\tERR_DECREF(%s)
+\t\tERR_DECREF(ovararg)
 \t\tFUNCTION_RETURN(NULL);
 \t}
-\tPy_DECREF(args);""" % vararg
+\tPy_DECREF(args);"""
         else:
             tail = '\n\t\tFUNCTION_RETURN(NULL)'
         for i in range(len(name_of_defaults)):
             print >> f, '\t%s = %s;' % (
-                self.fast_args[min_number_of_args+i],
+                numberednames[min_number_of_args+i],
                 name_of_defaults[i])
         fmt = 'O'*min_number_of_args
-        if min_number_of_args < len(positional_args):
-            fmt += '|' + 'O'*(len(positional_args)-min_number_of_args)
+        if min_number_of_args < nb_positional_args:
+            fmt += '|' + 'O'*(nb_positional_args-min_number_of_args)
         lst = ['args', 'kwds',
                '"%s:%s"' % (fmt, func.__name__),
                'kwlist',
                ]
-        lst += ['&' + a for a in self.fast_args]
+        lst += ['&' + a for a in numberednames]
         print >> f, '\tif (!PyArg_ParseTupleAndKeywords(%s))' % ', '.join(lst),
         print >> f, tail
 
-        call_fast_args = list(self.fast_args)
+        for line in conversions:
+            print >> f, line
+
         if USE_CALL_TRACE:
             call_fast_args.insert(0, 'TRACE_CALL')
         call_fast_args = ', '.join(call_fast_args)
-        print >> f, '\treturn %s(%s);' % (self.fast_name, call_fast_args)
+        print >> f, '\t%s = %s(%s);' % (putresultin, self.fast_name,
+                                        call_fast_args)
+        if footer:
+            print >> f, '\t' + footer
+        print >> f, '\treturn oret;'
+
+        if conversions:
+            print >> f, '    type_error:'
+            print >> f, '        return NULL;'
+        
         print >> f, '}'
         print >> f
 
@@ -192,15 +234,24 @@ class FunctionDef:
         print >> f, self.fast_function_header
         print >> f, '{'
 
-        fast_locals = [arg for arg in self.localnames
-                           if arg not in self.fast_set]
-        if fast_locals:
-            print >> f, '\tPyObject *%s;' % (', *'.join(fast_locals),)
-            print >> f
+        localnames = self.localnames
+        lengths = [len(a) for a in localnames]
+        lengths.append(9999)
+        start = 0
+        while start < len(localnames):
+            total = lengths[start] + 9
+            end = start+1
+            while total + lengths[end] < 76:
+                total += lengths[end] + 2
+                end += 1
+            print >> f, '\t' + '; '.join(localnames[start:end]) + ';'
+            start = end
         
         # generate an incref for each input argument
-        for v in self.positional_args:
-            print >> f, '\tPy_INCREF(%s);' % self.expr(v)
+        for a in self.graphargs:
+            cincref = getattr(ctypeof(a), 'cincref', None)
+            if cincref:
+                print >> f, '\t' + cincref % (self.expr(a),)
 
         # print the body
         for line in body:
@@ -243,10 +294,17 @@ class FunctionDef:
                 if a1 in has_ref:
                     del has_ref[a1]
                 else:
-                    line += '\tPy_INCREF(%s);' % self.expr(a2)
+                    ct1 = ctypeof(a1)
+                    ct2 = ctypeof(a2)
+                    assert ct1 == ct2
+                    cincref = getattr(ct1, 'cincref', None)
+                    if cincref:
+                        line += '\t' + cincref % (self.expr(a2),)
                 yield line
             for v in has_ref:
-                yield 'Py_DECREF(%s);' % linklocalvars[v]
+                cdecref = getattr(ctypeof(v), 'cdecref', None)
+                if cdecref:
+                    yield cdecref % (linklocalvars[v],)
             yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks
@@ -281,7 +339,7 @@ class FunctionDef:
                     exc_cls   = self.expr(block.inputargs[0])
                     exc_value = self.expr(block.inputargs[1])
                     yield 'PyErr_Restore(%s, %s, NULL);' % (exc_cls, exc_value)
-                    yield 'FUNCTION_RETURN(NULL)'
+                    yield self.return_error
                 else:
                     # regular return block
                     retval = self.expr(block.inputargs[0])
@@ -325,15 +383,18 @@ class FunctionDef:
                 err_reachable = True
             else:
                 # block ending in a switch on a value
+                ct = ctypeof(block.exitswitch)
                 for link in block.exits[:-1]:
-                    yield 'if (EQ_%s(%s)) {' % (link.exitcase,
-                                                self.expr(block.exitswitch))
+                    assert link.exitcase in (False, True)
+                    yield 'if (%s == %s) {' % (self.expr(block.exitswitch),
+                                       self.genc.nameofvalue(link.exitcase, ct))
                     for op in gen_link(link):
                         yield '\t' + op
                     yield '}'
                 link = block.exits[-1]
-                yield 'assert(EQ_%s(%s));' % (link.exitcase,
-                                              self.expr(block.exitswitch))
+                assert link.exitcase in (False, True)
+                yield 'assert(%s == %s);' % (self.expr(block.exitswitch),
+                                       self.genc.nameofvalue(link.exitcase, ct))
                 for op in gen_link(block.exits[-1]):
                     yield op
                 yield ''
@@ -341,11 +402,16 @@ class FunctionDef:
             while to_release:
                 v = to_release.pop()
                 if err_reachable:
-                    yield 'ERR_DECREF(%s)' % self.expr(v)
+                    if not hasattr(v, 'type_cls'):
+                        yield 'ERR_DECREF(%s)' % self.expr(v)
+                    else:
+                        cdecref = getattr(ctypeof(v), 'cdecref', None)
+                        if cdecref:
+                            yield cdecref % (self.expr(v),)
                 yield 'err%d_%d:' % (blocknum[block], len(to_release))
                 err_reachable = True
             if err_reachable:
-                yield 'FUNCTION_RETURN(NULL)'
+                yield self.return_error
 
     # ____________________________________________________________
 
@@ -388,7 +454,7 @@ class FunctionDef:
         funcdef = self.genc.getfuncdef(target.value)
         if funcdef is None:
             return None
-        if len(funcdef.positional_args) != len(args) or funcdef.vararg:
+        if len(funcdef.graphargs) != len(args) or funcdef.vararg:
             return None
         return 'if (!(%s=%s(%s))) FAIL(%s);' % (
             r, funcdef.fast_name, ', '.join(args), err)

@@ -13,6 +13,9 @@ class CType_PyObject:
     of Python objects to be 'pickled' as Python source code that will
     reconstruct them.
     """
+    ctypetemplate = 'PyObject *%s'
+    cincref       = 'Py_INCREF(%s);'
+    cdecref       = 'Py_DECREF(%s);'
 
     def __init__(self, genc):
         self.genc = genc
@@ -433,3 +436,7 @@ class CType_PyObject:
         co = compile(source, self.genc.modname, 'exec')
         del source
         return marshal.dumps(co)
+
+
+def ctypeof(v):
+    return getattr(v, 'type_cls', CType_PyObject)

@@ -9,7 +9,7 @@ from pypy.translator.gensupp import uniquemodulename
 from pypy.translator.gensupp import NameManager
 
 from pypy.translator.genc_funcdef import FunctionDef, USE_CALL_TRACE
-from pypy.translator.genc_pyobj import CType_PyObject
+from pypy.translator.genc_pyobj import CType_PyObject, ctypeof
 
 # ____________________________________________________________
 
@@ -41,10 +41,6 @@ class GenC:
            double    long      typedef
            else      register  union
            ''')
-        # these names are used in function headers,
-        # therefore pseudo-preserved in scope 1:
-        self.namespace.make_reserved_names('self args kwds')
-
         self.globaldecl = []
         self.pendingfunctions = []
         self.funcdefs = {}
@@ -60,11 +56,13 @@ class GenC:
             crepr = self.ctyperepresenters[type_cls] = type_cls(self)
             return crepr
 
-    def nameofconst(self, c, type_cls=None, debug=None):
-        if type_cls is None:
-            type_cls = getattr(c, 'type_cls', CType_PyObject)
-        crepr = self.getrepresenter(type_cls)
+    def nameofconst(self, c, debug=None):
+        crepr = self.getrepresenter(ctypeof(c))
         return crepr.nameof(c.value, debug=debug)
+
+    def nameofvalue(self, value, type_cls):
+        crepr = self.getrepresenter(type_cls)
+        return crepr.nameof(value)
 
     def getfuncdef(self, func):
         if func not in self.funcdefs:
