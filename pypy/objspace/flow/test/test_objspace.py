@@ -3,8 +3,10 @@ from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
 
-
 objspacename = 'flow'
+
+import operator
+is_operator = getattr(operator, 'is_', operator.eq) # it's not there 2.2
 
 class TestFlowObjSpace:
     def codetest(self, func):
@@ -330,6 +332,7 @@ class TestFlowObjSpace:
         self.show(x)
 
     #__________________________________________________________
+    
     def specialcases():
         import operator
         operator.lt(2,3)
@@ -338,7 +341,7 @@ class TestFlowObjSpace:
         operator.ne(2,3)
         operator.gt(2,3)
         operator.ge(2,3)
-        operator.is_(2,3)
+        is_operator(2,3)
         operator.__lt__(2,3)
         operator.__le__(2,3)
         operator.__eq__(2,3)

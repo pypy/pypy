@@ -26,5 +26,8 @@ def setup(space):
     # space.specialcases[fn] = sc_normalize_exception
     if space.do_imports_immediately:
         space.specialcases[__import__] = sc_import
-    for opname in ['lt', 'le', 'eq', 'ne', 'gt', 'ge']:
-        space.specialcases[getattr(operator, opname)] = sc_operator
+    for opname in ['lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_']:
+        opfunc = getattr(operator, opname, None)
+        if opfunc is None:
+            continue
+        space.specialcases[opfunc] = sc_operator
