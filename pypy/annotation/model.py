@@ -28,8 +28,7 @@ generic element in some specific subset of the set of all objects.
 #
 
 
-from types import ClassType, BuiltinFunctionType, FunctionType, MethodType
-from types import InstanceType
+from types import BuiltinFunctionType, MethodType
 import pypy
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.objspace.flow.model import Constant
