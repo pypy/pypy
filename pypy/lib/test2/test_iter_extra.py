@@ -12,7 +12,10 @@ class FakeIterator(object):
 class IterTest(unittest.TestCase):
 
     def test_fakeiterator(self):
-        self.assertRaises(TypeError, iter, FakeIterator())
+        x = FakeIterator()
+        self.assertRaises(TypeError, iter, x)
+        x.next = lambda: 23
+        self.assertRaises(TypeError, iter, x)
 
 def test_main():
     test.test_support.run_unittest(IterTest)
