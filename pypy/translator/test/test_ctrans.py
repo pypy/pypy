@@ -163,20 +163,26 @@ class NoTypeCGenTestCase(testit.IntTestCase):
         self.assertRaises(IndexError, bare_raise, range(0, 30, 10), False)
         self.assertEquals(bare_raise(range(0, 30, 10), True), None)
 
+    def test_get_set_del_slice(self):
+        fn = self.build_cfunc(snippet.get_set_del_slice)
+        l = list('abcdefghij')
+        result = fn(l)
+        self.assertEquals(l, [3, 'c', 8, 11, 'h', 9])
+        self.assertEquals(result, ([3, 'c'], [9], [11, 'h']))
+
 class TypedTestCase(testit.IntTestCase):
 
     def getcompiled(self, func):
-        t = Translator(func) 
-        t.simplify()
-##        # builds starting-types from func_defs 
-##        argstypelist = []
-##        if func.func_defaults:
-##            for spec in func.func_defaults:
-##                if isinstance(spec, tuple):
-##                    spec = spec[0] # use the first type only for the tests
-##                argstypelist.append(spec)
-##        a = t.annotate(argstypelist)
-##        a.simplify()
+        t = Translator(func, simplifying=True)
+        # builds starting-types from func_defs 
+        argstypelist = []
+        if func.func_defaults:
+            for spec in func.func_defaults:
+                if isinstance(spec, tuple):
+                    spec = spec[0] # use the first type only for the tests
+                argstypelist.append(spec)
+        a = t.annotate(argstypelist)
+        a.simplify()
         return t.ccompile()
 
     def test_set_attr(self):
@@ -246,6 +252,13 @@ class TypedTestCase(testit.IntTestCase):
         self.assertEquals(fn(3), 789)
         self.assertEquals(fn(4), 789)
         self.assertEquals(fn(5), 101112)
+
+    def test_get_set_del_slice(self):
+        fn = self.getcompiled(snippet.get_set_del_slice)
+        l = list('abcdefghij')
+        result = fn(l)
+        self.assertEquals(l, [3, 'c', 8, 11, 'h', 9])
+        self.assertEquals(result, ([3, 'c'], [9], [11, 'h']))
 
 if __name__ == '__main__':
     testit.main()

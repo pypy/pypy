@@ -63,6 +63,15 @@ def two_plus_two():
     array[2] = array[0] + array[1]
     return array[2]
 
+def get_set_del_slice(l=list):
+    del l[:1]
+    del l[-1:]
+    del l[2:4]
+    l[:1] = [3]
+    l[-1:] = [9]
+    l[2:4] = [8,11]
+    return l[:2], l[5:], l[3:5]
+
 def sieve_of_eratosthenes():
     """Sieve of Eratosthenes
     
