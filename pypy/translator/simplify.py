@@ -112,16 +112,16 @@ def remove_direct_loops(graph):
 def transform_dead_op_vars(graph):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block. Input is a graph."""
-    blocklist = []
+    blocks = {}
     def visit(block):
         if isinstance(block, Block):
-            blocklist.append(block)
+            blocks[block] = True
     traverse(visit, graph)
-    return transform_dead_op_vars_blocklist(blocklist)
+    return transform_dead_op_vars_in_blocks(blocks)
 
-def transform_dead_op_vars_blocklist(blocklist):
+def transform_dead_op_vars_in_blocks(blocks):
     """Remove dead operations and variables that are passed over a link
-    but not used in the target block. Input is a block list"""
+    but not used in the target block. Input is a set of blocks"""
     # the set of operations that can safely be removed (no side effects)
     CanRemove = {'newtuple': True,
                  'newlist': True,
@@ -132,7 +132,7 @@ def transform_dead_op_vars_blocklist(blocklist):
     variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
     
     # compute variable_flow and an initial read_vars
-    for block in blocklist:
+    for block in blocks:
         # figure out which variables are ever read
         for op in block.operations:
             if op.opname not in CanRemove:  # mark the inputs as really needed
@@ -149,7 +149,7 @@ def transform_dead_op_vars_blocklist(blocklist):
 
         if block.exits:
             for link in block.exits:
-                if link.target not in blocklist:
+                if link.target not in blocks:
                     for arg, targetarg in zip(link.args, link.target.inputargs):
                         read_vars[arg] = True
                         read_vars[targetarg] = True
@@ -176,7 +176,7 @@ def transform_dead_op_vars_blocklist(blocklist):
                 read_vars[prevvar] = True
                 pending.append(prevvar)
 
-    for block in blocklist:
+    for block in blocks:
 
         # look for removable operations whose result is never used
         for i in range(len(block.operations)-1, -1, -1):
@@ -205,7 +205,7 @@ def transform_dead_op_vars_blocklist(blocklist):
                     del link.args[i]
             # the above assert would fail here
 
-    for block in blocklist:
+    for block in blocks:
         # look for input variables never used
         # The corresponding link.args have already been all removed above
         for i in range(len(block.inputargs)-1, -1, -1):
