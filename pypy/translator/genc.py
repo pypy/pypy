@@ -459,7 +459,7 @@ class GenC:
         print >> f, self.C_HEADER
 
         # function implementations
-        while self.pendingfunctions or self.latercode:
+        while self.pendingfunctions:
             func = self.pendingfunctions.pop()
             self.gen_cfunction(func)
             # collect more of the latercode after each function
