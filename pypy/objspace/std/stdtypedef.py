@@ -187,7 +187,9 @@ class MultimethodCode(eval.Code):
         self.typeclass = typeclass
         self.bound_position = bound_position
         self.framecls = framecls
-        argnames = ['x%d'%(i+1) for i in range(multimethod.arity)]
+        argnames = ['_%d'%(i+1) for i in range(multimethod.arity)]
+        explicit_argnames = multimethod.extras.get('argnames', [])
+        argnames[len(argnames)-len(explicit_argnames):] = explicit_argnames
         varargname = kwargname = None
         # XXX do something about __call__ and __init__ which still use
         # XXX packed arguments: w_args, w_kwds instead of *args_w, **kwds_w

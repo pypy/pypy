@@ -10,7 +10,7 @@ list_remove   = MultiMethod('remove', 2)
 list_index    = MultiMethod('index',  4, defaults=(0,maxint))
 list_count    = MultiMethod('count',  2)
 list_reverse  = MultiMethod('reverse',1)
-list_sort     = MultiMethod('sort',   2, defaults=(None,))
+list_sort     = MultiMethod('sort',   2, defaults=(None,), argnames=['cmp'])
 list_reversed = MultiMethod('__reversed__', 1)
 
 def app_list_reversed__ANY(lst):
