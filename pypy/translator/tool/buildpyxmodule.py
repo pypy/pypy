@@ -86,7 +86,7 @@ def make_module_from_c(cfile, include_dirs=None):
                                                         "-Wno-unused-variable"])
                                 ],
                             'script_name': 'setup.py',
-                            'script_args': [ '-q', 'build_ext', '--inplace'],
+                            'script_args': ['-q', 'build_ext', '--inplace'],
                             }
                         dist = Distribution(attrs)
                         if not dist.parse_command_line():
