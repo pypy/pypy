@@ -162,7 +162,7 @@ class GenPyrex:
             return None
 
     def get_varname(self, var):
-        if self.get_type(var) == int:
+        if self.get_type(var) in (int, bool):
             prefix = "i_"
         else:
             prefix = ""
@@ -170,7 +170,7 @@ class GenPyrex:
 
     def _paramvardecl(self, var):
         vartype = self.get_type(var)
-        if vartype == int:
+        if vartype in (int, bool):
             ctype = "int"
         else:
             ctype = "object"
