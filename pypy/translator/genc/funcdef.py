@@ -475,6 +475,11 @@ class FunctionDef:
         args = [arg.compute() for arg in args]
         return 'OP_CALL_ARGS((%s), %s, %s)' % (', '.join(args), r, err)
 
+    def OP_DIRECT_CALL(self, args, r, err):
+        args = [arg.compute() for arg in args]
+        return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
+            r, args[0], ', '.join(args[1:]), err)
+
 # ____________________________________________________________
 
 class lazy:

@@ -50,12 +50,15 @@ class Specializer:
             besttype = self.defaulttypecls
             s_value = self.annotator.binding(a, True)
             if s_value is not None:
-                for tmatch in self.typematches:
-                    if tmatch.s_type.contains(s_value):
-                        besttype = tmatch.type_cls
-                        break
+                besttype = self.annotation2typecls(s_value) or besttype
             self.settype(a, besttype)
             return besttype
+
+    def annotation2typecls(self, s_value):
+        for tmatch in self.typematches:
+            if tmatch.s_type.contains(s_value):
+                return tmatch.type_cls
+        return None
 
     def convertvar(self, v, type_cls):
         """Get the operation(s) needed to convert 'v' to the given type."""
@@ -111,6 +114,7 @@ class Specializer:
 
             # look for a specialized version of the current operation
             opname2, argtypes, restypecls = self.getspecializedop(op, bindings)
+            assert len(argtypes) == len(args)
 
             # type-convert the input arguments
             for i in indices:
