@@ -33,6 +33,7 @@ working_unittests = (
 'test_codeop.py',
 'test_compile.py',
 'test_operator.py',
+'test_heapq.py',
 )
 
 working_outputtests = (
