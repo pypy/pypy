@@ -10,8 +10,9 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin 
 from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.factory import BlockedInference, getbookkeeper
-from pypy.annotation.factory import isclassdef 
+from pypy.annotation.factory import BlockedInference
+from pypy.annotation.bookkeeper import getbookkeeper
+from pypy.annotation.classdef import isclassdef
 
 # convenience only!
 def immutablevalue(x):

@@ -3,8 +3,8 @@ from __future__ import generators
 from types import FunctionType, ClassType
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import pair
-from pypy.annotation.factory import ListFactory, DictFactory
-from pypy.annotation.factory import BlockedInference, Bookkeeper
+from pypy.annotation.factory import ListFactory, DictFactory, BlockedInference
+from pypy.annotation.bookkeeper import Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
 from pypy.objspace.flow.model import last_exception, last_exc_value

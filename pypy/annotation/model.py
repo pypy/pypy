@@ -60,7 +60,8 @@ class SomeObject:
     def __new__(cls, *args, **kw):
         self = super(SomeObject, cls).__new__(cls, *args, **kw)
         try:
-            position_key = pypy.annotation.factory.getbookkeeper().position_key
+            bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
+            position_key = bookkeeper.position_key
         except AttributeError:
             pass
         else:
@@ -240,4 +241,3 @@ def missing_operation(cls, name):
 # this has the side-effect of registering the unary and binary operations
 from pypy.annotation.unaryop  import UNARY_OPERATIONS
 from pypy.annotation.binaryop import BINARY_OPERATIONS
-from pypy.annotation.builtin  import BUILTIN_ANALYZERS

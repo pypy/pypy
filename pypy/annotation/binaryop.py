@@ -9,7 +9,9 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.factory import generalize, isclassdef, getbookkeeper
+from pypy.annotation.factory import generalize
+from pypy.annotation.bookkeeper import getbookkeeper
+from pypy.annotation.classdef import isclassdef
 from pypy.objspace.flow.model import Constant
 
 # convenience only!

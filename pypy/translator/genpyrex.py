@@ -7,7 +7,7 @@ from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import mkentrymap, last_exception
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.annotation.model import SomePBC
-from pypy.annotation.factory import isclassdef
+from pypy.annotation.classdef import isclassdef
 import inspect
 
 class Op:

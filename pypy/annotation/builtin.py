@@ -4,7 +4,8 @@ Built-in functions.
 
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple
-from pypy.annotation.factory import ListFactory, getbookkeeper
+from pypy.annotation.bookkeeper import getbookkeeper
+from pypy.annotation.factory import ListFactory
 from pypy.objspace.flow.model import Constant
 import pypy.objspace.std.restricted_int
 
