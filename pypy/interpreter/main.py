@@ -3,10 +3,10 @@ from pypy.module.builtin import Builtin
 from pypy.interpreter import executioncontext, baseobjspace, pyframe
 import sys
 
-def run_string(source, fname):
-    space = None   # in case StdObjSpace.__init__() crashes
+def run_string(source, fname, space=None):
     try:
-        space = StdObjSpace()
+        if space is None:
+            space = StdObjSpace()
 
         compile = space.builtin.compile
         w=space.wrap
@@ -27,9 +27,9 @@ def run_string(source, fname):
     else:
         ec.eval_frame(frame)
 
-def run_file(fname):
+def run_file(fname, space=None):
     istring = open(fname).read()
-    run_string(istring, fname)
+    run_string(istring, fname, space)
 
 def main(argv=None):
     if argv is None:

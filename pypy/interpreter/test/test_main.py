@@ -17,14 +17,15 @@ testresultoutput = '11\n'
 capture = StringIO()
 
 def checkoutput(expected_output,f,*args):
-    import sys
-    oldout = sys.stdout
+    space = testsupport.objspace()
+    w_sys = space.get_builtin_module(space.wrap("sys"))
+    w_oldout = space.getattr(w_sys, space.wrap("stdout"))
+    capture.reset()
+    space.setattr(w_sys, space.wrap("stdout"), space.wrap(capture))
     try:
-        capture.reset()
-        sys.stdout = capture
-        f(*args)
+        f(*(args + (space,)))
     finally:
-        sys.stdout = oldout
+        space.setattr(w_sys, space.wrap("stdout"), w_oldout)
 
     return capture.getvalue() == expected_output
 
