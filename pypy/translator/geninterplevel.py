@@ -98,7 +98,18 @@ class UniqueList(list):
     def appendnew(self, arg):
         "always append"
         list.append(self, arg)
-        
+
+class AugmentedFlowSpace(FlowObjSpace):
+    def __init__(self):
+        FlowObjSpace.__init__(self)
+##        #Eeek
+##        from pypy.objspace.std import Space
+##        other_space = Space()
+##        if not hasattr(self,"w_dict"):
+##            self.w_dict = other_space.w_dict
+##        if not hasattr(self,"w_TypeError"):
+##            self.w_TypeError = other_space.w_TypeError
+                
 class GenRpy:
     def __init__(self, translator, modname=None):
         self.translator = translator
@@ -127,8 +138,8 @@ class GenRpy:
         for name in "newtuple newlist newdict newstring".split():
             self.has_listarg[name] = name
 
-        self.space = FlowObjSpace() # for introspection
-        
+        self.space = AugmentedFlowSpace() # for introspection
+
         self.use_fast_call = False        
         
     def expr(self, v, localnames, wrapped = True):
@@ -239,12 +250,13 @@ class GenRpy:
                 src = self.expr(a1, localvars)
             left.append(self.expr(a2, localvars))
             right.append(src)
-        txt = "%s = %s" % (", ".join(left), ", ".join(right))
-        if len(txt) <= 65: # arbitrary
-            yield txt
-        else:
-            for line in self.large_assignment(left, right):
-                yield line
+        if left: # anything at all?
+            txt = "%s = %s" % (", ".join(left), ", ".join(right))
+            if len(txt) <= 65: # arbitrary
+                yield txt
+            else:
+                for line in self.large_assignment(left, right):
+                    yield line
         goto = blocknum[link.target]
         yield 'goto = %d' % goto
         if goto <= blocknum[block]:
@@ -602,6 +614,7 @@ class GenRpy:
         dict:   'space.w_dict',
         str:    'space.w_str',
         float:  'space.w_float',
+        slice:  'space.w_slice',
         type(Exception()): 'space.wrap(types.InstanceType)',
         type:   'space.w_type',
         complex:'space.wrap(types.ComplexType)',
@@ -840,7 +853,7 @@ class GenRpy:
         f_name = 'f_' + cname[6:]
 
         # collect all the local variables
-        graph = self.translator.getflowgraph(func)
+        graph = self.translator.getflowgraph(func, SpaceClass=AugmentedFlowSpace)
         localslst = []
         def visit(node):
             if isinstance(node, Block):
@@ -944,7 +957,8 @@ class GenRpy:
 
     def rpyfunction_body(self, func, localvars):
         try:
-            graph = self.translator.getflowgraph(func)
+            graph = self.translator.getflowgraph(func,
+                                                 SpaceClass=AugmentedFlowSpace)
         except Exception, e:
             print 20*"*", e
             print func
@@ -958,7 +972,7 @@ class GenRpy:
         f = self.f
         t = self.translator
         #t.simplify(func)
-        graph = t.getflowgraph(func)
+        graph = t.getflowgraph(func, SpaceClass=AugmentedFlowSpace)
 
 
         start = graph.startblock
@@ -1066,6 +1080,8 @@ def init%(modname)s(space):
     """NOT_RPYTHON"""
     class m: pass # fake module
     m.__dict__ = globals()
+    # make sure that this function is run only once:
+    m.init%(modname)s = lambda *ign:True
 '''
 
     RPY_INIT_FOOTER = '''
@@ -1264,6 +1280,18 @@ def test_exceptions_helper():
         #return [thing for thing in _exceptions.__dict__.values()]
     return dic, test_exceptions
 
+def make_class_instance_helper():
+    import pypy
+    prefix = os.path.dirname(pypy.__file__)
+    libdir = os.path.join(prefix, "lib")
+    hold = sys.path
+    sys.path.insert(0, libdir)
+    import _classobj
+    sys.path = hold
+    def make_class_instance():
+        return _classobj.classobj, _classobj.instance
+    return None, make_class_instance
+    
 def all_entries():
     res = [func() for func in entrypoints[:-1]]
     return res
@@ -1280,6 +1308,7 @@ entrypoints = (small_loop,
                 test_strutil,
                 test_struct,
                 test_exceptions_helper,
+                make_class_instance_helper,
                 all_entries)
 entrypoint = entrypoints[-2]
 
@@ -1304,12 +1333,6 @@ if __name__ == "__main__":
     ftmpname = "/tmp/look.py"
     fname = os.path.join(pth, gen.modname+".py")
     gen.gen_source(fname, ftmpname)
-
-    #t.simplify()
-    #t.view()
-    # debugging
-    graph = t.getflowgraph()
-    ab = ordered_blocks(graph) # use ctrl-b in PyWin with ab
 
 def crazy_test():
     """ this thingy is generating the whole interpreter in itself"""
