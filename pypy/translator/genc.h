@@ -7,6 +7,8 @@
 #include "frameobject.h"
 #include "structmember.h"
 #include "traceback.h"
+#include "marshal.h"
+#include "eval.h"
 
 #if !defined(MIN)
 #define MIN(a,b) (((a)<(b))?(a):(b))
