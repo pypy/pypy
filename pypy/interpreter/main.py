@@ -3,6 +3,18 @@ from pypy.interpreter import executioncontext, module
 from pypy.interpreter.error import OperationError
 import sys
 
+def ensure__main__(space):
+    w_main = space.wrap('__main__')
+    w_modules = space.sys.get('modules')
+    try:
+        return space.getitem(w_modules, w_main)
+    except OperationError, e:
+        if not e.match(space, space.w_KeyError):
+            raise
+    mainmodule = module.Module(space, w_main)
+    space.setitem(w_modules, w_main, mainmodule)
+    return mainmodule
+
 def _run_eval_string(source, filename, space, eval):
     if eval:
         cmd = 'eval'
@@ -17,12 +29,10 @@ def _run_eval_string(source, filename, space, eval):
         w = space.wrap
         w_code = space.builtin.call('compile', 
                  w(source), w(filename), w(cmd), w(0), w(0))
-        w_main = space.wrap('__main__')
-        mainmodule = module.Module(space, w_main)
-        w_modules = space.sys.get('modules')
-        space.setitem(w_modules, w_main, mainmodule)
 
+        mainmodule = ensure__main__(space)
         w_globals = mainmodule.w_dict
+
         space.setitem(w_globals, w('__builtins__'), space.builtin)
 
         pycode = space.interpclass_w(w_code)

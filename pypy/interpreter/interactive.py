@@ -1,7 +1,7 @@
 import autopath
 
 from pypy.interpreter import error
-from pypy.interpreter import executioncontext, baseobjspace, module
+from pypy.interpreter import executioncontext, baseobjspace, module, main
 import sys
 import code
 import time
@@ -15,11 +15,8 @@ class PyPyConsole(code.InteractiveConsole):
         self.ec = executioncontext.ExecutionContext(self.space)
 
         space=self.space
-        w_main = space.wrap('__main__')
-        mainmodule = module.Module(space, w_main)
-        w_modules = space.sys.get('modules')
-        space.setitem(w_modules, w_main, mainmodule)
 
+        mainmodule = main.ensure__main__(space)
         self.w_globals = mainmodule.w_dict
         space.setitem(self.w_globals, space.wrap('__builtins__'), space.builtin)
         # XXX check: do we need self.ec, self.w_globals?
