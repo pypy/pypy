@@ -3,31 +3,13 @@
 This module holds various snippets, to be used by translator
 unittests.
 
-TODO, or sanxiyn's plan:
-
-Each snippet should know about suitable arguments to test it.
-(Otherwise, there's a duplcation!) Should the result also be
-stored? It can computed by CPython if we don't store it.
-
-In case of typed translation test, we can give input_arg_types
-by actually trying type() on arguments.
-
-Each unittest should define a list of functions which it is able
-to translate correctly, and import the list for tests. When
-a translator can handle more, simply adding a function to the
-list should suffice.
-
-But for now, none of the above applies.
+We define argument types as default arguments to the snippet
+functions.
 """
 
-# we define the starting types in the snippet 
-# function's default arguments.  the following
-# definitions denote to the "test-generator"
-# the possible types that can be passed to
-# the specific snippet. 
-numtype = (int, float, ) 
+numtype = (int, float)
 anytype = (int, float, str)
-seqtype = (list, tuple) 
+seqtype = (list, tuple)
 
 def if_then_else(cond=anytype, x=anytype, y=anytype):
     if cond:
