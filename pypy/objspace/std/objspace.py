@@ -48,7 +48,7 @@ class StdObjSpace(ObjSpace):
         'W_BoolObject':  'boolobject',
         'W_IntObject':   'intobject',
         'W_FloatObject': 'floatobject',
-        #'W_ListObject': 'listobject',
+        'W_ListObject':  'listobject',
         'W_DictObject':  'dictobject',
         }
 

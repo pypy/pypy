@@ -6,6 +6,8 @@ from pypy.interpreter.extmodule import make_builtin_func
 from restricted_int import r_int, r_uint
 
 class W_ListObject(W_Object):
+    delegate_once = {}
+    statictypename = 'list'
 
     def __init__(w_self, space, wrappeditems):
         W_Object.__init__(w_self, space)
@@ -28,26 +30,42 @@ class W_ListObject(W_Object):
     def append(w_self, w_obj):
         return list_append(w_self.space, w_self, w_obj)
 
+    append = implmethod().register(append, W_ANY)
+
     def insert(w_self, w_idx, w_obj):
         return list_insert(w_self.space, w_self, w_idx, w_obj)
+
+    insert = implmethod().register(insert, W_ANY)
 
     def extend(w_self, w_seq):
         return list_extend(w_self.space, w_self, w_seq)
 
+    extend = implmethod().register(extend, W_ANY)
+
     def pop(w_self, w_idx=-1):
         return list_pop(w_self.space, w_self, w_idx)
+
+    pop =  implmethod().register(pop, W_IntObject)
 
     def remove(w_self, w_any):
         return list_remove(w_self.space, w_self, w_any)
 
+    remove = implmethod().register(remove, W_ANY)
+
     def index(w_self, w_any):
         return list_index(w_self.space, w_self, w_any)
+
+    index = implmethod().register(index, W_ANY)
 
     def count(w_self, w_any):
         return list_count(w_self.space, w_self, w_any)
 
+    count = implmethod().register(count, W_ANY)
+
     def reverse(w_self):
         return list_reverse(w_self.space, w_self)
+
+    reverse = implmethod().register(reverse)
 
 def list_unwrap(space, w_list):
     items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]
@@ -157,6 +175,27 @@ def list_eq(space, w_list1, w_list2):
 
 StdObjSpace.eq.register(list_eq, W_ListObject, W_ListObject)
 
+def _min(a, b):
+    if a < b:
+        return a
+    return b
+
+def list_lt(space, w_list1, w_list2):
+    items1 = w_list1.ob_item
+    items2 = w_list2.ob_item
+    ncmp = _min(w_list1.ob_size, w_list2.ob_size)
+    # Search for the first index where items are different
+    p = 0
+    while p < ncmp:
+        if not space.is_true(space.eq(items1[p], items2[p])):
+            break
+    if p >= ncmp:
+        # No more items to compare -- compare sizes
+        return space.newbool(vs < ws)
+    return space.lt(items1[p], items2[p])
+
+StdObjSpace.lt.register(list_lt, W_ListObject, W_ListObject)
+
 # upto here, lists are nearly identical to tuples, despite the
 # fact that we now support over-allocation!
 
@@ -191,35 +230,6 @@ def setitem_list_slice(space, w_list, w_slice, w_list2):
     return w_res
 
 StdObjSpace.setitem.register(setitem_list_slice, W_ListObject, W_SliceObject, W_ListObject)
-
-def getattr_list(space, w_list, w_attr):
-    if space.is_true(space.eq(w_attr, space.wrap('append'))):
-        w_builtinfn = make_builtin_func(space, W_ListObject.append)
-        return W_InstMethObject(space, w_list, w_builtinfn)
-    if space.is_true(space.eq(w_attr, space.wrap('insert'))):
-        w_builtinfn = make_builtin_func(space, W_ListObject.insert)
-        return W_InstMethObject(space, w_list, w_builtinfn)
-    if space.is_true(space.eq(w_attr, space.wrap('extend'))):
-        w_builtinfn = make_builtin_func(space, W_ListObject.extend)
-        return W_InstMethObject(space, w_list, w_builtinfn)
-    if space.is_true(space.eq(w_attr, space.wrap('pop'))):
-        w_builtinfn = make_builtin_func(space, W_ListObject.pop)
-        return W_InstMethObject(space, w_list, w_builtinfn)
-    if space.is_true(space.eq(w_attr, space.wrap('remove'))):
-        w_builtinfn = make_builtin_func(space, W_ListObject.remove)
-        return W_InstMethObject(space, w_list, w_builtinfn)
-    if space.is_true(space.eq(w_attr, space.wrap('index'))):
-        w_builtinfn = make_builtin_func(space, W_ListObject.index)
-        return W_InstMethObject(space, w_list, w_builtinfn)
-    if space.is_true(space.eq(w_attr, space.wrap('count'))):
-        w_builtinfn = make_builtin_func(space, W_ListObject.count)
-        return W_InstMethObject(space, w_list, w_builtinfn)
-    if space.is_true(space.eq(w_attr, space.wrap('reverse'))):
-        w_builtinfn = make_builtin_func(space, W_ListObject.reverse)
-        return W_InstMethObject(space, w_list, w_builtinfn)
-    raise FailedToImplement(space.w_AttributeError)
-
-StdObjSpace.getattr.register(getattr_list, W_ListObject, W_ANY)
 
 # adapted C code
 def _roundupsize(n):
@@ -326,7 +336,7 @@ def _del_slice(w_list, ilow, ihigh):
     items = w_list.ob_item
     d = ihigh-ilow
     recycle = [items[i] for i in range(ilow, ihigh)]
-    for i in range(ilow, ihigh):
+    for i in range(ilow, w_list.ob_size - d):
         items[i] = items[i+d]
     w_list.ob_size -= d
 
