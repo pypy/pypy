@@ -407,7 +407,6 @@ class TestAnnonateTestCase:
         s = a.build_types(snippet.simple_iter, [t])
         assert isinstance(s, annmodel.SomeIterator)
 
-
     def test_simple_zip(self):
         a = RPythonAnnotator()
         x = annmodel.SomeList({}, annmodel.SomeInteger())
