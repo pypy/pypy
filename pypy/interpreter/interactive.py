@@ -69,8 +69,10 @@ if __name__ == '__main__':
     except ImportError:
         pass
 
+    from pypy.tool import option
     from pypy.tool import test
-    args = test.process_options()
-    objspace = test.objspace()
+    args = option.process_options(option.get_standard_options(),
+                                  None, option.Options)
+    objspace = test.objspace(option.Options.spaces[-1])
     con = PyPyConsole(objspace)
     con.interact()

@@ -4,7 +4,7 @@ from unittest import TestCase, TestLoader
 
 import pypy.interpreter.unittest_w
 from pypy.tool.optik import make_option
-from pypy.tool import optik
+from pypy.tool import optik, option
 
 IntTestCase = pypy.interpreter.unittest_w.IntTestCase
 AppTestCase = pypy.interpreter.unittest_w.AppTestCase
@@ -208,12 +208,7 @@ def objspace(name='', _spacecache={}):
     except KeyError:
         return _spacecache.setdefault(name, Space())
 
-class Options:
-    """ Options set by command line """
-    verbose = 0
-    spacename = ''
-    showwarning = 0
-    spaces = []
+class Options(option.Options):
     testreldir = 0
     runcts = 0
 
@@ -243,29 +238,8 @@ class RegexFilterFunc:
             if include(arg):
                 return arg
 
-def get_standard_options():
-    options = []
-
-    def objspace_callback(option, opt, value, parser, space):
-        parser.values.spaces.append(space)
-
-    options.append(make_option(
-        '-S', action="callback",
-        callback=objspace_callback, callback_args=("std",),
-        help="run in std object space"))
-    options.append(make_option(
-        '-T', action="callback",
-        callback=objspace_callback, callback_args=("trivial",),
-        help="run in trivial object space"))
-    options.append(make_option(
-        '-v', action="count", dest="verbose"))
-    options.append(make_option(
-        '-w', action="store_true", dest="showwarning"))
-
-    return options
-
 def get_test_options():
-    options = get_standard_options()
+    options = option.get_standard_options()
     options.append(make_option(
         '-r', action="store_true", dest="testreldir",
         help="gather only tests relative to current dir"))
@@ -274,14 +248,6 @@ def get_test_options():
         help="run CtsTestRunner (catches stdout and prints report "
         "after testing) [unix only, for now]"))
     return options
-
-def process_options(optionlist, argv=None):
-    op = optik.OptionParser()
-    op.add_options(optionlist)
-    options, args = op.parse_args(argv, Options)
-    if not options.spaces:
-        options.spaces = ['trivial']
-    return args
 
 def run_tests(suite):
     for spacename in Options.spaces or ['']:
@@ -304,7 +270,7 @@ def run_tests_on_space(suite, spacename=''):
 def main(root=None):
     """ run this to test everything in the __main__ or
     in the given root-directory (recursive)"""
-    args = process_options(get_test_options())
+    args = option.process_options(get_test_options(), None, Options)
     
     filterfunc = RegexFilterFunc(*args)
     if Options.testreldir:
