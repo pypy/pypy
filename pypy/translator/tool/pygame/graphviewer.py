@@ -124,12 +124,21 @@ class GraphDisplay(Display):
         cx1, cy1 = self.viewer.getcenter()
         cx2, cy2 = node.x, node.y
         moving = (abs(startscale-endscale) + abs(cx1-cx2) + abs(cy1-cy2)
-                  > 2.0)
+                  > 0.4)
         if moving:
+            # if the target is far off the window, reduce scale along the way
+            tx, ty = self.viewer.map(cx2, cy2)
+            offview = max(-tx, -ty, tx-self.width, ty-self.height)
+            middlescale = endscale - 0.06 * offview
+            if offview > 150 and middlescale < startscale:
+                bumpscale = 4.0 * (middlescale - 0.5*(startscale+endscale))
+            else:
+                bumpscale = 0.0
             self.statusbarinfo = None
             self.sethighlight(None)
             for t in self.animation():
-                self.viewer.setscale(startscale*(1-t) + endscale*t)
+                self.viewer.setscale(startscale*(1-t) + endscale*t +
+                                     bumpscale*t*(1-t))
                 self.viewer.setcenter(cx1*(1-t) + cx2*t, cy1*(1-t) + cy2*t)
                 self.viewer.render()
                 pygame.display.flip()
@@ -201,7 +210,7 @@ if __name__ == '__main__':
     from pypy.translator.test import snippet
     
     t = Translator(snippet.powerset)
-    t.simplify()
+    #t.simplify()
     a = t.annotate([int])
     a.simplify()
     GraphDisplay(t).run()
