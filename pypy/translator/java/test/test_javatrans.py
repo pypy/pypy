@@ -1,4 +1,5 @@
 import autopath, os
+import py
 from py.process import cmdexec 
 from pypy.tool.udir import udir
 from pypy.translator.java.genjava import GenJava
@@ -9,6 +10,12 @@ from pypy.translator.translator import Translator
 class TestNoTypeCGenTestCase:
 
     objspacename = 'flow'
+
+    def setup_class(cls): 
+        try: 
+            py.path.local.sysfind('javac')
+        except py.error.ENOENT: 
+            py.test.skip("javac not found") 
 
     def build_jfunc(self, func):
         try: func = func.im_func
