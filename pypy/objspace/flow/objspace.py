@@ -224,7 +224,7 @@ class FlowObjSpace(ObjSpace):
 
         try:
             args_w, kwds_w = args.unpack()
-        except UnwrapError:
+        except UnwrapException:
             args_w, kwds_w = '?', '?'
         if not kwds_w:
             # simple case
