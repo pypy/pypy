@@ -1,4 +1,5 @@
 from pypy.interpreter.miscutils import getthreadlocals, Stack
+from pypy.interpreter.error import OperationError
 
 class ExecutionContext:
     """An ExecutionContext holds the state of an execution thread
