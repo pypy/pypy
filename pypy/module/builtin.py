@@ -1,23 +1,28 @@
-from pypy.interpreter import baseobjspace
-from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.extmodule import *
 
 #######################
 ####  __builtin__  ####
 #######################
 
-# XXX what should methodtables be?
-class methodtable:
+##import __builtin__ as _b
 
-    def chr(space, w_ascii):
-        w_character = space.newstring([w_ascii])
+##def compile(*args, **kwargs):
+##    c = _b.compile(*args, **kwargs)
+##    res = PyCode()
+##    res._from_code(c)
+##    return res
+
+##compile.__doc__ = _b.compile.__doc__
+
+
+class Builtin(BuiltinModule):
+    __pythonname__ = '__builtin__'
+
+    def chr(self, w_ascii):
+        w_character = self.space.newstring([w_ascii])
         return w_character
+    chr = appmethod(chr)
 
-import __builtin__ as _b
-
-def compile(*args, **kwargs):
-    c = _b.compile(*args, **kwargs)
-    res = PyCode()
-    res._from_code(c)
-    return res
-
-compile.__doc__ = _b.compile.__doc__
+    def len(self, w_obj):
+        return self.space.len(w_obj)
+    len = appmethod(len)
