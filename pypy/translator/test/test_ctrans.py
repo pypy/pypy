@@ -1,5 +1,5 @@
 import autopath
-import py
+import py, sys
 from pypy.tool.udir import udir
 from pypy.translator.genc import GenC
 from pypy.translator.typer import GenCSpecializer
@@ -306,7 +306,7 @@ class TestAnnotatedTestCase:
         assert result == ([3, 'c'], [9], [11, 'h'])
 
     def test_slice_long(self):
-        def slice_long(l=list, n=int):
+        def slice_long(l=list, n=long):
             return l[:n]
         fn = self.getcompiled(slice_long)
         l = list('abc')
@@ -316,7 +316,7 @@ class TestAnnotatedTestCase:
         assert result == list('abc')
 
 
-class IN_PROGRESS_TestTypedTestCase(TestAnnotatedTestCase):
+class TestTypedTestCase(TestAnnotatedTestCase):
 
     def getcompiled(self, func):
         t = Translator(func, simplifying=True)
@@ -332,3 +332,7 @@ class IN_PROGRESS_TestTypedTestCase(TestAnnotatedTestCase):
         GenCSpecializer(a).specialize()
         t.checkgraphs()
         return skip_missing_compiler(t.ccompile)
+
+    def test_int_overflow(self):
+        fn = self.getcompiled(snippet.simple_func)
+        raises(OverflowError, fn, sys.maxint+1)

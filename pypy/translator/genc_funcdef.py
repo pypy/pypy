@@ -443,30 +443,30 @@ class FunctionDef:
         args.insert(0, '%d' % len(args))
         return 'OP_NEWTUPLE((%s), %s, %s)' % (', '.join(args), r, err)
 
-    def fast_simple_call(self, args, r, err):
-        # try to generate a SIMPLE_CALL using a shortcut:
-        # a direct call to the ff_xxx() function, using its C signature.
-        if USE_CALL_TRACE:
-            return None
-        target = args[0].args[0]
-        args = [arg.compute() for arg in args[1:]]
-        if not isinstance(target, Constant):
-            return None
-        if not isinstance(target.value, FunctionType):
-            return None
-        funcdef = self.genc.getfuncdef(target.value)
-        if funcdef is None:
-            return None
-        if len(funcdef.graphargs) != len(args) or funcdef.vararg:
-            return None
-        return 'if (!(%s=%s(%s))) FAIL(%s);' % (
-            r, funcdef.fast_name, ', '.join(args), err)
+##    def fast_simple_call(self, args, r, err):
+##        # try to generate a SIMPLE_CALL using a shortcut:
+##        # a direct call to the ff_xxx() function, using its C signature.
+##        if USE_CALL_TRACE:
+##            return None
+##        target = args[0].args[0]
+##        args = [arg.compute() for arg in args[1:]]
+##        if not isinstance(target, Constant):
+##            return None
+##        if not isinstance(target.value, FunctionType):
+##            return None
+##        funcdef = self.genc.getfuncdef(target.value)
+##        if funcdef is None:
+##            return None
+##        if len(funcdef.graphargs) != len(args) or funcdef.vararg:
+##            return None
+##        return 'if (!(%s=%s(%s))) FAIL(%s);' % (
+##            r, funcdef.fast_name, ', '.join(args), err)
 
     def OP_SIMPLE_CALL(self, args, r, err):
-        result = self.fast_simple_call(args, r, err)
-        if result is not None:
-            return result
-        # fall-back
+##        result = self.fast_simple_call(args, r, err)
+##        if result is not None:
+##            return result
+##        # fall-back
         args = [arg.compute() for arg in args]
         args.append('NULL')
         return 'OP_SIMPLE_CALL((%s), %s, %s)' % (', '.join(args), r, err)
