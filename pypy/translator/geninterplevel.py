@@ -44,6 +44,10 @@ from pypy.interpreter.gateway import app2interp, interp2app
 
 from pypy.tool.sourcetools import render_docstr
 
+# this thingy should be moved into a better place
+# and be modified to work without annotation.
+from pypy.translator.transform import transform_dead_op_vars
+
 # ____________________________________________________________
 
 def c_string(s):
@@ -946,9 +950,17 @@ class GenRpy:
         #t.simplify(func)
         graph = t.getflowgraph(func)
 
+
         start = graph.startblock
         allblocks = ordered_blocks(graph)
         nblocks = len(allblocks)
+
+        # HAACK
+        # I willmove that function to simplify.py,
+        # removing the dependency of annotated,
+        # which basically is just a list of blocks.
+        self.annotated = allblocks
+        transform_dead_op_vars(self)
 
         blocknum = {}
         for block in allblocks:
