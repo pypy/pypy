@@ -2,64 +2,464 @@
 Definition of the standard Python types.
 """
 
+from sys import pypy
+import __builtin__
+import _types
+
+
+def _register(factory, cls, synonym=True, in_builtin=True):
+    """
+    Register factory as type cls. If builtin is a true value (which
+    is the default), also register the type as a built-in.  If
+    synonym is non-empty, also register the type in this very module
+    under its synonym.
+    """
+    pypy.registertype(factory, cls)
+    if in_builtin:
+        if isinstance(str, in_builtin):
+            typename = in_builtin
+        else:
+            typename = cls.__name__
+        setattr(__builtin__, typename, cls)
+    if synonym:
+        if isinstance(str, synonym):
+            typename = synonym
+        else:
+            typename = cls.__name__.title() + 'Type'
+        setattr(_types, typename, cls)
+
+
 class object:
-    
+
     def __new__(cls):
         if cls is object:
-            return sys.pypy.ObjectFactory()
+            return pypy.ObjectFactory()
         else:
-            return sys.pypy.UserObjectFactory(cls, sys.pypy.ObjectFactory)
+            return pypy.UserObjectFactory(cls, pypy.ObjectFactory)
 
     def __repr__(self):
-        return '<%s object at 0x%x>' % (
-            type(self).__name__, id(self))
+        return '<%s object at 0x%x>' % (type(self).__name__, id(self))
+
+_register(pypy.ObjectFactory, object)
 
 
-sys.pypy.registertype(sys.pypy.ObjectFactory, object)
+class bool(object):
 
+    def __new__(cls, *args):
+        if cls is bool:
+            return pypy.BoolObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.BoolObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.BoolObjectFactory, bool, synonym='BooleanType')
+
+
+class buffer(object):
+
+    def __new__(cls, *args):
+        if cls is buffer:
+            return pypy.BufferObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.BufferObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.BufferObjectFactory, buffer)
+
+
+class builtin_function_or_method(object):
+
+    def __new__(cls, *args):
+        if cls is builtin_function_or_method:
+            return pypy.Builtin_Function_Or_MethodObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.Builtin_Function_Or_MethodObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.Builtin_Function_Or_MethodObjectFactory, builtin_function_or_method, in_builtin=False, synonym='BuiltinFunctionType')
+
+
+setattr(_types, 'BuiltinMethodType', builtin_function_or_method)
+
+class classobj(object):
+
+    def __new__(cls, *args):
+        if cls is classobj:
+            return pypy.ClassobjObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.ClassobjObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.ClassobjObjectFactory, classobj, in_builtin=False, synonym='ClassType')
+
+
+class code(object):
+
+    def __new__(cls, *args):
+        if cls is code:
+            return pypy.CodeObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.CodeObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.CodeObjectFactory, code, in_builtin=False)
+
+
+class complex(object):
+
+    def __new__(cls, *args):
+        if cls is complex:
+            return pypy.ComplexObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.ComplexObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.ComplexObjectFactory, complex)
+
+
+class dictproxy(object):
+
+    def __new__(cls, *args):
+        if cls is dictproxy:
+            return pypy.DictproxyObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.DictproxyObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.DictproxyObjectFactory, dictproxy, in_builtin=False, synonym='DictProxyType')
+
+
+class dict(object):
+
+    def __new__(cls, *args):
+        if cls is dict:
+            return pypy.DictObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.DictObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.DictObjectFactory, dict)
+
+
+setattr(_types, 'DictionaryType', dict)
+
+class ellipsis(object):
+
+    def __new__(cls, *args):
+        if cls is ellipsis:
+            return pypy.EllipsisObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.EllipsisObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.EllipsisObjectFactory, ellipsis, in_builtin=False)
+
+
+class file(object):
+
+    def __new__(cls, *args):
+        if cls is file:
+            return pypy.FileObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.FileObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.FileObjectFactory, file, in_builtin='open')
+
+
+class float(object):
+
+    def __new__(cls, *args):
+        if cls is float:
+            return pypy.FloatObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.FloatObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.FloatObjectFactory, float)
+
+
+class frame(object):
+
+    def __new__(cls, *args):
+        if cls is frame:
+            return pypy.FrameObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.FrameObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.FrameObjectFactory, frame, in_builtin=False)
+
+
+class function(object):
+
+    def __new__(cls, *args):
+        if cls is function:
+            return pypy.FunctionObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.FunctionObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+    # XXX find out details for builtin properties
+    func_code    = pypy.builtin_property('fix')
+    func_globals = pypy.builtin_property('me')
+
+_register(pypy.FunctionObjectFactory, function, in_builtin=False)
+
+
+class generator(object):
+
+    def __new__(cls, *args):
+        if cls is generator:
+            return pypy.GeneratorObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.GeneratorObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.GeneratorObjectFactory, generator, in_builtin=False)
+
+
+class instance(object):
+
+    def __new__(cls, *args):
+        if cls is instance:
+            return pypy.InstanceObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.InstanceObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.InstanceObjectFactory, instance, in_builtin=False)
 
 
 class int(object):
 
     def __new__(cls, *args):
         if cls is int:
-            return sys.pypy.IntObjectFactory(args)
+            return pypy.IntObjectFactory(args)
         else:
-            return sys.pypy.UserObjectFactory(cls,
-                                              sys.pypy.IntObjectFactory,
-                                              args)
+            return pypy.UserObjectFactory(cls, pypy.IntObjectFactory, args)
 
     def __repr__(self):
         return str(self)
 
-
-sys.pypy.registertype(sys.pypy.IntObjectFactory, int)
-
-
-class type(object):
-    pass # ...
+_register(pypy.IntObjectFactory, int)
 
 
-class dict(object):
+setattr(_types, 'LambdaType', function)
 
-    def __new__(cls, args):
-        hello
+class list(object):
 
-    def get(self, k, v=None):
-        if self.has_key(k):
-            return self[k]
-        return v
+    def __new__(cls, *args):
+        if cls is list:
+            return pypy.ListObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.ListObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.ListObjectFactory, list)
+
+
+class long(object):
+
+    def __new__(cls, *args):
+        if cls is long:
+            return pypy.LongObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.LongObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.LongObjectFactory, long)
+
+
+class instancemethod(object):
+
+    def __new__(cls, *args):
+        if cls is instancemethod:
+            return pypy.InstancemethodObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.InstancemethodObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.InstancemethodObjectFactory, instancemethod, in_builtin=False, synonym='MethodType')
+
+
+class module(object):
+
+    def __new__(cls, *args):
+        if cls is module:
+            return pypy.ModuleObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.ModuleObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.ModuleObjectFactory, module, in_builtin=False)
+
+
+class NoneType(object):
+
+    def __new__(cls, *args):
+        if cls is NoneType:
+            return pypy.NonetypeObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.NonetypeObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.NonetypeObjectFactory, NoneType, in_builtin=False, synonym='NoneType')
+
+
+class NotImplementedType(object):
+
+    def __new__(cls, *args):
+        if cls is NotImplementedType:
+            return pypy.NotimplementedtypeObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.NotimplementedtypeObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.NotimplementedtypeObjectFactory, NotImplementedType, in_builtin=False, synonym='NotImplementedType')
+
+
+class slice(object):
+
+    def __new__(cls, *args):
+        if cls is slice:
+            return pypy.SliceObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.SliceObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.SliceObjectFactory, slice)
 
 
 class str(object):
 
-    def __new__(xxx):
-        xxx
+    def __new__(cls, *args):
+        if cls is str:
+            return pypy.StrObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.StrObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.StrObjectFactory, str, synonym='StringType')
 
 
-class function(object):
+class traceback(object):
 
-    func_code    = sys.pypy.builtin_property('fix')
-    func_globals = sys.pypy.builtin_property('me')
+    def __new__(cls, *args):
+        if cls is traceback:
+            return pypy.TracebackObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.TracebackObjectFactory, args)
 
-sys.pypy.registertype(sys.pypy.FunctionFactory, function)
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.TracebackObjectFactory, traceback, in_builtin=False)
+
+
+class tuple(object):
+
+    def __new__(cls, *args):
+        if cls is tuple:
+            return pypy.TupleObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.TupleObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.TupleObjectFactory, tuple)
+
+
+class type(object):
+
+    def __new__(cls, *args):
+        if cls is type:
+            return pypy.TypeObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.TypeObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.TypeObjectFactory, type)
+
+
+setattr(_types, 'UnboundMethodType', instancemethod)
+
+class unicode(object):
+
+    def __new__(cls, *args):
+        if cls is unicode:
+            return pypy.UnicodeObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.UnicodeObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.UnicodeObjectFactory, unicode)
+
+
+class xrange(object):
+
+    def __new__(cls, *args):
+        if cls is xrange:
+            return pypy.XrangeObjectFactory(args)
+        else:
+            return pypy.UserObjectFactory(cls, pypy.XrangeObjectFactory, args)
+
+    def __repr__(self):
+        return str(self)
+
+_register(pypy.XrangeObjectFactory, xrange, synonym='XRangeType')
+
+
+
+__all__ = ['BooleanType', 'BufferType', 'BuiltinFunctionType', 'BuiltinMethodType', 'ClassType', 'CodeType', 'ComplexType', 'DictProxyType', 'DictType', 'DictionaryType', 'EllipsisType', 'FileType', 'FloatType', 'FrameType', 'FunctionType', 'GeneratorType', 'InstanceType', 'IntType', 'LambdaType', 'ListType', 'LongType', 'MethodType', 'ModuleType', 'NoneType', 'NotImplementedType', 'ObjectType', 'SliceType', 'StringType', 'TracebackType', 'TupleType', 'TypeType', 'UnboundMethodType', 'UnicodeType', 'XRangeType']
