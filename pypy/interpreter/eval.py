@@ -82,6 +82,9 @@ class Frame(Wrappable):
         self.fast2locals()
         return self.w_locals
 
+    def fget_getdictscope(space, self):
+        return self.getdictscope()
+
     def setdictscope(self, w_locals):
         "Initialize the locals from a dictionary."
         self.w_locals = w_locals

@@ -40,7 +40,11 @@ class Object:
                 return space.delete(w_descr,w_obj)
         w_dict = space.getdict(w_obj)
         if w_dict is not None:
-            return space.delitem(w_dict,w_name)
+            try:
+                return space.delitem(w_dict,w_name)
+            except OperationError, ex:
+                if not ex.match(space, space.w_KeyError):
+                    raise
         raise OperationError(space.w_AttributeError,w_name)
 
     def descr__init__(space, w_obj, *args_w, **kwds_w):

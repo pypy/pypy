@@ -63,7 +63,8 @@ Code.typedef = TypeDef('internal-code',
 
 Frame.typedef = TypeDef('internal-frame',
     f_code = attrproperty('code'),
-    #f_locals = GetSetProperty(getdictscope, setdictscope), XXX
+    f_locals = GetSetProperty(Frame.fget_getdictscope.im_func,
+                              ), # , setdictscope), XXX
     f_globals = attrproperty_w('w_globals'),
     )
 
