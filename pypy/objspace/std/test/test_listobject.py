@@ -292,6 +292,17 @@ class AppTestW_ListObject(test.AppTestCase):
         l.extend((2,))
         self.assertEquals(l, [1,2])
 
+    def test_sort(self):
+        l = [1, 5, 3, 0]
+        l.sort()
+        self.assertEquals(l, [0, 1, 3, 5])
+        l = []
+        l.sort()
+        self.assertEquals(l, [])
+        l = [1]
+        l.sort()
+        self.assertEquals(l, [1])
+        
     def test_extended_slice(self):
         l = range(10)
         del l[::2]
