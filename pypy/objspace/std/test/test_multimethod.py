@@ -87,50 +87,56 @@ Y.dispatchclass = Y
 
 
 class TestMultiMethod(test.TestCase):
+    def setUp(self):
+        self.space = FakeObjSpace()
 
-    def test_base(self):
-        space = FakeObjSpace()
+    def test_non_delegate(self):
+        space = self.space
         
         r = space.add(X(2), X(5))
         self.assertEquals(repr(r), "('add_x_x', <X 2>, <X 5>)")
         
         r = space.add(X(3), Y(4))
         self.assertEquals(repr(r), "('add_x_y', <X 3>, <Y 4>)")
+
+        r = space.add(Y(0), Y(20))
+        self.assertEquals(repr(r), "('add_y_y', <Y 0>, <Y 20>)")
+
+        r = space.add(w(-3), w([7,6,5]))
+        self.assertEquals(repr(r), "('add_int_any', -3, [7, 6, 5])")
+
+        r = space.add(w(5), w("test"))
+        self.assertEquals(repr(r), "('add_int_string', 5, 'test')")
+
+        r = space.add(w("x"), w("y"))
+        self.assertEquals(repr(r), "('add_string_string', 'x', 'y')")
         
+    def test_delegate_y_to_x(self):
+        space = self.space
         r = space.add(Y(-1), X(7))
         self.assertEquals(repr(r), "('add_x_x', <X <Y -1>>, <X 7>)")
         
         r = space.add(Y(1), X(7))
         self.assertEquals(repr(r), "('add_x_x', <X <Y 1>>, <X 7>)")
         
-        r = space.add(Y(0), Y(20))
-        self.assertEquals(repr(r), "('add_y_y', <Y 0>, <Y 20>)")
-        
         r = space.add(X(-3), Y(20))
         self.assertEquals(repr(r), "('add_x_x', <X -3>, <X <Y 20>>)")
-        
-        r = space.add(w(-3), w([7,6,5]))
-        self.assertEquals(repr(r), "('add_int_any', -3, [7, 6, 5])")
-
-        r = space.add(w(5), w("test"))
-        self.assertEquals(repr(r), "('add_int_string', 5, 'test')")
-        
-        r = space.add(w("x"), w("y"))
-        self.assertEquals(repr(r), "('add_string_string', 'x', 'y')")
-        
+       
+    def test_no_operation_defined(self):
+        space = self.space
         self.assertRaises(OperationError, space.add, w([3]), w(4))
-        
         self.assertRaises(OperationError, space.add, w(3.0), w('bla'))
+        self.assertRaises(OperationError, space.add, X(0), w("spam"))
+        self.assertRaises(OperationError, space.add, Y(666), w("egg"))
 
+    def _test_delegate_x_to_str_sometimes(self):
+        space = self.space
         r = space.add(X(42), w("spam"))
         self.assertEquals(repr(r), "('add_string_string', '!42', 'spam')")
 
         r = space.add(Y(20), w("egg"))
         self.assertEquals(repr(r), "('add_string_string', '!<Y 20>', 'egg')")
 
-        self.assertRaises(OperationError, space.add, X(0), w("spam"))
-
-        self.assertRaises(OperationError, space.add, Y(666), w("egg"))
 
 
 if __name__ == '__main__':

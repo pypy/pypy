@@ -152,7 +152,7 @@ class OperationError(Exception):
         if exc_value is None:
             print >> file, exc_typename
         else:
-            print >> file, exc_typename+':', exc_value
+            print >> file, exc_typename, exc_value
 
 
 class NoValue(Exception):

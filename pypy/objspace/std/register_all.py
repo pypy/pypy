@@ -45,7 +45,9 @@ def register_all(module_dict, alt_ns=None):
 
         func = hack_func_by_name(funcname, namespaces)
         func.register(obj, *l)
+
     add_extra_comparisons()
+
 
 def hack_func_by_name(funcname, namespaces):
     for ns in namespaces:
@@ -76,13 +78,22 @@ class Curry:
 def inverted_comparison(function, space, w_1, w_2):
     return space.not_(function(space, w_1, w_2))
 
-def add_extra_comparisons(
-    operators=(('eq', 'ne'), ('lt', 'ge'), ('gt', 'le'))):
+def add_extra_comparisons():
     """
     If the module has defined eq, lt or gt,
     check if it already has ne, ge and le respectively.
     If not, then add them as space.not_ on the implemented methods.
     """
+    return
+    #XXX disabled because it doesn't work correctly probably
+    #    because it iterates over partially initialized method tables
+    #    we also had discussions on the LLN sprint to implement
+    #    a < b with b > a and so on. I wonder whether the automatic
+    #    creation of boolean operators is really worth it. instead
+    #    we could just implement the operators in their appropriate
+    #    files
+    operators=(('eq', 'ne'), ('lt', 'ge'), ('gt', 'le'))
+
     from pypy.objspace.std.objspace import StdObjSpace, W_ANY
 
     for method, mirror in operators:
