@@ -30,16 +30,27 @@ class W_UserObject(W_Object):
                                  space.wrap("instantiating a subtype of a type "
                                             "with a misbehaving constructor"))
 
-        # clone the instance layout into w_self
-        w_self.__dict__.update(w_preself.__dict__)
-        
         # add custom attributes
-        w_self.w_uo_type = w_type
-        w_self.w_uo_dict = space.newdict([])
-        w_self.w_uo_impl_class = w_preself.__class__
+        w_self.__dict__.update(
+            {'w_uo_preself': w_preself,
+             'w_uo_type': w_type,
+             'w_uo_dict': space.newdict([]),
+             })
+
+    def __getattr__(w_self, attr):
+        return getattr(w_self.w_uo_preself, attr)
+
+    def __setattr__(w_self, attr, value):
+        if attr in w_self.__dict__:
+            w_self.__dict__[attr] = value
+        else:
+            setattr(w_self.w_preself, attr, value)
+
+    def __delattr__(w_self, attr):
+        raise AttributeError, "we don't wants attribute deletion in RPython"
 
     def get_builtin_impl_class(w_self):
-        return w_self.w_uo_impl_class
+        return w_self.w_uo_preself.get_builtin_impl_class()
 
 
 registerimplementation(W_UserObject)
