@@ -75,7 +75,7 @@ class Constant:
         self.value = value     # a concrete value
 
     def __eq__(self, other):
-        return isinstance(other, Constant) and self.value == other.value
+        return self.__class__ is other.__class__ and self.value == other.value
 
     def __ne__(self, other):
         return not (self == other)
@@ -85,6 +85,11 @@ class Constant:
 
     def __repr__(self):
         return '%r' % (self.value,)
+
+class UndefinedConstant(Constant):
+    # for local variables not defined yet.
+    def __init__(self):
+        Constant.__init__(self, None)
 
 class SpaceOperation:
     def __init__(self, opname, args, result): 

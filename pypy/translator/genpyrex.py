@@ -3,7 +3,7 @@ generate Pyrex files from the flowmodel.
 
 """
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.objspace.flow.model import Variable, Constant
+from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import mkentrymap
 from pypy.translator.annrpython import RPythonAnnotator
 
@@ -292,16 +292,18 @@ class GenPyrex:
     def gen_link(self, prevblock, link):
         _str = self._str
         block = link.target
-        sourceargs = [_str(arg, prevblock) for arg in link.args]
-        targetargs = [_str(arg, block) for arg in block.inputargs]
+        sourceargs = link.args
+        targetargs = block.inputargs
         assert len(sourceargs) == len(targetargs)
-        # get rid of identity-assignments
+        # get rid of identity-assignments and assignments of UndefinedConstant
         sargs, targs = [], []
         for s,t in zip(sourceargs, targetargs):
-            if s != t:
+            if s != t and not isinstance(s, UndefinedConstant):
                 sargs.append(s)
                 targs.append(t)
         if sargs:
+            sargs = [_str(arg, prevblock) for arg in sargs]
+            targs = [_str(arg, block) for arg in targs]
             self.putline("%s = %s" % (", ".join(targs), ", ".join(sargs)))
 
         self.gen_block(block)

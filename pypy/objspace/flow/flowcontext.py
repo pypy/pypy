@@ -70,8 +70,7 @@ class FlowExecutionContext(ExecutionContext):
         self.w_globals = w_globals = space.wrap(globals)
         frame = code.create_frame(space, w_globals)
         formalargcount = code.getformalargcount()
-        dummy = Constant(None)
-        dummy.dummy = True
+        dummy = UndefinedConstant()
         arg_list = ([Variable() for i in range(formalargcount)] +
                     [dummy] * (len(frame.fastlocals_w) - formalargcount))
         frame.setfastscope(arg_list)

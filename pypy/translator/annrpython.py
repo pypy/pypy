@@ -1,8 +1,10 @@
 from __future__ import generators
 
 from pypy.translator.annheap import AnnotationHeap, Transaction
-from pypy.translator.annotation import XCell, XConstant, Annotation
-from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
+from pypy.translator.annotation import XCell, XConstant, nothingyet
+from pypy.translator.annotation import Annotation
+from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
+from pypy.objspace.flow.model import SpaceOperation
 
 
 class RPythonAnnotator:
@@ -58,8 +60,11 @@ class RPythonAnnotator:
         except KeyError:
             if not isinstance(arg, Constant):
                 raise   # propagate missing bindings for Variables
-            result = XConstant(arg.value)
-            self.consider_const(result, arg)
+            if isinstance(arg, UndefinedConstant):
+                result = nothingyet  # undefined local variables
+            else:
+                result = XConstant(arg.value)
+                self.consider_const(result, arg)
             self.bindings[arg] = result
             return result
 
@@ -131,23 +136,26 @@ class RPythonAnnotator:
     #___ flowing annotations in blocks _____________________
 
     def processblock(self, block, cells):
+        #print '* processblock', block, cells
         if block not in self.annotated:
             self.annotated[block] = True
             self.flowin(block, cells)
         else:
             # already seen; merge each of the block's input variable
+            oldcells = []
             newcells = []
-            reflow = False
             for a, cell2 in zip(block.inputargs, cells):
                 cell1 = self.bindings[a]   # old binding
-                newcell = self.heap.merge(cell1, cell2)
-                newcells.append(newcell)
-                reflow = reflow or (newcell != cell1 and newcell != cell2)
-            # no need to re-flowin unless there is a completely new cell
-            if reflow:
+                oldcells.append(cell1)
+                newcells.append(self.heap.merge(cell1, cell2))
+            #print '** oldcells = ', oldcells
+            #print '** newcells = ', newcells
+            # re-flowin unless the newcells are equal to the oldcells
+            if newcells != oldcells:
                 self.flowin(block, newcells)
 
     def flowin(self, block, inputcells):
+        #print '...'
         for a, cell in zip(block.inputargs, inputcells):
             self.bindings[a] = cell
         for op in block.operations:
@@ -239,8 +247,6 @@ class RPythonAnnotator:
     def consider_const(self,to_var,const):
         t = self.transaction()
         t.set('immutable', [], to_var)
-        if getattr(const, 'dummy', False):
-            return   # undefined local variables
         t.set_type(to_var,type(const.value))
         if isinstance(const.value, list):
             pass # XXX say something about the type of the elements

@@ -1,4 +1,5 @@
 from __future__ import generators
+import types
 from annotation import Annotation, XCell, XConstant, nothingyet
 
 
@@ -64,9 +65,10 @@ class AnnotationHeap:
         elif oldcell is nothingyet:
             return newcell
         else:
+            # any annotation or "constantness" about oldcell that must be killed?
+            deleting = isinstance(oldcell, XConstant)
             # find the annotations common to oldcell and newcell
             common = []
-            deleting = []  # annotations about oldcell that must be killed
             for ann in self.annlist:
                 if oldcell in ann.args or oldcell == ann.result:
                     test1 = rename(ann, oldcell, newcell)
@@ -74,7 +76,7 @@ class AnnotationHeap:
                     if test1 in self.annlist and test2 in self.annlist:
                         common.append(test1)
                     else:
-                        deleting.append(test1)
+                        deleting = True
             # the involved objects are immutable if we have both
             # 'immutable() -> oldcell' and 'immutable() -> newcell'
             if Annotation('immutable', [], newcell) in common:
@@ -170,7 +172,19 @@ class Transaction:
     def set_type(self, cell, type):
         """Register an annotation describing the type of the object 'cell'."""
         self.set('type', [cell], XConstant(type))
+        if type in immutable_types:
+            self.set('immutable', [], cell)
 
     def using(self, ann):
         """Mark 'ann' as used in this transaction."""
         self.using_annotations.append(ann)
+
+
+immutable_types = {
+    int: True,
+    long: True,
+    tuple: True,
+    str: True,
+    bool: True,
+    types.FunctionType: True,
+    }

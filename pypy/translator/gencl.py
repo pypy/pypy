@@ -270,10 +270,9 @@ class GenCL:
         source = link.args
         target = link.target.inputargs
         print "(psetq", # parallel assignment
-        for item in zip(source, target):
-            init, var = map(self.str, item)
-            if var != init:
-                print var, init,
+        for s, t in zip(source, target):
+            if s != t and not isinstance(s, UndefinedConstant):
+                print self.str(t), self.str(s),
         print ")"
         self.emit_jump(link.target)
     typemap = {
