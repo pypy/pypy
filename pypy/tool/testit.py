@@ -291,6 +291,10 @@ def objspace(name=''):
         raise TestSkip
     return option.objspace(name)
 
+def new_objspace(name=''):
+    if name and Options.spacename and name != Options.spacename:
+        raise TestSkip
+    return option.objspace(name,_spacecache={})
 
 class RegexFilterFunc:
     """
