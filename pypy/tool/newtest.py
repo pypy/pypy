@@ -279,7 +279,7 @@ class TestItem:
         case, the argument cls must receive the test case class.
         """
         # do we have a plain function, or a class and a method?
-        self._isfunction = (cls is None)
+        self.isfunction = (cls is None)
         self.file = inspect.getsourcefile(module)
         self.module = module
         self.callable = callable
@@ -346,7 +346,7 @@ class TestItem:
         the test callable, the test_runner object will be called with the
         test function/method as its argument.
         """
-        if self._isfunction:
+        if self.isfunction:
             # use the test function directly
             test = self.callable
         else:
@@ -356,7 +356,7 @@ class TestItem:
 
         try:
             # call setUp only for a class
-            self._isfunction or cls_object.setUp()
+            self.isfunction or cls_object.setUp()
         except KeyboardInterrupt:
             raise
         except TestResult, result:
@@ -378,7 +378,7 @@ class TestItem:
 
         try:
             # call tearDown only for a class
-            self._isfunction or cls_object.tearDown()
+            self.isfunction or cls_object.tearDown()
         except KeyboardInterrupt:
             raise
         except Exception, exc:
@@ -389,7 +389,7 @@ class TestItem:
         return result
 
     def __str__(self):
-        if self._isfunction:
+        if self.isfunction:
             return "TestItem from %s.%s" % (self.module.__name__,
                                             self.callable.__name__)
         else:
@@ -523,9 +523,15 @@ def main(do_selftest=False):
         if res.traceback is None:
             continue
         print 79 * '-'
-        print "%s.%s: %s" % (res.item.module.__name__,
-                             res.item.callable.__name__,
-                             res.name.upper())
+        if res.item.isfunction:
+            print "%s.%s: %s" % (res.item.module.__name__,
+                                 res.item.callable.__name__,
+                                 res.name.upper())
+        else:
+            print "%s.%s.%s: %s" % (res.item.module.__name__,
+                                    res.item.cls.__name__,
+                                    res.item.callable.__name__,
+                                    res.name.upper())
         print
         print res.formatted_traceback
     # emit a summary
