@@ -6,11 +6,6 @@ class TestBuiltinApp(test.AppTestCase):
     def setUp(self):
         self.space = test.objspace()
     
-    def test_sign(self):
-        self.assertEquals(sign(-4), -1)
-        self.assertEquals(sign(0), 0)
-        self.assertEquals(sign(10), 1)
-
     def test_import(self):
         m = __import__('pprint')
         self.assertEquals(m.pformat({}), '{}')
@@ -166,6 +161,22 @@ class TestBuiltinApp(test.AppTestCase):
 
     def test_xrange_has_type_identity(self):
         self.assertEquals(type(xrange(1)), type(xrange(1)))
+
+    def test_xrange_len(self):
+        x = xrange(33)
+        self.assertEquals(len(x), 33)
+        x = xrange(33,0,-1)
+        self.assertEquals(len(x), 33)
+        x = xrange(33,0)
+        self.assertEquals(len(x), 0)
+        x = xrange(0,33)
+        self.assertEquals(len(x), 33)
+        x = xrange(0,33,-1)
+        self.assertEquals(len(x), 0)
+        x = xrange(0,33,2)
+        self.assertEquals(len(x), 17)
+        x = xrange(0,32,2)
+        self.assertEquals(len(x), 16)
 
     def test_cmp(self):
         self.assertEquals(cmp(9,9), 0)
