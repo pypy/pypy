@@ -5,6 +5,10 @@ import autopath
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.translator.annotation import Annotator
 
+# b = newlist(a)
+# d = mul(b, int c)
+# --> d = alloc_and_set(c, a)
+
 def transform_allocate(self):
     for block, ann in self.annotated.iteritems():
         operations = block.operations[:]
@@ -21,6 +25,10 @@ def transform_allocate(self):
                                         (op2.args[1], op1.args[0]),
                                         op2.result)
                 block.operations[i:i+2] = [new_op]
+
+# c = newslice(a, b, None)
+# e = getitem(d, c)
+# --> e = getslice(d, a, b)
 
 def transform_slice(self):
     for block, ann in self.annotated.iteritems():
