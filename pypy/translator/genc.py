@@ -5,7 +5,7 @@ Generate a C source file from the flowmodel.
 from __future__ import generators
 import autopath, os
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.objspace.flow.model import FunctionGraph, Block, Link
+from pypy.objspace.flow.model import FunctionGraph, Block, Link, last_exception
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.translator.simplify import remove_direct_loops
 
@@ -217,10 +217,15 @@ class GenC:
         # print the body
         for line in body:
             if line.endswith(':'):
-                line = '    ' + line
+                if line.startswith('err'):
+                    fmt = '\t%s'
+                else:
+                    fmt = '    %s\n'
+            elif line:
+                fmt = '\t%s\n'
             else:
-                line = '\t' + line
-            print >> f, line
+                fmt = '%s\n'
+            f.write(fmt % line)
         print >> f, '}'
 
         # print the PyMethodDef
@@ -289,10 +294,48 @@ class GenC:
                     yield '%s(%s)' % (macro, ', '.join(lst))
                 to_release.append(op.result)
 
+            err_reachable = False
             if len(block.exits) == 0:
-                yield 'return %s;' % expr(block.inputargs[0])
+                retval = expr(block.inputargs[0])
+                if hasattr(block, 'exc_type'):
+                    # exceptional return block
+                    yield 'PyErr_SetObject(PyExc_%s, %s);' % (
+                        block.exc_type.__name__, retval)
+                    yield 'return NULL;'
+                else:
+                    # regular return block
+                    yield 'return %s;' % retval
                 continue
-            if len(block.exits) > 1:
+            elif block.exitswitch is None:
+                # single-exit block
+                assert len(block.exits) == 1
+                for op in gen_link(block.exits[0]):
+                    yield op
+                yield ''
+            elif block.exitswitch == Constant(last_exception):
+                # block catching the exceptions raised by its last operation
+                # we handle the non-exceptional case first
+                link = block.exits[0]
+                assert link.exitcase is None
+                for op in gen_link(link):
+                    yield op
+                # we must catch the exception raised by the last operation,
+                # which goes to the last err%d_%d label written above.
+                yield ''
+                to_release.pop()  # skip default error handling for this label
+                yield 'err%d_%d:' % (blocknum[block], len(to_release))
+                yield ''
+                for link in block.exits[1:]:
+                    assert issubclass(link.exitcase, Exception)
+                    yield 'if (PyErr_ExceptionMatches(PyExc_%s)) {' % (
+                        link.exitcase.__name__,)
+                    yield '\tPyErr_Clear();'
+                    for op in gen_link(link):
+                        yield '\t' + op
+                    yield '}'
+                err_reachable = True
+            else:
+                # block ending in a switch on a value
                 for link in block.exits[:-1]:
                     yield 'if (EQ_%s(%s)) {' % (link.exitcase,
                                                 block.exitswitch.name)
@@ -302,16 +345,18 @@ class GenC:
                 link = block.exits[-1]
                 yield 'assert(EQ_%s(%s));' % (link.exitcase,
                                               block.exitswitch.name)
-            for op in gen_link(block.exits[-1]):
-                yield op
+                for op in gen_link(block.exits[-1]):
+                    yield op
+                yield ''
 
-            yield ''
-            to_release.pop()  # this label is never reachable
             while to_release:
-                n = len(to_release)
                 v = to_release.pop()
-                yield 'err%d_%d: Py_DECREF(%s);' % (blocknum[block], n, v.name)
-            yield 'err%d_0: return NULL;' % blocknum[block]
+                if err_reachable:
+                    yield 'Py_DECREF(%s);' % v.name
+                yield 'err%d_%d:' % (blocknum[block], len(to_release))
+                err_reachable = True
+            if err_reachable:
+                yield 'return NULL;'
 
 # ____________________________________________________________
 

@@ -158,9 +158,8 @@ class FlowObjSpace(ObjSpace):
 
     def next(self, w_iter):
         w_item = self.do_operation("next", w_iter)
-        w_curexc = self.do_operation('exception', w_item)
         context = self.getexecutioncontext()
-        outcome = context.guessbool(w_curexc, [None, StopIteration])
+        outcome = context.guessexception(StopIteration)
         if outcome is StopIteration:
             raise OperationError(self.w_StopIteration, self.w_None)
         else:
@@ -185,10 +184,6 @@ class FlowObjSpace(ObjSpace):
 implicit_exceptions = {
     'getitem': [IndexError],
     }
-class ImplicitExcValue:
-    def __repr__(self):
-        return 'implicitexc'
-implicitexc = ImplicitExcValue()
 
 def extract_cell_content(c):
     """Get the value contained in a CPython 'cell', as read through
@@ -245,17 +240,18 @@ def make_op(name, symbol, arity, specialnames):
         #print >> sys.stderr, 'Variable operation', name, args_w
         w_result = self.do_operation(name, *args_w)
         if exceptions:
-            # the 'exception(w_result)' operation is a bit strange, it is
-            # meant to check if w_result is a correct result or if its
-            # computation actually resulted in an exception.  For now this
-            # is an approximation of checking if w_result is NULL, and
-            # using PyErr_Occurred() to get the current exception if so.
-            w_curexc = self.do_operation('exception', w_result)
+            # catch possible exceptions implicitely.  If the OperationError
+            # below is not caught in the same function, it will produce an
+            # exception-raising return block in the flow graph.  The special
+            # value 'wrap(last_exception)' is used as a marker for this kind
+            # of implicit exceptions, and simplify.py will remove it as per
+            # the RPython definition: implicit exceptions not explicitely
+            # caught in the same function are assumed not to occur.
             context = self.getexecutioncontext()
-            outcome = context.guessbool(w_curexc, [None] + exceptions)
+            outcome = context.guessexception(*exceptions)
             if outcome is not None:
                 raise OperationError(self.wrap(outcome),
-                                     self.wrap(implicitexc))
+                                     self.wrap(last_exception))
         return w_result
 
     setattr(FlowObjSpace, name, generic_operator)

@@ -50,7 +50,8 @@ class Block:
     def __init__(self, inputargs):
         self.inputargs = list(inputargs)  # mixed list of variable/const 
         self.operations = []              # list of SpaceOperation(s)
-        self.exitswitch = None            # variable
+        self.exitswitch = None            # a variable or
+                                          #  Constant(last_exception), see below
         self.exits      = []              # list of Link(s)
 
     def getvariables(self):
@@ -148,6 +149,15 @@ class SpaceOperation:
     def __repr__(self):
         return "%r = %s(%s)" % (self.result, self.opname, ", ".join(map(repr, self.args)))
 
+class LastExceptionValue:
+    def __repr__(self):
+        return 'last_exception'
+last_exception = LastExceptionValue()
+# if Block().exitswitch == Constant(last_exception), it means that we are
+# interested in catching the exception that the *last operation* of the
+# block could raise.  The exitcases of the links are None for no exception
+# or XxxError classes to catch the matching exceptions.
+
 def uniqueitems(lst):
     "Returns a list with duplicate elements removed."
     result = []
@@ -241,30 +251,40 @@ def checkgraph(graph):
 
         vars_previous_blocks = {}
 
-        def visit(node):
-            if isinstance(node, Block):
-                assert bool(node.isstartblock) == (node is graph.startblock)
-                if not node.exits:
-                    assert node in exitblocks
+        def visit(block):
+            if isinstance(block, Block):
+                assert bool(block.isstartblock) == (block is graph.startblock)
+                if not block.exits:
+                    assert block in exitblocks
                 vars = {}
-                for v in node.inputargs + [op.result for op in node.operations]:
+                resultvars = [op.result for op in block.operations]
+                for v in block.inputargs + resultvars:
                     assert isinstance(v, Variable)
                     assert v not in vars, "duplicate variable %r" % (v,)
                     assert v not in vars_previous_blocks, (
                         "variable %r used in more than one block" % (v,))
                     vars[v] = True
-                for op in node.operations:
+                for op in block.operations:
                     for v in op.args:
                         assert isinstance(v, (Constant, Variable))
                         if isinstance(v, Variable):
                             assert v in vars
-                if node.exitswitch is not None:
-                    assert isinstance(node.exitswitch, (Constant, Variable))
-                    if isinstance(node.exitswitch, Variable):
-                        assert node.exitswitch in vars
-                for link in node.exits:
+                if block.exitswitch is None:
+                    assert len(block.exits) <= 1
+                    if block.exits:
+                        assert block.exits[0].exitcase is None
+                elif block.exitswitch == Constant(last_exception):
+                    assert len(block.operations) >= 1
+                    assert len(block.exits) >= 1
+                    assert block.exits[0].exitcase is None
+                    for link in block.exits[1:]:
+                        assert issubclass(link.exitcase, Exception)
+                else:
+                    assert isinstance(block.exitswitch, Variable)
+                    assert block.exitswitch in vars
+                for link in block.exits:
                     assert len(link.args) == len(link.target.inputargs)
-                    assert link.prevblock is node
+                    assert link.prevblock is block
                     for v in link.args:
                         assert isinstance(v, (Constant, Variable))
                         if isinstance(v, Variable):

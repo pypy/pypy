@@ -2,7 +2,6 @@
 """
 
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow.objspace import implicitexc
 
 def eliminate_empty_blocks(graph):
     """Eliminate basic blocks that do not contain any operations.
@@ -62,15 +61,17 @@ def join_blocks(graph):
     traverse(visit, graph)
 
 def remove_implicit_exceptions(graph):
-    """An exception that is marked implicit (see implicitexc) and not
-    caught in the block is entierely removed.  This gets rid for example
-    of possible ValueErrors upon tuple unpacking, assuming they cannot
-    happen unless there is an exception handler in the same function."""
+    """An exception raised implicitely has a particular value of
+    space.wrap(last_exception) -- see pypy.objspace.flow.objspace.make_op --
+    which shows up in the flow graph if the exception is not caught.  This
+    function removes such exceptions entierely.  This gets rid for example
+    of possible IndexErrors by 'getitem', assuming they cannot happen unless
+    there is an exception handler in the same function."""
     def visit(link):
         if isinstance(link, Link) and link in link.prevblock.exits:
             if (isinstance(link.exitcase, type(Exception)) and
                 issubclass(link.exitcase, Exception) and
-                link.args == [Constant(implicitexc)] and
+                link.args == [Constant(last_exception)] and
                 len(link.target.exits) == 0 and
                 hasattr(link.target, 'exc_type')):
                 # remove direct links to implicit exception return blocks

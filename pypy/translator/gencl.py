@@ -1,5 +1,4 @@
 from pypy.objspace.flow.model import *
-from pypy.objspace.flow.objspace import implicitexc
 from pypy.translator.annrpython import RPythonAnnotator
 
 from pypy.translator.simplify import simplify_graph
@@ -124,9 +123,6 @@ class Op:
         print "(let ((result (funcall", s(iterator), ")))"
         print "  (setq", s(result), "(car result))"
         print "  (setq last-exc (cdr result)))"
-    def op_exception(self):
-        s = self.str
-        print "(psetq", s(self.result), "last-exc last-exc nil)"
     builtin_map = {
         pow: "expt",
         range: "python-range",
@@ -191,8 +187,8 @@ class GenCL:
             return val
         elif isinstance(val, type(Exception)) and issubclass(val, Exception):
             return "'%s" % val.__name__
-        elif val is implicitexc:
-            return "'implicitexc"
+        elif val is last_exception:
+            return "last-exc"
         else:
             return "#<%r>" % (val,)
     def emitcode(self):

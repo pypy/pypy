@@ -171,6 +171,10 @@ class FlowExecutionContext(ExecutionContext):
         raise AssertionError, "concrete mode: cannot guessbool(%s)" % (
             w_condition,)
 
+    def guessexception(self, *classes):
+        return self.guessbool(Constant(last_exception),
+                              cases = [None] + list(classes))
+
     def build_flow(self):
         while self.pendingblocks:
             block = self.pendingblocks.pop(0)

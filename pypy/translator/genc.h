@@ -79,6 +79,12 @@
 
 #define OP_NEWSLICE(x,y,z,r,err)  if (!(r=PySlice_New(x,y,z)))       goto err;
 
+#define OP_ITER(x,r,err)          if (!(r=PyObject_GetIter(x)))      goto err;
+#define OP_NEXT(x,r,err)          if (!(r=PyIter_Next(x))) {                   \
+		if (!PyErr_Occurred()) PyErr_SetNone(PyExc_StopIteration);     \
+		goto err;                                                      \
+	}
+
 
 /*** tests ***/
 
@@ -89,9 +95,6 @@
 
 
 /*** misc ***/
-
-  /* XXX exceptions not implemented */
-#define OP_EXCEPTION(x,r,err)  r=Py_None; Py_INCREF(r);
 
 #define MOVE(x, y)             y = x;
 

@@ -84,6 +84,11 @@ class NoTypeCGenTestCase(testit.IntTestCase):
         self.assertEquals(sand(0, 6), "no")
         self.assertEquals(sand(0, 0), "no")
 
+    def test_yast(self):
+        yast = self.build_cfunc(snippet.yast)
+        self.assertEquals(yast([1000,100,10,1]), 1111)
+        self.assertEquals(yast(range(100)), (99*100)/2)
+
 class TypedTestCase(testit.IntTestCase):
 
     def getcompiled(self, func):
