@@ -130,6 +130,36 @@ class AppTestFunction(testit.AppTestCase):
         res = func(self=6)
         self.assertEquals(res, 42)
 
+    def test_get(self):
+        def func(self): return self
+        obj = object()
+        meth = func.__get__(obj, object)
+        self.assertEquals(meth(), obj)
+
+class AppTestMethod(testit.AppTestCase):
+
+    def test_get(self):
+        def func(self): return self
+        class Object(object): pass
+        obj = Object()
+        # Create bound method from function
+        obj.meth = func.__get__(obj, Object)
+        self.assertEquals(obj.meth(), obj)
+        # Create bound method from method
+        meth2 = obj.meth.__get__(obj, Object)
+        self.assertEquals(meth2(), obj)
+
+    def test_get_get(self):
+        # sanxiyn's test from email
+        def m(self): return self
+        class C: pass
+        class D(C): pass
+        C.m = m
+        D.m = C.m
+        c = C()
+        self.assertEquals(c.m(), c)
+        d = D()
+        self.assertEquals(d.m(), d)
 
 class TestMethod(testit.IntTestCase):
     def setUp(self):
@@ -158,6 +188,26 @@ class TestMethod(testit.IntTestCase):
         meth = space.unwrap(w_meth)
         args = Arguments(space, [space.wrap("spam"), space.wrap("egg")])
         self.assertRaises_w(self.space.w_TypeError, meth.call_args, args)
+
+    def test_method_get(self):
+        space = self.space
+        # Create some function for this test only
+        def m(self): return self
+        func = Function(space, PyCode()._from_code(m.func_code))
+        # Some shorthands
+        obj1 = space.wrap(23)
+        obj2 = space.wrap(42)
+        args = Arguments(space, [])
+        # Check method returned from func.__get__()
+        w_meth1 = func.descr_function_get(obj1, space.type(obj1))
+        meth1 = space.unwrap(w_meth1)
+        self.failUnless(isinstance(meth1, Method))
+        self.assertEquals(meth1.call_args(args), obj1)
+        # Check method returned from method.__get__()
+        w_meth2 = meth1.descr_method_get(obj2, space.type(obj2))
+        meth2 = space.unwrap(w_meth2)
+        self.failUnless(isinstance(meth2, Method))
+        self.assertEquals(meth2.call_args(args), obj2)
 
 if __name__ == '__main__':
     testit.main()

@@ -233,6 +233,7 @@ Function.typedef = TypeDef("function",
 
 Method.typedef = TypeDef("method",
     __call__ = interp2app(Method.descr_method_call.im_func),
+    __get__ = interp2app(Method.descr_method_get.im_func),
     im_func  = attrproperty_w('w_function'), 
     im_self  = attrproperty_w('w_instance'), 
     im_class = attrproperty_w('w_class'),
