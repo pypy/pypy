@@ -21,13 +21,13 @@ class TestInstMethObjectApp(testit.AppTestCase):
 
     def test_getBound(self):
         def f(l,x): return l[x+1]
-        bound = _pypy_get(f, 'abcdef')   # XXX replace with f.__get__()
+        bound = f.__get__('abcdef')
         self.assertEquals(bound(1), 'c')
         self.assertRaises(TypeError, bound)
         self.assertRaises(TypeError, bound, 2, 3)
     def test_getUnbound(self):
         def f(l,x): return l[x+1]
-        unbound = _pypy_get(f, None, str)   # XXX replace with f.__get__()
+        unbound = f.__get__(None, str)
         self.assertEquals(unbound('abcdef', 2), 'd')
         self.assertRaises(TypeError, unbound)
         self.assertRaises(TypeError, unbound, 4)
