@@ -11,8 +11,9 @@ Command-line options for translate_pypy:
    -o       Generate and compile the C code, but don't run it
    --mark-some-objects
             Mark all functions that have SomeObject in their signature.
+   -tcc     Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
 """
-import autopath, sys, threading, pdb
+import autopath, sys, threading, pdb, os
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.translator.translator import Translator
@@ -118,6 +119,7 @@ if __name__ == '__main__':
                '-o':    False,
                '--mark-some-objects': False,
                '-no-a': False,
+               '-tcc':  False,
                }
     for arg in sys.argv[1:]:
         if arg in ('-h', '--help'):
@@ -125,6 +127,8 @@ if __name__ == '__main__':
             sys.exit()
         assert arg in options, "unknown option %r" % (arg,)
         options[arg] = True
+    if options['-tcc']:
+        os.environ['PYPY_CC'] = 'tcc -shared -o "%s.so" "%s.c"'
 
     def about(x):
         """ interactive debugging helper """

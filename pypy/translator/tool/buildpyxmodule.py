@@ -26,11 +26,11 @@ def make_module_from_pyxstring(name, dirpath, string):
     return module
 
 def compiler_command():
+    # e.g. for tcc, you might set this to
+    #    "tcc -shared -o %s.so %s.c"
     return os.getenv('PYPY_CC')
 
 def enable_fast_compilation():
-    if compiler_command():
-        return   # don't bother importing distutils
     from distutils import sysconfig
     gcv = sysconfig.get_config_vars()
     opt = gcv.get('OPT') # not always existent
@@ -61,8 +61,11 @@ def make_module_from_c(cfile, include_dirs=None):
             try:
                 if compiler_command():
                     # GCC-ish options only
-                    cmd = compiler_command().replace('%s', modname)
-                    for dir in include_dirs:
+                    from distutils import sysconfig
+                    gcv = sysconfig.get_config_vars()
+                    cmd = compiler_command().replace('%s',
+                                                     str(dirpath.join(modname)))
+                    for dir in [gcv['INCLUDEPY']] + list(include_dirs):
                         cmd += ' -I%s' % dir
                     cmdexec(cmd)
                 else:
