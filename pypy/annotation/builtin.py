@@ -37,6 +37,8 @@ def builtin_isinstance(s_obj, s_type):
     # XXX simple case only
     if s_type.is_constant():
         typ = s_type.const
+        if issubclass(typ, (int, long)):
+            typ = int
         if s_obj.is_constant():
             return immutablevalue(isinstance(s_obj.const, typ))
         elif issubclass(s_obj.knowntype, typ):

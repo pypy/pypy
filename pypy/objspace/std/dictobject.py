@@ -14,7 +14,7 @@ dummy = object()
 
 class Entry:
     def __init__(self):
-        self.hash = 0
+        self.hash = r_uint(0)
         self.w_key = None
         self.w_value = None
     def __repr__(self):
@@ -66,7 +66,7 @@ class W_DictObject(W_Object):
         return [entry for entry in self.data if entry.w_value is not None]
         
     def lookdict(self, lookup_hash, w_lookup):
-#        assert isinstance(lookup_hash, r_uint)
+        assert isinstance(lookup_hash, r_uint)
         space = self.space
         i = lookup_hash % len(self.data)
 
