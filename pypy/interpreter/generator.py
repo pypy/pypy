@@ -47,16 +47,17 @@ class GeneratorIterator(Wrappable):
         return self.space.wrap(self)
 
     def descr_next(self):
-        space = self.frame.space
+        space = self.space
         if self.running:
             raise OperationError(space.w_ValueError,
                                  space.wrap('generator already executing'))
         if self.frame.exhausted:
             raise OperationError(space.w_StopIteration, space.w_None) 
+        executioncontext = space.getexecutioncontext()
         self.running = True
         try:
             try:
-                return Frame.run(self.frame)
+                return executioncontext.run_frame(self.frame)
             except OperationError, e:
                 if e.match(self.space, self.space.w_StopIteration):
                     raise OperationError(space.w_StopIteration, space.w_None) 

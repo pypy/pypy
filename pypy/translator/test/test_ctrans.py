@@ -140,6 +140,29 @@ class NoTypeCGenTestCase(testit.IntTestCase):
         self.assertEquals(call_default_and_star_args(42),
                           (111+42+3+0, -1000-2000-3000+2))
 
+    def test_finallys(self):
+        finallys = self.build_cfunc(snippet.finallys)
+        self.assertEquals(finallys(['hello']), 8)
+        self.assertEquals(finallys('X'), 8)
+        self.assertEquals(finallys([]), 6)
+        self.assertEquals(finallys('XY'), 6)
+
+    def test_finally2(self):
+        finally2 = self.build_cfunc(snippet.finally2)
+        lst = range(10)
+        finally2(lst, 5)
+        self.assertEquals(lst, [0,1,2,3,4, 6, 6,7,8, 'done'])
+        dic = {}
+        self.assertRaises(KeyError, finally2, dic, "won't find this key")
+        self.assertEquals(dic, {-1: 'done'})
+
+    def test_bare_raise(self):
+        bare_raise = self.build_cfunc(snippet.bare_raise)
+        self.assertEquals(bare_raise(range(0, 100, 10), False), 50)
+        self.assertEquals(bare_raise(range(0, 100, 10), True), 50)
+        self.assertRaises(IndexError, bare_raise, range(0, 30, 10), False)
+        self.assertEquals(bare_raise(range(0, 30, 10), True), None)
+
 class TypedTestCase(testit.IntTestCase):
 
     def getcompiled(self, func):

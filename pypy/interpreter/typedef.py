@@ -5,60 +5,63 @@
 from pypy.interpreter.gateway import interp2app 
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
+from pypy.tool.cache import Cache
+import new
 
 class TypeDef:
     def __init__(self, __name, __base=None, **rawdict):
+        "NOT_RPYTHON: initialization-time only"
         self.name = __name
         self.base = __base
         self.hasdict = '__dict__' in rawdict or (__base and __base.hasdict)
         self.rawdict = rawdict
 
 
-unique_interplevel_subclass_cache = {}
+unique_interplevel_subclass_cache = Cache()
 def get_unique_interplevel_subclass(cls):
-    try:
-        return unique_interplevel_subclass_cache[cls]
-    except KeyError:
-        typedef = cls.typedef
-        name = 'User' + cls.__name__
-        body = {}
+    return unique_interplevel_subclass_cache.getorbuild(cls, _buildusercls, None)
 
-        class User_InsertNameHere(object):
-            
-            def getclass(self, space):
-                return self.w__class__
-            
-            def setclass(self, w_subtype):
-                # XXX sanity checks here
+def _buildusercls(cls, ignored):
+    "NOT_RPYTHON: initialization-time only"
+    typedef = cls.typedef
+    name = 'User' + cls.__name__
+    body = {}
+
+    class User_InsertNameHere(object):
+
+        def getclass(self, space):
+            return self.w__class__
+
+        def setclass(self, w_subtype):
+            # XXX sanity checks here
+            self.w__class__ = w_subtype
+
+        if typedef.hasdict:
+            def user_setup(self, space, w_subtype):
+                self.space = space
                 self.w__class__ = w_subtype
-            
-            if typedef.hasdict:
-                def user_setup(self, space, w_subtype):
-                    self.space = space
-                    self.w__class__ = w_subtype
-                    
-            else:
-                def getdict(self):
-                    return self.w__dict__
 
-                def setdict(self, w_dict):
-                    space = self.space
-                    if not space.is_true(space.isinstance(w_dict, space.w_dict)):
-                        raise OperationError(space.w_TypeError,
-                                space.wrap("setting dictionary to a non-dict"))
-                    self.w__dict__ = w_dict
+        else:
+            def getdict(self):
+                return self.w__dict__
 
-                def user_setup(self, space, w_subtype):
-                    self.space = space
-                    self.w__class__ = w_subtype
-                    self.w__dict__ = space.newdict([])
+            def setdict(self, w_dict):
+                space = self.space
+                if not space.is_true(space.isinstance(w_dict, space.w_dict)):
+                    raise OperationError(space.w_TypeError,
+                            space.wrap("setting dictionary to a non-dict"))
+                self.w__dict__ = w_dict
 
-        body = dict([(key, value)
-                     for key, value in User_InsertNameHere.__dict__.items()
-                     if not key.startswith('_')])
-        subcls = type(name, (cls,), body)
-        unique_interplevel_subclass_cache[cls] = subcls
-        return subcls
+            def user_setup(self, space, w_subtype):
+                self.space = space
+                self.w__class__ = w_subtype
+                self.w__dict__ = space.newdict([])
+
+    body = dict([(key, value)
+                 for key, value in User_InsertNameHere.__dict__.items()
+                 if not key.startswith('_')])
+    subcls = type(name, (cls,), body)
+    return subcls
 
 def instantiate(cls):
     "Create an empty instance of 'cls'."
@@ -69,6 +72,7 @@ def instantiate(cls):
 
 class GetSetProperty(Wrappable):
     def __init__(self, fget, fset=None, fdel=None, doc=None):
+        "NOT_RPYTHON: initialization-time only"
         fget = getattr(fget, 'im_func', fget) 
         fset = getattr(fset, 'im_func', fset) 
         fdel = getattr(fdel, 'im_func', fdel) 
@@ -106,12 +110,14 @@ class GetSetProperty(Wrappable):
         )
 
 def attrproperty(name):
+    "NOT_RPYTHON: initialization-time only"
     def fget(space, w_obj):
         obj = space.unwrap_builtin(w_obj)
         return space.wrap(getattr(obj, name))
     return GetSetProperty(fget)
 
 def attrproperty_w(name):
+    "NOT_RPYTHON: initialization-time only"
     def fget(space, w_obj):
         obj = space.unwrap_builtin(w_obj)
         w_value = getattr(obj, name)

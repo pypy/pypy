@@ -40,8 +40,8 @@ class Stack:
 
 
 class InitializedClass(type):
-    """A meta-class that allows a class to initialize itself (or its
-    subclasses) by calling __initclass__() as a class method."""
+    """NOT_RPYTHON.  A meta-class that allows a class to initialize itself (or
+    its subclasses) by calling __initclass__() as a class method."""
     def __init__(self, name, bases, dict):
         super(InitializedClass, self).__init__(name, bases, dict)
         for basecls in self.__mro__:
@@ -51,8 +51,9 @@ class InitializedClass(type):
 
 
 class RwDictProxy(object):
-    """A dict-like class standing for 'cls.__dict__', to work around
-    the fact that the latter is a read-only proxy for new-style classes."""
+    """NOT_RPYTHON.  A dict-like class standing for 'cls.__dict__', to work
+    around the fact that the latter is a read-only proxy for new-style
+    classes."""
     
     def __init__(self, cls):
         self.cls = cls

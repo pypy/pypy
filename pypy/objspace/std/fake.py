@@ -16,10 +16,9 @@ _fake_type_cache = Cache()
 
 # real-to-wrapped exceptions
 def wrap_exception(space):
-    "NOT_RPYTHON"  # XXX this needs to end up in the translated code somehow!
     exc, value, tb = sys.exc_info()
     if exc is OperationError:
-        raise exc, value, tb   # just re-raise it
+        raise exc, value  #, tb   # just re-raise it (tb ignored: not RPython)
     name = exc.__name__
     if hasattr(space, 'w_' + name):
         w_exc = getattr(space, 'w_' + name)
@@ -31,7 +30,7 @@ def wrap_exception(space):
     else:
         w_exc = space.wrap(exc)
         w_value = space.wrap(value)
-    raise OperationError, OperationError(w_exc, w_value), tb
+    raise OperationError, OperationError(w_exc, w_value)  #, tb not RPython
 
 def fake_type(cpy_type):
     assert type(cpy_type) is type
@@ -96,7 +95,7 @@ class CPythonFakeFrame(eval.Frame):
             unwrappedargs = self.space.unwrap(w_args)
             unwrappedkwds = self.space.unwrap(w_kwds)
         except UnwrapError, e:
-            raise UnwrapError('calling %s: %s' % (cpy_type, e))
+            raise UnwrapError('calling %s: %s' % (fn, e))
         try:
             result = apply(fn, unwrappedargs, unwrappedkwds)
         except:

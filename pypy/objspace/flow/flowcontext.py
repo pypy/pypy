@@ -205,7 +205,7 @@ class FlowExecutionContext(ExecutionContext):
             except ExitFrame:
                 continue   # restarting a dead SpamBlock
             try:
-                w_result = frame.eval(self)
+                w_result = self.run_frame(frame)
             except OperationError, e:
                 link = Link([e.w_type, e.w_value], self.graph.exceptblock)
                 self.crnt_block.closeblock(link)

@@ -39,8 +39,10 @@ def go_figure_out_this_name(source):
 class GenC:
     MODNAMES = {}
 
-    def __init__(self, f, translator, modname=None):
+    def __init__(self, f, translator, modname=None, f2=None, f2name=None):
         self.f = f
+        self.f2 = f2
+        self.f2name = f2name
         self.translator = translator
         self.modname = (modname or
                         uniquemodulename(translator.functions[0].__name__))
@@ -69,7 +71,8 @@ class GenC:
             else:
                 stackentry = obj
             self.debugstack = (self.debugstack, stackentry)
-            if type(obj).__module__ != '__builtin__':
+            if (type(obj).__module__ != '__builtin__' and
+                not isinstance(obj, type)):   # skip user-defined metaclasses
                 # assume it's a user defined thingy
                 name = self.nameof_instance(obj)
             else:
@@ -151,10 +154,10 @@ class GenC:
         return name
 
     def nameof_str(self, value):
-        chrs = [c for c in value if ('a' <= c <='z' or
-                                     'A' <= c <='Z' or
-                                     '0' <= c <='9' or
-                                     '_' == c )]
+        chrs = [c for c in value[:32] if ('a' <= c <='z' or
+                                          'A' <= c <='Z' or
+                                          '0' <= c <='9' or
+                                          '_' == c )]
         name = self.uniquename('gstr_' + ''.join(chrs))
         if [c for c in value if not (' '<=c<='~')]:
             # non-printable string
@@ -179,7 +182,8 @@ class GenC:
         self.initcode.append('\tPyCFunction_GET_SELF(%s) = %s;' % (name, name))
         return name
 
-    def nameof_function(self, func):
+    def nameof_function(self, func, progress=['-\x08', '\\\x08',
+                                              '|\x08', '/\x08']):
         printable_name = '(%s:%d) %s' % (
             func.func_globals.get('__name__', '?'),
             func.func_code.co_firstlineno,
@@ -193,7 +197,9 @@ class GenC:
                 func.func_doc.lstrip().startswith('NOT_RPYTHON')):
                 print "skipped", printable_name
                 return self.skipped_function(func)
-            #print "nameof", printable_name
+            p = progress.pop(0)
+            sys.stderr.write(p)
+            progress.append(p)
         name = self.uniquename('gfunc_' + func.__name__)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
                              '&ml_%s, NULL))' % (name, name))
@@ -313,7 +319,7 @@ class GenC:
             for key, value in content:
                 if key.startswith('__'):
                     if key in ['__module__', '__doc__', '__dict__',
-                               '__weakref__', '__repr__']:
+                               '__weakref__', '__repr__', '__metaclass__']:
                         continue
                     # XXX some __NAMES__ are important... nicer solution sought
                     #raise Exception, "unexpected name %r in class %s"%(key, cls)
@@ -350,6 +356,7 @@ class GenC:
         dict:   '&PyDict_Type',
         str:    '&PyString_Type',
         float:  '&PyFloat_Type',
+        type(Exception()): '&PyInstance_Type',
         type:   '&PyType_Type',
         complex:'&PyComplex_Type',
         unicode:'&PyUnicode_Type',
@@ -458,7 +465,7 @@ class GenC:
 
         # function implementations
         while self.pendingfunctions:
-            func = self.pendingfunctions.pop(0)
+            func = self.pendingfunctions.pop()
             self.gen_cfunction(func)
             # collect more of the latercode after each function
             while self.latercode:
@@ -471,10 +478,10 @@ class GenC:
 
         # footer
         print >> f, self.C_INIT_HEADER % info
+        if self.f2name is not None:
+            print >> f, '#include "%s"' % self.f2name
         for codeline in self.initcode:
             print >> f, '\t' + codeline
-        for name in self.globalobjects:
-            print >> f, '\t' + 'REGISTER_GLOBAL(%s)' % (name,)
         print >> f, self.C_INIT_FOOTER % info
 
     def gen_global_declarations(self):
@@ -486,6 +493,14 @@ class GenC:
                 print >> f, line
             print >> f
             del g[:]
+        g = self.globalobjects
+        for name in g:
+            self.initcode.append('REGISTER_GLOBAL(%s)' % (name,))
+        del g[:]
+        if self.f2 is not None:
+            for line in self.initcode:
+                print >> self.f2, line
+            del self.initcode[:]
 
     def gen_cfunction(self, func):
 ##         print 'gen_cfunction (%s:%d) %s' % (
@@ -584,6 +599,11 @@ class GenC:
             name, func.__name__, f_name)
         print >> f
 
+        if not self.translator.frozen:
+            # this is only to keep the RAM consumption under control
+            del self.translator.flowgraphs[func]
+            Variable.instances.clear()
+
     def cfunction_body(self, func):
         graph = self.translator.getflowgraph(func)
         remove_direct_loops(graph)
@@ -653,7 +673,7 @@ class GenC:
                     # exceptional return block
                     exc_cls   = expr(block.inputargs[0])
                     exc_value = expr(block.inputargs[1])
-                    yield 'PyErr_SetObject(%s, %s);' % (exc_cls, retval)
+                    yield 'PyErr_Restore(%s, %s, NULL);' % (exc_cls, exc_value)
                     yield 'FUNCTION_RETURN(NULL)'
                 else:
                     # regular return block

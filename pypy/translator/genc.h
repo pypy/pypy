@@ -22,11 +22,11 @@ static PyObject *this_module_globals;
 #endif
 
 #define op_bool(r,err,what) { \
-		int retval = what; \
-		if (retval < 0) { \
+		int _retval = what; \
+		if (_retval < 0) { \
 			FAIL(err) \
 		} \
-		r = PyBool_FromLong(retval); \
+		r = PyBool_FromLong(_retval); \
 	}
 
 #define op_richcmp(x,y,r,err,dir) \
@@ -42,6 +42,13 @@ static PyObject *this_module_globals;
 
 #define OP_IS_TRUE(x,r,err) op_bool(r,err,PyObject_IsTrue(x))
 
+#define OP_LEN(x,r,err) { \
+		int _retval = PyObject_Size(x); \
+		if (_retval < 0) { \
+			FAIL(err) \
+		} \
+		r = PyInt_FromLong(_retval); \
+	}
 #define OP_NEG(x,r,err)           if (!(r=PyNumber_Negative(x)))     FAIL(err)
 #define OP_POS(x,r,err)           if (!(r=PyNumber_Positive(x)))     FAIL(err)
 #define OP_INVERT(x,r,err)        if (!(r=PyNumber_Invert(x)))       FAIL(err)

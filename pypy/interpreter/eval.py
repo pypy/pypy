@@ -70,12 +70,7 @@ class Frame(Wrappable):
     def run(self):
         "Run the frame."
         executioncontext = self.space.getexecutioncontext()
-        previous = executioncontext.enter(self)
-        try:
-            result = self.eval(executioncontext)
-        finally:
-            executioncontext.leave(previous)
-        return result
+        return executioncontext.run_frame(self)
 
     def eval(self, executioncontext):
         "Abstract method to override."

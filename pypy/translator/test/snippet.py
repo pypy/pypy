@@ -234,6 +234,19 @@ def finallys(lst=seqtype):
         x = 8
     return x
 
+def finally2(o, k):
+    try:
+        o[k] += 1
+    finally:
+        o[-1] = 'done'
+
+def bare_raise(o, ignore):
+    try:
+        return o[5]
+    except:
+        if not ignore:
+            raise
+
 def factorial(n=int):
     if n <= 1:
         return 1

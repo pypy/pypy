@@ -212,9 +212,7 @@ class Translator:
         return g.globaldeclarations()
 
     def compile(self):
-        """Returns compiled function.
-
-        Currently function is only compiled using Pyrex.
+        """Returns compiled function, compiled using Pyrex.
         """
         from pypy.tool.udir import udir
         name = self.entrypoint.func_name
@@ -229,7 +227,9 @@ class Translator:
         name = uniquemodulename(self.entrypoint.func_name)
         cfile = udir.join('%s.c' % name)
         f = cfile.open('w')
-        GenC(f, self, name)
+        f2 = udir.join('%s-init.h' % name).open('w')
+        GenC(f, self, name, f2=f2, f2name='%s-init.h' % name)
+        f2.close()
         f.close()
         if not really_compile:
             return cfile

@@ -171,7 +171,11 @@ class FlowObjSpace(ObjSpace):
                 items.append(w_item)
                 i += 1
             return items
-        elif expected_length is not None: 
+        elif expected_length is not None:
+            w_len = self.len(w_iterable)
+            w_correct = self.eq(w_len, self.wrap(expected_length))
+            if not self.is_true(w_correct):
+                raise OperationError(self.w_ValueError, self.w_None)
             return [self.do_operation('getitem', w_iterable, self.wrap(i)) 
                         for i in range(expected_length)]
             # XXX TEMPORARY HACK XXX TEMPORARY HACK XXX TEMPORARY HACK

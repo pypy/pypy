@@ -754,7 +754,7 @@ class PyInterpFrame(pyframe.PyFrame):
     def EXTENDED_ARG(f, oparg):
         opcode = f.nextop()
         oparg = oparg<<16 | f.nextarg()
-        fn = self.dispatch_table[opcode]
+        fn = f.dispatch_table[opcode]
         if not fn.has_arg:
             raise pyframe.BytecodeCorruption
         fn(f, oparg)

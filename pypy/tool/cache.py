@@ -9,7 +9,8 @@ class Cache:
 
     def __hash__(self):
         if not self.frozen: 
-            raise TypeError, "cannot get hash of un-frozen cache"
+            #raise TypeError, "cannot get hash of un-frozen cache"
+            self.freeze()
         return id(self)
 
     def clear(self):

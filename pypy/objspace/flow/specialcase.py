@@ -21,7 +21,7 @@ def sc_normalize_exception(space, fn, args):
 
     * raise Class
        - with a constant Class, it is easy to recognize.
-         The associated value is Class().
+         But we don't normalize: the associated value is None.
 
     * raise Class(...)
        - when the class is instantiated in-place, we can figure that out
@@ -42,8 +42,7 @@ def sc_normalize_exception(space, fn, args):
     etype = getconstclass(space, w_arg1)
     if etype is not None:
         # raise Class
-        w_arg2 = space.do_operation('simple_call', w_arg1)
-        return (w_arg1, w_arg2)
+        return (w_arg1, space.w_None)
     # raise Class(..)?  We need a hack to figure out of which class it is.
     # Normally, Instance should have been created by the previous operation
     # which should be a simple_call(<Class>, ...).

@@ -9,17 +9,18 @@ class ExecutionContext:
         self.space = space
         self.framestack = Stack()
 
-    def enter(self, frame):
+    def run_frame(self, frame):
         locals = getthreadlocals()
-        self.framestack.push(frame)
         previous_ec = locals.executioncontext
         locals.executioncontext = self
-        return previous_ec
-
-    def leave(self, previous_ec):
-        locals = getthreadlocals()
-        locals.executioncontext = previous_ec
-        self.framestack.pop()
+        self.framestack.push(frame)
+        try:
+            w_result = frame.eval(self)
+        finally:
+            self.framestack.pop()
+            locals = getthreadlocals()
+            locals.executioncontext = previous_ec
+        return w_result
 
     def get_w_builtins(self):
         if self.framestack.empty():

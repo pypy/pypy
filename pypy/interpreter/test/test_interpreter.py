@@ -160,6 +160,26 @@ def f(n):
             ''')
         self.codetest(code, 'f', [])
 
+    def test_extended_arg(self):
+        longexpr = 'x = x or ' + '-x' * 2500
+        code = '''
+def f(x):
+    %s
+    %s
+    %s
+    %s
+    %s
+    %s
+    %s
+    %s
+    %s
+    %s
+    while x:
+        x -= 1   # EXTENDED_ARG is for the JUMP_ABSOLUTE at the end of the loop
+    return x
+''' % ((longexpr,)*10)
+        self.assertEquals(self.codetest(code, 'f', [3]), 0)
+
 
 class AppTestInterpreter(testit.AppTestCase):
     def test_trivial(self):

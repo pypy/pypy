@@ -1,4 +1,5 @@
 from pypy.interpreter.pyframe import PyFrame, ControlFlowException
+from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.model import *
 
 class FrameState:
@@ -7,11 +8,16 @@ class FrameState:
     def __init__(self, state):
         if isinstance(state, PyFrame):
             data = state.getfastscope() + state.valuestack.items
+            if state.last_exception is None:
+                data.append(Constant(None))
+                data.append(Constant(None))
+            else:
+                data.append(state.last_exception.w_type)
+                data.append(state.last_exception.w_value)
             recursively_flatten(state.space, data)
             self.mergeable = data
             self.nonmergeable = (
                 state.blockstack.items[:],
-                state.last_exception,
                 state.next_instr,
                 state.w_locals,
             )
@@ -30,10 +36,14 @@ class FrameState:
             data = self.mergeable[:]
             recursively_unflatten(frame.space, data)
             frame.setfastscope(data[:fastlocals])
-            frame.valuestack.items[:] = data[fastlocals:]
+            frame.valuestack.items[:] = data[fastlocals:-2]
+            if data[-2] == Constant(None):
+                assert data[-1] == Constant(None)
+                frame.last_exception = None
+            else:
+                frame.last_exception = OperationError(data[-2], data[-1])
             (
                 frame.blockstack.items[:],
-                frame.last_exception,
                 frame.next_instr,
                 frame.w_locals,
             ) = self.nonmergeable

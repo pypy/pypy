@@ -174,7 +174,7 @@ def compute_C3_mro(cls):
             if mro_blockinglist(candidate, orderlists) is None:
                 break    # good candidate
         else:
-            mro_error(orderlists)  # no candidate found
+            return mro_error(orderlists)  # no candidate found
         assert candidate not in order
         order.append(candidate)
         for i in range(len(orderlists)-1, -1, -1):

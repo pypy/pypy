@@ -41,9 +41,9 @@ class PyFrame(eval.Frame):
         "Interpreter main loop!"
         try:
             while True:
+                executioncontext.bytecode_trace(self)
+                last_instr = self.next_instr
                 try:
-                    executioncontext.bytecode_trace(self)
-                    last_instr = self.next_instr
                     try:
                         # fetch and dispatch the next opcode
                         # dispatch() is abstract, see pyopcode.
