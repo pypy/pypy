@@ -155,6 +155,8 @@ class floatFFormatter(Formatter):
         self.prec = None
         return self.std_wp(r)
 
+import math
+
 class floatGFormatter(Formatter):
     def format(self):
         # this needs to be much, much more complicated :-( (perhaps
@@ -163,9 +165,39 @@ class floatGFormatter(Formatter):
         v = maybe_float(self.value)
         if self.prec is None:
             self.prec = 6
-        r = str(v)
-        if v > 0 and self.flags.f_sign:
-            r = '+' + r
+        i = 0
+        if v == 0.0:
+            if self.flags.f_sign:
+                return '+0'
+            else:
+                return '0'
+        elif v < 0.0:
+            sign = '-'
+            v = -v
+        else:
+            sign = '+'
+        p = math.floor(math.log(v, 10))
+        if p < 0:
+            r = ['0', '.'] + ['0'] * (-int(p))
+        r = []
+        vv = v
+        tol = abs(v*10.0**-self.prec)
+        while 1:
+            d = long(vv/10.0**p)
+            vv -= d*10.0**p
+            r.append(str(d))
+            if abs(vv) <= tol:
+                break
+            p -= 1
+            if p == -1:
+                r.append('.')
+        while p > 0:
+            r.append('0')
+            p -= 1
+        r = ''.join(r)
+        if sign == '-' or self.flags.f_sign:
+            r = sign + r
+        self.prec = None
         return self.std_wp(r)
 
 
