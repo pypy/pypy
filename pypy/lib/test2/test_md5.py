@@ -7,8 +7,16 @@ A note about performance: the pure Python MD5 takes roughly
 import autopath
 import string, unittest
 import md5                              # CPython's implementation in C.
-from pypy.appspace import md5 as pymd5  # The pure Python implementation.
-
+# since appspace is gone, we cannot test this way any longer:
+#from pypy.appspace import md5 as pymd5  # The pure Python implementation.
+# instead, we fake a module.
+# XXX think of a better wayto do this
+import os, new
+# fake import of the python module which we cannot see
+import pypy
+fname = os.path.join(pypy.__path__[0], 'lib', 'md5.py')
+pymd5 = new.module('pymd5')
+exec file(fname).read() in pymd5.__dict__
 
 # Helpers...
 
