@@ -23,6 +23,15 @@ from pypy.interpreter.module import Module as PyPyModule
 
 mydir = py.magic.autopath().dirpath()
 
+workingTests = (
+'test_urlparse.py',
+'test_base64.py',
+'test_binop.py',
+'test_bisect.py',
+'test_call',
+'test_codeop.py',
+'test_compile.py',
+)
 
 def make_module(space, dottedname, filepath): 
     #print "making module", dottedname, "from", filepath 
@@ -41,7 +50,7 @@ class Directory(py.test.collect.Directory):
         for x in self.fspath.listdir('test_*.py'): 
             if x.read().find('unittest') != -1: 
                 # we can try to run ...  
-                if x.basename != 'test_urlparse.py': 
+                if x.basename not in workingTests: 
                     continue
                 yield Module(x) 
 
