@@ -1,18 +1,13 @@
 
 import autopath 
-from pypy.tool import testit 
 
-class SpecialTestCase(testit.AppTestCase):
+class AppTestSpecialTestCase:
     def test_Ellipsis(self):
-        self.assertEquals(Ellipsis, Ellipsis)
-        self.assertEquals(repr(Ellipsis), 'Ellipsis')
+        assert Ellipsis == Ellipsis
+        assert repr(Ellipsis) == 'Ellipsis'
     
     def test_NotImplemented(self):
         def f():
             return NotImplemented
-        self.assertEquals(f(), NotImplemented) 
-        self.assertEquals(repr(NotImplemented), 'NotImplemented')
-
-if __name__ == '__main__':
-    testit.main()
-
+        assert f() == NotImplemented 
+        assert repr(NotImplemented) == 'NotImplemented'
