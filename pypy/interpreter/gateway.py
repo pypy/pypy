@@ -512,7 +512,7 @@ class applevel:
     def interphook(self, name):
         "NOT_RPYTHON"
         def appcaller(space, *args_w):
-            args = Arguments(space, args_w)
+            args = Arguments(space, list(args_w))
             w_func = self.wget(space, name) 
             return space.call_args(w_func, args)
         def get_function(space):
