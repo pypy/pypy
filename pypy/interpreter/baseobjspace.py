@@ -276,39 +276,34 @@ class ObjSpace(object):
             raise TypeError, 'space.exec_(): expected a string, code or PyCode object'
         return statement.exec_code(self, w_globals, w_locals)
 
-    def exec_with(self, source, **kwargs_w): 
+    def appexec(self, posargs, source): 
         """ return value from executing given source at applevel with 
             given name=wrapped value parameters as its starting scope.  
             Note: EXPERIMENTAL. 
         """ 
         space = self
-        pypyco,name2index = pypycodecache.getorbuild((space,source), 
-                                                     buildpypycode, kwargs_w) 
+        pypyco = pypycodecache.getorbuild((space,source), buildpypycode, posargs)
         w_glob = space.newdict([])
         frame = pypyco.create_frame(space, w_glob) 
-        for name, w_value in kwargs_w.items(): 
-            i = name2index[name]  
-            frame.fastlocals_w[i] = w_value 
+        frame.setfastscope(posargs)
         return frame.run() 
 
 pypycodecache = Cache() 
-def buildpypycode((space, source), kwargs_w): 
+def buildpypycode((space, source), posargs): 
     """ NOT_RPYTHON """ 
     # XXX will change once we have our own compiler 
     from pypy.interpreter.pycode import PyCode
     from pypy.tool.pytestsupport import py  # aehem
-    names = kwargs_w.keys() 
+    argdecl, source = source.split(':', 1)
+    argdecl = argdecl.strip()
+    if not argdecl.startswith('(') or not argdecl.endswith(')'): 
+        raise SyntaxError("incorrect exec_with header\n%s" % source)
     source = py.code.Source(source) 
-    source = source.putaround("def anon(%s):" % ", ".join(kwargs_w.keys()))
+    source = source.putaround("def anon%s:" % argdecl)
     d = {}
     exec source.compile() in d
     newco = d['anon'].func_code 
-    pypyco = PyCode(space)._from_code(newco) 
-    varnames = list(pypyco.getvarnames())
-    name2index = {}
-    for name, w_value in kwargs_w.items(): 
-        name2index[name] = varnames.index(name)
-    return pypyco, name2index   
+    return PyCode(space)._from_code(newco) 
 
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result
