@@ -20,6 +20,7 @@ from pypy.objspace.flow.model import FunctionGraph, Block, Link, Variable, Const
 from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.translator.simplify import simplify_graph
 from pypy.interpreter.error import OperationError
+from types import FunctionType
 
 from pypy.translator.translator import Translator
 
@@ -148,7 +149,7 @@ class GenRpy:
                     if meth:
                         break
                 else:
-                    raise Exception, "nameof(%r)" % (obj,)
+                    raise Exception, "nameof(%r) in %r" % (obj, self.current_func)
                 name = meth(obj)
             self.rpynames[key] = name
             return name
@@ -165,7 +166,7 @@ class GenRpy:
 
     def nameof_object(self, value):
         if type(value) is not object:
-            raise Exception, "nameof(%r)" % (value,)
+            raise Exception, "nameof(%r) in %r" % (value, self.current_func)
         name = self.uniquename('g_object')
         self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*)&PyBaseObject_Type, ""))'%name)
         return name
@@ -185,15 +186,11 @@ class GenRpy:
         return "w(%d)" % value
 
     def nameof_long(self, value):
-        assert type(int(value)) is int, "your literal long is too long"
-        if value >= 0:
-            name = 'glong%d' % value
+        # assume we want them in hex most of the time
+        if value < 256L:
+            return "%dL" % value
         else:
-            name = 'glong_minus%d' % abs(value)
-        name = self.uniquename(name)
-        self.initcode.append('INITCHK(%s = '
-                             'PyLong_FromLong(%d))' % (name, value))
-        return name
+            return "0x%08xL" % value
 
     def nameof_float(self, value):
         return "w(%s)" % value
@@ -402,6 +399,7 @@ class GenRpy:
         return name
 
     def nameof_dict(self, dic):
+        return 'space.newdict([w("sorry", "not yet"])'
         assert dic is not __builtins__
         assert '__builtins__' not in dic, 'Seems to be the globals of %s' % (
             dic.get('__name__', '?'),)
@@ -455,7 +453,7 @@ class GenRpy:
 
         # function implementations
         while self.pendingfunctions:
-            func = self.pendingfunctions.pop()
+            func = self.current_func = self.pendingfunctions.pop()
             print "#######", func.__name__
             self.gen_rpyfunction(func)
             # collect more of the latercode after each function
@@ -540,7 +538,6 @@ class GenRpy:
         start = graph.startblock
         blocks = ordered_blocks(graph)
         nblocks = len(blocks)
-        assert blocks[0] is start
 
         blocknum = {}
         for block in blocks:
@@ -552,7 +549,7 @@ class GenRpy:
         argstr = ", ".join(args)
         print >> f, "def %s(space, %s):" % (name, argstr)
         print >> f, "    w = space.wrap"
-        print >> f, "    goto = 1 # startblock"
+        print >> f, "    goto = %d # startblock" % blocknum[start]
         print >> f, "    while True:"
         
         def render_block(block):
@@ -627,7 +624,13 @@ class GenRpy:
             for line in render_block(block):
                 print "            %s" % line
 
-entry_point = (f, ff, fff, app_str_decode__String_ANY_ANY, app_mod__String_ANY) [-1]
+def test_md5():
+    #import md5
+    # how do I avoid the builtin module?
+    from pypy.appspace import md5
+    digest = md5.new("hello")
+
+entry_point = (f, ff, fff, app_str_decode__String_ANY_ANY, app_mod__String_ANY, test_md5) [-1]
 
 import os, sys
 from pypy.interpreter import autopath
@@ -637,7 +640,7 @@ appdir = os.path.join(autopath.pypydir, 'appspace')
 try:
     hold = sys.path[:]
     sys.path.insert(0, appdir)
-    t = Translator(entry_point, verbose=False, simplifying=not True)
+    t = Translator(entry_point, verbose=False, simplifying=True)
     gen = GenRpy(sys.stdout, t)
 finally:
     sys.path[:] = hold
