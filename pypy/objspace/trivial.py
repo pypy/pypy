@@ -154,7 +154,7 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
                 def fdel(w_obj, w_descr=descr, space=self):
                     return space.set(w_descr, w_obj)
                 descrdict[descrname] = property(fget, fset, fdel)
-            cls = type(typedef.name, bases, descrdict)
+            cls = type('CPyWrapped '+typedef.name, bases, descrdict)
             typedef.trivialwrapperclass = cls
             return cls
 
