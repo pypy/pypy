@@ -310,7 +310,8 @@ class PyInterpFrame(pyframe.PyFrame):
             if operror is None:
                 raise OperationError(f.space.w_TypeError,
                     f.space.wrap("raise: no active exception to re-raise"))
-            raise operror   # re-raise the same OperationError
+            # re-raise, no new traceback obj will be attached
+            raise pyframe.SApplicationException(operror)
         w_value = w_traceback = f.space.w_None
         if nbargs >= 3: w_traceback = f.valuestack.pop()
         if nbargs >= 2: w_value     = f.valuestack.pop()
