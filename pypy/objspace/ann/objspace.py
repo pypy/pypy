@@ -32,6 +32,8 @@ class AnnotationObjSpace(ObjSpace):
             if isinstance(c, (types.TypeType, Exception)):
                 setattr(self, 'w_' + c.__name__, self.wrap(c))
         self.w_builtins = self.wrap(__builtin__)
+        # XXX This should be done differently:
+        self.w_KeyError = self.wrap(KeyError)
 
     # Service methods whose interface is in the abstract base class
 
@@ -103,6 +105,15 @@ class AnnotationObjSpace(ObjSpace):
     # Methods implementing Python operations
     # (Many missing ones are added by make_op() below)
 
+    def is_(self, w_left, w_right):
+        if w_left is w_right:
+            return self.w_True
+        if isinstance(w_left, W_Constant) and isinstance(w_right, W_Constant):
+            # XXX Is this really safe?
+            if w_left.value is w_right.value:
+                return self.w_True
+        return W_Integer()
+
     def add(self, w_left, w_right):
         try:
             left = self.unwrap(w_left)
@@ -142,9 +153,29 @@ class AnnotationObjSpace(ObjSpace):
         else:
             return W_Anything()
 
+    def iter(self, w_iterable):
+        if isinstance(w_iterable, W_Constant):
+            value = w_iterable.value
+            try:
+                it = iter(value)
+            except:
+                raise OperationError(self.wrap(AttributeError),
+                                     self.wrap(AttributeError("__iter__")))
+        return W_Anything()
+
+    def next(self, w_iterator):
+        if hasattr(w_iterator, "force"):
+            if w_iterator.force:
+                return W_Anything()
+            raise NoValue
+        raise IndeterminateCondition(w_iterator)
+
     def call(self, w_func, w_args, w_kwds):
-        func = self.unwrap(w_func) # Would be bad it it was W_Anything
-        code = func.func_code
+        func = self.unwrap(w_func) # XXX What if this fails?
+        try:
+            code = func.func_code
+        except AttributeError:
+            return W_Anything()
         bytecode = self.bytecodecache.get(code)
         if bytecode is None:
             bytecode = PyByteCode()

@@ -95,6 +95,15 @@ class TestAnnotationObjSpace(test.TestCase):
                           'f', [self.space.wrap(5)])
         self.assertEquals(type(x), W_Integer)
 
+    def test_for(self):
+        x = self.codetest("def f(i):\n"
+                          "    for x in range(i):\n"
+                          "        i = i-1\n"
+                          "    return i\n",
+                          'f', [W_Integer()])
+        self.assertEquals(type(x), W_Integer)
+
+
     def dont_test_global(self):
         # XXX This will never work, because we don't handle mutating globals
         x = self.codetest("def f(i, j):\n"
