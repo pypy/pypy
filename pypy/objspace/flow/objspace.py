@@ -105,7 +105,8 @@ def make_op(name, symbol, arity, specialnames):
 
     op = getattr(operator, name, None)
     if not op:
-        return # Can't do it
+        if name == 'call':
+            op = apply
 
     def generic_operator(self, *args_w):
         assert len(args_w) == arity, name+" got the wrong number of arguments"
@@ -118,14 +119,15 @@ def make_op(name, symbol, arity, specialnames):
             else:
                 args.append(arg)
         else:
-            # All arguments are constants: call the operator now
-            #print >> sys.stderr, 'Constant operation:', op, args
-            try:
-                result = op(*args)
-            except:
-                self.reraise()
-            else:
-                return self.wrap(result)
+            if op:
+                # All arguments are constants: call the operator now
+                #print >> sys.stderr, 'Constant operation:', op, args
+                try:
+                    result = op(*args)
+                except:
+                    self.reraise()
+                else:
+                    return self.wrap(result)
 
         spaceop = SpaceOperation(name, args_w, W_Variable())
         self.executioncontext.crnt_ops.append(spaceop)
