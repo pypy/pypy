@@ -1,4 +1,9 @@
-import sys
+import sys, operator
+
+def coerce(left, right):
+    # XXX this is just a surrogate for now
+    # XXX the builtin coerce needs to be implemented by PyPy
+    return None
 
 obj_setattr = object.__setattr__
 obj_getattribute = object.__getattribute__
@@ -32,8 +37,8 @@ def set_dict(cls, dic):
     dic['__bases__'] = cls.__bases__
     obj_setattr(cls, '__dict__', dic)
 
-def retrieve(cls, attr):
-    dic = obj_getattribute(cls, '__dict__')
+def retrieve(obj, attr):
+    dic = obj_getattribute(obj, '__dict__')
     try:
         return dic[attr]
     except KeyError:
@@ -50,6 +55,15 @@ def lookup(cls, attr):
             if found:
                 return v, found
         return None, None
+
+def get_class_module(cls):
+    try:
+        mod = retrieve(cls, "__module__")
+    except AttributeError:
+        mod = None
+    if not isinstance(mod, str):
+        return "?"
+    return mod
 
 def mro_lookup(v, name):
     try:
@@ -141,31 +155,213 @@ class classobj(object):
         return descr_get(v, None, self)
         
     def __repr__(self):
-        try:
-            mod = retrieve(self, '__module__')
-            if not isinstance(mod, str):
-                mod = None
-        except AttributeError:
-            mod = None
-        if mod is None:
-            return "<class ?.%s at 0x%x>" % (self.__name__, uid(self))
-        else:
-            return "<class %s.%s at 0x%x>" % (mod, self.__name__, uid(self))
+        mod = get_class_module(self)
+        return "<class %s.%s at 0x%x>" % (mod, self.__name__, uid(self))
 
     def __str__(self):
-        try:
-            mod = retrieve(self, '__module__')
-            if not isinstance(mod, str):
-                mod = None
-        except AttributeError:
-            mod = None
-        if mod is None:
+        mod = get_class_module(self)
+        if mod == "?":
             return self.__name__
         else:
             return "%s.%s" % (mod, self.__name__)
 
+    def __call__(self, *args, **kwds):
+        inst = object.__new__(instance)
+        dic = inst.__dict__
+        dic['__class__'] = self
+        try:
+            init = self.__init__
+        except AttributeError:
+            pass
+        else:
+            ret = init(inst, *args, **kwds)
+            if ret is not None:
+                raise TypeError("__init__() should return None")
+        return inst
+
+# first we use the object's dict for the instance dict.
+# with a little more effort, it should be possible
+# to provide a clean extra dict with no other attributes
+# in it.
+
+def instance_getattr1(inst, name, exc=True):
+    if name == "__dict__":
+        return obj_getattribute(inst, name)
+    elif name == "__class__":
+        # for now, it lives in the instance dict
+        return retrieve(inst, name)
+    try:
+        return retrieve(inst, name)
+    except AttributeError:
+        cls = retrieve(inst, "__class__")
+        v, found = lookup(cls, name)
+        if not found:
+            if exc:
+                raise AttributeError, "%s instance has no attribute %s" % (cls.__name__, name)
+            else:
+                return None
+        descr_get = mro_lookup(v, '__get__')
+        if descr_get is None:
+            return v
+        return descr_get(v, inst, cls)
 
 class instance(object):
-    pass
- 
+    def __getattribute__(self, name):
+        try:
+            return instance_getattr1(self, name)
+        except AttributeError:
+            getattr = instance_getattr1(self, '__getattr__', exc=False)
+            if getattr is not None:
+                return getattr(name)
+            raise
             
+    def __new__(typ, klass, dic=None):
+        # typ is not used at all
+        if not isinstance(klass,classobj):
+            raise TypeError("instance() first arg must be class")
+        if dic is None:
+            dic = {}
+        elif not isinstance(dic, dict):
+            raise TypeError("instance() second arg must be dictionary or None")
+        inst = object.__new__(instance)
+        dic['__class__'] = klass
+        obj_setattr(inst, '__dict__', dic)
+        return inst
+
+    def __setattr__(self, name, value):
+        if name == '__dict__':
+            if not isinstance(value, dict):
+                raise TypeError("__dict__ must be set to a dictionary")
+            # for now, we need to copy things, because we are using
+            # the __dict__for our class as well. This will vanish!
+            value['__class__'] = self.__class__
+            obj_setattr(inst, '__dict__', value)
+        elif name == '__class__':
+            if not isinstance(value, classobj):
+                raise TypeError("__class__ must be set to a class")
+            self.__dict__['__class__'] = value
+        else:
+            setattr = instance_getattr1(self, '__setattr__', exc=False)
+            if setattr is not None:
+                setattr(name, value)
+            else:
+                self.__dict__[name] = value
+
+    def __delattr__(self, name):
+        # abuse __setattr__ to get the complaints :-)
+        # this is as funny as in CPython
+        if name in ('__dict__', '__class__'):
+            instance.__setattr__(self, name, None)
+        else:
+            delattr = instance_getattr1(self, '__delattr__', exc=False)
+            if delattr is not None:
+                delattr(name)
+            else:
+                try:
+                    del self.__dict__[name]
+                except KeyError, ex:
+                    raise AttributeError("%s instance has no attribute '%s'" % (
+                        self.__class__.__name__,name) )
+
+    def __repr__(self):
+        try:
+            func = instance_getattr1(self, '__repr__')
+        except AttributeError:
+            klass = self.__class__
+            mod = get_class_module(klass)
+            return "<%s.%s instance at 0x%x>" % (mod, klass.__name__, uid(self))
+        return func()
+
+    def __str__(self):
+        try:
+            func = instance_getattr1(self, '__str__')
+        except AttributeError:
+            return instance.__repr__(self)
+        return func()
+
+    def __hash__(self):
+        _eq = instance_getattr1(self, "__eq__", False)
+        _cmp = instance_getattr1(self, "__cmp__", False)
+        _hash = instance_getattr1(self, "__hash__", False)
+        if (_eq or _cmp) and not _hash:
+            raise TypeError("unhashable instance")
+        if _hash:
+            ret = _hash()
+            if not isinstance(ret, int):
+                raise TypeError("__hash__() should return an int")
+        else:
+            return id(self)
+
+    def __len__(self):
+        ret = instance_getattr1(self,'__len__')()
+        if isinstance(ret, int):
+            if ret < 0:
+                raise ValueError("__len__() should return >= 0")
+            return ret
+        else:
+            raise TypeError("__len__() should return an int")
+
+    def __getitem__(self, key):
+        if isinstance(key, slice) and key.step is None:
+            func = instance_getattr1(self, '__getslice__', False)
+            if func:
+                return func(key.start, key.end)
+        return instance_getattr1(self, '__getitem__')(key)
+
+    def __setitem__(self, key, value):
+        if isinstance(key, slice) and key.step is None:
+            func = instance_getattr1(self, '__setslice__', False)
+            if func:
+                func(key.start, key.end, value)
+        instance_getattr1(self, '__setitem__')(key, value)
+
+    def __delitem__(self, key):
+        if isinstance(key, slice) and key.step is None:
+            func = instance_getattr1(self, '__delslice__', False)
+            if func:
+                func(key.start, key.end)
+        instance_getattr1(self, '__delitem__')(key)
+
+    def __contains__(self, obj):
+        func = instance_getattr1(self, '__contains__', False)
+        if func:
+            return bool(func(obj))
+        # now do it ourselves
+        for x in self:
+            if x == obj:
+                return True
+        return False
+
+    # unary operators
+    def __neg__(self):
+        return instance_getattr1(self, '__neg__')()
+    def __pos__(self):
+        return instance_getattr1(self, '__abs__')()
+    def __abs__(self):
+        return instance_getattr1(self, '__abs__')()
+
+    # binary operators    
+    for op in "or and xor lshift rshift add sub mul div mod divmod floordiv truediv".split():
+        exec("""
+def __%(op)s__(self, other):
+    coerced = coerce(self, other)
+    if coerced is None or coerced[0] is self:
+        func = instance_getattr1(self, '__%(op)s__', False)
+        if func:
+            return func(other)
+        return NotImplemented
+    else:
+        return operator.%(op2)s(self, other)
+
+def __r%(op)s__(self, other):
+    coerced = coerce(self, other)
+    if coerced is None or coerced[0] is self:
+        func = instance_getattr1(self, '__r%(op)s__', False)
+        if func:
+            return func(other)
+        return NotImplemented
+    else:
+        return operator.%(op2)s(other, self)
+""") % {"op": op, "op2": (op, op+'_')[op in ('and', 'or', 'not')]}
+    del op
+
