@@ -21,7 +21,7 @@ class RPythonAnnotator:
 
     def __init__(self, translator=None):
         self.translator = translator
-        self.pendingblocks = []  # list of (fn, block, list-of-SomeValues-args)
+        self.pendingblocks = {}  # map {block: function}
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
         self.links_followed = {} # set of links that have ever been followed
@@ -110,15 +110,18 @@ class RPythonAnnotator:
         assert self.translator is None or fn in self.translator.flowgraphs
         for a in cells:
             assert isinstance(a, annmodel.SomeObject)
-        self.pendingblocks.append((fn, block, cells, called_from))
+        if block not in self.annotated:
+            self.bindinputargs(block, cells, called_from)
+        else:
+            self.mergeinputargs(block, cells, called_from)
+        if not self.annotated[block]:
+            self.pendingblocks[block] = fn
 
     def complete(self):
         """Process pending blocks until none is left."""
         while self.pendingblocks:
-            # XXX don't know if it is better to pop from the head or the tail.
-            # but suspect from the tail is better in the new Factory model.
-            fn, block, cells, called_from = self.pendingblocks.pop()
-            self.processblock(fn, block, cells, called_from)
+            block, fn = self.pendingblocks.popitem()
+            self.processblock(fn, block)
         if False in self.annotated.values():
             if annmodel.DEBUG:
                 for block in self.annotated:
@@ -277,7 +280,7 @@ class RPythonAnnotator:
 
     #___ flowing annotations in blocks _____________________
 
-    def processblock(self, fn, block, cells, called_from=None):
+    def processblock(self, fn, block):
         # Important: this is not called recursively.
         # self.flowin() can only issue calls to self.addpendingblock().
         # The analysis of a block can be in three states:
@@ -291,31 +294,26 @@ class RPythonAnnotator:
         #      input variables).
 
         #print '* processblock', block, cells
-        if block not in self.annotated:
-            self.bindinputargs(block, cells, called_from)
-        elif cells is not None:
-            self.mergeinputargs(block, cells, called_from)
-        if not self.annotated[block]:
-            self.annotated[block] = fn or True
-            try:
-                self.flowin(fn, block)
-            except BlockedInference, e:
-                #print '_'*60
-                #print 'Blocked at %r:' % (e.break_at,)
-                #import traceback, sys
-                #traceback.print_tb(sys.exc_info()[2])
-                self.annotated[block] = False   # failed, hopefully temporarily
-                if annmodel.DEBUG:
-                    import sys
-                    self.why_not_annotated[block] = sys.exc_info()
-            except Exception, e:
-                # hack for debug tools only
-                if not hasattr(e, '__annotator_block'):
-                    setattr(e, '__annotator_block', block)
-                raise
+        self.annotated[block] = fn or True
+        try:
+            self.flowin(fn, block)
+        except BlockedInference, e:
+            #print '_'*60
+            #print 'Blocked at %r:' % (e.break_at,)
+            #import traceback, sys
+            #traceback.print_tb(sys.exc_info()[2])
+            self.annotated[block] = False   # failed, hopefully temporarily
+            if annmodel.DEBUG:
+                import sys
+                self.why_not_annotated[block] = sys.exc_info()
+        except Exception, e:
+            # hack for debug tools only
+            if not hasattr(e, '__annotator_block'):
+                setattr(e, '__annotator_block', block)
+            raise
 
     def reflowpendingblock(self, fn, block):
-        self.pendingblocks.append((fn, block, None, None))
+        self.pendingblocks[block] = fn
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow
 
