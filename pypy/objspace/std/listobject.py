@@ -46,6 +46,9 @@ class W_ListObject(W_Object):
     def count(w_self, w_any):
         return list_count(w_self.space, w_self, w_any)
 
+    def reverse(w_self):
+        return list_reverse(w_self.space, w_self)
+
 def list_unwrap(space, w_list):
     items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]
     return list(items)
@@ -211,6 +214,9 @@ def getattr_list(space, w_list, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('count'))):
         w_builtinfn = make_builtin_func(space, W_ListObject.count)
         return W_InstMethObject(space, w_list, w_builtinfn)
+    if space.is_true(space.eq(w_attr, space.wrap('reverse'))):
+        w_builtinfn = make_builtin_func(space, W_ListObject.reverse)
+        return W_InstMethObject(space, w_list, w_builtinfn)
     raise FailedToImplement(space.w_AttributeError)
 
 StdObjSpace.getattr.register(getattr_list, W_ListObject, W_ANY)
@@ -369,6 +375,23 @@ def list_count(space, w_list, w_any):
         if space.is_true(cmp):
             count += 1
     return space.wrap(count)
+
+# Reverse a slice of a list in place, from lo up to (exclusive) hi.
+# (also used in sort, later)
+
+def _reverse_slice(lis, lo, hi):
+    hi -= 1
+    while lo < hi:
+        t = lis[lo]
+        lis[lo] = lis[hi]
+        lis[hi] = t
+        lo += 1
+        hi -= 1
+
+def list_reverse(space, w_list):
+    if w_list.ob_size > 1:
+        _reverse_slice(w_list.ob_item, 0, w_list.ob_size)
+    return space.w_None
 
 """
 static PyMethodDef list_methods[] = {
