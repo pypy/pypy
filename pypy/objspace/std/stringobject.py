@@ -5,6 +5,7 @@ from sliceobject import W_SliceObject
 from listobject import W_ListObject
 from instmethobject import W_InstMethObject
 from noneobject import W_NoneObject
+from tupleobject import W_TupleObject
 from pypy.interpreter.extmodule import make_builtin_func
 
 from rarray import CharArrayFromStr, CharArraySize
@@ -293,8 +294,8 @@ StdObjSpace.getitem.register(getitem_str_int,
                              W_StringObject, W_IntObject)
 
 def getitem_str_slice(space, w_str, w_slice):
-#    return space.gethelper(applicationfile).call(
-#        "getitem_string_slice", [w_str, w_slice])
+    return space.gethelper(applicationfile).call(
+        "getitem_string_slice", [w_str, w_slice])
     w = space.wrap
     u = space.unwrap
     w_start, w_stop, w_step, w_sl = w_slice.indices(w(w_str._value.len))
@@ -338,8 +339,24 @@ StdObjSpace.str.register(str_str, W_StringObject)
 
 def str_repr(space, w_str):
     # XXX this is bogus -- mwh
+    return space.wrap(repr(space.unwrap(w_str)))
     a = space.add
     q = space.wrap("'")
     return a(a(q, w_str), q)
 
 StdObjSpace.repr.register(str_repr, W_StringObject)
+
+def str_ord(space, w_str):
+    return space.wrap(ord(space.unwrap(w_str)))
+
+StdObjSpace.ord.register(str_ord, W_StringObject)
+
+def str_mod_any(space, w_str, w_item):
+    return str_mod_tuple(space, w_str, space.newtuple([w_item]))
+
+StdObjSpace.mod.register(str_mod_any, W_StringObject, W_ANY)
+
+def str_mod_tuple(space, w_str, w_tuple):
+    return space.wrap(space.unwrap(w_str)%space.unwrap(w_tuple))
+
+StdObjSpace.mod.register(str_mod_tuple, W_StringObject, W_TupleObject)
