@@ -290,6 +290,14 @@ class AnnotationObjSpace(ObjSpace):
             w_obj.setattr(name, w_value)
         # Space setattr shouldn't return anything, so no w_None here
 
+    def setitem(self, w_obj, w_key, w_value):
+        if (isinstance(w_obj, W_KnownKeysContainer) and
+            isinstance(w_key, W_Constant)):
+            key = self.unwrap(w_key)
+            w_obj.args_w[key] = w_value
+            return
+        # XXX How to record the side effect?
+
     def len(self, w_obj):
         if isinstance(w_obj, W_KnownKeysContainer):
             return self.wrap(len(w_obj))
