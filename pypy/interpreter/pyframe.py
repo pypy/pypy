@@ -54,7 +54,9 @@ class PyFrame:
                         executioncontext.exception_trace(e)
                         # convert an OperationError into a control flow
                         # exception
-                        raise SApplicationException(e)
+                        import sys
+                        tb = sys.exc_info()[2]
+                        raise SApplicationException(e, tb)
                     # XXX some other exceptions could be caught here too,
                     #     like KeyboardInterrupt
 
@@ -303,8 +305,8 @@ class SApplicationException(ControlFlowException):
     (i.e. an OperationException)."""
     def emptystack(self, frame):
         # propagate the exception to the caller
-        operationerr = self.args[0]
-        raise operationerr
+        operationerr, tb = self.args
+        raise operationerr.__class__, operationerr, tb
 
 class SBreakLoop(ControlFlowException):
     """Signals a 'break' statement."""
