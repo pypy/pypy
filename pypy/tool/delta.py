@@ -478,7 +478,7 @@ class Report(Entry):
 
         f = open(os.path.join(dir, self.fname()),'w')
 
-        f.write(HEADER+unicode(page).encode("utf8"))
+        f.write(HEADER+page.unicode().encode("utf8"))
 
         f.close()
 
