@@ -664,6 +664,13 @@ class __builtin__(ExtModule):
                 
             return Dict.keys()
 
+    def app_intern(self, s):
+        """
+        We don't have a string table, making intern a null operation.
+        This is here for backwards compatibility.
+        """
+        return s
+    
 # source code for the builtin xrange-class
 xrange_appsource = """if 1: 
     class xrange:

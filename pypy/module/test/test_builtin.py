@@ -153,6 +153,10 @@ class TestBuiltinApp(test.AppTestCase):
     def test_divmod(self):
         self.assertEquals(divmod(15,10),(1,5))
 
+    def test_intern(self):
+        s = 'xxx'
+        self.assertEquals(intern(s), s)
+        
 class TestInternal(test.IntTestCase):
 
     def setUp(self):
