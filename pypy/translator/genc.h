@@ -2,9 +2,14 @@
 /************************************************************/
  /***  Generic C header section                            ***/
 
-#include <Python.h>
-#include <structmember.h>
+#include "Python.h"
+#include "compile.h"
+#include "frameobject.h"
+#include "structmember.h"
 
+/* Turn this off if you don't want the call trace frames to be built */
+#define USE_CALL_TRACE
+#define OBNOXIOUS_PRINT_STATEMENTS
 
 #define op_richcmp(x,y,r,err,dir)   \
                        if (!(r=PyObject_RichCompare(x,y,dir))) goto err;
@@ -184,8 +189,54 @@ static PyTypeObject PyGenCFunction_Type = {
 #define OP_NEWLIST0(r,err)         if (!(r=PyList_New(0))) goto err;
 #define OP_NEWLIST(args,r,err)     if (!(r=PyList_Pack args)) goto err;
 #define OP_NEWTUPLE(args,r,err)    if (!(r=PyTuple_Pack args)) goto err;
+
+#if defined(USE_CALL_TRACE)
+
+#define OP_SIMPLE_CALL(args, r, err) do { \
+	PyCodeObject *c = getcode("OP_SIMPLE_CALL" #args, __LINE__); \
+	PyThreadState *tstate = PyThreadState_GET(); \
+	PyFrameObject *f; \
+	if (c == NULL) { \
+		r = NULL; \
+		goto err; \
+	} \
+	f = PyFrame_New(tstate, c, PyEval_GetGlobals(), NULL); \
+	if (f == NULL) { \
+		r = NULL; \
+		goto err; \
+	} \
+	Py_DECREF(c); \
+	tstate->frame = f; \
+	if (trace_frame(tstate, f, PyTrace_CALL, Py_None) < 0) { \
+		r = NULL; \
+		goto err; \
+	} \
+	r = PyObject_CallFunctionObjArgs args; \
+	if (r == NULL) { \
+		if (tstate->curexc_traceback == NULL) { \
+			PyTraceBack_Here(f); \
+		} \
+		if (trace_frame_exc(tstate, f) < 0) { \
+			goto err; \
+		} \
+	} \
+	else { \
+		if (trace_frame(tstate, f, PyTrace_RETURN, r) < 0) { \
+			Py_XDECREF(r); \
+			r = NULL; \
+		} \
+	} \
+	tstate->frame = f->f_back; \
+	Py_DECREF(f); \
+	if (r == NULL) goto err; \
+} while (0);
+
+#else
+
 #define OP_SIMPLE_CALL(args,r,err) if (!(r=PyObject_CallFunctionObjArgs args)) \
 					goto err;
+
+#endif
 
 static PyObject* PyList_Pack(int n, ...)
 {
@@ -196,8 +247,9 @@ static PyObject* PyList_Pack(int n, ...)
 
 	va_start(vargs, n);
 	result = PyList_New(n);
-	if (result == NULL)
+	if (result == NULL) {
 		return NULL;
+	}
 	for (i = 0; i < n; i++) {
 		o = va_arg(vargs, PyObject *);
 		Py_INCREF(o);
@@ -218,8 +270,9 @@ static PyObject* PyTuple_Pack(int n, ...)
 
 	va_start(vargs, n);
 	result = PyTuple_New(n);
-	if (result == NULL)
+	if (result == NULL) {
 		return NULL;
+	}
 	items = ((PyTupleObject *)result)->ob_item;
 	for (i = 0; i < n; i++) {
 		o = va_arg(vargs, PyObject *);
@@ -239,23 +292,30 @@ static PyObject* PyTuple_Pack(int n, ...)
 static PyObject* PyObject_GetItem1(PyObject* obj, PyObject* index)
 {
 	int start, stop, step;
-	if (!PySlice_Check(index))
+	if (!PySlice_Check(index)) {
 		return PyObject_GetItem(obj, index);
-	if (((PySliceObject*) index)->start == Py_None)
-		start = -INT_MAX-1;
-	else {
-		start = PyInt_AsLong(((PySliceObject*) index)->start);
-		if (start == -1 && PyErr_Occurred()) return NULL;
 	}
-	if (((PySliceObject*) index)->stop == Py_None)
+	if (((PySliceObject*) index)->start == Py_None) {
+		start = -INT_MAX-1;
+	} else {
+		start = PyInt_AsLong(((PySliceObject*) index)->start);
+		if (start == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
+	}
+	if (((PySliceObject*) index)->stop == Py_None) {
 		stop = INT_MAX;
-	else {
+	} else {
 		stop = PyInt_AsLong(((PySliceObject*) index)->stop);
-		if (stop == -1 && PyErr_Occurred()) return NULL;
+		if (stop == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
 	}
 	if (((PySliceObject*) index)->step != Py_None) {
 		step = PyInt_AsLong(((PySliceObject*) index)->step);
-		if (step == -1 && PyErr_Occurred()) return NULL;
+		if (step == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
 		if (step != 1) {
 			PyErr_SetString(PyExc_ValueError,
 					"obj[slice]: no step allowed");
@@ -267,23 +327,30 @@ static PyObject* PyObject_GetItem1(PyObject* obj, PyObject* index)
 static PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
 {
 	int start, stop, step;
-	if (!PySlice_Check(index))
+	if (!PySlice_Check(index)) {
 		return PyObject_SetItem(obj, index, v);
-	if (((PySliceObject*) index)->start == Py_None)
-		start = -INT_MAX-1;
-	else {
-		start = PyInt_AsLong(((PySliceObject*) index)->start);
-		if (start == -1 && PyErr_Occurred()) return NULL;
 	}
-	if (((PySliceObject*) index)->stop == Py_None)
+	if (((PySliceObject*) index)->start == Py_None) {
+		start = -INT_MAX-1;
+	} else {
+		start = PyInt_AsLong(((PySliceObject*) index)->start);
+		if (start == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
+	}
+	if (((PySliceObject*) index)->stop == Py_None) {
 		stop = INT_MAX;
-	else {
+	} else {
 		stop = PyInt_AsLong(((PySliceObject*) index)->stop);
-		if (stop == -1 && PyErr_Occurred()) return NULL;
+		if (stop == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
 	}
 	if (((PySliceObject*) index)->step != Py_None) {
 		step = PyInt_AsLong(((PySliceObject*) index)->step);
-		if (step == -1 && PyErr_Occurred()) return NULL;
+		if (step == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
 		if (step != 1) {
 			PyErr_SetString(PyExc_ValueError,
 					"obj[slice]: no step allowed");
@@ -295,6 +362,119 @@ static PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
 #endif
 
 static PyObject* PyExc_OperationError;
+
+#ifdef USE_CALL_TRACE
+static int
+trace_frame(PyThreadState *tstate, PyFrameObject *f, int code, PyObject *val)
+{
+	int result = 0;
+	if (!tstate->use_tracing || tstate->tracing) {
+		return 0;
+	}
+	if (tstate->c_profilefunc != NULL) {
+		tstate->tracing++;
+		result = tstate->c_profilefunc(tstate->c_profileobj,
+						   f, code , val);
+		tstate->use_tracing = ((tstate->c_tracefunc != NULL)
+					   || (tstate->c_profilefunc != NULL));
+		tstate->tracing--;
+		if (result) {
+			return result;
+		}
+	}
+	if (tstate->c_tracefunc != NULL) {
+		tstate->tracing++;
+		result = tstate->c_tracefunc(tstate->c_traceobj,
+						 f, code , val);
+		tstate->use_tracing = ((tstate->c_tracefunc != NULL)
+					   || (tstate->c_profilefunc != NULL));
+		tstate->tracing--;
+	}   
+	return result;
+}
+
+static int
+trace_frame_exc(PyThreadState *tstate, PyFrameObject *f)
+{
+	PyObject *type, *value, *traceback, *arg;
+	int err;
+
+	if (tstate->c_tracefunc == NULL) {
+		return 0;
+	}
+
+	PyErr_Fetch(&type, &value, &traceback);
+	if (value == NULL) {
+		value = Py_None;
+		Py_INCREF(value);
+	}
+	arg = PyTuple_Pack(3, type, value, traceback);
+	if (arg == NULL) {
+		PyErr_Restore(type, value, traceback);
+		return 0;
+	}
+	err = trace_frame(tstate, f, PyTrace_EXCEPTION, arg);
+	Py_DECREF(arg);
+	if (err == 0) {
+		PyErr_Restore(type, value, traceback);
+	} else {
+		Py_XDECREF(type);
+		Py_XDECREF(value);
+		Py_XDECREF(traceback);
+	}
+	return err;
+}
+
+static PyCodeObject*
+getcode(char* func_name, int lineno)
+{
+	PyObject *code = NULL;
+	PyObject *name = NULL;
+	PyObject *nulltuple = NULL;
+	PyObject *filename = NULL;
+	PyCodeObject *tb_code = NULL;
+
+#if defined(OBNOXIOUS_PRINT_STATEMENTS)
+	printf("%d: %s\n", lineno, func_name);
+#endif
+	code = PyString_FromString("");
+	if (code == NULL)
+		goto failed;
+	name = PyString_FromString(func_name);
+	if (name == NULL)
+		goto failed;
+	nulltuple = PyTuple_New(0);
+	if (nulltuple == NULL)
+		goto failed;
+	filename = PyString_FromString(__FILE__);
+	tb_code = PyCode_New(0,       /* argcount */
+						 0,       /* nlocals */
+						 0,       /* stacksize */
+						 0,       /* flags */
+						 code,        /* code */
+						 nulltuple,   /* consts */
+						 nulltuple,   /* names */
+						 nulltuple,   /* varnames */
+						 nulltuple,   /* freevars */
+						 nulltuple,   /* cellvars */
+						 filename,    /* filename */
+						 name,        /* name */
+						 lineno,      /* firstlineno */
+						 code     /* lnotab */
+						 );
+	if (tb_code == NULL)
+		goto failed;
+	Py_DECREF(code);
+	Py_DECREF(nulltuple);
+	Py_DECREF(filename);
+	Py_DECREF(name);
+	return tb_code;
+ failed:
+	Py_XDECREF(code);
+	Py_XDECREF(name);
+	return NULL;
+}
+#endif
 
 /************************************************************/
  /***  The rest is produced by genc.py                     ***/
