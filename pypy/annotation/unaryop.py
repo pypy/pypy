@@ -186,18 +186,14 @@ class __extend__(SomePrebuiltConstant):
 
     def getattr(pbc, s_attr):
         assert s_attr.is_constant()
+        attr = s_attr.const
         bookkeeper = getbookkeeper()
         actuals = []
-        attr = s_attr.const
         for c in pbc.prebuiltinstances:
             bookkeeper.attrs_read_from_constants.setdefault(c, {})[attr] = True
             if hasattr(c.value, attr):
-                actuals.append(immutablevalue(getattr(c.value, s_attr.const)))
+                actuals.append(immutablevalue(getattr(c.value, attr)))
         return unionof(*actuals)
 
     def setattr(pbc, s_attr, s_value):
         raise Exception, "oops!"
-
-    def simple_call(pbc, *args):
-        s_meth = pbc.getattr(immutablevalue("__call__"))
-        return s_meth.simple_call(*args)

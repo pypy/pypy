@@ -49,7 +49,7 @@ def builtin_type(s_obj, *moreargs):
     if moreargs:
         raise Exception, 'type() called with more than one argument'
     #...
-    return SomeObject(knowntype=type)
+    return SomeObject()
 
 
 # collect all functions
