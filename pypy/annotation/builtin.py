@@ -80,6 +80,12 @@ def builtin_type(s_obj, *moreargs):
 def builtin_str(s_obj):
     return SomeString()
 
+def builtin_list(s_iterable):
+    factory = getbookkeeper().getfactory(ListFactory)
+    s_iter = s_iterable.iter()
+    factory.generalize(s_iter.next())
+    return factory.create()
+
 # collect all functions
 import __builtin__
 BUILTIN_FUNCTIONS = {}
