@@ -172,9 +172,9 @@ def %(_name)s(self, *args):
             raise NoValue
 
     def newfunction(self, code, globals, defaultarguments, closure=None):
-        assert hasattr(code, co_name)
-        assert hasattr(code, build_arguments)
-        assert hasattr(code, eval_code)
+        assert hasattr(code, 'co_name')
+        assert hasattr(code, 'build_arguments')
+        assert hasattr(code, 'eval_code')
         class nufun(object):
             def __init__(self, space, code, globals, defaultarguments, closure):
                 self.space = space
