@@ -2,6 +2,7 @@ import autopath
 import py
 from py.__impl__.magic import exprinfo
 from pypy.interpreter.gateway import interp2app_temp
+from pypy.interpreter.error import OperationError
 
 # ____________________________________________________________
 
@@ -107,3 +108,39 @@ def build_pytest_assertion(space):
                                space.wrap('AssertionError'),
                                space.newtuple([w_BuiltinAssertionError]),
                                w_dict)
+
+def pypyraises(space, w_ExpectedException, w_expr, __args__):
+    """A built-in function providing the equivalent of py.test.raises()."""
+    args_w, kwds_w = __args__.unpack()
+    if space.is_true(space.isinstance(w_expr, space.w_str)):
+        if args_w:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("raises() takes no argument "
+                                            "after a string expression"))
+        expr = space.unwrap(w_expr)
+        source = py.code.Source(expr)
+        frame = space.executioncontext.framestack.top()
+        w_locals = frame.getdictscope()
+        w_locals = space.call_method(w_locals, 'copy')
+        for key, w_value in kwds_w.items():
+            space.setitem(w_locals, space.wrap(key), w_value)
+        try:
+            space.call_method(space.w_builtin, 'eval',
+                              space.wrap(str(source)),
+                              frame.w_globals,
+                              w_locals)
+        except OperationError, e:
+            if e.match(space, w_ExpectedException):
+                return space.sys.exc_info()
+            raise
+    else:
+        try:
+            space.call_args(w_expr, __args__)
+        except OperationError, e:
+            if e.match(space, w_ExpectedException):
+                return space.sys.exc_info()
+            raise
+    raise OperationError(space.w_AssertionError,
+                         space.wrap("DID NOT RAISE"))
+
+app_raises = interp2app_temp(pypyraises)
