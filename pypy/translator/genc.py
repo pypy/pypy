@@ -179,15 +179,19 @@ class GenC:
         return name
 
     def nameof_function(self, func):
+        printable_name = '(%s:%d) %s' % (
+            func.func_globals.get('__name__', '?'),
+            func.func_code.co_firstlineno,
+            func.__name__)
         if self.translator.frozen:
             if func not in self.translator.flowgraphs:
-                print "NOT GENERATING", func
+                print "NOT GENERATING", printable_name
                 return self.skipped_function(func)
         else:
             if func.func_doc and func.func_doc.startswith('NOT_RPYTHON'):
-                print "skipped", func
+                print "skipped", printable_name
                 return self.skipped_function(func)
-            print "nameof", func
+            print "nameof", printable_name
         name = self.uniquename('gfunc_' + func.__name__)
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
