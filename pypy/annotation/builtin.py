@@ -3,6 +3,7 @@ Built-in functions.
 """
 
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
+from pypy.annotation.model import SomeTuple 
 from pypy.annotation.model import SomeString
 from pypy.annotation.model import immutablevalue
 from pypy.annotation.factory import ListFactory, getbookkeeper
@@ -45,6 +46,11 @@ def builtin_getattr(s_obj, s_attr):
         raise Exception, 'getattr(%r, %r) is not RPythonic enough' % (
             s_obj, s_attr)
     return s_obj.getattr(s_attr)
+
+def builtin_tuple(s_iterable):
+    if isinstance(s_iterable, SomeTuple):
+        return s_iterable
+    return SomeObject()
 
 def builtin_type(s_obj, *moreargs):
     if moreargs:
