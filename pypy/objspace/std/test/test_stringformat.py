@@ -17,6 +17,12 @@ class TestStringObject(testit.AppTestCase):
         self.assertEquals('a%', 'a%%' % ())
         self.assertEquals('%', '%%' % ())
 
+    def test_format_wronglength(self):
+        self.assertRaises(TypeError, '%s%s'.__mod__, ())
+        self.assertRaises(TypeError, '%s%s'.__mod__, (23,))
+        self.assertRaises(TypeError, '%s%s'.__mod__, (23,)*3)
+        self.assertRaises(TypeError, '%s%s'.__mod__, (23,)*4)
+
     def test_format_wrongchar(self):
         self.assertRaises(ValueError, 'a%Zb'.__mod__, ((23,),))
 

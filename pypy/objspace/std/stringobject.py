@@ -955,24 +955,29 @@ def app_mod__String_Tuple(format, values):
             pieces.append(format[start:i])
             state = 1
         else:
-            if c=='%':
-                pieces.append('%')
-            elif c=='s':
-                pieces.append(str(l.pop()))
-            elif c=='d':
-                pieces.append(str(int(l.pop())))
-            elif c=='x':
-                pieces.append(hex(int(l.pop())))
-            elif c=='r':
-                pieces.append(repr(l.pop()))
-            else:
-                raise ValueError, "unsupported format character '%s' (%x) at index %d" % (
-                        c, ord(c), i)
+            try:
+                if c=='%':
+                    pieces.append('%')
+                elif c=='s':
+                    pieces.append(str(l.pop()))
+                elif c=='d':
+                    pieces.append(str(int(l.pop())))
+                elif c=='x':
+                    pieces.append(hex(int(l.pop())))
+                elif c=='r':
+                    pieces.append(repr(l.pop()))
+                else:
+                    raise ValueError, "unsupported format character '%s' (%x) at index %d" % (
+                            c, ord(c), i)
+            except IndexError:
+                raise TypeError, 'not enough arguments for format string'
             state = 0
             start = i+1
 
     if state == 1:
         raise ValueError, "incomplete format"
+    if l:
+        raise TypeError, 'not all arguments converted during string formatting'
 
     pieces.append(format[start:])
     return ''.join(pieces)
