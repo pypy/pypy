@@ -73,16 +73,13 @@ class W_DictObject(W_Object):
             freeslot = None
 
         perturb = lookup_hash
-        if __debug__:
-            c = len(self.data) + 99
+        ##c = len(self.data) + 99
         while 1:
-            if __debug__:
-                c -= 1
-                if not c:
-                    import sys, pdb
-                    print >> sys.stderr, 'dict lookup lost in infinite loop'
-                    pdb.set_trace()
-                
+            ##c -= 1
+            ##if not c:
+            ##    import sys, pdb
+            ##    print >> sys.stderr, 'dict lookup lost in infinite loop'
+            ##    pdb.set_trace()
             i = (i << 2) + i + perturb + 1
             entry = self.data[i%len(self.data)]
             if entry[1] is None:

@@ -257,6 +257,18 @@ class TestFlowObjSpace(testit.TestCase):
         x = self.codetest(self.dellocal)
         self.show(x)
 
+    #__________________________________________________________
+    def globalconstdict(name):
+        x = DATA['x']
+        z = DATA[name]
+        return x, z
+    
+    def test_globalconstdict(self):
+        x = self.codetest(self.globalconstdict)
+        self.show(x)
+
+DATA = {'x': 5,
+        'y': 6}
 
 if __name__ == '__main__':
     testit.main()
