@@ -61,75 +61,99 @@ class StdObjSpace(ObjSpace):
                       if not key.startswith('_')]   # don't look
 
     def clone_exception_heirachy(self):
-	import exceptions
         from usertype import W_UserType
-        self.w_Exception = W_UserType(self, 
-                                      self.wrap("Exception"),
-                                      self.newtuple([]),
-                                      self.newdict([]))
-        done = {'Exception': self.w_Exception}
+        from funcobject import W_FuncObject
+        from pypy.interpreter.pycode import PyByteCode
+        w = self.wrap
+        def __init__(self, *args):
+            self.args = args
+        code = PyByteCode()
+        code._from_code(__init__.func_code)
+        w_init = W_FuncObject(self, code,
+                              self.newdict([]), self.newtuple([]), None)
+#        w_init = w(__init__) # should this work? --mwh
+        import exceptions
+
+        # to create types, we should call the standard type object;
+        # but being able to do that depends on the existence of some
+        # of the exceptions...
+        
+        self.w_Exception = W_UserType(
+            self,
+            w('Exception'),
+            self.newtuple([]),
+            self.newdict([(w('__init__'), w_init)]))
         self.w_IndexError = self.w_Exception
+        
+        done = {'Exception': self.w_Exception}
+
+        # some of the complexity of the following is due to the fact
+        # that we need to create the tree root first, but the only
+        # connections we have go in the inconvenient direction...
+        
         for k in dir(exceptions):
-            v = getattr(exceptions, k)
-            if isinstance(v, str):
-                continue
-            stack = [k]
-            while stack:
-                next = stack[-1]
-                nextv = getattr(exceptions, next)
-                if next in done:
-                    stack.pop()
-                else:
-                    nb = nextv.__bases__[0]
-                    w_nb = done.get(nb.__name__)
-                    if w_nb is None:
-                        stack.append(nb.__name__)
+            if k not in done:
+                v = getattr(exceptions, k)
+                if isinstance(v, str):
+                    continue
+                stack = [k]
+                while stack:
+                    next = stack[-1]
+                    if next not in done:
+                        v = getattr(exceptions, next)
+                        b = v.__bases__[0]
+                        if b.__name__ not in done:
+                            stack.append(b.__name__)
+                            continue
+                        else:
+                            base = done[b.__name__]
+                            newtype = self.call_function(
+                                self.w_type,
+                                w(k),
+                                self.newtuple([base]),
+                                self.newdict([]))
+                            setattr(self,
+                                    'w_' + next,
+                                    newtype)
+                            done[next] = newtype
+                            stack.pop()
                     else:
-                        w_exc = self.call_function(
-                            self.w_type,
-                            self.wrap(next),
-                            self.newtuple([w_nb]),
-                            self.newdict([]))
-                        setattr(self, 'w_' + next, w_exc)
-                        done[next] = w_exc
                         stack.pop()
         return done
-            
+                            
     def initialize(self):
         from noneobject    import W_NoneObject
         from boolobject    import W_BoolObject
         from cpythonobject import W_CPythonObject
+
+        # singletons
         self.w_None  = W_NoneObject(self)
         self.w_False = W_BoolObject(self, False)
         self.w_True  = W_BoolObject(self, True)
         self.w_NotImplemented = self.wrap(NotImplemented)  # XXX do me
-        # hack in the exception classes
-        import __builtin__, types
-        newstuff = {"False": self.w_False,
-                    "True" : self.w_True,
-                    "None" : self.w_None,
-                    "NotImplemented": self.w_NotImplemented,
-                    }
-#         for n, c in __builtin__.__dict__.iteritems():
-#             if isinstance(c, types.ClassType) and issubclass(c, Exception):
-#                 w_c = W_CPythonObject(self, c)
-#                 setattr(self, 'w_' + c.__name__, w_c)
-#                 newstuff[c.__name__] = w_c
-        # make the types
+
+        for_builtins = {"False": self.w_False,
+                        "True" : self.w_True,
+                        "None" : self.w_None,
+                        "NotImplemented": self.w_NotImplemented,
+                        }
+
+        # types
         self.types_w = {}
         for typeclass in self.standard_types():
             w_type = self.get_typeinstance(typeclass)
             setattr(self, 'w_' + typeclass.typename, w_type)
-            newstuff[typeclass.typename] = w_type
-        newstuff.update(self.clone_exception_heirachy())
+            for_builtins[typeclass.typename] = w_type
+
+        # exceptions
+        for_builtins.update(self.clone_exception_heirachy())
+        
         self.make_builtins()
         self.make_sys()
-        # insert these into the newly-made builtins
-        for key, w_value in newstuff.items():
+        
+        # insert stuff into the newly-made builtins
+        for key, w_value in for_builtins.items():
             self.setitem(self.w_builtins, self.wrap(key), w_value)
-        # add a dummy __import__  XXX fixme
-#        w_import = self.wrap(__import__)
-#        self.setitem(self.w_builtins, self.wrap("__import__"), w_import)
 
     def get_typeinstance(self, typeclass):
         assert typeclass.typename is not None, (
