@@ -344,5 +344,41 @@ class Test_DictObject(testit.AppTestCase):
         self.assertEquals({1: 0, 2: 0, 3: 0}.fromkeys([1, '1'], 'j'),
                           {1: 'j', '1': 'j'})
 
+# the minimal 'space' needed to use a W_DictObject
+class FakeSpace:
+    def hash(self, obj):
+        return hash(obj)
+    def unwrap(self, x):
+        return x
+    def is_true(self, x):
+        return x
+    def is_(self, x, y):
+        return x is y
+    def eq(self, x, y):
+        return x == y
+
+from pypy.objspace.std.dictobject import getitem__Dict_ANY, setitem__Dict_ANY_ANY
+
+class TestDictImplementation(testit.TestCase):
+    
+    def setUp(self):
+        self.space = FakeSpace()
+
+    def tearDown(self):
+        pass
+
+    def test_stressdict(self):
+        from random import randint
+        d = W_DictObject(self.space, [])
+        N = 10000
+        pydict = {}
+        for i in range(N):
+            x = randint(-N, N)
+            setitem__Dict_ANY_ANY(self.space, d, x, i)
+            pydict[x] = i
+        for x in pydict:
+            self.assertEqual(pydict[x], getitem__Dict_ANY(self.space, d, x))
+            
+
 if __name__ == '__main__':
     testit.main()

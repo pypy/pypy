@@ -9,6 +9,8 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 from stringobject import W_StringObject
 
+from restricted_int import r_uint
+
 dummy = object()
 
 class W_DictObject(W_Object):
@@ -18,14 +20,18 @@ class W_DictObject(W_Object):
         W_Object.__init__(w_self, space)
         
         w_self.used = 0
-        w_self.data = [[0, None, None]]
+        w_self.data = [[r_uint(0), None, None]]
         w_self.resize(len(list_pairs_w)*2)
         for w_k, w_v in list_pairs_w:
-            w_self.insert(space.unwrap(space.hash(w_k)), w_k, w_v)
+            w_self.insert(w_self.hash(w_k), w_k, w_v)
         
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "%s(%s)" % (w_self.__class__.__name__, w_self.data)
+
+    def hash(w_self, w_obj):
+        space = w_self.space
+        return r_uint(space.unwrap(space.hash(w_obj)))
 
     def insert(self, h, w_key, w_value):
         cell = self.lookdict(h, w_key)
@@ -42,7 +48,7 @@ class W_DictObject(W_Object):
         od = self.data
 
         self.used = 0
-        self.data = [[0, None, None] for i in range(newsize)]
+        self.data = [[r_uint(0), None, None] for i in range(newsize)]
         for h, k, v in od:
             if v is not None:
                 self.insert(h, k, v)
@@ -51,6 +57,7 @@ class W_DictObject(W_Object):
         return [(h, w_k, w_v) for (h, w_k, w_v) in self.data if w_v is not None]
         
     def lookdict(self, lookup_hash, w_lookup):
+        assert isinstance(lookup_hash, r_uint)
         space = self.space
         i = lookup_hash % len(self.data)
 
@@ -67,9 +74,14 @@ class W_DictObject(W_Object):
             freeslot = None
 
         perturb = lookup_hash
+        c = 0
         while 1:
-            # XXX HAAAAAAACK to avoid FutureWarnings :-(
-            i = ((i & 0x1FFFFFFF) << 2) + i + perturb + 1
+            c += 1
+            if c > 1000:
+                import pdb
+                pdb.set_trace()
+                
+            i = (i << 2) + i + perturb + 1
             entry = self.data[i%len(self.data)]
             if entry[1] is None:
                 if freeslot:
@@ -114,19 +126,19 @@ def init__Dict(space, w_dict, w_args, w_kwds):
     space.call_method(w_dict, 'update', w_kwds)
 
 def getitem__Dict_ANY(space, w_dict, w_lookup):
-    entry = w_dict.lookdict(space.unwrap(space.hash(w_lookup)), w_lookup)
+    entry = w_dict.lookdict(w_dict.hash(w_lookup), w_lookup)
     if entry[2] is not None:
         return entry[2]
     else:
         raise OperationError(space.w_KeyError, w_lookup)
 
 def setitem__Dict_ANY_ANY(space, w_dict, w_newkey, w_newvalue):
-    w_dict.insert(space.unwrap(space.hash(w_newkey)), w_newkey, w_newvalue)
+    w_dict.insert(w_dict.hash(w_newkey), w_newkey, w_newvalue)
     if 2*w_dict.used > len(w_dict.data):
         w_dict.resize(2*w_dict.used)
 
 def delitem__Dict_ANY(space, w_dict, w_lookup):
-    entry = w_dict.lookdict(space.unwrap(space.hash(w_lookup)), w_lookup)
+    entry = w_dict.lookdict(w_dict.hash(w_lookup), w_lookup)
     if entry[2] is not None:
         w_dict.used -= 1
         entry[1] = dummy
@@ -138,7 +150,7 @@ def len__Dict(space, w_dict):
     return space.wrap(w_dict.used)
 
 def contains__Dict_ANY(space, w_dict, w_lookup):
-    entry = w_dict.lookdict(space.unwrap(space.hash(w_lookup)), w_lookup)
+    entry = w_dict.lookdict(w_dict.hash(w_lookup), w_lookup)
     return space.newbool(entry[2] is not None)
 
 dict_has_key__Dict_ANY = contains__Dict_ANY
@@ -216,7 +228,7 @@ def dict_clear__Dict(space, w_self):
     w_self.used = 0
 
 def dict_get__Dict_ANY_ANY(space, w_dict, w_lookup, w_default):
-    entry = w_dict.lookdict(space.unwrap(space.hash(w_lookup)), w_lookup)
+    entry = w_dict.lookdict(w_dict.hash(w_lookup), w_lookup)
     if entry[2] is not None:
         return entry[2]
     else:
