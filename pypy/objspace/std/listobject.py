@@ -386,6 +386,58 @@ def list_reverse(space, w_list):
         _reverse_slice(w_list.ob_item, 0, w_list.ob_size)
     return space.w_None
 
+    
+
+# Python Quicksort Written by Magnus Lie Hetland
+# http://www.hetland.org/python/quicksort.html
+def _partition(space, list, start, end):
+    pivot = list[end]                          # Partition around the last value
+    bottom = start-1                           # Start outside the area to be partitioned
+    top = end                                  # Ditto
+
+    done = 0
+    while not done:                            # Until all elements are partitioned...
+
+        while not done:                        # Until we find an out of place element...
+            bottom = bottom+1                  # ... move the bottom up.
+
+            if bottom == top:                  # If we hit the top...
+                done = 1                       # ... we are done.
+                break
+
+            if space.is_true(space.gt(list[bottom], pivot)):           # Is the bottom out of place?
+                list[top] = list[bottom]       # Then put it at the top...
+                break                          # ... and start searching from the top.
+
+        while not done:                        # Until we find an out of place element...
+            top = top-1                        # ... move the top down.
+            
+            if top == bottom:                  # If we hit the bottom...
+                done = 1                       # ... we are done.
+                break
+
+            if space.is_true(space.lt(list[top], pivot)):              # Is the top out of place?
+                list[bottom] = list[top]       # Then put it at the bottom...
+                break                          # ...and start searching from the bottom.
+
+    list[top] = pivot                          # Put the pivot in its place.
+    return top                                 # Return the split point
+
+
+def _quicksort(space, list, start, end):
+    if start < end:                            # If there are two or more elements...
+        split = _partition(space, list, start, end)    # ... partition the sublist...
+        _quicksort(space, list, start, split-1)        # ... and sort both halves.
+        _quicksort(space, list, split+1, end)
+
+def list_sort(space, w_list):
+    # XXX Basic quicksort implementation
+    # XXX this is not stable !!
+    # XXX no optional argument yet !
+    _quicksort(space, w_list.ob_item, 0, w_list.ob_size-1)
+    return space.w_None
+
+
 W_ListType.list_append .register(list_append, W_ListObject, W_ANY)
 W_ListType.list_insert .register(list_insert, W_ListObject, W_IntObject, W_ANY)
 W_ListType.list_extend .register(list_extend, W_ListObject, W_ANY)
@@ -394,6 +446,7 @@ W_ListType.list_remove .register(list_remove, W_ListObject, W_ANY)
 W_ListType.list_index  .register(list_index,  W_ListObject, W_ANY)
 W_ListType.list_count  .register(list_count,  W_ListObject, W_ANY)
 W_ListType.list_reverse.register(list_reverse,W_ListObject)
+W_ListType.list_sort   .register(list_sort,   W_ListObject)
 
 """
 static PyMethodDef list_methods[] = {

@@ -14,6 +14,7 @@ class W_ListType(W_TypeObject):
     list_index  = MultiMethod('index',  2)
     list_count  = MultiMethod('count',  2)
     list_reverse= MultiMethod('reverse',1)
+    list_sort   = MultiMethod('sort',   1)
 
 
 # XXX right now, this is responsible for building a whole new list
