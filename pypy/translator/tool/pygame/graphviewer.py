@@ -1,6 +1,6 @@
 from __future__ import generators
 import autopath
-import sys, os, re
+import sys, os, re, time
 import pygame
 from pygame.locals import *
 from drawgraph import GraphRenderer, build_layout
@@ -21,6 +21,7 @@ class Display(object):
 class GraphDisplay(Display):
     STATUSBARFONT = os.path.join(autopath.this_dir, 'VeraMoBd.ttf')
     SCALE = 60
+    ANIM_STEP = 0.07
 
     def __init__(self, translator, functions=None):
         super(GraphDisplay, self).__init__()
@@ -47,8 +48,7 @@ class GraphDisplay(Display):
         self.sethighlight()
         self.statusbarinfo = None
         self.must_redraw = True
-        self.setstatusbar('Drag left mouse button to scroll; '
-                          'drag right mouse button to zoom')
+        self.setstatusbar('Click to move around, or drag mouse buttons (left to zoom, right to scroll)')
 
     def setstatusbar(self, text, fgcolor=(255,255,80), bgcolor=(128,0,0)):
         info = (text, fgcolor, bgcolor)
@@ -100,8 +100,43 @@ class GraphDisplay(Display):
         if word:
             self.viewer.highlightwords[word] = ((255,255,80), (128,0,0))
 
+    def animation(self, expectedtime=0.6):
+        start = time.time()
+        step = 0.0
+        n = 0
+        while True:
+            step += self.ANIM_STEP
+            if step >= expectedtime:
+                break
+            yield step / expectedtime
+            n += 1
+            now = time.time()
+            frametime = (now-start) / n
+            self.ANIM_STEP = self.ANIM_STEP * 0.9 + frametime * 0.1
+        yield 1.0
+
+    def look_at_node(self, node):
+        """Shift the node in view."""
+        endscale = min(float(self.width-40) / node.w,
+                       float(self.height-40) / node.h,
+                       75)
+        startscale = self.viewer.scale
+        cx1, cy1 = self.viewer.getcenter()
+        cx2, cy2 = node.x, node.y
+        moving = (abs(startscale-endscale) + abs(cx1-cx2) + abs(cy1-cy2)
+                  > 2.0)
+        if moving:
+            self.statusbarinfo = None
+            self.sethighlight(None)
+            for t in self.animation():
+                self.viewer.setscale(startscale*(1-t) + endscale*t)
+                self.viewer.setcenter(cx1*(1-t) + cx2*t, cy1*(1-t) + cy2*t)
+                self.viewer.render()
+                pygame.display.flip()
+        return moving
+
     def run(self):
-        dragging = None
+        dragging = click_origin = click_time = None
         while 1:
             if self.must_redraw:
                 self.viewer.render()
@@ -116,9 +151,12 @@ class GraphDisplay(Display):
                 if pygame.event.peek([MOUSEMOTION]):
                     continue
                 if dragging:
+                    if (abs(event.pos[0] - click_origin[0]) +
+                        abs(event.pos[1] - click_origin[1])) > 12:
+                        click_time = None
                     dx = event.pos[0] - dragging[0]
                     dy = event.pos[1] - dragging[1]
-                    if event.buttons[2]:   # right mouse button
+                    if event.buttons[0]:   # left mouse button
                         self.viewer.shiftscale(1.003 ** dy)
                     else:
                         self.viewer.shiftoffset(-2*dx, -2*dy)
@@ -127,11 +165,23 @@ class GraphDisplay(Display):
                 else:
                     self.notifymousepos(event.pos)
             if event.type == MOUSEBUTTONDOWN:
-                dragging = event.pos
+                dragging = click_origin = event.pos
+                click_time = time.time()
                 pygame.event.set_grab(True)
             if event.type == MOUSEBUTTONUP:
                 dragging = None
                 pygame.event.set_grab(False)
+                if click_time is not None and abs(time.time() - click_time) < 1:
+                    # click (no significant dragging)
+                    node = self.viewer.node_at_position(click_origin)
+                    if node:
+                        self.look_at_node(node)
+                    else:
+                        edge = self.viewer.edge_at_position(click_origin)
+                        if edge:
+                            if not self.look_at_node(edge.head):
+                                self.look_at_node(edge.tail)
+                click_time = None
                 self.notifymousepos(event.pos)
             if event.type == VIDEORESIZE:
                 # short-circuit if there are more resize events pending

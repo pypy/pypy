@@ -113,6 +113,24 @@ def beziercurve((x0,y0), (x1,y1), (x2,y2), (x3,y3), resolution=8):
                        y0*t0 + y1*t1 + y2*t2 + y3*t3))
     return result
 
+def segmentdistance((x0,y0), (x1,y1), (x,y)):
+    "Distance between the point (x,y) and the segment (x0,y0)-(x1,y1)."
+    vx = x1-x0
+    vy = y1-y0
+    l = math.sqrt(vx*vx+vy*vy)
+    if l < 0.00001:
+        dlong = -1
+    else:
+        vx /= l
+        vy /= l
+        dlong = vx*(x-x0) + vy*(y-y0)
+    if dlong < 0.0:
+        return math.sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0))
+    elif dlong > l:
+        return math.sqrt((x-x1)*(x-x1) + (y-y1)*(y-y1))
+    else:
+        return abs(vy*(x-x0) - vx*(y-y0))
+
 def splitline(line, re_word = re.compile(r'[^\s"]\S*|["]["]|["].*?[^\\]["]')):
     result = []
     for word in re_word.findall(line):
@@ -158,6 +176,15 @@ class GraphRenderer:
     def shiftoffset(self, dx, dy):
         self.ofsx += dx
         self.ofsy += dy
+
+    def getcenter(self):
+        w, h = self.screen.get_size()
+        return self.revmap(w//2, h//2)
+
+    def setcenter(self, x, y):
+        w, h = self.screen.get_size()
+        x, y = self.map(x, y)
+        self.shiftoffset(x-w//2, y-h//2)
 
     def shiftscale(self, factor, fix=None):
         if fix is None:
@@ -315,6 +342,29 @@ class GraphRenderer:
             if rx <= x < rx+rw and ry <= y < ry+rh:
                 return word
         return None
+
+    def node_at_position(self, (x, y)):
+        """Return the Node under the cursor."""
+        x, y = self.revmap(x, y)
+        for node in self.graphlayout.nodes.itervalues():
+            if 2.0*abs(x-node.x) <= node.w and 2.0*abs(y-node.y) <= node.h:
+                return node
+        return None
+
+    def edge_at_position(self, (x, y), distmax=14):
+        """Return the Edge near the cursor."""
+        distmax /= self.scale
+        xy = self.revmap(x, y)
+        closest_edge = None
+        for edge in self.graphlayout.edges:
+            pts = edge.bezierpoints()
+            for i in range(1, len(pts)):
+                d = segmentdistance(pts[i-1], pts[i], xy)
+                if d < distmax:
+                    distmax = d
+                    closest_edge = edge
+        return closest_edge
+
 
 class TextSnippet:
     
