@@ -280,7 +280,8 @@ class __extend__(pairtype(SomeCallable, SomeCallable)):
                     raise Exception(
                         "union failed for %r with classdefs %r and %r" % 
                         (cal, classdef, d[cal]))
-                classdef = classdef.commonbase(d[cal])
+                if isclassdef(classdef):
+                    classdef = classdef.commonbase(d[cal])
             d[cal] = classdef
         return SomeCallable(d)
 

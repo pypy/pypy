@@ -7,7 +7,7 @@ from pypy.translator.annrpython import RPythonAnnotator, annmodel
 from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import *
 
-from pypy.annotation.model import immutablevalue
+from pypy.annotation.model import immutablevalue, SomeCallable
 
 from pypy.translator.test import snippet
 
@@ -290,6 +290,13 @@ class AnnonateTestCase(testit.IntTestCase):
         a.simplify()
         #a.translator.view()
         self.assertEquals(s, immutablevalue((None, None)))
+
+    def test_mergefunctions(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.mergefunctions, [int])
+        # the test is mostly that the above line hasn't blown up
+        # but let's at least check *something*
+        self.assert_(isinstance(s, SomeCallable))
 
 def g(n):
     return [0,1,2,n]

@@ -539,3 +539,15 @@ def _methodcall1(cond):
         x = H()
     return x.m(42)
 
+def func1():
+    pass
+
+def func2():
+    pass
+
+def mergefunctions(cond):
+    if cond: 
+        x = func1
+    else:
+        x = func2
+    return x
