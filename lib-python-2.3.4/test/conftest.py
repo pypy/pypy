@@ -30,6 +30,7 @@ working_unittests = (
 'test_bisect.py',
 'test_builtin.py',
 'test_call',
+'test_cmath.py',
 'test_codeop.py',
 'test_commands.py',
 'test_compare.py',
