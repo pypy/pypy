@@ -159,7 +159,7 @@ class GenC:
                                           '0' <= c <='9' or
                                           '_' == c )]
         name = self.uniquename('gstr_' + ''.join(chrs))
-        if [c for c in value if c<' ' or c>'~' or c=='"' or c=='\\')]:
+        if [c for c in value if c<' ' or c>'~' or c=='"' or c=='\\']:
             # non-printable string
             s = 'chr_%s' % name
             self.globaldecl.append('static char %s[] = { %s };' % (
