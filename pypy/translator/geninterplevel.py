@@ -942,8 +942,8 @@ class GenRpy:
             func.func_code.co_name,
             func.func_code.co_firstlineno)
         print >> f, "##SECTION##"
-        locals = {}
-        body = list(self.rpyfunction_body(func, locals))
+        localvars = {}
+        body = list(self.rpyfunction_body(func, localvars))
         name_of_defaults = [self.nameof(x, debug=('Default argument of', func))
                             for x in (func.func_defaults or ())]
         self.gen_global_declarations()
@@ -961,7 +961,7 @@ class GenRpy:
             if isinstance(node, Block):
                 localslst.extend(node.getvariables())
         traverse(visit, graph)
-        localnames = [self.expr(a, locals) for a in uniqueitems(localslst)]
+        localnames = [self.expr(a, localvars) for a in uniqueitems(localslst)]
 
         # collect all the arguments
         vararg = varkw = None
@@ -978,11 +978,11 @@ class GenRpy:
             varargname = func.func_code.co_varnames[p]
         positional_args = all_args[:p]
 
-        fast_args = [self.expr(a, locals) for a in positional_args]
+        fast_args = [self.expr(a, localvars) for a in positional_args]
         if vararg is not None:
-            fast_args.append(self.expr(vararg, locals))
+            fast_args.append(self.expr(vararg, localvars))
         if varkw is not None:
-            fast_args.append(self.expr(varkw, locals))
+            fast_args.append(self.expr(varkw, localvars))
         fast_name = 'fast' + f_name
 
         fast_set = dict(zip(fast_args, fast_args))
