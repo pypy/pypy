@@ -45,6 +45,7 @@ class Module(LazyModule):
         'exc_clear'             : 'vm.exc_clear', 
         'settrace'              : 'vm.settrace',
         'setprofile'            : 'vm.setprofile',
+        'call_tracing'          : 'vm.call_tracing',
         
         'executable'            : 'space.wrap("py.py")', 
         'copyright'             : 'space.wrap("MIT-License")', 
@@ -65,6 +66,7 @@ class Module(LazyModule):
         '__excepthook__'        : 'app.__excepthook__', 
         'exit'                  : 'app.exit', 
         'getfilesystemencoding' : 'app.getfilesystemencoding', 
+        'callstats'             : 'app.callstats',
     }
 
     def setbuiltinmodule(self, w_module, name): 

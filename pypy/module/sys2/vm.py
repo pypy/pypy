@@ -97,15 +97,20 @@ def settrace(space, w_func):
     """settrace(function)
 
 Set the global debug tracing function.  It will be called on each
-function call.  See the debugger chapter in the library manual.
-"""
+function call.  See the debugger chapter in the library manual."""
     space.getexecutioncontext().settrace(w_func)
     
 def setprofile(space, w_func):
     """setprofile(function)
 
 Set the profiling function.  It will be called on each function call
-and return.  See the profiler chapter in the library manual.
-"""
+and return.  See the profiler chapter in the library manual."""
     space.getexecutioncontext().setprofile(w_func)
 
+def call_tracing(space, w_func, w_args):
+    """call_tracing(func, args) -> object
+
+Call func(*args), while tracing is enabled.  The tracing state is
+saved, and restored afterwards.  This is intended to be called from
+a debugger from a checkpoint, to recursively debug some other code."""
+    return space.getexecutioncontext().call_tracing(w_func, w_args)

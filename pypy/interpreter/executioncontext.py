@@ -146,6 +146,14 @@ class ExecutionContext:
         else:
             self.w_profilefunc = w_func
 
+    def call_tracing(self, w_func, w_args):
+        is_tracing = self.is_tracing
+        self.is_tracing = 0
+        try:
+            return self.space.call(w_func, w_args)
+        finally:
+            self.is_tracing = is_tracing
+
     def _trace(self, frame, event, w_arg):
         if self.is_tracing or frame.code.hidden_applevel:
             return
