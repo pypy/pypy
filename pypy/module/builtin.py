@@ -753,6 +753,17 @@ xrange_appsource = """if 1:
                     self._len = 0
             return self._len
 
+        def __getitem__(self, index):
+            # xrange does NOT support slicing
+            if not isinstance(index, int):
+                raise TypeError, "sequence index must be integer"
+            len = self.__len__()
+            if index<0:
+                index += len
+            if 0 <= index < len:
+                return self.start + index * self.step
+            raise IndexError, "xrange object index out of range"
+
         def __iter__(self):
             def gen(self):
                 start, stop, step = self.start, self.stop, self.step
