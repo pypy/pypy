@@ -426,6 +426,13 @@ class GraphRenderer:
         for cmd in self.draw_commands():
             cmd()
 
+    def search_for_node(self, searchstr):
+        """Find a node that contains a search string."""
+        for node in self.graphlayout.nodes.itervalues():
+            if searchstr in node.label:
+                return node
+        return None
+
     def at_position(self, (x, y)):
         """Figure out the word under the cursor."""
         for rx, ry, rw, rh, word in self.textzones:
@@ -443,6 +450,7 @@ class GraphRenderer:
 
     def edge_at_position(self, (x, y), distmax=14):
         """Return the Edge near the cursor."""
+        # XXX this function is very CPU-intensive and makes the display kinda sluggish
         distmax /= self.scale
         xy = self.revmap(x, y)
         closest_edge = None

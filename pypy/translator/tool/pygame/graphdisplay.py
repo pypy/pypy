@@ -65,6 +65,9 @@ class GraphDisplay(Display):
     HELP_ALPHA = 0.95
     HELP_FGCOLOR = (255, 255, 80)
     HELP_BGCOLOR = (0, 128, 0)
+    INPUT_ALPHA = 0.75
+    INPUT_FGCOLOR = (255, 255, 80)
+    INPUT_BGCOLOR = (0, 0, 128)
 
     KEYS = {
         'meta -' : ('zoom', 0.5),
@@ -77,6 +80,8 @@ class GraphDisplay(Display):
         'meta left': 'layout_back',
         'p' : 'layout_back',
         'backspace' : 'layout_back',
+        'f': 'search',
+        '/': 'search',
         'left' : ('pan', (-1, 0)),
         'right' : ('pan', (1, 0)),
         'up' : ('pan', (0, -1)),
@@ -103,6 +108,8 @@ class GraphDisplay(Display):
         Backspace       Go back in history
         Meta Left       Go back in history
         Meta Right      Go forward in history
+
+        F or /          Search for text
 
         H               This help message
 
@@ -168,16 +175,19 @@ class GraphDisplay(Display):
                     self.key_cache[(key, mod)] = (method, args)
 
     def help(self):
+        """Show a help window and wait for a key or a mouse press."""
         margin_x = margin_y = 64
+        padding_x = padding_y = 8
         fgcolor = self.HELP_FGCOLOR
         bgcolor = self.HELP_BGCOLOR
         helpmsg = self.HELP_MSG
         width = self.width - 2*margin_x
         height = self.height - 2*margin_y
-        lines = rendertext(helpmsg, self.font, fgcolor, width)
+        lines = rendertext(helpmsg, self.font, fgcolor, width - 2*padding_x)
         block = pygame.Surface((width, height), SWSURFACE | SRCALPHA)
         block.fill(bgcolor)
-        sx = sy = 8
+        sx = padding_x
+        sy = padding_y
         for img in lines:
             w, h = img.get_size()
             block.blit(img, (sx, sy))
@@ -186,11 +196,70 @@ class GraphDisplay(Display):
         self.screen.blit(block, (margin_x, margin_y))
 
         pygame.display.flip()
-        while 1:
+        while True:
             e = pygame.event.wait()
             if e.type in (MOUSEBUTTONDOWN, KEYDOWN, QUIT):
                 break
         self.must_redraw = True
+
+    def input(self, prompt):
+        """Ask the user to input something.
+
+        Returns the string that the user entered, or None if the user pressed
+        Esc.
+        """
+
+        def draw(text):
+            margin_x = margin_y = 0
+            padding_x = padding_y = 8
+            fgcolor = self.INPUT_FGCOLOR
+            bgcolor = self.INPUT_BGCOLOR
+            width = self.width - 2*margin_x
+            lines = renderline(text, self.font, fgcolor, width - 2*padding_x)
+            height = totalheight(lines) + 2 * padding_y
+            block = pygame.Surface((width, height), SWSURFACE | SRCALPHA)
+            block.fill(bgcolor)
+            sx = padding_x
+            sy = padding_y
+            for img in lines:
+                w, h = img.get_size()
+                block.blit(img, (sx, sy))
+                sy += h
+            block.set_alpha(int(255 * self.INPUT_ALPHA))
+            self.viewer.render()
+            if self.statusbarinfo:
+                self.drawstatusbar()
+            self.screen.blit(block, (margin_x, margin_y))
+            pygame.display.flip()
+
+        draw(prompt)
+        text = ""
+        self.must_redraw = True
+        while True:
+            e = pygame.event.wait()
+            if e.type == QUIT:
+                return None
+            elif e.type == KEYDOWN:
+                if e.key == K_ESCAPE:
+                    return None
+                elif e.key == K_RETURN:
+                    return text
+                elif e.key == K_BACKSPACE:
+                    text = text[:-1]
+                    draw(prompt + text)
+                elif e.unicode:
+                    text += e.unicode
+                    draw(prompt + text)
+
+    def search(self):
+        searchstr = self.input('Find: ')
+        if not searchstr:
+            return
+        node = self.viewer.search_for_node(searchstr)
+        if node:
+            self.look_at_node(node)
+        else:
+            self.setstatusbar('Not found: %s' % searchstr)
 
     def setlayout(self, layout):
         if self.viewer:
@@ -271,10 +340,7 @@ class GraphDisplay(Display):
     def drawstatusbar(self):
         text, fgcolor, bgcolor = self.statusbarinfo
         lines = rendertext(text, self.font, fgcolor, self.width)
-        totalh = 0
-        for img in lines:
-            w, h = img.get_size()
-            totalh += h
+        totalh = totalheight(lines)
         y = self.height - totalh
         self.status_bar_height = totalh + 16
         block = pygame.Surface((self.width, self.status_bar_height), SWSURFACE | SRCALPHA)
@@ -528,3 +594,12 @@ def rendertext(text, font, fgcolor, width):
     for line in text.splitlines():
         lines.extend(renderline(line, font, fgcolor, width))
     return lines
+
+
+def totalheight(lines):
+    """Calculate the total height of a list of images."""
+    totalh = 0
+    for img in lines:
+        w, h = img.get_size()
+        totalh += h
+    return totalh
