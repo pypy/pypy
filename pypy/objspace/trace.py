@@ -44,34 +44,32 @@ class CallException:
 #
 class ExecutionContextTracer:
     def __init__(self, result, ec):
-        self.ec = ec
-        self.result = result
+        self.__ec = ec
+        self.__result = result
 
     def __getattr__(self, name):
-        """ generically pass through everything we don'T have explicit
-            interceptors for. 
-    
-        """
-        print "trying", name
-        return getattr(self.ec, name)
+        """ generically pass through everything else ... """
+        return getattr(self.__ec, name)
 
     def enter(self, frame):
         """ called just before (continuing to) evaluating a frame. """
-        self.result.append(EnterFrame(frame))
-        return self.ec.enter(frame)
+        self.__result.append(EnterFrame(frame))
+        return self.__ec.enter(frame)
 
     def leave(self, previous_ec):
         """ called just after evaluating of a frame is suspended/finished. """
-        frame = self.ec.framestack.top()
-        self.result.append(LeaveFrame(frame))
-        return self.ec.leave(previous_ec)
+        frame = self.__ec.framestack.top()
+        self.__result.append(LeaveFrame(frame))
+        return self.__ec.leave(previous_ec)
 
     def bytecode_trace(self, frame):
         "called just before execution of a bytecode."
-        self.result.append(ExecBytecode(frame))
+        self.__result.append(ExecBytecode(frame))
 
     #def exception_trace(self, operror):
-    #    "called if the current frame raises an operation error. """
+    #    "called if the current frame raises an operation error. "
+    #    print "exception trace", operror
+    #    return self.__ec.exception_trace(operror)
 
 class CallInfo:
     """ encapsulates a function call with its arguments. """
@@ -83,53 +81,54 @@ class CallInfo:
 
 class CallableTracer:
     def __init__(self, result, name, func):
-        self.result = result
-        self.name = name
-        self.func = func
-        
+        self.__result = result
+        self.__name = name
+        self.__func = func
+
     def __call__(self, *args, **kwargs):
-        callinfo = CallInfo(self.name, self.func, args, kwargs) 
-        self.result.append(CallBegin(callinfo))
+        callinfo = CallInfo(self.__name, self.__func, args, kwargs) 
+        self.__result.append(CallBegin(callinfo))
+        #print "calling into", self.__name, [type(x).__name__ for x in args]
+        #print args
         try:
-            res = self.func(*args, **kwargs)
+            res = self.__func(*args, **kwargs)
         except Exception, e:
-            self.result.append(CallException(e, callinfo))
+            #self.__result.append(CallException(e, callinfo))
             raise 
         else:
-            self.result.append(CallFinished(callinfo))
+            self.__result.append(CallFinished(callinfo))
             return res
 
+    def __getattr__(self, name):
+        """ generically pass through everything we don't intercept. """
+        return getattr(self.__func, name)
 
 class TraceObjSpace:
     def __init__(self, space):
-        self.space = space
+        self.__space = space
         self.settrace()
 
     def settrace(self):
-        self.result = TraceResult(self)
+        self.__result = TraceResult(self)
 
     def getresult(self):
-        return self.result
-        
-    def __getattr__(self, name):
-        obj = getattr(self.space, name)
-        if callable(obj):
-            return CallableTracer(self.result, name, obj)
-        # XXX some attribute has been accessed, we don't care
-        return obj
+        return self.__result
 
     def getexecutioncontext(self):
-        ec = self.space.getexecutioncontext()
+        ec = self.__space.getexecutioncontext()
         if isinstance(ec, ExecutionContextTracer):
             return ec
-        return ExecutionContextTracer(self.result, ec)
+        return ExecutionContextTracer(self.__result, ec)
 
     def createexecutioncontext(self):
-        ec = self.space.createexecutioncontext()
-        return ExecutionContextTracer(self.result, ec)
+        ec = self.__space.createexecutioncontext()
+        return ExecutionContextTracer(self.__result, ec)
 
-    def __hash__(self):
-        return hash(self.space)
+    def __getattr__(self, name):
+        obj = getattr(self.__space, name)
+        if callable(obj) and not hasattr(obj, '__bases__'):
+            return CallableTracer(self.__result, name, obj)
+        return obj
 
 class TraceResult:
     """ this is the state of tracing-in-progress. """

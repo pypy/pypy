@@ -7,7 +7,7 @@ from pypy.tool import pydis
 class Test_TraceObjSpace(test.IntTestCase):
 
     def setUp(self):
-        self.space = test.objspace('trivial')
+        self.space = test.objspace()
 
     def tearDown(self):
         pass
@@ -21,9 +21,25 @@ class Test_TraceObjSpace(test.IntTestCase):
         res = tspace.getresult()
         return res 
 
+    def test_traceobjspace_basic(self):
+        t = TraceObjSpace(self.space)
+        self.assert_(t.is_true(t.w_builtins))
+        #for name, value in vars(self.space).items():
+        #    if not name.startswith('_'):
+        #        self.assert_(value is getattr(t, name))
+        #self.assert_(t.is_true(t.make_standard_globals()))
+
     def test_simpletrace(self):
         def app_f(): 
             pass
+        res = self.perform_trace(app_f)
+        disresult = pydis.pydis(app_f)
+        self.assertEquals(disresult._bytecodes, list(res.getbytecodes()))
+        #self.assertEquals(len(list(res.getoperations())), 0)
+
+    def test_some_builtin(self):
+        def app_f(): 
+            filter(None, []) # mapglobals() # ("c")
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
         self.assertEquals(disresult._bytecodes, list(res.getbytecodes()))

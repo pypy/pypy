@@ -47,13 +47,13 @@ def trace_function(space, fn, *arg, **kwds):
 
 
 def app_test():
-    a = 1
-    x = range(1)
-    b = [1,2,3,4,5,6,7,8,9,10]
-    for ii in b:
-        a += ii
+    #a = 1
+    range(1)
+    #b = [1,2,3,4,5,6,7,8,9,10]
+    #for ii in b:
+    #    a += ii
 
-    return "Hello World"
+    #return "Hello World"
 
 
 def test():
