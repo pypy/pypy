@@ -31,13 +31,13 @@ def make_module_from_llvm(llvmfile, pyxfile, optimize=False):
             "opt %s -f %s.bc -o %s_optimized.bc" % (OPTIMIZATION_SWITCHES,
                                                     llvmfile.purebasename,
                                                     llvmfile.purebasename),
-            "llc %s_optimized.bc -f -o %s.s" % (llvmfile.purebasename,
-                                                llvmfile.purebasename),
+            "llc -enable-correct-eh-support %s_optimized.bc -f -o %s.s" % \
+            (llvmfile.purebasename, llvmfile.purebasename),
             "as %s.s -o %s.o" % (llvmfile.purebasename, llvmfile.purebasename)]
     if not optimize:
         ops1 = ["llvm-as %s -f" % llvmfile,
-                "llc %s.bc -f -o %s.s" % (llvmfile.purebasename,
-                                          llvmfile.purebasename),
+                "llc -enable-correct-eh-support %s.bc -f -o %s.s" % \
+                (llvmfile.purebasename, llvmfile.purebasename),
                 "as %s.s -o %s.o" % (llvmfile.purebasename,
                                      llvmfile.purebasename)]
     ops2 = ["gcc -c -fPIC -I/usr/include/python2.3 %s.c" % pyxfile.purebasename,

@@ -3,12 +3,9 @@ Generate a llvm .ll file from an annotated flowgraph.
 """
 
 import autopath
-import os, sys, exceptions, sets, StringIO
+import sets, StringIO
 
-from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.objspace.flow.model import FunctionGraph, Block, Link
-from pypy.objspace.flow.model import last_exception, last_exc_value
-from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
+from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.translator import transform
 from pypy.translator.translator import Translator
@@ -22,6 +19,7 @@ from pypy.translator.llvm import representation, funcrepr, typerepr, seqrepr
 from pypy.translator.llvm import classrepr
 
 from pypy.translator.llvm.representation import LLVMRepr, TmpVariableRepr
+from pypy.translator.llvm.representation import CompileError
 from pypy.translator.llvm.funcrepr import EntryFunctionRepr
 
 debug = True
@@ -51,12 +49,15 @@ class LLVMGenerator(object):
         for mod in [representation, funcrepr, typerepr, seqrepr, classrepr]:
             self.repr_classes += [getattr(mod, s)
                                   for s in dir(mod) if "Repr" in s]
+        self.repr_classes = [c for c in self.repr_classes if hasattr(c, "get")]
         self.llvm_reprs = {}
         self.depth = 0
         self.entryname = self.translator.functions[0].__name__
         self.l_entrypoint = EntryFunctionRepr("%__entry__" + self.entryname,
                                               self.translator.functions[0],
                                               self)
+        classrepr.create_builtin_exceptions(self,
+                                            self.l_entrypoint.dependencies)
         self.local_counts[self.l_entrypoint] = 0
         self.l_entrypoint.setup()
 
@@ -91,9 +92,10 @@ class LLVMGenerator(object):
 
     def get_repr(self, obj):
         self.depth += 1
+        flag = False
         if debug:
             print "  " * self.depth,
-            print "looking for object", obj, type(obj).__name__, obj.__class__,
+            print "looking for object", obj, type(obj).__name__,
             print id(obj), get_key(obj),
         if isinstance(obj, LLVMRepr):
             self.depth -= 1
@@ -104,6 +106,12 @@ class LLVMGenerator(object):
                 print "->exists already:", self.llvm_reprs[get_key(obj)]
             return self.llvm_reprs[get_key(obj)]
         for cl in self.repr_classes:
+            #XXXXXX: Got
+            try:
+                obj.__class__
+            except AttributeError:
+                obj.__class__ = None
+                flag = True
             g = cl.get(obj, self)
             if g is not None:
                 self.llvm_reprs[get_key(obj)] = g
@@ -113,7 +121,11 @@ class LLVMGenerator(object):
                     print "calling setup of %s, repr of %s" % (g, obj)
                 g.setup()
                 self.depth -= 1
+                if flag:
+                    del obj.__class__
                 return g
+        if flag:
+            del obj.__class__
         raise CompileError, "Can't get repr of %s, %s" % (obj, obj.__class__)
 
     def write(self, f):
@@ -164,8 +176,3 @@ def traverse_dependencies(l_repr, seen_reprs):
     yield l_repr
 
 
-t = Translator(test2.two_exceptions)
-a = t.annotate([int])
-a.simplify()
-## t.view()
-f = llvmcompile(t)

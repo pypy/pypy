@@ -27,6 +27,23 @@ entry:
 	ret int %tmp.3
 }
 
+internal int %std.valid_index(int %i, %std.list.%(name)s* %l) {
+entry:
+	%tmp.1 = setlt int %i, 0
+	br bool %tmp.1, label %UnifiedReturnBlock, label %endif.0
+
+endif.0:
+	%tmp.1.i = getelementptr %std.list.%(name)s* %l, int 0, uint 0
+	%tmp.2.i = load uint* %tmp.1.i
+	%tmp.3.i = cast uint %tmp.2.i to int
+	%not.tmp.6 = setgt int %tmp.3.i, %i
+	%retval = cast bool %not.tmp.6 to int
+	ret int %retval
+
+UnifiedReturnBlock:
+	ret int 0
+}
+
 internal %std.list.%(name)s* %std.newlist() {
 entry:
 	%tmp.0 = malloc %std.list.%(name)s
@@ -147,6 +164,39 @@ endif:
 	%tmp.15 = load %(item)s* %tmp.14
 	ret %(item)s %tmp.15
 }
+
+internal %(item)s %std.getitem.exc(%std.list.%(name)s* %l, int %index.1) {
+entry:
+	%tmp.1 = setlt int %index.1, 0
+	br bool %tmp.1, label %then.0, label %endif.0.i
+
+then.0:
+	%tmp.4 = getelementptr %std.list.%(name)s* %l, int 0, uint 0
+	%tmp.5 = load uint* %tmp.4
+	%tmp.5 = cast uint %tmp.5 to int
+	%tmp.9 = add int %tmp.5, %index.1
+	%tmp.1.i5 = setlt int %tmp.9, 0
+	br bool %tmp.1.i5, label %then.1, label %endif.0.i
+
+endif.0.i:
+	%index_addr.0.0 = phi int [ %tmp.9, %then.0 ], [ %index.1, %entry ]
+	%tmp.1.i.i = getelementptr %std.list.%(name)s* %l, int 0, uint 0
+	%tmp.2.i.i = load uint* %tmp.1.i.i
+	%tmp.3.i.i = cast uint %tmp.2.i.i to int
+	%tmp.6.i = setgt int %tmp.3.i.i, %index_addr.0.0
+	br bool %tmp.6.i, label %endif.1, label %then.1
+
+then.1:
+	store %std.class* %glb.class.IndexError.object, %std.class** %std.last_exception.type
+	unwind
+endif.1:
+	%tmp.19 = getelementptr %std.list.%(name)s* %l, int 0, uint 1
+	%tmp.20 = load %(item)s** %tmp.19
+	%tmp.22 = getelementptr %(item)s* %tmp.20, int %index_addr.0.0
+	%tmp.23 = load %(item)s* %tmp.22
+	ret %(item)s %tmp.23
+}
+
 
 internal void %std.setitem(%std.list.%(name)s* %l, int %index.1, %(item)s %value) {
 entry:

@@ -17,7 +17,7 @@ def compile_function(function, annotate):
     a = t.annotate(annotate)
     a.simplify()
     gen = LLVMGenerator(t)
-    return gen.compile()
+    return gen.compile(True)
 
 def is_on_path(name):
     try:
@@ -26,6 +26,7 @@ def is_on_path(name):
         return False 
     else: 
         return True
+
 
 class TestLLVMRepr(object):
     def setup_method(self,method):
@@ -249,6 +250,21 @@ class TestTuple(object):
         assert f(15) == 15
         assert f(30) == 30
 
+class TestException(object):
+    def test_two_exception(self):
+        f = compile_function(llvmsnippet.two_exceptions, [int])
+        for i in range(10):
+            assert f(i) == 4
+        for i in range(10, 20):
+            assert f(i) == 2
+
+    def test_catch_base_exception(self):
+        f = compile_function(llvmsnippet.catch_base_exception, [int])
+        for i in range(10):
+            assert f(i) == 4
+        for i in range(10, 20):
+            assert f(i) == 2
+
 
 class TestSnippet(object):
     def setup_method(self, method):
@@ -328,7 +344,7 @@ class TestSnippet(object):
         with_init = compile_function(test.with_init, [int])
         assert with_init(42) == 42
 
-    def DONOTtest_with_more_init(self):
+    def DONOT_test_with_more_init(self):
         with_more_init = compile_function(test.with_more_init, [int, bool])
         assert with_more_init(42, True) == 42
         assert with_more_init(42, False) == -42

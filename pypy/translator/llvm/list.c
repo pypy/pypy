@@ -1,8 +1,20 @@
 #include <stdio.h>
 
+signed char unwind();
+
 struct item {
     char* dummy;
 };
+
+struct class {
+    char dummy;
+};
+
+
+struct class* LAST_EXCEPTION_TYPE = 0;
+struct class INDEX_ERROR = {0};
+
+
 
 struct list {
     unsigned int length;
@@ -19,6 +31,14 @@ void copy(struct item** from, struct item** to, unsigned int length) {
 
 int len(struct list* l) {
     return (int) l->length;
+}
+
+int valid_index(int i, struct list* l) {
+    if (i < 0)
+	return 0;
+    if (i >= len(l))
+	return 0;
+    return 1;
 }
 
 struct list* newlist() {
@@ -84,6 +104,16 @@ struct list* alloc_and_set(int length, struct item* init) {
 struct item* getitem(struct list* l, int index) {
     if (index < 0)
 	index = l->length + index;
+    return l->data[index];
+}
+
+struct item* getitem_EXCEPTION(struct list* l, int index) {
+    if (index < 0)
+	index = l->length + index;
+    if (valid_index(index, l) == 0) {
+	LAST_EXCEPTION_TYPE = &INDEX_ERROR;
+	return unwind();
+    }
     return l->data[index];
 }
 

@@ -272,11 +272,18 @@ def tuple_f3(i):
 def two_exceptions(n):
     lst = range(10)
     try:
-        lst[n] += 1
         lst[n]
     except IndexError:
         return 2
     except KeyError:
         return 3
+    return 4
+
+def catch_base_exception(n):
+    lst = range(10)
+    try:
+        lst[n]
+    except LookupError:
+        return 2
     return 4
 

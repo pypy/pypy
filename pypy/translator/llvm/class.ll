@@ -5,8 +5,8 @@
 
 %std.list.sbyte = type {uint, sbyte*}
 %std.exception = type {%std.class*, %std.list.sbyte*}
-%std.last_exception.type = internal global %std.class {%std.class* null, uint 0}
-%std.last_exception.value = internal global %std.exception {%std.class* null, %std.list.sbyte* null}
+%std.last_exception.type = internal global %std.class* null
+%std.last_exception.value = internal global %std.exception* null
 
 implementation
 
@@ -46,3 +46,8 @@ entry:
 	ret bool %result
 }
 
+
+internal sbyte %std.unwind() {
+entry:
+	unwind
+}

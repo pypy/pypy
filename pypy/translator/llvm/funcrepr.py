@@ -133,27 +133,15 @@ class FunctionRepr(LLVMRepr):
                 exceptblock = "block%i.except" % self.blocknum[pyblock]
                 lblock = llvmbc.TryBasicBlock("block%i" % number,
                                               regularblock, exceptblock)
-                l_excblock = llvmbc.BasicBlock("block%i.except" % number)
-                l_excp = self.gen.get_repr(last_exception)
-                l_uip = self.gen.get_local_tmp(PointerTypeRepr("uint",
-                                                               self.gen), self)
-                l_ui = self.gen.get_local_tmp(
-                    self.gen.get_repr(annmodel.SomeInteger(True, True)), self)
-                self.dependencies.update([l_excp, l_uip, l_ui])
-                l_excblock.load(l_cl, l_excp)
-                l_excblock.getelementptr(l_uip, l_cl, [0, 1])
-                l_excblock.load(l_ui, l_uip)
-                l_excblock.switch(l_ui, "%%block%i.unwind" % number,
-                                  [(str(abs(id(l_c))),
-                                    XXXXXXXXXXXXX)
-                                   for exc in pyblock.exits[1:]])
             else:
                 lblock = llvmbc.BasicBlock("block%i" % number)
             if number == 0:
                 self.llvm_func = llvmbc.Function(self.llvmfuncdef(), lblock)
             else:
                 self.llvm_func.basic_block(lblock)
-            #Create Phi nodes (but not for the first block)
+            if is_tryblock:
+                self.build_exc_blocks(number, pyblock)
+            #Create Phi nodes
             incoming_links = []
             def visit(node):
                 if isinstance(node, Link) and node.target == pyblock:
@@ -177,7 +165,9 @@ class FunctionRepr(LLVMRepr):
                                ["%%block%i" % self.blocknum[l.prevblock]
                                 for l in incoming_links])
             #Handle SpaceOperations
-            for op in pyblock.operations:
+            for opnumber, op in enumerate(pyblock.operations):
+                if opnumber == len(pyblock.operations) - 1 and is_tryblock:
+                    lblock.last_op = True                    
                 l_target = self.gen.get_repr(op.result)
                 self.dependencies.add(l_target)
                 l_arg0 = self.gen.get_repr(op.args[0])
@@ -228,8 +218,8 @@ class FunctionRepr(LLVMRepr):
                         "%%block%i" % self.blocknum[pyblock.exits[0].target])
             elif isinstance(pyblock.exitswitch, Constant) and \
                  pyblock.exitswitch.value == last_exception:
-                lblock.uncond_branch(
-                    "%%block%i" % self.blocknum[pyblock.exits[0].target])
+                #The branch has already be created by the last space op
+                assert lblock.closed
             else:
                 assert isinstance(a.binding(pyblock.exitswitch),
                                   annmodel.SomeBool)
@@ -239,6 +229,30 @@ class FunctionRepr(LLVMRepr):
                     l_switch,
                     "%%block%i" % self.blocknum[pyblock.exits[1].target],
                     "%%block%i" % self.blocknum[pyblock.exits[0].target])
+
+    def build_exc_blocks(self, number, pyblock):
+        lexcblock = llvmbc.BasicBlock("block%i.except" % number)
+        self.llvm_func.basic_block(lexcblock)
+        l_excp = self.gen.get_repr(last_exception)
+        l_exc = self.gen.get_local_tmp(PointerTypeRepr("%std.class", self.gen),
+                                       self)
+        l_uip = self.gen.get_local_tmp(PointerTypeRepr("uint", self.gen), self)
+        l_ui = self.gen.get_local_tmp(
+            self.gen.get_repr(annmodel.SomeInteger(True, True)), self)
+        self.dependencies.update([l_excp, l_exc, l_uip, l_ui])
+        lexcblock.load(l_exc, l_excp)
+        lexcblock.getelementptr(l_uip, l_exc, [0, 1])
+        lexcblock.load(l_ui, l_uip)
+        exits = pyblock.exits[1:]
+        l_exitcases = [self.gen.get_repr(ex.exitcase) for ex in exits]
+        self.dependencies.update(l_exitcases)
+        sw = [(str(abs(id(ex.exitcase))),
+               "%%block%i" % self.blocknum[ex.target])
+              for ex in exits]
+        lexcblock.switch(l_ui, "%%block%i.unwind" % number, sw)
+        lunwindblock = llvmbc.BasicBlock("block%i.unwind" % number)
+        lunwindblock.unwind()
+        self.llvm_func.basic_block(lunwindblock)
 
     def llvmfuncdef(self):
         s = "internal %s %s(" % (self.retvalue.llvmtype(), self.name)
@@ -265,10 +279,6 @@ class FunctionRepr(LLVMRepr):
         lblock.call(l_target, l_args[0], l_args[1:])
 
 class EntryFunctionRepr(LLVMRepr):
-    def get(obj, gen):
-        return None
-    get = staticmethod(get)
-
     def __init__(self, name, function, gen):
         self.gen = gen
         self.function = function
@@ -280,8 +290,11 @@ class EntryFunctionRepr(LLVMRepr):
         self.l_function = self.gen.get_repr(self.function)
         self.dependencies.add(self.l_function)
         lblock = llvmbc.BasicBlock("entry")
+        #XXX clean this up
         lblock.instruction("%tmp = load bool* %Initialized.0__")
         lblock.instruction("br bool %tmp, label %real_entry, label %init")
+        lblock.phi_done = True
+        lblock.closed = True
         self.llvm_func = llvmbc.Function(self.llvmfuncdef(), lblock)
         self.init_block = llvmbc.BasicBlock("init")
         self.init_block.instruction("store bool true, bool* %Initialized.0__")
@@ -457,9 +470,6 @@ class VirtualMethodRepr(LLVMRepr):
         return self.retvalue.llvmtype()
 
 class BoundMethodRepr(LLVMRepr):
-    def get(obj, gen):
-        return None
-    get = staticmethod(get)
     def __init__(self, l_func, l_self, l_class, gen):
         self.gen = gen
         self.l_func = l_func

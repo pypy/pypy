@@ -2,6 +2,7 @@ import autopath
 import sets
 
 from pypy.objspace.flow.model import Variable, Constant
+from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.annotation import model as annmodel
 
 LLVM_SIMPLE_TYPES = {annmodel.SomeChar: "sbyte",
@@ -51,24 +52,27 @@ class LLVMRepr(object):
 
 
 class SimpleRepr(LLVMRepr):
-    """Representation of values that are directly mapped to types in LLVM:
-bool, char (string of length 1)"""
+    """Representation of values that only need simple representation:
+bool, char (string of length 1), last_exception, last_exc_value"""
 
     def get(obj, gen):
-        if not isinstance(obj, Constant):
-            return None
-        type = gen.annotator.binding(obj)
-        if type.__class__ in LLVM_SIMPLE_TYPES:
-            llvmtype = LLVM_SIMPLE_TYPES[type.__class__]
-            l_repr = SimpleRepr(llvmtype, repr(obj.value), gen)
-            return l_repr
+        if isinstance(obj, Constant):
+            type_ = gen.annotator.binding(obj)
+            if type_.__class__ in LLVM_SIMPLE_TYPES:
+                llvmtype = LLVM_SIMPLE_TYPES[type_.__class__]
+                return SimpleRepr(llvmtype, repr(obj.value), gen)
+        if obj == last_exception:
+            return SimpleRepr("%std.class**", "%std.last_exception.type", gen)
+        if obj == last_exc_value:
+            return SimpleRepr("%std.exception**", "%std.last_exception.value",
+                              gen)
         return None
     get = staticmethod(get)
     
-    def __init__(self, type, llvmname, gen):
+    def __init__(self, type_, llvmname, gen):
         if debug:
             print "SimpleRepr: %s, %s" % (type, llvmname)
-        self.type = type
+        self.type = type_
         if llvmname in ("False", "True"):
             llvmname = llvmname.lower()
         self.name = llvmname
@@ -84,13 +88,13 @@ bool, char (string of length 1)"""
 class IntRepr(LLVMRepr):
     def get(obj, gen):
         if obj.__class__ is int:
-            type = gen.annotator.binding(Constant(obj))
-            return IntRepr(type, obj, gen)
+            type_ = gen.annotator.binding(Constant(obj))
+            return IntRepr(type_, obj, gen)
         if not isinstance(obj, Constant):
             return None
-        type = gen.annotator.binding(obj)
-        if type.__class__ == annmodel.SomeInteger:
-            return IntRepr(type, obj.value, gen)
+        type_ = gen.annotator.binding(obj)
+        if type_.__class__ == annmodel.SomeInteger:
+            return IntRepr(type_, obj.value, gen)
     get = staticmethod(get)
 
     def __init__(self, annotation, value, gen):
@@ -129,8 +133,8 @@ class VariableRepr(LLVMRepr):
         if debug:
             print "VariableRepr: %s" % (var.name)
         self.var = var
-        type = gen.annotator.binding(var)
-        self.type = gen.get_repr(type)
+        type_ = gen.annotator.binding(var)
+        self.type = gen.get_repr(type_)
         self.dependencies = sets.Set([self.type])
 
     def llvmname(self):
@@ -146,11 +150,11 @@ class VariableRepr(LLVMRepr):
                                    % repr(name))
 
 class TmpVariableRepr(LLVMRepr):
-    def __init__(self, name, type, gen):
+    def __init__(self, name, type_, gen):
         if debug:
-            print "TmpVariableRepr: %s %s" % (type, name)
+            print "TmpVariableRepr: %s %s" % (type_, name)
         self.name = name
-        self.type = type
+        self.type = type_
         self.dependencies = sets.Set()
 
     def llvmname(self):
@@ -178,8 +182,8 @@ class NoneRepr(LLVMRepr):
 class StringRepr(LLVMRepr):
     def get(obj, gen):
         if isinstance(obj, Constant):
-            type = gen.annotator.binding(obj)
-            if isinstance(type, annmodel.SomeString):
+            type_ = gen.annotator.binding(obj)
+            if isinstance(type_, annmodel.SomeString):
                 return StringRepr(obj.value, gen)
         elif isinstance(obj, str):
             return StringRepr(obj, gen)
@@ -217,8 +221,8 @@ sbyte* getelementptr ([%(len)i x sbyte]* %(gv1)s, uint 0, uint 0)}"""
 class TupleRepr(LLVMRepr):
     def get(obj, gen):
         if isinstance(obj, Constant):
-            type = gen.annotator.binding(obj)
-            if isinstance(type, annmodel.SomeTuple):
+            type_ = gen.annotator.binding(obj)
+            if isinstance(type_, annmodel.SomeTuple):
                 return TupleRepr(obj, gen)
         return None
     get = staticmethod(get)
@@ -252,5 +256,4 @@ class TupleRepr(LLVMRepr):
         else:
             raise AttributeError, ("TupleRepr instance has no attribute %s"
                                    % repr(name))
-
 

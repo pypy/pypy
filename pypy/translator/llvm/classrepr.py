@@ -200,6 +200,14 @@ class ClassRepr(TypeRepr):
             for l_c in l_cls.iter_subclasses():
                 yield l_c
 
+def create_builtin_exceptions(gen, dependencies):
+    import exceptions
+    for exc in dir(exceptions):
+        print exc, "#############"
+        if "__" not in exc:
+            l_exc = gen.get_repr(getattr(exceptions, exc))
+            dependencies.add(l_exc)
+
 class ExceptionTypeRepr(TypeRepr):
     def get(obj, gen):
         try:

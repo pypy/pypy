@@ -12,8 +12,8 @@ def get_llvm_code(cfile):
     print cfile 
     bytecode = udir.join("temp.bc")
     lastdir = path.local()
-    ops = ["llvm-gcc -O3 -c %s -o %s" % (cfile, bytecode),
-           "llvm-dis %s -f" % bytecode]
+    ops = ["llvm-gcc -enable-correct-eh-support-O3 -c %s -o %s" % \
+           (cfile, bytecode), "llvm-dis %s -f" % bytecode]
     for op in ops:
         print op
         cmdexec(op)
@@ -48,7 +48,9 @@ def add_std(code):
                 if f in line:
                     line = line.replace(f, "std." + f)
                     ret.append(line)
-                    continue
+                    break
+            else:
+                ret.append(line)
         else:
             ret.append(line)
     return "\n".join(ret)
@@ -56,6 +58,15 @@ def add_std(code):
 def remove_alternatives(code):
     for i in range(1, 10):
         code = code.replace("_ALTERNATIVE%i" % i, "")
+    return code
+
+def create_exceptions(code):
+    code = code.replace("%LAST_EXCEPTION_TYPE", "%std.last_exception.type")
+    code = code.replace("%INDEX_ERROR", "%glb.class.IndexError.object")
+    return code
+
+def remove_exception(code):
+    code = code.replace("_EXCEPTION", ".exc")
     return code
 
 def remove_header(code):
@@ -71,12 +82,37 @@ def internal_functions(code):
             ret.append(line)
     return "\n".join(ret)
 
+def create_unwind(code):
+    ret = []
+    remove = False
+    for line in code.split("\n"):
+        if "call" in line and "%unwind(" in line:
+            ret.append("\tunwind")
+            remove = True
+        elif "declare" in line and "unwind" in line:
+            pass
+        elif remove:
+            if not line.startswith("\t") and ":" in line:
+                remove = False
+                ret.append(line)
+        else:
+            ret.append(line)
+    return "\n".join(ret)
+
+def remove_structs(code):
+    code = code.replace("struct.class", "std.class")
+    return code
+
 def cleanup_code(code):
     code = remove_comments(code)
     code = add_std(code)
     code = remove_header(code)
     code = internal_functions(code)
     code = remove_alternatives(code)
+    code = create_exceptions(code)
+    code = remove_exception(code)
+    code = remove_structs(code)
+    code = create_unwind(code)
     return code
 
 def make_list_template():
