@@ -4,7 +4,7 @@ from pypy.objspace.std import dictobject as dobj
 from pypy.objspace.std.objspace import *
 
 
-class TestW_DictObject(unittest.TestCase):
+class TestW_DictObject(testsupport.TestCase_w):
 
     def setUp(self):
         self.space = StdObjSpace()
@@ -15,7 +15,7 @@ class TestW_DictObject(unittest.TestCase):
     def test_empty(self):
         space = self.space
         d = dobj.W_DictObject([])
-        self.failIf(space.is_true(d))
+        self.failIf_w(d)
 
     def test_nonempty(self):
         space = self.space
