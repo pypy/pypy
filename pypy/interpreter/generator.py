@@ -17,7 +17,6 @@ class GeneratorFrame(Frame):
 
     def run(self):
         "Build a generator-iterator."
-        self.exhausted = False
         return self.space.wrap(GeneratorIterator(self))
 
     ### extra opcodes ###
@@ -42,6 +41,7 @@ class GeneratorIterator(Wrappable):
         self.space = frame.space
         self.frame = frame
         self.running = False
+        self.exhausted = False
 
     def descr__iter__(self):
         return self.space.wrap(self)
@@ -51,18 +51,15 @@ class GeneratorIterator(Wrappable):
         if self.running:
             raise OperationError(space.w_ValueError,
                                  space.wrap('generator already executing'))
-        if self.frame.exhausted:
+        if self.exhausted:
             raise OperationError(space.w_StopIteration, space.w_None) 
         self.running = True
         try:
             try:
                 return self.frame.resume()
-            except OperationError, e:
-                self.frame.exhausted = True
-                if e.match(self.space, self.space.w_StopIteration):
-                    raise OperationError(space.w_StopIteration, space.w_None) 
-                else:
-                    raise
+            except OperationError:
+                self.exhausted = True
+                raise
         finally:
             self.running = False
 
@@ -80,5 +77,4 @@ class SYieldValue(ControlFlowException):
 class SGeneratorReturn(ControlFlowException):
     """Signals a 'return' statement inside a generator."""
     def emptystack(self, frame):
-        frame.exhausted = True
         raise OperationError(frame.space.w_StopIteration, frame.space.w_None) 
