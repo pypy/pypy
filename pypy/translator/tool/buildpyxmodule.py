@@ -66,7 +66,7 @@ def make_module_from_c(cfile, include_dirs=None):
                                                      str(dirpath.join(modname)))
                     for dir in [gcv['INCLUDEPY']] + list(include_dirs):
                         cmd += ' -I%s' % dir
-                    cmdexec(cmd)
+                    os.system(cmd)
                 else:
                     from distutils.dist import Distribution
                     from distutils.extension import Extension
