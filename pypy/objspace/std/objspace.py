@@ -106,12 +106,18 @@ class StdObjSpace(ObjSpace):
 for _name, _symbol, _arity in ObjSpace.MethodTable:
     setattr(StdObjSpace, _name, MultiMethod(_symbol, _arity))
 
-def default_eq(space, a, b):
-    return space.is_(a, b)
+def default_eq(space, w_a, w_b):
+    return space.is_(w_a, w_b)
 
 StdObjSpace.eq.register(default_eq, W_ANY, W_ANY)
 
-def default_ne(space, a, b):
-    return space.not_(space.is_(a, b))
+def default_ne(space, w_a, w_b):
+    return space.not_(space.is_(w_a, w_b))
 
 StdObjSpace.ne.register(default_ne, W_ANY, W_ANY)
+
+def default_id(space, w_obj):
+    import intobject
+    return intobject.W_IntObject(id(w_obj))
+
+StdObjSpace.id.register(default_id, W_ANY)
