@@ -3,7 +3,7 @@ import autopath
 import os, time, sys
 import pygame
 from pygame.locals import *
-from drawgraph import GraphRenderer
+from pypy.translator.tool.pygame.drawgraph import GraphRenderer
 
 
 METAKEYS = dict([
@@ -24,8 +24,8 @@ KEYS = dict([
     for ident in dir(pygame.locals) if ident.startswith('K_')
 ])
 
-KEYS['plus'] = ('=', '+')
-KEYS['quit'] = ('q', 'f4')
+KEYS['plus'] = ('=', '+', '.')
+KEYS['quit'] = ('q', 'f4', 'escape')
 
 def GET_KEY(key):
     k = KEYS.get(key)
@@ -75,15 +75,12 @@ class GraphDisplay(Display):
              '-' : ('zoom', 0.5),
         'meta plus' : ('zoom', 2.0),
              'plus' : ('zoom', 2.0),
-        'meta .' : ('zoom', 2.0),    # '+' is shift-1 on my keyboard
-             '.' : ('zoom', 2.0),
         'meta 0' : 'zoom_actual_size',
              '0' : 'zoom_actual_size',
         'meta 1' : 'zoom_to_fit',
              '1' : 'zoom_to_fit',
         'meta quit' : 'quit',
              'quit' : 'quit',
-        'escape' : 'quit',
         'meta right' : 'layout_forward',
         'meta left': 'layout_back',
         'p' : 'layout_back',

@@ -1,6 +1,6 @@
 import autopath
 import inspect
-from drawgraph import GraphLayout
+from pypy.translator.tool.pygame.drawgraph import GraphLayout
 from pypy.translator.tool.make_dot import DotGen
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from pypy.annotation import model, factory
@@ -234,7 +234,7 @@ def nameof(obj, cache={}):
 if __name__ == '__main__':
     from pypy.translator.translator import Translator
     from pypy.translator.test import snippet
-    from graphdisplay import GraphDisplay
+    from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
     
     t = Translator(snippet.powerset)
     #t.simplify()

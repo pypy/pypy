@@ -65,7 +65,7 @@ class GraphLayout:
         self.links = {}
 
     def display(self):
-        from graphdisplay import GraphDisplay
+        from pypy.tool.translator.pygame.graphdisplay import GraphDisplay
         GraphDisplay(self).run()
 
 class Node:
