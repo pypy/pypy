@@ -23,6 +23,7 @@ d['assertAlmostEqual']      = ('assert round',      ' ==', [2,3,4])
 d['failIfAlmostEqual']      = ('assert not round',  ' ==', [2,3,4])
 d['assertNotAlmostEqual']   = ('assert round',      ' !=', [2,3,4])
 d['failUnlessAlmostEquals'] = ('assert not round',  ' !=', [2,3,4])
+d['assertRaises_w']         = ('self.raises_w',        '', ['Any'])
 
 #  the list of synonyms
 d['failUnlessRaises']      = d['assertRaises']
@@ -79,7 +80,7 @@ def rewrite_utest(block):
     possible_args = d[old][2]  # a list of the number of arguments the
                                # unittest function could possibly take.
                 
-    if new == 'raises': # just rename assertRaises & friends
+    if possible_args == ['Any']: # just rename assertRaises & friends
         return re.sub('self.'+old, new, block)
 
     message_pos = possible_args[-1]
