@@ -67,7 +67,7 @@ def reduce(function, list, initial = None):
        except IndexError:
           raise TypeError, "reduce() of empty sequence with no initial value"
        idx = 1
-    else
+    else:
        idx = 0
     while 1:
        try:
