@@ -80,7 +80,6 @@ def print_newline():
 
 def import_name(builtins, modulename, globals, locals, fromlist):
     try:
-        XXXXXXXXXXXXXXX
         import_ = builtins["__import__"]
     except KeyError:
         raise ImportError, "__import__ not found"
