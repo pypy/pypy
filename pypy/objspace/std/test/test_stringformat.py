@@ -23,6 +23,23 @@ class TestStringObject(testit.AppTestCase):
         self.assertRaises(TypeError, '%s%s'.__mod__, (23,)*3)
         self.assertRaises(TypeError, '%s%s'.__mod__, (23,)*4)
 
+    def test_format_kinds(self):
+        self.assertEquals('23', '%s' % '23')
+        self.assertEquals("'23'", '%r' % '23')
+        """ unclear behavior requirement, so commented for now...:
+            self.assertEquals('23', '%d' % '23') ...or...:
+            self.assertRaises(TypeError, '%d'.__mod__, ((23,),)) ...?
+        """
+        self.assertEquals('23', '%d' % 23.456)
+        self.assertEquals('0x17', '%x' % 23.456)
+        self.assertEquals('23.456', '%s' % 23.456)
+        r = '%r' % 23.45
+        if len(r)==5:
+            self.assertEquals('23.45', r)
+        else:
+            r9 = '23.44' + '9'*(len(r)-5)
+            self.assertEquals(r9, r)
+
     def test_format_wrongchar(self):
         self.assertRaises(ValueError, 'a%Zb'.__mod__, ((23,),))
 
