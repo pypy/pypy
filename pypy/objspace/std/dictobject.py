@@ -45,3 +45,14 @@ def setitem_dict_any_any(space, w_dict, w_newkey, w_newvalue):
     #print 'dict append %s:' % w_newkey, data
 
 StdObjSpace.setitem.register(setitem_dict_any_any, W_DictObject, W_ANY, W_ANY)
+
+def delitem_dict_any(space, w_dict, w_lookup):
+    data = w_dict.data
+    for i in range(len(data)):
+        w_key, w_value = data[i]
+        if space.is_true(space.eq(w_lookup, w_key)):
+            del data[i]
+            return
+    raise OperationError(space.w_KeyError, w_lookup)
+    
+StdObjSpace.delitem.register(delitem_dict_any, W_DictObject, W_ANY)

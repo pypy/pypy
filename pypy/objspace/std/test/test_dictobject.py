@@ -35,5 +35,17 @@ class TestW_DictObject(testsupport.TestCase_w):
         wback = space.getitem(d,wk1)
         self.assertEqual_w(wback,wone)
 
+    def test_delitem(self):
+        space = self.space
+        wk1 = space.wrap('key')
+        d = dobj.W_DictObject([(space.wrap('zero'),space.wrap(0)),
+                               (space.wrap('one'),space.wrap(1)),
+                               (space.wrap('two'),space.wrap(2))])
+        space.delitem(d,space.wrap('one'))
+        self.assertEqual_w(space.getitem(d,space.wrap('zero')),space.wrap(0))
+        self.assertEqual_w(space.getitem(d,space.wrap('two')),space.wrap(2))
+        self.failUnlessRaises(OperationError,space.getitem,d,space.wrap('one'))
+
+
 if __name__ == '__main__':
     unittest.main()
