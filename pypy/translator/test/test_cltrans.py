@@ -1,7 +1,7 @@
 import autopath
 from pypy.tool import test
 from pypy.tool.udir import udir
-from pypy.translator.test.buildclisp import make_cl_func
+from pypy.translator.test.buildcl import make_cl_func
 
 class GenCLTestCase(test.IntTestCase):
 
