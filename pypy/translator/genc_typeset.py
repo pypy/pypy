@@ -171,6 +171,18 @@ class CTypeSet:
                 lltypes  = r.r_item.impl,
                 )
 
+    def extend_OP_ALLOC_AND_SET(self, hltypes):
+        if len(hltypes) != 3:
+            return
+        # we have LoAllocAndSetArray
+        r_length, r_input, r = hltypes
+        if isinstance(r, CList):
+            sig = (R_INT, r.r_item, r)
+            yield sig, genc_op.LoAllocAndSetArray.With(
+                typename = r.typename,
+                lltypes  = r.r_item.impl,
+                )
+
     def extend_OP_NEWTUPLE(self, hltypes):
         # We can use LoCopy to virtually build a tuple because
         # the tuple representation 'rt' is just the collection of all the
@@ -325,6 +337,18 @@ class CTypeSet:
                         fld     = fld,
                         llclass = llclass,
                         )
+
+    def extend_OP_GETITEM(self, hltypes):
+        if len(hltypes) != 3:
+            return
+        r, r_index, r_result = hltypes
+        # reading from a CList
+        if isinstance(r, CList):
+            sig = (r, R_INT, r.r_item)
+            yield sig, genc_op.LoGetArrayItem.With(
+                typename = r.typename,
+                lltypes  = r.r_item.impl,
+                )
 
     # ____________________________________________________________
 

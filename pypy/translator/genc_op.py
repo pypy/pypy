@@ -165,18 +165,63 @@ class LoNewArray(LoC):
         args   = stuff[:-2]
         result = stuff[-2]
         err    = stuff[-1]
-        ls = ['OP_NEWARRAY(%s, %d, %s, %s)' % (self.typename,
-                                               len(args) / len(self.lltypes),
-                                               result,
-                                               err)]
-        for i in range(0, len(args), len(self.lltypes)):
+        if len(args) == len(self.lltypes) == 0:
+            arraylen = 0
+        else:
+            assert len(args) % len(self.lltypes) == 0
+            arraylen = len(args) / len(self.lltypes)
+        ls = ['OP_NEWARRAY(%s, %d, %s, %s)' % (
+            self.typename, arraylen, result, err)]
+        for i in range(arraylen):
             for j in range(len(self.lltypes)):
                 if self.lltypes[j] == 'PyObject*':
                     typecode = '_o'
                 else:
                     typecode = ''
+                a = args[i*len(self.lltypes) + j]
                 ls.append('OP_NEWARRAY_SET%s(%s, %s, %d, a%d, %s)' % (
-                    typecode, self.typename, result, i, j, args[i+j]))
+                    typecode, self.typename, result, i, j, a))
+        return '\n'.join(ls)
+
+class LoAllocAndSetArray(LoC):
+    can_fail = True
+    typename = PARAMETER   # the name of the PyList_Xxx type in the C source
+    lltypes  = PARAMETER   # the C types needed to represent each array item
+    # self.args: [length, input_item.., output PyObject]
+    def writestr(self, length, *stuff):
+        input  = stuff[:-2]
+        result = stuff[-2]
+        err    = stuff[-1]
+        assert len(input) == len(self.lltypes)
+        ls = ['OP_NEWARRAY(%s, %s, %s, %s)' % (
+            self.typename, length, result, err)]
+        if len(self.lltypes) > 0:
+            ls.append('{ int i; for (i=0; i<%s; i++) {' % length)
+            for j in range(len(self.lltypes)):
+                if self.lltypes[j] == 'PyObject*':
+                    typecode = '_o'
+                else:
+                    typecode = ''
+                a = input[j]
+                ls.append('\tOP_NEWARRAY_SET%s(%s, %s, i, a%d, %s)' % (
+                    typecode, self.typename, result, j, a))
+            ls.append('} }')
+        return '\n'.join(ls)
+
+class LoGetArrayItem(LoC):
+    typename = PARAMETER   # the name of the PyList_Xxx type in the C source
+    lltypes  = PARAMETER   # the C types needed to represent each array item
+    # self.args: [PyObject, int_index, output_item..]
+    def writestr(self, array, index, *output):
+        assert len(output) == len(self.lltypes)
+        ls = []
+        for j in range(len(self.lltypes)):
+            if self.lltypes[j] == 'PyObject*':
+                typecode = '_o'
+            else:
+                typecode = ''
+            ls.append('OP_GETARRAYITEM%s(%s, %s, %s, a%d, %s)' % (
+                typecode, self.typename, array, index, j, output[j]))
         return '\n'.join(ls)
 
 class LoGetAttr(LoC):

@@ -317,7 +317,11 @@ class GenC:
             return self.llarrays[lltypes]   # already seen
 
         s = '_'.join(lltypes)
-        name = ''.join([('a'<=c<='z' or '0'<=c<='9') and c or '_' for c in s])
+        name = ''.join([('a'<=c<='z' or
+                         'A'<=c<='Z' or
+                         '0'<=c<='9') and c or '_'
+                        for c in s])
+        name = name or 'void'
         name += '_%d' % len(self.llarrays)
         self.llarrays[lltypes] = name
         
@@ -333,7 +337,7 @@ class GenC:
         print >> f, self.C_LIST_FOOTER % info
 
         print >> f, self.C_LIST_DEALLOC_HEADER % info
-        lldecref = self.typeset.rawoperations['xdecref']
+        lldecref = self.typeset.rawoperations['decref']
         line = lldecref(llvars1)
         code = line.write()
         if code:
@@ -472,12 +476,12 @@ typedef struct {
 
     C_LIST_DEALLOC_LOOP_HEADER = (
 '''	int i = op->ob_size;
-	ListItem_%(name)s item = op->ob_item + i;
-	while (--i >= 0) {''')
+	ListItem_%(name)s* item = op->ob_item + i;
+	while (--i >= 0) {
+		--item;''')
 
     C_LIST_DEALLOC_LOOP_FOOTER = (
-'''		--item;
-	}''')
+'''	}''')
 
     C_LIST_DEALLOC_FOOTER = (
 '''	PyMem_Free(op->ob_item);
@@ -535,7 +539,7 @@ static PyObject* alloclist_%(name)s(int len)
 	else {
 		PyMem_Free(buffer);
 	}
-	return o;
+	return (PyObject*) o;
 }
 '''
 
