@@ -63,19 +63,29 @@ class TestW_CPythonObject(test.TestCase):
             w_result = getattr(self.space, op)(w1, w2)
             self.assertEquals(self.space.unwrap(w_result), expected)
 
-    def test_hash(self):
-        # i don't understand this test -- mwh
+    def test_unhashable(self):
         w1 = self.space.wrap(self.stuff)
-        try:
-            self.space.hash(w1)
+        self.assertRaises(OperationError, self.space.hash, w1)
+        try: self.space.hash(w1)
         except OperationError, e:
-            self.assertEquals(e.w_type.cpyobj, TypeError)
+            self.assertEquals(e.w_type.cpyobj, TypeError)            
 
+    def test_hashable(self):
+        uw = 3+4j
+        w1 = self.space.wrap(uw)
+        hash_result = self.space.hash(w1)
+        self.assertEquals(self.space.unwrap(hash_result), hash(uw))
+        
     def test_call(self):
         w1 = self.space.wrap(len)
         w_result = self.space.call(w1, self.space.wrap(("hello world",)),
                                        self.space.wrap({}))
         self.assertEquals(self.space.unwrap(w_result), 11)
+
+    def test_next(self):
+        # create something with a next
+        nx = self.space.wrap(iter(self.stuff))
+        self.assertEqual_w(self.space.wrap(5), self.space.next(nx))
 
 if __name__ == '__main__':
     test.main()

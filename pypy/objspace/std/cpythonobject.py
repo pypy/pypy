@@ -1,3 +1,14 @@
+"""
+Reviewed 03-06-21
+This is an extremely general object, so the tests are
+a carefully choosen sample, rather than a complete coverage.
+Exception wrapping is tested and ok.
+Inplace operators are untested, but quite obvious by inspection.
+Some operators and functions (both unary and binary) are tested.
+Inspection of table MethodImplementations is necessary and
+sufficient to ensure completeness and correctness of this module.
+"""
+
 from pypy.objspace.std.objspace import *
 from stringobject import W_StringObject
 import sys, operator, types
