@@ -1,4 +1,4 @@
-from pypy.interpreter.pyframe import PyFrame
+from pypy.interpreter.pyframe import PyFrame, ControlFlowException
 from pypy.objspace.flow.model import *
 
 class FrameState:
@@ -67,18 +67,11 @@ class FrameState:
            are also Variables in 'a', but 'a' may have more Variables.
         """
         newstate = []
-        for w1, w2 in zip(self.mergeable, other.mergeable):
-            if isinstance(w1, Variable):
-                w = Variable()  # new fresh Variable
-            elif isinstance(w1, Constant):
-                if w1 == w2:
-                    w = w1
-                else:
-                    w = Variable()  # generalize different constants
-            else:
-                raise TypeError('union of %r and %r' % (w1.__class__.__name__,
-                                                        w2.__class__.__name__))
-            newstate.append(w)
+        try:
+            for w1, w2 in zip(self.mergeable, other.mergeable):
+                newstate.append(union(w1, w2))
+        except UnionError:
+            return None
         return FrameState((newstate, self.nonmergeable))
 
     def getoutputargs(self, targetstate):
@@ -91,3 +84,27 @@ class FrameState:
                 raise TypeError('output arg %r' % w_target.__class__.__name__)
         return result
 
+
+class UnionError(Exception):
+    "The two states should be merged."
+
+def union(w1, w2):
+    "Union of two variables or constants."
+    if isinstance(w1, Variable) or isinstance(w2, Variable):
+        return Variable()  # new fresh Variable
+    if isinstance(w1, Constant) and isinstance(w2, Constant):
+        if w1 == w2:
+            return w1
+        # ControlFlowException represent stack unrollers in the stack.
+        # They should not be merged because they will be unwrapped.
+        # This is needed for try:except: and try:finally:, though
+        # it makes the control flow a bit larger by duplicating the
+        # handlers.
+        dont_merge_w1 = isinstance(w1.value, ControlFlowException)
+        dont_merge_w2 = isinstance(w2.value, ControlFlowException)
+        if dont_merge_w1 or dont_merge_w2:
+            raise UnionError
+        else:
+            return Variable()  # generalize different constants
+    raise TypeError('union of %r and %r' % (w1.__class__.__name__,
+                                            w2.__class__.__name__))

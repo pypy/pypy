@@ -139,5 +139,26 @@ class TestFlowOjSpace(test.TestCase):
         x = self.codetest(self.nested_whiles)
         self.show(x)
 
+    #__________________________________________________________
+    def break_continue(x):
+        result = []
+        i = 0
+        while 1:
+            i = i + 1
+            try:
+                if i&1:
+                    continue
+                if i >= x:
+                    break
+            finally:
+                result.append(i)
+            i = i + 1
+        return result
+
+    def test_break_continue(self):
+        x = self.codetest(self.break_continue)
+        self.show(x)
+
+
 if __name__ == '__main__':
     test.main()

@@ -76,7 +76,7 @@ class FlowExecutionContext(ExecutionContext):
         frame.setfastscope(arg_list)
         self.joinpoints = {}
         for joinpoint in code.getjoinpoints():
-            self.joinpoints[joinpoint] = None
+            self.joinpoints[joinpoint] = []  # list of blocks
         initialblock = SpamBlock(FrameState(frame).copy())
         self.pendingblocks = [initialblock]
         self.graph = FunctionGraph(code.co_name, initialblock)
@@ -86,16 +86,21 @@ class FlowExecutionContext(ExecutionContext):
             return
         next_instr = frame.next_instr
         if next_instr in self.joinpoints:
-            block = self.joinpoints[next_instr]
             currentstate = FrameState(frame)
-            if block is None:
+            # can 'currentstate' be merged with one of the blocks that
+            # already exist for this bytecode position?
+            for block in self.joinpoints[next_instr]:
+                newstate = block.framestate.union(currentstate)
+                if newstate is not None:
+                    # yes
+                    finished = newstate == block.framestate
+                    break
+            else:
+                # no
                 newstate = currentstate.copy()
                 finished = False
-            else:
-                # there is already a block for this bytecode position,
-                # we merge its state with the new (current) state.
-                newstate = block.framestate.union(currentstate)
-                finished = newstate == block.framestate
+                block = None
+            
             if finished:
                 newblock = block
             else:
@@ -114,7 +119,7 @@ class FlowExecutionContext(ExecutionContext):
                 outputargs = block.framestate.getoutputargs(newstate)
                 block.recloseblock(Link(outputargs, newblock))
             newblock.patchframe(frame, self)
-            self.joinpoints[next_instr] = newblock
+            self.joinpoints[next_instr].insert(0, newblock)
 
     def guessbool(self, w_condition):
         if not isinstance(self.crnt_ops, ReplayList):
