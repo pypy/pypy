@@ -1,5 +1,6 @@
 
 import autopath
+import py.test
 from pypy.tool.udir import udir
 
 from pypy.translator.annrpython import RPythonAnnotator, annmodel
@@ -487,7 +488,18 @@ class TestAnnonateTestCase:
         a = RPythonAnnotator()
         s = a.build_types(snippet.slice_union, [int])
         assert isinstance(s, annmodel.SomeSlice)
-        
+
+    def test_bltin_code_frame_confusion(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.bltin_code_frame_confusion,[])
+        assert isinstance(s, annmodel.SomeTuple)
+        is_int = isinstance(s.items[0], annmodel.SomeInteger)
+        if not is_int:
+            py.test.skip("annotator confused with bltin code/frame setup")
+        assert isinstance(s.items[1], annmodel.SomeInteger)
+        assert isinstance(s.items[2], annmodel.SomeString)
+        assert isinstance(s.items[3], annmodel.SomeString)
+
 
 def g(n):
     return [0,1,2,n]

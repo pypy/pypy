@@ -735,3 +735,44 @@ def nested_exception_deduction():
             return (e, f)
         return (e, Exc2())
     return (Exc(), Exc2())
+
+
+class BltinCode:
+  def __init__(self, func, framecls):
+    self.func = func
+    self.framecls = framecls
+
+  def call(self, x):
+     return self.framecls(self).run(x)
+
+class BltinFrame:
+  def __init__(self, code):
+    self.code = code
+
+def bltin_code_frame_f(x):
+  return x
+
+def bltin_code_frame_g(x):
+  return x
+
+class FBltinFrame(BltinFrame):
+
+  def run(self, x):
+     return self.code.func(x)
+
+class GBltinFrame(BltinFrame):
+
+  def run(self, x):
+     return self.code.func(x)
+
+bltin_code_for_f = BltinCode(bltin_code_frame_f, FBltinFrame)
+bltin_code_for_g = BltinCode(bltin_code_frame_g, GBltinFrame)
+
+def bltin_code_frame_confusion():
+  a = bltin_code_for_f.call(0)
+  a1 = bltin_code_for_f.call(1)
+  b = bltin_code_for_g.call("a")
+  b1 = bltin_code_for_g.call("b")
+  return (a,a1,b,b1)
+
+
