@@ -328,11 +328,10 @@ class AppTestStringObject:
         assert 'abcdefghiabc'.index('def') == 3
         assert 'abcdefghiabc'.index('abc') == 0
         assert 'abcdefghiabc'.index('abc', 1) == 9
-        #XXX it comes UnicodeError
-        #self.assertRaises(ValueError, 'abcdefghiabc'.index('hib'))
-        #self.assertRaises(ValueError, 'abcdefghiab'.index('abc', 1))
-        #self.assertRaises(ValueError, 'abcdefghi'.index('ghi', 8))
-        #self.assertRaises(ValueError, 'abcdefghi'.index('ghi', -1))
+        raises(ValueError, 'abcdefghiabc'.index, 'hib')
+        raises(ValueError, 'abcdefghiab'.index, 'abc', 1)
+        raises(ValueError, 'abcdefghi'.index, 'ghi', 8)
+        raises(ValueError, 'abcdefghi'.index, 'ghi', -1)
 
     def test_rfind(self):
         assert 'abcdefghiabc'.rfind('abc') == 9
@@ -345,12 +344,11 @@ class AppTestStringObject:
         assert 'abcdefghiabc'.rindex('def') == 3
         assert 'abcdefghiabc'.rindex('abc') == 9
         assert 'abcdefghiabc'.rindex('abc', 0, -1) == 0
-        #XXX it comes UnicodeError
-        #self.assertRaises(ValueError, 'abcdefghiabc'.rindex('hib'))
-        #self.assertRaises(ValueError, 'defghiabc'.rindex('def', 1))
-        #self.assertRaises(ValueError, 'defghiabc'.rindex('abc', 0, -1))
-        #self.assertRaises(ValueError, 'abcdefghi'.rindex('ghi', 0, 8))
-        #self.assertRaises(ValueError, 'abcdefghi'.rindex('ghi', 0, -1))
+        raises(ValueError, 'abcdefghiabc'.rindex, 'hib')
+        raises(ValueError, 'defghiabc'.rindex, 'def', 1)
+        raises(ValueError, 'defghiabc'.rindex, 'abc', 0, -1)
+        raises(ValueError, 'abcdefghi'.rindex, 'ghi', 0, 8)
+        raises(ValueError, 'abcdefghi'.rindex, 'ghi', 0, -1)
 
 
     def test_split_maxsplit(self):
