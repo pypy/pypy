@@ -1,13 +1,14 @@
 from __future__ import generators
 import types
-from model import Annotation, SomeValue, blackholevalue
+from model import Annotation, SomeValue, ann
+from model import immutable_types, blackholevalue, basicannotations
 
 class AnnotationSet:
     """An annotation set is a (large) family of Annotations."""
 
     # XXX STORED AS A PLAIN LIST, THE COMPLEXITY IS PLAINLY WRONG
 
-    def __init__(self, annlist=[]):
+    def __init__(self, annlist=basicannotations):  
         self.annlist = list(annlist)    # List of annotations
         self._shared = {}
         self.forward_deps = {}
@@ -170,6 +171,18 @@ class Recorder:
         for previous_ann in self.using_annotations:
             deps = self.annset.forward_deps.setdefault(previous_ann, [])
             deps.append(ann)
+
+    def check_type(self, someval, checktype):
+        return self.query(ann.type[someval, ...],
+                          ann.constant(checktype)[...])
+
+    def set_type(self, someval, knowntype):
+        typeval = SomeValue()
+        self.set(ann.type[someval, typeval])
+        self.set(ann.constant(knowntype)[typeval])
+        if knowntype in immutable_types:
+            self.set(ann.immutable[someval])
+
 '''
     def merge(self, oldcell, newcell):
         """Update the heap to account for the merging of oldcell and newcell.

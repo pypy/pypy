@@ -64,7 +64,26 @@ class TestAnnotationSet(test.IntTestCase):
                     ann.snuff[..., c3])
         self.assertEquals(c, [c2])
 
+    def test_constant(self):
+        c1,c2,c3 = SomeValue(), SomeValue(), SomeValue()
+        lst = [
+            ann.constant(42)[c1],
+        ]
+        a = AnnotationSet(lst)
+        c = a.query(ann.constant(42)[...])
+        self.assertEquals(c, [c1])
+
+c1,c2,c3,c4 = SomeValue(), SomeValue(), SomeValue(), SomeValue()
+
 class TestRecording(test.IntTestCase):
+
+    def setUp(self):
+        self.lst = [
+            ann.add[c1, c3, c2],
+            ann.type[c1, c4],
+            ann.constant(int)[c4],
+        ]
+        self.annset = AnnotationSet(self.lst)
 
     def assertSameSet(self, annset, a, b):
         a = [annset.temporarykey(a1) for a1 in a]
@@ -81,19 +100,24 @@ class TestRecording(test.IntTestCase):
         self.assertEquals(a, b)
 
     def test_simple(self):
-        c1,c2,c3 = SomeValue(), SomeValue(), SomeValue()
-        lst = [
-            ann.add[c1, c3, c2],
-        ]
-        a = AnnotationSet(lst)
+        a = self.annset
         def f(rec):
             if rec.query(ann.add[c1, c3, ...]):
                 rec.set(ann.snuff[c1, c3]) 
         a.record(f)
-        self.assertSameSet(a, a, lst + [ann.snuff[c1, c3]])
+        self.assertSameSet(a, a, self.lst + [ann.snuff[c1, c3]])
 
-        a.kill(lst[0])
-        self.assertSameSet(a, a, [])
+        a.kill(self.lst[0])
+        self.assertSameSet(a, a, self.lst[1:])
+
+    def test_type(self):
+        a = self.annset
+        def f(rec):
+            if rec.check_type(c1, int):
+                rec.set_type(c2, str)
+        a.record(f)
+        self.assert_(a.query(ann.type[c2, ...],
+                             ann.constant(str)[...]))
 
 if __name__ == '__main__':
     test.main()
