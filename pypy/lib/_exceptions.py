@@ -1,3 +1,92 @@
+"""Python's standard exception class hierarchy.
+
+Before Python 1.5, the standard exceptions were all simple string objects.
+In Python 1.5, the standard exceptions were converted to classes organized
+into a relatively flat hierarchy.  String-based standard exceptions were
+optional, or used as a fallback if some problem occurred while importing
+the exception module.  With Python 1.6, optional string-based standard
+exceptions were removed (along with the -X command line flag).
+
+The class exceptions were implemented in such a way as to be almost
+completely backward compatible.  Some tricky uses of IOError could
+potentially have broken, but by Python 1.6, all of these should have
+been fixed.  As of Python 1.6, the class-based standard exceptions are
+now implemented in C, and are guaranteed to exist in the Python
+interpreter.
+
+Here is a rundown of the class hierarchy.  The classes found here are
+inserted into both the exceptions module and the `built-in' module.  It is
+recommended that user defined class based exceptions be derived from the
+`Exception' class, although this is currently not enforced.
+
+Exception
+ |
+ +-- SystemExit
+ +-- TaskletExit
+ +-- StopIteration
+ +-- StandardError
+ |    |
+ |    +-- KeyboardInterrupt
+ |    +-- ImportError
+ |    +-- EnvironmentError
+ |    |    |
+ |    |    +-- IOError
+ |    |    +-- OSError
+ |    |         |
+ |    |         +-- WindowsError
+ |    |         +-- VMSError
+ |    |
+ |    +-- EOFError
+ |    +-- RuntimeError
+ |    |    |
+ |    |    +-- NotImplementedError
+ |    |
+ |    +-- NameError
+ |    |    |
+ |    |    +-- UnboundLocalError
+ |    |
+ |    +-- AttributeError
+ |    +-- SyntaxError
+ |    |    |
+ |    |    +-- IndentationError
+ |    |         |
+ |    |         +-- TabError
+ |    |
+ |    +-- TypeError
+ |    +-- AssertionError
+ |    +-- LookupError
+ |    |    |
+ |    |    +-- IndexError
+ |    |    +-- KeyError
+ |    |
+ |    +-- ArithmeticError
+ |    |    |
+ |    |    +-- OverflowError
+ |    |    +-- ZeroDivisionError
+ |    |    +-- FloatingPointError
+ |    |
+ |    +-- ValueError
+ |    |    |
+ |    |    +-- UnicodeError
+ |    |        |
+ |    |        +-- UnicodeEncodeError
+ |    |        +-- UnicodeDecodeError
+ |    |        +-- UnicodeTranslateError
+ |    |
+ |    +-- ReferenceError
+ |    +-- SystemError
+ |    +-- MemoryError
+ |
+ +---Warning
+      |
+      +-- UserWarning
+      +-- DeprecationWarning
+      +-- PendingDeprecationWarning
+      +-- SyntaxWarning
+      +-- OverflowWarning
+      +-- RuntimeWarning
+      +-- FutureWarning"""
+
 class Exception:
     """Common base class for all exceptions."""
 
@@ -295,4 +384,3 @@ class OverflowError(ArithmeticError):
 
 class WindowsError(OSError):
     """MS-Windows OS system call failed."""
-

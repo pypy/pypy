@@ -6,6 +6,8 @@
 
 import types
 
+from pypy.tool.sourcetools import render_docstr
+
 def classOfAttribute(klass, attname):
     if attname in klass.__dict__:
         return klass
@@ -19,8 +21,7 @@ def getAttributes(klass, ignorelist = []):
 
 def makeExceptionsTemplate(f=None):
     
-    def enumExceptionsInOrder():
-        import exceptions
+    def enumClassesInOrder(module):
         seen = {}
         ordered = []
         
@@ -31,7 +32,7 @@ def makeExceptionsTemplate(f=None):
                     enumerateOne(each)
             ordered.append(exc)
             
-        for each in exceptions.__dict__.values():
+        for each in module.__dict__.values():
             if isinstance(each, (types.ClassType, type)) and \
                each not in seen:
                 enumerateOne(each)
@@ -41,7 +42,11 @@ def makeExceptionsTemplate(f=None):
     if not f:
         f = sys.stdout
 
-    for exc in enumExceptionsInOrder():
+    import exceptions
+    for line in render_docstr(exceptions, ""):
+        print >> f, line
+        
+    for exc in enumClassesInOrder(exceptions):
         name = exc.__name__
         bases = exc.__bases__
         doc = exc.__doc__
@@ -57,6 +62,7 @@ def makeExceptionsTemplate(f=None):
             if classOfAttribute(exc, attname) is exc:
                 obj = getattr(exc, attname)
                 (simple, difficult)[callable(obj)].append( (attname, obj) )
+        print >> f
         print >> f, "class %s%s:" % (name, bases)
         if doc:
             print >> f, '    """%s"""' % doc
@@ -78,7 +84,6 @@ def makeExceptionsTemplate(f=None):
                 except ValueError, e:
                     print >> f, "    # %s" % e
                     print >> f, "    # please implement %s.%s (%r)" % (name, attname, meth)
-        print >> f
 
 def tryGenerate__getitem__(exc):
     for args in (), (1, 2, 3):
@@ -325,7 +330,9 @@ def tryGenerate__str__(exc, maxprobe=20):
     yield "    return res"
 
 if __name__ == "__main__":
-    import pypy.appspace, os
-    targetdir = os.path.dirname(pypy.appspace.__file__)
-    fname = os.path.join(targetdir, "_exceptions.py")
-    makeExceptionsTemplate(file(fname, "w"))
+    import pypy, os
+    prefix = os.path.dirname(pypy.__file__)
+    libdir = os.path.join(prefix, "lib")
+    fname = "_exceptions.pre.py"
+    fpath = os.path.join(libdir, fname)
+    makeExceptionsTemplate(file(fpath, "w"))

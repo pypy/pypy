@@ -230,6 +230,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     setattr(self, "w_"+excname, w_obj) # into space
                     for_builtins[excname] = w_obj # into builtins
                     self.setitem(w_dic, self.wrap(excname), w_obj) # into exc
+            self.setitem(w_dic, self.wrap("__doc__"), ex.__doc__)
         finally:
             del self.call # revert to the class' method
         
@@ -237,6 +238,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # XXX refine things, clean up, create a builtin module...
         # but for now, we do a regular one.
         from pypy.interpreter.module import Module
+        
         m = Module(self, self.wrap("exceptions"), w_dic)
         w_exceptions = self.wrap(m)
         self.sys.setbuiltinmodule(w_exceptions, 'exceptions')

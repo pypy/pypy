@@ -42,6 +42,7 @@ from pypy.objspace.flow import FlowObjSpace
 
 from pypy.interpreter.gateway import app2interp, interp2app
 
+from pypy.tool.sourcetools import render_docstr
 
 # ____________________________________________________________
 
@@ -103,6 +104,7 @@ class GenRpy:
         self.translator = translator
         self.modname = self.trans_funcname(modname or
                         uniquemodulename(translator.functions[0].__name__))
+        self.moddict = None # the dict if we translate a module
         self.rpynames = {Constant(None).key:  'space.w_None',
                          Constant(False).key: 'space.w_False',
                          Constant(True).key:  'space.w_True',
@@ -125,11 +127,6 @@ class GenRpy:
         for name in "newtuple newlist newdict newstring".split():
             self.has_listarg[name] = name
 
-        # XXX I guess it is cleaner to use the flow space?
-        # we just want to look into the operations,
-        # but we don't break into the implementation.
-        # Or should it be the base space, ARMIN?
-        #self.space = StdObjSpace() # for introspection
         self.space = FlowObjSpace() # for introspection
         
         self.use_fast_call = False        
@@ -219,7 +216,8 @@ class GenRpy:
             ass = var+"="
             if not res or len(res[-1]) >= margin:
                 res.append(ass)
-            res[-1] += ass
+            else:
+                res[-1] += ass
         res = [line + nonestr for line in res]
         return res
 
@@ -570,8 +568,7 @@ class GenRpy:
 
         if cls.__doc__ is not None:
             sdoc = self.nameof("__doc__")
-            lines = list(self.render_docstr(cls, "_doc = space.wrap("))
-            lines[-1] +=")"
+            lines = list(render_docstr(cls, "_doc = space.wrap(", ")"))
             self.initcode.extend(lines)
             self.initcode.appendnew("space.setitem(_dic, %s, _doc)" % (
                 self.nameof("__doc__"),))
@@ -754,7 +751,19 @@ class GenRpy:
             }
         # header
         print >> f, self.RPY_HEADER
+        print >> f
 
+        # doc
+        if self.moddict and self.moddict.get("__doc__"):
+            doc = self.moddict["__doc__"]
+            for line in render_docstr(doc):
+                print >> f, line
+            print >> f
+            # make sure it is not rendered again
+            key = Constant(doc).key
+            self.rpynames[key] = "__doc__"
+            self.seennames["__doc__"] = 1
+            self.initcode.append("m.__doc__ = space.wrap(m.__doc__)")
         # function implementations
         while self.pendingfunctions:
             func = self.pendingfunctions.pop()
@@ -792,20 +801,6 @@ class GenRpy:
         for name in g:
             pass # self.initcode.append('# REGISTER_GLOBAL(%s)' % (name,))
         del g[:]
-
-
-    def render_docstr(self, func, indent_str, q='"""', redo=True):
-        doc = func.__doc__
-        if doc is None:
-            return []
-        doc = indent_str + q + doc.replace(q, "\\"+q) + q
-        doc2 = doc
-        if q in doc and redo:
-            doc2 = self.render_docstr(func, indent_str, "'''", False)
-        if not redo:
-            return doc # recursion case
-        doc = (doc, doc2)[len(doc2) < len(doc)]
-        return [line for line in doc.split('\n')]
     
     def gen_rpyfunction(self, func):
 
@@ -825,7 +820,7 @@ class GenRpy:
         self.gen_global_declarations()
 
         # print header
-        doc_lines = self.render_docstr(func, "    ")
+        doc_lines = render_docstr(func, "    ")
         cname = self.nameof(func)
         assert cname.startswith('gfunc_')
         f_name = 'f_' + cname[6:]
@@ -1240,21 +1235,19 @@ def test_struct():
     return res1, res2
 
 def test_exceptions_helper():
-    def demoduliseDict(mod):
-        # get the raw dict without module stuff like __builtins__
-        dic = mod.__dict__.copy()
-        bad = ("__builtins__", )  # anything else?
-        for name in bad:
-            if name in dic:
-                del dic[name]
-        return dic
-    from pypy.appspace import _exceptions
-    a = demoduliseDict(_exceptions)
+    import pypy
+    prefix = os.path.dirname(pypy.__file__)
+    libdir = os.path.join(prefix, "lib")
+    fname = "_exceptions.py"
+    fpath = os.path.join(libdir, fname)
+    dic = {"__name__": "exceptions"}
+    execfile(fpath, dic)
+    del dic["__builtins__"]
     def test_exceptions():
         """ enumerate all exceptions """
-        return a.keys()
+        return dic.keys()
         #return [thing for thing in _exceptions.__dict__.values()]
-    return test_exceptions
+    return dic, test_exceptions
 
 def all_entries():
     res = [func() for func in entrypoints[:-1]]
@@ -1284,11 +1277,13 @@ if __name__ == "__main__":
     if appdir not in sys.path:
         sys.path.insert(0, appdir)
 
+    dic = None
     if entrypoint.__name__.endswith("_helper"):
-        entrypoint = entrypoint()
+        dic, entrypoint = entrypoint()
     t = Translator(entrypoint, verbose=False, simplifying=True)
     gen = GenRpy(t)
     gen.use_fast_call = True
+    if dic: gen.moddict = dic
     import pypy.appspace.generated as tmp
     pth = os.path.dirname(tmp.__file__)
     ftmpname = "/tmp/look.py"
@@ -1305,7 +1300,7 @@ def crazy_test():
     """ this thingy is generating the whole interpreter in itself"""
     # but doesn't work, my goto's give a problem for flow space
     dic = {"__builtins__": __builtins__, "__name__": "__main__"}
-    execfile("d:/tmp/look.py", dic)
+    execfile("/tmp/look.py", dic)
     
     def test():
         f_ff(space, 2, 3)
@@ -1313,4 +1308,4 @@ def crazy_test():
         
     t = Translator(test, verbose=False, simplifying=True)
     gen = GenRpy(t)
-    gen.gen_source("d:/tmp/look2.py")
+    gen.gen_source("/tmp/look2.py")
