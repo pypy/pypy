@@ -5,13 +5,17 @@ import autopath
 from pypy.tool import testit
 
 
-class TestUnicodeString(testit.AppTestCase):
+class TestUnicodeStringStdOnly(testit.AppTestCase):
+    def setUp(self):
+         self.space = testit.objspace('std')
+
     def test_compares(self):
         self.assertEqual(u'a', 'a')
         self.assertEqual('a', u'a')
         self.assertNotEqual(u'a', 'b')
         self.assertNotEqual('a', u'b')
 
+class TestUnicodeString(testit.AppTestCase):
     def test_addition(self):
         def check(a, b):
             self.assertEqual(a, b)
