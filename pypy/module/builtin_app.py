@@ -1,5 +1,3 @@
-import types
-
 # XXX kwds yet to come
 
 # Problem: need to decide how to implement iterators,
@@ -14,13 +12,14 @@ def map(function, list):
 
 def isinstance(obj, klass_or_tuple):
     objcls = obj.__class__
-    if type(klass_or_tuple) == types.TupleType:
+    if type(klass_or_tuple) is tuple:
        for klass in klass_or_tuple:
            if issubclass(objcls, klass):
               return 1
        return 0
-    elif type(klass_or_tuple) == types.ClassType:
-       return issubclass(objcls, klass_or_tuple)
     else:
-       raise TypeError, "isinstance() arg 2 must be a class or type"
+       try:
+          return issubclass(objcls, klass_or_tuple)
+       except TypeError:
+          raise TypeError, "isinstance() arg 2 must be a class or type"
  
