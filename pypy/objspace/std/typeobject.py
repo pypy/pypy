@@ -51,7 +51,8 @@ class W_TypeObject(W_AbstractTypeObject):
         space = w_self.space
         multimethods = getmultimethods(space.__class__, w_self.__class__)
         key = space.unwrap(w_key)
-        assert isinstance(key, str)
+        if not isinstance(key, str):
+            raise OperationError(space.w_TypeError,space.wrap('attribute name must be string'))
         try:
             code = multimethods[key]
         except KeyError:
