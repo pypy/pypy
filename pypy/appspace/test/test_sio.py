@@ -475,11 +475,10 @@ class TestCRLFFilter:
             blocks.append(block)
         assert blocks == expected
 
-class TestMMapFile:
-
+class TestMMapFile(TestBufferingInputStreamTests): 
     tfn = None
 
-    def tearDown(self):
+    def teardown_method(self, method):
         tfn = self.tfn
         if tfn:
             self.tfn = None
