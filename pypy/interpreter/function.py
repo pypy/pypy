@@ -25,6 +25,11 @@ class Function(Wrappable):
         self.defs_w    = defs_w     # list of w_default's
         self.w_func_dict = space.newdict([])
 
+    def __repr__(self):
+        # return "function %s.%s" % (self.space, self.name)
+        # maybe we want this shorter:
+        return "func %s" % self.name
+
     def call_args(self, args):
         scope_w = args.parse(self.name, self.code.signature(), self.defs_w)
         frame = self.code.create_frame(self.space, self.w_func_globals,
@@ -83,6 +88,13 @@ class Method(Wrappable):
         self.w_function = w_function
         self.w_instance = w_instance   # or None
         self.w_class = w_class
+        
+    def __repr__(self):
+        if self.w_instance:
+            pre = "bound"
+        else:
+            pre = "unbound"
+        return "%s method %s" % (pre, self.w_function.name)
 
     def call_args(self, args):
         if self.w_instance is not None:

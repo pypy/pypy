@@ -36,6 +36,9 @@ class ObjSpace(object):
         self._gatewaycache = Cache()
         # sets all the internal descriptors
         self.initialize()
+        
+    def __repr__(self):
+        return self.__class__.__name__
 
     def make_builtins(self, for_builtins):
         "NOT_RPYTHON: only for initializing the space."
