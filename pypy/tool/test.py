@@ -96,7 +96,6 @@ class MyTextTestResult(unittest._TextTestResult):
         from pypy.tool.testpm import TestPM
         c = TestPM(efs)
         c.cmdloop()
-        return
 
     def printErrors(self):
         if Options.interactive:
