@@ -4,35 +4,36 @@ class file_(object):
     """An implementation of file objects in Python. it relies on Guido's
        sio.py implementation.
     """
-    def __init__(self, filename, filemode='r', bufsize=None):
+    def __init__(self, name, mode='r', bufsize=None):
         self.reading = False
         self.writing = False
         
-        if not filemode:
+        if not mode:
             raise IOError('invalid mode :  ')
-        if filemode[0] not in ['r', 'w', 'a', 'U']:
-            raise IOError('invalid mode : %s' % filemode)
+        if mode[0] not in ['r', 'w', 'a', 'U']:
+            raise IOError('invalid mode : %s' % mode)
         else:
-            if filemode[0] in ['r', 'U']:
+            if mode[0] in ['r', 'U']:
                 self.reading = True
             else:
                 self.writing = True
         try:
-            if filemode[1] == 'b':
-                plus = filemode[2]
+            if mode[1] == 'b':
+                plus = mode[2]
             else:
-                plus = filemode[1]
+                plus = mode[1]
             if plus == '+':
                 self.reading = self.writing = True
         except IndexError:
             pass
 
-        self.filemode = filemode
-        self.filename = filename
-        self.isclosed = False
-        self.softspace =  0 # Required according to file object docs 
-        self.fd = sio.DiskFile(filename, filemode)
-        if filemode in ['U', 'rU']:
+        self._mode = mode
+        self._name = name
+        self._closed = False
+        self.softspace =  0 # Required according to file object docs
+        self._encoding = None # Fix when we find out how encoding should be
+        self.fd = sio.DiskFile(name, mode)
+        if mode in ['U', 'rU']:
             # Wants universal newlines
             self.fd = sio.TextInputFilter(self.fd)
         if bufsize < 0:
@@ -54,11 +55,17 @@ class file_(object):
 
     def __getattr__(self, attr):
         """
-        Delegate all methods to the underlying file object.
+        Handle the readonly attributes and then delegate the other
+        methods to the underlying file object, setting the 'closed'
+        attribute if you close the file.
         """
-        if attr == 'close':
-            self.isclosed = True
-        
+        if attr in ['fd', 'softspace', 'reading', 'writing']:
+            return self.__dict__[attr]
+        elif attr in ['mode', 'name', 'closed', 'encoding']:
+            return self.__dict__['_' + attr]
+        elif attr == 'close':
+            self._closed = True
+                
         return getattr(self.fd, attr)
 
     def __setattr__(self, attr, val):

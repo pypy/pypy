@@ -14,9 +14,15 @@ class FileTestCase(unittest.TestCase):
     def test_case_1(self):
         self.assertEquals(self.fd.tell(), 0)
 
+    def test_case_readonly(self):
+        f=_file.file_('/tmp/tt', 'w')
+        self.assertEquals(f.name, '/tmp/tt')
+        self.assertEquals(f.mode, 'w')
+        self.assertEquals(f.closed, False)
+        self.assertEquals(f.encoding, None) # Fix when we find out what this is
+        
 def test_main():
     unittest.main()
-
 
 if __name__ == "__main__":
     test_main()
