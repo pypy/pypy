@@ -1,7 +1,6 @@
-""" 
+"""
    Trace object space traces operations and bytecode execution
-   in frames. 
-
+   in frames.
 """
 
 from __future__ import generators
@@ -17,8 +16,8 @@ from pypy.interpreter.baseobjspace import ObjSpace
 class ExecBytecode(object):
     """ bytecode trace. """
     def __init__(self, frame):
-        self.frame = frame 
-        self.code = frame.code 
+        self.frame = frame
+        self.code = frame.code
         self.index = frame.next_instr
 
 class EnterFrame(object):
@@ -54,7 +53,7 @@ class CallException(object):
 class TraceResult(object):
     """ this is the state of tracing-in-progress. """
     def __init__(self, tracespace):
-        self.events = []  
+        self.events = []
         self.tracespace = tracespace
 
     def append(self, arg):
@@ -74,7 +73,7 @@ class TraceResult(object):
             if isinstance(event, ExecBytecode):
                 disres = self.getdisresult(event.frame)
                 yield disres.getbytecode(event.index)
-               
+
     def getoperations(self):
         for event in self.events:
             if isinstance(event, (CallBegin, CallFinished, CallException)):
@@ -92,54 +91,56 @@ class TraceResult(object):
 
 class ExecutionContextTracer(object):
     def __init__(self, result, ec):
-        self.__ec = ec
-        self.__result = result
+        self.ec = ec
+        self.result = result
 
     def __getattr__(self, name):
         """ generically pass through everything else ... """
-        return getattr(self.__ec, name)
+        return getattr(self.ec, name)
 
     def enter(self, frame):
         """ called just before (continuing to) evaluating a frame. """
-        self.__result.append(EnterFrame(frame))
-        return self.__ec.enter(frame)
+        self.result.append(EnterFrame(frame))
+        return self.ec.enter(frame)
 
     def leave(self, previous_ec):
         """ called just after evaluating of a frame is suspended/finished. """
-        frame = self.__ec.framestack.top()
-        self.__result.append(LeaveFrame(frame))
-        return self.__ec.leave(previous_ec)
+        frame = self.ec.framestack.top()
+        self.result.append(LeaveFrame(frame))
+        return self.ec.leave(previous_ec)
 
     def bytecode_trace(self, frame):
         """ called just before execution of a bytecode. """
-        self.__result.append(ExecBytecode(frame))
+        self.result.append(ExecBytecode(frame))
 
 class CallableTracer(object):
     def __init__(self, result, name, func):
-        self.__result = result
-        self.__name = name
-        self.__func = func
+        self.result = result
+        self.name = name
+        self.func = func
 
     def __call__(self, *args, **kwargs):
-        callinfo = CallInfo(self.__name, self.__func, args, kwargs) 
-        self.__result.append(CallBegin(callinfo))
+        callinfo = CallInfo(self.name, self.func, args, kwargs) 
+        self.result.append(CallBegin(callinfo))
 
         try:
-            res = self.__func(*args, **kwargs)
+            res = self.func(*args, **kwargs)
         except Exception, e:
-            self.__result.append(CallException(callinfo, e))
+            self.result.append(CallException(callinfo, e))
             raise 
         else:
-            self.__result.append(CallFinished(callinfo, res))
+            self.result.append(CallFinished(callinfo, res))
             return res
 
     def __getattr__(self, name):
         """ generically pass through everything we don't intercept. """
-        return getattr(self.__func, name)
+        return getattr(self.func, name)
 
     def __str__(self):
-        return "%s - CallableTracer(%s)" % (self.__name, self.__func)
-    __repr = __str__
+        return "%s - CallableTracer(%s)" % (self.name, self.func)
+
+    __repr__ = __str__
+
 # __________________________________________________________________________
 #
 # Tracer factory 
@@ -161,7 +162,7 @@ def create_trace_space(space = None, operations = None):
     will turn the supplied into a tracable space by extending its class."""
 
     # Don't trace an already tracable space
-    if hasattr(space, "__pypytrace___"):
+    if hasattr(space, "__pypytrace__"):
         return space
     
     if space is None:
@@ -182,7 +183,7 @@ def create_trace_space(space = None, operations = None):
                 obj = CallableTracer(self._result, name, obj)
             return obj
 
-        def __pypytrace___(self):
+        def __pypytrace__(self):
             pass
 
         def settrace(self):
@@ -198,17 +199,18 @@ def create_trace_space(space = None, operations = None):
         
         def reset_trace(self):
             """ Returns the class to it's original form. """
-            space.__class__ = space.__oldclass___
-            del space.__oldclass___
+            space.__class__ = space.__oldclass__
+            del space.__oldclass__
 
             if hasattr(self, "_result"):
                 del self._result            
 
     trace_clz = type("Trace" + space.__class__.__name__, (Trace,), {})
-    space.__oldclass___, space.__class__ = space.__class__, trace_clz
+    space.__oldclass__, space.__class__ = space.__class__, trace_clz
+
+    # XXX Ensure space's sys & builtin are fully loaded?
     space.settrace()
     return space
 
 # ______________________________________________________________________
 # End of trace.py
-
