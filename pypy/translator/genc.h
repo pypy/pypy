@@ -194,70 +194,101 @@ static PyTypeObject PyGenCFunction_Type = {
 #if defined(USE_CALL_TRACE)
 
 static int callstack_depth = -1;
-#define OP_SIMPLE_CALL(args, r, err) do { \
-	char *c_signature = INSIDE_FUNCTION " OP_SIMPLE_CALL" #args; \
-	PyCodeObject *c; \
-	PyObject *locals = PyDict_New(); \
-	PyObject *locals_list = PyList_CrazyPack args; \
-	PyObject *locals_signature = PyString_FromString(c_signature); \
-	PyObject *locals_lineno = PyInt_FromLong(__LINE__); \
-	callstack_depth++; \
-	c = getcode(c_signature, __LINE__); \
-	if (locals_list != NULL && locals_signature != NULL && locals_lineno != NULL && locals != NULL) { \
-		PyDict_SetItemString(locals, "c_args", locals_list); \
-		PyDict_SetItemString(locals, "c_signature", locals_signature); \
-		PyDict_SetItemString(locals, "c_lineno", locals_lineno); \
-		Py_DECREF(locals_list); \
-	} else { \
-		Py_XDECREF(locals); \
-		Py_XDECREF(locals_list); \
-		Py_XDECREF(locals_signature); \
-		Py_XDECREF(locals_lineno); \
-		locals = NULL; \
-	} \
-	{ PyThreadState *tstate = PyThreadState_GET(); \
-	PyFrameObject *f; \
-	if (c == NULL || locals == NULL) { \
-		r = NULL; \
-		callstack_depth--; \
-		goto err; \
-	} \
-	f = PyFrame_New(tstate, c, PyEval_GetGlobals(), locals); \
-	if (f == NULL) { \
-		r = NULL; \
-		callstack_depth--; \
-		goto err; \
-	} \
-	Py_DECREF(c); \
-	Py_DECREF(locals); \
-	tstate->frame = f; \
-	if (trace_frame(tstate, f, PyTrace_CALL, Py_None) < 0) { \
-		r = NULL; \
-		callstack_depth--; \
-		goto err; \
-	} \
-	r = PyObject_CallFunctionObjArgs args; \
-	callstack_depth--; \
-	if (r == NULL) { \
-		if (tstate->curexc_traceback == NULL) { \
-			PyTraceBack_Here(f); \
-		} \
-		if (trace_frame_exc(tstate, f) < 0) { \
-			goto err; \
-		} \
-	} \
-	else { \
-		if (trace_frame(tstate, f, PyTrace_RETURN, r) < 0) { \
-			Py_XDECREF(r); \
-			r = NULL; \
-		} \
-	} \
-	tstate->frame = f->f_back; \
-	Py_DECREF(f); \
-	if (r == NULL) { \
-		goto err; \
-	} } \
-} while (0);
+
+static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char *filename, int c_lineno) {
+	/*
+		STEALS a reference to allargs
+	*/
+	PyCodeObject *c;
+	PyFrameObject *f;
+	PyObject *rval;
+	PyThreadState *tstate;
+	PyObject *locals;
+	PyObject *function;
+	PyObject *args;
+	PyObject *locals_signature;
+	PyObject *locals_lineno;
+	PyObject *locals_filename;
+
+	if (allargs == NULL) {
+		return NULL;
+	}
+	tstate = PyThreadState_GET();
+	locals = PyDict_New();
+	args = PyTuple_GetSlice(allargs, 1, PyTuple_Size(allargs));
+	function = PyTuple_GetItem(allargs, 0);
+	Py_INCREF(function)
+	Py_DECREF(allargs);
+	locals_signature = PyString_FromString(c_signature);
+	locals_lineno = PyInt_FromLong(c_lineno);
+	locals_filename = PyString_FromString(filename);
+	if (locals == NULL || function == NULL || args == NULL || 
+		locals_signature == NULL || locals_lineno == NULL ||
+		locals_filename == NULL) {
+		Py_XDECREF(locals);
+		Py_XDECREF(args);
+		Py_XDECREF(locals_signature);
+		Py_XDECREF(locals_lineno);
+		Py_XDECREF(locals_filename);
+		return NULL;
+	}
+	PyDict_SetItemString(locals, "function", function);
+	PyDict_SetItemString(locals, "args", args);
+	PyDict_SetItemString(locals, "signature", locals_signature);
+	PyDict_SetItemString(locals, "lineno", locals_lineno);
+	PyDict_SetItemString(locals, "filename", locals_filename);
+	Py_DECREF(locals);
+	Py_DECREF(locals_signature);
+	Py_DECREF(locals_lineno);
+	Py_DECREF(locals_filename);
+	callstack_depth++;
+	c = getcode(c_signature, c_lineno);
+	if (c == NULL) {
+		callstack_depth--;
+		Py_DECREF(args);
+		Py_DECREF(locals);
+		return NULL;
+	}
+	f = PyFrame_New(tstate, c, PyEval_GetGlobals(), locals);
+	if (f == NULL) {
+		callstack_depth--;
+		Py_DECREF(c);
+		Py_DECREF(locals);
+		Py_DECREF(args);
+		return NULL;
+	}
+	Py_DECREF(c);
+	Py_DECREF(locals);
+	tstate->frame = f;
+	
+	if (trace_frame(tstate, f, PyTrace_CALL, Py_None) < 0) {
+		callstack_depth--;
+		Py_DECREF(args);
+		return NULL;
+	}
+	rval = PyObject_Call(function, args, NULL);
+	PyObject_DECREF(args);
+	callstack_depth--;
+	if (rval == NULL) {
+		if (tstate->curexc_traceback == NULL) {
+			PyTraceBack_Here(f);
+		}
+		if (trace_frame_exc(tstate, f) < 0) {
+			return NULL;
+		}
+	} else {
+		if (trace_frame(tstate, f, PyTrace_RETURN, rval) < 0) {
+			Py_DECREF(rval);
+			rval = NULL;
+		}
+	}
+	tstate->frame = f->f_back;
+	Py_DECREF(f);
+	return rval;
+}
+
+#define OP_SIMPLE_CALL(args, r, err) if ((r = traced_function_call(PyTuple_CrazyPack args, INSIDE_FUNCTION " OP_SIMPLE_CALL" #arg, __FILE__, __LINE__)) == NULL) \
+					goto err;
 
 #else
 
@@ -265,6 +296,38 @@ static int callstack_depth = -1;
 					goto err;
 
 #endif
+
+static PyObject* PyTuple_CrazyPack(PyObject *begin, ...)
+{
+	int i;
+	PyObject *o;
+	PyObject *result;
+	PyObject *tuple;
+	va_list vargs;
+
+	result = PyList_New(0);
+	if (result == NULL || begin == NULL) {
+		return result;
+	}
+	va_start(vargs, begin);
+	if (PyList_Append(result, begin) == -1) {
+		Py_XDECREF(result);
+		return result;
+	}
+	while ((o = va_arg(vargs, PyObject *)) != NULL) {
+		if (PyList_Append(result, o) == -1) {
+			Py_XDECREF(result);
+			return NULL;
+		}
+	}
+	va_end(vargs);
+	if ((tuple = PySequence_Tuple(result)) == NULL) {
+		Py_DECREF(result);
+		return NULL;
+	}
+	Py_DECREF(result);
+	return tuple;
+}
 
 static PyObject* PyList_CrazyPack(PyObject *begin, ...)
 {
