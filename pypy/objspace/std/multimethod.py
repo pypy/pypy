@@ -88,7 +88,7 @@ class AbstractMultiMethod(object):
 
 class MultiMethod(AbstractMultiMethod):
 
-    def __init__(self, operatorsymbol, arity, specialnames=None, defaults=()):
+    def __init__(self, operatorsymbol, arity, specialnames=None, **extras):
         "MultiMethod dispatching on the first 'arity' arguments."
         AbstractMultiMethod.__init__(self, operatorsymbol, arity)
         if arity < 1:
@@ -96,7 +96,7 @@ class MultiMethod(AbstractMultiMethod):
         if specialnames is None:
             specialnames = [operatorsymbol]
         self.specialnames = specialnames  # e.g. ['__xxx__', '__rxxx__']
-        self.defaults = defaults
+        self.extras = extras
         self.unbound_versions = {}
 
     def __get__(self, space, cls=object): # cls is some W_xxxType

@@ -114,15 +114,19 @@ class PyMultimethodCode(pycode.PyBaseCode):
         argnames = ['x%d'%(i+1) for i in range(multimethod.arity)]
         argnames.insert(0, argnames.pop(bound_position))
         self.co_name = multimethod.operatorsymbol
-        self.co_flags = 0
         self.co_varnames = tuple(argnames)
         self.co_argcount = multimethod.arity
+        self.co_flags = 0
+        if multimethod.extras.get('varargs', False):
+            self.co_flags |= pycode.CO_VARARGS
+        if multimethod.extras.get('keywords', False):
+            self.co_flags |= pycode.CO_VARKEYWORDS
         self.basemultimethod = multimethod
         self.typeclass = typeclass
         self.bound_position = bound_position
 
     def getdefaults(self, space):
-        return space.wrap(self.basemultimethod.defaults)
+        return space.wrap(self.basemultimethod.extras.get('defaults', ()))
 
     def slice(self):
         return self.basemultimethod.slice(self.typeclass, self.bound_position)
