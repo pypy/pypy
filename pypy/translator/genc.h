@@ -215,7 +215,7 @@ static int callstack_depth = -1;
 		Py_XDECREF(locals_lineno); \
 		locals = NULL; \
 	} \
-	PyThreadState *tstate = PyThreadState_GET(); \
+	{ PyThreadState *tstate = PyThreadState_GET(); \
 	PyFrameObject *f; \
 	if (c == NULL || locals == NULL) { \
 		r = NULL; \
@@ -256,7 +256,7 @@ static int callstack_depth = -1;
 	Py_DECREF(f); \
 	if (r == NULL) { \
 		goto err; \
-	} \
+	} } \
 } while (0);
 
 #else
