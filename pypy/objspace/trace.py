@@ -24,22 +24,24 @@ class Logger(object):
 def Trace(spacecls = StdObjSpace):
 
     class TraceObjSpace(spacecls):
+        full_exceptions = False
         
         def initialize(self):
-            self.space = spacecls()
+            spacecls.initialize(self)
 
             method_names = [ii[0] for ii in ObjSpace.MethodTable]
             for key in method_names:
                 if key in method_names:
-                    item = getattr(self.space, key)
+                    item = getattr(self, key)
                     l = Logger(key, item, "class method")
+                    #print l
                     setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
 
     return TraceObjSpace()
 
 
 s = Trace()
-print dir(s)
+#print dir(s)
 # ______________________________________________________________________
 # End of trace.py
 
