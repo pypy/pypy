@@ -2,44 +2,39 @@
 PyPy - a Python_ implementation written in Python 
 =================================================
 
-recently-modified_  
 
 .. _Python: http://www.python.org/dev/doc/maint24/ref/ref.html
 
 Here are some good entry points into PyPy's world: 
 
- * architecture_:
-	a technical overview of PyPy's current architecture 
+ * PyPy's current architecture_  
 
- * howtopypy_:
-    provides some hands-on instructions for getting started, 
-    including a two-liner to run PyPy on your computer. 
+ * howtopypy_ provides some hands-on instructions for getting started, 
+   including a two-liner to run PyPy on your computer. 
 
- * current `revision report`_ which shows status information 
+ * the current `revision report`_ shows status information 
    about ongoing pypy development
+
+ * go to recently-modified_ for an overview on which documentation 
+   changed recently 
 
 .. _`revision report`: http://codespeak.net/pypy/rev/current 
 
 Before doing pypy coding, you might also take a look at these 
 developer-specific instructions: 
 
- * coding-style_:
-	covers pypy coding conventions
+ * coding-style_ covers pypy coding conventions
 
- * optionaltool_:
-	there are some optional tools we use for pypy. 
+ * optionaltool_ describes some optional tools used in pypy development
 
- * wrapping_:
-    a description of the crucial distinction between application-level and 
-    interpreter-level objects (without understanding this you might 
-    have difficulties understanding PyPy's source code). 
+ * wrapping_ is a description of the crucial distinction between 
+   application-level and interpreter-level objects (without understanding 
+   this you might have difficulties understanding PyPy's source code). 
 
- * oscon2003-paper_:
-	presentation to OSCON on what pypy is about and why you should care
+ * oscon2003-paper_ is a paper we presented at Oscon 2003 describing 
+   what the pypy project is about and why you should care
 
- * testdesign_:
-    pypy is a test-driven development project. Read here to find out 
-    more about how we're doing testing.
+ * testdesign_ describes a bit of PyPy's testing approaches 
 
 Further reading / related projects 
 ----------------------------------
