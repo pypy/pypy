@@ -161,6 +161,25 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals(s.rstrip(), " a b")
         self.assertEquals(s.lstrip(), "a b ")
             
+    def test_center(self):
+        s="a b"
+        self.assertEquals(s.center(0), "a b")
+        self.assertEquals(s.center(1), "a b")
+        self.assertEquals(s.center(2), "a b")
+        self.assertEquals(s.center(3), "a b")
+        self.assertEquals(s.center(4), "a b ")
+        self.assertEquals(s.center(5), " a b ")
+        self.assertEquals(s.center(6), " a b  ")
+        self.assertEquals(s.center(7), "  a b  ")
+        self.assertEquals(s.center(8), "  a b   ")
+        self.assertEquals(s.center(9), "   a b   ")
+        
+    def test_count(self):
+        self.assertEquals("".count("x"),0)
+        self.assertEquals("".count(""),1)
+        self.assertEquals("Python".count(""),7)
+        self.assertEquals("ab aaba".count("ab"),2)
+        
     def test_split_maxsplit(self):
         self.assertEquals("/a/b/c".split('/', 2), ['','a','b/c'])
         self.assertEquals(" a ".split(None, 0), ['a '])

@@ -27,6 +27,9 @@ class W_StringType(W_TypeObject):
     str_strip      = MultiMethod('strip', 1)
     str_rstrip     = MultiMethod('rstrip', 1)
     str_lstrip     = MultiMethod('lstrip', 1)
+    str_center     = MultiMethod('center', 2)
+    str_count      = MultiMethod('count', 2)
+
 
 
 # XXX we'll worry about the __new__/__init__ distinction later

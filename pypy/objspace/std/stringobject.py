@@ -1,3 +1,78 @@
+"""
+stringobject.py
+
+Syopsis of implemented methods (* marks work in progress)
+
+Py                PyPy
+
+                  def _is_generic(w_self, fun):
+                  def is_true__String(space, w_str):
+                  def mod__String_ANY(space, w_str, w_item):def mod__String_Tuple(space, w_str, w_tuple):def mod_str_tuple(space, w_format, w_args):
+                  def ord__String(space, w_str):
+                  def string_richcompare(space, w_str1, w_str2, op):
+                  def unwrap__String(space, w_str):
+__add__           def add__String_String(space, w_left, w_right):
+__class__
+__contains__
+__delattr__
+__doc__
+__eq__            def eq__String_String(space, w_str1, w_str2):
+__ge__            def ge__String_String(space, w_str1, w_str2):
+__getattribute__
+__getitem__       def getitem__String_Int(space, w_str, w_int): def getitem__String_Slice(space, w_str, w_slice):
+__getslice__
+__gt__            def gt__String_String(space, w_str1, w_str2):
+__hash__          def hash__String(space, w_str):
+__init__
+__le__            def le__String_String(space, w_str1, w_str2):
+__len__           def len__String(space, w_str):
+__lt__            def lt__String_String(space, w_str1, w_str2):
+__mul__
+__ne__            def ne__String_String(space, w_str1, w_str2):
+__new__
+__reduce__
+__repr__          def repr__String(space, w_str):
+__rmul__
+__setattr__
+__str__           def str__String(space, w_str):
+capitalize        def str_capitalize__String(space, w_self):
+center            def str_center__String_Int(space, w_self):
+count             Günter def str_count__String_String(space, w_self):
+decode            !Unicode not supported now
+encode            !Unicode not supported now
+endswith          *Guenter
+expandtabs        *Guenter
+find              *Tomek
+index             *Tomek
+isalnum           def str_isalnum__String(space, w_self): def _isalnum(ch):
+isalpha           def str_isalpha__String(space, w_self): def _isalpha(ch):
+isdigit           def str_isdigit__String(space, w_self): def _isdigit(ch):
+islower           def str_islower__String(space, w_self): def _islower(ch):
+isspace           def str_isspace__String(space, w_self): def _isspace(ch):
+istitle           def str_istitle(space, w_self):
+isupper           def str_isupper__String(space, w_self): def _isupper(ch):
+join              def str_join__String_ANY(space, w_self, w_list):
+ljust             def str_ljust__String_ANY(space, w_self, w_arg):
+lower
+lstrip            def str_lstrip__String(space, w_self):
+replace           *Tomek
+rfind             *Tomek
+rindex            *Tomek
+rjust             def str_rjust__String_ANY(space, w_self, w_arg):
+rstrip            def str_rstrip__String(space, w_self):
+split             def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
+splitlines
+startswith
+strip             def str_strip__String(space, w_self):
+swapcase
+title             def str_title__String(space, w_self):
+translate
+upper             def str_upper__String(space, w_self):
+zfill
+"""
+
+
+
 from pypy.objspace.std.objspace import *
 from stringtype import W_StringType
 from intobject   import W_IntObject
@@ -305,10 +380,8 @@ def str_strip__String(space, w_self):
     return space.wrap(u_self[lpos:rpos])
    
    
-     
 def str_rstrip__String(space, w_self):
-    u = space.unwrap
-    u_self = u(w_self)
+    u_self = space.unwrap(w_self)
        
     rpos = len(u_self)
     while u_self[rpos - 1] == ' ':
@@ -316,19 +389,51 @@ def str_rstrip__String(space, w_self):
        
     return space.wrap(u_self[:rpos])
    
-     
-    
+   
 def str_lstrip__String(space, w_self):
-    u = space.unwrap
-    u_self = u(w_self)
+    u_self = space.unwrap(w_self)
     lpos = 0
     while u_self[lpos] == ' ':
        lpos += 1
             
     return space.wrap(u_self[lpos:])
    
- 
 
+def str_center__String_Int(space, w_self, w_arg):
+    u_self = space.unwrap(w_self)
+    u_arg  = space.unwrap(w_arg)
+
+    d = u_arg - len(u_self) 
+    if d>0:
+        offset = d//2
+        u_centered = offset * ' ' + u_self + (d - offset) * ' ' 
+    else:
+        u_centered = u_self
+
+    return W_StringObject(space, u_centered)
+    
+    
+def str_count__String_String(space, w_self, w_arg): 
+    u_self = space.unwrap(w_self)
+    u_arg  = space.unwrap(w_arg)
+    
+    count = 0  
+    if u_arg == "":
+        count = len(u_self) +1 #as in CPytnon
+    elif u_self == "":
+        pass                    #as in CPython
+    else:
+        pos = 0
+        while 1: 
+           count += 1
+           pos = u_self.find(u_arg, pos+1)
+           if pos == -1:
+              break
+       
+   
+    return W_IntObject(space, count)
+    
+    
 def unwrap__String(space, w_str):
     return w_str._value
 
