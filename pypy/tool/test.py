@@ -18,9 +18,9 @@ class MyTestSuite(unittest.TestSuite):
         if not count:
             return result
 
-        fm = getattr(self, 'frommodule','')
+        fm = getattr(self, 'frommodule', '')
 
-        if fm and Options.verbose==0:
+        if fm and Options.verbose == 0:
             sys.stderr.write('\n%s [%d]' %(fm, count))
         result = unittest.TestSuite.__call__(self, result)
         return result
@@ -137,18 +137,17 @@ class MyTextTestResult(unittest._TextTestResult):
 class CtsTestRunner:
     def run(self, test):
         import pickle
+        import cStringIO as StringIO
 
         output = sys.stdout
         result = MyTestResult()
-        sso = sys.stdout
-        sse = sys.stderr
         try:
-            sys.stdout = open('/dev/null', 'w')
-            sys.stderr = open('/dev/null', 'w')
+            # discard output of test or suite
+            sys.stdout = sys.stderr = StringIO.StringIO()
             test(result)
         finally:
-            sys.stdout = sso
-            sys.stderr = sse
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
 
         ostatus = {}
         if os.path.exists('testcts.pickle'):
@@ -302,8 +301,8 @@ def get_test_options():
         help="enter an interactive mode on failure or error"))
     options.append(make_option(
         '-c', action="store_true", dest="runcts",
-        help="run CtsTestRunner (catches stdout and prints report "
-        "after testing) [unix only, for now]"))
+        help="run CtsTestRunner (discards output and prints report "
+             "after testing)"))
     return options
 
 def run_tests(suite):
