@@ -198,7 +198,7 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
                     # more generally, defining a property
                     def fget(w_obj, descr=descr, space=self):
                         w_descr = space.wrap(descr)
-                        return space.get(w_descr, w_obj, space.type(w_obj))
+                        return space.get(w_descr, w_obj)
                     def fset(w_obj, w_value, descr=descr, space=self):
                         w_descr = space.wrap(descr)
                         return space.set(w_descr, w_obj, w_value)

@@ -9,7 +9,7 @@ class Object:
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
-                return space.get(w_descr,w_obj,space.type(w_obj))
+                return space.get(w_descr,w_obj)
         w_dict = space.getdict(w_obj)
         if w_dict is not None:  
             try:
@@ -18,7 +18,7 @@ class Object:
                 if not e.match(space,space.w_KeyError):
                     raise
         if w_descr is not None:
-            return space.get(w_descr,w_obj,space.type(w_obj))
+            return space.get(w_descr,w_obj)
         raise OperationError(space.w_AttributeError,w_name)
 
     def descr__setattr__(space, w_obj, w_name, w_value):
@@ -67,7 +67,7 @@ class DescrOperation:
             w_args = space.newtuple(args_w)
             return descr.call(w_args, w_kwargs)
         else:
-            w_impl = space.get(w_descr, w_obj, space.type(w_obj))
+            w_impl = space.get(w_descr, w_obj)
             return space.call(w_impl, w_args, w_kwargs)
 
     def get_and_call_function(space, w_descr, w_obj, *args_w, **kwargs_w):
@@ -80,7 +80,7 @@ class DescrOperation:
                                       for key, w_item in kwargs_w])
             return descr.call(w_args, w_kwargs)
         else:
-            w_impl = space.get(w_descr, w_obj, space.type(w_obj))
+            w_impl = space.get(w_descr, w_obj)
             return space.call_function(w_impl, *args_w, **kwargs_w)
 
     def unwrap_builtin(self, w_obj):
@@ -94,10 +94,12 @@ class DescrOperation:
                               space.wrap('object %r is not callable' % (w_obj,)))
         return space.get_and_call(w_descr, w_obj, w_args, w_kwargs)
 
-    def get(space,w_descr,w_obj,w_type):
+    def get(space,w_descr,w_obj,w_type=None):
         w_get = space.lookup(w_descr,'__get__')
         if w_get is None:
             return w_descr
+        if w_type is None:
+            w_type = space.type(w_obj)
         return space.get_and_call_function(w_get,w_descr,w_obj,w_type)
 
     def set(space,w_descr,w_obj,w_val):

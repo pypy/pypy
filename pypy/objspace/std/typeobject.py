@@ -117,13 +117,13 @@ def getattr__Type_ANY(space, w_type, w_name):
     w_descr = space.lookup(w_type, name)
     if w_descr is not None:
         if space.is_data_descr(w_descr):
-            return space.get(w_descr,w_type,space.type(w_type))
+            return space.get(w_descr,w_type)
     w_value = w_type.lookup(name)
     if w_value is not None:
         # __get__(None, type): turns e.g. functions into unbound methods
         return space.get(w_value, space.w_None, w_type)
     if w_descr is not None:
-        return space.get(w_descr,w_type,space.type(w_type))
+        return space.get(w_descr,w_type)
     raise OperationError(space.w_AttributeError,w_name)
 
 def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
