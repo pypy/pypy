@@ -15,6 +15,8 @@
 #define OP_GT(x,y,r,err)  op_richcmp(x,y,r,err, Py_GT)
 #define OP_GE(x,y,r,err)  op_richcmp(x,y,r,err, Py_GE)
 
+#define OP_IS_(x,y,r,err) r = x == y ? Py_True : Py_False; Py_INCREF(r);
+
 #define OP_IS_TRUE(x,r,err)	switch (PyObject_IsTrue(x)) {	\
 				case 0: r=Py_False; break;	\
 				case 1: r=Py_True;  break;	\
