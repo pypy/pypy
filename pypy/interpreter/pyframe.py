@@ -105,6 +105,17 @@ class FrameBlock:
         self.handlerposition = handlerposition
         self.valuestackdepth = frame.valuestack.depth()
 
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self.handlerposition == other.handlerposition and
+                self.valuestackdepth == other.valuestackdepth)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def __hash__(self):
+        return hash((self.handlerposition, self.valuestackdepth))
+
     def cleanupstack(self, frame):
         for i in range(self.valuestackdepth, frame.valuestack.depth()):
             frame.valuestack.pop()

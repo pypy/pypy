@@ -51,8 +51,7 @@ class FrameState:
         # nonmergeable states
         assert isinstance(other, FrameState)
         assert len(self.mergeable) == len(other.mergeable)
-        # XXX assert self.nonmergeable == other.nonmergeable
-        # XXX this requires a proper __eq__ on the blockstack items
+        assert self.nonmergeable == other.nonmergeable
         for w1, w2 in zip(self.mergeable, other.mergeable):
             if not (w1 == w2 or (isinstance(w1, Variable) and
                                  isinstance(w2, Variable))):
