@@ -2,7 +2,7 @@ from __future__ import nested_scopes
 import unittest, sys
 import testsupport
 from pypy.interpreter import unittest_w
-from pypy.objspace.std import listobject as tobj
+from pypy.objspace.std import listobject as lobj
 from pypy.objspace.std.objspace import *
 
 
@@ -16,20 +16,20 @@ class TestW_ListObject(unittest_w.TestCase_w):
 
     def test_is_true(self):
         w = self.space.wrap
-        w_list = tobj.W_ListObject(self.space, [])
+        w_list = lobj.W_ListObject(self.space, [])
         self.assertEqual(self.space.is_true(w_list), False)
-        w_list = tobj.W_ListObject(self.space, [w(5)])
+        w_list = lobj.W_ListObject(self.space, [w(5)])
         self.assertEqual(self.space.is_true(w_list), True)
-        w_list = tobj.W_ListObject(self.space, [w(5), w(3)])
+        w_list = lobj.W_ListObject(self.space, [w(5), w(3)])
         self.assertEqual(self.space.is_true(w_list), True)
 
     def test_len(self):
         w = self.space.wrap
-        w_list = tobj.W_ListObject(self.space, [])
+        w_list = lobj.W_ListObject(self.space, [])
         self.assertEqual_w(self.space.len(w_list), w(0))
-        w_list = tobj.W_ListObject(self.space, [w(5)])
+        w_list = lobj.W_ListObject(self.space, [w(5)])
         self.assertEqual_w(self.space.len(w_list), w(1))
-        w_list = tobj.W_ListObject(self.space, [w(5), w(3), w(99)]*111)
+        w_list = lobj.W_ListObject(self.space, [w(5), w(3), w(99)]*111)
         self.assertEqual_w(self.space.len(w_list), w(333))
 
     def test_mul(self):
@@ -37,14 +37,14 @@ class TestW_ListObject(unittest_w.TestCase_w):
         w = self.space.wrap
         arg = w(2)
         n = 3
-        w_lis = tobj.W_ListObject(self.space, [arg])
-        w_lis3 = tobj.W_ListObject(self.space, [arg]*n)
+        w_lis = lobj.W_ListObject(self.space, [arg])
+        w_lis3 = lobj.W_ListObject(self.space, [arg]*n)
         w_res = self.space.mul(w_lis, w(n))
         self.assertEqual_w(w_lis3, w_res)
 
     def test_getitem(self):
         w = self.space.wrap
-        w_list = tobj.W_ListObject(self.space, [w(5), w(3)])
+        w_list = lobj.W_ListObject(self.space, [w(5), w(3)])
         self.assertEqual_w(self.space.getitem(w_list, w(0)), w(5))
         self.assertEqual_w(self.space.getitem(w_list, w(1)), w(3))
         self.assertEqual_w(self.space.getitem(w_list, w(-2)), w(5))
@@ -58,7 +58,7 @@ class TestW_ListObject(unittest_w.TestCase_w):
 
     def test_iter(self):
         w = self.space.wrap
-        w_list = tobj.W_ListObject(self.space, [w(5), w(3), w(99)])
+        w_list = lobj.W_ListObject(self.space, [w(5), w(3), w(99)])
         w_iter = self.space.iter(w_list)
         self.assertEqual_w(self.space.next(w_iter), w(5))
         self.assertEqual_w(self.space.next(w_iter), w(3))
@@ -68,15 +68,15 @@ class TestW_ListObject(unittest_w.TestCase_w):
 
     def test_add(self):
         w = self.space.wrap
-        w_list0 = tobj.W_ListObject(self.space, [])
-        w_list1 = tobj.W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list2 = tobj.W_ListObject(self.space, [w(-7)] * 111)
+        w_list0 = lobj.W_ListObject(self.space, [])
+        w_list1 = lobj.W_ListObject(self.space, [w(5), w(3), w(99)])
+        w_list2 = lobj.W_ListObject(self.space, [w(-7)] * 111)
         self.assertEqual_w(self.space.add(w_list1, w_list1),
-                           tobj.W_ListObject(self.space, [w(5), w(3), w(99),
-                                                          w(5), w(3), w(99)]))
+                           lobj.W_ListObject(self.space, [w(5), w(3), w(99),
+                                               w(5), w(3), w(99)]))
         self.assertEqual_w(self.space.add(w_list1, w_list2),
-                           tobj.W_ListObject(self.space, [w(5), w(3), w(99)] +
-                                             [w(-7)] * 111))
+                           lobj.W_ListObject(self.space, [w(5), w(3), w(99)] +
+                                              [w(-7)] * 111))
         self.assertEqual_w(self.space.add(w_list1, w_list0), w_list1)
         self.assertEqual_w(self.space.add(w_list0, w_list2), w_list2)
 
@@ -85,7 +85,7 @@ class TestW_ListObject(unittest_w.TestCase_w):
 
         def test1(testlist, start, stop, step, expected):
             w_slice  = self.space.newslice(w(start), w(stop), w(step))
-            w_list = tobj.W_ListObject(self.space, [w(i) for i in testlist])
+            w_list = lobj.W_ListObject(self.space, [w(i) for i in testlist])
             w_result = self.space.getitem(w_list, w_slice)
             self.assertEqual(self.space.unwrap(w_result), expected)
         
@@ -100,6 +100,21 @@ class TestW_ListObject(unittest_w.TestCase_w):
         test1([5,7,1,4], -2, 11, 2, [1])
         test1([5,7,1,4], -3, 11, 2, [7, 4])
         test1([5,7,1,4], -5, 11, 2, [5, 1])
+
+    def test_setitem(self):
+        w = self.space.wrap
+        w_list = lobj.W_ListObject(self.space, [w(5), w(3)])
+        w_exp1 = lobj.W_ListObject(self.space, [w(5), w(7)])
+        w_exp2 = lobj.W_ListObject(self.space, [w(8), w(7)])
+        self.space.setitem(w_list, w(1), w(7))
+        self.assertEqual_w(w_exp1, w_list)
+        self.space.setitem(w_list, w(-2), w(8))
+        self.assertEqual_w(w_exp2, w_list)
+        self.assertRaises_w(self.space.w_IndexError,
+                            self.space.setitem, w_list, w(2), w(5))
+        self.assertRaises_w(self.space.w_IndexError,
+                            self.space.setitem, w_list, w(-3), w(5))
+
 
 if __name__ == '__main__':
     unittest.main()

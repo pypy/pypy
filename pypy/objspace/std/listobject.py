@@ -100,6 +100,17 @@ StdObjSpace.eq.register(list_eq, W_ListObject, W_ListObject)
 # upto here, lists are nearly identical to tuples.
 # XXX have to add over-allocation!
 
+def setitem_list_int(space, w_list, w_index, w_any):
+    items = w_list.wrappeditems
+    try:
+        items[w_index.intval] = w_any
+    except IndexError:
+        raise OperationError(space.w_IndexError,
+                             space.wrap("list index out of range"))
+    return space.w_None
+
+StdObjSpace.setitem.register(setitem_list_int, W_ListObject, W_IntObject, W_ANY)
+
 def getattr_list(space, w_list, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('append'))):
         w_builtinfn = make_builtin_func(space, W_ListObject.append)
