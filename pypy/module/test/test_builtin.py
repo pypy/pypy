@@ -52,14 +52,12 @@ class TestBuiltinApp(test.AppTestCase):
         self.assertEquals(f(), [])
         self.assertEquals(g(), ['a', 'b', 'c'])
         class X: pass
-        self.assertEquals(nosp(dir(X)), nosp(['__module__', ]))
-        class X: a = 23
-        self.assertEquals(nosp(dir(X)), nosp(['__module__', 'a']))
+        self.assertEquals(nosp(dir(X)), [])
         class X:
             a = 23
             c = 45
             b = 67
-        self.assertEquals(nosp(dir(X)), nosp(['__module__', 'a', 'b', 'c']))
+        self.assertEquals(nosp(dir(X)), ['a', 'b', 'c'])
 
     def test_vars(self):
         def f():
@@ -182,8 +180,8 @@ class TestBuiltinApp(test.AppTestCase):
         x = xrange(0,33,2)
         self.assertEquals(x[7], 14)
         self.assertEquals(x[-7], 20)
-        self.assertRaises(IndexError, x.__getitem__, 16)
-        self.assertRaises(IndexError, x.__getitem__, -16)
+        self.assertRaises(IndexError, x.__getitem__, 17)
+        self.assertRaises(IndexError, x.__getitem__, -18)
         self.assertRaises(TypeError, x.__getitem__, slice(0,3,1))
 
     def test_cmp(self):
