@@ -141,7 +141,7 @@ def filterwarnings(action, message="", category=Warning, module="", lineno=0,
     assert action in ("error", "ignore", "always", "default", "module",
                       "once"), "invalid action: %s" % `action`
     assert isinstance(message, basestring), "message must be a string"
-    assert isinstance(category, types.ClassType), "category must be a class"
+    #assert isinstance(category, types.ClassType), "category must be a class"
     assert issubclass(category, Warning), "category must be a Warning subclass"
     assert isinstance(module, basestring), "module must be a string"
     assert isinstance(lineno, int) and lineno >= 0, \
@@ -243,8 +243,7 @@ def _getcategory(category):
             cat = getattr(m, klass)
         except AttributeError:
             raise _OptionError("unknown warning category: %s" % `category`)
-    if (not isinstance(cat, types.ClassType) or
-        not issubclass(cat, Warning)):
+    if not issubclass(cat, Warning): # or not isinstance(cat, types.ClassType)
         raise _OptionError("invalid warning category: %s" % `category`)
     return cat
 
