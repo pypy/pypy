@@ -491,14 +491,15 @@ class TestAnnonateTestCase:
 
     def test_bltin_code_frame_confusion(self):
         a = RPythonAnnotator()
-        s = a.build_types(snippet.bltin_code_frame_confusion,[])
-        assert isinstance(s, annmodel.SomeTuple)
-        is_int = isinstance(s.items[0], annmodel.SomeInteger)
+        a.build_types(snippet.bltin_code_frame_confusion,[])
+        f_flowgraph = a.translator.getflowgraph(snippet.bltin_code_frame_f)
+        g_flowgraph = a.translator.getflowgraph(snippet.bltin_code_frame_g)
+        is_int = isinstance(a.binding(f_flowgraph.getreturnvar()),
+                            annmodel.SomeInteger)
         if not is_int:
             py.test.skip("annotator confused with bltin code/frame setup")
-        assert isinstance(s.items[1], annmodel.SomeInteger)
-        assert isinstance(s.items[2], annmodel.SomeString)
-        assert isinstance(s.items[3], annmodel.SomeString)
+        assert isinstance(a.binding(g_flowgraph.getreturnvar()),
+                          annmodel.SomeString)
 
 
 def g(n):
