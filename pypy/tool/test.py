@@ -57,8 +57,13 @@ class MyTestResult(unittest.TestResult):
     def addSkip(self, test):
         self.testsRun -= 1
 
+    def addIgnored(self, test, err):
+        pass
+
 
 class MyTextTestResult(unittest._TextTestResult):
+    ignored = 0
+    
     def addError(self, test, err):
         from pypy.interpreter.baseobjspace import OperationError
         if isinstance(err[1], OperationError) and test.space.full_exceptions:
@@ -78,6 +83,13 @@ class MyTextTestResult(unittest._TextTestResult):
             self.stream.writeln("skipped")
         elif self.dots:
             self.stream.write('s')
+
+    def addIgnored(self, test, err):
+        self.ignored += 1
+        if self.showAll:
+            self.stream.writeln("ignored")
+        elif self.dots:
+            self.stream.write('i')
 
     def interact(self):
         efs = self.errors + self.failures
@@ -207,6 +219,12 @@ class CtsTestRunner:
 
 
 class MyTextTestRunner(unittest.TextTestRunner):
+    def run(self, test):
+        result = unittest.TextTestRunner.run(self, test)
+        if result.ignored:
+            self.stream.writeln("(ignored=%d)" % result.ignored)
+        return result
+
     def _makeResult(self):
         return MyTextTestResult(self.stream, self.descriptions, self.verbosity)
 

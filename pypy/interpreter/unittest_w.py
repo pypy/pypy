@@ -4,6 +4,15 @@ import sys, os
 import unittest
 from pypy.interpreter import gateway
 
+try:
+    f = open(os.path.join(autopath.pypydir, 'ignore_tests.txt'))
+except IOError:
+    IGNORE_TESTS = []
+else:
+    IGNORE_TESTS = [s.strip() for s in f.readlines()]
+    f.close()
+
+
 def make_testcase_class(space, tc_w):
     # XXX this is all a bit insane (but it works)
 
@@ -53,6 +62,13 @@ class IntTestCase(unittest.TestCase):
         self.methodName = methodName
         unittest.TestCase.__init__(self, methodName)
 
+    def _answer(self, result, errorfn):
+        id = self.id()
+        for ignored in IGNORE_TESTS:
+            if id.startswith(ignored):
+                errorfn = result.addIgnored
+        errorfn(self, self._TestCase__exc_info())
+
     def __call__(self, result=None):
         from pypy.tool.test import TestSkip
         if result is None: result = self.defaultTestResult()
@@ -67,7 +83,7 @@ class IntTestCase(unittest.TestCase):
             except KeyboardInterrupt:
                 raise
             except:
-                result.addError(self, self._TestCase__exc_info())
+                self._answer(result, result.addError)
                 return
 
             ok = 0
@@ -75,21 +91,21 @@ class IntTestCase(unittest.TestCase):
                 testMethod()
                 ok = 1
             except self.failureException, e:
-                result.addFailure(self, self._TestCase__exc_info())
+                self._answer(result, result.addFailure)
             except TestSkip: 
                 result.addSkip(self)
                 return
             except KeyboardInterrupt:
                 raise
             except:
-                result.addError(self, self._TestCase__exc_info())
+                self._answer(result, result.addError)
 
             try:
                 self.tearDown()
             except KeyboardInterrupt:
                 raise
             except:
-                result.addError(self, self._TestCase__exc_info())
+                self._answer(result, result.addError)
                 ok = 0
             if ok: result.addSuccess(self)
         finally:
