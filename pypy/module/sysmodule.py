@@ -41,7 +41,10 @@ def excepthook(exctype, value, traceback):
 __excepthook__ = excepthook  # this is exactly like in CPython
 
 def exit(exitcode=0):
-    raise SystemExit(exitcode)
+    # note that we cannot use SystemExit(exitcode) here.
+    # The comma version leads to an extra de-tupelizing
+    # in normalize_exception, which is exactlylike CPython.
+    raise SystemExit, exitcode
 
 def displayhook(obj):
     if obj is not None:
