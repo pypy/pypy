@@ -13,16 +13,16 @@ from pypy.objspace.std.objspace import *
 def eq__ANY_ANY(space, w_a, w_b):
     return space.is_(w_a, w_b)
 
-# 'ne' -> 'eq', 'le/gt/ge' -> 'lt'
-
-def ne__ANY_ANY(space, w_a, w_b):
-    return space.not_(space.eq(w_a, w_b))
-def le__ANY_ANY(space, w_a, w_b):
-    return space.not_(space.lt(w_b, w_a))
-def gt__ANY_ANY(space, w_a, w_b):
-    return space.lt(w_b, w_a)
-def ge__ANY_ANY(space, w_a, w_b):
-    return space.not_(space.lt(w_a, w_b))
+### 'ne' -> 'eq', 'le/gt/ge' -> 'lt'
+##
+##def ne__ANY_ANY(space, w_a, w_b):
+##    return space.not_(space.eq(w_a, w_b))
+##def le__ANY_ANY(space, w_a, w_b):
+##    return space.not_(space.lt(w_b, w_a))
+##def gt__ANY_ANY(space, w_a, w_b):
+##    return space.lt(w_b, w_a)
+##def ge__ANY_ANY(space, w_a, w_b):
+##    return space.not_(space.lt(w_a, w_b))
 
 # 'id' falls back to the address of the wrapper
 
