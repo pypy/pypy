@@ -17,6 +17,8 @@ class TestUserObject(test.AppTestCase):
                 stuff = subclass()
             except:
                 print 'not subclassable:', base
+                if base is not dict:  # XXX must be fixed
+                    raise
             else:
                 self.failUnless(isinstance(stuff, base))
 
