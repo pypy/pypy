@@ -354,9 +354,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return instantiate(cls)
         else:
             w_type.check_user_subclass(w_subtype)
-            subcls = get_unique_interplevel_subclass(cls)
+            subcls = get_unique_interplevel_subclass(cls, w_subtype.hasdict, w_subtype.nslots != 0)
             instance = instantiate(subcls)
-            instance.user_setup(self, w_subtype)
+            instance.user_setup(self, w_subtype, w_subtype.nslots)
             return instance
 
     def unpacktuple(self, w_tuple, expected_length=None):

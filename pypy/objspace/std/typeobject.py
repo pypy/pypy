@@ -2,7 +2,7 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter.function import Function, StaticMethod
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter import gateway
-from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef
+from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
 
 class W_TypeObject(W_Object):
@@ -15,6 +15,7 @@ class W_TypeObject(W_Object):
         w_self.bases_w = bases_w
         w_self.dict_w = dict_w
         w_self.ensure_static__new__()
+        w_self.nslots = 0
 
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
@@ -22,7 +23,6 @@ class W_TypeObject(W_Object):
         else:
             # find the most specific typedef
             instancetypedef = object_typedef
-            w_self.hasdict = False
             for w_base in bases_w:
                 if not space.is_true(space.isinstance(w_base, space.w_type)):
                     continue
@@ -32,11 +32,59 @@ class W_TypeObject(W_Object):
                     raise OperationError(space.w_TypeError,
                                 space.wrap("instance layout conflicts in "
                                                     "multiple inheritance"))
-                w_self.hasdict = w_self.hasdict or w_base.hasdict
             w_self.instancetypedef = instancetypedef
-            if not w_self.hasdict:
+            w_self.hasdict = False
+            hasoldstylebase = False
+            w_most_derived_base_with_slots = None
+            for w_base in bases_w:
+                if not space.is_true(space.isinstance(w_base, space.w_type)):
+                    hasoldstylebase = True
+                    continue
+                if w_base.nslots != 0:
+                    if w_base_with_slots is None:
+                        w_base_with_slots = w_base
+                    else:
+                        if space.is_true(space.issubtype(w_base, w_most_derived_base_with_slots)):
+                            w_most_derived_base_with_slots = w_base
+                        elif not space.is_true(space.issubtype(w_most_derived_base_with_slots, w_base)):
+                            raise OperationError(space.w_TypeError,
+                                                 space.wrap("instance layout conflicts in "
+                                                            "multiple inheritance"))
+                w_self.hasdict = w_self.hasdict or w_base.hasdict
+            if w_most_derived_base_with_slots:
+                nslots = w_most_derived_base_with_slots.nslots
+            else:
+                nslots = 0
+  
+            wantdict = True
+            if '__slots__' in dict_w:
+                wantdict = False
+
+                w_slots = dict_w['__slots__']
+                if space.is_true(space.isinstance(w_slots, space.w_str)):
+                    slot_names_w = [w_slots]
+                else:
+                    slot_names_w = space.unpackiterable(w_slots)
+                for w_slot_name in slot_names_w:
+                    slot_name = space.str_w(w_slot_name)
+                    if slot_name == '__dict__':
+                        if wantdict or w_self.hasdict:
+                            raise OperationError(space.w_TypeError,
+                                                 space.wrap("__dict__ slot disallowed: we already got one"))
+                        wantdict = True
+                    else:
+                        # create member
+                        w_self.dict_w[slot_name] = space.wrap(Member(nslots, slot_name))
+                        nslots += 1
+
+            w_self.nslots = nslots
+                        
+            wantdict = wantdict or hasoldstylebase
+
+            if wantdict and not w_self.hasdict:
                 w_self.dict_w['__dict__'] = space.wrap(std_dict_descr)
-                w_self.hasdict = True                
+                w_self.hasdict = True
+               
             w_type = space.type(w_self)
             if not space.is_true(space.is_(w_type, space.w_type)):
                 mro_func = w_type.lookup('mro')

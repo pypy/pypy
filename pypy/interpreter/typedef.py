@@ -18,14 +18,24 @@ class TypeDef:
 
 
 unique_interplevel_subclass_cache = Cache()
-def get_unique_interplevel_subclass(cls):
-    return unique_interplevel_subclass_cache.getorbuild(cls, _buildusercls, None)
+def get_unique_interplevel_subclass(cls, hasdict, wants_slots):
+    return unique_interplevel_subclass_cache.getorbuild((cls, hasdict, wants_slots), _buildusercls, None)
 
-def _buildusercls(cls, ignored):
+def _buildusercls((cls, hasdict, wants_slots), ignored):
     "NOT_RPYTHON: initialization-time only"
     typedef = cls.typedef
-    name = 'User' + cls.__name__
+    name = ['User']
+    if not hasdict:
+        name.append('NoDict')
+    if wants_slots:
+        name.append('WithSlots')
+    name.append(cls.__name__)
+
+    name = ''.join(name)
+
     body = {}
+
+    no_extra_dict = typedef.hasdict or not hasdict
 
     class User_InsertNameHere(object):
 
@@ -39,10 +49,18 @@ def _buildusercls(cls, ignored):
         def __del__(self):
             self.space.userdel(self)
 
-        if typedef.hasdict:
-            def user_setup(self, space, w_subtype):
+        if wants_slots:
+            def user_setup_slots(self, nslots):
+                self.slots_w = [None] * nslots 
+        else:
+            def user_setup_slots(self, nslots):
+                assert nslots == 0
+
+        if no_extra_dict:
+            def user_setup(self, space, w_subtype, nslots):
                 self.space = space
                 self.w__class__ = w_subtype
+                self.user_setup_slots(nslots)
 
         else:
             def getdict(self):
@@ -55,10 +73,11 @@ def _buildusercls(cls, ignored):
                             space.wrap("setting dictionary to a non-dict"))
                 self.w__dict__ = w_dict
 
-            def user_setup(self, space, w_subtype):
+            def user_setup(self, space, w_subtype, nslots):
                 self.space = space
                 self.w__class__ = w_subtype
                 self.w__dict__ = space.newdict([])
+                self.user_setup_slots(nslots)
 
     body = dict([(key, value)
                  for key, value in User_InsertNameHere.__dict__.items()

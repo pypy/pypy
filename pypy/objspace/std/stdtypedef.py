@@ -1,10 +1,10 @@
 from pypy.interpreter import eval, function, gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.objspace.std.multimethod import MultiMethod, FailedToImplement
 
 __all__ = ['StdTypeDef', 'newmethod', 'gateway',
-           'GetSetProperty', 'attrproperty', 'attrproperty_w',
+           'GetSetProperty', 'Member', 'attrproperty', 'attrproperty_w',
            'MultiMethod']
 
 
