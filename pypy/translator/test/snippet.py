@@ -324,6 +324,13 @@ def inheritance2():
     e.stuff = (3, "world")
     return getstuff(d), getstuff(e)
 
+def inheritance_nonrunnable():
+    d = D()
+    d.stuff = (-12, -12)
+    e = E()
+    e.stuff = (3, "world")
+    return C().stuff
+
 class F:
     pass
 class G(F):

@@ -165,7 +165,7 @@ class AnnonateTestCase(testit.IntTestCase):
 
     def test_inheritance2(self):
         a = RPythonAnnotator()
-        s = a.build_types(snippet.inheritance2, [])
+        s = a.build_types(snippet.inheritance_nonrunnable, [])
         # result should be exactly:
         self.assertEquals(s, annmodel.SomeTuple([
                                 annmodel.SomeInteger(),

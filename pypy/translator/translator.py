@@ -164,6 +164,7 @@ class Translator:
     def generatecode1(self, gencls, input_arg_types, func, ann):
         graph = self.getflowgraph(func)
         g = gencls(graph)
+        g.by_the_way_the_function_was = func   # XXX
         if input_arg_types is not None:
             ann.build_types(graph, input_arg_types)
         if ann is not None:

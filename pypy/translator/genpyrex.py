@@ -191,9 +191,20 @@ class GenPyrex:
         self.lines = currentlines
         inputargnames = [ " ".join(self._paramvardecl(var)) for var in fun.getargs() ]
         params = ", ".join(inputargnames)
-        #returntype = self.get_type(fun.getreturnvar())
-        #returntypename = self._gettypename(returntype)
-        self.putline("def %s(%s):" % (fun.name, params))
+        returntype = self.get_type(fun.getreturnvar())
+        returntypename = self._gettypename(returntype)
+        try:
+            function_object = self.by_the_way_the_function_was   # XXX!
+        except AttributeError:
+            def function_object(): pass   # XXX!!!
+        # make the function visible from the outside under its original name
+        hackedargs = ', '.join([var.name for var in fun.getargs()])
+        self.putline("def %s(%s):" % (fun.name, hackedargs))
+        self.indent += 1
+        self.putline("return %s(%s)" % (self._hackname(function_object), hackedargs))
+        self.indent -= 1
+        # go ahead with the mandled header and body of the function
+        self.putline("def %s(%s):" % (self._hackname(function_object), params))
         self.indent += 1
         #self.putline("# %r" % self.annotations)
         decllines = []
@@ -249,7 +260,7 @@ class GenPyrex:
         return ctype
 
     def get_classname(self, userclass):
-        return userclass.__name__
+        return self._hackname(userclass)
 
     def _vardecl(self, var):
             vartype, varname = self._paramvardecl(var)
@@ -258,22 +269,29 @@ class GenPyrex:
             else:
                 return ""
 
+    def _hackname(self, value):
+        try:
+            name = value.__name__
+        except AttributeError:
+            pass
+        else:
+            import types
+            if isinstance(value, (types.FunctionType, types.ClassType, type)):
+                # XXX! use the id of the value to make unique function and
+                #      class names
+                return '%s__%x' % (name, id(value))
+            elif isinstance(value, types.BuiltinFunctionType):
+                return str(name)
+        if isinstance(value, int):
+            value = int(value)  # cast subclasses of int (i.e. bools) to ints
+        return repr(value)
+
     def _str(self, obj, block):
         if isinstance(obj, Variable):
             #self.variablelocations[obj] = block
             return self.get_varname(obj)
         elif isinstance(obj, Constant):
-            value = obj.value
-            try:
-                name = value.__name__
-            except AttributeError:
-                pass
-            else:
-                if callable(value):
-                    return name    # functions represented as their name only
-            if isinstance(value, int):
-                value = int(value)  # cast subclasses of int (i.e. bools) to ints
-            return repr(value)
+            return self._hackname(obj.value)
         else:
             raise TypeError("Unknown class: %s" % obj.__class__)
 
@@ -354,13 +372,18 @@ class GenPyrex:
                     else:
                         vartype=self._gettypename(s_value.knowntype)
                         self.putline("cdef public %s %s" % (vartype, attr))
-                    empty = False
+                        empty = False
                 list_methods=delay_methods.get(cls,[])
                 for py_fun in list_methods:
-                    self.putline("def %s(self, *args):" % py_fun.__name__)
+                    # XXX!
+                    fun = self.annotator.translator.flowgraphs[py_fun]
+                    hackedargs = ', '.join([var.name for var in fun.getargs()])
+                    self.putline("def %s(%s):" % (py_fun.__name__, hackedargs))
                     self.indent += 1
-                    self.putline("return %s(self, *args)" % py_fun.__name__)
+                    self.putline("return %s(%s)" % (self._hackname(py_fun),
+                                                    hackedargs))
                     self.indent -= 1
+                    empty = False
                 if empty:
                     self.putline("pass")
                 self.indent -= 1
