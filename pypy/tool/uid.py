@@ -2,9 +2,10 @@ import struct
 
 # This is temporary hack to run PyPy on PyPy
 # until PyPy's struct module handle P format character.
-
-#HUGEVAL = 256 ** struct.calcsize('P')
-HUGEVAL = 0
+try:
+    HUGEVAL = 256 ** struct.calcsize('P')
+except struct.error:
+    HUGEVAL = 0
 
 def fixid(result):
     if result < 0:
