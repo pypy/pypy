@@ -684,6 +684,16 @@ TO_CHECK.remove('__main__')
 TO_CHECK.remove('xxsubtype')
 TO_CHECK.sort()
 
+def getpypyrevision(cache=[]): 
+    try:
+        return cache[0]
+    except IndexError: 
+        import pypy
+        import py
+        pypydir = py.path.svnwc(pypy.__file__).dirpath()
+        rev = pypydir.info().rev 
+        cache.append(rev) 
+        return rev 
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
