@@ -303,8 +303,8 @@ class TranslatorPage(BaseTranslatorPage):
 
 
 class LocalizedCallGraphPage(BaseTranslatorPage):
-    """A GraphPage showing a the call graph between functions
-    as well as the class hierarchy."""
+    """A GraphPage showing a the localized call graph for a function,
+    that means just including direct callers and callees"""
 
     def graph_name(self, func0):
         return 'LCG_%s' % nameof(func0)
