@@ -15,6 +15,10 @@ Here are some good entry points into PyPy's world:
     provides some hands-on instructions for getting started, 
     including a two-liner to run PyPy on your computer. 
 
+ * current `revision report`_ which shows status information 
+   about ongoing pypy development
+
+.. _`revision report`: http://codespeak.net/pypy/rev/current 
 
 Before doing pypy coding, you might also take a look at these 
 developer-specific instructions: 
