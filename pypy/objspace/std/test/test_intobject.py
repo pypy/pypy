@@ -304,7 +304,14 @@ class AppIntTest(test.AppTestCase):
     def test_int_str_repr(self):
         self.assertEquals("42", str(42))
         self.assertEquals("42", repr(42))
+        self.assertRaises(ValueError, int, '0x2A')
         
+    def test_int_two_param(self):
+        self.assertEquals(42, int('0x2A', 0))
+        self.assertEquals(42, int('2A', 16))
+        self.assertEquals(42, int('42', 10))
+        self.assertRaises(TypeError, int, 1, 10)
+
 
 if __name__ == '__main__':
     test.main()
