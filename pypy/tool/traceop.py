@@ -31,17 +31,14 @@ class Stack(list):
 class ResultPrinter:
 
     def __init__(self,
-                 skip_all_below_op = True,
                  operations_level = 2,
                  indentor = '  ',
-                 skip_bytecodes = ["PRINT_EXPR", "PRINT_ITEM", "PRINT_NEWLINE"],
-                 ):
+                 skip_bytecodes = ["PRINT_EXPR", "PRINT_ITEM", "PRINT_NEWLINE"]):
         
         # Configurable stuff
         self.indentor = indentor
         self.skip_bytecodes = skip_bytecodes
         self.operations_level = operations_level
-        self.skip_all_below_op = skip_all_below_op
         
         self.reset()
 
@@ -85,6 +82,7 @@ class ResultPrinter:
         self.print_line(s)        
 
     def print_bytecode(self, index, bytecode):
+
         # Don't allow bytecodes to be exposed if operations level is up
         if len(self.ops) >= self.operations_level:
             return
@@ -97,7 +95,7 @@ class ResultPrinter:
         s = " " * 17
         s += ">> %s%s" % (name, str_args)
         self.print_line_operations(s)
-
+        
 
     def print_op_leave(self, name, str_res):
         s = " " * 20
@@ -190,7 +188,6 @@ def repr_value(space, value):
     try:
         # XXX Sure this won't go down well - didn't really want
         # to clutter up the interpeter code 
-        from pypy.interpreter.argument import Arguments
         from pypy.interpreter.function import Function, Method
 
         if isinstance(value, Function):
@@ -208,9 +205,9 @@ def repr_args(space, frame, args):
     l = []
     for arg in args:
         if frame and space.is_true(space.is_(arg, frame.w_globals)):
-            l.append('w_globals')
-        elif frame and space.is_true(space.is_(arg, space.w_builtins)):
-            l.append('w_builtins')
+            l.append('globals()')
+        elif frame and space.is_true(space.is_(arg, space.builtin)):
+            l.append('__builtin__')
         else:
             l.append(repr_value(space, arg))
             
@@ -252,6 +249,7 @@ if __name__ == '__main__':
             count += ii
         return count
 
+    # Note includes lazy loading of builtins
     res, traceres = perform_trace(tspace, app_test, tspace.wrap(5))
     print_result(tspace, traceres)
 

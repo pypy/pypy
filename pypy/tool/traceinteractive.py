@@ -43,13 +43,12 @@ class Completer:
             return None
 
     def global_matches(self, text):
-
         w_res = self.space.call_method(self.space.w_globals, "keys")
         namespace_keys = self.space.unwrap(w_res)
 
-        w_res = self.space.call_method(self.space.w_builtins, "keys")
+        w_res = self.space.call_method(self.space.builtin.getdict(), "keys")
         builtin_keys = self.space.unwrap(w_res)
-
+        
         matches = []
         n = len(text)
 
@@ -83,7 +82,7 @@ class Completer:
 
     def get_words(self, w_clz):
         s = self.space
-        w_dir_func = s.getitem(s.w_builtins, s.wrap("dir"))
+        w_dir_func = s.builtin.get("dir")
         w_res = s.call_function(w_dir_func, w_clz)
         return s.unwrap(w_res)
 
@@ -162,7 +161,7 @@ class TraceConsole(code.InteractiveConsole):
         self.tracelevel = tracelevel
 
         # XXX Do something better than this - I'm not really sure what is useful
-        # and what is (rxe)
+        # and what isn't (rxe)
         self.resprinter.operations_level = tracelevel
 
     def runcode(self, code):
@@ -181,18 +180,18 @@ class TraceConsole(code.InteractiveConsole):
             res = None
             if self.tracelevel:
                 res = s.getresult()
-                
+                s.settrace()
+                            
             # Did we modify __pytrace__
             tracelevel = s.unwrap(s.getitem(s.w_globals,
                                             s.wrap("__pytrace__")))
-            
+
             if tracelevel != self.tracelevel:
                 self.set_tracelevel(tracelevel)
 
-            if res is not None and self.tracelevel:
-                s.settrace()
+            if res is not None and self.tracelevel:                
                 self.resprinter.print_result(s, res)
-                
+                              
         except baseobjspace.OperationError, operationerr:
             if self.tracelevel:
                 res = s.getresult()
