@@ -1,6 +1,7 @@
 from pypy.interpreter.executioncontext import ExecutionContext
-from pypy.interpreter.pyframe import ControlFlowException
-from pypy.objspace.ann.wrapper import union
+from pypy.interpreter.pyframe import ControlFlowException, ExitFrame
+from pypy.objspace.ann.wrapper \
+     import union, compatible_frames, unite_frames, W_Anything, W_Constant
 
 class IndeterminateCondition(ControlFlowException):
 
@@ -9,33 +10,53 @@ class IndeterminateCondition(ControlFlowException):
         self.w_obj = w_obj
 
     def action(self, frame, last_instr):
-        frame.next_instr = last_instr
-        f2 = frame.clone()
-        clones = frame.clones
-        clones.append(f2)
-        f2.clones = clones # Share the joy
-        f2.force_w_obj = self.w_obj
-        self.w_obj.force = True
+        frame.next_instr = last_instr # Restart failed opcode (!)
+        frame.restarting = (self.w_obj, True) # For bytecode_trace() below
 
 class CloningExecutionContext(ExecutionContext):
 
+    def __init__(self, space):
+        ExecutionContext.__init__(self, space)
+        self.knownframes = {}
+        # {(bytecode, w_globals): (result, clones, {next_instr: [frame, ...], ...}), ...}
+
+    def bytecode_trace(self, frame):
+        assert isinstance(frame.w_globals, W_Constant)
+        key = (frame.bytecode, id(frame.w_globals.value))
+        result, clones, subdict = self.knownframes[key]
+
+        if frame.restarting is not None:
+            w_obj, flag = frame.restarting
+            frame.restarting = None
+            w_obj.force = flag
+            if flag:
+                f2 = frame.clone()
+                f2.restarting = (w_obj, False)
+                clones.append(f2)
+            return
+
+        frames = subdict.setdefault(frame.next_instr, [])
+        assert len(frames) <= 1 # We think this is true
+        for f in frames:
+            if compatible_frames(frame, f):
+                c1, c2 = unite_frames(frame, f)
+                if not c2:
+                    # A fixpoint
+                    raise ExitFrame(None)
+                return
+        frames.append(frame.clone())
 
     def eval_frame(self, frame):
-        from pypy.objspace.ann.objspace import W_Anything
         assert not hasattr(frame, "clones")
-        space = frame.space
-        clones = [frame]
-        frame.clones = clones
-        frame.force_w_obj = None
-        result = None # W_Impossible
+        assert self.space == frame.space
+        frame.restarting = None
+        key = (frame.bytecode, id(frame.w_globals.value))
+        result, clones, subdict = self.knownframes.setdefault(key, (None, [], {}))
+        clones.append(frame)
         while clones:
             f = clones.pop()
-            w_obj = f.force_w_obj
-            if w_obj is not None:
-                assert w_obj.force == True
-                w_obj.force = False
             r = ExecutionContext.eval_frame(self, f)
+            result, clones, subdict = self.knownframes[key]
             result = union(result, r)
-            if isinstance(result, W_Anything):
-                break
+            self.knownframes[key] = result, clones, subdict
         return result

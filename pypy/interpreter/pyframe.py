@@ -313,7 +313,7 @@ class StopUnrolling(Exception):
 
 class ExitFrame(Exception):
     """Signals the end of the frame execution.
-    The argument is the returned or yielded value."""
+    The argument is the returned or yielded value, already wrapped."""
 
 class BytecodeCorruption(ValueError):
     """Detected bytecode corruption.  Never caught; it's an error."""

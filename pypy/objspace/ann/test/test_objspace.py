@@ -41,6 +41,12 @@ class TestAnnotationObjSpace(test.TestCase):
                           'f', [self.space.wrap(5), W_Anything()])
         self.assertEquals(self.space.unwrap(x), 6)
 
+    def test_constplusstr2any(self):
+        x = self.codetest("def f(i, j):\n"
+                          "    return i+j\n",
+                          'f', [W_Integer(), self.space.wrap(3.5)])
+        self.assertEquals(type(x), W_Anything)
+
     def test_int2int(self):
         x = self.codetest("def f(i):\n"
                           "    return i+1\n",
@@ -73,7 +79,7 @@ class TestAnnotationObjSpace(test.TestCase):
                           'f', [W_Integer()])
         self.assertEquals(self.space.unwrap(x), 0)
 
-    def dont_test_while(self):
+    def test_while(self):
         x = self.codetest("def f(i):\n"
                           "    while i > 0:\n"
                           "        i = i-1\n"
@@ -81,8 +87,16 @@ class TestAnnotationObjSpace(test.TestCase):
                           'f', [W_Integer()])
         self.assertEquals(type(x), W_Integer)
 
+    def test_factorial(self):
+        x = self.codetest("def f(i):\n"
+                          "    if i > 1:\n"
+                          "        return i*f(i-1)\n"
+                          "    return 1\n",
+                          'f', [self.space.wrap(5)])
+        self.assertEquals(type(x), W_Integer)
+
     def dont_test_global(self):
-        # XXX This doesn't work because we don't handle mutating globals
+        # XXX This will never work, because we don't handle mutating globals
         x = self.codetest("def f(i, j):\n"
                           "    global x\n"
                           "    x = i\n"

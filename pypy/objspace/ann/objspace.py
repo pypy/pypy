@@ -21,6 +21,7 @@ class UnwrapException(AnnException):
 class AnnotationObjSpace(ObjSpace):
 
     def initialize(self):
+        self.bytecodecache = {}
         self.w_None = self.wrap(None)
         self.w_True = self.wrap(True)
         self.w_False = self.wrap(False)
@@ -115,11 +116,40 @@ class AnnotationObjSpace(ObjSpace):
         else:
             return W_Anything()
 
+    def sub(self, w_left, w_right):
+        try:
+            left = self.unwrap(w_left)
+            right = self.unwrap(w_right)
+        except UnwrapException:
+            pass
+        else:
+            return self.wrap(left - right)
+        if is_int(w_left) and is_int(w_right):
+            return W_Integer()
+        else:
+            return W_Anything()
+
+    def mul(self, w_left, w_right):
+        try:
+            left = self.unwrap(w_left)
+            right = self.unwrap(w_right)
+        except UnwrapException:
+            pass
+        else:
+            return self.wrap(left * right)
+        if is_int(w_left) and is_int(w_right):
+            return W_Integer()
+        else:
+            return W_Anything()
+
     def call(self, w_func, w_args, w_kwds):
         func = self.unwrap(w_func) # Would be bad it it was W_Anything
         code = func.func_code
-        bytecode = PyByteCode()
-        bytecode._from_code(code)
+        bytecode = self.bytecodecache.get(code)
+        if bytecode is None:
+            bytecode = PyByteCode()
+            bytecode._from_code(code)
+            self.bytecodecache[code] = bytecode
         w_locals = bytecode.build_arguments(self,
                                             w_args,
                                             w_kwds,
