@@ -67,6 +67,7 @@ class GenC:
         self.globaldecl = []
         self.globalobjects = []
         self.pendingfunctions = []
+        self.currentfunc = None
         self.debugstack = ()  # linked list of nested nameof()
         self.gen_source()
 
@@ -533,7 +534,8 @@ class GenC:
 ##             func.__name__)
 
         f = self.f
-        body = list(self.cfunction_body(func))
+        localvars = {}
+        body = list(self.cfunction_body(func, localvars))
         name_of_defaults = [self.nameof(x, debug=('Default argument of', func))
                             for x in (func.func_defaults or ())]
         self.gen_global_declarations()
@@ -550,7 +552,7 @@ class GenC:
             if isinstance(node, Block):
                 localslst.extend(node.getvariables())
         traverse(visit, graph)
-        localnames = [a.name for a in uniqueitems(localslst)]
+        localnames = [self.expr(a, localvars) for a in uniqueitems(localslst)]
 
         # collect all the arguments
         if func.func_code.co_flags & CO_VARARGS:
@@ -561,7 +563,7 @@ class GenC:
             positional_args = graph.getargs()
         min_number_of_args = len(positional_args) - len(name_of_defaults)
 
-        fast_args = [a.name for a in positional_args]
+        fast_args = [self.expr(a, localvars) for a in positional_args]
         if vararg is not None:
             fast_args.append(str(vararg))
         fast_name = 'fast' + f_name
@@ -654,7 +656,7 @@ class GenC:
         
         # generate an incref for each input argument
         for v in positional_args:
-            print >> f, '\tPy_INCREF(%s);' % v.name
+            print >> f, '\tPy_INCREF(%s);' % self.expr(v, localvars)
 
         # print the body
         for line in body:
@@ -675,7 +677,45 @@ class GenC:
             del self.translator.flowgraphs[func]
             Variable.instances.clear()
 
-    def cfunction_body(self, func):
+    def expr(self, v, localnames, wrapped = False):
+        # this function is copied from geninterp just with a different default.
+        # the purpose is to generate short local names.
+        # This is intermediate. Common code will be extracted into a base class.
+        if isinstance(v, Variable):
+            n = v.name
+            if n.startswith("v") and n[1:].isdigit():
+                ret = localnames.get(v.name)
+                if not ret:
+                    if wrapped:
+                        localnames[v.name] = ret = "w_%d" % len(localnames)
+                    else:
+                        localnames[v.name] = ret = "v%d" % len(localnames)
+                return ret
+            scorepos = n.rfind("_")
+            if scorepos >= 0 and n[scorepos+1:].isdigit():
+                name = n[:scorepos]
+                # do individual numbering on named vars
+                thesenames = localnames.setdefault(name, {})
+                ret = thesenames.get(v.name)
+                if not ret:
+                    if wrapped:
+                        fmt = "w_%s_%d"
+                    else:
+                        fmt = "%s_%d"
+                    # don't use zero
+                    if len(thesenames) == 0:
+                        fmt = fmt[:-3]
+                        thesenames[v.name] = ret = fmt % name
+                    else:
+                        thesenames[v.name] = ret = fmt % (name, len(thesenames))
+                return ret
+        elif isinstance(v, Constant):
+            return self.nameof(v.value,
+                               debug=('Constant in the graph of', self.currentfunc))
+        else:
+            raise TypeError, "expr(%r)" % (v,)
+
+    def cfunction_body(self, func, localvars):
         graph = self.translator.getflowgraph(func)
         remove_direct_loops(graph)
         checkgraph(graph)
@@ -683,32 +723,23 @@ class GenC:
         blocknum = {}
         allblocks = []
 
-        def expr(v):
-            if isinstance(v, Variable):
-                return v.name
-            elif isinstance(v, Constant):
-                return self.nameof(v.value,
-                                   debug=('Constant in the graph of',func))
-            else:
-                raise TypeError, "expr(%r)" % (v,)
-
         def gen_link(link, linklocalvars=None):
             "Generate the code to jump across the given Link."
             has_ref = {}
             linklocalvars = linklocalvars or {}
             for v in to_release:
-                linklocalvars[v] = v.name
+                linklocalvars[v] = self.expr(v, localvars)
             has_ref = linklocalvars.copy()
             for a1, a2 in zip(link.args, link.target.inputargs):
                 if a1 in linklocalvars:
                     src = linklocalvars[a1]
                 else:
-                    src = expr(a1)
-                line = 'MOVE(%s, %s)' % (src, a2.name)
+                    src = self.expr(a1, localvars)
+                line = 'MOVE(%s, %s)' % (src, self.expr(a2, localvars))
                 if a1 in has_ref:
                     del has_ref[a1]
                 else:
-                    line += '\tPy_INCREF(%s);' % a2.name
+                    line += '\tPy_INCREF(%s);' % self.expr(a2, localvars)
                 yield line
             for v in has_ref:
                 yield 'Py_DECREF(%s);' % linklocalvars[v]
@@ -727,8 +758,8 @@ class GenC:
             yield 'block%d:' % blocknum[block]
             to_release = list(block.inputargs)
             for op in block.operations:
-                lst = [expr(v) for v in op.args]
-                lst.append(op.result.name)
+                lst = [self.expr(v, localvars) for v in op.args]
+                lst.append(self.expr(op.result, localvars))
                 lst.append('err%d_%d' % (blocknum[block], len(to_release)))
                 macro = 'OP_%s' % op.opname.upper()
                 meth = getattr(self, macro, None)
@@ -742,13 +773,13 @@ class GenC:
             if len(block.exits) == 0:
                 if len(block.inputargs) == 2:   # exc_cls, exc_value
                     # exceptional return block
-                    exc_cls   = expr(block.inputargs[0])
-                    exc_value = expr(block.inputargs[1])
+                    exc_cls   = self.expr(block.inputargs[0], localvars)
+                    exc_value = self.expr(block.inputargs[1], localvars)
                     yield 'PyErr_Restore(%s, %s, NULL);' % (exc_cls, exc_value)
                     yield 'FUNCTION_RETURN(NULL)'
                 else:
                     # regular return block
-                    retval = expr(block.inputargs[0])
+                    retval = self.expr(block.inputargs[0], localvars)
                     yield 'FUNCTION_RETURN(%s)' % retval
                 continue
             elif block.exitswitch is None:
@@ -791,13 +822,13 @@ class GenC:
                 # block ending in a switch on a value
                 for link in block.exits[:-1]:
                     yield 'if (EQ_%s(%s)) {' % (link.exitcase,
-                                                block.exitswitch.name)
+                                                self.expr(block.exitswitch, localvars))
                     for op in gen_link(link):
                         yield '\t' + op
                     yield '}'
                 link = block.exits[-1]
                 yield 'assert(EQ_%s(%s));' % (link.exitcase,
-                                              block.exitswitch.name)
+                                              self.expr(block.exitswitch, localvars))
                 for op in gen_link(block.exits[-1]):
                     yield op
                 yield ''
@@ -805,7 +836,7 @@ class GenC:
             while to_release:
                 v = to_release.pop()
                 if err_reachable:
-                    yield 'ERR_DECREF(%s)' % v.name
+                    yield 'ERR_DECREF(%s)' % self.expr(v, localvars)
                 yield 'err%d_%d:' % (blocknum[block], len(to_release))
                 err_reachable = True
             if err_reachable:
