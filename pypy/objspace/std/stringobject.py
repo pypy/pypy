@@ -53,7 +53,7 @@ istitle           def str_istitle(space, w_self):
 isupper           def str_isupper__String(space, w_self): def _isupper(ch):
 join              def str_join__String_ANY(space, w_self, w_list):
 ljust             def str_ljust__String_ANY(space, w_self, w_arg):
-lower             OK
+lower      
 lstrip            def str_lstrip__String(space, w_self):
 replace           *Tomek
 rfind             OK, nur noch tests
@@ -61,8 +61,8 @@ rindex            OK, nur noch tests
 rjust             def str_rjust__String_ANY(space, w_self, w_arg):
 rstrip            def str_rstrip__String(space, w_self):
 split             def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
-splitlines
-startswith
+splitlines        *Günter
+startswith        *Günter
 strip             def str_strip__String(space, w_self):
 swapcase
 title             def str_title__String(space, w_self):
@@ -510,6 +510,22 @@ def str_endswith__String_String(space, w_self, w_end):
         found = 1
         
     return W_IntObject(space, found)
+    
+    
+#[optional arguments not supported now]    
+def str_startswith__String_String(space, w_self, w_start): 
+    u_self = space.unwrap(w_self)
+    u_start  = space.unwrap(w_start)
+    
+    found = 0
+    if u_start:
+        startlen = len(u_start)
+        if startlen <= len(u_self):
+           found = (u_start == u_self[:startlen]) 
+    else:
+        found = 1
+        
+    return W_IntObject(space, found)    
 
 def str_expandtabs__String_Int(space, w_self, w_tabsize):   
     u_self = space.unwrap(w_self)

@@ -36,6 +36,8 @@ class W_StringType(W_TypeObject):
     str_count      = MultiMethod('count', 2)      #[optional arguments not supported now]
     str_endswith   = MultiMethod('endswith', 2)   #[optional arguments not supported now]
     str_expandtabs = MultiMethod('expandtabs', 2, defaults=(8,))
+    str_splitlines = MultiMethod('splitlines', 2)
+    str_startswith = MultiMethod('startswith', 2) #[optional arguments not supported now]
 
 
 # XXX we'll worry about the __new__/__init__ distinction later

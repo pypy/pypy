@@ -180,6 +180,19 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals("Python".count(""),7)
         self.assertEquals("ab aaba".count("ab"),2)
     
+    
+    def test_startswith(self):
+        self.assertEquals('ab'.startswith('ab'),1)
+        self.assertEquals('ab'.startswith('a'),1)
+        self.assertEquals('ab'.startswith(''),1)
+        self.assertEquals('x'.startswith('a'),0)
+        self.assertEquals('x'.startswith('x'),1)
+        self.assertEquals(''.startswith(''),1)
+        self.assertEquals(''.startswith('a'),0)
+        self.assertEquals('x'.startswith('xx'),0)
+        self.assertEquals('y'.startswith('xx'),0)
+                
+
     def test_endswith(self):
         self.assertEquals('ab'.endswith('ab'),1)
         self.assertEquals('ab'.endswith('b'),1)
@@ -191,7 +204,7 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('x'.endswith('xx'),0)
         self.assertEquals('y'.endswith('xx'),0)
    
-            
+   
     def test_expandtabs(self):
         s = '\txy\t'
         self.assertEquals(s.expandtabs(),'        xy        ')
