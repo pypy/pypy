@@ -1,7 +1,6 @@
 from pypy.objspace.std.objspace import *
 from stringobject import W_StringObject
 
-
 class W_CPythonObject:
     "Temporary class!  This one wraps *any* CPython object."
 
@@ -39,6 +38,7 @@ def cpython_call(space, w_obj, w_arguments, w_keywords):
     try:
         result = apply(callable, args)
     except:
+        import sys
         raise OperationError(*sys.exc_info()[:2])
     return space.wrap(result)
 
