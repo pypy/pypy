@@ -101,7 +101,10 @@ def __import__(w_modulename, w_globals=None,
                 raise
             w_path = None
 
-    return first    
+    if w_fromlist is not None and space.is_true(w_fromlist):
+        return w_mod
+    else:
+        return first    
 
 def load_part(w_path,prefix,partname):
     w = space.wrap
