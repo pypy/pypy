@@ -293,9 +293,14 @@ class GenC:
         name = self.uniquename('g%ddict' % len(dic))
         def initdict():
             for k in dic:
-                assert type(k) is str, "can only dump dicts with string keys"
-                yield '\tINITCHK(PyDict_SetItemString(%s, "%s", %s) >= 0)'%(
-                    name, k, self.nameof(dic[k]))
+                if type(k) is str:
+                    yield ('\tINITCHK(PyDict_SetItemString'
+                           '(%s, "%s", %s) >= 0)'%(
+                               name, k, self.nameof(dic[k])))
+                else:
+                    yield ('\tINITCHK(PyDict_SetItem'
+                           '(%s, %s, %s) >= 0)'%(
+                               name, self.nameof(k), self.nameof(dic[k])))
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyDict_New())' % (name,))
         self.latercode.append(initdict())
