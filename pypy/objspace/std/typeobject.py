@@ -277,7 +277,7 @@ def delattr__Type_ANY(space, w_type, w_name):
 # ____________________________________________________________
 
 
-abstract_mro = gateway.applevelinterp("""
+abstract_mro = gateway.applevel("""
     def abstract_mro(klass):
         # abstract/classic mro
         mro = []

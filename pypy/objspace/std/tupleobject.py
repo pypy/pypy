@@ -112,7 +112,7 @@ def gt__Tuple_Tuple(space, w_tuple1, w_tuple2):
     # No more items to compare -- compare sizes
     return space.newbool(len(items1) > len(items2))
 
-app = gateway.applevelinterp("""
+app = gateway.applevel("""
     def repr__Tuple(t):
         if len(t) == 1:
             return "(" + repr(t[0]) + ",)"

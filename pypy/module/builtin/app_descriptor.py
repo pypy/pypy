@@ -1,3 +1,5 @@
+# NOT_RPYTHON  -- there is a problem with initialising a property's __doc__
+# XXX but it *should* work
 """
 Plain Python definition of the builtin descriptors.
 """
@@ -27,10 +29,11 @@ class classmethod(object):
     def __get__(self, obj, klass=None):
         if klass is None:
             klass = type(obj)
-        def newfunc(*args, **kwargs):
-            return self._f(klass, *args, **kwargs)
-        return newfunc
+        return MethodType(self._f, klass)
 
+def dummy(): pass
+MethodType = type(dummy.__get__(42))
+del dummy
 
 # It's difficult to have a class that has both a docstring and a slot called
 # '__doc__', but not impossible...

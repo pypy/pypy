@@ -740,6 +740,7 @@ class PyInterpFrame(pyframe.PyFrame):
 # class above.
 
 app = gateway.applevel(r'''
+    # NOT_RPYTHON   (but should be, soon)
 
     import sys
 

@@ -7,7 +7,7 @@ slice_indices = MultiMethod('indices', 2)
 
 # default application-level implementations for some operations
 # gateway is imported in the stdtypedef module
-app = gateway.applevelinterp("""
+app = gateway.applevel("""
 
     def indices(slice, length):
         # this is used internally, analogous to CPython's PySlice_GetIndicesEx

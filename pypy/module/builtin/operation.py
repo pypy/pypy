@@ -71,7 +71,8 @@ def _issubtype(space, w_cls1, w_cls2):
 
 # ____________________________________________________________
 
-app = gateway.applevel('''
+iter_sentinel = gateway.applevel('''
+    # NOT_RPYTHON  -- uses yield
     # App-level implementation of the iter(callable,sentinel) operation.
 
     def iter_generator(callable_, sentinel):
@@ -86,8 +87,7 @@ app = gateway.applevel('''
             raise TypeError, 'iter(v, w): v must be callable'
         return iter_generator(callable_, sentinel)
 
-''')
-iter_sentinel = app.interphook("iter_sentinel")
+''').interphook("iter_sentinel")
 
 def iter(space, w_collection_or_callable, w_sentinel=NoneNotWrapped):
     if w_sentinel is None:

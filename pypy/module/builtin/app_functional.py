@@ -1,3 +1,4 @@
+# NOT_RPYTHON because yield is used
 """
 Plain Python definition of the builtin functions oriented towards
 functional programming.

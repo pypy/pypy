@@ -964,7 +964,7 @@ def ord__String(space, w_str):
                        "of length %d found"%(len(w_str._value),)))
     return space.wrap(ord(u_str))
    
-app = gateway.applevelinterp(r'''
+app = gateway.applevel(r'''
     import codecs
     
     def str_translate__String_ANY_ANY(s, table, deletechars=''):
@@ -1010,7 +1010,7 @@ app = gateway.applevelinterp(r'''
 ''') 
 
 # this one should do the import of _formatting:
-app2 = gateway.applevelinterp('''
+app2 = gateway.applevel('''
 
     def mod__String_ANY(format, values):
         import _formatting

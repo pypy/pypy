@@ -24,7 +24,7 @@ class W_SliceObject(W_Object):
 
 registerimplementation(W_SliceObject)
 
-repr__Slice = gateway.applevelinterp("""
+repr__Slice = gateway.applevel("""
     def repr__Slice(aslice):
         return 'slice(%r, %r, %r)' % (aslice.start, aslice.stop, aslice.step)
 """).interphook("repr__Slice")

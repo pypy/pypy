@@ -1,6 +1,6 @@
 
 import py
-from pypy.interpreter.gateway import appdef, applevel, applevelinterp
+from pypy.interpreter.gateway import appdef, ApplevelClass, ApplevelInterpClass
 
 def test_execwith_novars(space): 
     val = space.appexec([], """ 
@@ -70,7 +70,7 @@ def test_app2interp_somefunc(space):
     w_result = app(space) 
     assert space.eq_w(w_result, space.wrap(42))
 
-def test_applevel_functions(space, applevel=applevel):
+def test_applevel_functions(space, applevel=ApplevelClass):
     app = applevel('''
         def f(x, y):
             return x-y
@@ -82,9 +82,9 @@ def test_applevel_functions(space, applevel=applevel):
     assert space.eq_w(w_res, space.wrap(-9))
 
 def test_applevelinterp_functions(space):
-    test_applevel_functions(space, applevel=applevelinterp)
+    test_applevel_functions(space, applevel=ApplevelInterpClass)
 
-def test_applevel_class(space, applevel=applevel):
+def test_applevel_class(space, applevel=ApplevelClass):
     app = applevel('''
         class C: 
             clsattr = 42 
@@ -99,7 +99,7 @@ def test_applevel_class(space, applevel=applevel):
     assert space.eq_w(w_clsattr, space.wrap(17))
 
 def test_applevelinterp_class(space):
-    test_applevel_class(space, applevel=applevelinterp)
+    test_applevel_class(space, applevel=ApplevelInterpClass)
 
 def app_test_something_at_app_level(): 
     x = 2

@@ -305,7 +305,7 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
         items[start+i*step] = sequence2[i]
     return space.w_None
 
-app = gateway.applevelinterp("""
+app = gateway.applevel("""
     def listrepr(currently_in_repr, l):
         'The app-level part of repr().'
         list_id = id(l)

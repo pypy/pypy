@@ -1,3 +1,4 @@
+# NOT_RPYTHON yet
 """
 Plain Python definition of the 'complex' type.
 """

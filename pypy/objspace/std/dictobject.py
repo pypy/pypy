@@ -242,7 +242,7 @@ def dict_get__Dict_ANY_ANY(space, w_dict, w_lookup, w_default):
     else:
         return w_default
 
-app = gateway.applevelinterp('''
+app = gateway.applevel('''
     def dictstr(currently_in_repr, d):
         # Now we only handle one implementation of dicts, this one.
         # The fix is to move this to dicttype.py, and do a

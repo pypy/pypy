@@ -102,33 +102,6 @@ def dir(*args):
         return local_names
 
     import types
-    def _classdir(klass):
-        """Return a dict of the accessible attributes of class/type klass.
-
-        This includes all attributes of klass and all of the
-        base classes recursively.
-
-        The values of this dict have no meaning - only the keys have
-        meaning.  
-        """
-        Dict = {}
-        try:
-            Dict.update(klass.__dict__)
-        except AttributeError: pass 
-        try:
-            # XXX - Use of .__mro__ would be suggested, if the existance
-            #   of that attribute could be guarranted.
-            bases = klass.__bases__
-        except AttributeError: pass
-        else:
-            try:
-                #Note that since we are only interested in the keys,
-                #  the order we merge classes is unimportant
-                for base in bases:
-                    Dict.update(_classdir(base))
-            except TypeError: pass
-        return Dict
-    #End _classdir
 
     obj = args[0]
 
@@ -169,3 +142,30 @@ def dir(*args):
         result = Dict.keys()
         result.sort()
         return result
+
+def _classdir(klass):
+    """Return a dict of the accessible attributes of class/type klass.
+
+    This includes all attributes of klass and all of the
+    base classes recursively.
+
+    The values of this dict have no meaning - only the keys have
+    meaning.  
+    """
+    Dict = {}
+    try:
+        Dict.update(klass.__dict__)
+    except AttributeError: pass 
+    try:
+        # XXX - Use of .__mro__ would be suggested, if the existance
+        #   of that attribute could be guarranted.
+        bases = klass.__bases__
+    except AttributeError: pass
+    else:
+        try:
+            #Note that since we are only interested in the keys,
+            #  the order we merge classes is unimportant
+            for base in bases:
+                Dict.update(_classdir(base))
+        except TypeError: pass
+    return Dict

@@ -419,7 +419,7 @@ class ExceptBlock(FrameBlock):
 import types, __builtin__
 __builtin__._classobj = types.ClassType
 
-app = gateway.applevelinterp('''
+app = gateway.applevel('''
     def normalize_exception(etype, value, tb):
         """Normalize an (exc_type, exc_value) pair:
         exc_value will be an exception instance and exc_type its class.

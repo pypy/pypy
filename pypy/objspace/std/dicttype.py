@@ -21,7 +21,7 @@ dict_itervalues = MultiMethod('itervalues',    1)
 
 # default application-level implementations for some operations
 # gateway is imported in the stdtypedef module
-app = gateway.applevelinterp('''
+app = gateway.applevel('''
 
     def update(d, o):
         for k in o.keys():

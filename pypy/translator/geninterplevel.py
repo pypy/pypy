@@ -50,8 +50,8 @@ def eval_helper(self, typename, expr):
     self.initcode.append1(
         'def %s(expr):\n'
         '    dic = space.newdict([])\n'
-        '    space.exec_("import types", dic, dic)\n'
-        '    return space.eval(expr, dic, dic)' % unique)
+        '    space.exec_("", dic, dic)\n'
+        '    return space.eval(expr, dic, dic)' % (unique, ))
     self.initcode.append1('%s = %s(%r)' % (name, unique, expr))
     return name
 
@@ -120,6 +120,11 @@ class GenRpy:
 
         # catching all builtins in advance, to avoid problems
         # with modified builtins
+
+        # add a dummy _issubtype() to builtins
+        def _issubtype(cls1, cls2):
+            raise TypeError, "this dummy should *not* be reached"
+        __builtin__._issubtype = _issubtype
         
         class bltinstub:
             def __init__(self, name):
@@ -260,6 +265,12 @@ class GenRpy:
         yield 'goto = %s' % self.mklabel(goto)
         if goto <= blocknum[block]:
             yield 'continue'
+
+    def register_early(self, obj, name):
+        # this was needed for recursive lists.
+        # note that self.latercode led to too late initialization.
+        key = Constant(obj).key
+        self.rpynames[key] = name
 
     def nameof(self, obj, debug=None, namehint=None):
         key = Constant(obj).key
@@ -590,6 +601,7 @@ class GenRpy:
             # metaclass = 'space.w_classobj'
 
         basenames = [self.nameof(base) for base in cls.__bases__]
+
         def initclassobj():
             content = cls.__dict__.items()
             content.sort()
@@ -658,15 +670,15 @@ class GenRpy:
         complex:'space.wrap(types.ComplexType)',
         unicode:'space.w_unicode',
         file:   (eval_helper, 'file', 'file'),
-        type(None): (eval_helper, 'NoneType', 'types.NoneType'),
-        CodeType: (eval_helper, 'code', 'types.CodeType'),
+        type(None): (eval_helper, 'NoneType', 'type(None)'),
+        CodeType: (eval_helper, 'code', 'type((lambda:42).func_code)'),
         ModuleType: (eval_helper, 'ModuleType', 'types.ModuleType'),
-        xrange: (eval_helper, 'xrange', 'types.XRangeType'),
+        xrange: (eval_helper, 'xrange', 'xrange'),
 
         ##r_int:  'space.w_int',
         ##r_uint: 'space.w_int',
 
-        type(len): (eval_helper, 'FunctionType', 'types.FunctionType'),
+        type(len): (eval_helper, 'FunctionType', 'type(lambda:42)'),
         # type 'method_descriptor':
         # XXX small problem here:
         # XXX with space.eval, we get <W_TypeObject(method)>
@@ -678,15 +690,17 @@ class GenRpy:
         # type 'getset_descriptor':
         # XXX here we get <W_TypeObject(FakeDescriptor)>,
         # while eval gives us <W_TypeObject(GetSetProperty)>
-        type(type.__dict__['__dict__']): (eval_helper, "getset_descriptor", '\
-            ' "type(type.__dict__[\'__dict__\'])"),
+        type(type.__dict__['__dict__']): (eval_helper, "getset_descriptor",
+            "type(type.__dict__[\'__dict__\'])"),
         # type 'member_descriptor':
         # XXX this does not work in eval!
         # type(type.__dict__['__basicsize__']): "cannot eval type(type.__dict__['__basicsize__'])",
         # XXX there seems to be no working support for member descriptors ???
         type(types.GeneratorType.gi_frame):
-            (eval_helper, "member_descriptor", 'type(types.GeneratorType.gi_frame)'),
+            (eval_helper, "member_descriptor", 'type(property.fdel)'),
         types.ClassType: 'space.w_classobj',
+        types.MethodType: (eval_helper, "instancemethod",
+            "type((lambda:42).__get__(42))"),
     }
 
     def nameof_type(self, cls):
@@ -697,7 +711,8 @@ class GenRpy:
             return ret
         assert cls.__module__ != '__builtin__', (
             "built-in class %r not found in typename_mapping "
-            "while compiling %s" % (cls, self.currentfunc.__name__))
+            "while compiling %s" % (cls, self.currentfunc and
+                                    self.currentfunc.__name__ or "*no function at all*"))
         return self.nameof_classobj(cls)
 
     def nameof_tuple(self, tup):
@@ -709,14 +724,14 @@ class GenRpy:
 
     def nameof_list(self, lis):
         name = self.uniquename('g%dlist' % len(lis))
-        def initlist():
-            for i in range(len(lis)):
-                item = self.nameof(lis[i])
-                yield 'space.setitem(%s, %s, %s);' % (
-                    name, self.nameof(i), item)
-        self.initcode.append1('%s = space.newlist([space.w_None])' % (name,))
-        self.initcode.append1('%s = space.mul(%s, %s)' % (name, name, self.nameof(len(lis))))
-        self.later(initlist())
+        # note that self.latercode led to too late initialization.
+        self.register_early(lis, name)
+        self.initcode.append('%s = space.newlist([space.w_None])' % (name,))
+        self.initcode.append('%s = space.mul(%s, %s)' % (name, name, self.nameof(len(lis))))
+        for i in range(len(lis)):
+            item = self.nameof(lis[i])
+            self.initcode.append('space.setitem(%s, %s, %s);' % (
+                name, self.nameof(i), item))
         return name
 
     def nameof_dict(self, dic):
@@ -724,12 +739,11 @@ class GenRpy:
         assert '__builtins__' not in dic, 'Seems to be the globals of %s' % (
             dic.get('__name__', '?'),)
         name = self.uniquename('g%ddict' % len(dic))
-        def initdict():
-            for k in dic:
-                yield ('space.setitem(%s, %s, %s)'%(
-                            name, self.nameof(k), self.nameof(dic[k])))
-        self.initcode.append1('%s = space.newdict([])' % (name,))
-        self.later(initdict())
+        self.register_early(dic, name)
+        self.initcode.append('%s = space.newdict([])' % (name,))
+        for k in dic:
+            self.initcode.append('space.setitem(%s, %s, %s)'%(
+                name, self.nameof(k), self.nameof(dic[k])))
         return name
 
     # strange prebuilt instances below, don't look too closely
@@ -825,7 +839,7 @@ class GenRpy:
             # make sure it is not rendered again
             key = Constant(doc).key
             self.rpynames[key] = "__doc__"
-            self.initcode.append1("__doc__ = space.wrap(globals()['__doc__'])")
+            self.initcode.append("__doc__ = space.wrap('__doc__')")
 
         # header """def initmodule(space):"""
         print >> f, self.RPY_INIT_HEADER % info
@@ -1474,10 +1488,15 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     # and now use the members of the dict
     """
     # create something like a module
+    # the following code will be removed when app_descriptor works
+    ##print 80*"T", sourcetext
+    if "class property" in sourcetext:
+        # debugging app_descriptor.py
+        tmpname = "/tmp/look.py"
     if filename is None: 
         code = py.code.Source(sourcetext).compile()
     else: 
-        code = compile(sourcetext, filename, 'exec') 
+        code = compile(sourcetext, filename, 'exec')
     dic = {'__name__': modname}
     exec code in dic
     del dic['__builtins__']

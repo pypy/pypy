@@ -15,15 +15,15 @@ list_sort     = MultiMethod('sort',   4, defaults=(None, None, False), argnames=
 list_reversed = MultiMethod('__reversed__', 1)
 
 # gateway is imported in the stdtypedef module
-app = gateway.applevel('''
+list_reversed__ANY = gateway.applevel('''
+    # NOT_RPYTHON -- uses yield
 
     def reversed(lst):
         for index in range(len(lst)-1, -1, -1):
             yield lst[index]
 
-''')
+''').interphook('reversed')
 
-list_reversed__ANY = app.interphook('reversed')
 register_all(vars(), globals())
 
 # ____________________________________________________________

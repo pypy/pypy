@@ -61,7 +61,7 @@ def descr__reduce_ex__(space, w_obj, proto=0):
     w_proto = space.wrap(proto)
     return reduce_1(space, w_obj, w_proto)
 
-app = gateway.applevelinterp(r'''
+app = gateway.applevel(r'''
 def reduce_1(obj, proto):
     import copy_reg
     return copy_reg._reduce_ex(obj, proto)

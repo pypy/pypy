@@ -479,7 +479,7 @@ class interp2app_temp(interp2app):
 # and now for something completely different ... 
 #
 
-class applevel:
+class ApplevelClass:
     """A container for app-level source code that should be executed
     as a module in the object space;  interphook() builds a static
     interp-level function that invokes the callable with the given
@@ -496,7 +496,7 @@ class applevel:
             self.code = compile(source, filename, 'exec') 
         
     def getwdict(self, space):
-        return space.loadfromcache(self, applevel._builddict,
+        return space.loadfromcache(self, self.__class__._builddict,
                                    space._gatewaycache)
 
     def buildmodule(self, space, name='applevel'):
@@ -536,7 +536,7 @@ class applevel:
     def _freeze_(self):
         return True  # hint for the annotator: applevel instances are constants
 
-class applevelinterp(applevel):
+class ApplevelInterpClass(ApplevelClass):
     """ similar to applevel, but using translation to interp-level.
     """
     NOT_RPYTHON_ATTRIBUTES = []
@@ -548,10 +548,6 @@ class applevelinterp(applevel):
         self.modname = modname
         self.do_imports = do_imports
 
-    def getwdict(self, space):
-        return space.loadfromcache(self, applevelinterp._builddict,
-                                   space._gatewaycache)
-
     def _builddict(self, space):
         "NOT_RPYTHON"
         from pypy.translator.geninterplevel import translate_as_module
@@ -560,10 +556,20 @@ class applevelinterp(applevel):
         w_glob = initfunc(space)
         return w_glob
 
-# comment this out to check against applevel without translation
-##applevelinterp = applevel
+def applevel(source, filename = None,
+                   modname = 'applevelinterp', do_imports=False):
+    # look at the first three lines
+    first = source.split("\n", 3)[:3]
+    klass = ApplevelInterpClass
+    for line in first:
+        if "NOT_RPYTHON" in line:
+            klass = ApplevelClass
+    return klass(source, filename, modname, do_imports)
 
-def appdef(source, applevel=applevel):
+# comment this out to check against applevel without translation
+##ApplevelInterpClass = ApplevelClass
+
+def appdef(source, applevel=ApplevelClass):
     """ NOT_RPYTHON: build an app-level helper function, like for example:
     myfunc = appdef('''myfunc(x, y):
                            return x+y
@@ -583,13 +589,12 @@ def appdef(source, applevel=applevel):
 app2interp = appdef   # backward compatibility
 
 
-# the following two will probably get merged into one
-class applevel_temp(applevel):
+class applevel_temp(ApplevelClass):
     hidden_applevel = False
     def getwdict(self, space):
         return self._builddict(space)   # no cache
 
-class applevelinterp_temp(applevelinterp):
+class applevelinterp_temp(ApplevelInterpClass):
     hidden_applevel = False
     def getwdict(self, space):
         return self._builddict(space)   # no cache

@@ -1,3 +1,4 @@
+# NOT_RPYTHON (but maybe soon)
 """
 Plain Python definition of the builtin I/O-related functions.
 """
