@@ -34,7 +34,7 @@ class ObjSpace:
         self.setattr(self.w_sys, self.wrap("modules"), self.w_modules)
 
     # XXX use a dictionary in the future
-    def get_builtin(self,w_name):
+    def get_builtin_module(self, w_name):
         name = self.unwrap(w_name)
         if name == '__builtin__':
             return self.w_builtin
