@@ -179,7 +179,7 @@ class SpecialMmFrame(eval.Frame):
             return self.code.mm.perform_call(args)
         except FailedToImplement, e:
             if e.args:
-                raise OperationError(*e.args)
+                raise OperationError(e.args[0], e.args[1])
             else:
                 return self.space.w_NotImplemented
 
