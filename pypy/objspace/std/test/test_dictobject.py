@@ -308,6 +308,8 @@ class FakeSpace:
         return x is y
     def eq(self, x, y):
         return x == y
+    def newlist(self, l):
+        return []
 
 from pypy.objspace.std.dictobject import getitem__Dict_ANY, setitem__Dict_ANY_ANY
 

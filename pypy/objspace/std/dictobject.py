@@ -10,8 +10,6 @@ from pypy.interpreter import gateway
 
 from pypy.objspace.std.restricted_int import r_uint
 
-dummy = object()
-
 class Entry:
     def __init__(self):
         self.hash = r_uint(0)
@@ -29,6 +27,7 @@ class W_DictObject(W_Object):
         w_self.used = 0
         w_self.data = []
         w_self.resize(len(list_pairs_w)*2)
+        w_self.w_dummy = space.newlist([])
         for w_k, w_v in list_pairs_w:
             w_self.insert(w_self.hash(w_k), w_k, w_v)
         
@@ -74,7 +73,7 @@ class W_DictObject(W_Object):
         if entry.w_key is None or \
            space.is_true(space.is_(w_lookup, entry.w_key)):
             return entry
-        if entry.w_key is dummy:
+        if entry.w_key is self.w_dummy:
             freeslot = entry
         else:
             if entry.hash == lookup_hash and space.is_true(
@@ -91,11 +90,11 @@ class W_DictObject(W_Object):
                     return freeslot
                 else:
                     return entry
-            if entry.hash == lookup_hash and entry.w_key is not dummy \
+            if entry.hash == lookup_hash and entry.w_key is not self.w_dummy \
                    and space.is_true(
                 space.eq(entry.w_key, w_lookup)):
                 return entry
-            if entry.w_key is dummy and freeslot is None:
+            if entry.w_key is self.w_dummy and freeslot is None:
                 freeslot = entry
             perturb >>= 5
 
@@ -150,7 +149,7 @@ def delitem__Dict_ANY(space, w_dict, w_lookup):
     entry = w_dict.lookdict(w_dict.hash(w_lookup), w_lookup)
     if entry.w_value is not None:
         w_dict.used -= 1
-        entry.w_key = dummy
+        entry.w_key = w_dict.w_dummy
         entry.w_value = None
     else:
         raise OperationError(space.w_KeyError, w_lookup)
