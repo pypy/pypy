@@ -118,7 +118,7 @@ def transform_dead_op_vars(self):
     variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
     
     # compute variable_flow and an initial read_vars
-    for block in fully_annotated_blocks(self):
+    for block in self.annotated:
         # figure out which variables are ever read
         for op in block.operations:
             if op.opname not in CanRemove:  # mark the inputs as really needed
@@ -132,12 +132,17 @@ def transform_dead_op_vars(self):
 
         if isinstance(block.exitswitch, Variable):
             read_vars[block.exitswitch] = True
-        
+
         if block.exits:
             for link in block.exits:
-                for arg, targetarg in zip(link.args, link.target.inputargs):
-                    deps = variable_flow.setdefault(targetarg, [])
-                    deps.append(arg)
+                if link.target not in self.annotated:
+                    for arg, targetarg in zip(link.args, link.target.inputargs):
+                        read_vars[arg] = True
+                        read_vars[targetarg] = True
+                else:
+                    for arg, targetarg in zip(link.args, link.target.inputargs):
+                        deps = variable_flow.setdefault(targetarg, [])
+                        deps.append(arg)
         else:
             # return and except blocks implicitely use their input variable(s)
             for arg in block.inputargs:
@@ -157,8 +162,8 @@ def transform_dead_op_vars(self):
                 read_vars[prevvar] = True
                 pending.append(prevvar)
 
-    for block in fully_annotated_blocks(self):
-        
+    for block in self.annotated:
+
         # look for removable operations whose result is never used
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
@@ -181,16 +186,12 @@ def transform_dead_op_vars(self):
         # link.target.inputargs.
         for link in block.exits:
             assert len(link.args) == len(link.target.inputargs)
-            if not self.annotated.get(link.target, False):
-                # Can't remove -- link.target is not annotated, therefore
-                # link.target.inputargs will never be touched
-                continue
             for i in range(len(link.args)-1, -1, -1):
                 if link.target.inputargs[i] not in read_vars:
                     del link.args[i]
             # the above assert would fail here
 
-    for block in fully_annotated_blocks(self):
+    for block in self.annotated:
         # look for input variables never used
         # The corresponding link.args have already been all removed above
         for i in range(len(block.inputargs)-1, -1, -1):
