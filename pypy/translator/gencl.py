@@ -15,7 +15,10 @@ class Op:
             self.op_default()
     binary_ops = {
         "add": "+",
+        "inplace_add": "+", # weird, but it works
         "mod": "mod",
+        "lt": "<",
+        "eq": "=",
     }
     def op_default(self):
         print "; Op", self.opname, "is missing"
@@ -70,24 +73,32 @@ class GenCL:
             print self.str(arg),
         print ")"
         print "(block nil"
-        self.emit_block(fun.startblock)
+        print "(tagbody"
+        startblock = fun.startblock
+        blocklist = []
+        def collect_block(node):
+            if isinstance(node, BasicBlock):
+                blocklist.append(node)
+        startblock.visit(collect_block)
+        for block in blocklist:
+            tag = len(self.blockref)
+            self.blockref[block] = tag
+        for block in blocklist:
+            self.emit_block(block)
+        print ")"
         print ")"
         print ")"
     def emit_block(self, block):
-        print "(tagbody"
-        nb = len(self.blockref)
-        tag = self.blockref.setdefault(block, nb)
-        if tag != nb:
-            print "(go", "tag" + str(tag), ")"
-            print ")" # close tagbody
-            return
         self.cur_block = block
+        tag = self.blockref[block]
         print "tag" + str(tag)
         for op in block.operations:
             emit_op = Op(self, op)
             emit_op()
         self.dispatch_branch(block.branch)
-        print ")"
+    def emit_jump(self, block):
+        tag = self.blockref[block]
+        print "(go", "tag" + str(tag), ")"
     def dispatch_branch(self, branch):
         if isinstance(branch, Branch):
             self.emit_branch(branch)
@@ -96,7 +107,7 @@ class GenCL:
         elif isinstance(branch, EndBranch):
             self.emit_end_branch(branch)
         else:
-            print branch.__class__, "is missing"
+            print "; Branch", branch.__class__, "is missing"
     def emit_branch(self, branch):
         if branch.target.has_renaming:
             source = branch.args
@@ -106,7 +117,7 @@ class GenCL:
                 init, var = map(self.str, item)
                 print var, init,
             print ")"
-        self.emit_block(branch.target)
+        self.emit_jump(branch.target)
     def emit_conditional_branch(self, branch):
         print "(if"
         self.emit_truth_test(branch.condition)

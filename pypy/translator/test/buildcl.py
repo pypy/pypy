@@ -7,8 +7,14 @@ from pypy.translator.gencl import GenCL
 from vpath.adapter.process import exec_cmd
 
 def readlisp(s):
-    # For now, let's return int only
-    return int(s)
+    # Return bool and int only
+    s = s.strip()
+    if s == "T":
+        return True
+    elif s == "NIL":
+        return False
+    else:
+        return int(s)
 
 def make_cl_func(func, cl, path):
     fun = FlowObjSpace().build_flow(func)
