@@ -299,6 +299,39 @@ def call_cpbc():
     return callable_prebuilt_constant()
 
 
+class E1(Exception):
+    pass
+
+class E2(Exception):
+    pass
+
+def raise_choose(n):
+    if n == 1:
+        raise E1
+    elif n == 2:
+        raise E2
+    elif n == -1:
+        raise Exception
+    return 0
+
+def try_raise_choose(n):
+    try:
+        raise_choose(n)
+    except E1:
+        return 1
+    except E2:
+        return 2
+    except Exception:
+        return -1
+    return 0
+
+def do_try_raise_choose():
+    r = []
+    for n in [-1,0,1,2]:
+        r.append(try_raise_choose(n))
+    return r
+
+
 # INHERITANCE / CLASS TESTS  
 class C(object): pass
 
@@ -1062,4 +1095,4 @@ def class_spec():
         return "confused"
     return istk.top(), sstk.top()
 
-
+    

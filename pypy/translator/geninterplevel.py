@@ -590,7 +590,7 @@ class GenRpy:
         if issubclass(cls, Exception):
             # if cls.__module__ == 'exceptions':
             # don't rely on this, py.magic redefines AssertionError
-            if getattr(__builtin__,cls.__name__) is cls:
+            if getattr(__builtin__,cls.__name__,None) is cls:
                 # exception are defined on the space
                 return 'space.w_%s' % cls.__name__
 

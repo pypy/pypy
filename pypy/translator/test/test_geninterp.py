@@ -245,3 +245,8 @@ class TestGenRpyTestCase:
         result = fn(l)
         assert l == [3, 'c', 8, 11, 'h', 9]
         assert result == ([3, 'c'], [9], [11, 'h'])
+
+    def test_do_try_raise_choose(self):
+        fn = self.build_interpfunc(snippet.do_try_raise_choose)
+        result = fn()
+        assert result == [-1,0,1,2]

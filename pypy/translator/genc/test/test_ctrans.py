@@ -216,6 +216,10 @@ class TestNoTypeCGenTestCase:
         assert fn(117, 114) == (-6, True)
         assert fn(117, 124) == (-3, True)
 
+    def test_do_try_raise_choose(self):
+        fn = self.build_cfunc(snippet.do_try_raise_choose)
+        result = fn()
+        assert result == [-1,0,1,2]    
 
 class TestAnnotatedTestCase:
 
@@ -331,6 +335,10 @@ class TestAnnotatedTestCase:
         assert fn(5) == 0
         assert abs(fn(7) + 0.8584) < 1E-5
 
+    def test_do_try_raise_choose(self):
+        fn = self.getcompiled(snippet.do_try_raise_choose)
+        result = fn()
+        assert result == [-1,0,1,2]    
 
 class TestTypedTestCase(TestAnnotatedTestCase):
 
