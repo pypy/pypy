@@ -39,6 +39,7 @@ class Display(object):
 class GraphDisplay(Display):
     STATUSBARFONT = os.path.join(autopath.this_dir, 'VeraMoBd.ttf')
     ANIM_STEP = 0.07
+    KEY_REPEAT = (500, 30)
 
     KEYS = {
         'meta -' : ('zoom', 0.5),
@@ -76,6 +77,7 @@ class GraphDisplay(Display):
         self.setlayout(layout)
 
     def initialize_keys(self):
+        pygame.key.set_repeat(*self.KEY_REPEAT)
         for strnames, methodname in self.KEYS.iteritems():
             names = strnames.split()
             mod = 0
