@@ -44,7 +44,7 @@ class TestGenRpyTestCase:
         # truncate non-compilable stuff for now:
         p = src.index('Non compilable Functions')
         src = src[:p]
-        ini = translate_as_module(src, tmpname = str(udir.join("_geninterp_test.py")))
+        ini = translate_as_module(src)#, tmpname = str(udir.join("_geninterp_test.py")))
         self.w_glob = ini(self.space)
 
     def build_interpfunc(self, func, *morefuncs):
