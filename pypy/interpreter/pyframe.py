@@ -1,7 +1,10 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
-
-from pypy.interpreter import opcode
+import opcode
+# XXX this is probably a Python bug:
+# circular import doesn't work if we spell this
+# from pypy.interpreter import opcode
+# report this to python-dev
 from executioncontext import OperationError, Stack
 import baseobjspace
 from appfile import AppFile
