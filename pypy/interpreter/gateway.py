@@ -500,7 +500,7 @@ class interp2app_temp(interp2app):
         return self.__dict__.setdefault(space, Cache())
 
 
-# and now for something completly different ... 
+# and now for something completely different ... 
 #
 
 class applevel:
@@ -545,6 +545,29 @@ class applevel:
         appcaller = hack.func_with_new_name(appcaller, name)
         appcaller.get_function = get_function
         return appcaller
+
+## XXX experimental code using geninterplevel
+
+class applevelinterp(applevel):
+    """ same as applevel, but using translation to interp-level.
+    Hopefully this will replace applevelatsome point.
+    """
+    NOT_RPYTHON_ATTRIBUTES = ['initfunc']
+
+    def __init__(self, source, modname = 'applevelinterp'):
+        "NOT_RPYTHON"
+        from pypy.translator.geninterplevel import translate_as_module
+        self.initfunc = translate_as_module(source, modname)
+
+    def getwdict(self, space):
+        return space.loadfromcache(self, applevelinterp._builddict,
+                                   space._gatewaycache)
+
+    def _builddict(self, space):
+        "NOT_RPYTHON"
+        w_glob = self.initfunc(space)
+        return w_glob
+
 
 def appdef(source, applevel=applevel):
     """ NOT_RPYTHON: build an app-level helper function, like for example:
