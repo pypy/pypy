@@ -55,6 +55,11 @@ def analyse(entry_point=entry_point):
 
     pycode.setup_frame_classes()
 
+    from pypy.interpreter import pyopcode
+
+    # cheat
+    space._gatewaycache.content[pyopcode.app] =  space.newdict([])
+
     t = Translator(entry_point, verbose=True, simplifying=True)
     if listen_port:
         run_async_server()
@@ -268,10 +273,8 @@ if __name__ == '__main__':
             update_usession_dir()
             if not options['-o']:
                 print 'Running!'
-                w_result = c_entry_point()
+                w_result = c_entry_point(compile("a+b","<stuff>","eval"),dummy.W_Obj())
                 print w_result
-                print w_result.intval
-                assert w_result.intval == 42
     except:
         debug(True)
     else:
