@@ -9,6 +9,9 @@ debug = 0
 
 def make_module_from_pyxstring(name, dirpath, string):
     pyxfile = dirpath.join('%s.pyx' % name) 
+    i = 0
+    while pyxfile.exists():
+        pyxfile = pyxfile.newbasename('%s%d.pyx' % (name, i))
     pyxfile.write(string)
     if debug: print "made pyxfile", pyxfile
     make_c_from_pyxfile(pyxfile)
@@ -42,6 +45,7 @@ def make_module_from_c(pyxfile):
           cmdclass = {'build_ext': build_ext},
           script_name = 'setup.py',
           script_args = ['-q', 'build_ext', '--inplace']
+          #script_args = ['build_ext', '--inplace']
         )
         # XXX not a nice way to import a module
         if debug: print "inserting path to sys.path", dirpath
