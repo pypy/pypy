@@ -246,26 +246,34 @@ def dict_get__Dict_ANY_ANY(space, w_dict, w_lookup, w_default):
 # The fix is to move this to dicttype.py, and do a
 # multimethod lookup mapping str to StdObjSpace.str
 # This cannot happen until multimethods are fixed. See dicttype.py
-def app_dictstr(d):
+def app_dictstr(currently_in_repr, d):
+    dict_id = id(d)
+    if dict_id in currently_in_repr:
+        return '{...}'
+    currently_in_repr[dict_id] = 1
+    try:
         items = []
         for k, v in d.iteritems():
             items.append(repr(k) + ": " + repr(v))
         return "{" +  ', '.join(items) + "}"
+    finally:
+        try:
+            del currently_in_repr[dict_id]
+        except:
+            pass
 
 dictstr = gateway.app2interp(app_dictstr)
 
 def str__Dict(space, w_dict):
     if w_dict.used == 0:
         return space.wrap('{}')
-    d = space.get_ec_state_dict().setdefault('Py_Repr', {})
-    dict_id = space.int_w(space.id(w_dict))
-    if dict_id in d:
-        return space.wrap('{...}')
-    d[dict_id] = 1
+    statedict = space.get_ec_state_dict()
     try:
-        return dictstr(space, w_dict)
-    finally:
-        del d[dict_id]
+        w_currently_in_repr = statedict['Py_Repr']
+    except KeyError:
+        w_currently_in_repr = statedict['Py_Repr'] = space.newdict(())
+
+    return dictstr(space, w_currently_in_repr, w_dict)
 
 repr__Dict = str__Dict
 from pypy.objspace.std import dicttype
