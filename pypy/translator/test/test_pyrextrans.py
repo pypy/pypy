@@ -91,6 +91,15 @@ class TestNoTypePyrexGenTestCase:
         assert sand(0, 6) == "no"
         assert sand(0, 0) == "no"
 
+# -- the following test doesn't really work right now --
+##    def test_call_very_complex(self):
+##        call_very_complex = self.build_cfunc(snippet.call_very_complex,
+##                                             snippet.default_args)
+##        assert call_very_complex(5, (3,), {}) == -12
+##        assert call_very_complex(5, (), {'y': 3}) == -12
+##        py.test.raises("call_very_complex(5, (3,), {'y': 4})")
+
+
 class TestTypedTestCase:
 
     def getcompiled(self, func):

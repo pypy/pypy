@@ -540,6 +540,9 @@ def call_with_star(z):
 def call_with_keyword(z):
     return default_args(-20, z=z)
 
+def call_very_complex(z, args, kwds):
+    return default_args(-20, z=z, *args, **kwds)
+
 def powerset(setsize=int):
     """Powerset
 

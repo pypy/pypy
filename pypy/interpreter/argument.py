@@ -22,25 +22,7 @@ class Arguments:
         self.arguments_w = list(args_w)
         self.kwds_w = kwds_w.copy()
         self.w_stararg = w_stararg
-        if w_starstararg is not None:
-            # unlike the * argument we unpack the ** argument immediately.
-            # maybe we could allow general mappings?
-            if not space.is_true(space.isinstance(w_starstararg, space.w_dict)):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("the keywords must be "
-                                                "a dictionary"))
-            for w_key in space.unpackiterable(w_starstararg):
-                try:
-                    key = space.str_w(w_key)
-                except OperationError:
-                    raise OperationError(space.w_TypeError,
-                                         space.wrap("keywords must be strings"))
-                if key in self.kwds_w:
-                    raise OperationError(self.space.w_TypeError,
-                                         self.space.wrap("got multiple values "
-                                                         "for keyword argument "
-                                                         "'%s'" % key))
-                self.kwds_w[key] = space.getitem(w_starstararg, w_key)
+        self.w_starstararg = w_starstararg
 
     def frompacked(space, w_args=None, w_kwds=None):
         """Convenience static method to build an Arguments
@@ -49,6 +31,11 @@ class Arguments:
     frompacked = staticmethod(frompacked)
 
     def __repr__(self):
+        if self.w_starstararg is not None:
+            return 'Arguments(%s, %s, %s, %s)' % (self.arguments_w,
+                                                  self.kwds_w,
+                                                  self.w_stararg,
+                                                  self.w_starstararg)
         if self.w_stararg is None:
             if not self.kwds_w:
                 return 'Arguments(%s)' % (self.arguments_w,)
@@ -63,22 +50,52 @@ class Arguments:
 
     def unpack(self):
         "Return a ([w1,w2...], {'kw':w3...}) pair."
+        # --- unpack the * argument now ---
         if self.w_stararg is not None:
             self.arguments_w += self.space.unpackiterable(self.w_stararg)
             self.w_stararg = None
+        # --- unpack the ** argument now ---
+        if self.w_starstararg is not None:
+            space = self.space
+            w_starstararg = self.w_starstararg
+            # maybe we could allow general mappings?
+            if not space.is_true(space.isinstance(w_starstararg, space.w_dict)):
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("the keywords must be "
+                                                "a dictionary"))
+            d = self.kwds_w.copy()   # don't change the original yet,
+                                     # in case something goes wrong
+            for w_key in space.unpackiterable(w_starstararg):
+                try:
+                    key = space.str_w(w_key)
+                except OperationError:
+                    raise OperationError(space.w_TypeError,
+                                         space.wrap("keywords must be strings"))
+                if key in d:
+                    raise OperationError(self.space.w_TypeError,
+                                         self.space.wrap("got multiple values "
+                                                         "for keyword argument "
+                                                         "'%s'" % key))
+                d[key] = space.getitem(w_starstararg, w_key)
+            self.kwds_w = d
+            self.w_starstararg = None
         return self.arguments_w, self.kwds_w
 
     def prepend(self, w_firstarg):
         "Return a new Arguments with a new argument inserted first."
         args =  Arguments(self.space, [w_firstarg] + self.arguments_w,
-                          self.kwds_w, self.w_stararg)
+                          self.kwds_w, self.w_stararg, self.w_starstararg)
         args.blind_arguments = self.blind_arguments + 1
         return args
+
+    def has_keywords(self):
+        return self.kwds_w or (self.w_starstararg is not None and
+                               self.space.is_true(self.w_starstararg))
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,
         or raise a real ValueError if the length is wrong."""
-        if self.kwds_w:
+        if self.has_keywords():
             raise ValueError, "no keyword arguments expected"
         if len(self.arguments_w) > argcount:
             raise ValueError, "too many arguments (%d expected)" % argcount
@@ -143,6 +160,10 @@ class Arguments:
                 pass
             else:
                 self.unpack()   # sets self.w_stararg to None
+        # always unpack the ** arguments
+        if self.w_starstararg is not None:
+            self.unpack()
+
         args_w = self.arguments_w
         kwds_w = self.kwds_w
 
@@ -198,21 +219,32 @@ class Arguments:
         shape_cnt  = len(self.arguments_w)        # Number of positional args
         shape_keys = self.kwds_w.keys()           # List of keywords (strings)
         shape_star = self.w_stararg is not None   # Flag: presence of *arg
+        shape_stst = self.w_starstararg is not None # Flag: presence of **kwds
         data_w = self.arguments_w + [self.kwds_w[key] for key in shape_keys]
         if shape_star:
             data_w.append(self.w_stararg)
-        return (shape_cnt, tuple(shape_keys), shape_star), data_w
+        if shape_stst:
+            data_w.append(self.w_starstararg)
+        return (shape_cnt, tuple(shape_keys), shape_star, shape_stst), data_w
 
-    def fromshape(space, (shape_cnt, shape_keys, shape_star), data_w):
+    def fromshape(space, (shape_cnt,shape_keys,shape_star,shape_stst), data_w):
         args_w = data_w[:shape_cnt]
+        p = shape_cnt
         kwds_w = {}
         for i in range(len(shape_keys)):
-            kwds_w[shape_keys[i]] = data_w[shape_cnt+i]
+            kwds_w[shape_keys[i]] = data_w[p]
+            p += 1
         if shape_star:
-            w_star = data_w[-1]
+            w_star = data_w[p]
+            p += 1
         else:
             w_star = None
-        return Arguments(space, args_w, kwds_w, w_star)
+        if shape_stst:
+            w_starstar = data_w[p]
+            p += 1
+        else:
+            w_starstar = None
+        return Arguments(space, args_w, kwds_w, w_star, w_starstar)
     fromshape = staticmethod(fromshape)
     # XXX the "shape" tuple should be considered as a black box from
     #     other code, but translator/genc.h examines it.

@@ -226,7 +226,7 @@ class Bookkeeper:
 
         elif func.func_code.co_flags & CO_VARARGS:
             # calls to *arg functions: create one version per number of args
-            assert not args.kwds_w, (
+            assert not args.has_keywords(), (
                 "keyword forbidden in calls to *arg functions")
             nbargs = len(args.arguments_w)
             if args.w_stararg is not None:

@@ -15,12 +15,14 @@ buildpyxmodule.enable_fast_compilation()
 class TestNoTypeCGenTestCase:
     objspacename = 'flow'
 
-    def build_cfunc(self, func):
+    def build_cfunc(self, func, *morefuncs):
         try: func = func.im_func
         except AttributeError: pass
         t = Translator(func)
+        for fn in morefuncs:
+            t.getflowgraph(fn)
         t.simplify()
-        return py.test.skip_on_error(t.ccompile) 
+        return t.ccompile()
 
     def test_simple_func(self):
         cfunc = self.build_cfunc(snippet.simple_func)
@@ -153,6 +155,13 @@ class TestNoTypeCGenTestCase:
         call_with_keyword = self.build_cfunc(snippet.call_with_keyword)
         assert call_with_keyword(100) == 82
 
+    def test_call_very_complex(self):
+        call_very_complex = self.build_cfunc(snippet.call_very_complex,
+                                             snippet.default_args)
+        assert call_very_complex(5, (3,), {}) == -12
+        assert call_very_complex(5, (), {'y': 3}) == -12
+        raises(TypeError, call_very_complex, 5, (3,), {'y': 4})
+
     def test_finallys(self):
         finallys = self.build_cfunc(snippet.finallys)
         assert finallys(['hello']) == 8
@@ -196,7 +205,7 @@ class TestTypedTestCase:
                 argstypelist.append(spec)
         a = t.annotate(argstypelist)
         a.simplify()
-        return py.test.skip_on_error(t.ccompile) 
+        return t.ccompile()
 
     def test_set_attr(self):
         set_attr = self.getcompiled(snippet.set_attr)

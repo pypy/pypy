@@ -470,19 +470,21 @@ static PyObject* CallWithShape(PyObject* callable, PyObject* shape, ...)
 	PyObject* o;
 	PyObject* key;
 	PyObject* t2;
-	int i, nargs, nkwds, nvarargs, starflag;
+	int i, nargs, nkwds, nvarargs, starflag, starstarflag;
 	va_list vargs;
 
 	if (!PyTuple_Check(shape) ||
-	    PyTuple_GET_SIZE(shape) != 3 ||
+	    PyTuple_GET_SIZE(shape) != 4 ||
 	    !PyInt_Check(PyTuple_GET_ITEM(shape, 0)) ||
 	    !PyTuple_Check(PyTuple_GET_ITEM(shape, 1)) ||
-	    !PyInt_Check(PyTuple_GET_ITEM(shape, 2))) {
+	    !PyInt_Check(PyTuple_GET_ITEM(shape, 2)) ||
+	    !PyInt_Check(PyTuple_GET_ITEM(shape, 3))) {
 		Py_FatalError("in genc.h: invalid 'shape' argument");
 	}
 	nargs = PyInt_AS_LONG(PyTuple_GET_ITEM(shape, 0));
 	nkwds = PyTuple_GET_SIZE(PyTuple_GET_ITEM(shape, 1));
 	starflag = PyInt_AS_LONG(PyTuple_GET_ITEM(shape, 2));
+	starstarflag = PyInt_AS_LONG(PyTuple_GET_ITEM(shape, 3));
 
 	va_start(vargs, shape);
 	t = PyTuple_New(nargs);
@@ -515,6 +517,22 @@ static PyObject* CallWithShape(PyObject* callable, PyObject* shape, ...)
 		t = t2;
 		if (t == NULL)
 			goto finally;
+	}
+	if (starstarflag) {
+		int len1, len2, len3;
+		o = va_arg(vargs, PyObject *);
+		len1 = PyDict_Size(d);
+		len2 = PyDict_Size(o);
+		if (len1 < 0 || len2 < 0)
+			goto finally;
+		if (PyDict_Update(d, o) < 0)
+			goto finally;
+		len3 = PyDict_Size(d);
+		if (len1 + len2 != len3) {
+			PyErr_SetString(PyExc_TypeError,
+					"genc.h: duplicate keyword arguments");
+			goto finally;
+		}
 	}
 	va_end(vargs);
 

@@ -114,10 +114,12 @@ class Op:
         shape = self.op.args[1].value
         args = Arguments.fromshape(None, shape, a[2:])
         lst = args.arguments_w[:]
-        for key, value in args.kwds_w:
+        for key, value in args.kwds_w.items():
             lst.append("%s=%s" % (key, value))
         if args.w_stararg is not None:
             lst.append("*%s" % args.w_stararg)
+        if args.w_starstararg is not None:
+            lst.append("**%s" % args.w_starstararg)
         return "%s = %s(%s)" % (self.resultname, a[0], ", ".join(lst))
 
     def op_simple_call(self):
