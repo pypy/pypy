@@ -4,7 +4,6 @@ import testsupport
 from pypy.module import builtin
 
 from pypy.interpreter import extmodule
-from pypy.objspace import trivial
 
 class EmptyBM(extmodule.BuiltinModule):
     __pythonname__ = 'empty_bm'
