@@ -82,7 +82,6 @@ class Builtin(BuiltinModule):
         return self.space.hash(w_object)
     hash = appmethod(hash)
 
-    #XXX
     def hex(self, w_val):
         return self.space.hex(w_val)
     hex = appmethod(hex)
@@ -93,11 +92,9 @@ class Builtin(BuiltinModule):
     id = appmethod(id)
 
     #XXX
-    def isinstance(self, w_object, w_class):
-        return self.space.isinstance(w_object, w_class)
-    isinstance = appmethod(isinstance)
-
-    #built-in name and object space name do not match
+    #It works only for new-style classes.
+    #So we have to fix it, when we add support for
+    #the old-style classes
     def issubclass(self, w_val):
         return self.space.issubtype(w_val)
     issubclass = appmethod(issubclass)
@@ -107,7 +104,6 @@ class Builtin(BuiltinModule):
         return self.space.iter(w_collection)
     iter = appmethod(iter)
 
-    #XXX
     def ord(self, w_val):
         return self.space.ord(w_val)
     ord = appmethod(ord)
@@ -128,8 +124,9 @@ class Builtin(BuiltinModule):
     setattr = appmethod(setattr)
 
     #XXX
+    #We don't have newunicode at the time
     def unichr(self, w_val):
-        return self.space.unichr(w_val)
+        return self.space.newunicode([w_val])
     unichr = appmethod(unichr)
 
 
