@@ -152,9 +152,7 @@ class ObjSpace:
         return self.w_False
 
     def call_function(self, w_func, *args_w, **kw_w):
-        w_kw = self.newdict([])
-        for k, w_v in kw_w.iteritems():
-            self.setitem(w_kw, self.wrap(k), w_v)
+        w_kw = self.newdict([(self.wrap(k), w_v) for k, w_v in kw_w.iteritems()])
         return self.call(w_func, self.newtuple(list(args_w)), w_kw)
             
 ## Table describing the regular part of the interface of object spaces,
