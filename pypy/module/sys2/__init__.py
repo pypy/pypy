@@ -24,6 +24,7 @@ class Module(LazyModule):
         'stdout'                : 'space.wrap(sys.stdout)',
         '__stdout__'            : 'space.wrap(sys.stdout)',
         'stderr'                : 'space.wrap(sys.stderr)', 
+        '__stderr__'            : 'space.wrap(sys.stderr)',
         'pypy_objspaceclass'    : 'space.wrap(repr(space))',
 
         'path'                  : 'state.get(space).w_path', 
