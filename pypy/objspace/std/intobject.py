@@ -303,7 +303,7 @@ def lshift__Int_Int(space, w_int1, w_int2):
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     if a == 0 or b == 0:
-        return pos__Int(w_int1)
+        return pos__Int(space, w_int1)
     if b >= LONG_BIT:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer left shift"))
@@ -333,7 +333,7 @@ def rshift__Int_Int(space, w_int1, w_int2):
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     if a == 0 or b == 0:
-        return Int_pos(w_int1)
+        return pos__Int(space, w_int1)
     if b >= LONG_BIT:
         if a < 0:
             a = -1
