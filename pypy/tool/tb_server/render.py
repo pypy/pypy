@@ -1,9 +1,13 @@
 from pypy.tool.tb_server.server import TBRequestHandler
 from xpy import html, xml
+
+from std.magic import dyncode
+
 import traceback
 
-views = TBRequestHandler.views 
-###
+views = TBRequestHandler.views
+
+
 class TracebackView:
     def __init__(self, tb):
         self.name = 'traceback%d' % len(views) 
@@ -29,6 +33,18 @@ class TracebackView:
                 xml.escape(''.join(['Internal Rendering Error, traceback follows\n'] + lines)))
         
     def render_tb_really(self, args):
-        raise ValueError
+        lines = html.pre()
+        for tb in dyncode.listtb(self.tb):
+            filename = tb.tb_frame.f_code.co_filename 
+            lineno = tb.tb_lineno
+            name = tb.tb_frame.f_code.co_name
+            lines.append('  File "%s", line %d, in %s\n'%(
+                html.a(filename, href=filename).to_unicode().encode('utf-8'),
+                lineno, name))
+            lines.append(dyncode.getline(filename, lineno))
+        return lines
+            
+            
+            
             
                 
