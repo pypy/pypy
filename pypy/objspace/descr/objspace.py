@@ -50,7 +50,23 @@ class DescrObjSpace(ObjSpace):
     # xxx todo rest of 0 args methods
     # rest of 1 args methods
     # special cases
+
+
+# helpers
+
+def _invoke_binop(self,methname,w_obj1,w_obj2):
+    w__impl = space.lookup(w_obj1, methoname)
+    if w_left_impl is not None:
+        w_res = space.get_and_call_function(w_left_impl,w_obj1,w_obj2)
+    else:
+        return space.w_NotImplemented
+
+
+def _isnt_notimplemented(space,w_obj):
+    return not space.is_true(space.is_(w_res.space.w_NotImplemented)):
     
+
+
 # helper for invoking __cmp__
 
 def _cmp(space,w_obj1,w_obj2):
@@ -60,7 +76,7 @@ def _cmp(space,w_obj1,w_obj2):
         w_right_impl = space.lookup(w_obj2, '__cmp__')
         if w_right_impl is not None:
             w_res = space.get_and_call_function(w_right_impl,w_obj2,w_obj1)
-            if not space.is_true(space.is_(w_res.space.w_NotImplemented)):
+            if 
                 return space.neg(w_res)
         w_left_impl = space.lookup(w_obj1, '__cmp__')
         if w_left_impl is not None:
