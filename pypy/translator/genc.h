@@ -194,7 +194,6 @@ static PyTypeObject PyGenCFunction_Type = {
 
 #define SETUP_MODULE(modname)					\
 	PyObject *m = Py_InitModule(#modname, no_methods); \
-	PyModule_AddStringConstant(m, "__sourcefile__", __FILE__); \
 	this_module_globals = PyModule_GetDict(m); \
 	PyGenCFunction_Type.tp_base = &PyCFunction_Type;	\
 	PyType_Ready(&PyGenCFunction_Type);			\

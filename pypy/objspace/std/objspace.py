@@ -303,7 +303,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def lookup(self, w_obj, name):
         w_type = w_obj.getclass(self)
         return w_type.lookup(name)
-    lookup._specialize_ = "argtypesdeep"
 
     def allocate_instance(self, cls, w_subtype):
         """Allocate the memory needed for an instance of an internal or
@@ -350,7 +349,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if w_one is w_two:
             return self.w_True
         return self.w_False
-    is_._specialize_ = "argtypesdeep"
 
     def is_true(self, w_obj):
         # XXX don't look!
@@ -358,7 +356,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return not not w_obj.used
         else:
             return DescrOperation.is_true(self, w_obj)
-    is_true._specialize_ = "argtypesdeep"
 
     def hash(space, w_obj):
         w = space.wrap

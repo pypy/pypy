@@ -177,26 +177,10 @@ class CallableFactory:
         assert isinstance(func, FunctionType), "expected function, got %r"%func
         # do we need to specialize this function in several versions?
         x = getattr(func, '_specialize_', False)
-        #if not x: 
-        #    x = 'argtypesdeep'
         if x:
             if x == 'argtypes':
                 key = "_".join([arg.__class__.__name__ for arg in args])
                 name = func.__name__+'_'+key
-                func = self.specialize_by_key(func, key, name) 
-            elif x == 'argtypesdeep': 
-                l = []
-                for arg in args: 
-                    if isinstance(arg, SomeInstance): 
-                        if hasattr(arg, 'knowntype'):
-                            x = arg.knowntype.__name__
-                        else:
-                            x = 'unknown'
-                        l.append('SI_%s' % x)
-                    else:
-                        l.append(arg.__class__.__name__)
-                key = "_".join(l)
-                name = func.__name__ + '_' + key 
                 func = self.specialize_by_key(func, key, name) 
             elif x == "location":
                 # fully specialize: create one version per call position

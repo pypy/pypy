@@ -7,7 +7,7 @@ from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeCallable
-from pypy.annotation.model import SomeBuiltin, SomeIterator, SomeNone
+from pypy.annotation.model import SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePrebuiltConstant, immutablevalue
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import generalize, isclassdef, getbookkeeper
@@ -287,24 +287,6 @@ class __extend__(pairtype(SomeCallable, SomeCallable)):
                     classdef = classdef.commonbase(d[cal])
             d[cal] = classdef
         return SomeCallable(d)
-
-# XXX experimental hack: union of more complex objects with 
-#     SomeNone (aka "NULL"-pointer) doesn't destroy 
-#     type inference (keeps the type of the more complex object) 
-
-#for _X in SomeCallable, SomeInstance, SomePrebuiltConstant: 
-#    class __extend__(pairtype(_X, SomeNone)):
-#        def union((obj1, obj2)):
-#            return obj1 
-#    class __extend__(pairtype(SomeNone, _X)): 
-#        def union((obj1, obj2)):
-#            return obj2 
-
-#class __extend__(pairtype(SomePrebuiltConstant, SomeNone)): 
-#    def union((pbc, non)):
-#        if 
-
-# XXX experimental hack finish ... kind of 
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):
