@@ -3,6 +3,7 @@ Built-in functions.
 """
 
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
+from pypy.annotation.model import SomeString
 from pypy.annotation.model import immutablevalue
 from pypy.annotation.factory import ListFactory, getbookkeeper
 import pypy.objspace.std.restricted_int
