@@ -13,5 +13,18 @@ for i, func in zip(range(len(t.functions)), t.functions):
     print "&nbsp;</td></tr>"
 )s
 </table>
+<h1>Classdefs</h1>
+<table CELLSPACING=1 CELLPADDING=1 BORDER=1>
+%(
+lst = t.annotator.getuserclassdefinitions()
+for i, classdef in zip(range(len(lst)), lst):
+    print "<tr><td>&nbsp;"
+    print "%s" % htmlquote(classdef.cls.__module__)
+    print "&nbsp;</td><td>&nbsp;"
+    print "<code><a href='cdef?i=%d'>%s</a></code>" % (i,
+        htmlquote(classdef.cls.__name__))
+    print "&nbsp;</td></tr>"
+)s
+</table>
 </body>
 </html>

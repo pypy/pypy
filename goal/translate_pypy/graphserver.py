@@ -75,11 +75,21 @@ class Server:
         data += '</body></html>'
         return StringIO(data), 'text/html'
 
+    def cdefloader(self, i, **options):
+        i = int(i[0])
+        t = self.translator
+        classdef = t.annotator.getuserclassdefinitions()[i]
+        return httpserver.load('cdef.html', 'text/html',
+                               {'t': t,
+                                'classdef': classdef,
+                                })
+
     def serve(self, port=8000):
         httpserver.register('', self.indexloader)
         httpserver.register('func', self.funcloader)
         httpserver.register('img', self.imgloader)
         httpserver.register('var', self.varloader)
+        httpserver.register('cdef', self.cdefloader)
         httpserver.serve(port)
 
 # ____________________________________________________________
