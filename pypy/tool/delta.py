@@ -447,14 +447,14 @@ class Report(Entry):
         incompleteness_table = html.table(id="incompleteness", style=HIDE)
 
         toggle = html.p("sort:",
-            html.button("alphabetical", type="button", onclick="toggle('alpha')"),'|',
-            html.button("incompleteness", type="button", onclick="toggle('incompleteness')"),'|',
-            html.button("# overall missing", type="button", onclick="toggle('grandmissing')"))
+            html.button("alphabetical", type="button", onclick="toggle(ALPHA)"),'|',
+            html.button("incompleteness", type="button", onclick="toggle(INCOMPLETENESS)"),'|',
+            html.button("# overall missing", type="button", onclick="toggle(GRANDMISSING)"))
 
         page = html.html(
             html.head(html.title(title),
                       html.link(href="delta.css", rel="stylesheet", type="text/css"),
-                      html.script(type="text/javascript",src="delta.js")),
+                      html.script(' ',type="text/javascript",src="delta.js")),
             html.body(self.navig(),
                       html.p(msg, bar, **set_class(class_)),
                       toggle,
