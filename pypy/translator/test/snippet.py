@@ -319,6 +319,30 @@ def knownkeysdict(b=anytype):
 def prime(n=int):
     return len([i for i in range(1,n+1) if n%i==0]) == 2
 
+class A1:
+    clsattr = 123
+class A2(A1):
+    clsattr = 456
+class A3(A2):
+    clsattr = 789
+class A4(A3):
+    pass
+class A5(A1):
+    clsattr = 101112
+
+def classattribute(flag=int):
+    if flag == 1:
+        x = A1()
+    elif flag == 2:
+        x = A2()
+    elif flag == 3:
+        x = A3()
+    elif flag == 4:
+        x = A4()
+    else:
+        x = A5()
+    return x.clsattr
+
 
 class Z:
     def my_method(self):

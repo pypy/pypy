@@ -97,6 +97,7 @@ class LLClass(LLTyper):
     def get_management_functions(self):
         "Generate LLFunctions that operate on this class' structure."
         yield self.make_fn_new()
+        yield self.make_fn_typenew()
 
     def build_llfunc(self, graph):
         return LLFunction(self.typeset, graph.name, graph)
@@ -127,4 +128,22 @@ class LLClass(LLTyper):
         graph = FunctionGraph('%s_new' % self.name, b)
         self.bindings[graph.getreturnvar()] = self.bindings[v1]
         b.closeblock(Link([v1], graph.returnblock))
+        return self.build_llfunc(graph)
+
+    def make_fn_typenew(self):
+        # generate the flow graph of the xxx_typenew() function that
+        # initializes the class attributes of the type object
+        b = Block([])
+        op = self.put_op(b)
+        cls = self.cdef.cls
+        v1 = Constant(cls)
+        # initialize class attributes
+        for fld in self.class_fields:
+            value = getattr(cls, fld.name)
+            op('initclassattr', v1, Constant(fld.name), Constant(value),
+               s_result = annmodel.SomeImpossibleValue())
+        # finally, return None
+        graph = FunctionGraph('%s_typenew' % self.name, b)
+        self.bindings[graph.getreturnvar()] = annmodel.immutablevalue(None)
+        b.closeblock(Link([Constant(None)], graph.returnblock))
         return self.build_llfunc(graph)

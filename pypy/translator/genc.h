@@ -97,11 +97,17 @@
 
 #define INSTANTIATE(cls, r, err)    if (!(r=cls##_new())) goto err;
 #define ALLOC_INSTANCE(cls, r, err)                             \
-		if (!(r=PyType_GenericAlloc(&cls##_Type, 0))) goto err;
+		if (!(r=PyType_GenericAlloc(&cls##_Type.type, 0))) goto err;
+#define SETUP_TYPE(cls)                         \
+		PyType_Ready(&cls##_Type.type); \
+		cls##_typenew();
 
 #define GET_ATTR_py(fld, r)   r=fld; Py_INCREF(r);
 #define SET_ATTR_py(fld, v)   { PyObject* o=fld; fld=v;         \
                                 Py_INCREF(v); Py_XDECREF(o); }
+
+#define GET_ATTR_cls(fld, r)  r=fld; Py_INCREF(r);
+#define SET_ATTR_cls(fld, v)  fld=v; Py_INCREF(v);  /* initialization only */
 
 /* a few built-in functions */
 

@@ -180,11 +180,14 @@ class CTypeSet:
         if len(hltypes) != 3:
             return
         r_obj, r_attr, r_result = hltypes
-        if isinstance(r_obj, CInstance) and isinstance(r_attr, CConstant):
+        if not isinstance(r_attr, CConstant):
+            return
+        if isinstance(r_obj, CInstance):
             # record the OP_GETATTR operation for this field
-            fld = r_obj.llclass.get_instance_field(r_attr.value)
+            fld = (r_obj.llclass.get_instance_field(r_attr.value) or
+                   r_obj.llclass.get_class_field(r_attr.value))
             if fld is not None:
-                sig = (r_obj, constant_representation(fld.name), fld.hltype)
+                sig = (r_obj, r_attr, fld.hltype)
                 yield sig, genc_op.LoGetAttr.With(
                     fld     = fld,
                     )
@@ -193,15 +196,34 @@ class CTypeSet:
         if len(hltypes) != 4:
             return
         r_obj, r_attr, r_value, r_voidresult = hltypes
+        if not isinstance(r_attr, CConstant):
+            return
         if isinstance(r_obj, CInstance):
             # record the OP_SETATTR operation for this field
             fld = r_obj.llclass.get_instance_field(r_attr.value)
             if fld is not None:
-                sig = (r_obj, constant_representation(fld.name), fld.hltype,
-                       R_VOID)
+                sig = (r_obj, r_attr, fld.hltype, R_VOID)
                 yield sig, genc_op.LoSetAttr.With(
                     fld     = fld,
+                    llclass = r_obj.llclass,
                     )
+
+    def extend_OP_INITCLASSATTR(self, hltypes):
+        # only to initialize class attributes
+        if len(hltypes) != 4:
+            return
+        r_obj, r_attr, r_value, r_voidresult = hltypes
+        if isinstance(r_attr, CConstant) and isinstance(r_obj, CConstant):
+            cls = r_obj.value
+            if cls in self.genc.llclasses:
+                llclass = self.genc.llclasses[cls]
+                fld = llclass.get_class_field(r_attr.value)
+                if fld is not None:
+                    sig = (r_obj, r_attr, fld.hltype, R_VOID)
+                    yield sig, genc_op.LoInitClassAttr.With(
+                        fld     = fld,
+                        llclass = llclass,
+                        )
 
     # ____________________________________________________________
 

@@ -158,28 +158,54 @@ class LoGetAttr(LoC):
         assert len(result) == len(self.fld.llvars)
         ls = []
         llclass = self.fld.llclass
-        for src, dstname in zip(self.fld.llvars, result):
-            fldexpr = '((%s_Object*) %s)->%s' % (llclass.name, inst,
-                                                 src.name)
-            if src.type == 'PyObject*':
-                ls.append('GET_ATTR_py(%s, %s)' % (fldexpr, dstname))
-            else:
-                ls.append('%s = %s;' % (dstname, fldexpr))
+        if self.fld.is_class_attr:
+            for src, dstname in zip(self.fld.llvars, result):
+                fldexpr = '((%s_TypeObject*)(%s->ob_type))->%s' % (
+                    llclass.name, inst, src.name)
+                if src.type == 'PyObject*':
+                    ls.append('GET_ATTR_cls(%s, %s)' % (fldexpr, dstname))
+                else:
+                    ls.append('%s = %s;' % (dstname, fldexpr))
+        else:
+            for src, dstname in zip(self.fld.llvars, result):
+                fldexpr = '((%s_Object*) %s)->%s' % (llclass.name, inst,
+                                                     src.name)
+                if src.type == 'PyObject*':
+                    ls.append('GET_ATTR_py(%s, %s)' % (fldexpr, dstname))
+                else:
+                    ls.append('%s = %s;' % (dstname, fldexpr))
         return '\n'.join(ls)
 
 class LoSetAttr(LoC):
-    cost = 1
-    fld  = PARAMETER
+    cost    = 1
+    llclass = PARAMETER   # the class involved in the operation
+    fld     = PARAMETER   # the field, which might come from a parent class
 
     def writestr(self, inst, *value):
         assert len(value) == len(self.fld.llvars)
         ls = []
-        llclass = self.fld.llclass
         for srcname, dst in zip(value, self.fld.llvars):
-            fldexpr = '((%s_Object*) %s)->%s' % (llclass.name, inst,
+            fldexpr = '((%s_Object*) %s)->%s' % (self.llclass.name, inst,
                                                  dst.name)
             if dst.type == 'PyObject*':
                 ls.append('SET_ATTR_py(%s, %s)' % (fldexpr, srcname))
+            else:
+                ls.append('%s = %s;' % (fldexpr, srcname))
+        return '\n'.join(ls)
+
+class LoInitClassAttr(LoC):
+    cost    = 1
+    llclass = PARAMETER   # the class involved in the operation
+    fld     = PARAMETER   # the field, which might come from a parent class
+
+    def writestr(self, *value):
+        assert len(value) == len(self.fld.llvars)
+        ls = []
+        # setting class attributes is only used for initialization
+        for srcname, dst in zip(value, self.fld.llvars):
+            fldexpr = '%s_Type.%s' % (self.llclass.name, dst.name)
+            if dst.type == 'PyObject*':
+                ls.append('SET_ATTR_cls(%s, %s)' % (fldexpr, srcname))
             else:
                 ls.append('%s = %s;' % (fldexpr, srcname))
         return '\n'.join(ls)

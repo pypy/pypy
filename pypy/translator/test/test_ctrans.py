@@ -151,5 +151,13 @@ class TypedTestCase(testit.IntTestCase):
         fn = self.getcompiled(tuple_repr)
         self.assertEquals(fn(6,'a'), (6,'a'))
 
+    def test_classattribute(self):
+        fn = self.getcompiled(snippet.classattribute)
+        self.assertEquals(fn(1), 123)
+        self.assertEquals(fn(2), 456)
+        self.assertEquals(fn(3), 789)
+        self.assertEquals(fn(4), 789)
+        self.assertEquals(fn(5), 101112)
+
 if __name__ == '__main__':
     testit.main()
