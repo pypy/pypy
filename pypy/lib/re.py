@@ -1,5 +1,6 @@
 from dumbre import Pattern
 # from plexre import Pattern
+# from sre_adapt import Pattern
 
 
 # From CPython
