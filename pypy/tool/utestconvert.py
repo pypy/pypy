@@ -23,7 +23,9 @@ d['assertAlmostEqual']      = ('assert round',      ' ==', [2,3,4])
 d['failIfAlmostEqual']      = ('assert not round',  ' ==', [2,3,4])
 d['assertNotAlmostEqual']   = ('assert round',      ' !=', [2,3,4])
 d['failUnlessAlmostEquals'] = ('assert not round',  ' !=', [2,3,4])
+# PyPy specific
 d['assertRaises_w']         = ('self.raises_w',        '', ['Any'])
+d['assertEqual_w']          = ('assert self.space.eq_w','',['Any'])
 
 #  the list of synonyms
 d['failUnlessRaises']      = d['assertRaises']
