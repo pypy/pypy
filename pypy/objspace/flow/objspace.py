@@ -140,6 +140,12 @@ class FlowObjSpace(ObjSpace):
                 len(result), expected_length)
         return result
 
+    def unpackiterable(self, w_iterable, expected_length=None):
+        if isinstance(w_iterable, Variable) and expected_length is None:
+            raise UnwrapException, ("cannot unpack a Variable iterable "
+                                    "without knowing its length")
+        return ObjSpace.unpackiterable(self, w_iterable, expected_length)
+
     # ____________________________________________________________
     def do_operation(self, name, *args_w):
         spaceop = SpaceOperation(name, args_w, Variable())
