@@ -67,9 +67,38 @@ class TestTestItem(unittest.TestCase):
         item = newtest.TestItem(X.f)
         self.assertEqual(item.docs, ('', "Class docstring", ''))
 
-    def test_items_from_class(self):
+    def test_name_argument(self):
+        def f(): pass
+        item = newtest.TestItem(f, 'g')
+        self.assertEqual(item.name, 'g')
+
+
+class TestTestSuite(unittest.TestCase):
+    def check_names(self, test_suite, expected_item_names):
+        item_names = [item.name for item in test_suite.items]
+        item_names.sort()
+        expected_item_names.sort()
+        self.assertEqual(item_names, expected_item_names)
+
+    def test_items_from_callables(self):
+        def f(): pass
+        g = lambda: None
+        class X:
+            def thisone(self): pass
         ts = newtest.TestSuite()
-        ts._items_from_class(TestTestItem)
+        ts.add(f, g, X.thisone)
+        self.check_names(ts, ['f', '<lambda>', 'thisone'])
+
+    def test_items_from_class(self):
+        class X:
+            """Docstring - don't find it."""
+            def test_this(self): pass
+            def no_test(self): pass
+            def test_that(self): pass
+        ts = newtest.TestSuite()
+        ts.add(X)
+        self.check_names(ts, ['test_this', 'test_that'])
+
 
 
 # used in unit tests above; placed here, so that TestTestItem is accessible

@@ -274,11 +274,17 @@ class TestItem:
     Represent either a test function, or a single test method from a
     TestCase class.
     """
-    def __init__(self, callable_):
+    def __init__(self, callable_, name=None):
         """
-        Construct a test item. The argument callable_ must be a
-        callable object, i. e. a plain function, a bound or unbound
-        method of a class, or an object with __call__ attribute.
+        Construct a test item.
+
+        The argument callable_ must be a callable object, i. e. a
+        plain function, a bound or unbound method of a class, or an
+        object with __call__ attribute.
+
+        The optional argument name can be a string which will be used
+        as the object's name. Else, the name will be tried to be
+        determined from the object's __name__ attribute.
         """
         assert callable(callable_), \
                "must get a callable item, but got '%s'" % callable_
@@ -304,7 +310,7 @@ class TestItem:
         self.module = inspect.getmodule(self.cls or callable_)
         # - name
         try:
-            self.name = callable_.__name__
+            self.name = name or callable_.__name__
         except AttributeError:
             self.name = '<unnamed object>'
         # - file
@@ -485,7 +491,7 @@ class TestSuite:
             # cls.__dict__[attrname] != getattr(cls, attrname)
             attr = getattr(cls, attrname)
             if callable(attr) and attrname.startswith("test_"):
-                items.append(TestItem(attr))
+                items.append(TestItem(attr, attrname))
         return items
 
     def _items_from_module(self, module):
@@ -502,7 +508,7 @@ class TestSuite:
             if inspect.isclass(attr) and issubclass(attr, TestCase):
                 items.extend(self._items_from_class(attr))
             elif inspect.isfunction(attr) and attrname.startswith("test_"):
-                items.append(TestItem(attr))
+                items.append(TestItem(attr, attrname))
         return items
 
     def _items_from_dir(self, dirname, filterfunc=None, recursive=True):
@@ -562,7 +568,7 @@ class TestSuite:
             if isinstance(arg, (types.ClassType, types.TypeType)):
                 self._add_items(self._items_from_class(arg))
             elif callable(arg):
-                self._add_items([arg])
+                self._add_items([TestItem(arg)])
             elif isinstance(arg, types.ModuleType):
                 self._add_items(self._items_from_module(arg))
             elif isinstance(arg, (str, unicode)):
