@@ -93,7 +93,7 @@ class RPythonAnnotator:
 
     def addpendingblock(self, fn, block, cells):
         """Register an entry point into block with the given input cells."""
-        assert fn in self.translator.flowgraphs
+        assert self.translator is None or fn in self.translator.flowgraphs
         for a in cells:
             assert isinstance(a, annmodel.SomeObject)
         self.pendingblocks.append((fn, block, cells))
