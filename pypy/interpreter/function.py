@@ -161,13 +161,14 @@ class Function(Wrappable):
                 nkwds)
         raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
    
-    def descr_function_get(self, w_obj, w_cls):
+    def descr_function_get(self, w_obj, w_cls=None):
         space = self.space
         wrap = space.wrap
-        asking_for_bound = (not space.is_true(space.is_(w_obj, space.w_None)) or
+        asking_for_bound = (w_cls == space.w_None or
+                      not space.is_true(space.is_(w_obj, space.w_None)) or
                       space.is_true(space.is_(w_cls, space.type(space.w_None))))
         if asking_for_bound:
-            if space.is_true(space.is_(w_cls, space.w_None)):
+            if w_cls == space.w_None:
                 w_cls = space.type(w_obj)
             return wrap(Method(space, wrap(self), w_obj, w_cls))
         else:
@@ -243,5 +244,5 @@ class StaticMethod(Wrappable):
     def __init__(self, w_function):
         self.w_function = w_function
 
-    def descr_staticmethod_get(self, w_obj, w_cls):
+    def descr_staticmethod_get(self, w_obj, w_cls=None):
         return self.w_function

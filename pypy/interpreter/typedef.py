@@ -27,10 +27,10 @@ class GetSetProperty(Wrappable):
         self.fdel = fdel
         self.doc = doc
 
-    def descr_property_get(space, w_property, w_obj, w_ignored):
+    def descr_property_get(space, w_property, w_obj, w_cls=None):
         # XXX HAAAAAAAAAAAACK (but possibly a good one)
-        if w_obj == space.w_None and not space.is_true(space.is_(w_ignored, space.type(space.w_None))):
-            #print w_property, w_obj, w_ignored
+        if w_obj == space.w_None and not space.is_true(space.is_(w_cls, space.type(space.w_None))):
+            #print w_property, w_obj, w_cls
             return w_property
         else:
             return space.unwrap(w_property).fget(space, w_obj)
