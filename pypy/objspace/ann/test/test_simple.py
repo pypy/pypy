@@ -24,31 +24,27 @@ class TestAnnotationObjSpace(test.TestCase):
         self.space = AnnotationObjSpace()
 
     def test_any2any(self):
-        x = self.codetest('''
-def f(i):
-    return i+1
-''', 'f', [W_Anything()])
+        x = self.codetest("def f(i):\n"
+                          "    return i+1\n",
+                           'f', [W_Anything()])
         self.assertEquals(type(x), W_Anything)
 
     def test_const2const(self):
-        x = self.codetest('''
-def f(i):
-    return i+1
-''', 'f', [self.space.wrap(5)])
+        x = self.codetest("def f(i):\n"
+                          "    return i+1\n",
+                          'f', [self.space.wrap(5)])
         self.assertEquals(self.space.unwrap(x), 6)
 
     def test_constany2const(self):
-        x = self.codetest('''
-def f(i, j):
-    return i+1
-''', 'f', [self.space.wrap(5), W_Anything()])
+        x = self.codetest("def f(i, j):\n"
+                          "    return i+1\n",
+                          'f', [self.space.wrap(5), W_Anything()])
         self.assertEquals(self.space.unwrap(x), 6)
 
     def test_int2int(self):
-        x = self.codetest('''
-def f(i):
-    return i+1
-''', 'f', [W_Integer()])
+        x = self.codetest("def f(i):\n"
+                          "    return i+1\n",
+                          'f', [W_Integer()])
         self.assertEquals(type(x), W_Integer)
 
 
