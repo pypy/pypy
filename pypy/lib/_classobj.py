@@ -13,14 +13,15 @@ def _coerce(left, right):
 obj_setattr = object.__setattr__
 obj_getattribute = object.__getattribute__
 
-MASK = sys.maxint * 2 + 1
+HMASK = long(sys.maxint)
 
 def uid(o):
     v = id(o)
     if v < 0:
-        v += MASK
-        v += 1
-    return v & MASK
+        v += HMASK
+        v += HMASK
+        v += 2
+    return v
 
 # we use slots that we remove from type __dict__ for special attributes
 #
