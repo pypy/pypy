@@ -13,33 +13,15 @@ import vpath
 # - perhaps we have to be able to compare TestResult and TestItem values
 #   which were pickled (see -c option of current test_all.py)
 
-class TestStatus:
-    def __init__(self, name, longstring, shortstring):
-        self.name = name
-        self.longstring = longstring
-        self.shortstring = shortstring
-
-    def __str__(self):
-        return self.longstring
-
-# named constants for test result status values
-SUCCESS = TestStatus('success', 'success', '.')
-ERROR = TestStatus('error', 'ERROR', 'E')
-FAILURE = TestStatus('failure', 'FAILURE', 'F')
-IGNORED = TestStatus('ignored', 'ignored', 'i')
-SKIPPED = TestStatus('skipped', 'skipped', 's')
-
-
+#
+# TestResult class family
+#
 class TestResult:
-    """Represent the result of a run of a test item."""
+    """Abstract class representing the outcome of a test."""
     def __init__(self, item):
         self.item = item
-        # one of None, SUCCESS, ERROR, FAILURE, IGNORED, SKIPPED (see above)
-        self.status = None
-        # traceback object for errors and failures, else None
+        self.name = self.__class__.__name__
         self.traceback = None
-        # formatted traceback (a string)
-        self.formatted_traceback = None
 
     def __eq__(self, other):
         """
@@ -47,10 +29,7 @@ class TestResult:
         Else, return False.
         """
         # trivial case
-        if self is other:
-            return True
-        if (self.item is other.item) and (self.status == other.status) and \
-          (self.formatted_traceback == other.formatted_traceback):
+        if (self is other) or (self.item is other.item):
             return True
         return False
 
@@ -58,10 +37,28 @@ class TestResult:
         return not (self == other)
 
     def __hash__(self):
-        return id(self.item) ^ id(self.status)
+        return id(self.item)
 
-    def _setexception(self, statuscode):
-        self.status = statuscode
+class Success(TestResult):
+    pass
+
+class Skipped(TestResult):
+    pass
+
+class Ignored(TestResult):
+    pass
+
+
+class TestResultWithTraceback(TestResult):
+    def __init__(self, item):
+        TestResult.__init__(self, item)
+        self.setexception()
+
+    def __eq__(self, other):
+        return TestResult.__eq__(self, other) and \
+               self.formatted_traceback == other.formatted_traceback
+
+    def setexception(self):
         self.excinfo = sys.exc_info()
         self.traceback = self.excinfo[2]
         # store formatted traceback
@@ -71,7 +68,15 @@ class TestResult:
         # strip trailing newline
         self.formatted_traceback = output.getvalue().rstrip()
 
+class Error(TestResultWithTraceback):
+    pass
 
+class Failure(TestResultWithTraceback):
+    pass
+
+#
+# other classes
+#
 class TestItem:
     """Represent a single test method from a TestCase class."""
     def __init__(self, module, cls, testmethod):
@@ -134,10 +139,6 @@ class TestItem:
 
         # credit: adapted from Python's unittest.TestCase.run
 
-        # prepare result object
-        result = TestResult(self)
-        result.status = None
-
         # prepare test case class and test method
         methodname = self.method.__name__
         testobject = self.cls(methodname)
@@ -152,22 +153,18 @@ class TestItem:
                 testobject.setUp()
             except KeyboardInterrupt:
                 raise
-            except test.TestSkip:
-                result.status = SKIPPED
-                return result
             except:
-                result._setexception(ERROR)
-                return result
+                return Error(self)
 
             try:
                 testmethod()
-                result.status = SUCCESS
-            except AssertionError:
-                result._setexception(FAILURE)
+                result = Success(self)
             except KeyboardInterrupt:
                 raise
+            except AssertionError:
+                result = Failure(self)
             except:
-                result._setexception(ERROR)
+                result = Error(self)
 
             try:
                 testobject.tearDown()
@@ -176,8 +173,8 @@ class TestItem:
             except:
                 # if we already had an exception in the test method,
                 # don't overwrite it
-                if result.status not in (ERROR, FAILURE):
-                    result._setexception(ERROR)
+                if not isinstance(result, TestResultWithTraceback):
+                    result = Error(self)
         finally:
             if posttest is not None:
                 posttest(self)
@@ -277,7 +274,9 @@ class TestSuite:
             self.lastresults.setdefault(key, []).append(result)
             yield result
 
-
+#
+# demonstrate test framework usage
+#
 def main(skip_selftest=True):
     # possibly ignore dummy unit tests
     if skip_selftest:
@@ -286,17 +285,17 @@ def main(skip_selftest=True):
         filterfunc = lambda m: True
     # collect tests
     ts = TestSuite()
+    print "Loading test modules ..."
     ts.initfromdir(autopath.pypydir, filterfunc=filterfunc)
     # iterate over tests and collect data
     for res in ts.testresults():
-        if res.status == SUCCESS:
+        if res.traceback is None:
             continue
         print 79 * '-'
         print "%s.%s: %s" % (res.item.module.__name__, res.item.method.__name__,
-                             res.status)
-        if res.traceback:
-            print
-            print res.formatted_traceback
+                             res.name.upper())
+        print
+        print res.formatted_traceback
     # emit a summary
     print 79 * '='
     modules = ts.lastresults.keys()
@@ -305,7 +304,9 @@ def main(skip_selftest=True):
         results = ts.lastresults[module]
         resultstring = ''
         for result in results:
-            resultstring += result.status.shortstring
+            statuschar = {Success: '.', Ignored: 'i', Skipped: 's',
+                          Error: 'E', Failure: 'F'}[result.__class__]
+            resultstring += statuschar
         print "%s [%d] %s" % (module, len(results), resultstring)
 
 
