@@ -52,6 +52,10 @@ class TypedPyrexGenTestCase(test.IntTestCase):
         self.assertEquals(branch_id(1, 2, 3), 2)
         self.assertEquals(branch_id(0, 2, 3), 3)
 
+    def test_int_id(self):
+        int_id = self.build_cfunc(t.int_id)
+        self.assertEquals(int_id(3), 3)
+
     def dont_test_attrs(self):
         attrs = self.build_cfunc(t.attrs)
         self.assertEquals(attrs(), 9)

@@ -1,4 +1,3 @@
-
 import autopath
 from pypy.tool import test
 from pypy.tool.udir import udir
@@ -8,7 +7,7 @@ from vpath.local import Path
 from pypy.translator.genpyrex import GenPyrex
 
 import os, sys, inspect
-import stdoutcapture
+from pypy.translator.tool import stdoutcapture
 
 debug = 0
 
@@ -107,7 +106,7 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
     funcgraph = space.build_flow(func)
 
     if dot:
-        from make_dot import DotGen
+        from pypy.translator.tool.make_dot import DotGen
         dotgen = DotGen()
         subgraphs = []
         subgraphs.append(dotgen.getsubgraph(name, funcgraph))
@@ -149,17 +148,4 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
             str(base.newext('ps')),
             str(base.newext('.dot'))))
 
-
     return getattr(mod, func.func_name)
-
-if __name__ == '__main__':
-    def f(x):
-        i = 0
-        while i < x:
-            i = i + 1
-        return i
-
-    cf = make_cfunc(f, inputargtypes = [int])
-    assert cf(3), 3
-
-

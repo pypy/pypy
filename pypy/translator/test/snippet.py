@@ -150,3 +150,9 @@ def half_of_n(n):
         lst = lst[1:-1]
         i = i + 1
     return i
+
+def int_id(x):
+    i = 0
+    while i < x:
+        i = i + 1
+    return i
