@@ -58,6 +58,7 @@ class GeneratorIterator(Wrappable):
             try:
                 return self.frame.resume()
             except OperationError, e:
+                self.frame.exhausted = True
                 if e.match(self.space, self.space.w_StopIteration):
                     raise OperationError(space.w_StopIteration, space.w_None) 
                 else:
