@@ -31,7 +31,14 @@ class TestBuiltinApp(test.AppTestCase):
         def g(c=0, b=0, a=0):
             return dir()
         self.assertEquals(g(), ['a', 'b', 'c'])
-        
+
+    def test_vars(self):
+        def f():
+            return vars()
+        self.assertEquals(f(), {})
+        def g(c=0, b=0, a=0):
+            return vars()
+        self.assertEquals(g(), {'a':0, 'b':0, 'c':0})
         
     def test_getattr(self):
         class a: 

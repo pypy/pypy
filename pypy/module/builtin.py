@@ -535,7 +535,7 @@ class __builtin__(ExtModule):
         called with no argument, return the variables bound in local scope."""
 
         if len(obj) == 0:
-            return locals()
+            return caller_locals()
         elif len(obj) != 1:
             raise TypeError, "vars() takes at most 1 argument."
         else:
