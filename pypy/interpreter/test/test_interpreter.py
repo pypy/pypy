@@ -233,6 +233,17 @@ class AppTestInterpreter(test.AppTestCase):
             return g
         self.assertEquals(f()(), 42)
 
+    def test_nested_scope4(self):
+        def f():
+            x = 3
+            def g():
+                return x
+            a = g()
+            x = 4
+            b = g()
+            return (a, b)
+        self.assertEquals(f(), (3, 4))
+
     def test_generator(self):
         def f():
             yield 1
@@ -257,8 +268,7 @@ class AppTestInterpreter(test.AppTestCase):
             yield i
         me = g()
         self.assertRaises(ValueError, me.next)
-        
-            
+
 
 if __name__ == '__main__':
     test.main()

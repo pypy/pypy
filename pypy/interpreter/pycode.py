@@ -16,7 +16,7 @@ compile is found in the builtin.py file.
 # look at this if it makes sense
 # think of a proper base class???
 
-import baseobjspace, pyframe
+import baseobjspace, pyframe, executioncontext
 import appfile
 
 appfile = appfile.AppFile(__name__, ["interpreter"])
@@ -66,8 +66,8 @@ class PyBaseCode(object):
         # of the correct length.
         if space.is_true(w_closure):
             l = zip(co.co_freevars, space.unpackiterable(w_closure))
-            for key,cell in l:
-                w_arguments._appendcell(space, space.wrap(key), cell)
+            for key, w_cell in l:
+                space.setitem(w_arguments, space.wrap(key), w_cell)
         return w_arguments
         
 class PyByteCode(PyBaseCode):
@@ -119,3 +119,29 @@ class PyByteCode(PyBaseCode):
         ec = space.getexecutioncontext()
         w_ret = ec.eval_frame(frame)
         return w_ret
+
+    def locals2cells(self, space, w_locals):
+        localcells = []
+        Cell = pyframe.Cell
+        for name in self.co_varnames:
+            w_name = space.wrap(name)
+            try:
+                w_value = space.getitem(w_locals, w_name)
+            except executioncontext.OperationError, e:
+                if not e.match(space, space.w_KeyError):
+                    raise
+                else:
+                    cell = Cell()
+            else:
+                cell = Cell(w_value)
+            localcells.append(cell)
+        nestedcells = []
+        for name in self.co_cellvars:
+            cell = Cell()
+            nestedcells.append(cell)
+        for name in self.co_freevars:
+            w_name = space.wrap(name)
+            w_cell = space.getitem(w_locals, w_name)
+            cell = space.unwrap(w_cell)
+            nestedcells.append(cell)
+        return localcells, nestedcells

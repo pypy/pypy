@@ -33,14 +33,12 @@ class binaryoperation:
 ##
 
 def LOAD_FAST(f, varindex):
-    varname = f.getlocalvarname(varindex)
-    w_varname = f.space.wrap(varname)
+    # access a local variable through its cell object
+    cell = f.localcells[varindex]
     try:
-        w_value = f.space.getitem(f.w_locals, w_varname)
-    except OperationError, e:
-        # catch KeyErrors and turn them into UnboundLocalErrors
-        if not e.match(f.space, f.space.w_KeyError):
-            raise
+        w_value = cell.get()
+    except ValueError:
+        varname = f.getlocalvarname(varindex)
         message = "local variable '%s' referenced before assignment" % varname
         raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
     f.valuestack.push(w_value)
@@ -50,10 +48,9 @@ def LOAD_CONST(f, constindex):
     f.valuestack.push(w_const)
 
 def STORE_FAST(f, varindex):
-    varname = f.getlocalvarname(varindex)
-    w_varname = f.space.wrap(varname)
-    w_value = f.valuestack.pop()
-    f.space.setitem(f.w_locals, w_varname, w_value)
+    w_newvalue = f.valuestack.pop()
+    cell = f.localcells[varindex]
+    cell.set(w_newvalue)
 
 def POP_TOP(f):
     f.valuestack.pop()
@@ -291,7 +288,12 @@ def EXEC_STMT(f):
     w_globals = f.space.getitem(w_tuple,f.space.wrap(1))
     w_locals = f.space.getitem(w_tuple,f.space.wrap(2))
 
+    plain = (w_locals is f.w_locals)
+    if plain:
+        f.fast2locals()
     f.space.unwrap(w_prog).eval_code(f.space, w_globals, w_locals)
+    if plain:
+        f.locals2fast()
     
 def POP_BLOCK(f):
     block = f.blockstack.pop()
@@ -425,36 +427,27 @@ def LOAD_GLOBAL(f, nameindex):
     f.valuestack.push(w_value)
 
 def DELETE_FAST(f, varindex):
-    varname = f.getlocalvarname(varindex)
-    w_varname = f.space.wrap(varname)
+    cell = f.localcells[varindex]
     try:
-        f.space.delitem(f.w_locals, w_varname)
-    except OperationError, e:
-        # catch KeyErrors and turn them into UnboundLocalErrors
-        if not e.match(f.space, f.space.w_KeyError):
-            raise
+        cell.delete()
+    except ValueError:
+        varname = f.getlocalvarname(varindex)
         message = "local variable '%s' referenced before assignment" % varname
         raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
 
 def LOAD_CLOSURE(f, varindex):
     # nested scopes: access the cell object
-    # XXX at some point implement an explicit traversal of
-    #     syntactically nested frames?
-    varname = f.getfreevarname(varindex)
-    w_varname = f.space.wrap(varname)
-    w_value = f.w_locals.cell(f.space, w_varname)
+    cell = f.nestedcells[varindex]
+    w_value = f.space.wrap(cell)
     f.valuestack.push(w_value)
 
 def LOAD_DEREF(f, varindex):
     # nested scopes: access a variable through its cell object
-    varname = f.getfreevarname(varindex)
-    w_varname = f.space.wrap(varname)
+    cell = f.nestedcells[varindex]
     try:
-        w_value = f.space.getitem(f.w_locals, w_varname)
-    except OperationError, e:
-        # catch KeyErrors
-        if not e.match(f.space, f.space.w_KeyError):
-            raise
+        w_value = cell.get()
+    except ValueError:
+        varname = f.getfreevarname(varindex)
         if f.iscellvar(varindex):
             message = "local variable '%s' referenced before assignment"
             w_exc_type = f.space.w_UnboundLocalError
@@ -467,10 +460,13 @@ def LOAD_DEREF(f, varindex):
 
 def STORE_DEREF(f, varindex):
     # nested scopes: access a variable through its cell object
-    varname = f.getfreevarname(varindex)
-    w_varname = f.space.wrap(varname)
     w_newvalue = f.valuestack.pop()
-    f.space.setitem(f.w_locals, w_varname, w_newvalue)
+    try:
+        cell = f.nestedcells[varindex]
+    except IndexError:
+        import pdb; pdb.set_trace()
+        raise
+    cell.set(w_newvalue)
 
 def BUILD_TUPLE(f, itemcount):
     items = [f.valuestack.pop() for i in range(itemcount)]

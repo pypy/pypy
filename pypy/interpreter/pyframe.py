@@ -21,9 +21,10 @@ class PyFrame:
 
     def __init__(self, space, bytecode, w_globals, w_locals):
         self.space = space
-        self.bytecode = bytecode
+        self.bytecode = bytecode # Misnomer; this is really like a code object
         self.w_globals = w_globals
         self.w_locals = w_locals
+        self.localcells, self.nestedcells = bytecode.locals2cells(space, w_locals)
         self.w_builtins = self.load_builtins()
         self.valuestack = Stack()
         self.blockstack = Stack()
@@ -105,6 +106,35 @@ class PyFrame:
     def iscellvar(self, index):
         # is the variable given by index a cell or a free var?
         return index < len(self.bytecode.co_cellvars)
+
+    def fast2locals(self):
+        # Copy values from self.localcells to self.w_locals
+        for i in range(self.bytecode.co_nlocals):
+            name = self.bytecode.co_varnames[i]
+            cell = self.localcells[i]
+            w_name = self.space.wrap(name)
+            try:
+                w_value = cell.get()
+            except ValueError:
+                pass
+            else:
+                self.space.setitem(self.w_locals, w_name, w_value)
+
+    def locals2fast(self):
+        # Copy values from self.w_locals to self.localcells
+        for i in range(self.bytecode.co_nlocals):
+            name = self.bytecode.co_varnames[i]
+            cell = self.localcells[i]
+            w_name = self.space.wrap(name)
+            try:
+                w_value = self.space.getitem(self.w_locals, w_name)
+            except OperationError, e:
+                if not e.match(self.space, self.space.w_KeyError):
+                    raise
+                else:
+                    pass
+            else:
+                cell.set(w_value)
 
     ### frame initialization ###
 
@@ -316,3 +346,32 @@ class ExitFrame(Exception):
 
 class BytecodeCorruption(ValueError):
     """Detected bytecode corruption.  Never caught; it's an error."""
+
+
+## Cells ##
+
+_NULL = object() # Marker object
+
+class Cell:
+    def __init__(self, w_value=_NULL):
+        self.w_value = w_value
+
+    def get(self):
+        if self.w_value is _NULL:
+            raise ValueError, "get() from an empty cell"
+        return self.w_value
+
+    def set(self, w_value):
+        self.w_value = w_value
+
+    def delete(self):
+        if self.w_value is _NULL:
+            raise ValueError, "make_empty() on an empty cell"
+        self.w_value = _NULL
+
+    def __repr__(self):
+        """ representation for debugging purposes """
+        if self.w_value is _NULL:
+            return "%s()" % self.__class__.__name__
+        else:
+            return "%s(%s)" % (self.__class__.__name__, self.w_value)

@@ -1,3 +1,4 @@
+# -*- Coding: Latin-1 -*-
 """
 stringobject.py
 

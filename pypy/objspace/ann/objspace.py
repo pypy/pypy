@@ -227,7 +227,10 @@ class AnnotationObjSpace(ObjSpace):
             obj = self.unwrap(w_obj)
         except UnwrapException:
             if isinstance(w_obj, W_KnownKeysContainer):
-                return w_obj[key]
+                try:
+                    return w_obj[key]
+                except:
+                    return self.reraise()
             else:
                 return W_Anything()
         try:
