@@ -1,6 +1,3 @@
-Task: review and implement the annotation procedure described in
-      doc/translation/annotation.txt
-
 Task: update pypy homepage
 
 Task: add more builtins! (like e.g. 'dir')

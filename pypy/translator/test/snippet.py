@@ -206,6 +206,15 @@ def powerset(setsize):
         bitmask += 1
     return powerset
 
+def poly_branch(x):
+    if x:
+        y = [1,2,3]
+    else:
+        y = ['a','b','c']
+
+    z = y
+    return z*2
+
 def s_and(x, y):
     if x and y:
         return 'yes'

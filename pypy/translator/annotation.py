@@ -40,7 +40,6 @@ class Annotation:
         lst += [arg.temporarykey() for arg in self.args]
         return tuple(lst)
 
-
 def debugname(xcell, name=None, _seen = {}):
     """ return a simple name for an xcell. """
     try:
@@ -106,7 +105,6 @@ class XCell:
                 if c is not None:
                     c.shared = lst1
                     lst1.append(s)
-
 
 class XConstant(XCell):
     """A fully determined XCell.  For immutable constants."""
