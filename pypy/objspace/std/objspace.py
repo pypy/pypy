@@ -218,7 +218,7 @@ class StdObjSpace(ObjSpace):
             import listobject
             return listobject.W_ListObject(self, wrappeditems)
         # print "wrapping %r (%s)" % (x, type(x))
-        # XXX unexpected wrapping of PyByteCode
+        # XXX unexpected wrapping of PyByteCode 
         import cpythonobject
         return cpythonobject.W_CPythonObject(self, x)
 
