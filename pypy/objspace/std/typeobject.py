@@ -69,7 +69,7 @@ class W_TypeObject(W_Object):
                 w_self.hasdict = w_self.hasdict or w_base.hasdict
             if w_most_derived_base_with_slots:
                 nslots = w_most_derived_base_with_slots.nslots
-                self.w_bestbase = w_most_derived_base_with_slots
+                w_self.w_bestbase = w_most_derived_base_with_slots
             else:
                 nslots = 0
   
