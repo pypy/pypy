@@ -133,6 +133,12 @@ class Op:
     def op_is_true(self):
         return "%s = not not %s" % (self.resultname, self.argnames[0])
 
+    def op_exception(self):
+        # Cheat!  This cannot really detect an exception because any
+        # exception would already have been raised by Pyrex in the previous
+        # instructions.
+        return "%s = None #exception(%s)" % (self.resultname, self.argnames[0])
+
 class GenPyrex:
     def __init__(self, functiongraph):
         self.functiongraph = functiongraph
@@ -285,6 +291,8 @@ class GenPyrex:
                 self.indent += 1
                 self.gen_link(block, exit)
                 self.indent -= 1
+        elif hasattr(block, 'exc_type'):
+            self.putline("raise %s" % block.exc_type.__name__)
         else:
             self.putline("return %s" % self._str(block.inputargs[0], block))
 

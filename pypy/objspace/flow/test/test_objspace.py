@@ -202,6 +202,18 @@ class TestFlowOjSpace(test.TestCase):
         x = self.codetest(self.finallys)
         self.show(x)
 
+    #__________________________________________________________
+    def implicitIndexError(lst):
+        try:
+            x = lst[5]
+        except IndexError:
+            return 'catch'
+        return lst[3]   # not caught
+
+    def test_implicitIndexError(self):
+        x = self.codetest(self.implicitIndexError)
+        self.reallyshow(x)
+
 
 if __name__ == '__main__':
     test.main()

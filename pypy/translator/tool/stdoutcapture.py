@@ -19,12 +19,12 @@ class Capture:
             # make new stdout/stderr files if needed
             self.localoutfd = os.dup(1)
             self.localerrfd = os.dup(2)
-            if sys.stdout.fileno() == 1:
+            if hasattr(sys.stdout, 'fileno') and sys.stdout.fileno() == 1:
                 self.saved_stdout = sys.stdout
                 sys.stdout = os.fdopen(self.localoutfd, 'w', 1)
             else:
                 self.saved_stdout = None
-            if sys.stderr.fileno() == 2:
+            if hasattr(sys.stderr, 'fileno') and sys.stderr.fileno() == 2:
                 self.saved_stderr = sys.stderr
                 sys.stderr = os.fdopen(self.localerrfd, 'w', 0)
             else:

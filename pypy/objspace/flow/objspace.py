@@ -106,6 +106,10 @@ class FlowObjSpace(ObjSpace):
 
 # ______________________________________________________________________
 
+implicit_exceptions = {
+    'getitem': [IndexError],
+    }
+
 def make_op(name, symbol, arity, specialnames):
     if hasattr(FlowObjSpace, name):
         return # Shouldn't do it
@@ -120,6 +124,8 @@ def make_op(name, symbol, arity, specialnames):
             op = id
         else:
             if debug: print >> sys.stderr, "XXX missing operator:", name
+
+    exceptions = implicit_exceptions.get(name)
 
     def generic_operator(self, *args_w):
         assert len(args_w) == arity, name+" got the wrong number of arguments"
@@ -143,7 +149,19 @@ def make_op(name, symbol, arity, specialnames):
                     return self.wrap(result)
 
         #print >> sys.stderr, 'Variable operation', name, args_w
-        return self.do_operation(name, *args_w)
+        w_result = self.do_operation(name, *args_w)
+        if exceptions:
+            # the 'exception(w_result)' operation is a bit strange, it is
+            # meant to check if w_result is a correct result or if its
+            # computation actually resulted in an exception.  For now this
+            # is an approximation of checking if w_result is NULL, and
+            # using PyErr_Occurred() to get the current exception if so.
+            w_curexc = self.do_operation('exception', w_result)
+            context = self.getexecutioncontext()
+            outcome = context.guessbool(w_curexc, [None] + exceptions)
+            if outcome is not None:
+                raise OperationError(self.wrap(outcome), self.w_None)
+        return w_result
 
     setattr(FlowObjSpace, name, generic_operator)
 

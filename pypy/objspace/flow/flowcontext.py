@@ -122,22 +122,22 @@ class FlowExecutionContext(ExecutionContext):
             newblock.patchframe(frame, self)
             self.joinpoints[next_instr].insert(0, newblock)
 
-    def guessbool(self, w_condition):
+    def guessbool(self, w_condition, cases=[False,True]):
         if not isinstance(self.crnt_ops, ReplayList):
             block = self.crnt_block
             vars = block.getvariables()
-            ifEgg = EggBlock(vars, block, True)
-            elseEgg = EggBlock(vars, block, False)
-            ifLink = Link(vars, ifEgg, True)
-            elseLink = Link(vars, elseEgg, False)
+            links = []
+            for case in cases:
+                egg = EggBlock(vars, block, case)
+                self.pendingblocks.append(egg)
+                link = Link(vars, egg, case)
+                links.append(link)
             block.exitswitch = w_condition
-            block.closeblock(elseLink, ifLink)
-            # forked the graph. Note that elseLink comes before ifLink
+            block.closeblock(*links)
+            # forked the graph. Note that False comes before True by default
             # in the exits tuple so that (just in case we need it) we
             # actually have block.exits[False] = elseLink and
             # block.exits[True] = ifLink.
-            self.pendingblocks.append(ifEgg)
-            self.pendingblocks.append(elseEgg)
             raise ExitFrame(None)
         replaylist = self.crnt_ops
         assert replaylist.finished()
