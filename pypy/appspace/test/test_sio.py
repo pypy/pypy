@@ -90,6 +90,8 @@ class TestReader(object):
     def close(self):
         pass
 
+    def flush(self):
+        pass
 class TestWriter(object):
 
     def __init__(self, data=''):
@@ -131,6 +133,9 @@ class TestWriter(object):
             self.buf = self.buf[:size]
         else:
             self.buf += '\0' * (size - len(self.buf))
+
+    def flush(self):
+        pass
             
 class TestReaderWriter(TestWriter):
 
