@@ -6,7 +6,7 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeList
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
-from pypy.annotation.model import SomeInstance, SomeFunction
+from pypy.annotation.model import SomeInstance, SomeFunction, SomeMethod
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
 
@@ -132,6 +132,19 @@ class __extend__(pairtype(SomeFunction, SomeFunction)):
 
     def union((fun1, fun2)):
         return SomeFunction(setunion(fun1.funcs, fun2.funcs))
+
+
+class __extend__(pairtype(SomeMethod, SomeMethod)):
+
+    def union((met1, met2)):
+        # the union of the two meths dictionaries is a dictionary
+        #   {func: unionof(met1[func], met2[func])}
+        d = met1.meths.copy()
+        for func, s_self in met2.meths.items():
+            if func in d:
+                s_self = unionof(d[func], s_self)
+            d[func] = s_self
+        return SomeMethod(d)
 
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):

@@ -28,7 +28,7 @@ generic element in some specific subset of the set of all objects.
 #
 
 
-from types import ClassType, BuiltinFunctionType, FunctionType
+from types import ClassType, BuiltinFunctionType, FunctionType, MethodType
 from pypy.annotation.pairtype import pair, extendabletype
 
 
@@ -105,6 +105,12 @@ class SomeFunction(SomeObject):
     knowntype = FunctionType
     def __init__(self, funcs):
         self.funcs = funcs   # set of functions that this one may be
+
+class SomeMethod(SomeObject):
+    "Stands for a bound Python method (or some method out of a list)."
+    knowntype = MethodType
+    def __init__(self, meths):
+        self.meths = meths   # map {python_function: s_self}
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that

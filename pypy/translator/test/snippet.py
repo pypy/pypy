@@ -320,3 +320,21 @@ def inheritance2():
     e = E()
     e.stuff = (3, "world")
     return C().stuff
+
+class F:
+    pass
+class G(F):
+    def m(self, x):
+        return self.m2(x)
+    def m2(self, x):
+        return D(), x
+class H(F):
+    def m(self, y):
+        return E(), y
+
+def methodcall1(cond):
+    if cond:
+        x = G()
+    else:
+        x = H()
+    return x.m(42)

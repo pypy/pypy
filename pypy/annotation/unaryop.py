@@ -7,7 +7,7 @@ from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeList
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeClass
-from pypy.annotation.model import SomeFunction
+from pypy.annotation.model import SomeFunction, SomeMethod
 from pypy.annotation.model import immutablevalue, decode_simple_call
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
@@ -37,6 +37,9 @@ class __extend__(SomeObject):
                 return SomeBuiltin(getattr(obj, 'method_' + attr))
         return SomeObject()
 
+    def get(obj, s_self):
+        return obj   # default __get__ implementation
+
 
 class __extend__(SomeTuple):
 
@@ -61,10 +64,14 @@ class __extend__(SomeInstance):
     def getattr(ins, s_attr):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
+            #print 'getattr:', ins, attr, ins.classdef.revision
             # look for the attribute in the MRO order
             for clsdef in ins.currentdef().getmro():
                 if attr in clsdef.attrs:
-                    return clsdef.attrs[attr]
+                    # XXX we can't see the difference between function objects
+                    # XXX on classes or on instances, so this will incorrectly
+                    # XXX turn functions read from instances into methods
+                    return clsdef.attrs[attr].get(ins)
             # maybe the attribute exists in some subclass? if so, lift it
             clsdef = ins.classdef
             clsdef.generalize(attr, SomeImpossibleValue(), getbookkeeper())
@@ -116,4 +123,22 @@ class __extend__(SomeFunction):
         assert arglist is not None
         factory = getbookkeeper().getfactory(FuncCallFactory)
         results = [factory.pycall(func, arglist) for func in fun.funcs]
+        return unionof(*results)
+
+    def get(fun, s_self):    # function -> bound method
+        d = {}
+        for func in fun.funcs:
+            d[func] = s_self
+        return SomeMethod(d)
+
+
+class __extend__(SomeMethod):
+
+    def call(met, args, kwds):
+        arglist = decode_simple_call(args, kwds)
+        #print 'methodcall:', met, arglist
+        assert arglist is not None
+        factory = getbookkeeper().getfactory(FuncCallFactory)
+        results = [factory.pycall(func, [s_self] + arglist)
+                   for func, s_self in met.meths.items()]
         return unionof(*results)

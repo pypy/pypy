@@ -7,10 +7,11 @@ object.  The factory remembers how general an object it has to create here.
 """
 
 from __future__ import generators
+from types import FunctionType
 from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeImpossibleValue, SomeList
 from pypy.annotation.model import SomeObject, SomeInstance
-from pypy.annotation.model import unionof
+from pypy.annotation.model import unionof, immutablevalue
 from pypy.interpreter.miscutils import getthreadlocals
 
 
@@ -152,6 +153,17 @@ class ClassDef:
         self.basedef = bookkeeper.getclassdef(base)
         if self.basedef:
             self.basedef.subdefs[cls] = self
+        # collect the (supposed constant) class attributes
+        s_self = SomeInstance(self)
+        for name, value in cls.__dict__.items():
+            # ignore some special attributes
+            if name.startswith('_') and not isinstance(value, FunctionType):
+                continue
+            # although self.getallfactories() is currently empty,
+            # the following might still invalidate some blocks if it
+            # generalizes existing values in parent classes
+            s_value = immutablevalue(value)
+            self.generalize(name, s_value, bookkeeper)
 
     def __repr__(self):
         return '<ClassDef %s.%s>' % (self.cls.__module__, self.cls.__name__)
@@ -185,9 +197,11 @@ class ClassDef:
     def generalize(self, attr, s_value, bookkeeper=None):
         # we make sure that an attribute never appears both in a class
         # and in some subclass, in two steps:
-        # (1) assert that the attribute is in no superclass
+        # (1) check if the attribute is already in a superclass
         for clsdef in self.getmro():
-            assert clsdef is self or attr not in clsdef.attrs
+            if attr in clsdef.attrs:
+                self = clsdef   # generalize the parent class instead
+                break
         # (2) remove the attribute from subclasses
         subclass_values = []
         for subdef in self.getallsubdefs():

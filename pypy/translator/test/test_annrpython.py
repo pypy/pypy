@@ -179,6 +179,16 @@ class AnnonateTestCase(testit.IntTestCase):
         self.assertEquals(s.knowntype, list)
         self.assertEquals(s.s_item.knowntype, int)
 
+    def test_methodcall1(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.methodcall1, [int])
+        # result should be a tuple of (C, positive_int)
+        self.assertEquals(s.knowntype, tuple)
+        self.assertEquals(len(s.items), 2)
+        self.assertEquals(s.items[0].knowntype, snippet.C)
+        self.assertEquals(s.items[1].knowntype, int)
+        self.assertEquals(s.items[1].nonneg, True)
+
 
 def g(n):
     return [0,1,2,n]
