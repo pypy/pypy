@@ -222,9 +222,8 @@ class Bookkeeper:
             else:
                 raise Exception, "unsupported specialization type '%s'"%(x,)
 
-        elif func.func_code.co_flags & CO_VARARGS and args.w_stararg is None:
-            # calls to *arg functions without an incoming w_stararg:
-            # create one version per number of args
+        elif func.func_code.co_flags & CO_VARARGS:
+            # calls to *arg functions: create one version per number of args
             assert not args.kwds_w, (
                 "keyword forbidden in calls to *arg functions")
             nbargs = len(args.arguments_w)
