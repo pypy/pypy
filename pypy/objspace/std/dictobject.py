@@ -242,27 +242,27 @@ def dict_get__Dict_ANY_ANY(space, w_dict, w_lookup, w_default):
     else:
         return w_default
 
-# Now we only handle one implementation of dicts, this one.
-# The fix is to move this to dicttype.py, and do a
-# multimethod lookup mapping str to StdObjSpace.str
-# This cannot happen until multimethods are fixed. See dicttype.py
-def app_dictstr(currently_in_repr, d):
-    dict_id = id(d)
-    if dict_id in currently_in_repr:
-        return '{...}'
-    currently_in_repr[dict_id] = 1
-    try:
-        items = []
-        for k, v in d.iteritems():
-            items.append(repr(k) + ": " + repr(v))
-        return "{" +  ', '.join(items) + "}"
-    finally:
-        try:
-            del currently_in_repr[dict_id]
-        except:
-            pass
-
-dictstr = gateway.app2interp(app_dictstr)
+dictstr = gateway.appdef('''
+    dictstr(currently_in_repr, d):
+        # Now we only handle one implementation of dicts, this one.
+        # The fix is to move this to dicttype.py, and do a
+        # multimethod lookup mapping str to StdObjSpace.str
+        # This cannot happen until multimethods are fixed. See dicttype.py
+            dict_id = id(d)
+            if dict_id in currently_in_repr:
+                return '{...}'
+            currently_in_repr[dict_id] = 1
+            try:
+                items = []
+                for k, v in d.iteritems():
+                    items.append(repr(k) + ": " + repr(v))
+                return "{" +  ', '.join(items) + "}"
+            finally:
+                try:
+                    del currently_in_repr[dict_id]
+                except:
+                    pass
+''')
 
 def str__Dict(space, w_dict):
     if w_dict.used == 0:
@@ -276,5 +276,6 @@ def str__Dict(space, w_dict):
     return dictstr(space, w_currently_in_repr, w_dict)
 
 repr__Dict = str__Dict
+
 from pypy.objspace.std import dicttype
 register_all(vars(), dicttype)
