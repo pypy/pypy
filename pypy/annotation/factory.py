@@ -7,7 +7,7 @@ The factory remembers how general an object it has to create here.
 """
 
 from __future__ import generators
-from types import FunctionType
+from types import FunctionType, ClassType, MethodType
 from pypy.annotation.model import SomeImpossibleValue, SomeList, SomeDict
 from pypy.annotation.model import SomeObject, SomeInstance
 from pypy.annotation.model import unionof, immutablevalue
@@ -94,6 +94,8 @@ def generalize(factories, *args):
             factory.bookkeeper.annotator.reflowfromposition(factory.position_key)
         raise BlockedInference   # reflow now
 
+def isclassdef(x):
+    return isinstance(x, ClassDef) 
 
 class ListFactory:
     s_item = SomeImpossibleValue()
@@ -133,26 +135,42 @@ class DictFactory:
             return False
 
 
-class FuncCallFactory:
-
+class CallableFactory: 
     def pycall(self, func, *args):
+        if isinstance(func, (type, ClassType)) and \
+            func.__module__ != '__builtin__':
+            cls = func 
+            classdef = self.bookkeeper.getclassdef(cls)
+            classdef.instancefactories[self] = True
+            s_instance = SomeInstance(classdef)
+            # flow into __init__() if the class has got one
+            init = getattr(cls, '__init__', None)
+            if init is not None and init != object.__init__:
+                self.pycall(init, s_instance, *args)
+            else:
+                assert not args, "no __init__ found in %r" % (cls,)
+            return s_instance
+        if hasattr(func, '__call__') and \
+           isinstance(func.__call__, MethodType): 
+            func = func.__call__
+        if hasattr(func, 'im_func'):
+            if func.im_self is not None:
+                s_self = immutablevalue(func.im_self)
+                args = [s_self] + list(args)
+            func = func.im_func
         return self.bookkeeper.annotator.recursivecall(func, self, *args)
 
-
-class InstanceFactory(FuncCallFactory):
-
-    def create(self, cls, *args):
-        classdef = self.bookkeeper.getclassdef(cls)
-        classdef.instancefactories[self] = True
-        s_instance = SomeInstance(classdef)
-        # flow into __init__() if the class has got one
-        init = getattr(cls, '__init__', None)
-        if init is not None and init != object.__init__:
-            self.pycall(init, s_instance, *args)
-        else:
-            assert not args, "no __init__ found in %r" % (cls,)
-        return s_instance
-
+        #if hasattr(func, 'specialize'):
+        #    key = func, factory.position_key 
+        #    try:
+        #        func = self._cachespecializedfunctions[key]
+        #    except KeyError:
+        #        func = new.function(func.func_code, 
+        #                            func.func_globals, 
+        #                            func.func_name, 
+        #                            func.func_defaults, 
+        #                            func.func_closure)
+        #        self._cachespecializedfunctions[key] = func 
 
 class ClassDef:
     "Wraps a user class."
@@ -184,7 +202,7 @@ class ClassDef:
             # the following might still invalidate some blocks if it
             # generalizes existing values in parent classes
             s_value = immutablevalue(value)
-            s_value = s_value.classattribute(self)
+            s_value = s_value.bindcallables(self)
             self.generalize(name, s_value, bookkeeper)
 
     def __repr__(self):
@@ -240,3 +258,5 @@ class ClassDef:
         if bookkeeper:
             for factory in self.getallfactories():
                 bookkeeper.annotator.reflowfromposition(factory.position_key)
+
+from pypy.annotation.builtin  import BUILTIN_FUNCTIONS

@@ -158,12 +158,6 @@ class RPythonAnnotator:
     #___ interface for annotator.factory _______
 
     def recursivecall(self, func, factory, *args):
-        # calls to methods: expand the argument
-        if hasattr(func, 'im_func'):
-            if func.im_self is not None:
-                s_self = annmodel.immutablevalue(func.im_self)
-                args = [s_self] + list(args)
-            func = func.im_func
         parent_fn, parent_block, parent_index = factory.position_key
         graph = self.translator.getflowgraph(func, parent_fn,
                                              factory.position_key)

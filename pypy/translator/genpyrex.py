@@ -6,7 +6,8 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import mkentrymap
 from pypy.translator.annrpython import RPythonAnnotator
-from pypy.annotation.model import SomeMethod
+from pypy.annotation.model import SomeCallable
+from pypy.annotation.factory import isclassdef
 import inspect
 
 class Op:
@@ -397,8 +398,10 @@ class GenPyrex:
                 self.indent += 1
                 empty = True
                 for attr,s_value in cls.attrs.items():
-                    if isinstance(s_value,SomeMethod):
-                        for py_fun,fun_class in s_value.meths.items():
+                    if isinstance(s_value, SomeCallable):
+                        for py_fun,fun_class in s_value.callables.items():
+                            assert isclassdef(fun_class), (
+                                "%r must have a classdef" % py_fun)
                             delay_methods.setdefault(fun_class,[]).append(py_fun)                          
                     else:
                         vartype=self._gettypename(s_value.knowntype)

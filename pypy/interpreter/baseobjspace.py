@@ -44,6 +44,9 @@ class ObjSpace(object):
             assert not isinstance(cache, frozendict)
             #print "building for key %r" % key 
             return cache.setdefault(key, builder(key, self))
+    # note to annotator: we want loadfromcache() to be 
+    # specialized for the different cache types 
+    loadfromcache.specialize = True 
 
     def make_builtins(self, for_builtins):
         # initializing builtins may require creating a frame which in

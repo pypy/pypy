@@ -6,11 +6,11 @@ from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
-from pypy.annotation.model import SomeInstance, SomeFunction, SomeMethod
+from pypy.annotation.model import SomeInstance, SomeCallable
 from pypy.annotation.model import SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePrebuiltConstant, immutablevalue
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.factory import generalize
+from pypy.annotation.factory import generalize, isclassdef 
 from pypy.objspace.flow.model import Constant
 
 
@@ -24,6 +24,13 @@ BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
 for opname in BINARY_OPERATIONS:
     missing_operation(pairtype(SomeObject, SomeObject), opname)
 
+#class __extend__(pairtype(SomeFunction, SomeObject)):
+#    def union((obj1, obj2)):
+#        raise TypeError, "generalizing not allowed: %r AND %r" % (obj1, obj2)
+#
+#class __extend__(pairtype(SomeObject, SomeFunction)):
+#    def union((obj1, obj2)):
+#        raise TypeError, "generalizing not allowed: %r AND %r" % (obj2, obj1)
 
 class __extend__(pairtype(SomeObject, SomeObject)):
 
@@ -31,6 +38,11 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         if obj1 == obj2:
             return obj1
         else:
+            #if isinstance(obj1, SomeFunction) or \
+            #   isinstance(obj2, SomeFunction): 
+            #   raise TypeError, ("generalizing not allowed:"
+            #                     "%r AND %r" % (obj1, obj2))
+            #    
             result = SomeObject()
             # try to preserve the origin of SomeObjects
             if obj1 == result:
@@ -198,27 +210,19 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
             s_self = unionof(bltn1.s_self, bltn2.s_self)
             return SomeBuiltin(bltn1.analyser, s_self)
 
+class __extend__(pairtype(SomeCallable, SomeCallable)):
 
-class __extend__(pairtype(SomeFunction, SomeFunction)):
-
-    def union((fun1, fun2)):
-        return SomeFunction(setunion(fun1.funcs, fun2.funcs))
-
-
-class __extend__(pairtype(SomeMethod, SomeMethod)):
-
-    def union((met1, met2)):
-        # the union of the two meths dictionaries is a dictionary
-        #   {func: commonbase(met1[func], met2[func])}
-        # note that this case is probably very rare
-        # (the same Python object found in two different classes)
-        d = met1.meths.copy()
-        for func, classdef in met2.meths.items():
-            if func in d:
-                classdef = classdef.commonbase(d[func])
-            d[func] = classdef
-        return SomeMethod(d)
-
+    def union((cal1, cal2)):
+        d = cal1.callables.copy()
+        for cal, classdef in cal2.callables.items():
+            if cal in d:
+                if bool(isclassdef(classdef)) ^ bool(isclassdef(d[cal])):
+                    raise Exception(
+                        "union failed for %r with classdefs %r and %r" % 
+                        (cal, classdef, d[cal]))
+                classdef = classdef.commonbase(d[cal])
+            d[cal] = classdef
+        return SomeCallable(d)
 
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):
@@ -239,13 +243,11 @@ class __extend__(pairtype(SomePrebuiltConstant, SomeObject)):
         # special case for SomePrebuiltConstants that are dictionaries
         # (actually frozendicts)
         possibleresults = []
-        for c_inst in pbc1.prebuiltinstances:
-            assert isinstance(c_inst, Constant)
-            inst = c_inst.value
+        for inst in pbc1.prebuiltinstances:
             if isinstance(inst, dict):
                 possibleresults += inst.values()
-            elif isinstance(inst, list):
-                possibleresults += inst   # maybe
+            #elif isinstance(inst, list):
+            #    possibleresults += inst   # maybe
             else:
                 raise TypeError, "cannot getitem() from %r" % (inst,)
         possibleresults = [immutablevalue(x) for x in possibleresults]

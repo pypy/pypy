@@ -7,13 +7,13 @@ from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
-from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeClass
-from pypy.annotation.model import SomeFunction, SomeMethod, SomeIterator
+from pypy.annotation.model import SomeInstance, SomeBuiltin 
+from pypy.annotation.model import SomeCallable, SomeIterator
 from pypy.annotation.model import SomePrebuiltConstant
 from pypy.annotation.model import immutablevalue
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
-from pypy.annotation.factory import InstanceFactory, FuncCallFactory
+from pypy.annotation.factory import CallableFactory, isclassdef 
 
 
 UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'simple_call',
@@ -51,7 +51,7 @@ class __extend__(SomeObject):
                 return immutablevalue(getattr(obj.const, attr))
         return SomeObject()
 
-    def classattribute(obj, classdef):
+    def bindcallables(obj, classdef):
         return obj   # default unbound __get__ implementation
 
 
@@ -135,51 +135,46 @@ class __extend__(SomeInstance):
             raise BlockedInference
         return SomeObject()
 
-
 class __extend__(SomeBuiltin):
-
     def simple_call(bltn, *args):
         if bltn.s_self is not None:
             return bltn.analyser(bltn.s_self, *args)
         else:
             return bltn.analyser(*args)
 
-
-class __extend__(SomeClass):
-
-    def simple_call(cls, *args):
-        factory = getbookkeeper().getfactory(InstanceFactory)
-        return factory.create(cls.cls, *args)
-
-
-class __extend__(SomeFunction):
-
-    def simple_call(fun, *args):
-        factory = getbookkeeper().getfactory(FuncCallFactory)
-        results = [factory.pycall(func, *args) for func in fun.funcs]
-        return unionof(*results)
-
-    def classattribute(fun, classdef):   # function -> unbound method
-        d = {}
-        for func in fun.funcs:
-            assert isinstance(func, FunctionType), (
-                "%r should not be read out of class %r" % (func, classdef))
-            d[func] = classdef
-        return SomeMethod(d)
-
-
-class __extend__(SomeMethod):
-
-    def simple_call(met, *args):
-        factory = getbookkeeper().getfactory(FuncCallFactory)
+class __extend__(SomeCallable):
+    def simple_call(cal, *args):
+        factory = getbookkeeper().getfactory(CallableFactory) 
         results = []
-        for func, classdef in met.meths.items():
-            # create s_self and record the creation in the factory
-            s_self = SomeInstance(classdef)
-            classdef.instancefactories[factory] = True
-            # call func(s_self, *arglist)
-            results.append(factory.pycall(func, s_self, *args))
-        return unionof(*results)
+        for func, classdef in cal.callables.items():
+            if isclassdef(classdef): 
+                # create s_self and record the creation in the factory
+                s_self = SomeInstance(classdef)
+                classdef.instancefactories[factory] = True
+                results.append(factory.pycall(func, s_self, *args))
+            else:
+                results.append(factory.pycall(func, *args))
+        return unionof(*results) 
+
+    def bindcallables(cal, classdef):   
+        """ turn the callables in the given SomeCallable 'cal' 
+            into bound versions.
+        """
+        d = {}
+        for func, value in cal.callables.items():
+            if isinstance(func, FunctionType): 
+                if isclassdef(value): 
+                    print ("!!! rebinding an already bound"
+                           " method %r with %r" % (func, value))
+                d[func] = classdef
+            else:
+                d[func] = value 
+        return SomeCallable(d)
+                
+    #def simple_call(fun, *args):
+    #    factory = getbookkeeper().getfactory(CallableFactory)
+    #    results = [factory.pycall(func, *args) for func in fun.funcs]
+    #    return unionof(*results)
 
 
 class __extend__(SomePrebuiltConstant):
@@ -191,8 +186,8 @@ class __extend__(SomePrebuiltConstant):
         actuals = []
         for c in pbc.prebuiltinstances:
             bookkeeper.attrs_read_from_constants.setdefault(c, {})[attr] = True
-            if hasattr(c.value, attr):
-                actuals.append(immutablevalue(getattr(c.value, attr)))
+            if hasattr(c, attr):
+                actuals.append(immutablevalue(getattr(c, attr)))
         return unionof(*actuals)
 
     def setattr(pbc, s_attr, s_value):

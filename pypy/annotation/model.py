@@ -117,12 +117,12 @@ class SomeIterator(SomeObject):
     def __init__(self, s_item=SomeObject()):
         self.s_item = s_item
 
-class SomeClass(SomeObject):
-    "Stands for a user-defined class object."
-    # only used when the class object is loaded in a variable
-    knowntype = ClassType
-    def __init__(self, cls):
-        self.cls = cls
+#class SomeClass(SomeObject):
+#    "Stands for a user-defined class object."
+#    # only used when the class object is loaded in a variable
+#    knowntype = ClassType
+#    def __init__(self, cls):
+#        self.cls = cls
 
 class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
@@ -131,35 +131,48 @@ class SomeInstance(SomeObject):
         self.knowntype = classdef.cls
         self.revision = classdef.revision
 
-class SomeBuiltin(SomeObject):
+class SomeCallable(SomeObject):
+    """Stands for a (callable) function, method, 
+    prebuiltconstant or class"""
+    def __init__(self, callables):
+        # callables is a dictionary containing concrete python 
+        # callable objects as keys and - in the case of a method - 
+        # the value contains the classdef (see SomeMethod above) 
+        self.callables = callables 
+        if len(callables) == 1:
+            self.const, = callables
+
+class SomeBuiltin(SomeCallable):
     "Stands for a built-in function or method with special-cased analysis."
     knowntype = BuiltinFunctionType  # == BuiltinMethodType
     def __init__(self, analyser, s_self=None):
         self.analyser = analyser
         self.s_self = s_self
 
-class SomeFunction(SomeObject):
-    """Stands for a Python function (or some function out of a list).
-    Alternatively, it can be a constant bound or unbound method."""
-    knowntype = FunctionType
-    def __init__(self, funcs):
-        self.funcs = funcs   # set of functions that this one may be
-        if len(funcs) == 1:
-            self.const, = funcs
+#class SomeFunction(SomeObject):
+#    """Stands for a Python function (or some function out of a list).
+#    Alternatively, it can be a constant bound or unbound method."""
+#    knowntype = FunctionType
+#    def __init__(self, funcs):
+#        self.funcs = funcs   # set of functions that this one may be
+#        if len(funcs) == 1:
+#            self.const, = funcs
 
-class SomeMethod(SomeObject):
-    "Stands for a bound Python method (or some method out of a list)."
-    knowntype = MethodType
-    def __init__(self, meths):
-        self.meths = meths   # map {python_function: classdef}
+#class SomeMethod(SomeObject):
+#    "Stands for a bound Python method (or some method out of a list)."
+#    knowntype = MethodType
+#    def __init__(self, meths):
+#        self.meths = meths   # map {python_function: classdef}
+
 
 class SomePrebuiltConstant(SomeObject):
     """Stands for a global user instance, built prior to the analysis,
     or a set of such instances."""
     def __init__(self, prebuiltinstances):
-        self.prebuiltinstances = prebuiltinstances  # set of Constants
-        self.knowntype = reduce(commonbase, [x.value.__class__
-                                             for x in prebuiltinstances])
+        self.prebuiltinstances = prebuiltinstances  
+        self.knowntype = reduce(commonbase, 
+                                [x.__class__ for x in prebuiltinstances])
+        
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
@@ -194,12 +207,10 @@ def immutablevalue(x):
         result = SomeTuple(items = [immutablevalue(e) for e in x])
     elif ishashable(x) and x in BUILTIN_FUNCTIONS:
         result = SomeBuiltin(BUILTIN_FUNCTIONS[x])
-    elif isinstance(x, (type, ClassType)) and x.__module__ != '__builtin__':
-        result = SomeClass(x)
-    elif isinstance(x, (FunctionType, MethodType)):
-        result = SomeFunction({x: True})
+    elif callable(x): 
+        result = SomeCallable({x : True}) 
     elif hasattr(x, '__class__') and x.__class__.__module__ != '__builtin__':
-        result = SomePrebuiltConstant({Constant(x): True}) # pre-built instances
+        result = SomePrebuiltConstant({x: True}) # pre-built inst:
     else:
         result = SomeObject()
     result.const = x
