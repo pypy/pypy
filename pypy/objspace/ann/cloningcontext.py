@@ -1,7 +1,8 @@
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.pyframe import ControlFlowException, ExitFrame
 from pypy.objspace.ann.wrapper \
-     import union, compatible_frames, unify_frames, W_Anything, W_Constant
+     import union, compatible_frames, unify_frames, W_Anything, W_Constant, \
+            W_KnownKeysContainer
 
 class FunctionInfo(object):
 
@@ -58,14 +59,19 @@ class CloningExecutionContext(ExecutionContext):
         # {(bytecode, w_globals): FunctionInfo(), ...}
 
     def getfunctioninfo(self, frame, new=False):
-        assert isinstance(frame.w_globals, W_Constant)
-        key = (frame.bytecode, id(frame.w_globals.value))
+        key = self.makekey(frame)
         info = self.functioninfos.get(key)
         if info is None:
             if not new:
                 raise KeyError, repr(key)
             self.functioninfos[key] = info = FunctionInfo()
         return info
+
+    def makekey(self, frame):
+        if isinstance(frame.w_globals, W_Constant):
+            return (frame.bytecode, id(frame.w_globals.value))
+        if isinstance(frame.w_globals, W_KnownKeysContainer):
+            return (frame.bytecode, id(frame.w_globals.args_w))
 
     def bytecode_trace(self, frame):
         if frame.restarting is not None:

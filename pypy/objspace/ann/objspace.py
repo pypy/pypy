@@ -5,6 +5,7 @@ import pypy
 from pypy.interpreter.baseobjspace \
      import ObjSpace, OperationError, NoValue, PyPyError
 from pypy.interpreter.pycode import PyByteCode
+from pypy.interpreter.extmodule import PyBuiltinCode
 from pypy.objspace.ann.cloningcontext import CloningExecutionContext
 from pypy.objspace.ann.cloningcontext import IndeterminateCondition
 
@@ -33,12 +34,8 @@ class AnnotationObjSpace(ObjSpace):
         for n, c in __builtin__.__dict__.iteritems():
             if isinstance(c, types.TypeType) or isinstance(c, types.ClassType):
                 setattr(self, 'w_'+n, self.wrap(c))
-        self.w_builtins = self.wrap(__builtin__)
         self.make_builtins()
         self.make_sys()
-
-    def make_builtins(self):
-        self.builtin = pypy.module.builtin.Builtin(self)
 
     # Service methods whose interface is in the abstract base class
 
@@ -58,10 +55,8 @@ class AnnotationObjSpace(ObjSpace):
         return W_Constant(obj)
 
     def unwrap(self, w_obj):
-        if isinstance(w_obj, W_Constant):
-            return w_obj.value
-        elif isinstance(w_obj, W_Object):
-            raise UnwrapException("Cannot unwrap: " +repr(w_obj))
+        if isinstance(w_obj, W_Object):
+            return w_obj.unwrap()
         else:
             raise TypeError("not wrapped: " + repr(w_obj))
 
@@ -130,9 +125,11 @@ class AnnotationObjSpace(ObjSpace):
         return W_Anything()
 
     def newmodule(self, w_name):
-        return W_Anything()
+        return W_Module(w_name, self.w_None)
 
-    def newfunction(self, *stuff):
+    def newfunction(self, code, w_globals, w_defaults, w_closure=None):
+        if isinstance(code, PyBuiltinCode):
+            return W_BuiltinFunction(code, w_defaults)
         return W_Anything()
 
     def newlist(self, list_w):
@@ -240,27 +237,42 @@ class AnnotationObjSpace(ObjSpace):
         raise IndeterminateCondition(w_iterator)
 
     def call(self, w_func, w_args, w_kwds):
-        func = self.unwrap(w_func) # XXX What if this fails?
-        try:
-            code = func.func_code
-        except AttributeError:
-            return W_Anything()
-        bytecode = self.bytecodecache.get(code)
-        if bytecode is None:
-            bytecode = PyByteCode()
-            bytecode._from_code(code)
-            self.bytecodecache[code] = bytecode
+        if isinstance(w_func, W_BuiltinFunction):
+            bytecode = w_func.code
+            w_defaults = w_func.w_defaults
+            w_globals = self.w_None
+        else:
+            try:
+                func = self.unwrap(w_func)
+            except UnwrapException:
+                return W_Anything()
+            try:
+                code = func.func_code
+            except AttributeError:
+                return W_Anything()
+            bytecode = self.bytecodecache.get(code)
+            if bytecode is None:
+                bytecode = PyByteCode()
+                bytecode._from_code(code)
+                self.bytecodecache[code] = bytecode
+            w_defaults = self.wrap(func.func_defaults)
+            w_globals = self.wrap(func.func_globals)
         w_locals = bytecode.build_arguments(self,
                                             w_args,
                                             w_kwds,
-                                            self.wrap(func.func_defaults),
+                                            w_defaults,
                                             self.wrap(()))
-        w_result = bytecode.eval_code(self,
-                                      self.wrap(func.func_globals),
-                                      w_locals)
+        w_result = bytecode.eval_code(self, w_globals, w_locals)
         return w_result
 
     def getattr(self, w_obj, w_name):
+        if isinstance(w_obj, W_Module) and isinstance(w_name, W_Constant):
+            name = self.unwrap(w_name)
+            try:
+                return w_obj.getattr(name)
+            except KeyError:
+                raise OperationError(self.wrap(AttributeError),
+                                     self.wrap(AttributeError(name)))
         try:
             obj = self.unwrap(w_obj)
             name = self.unwrap(w_name)
@@ -273,8 +285,10 @@ class AnnotationObjSpace(ObjSpace):
                 return self.reraise()
 
     def setattr(self, w_obj, w_name, w_value):
-        # XXX What about the side effect?
-        return self.w_None
+        if isinstance(w_obj, W_Module) and isinstance(w_name, W_Constant):
+            name = self.unwrap(w_name)
+            w_obj.setattr(name, w_value)
+        # Space setattr shouldn't return anything, so no w_None here
 
     def len(self, w_obj):
         if isinstance(w_obj, W_KnownKeysContainer):

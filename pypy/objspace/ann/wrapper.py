@@ -21,10 +21,18 @@ class W_Object(object):
         pass
 
     def __repr__(self):
-        return "%s(%s)" % (self.__class__.__name__, self.argsrepr())
+        s = self.argsrepr()
+        if len(s) > 100:
+            s = s[:25] + "..." + s[-25:]
+        return "%s(%s)" % (self.__class__.__name__, s)
 
     def argsrepr(self):
         return ""
+
+    def unwrap(self):
+        # XXX Somehow importing this at module level doesn't work
+        from pypy.objspace.ann.objspace import UnwrapException
+        raise UnwrapException(self)
 
     def __eq__(self, other):
         return type(other) is type(self)
@@ -51,7 +59,10 @@ class W_Constant(W_Object):
         self.value = value
 
     def argsrepr(self):
-        return repr(self.value)[:50]
+        return repr(self.value)
+
+    def unwrap(self):
+        return self.value
 
     def __eq__(self, other):
         return type(other) is type(self) and self.value == other.value
@@ -60,9 +71,9 @@ class W_Constant(W_Object):
         return self
 
 class W_KnownKeysContainer(W_Object):
-    """A dict with constant set of keys or a tuple with known length.
+    """A dict with a known set of keys or a list with known length.
 
-    XXX This may be mutable!  Is that a good idea?
+    XXX This is mutable!  Is that a good idea?
     """
 
     def __init__(self, args_w):
@@ -70,6 +81,18 @@ class W_KnownKeysContainer(W_Object):
 
     def argsrepr(self):
         return repr(self.args_w)
+
+    def unwrap(self):
+        if hasattr(self.args_w, "keys"):
+            d = {}
+            for k, w_v in self.args_w.iteritems():
+                d[k] = w_v.unwrap()
+            return d
+        assert isinstance(self.args_w, list), self.args_w
+        l = []
+        for w_obj in self.args_w:
+            l.append(w_obj.unwrap())
+        return l
 
     def __eq__(self, other):
         return type(other) is type(self) and self.args_w == other.args_w
@@ -86,6 +109,39 @@ class W_KnownKeysContainer(W_Object):
             args_w = args_w.copy()
         # XXX Recurse down the values?
         return W_KnownKeysContainer(args_w)
+
+class W_Module(W_Object):
+    """A module object.  It supports getattr and setattr (yikes!)."""
+
+    def __init__(self, w_name, w_doc):
+        # The wrapped module name and wrapped docstring must be known
+        self.w_name = w_name
+        self.w_doc = w_doc
+        self.contents = W_KnownKeysContainer({"__name__": w_name,
+                                              "__doc__": w_doc})
+
+    def argsrepr(self):
+        return repr(self.w_name) + ", " + repr(self.w_doc)
+
+    def getattr(self, name):
+        # Returned a wrapped object or raise an unwrapped KeyError exception
+        if name == "__dict__":
+            return self.contents
+        return self.contents[name]
+
+    def setattr(self, name, w_obj):
+        self.contents.args_w[name] = w_obj
+
+class W_BuiltinFunction(W_Object):
+    """A function that executes in interpreter space."""
+
+    def __init__(self, code, w_defaults):
+        self.code = code
+        self.w_defaults = w_defaults
+
+    def argsrepr(self):
+        return repr(self.code) + ", " + repr(self.w_defaults)
+
 
 def unify_frames(f1, f2):
     """Given two compatible frames, make them the same.
