@@ -1,8 +1,28 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.fake import fake_type, wrap_exception
 from pypy.objspace.std.stringobject import W_StringObject
+from pypy.objspace.std.strutil import string_to_int, string_to_long
 
 W_UnicodeObject = fake_type(unicode)
+
+# Helper for converting int/long
+import unicodedata
+def unicode_to_decimal_w(space, w_unistr):
+    result = []
+    for uchr in space.unwrap(w_unistr):
+        if uchr.isspace():
+            result.append(' ')
+            continue
+        try:
+            result.append(chr(ord('0') + unicodedata.decimal(uchr)))
+            continue
+        except ValueError:
+            ch = ord(uchr)
+            if 0 < ch < 256:
+                result.append(chr(ch))
+                continue
+        raise OperationError(space.w_UnicodeEncodeError, space.wrap('invalid decimal Unicode string'))
+    return ''.join(result)
 
 # string-to-unicode delegation
 def delegate_String2Unicode(w_str):
@@ -49,7 +69,25 @@ def ge__Unicode_ANY(space, w_uni, w_other):
 
 def ord__Unicode(space, w_uni):
     try:
-        return space.wrap(ord(w_uni.val))
+        return space.wrap(ord(space.unwrap(w_uni)))
+    except:
+        wrap_exception(space)
+
+def float__Unicode(space, w_uni):
+    try:
+        return space.wrap(float(unicode_to_decimal_w(space, w_uni)))
+    except:
+        wrap_exception(space)
+
+def int__Unicode(space, w_uni):
+    try:
+        return space.wrap(string_to_int(unicode_to_decimal_w(space, w_uni)))
+    except:
+        wrap_exception(space)
+
+def long__Unicode(space, w_uni):
+    try:
+        return space.wrap(string_to_long(unicode_to_decimal_w(space, w_uni)))
     except:
         wrap_exception(space)
 

@@ -32,12 +32,16 @@ def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
     else:
         base = space.int_w(w_base)
 
-        try:
-            s = space.str_w(w_value)
-        except OperationError, e:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("long() can't convert non-string "
-                                            "with explicit base"))
+        if space.is_true(space.isinstance(w_value, space.w_unicode)):
+            from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
+            s = unicode_to_decimal_w(space, w_value)
+        else:
+            try:
+                s = space.str_w(w_value)
+            except OperationError, e:
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("long() can't convert non-string "
+                                                "with explicit base"))
         try:
             # XXX value can be unwrapped long
             value = string_to_long(s, base)

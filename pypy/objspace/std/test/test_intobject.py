@@ -292,6 +292,9 @@ class AppTestInt:
         assert 42 == int("42")
         assert 10000000000 == long("10000000000")
 
+    def test_int_unicode(self):
+        assert 42 == int(unicode('42'))
+
     def test_int_float(self):
         assert 4 == int(4.2)
 
