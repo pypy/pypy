@@ -223,7 +223,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         import cpythonobject
         SlotWrapperType = type(type(None).__repr__)
         if isinstance(x, (types.FunctionType, types.BuiltinFunctionType, SlotWrapperType)):
-            return cpythonobject.W_BuiltinFunctionObject(self, x) 
+            return cpythonobject.W_BuiltinFunctionObject(self, x)
         #print "cpython wrapping %r (%s)" % (x, type(x))
         #if hasattr(x, '__bases__'): 
         #    print "cpython wrapping a class %r (%s)" % (x, type(x))
@@ -287,7 +287,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_type.lookup(name)
         else:
             # hack
-            for cls in w_obj.cpyobj.__class__.__mro__:
+            for cls in type(w_obj.cpyobj).__mro__:
                 if name in cls.__dict__:
                     return self.wrap(cls.__dict__[name])
             return None
