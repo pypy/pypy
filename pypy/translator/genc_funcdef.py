@@ -45,6 +45,8 @@ class FunctionDef:
         self.globalobject_name = None                                # gfunc_xxx
         self.localscope = namespace.localScope()
         self.graph = graph = genc.translator.getflowgraph(func)
+        remove_direct_loops(graph) # this can introduce new vars! we need to declare them
+        checkgraph(graph)
         graph_args = graph.getargs()
 
         # collect all the local variables
@@ -272,8 +274,6 @@ class FunctionDef:
 
     def cfunction_body(self):
         graph = self.graph
-        remove_direct_loops(graph)
-        checkgraph(graph)
 
         blocknum = {}
         allblocks = []
