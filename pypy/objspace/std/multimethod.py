@@ -23,12 +23,9 @@ class MultiMethodTable:
         self.argnames_after = argnames_after
 
     def register(self, function, *types, **kwds):
-        try:
-            order = kwds.pop('order')
-        except KeyError:
-            order = 0
-        assert not kwds
         assert len(types) == self.arity
+        assert kwds.keys() == [] or kwds.keys() == ['order']
+        order = kwds.get('order', 0)
         node = self.dispatch_tree
         for type in types[:-1]:
             node = node.setdefault(type, {})
