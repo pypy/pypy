@@ -208,6 +208,8 @@ def getattr__Type_ANY(space, w_type, w_attr):
         return w_type.w_tpname
     if space.is_true(space.eq(w_attr, space.wrap('__mro__'))):
         return space.newtuple(list(w_type.getmro()))
+    if space.is_true(space.eq(w_attr, space.wrap('__bases__'))):
+        return space.newtuple(list(w_type.getbases()))
     try:
         desc = w_type.lookup(w_attr)
     except KeyError:
