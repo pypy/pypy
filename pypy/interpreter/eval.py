@@ -49,7 +49,7 @@ class Code(Wrappable):
     def getdocstring(self):
         return None
 
-class UndefinedClass:
+class UndefinedClass: 
     pass
 UNDEFINED = UndefinedClass()  # marker for undefined local variables
 

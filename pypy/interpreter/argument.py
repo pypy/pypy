@@ -84,7 +84,9 @@ class Arguments:
         space = self.space
         args_w = self.args_w
         kwds_w = self.kwds_w
-        argnames, varargname, kwargname = signature
+        argnames = signature[0]
+        varargname = signature[1]
+        kwargname  = signature[2] 
         #
         #   args_w = list of the normal actual parameters, wrapped
         #   kwds_w = real dictionary {'keyword': wrapped parameter}
