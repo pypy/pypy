@@ -112,7 +112,7 @@ class GenPyrex:
     def annotate(self, input_arg_types):
         a = Annotator(self.functiongraph)
         a.build_types(input_arg_types)
-        a.simplify_calls()
+        a.simplify()
         self.setannotator(a)
 
     def setannotator(self, annotator):

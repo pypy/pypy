@@ -33,6 +33,7 @@ class Op:
         "inplace_add": "+", # weird, but it works
         "mod": "mod",
         "lt": "<",
+        "le": "<=",
         "eq": "=",
         "getitem": "aref",
     }
@@ -82,6 +83,8 @@ class GenCL:
                 return "nil"
         elif isinstance(val, int):
             return str(val)
+        elif val is None:
+            return "nil"
         else:
             return "#<"
     def emitcode(self):

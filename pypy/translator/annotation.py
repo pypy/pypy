@@ -111,13 +111,14 @@ class Annotator:
     def consider_op_not_(self, op, annotations):
         annotations.set_type(op.result, bool)
 
-    # XXX give them Bool result type
-    consider_op_lt = consider_op_add
-    consider_op_le = consider_op_add
-    consider_op_eq = consider_op_add
-    consider_op_ne = consider_op_add
-    consider_op_gt = consider_op_add
-    consider_op_ge = consider_op_add
+    def consider_op_lt(self, op, annotations):
+        annotations.set_type(op.result, bool)
+
+    consider_op_le = consider_op_lt
+    consider_op_eq = consider_op_lt
+    consider_op_ne = consider_op_lt
+    consider_op_gt = consider_op_lt
+    consider_op_ge = consider_op_lt
 
     def consider_op_newtuple(self,op,annotations):
         annotations.set_type(op.result,tuple)

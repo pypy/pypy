@@ -76,5 +76,25 @@ class GenCLTestCase(test.IntTestCase):
         cl_four = self.cl_func(self.two_plus_two)
         self.assertEquals(cl_four(), 4)
 
+    #___________________________________
+    def sieve_of_eratosthenes():
+        # This one is from:
+        # The Great Computer Language Shootout
+        flags = [True] * (8192+1)
+        count = 0
+        i = 2
+        while i <= 8192:
+            if flags[i]:
+                k = i + i
+                while k <= 8192:
+                    flags[k] = False
+                    k = k + i
+                count = count + 1
+            i = i + 1
+        return count
+    def test_sieve(self):
+        cl_sieve = self.cl_func(self.sieve_of_eratosthenes)
+        self.assertEquals(cl_sieve(), 1028)
+
 if __name__ == '__main__':
     test.main()
