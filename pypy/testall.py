@@ -16,16 +16,17 @@ while 1:
             sys.path.insert(0, PYPYDIR)
         break
 
-def find_tests(root, no_appspace=0):
+def find_tests(root, inc_names=[], exc_names=[]):
     testmods = []
     def callback(arg, dirname, names):
-        if ( os.path.basename(dirname) == 'test'
-             and ((not no_appspace) or dirname.find('appspace') == -1) ):
-            package = dirname[len(PYPYDIR)+1:].replace(os.sep, '.')
-            testfiles = [f[:-3] for f in names
-                         if f.startswith('test_') and f.endswith('.py')]
-            for file in testfiles:
-                testmods.append(package + '.' + file)
+        if os.path.basename(dirname) == 'test':
+            parname = os.path.basename(os.path.dirname(dirname))
+            if ((not inc_names) or parname in inc_names) and parname not in exc_names:
+                package = dirname[len(PYPYDIR)+1:].replace(os.sep, '.')
+                testfiles = [f[:-3] for f in names
+                             if f.startswith('test_') and f.endswith('.py')]
+                for file in testfiles:
+                    testmods.append(package + '.' + file)
             
     os.path.walk(root, callback, None)
     
@@ -36,8 +37,20 @@ def find_tests(root, no_appspace=0):
 def main(argv=None):
     if argv is None:
         argv = sys.argv
+
+    inc_names = []
+    exc_names = []
+
+    for arg in argv[1:]:
+        if arg.startswith('--include='):
+            inc_names = arg[len('--include='):].split(',')
+        elif arg.startswith('--exclude='):
+            exc_names = arg[len('--exclude='):].split(',')
+        else:
+            raise Exception, "don't know arg " + arg
+    
     runner = unittest.TextTestRunner()
-    runner.run(find_tests(PYPYDIR, '--noappspace' in sys.argv))
+    runner.run(find_tests(PYPYDIR, inc_names,  exc_names))
     
 if __name__ == '__main__':
     main()
