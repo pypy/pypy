@@ -52,7 +52,7 @@ def asserttextfile(fname):
 def fixpyfiles(ignored, dirname, fnames):
     numpyfiles = 0
     for fname in fnames:
-        if fname.endswith('.py') or fname.endswith('.txt'):
+        if fname.endswith('.py') or fname.endswith('.txt') or fname.endswith('.asc'):
             asserttextfile(os.path.join(dirname, fname))
             numpyfiles += 1
     if numpyfiles:
