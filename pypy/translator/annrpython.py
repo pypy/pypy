@@ -285,7 +285,14 @@ class RPythonAnnotator:
                 self.consider_op(block.operations[i])
             finally:
                 self.bookkeeper.leave()
-        for link in block.exits:
+        # dead code removal: don't follow all exits if the exitswitch is known
+        exits = block.exits
+        if isinstance(block.exitswitch, Variable):
+            s_exitswitch = self.bindings[block.exitswitch]
+            if s_exitswitch.is_constant():
+                exits = [link for link in exits
+                              if link.exitcase == s_exitswitch.const]
+        for link in exits:
             cells = [self.binding(a) for a in link.args]
             self.addpendingblock(fn, link.target, cells)
         if block in self.notify:

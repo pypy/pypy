@@ -105,7 +105,8 @@ def transform_dead_op_vars(self):
     # the set of operations that can safely be removed (no side effects)
     CanRemove = {'newtuple': True,
                  'newlist': True,
-                 'newdict': True}
+                 'newdict': True,
+                 'is_true': True}
     read_vars = {}  # set of variables really used
     variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
     
@@ -121,6 +122,9 @@ def transform_dead_op_vars(self):
                 # on the input variables
                 deps = variable_flow.setdefault(op.result, [])
                 deps.extend(op.args)
+
+        if isinstance(block.exitswitch, Variable):
+            read_vars[block.exitswitch] = True
         
         if block.exits:
             for link in block.exits:
@@ -296,11 +300,26 @@ def transform_dead_op_vars(self):
 ##            self.setbinding(a2, self.bindings[a1])
 ##    self.annotated[block] = True
 
+def transform_dead_code(self):
+    """Remove dead code: these are the blocks that are not annotated at all
+    because the annotation considered that no conditional jump could reach
+    them."""
+    for block in self.annotated:
+        for link in block.exits:
+            if link.target not in self.annotated:
+                lst = list(block.exits)
+                lst.remove(link)
+                block.exits = tuple(lst)
+                if len(block.exits) == 1:
+                    block.exitswitch = None
+                    block.exits[0].exitcase = None
+
 
 def transform_graph(ann):
     """Apply set of transformations available."""
     if ann.translator:
         ann.translator.checkgraphs()
+    transform_dead_code(ann)
     transform_allocate(ann)
     transform_slice(ann)
     ##transform_listextend(ann)

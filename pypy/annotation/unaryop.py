@@ -28,7 +28,14 @@ class __extend__(SomeObject):
         return SomeInteger(nonneg=True)
 
     def is_true(obj):
-        return SomeBool()
+        if obj.is_constant():
+            return immutablevalue(bool(obj.const))
+        else:
+            s_len = obj.len()
+            if s_len.is_constant():
+                return immutablevalue(s_len.const > 0)
+            else:
+                return SomeBool()
 
     def getattr(obj, s_attr):
         # get a SomeBuiltin if the SomeObject has

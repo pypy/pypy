@@ -251,6 +251,23 @@ class AnnonateTestCase(testit.IntTestCase):
         self.assert_(isinstance(s, annmodel.SomeList))
         self.assertEquals(s.s_item, annmodel.SomeInteger(nonneg=True))
 
+    def test_constant_result(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.constant_result, [])
+        a.translator.simplify()
+        # must return "yadda"
+        self.assertEquals(s, annmodel.immutablevalue("yadda"))
+        keys = a.translator.flowgraphs.keys()
+        keys.sort()
+        expected = [snippet.constant_result,
+                    snippet.forty_two,
+                    # and not snippet.never_called
+                    ]
+        expected.sort()
+        self.assertEquals(keys, expected)
+        a.simplify()
+        #a.translator.view()
+
 def g(n):
     return [0,1,2,n]
 

@@ -267,6 +267,18 @@ def call_unpack_56():
     a = call_five_six()
     return len(a), a[0], a[1]
 
+def forty_two():
+    return 42
+
+def never_called():
+    return "booo"
+
+def constant_result():
+    if forty_two():
+        return "yadda"
+    else:
+        return never_called()
+
 # INHERITANCE / CLASS TESTS  
 class C(object): pass
 
