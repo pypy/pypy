@@ -10,7 +10,11 @@ making it run fast.
 # Module imports
 
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
+from pypy.interpreter.gateway import interp2app, applevel
+from pypy.interpreter.error import OperationError 
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import interp_attrproperty, GetSetProperty
+from pypy.interpreter.pycode import PyCode 
 
 import token, compiler
 import PyTokenizer, PyGrammar, DFAParser
@@ -29,7 +33,6 @@ class ParserError (Exception):
     """Class ParserError
     Exception class for parser errors (I assume).
     """
-    pass
 
 # ______________________________________________________________________
 
@@ -37,7 +40,7 @@ class STType (Wrappable):
     """Class STType
     """
     # ____________________________________________________________
-    def __init__ (self, tup = None):
+    def __init__ (self, space, tup = None):
         """STType.__init__()
         Wrapper for parse tree data returned by DFAParser.
 
@@ -45,6 +48,7 @@ class STType (Wrappable):
         is not currently checked. (XXX - should this be checked ala
         sequence2st()?)
         """
+        self.space = space 
         self.tup = tup
 
     # ____________________________________________________________
@@ -80,19 +84,41 @@ class STType (Wrappable):
         return self.tup[0][0] == file_input
 
     # ____________________________________________________________
-    def compile (self, filename = None):
+    def descr_compile (self, w_filename = "<syntax_tree>"): 
         """STType.compile()
         """
+        space = self.space 
+        tup = self.totuple(line_info=1) 
+        w_tup = space.wrap(tup)   
+        w_compileAST = mycompile(space, w_tup, w_filename) 
+        if self.isexpr(): 
+            return exprcompile(space, w_compileAST) 
+        else: 
+            return modcompile(space, w_compileAST) 
+
+app = applevel(""" 
+    import compiler 
+    def mycompile(tup, filename): 
         transformer = compiler.transformer.Transformer()
-        compileAST = transformer.compile_node(self.totuple(1))
-        compiler.misc.set_filename("<syntax_tree>", compileAST)
-        if self.isexpr():
-            gen = compiler.pycodegen.ExpressionCodeGenerator(compileAST)
-        else:
-            gen = compiler.pycodegen.ModuleCodeGenerator(compileAST)
+        compileAST = transformer.compile_node(tup) 
+        compiler.misc.set_filename(filename, compileAST)
+        return compileAST 
+
+    def exprcompile(compileAST): 
+        gen = compiler.pycodegen.ExpressionCodeGenerator(compileAST)
         return gen.getCode()
 
+    def modcompile(compileAST): 
+        gen = compiler.pycodegen.ModuleCodeGenerator(compileAST)
+        return gen.getCode() 
+""") 
+
+mycompile = app.interphook("mycompile") 
+exprcompile = app.interphook("exprcompile") 
+modcompile = app.interphook("modcompile") 
+
 STType.typedef = TypeDef("parser.st", 
+    compile = interp2app(STType.descr_compile), 
 ) 
 
 # ______________________________________________________________________
@@ -170,7 +196,7 @@ def sequence2st (seqObj):
     tup = _seq2st(seqObj)[0]
     if tup[0][0] not in (file_input, eval_input):
         raise ParserError("parse tree does not use a valid start symbol")
-    return STType(tup)
+    return STType(space, tup)
 
 sequence2ast = sequence2st
 tuple2ast = sequence2st
@@ -266,7 +292,7 @@ def expr (space, source):
     Tries to mock the expr() function in the Python parser module, but returns
     one of those silly tuple/list encoded trees.
     """
-    st = _doParse(source, eval_input)
+    st = _doParse(space, source, eval_input)
     return space.wrap(st) 
 expr.unwrap_spec = [ObjSpace, str]
 
@@ -277,21 +303,26 @@ def suite (space, source):
     Tries to mock the suite() function in the Python parser module, but returns
     one of those silly tuple/list encoded trees.
     """
-    st = _doParse(source, file_input)
+    st = _doParse(space, source, file_input)
     return space.wrap(st) 
 suite.unwrap_spec = [ObjSpace, str]
 
 # ______________________________________________________________________
 
-def _doParse (source, start):
+def _doParse (space, source, start):
     """_doParse()
     Ignore the function behind the curtain!  Even if it is kinda like the
     CPython PyParser_SimpleParseString() (I think.)
     """
     global pygrammar
-    tokenizer = PyTokenizer.PyTokenizer()
-    tokenizer.tokenizeString(source)
-    return STType(DFAParser.parsetok(tokenizer, pygrammar, start))
+    try: 
+        tokenizer = PyTokenizer.PyTokenizer()
+        tokenizer.tokenizeString(source)
+        return STType(space, DFAParser.parsetok(tokenizer, pygrammar, start))
+    except SyntaxError: 
+        raise OperationError(space.w_SyntaxError) 
+    except ParserError: 
+        raise OperationError(space.w_RuntimeError) 
 
 # ______________________________________________________________________
 
