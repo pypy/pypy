@@ -23,6 +23,10 @@ class TestZip(testsupport.TestCase):
    def test_string(self):
       self.assertEqual(zip('hello'), [('h',), ('e',), ('l',), ('l',), ('o',)])
 
+   def test_strings(self):
+      self.assertEqual(zip('hello', 'bye'),
+                       [('h', 'b'), ('e', 'y'), ('l', 'e')])
+
    def test_mixed_types(self):
       self.assertEqual(zip('hello', [1,2,3,4], (7,8,9,10)),
                        [('h', 1, 7), ('e', 2, 8), ('l', 3, 9), ('l', 4, 10)])
