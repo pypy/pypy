@@ -976,7 +976,10 @@ def app_mod__String_ANY(format, values):
                         raise TypeError, "format string mismatch"
                     elif index == 0 and not isinstance(values, tuple):
                         values = tuple([values])
-                    value = values[index]
+                    try:
+                        value = values[index]
+                    except IndexError:
+                        raise TypeError, "not enough arguments for format string"
                  
                 if c=='s':
                     pieces.append(str(value)) 
