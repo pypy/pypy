@@ -576,14 +576,21 @@ if not hasattr(dict, 'fromkeys'):
 #     http://www.python.org/2.2.3/descrintro.html
 # it exposes the same special attributes as CPython's.
 class super(object):
-    def __init__(self, type, obj=None):
-        # XXX check the arguments
-        self.__thisclass__ = type
-        self.__self__ = obj
-        if obj is not None and isinstance(obj, type):
-            self.__self_class__ = object.__getattribute__(obj, "__class__")
+    def __init__(self, typ, obj=None):
+        if obj is None:
+            objcls = None        # unbound super object
+        elif _issubtype(type(obj), type) and _issubtype(obj, type):
+            objcls = obj         # special case for class methods
+        elif _issubtype(type(obj), typ):
+            objcls = type(obj)   # normal case
         else:
-            self.__self_class__ = obj
+            objcls = getattr(obj, '__class__', type(obj))
+            if not _issubtype(objcls, typ):
+                raise TypeError, ("super(type, obj): "
+                                  "obj must be an instance or subtype of type")
+        self.__thisclass__ = typ
+        self.__self__ = obj
+        self.__self_class__ = objcls
     def __get__(self, obj, type=None):
         ga = object.__getattribute__
         if ga(self, '__self__') is None and obj is not None:
@@ -592,23 +599,24 @@ class super(object):
             return self
     def __getattribute__(self, attr):
         d = object.__getattribute__(self, '__dict__')
-        if attr in d:
-            return d[attr]   # for __self__, __thisclass__, __self_class__
-        mro = iter(d['__self_class__'].__mro__)
-        for cls in mro:
-            if cls is d['__thisclass__']:
-                break
-        # Note: mro is an iterator, so the second loop
-        # picks up where the first one left off!
-        for cls in mro:
-            try:                
-                x = cls.__dict__[attr]
-            except KeyError:
-                continue
-            if hasattr(x, '__get__'):
-                x = x.__get__(d['__self__'], type(d['__self__']))
-            return x
-        raise AttributeError, attr
+        if attr != '__class__' and d['__self_class__'] is not None:
+            # we want super().__class__ to be the real class
+            # and we don't do anything for unbound type objects
+            mro = iter(d['__self_class__'].__mro__)
+            for cls in mro:
+                if cls is d['__thisclass__']:
+                    break
+            # Note: mro is an iterator, so the second loop
+            # picks up where the first one left off!
+            for cls in mro:
+                try:                
+                    x = cls.__dict__[attr]
+                except KeyError:
+                    continue
+                if hasattr(x, '__get__'):
+                    x = x.__get__(d['__self__'], type(d['__self__']))
+                return x
+        return object.__getattribute__(self, attr)     # fall-back
 
 class complex(object):
     """complex(real[, imag]) -> complex number
