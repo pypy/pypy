@@ -58,11 +58,14 @@ class file_(object):
         """
         Return an iterator for the file.
         """
+        if self._closed:
+            raise ValueError('I/O operation on closed file')
         return self
-
+    xreadlines = __iter__
+    
     def next(self):
         if self._closed:
-            raise StopIteration
+            raise ValueError('I/O operation on closed file')
         line = self.fd.readline()
         if line == '':
             raise StopIteration
@@ -73,7 +76,10 @@ class file_(object):
         Close the file
         """
         self._closed = True
-        getattr(self.fd, 'close', lambda: None)()
+        try:
+            self.fd.close()
+        except AttributeError:
+            pass
 
     def __getattr__(self, attr):
         """
@@ -93,3 +99,20 @@ class file_(object):
         if attr in ['mode', 'name', 'closed', 'encoding']:
             raise TypeError, "readonly attribute:'%s'" % attr
         self.__dict__[attr] = val
+
+    def seek(self, *args, **kw):
+        if self._closed:
+            raise ValueError('I/O operation on closed file')
+        self.fd.seek(*args, **kw)
+
+    def write(self, *args, **kw):
+        if self._closed:
+            raise ValueError('I/O operation on closed file')
+        self.fd.write(*args, **kw)
+
+    def writelines(self, seq = ()):
+        if self._closed:
+            raise ValueError('I/O operation on closed file')
+        for line in seq:
+            self.write(line)
+        

@@ -54,6 +54,7 @@ class BufferingInputStream(Stream):
     bufsize = 2**13 # 8 K
 
     def __init__(self, base, bufsize=None):
+        self.base = base
         self.do_read = getattr(base, "read", None)
                        # function to fill buffer some more
         self.do_tell = getattr(base, "tell", None)
@@ -298,6 +299,7 @@ class BufferingOutputStream(Stream):
     def flush(self):
         self.do_write(self.buf)
         self.buf = ''
+        self.base.flush()
      
     def write(self, data):
         buflen = len(self.buf)
@@ -317,10 +319,10 @@ class BufferingOutputStream(Stream):
             self.write(s)
             
     def close(self):
-        self.do_write(self.buf)
-        self.buf = ''
-        if self.do_close():
-            self.do_close()
+        if (self.buf):
+            self.do_write(self.buf)
+            self.buf = ''
+        self.do_close()
 
     def truncate(self, size=None):
         self.flush()
@@ -334,6 +336,7 @@ class LineBufferingOutputStream(BufferingOutputStream):
     """
 
     def __init__(self, base, bufsize=None):
+        self.base = base
         self.do_write = base.write # Flush buffer
         self.do_tell = base.tell
              # Return a byte offset; has to exist or this __init__() will fail
@@ -381,6 +384,13 @@ class LineBufferingOutputStream(BufferingOutputStream):
             self.do_write(self.buf)
             self.buf = ''
             self.write(line[self.bufsize-buflen:])
+
+    def flush(self):
+        if self.buf:
+            self.do_write(self.buf)
+            self.buf = ''
+        self.base.flush()
+        
         
 class BufferingInputOutputStream(Stream):
     """To handle buffered input and output at the same time, we are
@@ -445,11 +455,12 @@ class CRLFFilter(Stream):
     """
 
     def __init__(self, base):
+        self.base = base
         self.do_read = base.read
         self.atcr = False
         self.close = base.close
 
-    def read(self, n):
+    def read(self, n=-1):
         data = self.do_read(n)
         if self.atcr:
             if data.startswith("\n"):
@@ -597,6 +608,11 @@ class MMapFile(object):
     def writelines(self, lines):
         filter(self.write, lines)
 
+    def flush(self):
+        if self.mm is None:
+            raise ValueError('I/O operation on closed file')
+        self.mm.flush()
+
 class DiskFile(object):
 
     """Standard I/O basis stream using os.open/close/read/write/lseek"""
@@ -643,15 +659,30 @@ class DiskFile(object):
             os.lseek(self.fd, 0, 2) # Move to end of file
 
     def seek(self, offset, whence=0):
+        if self.fd is None:
+            raise ValueError('I/O operation on closed file')
         os.lseek(self.fd, offset, whence)
 
     def tell(self):
+        if self.fd is None:
+            raise ValueError('I/O operation on closed file')
         return os.lseek(self.fd, 0, 1)
 
-    def read(self, n):
-        return os.read(self.fd, n)
+    def read(self, n=-1):
+        if self.fd is None:
+            raise ValueError('I/O operation on closed file')
+        if n >= 0:
+            return os.read(self.fd, n)
+        data = []
+        while 1:
+            moreData = os.read(self.fd, 2**20)
+            if len(moreData) == 0:
+                return ''.join(data)
+            data.append(moreData)
 
     def write(self, data):
+        if self.fd is None:
+            raise ValueError('I/O operation on closed file')
         while data:
             n = os.write(self.fd, data)
             data = data[n:]
@@ -663,21 +694,31 @@ class DiskFile(object):
             os.close(fd)
 
     def truncate(self, size=None):
+        if self.fd is None:
+            raise ValueError('I/O operation on closed file')
         if size is None:
             size = self.tell()
-        if os.name == 'posix':
+        try:
             os.ftruncate(self.fd, size)
-        else:
+        except AttributeError:
             raise NotImplementedError
         
     def isatty(self):
-        if os.name == 'posix':
+        if self.fd is None:
+            raise ValueError('I/O operation on closed file')
+        try:
             return os.isatty(self.fd)
-        else:
+        except AttributeError:
             raise NotImplementedError
         
-    def fileno():
+    def fileno(self):
+        if self.fd is None:
+            raise ValueError('I/O operation on closed file')
         return self.fd
+
+    def flush(self):
+        if self.fd is None:
+            raise ValueError('I/O operation on closed file')
         
     def __del__(self):
         try:
