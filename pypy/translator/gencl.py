@@ -1,6 +1,6 @@
 import autopath
 from pypy.objspace.flow.model import *
-from pypy.translator.annotation import Annotator
+from pypy.translator.annrpython import Annotator
 
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.transform import transform_graph

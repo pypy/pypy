@@ -6,7 +6,7 @@ transformation may introduce new space operation.
 
 import autopath
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
-from pypy.translator.annotation import Annotator
+from pypy.translator.annrpython import Annotator
 
 # b = newlist(a)
 # d = mul(b, int c)

@@ -5,7 +5,7 @@ generate Pyrex files from the flowmodel.
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import mkentrymap
-from pypy.translator.annotation import Annotator
+from pypy.translator.annrpython import Annotator
 
 class Op:
     def __init__(self, operation, gen, block):

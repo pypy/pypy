@@ -3,7 +3,7 @@ import autopath
 from pypy.tool import test
 from pypy.tool.udir import udir
 
-from pypy.translator.annotation import Annotator
+from pypy.translator.annrpython import Annotator
 from pypy.objspace.flow.model import *
 
 class AnnonateTestCase(test.IntTestCase):
