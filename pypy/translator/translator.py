@@ -52,9 +52,10 @@ class Translator:
         self.flowgraph = space.build_flow(func)
         try:
             import inspect
-            self.flowgraph.source = inspect.getsource(func)
+            self.py_source = inspect.getsource(func)
         except IOError:
-            pass   # e.g. when func is defined interactively
+            # e.g. when func is defined interactively
+            self.py_source = "<interactive>"
 
     def gv(self):
         """Show the control flow graph -- requires 'dot' and 'gv'."""
@@ -71,6 +72,9 @@ class Translator:
         self.annotator = Annotator(self.flowgraph)
         self.annotator.build_types(input_args_types)
         return self.annotator
+
+    def source(self):
+        return self.py_source
 
     def pyrex(self):
         g = GenPyrex(self.flowgraph)
@@ -105,3 +109,7 @@ if __name__ == '__main__':
         return total
 
     print __doc__
+
+    # 2.3 specific -- sanxiyn
+    import os
+    os.putenv("PYTHONINSPECT", "1")

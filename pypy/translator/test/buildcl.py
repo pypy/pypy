@@ -2,7 +2,7 @@ import autopath
 
 import sys
 from cStringIO import StringIO
-from pypy.objspace.flow import Space
+from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.gencl import GenCL
 from vpath.adapter.process import exec_cmd
 
@@ -11,7 +11,7 @@ def readlisp(s):
     return int(s)
 
 def make_cl_func(func, cl, path):
-    fun = Space().build_flow(func)
+    fun = FlowObjSpace().build_flow(func)
     gen = GenCL(fun)
     out = gen.emitcode()
     fp = path.join("test.lisp")
