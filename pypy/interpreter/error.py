@@ -27,6 +27,12 @@ class OperationError(Exception):
         self.application_traceback = tb
         self.debug_excs = []
 
+    def clear(self, space):
+        # for sys.exc_clear()
+        self.w_type = space.w_None
+        self.w_value = space.w_None
+        self.application_traceback = None
+
     def match(self, space, w_check_class):
         "Check if this application-level exception matches 'w_check_class'."
         return space.exception_match(self.w_type, w_check_class)
