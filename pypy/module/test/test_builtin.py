@@ -156,6 +156,7 @@ class TestBuiltinApp(test.AppTestCase):
     def test_intern(self):
         s = 'xxx'
         self.assertEquals(intern(s), s)
+        self.assertRaises(TypeError, intern, 1)
         
 class TestInternal(test.IntTestCase):
 
