@@ -16,8 +16,10 @@ class TestFile:
         assert self.fd.tell() == 0
 
     def test_case_readonly(self):
-        f=_file.file_('/tmp/tt', 'w')
-        assert f.name == '/tmp/tt'
+        from tempfile import mktemp
+        fn = mktemp()
+        f=_file.file_(fn, 'w')
+        assert f.name == fn
         assert f.mode == 'w'
         assert f.closed == False
         assert f.encoding == None # Fix when we find out what this is
