@@ -72,7 +72,7 @@ class FunctionDef:
         fast_function_header = ('static PyObject *\n'
                                 '%s(%s)' % (self.fast_name, declare_fast_args))
 
-        name_of_defaults = [self.genc.nameof(x, debug=('Default argument of',
+        name_of_defaults = [self.genc.pyobjrepr.nameof(x, debug=('Default argument of',
                                                        self))
                             for x in (func.func_defaults or ())]
 
@@ -91,7 +91,7 @@ class FunctionDef:
     def get_globalobject(self):
         if self.globalobject_name is None:
             self.wrapper_name = 'py' + self.fast_name
-            self.globalobject_name = self.genc.uniquename('gfunc_' +
+            self.globalobject_name = self.genc.pyobjrepr.uniquename('gfunc_' +
                                                           self.base_name)
         return self.globalobject_name
 
@@ -105,7 +105,7 @@ class FunctionDef:
         if isinstance(v, Variable):
             return self.localscope.localname(v.name)
         elif isinstance(v, Constant):
-            return self.genc.nameof(v.value,
+            return self.genc.nameofconst(v,
                                     debug=('Constant in the graph of', self))
         else:
             raise TypeError, "expr(%r)" % (v,)
@@ -309,7 +309,7 @@ class FunctionDef:
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
                     yield 'if (PyErr_ExceptionMatches(%s)) {' % (
-                        self.genc.nameof(link.exitcase),)
+                        self.genc.pyobjrepr.nameof(link.exitcase),)
                     yield '\tPyObject *exc_cls, *exc_value, *exc_tb;'
                     yield '\tPyErr_Fetch(&exc_cls, &exc_value, &exc_tb);'
                     yield '\tif (exc_value == NULL) {'
