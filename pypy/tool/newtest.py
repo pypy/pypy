@@ -8,9 +8,8 @@ import unittest
 import vpath
 
 #TODO
-# - add support for ignored/skipped tests
+# - add support for ignored tests
 # - support TestItem.run with different object spaces
-# - find out why some modules can't be loaded
 
 class TestStatus:
     def __init__(self, name, longstring, shortstring):
@@ -209,7 +208,8 @@ class TestSuite:
                     module = self._module_from_modpath(modpath)
                     items = self._items_from_module(module)
                 except:
-                    print "skipping testfile (failed loading it)", modpath
+                    print >> sys.stderr, \
+                          "Warning: can't load module %s" % modpath
                 else:
                     self.items.extend(items)
 
@@ -222,10 +222,14 @@ class TestSuite:
             yield result
 
 
-def main():
-    #filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
+def main(ignore_selftest=True):
+    # ignore dummy unit tests
+    if ignore_selftest:
+        filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
+    else:
+        filterfunc = lambda m: True
     ts = TestSuite()
-    ts.initfromdir(autopath.pypydir)
+    ts.initfromdir(autopath.pypydir, filterfunc=filterfunc)
     for res in ts.testresults():
         if res.status == SUCCESS:
             continue
