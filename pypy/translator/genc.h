@@ -13,7 +13,7 @@
 #define INSIDE_FUNCTION "<unknown>"
 
 #define op_richcmp(x,y,r,err,dir)   \
-                       if (!(r=PyObject_RichCompare(x,y,dir))) goto err;
+					   if (!(r=PyObject_RichCompare(x,y,dir))) goto err;
 #define OP_LT(x,y,r,err)  op_richcmp(x,y,r,err, Py_LT)
 #define OP_LE(x,y,r,err)  op_richcmp(x,y,r,err, Py_LE)
 #define OP_EQ(x,y,r,err)  op_richcmp(x,y,r,err, Py_EQ)
@@ -195,30 +195,49 @@ static PyTypeObject PyGenCFunction_Type = {
 
 static int callstack_depth = -1;
 #define OP_SIMPLE_CALL(args, r, err) do { \
-    callstack_depth++; \
-	PyCodeObject *c = getcode(INSIDE_FUNCTION " OP_SIMPLE_CALL" #args, __LINE__); \
+	char *c_signature = INSIDE_FUNCTION " OP_SIMPLE_CALL" #args; \
+	PyCodeObject *c; \
+	PyObject *locals = PyDict_New(); \
+	PyObject *locals_list = PyList_CrazyPack args; \
+	PyObject *locals_signature = PyString_FromString(c_signature); \
+	PyObject *locals_lineno = PyInt_FromLong(__LINE__); \
+	callstack_depth++; \
+	c = getcode(c_signature, __LINE__); \
+	if (locals_list != NULL && locals_signature != NULL && locals_lineno != NULL && locals != NULL) { \
+		PyDict_SetItemString(locals, "c_args", locals_list); \
+		PyDict_SetItemString(locals, "c_signature", locals_signature); \
+		PyDict_SetItemString(locals, "c_lineno", locals_lineno); \
+		Py_DECREF(locals_list); \
+	} else { \
+		Py_XDECREF(locals); \
+		Py_XDECREF(locals_list); \
+		Py_XDECREF(locals_signature); \
+		Py_XDECREF(locals_lineno); \
+		locals = NULL; \
+	} \
 	PyThreadState *tstate = PyThreadState_GET(); \
 	PyFrameObject *f; \
-	if (c == NULL) { \
+	if (c == NULL || locals == NULL) { \
 		r = NULL; \
-        callstack_depth--; \
+		callstack_depth--; \
 		goto err; \
 	} \
-	f = PyFrame_New(tstate, c, PyEval_GetGlobals(), NULL); \
+	f = PyFrame_New(tstate, c, PyEval_GetGlobals(), locals); \
 	if (f == NULL) { \
 		r = NULL; \
-        callstack_depth--; \
+		callstack_depth--; \
 		goto err; \
 	} \
 	Py_DECREF(c); \
+	Py_DECREF(locals); \
 	tstate->frame = f; \
 	if (trace_frame(tstate, f, PyTrace_CALL, Py_None) < 0) { \
 		r = NULL; \
-        callstack_depth--; \
+		callstack_depth--; \
 		goto err; \
 	} \
 	r = PyObject_CallFunctionObjArgs args; \
-    callstack_depth--; \
+	callstack_depth--; \
 	if (r == NULL) { \
 		if (tstate->curexc_traceback == NULL) { \
 			PyTraceBack_Here(f); \
@@ -236,8 +255,8 @@ static int callstack_depth = -1;
 	tstate->frame = f->f_back; \
 	Py_DECREF(f); \
 	if (r == NULL) { \
-        goto err; \
-    } \
+		goto err; \
+	} \
 } while (0);
 
 #else
@@ -246,6 +265,33 @@ static int callstack_depth = -1;
 					goto err;
 
 #endif
+
+static PyObject* PyList_CrazyPack(PyObject *begin, ...)
+{
+	int i;
+	PyObject *o;
+	PyObject *result;
+	va_list vargs;
+
+	result = PyList_New(0);
+	if (result == NULL || begin == NULL) {
+		return result;
+	}
+	va_start(vargs, begin);
+	if (PyList_Append(result, begin) == -1) {
+		Py_XDECREF(result);
+		return result;
+	}
+	while ((o = va_arg(vargs, PyObject *)) != NULL) {
+		if (PyList_Append(result, o) == -1) {
+			Py_XDECREF(result);
+			return NULL;
+		}
+	}
+	va_end(vargs);
+	return result;
+}
+
 
 static PyObject* PyList_Pack(int n, ...)
 {
@@ -442,16 +488,16 @@ getcode(char* func_name, int lineno)
 	PyObject *nulltuple = NULL;
 	PyObject *filename = NULL;
 	PyCodeObject *tb_code = NULL;
-    int i;
+	int i;
 
 #if defined(OBNOXIOUS_PRINT_STATEMENTS)
-    printf("%5d: ", lineno);
-    assert(callstack_depth >= 0);
-    if (callstack_depth) {
-        for (i=0; i<callstack_depth; ++i) {
-            printf("  ");
-        }
-    }
+	printf("%5d: ", lineno);
+	assert(callstack_depth >= 0);
+	if (callstack_depth) {
+		for (i=0; i<callstack_depth; ++i) {
+			printf("  ");
+		}
+	}
 	printf("%s\n", func_name);
 #endif
 	code = PyString_FromString("");
@@ -486,7 +532,7 @@ getcode(char* func_name, int lineno)
 	Py_DECREF(filename);
 	Py_DECREF(name);
 	return tb_code;
- failed:
+failed:
 	Py_XDECREF(code);
 	Py_XDECREF(name);
 	return NULL;
