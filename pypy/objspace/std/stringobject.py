@@ -317,3 +317,11 @@ def str_str(space, w_str):
     return w_str
 
 StdObjSpace.str.register(str_str, W_StringObject)
+
+def str_repr(space, w_str):
+    # XXX this is bogus -- mwh
+    a = space.add
+    q = space.wrap("'")
+    return a(a(q, w_str), q)
+
+StdObjSpace.repr.register(str_repr, W_StringObject)

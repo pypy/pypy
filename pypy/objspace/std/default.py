@@ -136,3 +136,14 @@ def default_type(space, w_obj):
         return w_type
 
 StdObjSpace.type.register(default_type, W_ANY)
+
+def default_str(space, w_obj):
+    return space.repr(w_obj)
+
+StdObjSpace.str.register(default_str, W_ANY)
+
+def default_repr(space, w_obj):
+    return space.wrap('<%s object at %s>'%(
+        space.type(w_obj).typename, space.unwrap(space.id(w_obj))))
+
+StdObjSpace.repr.register(default_repr, W_ANY)
