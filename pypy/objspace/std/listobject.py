@@ -220,11 +220,24 @@ def setitem__List_Int_ANY(space, w_list, w_index, w_any):
     items[idx] = w_any
     return space.w_None
 
-def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
-    return _setitem_slice_helper(space, w_list, w_slice, w_list2.ob_item, w_list2.ob_size)
+# XXX the following is disabled, so that 'setitem' can be a binary multimethod.
+##def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
+##    return _setitem_slice_helper(space, w_list, w_slice, w_list2.ob_item, w_list2.ob_size)
 
-def setitem__List_Slice_Tuple(space, w_list, w_slice, w_tuple):
-    t = w_tuple.wrappeditems
+##def setitem__List_Slice_Tuple(space, w_list, w_slice, w_tuple):
+##    t = w_tuple.wrappeditems
+##    return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
+
+def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
+    # for performance, check for common cases of w_iterable
+    # (this used to be done by the disabled cases of 'setitem' above)
+    if isinstance(w_iterable, W_ListObject):
+        return _setitem_slice_helper(space, w_list, w_slice,
+                                     w_iterable.ob_item, w_iterable.ob_size)
+    if isinstance(w_iterable, W_TupleObject):
+        t = w_tuple.wrappeditems
+    else:
+        t = space.unpackiterable(w_iterable)
     return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
 
 def setitem__List_Slice_ANY(space, w_list, w_slice, w_iterable):
@@ -346,8 +359,8 @@ def _ins1(w_list, where, w_any):
     items[where] = w_any
     w_list.ob_size += 1
 
-def list_insert__List_Int_ANY(space, w_list, w_where, w_any):
-    _ins1(w_list, w_where.intval, w_any)
+def list_insert__List_ANY_ANY(space, w_list, w_where, w_any):
+    _ins1(w_list, space.int_w(w_where), w_any)
     return space.w_None
 
 def list_append__List_ANY(space, w_list, w_any):
@@ -391,11 +404,11 @@ def _del_slice(w_list, ilow, ihigh):
         items[i] = None
 
 # note that the default value will come back wrapped!!!
-def list_pop__List_Int(space, w_list, w_idx=-1):
+def list_pop__List_ANY(space, w_list, w_idx=-1):
     if w_list.ob_size == 0:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
-    i = w_idx.intval
+    i = space.int_w(w_idx)
     if i < 0:
         i += w_list.ob_size
     if i < 0 or i >= w_list.ob_size:
