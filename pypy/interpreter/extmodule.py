@@ -30,7 +30,7 @@ class ExtModule(Module):
                         continue  # ignore CPython functions
 
                     # ignore tricky class-attrs we can't send from interp to app-level 
-                    if name in ('__metaclass__',):
+                    if name in ('__metaclass__','__module__',):
                         continue  
                     space.call_method(self.w_dict, 'setdefault', 
                                       space.wrap(name), space.wrap(value))
