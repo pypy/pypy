@@ -43,6 +43,10 @@ class GenC:
     def nameof(self, obj):
         key = type(obj), obj   # to avoid confusing e.g. 0 and 0.0
         try:
+            hash(key)
+        except TypeError:
+            key = id(obj)
+        try:
             return self.cnames[key]
         except KeyError:
             if type(obj).__module__ != '__builtin__':
@@ -164,9 +168,10 @@ class GenC:
         for key, value in content:
             if key.startswith('__') and key != '__init__':
                 if key in ['__module__', '__doc__', '__dict__',
-                           '__weakref__']:
+                           '__weakref__', '__repr__']:
                     continue
-                raise Exception, "unexpected name %r in class %s"%(key, cls)
+                # XXX some __NAMES__ are important... nicer solution sought
+                #raise Exception, "unexpected name %r in class %s"%(key, cls)
             lines.append('INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
                 name, key, self.nameof(value)))
         self.globaldecl.append('static PyObject* %s;' % name)
@@ -193,6 +198,31 @@ class GenC:
         self.initcode.append('INITCHK(%s = PyTuple_New(%d))' % (name, len(tup)))
         self.initcode.extend(lines)
         return name
+
+    def nameof_list(self, lis):
+        name = self.uniquename('g%dlist' % len(lis))
+        lines = []
+        for i in range(len(lis)):
+            item = self.nameof(lis[i])
+            lines.append('\tPy_INCREF(%s);' % item)
+            lines.append('\tPyList_SET_ITEM(%s, %d, %s);' % (name, i, item))
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('INITCHK(%s = PyList_New(%d))' % (name, len(lis)))
+        self.initcode.extend(lines)
+        return name
+
+    def nameof_dict(self, dic):
+        name = self.uniquename('g%ddict' % len(dic))
+        lines = []
+        for k in dic:
+            assert type(k) is str, "can only dump dicts with string keys"
+            lines.append('\tINITCHK(PyDict_SetItemString(%s, "%s", %s) >= 0)'%(
+                name, k, self.nameof(dic[k])))
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('INITCHK(%s = PyDict_New())' % (name,))
+        self.initcode.extend(lines)
+        return name
+            
 
     def gen_source(self):
         f = self.f
