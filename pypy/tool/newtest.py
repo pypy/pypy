@@ -67,7 +67,6 @@ import autopath
 
 import cStringIO as StringIO
 import inspect
-import new
 import os
 import sys
 import traceback
@@ -270,8 +269,6 @@ class Failure(TestResultWithTraceback):
 #
 # other classes
 #
-_dummy_module = new.module('<dummy_module>')
-
 class TestItem:
     """
     Represent either a test function, or a single test method from a
