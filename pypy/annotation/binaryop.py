@@ -283,7 +283,7 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
             return SomeBuiltin(bltn1.analyser, s_self)
 
 class __extend__(pairtype(SomePBC, SomePBC)):
-    def union((pbc1, pbc2)):
+    def union((pbc1, pbc2)):       
         if len(pbc2.prebuiltinstances) > len(pbc1.prebuiltinstances):
             pbc1, pbc2 = pbc2, pbc1
         d = pbc1.prebuiltinstances.copy()
@@ -294,7 +294,15 @@ class __extend__(pairtype(SomePBC, SomePBC)):
                         "union failed for %r with classdefs %r and %r" % 
                         (x, classdef, d[x]))
                 if isclassdef(classdef):
+                    classdef2 = classdef
                     classdef = classdef.commonbase(d[x])
+                    for cand in classdef.getmro():
+                        if x in cand.__dict__.values():
+                            break
+                    else:
+                        assert False, ("confused pbc union trying unwarranted"
+                                       "moving up of method %s from pair %s %s" %
+                                       (x, d[x], classdef2))
             d[x] = classdef
         result =  SomePBC(d)
         return result
