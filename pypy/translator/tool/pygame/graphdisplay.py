@@ -138,6 +138,13 @@ class GraphDisplay(Display):
     def zoom(self, scale):
         self.viewer.shiftscale(max(scale, self.calculate_zoom_to_fit()))
         self.updated_viewer()
+
+    def pan(self, (x, y)):
+        self.viewer.shiftoffset(x * (self.width // 8), y * (self.height // 8))
+        self.updated_viewer()
+
+    def fast_pan(self, (x, y)):
+        self.pan((x * 4, y * 4))
     
     def update_status_bar(self):
         self.statusbarinfo = None
