@@ -11,7 +11,8 @@ class Options(option.Options):
 def get_main_options():
     options = option.get_standard_options()
     options.append(make_option(
-        '-i', action="store_true", dest="interactive"))
+        '-i', action="store_true", dest="interactive",
+        help="inspect interactively after running script"))
     
     def command_callback(option, opt, value, parser):
         parser.values.command = parser.rargs[:]
@@ -19,7 +20,8 @@ def get_main_options():
         
     options.append(make_option(
         '-c', action="callback",
-        callback=command_callback))
+        callback=command_callback,
+        help="program passed in as CMD (terminates option list)"))
         
     return options
 

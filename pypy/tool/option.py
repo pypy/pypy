@@ -22,9 +22,11 @@ def get_standard_options():
         callback=objspace_callback, callback_args=("trivial",),
         help="run in trivial object space"))
     options.append(make_option(
-        '-v', action="count", dest="verbose"))
+        '-v', action="count", dest="verbose",
+        help="verbose"))
     options.append(make_option(
-        '-w', action="store_true", dest="showwarning"))
+        '-w', action="store_true", dest="showwarning",
+        help="something to do with warnings (ask Holger!)"))
 
     return options
 
