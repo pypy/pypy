@@ -176,13 +176,14 @@ class SomeBuiltin(SomeCallable):
 #        self.meths = meths   # map {python_function: classdef}
 
 
-class SomePrebuiltConstant(SomeObject):
+class SomePBC(SomeObject):
     """Stands for a global user instance, built prior to the analysis,
     or a set of such instances."""
     def __init__(self, prebuiltinstances):
         self.prebuiltinstances = prebuiltinstances  
         self.knowntype = reduce(commonbase, 
                                 [x.__class__ for x in prebuiltinstances])
+SomePrebuiltConstant = SomePBC
         
 
 class SomeImpossibleValue(SomeObject):
