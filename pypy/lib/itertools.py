@@ -339,7 +339,7 @@ class imap:
 
 
 
-def islice(iterable, *args):
+class islice:
     """Make an iterator that returns selected elements from the
     iterable.  If start is non-zero, then elements from the iterable
     are skipped until start is reached. Afterward, elements are
@@ -352,21 +352,24 @@ def islice(iterable, *args):
     internal structure has been flattened (for example, a multi-line
     report may list a name field on every third line).
     """ 
-    s = slice(*args)
-    start, stop, step = s.start or 0, s.stop, s.step or 1
-    next = iter(iterable).next
-    cnt = 0 
-    while cnt < start:
-        next()
-	cnt += 1
-    while stop is None or cnt < stop:
-        yield next()
-	cnt += 1
-        skip = step - 1
-	while skip:
-	    next()
-	    cnt += 1
-	    skip -= 1
+    def __init__(self, iterable, *args):
+        s = slice(*args)
+        self.start, self.stop, self.step = s.start or 0, s.stop, s.step or 1
+        self.donext = iter(iterable).next
+
+    def __iter__(self):
+        cnt = 0
+        while cnt < self.start:
+            self.donext()
+            cnt += 1
+        while self.stop is None or cnt < self.stop:
+            yield self.donext()
+            cnt += 1
+            skip = self.step - 1
+            while skip:
+                self.donext()
+                cnt += 1
+                skip -= 1
 
 class izip:
     """Make an iterator that aggregates elements from each of the
