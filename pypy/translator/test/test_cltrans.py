@@ -42,6 +42,7 @@ from pypy.translator.tool.buildcl import Literal
 class GenCLTestCase(testit.IntTestCase):
 
     def setUp(self):
+        self.space = testit.objspace('flow')        
         if not global_cl:
             raise (testit.TestSkip,
                    "Common Lisp neither configured nor detected.")
