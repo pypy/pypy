@@ -120,8 +120,11 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
     def is_(self, w_obj1, w_obj2):
         return self.unwrap(w_obj1) is self.unwrap(w_obj2)
 
-    def unpacktuple(self, w_tuple):
+    def unpacktuple(self, w_tuple, expected_length=None):
         assert isinstance(w_tuple, tuple)
+        if expected_length is not None and expected_length != len(w_tuple):
+            raise ValueError, "got a tuple of length %d instead of %d" % (
+                len(w_tuple), expected_length)
         return list(w_tuple)
 
     def reraise(self):

@@ -49,11 +49,13 @@ class BuiltinModule(Module):
         w_builtins = space.w_builtins
         self.__saved_hooks = {}
         newhooks = {}
-        for name, hook in [
-            ('__interplevel__exec',     self.app_interplevelexec),
-            ('__interplevel__eval',     self.app_interpleveleval),
-            ('__interplevel__execfile', self.app_interplevelexecfile),
-            ('__import__',              self.app_interplevelimport)]:
+        
+        for name, impl in [
+            ('__interplevel__exec',     self.interplevelexec.im_func),
+            ('__interplevel__eval',     self.interpleveleval.im_func),
+            ('__interplevel__execfile', self.interplevelexecfile.im_func),
+            ('__import__',              self.interplevelimport.im_func)]:
+            hook = gateway.interp2app(impl).get_method(self)
             w_name = space.wrap(name)
             try:
                 self.__saved_hooks[name] = space.getitem(w_builtins, w_name)
@@ -142,11 +144,6 @@ class BuiltinModule(Module):
             return space.call_function(self.__saved_hooks['__import__'],
                                        w_modulename, w_globals,
                                        w_locals, w_fromlist)
-
-    app_interplevelexec     = gateway.interp2app(interplevelexec)
-    app_interpleveleval     = gateway.interp2app(interpleveleval)
-    app_interplevelexecfile = gateway.interp2app(interplevelexecfile)
-    app_interplevelimport   = gateway.interp2app(interplevelimport)
 
     class AppModuleHack:
         """For interp-level convenience: 'from __applevel__ import func'

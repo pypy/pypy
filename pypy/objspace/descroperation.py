@@ -301,12 +301,17 @@ def _make_comparison_impl(symbol,specialnames):
 
 def _make_inplace_impl(symbol,specialnames):
     specialname, = specialnames
+    assert specialname.startswith('__i') and specialname.endswith('__')
+    noninplacespacemethod = specialname[3:-2]
     def inplace_impl(space,w_lhs,w_rhs):
         w_impl = space.lookup(w_lhs,specialname)
-        if w_impl is None:
-            raise OperationError(space.w_TypeError,
-                    space.wrap("operands do not support inplace %s" % symbol))
-        return space.get_and_call_function(w_impl,w_lhs,w_rhs)
+        if w_impl is not None:
+            w_res = space.get_and_call_function(w_impl,w_lhs,w_rhs)
+            if _check_notimplemented(space,w_res):
+                return w_res
+        # XXX fix the error message we get here
+        return getattr(space, noninplacespacemethod)(w_lhs,w_rhs)
+
     return inplace_impl
 
 def _make_unaryop_impl(symbol,specialnames):

@@ -137,30 +137,6 @@ class Gateway(object):
         # and the result is a wrapped version of this Function.
         return space.wrap(self.get_function(space))
 
-    def __call__(self, space, *args_w, **kwds_w):
-        # to call the Gateway as a non-method, 'space' must be explicitely
-        # supplied. We build the Function object and call it.
-        fn = self.get_function(space)
-        return fn.descr_function_call(*args_w, **kwds_w)
-
-    def __get__(self, obj, cls=None):
-        # to get the Gateway as a method out of an instance, we build a
-        # Function and get it.
-        if obj is None:
-            return self   # Gateways as unbound methods not implemented
-        else:
-            # the object space is implicitely fetched out of the instance
-            if isinstance(self.code, BuiltinCode):
-                assert self.code.ismethod, (
-                    'global built-in function %r used as method' %
-                    self.code.func)
-            space = obj.space
-            fn = self.get_function(space)
-            if cls is None:
-                cls = obj.__class__
-            return Method(space, space.wrap(fn),
-                          space.wrap(obj), space.wrap(cls))
-
     def get_function(self, space):
         try:
             return self.functioncache[space]
@@ -198,6 +174,19 @@ class Gateway(object):
             self.functioncache[space] = fn
         return fn
 
+    def get_method(self, obj):
+        # to get the Gateway as a method out of an instance, we build a
+        # Function and get it.
+        # the object space is implicitely fetched out of the instance
+        if isinstance(self.code, BuiltinCode):
+            assert self.code.ismethod, (
+                'global built-in function %r used as method' %
+                self.code.func)
+        space = obj.space
+        fn = self.get_function(space)
+        return Method(space, space.wrap(fn),
+                      space.wrap(obj), space.wrap(obj.__class__))
+
 
 class app2interp(Gateway):
     """Build a Gateway that calls 'app' at app-level."""
@@ -219,6 +208,19 @@ class app2interp(Gateway):
 
     def getdefaults(self, space):
         return [space.wrap(val) for val in self.staticdefs]
+
+    def __call__(self, space, *args_w, **kwds_w):
+        # to call the Gateway as a non-method, 'space' must be explicitely
+        # supplied. We build the Function object and call it.
+        fn = self.get_function(space)
+        return fn.descr_function_call(*args_w, **kwds_w)
+
+    def __get__(self, obj, cls=None):
+        if obj is None:
+            return self
+        else:
+            method = self.get_method(obj)
+            return method.descr_method_call
 
 class interp2app(Gateway):
     """Build a Gateway that calls 'f' at interp-level."""
