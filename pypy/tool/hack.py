@@ -5,9 +5,13 @@ import new, sys
 if sys.version_info > (2, 2):
 
     def func_with_new_name(func, newname):
-        return new.function(func.func_code, func.func_globals,
+        f = new.function(func.func_code, func.func_globals,
                             newname, func.func_defaults,
                             func.func_closure)
+        if func.func_dict: 
+            f.func_dict = {}
+            f.func_dict.update(func.func_dict) 
+        return f 
 
 else:
 
