@@ -273,3 +273,13 @@ class TestTypedTestCase:
         result = fn(l)
         assert l == [3, 'c', 8, 11, 'h', 9]
         assert result == ([3, 'c'], [9], [11, 'h'])
+
+    def test_slice_long(self):
+        def slice_long(l=list, n=int):
+            return l[:n]
+        fn = self.getcompiled(slice_long)
+        l = list('abc')
+        result = fn(l, 2**32)
+        assert result == list('abc')
+        result = fn(l, 2**64)
+        assert result == list('abc')
