@@ -207,9 +207,18 @@ class RPythonAnnotator:
                 inputcells.append(annmodel.immutablevalue(extra))
         inputcells.extend(extracells)
         self.addpendingblock(func, block, inputcells, factory)
+
         # get the (current) return value
         v = graph.getreturnvar()
-        return self.bindings.get(v, annmodel.SomeImpossibleValue())
+        try:
+            return self.bindings[v]
+        except KeyError: 
+            # let's see if the graph only has exception returns 
+            if graph.hasonlyexceptionreturns(): 
+                # XXX for functions with exceptions what to 
+                #     do anyway? 
+                return annmodel.SomeNone() 
+            return annmodel.SomeImpossibleValue()
 
     def reflowfromposition(self, position_key):
         fn, block, index = position_key

@@ -318,6 +318,13 @@ class AnnonateTestCase(testit.IntTestCase):
         # but let's at least check *something*
         self.assert_(isinstance(s, SomeCallable))
 
+    def test_func_calls_func_which_just_raises(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.funccallsex, [])
+        # the test is mostly that the above line hasn't blown up
+        # but let's at least check *something*
+        #self.assert_(isinstance(s, SomeCallable))
+
 def g(n):
     return [0,1,2,n]
 

@@ -32,6 +32,22 @@ class FunctionGraph:
             block.exits      = ()
         return block
 
+    def hasonlyexceptionreturns(self):
+        try:
+            return self._onlyex
+        except AttributeError: 
+            def visit(link):
+                if isinstance(link, Link):
+                    if link.target == self.returnblock: 
+                        raise ValueError(link) 
+            try:
+                traverse(visit, self)
+            except ValueError:
+                self._onlyex = False 
+            else:
+                self._onlyex = True
+            return self._onlyex 
+
     def show(self):
         from pypy.translator.tool.pygame.flowviewer import SingleGraphLayout
         SingleGraphLayout(self).display()

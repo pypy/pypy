@@ -576,3 +576,10 @@ def mergefunctions(cond):
     else:
         x = func2
     return x
+
+def func_producing_exception():
+    raise ValueError, "this might e.g. block the caller"
+
+def funccallsex():
+    return func_producing_exception()
+
