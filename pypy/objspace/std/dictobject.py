@@ -32,9 +32,21 @@ class W_DictObject:
         self.data = [ (w_key,Cell(w_value)) for w_key,w_value in list_pairs_w ]
 
     def non_empties(self):
-        return [  (w_key,cell) for w_key,cell in self.data if not cell.is_empty()]
+        return [ (w_key,cell) for w_key,cell in self.data if not cell.is_empty()]
 
+    def _cell(self,space,w_lookup):
+        data = self.data
+        for w_key, cell in data:
+            if space.is_true(space.eq(w_lookup, w_key)):
+                break
+        else:
+            cell = Cell()
+            data.append((w_lookup,cell))
+        return cell
 
+    def cell(self,space,w_lookup):
+        return space.wrap(self._cell(space,w_lookup))
+                
 def dict_is_true(space, w_dict):
     return not not w_dict.non_empties()
 
@@ -58,13 +70,8 @@ def getitem_dict_any(space, w_dict, w_lookup):
 StdObjSpace.getitem.register(getitem_dict_any, W_DictObject, W_ANY)
 
 def setitem_dict_any_any(space, w_dict, w_newkey, w_newvalue):
-    data = w_dict.data
-    for w_key,cell in data:
-        if space.is_true(space.eq(w_newkey, w_key)):
-            cell.set(w_newvalue)
-            return
-    # add new (key,Cell(value)) pair
-    data.append((w_newkey, Cell(w_newvalue)))
+    cell = w_dict._cell(space,w_newkey)
+    cell.set(w_newvalue)
 
 StdObjSpace.setitem.register(setitem_dict_any_any, W_DictObject, W_ANY, W_ANY)
 
