@@ -3,7 +3,7 @@ import py
 from py.__impl__.magic import exprinfo
 from py.code import InspectableFrame
 from pypy.objspace.std import StdObjSpace
-from pypy.interpreter.gateway import app2interp, interp2app
+from pypy.interpreter.gateway import app2interp_temp, interp2app_temp
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.error import OperationError
 
@@ -61,7 +61,7 @@ def build_pytest_assertion(space):
     w_BuiltinAssertionError = space.getitem(space.w_builtins,
                                             space.wrap('AssertionError'))
     w_metaclass = space.type(w_BuiltinAssertionError)
-    w_init = space.wrap(interp2app(my_init))
+    w_init = space.wrap(interp2app_temp(my_init))
     w_dict = space.newdict([])
     space.setitem(w_dict, space.wrap('__init__'), w_init)
     return space.call_function(w_metaclass,
@@ -92,7 +92,7 @@ def test_myexception():
     def app_test_func():
         x = 6*7
         assert x == 43
-    t = app2interp(app_test_func)
+    t = app2interp_temp(app_test_func)
     f = t.get_function(space)
     space.setitem(space.w_builtins, space.wrap('AssertionError'), 
                   build_pytest_assertion(space))
