@@ -34,15 +34,24 @@ def sc_normalize_exception(space, fn, args):
        - assumes that Arg is the value you want for the exception, and
          that Class is exactly the exception class.  No check or normalization.
     """
-    assert len(args.args_w) == 2 and args.kwds_w == {}
-    w_arg1, w_arg2 = args.args_w
+    assert len(args.args_w) == 3 and args.kwds_w == {}
+    w_arg1, w_arg2, w_tb = args.args_w
+
+    # w_arg3 (the traceback) is ignored and replaced with None
+    # if it is a Variable, because pyopcode.py tries to unwrap it.
+    # It means that we ignore the 'tb' argument of 'raise' in most cases.
+    if not isinstance(w_tb, Constant):
+        w_tb = space.w_None
+
     if w_arg2 != space.w_None:
         # raise Class, Arg: no normalization
-        return (w_arg1, w_arg2)
+        return (w_arg1, w_arg2, w_tb)
+
     etype = getconstclass(space, w_arg1)
     if etype is not None:
         # raise Class
-        return (w_arg1, space.w_None)
+        return (w_arg1, space.w_None, w_tb)
+
     # raise Class(..)?  We need a hack to figure out of which class it is.
     # Normally, Instance should have been created by the previous operation
     # which should be a simple_call(<Class>, ...).
@@ -52,10 +61,11 @@ def sc_normalize_exception(space, fn, args):
         if (spaceop.opname == 'simple_call' and
             spaceop.result is w_arg1):
             w_type = spaceop.args[0]
-            return (w_type, w_arg1)
+            return (w_type, w_arg1, w_tb)
+
     # raise Instance.  Fall-back.
     w_type = space.do_operation('type', w_arg1)
-    return (w_type, w_arg1)
+    return (w_type, w_arg1, w_tb)
     # this function returns a real tuple that can be handled
     # by FlowObjSpace.unpacktuple()
 

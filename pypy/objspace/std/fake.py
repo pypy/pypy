@@ -18,7 +18,7 @@ _fake_type_cache = Cache()
 def wrap_exception(space):
     exc, value, tb = sys.exc_info()
     if exc is OperationError:
-        raise exc, value  #, tb   # just re-raise it (tb ignored: not RPython)
+        raise exc, value, tb   # just re-raise it
     name = exc.__name__
     if hasattr(space, 'w_' + name):
         w_exc = getattr(space, 'w_' + name)
@@ -30,7 +30,7 @@ def wrap_exception(space):
     else:
         w_exc = space.wrap(exc)
         w_value = space.wrap(value)
-    raise OperationError, OperationError(w_exc, w_value)  #, tb not RPython
+    raise OperationError, OperationError(w_exc, w_value), tb
 
 def fake_type(cpy_type):
     assert type(cpy_type) is type

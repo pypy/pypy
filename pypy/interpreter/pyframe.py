@@ -149,8 +149,9 @@ class ExceptBlock(FrameBlock):
             operationerr = unroller.args[0]
             w_type  = operationerr.w_type
             w_value = operationerr.w_value
-            w_normalized = normalize_exception(frame.space, w_type, w_value)
-            w_type, w_value = frame.space.unpacktuple(w_normalized, 2)
+            w_normalized = normalize_exception(frame.space, w_type, w_value,
+                                               frame.space.w_None)
+            w_type, w_value, w_tb = frame.space.unpacktuple(w_normalized, 3)
             # save the normalized exception back into the OperationError
             # -- in particular it makes sure that sys.exc_info() etc see
             #    normalized exception.
@@ -166,7 +167,7 @@ class ExceptBlock(FrameBlock):
             return True  # stop unrolling
         return False
 
-def app_normalize_exception(etype, value):
+def app_normalize_exception(etype, value, tb):
     """Normalize an (exc_type, exc_value) pair:
     exc_value will be an exception instance and exc_type its class.
     """
@@ -202,7 +203,7 @@ def app_normalize_exception(etype, value):
         if not hasattr(value, '__dict__') and not hasattr(value, '__slots__'):
             raise TypeError("raising built-in objects can be ambiguous, "
                             "use 'raise type, value' instead")
-    return etype, value
+    return etype, value, tb
 normalize_exception = gateway.app2interp(app_normalize_exception)
 
 
