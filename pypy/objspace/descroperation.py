@@ -177,8 +177,11 @@ class DescrOperation:
     def iter(space,w_obj):
         w_descr = space.lookup(w_obj,'__iter__')
         if w_descr is None:
-            raise OperationError(space.w_TypeError,
-                   space.wrap("object is not iter()-able"))
+            w_descr = space.lookup(w_obj,'__getitem__')
+            if w_descr is None:
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("object is not iter()-able"))
+            return space.newseqiter(w_obj)
         return space.get_and_call_function(w_descr,w_obj)
 
     def next(space,w_obj):

@@ -1,6 +1,6 @@
 import autopath
 from pypy.objspace.std.iterobject import W_SeqIterObject
-from pypy.objspace.std.objspace import NoValue
+from pypy.interpreter.error import OperationError
 from pypy.tool import testit
 
 class TestW_IterObject(testit.TestCase):
@@ -19,8 +19,8 @@ class TestW_IterObject(testit.TestCase):
         self.body0(w_iter)
 
     def body0(self, w_iter):
-        self.assertRaises(NoValue, self.space.next, w_iter)
-        self.assertRaises(NoValue, self.space.next, w_iter)
+        self.assertRaises(OperationError, self.space.next, w_iter)
+        self.assertRaises(OperationError, self.space.next, w_iter)
 
     def test_iter(self):
         w = self.space.wrap

@@ -151,11 +151,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         from pypy.objspace.std import sliceobject
         from pypy.objspace.std import longobject
         from pypy.objspace.std import noneobject
+        from pypy.objspace.std import iterobject
         from pypy.objspace.std import cpythonobject
         # hack to avoid imports in the time-critical functions below
         global W_ObjectObject, W_BoolObject, W_IntObject, W_FloatObject
         global W_TupleObject, W_ListObject, W_DictObject, W_StringObject
         global W_TypeObject, W_SliceObject, W_LongObject, W_NoneObject
+        global W_SeqIterObject
         global W_CPythonObject, W_BuiltinFunctionObject
         W_ObjectObject = objectobject.W_ObjectObject
         W_BoolObject = boolobject.W_BoolObject
@@ -169,6 +171,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         W_SliceObject = sliceobject.W_SliceObject
         W_LongObject = longobject.W_LongObject
         W_NoneObject = noneobject.W_NoneObject
+        W_SeqIterObject = iterobject.W_SeqIterObject
         W_CPythonObject = cpythonobject.W_CPythonObject
         W_BuiltinFunctionObject = cpythonobject.W_BuiltinFunctionObject
         # end of hacks
@@ -286,6 +289,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise OperationError(self.w_ValueError,
                                  self.wrap("character code not in range(256)"))
         return W_StringObject(self, ''.join(chars))
+
+    def newseqiter(self, w_obj):
+        return W_SeqIterObject(self, w_obj)
 
     def type(self, w_obj):
         if isinstance(w_obj, UserSubclass):

@@ -2,7 +2,7 @@
 import autopath
 from pypy.tool import testit
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.objspace.std.objspace import NoValue
+from pypy.interpreter.error import OperationError
 
 
 class TestW_TupleObject(testit.TestCase):
@@ -52,8 +52,8 @@ class TestW_TupleObject(testit.TestCase):
         self.assertEqual_w(self.space.next(w_iter), w(5))
         self.assertEqual_w(self.space.next(w_iter), w(3))
         self.assertEqual_w(self.space.next(w_iter), w(99))
-        self.assertRaises(NoValue, self.space.next, w_iter)
-        self.assertRaises(NoValue, self.space.next, w_iter)
+        self.assertRaises(OperationError, self.space.next, w_iter)
+        self.assertRaises(OperationError, self.space.next, w_iter)
 
     def test_contains(self):
         w = self.space.wrap

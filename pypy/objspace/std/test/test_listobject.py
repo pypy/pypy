@@ -1,7 +1,7 @@
 #from __future__ import nested_scopes
 import autopath
 from pypy.objspace.std.listobject import W_ListObject
-from pypy.objspace.std.objspace import NoValue
+from pypy.interpreter.error import OperationError
 from pypy.tool import testit
 
 
@@ -52,8 +52,8 @@ class TestW_ListObject(testit.TestCase):
         self.assertEqual_w(self.space.next(w_iter), w(5))
         self.assertEqual_w(self.space.next(w_iter), w(3))
         self.assertEqual_w(self.space.next(w_iter), w(99))
-        self.assertRaises(NoValue, self.space.next, w_iter)
-        self.assertRaises(NoValue, self.space.next, w_iter)
+        self.assertRaises(OperationError, self.space.next, w_iter)
+        self.assertRaises(OperationError, self.space.next, w_iter)
 
     def test_contains(self):
         w = self.space.wrap
@@ -276,31 +276,38 @@ class AppTestW_ListObject(testit.AppTestCase):
         self.space = testit.objspace('std')
 
     def test_explicit_new_init(self):
-        l = list.__new__(list)
+        l = l0 = list.__new__(list)
         l.__init__([1,2])
+        self.assert_(l is l0)
         self.assertEquals(l,[1,2])
         list.__init__(l,[1,2,3])
+        self.assert_(l is l0)
         self.assertEquals(l,[1,2,3])
         
     def test_extend_list(self):
-        l = [1]
+        l = l0 = [1]
         l.extend([2])
+        self.assert_(l is l0)
         self.assertEquals(l, [1,2])
 
     def test_extend_tuple(self):
-        l = [1]
+        l = l0 = [1]
         l.extend((2,))
+        self.assert_(l is l0)
         self.assertEquals(l, [1,2])
 
     def test_sort(self):
-        l = [1, 5, 3, 0]
+        l = l0 = [1, 5, 3, 0]
         l.sort()
+        self.assert_(l is l0)
         self.assertEquals(l, [0, 1, 3, 5])
-        l = []
+        l = l0 = []
         l.sort()
+        self.assert_(l is l0)
         self.assertEquals(l, [])
-        l = [1]
+        l = l0 = [1]
         l.sort()
+        self.assert_(l is l0)
         self.assertEquals(l, [1])
 
     def test_sort_cmp(self):
@@ -325,6 +332,18 @@ class AppTestW_ListObject(testit.AppTestCase):
         self.assertEquals(l,[7,5,3])
         del l[:2]
         self.assertEquals(l,[3])
-        
+
+    def test_delall(self):
+        l = l0 = [1,2,3]
+        del l[:]
+        self.assert_(l is l0)
+        self.assertEquals(l, [])
+
+    def test_iadd(self):
+        l = l0 = [1,2,3]
+        l += [4,5]
+        self.assert_(l is l0)
+        self.assertEquals(l, [1,2,3,4,5])
+
 if __name__ == '__main__':
     testit.main()

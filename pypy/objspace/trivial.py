@@ -397,6 +397,12 @@ def %(name)s(self, x, *args):
         except:
             self.reraise()            
 
+    def newseqiter(self, w_obj):
+        try:
+            return iter(w_obj)
+        except:
+            self.reraise()
+
     #def call(self, callable, args, kwds):
     #    if isinstance(callable, types.ClassType):
     #        import new

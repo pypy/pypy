@@ -110,6 +110,10 @@ def add__List_List(space, w_list1, w_list2):
     w_res.ob_size = p
     return w_res
 
+def inplace_add__List_ANY(space, w_list1, w_iterable2):
+    list_extend__List_ANY(space, w_list1, w_iterable2)
+    return w_list1
+
 def mul__List_Int(space, w_list, w_int):
     w_res = W_ListObject(space, [])
     times = w_int.intval
