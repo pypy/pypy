@@ -179,8 +179,10 @@ class LLFunction(LLTyper):
     def generate_block(self, block):
         "Generate the operations for one basic block."
         self.to_release = self.release_root
+        llrepr = []
         for v in block.inputargs:
-            self.mark_release(v)
+            llrepr += self.llreprs[v]
+        self.mark_release(llrepr)
         # entry point
         self.blockops = [self.blockname[block]]   # label
         # basic block operations
@@ -214,10 +216,11 @@ class LLFunction(LLTyper):
 
     # __________ Type checking and conversion routines __________
 
-    def mark_release(self, v):
-        llop = self.rawoperations['decref'](self.llreprs[v])
-        # make a new node for the release tree
-        self.to_release = ReleaseNode(v, llop, self.to_release)
+    def mark_release(self, llrepr):
+        if llrepr:
+            llop = self.rawoperations['decref'](llrepr)
+            # make a new node for the release tree
+            self.to_release = ReleaseNode(llrepr, llop, self.to_release)
 
     def find_best_match(self, opname, args_t, directions):
         # look for an exact match first
@@ -280,16 +283,14 @@ class LLFunction(LLTyper):
         if result:
             if args_t[-1] == sig[-1]:
                 # the result has the correct type
-                if self.writeoperation(llopcls, llargs,
-                                       self.llreprs[result], errlabel):
-                    self.mark_release(result)
+                self.writeoperation(llopcls, llargs,
+                                    self.llreprs[result], errlabel)
             else:
                 # the result has to be converted
                 tmp = Variable()
                 self.makevar(tmp, hltype=sig[-1])
-                if self.writeoperation(llopcls, llargs,
-                                       self.llreprs[tmp], errlabel):
-                    self.mark_release(tmp)
+                self.writeoperation(llopcls, llargs,
+                                    self.llreprs[tmp], errlabel)
                 self.convert_variable(tmp, result)
         else:
             # no result variable
@@ -300,13 +301,18 @@ class LLFunction(LLTyper):
         if llopcls.can_fail and errlabel is None:
             errlabel = self.to_release.getlabel()
         # create the LLOp instance
+        llresultcopy = list(llresult)
         llop = llopcls(llargs + llresult, errlabel)
         if llop.optimize(self, llresult):
-            return False   # operation skipped
-        else:
-            # common case: emit the LLOp.
-            self.blockops.append(llop)
-            return True
+            return   # skip the operation
+        # common case: emit the LLOp.
+        self.blockops.append(llop)
+        # all LLVars that are still in llresult (haven't been optimized away)
+        # are new and marked as "to be released".
+        assert len(llresult) == len(llresultcopy)
+        llrepr = [new for new, prev in zip(llresult, llresultcopy)
+                      if new == prev]
+        self.mark_release(llrepr)
 
     def convert(self, inputtype, inputrepr, outputtype, outputrepr=None):
         convop = self.getconversion(inputtype, outputtype)
@@ -314,22 +320,14 @@ class LLFunction(LLTyper):
             tmp = Variable()
             self.makevar(tmp, hltype=outputtype)
             outputrepr = self.llreprs[tmp]
-            if self.writeoperation(convop, inputrepr, outputrepr):
-                self.mark_release(tmp)
-        else:
-            if self.writeoperation(convop, inputrepr, outputrepr):
-                tmp = Variable()
-                self.hltypes[tmp] = outputtype
-                self.llreprs[tmp] = outputrepr
-                self.mark_release(tmp)
+        self.writeoperation(convop, inputrepr, outputrepr)
         return outputrepr
 
     def convert_variable(self, v1, v2):
         self.makevar(v1)
         self.makevar(v2)
         convop = self.getconversion(self.hltypes[v1], self.hltypes[v2])
-        if self.writeoperation(convop, self.llreprs[v1], self.llreprs[v2]):
-            self.mark_release(v2)
+        self.writeoperation(convop, self.llreprs[v1], self.llreprs[v2])
 
     def goto(self, exit):
         # generate the exit.args -> target.inputargs copying operations
@@ -359,7 +357,7 @@ class LLFunction(LLTyper):
             # list all variables that go out of scope: by default
             # they need no reference, but have one reference.
             for node in self.to_release.getbranch():
-                for x in self.llreprs[node.var]:
+                for x in node.llrepr:
                     current_refcnt[x] = 1
                     needed_refcnt.setdefault(x, 0)
             # now adjust all reference counters: first increfs, then decrefs
@@ -395,8 +393,8 @@ class ReleaseNode:
     label = None
     counter = 0
     
-    def __init__(self, var, release_operation, parent):
-        self.var = var
+    def __init__(self, llrepr, release_operation, parent):
+        self.llrepr = llrepr
         self.release_operation = release_operation
         self.parent = parent
         self.accessible_children = []
