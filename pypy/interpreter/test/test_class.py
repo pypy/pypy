@@ -2,9 +2,10 @@ import autopath
 from pypy.tool import testit
 
 
-class TestClassApp(testit.AppTestCase):
-    
+class AppTestClass: 
+
     def test_class(self):
+        self.test_metaclass_explicit()
         class C:
             pass
         self.assertEquals(C.__class__, type)

@@ -1,9 +1,7 @@
 import autopath
 import textwrap
-from pypy.tool import testit
 
-class TestInterpreter(testit.TestCase):
-
+class TestInterpreter: 
     def codetest(self, source, functionname, args):
         """Compile and run the given code string, and then call its function
         named by 'functionname' with arguments 'args'."""
@@ -34,8 +32,11 @@ class TestInterpreter(testit.TestCase):
         else:
             return space.unwrap(w_output)
 
-    def setUp(self):
-        self.space = testit.objspace()
+    #def setup_class(cls):
+    #    cls.space = testit.objspace()
+
+    #def teardown_class(cls): 
+    #    del cls.space 
 
     def test_exception_trivial(self):
         x = self.codetest('''
@@ -46,7 +47,7 @@ def f():
         return 1
     return 2
 ''', 'f', [])
-        self.assertEquals(x, 1)
+        assert x == 1
 
     def test_exception(self):
         x = self.codetest('''
@@ -56,7 +57,7 @@ def f():
     except Exception, e:
         return e.args[0]
 ''', 'f', [])
-        self.assertEquals(x, 1)
+        assert x == 1
 
     def test_finally(self):
         code = '''
@@ -68,8 +69,8 @@ def f(a):
     finally:
         return a
 '''
-        self.assertEquals(self.codetest(code, 'f', [0]), -12)
-        self.assertEquals(self.codetest(code, 'f', [1]), 1)
+        assert self.codetest(code, 'f', [0]) == -12
+        assert self.codetest(code, 'f', [1]) == 1
 
 ##     def test_raise(self):
 ##         x = self.codetest('''
@@ -91,7 +92,7 @@ def f():
     except TypeError:
         return z
 ''', 'f', [])
-        self.assertEquals(x, 5)
+        assert x == 5
 
     def test_except3(self):
         code = '''
@@ -103,11 +104,11 @@ def f(v):
         z = "infinite result"
     return z
 '''
-        self.assertEquals(self.codetest(code, 'f', [2]), 0)
-        self.assertEquals(self.codetest(code, 'f', [0]), "infinite result")
+        assert self.codetest(code, 'f', [2]) == 0
+        assert self.codetest(code, 'f', [0]) == "infinite result"
         ess = "TypeError: unsupported operand type"
         res = self.codetest(code, 'f', ['x'])
-        self.failUnless(res.find(ess) >= 0)
+        assert res.find(ess) >= 0
         # the following (original) test was a bit too strict...:
         # self.assertEquals(self.codetest(code, 'f', ['x']), "<<<TypeError: unsupported operand type(s) for //: 'int' and 'str'>>>")
 
@@ -123,8 +124,8 @@ def f(n):
             total += i
     return total
 '''
-        self.assertEquals(self.codetest(code, 'f', [4]), 1+2+3)
-        self.assertEquals(self.codetest(code, 'f', [9]), 1+2+3+4)
+        assert self.codetest(code, 'f', [4]) == 1+2+3
+        assert self.codetest(code, 'f', [9]) == 1+2+3+4
 
     def test_continue(self):
         code = '''
@@ -139,8 +140,8 @@ def f(n):
         total += i
     return total
 '''
-        self.assertEquals(self.codetest(code, 'f', [4]), 1+2+3+400)
-        self.assertEquals(self.codetest(code, 'f', [9]),
+        assert self.codetest(code, 'f', [4]) == 1+2+3+400
+        assert self.codetest(code, 'f', [9]) == (
                           1+2+3 + 5+6+7+8+900)
 
     def test_import(self):
@@ -178,7 +179,7 @@ def f(x):
         x -= 1   # EXTENDED_ARG is for the JUMP_ABSOLUTE at the end of the loop
     return x
 ''' % ((longexpr,)*10)
-        self.assertEquals(self.codetest(code, 'f', [3]), 0)
+        assert self.codetest(code, 'f', [3]) == 0
 
     def test_call_star_starstar(self):
         code = '''
@@ -209,7 +210,7 @@ def f38(n):
         ]
     return r
 '''
-        self.assertEquals(self.codetest(code, 'f38', [117]), [234]*19)
+        assert self.codetest(code, 'f38', [117]) == [234]*19
 
     def test_star_arg(self):
         code = textwrap.dedent('''
@@ -218,25 +219,25 @@ def f38(n):
             def g(u, v):
                 return f(u, *v)
             ''')
-        self.assertEquals(self.codetest(code, 'g', [12, ()]),    ())
-        self.assertEquals(self.codetest(code, 'g', [12, (3,4)]), (3,4))
-        self.assertEquals(self.codetest(code, 'g', [12, []]),    ())
-        self.assertEquals(self.codetest(code, 'g', [12, [3,4]]), (3,4))
-        self.assertEquals(self.codetest(code, 'g', [12, {}]),    ())
-        self.assertEquals(self.codetest(code, 'g', [12, {3:1}]), (3,))
+        assert self.codetest(code, 'g', [12, ()]) ==    ()
+        assert self.codetest(code, 'g', [12, (3,4)]) == (3,4)
+        assert self.codetest(code, 'g', [12, []]) ==    ()
+        assert self.codetest(code, 'g', [12, [3,4]]) == (3,4)
+        assert self.codetest(code, 'g', [12, {}]) ==    ()
+        assert self.codetest(code, 'g', [12, {3:1}]) == (3,)
 
-class AppTestInterpreter(testit.AppTestCase):
+class AppTestInterpreter: 
     def test_trivial(self):
         x = 42
-        self.assertEquals(x, 42)
+        assert x == 42
 
     def test_trivial_call(self):
         def f(): return 42
-        self.assertEquals(f(), 42)
+        assert f() == 42
 
     def test_trivial_call2(self):
         def f(): return 1 + 1
-        self.assertEquals(f(), 2)
+        assert f() == 2
 
     def test_print(self):
         import sys
@@ -250,14 +251,10 @@ class AppTestInterpreter(testit.AppTestCase):
         try:
             sys.stdout = out
             print 10
-            self.assertEquals(out.args, ['10','\n'])
+            assert out.args == ['10','\n']
         finally:
             sys.stdout = save
 
     def test_identity(self):
         def f(x): return x
-        self.assertEquals(f(666), 666)
-
-
-if __name__ == '__main__':
-    testit.main()
+        assert f(666) == 666
