@@ -81,8 +81,9 @@ class FlowObjSpace(ObjSpace):
             pass
         else:
             return bool(obj)
+        w_truthvalue = self.do_operation('is_true', w_obj)
         context = self.getexecutioncontext()
-        return context.guessbool(w_obj)
+        return context.guessbool(w_truthvalue)
 
     def next(self, w_iter):
         w_tuple = self.do_operation("next_and_flag", w_iter)

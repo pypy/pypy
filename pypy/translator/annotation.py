@@ -107,8 +107,10 @@ class Annotator:
     consider_op_and_ = consider_op_add   # don't forget the trailing '_'
     # XXX add more
 
-    def consider_op_not_(self, op, annotations):
+    def consider_op_is_true(self, op, annotations):
         annotations.set_type(op.result, bool)
+
+    consider_op_not_ = consider_op_is_true
 
     def consider_op_lt(self, op, annotations):
         annotations.set_type(op.result, bool)
