@@ -43,6 +43,10 @@ class TestCase:
         "Hook method for deconstructing the test fixture after testing it."
         pass
 
+    def skip(self, msg=None):
+        """Skip this test by raising exception Skipped."""
+        raise Skipped(msg=msg)
+
     def fail(self, msg=None):
         """Fail immediately, with the given message."""
         raise Failure(msg=msg)
@@ -411,14 +415,13 @@ class TestSuite:
 def main(do_selftest=False):
     # possibly ignore dummy unit tests
     if do_selftest:
-        filterfunc = lambda m: True
+        filterfunc = lambda m: m.find("pypy.tool.testdata.") != -1
     else:
         filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
     # collect tests
     ts = TestSuite()
     print "Loading test modules ..."
-    #ts.initfromdir(autopath.pypydir, filterfunc=filterfunc)
-    ts.initfromdir('.', filterfunc=filterfunc)
+    ts.initfromdir(autopath.pypydir, filterfunc=filterfunc)
     # iterate over tests and collect data
     for res in ts.result_generator():
         if res.traceback is None:

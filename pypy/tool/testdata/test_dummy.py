@@ -25,7 +25,7 @@ class TestDummy2(newtest.TestCase):
 
 class TestSkip1(newtest.TestCase):
     def setUp(self):
-        raise newtest.Skipped
+        self.skip()
 
     def test_skip1(self):
         pass
@@ -33,4 +33,4 @@ class TestSkip1(newtest.TestCase):
 
 class TestSkip2(newtest.TestCase):
     def test_skip2(self):
-        raise newtest.Skipped
+        self.skip()
