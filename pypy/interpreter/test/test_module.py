@@ -26,10 +26,10 @@ class TestModule(test.IntTestCase):
 class Test_ModuleObject(test.AppTestCase):
 
     def setUp(self):
-        self.space = test.objspace('std')
+        self.space = test.objspace()
         
     def test_attr(self):
-        m = __import__('math')
+        m = __import__('__builtin__')
         m.x = 15
         self.assertEqual(m.x, 15)
         self.assertEqual(getattr(m, 'x'), 15)
