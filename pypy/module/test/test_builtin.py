@@ -27,15 +27,33 @@ class TestBuiltinApp(test.AppTestCase):
     def test_type_selftest(self):
         self.assert_(type(type) is type)
 
-    def test_iter(self):
+    def test_iter_sequence(self):
+        self.assertRaises(TypeError,iter,3)
+        x = iter(['a','b','c'])
+        self.assertEquals(x.next(),'a')
+        self.assertEquals(x.next(),'b')
+        self.assertEquals(x.next(),'c')
+        self.assertRaises(StopIteration,x.next)
+
+    def test_iter___iter__(self):
+        # This test assumes that dict.keys() method returns keys in
+        # the same order as dict.__iter__().
+        # Also, this test is not as explicit as the other tests;
+        # it tests 4 calls to __iter__() in one assert.  It could
+        # be modified if better granularity on the assert is required.
+        mydict = {'a':1,'b':2,'c':3}
+        self.assertEquals(list(iter(mydict)),mydict.keys())
+
+    def test_iter_callable_sentinel(self):
         class count(object):
             def __init__(self):
                 self.value = 0
             def __call__(self):
                 self.value += 1
                 return self.value
-        self.assertRaises(TypeError,iter,3)
         self.assertRaises(TypeError,iter,3,5)
+        self.assertRaises(TypeError,iter,[],5)
+        self.assertRaises(TypeError,iter,{},5)
         x = iter(count(),3)
         self.assertEquals(x.next(),1)
         self.assertEquals(x.next(),2)
