@@ -12,6 +12,20 @@ class TestUserObject(testit.AppTestCase):
         inst.attr=23
         self.assertEquals(inst.attr,23)
 
+    def test_method(self):
+        class A:
+            def f(self, v):
+                return v*42
+        a = A()
+        self.assertEquals(a.f('?'), '??????????????????????????????????????????')
+
+    def test_unboundmethod(self):
+        class A:
+            def f(self, v):
+                return v*17
+        a = A()
+        self.assertEquals(A.f(a, '!'), '!!!!!!!!!!!!!!!!!')
+
     def test_subclassing(self):
         for base in tuple, list, dict, str, int, float:
             try:
