@@ -163,6 +163,11 @@ def default_getattr(space, w_obj, w_attr):
     #w_type = space.type(w_obj)
     #w_typename = space.getattr(w_type, space.wrap('__name__'))
     #...
+    
+    # XXX as long as don't have types...
+    if space.is_true(space.eq(w_attr, space.wrap('__class__'))):
+        return space.wrap(space.unwrap(w_obj).__class__)
+
     raise OperationError(space.w_AttributeError, w_attr)
 
 StdObjSpace.getattr.register(default_getattr, W_ANY, W_ANY)
@@ -176,3 +181,11 @@ def default_delattr(space, w_obj, w_attr, w_value):
     raise OperationError(space.w_AttributeError, w_attr)
 
 StdObjSpace.delattr.register(default_getattr, W_ANY, W_ANY)
+
+# add default implementations for in-place operators
+for _name, _symbol, _arity in ObjSpace.MethodTable:
+    if _name.startswith('inplace_'):
+        def default_inplace(space, w_1, w_2, baseop=_name[8:]):
+            op = getattr(space, baseop)
+            return op(w_1, w_2)
+        getattr(StdObjSpace, _name).register(default_inplace, W_ANY, W_ANY)
