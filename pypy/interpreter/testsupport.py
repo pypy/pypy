@@ -45,18 +45,19 @@ main = unittest.main
 
 from pypy.interpreter import testtools
 
-objspace_path = os.environ.get('OBJSPACE')
-if not objspace_path or '.' not in objspace_path:
-    import pypy.objspace.trivial
-    objspace = pypy.objspace.trivial.TrivialObjSpace
-else:
-    objspace_pieces = objspace_path.split('.')
-    objspace_path = '.'.join(objspace_pieces[:-1])
-    objspace_module = __import__(objspace_path)
-    for piece in objspace_pieces[1:-1]:
-        objspace_module = getattr(objspace_module, piece)
-    objspace_classname = objspace_pieces[-1]
-    objspace = getattr(objspace_module, objspace_classname)
+def objspace():
+    objspace_path = os.environ.get('OBJSPACE')
+    if not objspace_path or '.' not in objspace_path:
+        import pypy.objspace.trivial
+        return pypy.objspace.trivial.TrivialObjSpace()
+    else:
+        objspace_pieces = objspace_path.split('.')
+        objspace_path = '.'.join(objspace_pieces[:-1])
+        objspace_module = __import__(objspace_path)
+        for piece in objspace_pieces[1:-1]:
+            objspace_module = getattr(objspace_module, piece)
+        objspace_classname = objspace_pieces[-1]
+        return getattr(objspace_module, objspace_classname)()
 
 if __name__ == '__main__':
     runner = unittest.TextTestRunner()

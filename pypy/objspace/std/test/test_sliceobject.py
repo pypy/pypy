@@ -1,4 +1,5 @@
 import testsupport
+from pypy.objspace.std import StdObjSpace
 
 class TestW_SliceObject(testsupport.TestCase):
 
