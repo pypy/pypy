@@ -95,18 +95,30 @@ def app_list_testmethods(mod, testcaseclass):
                 ...]
     """ 
     #print "entering list_testmethods"
-    l = []
-    for clsname, cls in mod.__dict__.items(): 
-        if hasattr(cls, '__bases__') and \
-           issubclass(cls, testcaseclass): 
-            instance = cls() 
-            #print "checking", instance 
-            methods = []
-            for methodname in dir(cls): 
-                if methodname.startswith('test_'): 
-                    name = clsname + '.' + methodname 
-                    methods.append((name, getattr(instance, methodname)))
-            l.append((instance.setUp, instance.tearDown, methods))
+    classlist = []
+    if callable(getattr(mod, 'test_main', None)): 
+        def hack_run_unittest(*classes): 
+            classlist.extend(list(classes))
+        mod.test_support.run_unittest = hack_run_unittest 
+        mod.test_main() 
+        mod.test_support.run_unittest = None 
+    else: 
+        # we try to find out fitting tests ourselves 
+        for clsname, cls in mod.__dict__.items(): 
+            if hasattr(cls, '__bases__') and \
+               issubclass(cls, testcaseclass): 
+                classlist.append(cls) 
+    l = [] 
+    for cls in classlist: 
+        clsname = cls.__name__
+        instance = cls() 
+        #print "checking", instance 
+        methods = []
+        for methodname in dir(cls): 
+            if methodname.startswith('test_'): 
+                name = clsname + '.' + methodname 
+                methods.append((name, getattr(instance, methodname)))
+        l.append((instance.setUp, instance.tearDown, methods))
     return l 
 list_testmethods = app2interp_temp(app_list_testmethods) 
            
