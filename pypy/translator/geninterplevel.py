@@ -536,8 +536,15 @@ class GenRpy:
         self.latercode.append((gen, self.debugstack))
 
     def nameof_instance(self, instance):
-        name = self.uniquename('ginst_' + instance.__class__.__name__)
-        cls = self.nameof(instance.__class__)
+        klass = instance.__class__
+        name = self.uniquename('ginst_' + klass.__name__)
+        cls = self.nameof(klass)
+        if hasattr(klass, '__base__'):
+            base_class = builtin_base(instance)
+            base = self.nameof(base_class)
+        else:
+            base_class = None
+            base = cls
         def initinstance():
             content = instance.__dict__.items()
             content.sort()
@@ -550,23 +557,11 @@ class GenRpy:
                         print >> sys.stderr, "Problem while generating %s of %r" % (
                                 name, instance)
                         raise
-        if isinstance(instance, Exception):
-            # special-case for exception instances: wrap them directly
-            self.initcode.append('_ins = %s()\n'
-                                 'm.%s = space.wrap(_ins)' % (
-                instance.__class__.__name__, name))
-        else:
-            if isinstance(instance.__class__, type):
-                self.initcode.append(
-                    '_new = space.getattr(%s, %s)\n'
-                    '_tup = space.newtuple([%s])\n'
-                    'm.%s = space.call(_new, _tup)' % (
-                        cls, self.nameof('__new__'), cls, name))
-            else:
-                self.initcode.append(
-                    '_tup = space.newtuple([%s])\n'
-                    'm.%s = space.call(space.w_instance, _tup)' % (
-                        cls, name))
+        self.initcode.append(
+            '_new = space.getattr(%s, %s)\n'
+            '_tup = space.newtuple([%s])\n'
+            'm.%s = space.call(_new, _tup)' % (
+                cls, self.nameof('__new__'), cls, name))
         self.later(initinstance())
         return name
 
