@@ -43,7 +43,8 @@ while 1:
 import pypy.interpreter.unittest_w
 from pypy.interpreter.testtools import *
 
-TestCase = pypy.interpreter.unittest_w.TestCase_w
+TestCase = pypy.interpreter.unittest_w.IntTestCase
+AppTestCase = pypy.interpreter.unittest_w.AppTestCase
 main = unittest.main
 
 if __name__ == '__main__':
