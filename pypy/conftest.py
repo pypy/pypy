@@ -111,9 +111,13 @@ class IntTestFunction(PyPyItem):
         if 'space' in co.co_varnames[:co.co_argcount]: 
             name = target.func_globals.get('objspacename', None) 
             space = gettestobjspace(name) 
-            self.execute_appex(space, target, space, *args)
+            target(space, *args)  
         else:
             target(*args)
+
+class IntTestMethod(PyPyItem): 
+    def execute(self, target, *args):
+        target(*args) 
 
 class AppTestFunction(PyPyItem): 
     def execute(self, target, *args):
@@ -123,10 +127,6 @@ class AppTestFunction(PyPyItem):
         func = app2interp_temp(target, target.__name__)
         self.execute_appex(space, func, space)
 
-class IntTestMethod(PyPyItem): 
-    def execute(self, target, *args):
-        space = target.im_self.space 
-        self.execute_appex(space, target, *args) 
 
 class AppTestMethod(PyPyItem): 
     def execute(self, target, *args): 
