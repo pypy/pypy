@@ -981,7 +981,7 @@ def app_mod__String_ANY(format, values):
                 if c=='s':
                     pieces.append(str(value)) 
                 elif c=='d':
-                    pieces.append(str(value))
+                    pieces.append(str(int(value)))
                 elif c=='x':
                     pieces.append(hex(int(value)))
                 elif c=='r':
