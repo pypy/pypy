@@ -241,17 +241,23 @@ def _impl_int_int_pow(space, iv, iw, iz=None):
                                 space.wrap("integer exponentiation"))
     return ix
 
+"""
 def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
     y = w_int2.intval
     z = w_int3.intval
     ret = _impl_int_int_pow(space, x, y, z)
     return W_IntObject(space, ret)
+"""
 
-def pow__Int_Int_None(space, w_int1, w_int2, w_none=None):
+def pow__Int_Int_ANY(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
     y = w_int2.intval
-    ret = _impl_int_int_pow(space, x, y)
+    if w_int3 is space.w_None:
+        ret = _impl_int_int_pow(space, x, y)
+    else:
+        z = w_int3.intval
+        ret = _impl_int_int_pow(space, x, y, z)
     return W_IntObject(space, ret)
 
 def neg__Int(space, w_int1):

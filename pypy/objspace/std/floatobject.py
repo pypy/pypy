@@ -168,8 +168,8 @@ def divmod__Float_Float(space, w_float1, w_float2):
     return space.newtuple([W_FloatObject(space, floordiv),
                            W_FloatObject(space, mod)])
 
-def pow__Float_Float_ANY(space, w_float1,w_float2,thirdArg=None):
-    if thirdArg is not None:
+def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
+    if thirdArg is not space.w_None:
         raise FailedToImplement(space.w_TypeError,space.wrap("pow() 3rd argument not allowed unless all arguments are integers"))
     x = w_float1.floatval
     y = w_float2.floatval
