@@ -179,7 +179,23 @@ def delitem__List_Int(space, w_list, w_idx):
     return space.w_None
 
 def delitem__List_Slice(space, w_list, w_slice):
-    return _setitem_slice_helper(space, w_list, w_slice, [], 0)
+    start, stop, step, slicelength = slicetype.indices4(space, w_slice, w_list.ob_size)
+    if step == 1:
+        return _setitem_slice_helper(space, w_list, w_slice, [], 0)
+
+    # The current code starts from the top, to simplify
+    # coding.  A later optimization could be to start from
+    # the bottom, which would reduce the list motion.
+    # A further later optimization would be to special-case
+    # a step of -1, because this version will perform a LOT
+    # of extra motion for this case.  Anybody with a real-life
+    # use-case for this is welcome to write the special case.
+    r = range(start, stop, step)
+    if step > 0:
+        r.reverse()
+    for i in r:
+        _del_slice(w_list, i, i+1)
+    return space.w_None
 
 def setitem__List_Int_ANY(space, w_list, w_index, w_any):
     items = w_list.ob_item
@@ -200,7 +216,7 @@ def setitem__List_Slice_Tuple(space, w_list, w_slice, w_tuple):
     return _setitem_slice_helper(space, w_list, w_slice, t, len(t))
 
 def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
-    start, stop, step, slicelength = slicetype.indices4(space,w_slice,w_list.ob_size)
+    start, stop, step, slicelength = slicetype.indices4(space, w_slice, w_list.ob_size)
     assert slicelength >= 0
 
     if step == 1:  # Support list resizing for non-extended slices
