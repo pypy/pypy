@@ -27,9 +27,11 @@ class PyPyConsole(code.InteractiveConsole):
                            self.space.wrap("__name__"),
                            self.space.wrap("__main__"))
 
-    def interact(self):
-        banner = "Python %s in pypy\n%s / %s" % (
-            sys.version, self.__class__.__name__, self.space.__class__.__name__)
+    def interact(self, banner=None):
+        if banner is None:
+            banner = "Python %s in pypy\n%s / %s" % (
+                sys.version, self.__class__.__name__,
+                self.space.__class__.__name__)
         code.InteractiveConsole.interact(self, banner)
 
     def runcode(self, code):

@@ -29,6 +29,7 @@ def main_(argv=None):
     args = option.process_options(get_main_options(), Options, argv[1:])
     space = option.objspace()
     go_interactive = Options.interactive
+    banner = ''
     if Options.command:
         try:
             main.run_string(Options.command[0], '<string>', space)
@@ -41,9 +42,13 @@ def main_(argv=None):
             pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
     else:
         go_interactive = 1
+        banner = None
     if go_interactive:
         con = interactive.PyPyConsole(space)
-        con.interact()
+        if banner == '':
+            banner = '%s / %s'%(con.__class__.__name__,
+                                space.__class__.__name__)
+        con.interact(banner)
 
 if __name__ == '__main__':
     main_(sys.argv)
