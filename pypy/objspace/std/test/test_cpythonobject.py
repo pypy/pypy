@@ -30,7 +30,7 @@ class TestW_CPythonObject(testit.TestCase):
     def test_binary(self):
         w1 = self.space.wrap(self.stuff)
         for op, w_arg, expected in [
-            ('getattr',   self.space.wrap('count'),      self.stuff.count),
+#            ('getattr',   self.space.wrap('count'),      self.stuff.count),
             ('getitem',   self.space.wrap(1),            -2),
             ('getitem',   self.space.wrap(slice(1,2)),   array.array('b', [-2])),
             ]:

@@ -336,6 +336,28 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return not not w_obj.non_empties()
         else:
             return DescrOperation.is_true(self, w_obj)
+
+    def hash(space, w_obj):
+        import cpythonobject 
+        if isinstance(w_obj, cpythonobject.W_CPythonObject):
+            try:
+                return space.newint(hash(w_obj.cpyobj))
+            except:
+                cpythonobject.wrap_exception(space)
+        else:
+            w = space.wrap
+            eq = '__eq__'
+            ne = '__ne__'
+            hash_s = '__hash__'
+
+            for w_t in space.type(w_obj).mro_w:
+                d = w_t.dict_w
+                if hash_s in d:
+                    w_descr = d[hash_s]
+                    return space.get_and_call_function(w_descr, w_obj)
+                if eq in d:                
+                    raise OperationError(space.w_TypeError, w("unhashable type"))
+            return space.id(w_obj)
         
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
