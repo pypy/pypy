@@ -3,9 +3,17 @@ import autopath
 import sys, operator, types, new
 import pypy
 from pypy.objspace.std import StdObjSpace
+from pypy.objspace.trivial import TrivialObjSpace
 from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.pycode import PyCode
 debug = 0
+
+class TraceExecutionContext(ExecutionContext):
+
+    def bytecode_trace(self, frame):
+        "Trace function called before each bytecode."
+        print "XXX %s, %s" % frame.examineop()
 
 class Logger(object):
     def __init__(self, name, fn, printme):
@@ -17,6 +25,9 @@ class Logger(object):
         print self.name
         #print "%s %s(%s, %s)" % (self.printme, , str(args), str(kwds)) 
         return self.fn(*args, **kwds)
+
+    def __getattr__(self, name):
+        return getattr(self.fn, name)
 
         
 # ______________________________________________________________________
@@ -37,10 +48,15 @@ def Trace(spacecls = StdObjSpace):
                     #print l
                     setattr(self, key, new.instancemethod(l, self, TraceObjSpace))
 
+        def createexecutioncontext(self):
+            "Factory function for execution contexts."
+            return TraceExecutionContext(self)
+
+
     return TraceObjSpace()
 
 Space = Trace
-s = Trace()
+s = Trace(TrivialObjSpace)
 #print dir(s)
 # ______________________________________________________________________
 # End of trace.py
@@ -58,6 +74,7 @@ def runx(space, func, *args):
 
 if __name__ == "__main__":
     def a(b):
+        print b
         return b+1
 
     print runx(s, a, 1)
