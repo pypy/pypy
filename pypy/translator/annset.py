@@ -215,16 +215,15 @@ def same_functor_assign(ann1, ann2):
     value found in 'ann2'.  Returns False if the variables and constants
     in the two annotations are not compatible.  Assumes that the two
     annotations have the same functor."""
-    for a1, a2 in zip(ann1.args + [ann1.result],
-                      ann2.args + [ann2.result]):
+    pairs = zip(ann1.args + [ann1.result], ann2.args + [ann2.result])
+    for a1, a2 in pairs:
         v1 = a1.get()
         if not isinstance(v1, Cell):
             v2 = a2.get()
             if not isinstance(v2, Cell) and v2 != v1:
                 return False
     # match! Set the Cells of ann1...
-    for a1, a2 in zip(ann1.args + [ann1.result],
-                      ann2.args + [ann2.result]):
+    for a1, a2 in pairs:
         v1 = a1.get()
         if isinstance(v1, Cell):
             v1.set(a2)
