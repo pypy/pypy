@@ -257,7 +257,9 @@ class GraphDisplay(Display):
             return
         node = self.viewer.search_for_node(searchstr)
         if node:
-            self.look_at_node(node)
+            self.sethighlight(obj=node)
+            self.look_at_node(node, keep_highlight=True)
+            self.sethighlight(obj=node)
         else:
             self.setstatusbar('Not found: %s' % searchstr)
 
@@ -310,9 +312,10 @@ class GraphDisplay(Display):
             info = 'Press H for help'
         self.setstatusbar(info)
     
-    def updated_viewer(self):
+    def updated_viewer(self, keep_highlight=False):
         self.reoffset()
-        self.sethighlight()
+        if not keep_highlight:
+            self.sethighlight()
         self.statusbarinfo = None
         self.must_redraw = True
         self.update_status_bar()
@@ -432,7 +435,7 @@ class GraphDisplay(Display):
         cx2, cy2 = node.x, node.y
         return (cx2-cx1)*(cx2-cx1) + (cy2-cy1)*(cy2-cy1)
 
-    def look_at_node(self, node):
+    def look_at_node(self, node, keep_highlight=False):
         """Shift the node in view."""
         endscale = min(float(self.width-40) / node.w,
                        float(self.height-40) / node.h,
@@ -452,12 +455,13 @@ class GraphDisplay(Display):
             else:
                 bumpscale = 0.0
             self.statusbarinfo = None
-            self.sethighlight()
+            if not keep_highlight:
+                self.sethighlight()
             for t in self.animation():
                 self.viewer.setscale(startscale*(1-t) + endscale*t +
                                      bumpscale*t*(1-t))
                 self.viewer.setcenter(cx1*(1-t) + cx2*t, cy1*(1-t) + cy2*t)
-                self.updated_viewer()
+                self.updated_viewer(keep_highlight=keep_highlight)
                 self.viewer.render()
                 pygame.display.flip()
         return moving
