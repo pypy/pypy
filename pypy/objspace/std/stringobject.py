@@ -3,6 +3,7 @@ from intobject   import W_IntObject
 from sliceobject import W_SliceObject
 from listobject import W_ListObject
 from instmethobject import W_InstMethObject
+from noneobject import W_NoneObject
 from pypy.interpreter.extmodule import make_builtin_func
 
 from rarray import CharArrayFromStr, CharArraySize
@@ -57,51 +58,47 @@ class W_StringObject(W_Object):
         else:
             return W_StringObject(w_self.space, "")
 
-    def splitByWhitespace(w_self):
-        res = []
-        inword = 0
-        value = w_self._value.value()
-        for ch in value:
-            if ch.isspace():
-                if inword:
-                    inword = 0
+    join = implmethod().register(join, W_ANY)
+    split = implmethod()
+
+
+def splitByWhitespace(w_self, w_none):
+    res = []
+    inword = 0
+    value = w_self._value.value()
+    for ch in value:
+        if ch.isspace():
+            if inword:
+                inword = 0
+        else:
+            if inword:
+                res[-1] += ch
             else:
-                if inword:
-                    res[-1] += ch
-                else:
-                    res.append(ch)
-                    inword = 1
-        for i in range(len(res)):
-            res[i] = W_StringObject(w_self.space, res[i])
-        return W_ListObject(w_self.space, res)
+                res.append(ch)
+                inword = 1
+    for i in range(len(res)):
+        res[i] = W_StringObject(w_self.space, res[i])
+    return W_ListObject(w_self.space, res)
 
-    def split(w_self, w_by=None):
-        if w_by is w_self.space.w_None: return w_self.splitByWhitespace()
-        res = []
-        start = 0
-        value = w_self._value.value()
-        by = w_by._value.value()
-        while 1:
-            next = value.find(by, start)
-            if next < 0:
-                res.append(value[start:])
-                break
-            res.append(value[start:next])
-            start = next + len(by)
-        for i in range(len(res)):
-            res[i] = W_StringObject(w_self.space, res[i])
-        return W_ListObject(w_self.space, res)
+def split(w_self, w_by):
+    res = []
+    start = 0
+    value = w_self._value.value()
+    by = w_by._value.value()
+    while 1:
+        next = value.find(by, start)
+        if next < 0:
+            res.append(value[start:])
+            break
+        res.append(value[start:next])
+        start = next + len(by)
+    for i in range(len(res)):
+        res[i] = W_StringObject(w_self.space, res[i])
+    return W_ListObject(w_self.space, res)
 
-def getattr_str(space, w_list, w_attr):
-    if space.is_true(space.eq(w_attr, space.wrap('join'))):
-        w_builtinfn = make_builtin_func(space, W_StringObject.join)
-        return W_InstMethObject(space, w_list, w_builtinfn)
-    elif space.is_true(space.eq(w_attr, space.wrap('split'))):
-        w_builtinfn = make_builtin_func(space, W_StringObject.split)
-        return W_InstMethObject(space, w_list, w_builtinfn)
-    raise FailedToImplement(space.w_AttributeError)
-
-StdObjSpace.getattr.register(getattr_str, W_StringObject, W_ANY)
+# XXX temporary hack
+W_StringObject.__dict__['split'].register(split, W_StringObject)
+W_StringObject.__dict__['split'].register(splitByWhitespace, W_NoneObject)
 
 
 def str_unwrap(space, w_str):
