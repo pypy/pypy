@@ -62,9 +62,15 @@ class ObjSpace:
             helper = self.appfile_helpers[applicationfile]
         except KeyError:
             from appfile import AppHelper
-            helper = AppHelper(self, applicationfile)
+            helper = AppHelper(self.gethelperspace(), applicationfile)
             self.appfile_helpers[applicationfile] = helper
         return helper
+
+    def gethelperspace(self):
+        # Return the object space to be used for executing helper code.
+        # A subclass may override this if it wants to use a different
+        # space to execute helpers (e.g. the annotating space)
+        return self
 
     # Following is a friendly interface to common object space operations
     # that can be defined in term of more primitive ones.  Subclasses
