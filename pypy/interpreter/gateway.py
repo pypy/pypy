@@ -198,8 +198,6 @@ class Gateway(Wrappable):
             else:
                 # no, we build all Gateways in the staticglobals now.
                 w_globals = build_dict(self.staticglobals, space)
-                if '__setupgateways__' in self.staticglobals:
-                    self.staticglobals['__setupgateways__'](space)
         return self.build_function(space, w_globals)
 
     def build_function(self, space, w_globals):
@@ -326,4 +324,6 @@ def build_dict(d, space):
             w_name = space.wrap(value.name)
             w_object = space.wrap(fn)
             space.setitem(w_globals, w_name, w_object)
+    if hasattr(space, 'w_sys'):  # give them 'sys' if it exists already
+        space.setitem(w_globals, space.wrap('sys'), space.w_sys)
     return w_globals

@@ -794,10 +794,6 @@ class PyInterpFrame(pyframe.PyFrame):
 # There are also a couple of helpers that are methods, defined in the
 # class above.
 
-def app___setupgateways__():
-    global sys
-    import sys
-
 def app_print_expr(x):
     try:
         displayhook = sys.displayhook
