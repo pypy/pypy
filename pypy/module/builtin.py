@@ -253,7 +253,8 @@ class __builtin__(ExtModule):
         return self.space.len(w_obj)
 
     def delattr(self, w_object, w_name):
-        return self.space.delattr(w_object, w_name)
+        self.space.delattr(w_object, w_name)
+        return self.space.w_None
 
     def getattr(self, w_object, w_name, w_defvalue = _noarg): 
         try:
