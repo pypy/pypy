@@ -160,12 +160,14 @@ def transform_dead_op_vars(self):
                 if op.opname in CanRemove: 
                     del block.operations[i]
                 elif op.opname == 'simple_call': 
-                    # XXX if the result is SomeImpossibleValue()
-                    # we assume the operation has side effects
-                    # and don't delete it 
-                    if op.result != annmodel.SomeImpossibleValue():
-                        del block.operations[i]
-                
+                    # XXX we want to have a more effective and safe 
+                    # way to check if this operation has side effects
+                    # ... 
+                    if op.args and isinstance(op.args[0], Constant):
+                        func = op.args[0].value
+                        if func is isinstance:
+                            del block.operations[i]
+
         # look for output variables never used
         # warning: this must be completely done *before* we attempt to
         # remove the corresponding variables from block.inputargs!
