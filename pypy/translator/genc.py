@@ -709,7 +709,7 @@ class GenC:
                     else:
                         fmt = "%s_%d"
                     # don't use zero
-                    if len(thesenames) == 0 and v.name not in self.reserved_names:
+                    if len(thesenames) == 0 and name not in self.reserved_names:
                         fmt = fmt[:-3]
                         thesenames[v.name] = ret = fmt % name
                     else:
