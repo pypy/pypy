@@ -101,6 +101,16 @@ class W_StringObject(W_Object):
 
 registerimplementation(W_StringObject)
 
+# string-to-unicode delegation
+import fake
+def delegate__String(space, w_str):
+    return space.wrap(unicode(space.unwrap(w_str)))
+# XXX needs to change when we stop faking unicode!
+delegate__String.result_class = fake.fake_type(unicode)
+delegate__String.priority = PRIORITY_CHANGE_TYPE
+delegate__String.can_fail = True
+
+
 def _isspace(ch):
     return ord(ch) in (9, 10, 11, 12, 13, 32)  
 
@@ -919,18 +929,6 @@ def add__String_String(space, w_left, w_right):
         buf[i+len(left)] = right[i]
     return space.wrap("".join(buf))
 
-def mod_str_tuple(space, w_format, w_args):
-    # XXX implement me
-    format = space.unwrap(w_format)
-    args = space.unwrap(w_args)
-    try:
-        s = format % args
-    except TypeError, e:
-        raise OperationError(space.w_TypeError, space.wrap(str(e)))
-    except ValueError, e:
-        raise OperationError(space.w_ValueError, space.wrap(str(e)))
-    return space.wrap(s)
-
 def len__String(space, w_str):
     return space.wrap(len(space.unwrap(w_str)))
 
@@ -981,8 +979,7 @@ def app_mod__String_ANY(format, values):
     if isinstance(values, tuple):
         return _formatting.format(format, values, None)
     else:
-        if hasattr(values, '__getitem__') and \
-               not isinstance(values, (str, list)):
+        if hasattr(values, 'keys'):
             return _formatting.format(format, (values,), values)
         else:
             return _formatting.format(format, (values,), None)
