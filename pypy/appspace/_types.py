@@ -23,13 +23,13 @@ def _register(factory, cls, in_builtin=True, synonym=True):
     """
     pypy.registertype(factory, cls)
     if in_builtin:
-        if isinstance(str, in_builtin):
+        if isinstance(in_builtin, str):
             typename = in_builtin
         else:
             typename = cls.__name__
         setattr(__builtin__, typename, cls)
     if synonym:
-        if isinstance(str, synonym):
+        if isinstance(synonym, str):
             typename = synonym
         else:
             typename = cls.__name__.title() + 'Type'
