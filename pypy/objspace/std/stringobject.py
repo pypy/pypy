@@ -1017,6 +1017,10 @@ def app_mod__String_ANY(format, values):
                     pieces.append(hex(int(value)))
                 elif c=='r':
                     pieces.append(repr(value))
+                elif c=='f':
+                    pieces.append(str(float(value)))
+                elif c=='g':
+                    pieces.append(str(value))   # XXX
                 else:
                     raise ValueError, "unsupported format character '%s' (%x) at index %d" % (
                             c, ord(c), i)

@@ -323,18 +323,18 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # XXX a bit of hacking to gain more speed 
         #
         if w_one is w_two:
-            return self.newbool(1)
+            return self.w_True
         if isinstance(w_one, W_CPythonObject):
             if isinstance(w_two, W_CPythonObject):
                 if w_one.cpyobj is w_two.cpyobj:
-                    return self.newbool(1)
+                    return self.w_True
                 return self.newbool(self.unwrap(w_one) is self.unwrap(w_two))
-        return self.newbool(0)
+        return self.w_False
 
     def is_true(self, w_obj):
         # XXX don't look!
         if isinstance(w_obj, W_DictObject):
-            return not not w_obj.non_empties()
+            return not not w_obj.data
         else:
             return DescrOperation.is_true(self, w_obj)
 

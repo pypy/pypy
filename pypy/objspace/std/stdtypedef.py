@@ -47,6 +47,10 @@ def buildtypeobject(typedef, space):
         # get all the sliced multimethods
         multimethods = slicemultimethods(space.__class__, typedef)
         for name, code in multimethods.items():
+            # compute the slice and ignore the multimethod if empty
+            if not code.computeslice(space):
+                continue
+            # create a Function around the sliced multimethod code
             fn = function.Function(space, code, defs_w=code.getdefaults(space))
             assert name not in rawdict, 'name clash: %s in %s_typedef' % (
                 name, typedef.name)
@@ -97,10 +101,6 @@ def slicemultimethods(spaceclass, typeclass):
     # import all multimethods defined directly on the type without slicing
     for multimethod in typeclass.local_multimethods:
         slicemultimethod(multimethod, None, result)
-    # remove the empty slices
-    for name, code in result.items():
-        if code.slice().is_empty():
-            del result[name]
     return result
 
 class MultimethodCode(eval.Code):
@@ -113,14 +113,25 @@ class MultimethodCode(eval.Code):
         self.bound_position = bound_position
         self.framecls = framecls
         argnames = ['x%d'%(i+1) for i in range(multimethod.arity)]
-        argnames.insert(0, argnames.pop(self.bound_position))
         varargname = kwargname = None
         if multimethod.extras.get('varargs', False):
             varargname = 'args'
         if multimethod.extras.get('keywords', False):
             kwargname = 'keywords'
         self.sig = argnames, varargname, kwargname
-        
+
+    def computeslice(self, space):
+        if self.typeclass is None:
+            slice = self.basemultimethod
+        else:
+            slice = self.basemultimethod.slice(self.typeclass,
+                                               self.bound_position)
+        if slice.is_empty():
+            return False
+        else:
+            self.mm = slice.get(space)
+            return True
+
     def signature(self):
         return self.sig
 
@@ -128,24 +139,15 @@ class MultimethodCode(eval.Code):
         return [space.wrap(x)
                 for x in self.basemultimethod.extras.get('defaults', ())]
 
-    def slice(self):
-        if self.typeclass is None:
-            return self.basemultimethod
-        else:
-            return self.basemultimethod.slice(self.typeclass,
-                                              self.bound_position)
-
     def create_frame(self, space, w_globals, closure=None):
         return self.framecls(space, self)
 
 class MmFrame(eval.Frame):
     def run(self):
         "Call the multimethod, raising a TypeError if not implemented."
-        mm = self.code.slice().get(self.space)
-        args = self.fastlocals_w
-        #print mm.multimethod.operatorsymbol, args
-        #print
-        w_result = mm(*args)
+        args = list(self.fastlocals_w)
+        args.insert(0, args.pop(self.code.bound_position))
+        w_result = self.code.mm(*args)
         # we accept a real None from operations with no return value
         if w_result is None:
             w_result = self.space.w_None
@@ -154,10 +156,10 @@ class MmFrame(eval.Frame):
 class SpecialMmFrame(eval.Frame):
     def run(self):
         "Call the multimethods, possibly returning a NotImplemented."
-        mm = self.code.slice().get(self.space)
-        args = self.fastlocals_w
+        args = list(self.fastlocals_w)
+        args.insert(0, args.pop(self.code.bound_position))
         try:
-            return mm.perform_call(args)
+            return self.code.mm.perform_call(args)
         except FailedToImplement, e:
             if e.args:
                 raise OperationError(*e.args)
