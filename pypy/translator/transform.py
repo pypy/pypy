@@ -83,21 +83,9 @@ def transform_simple_call(self):
                     raise CannotSimplify
                 varargs_cell = self.binding(op.args[1])
                 varkwds_cell = self.binding(op.args[2])
-                
-                len_cell = t.get('len', [varargs_cell])
-                if not isinstance(len_cell, XConstant):
-                    raise CannotSimplify
-                nbargs = len_cell.value
-                arg_cells = [t.get('getitem', [varargs_cell, self.constant(j)])
-                             for j in range(nbargs)]
-                if None in arg_cells:
-                    raise CannotSimplify
-                
-                len_cell = t.get('len', [varkwds_cell])
-                if not isinstance(len_cell, XConstant):
-                    raise CannotSimplify
-                nbkwds = len_cell.value
-                if nbkwds != 0:
+                arg_cells = self.decode_simple_call(varargs_cell,
+                                                    varkwds_cell, t)
+                if arg_cells is None:
                     raise CannotSimplify
 
                 args = [self.reverse_binding(known_vars, c) for c in arg_cells]

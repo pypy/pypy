@@ -4,6 +4,7 @@ from pypy.tool import test
 from pypy.tool.udir import udir
 
 from pypy.translator.annrpython import RPythonAnnotator
+from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import *
 
 from pypy.translator.test import snippet
@@ -130,6 +131,16 @@ class AnnonateTestCase(test.IntTestCase):
         item_cell = t.get('getitem', [end_cell, None])
         self.failIf(item_cell is None)
         self.assertEquals(t.get_type(item_cell), int)
+
+    def test_factorial(self):
+        translator = Translator(snippet.factorial)
+        graph = translator.getflowgraph()
+        a = RPythonAnnotator(translator)
+        a.build_types(graph, [int])
+        # result should be an integer
+        t = a.transaction()
+        end_cell = a.binding(graph.getreturnvar())
+        self.assertEquals(t.get_type(end_cell), int)
 
 
 def g(n):

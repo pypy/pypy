@@ -129,16 +129,29 @@ edge [fontname=Times];
 
 
 def make_dot(graphname, graph, storedir=None, target='ps'):
+    return make_dot_graphs(graph.name, [(graphname, graph)], storedir, target)
+
+def make_dot_graphs(basefilename, graphs, storedir=None, target='ps'):
     from vpath.adapter.process import exec_cmd
 
     if storedir is None:
         storedir = udir
 
     dotgen = DotGen()
-    name = graph.name
-    dest = storedir.join('%s.dot' % name)
+    dest = storedir.join('%s.dot' % basefilename)
     #dest = storedir.dirname().join('%s.dot' % name)
-    source = dotgen.getdigraph(graphname, graph)
+    subgraphs = []
+    basefilename = '_'+basefilename
+    names = {basefilename: True}
+    for graphname, graph in graphs:
+        if graphname in names:
+            i = 2
+            while graphname + str(i) in names:
+                i += 1
+            graphname = graphname + str(i)
+        names[graphname] = True
+        subgraphs.append(dotgen.getsubgraph(graphname, graph))
+    source = dotgen.getgraph(basefilename, subgraphs)
     #print source
     dest.write(source)
     psdest = dest.newext(target)

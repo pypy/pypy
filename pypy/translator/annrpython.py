@@ -1,5 +1,6 @@
 from __future__ import generators
 
+from types import FunctionType
 from pypy.translator.annheap import AnnotationHeap, Transaction
 from pypy.translator.annotation import XCell, XConstant, nothingyet
 from pypy.translator.annotation import Annotation
@@ -7,15 +8,20 @@ from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation
 
 
+class AnnotatorError(Exception):
+    pass
+
+
 class RPythonAnnotator:
     """Block annotator for RPython.
     See description in doc/transation/annotation.txt."""
 
-    def __init__(self):
+    def __init__(self, translator=None):
         self.heap = AnnotationHeap()
         self.pendingblocks = []  # list of (block, list-of-XCells)
         self.bindings = {}       # map Variables/Constants to XCells/XConstants
         self.annotated = {}      # set of blocks already seen
+        self.translator = translator
         # build default annotations
         t = self.transaction()
         self.any_immutable = XCell()
@@ -52,12 +58,24 @@ class RPythonAnnotator:
 
     def complete(self):
         """Process pending blocks until none is left."""
+        delayed = []
         while self.pendingblocks:
             # XXX don't know if it is better to pop from the head or the tail.
             # let's do it breadth-first and pop from the head (oldest first).
             # that's more stacklessy.
             block, cells = self.pendingblocks.pop(0)
-            self.processblock(block, cells)
+            try:
+                self.processblock(block, cells)
+            except DelayAnnotation:
+                delayed.append((block, cells))
+            else:
+                # when processblock succeed, i.e. when the analysis progress,
+                # we can tentatively re-schedlue the delayed blocks.
+                self.pendingblocks += delayed
+                del delayed[:]
+        if delayed:
+            raise AnnotatorError('%d delayed and suspended block(s)' %
+                                 len(delayed))
 
     def binding(self, arg):
         "XCell or XConstant corresponding to the given Variable or Constant."
@@ -243,10 +261,34 @@ class RPythonAnnotator:
         if type1 in (list, tuple) and type2 is slice:
             t.set_type(result, type1)
 
+    def decode_simple_call(self, varargs_cell, varkwds_cell, t):
+        len_cell = t.get('len', [varargs_cell])
+        if not isinstance(len_cell, XConstant):
+            return None
+        nbargs = len_cell.value
+        arg_cells = [t.get('getitem', [varargs_cell, self.constant(j)])
+                     for j in range(nbargs)]
+        if None in arg_cells:
+            return None
+        len_cell = t.get('len', [varkwds_cell])
+        if not isinstance(len_cell, XConstant):
+            return None
+        nbkwds = len_cell.value
+        if nbkwds != 0:
+            return None
+        return arg_cells
+
     def consider_op_call(self, (func,varargs,kwargs), result, t):
         if not isinstance(func, XConstant):
             return
         func = func.value
+        if isinstance(func, FunctionType) and self.translator:
+            args = self.decode_simple_call(varargs, kwargs, t)
+            if args is not None:
+                result_cell = self.translator.consider_call(self, func, args)
+                if result_cell is nothingyet:
+                    raise DelayAnnotation
+
         # XXX: generalize this later
         if func is range:
             t.set_type(result, list)
@@ -265,4 +307,7 @@ class RPythonAnnotator:
 
 
 class CannotSimplify(Exception):
+    pass
+
+class DelayAnnotation(Exception):
     pass

@@ -32,6 +32,7 @@ Try dir(test) for list of current snippets.
 import autopath
 
 from pypy.objspace.flow.model import *
+from pypy.translator.annotation import *
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.genpyrex import GenPyrex
@@ -46,70 +47,121 @@ class Translator:
 
     def __init__(self, func):
         self.entrypoint = func
-        self.annotator = None
-        space = FlowObjSpace()
-        self.flowgraph = space.build_flow(func)
-        try:
-            import inspect
-            self.py_source = inspect.getsource(func)
-        except IOError:
-            # e.g. when func is defined interactively
-            self.py_source = "<interactive>"
+        self.clear()
 
-    def gv(self):
-        """Shows the control flow graph -- requires 'dot' and 'gv'."""
+    def clear(self):
+        """Clear all annotations and all flow graphs."""
+        self.annotator = None
+        self.flowgraphs = {}  # {function: graph}
+        self.functions = []   # the keys of self.flowgraphs, in creation order
+        self.getflowgraph()
+
+    def getflowgraph(self, func=None):
+        """Get the flow graph for a function (default: the entry point)."""
+        func = func or self.entrypoint
+        try:
+            graph = self.flowgraphs[func]
+        except KeyError:
+            space = FlowObjSpace()
+            graph = self.flowgraphs[func] = space.build_flow(func)
+            self.functions.append(func)
+            try:
+                import inspect
+                graph.source = inspect.getsource(func)
+            except IOError:
+                pass  # e.g. when func is defined interactively
+        return graph
+
+    def gv(self, func=None):
+        """Shows the control flow graph for a function (default: all)
+        -- requires 'dot' and 'gv'."""
         import os
-        from pypy.translator.tool.make_dot import make_dot
-        dest = make_dot('dummy', self.flowgraph)
+        from pypy.translator.tool.make_dot import make_dot, make_dot_graphs
+        if func is None:
+            # show the graph of *all* functions at the same time
+            graphs = []
+            for func in self.functions:
+                graph = self.getflowgraph(func)
+                graphs.append((graph.name, graph))
+            dest = make_dot_graphs(self.entrypoint.__name__, graphs)
+        else:
+            graph = self.getflowgraph(func)
+            dest = make_dot(graph.name, graph)
         os.system('gv %s' % str(dest))
 
-    def simplify(self):
-        """Simplifies the control flow graph."""
-        self.flowgraph = simplify_graph(self.flowgraph)
+    def simplify(self, func=None):
+        """Simplifies the control flow graph (default: for all functions)."""
+        if func is None:
+            for func in self.flowgraphs.keys():
+                self.simplify(func)
+        else:
+            graph = self.getflowgraph(func)
+            self.flowgraphs[func] = simplify_graph(graph)
 
-    def annotate(self, input_args_types):
-        """annotate(self, input_arg_types) -> Annotator
+    def annotate(self, input_args_types, func=None):
+        """annotate(self, input_arg_types[, func]) -> Annotator
 
         Provides type information of arguments. Returns annotator.
         """
-        self.annotator = RPythonAnnotator()
-        self.annotator.build_types(self.flowgraph, input_args_types)
+        func = func or self.entrypoint
+        if self.annotator is None:
+            self.annotator = RPythonAnnotator(self)
+        graph = self.getflowgraph(func)
+        self.annotator.build_types(graph, input_args_types)
         return self.annotator
 
-    def source(self):
+    def source(self, func=None):
         """Returns original Python source.
         
         Returns <interactive> for functions written while the
         interactive session.
         """
-        return self.py_source
+        func = func or self.entrypoint
+        graph = self.getflowgraph(func)
+        return getattr(graph, 'source', '<interactive>')
 
-    def pyrex(self, input_arg_types=None):
-        """pyrex(self, [input_arg_types]) -> Pyrex translation
+    def pyrex(self, input_arg_types=None, func=None):
+        """pyrex(self[, input_arg_types][, func]) -> Pyrex translation
 
         Returns Pyrex translation. If input_arg_types is provided,
         returns type annotated translation. Subsequent calls are
         not affected by this.
         """
-        g = GenPyrex(self.flowgraph)
-        if input_arg_types is not None:
-            g.annotate(input_arg_types)
-        elif self.annotator:
-            g.setannotator(self.annotator)
-        return g.emitcode()
+        return self.generatecode(GenPyrex, input_arg_types, func)
 
     def cl(self, input_arg_types=None):
-        """cl(self, [input_arg_types]) -> Common Lisp translation
+        """cl(self[, input_arg_types][, func]) -> Common Lisp translation
         
         Returns Common Lisp translation. If input_arg_types is provided,
         returns type annotated translation. Subsequent calls are
         not affected by this.
         """
-        g = GenCL(self.flowgraph)
+        return self.generatecode(GenCL, input_arg_types, func)
+
+    def generatecode(self, gencls, input_arg_types, func):
+        if input_arg_types is None:
+            ann = self.annotator
+        else:
+            ann = RPythonAnnotator(self)
+        if func is None:
+            code = self.generatecode1(gencls, input_arg_types,
+                                      self.entrypoint, ann)
+            codes = [code]
+            for func in self.functions:
+                if func is not self.entrypoint:
+                    code = self.generatecode1(gencls, None, func, ann)
+                    codes.append(code)
+            return '\n\n#_________________\n\n'.join(codes)
+        else:
+            return self.generatecode1(gencls, input_arg_types, func, ann)
+
+    def generatecode1(self, gencls, input_arg_types, func, ann):
+        graph = self.getflowgraph(func)
+        g = gencls(graph)
         if input_arg_types is not None:
-            g.annotate(input_arg_types)
-        elif self.annotator:
-            g.ann = self.annotator
+            ann.build_types(graph, input_arg_types)
+        if ann is not None:
+            g.setannotator(ann)
         return g.emitcode()
 
     def compile(self):
@@ -127,10 +179,21 @@ class Translator:
         """Calls underlying Python function."""
         return self.entrypoint(*args)
 
-    def dis(self):
+    def dis(self, func=None):
         """Disassembles underlying Python function to bytecodes."""
         from dis import dis
-        dis(self.entrypoint)
+        dis(func or self.entrypoint)
+
+    def consider_call(self, ann, func, args):
+        graph = self.getflowgraph(func)
+        ann.addpendingblock(graph.startblock, args)
+        result_var = graph.getreturnvar()
+        try:
+            return ann.binding(result_var)
+        except KeyError:
+            # typical case for the 1st call, because addpendingblock() did
+            # not actually start the analysis of the called function yet.
+            return nothingyet
 
 
 if __name__ == '__main__':
