@@ -45,6 +45,7 @@ working_unittests = (
 'test_htmlparser.py',
 'test_isinstance.py',
 'test_operator.py',
+'test_parser.py',
 'test_pprint.py',
 'test_profilehooks.py',
 'test_sgmllib.py',
