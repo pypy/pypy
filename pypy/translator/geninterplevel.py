@@ -557,11 +557,8 @@ class GenRpy:
                         print >> sys.stderr, "Problem while generating %s of %r" % (
                                 name, instance)
                         raise
-        self.initcode.append(
-            '_new = space.getattr(%s, %s)\n'
-            '_tup = space.newtuple([%s])\n'
-            'm.%s = space.call(_new, _tup)' % (
-                cls, self.nameof('__new__'), cls, name))
+        self.initcode.append("m.%s = space.call_method(%s, '__new__', %s)" % (
+                             name, cls, cls))
         self.later(initinstance())
         return name
 
