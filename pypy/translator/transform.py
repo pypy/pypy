@@ -314,7 +314,11 @@ def transform_dead_code(self):
     """Remove dead code: these are the blocks that are not annotated at all
     because the annotation considered that no conditional jump could reach
     them."""
-    for block in self.annotated:
+    for block, is_annotated in self.annotated.items():
+        if not is_annotated:
+            # We do not want to accidentally turn blocked blocks into return
+            # blocks
+            continue
         for link in block.exits:
             if link not in self.links_followed:
                 lst = list(block.exits)
