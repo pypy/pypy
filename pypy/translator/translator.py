@@ -58,8 +58,7 @@ class Translator:
         """Shows the control flow graph -- requires 'dot' and 'gv'."""
         import os
         from pypy.translator.tool.make_dot import make_dot
-        from pypy.tool.udir import udir
-        dest = make_dot(self.flowgraph, udir, 'ps')
+        dest = make_dot('dummy', self.flowgraph)
         os.system('gv %s' % str(dest))
 
     def simplify(self):

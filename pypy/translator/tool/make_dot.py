@@ -31,6 +31,7 @@ edge [fontname=Times];
     def getdigraph(self, name, node):
         self.blocks = {}
         self.lines = []
+        self.prefix = name
         traverse(self, node)
         content = "\n".join(self.lines)
         return "digraph %s {\n%s}" % (name, content) 
@@ -125,7 +126,7 @@ edge [fontname=Times];
                 self.emit_edge(name, name2, label, style="dotted", color=color)
 
 
-def make_dot(name, graph, storedir=None, target='ps'):
+def make_dot(graphname, graph, storedir=None, target='ps'):
     from vpath.adapter.process import exec_cmd
 
     if storedir is None:
@@ -135,7 +136,7 @@ def make_dot(name, graph, storedir=None, target='ps'):
     name = graph.name
     dest = storedir.join('%s.dot' % name)
     #dest = storedir.dirname().join('%s.dot' % name)
-    source = dotgen.get_source(graph)
+    source = dotgen.getdigraph(graphname, graph)
     #print source
     dest.write(source)
     psdest = dest.newext(target)
