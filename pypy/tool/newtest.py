@@ -54,11 +54,17 @@ class TestItem:
         self.module = module
         self.cls = cls
         self.method = testmethod
+        #XXX inspect.getsourcelines may fail if the file path stored
+        #  in a module's pyc/pyo file doesn't match the py file's
+        #  actual location. This can happen if a py file, together with
+        #  its pyc/pyo file is moved to a new location. See Python
+        #  bug "[570300] inspect.getmodule symlink-related failure":
+        #  http://sourceforge.net/tracker/index.php?func=detail&aid=570300&group_id=5470&atid=105470
         lines, self.lineno = inspect.getsourcelines(testmethod)
         # removing trailing newline(s) but not the indentation
         self.source = ''.join(lines).rstrip()
 
-    def run(self, pretest=None, posttest=None):
+    def run(self, pretest=None, postest=None):
         """
         Run this TestItem and return a corresponding TestResult object.
 
