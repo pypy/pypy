@@ -1,6 +1,8 @@
 """
 Unit testing framework for PyPy.
 
+The following picture is an UML class diagram of the framework.
+
 +------------+ 1                                    1 +----------+
 | TestResult |----------------------------------------| TestItem |
 | (abstract) |                                        +----------+
@@ -15,18 +17,48 @@ Unit testing framework for PyPy.
 | (abstract)              | +---------+ +---------+         |
 +-------------------------+                                 | loaded by
     A          A                                            |
-    -          -                                      +------------+
+    -          -                                            | *
+    |          |                                      +------------+
     |          |                                      | TestCase   |
-    |          |                                      | (abstract) |
-+-------+ +---------+                                 +------------+
-| Error | | Failure |                                       A
-+-------+ +---------+                                       -
++-------+ +---------+                                 | (abstract) |
+| Error | | Failure |                                 +------------+
++-------+ +---------+                                       A
+                                                            -
                                                             |
                                                             |
                                                        concrete test
                                                        case classes
 
+Like the unittest framework of Python, our framework implements
+tests as test methods in TestCase classes. Custom test case classes
+derive from the shown TestCase class, defined in this module. As in
+Python's unittest, a test case class can contain setUp and tearDown
+methods. Additionally, it contains a method 'skip' which can be
+called to stop a test prematurely. This won't be counted as a failure.
+
+Test cases are loaded by a TestSuite class via the method init_from_dir.
+init_from_dir will read all test modules in and below a specified
+directory, inspect them for classes derived from TestCase (i. e. _our_
+TestCase), and in turn inspect them for test methods (like in
+unittest, all methods which start with "test").
+
+For every found method, TestSuite will store it's module, class,
+unbound method objects in a TestItem object. There are also other
+properties stored, e. g. the source code for each method and its
+docstring.
+
+When the TestSuite's method 'run' is called, all collected TestItems
+are run and, according to the outcome of the test, a TestResult object
+is generated which holds a reference to "its" TestItem object.
+
+The TestResult classes Success and Skipped denote a passed test. A
+skipped test means that not all test code has been run (and no error
+or failure occurred before the skip method was called). If a test
+fails, resulting in a Failure object, a test, e. g. tested with
+assertEqual, has failed. An Error object is generated if something
+else causes an unforeseen exception to be raised.
 """
+
 # for Python 2.2 compatibilty
 from __future__ import generators
 
