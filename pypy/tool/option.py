@@ -5,7 +5,11 @@ make_option = optik.make_option
 class Options:
     verbose = 0
     showwarning = 0
-    spaces = []    
+    spaces = []
+
+def run_tb_server(option, opt, value, parser):
+    from pypy.tool import tb_server
+    tb_server.start()
 
 def get_standard_options():
     options = []
@@ -35,6 +39,11 @@ def get_standard_options():
     options.append(make_option(
         '-w', action="store_true", dest="showwarning",
         help="enable warnings (disabled by default)"))
+    options.append(make_option(
+        '-H', action="callback",
+        callback=run_tb_server,
+        help="use web browser for traceback info"))
+        
 
     return options
 

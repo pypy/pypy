@@ -32,33 +32,42 @@ def get_main_options():
     return options
 
 def main_(argv=None):
+    from pypy.tool import tb_server
     args = option.process_options(get_main_options(), Options, argv[1:])
-    space = option.objspace()
-    go_interactive = Options.interactive
-    banner = ''
-    if Options.command:
-        args = ['-c']
-    for arg in args:
-        space.call_method(space.sys.w_argv, 'append', space.wrap(arg))
-    if Options.command:
-        try:
-            main.run_string(Options.command[0], '<string>', space)
-        except error.PyPyError, pypyerr:
-            pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
-    elif args:
-        try:
-            main.run_file(args[0], space)
-        except error.PyPyError, pypyerr:
-            pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
-    else:
-        go_interactive = 1
-        banner = None
-    if go_interactive:
-        con = interactive.PyPyConsole(space)
-        if banner == '':
-            banner = '%s / %s'%(con.__class__.__name__,
-                                space.__class__.__name__)
-        con.interact(banner)
+    print 'options processed'
+    try:
+        space = option.objspace()
+        go_interactive = Options.interactive
+        banner = ''
+        if Options.command:
+            args = ['-c']
+        for arg in args:
+            space.call_method(space.sys.w_argv, 'append', space.wrap(arg))
+        if Options.command:
+            try:
+                main.run_string(Options.command[0], '<string>', space)
+            except error.PyPyError, pypyerr:
+                pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
+        elif args:
+            try:
+                main.run_file(args[0], space)
+            except error.PyPyError, pypyerr:
+                pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
+        else:
+            go_interactive = 1
+            banner = None
+        if go_interactive:
+            con = interactive.PyPyConsole(space)
+            if banner == '':
+                banner = '%s / %s'%(con.__class__.__name__,
+                                    space.__class__.__name__)
+            con.interact(banner)
+    except:
+        sys.excepthook(*sys.exc_info())
+        print 'waiting'
+        tb_server.wait_until_interrupt()
+            
+    tb_server.stop()
 
 if __name__ == '__main__':
     try:

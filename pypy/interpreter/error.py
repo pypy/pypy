@@ -95,6 +95,8 @@ class OperationError(Exception):
             interpr_file = LinePrefixer(file, '||')
             print >> interpr_file, "Traceback (interpreter-level):"
             traceback.print_tb(self.debug_tbs[i], file=interpr_file)
+        from pypy.tool import tb_server
+        tb_server.publish_tb(self.debug_tbs[0])
         self.print_app_tb_only(file)
         if space is None:
             exc_typename = str(self.w_type)
