@@ -82,12 +82,52 @@ class TestCase(test.IntTestCase):
         startblock = BasicBlock([i], [i], 
                                 [], headerbranch)
 
-
         fun = FunctionGraph(startblock, "f")
         result = GenPyrex(fun).emitcode()
         mod = make_module_from_pyxstring(result)
         self.assertEquals(mod.f(42), 0)
         self.assertEquals(mod.f(-3), -3)
+
+    def test_while_sum(self):
+        """
+        one test source:
+        def f(i):
+            sum = 0
+            while i > 0:
+                sum = sum + i
+                i = i - 1
+            return sum
+        """
+        i = Variable("i")
+        sum = Variable("sum")
+
+        conditionres = Variable("conditionres")
+        conditionop = SpaceOperation("gt", [i, Constant(0)], conditionres)
+        decop = SpaceOperation("add", [i, Constant(-1)], i)
+        addop = SpaceOperation("add", [i, sum], sum)
+
+        conditionbranch = ConditionalBranch()
+        headerbranch = Branch()
+        headerbranch2 = Branch()
+        whileblock = BasicBlock([i, sum], [i, sum], [addop, decop], headerbranch2)
+        whilebranch = Branch([i, sum], whileblock)
+        
+        endbranch = EndBranch(sum)
+        conditionbranch.set(conditionres, whilebranch, endbranch)
+
+        headerblock = BasicBlock([i, sum], [i, conditionres],
+                                 [conditionop], conditionbranch)
+
+        headerbranch.set([i, Constant(0)], headerblock)
+        headerbranch2.set([i, sum], headerblock)
+        startblock = BasicBlock([i], [i, sum], 
+                                [], headerbranch)
+
+        fun = FunctionGraph(startblock, "f")
+        result = GenPyrex(fun).emitcode()
+        mod = make_module_from_pyxstring(result)
+        self.assertEquals(mod.f(3), 6)
+        self.assertEquals(mod.f(-3), 0)
 
 if __name__ == '__main__':
     test.main()
