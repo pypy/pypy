@@ -90,11 +90,12 @@ def __import__(w_modulename, w_globals=None,
               space.wrap("__import__() argument 1 must be string" + helper))
     w = space.wrap
 
-    ctxt_w_name = None
-    ctxt_w_path = None
-    if w_globals is not None:
+    if w_globals is not None and not space.is_true(space.is_(w_globals, space.w_None)):
         ctxt_w_name = try_getitem(w_globals,w('__name__'))
         ctxt_w_path = try_getitem(w_globals,w('__path__'))
+    else:
+        ctxt_w_name = None
+        ctxt_w_path = None
 
     rel_modulename = None
     if ctxt_w_name is not None:

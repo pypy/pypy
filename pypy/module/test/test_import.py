@@ -125,6 +125,13 @@ class TestImport(testit.AppTestCase):
             import pkg_r.inpkg
         self.assertRaises(ImportError,imp)
 
+    def test_import_Globals_Are_None(self):
+        import sys
+        m = __import__('sys')
+        self.assertEquals(sys, m) 
+        n = __import__('sys', None, None, [''])
+        self.assertEquals(sys, n) 
+
     def test_import_relative_back_to_absolute2(self):
         from pkg import abs_x_y
         import sys
