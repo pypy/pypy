@@ -13,26 +13,22 @@
 """
 
 from proxy import create_proxy_space
-from pypy.interpreter import gateway
+from pypy.interpreter import gateway, baseobjspace
 
 # ____________________________________________________________
 
+class W_Dead(baseobjspace.W_Root, object):
+    pass
+
 def canonical(w_obj):
-    try:
-        return w_obj.__unified_with[-1]
-    except AttributeError:
-        return w_obj
+    while isinstance(w_obj, W_Dead):
+        w_obj = w_obj.__pointer
+    return w_obj
 
 def become(space, w_target, w_source):
-    try:
-        targetfamily = w_target.__unified_with
-    except AttributeError:
-        targetfamily = [w_target]
-    w_source.__unified_with = targetfamily
-    targetfamily.append(w_source)
-    for w_obj in targetfamily:
-        w_obj.__class__ = w_source.__class__
-        w_obj.__dict__  = w_source.__dict__
+    w_target = canonical(w_target)
+    w_target.__class__ = W_Dead
+    w_target.__pointer = w_source
     return space.w_None
 app_become = gateway.interp2app(become)
 
