@@ -159,28 +159,4 @@ def traverse_dependencies(l_repr, seen_reprs):
             yield l_dep1
     yield l_repr
 
-<<<<<<< .mine
 
-## class AAA(object):
-##     def __init__(self):
-##         self.a = 1
-
-## class BBB(AAA):
-##     def __init__(self):
-##         self.a = 2
-##         self.b = 2
-
-## def f1(flag):
-##     if flag:
-##         a = AAA()
-##     else:
-##         a = BBB()
-##     return a.a
-
-## t = Translator(f1, simplifying=True)
-## a = t.annotate([bool])
-## t.view()
-## f = llvmcompile(t)
-=======
-
->>>>>>> .r10207
