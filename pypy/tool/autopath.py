@@ -24,28 +24,32 @@ This module always provides these attributes:
 
 def __dirinfo(part):
     """ return (partdir, this_dir) and insert parent of partdir
-    into sys.path. If the parent directories dont have the part
+    into sys.path.  If the parent directories don't have the part
     an EnvironmentError is raised."""
 
-    import sys, os 
+    import sys, os
     try:
-        head = this_dir = os.path.abspath(os.path.dirname(__file__))
+        head = this_dir = os.path.realpath(os.path.dirname(__file__))
     except NameError:
-        head = this_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
+        head = this_dir = os.path.realpath(os.path.dirname(sys.argv[0]))
 
     while head:
         partdir = head
-        try:
-            sys.path.remove(head)
-        except ValueError:
-            pass
         head, tail = os.path.split(head)
         if tail == part:
-            if head not in sys.path:
-                sys.path.insert(0, head)
-            return partdir, this_dir
-        
-    raise EnvironmentError, "'%s' missing in '%r'" % (pathpart,this_path)
+            break
+    else:
+        raise EnvironmentError, "'%s' missing in '%r'" % (partdir, this_dir)
+    
+    checkpaths = sys.path[:]
+    pypy_root = os.path.join(head, '')
+    
+    while checkpaths:
+        orig = checkpaths.pop()
+        if os.path.join(os.path.realpath(orig), '').startswith(pypy_root):
+            sys.path.remove(orig)
+    sys.path.insert(0, head)
+    return partdir, this_dir
 
 def __clone():
     """ clone master version of autopath.py into all subdirs """
