@@ -14,7 +14,7 @@ __excepthook__ = excepthook  # this is exactly like in CPython
 def exit(exitcode=0):
     # note that we cannot use SystemExit(exitcode) here.
     # The comma version leads to an extra de-tupelizing
-    # in normalize_exception, which is exactlylike CPython.
+    # in normalize_exception, which is exactly like CPython's.
     raise SystemExit, exitcode
 
 #import __builtin__
