@@ -277,6 +277,7 @@ class StdObjSpace(ObjSpace):
     is_data_descr = MultiMethod('is_data_descr', 1, []) # returns an unwrapped bool
 
     getdict = MultiMethod('getdict', 1, [])  # get '.__dict__' attribute
+    next    = MultiMethod('next', 1, [])     # iterator interface
 
     def is_(self, w_one, w_two):
         # XXX this is a hopefully temporary speed hack:

@@ -195,7 +195,6 @@ ObjSpace.MethodTable = [
     ('and_',            '&',         2, ['__and__', '__rand__']),
     ('or_',             '|',         2, ['__or__', '__ror__']),
     ('xor',             '^',         2, ['__xor__', '__rxor__']),
-    ('nonzero',         'nonzero',   1, ['__nonzero__']),
     ('int',             'int',       1, ['__int__']),
     ('float',           'float',     1, ['__float__']),
     ('inplace_add',     '+=',        2, ['__iadd__']),
@@ -219,7 +218,6 @@ ObjSpace.MethodTable = [
     ('ge',              '>=',        2, ['__ge__', '__le__']),
     ('contains',        'contains',  2, ['__contains__']),
     ('iter',            'iter',      1, ['__iter__']),
-    ('next',            'next',      1, ['next']),  # iterator interface
     ('call',            'call',      3, ['__call__']),
     ('get',             'get',       3, ['__get__']),
     ('set',             'set',       2, ['__set__']),
@@ -288,4 +286,5 @@ ObjSpace.ExceptionTable = [
 # newslice(w_start,w_stop,w_end) -> w_slice     (w_end may be a real None)
 #               newfunction(...) -> w_function
 #              newmodule(w_name) -> w_module
+#                   next(w_iter) -> w_value or raise NoValue
 #

@@ -100,51 +100,72 @@ def is_data_descr__User(space, w_userobj):
     else:
         return 1        
 
-# register an implementation for all multimethods that define special names
-def user_specialmethod(space, *args_w):
-    # args_w is in the standard multimethod order
-    # we need it in the Python-friendly order (i.e. swapped for __rxxx__)
-    args_w = list(args_w)
-    w_userobj = args_w.pop(g_bound_position)
-    w_args = space.newtuple(args_w)
-    w_key = space.wrap(g_method_name)
-    mro = space.getattr(w_userobj.w_type, space.wrap('__mro__'))
-    mro = space.unpacktuple(mro)
-    for w_base in mro:
-        if not isinstance(w_base, W_UserType):
-            continue
-        try:
-            w_function = w_base.lookup_exactly_here(w_key)
-        except KeyError:
-            continue
-        w_method = space.get(w_function, w_userobj, w_base)
-        w_result = space.call(w_method, w_args, space.newdict([]))
-        # XXX hack to accept real Nones from operations with no return value
-        if w_result is None:
-            return space.w_None
-        elif space.is_true(space.is_(w_result, space.w_NotImplemented)):
+
+class SpecialMethod:
+    """An implementation for a multimethod that looks for a user-defined
+    special __xxx__ method."""
+
+    def __init__(self, method_name, bound_position=0):
+        self.method_name = method_name
+        self.bound_position = bound_position
+
+    def do_call(self, space, args_w):
+        # args_w is in the standard multimethod order
+        # we need it in the Python-friendly order (i.e. swapped for __rxxx__)
+        args_w = list(args_w)
+        w_userobj = args_w.pop(self.bound_position)
+        w_args = space.newtuple(args_w)
+        w_key = space.wrap(self.method_name)
+        w_mro = space.getattr(w_userobj.w_type, space.wrap('__mro__'))
+        mro = space.unpacktuple(w_mro)
+        for w_base in mro:
+            if not isinstance(w_base, W_UserType):
+                continue
+            try:
+                w_function = w_base.lookup_exactly_here(w_key)
+            except KeyError:
+                continue
+            w_method = space.get(w_function, w_userobj, w_base)
+            return space.call(w_method, w_args, space.newdict([]))
+        raise FailedToImplement
+
+    def normal_call(self, space, *args_w):
+        "Call a user-defined __xxx__ method and convert the result back."
+        w_result = self.do_call(space, args_w)
+        # interpret 'NotImplemented' as meaning not implemented (duh).
+        if space.is_true(space.is_(w_result, space.w_NotImplemented)):
             raise FailedToImplement
-        else:
-            return w_result
-    raise FailedToImplement
+        return w_result
+
+    def next_call(self, space, *args_w):
+        "For .next()."
+        # don't accept NotImplemented nor a real None, but catch StopIteration
+        try:
+            return self.do_call(space, args_w)
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_StopIteration):
+                raise
+            raise NoValue
+
+    def nonzero_call(self, space, *args_w):
+        "For __nonzero__()."
+        # accept any object and return its truth value
+        # XXX if the user returns another custom object he can
+        #     force the interpreter into an infinite loop
+        w_result = self.do_call(space, args_w)
+        return space.is_true(w_result)
+
 
 import new
 for multimethod in typeobject.hack_out_multimethods(StdObjSpace):
     for i in range(len(multimethod.specialnames)):
-        # a hack to avoid nested scopes is to give the function
-        # a custom globals dictionary
-
-        g = {'W_UserType'       : W_UserType,
-             'FailedToImplement': FailedToImplement,
-             '__builtins__'     : __builtins__,
-             'g_method_name'    : multimethod.specialnames[i],
-             'g_bound_position' : i}
-        f = new.function(user_specialmethod.func_code, g,
-                         'user_%s' % multimethod.specialnames[i])
-
+        f = SpecialMethod(multimethod.specialnames[i], i).normal_call
         signature = [W_ANY] * multimethod.arity
         signature[i] = W_UserObject
         multimethod.register(f, *signature)
+
+next__User    = SpecialMethod('next').next_call
+is_true__User = SpecialMethod('nonzero').nonzero_call
 
 
 register_all(vars())

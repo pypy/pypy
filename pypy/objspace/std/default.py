@@ -35,10 +35,15 @@ def id__ANY(space, w_obj):
 def not__ANY(space, w_obj):
     return space.newbool(not space.is_true(w_obj))
 
-# everything is True unless otherwise specified
+
+# __nonzero__ falls back to __len__
 
 def is_true__ANY(space, w_obj):
-    return True
+    try:
+        w_len = space.len.perform_call((w_obj,))
+    except FailedToImplement:
+        return True  # everything is True unless otherwise specified
+    return space.is_true(space.ne(w_len, space.newint(0)))
 
 # in-place operators fall back to their non-in-place counterpart
 
@@ -73,8 +78,6 @@ def is_data_descr__ANY(space, w_descr):
 def issubtype__ANY_ANY(space, w_one, w_two):
     # XXX -- mwh
     return space.newbool(0)
-
-def nonzero__ANY(space, w_obj):
-    return space.newbool(space.is_true(w_obj))
+    # XXX why is it there ? -- Armin
 
 register_all(vars())

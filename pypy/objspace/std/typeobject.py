@@ -18,15 +18,6 @@ class W_TypeObject(W_AbstractTypeObject):
     def __init__(w_self, space):
         W_Object.__init__(w_self, space)
         w_self.w_tpname = space.wrap(w_self.typename)
-        w_self.multimethods = {}
-        # import all multimethods of the type class and of the objspace
-        for multimethod in (hack_out_multimethods(w_self.__class__) +
-                            hack_out_multimethods(space.__class__)):
-            for i in range(len(multimethod.specialnames)):
-                # each PyMultimethodCode embeds a multimethod
-                name = multimethod.specialnames[i]
-                code = PyMultimethodCode(multimethod, w_self.__class__, i)
-                w_self.multimethods[name] = code
 
     def getbases(w_self):
         parents = w_self.staticbases
@@ -58,10 +49,11 @@ class W_TypeObject(W_AbstractTypeObject):
 
     def lookup_exactly_here(w_self, w_key):
         space = w_self.space
+        multimethods = getmultimethods(space.__class__, w_self.__class__)
         key = space.unwrap(w_key)
         assert isinstance(key, str)
         try:
-            code = w_self.multimethods[key]
+            code = multimethods[key]
         except KeyError:
             raise KeyError   # pass on the KeyError
         if code.slice().is_empty():
@@ -83,6 +75,33 @@ def hack_out_multimethods(cls):
             result.append(value)
     return result
 
+AllSlicedMultimethods = {}
+
+def getmultimethods(spaceclass, typeclass):
+    try:
+        multimethods = AllSlicedMultimethods[spaceclass, typeclass]
+    except KeyError:
+        multimethods = AllSlicedMultimethods[spaceclass, typeclass] = {}
+        # import all multimethods of the type class and of the objspace
+        for multimethod in (hack_out_multimethods(typeclass) +
+                            hack_out_multimethods(spaceclass)):
+            for i in range(len(multimethod.specialnames)):
+                # each PyMultimethodCode embeds a multimethod
+                name = multimethod.specialnames[i]
+                if name in multimethods:
+                    # conflict between e.g. __lt__ and
+                    # __lt__-as-reversed-version-of-__gt__
+                    code = multimethods[name]
+                    if code.bound_position < i:
+                        continue
+                code = PyMultimethodCode(multimethod, typeclass, i)
+                multimethods[name] = code
+        # add some more multimethods with a special interface
+        code = NextMultimethodCode(spaceclass.next, typeclass)
+        multimethods['next'] = code
+        code = NonZeroMultimethodCode(spaceclass.is_true, typeclass)
+        multimethods['__nonzero__'] = code
+    return multimethods
 
 class PyMultimethodCode(pycode.PyBaseCode):
 
@@ -104,7 +123,7 @@ class PyMultimethodCode(pycode.PyBaseCode):
     def slice(self):
         return self.basemultimethod.slice(self.typeclass, self.bound_position)
 
-    def eval_code(self, space, w_globals, w_locals):
+    def do_call(self, space, w_globals, w_locals):
         """Call the multimethod, ignoring all implementations that do not
         have exactly the expected type at the bound_position."""
         multimethod = self.slice()
@@ -113,19 +132,37 @@ class PyMultimethodCode(pycode.PyBaseCode):
             w_arg = space.getitem(w_locals, space.wrap('x%d'%(i+1)))
             dispatchargs.append(w_arg)
         dispatchargs = tuple(dispatchargs)
+        return multimethod.get(space).perform_call(dispatchargs)
+
+    def eval_code(self, space, w_globals, w_locals):
+        "Call the multimethods, translating back information to Python."
         try:
-            w_result = multimethod.get(space).perform_call(dispatchargs)
+            w_result = self.do_call(space, w_globals, w_locals)
         except FailedToImplement, e:
             if e.args:
                 raise OperationError(*e.args)
             else:
                 return space.w_NotImplemented
-        except NoValue:
-            raise OperationError(space.w_StopIteration, space.w_None)
-        # XXX hack to accept real Nones from operations with no return value
+        # we accept a real None from operations with no return value
         if w_result is None:
             w_result = space.w_None
         return w_result
+
+class NextMultimethodCode(PyMultimethodCode):
+
+    def eval_code(self, space, w_globals, w_locals):
+        "Call the next() multimethod."
+        try:
+            return self.do_call(space, w_globals, w_locals)
+        except NoValue:
+            raise OperationError(space.w_StopIteration, space.w_None)
+
+class NonZeroMultimethodCode(PyMultimethodCode):
+
+    def eval_code(self, space, w_globals, w_locals):
+        "Call the is_true() multimethods."
+        result = self.do_call(space, w_globals, w_locals)
+        return space.newbool(result)
 
 
 def call__Type_ANY_ANY(space, w_type, w_args, w_kwds):
