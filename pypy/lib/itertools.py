@@ -354,17 +354,25 @@ class islice:
     """ 
     def __init__(self, iterable, *args):
         s = slice(*args)
-        self.start, self.stop, self.step = s.start or 0, s.stop, s.step or 1
+        self.start, self.stop, self.step = s.start or 0, s.stop, s.step
+        if self.step is None:
+            self.step = 1
         if self.start<0 or (self.stop is not None and self.stop<0
-           ) or self.step<0:
+           ) or self.step<=0:
             raise ValueError, "indices for islice() must be positive"
-        self.donext = iter(iterable).next
+        self.it = iter(iterable)
+        self.donext = None
         self.cnt = 0
 
     def __iter__(self):
         return self
 
     def next(self): 
+        if self.donext is None:
+            try:
+	        self.donext = self.it.next
+            except AttributeError:
+	        raise TypeError
         while self.cnt < self.start:
             self.donext()
             self.cnt += 1
