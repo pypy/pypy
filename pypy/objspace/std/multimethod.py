@@ -26,7 +26,7 @@ class FailedToImplement(Exception):
 #   one may be automatically registered in the other one to keep
 #   them in sync.
 
-# for dispatching use the result of these functions instead of directly
+# for dispatching use the result of this function instead of directly
 # using .__class__
 
 def dispatchtype(obj):
@@ -35,8 +35,8 @@ def dispatchtype(obj):
     except AttributeError:
         return obj.__class__
 
-def todispatchtype(cls):
-    return getattr(cls,'dispatchtype',cls)
+##def todispatchtype(cls):
+##    return getattr(cls,'dispatchtype',cls)
 
 class AbstractMultiMethod(object):
     """Abstract base class for MultiMethod and UnboundMultiMethod
@@ -105,8 +105,8 @@ class MultiMethod(AbstractMultiMethod):
         self.defaults = defaults
         self.unbound_versions = {}
 
-    def __get__(self, space, cls=object):
-        if issubclass(todispatchtype(cls), self.BASE_TYPE_OBJECT):
+    def __get__(self, space, cls=object): # cls is some W_xxxType
+        if issubclass(cls, self.BASE_TYPE_OBJECT):
             return self.slice(cls).get(space)
         elif space is None:
             return self  # hack for "StdObjSpace.xyz" returning xyz
