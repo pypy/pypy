@@ -3,12 +3,8 @@
 New for PyPy - Could be incorporated into CPython regression tests.
 """
 import autopath
-from pypy.tool import testit
 
-class TestExceptionComp(testit.AppTestCase):
-
-    def setUp(self):
-        self.space = testit.objspace()
+class AppTestExceptionComp: 
 
 ### XXX - String exceptions depreciated?
 ##    def test_string(self):
@@ -133,6 +129,3 @@ class TestExceptionComp(testit.AppTestCase):
             pass
         except:
             self.fail("Exception does not match self in deeply nested tuple.")
-            
-if __name__ == "__main__":
-    testit.main()

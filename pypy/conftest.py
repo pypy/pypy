@@ -85,13 +85,13 @@ class PyPyItem(py.test.Item):
     #        mod.space = getttestobjspace(mod.objspacename)
     #    super(PyPyItem, self).setup_module(mod) 
 
-    def setup_method(self, method): 
-        base = getattr(method, 'im_self', method) 
-        name = getattr(base, 'objspacename', None) 
+    def setup_class(self, cls): 
+        name = getattr(cls, 'objspacename', None) 
         if name is None: 
-            name = method.im_func.func_globals.get('objspacename', None) 
-        base.space = gettestobjspace(name) 
-        super(PyPyItem, self).setup_method(method) 
+            m = __import__(cls.__module__) 
+            name = getattr(m, 'objspacename', None) 
+        cls.space = gettestobjspace(name) 
+        super(PyPyItem, self).setup_class(cls) 
 
     def execute_appex(self, space, target, *args):
         try:
