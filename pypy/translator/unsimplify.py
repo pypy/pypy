@@ -35,6 +35,15 @@ def remove_direct_loops(translator, graph):
             insert_empty_block(translator, link)
     traverse(visit, graph)
 
+def uniqueitems(lst):
+    "Returns a list with duplicate elements removed."
+    result = []
+    seen = {}
+    for item in lst:
+        if item not in seen:
+            result.append(item)
+            seen[item] = True
+    return result
 
 def remove_double_links(translator, graph):
     """This can be useful for code generators: it ensures that no block has
@@ -43,7 +52,13 @@ def remove_double_links(translator, graph):
     value of an argument can be determined by looking from which block the
     control passed. """
     def visit(block):
-        if isinstance(block, Block) and len(block.exits) == 2 and \
-               block.exits[0].target == block.exits[1].target:
-            insert_empty_block(translator, block.exits[0])
+        if isinstance(block, Block):
+            double_links = []
+            seen = {}
+            for link in block.exits:
+                seen[link.target] = True
+                if link.target in seen:
+                    double_links.append(link)
+            for link in double_links[:-1]:
+                insert_empty_block(translator, link)
     traverse(visit, graph)
