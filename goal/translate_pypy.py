@@ -50,13 +50,13 @@ def analyse(entry_point=entry_point):
         a.simplify()
         t.frozen = True   # cannot freeze if we don't have annotations
 
-        if not options['-no-mark-some-objects']:
-            find_someobjects(a)
 
-
-def find_someobjects(annotator):
+def find_someobjects(translator):
     """Find all functions in that have SomeObject in their signature."""
-    translator = annotator.translator
+    annotator = translator.annotator
+    if not annotator:
+        return # no annotations available
+
     translator.highlight_functions = {}
 
     def is_someobject(var):
@@ -178,6 +178,10 @@ if __name__ == '__main__':
         from pypy.translator.tool.pygame.flowviewer import TranslatorLayout
         from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
         import pygame
+
+        if not options['-no-mark-some-objects']:
+            find_someobjects(t)
+
         display = GraphDisplay(TranslatorLayout(t))
         async_quit = display.async_quit
         return display.run, async_quit, pygame.quit
