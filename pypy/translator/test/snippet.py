@@ -655,3 +655,6 @@ def isinstance_and_knowntype(x):
         return x
     else: 
         return apbc 
+
+def simple_slice(x):
+    return x[:10]

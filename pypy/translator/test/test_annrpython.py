@@ -381,6 +381,17 @@ class TestAnnonateTestCase:
             s_meth = s_example.getattr(iv(methname))
             assert isinstance(s_constmeth, annmodel.SomeBuiltin)
 
+    def test_simple_slicing0(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.simple_slice, [list])
+        g = a.translator.getflowgraph(snippet.simple_slice)
+        for thing in flatten(g):
+            if isinstance(thing, Block):
+                for op in thing.operations:
+                    if op.opname == "newslice":
+                        assert isinstance(a.binding(op.result),
+                                          annmodel.SomeSlice)
+
 
 def g(n):
     return [0,1,2,n]

@@ -129,6 +129,14 @@ class SomeList(SomeObject):
         self.s_item = s_item     # general enough for any element
 
 
+class SomeSlice(SomeObject):
+    knowntype = slice
+    def __init__(self, start, stop, step):
+        self.start = start
+        self.stop = stop
+        self.step = step
+
+
 class SomeTuple(SomeObject):
     "Stands for a tuple of known length."
     knowntype = tuple

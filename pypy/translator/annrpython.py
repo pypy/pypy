@@ -378,6 +378,9 @@ def consider_op_%s(self, arg1, arg2, *args):
         factory = self.bookkeeper.getfactory(DictFactory)
         return factory.create()
 
+    def consider_op_newslice(self, start, stop, step):
+        return annmodel.SomeSlice(start, stop, step)
+
 
 class CannotSimplify(Exception):
     pass
