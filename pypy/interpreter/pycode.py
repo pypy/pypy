@@ -47,7 +47,10 @@ class PyBaseCode:
             except ValueError:
                 pass  # no
             else:
-                return args   # yes! fine!
+                # yes! fine!
+                argnames = [space.wrap(name) for name in co.co_varnames]
+                w_arguments = space.newdict(zip(argnames, args))
+                return w_arguments
         # non-trivial case.  I won't do it myself.
         if w_kwargs   is None: w_kwargs   = space.newdict([])
         if w_defaults is None: w_defaults = space.newtuple([])
