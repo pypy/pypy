@@ -108,6 +108,10 @@ class __extend__(SomeList):
     def iter(lst):
         return SomeIterator(lst.s_item)
 
+class __extend__(SomeDict):
+    def iter(dct):
+	return SomeIterator(dct.s_key)
+
 
 class __extend__(SomeString):
 

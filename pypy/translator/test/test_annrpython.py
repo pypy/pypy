@@ -397,6 +397,19 @@ class TestAnnonateTestCase:
         s = a.build_types(snippet.simple_slice, [list])
         assert isinstance(s, annmodel.SomeList)
 
+
+    def test_simple_iter_list(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.simple_iter, [list])
+        assert isinstance(s, annmodel.SomeIterator)
+	
+    def test_simple_iter_dict(self):
+        a = RPythonAnnotator()
+	t = annmodel.SomeDict({}, annmodel.SomeInteger(), annmodel.SomeInteger())
+        s = a.build_types(snippet.simple_iter, [t])
+        assert isinstance(s, annmodel.SomeIterator)
+	
+
 def g(n):
     return [0,1,2,n]
 

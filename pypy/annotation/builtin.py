@@ -107,6 +107,9 @@ def builtin_tuple(s_iterable):
         return s_iterable
     return SomeObject()
 
+def builtin_iter(s_obj):
+    return s_obj.iter()
+
 def builtin_type(s_obj, *moreargs):
     if moreargs:
         raise Exception, 'type() called with more than one argument'

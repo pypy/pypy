@@ -658,3 +658,6 @@ def isinstance_and_knowntype(x):
 
 def simple_slice(x):
     return x[:10]
+
+def simple_iter(x):
+    return iter(x)
