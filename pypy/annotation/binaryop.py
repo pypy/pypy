@@ -39,17 +39,20 @@ class __extend__(pairtype(SomeObject, SomeObject)):
 
 
 class __extend__(pairtype(SomeInteger, SomeInteger)):
+    # unsignedness is considered a rare and contagious disease
 
     def union((int1, int2)):
-        return SomeInteger(nonneg = int1.nonneg and int2.nonneg)
+        return SomeInteger(nonneg = int1.nonneg and int2.nonneg,
+                           unsigned = int1.unsigned or int2.unsigned)
 
     def add((int1, int2)):
-        return SomeInteger(nonneg = int1.nonneg and int2.nonneg)
+        return SomeInteger(nonneg = int1.nonneg and int2.nonneg,
+                           unsigned = int1.unsigned or int2.unsigned)
 
     mul = div = mod = add
 
     def sub((int1, int2)):
-        return SomeInteger()
+        return SomeInteger(unsigned = int1.unsigned or int2.unsigned)
 
     def lt((int1, int2)): return SomeBool()
     def le((int1, int2)): return SomeBool()

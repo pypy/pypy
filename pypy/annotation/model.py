@@ -53,13 +53,15 @@ class SomeObject:
 class SomeInteger(SomeObject):
     "Stands for an object which is known to be an integer."
     knowntype = int
-    def __init__(self, nonneg=False):
+    def __init__(self, nonneg=False, unsigned=False):
         self.nonneg = nonneg
+        self.unsigned = unsigned  # pypy.objspace.std.restricted_int.r_uint
 
 class SomeBool(SomeInteger):
     "Stands for true or false."
     knowntype = bool
     nonneg = True
+    unsigned = False
     def __init__(self):
         pass
 

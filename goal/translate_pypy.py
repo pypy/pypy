@@ -6,9 +6,7 @@ import autopath
 
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.restricted_int import r_int
 from pypy.translator.translator import Translator
-from pypy.annotation import model as annmodel
 
 
 # __________  Entry point  __________
@@ -21,24 +19,18 @@ def entry_point():
     return space.mul(w_a, w_b)
 
 
-# __________  Special cases  __________
-
-def special_immutablevalue(x):
-    if x is r_int:
-        x = int
-    return general_immutablevalue(x)
-
-general_immutablevalue = annmodel.immutablevalue
-annmodel.immutablevalue = special_immutablevalue
-
 # __________  Main  __________
 
 if __name__ == '__main__':
-    # 2.3 specific
-    import os
-    os.putenv("PYTHONINSPECT", "1")
-
     t = Translator(entry_point, verbose=True, simplifying=True)
-    t.simplify()
-    a = t.annotate([])
-    a.simplify()
+    try:
+        a = t.annotate([])
+        #a.simplify()
+    except:
+        import sys, traceback
+        exc, val, tb = sys.exc_info()
+        print >> sys.stderr
+        traceback.print_exception(exc, val, tb)
+        print >> sys.stderr
+        import pdb
+        pdb.post_mortem(tb)
