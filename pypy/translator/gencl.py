@@ -1,6 +1,6 @@
 import autopath
 from pypy.objspace.flow.model import *
-from pypy.translator.annrpython import Annotator
+from pypy.translator.annrpython import RPythonAnnotator
 
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.transform import transform_graph
@@ -155,12 +155,17 @@ class GenCL:
         self.annotate(input_arg_types)
         transform_graph(self.ann)
     def annotate(self, input_arg_types):
-        ann = Annotator(self.fun)
-        ann.build_types(input_arg_types)
+        ann = RPythonAnnotator()
+        ann.build_types(self.fun, input_arg_types)
         ann.simplify()
-        self.ann = ann
-    def cur_annset(self):
-        return self.ann.annotated[self.cur_block]
+        self.setannotator(ann)
+    def setannotator(self, annotator):
+        self.ann = annotator
+        self.bindings = annotator.bindings
+        self.transaction = annotator.transaction()
+    def get_type(self, var):
+        cell = self.bindings.get(var)
+        return self.transaction.get_type(cell)
     def str(self, obj):
         if isinstance(obj, Variable):
             return obj.name
@@ -215,9 +220,8 @@ class GenCL:
         for block in blocklist:
             tag = len(self.blockref)
             self.blockref[block] = tag
-            annset = self.ann.annotated[block]
             for var in block.getvariables():
-                vardict[var] = annset.get_type(var)
+                vardict[var] = self.get_type(var)
         print "(",
         for var in vardict:
             if var in arglist:
@@ -281,8 +285,7 @@ class GenCL:
     }
     def emit_typecase(self, table, *args):
         argreprs = tuple(map(self.str, args))
-        annset = self.cur_annset()
-        argtypes = tuple(map(annset.get_type, args))
+        argtypes = tuple(map(self.get_type, args))
         if argtypes in table:
             trans = table[argtypes]
             print trans % argreprs

@@ -3,9 +3,9 @@ generate Pyrex files from the flowmodel.
 
 """
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import mkentrymap
-from pypy.translator.annrpython import Annotator
+from pypy.translator.annrpython import RPythonAnnotator
 
 class Op:
     def __init__(self, operation, gen, block):
@@ -143,16 +143,17 @@ class GenPyrex:
             oparity[opname] = arity
         self.ops = ops  
         self.oparity = oparity
-        self.variables_ann = {}
+        self.bindings = {}
 
     def annotate(self, input_arg_types):
-        a = Annotator(self.functiongraph)
-        a.build_types(input_arg_types)
+        a = RPythonAnnotator()
+        a.build_types(self.functiongraph, input_arg_types)
         a.simplify()
         self.setannotator(a)
 
     def setannotator(self, annotator):
-        self.variables_ann = annotator.get_variables_ann()
+        self.bindings = annotator.bindings
+        self.transaction = annotator.transaction()
 
     def emitcode(self):
         self.blockids = {}
@@ -184,13 +185,15 @@ class GenPyrex:
         #self.putline("# %r" % self.annotations)
         decllines = []
         missing_decl = []
-        for var in self.variables_ann:
-            if var not in fun.getargs():
-                decl = self._vardecl(var)
-                if decl:
-                    decllines.append(decl)
-                else:
-                    missing_decl.append(self.get_varname(var))
+        funargs = fun.getargs()
+        for block in self.blockids:
+            for var in block.getvariables():
+                if var not in funargs:
+                    decl = self._vardecl(var)
+                    if decl:
+                        decllines.append(decl)
+                    else:
+                        missing_decl.append(self.get_varname(var))
         if missing_decl:
             missing_decl.sort()
             decllines.append('# untyped variables: ' + ' '.join(missing_decl))
@@ -201,11 +204,11 @@ class GenPyrex:
         self.lines.extend(functionbodylines)
 
     def get_type(self, var):
-        if var in self.variables_ann:
-            ann = self.variables_ann[var]
-            return ann.get_type(var)
-        elif isinstance(var, Constant):
+        if isinstance(var, Constant):
             return type(var.value)
+        elif var in self.bindings:
+            cell = self.bindings[var]
+            return self.transaction.get_type(cell)
         else:
             return None
 
