@@ -924,5 +924,25 @@ class buffer:
     def __init__(self, object, offset=None, size=None):
         raise NotImplementedError, "XXX nobody needs this anyway"
 
+def sorted(lst):
+    "sorted(iterable, cmp=None, key=None, reverse=False) --> new sorted list"
+    sorted_lst = list(lst)
+    sorted_lst.sort()
+    return sorted_lst
+
+def reversed(iterable):
+    """reversed(sequence) -> reverse iterator over values of the sequence
+
+    Return a reverse iterator
+    """
+    if hasattr(iterable, '__reversed__'):
+        return iterable.__reversed__()
+    seq = list(iterable)
+    def reversed_gen(local_iterable):
+        len_iterable = len(local_iterable)
+        for index in range(len_iterable-1, -1, -1):
+            yield local_iterable[index]
+    return reversed_gen(seq)
+
 from _file import file_ as file
 open = file

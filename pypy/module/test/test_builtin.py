@@ -180,6 +180,32 @@ class AppTestBuiltinApp:
         raises(IndexError, x.__getitem__, -18)
         raises(TypeError, x.__getitem__, slice(0,3,1))
 
+    def test_sorted(self):
+        l = []
+        sorted_l = sorted(l)
+        assert sorted_l is not l
+        assert sorted_l == l
+        l = [1, 5, 2, 3]
+        sorted_l = sorted(l)
+        assert sorted_l == [1, 2, 3, 5]
+        
+    def test_reversed_simple_sequences(self):
+        l = range(5)
+        rev = reversed(l)
+        assert list(rev) == [4, 3, 2, 1, 0]
+        assert list(l.__reversed__()) == [4, 3, 2, 1, 0]
+        s = "abcd"
+        assert list(reversed(s)) == ['d', 'c', 'b', 'a']
+
+    def test_reversed_custom_objects(self):
+        """make sure __reversed__ is called when defined"""
+        class SomeClass:
+            def __reversed__(self):
+                return 42
+        obj = SomeClass()
+        assert reversed(obj) == 42
+    
+        
     def test_cmp(self):
         assert cmp(9,9) == 0
         assert cmp(0,9) < 0
