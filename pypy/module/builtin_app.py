@@ -53,15 +53,11 @@ def filter(function, collection):
        is True.  If function is None, then return the items in the sequence
        which are True."""
      
-    res = []
     if function is None:
-       for elem in collection:
-           if elem:
-              res.append(elem)
+        res = [item for item in collection if item]
     else:
-       for elem in collection:
-           if function(elem):
-              res.append(elem)
+        res = [item for item in collection if function(item)]
+              
     if type(collection) is tuple:
        return tuple(res)
     elif type(collection) is str:
