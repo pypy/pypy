@@ -9,28 +9,34 @@ pypath = str(py.path.local(pypy.interpreter.py.__file__).new(basename='py.py'))
 def test_executable():
     """Ensures sys.executable points to the py.py script"""
     # TODO : watch out for spaces/special chars in pypath
-    output = py.process.cmdexec( '''"%s" -c "import sys;print sys.executable" ''' % pypath )
+    output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.executable" ''' %
+                                 (sys.executable, pypath) )
     assert output.splitlines()[-1] == pypath
 
 def test_prefix():
     """Make sure py.py sys.prefix and exec_prefix are the same as C Python's"""
-    output = py.process.cmdexec( '''"%s" -c "import sys;print sys.prefix" ''' % pypath )
+    output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.prefix" ''' %
+                                 (sys.executable, pypath) )
     assert output.splitlines()[-1] == sys.prefix
-    output = py.process.cmdexec( '''"%s" -c "import sys;print sys.exec_prefix" ''' % pypath )
+    output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.exec_prefix" ''' %
+                                 (sys.executable, pypath) )
     assert output.splitlines()[-1] == sys.exec_prefix
 
 def test_argv_command():
     """Some tests on argv"""
     # test 1 : no arguments
-    output = py.process.cmdexec( '''"%s" -c "import sys;print sys.argv" ''' % pypath )
+    output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.argv" ''' %
+                                 (sys.executable, pypath) )
     assert output.splitlines()[-1] == str(['-c'])
 
     # test 2 : some arguments after
-    output = py.process.cmdexec( '''"%s" -c "import sys;print sys.argv" hello''' % pypath )
+    output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.argv" hello''' %
+                                 (sys.executable, pypath) )
     assert output.splitlines()[-1] == str(['-c','hello'])
     
     # test 3 : additionnal pypy parameters
-    output = py.process.cmdexec( '''"%s" -O -c "import sys;print sys.argv" hello''' % pypath )
+    output = py.process.cmdexec( '''"%s" "%s" -O -c "import sys;print sys.argv" hello''' %
+                                 (sys.executable, pypath) )
     assert output.splitlines()[-1] == str(['-c','hello'])
 
 SCRIPT_1 = """
@@ -44,14 +50,17 @@ def test_scripts():
     tmpfile.close()
 
     # test 1 : no arguments
-    output = py.process.cmdexec( '''"%s" "%s" ''' % (pypath,tmpfilepath) )
+    output = py.process.cmdexec( '''"%s" "%s" "%s" ''' %
+                                 (sys.executable, pypath, tmpfilepath) )
     assert output.splitlines()[-1] == str([tmpfilepath])
     
     # test 2 : some arguments after
-    output = py.process.cmdexec( '''"%s" "%s" hello''' % (pypath,tmpfilepath) )
+    output = py.process.cmdexec( '''"%s" "%s" "%s" hello''' %
+                                 (sys.executable, pypath, tmpfilepath) )
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
     
     # test 3 : additionnal pypy parameters
-    output = py.process.cmdexec( '''"%s" -O "%s" hello''' % (pypath,tmpfilepath) )
+    output = py.process.cmdexec( '''"%s" "%s" -O "%s" hello''' %
+                                 (sys.executable, pypath, tmpfilepath) )
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
     
