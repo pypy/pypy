@@ -14,31 +14,31 @@ def read_whole_suite(intro_line):
     cont = []
     parsing_prefix = ""
     if len(base_indent) > 0:
-	parsing_prefix = "if 0:\n"
+        parsing_prefix = "if 0:\n"
     while True:
-	line = f.readline()
-	if not line:
-	    break
-   	indent, isblank = get_indent(line)
+        line = f.readline()
+        if not line:
+            break
+        indent, isblank = get_indent(line)
         if isblank:
-	    pass
+            pass
         elif cont:
-	    cont.append(line)
-	    try:
-		parser.suite(parsing_prefix+''.join(cont))
-	    except SyntaxError:
-		pass 
-	    else:
-		cont = []
+            cont.append(line)
+            try:
+                parser.suite(parsing_prefix+''.join(cont))
+            except SyntaxError:
+                pass
+            else:
+                cont = []
         else:
-	    if len(indent) <= len(base_indent):
-		pushback.append(line)
-		break
-	    try:
-		parser.suite(parsing_prefix+line)
-	    except SyntaxError:
-		cont = [line]
-	lines.append(line)
+            if len(indent) <= len(base_indent):
+                pushback.append(line)
+                break
+            try:
+                parser.suite(parsing_prefix+line)
+            except SyntaxError:
+                cont = [line]
+        lines.append(line)
 
     return base_indent,lines
 
@@ -53,22 +53,22 @@ def up_down_port(lines):
     n = -1
     for line in lines:
         n += 1
-	dummy, isblank = get_indent(line)
-	if isblank:
-	    nblank += 1
-	    continue
-	if re.match(pass_re, line):
-	    npass += 1
-	    continue
-	m = re.search(getobjspace_re, line)
-	if m:
-	    objspace = m.group(1)
-	    line = line[:m.start()]+"self.space"+line[m.end():]
-	    line = re.sub(setspace_re,"",line)
-	    if line.strip() == "self.space":
-		line = ""
-		nblank += 1
-	    lines[n] = line
+        dummy, isblank = get_indent(line)
+        if isblank:
+            nblank += 1
+            continue
+        if re.match(pass_re, line):
+            npass += 1
+            continue
+        m = re.search(getobjspace_re, line)
+        if m:
+            objspace = m.group(1)
+            line = line[:m.start()]+"self.space"+line[m.end():]
+            line = re.sub(setspace_re,"",line)
+            if line.strip() == "self.space":
+                line = ""
+                nblank += 1
+            lines[n] = line
 
     skip = npass+nblank == len(lines)
 
@@ -76,7 +76,7 @@ def up_down_port(lines):
 
 
 # option -o let you pick a default objspace which will be enforced
-# trough a module global objspacename = 
+# trough a module global objspacename =
 
 default_objspace = None
 
@@ -87,7 +87,7 @@ else:
     files = sys.argv[1:]
 
 print "-- default-objspace: %s" % default_objspace
-	    
+
 for fn in files:
     print fn
     lines = []
@@ -99,9 +99,9 @@ for fn in files:
     confused = False
     while True:
         if pushback:
-	    line = pushback.pop()
-	else:
-	    line = f.readline()
+            line = pushback.pop()
+        else:
+            line = f.readline()
         if not line:
             break
         rline = line.rstrip()
@@ -112,40 +112,40 @@ for fn in files:
             tail = f.read()
             if tail.strip() != 'testit.main()':
                 print ' * uncommon __main__ lines at the end'
-		confused = True
+                confused = True
             break
-	if default_objspace and not global_objspacename and (line.startswith('def ') or line.startswith('class ')):
-	    lines.extend(["objspacename = %r\n" % default_objspace,"\n"])
-	    global_objspacename = True
+        if default_objspace and not global_objspacename and (line.startswith('def ') or line.startswith('class ')):
+            lines.extend(["objspacename = %r\n" % default_objspace,"\n"])
+            global_objspacename = True
 
         if line.strip() == 'def setUp(self):':
             base_indent,suite = read_whole_suite(line)
-	    objspace,skip = up_down_port(suite)
-	    #print suite
-	    if objspace:
-		if default_objspace:
-		    if eval(objspace) != default_objspace:
-			print "* default objspace mismatch: %s" % objspace
-			confused = True
-			continue
-		else:
-		    lines.append(base_indent+"objspacename = %s\n" % objspace)
-		    lines.append("\n")
-	    if not skip:
-		lines.append(base_indent+"def setup_method(self,method):\n")
-		lines.extend(suite)
-	    continue
+            objspace,skip = up_down_port(suite)
+            #print suite
+            if objspace:
+                if default_objspace:
+                    if eval(objspace) != default_objspace:
+                        print "* default objspace mismatch: %s" % objspace
+                        confused = True
+                        continue
+                else:
+                    lines.append(base_indent+"objspacename = %s\n" % objspace)
+                    lines.append("\n")
+            if not skip:
+                lines.append(base_indent+"def setup_method(self,method):\n")
+                lines.extend(suite)
+            continue
         if line.strip() == 'def tearDown(self):':
             base_indent, suite = read_whole_suite(line)
             unexpected,skip = up_down_port(suite)
-	    if unexpected is not None:
-		print "* testit.objspace(<name>) in tearDown"
-		confused = True
-	    #print suite
-	    if not skip:
-		lines.append(base_indent+"def teardown_method(self,method):\n")
-		lines.extend(suite)
-	    continue
+            if unexpected is not None:
+                print "* testit.objspace(<name>) in tearDown"
+                confused = True
+            #print suite
+            if not skip:
+                lines.append(base_indent+"def teardown_method(self,method):\n")
+                lines.extend(suite)
+            continue
         if line.startswith('class '):
             rest = line[6:].strip()
             if rest.endswith('(testit.AppTestCase):'):
@@ -154,7 +154,7 @@ for fn in files:
                     if not rest.startswith('Test'):
                         rest = 'Test'+rest
                     rest = 'App'+rest
-		kind = 'app-test'
+                kind = 'app-test'
             elif rest.endswith('(testit.IntTestCase):'):
                 rest = rest[:-21].strip() + ':'
                 if not rest.startswith('Test'):
@@ -173,11 +173,11 @@ for fn in files:
 
     while lines and not lines[-1].strip():
         del lines[-1]
-    
-    if confused: 
-	print "** confused: file not changed"
+
+    if confused:
+        print "** confused: file not changed"
     else:
-	#sys.stdout.writelines(lines)
-	f = file(fn, 'w')
-	f.writelines(lines)
-	f.close()
+        #sys.stdout.writelines(lines)
+        f = file(fn, 'w')
+        f.writelines(lines)
+        f.close()

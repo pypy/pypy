@@ -21,14 +21,14 @@ _teardown = gateway.app2interp_temp(_teardown,'teardown')
 class AppTestImport:
 
     def setup_class(cls): # interpreter-level
-	cls.saved_modules = _setup(cls.space)
+        cls.saved_modules = _setup(cls.space)
 
     def teardown_class(cls): # interpreter-level
-        _teardown(cls.space,cls.saved_modules) 
+        _teardown(cls.space,cls.saved_modules)
 
     def test_import_bare_dir_fails(self):
         def imp():
-           import notapackage
+            import notapackage
         raises(ImportError,imp)
 
     def test_import_sys(self):
@@ -126,9 +126,9 @@ class AppTestImport:
     def test_import_Globals_Are_None(self):
         import sys
         m = __import__('sys')
-        assert sys == m 
+        assert sys == m
         n = __import__('sys', None, None, [''])
-        assert sys == n 
+        assert sys == n
 
     def test_import_relative_back_to_absolute2(self):
         from pkg import abs_x_y
@@ -138,7 +138,7 @@ class AppTestImport:
         # grrr XXX not needed probably...
         #self.assertEquals(sys.modules.get('pkg.x'),None)
         #self.assert_('pkg.x.y' not in sys.modules)
-        
+
     def test_substituting_import(self):
         from pkg_substituting import mod
         assert mod.__name__ =='pkg_substituting.mod'

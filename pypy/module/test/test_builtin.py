@@ -38,7 +38,7 @@ class AppTestBuiltinApp:
             return locals()
         assert f() == {}
         assert g() == {'a':0, 'b':0, 'c':0}
-        
+
     def test_dir(self):
         def f():
             return dir()
@@ -62,9 +62,9 @@ class AppTestBuiltinApp:
             return vars()
         assert f() == {}
         assert g() == {'a':0, 'b':0, 'c':0}
-        
+
     def test_getattr(self):
-        class a: 
+        class a:
             i = 5
         assert getattr(a, 'i') == 5
         raises(AttributeError, getattr, a, 'k')
@@ -76,7 +76,7 @@ class AppTestBuiltinApp:
         assert sum([1,2,3]) ==6
         assert sum([],5) ==5
         assert sum([1,2,3],4) ==10
-        
+
     def test_type_selftest(self):
         assert type(type) is type
 
@@ -104,7 +104,7 @@ class AppTestBuiltinApp:
             def __call__(self):
                 self.value += 1
                 return self.value
-        # XXX Raising errors is quite slow -- 
+        # XXX Raising errors is quite slow --
         #            uncomment these lines when fixed
         #self.assertRaises(TypeError,iter,3,5)
         #self.assertRaises(TypeError,iter,[],5)
@@ -113,14 +113,14 @@ class AppTestBuiltinApp:
         assert x.next() ==1
         assert x.next() ==2
         raises(StopIteration,x.next)
-        
+
     def test_enumerate(self):
         seq = range(2,4)
         enum = enumerate(seq)
         assert enum.next() == (0, 2)
         assert enum.next() == (1, 3)
         raises(StopIteration, enum.next)
-        
+
     def test_xrange_args(self):
         x = xrange(2)
         assert x.start == 0
@@ -132,7 +132,7 @@ class AppTestBuiltinApp:
         assert x.stop == 10
         assert x.step == 2
 
-        raises(ValueError, xrange, 0, 1, 0) 
+        raises(ValueError, xrange, 0, 1, 0)
 
     def test_xrange_up(self):
         x = xrange(2)
@@ -186,8 +186,8 @@ class AppTestBuiltinApp:
         assert cmp(9,0) > 0
 
     def test_return_None(self):
-	class X: pass
-	x = X()
+        class X: pass
+        x = X()
         assert setattr(x, 'x', 11) == None
         assert delattr(x, 'x') == None
         # To make this test, we need autopath to work in application space.
@@ -206,7 +206,7 @@ class AppTestBuiltinApp:
                     "Builtin function 'callable' misreads int")
 
     def test_uncallable(self):
-        # XXX TODO: I made the NoCall class explicitly newstyle to try and 
+        # XXX TODO: I made the NoCall class explicitly newstyle to try and
         # remedy the failure in this test observed when running this with
         # the trivial objectspace, but the test _still_ fails then (it
         # doesn't fail with the standard objectspace, though).
@@ -216,7 +216,7 @@ class AppTestBuiltinApp:
         assert not callable(a), (
                     "Builtin function 'callable' misreads uncallable object")
         a.__call__ = lambda: "foo"
-        assert not callable(a), ( 
+        assert not callable(a), (
                     "Builtin function 'callable' tricked by instance-__call__")
 
     def test_hash(self):
@@ -257,7 +257,7 @@ class AppTestBuiltinApp:
         raises(TypeError, issubclass, int, 6)
         raises(TypeError, issubclass, int, (float, 6))
 
-        
+
 class TestInternal:
 
     def setup_method(self,method):
@@ -268,9 +268,9 @@ class TestInternal:
         w_builtins = self.space.w_builtins
         w_obj = self.space.getitem(w_builtins, w(name))
         return w_obj
-   
+
     def test_execfile(self):
-        # we need cpython's tempfile currently to test 
+        # we need cpython's tempfile currently to test
         from tempfile import mktemp
         fn = mktemp()
         f = open(fn, 'w')
