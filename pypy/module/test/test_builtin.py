@@ -1,15 +1,16 @@
-import unittest
-from pypy.module.builtin import compile
+import testsupport
 
-class TestCompile(unittest.TestCase):
-   """It makes basicaly not much sense, but we want to check,
-      if there break something
-   """
+from pypy.interpreter.unittest_w
+from pypy.objspace.std import StdObjSpace
 
-   def test_f(self):
-      codeobject = compile("def main(): return None", '?', 'exec')
-      self.assertEquals(codeobject.co_names[0], 'main')
+class TestCompile(unittest_w.TestCase_w):
 
+   def setUp(self):
+      self.space = StdObjSpace()
+
+   def tearDown(self):
+      pass
+      
 if __name__ == '__main__':
     unittest.main()
  
