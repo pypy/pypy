@@ -16,6 +16,22 @@ def readlisp(s):
     else:
         return int(s)
 
+def writelisp(gen, obj):
+    if isinstance(obj, (bool, int, type(None), str)):
+        return gen.conv(obj)
+    if isinstance(obj, (tuple, list)):
+        content = ' '.join([writelisp(gen, elt) for elt in obj])
+        content = '(' + content + ')'
+        if isinstance(obj, list):
+            content = '#' + content
+        return content
+
+# for test
+# ultimately, GenCL's str and conv will move to here
+def f(): pass
+fun = FlowObjSpace().build_flow(f)
+gen = GenCL(fun)
+
 def _make_cl_func(func, cl, path, argtypes=[]):
     fun = FlowObjSpace().build_flow(func)
     gen = GenCL(fun)
@@ -28,9 +44,16 @@ def _make_cl_func(func, cl, path, argtypes=[]):
         fp = file(str(fpath), "a")
         print >>fp, "(write (", fun.name,
         for arg in args:
-            print >>fp, gen.conv(arg),
+            print >>fp, writelisp(gen, arg),
         print >>fp, "))"
         fp.close()
         output = exec_cmd("%s %s" % (cl, str(fpath)))
         return readlisp(output)
     return _
+
+if __name__ == '__main__':
+    what = [True, "universe", 42, None, ("of", "them", ["eternal", 95])]
+    it = writelisp(gen, what)
+    print what
+    print it
+    assert it == '#(t "universe" 42 nil ("of" "them" #("eternal" 95)))'
