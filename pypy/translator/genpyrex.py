@@ -172,19 +172,19 @@ class GenPyrex:
     def setannotator(self, annotator):
         self.annotator = annotator
 
-    def emitcode(self):
+    def emitcode(self, public=True):
         self.blockids = {}
         #self.variablelocations = {}
         self.lines = []
         self.indent = 0
-        self.gen_graph()
+        self.gen_graph(public)
         return "\n".join(self.lines)
 
     def putline(self, line):
         for l in line.split('\n'):
             self.lines.append("  " * self.indent + l)
 
-    def gen_graph(self):
+    def gen_graph(self, public=True):
         fun = self.functiongraph
         self.entrymap = mkentrymap(fun)
         currentlines = self.lines
@@ -204,14 +204,20 @@ class GenPyrex:
             function_object = self.by_the_way_the_function_was   # XXX!
         except AttributeError:
             def function_object(): pass   # XXX!!!
-        # make the function visible from the outside under its original name
-        args = ', '.join([var.name for var in fun.getargs()])
-        self.putline("def %s(%s):" % (fun.name, args))
-        self.indent += 1
-        self.putline("return %s(%s)" % (self.getfunctionname(function_object), args))
-        self.indent -= 1
+        if public:
+            # make the function visible from the outside
+            # under its original name
+            args = ', '.join([var.name for var in fun.getargs()])
+            self.putline("def %s(%s):" % (fun.name, args))
+            self.indent += 1
+            self.putline("return %s(%s)" % (
+                self.getfunctionname(function_object), args))
+            self.indent -= 1
         # go ahead with the mandled header and body of the function
-        self.putline("def %s(%s):" % (self.getfunctionname(function_object), params))
+        self.putline("cdef %s %s(%s):" % (
+            returntypename,
+            self.getfunctionname(function_object),
+            params))
         self.indent += 1
         #self.putline("# %r" % self.annotations)
         decllines = []
@@ -408,8 +414,14 @@ class GenPyrex:
                     hackedargs = ', '.join([var.name for var in fun.getargs()])
                     self.putline("def %s(%s):" % (py_fun.__name__, hackedargs))
                     self.indent += 1
-                    self.putline("return %s(%s)" % (self.getfunctionname(py_fun),
-                                                    hackedargs))
+                    # XXX special case hack: cannot use 'return' in __init__
+                    if py_fun.__name__ == "__init__":
+                        statement = ""
+                    else:
+                        statement = "return "
+                    self.putline("%s%s(%s)" % (statement,
+                                               self.getfunctionname(py_fun),
+                                               hackedargs))
                     self.indent -= 1
                     empty = False
                 if empty:

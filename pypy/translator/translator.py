@@ -165,7 +165,8 @@ class Translator:
                                         self.entrypoint, ann)]
             for func in self.functions:
                 if func is not self.entrypoint:
-                    code = self.generatecode1(gencls, None, func, ann)
+                    code = self.generatecode1(gencls, None, func, ann,
+                                              public=False)
                     codes.append(code)
         else:
             codes = [self.generatecode1(gencls, input_arg_types, func, ann)]
@@ -174,7 +175,7 @@ class Translator:
             codes.insert(0, code)
         return '\n\n#_________________\n\n'.join(codes)
 
-    def generatecode1(self, gencls, input_arg_types, func, ann):
+    def generatecode1(self, gencls, input_arg_types, func, ann, public=True):
         graph = self.getflowgraph(func)
         g = gencls(graph)
         g.by_the_way_the_function_was = func   # XXX
@@ -182,7 +183,7 @@ class Translator:
             ann.build_types(graph, input_arg_types, func)
         if ann is not None:
             g.setannotator(ann)
-        return g.emitcode()
+        return g.emitcode(public)
 
     def generateglobaldecl(self, gencls, func, ann):
         graph = self.getflowgraph(func)
