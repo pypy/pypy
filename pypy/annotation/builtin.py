@@ -34,9 +34,9 @@ def builtin_chr(s_int):
     return SomeChar()
 
 def builtin_isinstance(s_obj, s_type):
-    # XXX simple case only
     if s_type.is_constant():
         typ = s_type.const
+        # XXX bit of a hack:
         if issubclass(typ, (int, long)):
             typ = int
         if s_obj.is_constant():
