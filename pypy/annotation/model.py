@@ -80,6 +80,13 @@ class SomeTuple(SomeObject):
     def __init__(self, items):
         self.items = tuple(items)   # tuple of s_xxx elements
 
+class SomeDict(SomeObject):
+    "Stands for a dict with known keys."
+    knowntype = dict
+    def __init__(self, factories, items):
+        self.factories = factories
+        self.items = items    # dict {realkey: s_value}
+
 class SomeClass(SomeObject):
     "Stands for a user-defined class object."
     # only used when the class object is loaded in a variable
@@ -166,9 +173,9 @@ def decode_simple_call(s_args, s_kwds):
     nbargs = s_nbargs.const
     arglist = [pair(s_args, immutablevalue(j)).getitem()
                for j in range(nbargs)]
-##        nbkwds = self.heap.get(ANN.len, varkwds_cell)
-##        if nbkwds != 0:
-##            return None  # XXX deal with dictionaries with constant keys
+    s_nbkwds = s_kwds.len()
+    if not s_nbkwds.is_constant() or s_nbkwds.const != 0:
+        return None    # XXX deal with dictionaries with keywords
     return arglist
 
 

@@ -199,6 +199,12 @@ class AnnonateTestCase(testit.IntTestCase):
         self.assertEquals(classes[snippet.H].attrs,
                           {'attr': annmodel.immutablevalue(1)})
 
+    def test_knownkeysdict(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.knownkeysdict, [int])
+        # result should be an integer
+        self.assertEquals(s.knowntype, int)
+
 def g(n):
     return [0,1,2,n]
 

@@ -9,7 +9,7 @@ object.  The factory remembers how general an object it has to create here.
 from __future__ import generators
 from types import FunctionType
 from pypy.annotation.pairtype import pair
-from pypy.annotation.model import SomeImpossibleValue, SomeList
+from pypy.annotation.model import SomeImpossibleValue, SomeList, SomeDict
 from pypy.annotation.model import SomeObject, SomeInstance
 from pypy.annotation.model import unionof, immutablevalue
 from pypy.interpreter.miscutils import getthreadlocals
@@ -103,6 +103,23 @@ class ListFactory:
 
     def generalize(self, s_new_item, bookkeeper=None):
         self.s_item = unionof(self.s_item, s_new_item)
+        if bookkeeper:
+            bookkeeper.annotator.reflowfromposition(self.position_key)
+
+
+class DictFactory:
+    items = {}
+
+    def create(self):
+        return SomeDict(factories = {self: True}, items = self.items)
+
+    def generalize(self, key, s_new_value, bookkeeper=None):
+        result = self.items.copy()
+        if key in result:
+            result[key] = unionof(result[key], s_new_value)
+        else:
+            result[key] = s_new_value
+        self.items = result
         if bookkeeper:
             bookkeeper.annotator.reflowfromposition(self.position_key)
 

@@ -4,6 +4,7 @@ from types import FunctionType, ClassType
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import pair
 from pypy.annotation.factory import ListFactory, InstanceFactory
+from pypy.annotation.factory import DictFactory
 from pypy.annotation.factory import BlockedInference, Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
@@ -277,6 +278,11 @@ def consider_op_%s(self, arg1, arg2, *args):
         factory = self.bookkeeper.getfactory(ListFactory)
         for a in args:
             factory.generalize(a)
+        return factory.create()
+
+    def consider_op_newdict(self, *args):
+        assert not args, "XXX only supports newdict([])"
+        factory = self.bookkeeper.getfactory(DictFactory)
         return factory.create()
 
     def decode_simple_call(self, s_varargs, s_varkwds):

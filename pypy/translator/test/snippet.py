@@ -339,3 +339,12 @@ def methodcall1(cond):
     else:
         x = H()
     return x.m(42)
+
+def knownkeysdict(b):
+    if b:
+        d = {'a': 0}
+        d['b'] = b
+        d['c'] = 'world'
+    else:
+        d = {'b': -123}
+    return d['b']

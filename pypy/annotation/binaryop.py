@@ -4,7 +4,7 @@ Binary operations between SomeValues.
 
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
-from pypy.annotation.model import SomeString, SomeList
+from pypy.annotation.model import SomeString, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeFunction, SomeMethod
 from pypy.annotation.model import unionof, set, setunion, missing_operation
@@ -89,6 +89,35 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 
     def add((tup1, tup2)):
         return SomeTuple(items = tup1.items + tup2.items)
+
+
+class __extend__(pairtype(SomeDict, SomeDict)):
+
+    def union((dic1, dic2)):
+        result = dic1.items.copy()
+        for key, s_value in dic2.items.items():
+            if key in result:
+                result[key] = unionof(result[key], s_value)
+            else:
+                result[key] = s_value
+        return SomeDict(setunion(dic1.factories, dic2.factories), result)
+
+
+class __extend__(pairtype(SomeDict, SomeObject)):
+
+    def getitem((dic1, obj2)):
+        if obj2.is_constant():
+            return dic1.items.get(obj2.const, SomeImpossibleValue())
+        else:
+            return SomeObject()
+
+    def setitem((dic1, obj2), s_value):
+        assert obj2.is_constant()
+        key = obj2.const
+        if key not in dic1.items or not dic1.items[key].contains(s_value):
+            bookkeeper = getbookkeeper()
+            for factory in dic1.factories:
+                factory.generalize(key, s_value, bookkeeper)
 
 
 class __extend__(pairtype(SomeTuple, SomeInteger)):

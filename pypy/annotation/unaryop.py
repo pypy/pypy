@@ -4,7 +4,7 @@ Unary operations on SomeValues.
 
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
-from pypy.annotation.model import SomeString, SomeList
+from pypy.annotation.model import SomeString, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeClass
 from pypy.annotation.model import SomeFunction, SomeMethod
@@ -45,6 +45,12 @@ class __extend__(SomeTuple):
 
     def len(tup):
         return immutablevalue(len(tup.items))
+
+
+class __extend__(SomeDict):
+
+    def len(dic):
+        return immutablevalue(len(dic.items))
 
 
 class __extend__(SomeList):
