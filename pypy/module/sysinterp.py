@@ -62,7 +62,7 @@ import os
 from pypy.interpreter import autopath
 srcdir = os.path.dirname(autopath.pypydir)
 python_std_lib = os.path.normpath(
-        os.path.join(autopath.pypydir, '..','lib-python-2.3.4'))
+        os.path.join(autopath.pypydir, os.pardir,'lib-python-2.3.4'))
 pypy_override_lib = os.path.join(autopath.pypydir, 'lib') 
 assert os.path.exists(python_std_lib) 
 del os, autopath # XXX for the translator. Something is very wrong around here.
