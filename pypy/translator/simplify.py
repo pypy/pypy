@@ -128,15 +128,22 @@ def transform_dead_op_vars(graph):
     traverse(visit, graph)
     return transform_dead_op_vars_in_blocks(blocks)
 
+# the set of operations that can safely be removed
+# (they have no side effects, at least in R-Python)
+CanRemove = {}
+for _op in '''
+        newtuple newlist newdict newslice is_true
+        is_ id type issubtype repr str len hash getattr getitem
+        pos neg nonzero abs hex oct round ord invert add sub mul
+        truediv floordiv div mod divmod pow lshift rshift and_ or_
+        xor int float long lt le eq ne gt ge cmp coerce contains
+        iter get '''.split():
+    CanRemove[_op] = True
+del _op
+
 def transform_dead_op_vars_in_blocks(blocks):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block. Input is a set of blocks"""
-    # the set of operations that can safely be removed (no side effects)
-    CanRemove = {'newtuple': True,
-                 'newlist': True,
-                 'newdict': True,
-                 'is_': True, 
-                 'is_true': True}
     read_vars = {}  # set of variables really used
     variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
     
