@@ -48,5 +48,12 @@ class TestUserObject(test.AppTestCase):
             prop = desc()
         self.assertEquals(C().prop, 42)
 
+    def test_class_setattr(self):
+        class C:
+            pass
+        C.a = 1
+        self.assert_(hasattr(C, 'a'))
+        self.assertEquals(C.a, 1)
+
 if __name__ == '__main__':
     test.main()

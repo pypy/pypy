@@ -63,6 +63,9 @@ def new__UserType_ANY_ANY(space, w_usertype, w_args, w_kwds):
         space.call(init, w_args, w_kwds)
     return newobj
 
+def getdict__UserType(space, w_usertype):
+    return w_usertype.w_dict
+
 def repr__UserType(space, w_usertype):
     return space.wrap("<class '%s'>" % w_usertype.typename)
     
