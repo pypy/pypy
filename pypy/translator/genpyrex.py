@@ -34,6 +34,15 @@ class Op:
             method = getattr(self, "op_%s" % operator, self.generic_op)
             return method() 
 
+    def ispythonident(self, s):
+        if s[0] not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_":
+            return False
+        for c in s[1:]:
+            if (c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+                         "0123456789"):
+                return False
+        return True
+
 
     def generic_op(self): 
         """Generic handler for all operators, which I don't handle explicitly"""
@@ -83,7 +92,7 @@ class Op:
     def op_getattr(self):
         args = self.argnames
         attr = self.op.args[1]
-        if isinstance(attr, Constant):  ###don't we have only the strings here?
+        if isinstance(attr, Constant) and self.ispythonident(attr.value):
             return "%s = %s.%s" % (self.resultname, args[0], attr.value)
         else: 
             return "%s = getattr(%s)" % (self.resultname, ", ".join(args))
