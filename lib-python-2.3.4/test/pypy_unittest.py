@@ -42,12 +42,12 @@ class TestCase:
     def assertRaises(self, exc, call, *args, **kwargs): 
         raises(exc, call, *args, **kwargs) 
 
-    def assertAlmostEqual(self, x, y, places07, msg=None):
+    def assertAlmostEqual(self, x, y, places=7, msg=None):
         if msg is None:
             msg = '%r != %r within %r places' %(x, y, places)
         assert round(y-x, places) == 0, msg
 
-    def assertNotAlmostEqual(self, x, y, places07, msg=None):
+    def assertNotAlmostEqual(self, x, y, places=7, msg=None):
         if msg is None:
             msg = '%r == %r within %r places' %(x, y, places)
         assert round(y-x, places) != 0, msg
