@@ -185,6 +185,15 @@ if __name__ == '__main__':
             c_entry_point = t.ccompile()
             if not options['-o']:
                 print 'Running!'
+                import os
+                if os.path.exists('/tmp/usession'):
+                    import glob
+                    from pypy.tool.udir import udir
+                    for fn in glob.glob('/tmp/usession/*'):
+                        os.remove(fn)
+                    d = str(udir)
+                    for fn in glob.glob(d+'/*.c') + glob.glob(d+'/*.so'):
+                        os.link(fn, os.path.join('/tmp/usession', os.path.basename(fn)))
                 c_entry_point()
     except:
         debug(True)
