@@ -12,4 +12,5 @@ class ClassType(object):
         try:
             return self.__dict__[attr]
         except KeyError:
-            raise AttributeError, "ksajdakshdskj" % name
+            raise AttributeError, "Class %s has no attribute %s" % (
+                self.__name__, attr)
