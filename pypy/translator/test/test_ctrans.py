@@ -4,6 +4,7 @@ from pypy.tool.udir import udir
 from pypy.translator.genc import GenC
 from pypy.objspace.flow.model import *
 from pypy.translator.tool.buildpyxmodule import make_module_from_c
+from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
 from pypy.translator.translator import Translator
 
 from pypy.translator.test import snippet 
@@ -22,7 +23,7 @@ class TestNoTypeCGenTestCase:
         for fn in morefuncs:
             t.getflowgraph(fn)
         t.simplify()
-        return t.ccompile()
+        return skip_missing_compiler(t.ccompile)
 
     def test_simple_func(self):
         cfunc = self.build_cfunc(snippet.simple_func)
@@ -205,7 +206,7 @@ class TestTypedTestCase:
                 argstypelist.append(spec)
         a = t.annotate(argstypelist)
         a.simplify()
-        return t.ccompile()
+        return skip_missing_compiler(t.ccompile)
 
     def test_set_attr(self):
         set_attr = self.getcompiled(snippet.set_attr)

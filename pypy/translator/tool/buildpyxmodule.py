@@ -68,20 +68,28 @@ def make_module_from_c(cfile, include_dirs=None):
                         cmd += ' -I%s' % dir
                     cmdexec(cmd)
                 else:
-                    from distutils.core import setup
+                    from distutils.dist import Distribution
                     from distutils.extension import Extension
                     saved_environ = os.environ.items()
                     try:
-                        setup(
-                          name = "testmodules",
-                          ext_modules=[
+                        # distutils.core.setup() is really meant for end-user
+                        # interactive usage, because it eats most exceptions and
+                        # turn them into SystemExits.  Instead, we directly
+                        # instantiate a Distribution, which also allows us to
+                        # ignore unwanted features like config files.
+                        attrs = {
+                            'name': "testmodule",
+                            'ext_modules': [
                                 Extension(modname, [str(cfile)],
                                     include_dirs=include_dirs)
-                          ],
-                          script_name = 'setup.py',
-                          script_args = ['-q', 'build_ext', '--inplace']
-                          #script_args = ['build_ext', '--inplace']
-                        )
+                                ],
+                            'script_name': 'setup.py',
+                            'script_args': ['-q', 'build_ext', '--inplace'],
+                            }
+                        dist = Distribution(attrs)
+                        if not dist.parse_command_line():
+                            raise ValueError, "distutils cmdline parse error"
+                        dist.run_commands()
                     finally:
                         for key, value in saved_environ:
                             if os.environ.get(key) != value:
@@ -123,6 +131,13 @@ def make_c_from_pyxfile(pyxfile):
         print >>sys.stderr, e
     cfile = pyxfile.new(ext='.c')
     return cfile
+
+def skip_missing_compiler(fn, *args, **kwds):
+    from distutils.errors import DistutilsPlatformError
+    try:
+        return fn(*args, **kwds)
+    except DistutilsPlatformError, e:
+        py.test.skip('DistutilsPlatformError: %s' % (e,))
 
 def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
     """ return a pyrex-generated cfunction from the given func. 

@@ -4,6 +4,7 @@ from pypy.tool.udir import udir
 from pypy.translator.genpyrex import GenPyrex
 from pypy.objspace.flow.model import *
 from pypy.translator.tool.buildpyxmodule import build_cfunc
+from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
 from pypy.translator.translator import Translator
 
 from pypy.translator.test import snippet 
@@ -25,7 +26,7 @@ class TestNoTypePyrexGenTestCase:
             'simplify' : 1,
             'dot' : dot,
             }
-        return py.test.skip_on_error(build_cfunc, func, **options) 
+        return skip_missing_compiler(build_cfunc, func, **options) 
 
     def test_simple_func(self):
         cfunc = self.build_cfunc(snippet.simple_func)
@@ -113,7 +114,7 @@ class TestTypedTestCase:
                     spec = spec[0] # use the first type only for the tests
                 argstypelist.append(spec)
         t.annotate(argstypelist) 
-        return py.test.skip_on_error(t.compile)
+        return skip_missing_compiler(t.compile)
 
     def test_set_attr(self):
         set_attr = self.getcompiled(snippet.set_attr)
