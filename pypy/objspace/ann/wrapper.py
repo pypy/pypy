@@ -142,6 +142,23 @@ class W_BuiltinFunction(W_Object):
     def argsrepr(self):
         return repr(self.code) + ", " + repr(self.w_defaults)
 
+class W_PythonFunction(W_Object):
+    """A Python function."""
+
+    def __init__(self, code, w_globals, w_defaults, w_closure=None):
+        self.code = code
+        self.w_globals = w_globals
+        self.w_defaults = w_defaults
+        self.w_closure = w_closure
+
+    def argsrepr(self):
+        s = repr(self.code) + ", " + repr(self.w_globals)
+        s += ", " + repr(self.w_defaults)
+        if self.w_closure != None:
+            s += ", " + repr(self.w_closure)
+        return s
+
+    
 
 def unify_frames(f1, f2):
     """Given two compatible frames, make them the same.

@@ -130,6 +130,8 @@ class AnnotationObjSpace(ObjSpace):
     def newfunction(self, code, w_globals, w_defaults, w_closure=None):
         if isinstance(code, PyBuiltinCode):
             return W_BuiltinFunction(code, w_defaults)
+        if isinstance(code, PyByteCode):
+            return W_PythonFunction(code, w_globals, w_defaults, w_closure)
         return W_Anything()
 
     def newlist(self, list_w):
@@ -158,6 +160,25 @@ class AnnotationObjSpace(ObjSpace):
                 self.reraise()
             return W_Constant(s)
 
+    def newslice(self, w_start, w_stop, w_end=None):
+        try:
+            if w_start is None:
+                start = None
+            else:
+                start = self.unwrap(w_start)
+            if w_stop is None:
+                stop = None
+            else:
+                stop = self.unwrap(w_stop)
+            if w_end is None:
+                end = None
+            else:
+                end = self.unwrap(w_end)
+        except UnwrapException:
+            return W_Anything() # W_Slice()???
+        else:
+            return self.wrap(slice(start, stop, end))
+
     # Methods implementing Python operations
     # (Many missing ones are added by make_op() below)
 
@@ -185,7 +206,11 @@ class AnnotationObjSpace(ObjSpace):
         except UnwrapException:
             pass
         else:
-            return self.wrap(left + right)
+            try:
+                sum = left + right
+            except:
+                self.reraise()
+            return self.wrap(sum)
         if is_int(w_left) and is_int(w_right):
             return W_Integer()
         else:
@@ -237,10 +262,16 @@ class AnnotationObjSpace(ObjSpace):
         raise IndeterminateCondition(w_iterator)
 
     def call(self, w_func, w_args, w_kwds):
+        w_closure = None
         if isinstance(w_func, W_BuiltinFunction):
             bytecode = w_func.code
             w_defaults = w_func.w_defaults
             w_globals = self.w_None
+        elif isinstance(w_func, W_PythonFunction):
+            bytecode = w_func.code
+            w_defaults = w_func.w_defaults
+            w_closure = w_func.w_closure
+            w_globals = w_func.w_globals
         else:
             try:
                 func = self.unwrap(w_func)
@@ -257,11 +288,10 @@ class AnnotationObjSpace(ObjSpace):
                 self.bytecodecache[code] = bytecode
             w_defaults = self.wrap(func.func_defaults)
             w_globals = self.wrap(func.func_globals)
-        w_locals = bytecode.build_arguments(self,
-                                            w_args,
-                                            w_kwds,
-                                            w_defaults,
-                                            self.wrap(()))
+        if w_closure is None:
+            w_closure = self.wrap(())
+        w_locals = bytecode.build_arguments(self, w_args, w_kwds,
+                                            w_defaults, w_closure)
         w_result = bytecode.eval_code(self, w_globals, w_locals)
         return w_result
 

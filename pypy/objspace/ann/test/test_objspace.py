@@ -103,6 +103,24 @@ class TestAnnotationObjSpace(test.TestCase):
                           'f', [W_Integer()])
         self.assertEquals(type(x), W_Integer)
 
+    def test_assign_local(self):
+        x = self.codetest("def f():\n"
+                          "    x = 1\n"
+                          "    y = 2\n"
+                          "    return x+y\n",
+                          'f', [])
+        self.assertEquals(self.space.unwrap(x), 3)
+
+    def test_assign_local_w_flow_control(self):
+        code = """
+def f(n):
+    total = 0
+    for i in range(n):
+        total = total + 1
+    return n
+"""
+        x = self.codetest(code, 'f', [self.space.wrap(3)])
+        self.assertEquals(self.space.unwrap(x), 3)
 
     def dont_test_global(self):
         # XXX This will never work, because we don't handle mutating globals
