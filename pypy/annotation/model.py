@@ -30,6 +30,7 @@ generic element in some specific subset of the set of all objects.
 
 from types import ClassType, BuiltinFunctionType, FunctionType, MethodType
 from types import InstanceType
+import pypy
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.objspace.flow.model import Constant
 
@@ -51,6 +52,22 @@ class SomeObject:
         return self == other or pair(self, other).union() == self
     def is_constant(self):
         return hasattr(self, 'const')
+
+    # for debugging, record where each instance comes from
+    _coming_from = {}
+    def __new__(cls, *args, **kw):
+        self = super(SomeObject, cls).__new__(cls, *args, **kw)
+        try:
+            position_key = pypy.annotation.factory.getbookkeeper().position_key
+        except AttributeError:
+            pass
+        else:
+            SomeObject._coming_from[id(self)] = position_key
+        return self
+    def origin(self):
+        return SomeObject._coming_from[id(self)]
+    origin = property(origin)
+
 
 class SomeInteger(SomeObject):
     "Stands for an object which is known to be an integer."
