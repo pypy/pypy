@@ -439,6 +439,9 @@ def help():
     print "You must be joking."
 
 def unichr(code):
+    import sys
+    if (code < 0 or code > sys.maxunicode):
+        raise ValueError('unichr() arg not in range(%#x)'%(sys.maxunicode + 1))
     return unicode('\\U%08x' %(code), 'unicode-escape')
 # ______________________________________________________________________
 #
