@@ -63,7 +63,7 @@ class Block:
         return uniqueitems([w for w in result if isinstance(w, Variable)])
 
     def getconstants(self):
-        "Return all constants mentionned in this Block."
+        "Return all constants mentioned in this Block."
         result = self.inputargs[:]
         for op in self.operations:
             result += op.args

@@ -109,7 +109,6 @@ class FlowObjSpace(ObjSpace):
     def build_flow(self, func, constargs={}):
         """
         """
-        func = getattr(func, "translated_version", func)
         code = func.func_code
         code = PyCode()._from_code(code)
         if func.func_closure is None:
