@@ -39,7 +39,7 @@ new proposition describing a possible new structure
         README.txt          # tell how to run PyPy, the translator, tests 
         LICENSE.txt         # copyright notices for tree parts including pypy 
 
-    doc                     # non-dist documentations (papers etc.pp.) 
+    extradoc                # non-dist documentations (papers etc.pp.) 
         talk                # various pypy-talks 
         paper               # various pypy-related papers (including our own)
         sprint              # sprint related information (reports etc.pp.)
