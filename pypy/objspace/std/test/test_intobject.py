@@ -298,6 +298,10 @@ class AppIntTest(test.AppTestCase):
 
     def test_int_float(self):
         self.assertEquals(4, int(4.2))
+
+    def test_int_str_repr(self):
+        self.assertEquals("42", str(42))
+        self.assertEquals("42", repr(42))
         
 
 if __name__ == '__main__':

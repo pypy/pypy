@@ -35,6 +35,8 @@ class AppBoolTest(test.AppTestCase):
     def test_bool_string(self):
         self.assertEquals("True", str(True))
         self.assertEquals("False", str(False))
+        self.assertEquals("True", repr(True))
+        self.assertEquals("False", repr(False))
 
 if __name__ == '__main__':
     test.main()
