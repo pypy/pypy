@@ -38,6 +38,9 @@ class LLOp(object):
 class TypingError(Exception):
     pass
 
+class CannotConvert(Exception):
+    pass
+
 
 # ____________________________________________________________
 #
@@ -125,6 +128,19 @@ class LLFunction(LLTyper):
         remove_direct_loops(graph)
         self.name = name
         self.graph = graph
+
+    def hl_header(self):
+        """
+        Get the high-level signature (argument types and return type).
+        """
+        result = []
+        for v in self.graph.getargs():
+            self.makevar(v)
+            result.append(self.hltypes[v])
+        v = self.graph.getreturnvar()
+        self.makevar(v)
+        result.append(self.hltypes[v])
+        return result
 
     def ll_header(self):
         """
@@ -442,7 +458,3 @@ class ReleaseNode:
         elif not N:
             return
         yield self.release_operation
-
-
-class CannotConvert:
-    pass

@@ -3,11 +3,13 @@ import re
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.annotation import model as annmodel
 from pypy.translator import genc_op
-from pypy.translator.typer import CannotConvert
+from pypy.translator.typer import CannotConvert, TypingError
 from pypy.translator.genc_repr import R_VOID, R_INT, R_OBJECT, R_UNDEFINED
 from pypy.translator.genc_repr import tuple_representation
 from pypy.translator.genc_repr import constant_representation, CConstant
 from pypy.translator.genc_repr import instance_representation, CInstance
+from pypy.translator.genc_repr import function_representation, CFunction
+from pypy.translator.genc_repr import CConstantFunction
 
 
 class CTypeSet:
@@ -59,6 +61,9 @@ class CTypeSet:
             if isinstance(var, annmodel.SomeInstance):
                 llclass = self.genc.llclasses[var.knowntype]
                 return instance_representation(llclass)
+            if isinstance(var, annmodel.SomeFunction):
+                func_sig = self.regroup_func_sig(var.funcs)
+                return function_representation(func_sig)
             # fall-back
             return R_OBJECT
         if isinstance(var, UndefinedConstant):
@@ -73,7 +78,7 @@ class CTypeSet:
     def getconversion(self, hltype1, hltype2):
         sig = hltype1, hltype2
         if sig in self.conversion_errors:
-            raise CannotConvert   # shortcut
+            raise CannotConvert(hltype1, hltype2)   # shortcut
         try:
             return self.conversion_cache[sig]
         except KeyError:
@@ -81,8 +86,10 @@ class CTypeSet:
                 llopcls = hltype1.convert_to(hltype2, self)
                 self.conversion_cache[sig] = llopcls
                 return llopcls
-            except CannotConvert:
+            except CannotConvert, e:
                 self.conversion_errors[sig] = True
+                if not e.args:
+                    e.args = hltype1, hltype2
                 raise
 
     def typemismatch(self, opname, hltypes):
@@ -99,6 +106,22 @@ class CTypeSet:
             llops = self.lloperations.setdefault(opname, {})
             if newsig not in llops or newop.cost < llops[newsig].cost:
                 llops[newsig] = newop
+
+    # ____________________________________________________________
+
+    def regroup_func_sig(self, funcs):
+        # find a common signature for the given functions
+        signatures = []
+        for func in funcs:
+            llfunc = self.genc.llfunctions[func]
+            signatures.append(llfunc.hl_header())
+        # XXX we expect the functions to have exactly the same signature
+        #     but this is currently not enforced by the annotator.
+        assert signatures
+        for test in signatures[1:]:
+            if test != signatures[0]:
+                raise TypingError(signatures[0], test)
+        return signatures[0]
 
     # ____________________________________________________________
 
@@ -122,26 +145,23 @@ class CTypeSet:
         # it can be converted to PyObject*.
         sig = (R_OBJECT,) * len(hltypes)
         yield sig, genc_op.LoCallFunction
+        # Calling another user-defined generated function
+        r = hltypes[0]
+        if isinstance(r, (CConstantFunction, CFunction)):
+            # it might be a known one or just one we have a pointer to
+            sig = tuple(r.get_function_signature(self)[1])
+            r_func = function_representation(sig)
+            sig = (r_func,) + sig
+            yield sig, genc_op.LoCallPyFunction.With(
+                hlrettype = sig[-1],
+                )
         # But not all variables holding pointers to function can nicely
         # be converted to PyObject*.  We might be calling a well-known
         # (constant) function:
-        r = hltypes[0]
         if isinstance(r, CConstant):
             fn = r.value
             if not callable(fn):
                 return
-            # Calling another user-defined generated function
-            if fn in self.genc.llfunctions:
-                llfunc = self.genc.llfunctions[fn]
-                sig = [r]
-                for v in llfunc.graph.getargs():
-                    sig.append(self.gethltype(v))
-                hltype = self.gethltype(llfunc.graph.getreturnvar())
-                sig.append(hltype)
-                yield tuple(sig), genc_op.LoCallPyFunction.With(
-                    llfunc = llfunc,
-                    hlrettype = hltype,
-                    )
             # Instantiating a user-defined class
             if fn in self.genc.llclasses:
                 # XXX do __init__

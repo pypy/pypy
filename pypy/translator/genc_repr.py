@@ -104,6 +104,27 @@ class CConstantBuiltin(CConstant):   # a constant from the __builtin__ module
         else:
             raise CannotConvert
 
+class CConstantFunction(CConstant):
+    def convert_to(self, target, typeset):
+        if isinstance(target, CFunction):
+            name, my_header_r = self.get_function_signature(typeset)
+            if my_header_r != target.header_r:
+                raise CannotConvert(self, my_header_r, target)
+            cfunctype, = target.impl
+            return genc_op.LoKnownAnswer.With(
+                known_answer = [LLConst(cfunctype, name)],
+                )
+        else:
+            raise CannotConvert
+
+    def get_function_signature(self, typeset):
+        fn = self.value
+        if fn in typeset.genc.llfunctions:
+            llfunc = typeset.genc.llfunctions[fn]
+            return llfunc.name, llfunc.hl_header()
+        else:
+            return None, None
+
 
 class CTuple(CRepr):
     "An unpacked tuple.  Represents all its items independently."
@@ -173,6 +194,39 @@ class CInstance(CRepr):
         else:
             raise CannotConvert
 
+
+class CFunction(CRepr):
+    "A C-level function or a pointer to a function."
+
+    def __init__(self, header_r):
+        self.header_r = list(header_r)  # CReprs: [arg1, arg2, ..., retval]
+        # C syntax is quite strange: a pointer to a function is declared
+        # with a syntax like "int (*varname)(long, char*)".  We build here
+        # a 'type' string like "int (*@)(long, char*)" that will be combined
+        # with an actual name by cdecl() below.  Oh, and by the way, to
+        # make a string like "int (*@)(long, char*)" we need to use cdecl()
+        # as well, because the "int" which is the return type could itself
+        # contain a "@"... for functions returning pointers to functions.
+        llargs = []
+        for r in  header_r[:-1]:
+            llargs += [cdecl(atype, '') for atype in r.impl]
+        llret = header_r[-1].impl
+        # same logic as get_llfunc_header()
+        if len(llret) == 0:
+            retlltype = 'int' # no return value needed, returns an error flag
+        elif len(llret) == 1:
+            retlltype = llret[0]
+        else:
+            # if there is more than one C return type, only the first one is
+            # returned and the other ones are returned via ptr output args
+            retlltype = llret[0]
+            llargs += [cdecl(atype, '*') for atype in llret[1:]]
+        cfunctype = cdecl(retlltype, '(*@)(%s)' % ', '.join(llargs))
+        self.impl = [cfunctype]
+
+    def get_function_signature(self, typeset):
+        return None, self.header_r
+
 # ____________________________________________________________
 #
 # Predefined CReprs and caches for building more
@@ -185,6 +239,7 @@ R_UNDEFINED = CUndefined()
 R_TUPLE_CACHE    = {}
 R_CONSTANT_CACHE = {}
 R_INSTANCE_CACHE = {}
+R_FUNCTION_CACHE = {}
 
 def tuple_representation(items_r):
     items_r = tuple(items_r)
@@ -199,6 +254,8 @@ CONST_TYPES = {
     str:                       CConstantStr,
     types.NoneType:            CConstantNone,
     types.BuiltinFunctionType: CConstantBuiltin,
+    types.FunctionType:        CConstantFunction,
+#    types.MethodType:          CConstantMethod,
     }
 
 def constant_representation(value):
@@ -227,6 +284,14 @@ def instance_representation(llclass):
         r = R_INSTANCE_CACHE[llclass] = CInstance(llclass)
         return r
 
+def function_representation(sig):
+    sig = tuple(sig)
+    try:
+        return R_FUNCTION_CACHE[sig]
+    except KeyError:
+        r = R_FUNCTION_CACHE[sig] = CFunction(sig)
+        return r
+
 
 def c_str(s):
     "Return the C expression for the string 's'."
@@ -246,3 +311,14 @@ def manglestr(s):
                 c = '_%02x' % ord(c)
         l.append(c)
     return ''.join(l)
+
+def cdecl(type, name):
+    # Utility to generate a typed name declaration in C syntax.
+    # For local variables, struct fields, function declarations, etc.
+    # For complex C types, the 'type' can contain a '@' character that
+    # specifies where the 'name' should be inserted; for example, an
+    # array of 10 ints has a type of "int @[10]".
+    if '@' in type:
+        return type.replace('@', name)
+    else:
+        return ('%s %s' % (type, name)).rstrip()

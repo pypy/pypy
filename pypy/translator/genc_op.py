@@ -281,27 +281,25 @@ class LoComment(LoC):
 ERROR_RETVAL = {
     None:        '-1',
     'int':       '-1',
-    'PyObject*': 'NULL',
     }
 
 ERROR_CHECK = {
     None:        '< 0',
     'int':       '== -1 && PyErr_Occurred()',
-    'PyObject*': '== NULL',
     }
 
 class LoCallPyFunction(LoC):
     can_fail  = True
-    llfunc    = PARAMETER
     hlrettype = PARAMETER
     def write(self):
+        funcptr = self.args[0].name
         L = len(self.hlrettype.impl)
         R = len(self.args) - L
-        args = [a.name for a in self.args[:R]]
+        args = [a.name for a in self.args[1:R]]
         err = self.errtarget
         if L == 0:  # no return value
             return 'if (%s(%s) %s) goto %s;' % (
-                self.llfunc.name, ', '.join(args), ERROR_CHECK[None], err)
+                funcptr, ', '.join(args), ERROR_CHECK[None], err)
         else:
             # the return value is the first return LLVar:
             retvar = self.args[R]
@@ -309,8 +307,8 @@ class LoCallPyFunction(LoC):
             # in by reference as output arguments
             args += ['&%s' % a.name for a in self.args[R+1:]]
             return ('if ((%s = %s(%s)) %s) goto %s;' % (
-                retvar.name, self.llfunc.name, ', '.join(args),
-                ERROR_CHECK[retvar.type], err))
+                retvar.name, funcptr, ', '.join(args),
+                ERROR_CHECK.get(retvar.type, '== NULL'), err))
 
 class LoReturn(LoC):
     cost = 1

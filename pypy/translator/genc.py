@@ -10,7 +10,7 @@ from pypy.translator.typer import LLFunction, LLOp, LLVar, LLConst
 from pypy.translator.classtyper import LLClass
 from pypy.translator.genc_typeset import CTypeSet
 from pypy.translator.genc_op import ERROR_RETVAL
-from pypy.translator.genc_repr import R_INT, R_OBJECT
+from pypy.translator.genc_repr import R_INT, R_OBJECT, cdecl
 
 # ____________________________________________________________
 
@@ -149,16 +149,15 @@ class GenC:
             # if there is more than one return LLVar, only the first one is
             # returned and the other ones are returned via ptr output args
             retlltype = llret[0].type
-            llargs += [LLVar(a.type+'*', 'output_'+a.name) for a in llret[1:]]
+            llargs += [LLVar(a.type, '*output_'+a.name) for a in llret[1:]]
         return llargs, retlltype
 
     def cfunction_header(self, llfunc):
         llargs, rettype = self.get_llfunc_header(llfunc)
-        l = ['%s %s' % (a.type, a.name) for a in llargs]
+        l = [cdecl(a.type, a.name) for a in llargs]
         l = l or ['void']
-        return 'static %s %s(%s)' % (rettype or 'int',
-                                     llfunc.name,
-                                     ', '.join(l))
+        return 'static ' + cdecl(rettype or 'int',
+                                 '%s(%s)' % (llfunc.name, ', '.join(l)))
 
     def gen_entrypoint(self):
         f = self.f
@@ -169,7 +168,7 @@ class GenC:
         l = []
         l2 = []
         for a in llargs:
-            print >> f, '\t%s %s;' % (a.type, a.name)
+            print >> f, '\t%s;' % cdecl(a.type, a.name)
             l.append('&' + a.name)
             l2.append(a.name)
         formatstr = []
@@ -188,7 +187,7 @@ class GenC:
 
         # generate the body of the function
         llargs, rettype = self.get_llfunc_header(llfunc)
-        error_retval = LLConst(rettype, ERROR_RETVAL[rettype])
+        error_retval = LLConst(rettype, ERROR_RETVAL.get(rettype, 'NULL'))
         body = list(llfunc.ll_body([error_retval]))
 
         # print the declaration of the new global constants needed by
@@ -206,7 +205,7 @@ class GenC:
         if to_declare:
             print >> f, '/* global constant%s */' % ('s'*(len(to_declare)>1))
             for a in to_declare:
-                print >> f, 'static %s %s;' % (a.type, a.name)
+                print >> f, 'static %s;' % cdecl(a.type, a.name)
             print >> f
 
         # print header
@@ -224,7 +223,7 @@ class GenC:
         for a in lllocals:
             if a not in seen:
                 if not isinstance(a, LLConst):
-                    print >> f, '\t%s %s;' % (a.type, a.name)
+                    print >> f, '\t%s;' % cdecl(a.type, a.name)
                 seen[a] = True
         print >> f
 
@@ -257,7 +256,7 @@ class GenC:
         print >> f, self.C_STRUCT_HEADER % info
         for fld in llclass.instance_fields:
             for llvar in fld.llvars:
-                print >> f, '\t%s %s;' % (llvar.type, llvar.name)
+                print >> f, '\t%s;' % cdecl(llvar.type, llvar.name)
         print >> f, self.C_STRUCT_FOOTER % info
 
         # print the struct Xxx_TypeObject, which is an extension of
@@ -265,7 +264,7 @@ class GenC:
         print >> f, self.C_TYPESTRUCT_HEADER % info
         for fld in llclass.class_fields:
             for llvar in fld.llvars:
-                print >> f, '\t%s %s;' % (llvar.type, llvar.name)
+                print >> f, '\t%s;' % cdecl(llvar.type, llvar.name)
         print >> f, self.C_TYPESTRUCT_FOOTER % info
 
         # generate the deallocator function -- must special-case it;
