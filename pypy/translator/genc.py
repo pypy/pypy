@@ -633,7 +633,7 @@ class GenC:
                '"%s:%s"' % (fmt, func.__name__),
                'kwlist',
                ]
-        lst += ['&' + a.name for a in positional_args]
+        lst += ['&' + self.expr(a, localvars) for a in positional_args]
         print >> f, '\tif (!PyArg_ParseTupleAndKeywords(%s))' % ', '.join(lst),
         print >> f, tail
 
