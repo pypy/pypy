@@ -1,4 +1,5 @@
 import tool.autopath
+
 from pypy.tool import test
 
 if __name__ == '__main__':
