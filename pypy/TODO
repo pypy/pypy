@@ -1,19 +1,17 @@
-* String Formatting: the % mod operator needs to be implemented 
-  for dicts and the current hack for tuples (which just unwraps 
-  to cpython and calls the % operator) needs to be properly 
-  written at interp- or app-level. 
+StdObjSpace
+===========
+
+* find a way via hacking or elegance to run CPython's unit tests
+  against the StdObjSpace.
+
+* String formatting still needs work (field widths, precision, ...)
 
 * Provide an importer that can import packages. (we have a 
-  limited __import__ builtin defined) 
+  limited __import__ builtin defined)  <---- done now?
 
   Consider PEP 302, new import hooks.
   Try to write as much as possible in app-level.
   How would PyPy import CPython extensions?
-
-* Implements super. Guido's paper, descrintro, has a pure Python
-  implementation. Let it run on PyPy. (as of r3461, it doesn't run.)
-
-* Supports traceback. At least sys.exc_info. (Many modules expect it.)
 
 * (documentation) generate a nice dot-graph from the structure of PyPy
 
@@ -22,9 +20,6 @@
 
 * (documentation) remove/retire all web-pages referencing e.g.
   AnnSpace or other deprecated stuff
-
-* make application-level types work for (1) StdObjSpace types and (2)
-  core interpreter objects. 
 
 * Review, enhance the new mixed-level module mechanism
   (e.g. the module/builtin*.py files comprise the builtin module)
@@ -42,7 +37,15 @@
 
   http://codespeak.net/pypy/index.cgi?doc/objspace/multimethod
 
+  (now irrelevant?  not sure...)
+
+Translator
+==========
+
 * enhance the translator components to accept more of PyPy ...
+
+Tools
+=====
 
 * add web server thread (!) that allows inspection of e.g. app-level
   tracebacks (and stop clogging the user's terminal with them).
