@@ -30,10 +30,13 @@ def delegate__Long(space, w_longobj):
     if -sys.maxint-1 <= w_longobj.longval <= sys.maxint:
         return W_IntObject(space, int(w_longobj.longval))
     else:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("long too large to convert to int"))
+        # note the 'return' here -- hack
+        return FailedToImplement(
+            OperationError(space.w_OverflowError,
+                           space.wrap("long too large to convert to int")))
 delegate__Long.result_class = W_IntObject
 delegate__Long.priority = PRIORITY_CHANGE_TYPE
+delegate__Long.can_fail = True
 
 
 def long__Long(space, w_value):

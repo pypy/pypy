@@ -84,28 +84,45 @@ class AbstractMultiMethod(object):
         #    t.__name__ for t in argclasses]
         arglist = ['a%d'%i for i in range(len(argclasses))] + ['*extraargs']
         source = ['def do(space,%s):' % ','.join(arglist)]
-        converted = [{(): 'a%d'%i} for i in range(len(argclasses))]
+        converted = [{(): ('a%d'%i, False)} for i in range(len(argclasses))]
 
         def make_conversion(argi, convlist):
             if tuple(convlist) in converted[argi]:
                 return converted[argi][tuple(convlist)]
             else:
-                prev = make_conversion(argi, convlist[:-1])
+                prev, can_fail = make_conversion(argi, convlist[:-1])
                 new = '%s_%d' % (prev, len(converted[argi]))
                 fname = all_functions.setdefault(convlist[-1],
                                                  'd%d' % len(all_functions))
-                source.append(' %s = %s(space,%s)' % (new, fname, prev))
-                converted[argi][tuple(convlist)] = new
-                return new
+                if can_fail:
+                    source.append(' if isinstance(%s, FailedToImplement):' % prev)
+                    source.append('  %s = %s' % (new, prev))
+                    source.append(' else:')
+                    indent = '  '
+                else:
+                    indent = ' '
+                source.append('%s%s = %s(space,%s)' % (indent, new, fname, prev))
+                can_fail = can_fail or getattr(convlist[-1], 'can_fail', False)
+                converted[argi][tuple(convlist)] = new, can_fail
+                return new, can_fail
 
         all_functions = {}
         has_firstfailure = False
         for fn, conversions in calllist:
             # make the required conversions
             fname = all_functions.setdefault(fn, 'f%d' % len(all_functions))
-            arglist = [make_conversion(i, conversions[i])
-                       for i in range(len(argclasses))] + ['*extraargs']
+            arglist = []
+            failcheck = []
+            for i in range(len(argclasses)):
+                argname, can_fail = make_conversion(i, conversions[i])
+                arglist.append(argname)
+                if can_fail:
+                    failcheck.append(argname)
+            arglist.append('*extraargs')
             source.append(    ' try:')
+            for argname in failcheck:
+                source.append('  if isinstance(%s, FailedToImplement):' % argname)
+                source.append('   raise %s' % argname)
             source.append(    '  return %s(space,%s)' % (
                 fname, ','.join(arglist)))
             if has_firstfailure:
