@@ -122,7 +122,14 @@ def getattr__Type_ANY(space, w_type, w_name):
         return space.get(w_descr,w_type,space.type(w_type))
     raise OperationError(space.w_AttributeError,w_name)
 
-# XXX __setattr__
+def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
+    name = space.unwrap(w_name)
+    w_descr = space.lookup(w_type, name)
+    if w_descr is not None:
+        if space.is_data_descr(w_descr):
+            return space.set(w_descr,w_type,space.type(w_type))
+    w_type.dict_w[name] = w_value
+    
 # XXX __delattr__
 # XXX __hash__ ??
 
