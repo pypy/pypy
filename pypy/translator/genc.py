@@ -150,7 +150,7 @@ class GenC:
         name = ''.join(chrs)
         name = self.uniquename(name)
         self.initcode.append('INITCHK(%s = '
-                             'PyFloat_FromFloat(%r))' % (name, value))
+                             'PyFloat_FromDouble(%r))' % (name, value))
         return name
 
     def nameof_str(self, value):
