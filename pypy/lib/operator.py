@@ -1,3 +1,8 @@
+'''Operator interface.
+
+This module exports a set of operators as functions. E.g. operator.add(x,y) is
+equivalent to x+y.
+'''
 import __builtin__
 
 def abs(obj,):
@@ -14,7 +19,10 @@ def and_(obj1,obj2):
 __and__ = and_
 def concat(obj1, obj2):
     'concat(a, b) -- Same as a + b, for a and b sequences.'
-    return obj1 + obj2  # XXX should we be stricter?
+    return obj1 + obj2  # XXX cPython only works on types with sequence api
+                        # we support any with __add__
+__concat__ = concat
+
 def contains(obj1,obj2):
     'contains(a, b) -- Same as b in a (note reversed operands).'
     return obj2 in obj1 
@@ -129,7 +137,9 @@ def neg(obj,):
 __neg__ = neg
 def not_(obj,):
     'not_(a) -- Same as not a.'
-    return not obj 
+    return not obj
+__not__ = not_
+
 def or_(a, b):
     'or_(a, b) -- Same as a | b.'
     return a | b 
@@ -146,7 +156,10 @@ def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
     if not isinstance(num, (int, long)):
         raise TypeError, 'an integer is required'
-    return obj * num   # XXX should we be stricter?
+    return obj * num   # XXX cPython only supports objects with the sequence
+                       # protocol. We support any with a __mul__
+__repeat__ = repeat
+
 def rshift(a, b):
     'rshift(a, b) -- Same as a >> b.'
     return a >> b 
