@@ -2,8 +2,8 @@
 
 
 """
-from pypy.interpreter.gateway import interp2app 
-from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.gateway import interp2app, ObjSpace, Arguments, W_Root 
+from pypy.interpreter.baseobjspace import BaseWrappable, Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.tool.cache import Cache
 import new
@@ -92,63 +92,117 @@ def instantiate(cls):
     else:
         return new.instance(cls)
 
+def make_descr_typecheck_wrapper(func, extraargs=(), cls=None):
+    if func is None:
+        return None
+    if hasattr(func, 'im_func'):
+        assert not cls or cls is func.im_class
+        cls = func.im_class
+        func = func.im_func
+    if not cls:
+        #print "UNCHECKED", func.__module__ or '?', func.__name__
+        return func
+
+    miniglobals = {
+         func.__name__: func,
+        'OperationError': OperationError
+        }
+    if isinstance(cls, str):
+        #print "<CHECK", func.__module__ or '?', func.__name__
+        assert cls.startswith('<'),"pythontype typecheck should begin with <"
+        unwrap = "w_obj"
+        cls_name = cls[1:]
+        expected = repr(cls_name)
+        check = "space.is_true(space.isinstance(obj, space.w_%s))" % cls_name
+    else:
+        cls_name = cls.__name__
+        if issubclass(cls, BaseWrappable):
+            unwrap =  "space.interpclass_w(w_obj)"
+        else:
+            unwrap = "w_obj"
+        miniglobals[cls_name] = cls
+        check = "isinstance(obj, %s)" % cls_name
+        expected = "%s.typedef.name" % cls_name
+   
+    source = """if 1: 
+        def descr_typecheck_%(name)s(space, w_obj, %(extra)s):
+            obj = %(unwrap)s
+            if obj is None or not %(check)s:
+                # xxx improve msg
+                msg =  "descriptor is for '%%s'" %% %(expected)s
+                raise OperationError(space.w_TypeError, space.wrap(msg))
+            return %(name)s(space, obj, %(extra)s)
+        \n""" % {'name': func.__name__, 
+                 'check': check,
+                 'expected': expected,
+                 'unwrap': unwrap,
+                 'extra': ', '.join(extraargs)} 
+    exec compile(source, '', 'exec') in miniglobals 
+    return miniglobals['descr_typecheck_%s' % func.__name__]    
+
+
 class GetSetProperty(Wrappable):
-    def __init__(self, fget, fset=None, fdel=None, doc=None):
+    def __init__(self, fget, fset=None, fdel=None, doc=None, cls=None):
         "NOT_RPYTHON: initialization-time only"
-        fget = getattr(fget, 'im_func', fget) 
-        fset = getattr(fset, 'im_func', fset) 
-        fdel = getattr(fdel, 'im_func', fdel) 
+        fget = make_descr_typecheck_wrapper(fget, cls=cls) 
+        fset = make_descr_typecheck_wrapper(fset, ('w_value',), cls=cls)
+        fdel = make_descr_typecheck_wrapper(fdel, cls=cls) 
         self.fget = fget
         self.fset = fset
         self.fdel = fdel
         self.doc = doc
 
-    def descr_property_get(space, w_property, w_obj, w_cls=None):
+    def descr_property_get(space, property, w_obj, w_cls=None):
         # XXX HAAAAAAAAAAAACK (but possibly a good one)
         if w_obj == space.w_None and not space.is_true(space.is_(w_cls, space.type(space.w_None))):
-            #print w_property, w_obj, w_cls
-            return w_property
+            #print property, w_obj, w_cls
+            return space.wrap(property)
         else:
-            return space.interpclass_w(w_property).fget(space, w_obj)
+            return property.fget(space, w_obj)
 
-    def descr_property_set(space, w_property, w_obj, w_value):
-        fset = space.interpclass_w(w_property).fset
+    def descr_property_set(space, property, w_obj, w_value):
+        fset = property.fset
         if fset is None:
-            raise OperationError(space.w_AttributeError,
+            raise OperationError(space.w_TypeError,
                                  space.wrap("read-only attribute"))
         fset(space, w_obj, w_value)
 
-    def descr_property_del(space, w_property, w_obj):
-        fdel = space.interpclass_w(w_property).fdel
+    def descr_property_del(space, property, w_obj):
+        fdel = property.fdel
         if fdel is None:
             raise OperationError(space.w_AttributeError,
                                  space.wrap("cannot delete attribute"))
         fdel(space, w_obj)
 
-    typedef = TypeDef("GetSetProperty",
-        __get__ = interp2app(descr_property_get),
-        __set__ = interp2app(descr_property_set),
-        __delete__ = interp2app(descr_property_del),
-        )
+GetSetProperty.typedef = TypeDef(
+    "GetSetProperty",
+    __get__ = interp2app(GetSetProperty.descr_property_get.im_func,
+                         unwrap_spec = [ObjSpace,
+                                        GetSetProperty, W_Root, W_Root]),
+    __set__ = interp2app(GetSetProperty.descr_property_set.im_func,
+                         unwrap_spec = [ObjSpace,
+                                        GetSetProperty, W_Root, W_Root]),
+    __delete__ = interp2app(GetSetProperty.descr_property_del.im_func,
+                            unwrap_spec = [ObjSpace,
+                                           GetSetProperty, W_Root]),
+    )
 
-def interp_attrproperty(name):
+def interp_attrproperty(name, cls):
     "NOT_RPYTHON: initialization-time only"
-    def fget(space, w_obj):
-        obj = space.interpclass_w(w_obj)
+    def fget(space, obj):
         return space.wrap(getattr(obj, name))
-    return GetSetProperty(fget)
+    return GetSetProperty(fget, cls=cls)
 
-def interp_attrproperty_w(name):
+def interp_attrproperty_w(name, cls):
     "NOT_RPYTHON: initialization-time only"
-    def fget(space, w_obj):
-        obj = space.interpclass_w(w_obj)
+    def fget(space, obj):
         w_value = getattr(obj, name)
         if w_value is None:
             return space.w_None
         else:
             return w_value 
 
-    return GetSetProperty(fget)
+    return GetSetProperty(fget, cls=cls)
 
 class Member(Wrappable):
     """For slots."""
@@ -156,30 +210,37 @@ class Member(Wrappable):
         self.index = index
         self.name = name
 
-    def descr_member_get(space, w_member, w_obj, w_cls=None):
+    def descr_member_get(space, member, w_obj, w_cls=None):
         if space.is_w(w_obj, space.w_None):
-            return w_member
+            return space.wrap(member)
         else:
-            self = space.interpclass_w(w_member)
+            self = member
             w_result = w_obj.slots_w[self.index]
             if w_result is None:
                 raise OperationError(space.w_AttributeError,
                                      space.wrap(self.name)) # XXX better message
             return w_result
 
-    def descr_member_set(space, w_member, w_obj, w_value):
-        self = space.interpclass_w(w_member)
-        w_obj.slots_w[self.index] = w_value
+    def descr_member_set(space, member, w_obj, w_value):
+        self = member
+        w_obj.slots_w[self.index] = w_value # xxx typecheck
 
-    def descr_member_del(space, w_member, w_obj):
-        self = space.interpclass_w(w_member)
-        w_obj.slots_w[self.index] = None
+    def descr_member_del(space, member, w_obj):
+        self = member
+        w_obj.slots_w[self.index] = None # xxx typecheck
 
-    typedef = TypeDef("member",
-        __get__ = interp2app(descr_member_get),
-        __set__ = interp2app(descr_member_set),
-        __delete__ = interp2app(descr_member_del),
-        )
+Member.typedef = TypeDef(
+    "Member",
+    __get__ = interp2app(Member.descr_member_get.im_func,
+                         unwrap_spec = [ObjSpace,
+                                        Member, W_Root, W_Root]),
+    __set__ = interp2app(Member.descr_member_set.im_func,
+                         unwrap_spec = [ObjSpace,
+                                        Member, W_Root, W_Root]),
+    __delete__ = interp2app(Member.descr_member_del.im_func,
+                            unwrap_spec = [ObjSpace,
+                                           Member, W_Root]),
+    )
 
 # ____________________________________________________________
 #
@@ -195,18 +256,13 @@ from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
-def descr_get_dict(space, w_obj):
-    obj = space.interpclass_w(w_obj)
+def descr_get_dict(space, obj):
     w_dict = obj.getdict()
     assert w_dict is not None, repr(obj)
     return w_dict
 
-def descr_set_dict(space, w_obj, w_dict):
-    obj = space.interpclass_w(w_obj)
+def descr_set_dict(space, obj, w_dict):
     obj.setdict(w_dict)
-
-interp_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict)
-
 
 # co_xxx interface emulation for built-in code objects
 def fget_co_varnames(space, w_code):
@@ -232,48 +288,48 @@ def fget_co_consts(space, w_code):
     return space.newtuple([w_docstring])
 
 Code.typedef = TypeDef('internal-code',
-    co_name = interp_attrproperty('co_name'),
-    co_varnames = GetSetProperty(fget_co_varnames),
-    co_argcount = GetSetProperty(fget_co_argcount),
-    co_flags = GetSetProperty(fget_co_flags),
-    co_consts = GetSetProperty(fget_co_consts),
+    co_name = interp_attrproperty('co_name', cls=Code),
+    co_varnames = GetSetProperty(fget_co_varnames, cls=Code),
+    co_argcount = GetSetProperty(fget_co_argcount, cls=Code),
+    co_flags = GetSetProperty(fget_co_flags, cls=Code),
+    co_consts = GetSetProperty(fget_co_consts, cls=Code),
     )
 
 Frame.typedef = TypeDef('internal-frame',
-    f_code = interp_attrproperty('code'),
-    f_locals = GetSetProperty(Frame.fget_getdictscope.im_func),
-    f_globals = interp_attrproperty_w('w_globals'),
+    f_code = interp_attrproperty('code', cls=Frame),
+    f_locals = GetSetProperty(Frame.fget_getdictscope),
+    f_globals = interp_attrproperty_w('w_globals', cls=Frame),
     )
 
 PyCode.typedef = TypeDef('code',
     __new__ = interp2app(PyCode.descr_code__new__.im_func),
-    __eq__ = interp2app(PyCode.descr_code__eq__.im_func),
-    co_argcount = interp_attrproperty('co_argcount'),
-    co_nlocals = interp_attrproperty('co_nlocals'),
-    co_stacksize = interp_attrproperty('co_stacksize'),
-    co_flags = interp_attrproperty('co_flags'),
-    co_code = interp_attrproperty('co_code'),
+    __eq__ = interp2app(PyCode.descr_code__eq__),
+    co_argcount = interp_attrproperty('co_argcount', cls=PyCode),
+    co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode),
+    co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode),
+    co_flags = interp_attrproperty('co_flags', cls=PyCode),
+    co_code = interp_attrproperty('co_code', cls=PyCode),
     co_consts = GetSetProperty(PyCode.fget_co_consts),
     co_names = GetSetProperty(PyCode.fget_co_names),
-    co_varnames = interp_attrproperty('co_varnames'),
-    co_freevars = interp_attrproperty('co_freevars'),
-    co_cellvars = interp_attrproperty('co_cellvars'),
-    co_filename = interp_attrproperty('co_filename'),
-    co_name = interp_attrproperty('co_name'),
-    co_firstlineno = interp_attrproperty('co_firstlineno'),
-    co_lnotab = interp_attrproperty('co_lnotab'),
+    co_varnames = interp_attrproperty('co_varnames', cls=PyCode),
+    co_freevars = interp_attrproperty('co_freevars', cls=PyCode),
+    co_cellvars = interp_attrproperty('co_cellvars', cls=PyCode),
+    co_filename = interp_attrproperty('co_filename', cls=PyCode),
+    co_name = interp_attrproperty('co_name', cls=PyCode),
+    co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode),
+    co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode),
     )
 
 PyFrame.typedef = TypeDef('frame',
-    f_builtins = interp_attrproperty_w('w_builtins'),
-    f_lineno = GetSetProperty(PyFrame.fget_f_lineno.im_func),
+    f_builtins = GetSetProperty(PyFrame.fget_f_builtins),
+    f_lineno = GetSetProperty(PyFrame.fget_f_lineno),
     **Frame.typedef.rawdict)
 
 Module.typedef = TypeDef("module",
-    __new__ = interp2app(Module.descr_module__new__.im_func),
-    __init__ = interp2app(Module.descr_module__init__.im_func),
-    __dict__ = GetSetProperty(descr_get_dict), # module dictionaries are readonly attributes
-    __getattr__ = interp2app(Module.descr_module__getattr__.im_func),
+    __new__ = interp2app(Module.descr_module__new__.im_func,
+                         unwrap_spec=[ObjSpace, W_Root, Arguments]),
+    __init__ = interp2app(Module.descr_module__init__),
+    __dict__ = GetSetProperty(descr_get_dict, cls=Module), # module dictionaries are readonly attributes
     )
 
 getset_func_doc = GetSetProperty(Function.fget_func_doc,
@@ -295,20 +351,21 @@ getset_func_defaults = GetSetProperty(Function.fget_func_defaults,
 getset_func_code = GetSetProperty(Function.fget_func_code,
                                   Function.fset_func_code)
 
-getset_func_dict = GetSetProperty(descr_get_dict, descr_set_dict)
+getset_func_dict = GetSetProperty(descr_get_dict, descr_set_dict, cls=Function)
 
 Function.typedef = TypeDef("function",
-    __call__ = interp2app(Function.descr_function_call.im_func),
-    __get__ = interp2app(Function.descr_function_get.im_func),
+    __call__ = interp2app(Function.descr_function_call,
+                          unwrap_spec=['self', Arguments]),
+    __get__ = interp2app(Function.descr_function_get),
     func_code = getset_func_code, 
     func_doc = getset_func_doc,
-    func_name = interp_attrproperty('name'), 
+    func_name = interp_attrproperty('name', cls=Function), 
     func_dict = getset_func_dict, 
     func_defaults = getset_func_defaults,
-    func_globals = interp_attrproperty_w('w_func_globals'),
+    func_globals = interp_attrproperty_w('w_func_globals', cls=Function),
     func_closure = GetSetProperty( Function.fget_func_closure ),
     __doc__ = getset_func_doc,
-    __name__ = interp_attrproperty('name'),
+    __name__ = interp_attrproperty('name', cls=Function),
     __dict__ = getset_func_dict,
     __module__ = getset___module__,
     # XXX func_closure, etc.pp
@@ -316,42 +373,43 @@ Function.typedef = TypeDef("function",
 
 Method.typedef = TypeDef("method",
     __new__ = interp2app(Method.descr_method__new__.im_func),
-    __call__ = interp2app(Method.descr_method_call.im_func),
-    __get__ = interp2app(Method.descr_method_get.im_func),
-    im_func  = interp_attrproperty_w('w_function'), 
-    im_self  = interp_attrproperty_w('w_instance'), 
-    im_class = interp_attrproperty_w('w_class'),
-    __getattribute__ = interp2app(Method.descr_method_getattribute.im_func),
+    __call__ = interp2app(Method.descr_method_call,
+                          unwrap_spec=['self', Arguments]),
+    __get__ = interp2app(Method.descr_method_get),
+    im_func  = interp_attrproperty_w('w_function', cls=Method), 
+    im_self  = interp_attrproperty_w('w_instance', cls=Method), 
+    im_class = interp_attrproperty_w('w_class', cls=Method),
+    __getattribute__ = interp2app(Method.descr_method_getattribute),
     # XXX getattribute/setattribute etc.pp 
     )
 
 StaticMethod.typedef = TypeDef("staticmethod",
-    __get__ = interp2app(StaticMethod.descr_staticmethod_get.im_func),
+    __get__ = interp2app(StaticMethod.descr_staticmethod_get),
     # XXX getattribute etc.pp
     )
 
 PyTraceback.typedef = TypeDef("traceback",
-    tb_frame  = interp_attrproperty('frame'),
-    tb_lasti  = interp_attrproperty('lasti'),
-    tb_lineno = interp_attrproperty('lineno'),
-    tb_next   = interp_attrproperty('next'),
+    tb_frame  = interp_attrproperty('frame', cls=PyTraceback),
+    tb_lasti  = interp_attrproperty('lasti', cls=PyTraceback),
+    tb_lineno = interp_attrproperty('lineno', cls=PyTraceback),
+    tb_next   = interp_attrproperty('next', cls=PyTraceback),
     )
 
 GeneratorIterator.typedef = TypeDef("generator",
-    next       = interp2app(GeneratorIterator.descr_next.im_func),
-    __iter__   = interp2app(GeneratorIterator.descr__iter__.im_func),
-    gi_running = interp_attrproperty('running'), 
-    gi_frame   = interp_attrproperty('frame'), 
+    next       = interp2app(GeneratorIterator.descr_next),
+    __iter__   = interp2app(GeneratorIterator.descr__iter__),
+    gi_running = interp_attrproperty('running', cls=GeneratorIterator), 
+    gi_frame   = interp_attrproperty('frame', cls=GeneratorIterator), 
 )
 
 Cell.typedef = TypeDef("cell")
 
 Ellipsis.typedef = TypeDef("Ellipsis", 
-    __repr__   = interp2app(Ellipsis.descr__repr__.im_func),
+    __repr__   = interp2app(Ellipsis.descr__repr__),
 )
 
 NotImplemented.typedef = TypeDef("NotImplemented", 
-    __repr__   = interp2app(NotImplemented.descr__repr__.im_func), 
+    __repr__   = interp2app(NotImplemented.descr__repr__), 
 )
 
 ControlFlowException.typedef = TypeDef("ControlFlowException")

@@ -71,9 +71,11 @@ class PyInterpFrame(pyframe.PyFrame):
     def getconstant_w(self, index):
         return self.code.co_consts_w[index]
 
+    def getname(self, index):
+        return self.code.co_names[index]
+
     def getname_w(self, index):
-        w_varname = self.code.co_names_w[index]
-        return w_varname
+        return self.space.wrap(self.code.co_names[index])
 
 
     ################################################################
@@ -345,8 +347,8 @@ class PyInterpFrame(pyframe.PyFrame):
         w_globals = f.valuestack.pop()
         w_prog    = f.valuestack.pop()
         w_compile_flags = f.space.wrap(f.get_compile_flags())
-        w_resulttuple = f.prepare_exec(w_prog, w_globals, w_locals,
-                                       w_compile_flags)
+        w_resulttuple = prepare_exec(f.space, f.space.wrap(f), w_prog, w_globals, w_locals,
+                                       w_compile_flags, f.space.wrap(f.builtin))
         w_prog, w_globals, w_locals = f.space.unpacktuple(w_resulttuple, 3)
 
         plain = f.space.is_true(f.space.is_(w_locals, f.w_locals))
@@ -356,44 +358,6 @@ class PyInterpFrame(pyframe.PyFrame):
         pycode.exec_code(f.space, w_globals, w_locals)
         if plain:
             f.setdictscope(w_locals)
-
-    def app_prepare_exec(f, prog, globals, locals, compile_flags):
-        """Manipulate parameters to exec statement to (codeobject, dict, dict).
-        """
-        # XXX INCOMPLETE
-        if (globals is None and locals is None and
-            isinstance(prog, tuple) and
-            (len(prog) == 2 or len(prog) == 3)):
-            globals = prog[1]
-            if len(prog) == 3:
-                locals = prog[2]
-            prog = prog[0]
-        if globals is None:
-            globals = f.f_globals
-            if locals is None:
-                locals = f.f_locals
-        if locals is None:
-            locals = globals
-        if not isinstance(globals, dict):
-            raise TypeError("exec: arg 2 must be a dictionary or None")
-        elif not globals.has_key('__builtins__'):
-            globals['__builtins__'] = f.f_builtins
-        if not isinstance(locals, dict):
-            raise TypeError("exec: arg 3 must be a dictionary or None")
-        # XXX - HACK to check for code object
-        co = compile('1','<string>','eval')
-        if isinstance(prog, type(co)):
-            return (prog, globals, locals)
-        if not isinstance(prog, str):
-    ##     if not (isinstance(prog, types.StringTypes) or
-    ##             isinstance(prog, types.FileType)):
-            raise TypeError("exec: arg 1 must be a string, file, or code object")
-    ##     if isinstance(prog, types.FileType):
-    ##         co = compile(prog.read(),prog.name,'exec',comple_flags,1)
-    ##         return (co,globals,locals)
-        else: # prog is a string
-            co = compile(prog,'<string>','exec', compile_flags, 1)
-            return (co, globals, locals)
 
     def POP_BLOCK(f):
         block = f.blockstack.pop()
@@ -417,7 +381,8 @@ class PyInterpFrame(pyframe.PyFrame):
         w_bases       = f.valuestack.pop()
         w_name        = f.valuestack.pop()
         w_metaclass = find_metaclass(f.space, w_bases,
-                                     w_methodsdict, f.w_globals, f.w_builtins)
+                                     w_methodsdict, f.w_globals,
+                                     f.space.wrap(f.builtin)) 
         w_newclass = f.space.call_function(w_metaclass, w_name,
                                            w_bases, w_methodsdict)
         f.valuestack.push(w_newclass)
@@ -471,38 +436,19 @@ class PyInterpFrame(pyframe.PyFrame):
         f.space.delitem(f.w_globals, w_varname)
 
     def LOAD_NAME(f, nameindex):
-        w_varname = f.getname_w(nameindex)
-
-        if f.w_globals is f.w_locals:
-            try_list_w = [f.w_globals, f.w_builtins]
-
-        else:
-            try_list_w = [f.w_locals, f.w_globals, f.w_builtins]
-
-        w_value = None
-        for wrapped in try_list_w:
+        if f.w_locals is not f.w_globals:
+            w_varname = f.getname_w(nameindex)
             try:
-                w_value = f.space.getitem(wrapped, w_varname)
-                f.valuestack.push(w_value)
-                return
-
+                w_value = f.space.getitem(f.w_locals, w_varname)
             except OperationError, e:
                 if not e.match(f.space, f.space.w_KeyError):
                     raise
-        message = "name '%s' is not defined" % f.space.str_w(w_varname)
-        w_exc_type = f.space.w_NameError
-        w_exc_value = f.space.wrap(message)
-        raise OperationError(w_exc_type, w_exc_value)
-
-
-        # XXX the implementation can be pushed back into app-space as an
-        # when exception handling begins to behave itself.  For now, it
-        # was getting on my nerves -- mwh
-        #    w_value = f.load_name(w_varname)
-        #    f.valuestack.push(w_value)
+            else:
+                f.valuestack.push(w_value)
+                return
+        f.LOAD_GLOBAL(nameindex)    # fall-back
 
     def LOAD_GLOBAL(f, nameindex):
-        assert f.w_globals is not None
         w_varname = f.getname_w(nameindex)
         try:
             w_value = f.space.getitem(f.w_globals, w_varname)
@@ -511,16 +457,12 @@ class PyInterpFrame(pyframe.PyFrame):
             if not e.match(f.space, f.space.w_KeyError):
                 raise
             # we got a KeyError, now look in the built-ins
-            try:
-                w_value = f.space.getitem(f.w_builtins, w_varname)
-            except OperationError, e:
-                # catch KeyErrors again
-                if not e.match(f.space, f.space.w_KeyError):
-                    raise
-                message = "global name '%s' is not defined" % f.space.str_w(w_varname)
-                w_exc_type = f.space.w_NameError
-                w_exc_value = f.space.wrap(message)
-                raise OperationError(w_exc_type, w_exc_value)
+            varname = f.getname(nameindex)
+            w_value = f.builtin.getdictvalue(f.space, varname)
+            if w_value is None:
+                message = "global name '%s' is not defined" % varname
+                raise OperationError(f.space.w_NameError,
+                                     f.space.wrap(message))
         f.valuestack.push(w_value)
 
     def DELETE_FAST(f, varindex):
@@ -601,11 +543,8 @@ class PyInterpFrame(pyframe.PyFrame):
         w_modulename = f.getname_w(nameindex)
         modulename = f.space.str_w(w_modulename)
         w_fromlist = f.valuestack.pop()
-        try:
-            w_import = space.getitem(f.w_builtins, space.wrap("__import__"))
-        except OperationError, e:
-            if not e.match(space, space.w_KeyError):
-                raise
+        w_import = f.builtin.getdictvalue(f.space, '__import__')
+        if w_import is None:
             raise OperationError(space.w_ImportError,
                                  space.wrap("__import__ not found"))
         w_locals = f.w_locals
@@ -774,9 +713,6 @@ class PyInterpFrame(pyframe.PyFrame):
         cls.dispatch_table = dispatch_table
 
 
-    gateway.importall(locals())   # app_xxx() -> xxx()
-
-
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
 # parts of the code needs to do the same thing as a non-trivial opcode,
@@ -785,78 +721,130 @@ class PyInterpFrame(pyframe.PyFrame):
 # There are also a couple of helpers that are methods, defined in the
 # class above.
 
-def app_print_expr(x):
-    try:
-        displayhook = sys.displayhook
-    except AttributeError:
-        raise RuntimeError("lost sys.displayhook")
-    displayhook(x)
+app = gateway.applevel(r'''
 
-def app_file_softspace(file, newflag):
-    try:
-        softspace = file.softspace
-    except AttributeError:
-        softspace = 0
-    try:
-        file.softspace = newflag
-    except AttributeError:
-        pass
-    return softspace
+    import sys
 
-def app_sys_stdout():
-    try:
-        return sys.stdout
-    except AttributeError:
-        raise RuntimeError("lost sys.stdout")
-
-def app_print_item_to(x, stream):
-    if file_softspace(stream, False):
-        stream.write(" ")
-    stream.write(str(x))
-    # add a softspace unless we just printed a string which ends in a '\t'
-    # or '\n' -- or more generally any whitespace character but ' '
-    if isinstance(x, str) and len(x) and x[-1].isspace() and x[-1]!=' ':
-        return
-    # XXX add unicode handling
-    file_softspace(stream, True)
-
-def app_print_newline_to(stream):
-    stream.write("\n")
-    file_softspace(stream, False)
-
-def app_find_metaclass(bases, namespace, globals, builtins):
-    if '__metaclass__' in namespace:
-        return namespace['__metaclass__']
-    elif len(bases) > 0:
-        base = bases[0]
-        if hasattr(base, '__class__'):
-            return base.__class__
-        else:
-            return type(base)
-    elif '__metaclass__' in globals:
-        return globals['__metaclass__']
-    elif '__metaclass__' in builtins:
-        return builtins['__metaclass__']
-    else:
-        return type
-
-def app_import_all_from(module, into_locals):
-    try:
-        all = module.__all__
-    except AttributeError:
-        try:
-            dict = module.__dict__
+    def sys_stdout(): 
+        try: 
+            return sys.stdout
         except AttributeError:
-            raise ImportError("from-import-* object has no __dict__ "
-                              "and no __all__")
-        all = dict.keys()
-        skip_leading_underscores = True
-    else:
-        skip_leading_underscores = False
-    for name in all:
-        if skip_leading_underscores and name[0]=='_':
-            continue
-        into_locals[name] = getattr(module, name)
+            raise RuntimeError("lost sys.stdout")
 
+    def print_expr(obj):
+        try:
+            displayhook = sys.displayhook
+        except AttributeError:
+            raise RuntimeError("lost sys.displayhook")
+        displayhook(obj)
 
-gateway.importall(globals())   # app_xxx() -> xxx()
+    def print_item_to(x, stream):
+        if file_softspace(stream, False):
+           stream.write(" ")
+        stream.write(str(x))
+
+        # add a softspace unless we just printed a string which ends in a '\t'
+        # or '\n' -- or more generally any whitespace character but ' '
+        if isinstance(x, str) and x and x[-1].isspace() and x[-1]!=' ':
+            return 
+        # XXX add unicode handling
+        file_softspace(stream, True)
+
+    def print_newline_to(stream):
+        stream.write("\n")
+        file_softspace(stream, False)
+
+    def file_softspace(file, newflag):
+        try:
+            softspace = file.softspace
+        except AttributeError:
+            softspace = 0
+        try:
+            file.softspace = newflag
+        except AttributeError:
+            pass
+        return softspace
+
+    def find_metaclass(bases, namespace, globals, builtin):
+        if '__metaclass__' in namespace:
+            return namespace['__metaclass__']
+        elif len(bases) > 0:
+            base = bases[0]
+            if hasattr(base, '__class__'):
+                return base.__class__
+            else:
+                return type(base)
+        elif '__metaclass__' in globals:
+            return globals['__metaclass__']
+        else: 
+            try: 
+                return builtin.__metaclass__ 
+            except AttributeError: 
+                return type
+
+    def import_all_from(module, into_locals):
+        try:
+            all = module.__all__
+        except AttributeError:
+            try:
+                dict = module.__dict__
+            except AttributeError:
+                raise ImportError("from-import-* object has no __dict__ "
+                                  "and no __all__")
+            all = dict.keys()
+            skip_leading_underscores = True
+        else:
+            skip_leading_underscores = False
+        for name in all:
+            if skip_leading_underscores and name[0]=='_':
+                continue
+            into_locals[name] = getattr(module, name)
+
+    def prepare_exec(f, prog, globals, locals, compile_flags, builtin):
+        """Manipulate parameters to exec statement to (codeobject, dict, dict).
+        """
+        # XXX INCOMPLETE
+        if (globals is None and locals is None and
+            isinstance(prog, tuple) and
+            (len(prog) == 2 or len(prog) == 3)):
+            globals = prog[1]
+            if len(prog) == 3:
+                locals = prog[2]
+            prog = prog[0]
+        if globals is None:
+            globals = f.f_globals
+            if locals is None:
+                locals = f.f_locals
+        if locals is None:
+            locals = globals
+        if not isinstance(globals, dict):
+            raise TypeError("exec: arg 2 must be a dictionary or None")
+        elif not globals.has_key('__builtins__'):
+            globals['__builtins__'] = builtin
+        if not isinstance(locals, dict):
+            raise TypeError("exec: arg 3 must be a dictionary or None")
+        # XXX - HACK to check for code object
+        co = compile('1','<string>','eval')
+        if isinstance(prog, type(co)):
+            return (prog, globals, locals)
+        if not isinstance(prog, str):
+    ##     if not (isinstance(prog, types.StringTypes) or
+    ##             isinstance(prog, types.FileType)):
+            raise TypeError("exec: arg 1 must be a string, file, "
+                            "or code object")
+    ##     if isinstance(prog, types.FileType):
+    ##         co = compile(prog.read(),prog.name,'exec',comple_flags,1)
+    ##         return (co,globals,locals)
+        else: # prog is a string
+            co = compile(prog,'<string>','exec', compile_flags, 1)
+            return (co, globals, locals)
+''')
+
+sys_stdout      = app.interphook('sys_stdout')
+print_expr      = app.interphook('print_expr')
+print_item_to   = app.interphook('print_item_to')
+print_newline_to= app.interphook('print_newline_to')
+file_softspace  = app.interphook('file_softspace')
+find_metaclass  = app.interphook('find_metaclass')
+import_all_from = app.interphook('import_all_from')
+prepare_exec    = app.interphook('prepare_exec')

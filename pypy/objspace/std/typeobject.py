@@ -8,6 +8,8 @@ from pypy.objspace.std.objecttype import object_typedef
 class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
 
+    lazyloaders = None   # can be overridden by specific instances
+
     def __init__(w_self, space, name, bases_w, dict_w,
                  overridetypedef=None):
         W_Object.__init__(w_self, space)
@@ -106,21 +108,26 @@ class W_TypeObject(W_Object):
             if isinstance(w_new, Function):
                 w_self.dict_w['__new__'] = StaticMethod(w_new)
 
+    def getdictvalue(w_self, space, attr):
+        try:
+            return w_self.dict_w[attr]
+        except KeyError:
+            if w_self.lazyloaders and attr in w_self.lazyloaders:
+                loader = w_self.lazyloaders[attr]
+                del w_self.lazyloaders[attr]
+                w_value = loader()
+                if w_value is not None:   # None means no such attribute
+                    w_self.dict_w[attr] = w_value
+                return w_value
+            return None
+
     def lookup(w_self, key):
         # note that this doesn't call __get__ on the result at all
         space = w_self.space
         for w_class in w_self.mro_w:
-            try:
-                if isinstance(w_class, W_TypeObject):
-                    return w_class.dict_w[key]
-                else:
-                    try:
-                        return space.getitem(space.getdict(w_class),space.wrap(key))
-                    except OperationError,e:
-                        if not e.match(space, space.w_KeyError):
-                            raise
-            except KeyError:
-                pass
+            w_value = space.getdictvalue(w_class, key)
+            if w_value is not None:
+                return w_value
         return None
 
     def lookup_where(w_self, key):
@@ -128,17 +135,9 @@ class W_TypeObject(W_Object):
         # attribute was found
         space = w_self.space
         for w_class in w_self.mro_w:
-            try:
-                if isinstance(w_class, W_TypeObject):
-                    return w_class, w_class.dict_w[key]
-                else:
-                    try:
-                        return w_class, space.getitem(space.getdict(w_class),space.wrap(key))
-                    except OperationError,e:
-                        if not e.match(space, space.w_KeyError):
-                            raise                
-            except KeyError:
-                pass
+            w_value = space.getdictvalue(w_class, key)
+            if w_value is not None:
+                return w_class, w_value
         return None, None
 
     def check_user_subclass(w_self, w_subtype):
@@ -158,6 +157,10 @@ class W_TypeObject(W_Object):
 
     def getdict(w_self):
         # XXX should return a <dictproxy object>
+        if w_self.lazyloaders:
+            for attr in w_self.lazyloaders.keys():
+                w_self.getdictvalue(w_self.space, attr)
+            del w_self.lazyloaders
         space = w_self.space
         dictspec = []
         for key, w_value in w_self.dict_w.items():
@@ -213,7 +216,8 @@ def getattr__Type_ANY(space, w_type, w_name):
         return space.get(w_value, space.w_None, w_type)
     if w_descr is not None:
         return space.get(w_descr,w_type)
-    raise OperationError(space.w_AttributeError,w_name)
+    msg = "type object '%s' has no attribute '%s'" %(w_type.name, name)
+    raise OperationError(space.w_AttributeError, space.wrap(msg))
 
 def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     name = space.str_w(w_name)
@@ -224,6 +228,8 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
     w_type.dict_w[name] = w_value
 
 def delattr__Type_ANY(space, w_type, w_name):
+    if w_type.lazyloaders:
+        w_type.getdict()    # force un-lazification
     name = space.str_w(w_name)
     w_descr = space.lookup(w_type, name)
     if w_descr is not None:
@@ -237,7 +243,8 @@ def delattr__Type_ANY(space, w_type, w_name):
 # ____________________________________________________________
 
 
-def app_abstract_mro(klass): # abstract/classic mro
+def app_abstract_mro(klass):
+    # abstract/classic mro
     mro = []
     def fill_mro(klass):
         if klass not in mro:

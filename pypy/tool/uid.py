@@ -1,12 +1,16 @@
-import sys
-HUGEINT = (sys.maxint + 1L) * 2L
+import struct
+
+HUGEVAL = 256 ** struct.calcsize('P')
+
+
+def fixid(result):
+    if result < 0:
+        result += HUGEVAL
+    return result
 
 def uid(obj):
     """
     Return the id of an object as an unsigned number so that its hex
     representation makes sense
     """
-    rval = id(obj)
-    if rval < 0:
-        rval += HUGEINT
-    return rval
+    return fixid(id(obj))

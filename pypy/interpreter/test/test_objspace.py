@@ -89,15 +89,14 @@ class TestObjSpace:
 
 class TestModuleMinimal: 
     def test_sys_exists(self):
-        w_sys = self.space.get_builtin_module('sys')
-        assert self.space.is_true(w_sys)
+        assert self.space.sys 
 
     def test_import_exists(self):
         space = self.space
-        w_builtin = space.get_builtin_module('__builtin__')
-        assert space.is_true(w_builtin)
+        assert space.builtin 
         w_name = space.wrap('__import__')
-        w_import = self.space.getattr(w_builtin, w_name)
+        w_builtin = space.sys.getmodule('__builtin__')
+        w_import = self.space.getattr(w_builtin, w_name) 
         assert space.is_true(w_import)
 
     def test_sys_import(self):

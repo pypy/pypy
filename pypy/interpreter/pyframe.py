@@ -23,7 +23,7 @@ class PyFrame(eval.Frame):
      * 'code' is the PyCode object this frame runs
      * 'w_locals' is the locals dictionary to use
      * 'w_globals' is the attached globals dictionary
-     * 'w_builtins' is the attached built-ins dictionary
+     * 'builtin' is the attached built-in module
      * 'valuestack', 'blockstack', 'next_instr' control the interpretation
     """
 
@@ -33,7 +33,7 @@ class PyFrame(eval.Frame):
         self.blockstack = Stack()
         self.last_exception = None
         self.next_instr = 0
-        self.w_builtins = self.space.w_builtins
+        self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         if code.dictscope_needed():
@@ -74,14 +74,17 @@ class PyFrame(eval.Frame):
                         # catch asynchronous exceptions and turn them
                         # into OperationErrors
                         except KeyboardInterrupt:
-                            raise OperationError(self.space.w_KeyboardInterrupt,
-                                                 self.space.w_None)
+                            import sys; tb = sys.exc_info()[2]
+                            raise OperationError, (self.space.w_KeyboardInterrupt,
+                                                   self.space.w_None), tb
                         except MemoryError:
-                            raise OperationError(self.space.w_MemoryError,
-                                                 self.space.w_None)
+                            import sys; tb = sys.exc_info()[2]
+                            raise OperationError, (self.space.w_MemoryError,
+                                                   self.space.w_None), tb
                         except RuntimeError, e:
-                            raise OperationError(self.space.w_RuntimeError,
-                                self.space.wrap("internal error: " + str(e)))
+                            import sys; tb = sys.exc_info()[2]
+                            raise OperationError, (self.space.w_RuntimeError,
+                                self.space.wrap("internal error: " + str(e))), tb
 
                     except OperationError, e:
                         pytraceback.record_application_traceback(
@@ -129,6 +132,10 @@ class PyFrame(eval.Frame):
     def get_next_lineno(self):
         "Returns the line number of the next instruction to execute."
         return pytraceback.offset2lineno(self.code, self.next_instr)
+
+    def fget_f_builtins(space, w_self):
+        self = space.interpclass_w(w_self)
+        return self.builtin.getdict()
 
 
 ### Frame Blocks ###
@@ -216,44 +223,46 @@ class ExceptBlock(FrameBlock):
             return True  # stop unrolling
         return False
 
-def app_normalize_exception(etype, value, tb):
-    """Normalize an (exc_type, exc_value) pair:
-    exc_value will be an exception instance and exc_type its class.
-    """
-    # mistakes here usually show up as infinite recursion, which is fun.
-    while isinstance(etype, tuple):
-        etype = etype[0]
-    if isinstance(etype, (type, _classobj)):
-        if not isinstance(value, etype):
-            if value is None:
-                # raise Type: we assume we have to instantiate Type
-                value = etype()
-            elif isinstance(value, tuple):
-                # raise Type, Tuple: assume Tuple contains the constructor args
-                value = etype(*value)
-            else:
-                # raise Type, X: assume X is the constructor argument
-                value = etype(value)
-        # raise Type, Instance: let etype be the exact type of value
-        etype = value.__class__
-    elif type(etype) is str:
-        # XXX warn -- deprecated
-        if value is not None and type(value) is not str:
-            raise TypeError("string exceptions can only have a string value")
-    else:
-        # raise X: we assume that X is an already-built instance
-        if value is not None:
-            raise TypeError("instance exception may not have a separate value")
-        value = etype
-        etype = value.__class__
-        # for the sake of language consistency we should not allow
-        # things like 'raise 1', but it's probably fine (i.e.
-        # not ambiguous) to allow them in the explicit form 'raise int, 1'
-        if not hasattr(value, '__dict__') and not hasattr(value, '__slots__'):
-            raise TypeError("raising built-in objects can be ambiguous, "
-                            "use 'raise type, value' instead")
-    return etype, value, tb
-normalize_exception = gateway.app2interp(app_normalize_exception)
+app = gateway.applevel('''
+    def normalize_exception(etype, value, tb):
+        """Normalize an (exc_type, exc_value) pair:
+        exc_value will be an exception instance and exc_type its class.
+        """
+        # mistakes here usually show up as infinite recursion, which is fun.
+        while isinstance(etype, tuple):
+            etype = etype[0]
+        if isinstance(etype, (type, _classobj)):
+            if not isinstance(value, etype):
+                if value is None:
+                    # raise Type: we assume we have to instantiate Type
+                    value = etype()
+                elif isinstance(value, tuple):
+                    # raise Type, Tuple: assume Tuple contains the constructor args
+                    value = etype(*value)
+                else:
+                    # raise Type, X: assume X is the constructor argument
+                    value = etype(value)
+            # raise Type, Instance: let etype be the exact type of value
+            etype = value.__class__
+        elif type(etype) is str:
+            # XXX warn -- deprecated
+            if value is not None and type(value) is not str:
+                raise TypeError("string exceptions can only have a string value")
+        else:
+            # raise X: we assume that X is an already-built instance
+            if value is not None:
+                raise TypeError("instance exception may not have a separate value")
+            value = etype
+            etype = value.__class__
+            # for the sake of language consistency we should not allow
+            # things like 'raise 1', but it is probably fine (i.e.
+            # not ambiguous) to allow them in the explicit form 'raise int, 1'
+            if not hasattr(value, '__dict__') and not hasattr(value, '__slots__'):
+                raise TypeError("raising built-in objects can be ambiguous, "
+                                "use 'raise type, value' instead")
+        return etype, value, tb
+''')
+normalize_exception = app.interphook("normalize_exception")
 
 
 class FinallyBlock(FrameBlock):

@@ -28,7 +28,7 @@ def test_myexception(space):
         assert x == 43
     t = app2interp_temp(app_test_func)
     f = t.get_function(space)
-    space.setitem(space.w_builtins, space.wrap('AssertionError'), 
+    space.setitem(space.builtin.w_dict, space.wrap('AssertionError'), 
                   build_pytest_assertion(space))
     try:
         f.call_args(Arguments([]))

@@ -252,7 +252,7 @@ class Installer:
         source = '\n'.join(bodylines)
         #print source
         #print "*"*60
-        exec source in miniglobals
+        exec compile(source, '', 'exec') in miniglobals
         func = miniglobals[funcname]
         self.to_install.append((target, funcname, func, source, fallback))
         return func

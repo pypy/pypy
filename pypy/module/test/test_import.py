@@ -2,21 +2,23 @@ import autopath
 from pypy.interpreter import gateway
 import os
 
+def _setup(space): 
+    dn=os.path.abspath(os.path.join(os.path.dirname(__file__), 'impsubdir'))
+    return space.appexec([space.wrap(dn)], """
+        (dn): 
+            import sys
+            sys.path.append(dn)
+            return sys.modules.copy()
+    """)
 
-def _setup(dn=os.path.abspath(os.path.join(os.path.dirname(__file__), 'impsubdir'))):
-    import sys
-    sys.path.append(dn)
-    return sys.modules.copy()
-
-_setup = gateway.app2interp_temp(_setup,'setup')
-
-def _teardown(saved_modules):
-    import sys
-    sys.path.pop()
-    sys.modules.clear()
-    sys.modules.update(saved_modules)
-
-_teardown = gateway.app2interp_temp(_teardown,'teardown')
+def _teardown(space, w_saved_modules):
+    space.appexec([w_saved_modules], """
+        (saved_modules): 
+            import sys
+            sys.path.pop()
+            sys.modules.clear()
+            sys.modules.update(saved_modules)
+    """)
 
 class AppTestImport:
 

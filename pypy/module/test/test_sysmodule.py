@@ -9,12 +9,8 @@ def app_init_globals_via_builtins_hack():
     b.cStringIO = cStringIO
     b.sys = sys
 
-class TestSysTests:
-    def setup_method(self,method):
-        self.sys_w = self.space.get_builtin_module("sys")
-    def test_stdout_exists(self):
-        s = self.space
-        assert s.is_true(s.getattr(self.sys_w, s.wrap("stdout")))
+def test_stdout_exists(space):
+    assert space.sys.get('stdout') 
 
 class AppTestAppSysTests:
     def test_path_exists(self):
@@ -119,9 +115,9 @@ class AppTestSysModulePortedFromCPython:
         dh(None)
         assert out.getvalue() == ""
         assert not hasattr(__builtin__, "_")
-        dh(42)
-        assert out.getvalue() == "42\n"
-        assert __builtin__._ == 42
+        dh("hello")
+        assert out.getvalue() == "'hello'\n"
+        assert __builtin__._ == "hello"
 
         del sys.stdout
         raises(RuntimeError, dh, 42)

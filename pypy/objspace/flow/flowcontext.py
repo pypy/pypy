@@ -83,8 +83,11 @@ class FlowExecutionContext(ExecutionContext):
                  name=None):
         ExecutionContext.__init__(self, space)
         self.code = code
+        
         self.w_globals = w_globals = space.wrap(globals)
+        
         self.crnt_offset = -1
+        self.crnt_frame = None
         if closure is None:
             self.closure = None
         else:
@@ -113,6 +116,7 @@ class FlowExecutionContext(ExecutionContext):
     def bytecode_trace(self, frame):
         if not isinstance(self.crnt_ops, list):
             return
+        assert frame is self.crnt_frame, "seeing an unexpected frame!"
         next_instr = frame.next_instr
         self.crnt_offset = next_instr # save offset for opcode
         varnames = frame.code.getvarnames()
@@ -213,7 +217,11 @@ class FlowExecutionContext(ExecutionContext):
             except ExitFrame:
                 continue   # restarting a dead SpamBlock
             try:
-                w_result = frame.resume()
+                self.crnt_frame = frame
+                try:
+                    w_result = frame.resume()
+                finally:
+                    self.crnt_frame = None
             except OperationThatShouldNotBePropagatedError, e:
                 raise Exception(
                     'found an operation that always raises %s: %s' % (

@@ -4,7 +4,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.objspace.std.model import MultiMethod, FailedToImplement
 
 __all__ = ['StdTypeDef', 'newmethod', 'gateway',
-           'GetSetProperty', 'Member', 'attrproperty', 'attrproperty_w',
+           'GetSetProperty', 'Member',
            'MultiMethod']
 
 
@@ -29,36 +29,20 @@ def issubtypedef(a, b):
         a = a.base
     return True
 
-def attrproperty(name):
-    "NOT_RPYTHON: initialization-time only"
-    def fget(space, w_obj):
-        return space.wrap(getattr(w_obj, name))
-    return GetSetProperty(fget)
-
-def attrproperty_w(name):
-    "NOT_RPYTHON: initialization-time only"
-    def fget(space, w_obj):
-        w_value = getattr(w_obj, name)
-        if w_value is None:
-            return space.w_None
-        else:
-            return w_value 
-    return GetSetProperty(fget)
-
-def descr_get_dict(space, w_obj):
+def descr_get_dict(space, w_obj): # xxx typecheck
     w_dict = w_obj.getdict()
     assert w_dict is not None, repr(w_obj)
     return w_dict
 
-def descr_set_dict(space, w_obj, w_dict):
+def descr_set_dict(space, w_obj, w_dict): # xxx typecheck
     w_obj.setdict(w_dict)
 
 std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict)
 
-def newmethod(descr_new):
+def newmethod(descr_new, unwrap_spec=None):
     "NOT_RPYTHON: initialization-time only."
     # this is turned into a static method by the constructor of W_TypeObject.
-    return gateway.interp2app(descr_new)
+    return gateway.interp2app(descr_new, unwrap_spec=unwrap_spec)
 
 # ____________________________________________________________
 #
@@ -73,15 +57,19 @@ def buildtypeobject(typedef, space):
     from pypy.objspace.std.objecttype import object_typedef
 
     w = space.wrap
-    rawdict = typedef.rawdict.copy()
+    rawdict = typedef.rawdict
+    lazyloaders = {}
 
     if isinstance(typedef, StdTypeDef):
         # get all the sliced multimethods
         multimethods = slicemultimethods(space, typedef)
-        for name, gateway in multimethods.items():
-            assert name not in rawdict, 'name clash: %s in %s_typedef' % (
-                name, typedef.name)
-            rawdict[name] = gateway
+        for name, loader in multimethods.items():
+            if name in rawdict:
+                # the name specified in the rawdict has priority
+                continue
+            assert name not in lazyloaders, (
+                'name clash: %s in %s.lazyloaders' % (name, typedef.name))
+            lazyloaders[name] = loader
 
     # compute the bases
     if typedef is object_typedef:
@@ -95,8 +83,10 @@ def buildtypeobject(typedef, space):
     for descrname, descrvalue in rawdict.items():
         dict_w[descrname] = w(descrvalue)
 
-    return W_TypeObject(space, typedef.name, bases_w, dict_w,
-                        overridetypedef=typedef)
+    w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
+                          overridetypedef=typedef)
+    w_type.lazyloaders = lazyloaders
+    return w_type
 
 def hack_out_multimethods(ns):
     "NOT_RPYTHON: initialization-time only."
@@ -247,7 +237,7 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
                       return w_res
 """        % (prefix, wrapper_sig, renaming, expr,
               multimethod.operatorsymbol, ', '.join(solid_arglist))
-    exec code in miniglobals
+    exec compile(code, '', 'exec') in miniglobals 
     return miniglobals["%s_perform_call" % prefix]
 
 def wrap_trampoline_in_gateway(func, methname, multimethod):
@@ -261,29 +251,30 @@ def wrap_trampoline_in_gateway(func, methname, multimethod):
     return gateway.interp2app(func, app_name=methname, unwrap_spec=unwrap_spec)
 
 def slicemultimethod(space, multimethod, typedef, result, local=False):
-    from pypy.objspace.std.objecttype import object_typedef
     for i in range(len(multimethod.specialnames)):
-        # each MultimethodCode embeds a multimethod
         methname = multimethod.specialnames[i]
         if methname in result:
             # conflict between e.g. __lt__ and
             # __lt__-as-reversed-version-of-__gt__
-            gw = result[methname]
-            if gw.bound_position < i:
+            loader = result[methname]
+            if loader.bound_position < i:
                 continue
 
-        prefix, list_of_typeorders = sliced_typeorders(
-            space.model.typeorder, multimethod, typedef, i, local=local)
-        exprargs, expr, miniglobals, fallback = multimethod.install(prefix, list_of_typeorders,
-                                                                    baked_perform_call=False)
-        if fallback:
-            continue   # skip empty multimethods
-        trampoline = make_perform_trampoline(prefix, exprargs, expr, miniglobals,
-                                             multimethod, i,
-                                             allow_NotImplemented_results=True)
-        gw = wrap_trampoline_in_gateway(trampoline, methname, multimethod)
-        gw.bound_position = i   # for the check above
-        result[methname] = gw
+        def multimethod_loader(i=i, methname=methname):
+            prefix, list_of_typeorders = sliced_typeorders(
+                space.model.typeorder, multimethod, typedef, i, local=local)
+            exprargs, expr, miniglobals, fallback = multimethod.install(prefix, list_of_typeorders,
+                                                                        baked_perform_call=False)
+            if fallback:
+                return None   # skip empty multimethods
+            trampoline = make_perform_trampoline(prefix, exprargs, expr, miniglobals,
+                                                 multimethod, i,
+                                                 allow_NotImplemented_results=True)
+            gw = wrap_trampoline_in_gateway(trampoline, methname, multimethod)
+            return space.wrap(gw)
+
+        multimethod_loader.bound_position = i   # for the check above
+        result[methname] = multimethod_loader
 
 def slicemultimethods(space, typedef):
     result = {}

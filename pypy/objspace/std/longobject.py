@@ -253,12 +253,12 @@ register_all(vars())
 
 # binary ops
 for opname in ['add', 'sub', 'mul', 'div', 'floordiv', 'truediv', 'mod', 'divmod', 'lshift']:
-    exec """
+    exec compile("""
 def %(opname)s_ovr__Int_Int(space, w_int1, w_int2):
     w_long1 = delegate_Int2Long(w_int1)
     w_long2 = delegate_Int2Long(w_int2)
     return %(opname)s__Long_Long(space, w_long1, w_long2)
-""" % {'opname': opname}
+""" % {'opname': opname}, '', 'exec')
 
     getattr(StdObjSpace.MM, opname).register(globals()['%s_ovr__Int_Int' %opname], W_IntObject, W_IntObject, order=1)
 

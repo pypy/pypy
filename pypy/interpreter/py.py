@@ -5,10 +5,14 @@ try:
 except ImportError:
     pass
 
+from pypy.tool.getpy import py
+#py.magic.invoke(compile=1)
+
 from pypy.tool import option
 from pypy.tool.optik import make_option
 from pypy.interpreter import main, interactive, error
 import os, sys
+import time
 
 class Options(option.Options):
     verbose = os.getenv('PYPY_TB')
@@ -42,11 +46,13 @@ def get_main_options():
     return options
 
 def main_(argv=None):
+    starttime = time.time() 
     from pypy.tool import tb_server
     args = option.process_options(get_main_options(), Options, argv[1:])
     space = None
     try:
         space = option.objspace()
+        space._starttime = starttime
         assert 'pypy.tool.udir' not in sys.modules, (
             "running py.py should not import pypy.tool.udir, which is\n"
             "only for testing or translating purposes.")
@@ -56,14 +62,14 @@ def main_(argv=None):
         if Options.command:
             args = ['-c'] + Options.command[1:]
         for arg in args:
-            space.call_method(space.sys.w_argv, 'append', space.wrap(arg))
+            space.call_method(space.sys.get('argv'), 'append', space.wrap(arg))
         try:
             if Options.command:
                 main.run_string(Options.command[0], '<string>', space)
             elif args:
                 main.run_file(args[0], space)
             else:
-                space.call_method(space.sys.w_argv, 'append', space.wrap(''))
+                space.call_method(space.sys.get('argv'), 'append', space.wrap(''))
                 go_interactive = 1
                 banner = None
         except error.OperationError, operationerr:

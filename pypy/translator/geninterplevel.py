@@ -543,10 +543,10 @@ class GenRpy:
                 #self.initcode.append('m.%s = space.getattr(space.w_builtin, %s)'% (
                 #    name, self.nameof(func.__name__)))
                 # be lazy
-                return "(space.getattr(space.w_builtin, %s))" % self.nameof(func.__name__)
+                return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
             elif modname == 'sys':
                 # be lazy
-                return "(space.getattr(space.w_sys, %s))" % self.nameof(func.__name__)                
+                return "(space.sys.get(space.str_w(%s)))" % self.nameof(func.__name__)                
             else:
                 print ("WARNING: accessing builtin modules different from sys or __builtin__"
                        " is likely producing non-sense")

@@ -17,10 +17,10 @@ main()
 testresultoutput = '11\n'
 
 def checkoutput(space, expected_output,f,*args):
-    w_sys = space.get_builtin_module("sys")
-    w_oldout = space.getattr(w_sys, space.wrap("stdout"))
+    w_oldout = space.sys.get('stdout') 
     capturefn = udir.join('capturefile')
     capturefile = capturefn.open('w') 
+    w_sys = space.sys.getmodule('sys')
     space.setattr(w_sys, space.wrap("stdout"), space.wrap(capturefile))
     try:
         f(*(args + (space,)))
@@ -28,7 +28,6 @@ def checkoutput(space, expected_output,f,*args):
         space.setattr(w_sys, space.wrap("stdout"), w_oldout)
     capturefile.close() 
     assert capturefn.read(mode='rU') == expected_output
-
 
 testfn = 'tmp_hello_world.py'
 

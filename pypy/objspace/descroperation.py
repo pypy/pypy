@@ -5,6 +5,11 @@ from pypy.interpreter.function import Function
 from pypy.interpreter.gateway import BuiltinCode
 from pypy.interpreter.argument import Arguments
 
+def raiseattrerror(space, w_obj, name): 
+    w_type = space.type(w_obj) 
+    msg = "'%s' object has no attribute '%s'" %(w_type.name, name)
+    raise OperationError(space.w_AttributeError, space.wrap(msg))
+
 class Object:
     def descr__getattribute__(space, w_obj, w_name):
         name = space.str_w(w_name)
@@ -12,16 +17,12 @@ class Object:
         if w_descr is not None:
             if space.is_data_descr(w_descr):
                 return space.get(w_descr, w_obj)
-        w_dict = space.getdict(w_obj)
-        if w_dict is not None:  
-            try:
-                return space.getitem(w_dict, w_name)
-            except OperationError, e:
-                if not e.match(space, space.w_KeyError):
-                    raise
+        w_value = space.getdictvalue(w_obj, name)
+        if w_value is not None:
+            return w_value
         if w_descr is not None:
             return space.get(w_descr, w_obj)
-        raise OperationError(space.w_AttributeError, w_name)
+        raiseattrerror(space, w_obj, name) 
 
     def descr__setattr__(space, w_obj, w_name, w_value):
         name = space.str_w(w_name)
@@ -32,7 +33,7 @@ class Object:
         w_dict = space.getdict(w_obj)
         if w_dict is not None:
             return space.setitem(w_dict, w_name, w_value)
-        raise OperationError(space.w_AttributeError, w_name)
+        raiseattrerror(space, w_obj, name) 
 
     def descr__delattr__(space, w_obj, w_name):
         name = space.str_w(w_name)
@@ -47,7 +48,7 @@ class Object:
             except OperationError, ex:
                 if not ex.match(space, space.w_KeyError):
                     raise
-        raise OperationError(space.w_AttributeError, w_name)
+        raiseattrerror(space, w_obj, name) 
 
     def descr__init__(space, w_obj, __args__):
         pass   # XXX some strange checking maybe
@@ -56,6 +57,9 @@ class DescrOperation:
 
     def getdict(space, w_obj):
         return w_obj.getdict()
+
+    def getdictvalue(space, w_obj, attr):
+        return w_obj.getdictvalue(space, attr)
 
     def is_data_descr(space, w_obj):
         return space.lookup(w_obj, '__set__') is not None
@@ -566,24 +570,25 @@ for targetname, specialname, checkerspec in [
     l = ["space.is_true(space.isinstance(w_result, %s))" % x 
                 for x in checkerspec]
     checker = " or ".join(l) 
-    exec """
-def %(targetname)s(space, w_obj):
-    w_impl = space.lookup(w_obj, %(specialname)r) 
-    if w_impl is None:
-        raise OperationError(space.w_TypeError,
-               space.wrap("operand does not support unary %(targetname)s"))
-    w_result = space.get_and_call_function(w_impl, w_obj)
+    source = """if 1: 
+        def %(targetname)s(space, w_obj):
+            w_impl = space.lookup(w_obj, %(specialname)r) 
+            if w_impl is None:
+                raise OperationError(space.w_TypeError,
+                       space.wrap("operand does not support unary %(targetname)s"))
+            w_result = space.get_and_call_function(w_impl, w_obj)
 
-    if %(checker)s: 
-        return w_result
-    typename = space.str_w(space.getattr(space.type(w_result), 
-                           space.wrap('__name__')))
-    msg = '%(specialname)s returned non-%(targetname)s (type %%s)' %% (typename,) 
-    raise OperationError(space.w_TypeError, space.wrap(msg)) 
-assert not hasattr(DescrOperation, %(targetname)r)
-DescrOperation.%(targetname)s = %(targetname)s
-del %(targetname)s 
-""" % locals() 
+            if %(checker)s: 
+                return w_result
+            typename = space.str_w(space.getattr(space.type(w_result), 
+                                   space.wrap('__name__')))
+            msg = '%(specialname)s returned non-%(targetname)s (type %%s)' %% (typename,) 
+            raise OperationError(space.w_TypeError, space.wrap(msg)) 
+        assert not hasattr(DescrOperation, %(targetname)r)
+        DescrOperation.%(targetname)s = %(targetname)s
+        del %(targetname)s 
+        \n""" % locals() 
+    exec compile(source, '', 'exec')
 
 
 # add default operation implementations for all still missing ops 

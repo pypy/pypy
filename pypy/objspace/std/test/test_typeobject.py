@@ -232,7 +232,11 @@ class AppTestTypeObject:
         assert type(D1) is T1
         assert type(C) is T1
         assert type(G) is T1
-            
+    
+    def test_descr_typecheck(self):
+        raises(TypeError,type.__dict__['__name__'].__get__,1)
+        raises(TypeError,type.__dict__['__mro__'].__get__,1)
+
 
         
         

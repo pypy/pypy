@@ -13,6 +13,18 @@ class W_Root:
     in a 'normal' object space like StdObjSpace."""
     def getdict(self):
         return None
+
+    def getdictvalue(self, space, attr):
+        w_dict = self.getdict()
+        if w_dict is not None:
+            try:
+                return space.getitem(w_dict, space.wrap(attr))
+            except OperationError, e:
+                if not e.match(space, space.w_KeyError):
+                    raise
+        return None
+
+    
     def getclass(self, space):
         return space.gettypeobject(self.typedef)
 
@@ -25,6 +37,7 @@ class BaseWrappable(W_Root):
 class Wrappable(BaseWrappable, object):
     """Same as BaseWrappable, just new-style instead."""
 
+
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://codespeak.net/moin/pypy/moin.cgi/ObjectSpace"""
@@ -34,60 +47,36 @@ class ObjSpace(object):
     def __init__(self):
         "NOT_RPYTHON: Basic initialization of objects."
         self._gatewaycache = Cache()
+        self._codecache = Cache()
         # set recursion limit
-        self.recursion_limit = 1000
         # sets all the internal descriptors
         self.initialize()
         
     def __repr__(self):
         return self.__class__.__name__
 
-    def make_builtins(self, for_builtins):
+    def make_builtins(self):
         "NOT_RPYTHON: only for initializing the space."
-        # initializing builtins may require creating a frame which in
-        # turn already accesses space.w_builtins, provide a dummy one ...
-        self.w_builtins = self.newdict([])
 
-        # insert stuff into the newly-made builtins
-        for key, w_value in for_builtins.items():
-            self.setitem(self.w_builtins, self.wrap(key), w_value)
+        from pypy.module.sys2 import Module 
+        w_name = self.wrap('sys')
+        self.sys = Module(self, w_name) 
+        w_modules = self.sys.get('modules')
+        self.setitem(w_modules, w_name, self.wrap(self.sys))
 
-        assert not hasattr(self, 'builtin')
-        if not hasattr(self, 'sys'):
-            self.make_sys()
-
-        from pypy.interpreter.extmodule import BuiltinModule
-
-        # the builtins are iteratively initialized
-        self.builtin = BuiltinModule(self, '__builtin__', self.w_builtins)
-        self.w_builtin = self.wrap(self.builtin)
+        from pypy.module.builtin import Module 
+        w_name = self.wrap('__builtin__')
+        self.builtin = Module(self, w_name) 
+        w_builtin = self.wrap(self.builtin)
+        self.setitem(w_modules, w_name, w_builtin) 
+        self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin) 
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():
             if name.startswith('w_'):
                 name = name[2:]
-                if name.startswith('builtin') or name.startswith('sys'):
-                    continue
                 #print "setitem: space instance %-20s into builtins" % name
-                self.setitem(self.w_builtins, self.wrap(name), value)
-
-        self.sys.setbuiltinmodule(self.w_builtin, '__builtin__')
-
-    def make_sys(self):
-        "NOT_RPYTHON: only for initializing the space."
-        from pypy.interpreter.extmodule import BuiltinModule
-        assert not hasattr(self, 'sys')
-        self.sys = BuiltinModule(self, 'sys')
-        self.w_sys = self.wrap(self.sys)
-        self.sys.setbuiltinmodule(self.w_sys, 'sys')
-        
-    def get_builtin_module(self, name):
-        if name not in self.sys.builtin_modules:
-            return None
-        module = self.sys.builtin_modules[name]
-        w_module = self.wrap(module)
-        self.sys.setbuiltinmodule(w_module, name)
-        return w_module
+                self.setitem(self.builtin.w_dict, self.wrap(name), value)
 
     def initialize(self):
         """NOT_RPYTHON: Abstract method that should put some minimal
@@ -279,36 +268,34 @@ class ObjSpace(object):
             statement = PyCode(self)._from_code(statement)
         if not isinstance(statement, PyCode):
             raise TypeError, 'space.exec_(): expected a string, code or PyCode object'
+        w_key = self.wrap('__builtins__')
+        if not self.is_true(self.contains(w_globals, w_key)):
+            self.setitem(w_globals, w_key, self.wrap(self.builtin))
         return statement.exec_code(self, w_globals, w_locals)
 
-    def appexec(self, posargs, source): 
-        """ return value from executing given source at applevel with 
-            given name=wrapped value parameters as its starting scope.  
-            Note: EXPERIMENTAL. 
-        """ 
-        space = self
-        pypyco = pypycodecache.getorbuild((space,source), buildpypycode, posargs)
-        w_glob = space.newdict([])
-        frame = pypyco.create_frame(space, w_glob) 
-        frame.setfastscope(posargs)
-        return frame.run() 
+    def appexec(self, posargs_w, source): 
+        """ return value from executing given source at applevel.
+            EXPERIMENTAL. The source must look like
+               '''(x, y):
+                       do_stuff...
+                       return result
+               '''
+        """
+        w_func = self.loadfromcache(source, buildappexecfunc, self._codecache)
+        args = Arguments(self, posargs_w)
+        return self.call_args(w_func, args)
 
-pypycodecache = Cache() 
-def buildpypycode((space, source), posargs): 
+def buildappexecfunc(source, space):
     """ NOT_RPYTHON """ 
     # XXX will change once we have our own compiler 
     from pypy.interpreter.pycode import PyCode
     from pypy.tool.pytestsupport import py  # aehem
-    argdecl, source = source.split(':', 1)
-    argdecl = argdecl.strip()
-    if not argdecl.startswith('(') or not argdecl.endswith(')'): 
-        raise SyntaxError("incorrect exec_with header\n%s" % source)
-    source = py.code.Source(source) 
-    source = source.putaround("def anon%s:" % argdecl)
-    d = {}
-    exec source.compile() in d
-    newco = d['anon'].func_code 
-    return PyCode(space)._from_code(newco) 
+    source = source.lstrip()
+    assert source.startswith('('), "incorrect header in:\n%s" % (source,)
+    source = py.code.Source("def anonymous%s\n" % source)
+    w_glob = space.newdict([])
+    space.exec_(source.compile(), w_glob, w_glob)
+    return space.getitem(w_glob, space.wrap('anonymous'))
 
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result

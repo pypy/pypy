@@ -1,20 +1,28 @@
 
 import autopath
 from pypy.interpreter import gateway
+import py
 
 class TestBuiltinCode: 
     def test_signature(self):
         def c(space, w_x, w_y, *hello_w):
             pass
-        code = gateway.BuiltinCode(c)
+        code = gateway.BuiltinCode(c, unwrap_spec=[gateway.ObjSpace,
+                                                   gateway.W_Root,
+                                                   gateway.W_Root,
+                                                   'starargs'])
         assert code.signature() == (['x', 'y'], 'hello', None)
         def d(self, w_boo):
             pass
-        code = gateway.BuiltinCode(d)
+        code = gateway.BuiltinCode(d, unwrap_spec= ['self',
+                                                   gateway.W_Root], self_type=gateway.BaseWrappable)
         assert code.signature() == (['self', 'boo'], None, None)
         def e(space, w_x, w_y, __args__):
             pass
-        code = gateway.BuiltinCode(e)
+        code = gateway.BuiltinCode(e, unwrap_spec=[gateway.ObjSpace,
+                                                   gateway.W_Root,
+                                                   gateway.W_Root,
+                                                   gateway.Arguments])
         assert code.signature() == (['x', 'y'], 'args', 'keywords')
 
     def test_call(self):
@@ -25,7 +33,10 @@ class TestBuiltinCode:
             assert u(hello_w[0]) == 0
             assert u(hello_w[1]) == True
             return w((u(w_x) - u(w_y) + len(hello_w)))
-        code = gateway.BuiltinCode(c)
+        code = gateway.BuiltinCode(c, unwrap_spec=[gateway.ObjSpace,
+                                                   gateway.W_Root,
+                                                   gateway.W_Root,
+                                                   'starargs'])
         w = self.space.wrap
         w_dict = self.space.newdict([
             (w('x'), w(123)),
@@ -42,7 +53,10 @@ class TestBuiltinCode:
             w = space.wrap
             return w((u(w_x) - u(w_y) + len(args_w))
                      * u(kwds_w['boo']))
-        code = gateway.BuiltinCode(c)
+        code = gateway.BuiltinCode(c, unwrap_spec=[gateway.ObjSpace,
+                                                   gateway.W_Root,
+                                                   gateway.W_Root,
+                                                   gateway.Arguments])
         w = self.space.wrap
         w_dict = self.space.newdict([
             (w('x'), w(123)),
@@ -55,6 +69,7 @@ class TestBuiltinCode:
 
 
 class TestGateway: 
+
     def test_app2interp(self):
         w = self.space.wrap
         def app_g3(a, b):
@@ -189,26 +204,14 @@ class TestGateway:
 
     def test_importall(self):
         w = self.space.wrap
-        g = {}
-        exec """
-def app_g3(a, b):
-    return a+b
-def app_g1(x):
-    return g3('foo', x)
-""" in g
+        g = {'app_g3': app_g3}
         gateway.importall(g, temporary=True)
-        g1 = g['g1']
-        assert self.space.eq_w(g1(self.space, w('bar')), w('foobar'))
+        g3 = g['g3']
+        assert self.space.eq_w(g3(self.space, w('bar')), w('foobar'))
 
-    def test_exportall(self):
-        w = self.space.wrap
-        g = {}
-        exec """
-def g3(space, w_a, w_b):
-    return space.add(w_a, w_b)
-def app_g1(x):
-    return g3('foo', x)
-""" in g
-        gateway.exportall(g, temporary=True)
-        g1 = gateway.app2interp_temp(g['app_g1'])
-        assert self.space.eq_w(g1(self.space, w('bar')), w('foobar'))
+##    def test_exportall(self):
+##        not used any more
+
+
+def app_g3(b):
+    return 'foo'+b

@@ -20,21 +20,13 @@ General
 * (documentation) remove/retire all web-pages referencing e.g.
   AnnSpace or other deprecated stuff
 
-* Review, enhance the new mixed-level module mechanism
-  (e.g. the module/builtin*.py files comprise the builtin module)
-  and try to apply the same technique for the application level 
-  type definitions (types.py). Think about a way to split up
-  especially app-level definitions of __builtin__ into multiple
-  files. (like allowing __builtin__ to be a directory with files
-  comprising the complete definition of the builtin module etc.pp) 
-
 * review whatever you like 
 
 StdObjSpace
 ===========
 
-* find a way via hacking or elegance to run CPython's unit tests
-  against the StdObjSpace.
+* allow CPython's "output-checking" tests to run in a convenient
+  way over StdObjSpace
 
 * String formatting is agonizingly slow.
 

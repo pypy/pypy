@@ -381,10 +381,7 @@ class TestInternal:
         space = self.space
 
     def get_builtin(self, name):
-        w = self.space.wrap
-        w_builtins = self.space.w_builtins
-        w_obj = self.space.getitem(w_builtins, w(name))
-        return w_obj
+        return self.space.builtin.get(name) 
 
     def test_execfile(self):
         from pypy.tool.udir import udir

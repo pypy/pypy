@@ -3,12 +3,14 @@ from pypy.objspace.descroperation import Object
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.objspace import StdObjSpace
+from pypy.tool.uid import fixid
 
 
 def descr__repr__(space, w_obj):
     w = space.wrap
     classname = space.str_w(space.getattr(space.type(w_obj), w("__name__")))
     id = space.int_w(space.id(w_obj))# xxx ids could be long
+    id = fixid(id)
     return w("<%s object at 0x%x>" % (classname, id))
 
 def descr__str__(space, w_obj):
@@ -45,6 +47,8 @@ object_typedef = StdTypeDef("object",
     __str__ = gateway.interp2app(descr__str__),
     __repr__ = gateway.interp2app(descr__repr__),
     __class__ = GetSetProperty(descr__class__),
-    __new__ = newmethod(descr__new__),
-    __init__ = gateway.interp2app(descr__init__),
+    __new__ = newmethod(descr__new__,
+                        unwrap_spec = [gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
+    __init__ = gateway.interp2app(descr__init__,
+                                  unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     )

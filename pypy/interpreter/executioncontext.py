@@ -12,7 +12,7 @@ class ExecutionContext:
         self.stateDict = {}
         
     def enter(self, frame):
-        if self.framestack.depth() > self.space.recursion_limit:
+        if self.framestack.depth() > self.space.sys.recursionlimit:
             raise OperationError(self.space.w_RuntimeError,
                                  self.space.wrap("maximum recursion depth exceeded"))
         locals = getthreadlocals()
@@ -26,16 +26,16 @@ class ExecutionContext:
         locals = getthreadlocals()
         locals.executioncontext = previous_ec
 
-    def get_w_builtins(self):
-        if self.framestack.empty():
-            return self.space.w_builtins
-        else:
-            return self.framestack.top().w_builtins
+    def get_builtin(self):
+        try:
+            return self.framestack.top().builtin
+        except IndexError:
+            return self.space.builtin
 
     def make_standard_w_globals(self):
         "Create a new empty 'globals' dictionary."
         w_key = self.space.wrap("__builtins__")
-        w_value = self.get_w_builtins()
+        w_value = self.space.wrap(self.get_builtin())
         w_globals = self.space.newdict([(w_key, w_value)])
         return w_globals
 

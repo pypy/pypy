@@ -4,6 +4,7 @@ from pypy.interpreter import error
 from pypy.interpreter import executioncontext, baseobjspace
 import sys
 import code
+import time
 
 
 class PyPyConsole(code.InteractiveConsole):
@@ -22,8 +23,9 @@ class PyPyConsole(code.InteractiveConsole):
             #banner = "Python %s in pypy\n%s / %s" % (
             #    sys.version, self.__class__.__name__,
             #    self.space.__class__.__name__)
-            banner = "PyPy in %s on top of Python %s" % (
-                self.space.__class__.__name__, sys.version.split()[0])
+            elapsed = time.time() - self.space._starttime
+            banner = "PyPy in %s on top of Python %s (startupttime: %.2f secs)" % (
+                self.space.__class__.__name__, sys.version.split()[0], elapsed)
         code.InteractiveConsole.interact(self, banner)
 
     def raw_input(self, prompt=""):

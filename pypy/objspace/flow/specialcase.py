@@ -82,6 +82,7 @@ def sc_operator(space, fn, args):
     opname = fn.__name__.replace('__', '')
     return space.do_operation(opname, *args_w)
 
+
 def setup(space):
     fn = pyframe.normalize_exception.get_function(space)
     space.specialcases[fn] = sc_normalize_exception

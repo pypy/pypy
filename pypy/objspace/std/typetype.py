@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.dictproxyobject import dictproxy_descr
+from pypy.objspace.std.dictproxyobject import descr_get_dictproxy
 
 
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
@@ -42,17 +42,37 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
     w_type.__init__(space, name, bases_w or [space.w_object], dict_w)
     return w_type
 
+def _check(space, w_type, msg=None):
+    from pypy.objspace.std.typeobject import W_TypeObject
+    if not isinstance(w_type, W_TypeObject):
+        raise OperationError(space.w_TypeError, 
+                             space.wrap(msg or "descriptor is for 'type'"))
+    return w_type
+
+
+def descr_get__name__(space, w_type):
+    w_type = _check(space, w_type)
+    return space.wrap(w_type.name)
+
 def descr_get__mro__(space, w_type):
+    w_type = _check(space, w_type)
     # XXX this should be inside typeobject.py
     return space.newtuple(w_type.mro_w)
 
 def descr_mro(space, w_type):
+    w_type = _check(space, w_type,"expected type")
     return space.newlist(w_type.compute_mro())
 
 def descr__bases(space, w_type):
+    w_type = _check(space, w_type)
+    from pypy.objspace.std.typeobject import W_TypeObject
+    if not isinstance(w_type, W_TypeObject):
+        raise OperationError(space.w_TypeError, 
+                             space.wrap("descriptor is for 'type'"))
     return space.newtuple(w_type.bases_w)
 
 def descr__base(space, w_type):
+    w_type = _check(space, w_type)
     if w_type is space.w_object:
         return space.w_None
     b = w_type.instancetypedef.base
@@ -62,17 +82,22 @@ def descr__base(space, w_type):
         return space.w_object
 
 def descr__doc(space, w_type):
-    return w_type.dict_w.get('__doc__')
+    w_type = _check(space, w_type)
+    w_result = w_type.getdictvalue(space, '__doc__')
+    if w_result is None:
+        return space.w_None
+    else:
+        return w_result
 
 # ____________________________________________________________
 
 type_typedef = StdTypeDef("type",
     __new__ = newmethod(descr__new__),
-    __name__ = attrproperty('name'),
+    __name__ = GetSetProperty(descr_get__name__),
     __bases__ = GetSetProperty(descr__bases),
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
-    __dict__ = dictproxy_descr,
+    __dict__ = GetSetProperty(descr_get_dictproxy),
     __doc__ = GetSetProperty(descr__doc),
-    mro = newmethod(descr_mro),
+    mro = gateway.interp2app(descr_mro),
     )

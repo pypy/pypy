@@ -10,15 +10,16 @@ class TestInterpreter:
 
         source = str(py.code.Source(source).strip()) + '\n'
 
-        compile = space.builtin.compile
+        #from pypy.module.builtin.compiling import compile 
+        w_compile = space.builtin.get('compile')
         w = space.wrap
-        w_code = compile(w(source), '<string>', 'exec', 0, 0)
-
+        w_code = space.call_function(w_compile, 
+                w(source), w('<string>'), w('exec'), w(0), w(0))
         ec = executioncontext.ExecutionContext(space)
 
         tempmodule = module.Module(space, w("__temp__"))
         w_glob = tempmodule.w_dict
-        space.setitem(w_glob, w("__builtins__"), space.w_builtins)
+        space.setitem(w_glob, w("__builtins__"), space.builtin)
 
         code = space.unwrap(w_code)
         code.exec_code(space, w_glob, w_glob)

@@ -22,7 +22,7 @@ class Test_TraceObjSpace:
 
     def test_traceobjspace_basic(self):
         tspace = self.space
-        assert tspace.is_true(tspace.w_builtins)
+        assert tspace.is_true(tspace.builtin)
         #for name, value in vars(self.space).items():
         #    if not name.startswith('_'):
         #        self.assert_(value is getattr(t, name))

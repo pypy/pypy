@@ -55,39 +55,38 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.w_None  = W_NoneObject(self)
         self.w_False = W_BoolObject(self, False)
         self.w_True  = W_BoolObject(self, True)
-        from pypy.interpreter.special import NotImplemented, Ellipsis 
+        from pypy.interpreter.special import NotImplemented, Ellipsis
         self.w_NotImplemented = self.wrap(NotImplemented(self))  
         self.w_Ellipsis = self.wrap(Ellipsis(self))  
-
-        for_builtins = {"False": self.w_False,
-                        "True" : self.w_True,
-                        "None" : self.w_None,
-                        "NotImplemented": self.w_NotImplemented,
-                        "Ellipsis": self.w_Ellipsis,
-                        }
 
         # types
         self.types_w = {}
         for typedef in self.model.pythontypes:
             w_type = self.gettypeobject(typedef)
             setattr(self, 'w_' + typedef.name, w_type)
-            for_builtins[typedef.name] = w_type
+
+        # exceptions & builtins
+        mod = self.setup_exceptions()
+        self.make_builtins()
+        self.sys.setmodule(self.wrap(mod))
 
         # dummy old-style classes types
         self.w_classobj = W_TypeObject(self, 'classobj', [self.w_object], {})
         self.w_instance = W_TypeObject(self, 'instance', [self.w_object], {})
 
-        # exceptions
-        mod = self.setup_exceptions(for_builtins)
-
+        # fix up a problem where multimethods apparently don't 
+        # like to define this at interp-level 
+        self.appexec([self.w_dict], """
+            (dict): 
+                def fromkeys(cls, seq, value=None):
+                    r = cls()
+                    for s in seq:
+                        r[s] = value
+                    return r
+                dict.fromkeys = classmethod(fromkeys)
+        """) 
         # old-style classes
         self.setup_old_style_classes()
-
-        # install things in the __builtin__ module
-        self.make_builtins(for_builtins)
-
-        w_exceptions = self.wrap(mod)
-        self.sys.setbuiltinmodule(w_exceptions, 'exceptions')
 
     def enable_old_style_classes_as_default_metaclass(self):
         self.setitem(self.builtin.w_dict, self.wrap('__metaclass__'), self.w_classobj)
@@ -101,7 +100,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.w_classobj = w_classobj
         self.w_instance = w_instance
 
-    def setup_exceptions(self, for_builtins):
+    def setup_exceptions(self):
         """NOT_RPYTHON"""
         ## hacking things in
         from pypy.module import exceptionsinterp as ex
@@ -136,8 +135,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 w_exc = self.getitem(w_dic, w_name)
                 setattr(self, "w_"+excname, w_exc)
                         
-                for_builtins[excname] = w_exc
-
         # XXX refine things, clean up, create a builtin module...
         # but for now, we do a regular one.
         from pypy.interpreter.module import Module
@@ -181,7 +178,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, complex):
             # XXX is this right?   YYY no, this is wrong right now  (CT)
             # ZZZ hum, seems necessary for complex literals in co_consts (AR)
-            c = self.getitem(self.w_builtins, self.wrap("complex"))
+            c = self.builtin.get('complex') 
             return self.call_function(c,
                                       self.wrap(x.real), 
                                       self.wrap(x.imag))

@@ -764,3 +764,52 @@ def bltin_code_frame_confusion():
   return (a,a1,b,b1)
 
 
+# reorg
+
+class BltinCodeReorg:
+  def __init__(self, framecls):
+    self.framecls = framecls
+
+  def call(self, x):
+     frame = self.framecls()
+     frame.set(x)
+     return frame.run()
+
+class BltinFrameReorg:
+  def __init__(self):
+      pass
+
+  def set(self,x):
+      pass
+
+  def run(self):
+      pass
+
+class FBltinFrameReorg(BltinFrameReorg):
+
+  def set(self, x):
+      self.arg = int(x)
+
+  def run(self):
+     return bltin_code_frame_f(self.arg)
+
+class GBltinFrameReorg(BltinFrameReorg):
+
+  def set(self, x):
+      self.arg = str(x)
+
+  def run(self):
+     return bltin_code_frame_g(self.arg)
+
+
+bltin_code_for_f_reorg = BltinCodeReorg(FBltinFrameReorg)
+bltin_code_for_g_reorg = BltinCodeReorg(GBltinFrameReorg)
+
+def bltin_code_frame_reorg():
+  a = bltin_code_for_f_reorg.call(0)
+  a1 = bltin_code_for_f_reorg.call(1)
+  b = bltin_code_for_g_reorg.call("a")
+  b1 = bltin_code_for_g_reorg.call("b")
+  return (a,a1,b,b1)
+
+

@@ -494,10 +494,17 @@ class TestAnnonateTestCase:
         a.build_types(snippet.bltin_code_frame_confusion,[])
         f_flowgraph = a.translator.getflowgraph(snippet.bltin_code_frame_f)
         g_flowgraph = a.translator.getflowgraph(snippet.bltin_code_frame_g)
-        is_int = isinstance(a.binding(f_flowgraph.getreturnvar()),
+        # annotator confused by original bltin code/frame setup, we just get SomeObject here
+        assert a.binding(f_flowgraph.getreturnvar()).__class__ is annmodel.SomeObject
+        assert a.binding(g_flowgraph.getreturnvar()).__class__ is annmodel.SomeObject
+
+    def test_bltin_code_frame_reorg(self):
+        a = RPythonAnnotator()
+        a.build_types(snippet.bltin_code_frame_reorg,[])
+        f_flowgraph = a.translator.getflowgraph(snippet.bltin_code_frame_f)
+        g_flowgraph = a.translator.getflowgraph(snippet.bltin_code_frame_g)
+        assert isinstance(a.binding(f_flowgraph.getreturnvar()),
                             annmodel.SomeInteger)
-        if not is_int:
-            py.test.skip("annotator confused with bltin code/frame setup")
         assert isinstance(a.binding(g_flowgraph.getreturnvar()),
                           annmodel.SomeString)
 

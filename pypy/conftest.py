@@ -37,11 +37,11 @@ def getobjspace(name=None, _spacecache={}):
         if name == 'std' and py.test.config.option.oldstyle:
             space.enable_old_style_classes_as_default_metaclass()
         if name != 'flow': # not sensible for flow objspace case
-            space.setitem(space.w_builtins, space.wrap('AssertionError'), 
+            space.setitem(space.builtin.w_dict, space.wrap('AssertionError'), 
                           pytestsupport.build_pytest_assertion(space))
-            space.setitem(space.w_builtins, space.wrap('raises'),
+            space.setitem(space.builtin.w_dict, space.wrap('raises'),
                           space.wrap(pytestsupport.app_raises))
-            space.setitem(space.w_builtins, space.wrap('skip'),
+            space.setitem(space.builtin.w_dict, space.wrap('skip'),
                           space.wrap(pytestsupport.app_skip))
             space.raises_w = pytestsupport.raises_w.__get__(space)
             space.eq_w = pytestsupport.eq_w.__get__(space) 
@@ -129,7 +129,7 @@ class AppTestFunction(PyPyItem):
         assert not args 
         name = target.func_globals.get('objspacename', None) 
         space = gettestobjspace(name) 
-        func = app2interp_temp(target, target.__name__)
+        func = app2interp_temp(target)
         self.execute_appex(space, func, space)
 
 
@@ -137,7 +137,7 @@ class AppTestMethod(PyPyItem):
     def execute(self, target, *args): 
         assert not args 
         space = target.im_self.space 
-        func = app2interp_temp(target.im_func, target.__name__) 
+        func = app2interp_temp(target.im_func) 
         self.execute_appex(space, func, space, space.w_None)
 
 class AppClassCollector(py.test.collect.Class): 

@@ -62,9 +62,10 @@ def make_module(space, dottedname, filepath):
     mod = PyPyModule(space, w_dottedname) 
     w_globals = mod.w_dict 
     w_filename = space.wrap(str(filepath)) 
-    space.builtin.execfile(w_filename, w_globals, w_globals) 
+    w_execfile = space.builtin.get('execfile') 
+    space.call_function(w_execfile, w_filename, w_globals, w_globals)
     w_mod = space.wrap(mod) 
-    w_modules = space.getitem(space.sys.w_dict, space.wrap('modules'))
+    w_modules = space.sys.get('modules') 
     space.setitem(w_modules, w_dottedname, w_mod) 
     return w_mod 
 

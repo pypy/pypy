@@ -12,7 +12,8 @@ import types, sys
 import __builtin__ as cpy_builtin
 
 class CPyWrapper(object):
-    pass
+    def getdictvalue(self, space, name): 
+        return self.__dict__.get(name, None)
 
 class TrivialObjSpace(ObjSpace, DescrOperation):
 
@@ -122,7 +123,10 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
                 setattr(self, 'w_' + c.__name__, c)
                 newstuff[c.__name__] = c
         newstuff.update(self.clone_exception_hierarchy())
-        self.make_builtins(newstuff)
+        self.make_builtins() 
+        # XXX Do we need the following still? 
+        #for name, value in newstuff.items(): 
+        #    self.builtin.w_dict[name] = value 
 
     # general stuff
     def wrap(self, x):

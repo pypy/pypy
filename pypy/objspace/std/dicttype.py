@@ -20,75 +20,69 @@ dict_itervalues = MultiMethod('itervalues',    1)
 #dict_str        = StdObjSpace.str
 
 # default application-level implementations for some operations
+# gateway is imported in the stdtypedef module
+app = gateway.applevel('''
 
-def app_dict_update__ANY_ANY(d, o):
-    for k in o.keys():
-        d[k] = o[k]
+    def update(d, o):
+        for k in o.keys():
+            d[k] = o[k]
 
-def app_dict_popitem__ANY(d):
-    k = d.keys()
-    if not k:
-        raise KeyError("popitem(): dictionary is empty")
-    k = k[0]
-    v = d[k]
-    del d[k]
-    return k, v
-
-def app_dict_get__ANY_ANY_ANY(d, k, v=None):
-    if d.has_key(k):
-        return d[k]
-    return v
-
-def app_dict_setdefault__ANY_ANY_ANY(d, k, v):
-    if d.has_key(k):
-        return d[k]
-    d[k] = v
-    return v
-
-def app_dict_pop__ANY_ANY(d, k, default):
-    if len(default) > 1:
-        raise TypeError, "pop expected at most 2 arguments, got %d" % (
-            1 + len(default))
-    try:
+    def popitem(d):
+        k = d.keys()
+        if not k:
+            raise KeyError("popitem(): dictionary is empty")
+        k = k[0]
         v = d[k]
         del d[k]
-    except KeyError, e:
-        if default:
-            return default[0]
+        return k, v
+
+    def get(d, k, v=None):
+        if k in d:
+            return d[k]
         else:
-            raise e
-    return v
+            return v
 
-def app_dict_iteritems__ANY(d):
-    return iter(d.items())
+    def setdefault(d, k, v=None):
+        if k in d:
+            return d[k]
+        else:
+            d[k] = v
+            return v
 
-def app_dict_iterkeys__ANY(d):
-    return iter(d.keys())
+    def pop(d, k, defaults):     # XXX defaults is actually *defaults
+        if len(defaults) > 1:
+            raise TypeError, "pop expected at most 2 arguments, got %d" % (
+                1 + len(defaults))
+        try:
+            v = d[k]
+            del d[k]
+        except KeyError, e:
+            if defaults:
+                return defaults[0]
+            else:
+                raise e
+        return v
 
-def app_dict_itervalues__ANY(d):
-    return iter(d.values())
+    def iteritems(d):
+        return iter(d.items())
 
-#def app_dict_fromkeys__ANY_List(d, seq, value):
-#    d = {}
-#    if value:
-#        value = value[0]
-#    else:
-#        value = None
-#    for item in seq:
-#        d[item] = value
-#    return d
-#XXX implement dict.fromkeys() which must be a static method
-#XXX accepting any iterable
+    def iterkeys(d):
+        return iter(d.keys())
 
-# This can return when multimethods have been fixed
-"""
-def app_dict_str__ANY(d):
-    items = []
-    for k, v in d.iteritems():
-        items.append("%r: %r" % (k, v))
-    return "{%s}" % ', '.join(items)
-"""
-gateway.importall(globals())
+    def itervalues(d):
+        return iter(d.values())
+''')
+#XXX what about dict.fromkeys()?
+
+dict_update__ANY_ANY         = app.interphook("update")
+dict_popitem__ANY            = app.interphook("popitem")
+dict_get__ANY_ANY_ANY        = app.interphook("get")
+dict_setdefault__ANY_ANY_ANY = app.interphook("setdefault")
+dict_pop__ANY_ANY            = app.interphook("pop")
+dict_iteritems__ANY          = app.interphook("iteritems")
+dict_iterkeys__ANY           = app.interphook("iterkeys")
+dict_itervalues__ANY         = app.interphook("itervalues")
+
 register_all(vars(), globals())
 
 # ____________________________________________________________
@@ -102,6 +96,7 @@ def descr__new__(space, w_dicttype, __args__):
 # ____________________________________________________________
 
 dict_typedef = StdTypeDef("dict",
-    __new__ = newmethod(descr__new__),
+    __new__ = newmethod(descr__new__,
+                        unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     )
 dict_typedef.registermethods(globals())

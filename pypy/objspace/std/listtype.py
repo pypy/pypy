@@ -14,15 +14,16 @@ list_reverse  = MultiMethod('reverse',1)
 list_sort     = MultiMethod('sort',   4, defaults=(None, None, False), argnames=['cmp', 'key', 'reverse'])
 list_reversed = MultiMethod('__reversed__', 1)
 
-def app_list_reversed__ANY(lst):
-    def reversed_gen(local_iterable):
-        len_iterable = len(local_iterable)
-        for index in range(len_iterable-1, -1, -1):
-            yield local_iterable[index]
-    return reversed_gen(lst)
-
 # gateway is imported in the stdtypedef module
-gateway.importall(globals())
+app = gateway.applevel('''
+
+    def reversed(lst):
+        for index in range(len(lst)-1, -1, -1):
+            yield lst[index]
+
+''')
+
+list_reversed__ANY = app.interphook('reversed')
 register_all(vars(), globals())
 
 # ____________________________________________________________
@@ -36,6 +37,8 @@ def descr__new__(space, w_listtype, __args__):
 # ____________________________________________________________
 
 list_typedef = StdTypeDef("list",
-    __new__ = newmethod(descr__new__),
+    __new__ = newmethod(descr__new__, unwrap_spec=[gateway.ObjSpace,
+                                                   gateway.W_Root,
+                                                   gateway.Arguments]),
     )
 list_typedef.registermethods(globals())

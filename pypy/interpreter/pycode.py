@@ -6,7 +6,8 @@ The bytecode interpreter itself is implemented by the PyFrame class.
 
 import dis
 from pypy.interpreter import eval
-from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.interpreter.gateway import NoneNotWrapped 
+from pypy.interpreter.baseobjspace import ObjSpace, W_Root 
 from pypy.tool.cache import Cache 
 
 # helper
@@ -55,7 +56,7 @@ class PyCode(eval.Code):
         self.co_flags = 0            # CO_..., see above
         self.co_code = None          # string: instruction opcodes
         self.co_consts_w = []        # list of constants used (wrapped!)
-        self.co_names_w = []         # list of wrapped strs: names (for attrs..)
+        self.co_names = []           # list of strings: names (for attrs..)
         self.co_varnames = ()        # tuple of strings: local variable names
         self.co_freevars = ()        # tuple of strings: free variable names
         self.co_cellvars = ()        # tuple of strings: cell variable names
@@ -88,7 +89,7 @@ class PyCode(eval.Code):
         self.co_code = x
         #self.co_consts = <see below>
         x = code.co_names; assert isinstance(x, tuple)
-        self.co_names_w = [ self.space.wrap(i) for i in x ] 
+        self.co_names = list(x)
         x = code.co_varnames; assert isinstance(x, tuple)
         self.co_varnames = x
         x = code.co_freevars; assert isinstance(x, tuple)
@@ -157,10 +158,10 @@ class PyCode(eval.Code):
     
     def fget_co_names(space, w_self):
         self = space.interpclass_w(w_self)
-        return space.newtuple(self.co_names_w)
+        return space.newtuple([space.wrap(name) for name in self.co_names])
 
-    def descr_code__eq__(space, w_self, w_other):
-        self = space.interpclass_w(w_self)
+    def descr_code__eq__(self, w_other):
+        space = self.space
         other = space.interpclass_w(w_other)
         if not isinstance(other, PyCode):
             return space.w_False
@@ -170,7 +171,11 @@ class PyCode(eval.Code):
                     self.co_flags == other.co_flags and
                     self.co_firstlineno == other.co_firstlineno and
                     self.co_code == other.co_code and
-                    len(self.co_consts_w) == len(other.co_consts_w))
+                    len(self.co_consts_w) == len(other.co_consts_w) and
+                    self.co_names == other.co_names and
+                    self.co_varnames == other.co_varnames and
+                    self.co_freevars == other.co_freevars and
+                    self.co_cellvars == other.co_cellvars)
         if not areEqual:
             return space.w_False
 
@@ -178,45 +183,40 @@ class PyCode(eval.Code):
             if not space.eq_w(self.co_consts_w[i], other.co_consts_w[i]):
                 return space.w_False
 
-        if len(self.co_names_w) != len(other.co_names_w):
-            return space.w_False
-        
-        for i in range(len(self.co_names_w)):
-            if not space.eq_w(self.co_names_w[i], other.co_names_w[i]):
-                return space.w_False
-        if (self.co_varnames == other.co_varnames and
-            self.co_freevars == other.co_freevars and
-            self.co_cellvars == other.co_cellvars):
-            return space.w_True
-
         return space.w_True
-    
+   
+    unwrap_spec =        [ObjSpace, W_Root, 
+                          int, int, int, int,
+                          str, W_Root, W_Root, 
+                          W_Root, str, str, int, 
+                          str, W_Root, 
+                          W_Root]
     def descr_code__new__(space, w_subtype,
-                          w_argcount, w_nlocals, w_stacksize, w_flags,
-                          w_codestring, w_constants, w_names,
-                          w_varnames, w_filename, w_name, w_firstlineno,
-                          w_lnotab, w_freevars=NoneNotWrapped,
+                          argcount, nlocals, stacksize, flags,
+                          codestring, w_constants, w_names,
+                          w_varnames, filename, name, firstlineno,
+                          lnotab, w_freevars=NoneNotWrapped,
                           w_cellvars=NoneNotWrapped):
         code = space.allocate_instance(PyCode, w_subtype)
         code.__init__(space)
-        # XXX typechecking everywhere!
-        code.co_argcount   = space.int_w(w_argcount)
-        code.co_nlocals    = space.int_w(w_nlocals)
-        code.co_stacksize  = space.int_w(w_stacksize)
-        code.co_flags      = space.int_w(w_flags)
-        code.co_code       = space.str_w(w_codestring)
+        code.co_argcount   = argcount 
+        code.co_nlocals    = nlocals 
+        code.co_stacksize  = stacksize 
+        code.co_flags      = flags 
+        code.co_code       = codestring 
         code.co_consts_w   = space.unpacktuple(w_constants)
-        code.co_names_w    = space.unpacktuple(w_names)
+        code.co_names      = unpack_str_tuple(space, w_names)
         code.co_varnames   = unpack_str_tuple(space, w_varnames)
-        code.co_filename   = space.str_w(w_filename)
-        code.co_name       = space.str_w(w_name)
-        code.co_firstlineno= space.int_w(w_firstlineno)
-        code.co_lnotab     = space.str_w(w_lnotab)
+        code.co_filename   = filename 
+        code.co_name       = name 
+        code.co_firstlineno= firstlineno 
+        code.co_lnotab     = lnotab 
         if w_freevars is not None:
             code.co_freevars = unpack_str_tuple(space, w_freevars)
         if w_cellvars is not None:
             code.co_cellvars = unpack_str_tuple(space, w_cellvars)
         return space.wrap(code)
+    descr_code__new__.unwrap_spec = unwrap_spec 
 
     
 def _really_enhanceclass(key, stuff):

@@ -30,15 +30,14 @@ class AppTestClass:
 
     def test_metaclass_global(self):
         d = {}
-        metatest_text = """
-class M(type):
-    pass
+        metatest_text = """if 1: 
+            class M(type):
+                pass
 
-__metaclass__ = M
+            __metaclass__ = M
 
-class C:
-    pass
-"""
+            class C:
+                pass\n"""
         exec metatest_text in d
         C = d['C']
         M = d['M']

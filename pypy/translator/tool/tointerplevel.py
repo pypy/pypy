@@ -30,6 +30,7 @@ def main():
     as = options.as or name
 
     mod = new.module(as)
+    mod.__dict__['__file__'] = modfile
     execfile(modfile, mod.__dict__)
 
     del mod.__dict__['__builtins__']

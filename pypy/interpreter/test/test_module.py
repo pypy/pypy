@@ -37,6 +37,8 @@ class AppTest_ModuleObject:
         delattr(m, 'x')
         raises(AttributeError, getattr, m, 'x')
         raises(AttributeError, delattr, m, 'x')
+        raises(TypeError, setattr, m, '__dict__', {})
+
     def test_docstring(self):
         import sys
         foo = type(sys)('foo')

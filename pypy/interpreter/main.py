@@ -14,15 +14,17 @@ def _run_eval_string(source, filename, space, eval):
             from pypy.objspace.std import StdObjSpace
             space = StdObjSpace()
 
-        compile = space.builtin.compile
+        w_compile = space.builtin.get('compile') 
         w = space.wrap
-        w_code = compile(w(source), filename, cmd, 0, 0)
-
+        w_code = space.call_function(w_compile, 
+                 w(source), w(filename), w(cmd), w(0), w(0))
         w_main = space.wrap('__main__')
         mainmodule = module.Module(space, w_main)
-        space.setitem(space.sys.w_modules, w_main, mainmodule)
+        w_modules = space.sys.get('modules')
+        space.setitem(w_modules, w_main, mainmodule)
 
         w_globals = mainmodule.w_dict
+        space.setitem(w_globals, w('__builtins__'), space.builtin)
 
         pycode = space.interpclass_w(w_code)
         retval = pycode.exec_code(space, w_globals, w_globals)

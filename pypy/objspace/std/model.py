@@ -26,6 +26,7 @@ class StdTypeModel:
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
             from pypy.objspace.std.unicodetype import unicode_typedef
+            from pypy.objspace.std.dictproxytype import dictproxy_typedef
         self.pythontypes = [value for key, value in result.__dict__.items()
                             if not key.startswith('_')]   # don't look
 

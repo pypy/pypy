@@ -6,64 +6,69 @@ from pypy.interpreter.error import OperationError
 slice_indices = MultiMethod('indices', 2)
 
 # default application-level implementations for some operations
+# gateway is imported in the stdtypedef module
+app = gateway.applevel("""
 
-def app_slice_indices3(slice, length):
-    # this is used internally, analogous to CPython's PySlice_GetIndicesEx
-    step = slice.step
-    if step is None:
-        step = 1
-    elif step == 0:
-        raise ValueError, "slice step cannot be zero"
-    if step < 0:
-        defstart = length - 1
-        defstop = -1
-    else:
-        defstart = 0
-        defstop = length
+    def indices(slice, length):
+        # this is used internally, analogous to CPython's PySlice_GetIndicesEx
+        step = slice.step
+        if step is None:
+            step = 1
+        elif step == 0:
+            raise ValueError, "slice step cannot be zero"
+        if step < 0:
+            defstart = length - 1
+            defstop = -1
+        else:
+            defstart = 0
+            defstop = length
 
-    start = slice.start
-    if start is None:
-        start = defstart
-    else:
-        if start < 0:
-            start += length
+        start = slice.start
+        if start is None:
+            start = defstart
+        else:
             if start < 0:
+                start += length
+                if start < 0:
+                    if step < 0:
+                        start = -1
+                    else:
+                        start = 0
+            elif start >= length:
                 if step < 0:
-                    start = -1
+                    start = length - 1
                 else:
-                    start = 0
-        elif start >= length:
-            if step < 0:
-                start = length - 1
-            else:
-                start = length
+                    start = length
 
-    stop = slice.stop
-    if stop is None:
-        stop = defstop
-    else:
-        if stop < 0:
-            stop += length
+        stop = slice.stop
+        if stop is None:
+            stop = defstop
+        else:
             if stop < 0:
-                stop = -1
-        elif stop > length:
-            stop = length
+                stop += length
+                if stop < 0:
+                    stop = -1
+            elif stop > length:
+                stop = length
 
-    return start, stop, step
-slice_indices__ANY_ANY = slice_indices3 = gateway.app2interp(app_slice_indices3)
+        return start, stop, step
 
-def app_slice_indices4(slice, sequencelength):
-    start, stop, step = slice_indices3(slice, sequencelength)
-    slicelength = stop - start
-    lengthsign = cmp(slicelength, 0)
-    stepsign = cmp(step, 0)
-    if stepsign == lengthsign:
-        slicelength = (slicelength - lengthsign) // step + 1
-    else:
-        slicelength = 0
+    def slice_indices4(slice, sequencelength):
+        start, stop, step = indices(slice, sequencelength)
+        slicelength = stop - start
+        lengthsign = cmp(slicelength, 0)
+        stepsign = cmp(step, 0)
+        if stepsign == lengthsign:
+            slicelength = (slicelength - lengthsign) // step + 1
+        else:
+            slicelength = 0
 
-    return start, stop, step, slicelength
-slice_indices4 = gateway.app2interp(app_slice_indices4)
+        return start, stop, step, slicelength
+""")
+
+slice_indices__ANY_ANY = app.interphook("indices")
+slice_indices3         = slice_indices__ANY_ANY
+slice_indices4         = app.interphook("slice_indices4")
 
 # utility functions
 def indices3(space, w_slice, length):
@@ -120,10 +125,20 @@ descr__new__.unwrap_spec = [baseobjspace.ObjSpace, baseobjspace.W_Root,
 
 # ____________________________________________________________
 
+def slicewprop(name):
+    def fget(space, w_obj):
+        from pypy.objspace.std.sliceobject import W_SliceObject
+        if not isinstance(w_obj, W_SliceObject):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("descriptor is for 'slice'"))
+        return getattr(w_obj, name)
+    return GetSetProperty(fget)
+
+
 slice_typedef = StdTypeDef("slice",
     __new__ = newmethod(descr__new__),
-    start = attrproperty_w('w_start'),
-    stop  = attrproperty_w('w_stop'),
-    step  = attrproperty_w('w_step'),
+    start = slicewprop('w_start'),
+    stop  = slicewprop('w_stop'),
+    step  = slicewprop('w_step'),
     )
 slice_typedef.registermethods(globals())

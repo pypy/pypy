@@ -28,8 +28,7 @@ class Bytecode:
                 self.index == other.index and
                 self.op == other.op and
                 self.name == other.name and
-                self.oparg == other.oparg and
-                self.lineno == other.lineno)
+                self.oparg == other.oparg)
 
     def __ne__(self, other):
         return not (self == other)
@@ -44,7 +43,12 @@ class Bytecode:
         
         s = repr(oparg).rjust(5) + " "
         if op in hasconst:
-            s += '(' + `co.co_consts_w[oparg]` + ')'
+            # support both real code objects and PyCode objects
+            try:
+                consts = co.co_consts
+            except AttributeError:
+                consts = co.co_consts_w
+            s += '(' + `consts[oparg]` + ')'
         elif op in hasname:
             s +=  '(' + co.co_names[oparg] + ')'
         elif op in hasjrel:
