@@ -58,8 +58,8 @@ Check out and Check in
 There are currently two directories you'll want to check out: /src and /doc
 In order to get the sourcecode and docs downloaded onto your drive, open a shell or commandline and type::
 
-  $ svn co http://codespeak.net/svn/pypy/trunk/src
-  $ svn co http://codespeak.net/svn/pypy/trunk/doc
+  $ svn co http://codespeak.net/svn/pypy/dist
+  $ svn co http://codespeak.net/svn/pypy/extradoc
 
 If you are behind a dump proxy this may or may not work; see below.
 
@@ -147,7 +147,7 @@ lines in a file ``~/.subversion/servers`` (on Unix) or
 .. _guide: http://svnbook.red-bean.com/book.html#svn-ch-1
 .. _archives: http://codespeak.net/pipermail/pypy-svn/
 .. _online: http://codespeak.net/svn/pypy/trunk/
-.. _coding-style: http://codespeak.net/pypy/doc/devel/coding-style.html
+.. _coding-style: http://codespeak.net/pypy/doc/coding-style.html
 .. _readme: http://codespeak.net/pypy/doc/readme.html
 .. _HowToInstallServer: http://codespeak.net/moin/pypy/moin.cgi/HowToInstallServer
 .. _backports: http://www.backports.org

@@ -16,7 +16,7 @@ are working in a DOS box (Windows) or terminal (MacOS/X or Linux).
 2. Change to the directory where you wish to install the source tree,
    and use subversion to download the source::
 
-        svn co http://codespeak.net/svn/pypy/trunk/src
+        svn co http://codespeak.net/svn/pypy/dist
 
    This will create a subdirectory named ``src``, and will create
    the PyPy source tree under this directory.
@@ -24,7 +24,7 @@ are working in a DOS box (Windows) or terminal (MacOS/X or Linux).
 
    If desired, you can also download the documentation::
    
-        svn co http://codespeak.net/svn/pypy/trunk/doc
+        svn co http://codespeak.net/svn/pypy/extradoc
 
    
 3. To start interpreting Python with PyPy, use Python 2.3 or greater::
@@ -175,31 +175,31 @@ To learn more
 
 --------------------------------------------------------------------------------
 
-.. _subversion:             http://codespeak.net/pypy/index.cgi?doc/devel/howtosvn.html
+.. _subversion:             http://codespeak.net/pypy/index.cgi?doc/howtosvn.html
 .. _Dot Graphviz:           http://www.research.att.com/sw/tools/graphviz/
 .. _Pygame:                 http://www.pygame.org/
-.. _src/pypy/interpreter:   http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/
-.. _pyopcode.py:            http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/pyopcode.py
-.. _eval.py:                http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/eval.py
-.. _pyframe.py:             http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/pyframe.py
-.. _function.py:            http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/function.py
-.. _argument.py:            http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/argument.py
-.. _baseobjspace.py:        http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/baseobjspace.py
-.. _module.py:              http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/module.py
-.. _extmodule.py:           http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/extmodule.py
-.. _typedef.py:             http://codespeak.net/svn/pypy/trunk/src/pypy/interpreter/typedef.py
-.. _src/pypy/objspace/std:  http://codespeak.net/svn/pypy/trunk/src/pypy/objspace/std/
-.. _Standard object space:  http://codespeak.net/pypy/index.cgi?doc/objspace/stdobjspace.html
-.. _objspace.py:            http://codespeak.net/svn/pypy/trunk/src/pypy/objspace/std/objspace.py
-.. _src/pypy/objspace:      http://codespeak.net/svn/pypy/trunk/src/pypy/objspace/
-.. _trace:                  http://codespeak.net/svn/pypy/trunk/src/pypy/objspace/trace.py
-.. _flow:                   http://codespeak.net/svn/pypy/trunk/src/pypy/objspace/flow/
-.. _src/pypy/translator:    http://codespeak.net/svn/pypy/trunk/src/pypy/translator/
-.. _translator.py:          http://codespeak.net/svn/pypy/trunk/src/pypy/translator/translator.py
-.. _src/pypy/annotation:    http://codespeak.net/svn/pypy/trunk/src/pypy/annotation/
-.. _src/pypy/translator/annrpython.py: http://codespeak.net/svn/pypy/trunk/src/pypy/translator/annrpython.py
+.. _src/pypy/interpreter:   http://codespeak.net/svn/pypy/dist/pypy/interpreter/
+.. _pyopcode.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyopcode.py
+.. _eval.py:                http://codespeak.net/svn/pypy/dist/pypy/interpreter/eval.py
+.. _pyframe.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyframe.py
+.. _function.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/function.py
+.. _argument.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/argument.py
+.. _baseobjspace.py:        http://codespeak.net/svn/pypy/dist/pypy/interpreter/baseobjspace.py
+.. _module.py:              http://codespeak.net/svn/pypy/dist/pypy/interpreter/module.py
+.. _extmodule.py:           http://codespeak.net/svn/pypy/dist/pypy/interpreter/extmodule.py
+.. _typedef.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/typedef.py
+.. _src/pypy/objspace/std:  http://codespeak.net/svn/pypy/dist/pypy/objspace/std/
+.. _Standard object space:  http://codespeak.net/pypy/index.cgi?doc/stdobjspace.html
+.. _objspace.py:            http://codespeak.net/svn/pypy/dist/pypy/objspace/std/objspace.py
+.. _src/pypy/objspace:      http://codespeak.net/svn/pypy/dist/pypy/objspace/
+.. _trace:                  http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
+.. _flow:                   http://codespeak.net/svn/pypy/dist/pypy/objspace/flow/
+.. _src/pypy/translator:    http://codespeak.net/svn/pypy/dist/pypy/translator/
+.. _translator.py:          http://codespeak.net/svn/pypy/dist/pypy/translator/translator.py
+.. _src/pypy/annotation:    http://codespeak.net/svn/pypy/dist/pypy/annotation/
+.. _src/pypy/translator/annrpython.py: http://codespeak.net/svn/pypy/dist/pypy/translator/annrpython.py
 .. _mailing lists:          http://codespeak.net/pypy/index.cgi?lists
 .. _documentation:          http://codespeak.net/pypy/index.cgi?doc
 .. _wiki:                   http://codespeak.net/moin/pypy/moin.cgi/FrontPage?action=show
-.. _unit tests:             http://codespeak.net/pypy/index.cgi?doc/devel/testdesign.html
+.. _unit tests:             http://codespeak.net/pypy/index.cgi?doc/testdesign.html
 .. _bug reports:            http://codespeak.net/issues/pypy/

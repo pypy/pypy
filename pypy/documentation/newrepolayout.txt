@@ -9,16 +9,16 @@ The `PyPy repository layout`_ has evolved for two
 years into something that needs some refactoring 
 to become more practical. 
 
-For example, the `trunk/doc`_ directory was originally intended
+For example, the `extradoc`_ directory was originally intended
 to hold developer documentation but nowadays it contains
 funding, negotiations, mails and misc-other-stuff documents.  It is
 not easy and obvious anymore to know which files are relevant.
-Moreover, `trunk/doc`_ is too far away from the source code:
-developers currently checkout the 'trunk/src' directory and
+Moreover, `extradoc`_ is too far away from the source code:
+developers currently checkout the 'dist' directory and
 don't even get the documentation. This also makes it more
 difficult to keep the documentation up-to-date. 
 
-.. _`trunk/doc`: http://codespeak.net/svn/pypy/trunk/doc 
+.. _`extradoc`: http://codespeak.net/svn/pypy/extradoc 
 .. _`PyPy repository layout`: http://codespeak.net/svn/pypy/
 
 New repo layout proposal Nr. 1
@@ -32,7 +32,7 @@ new proposition describing a possible new structure
     tag                     # holds tagged dist-versions
 
     dist                    # holds current development 
-        pypy                # current trunk/src/pypy 
+        pypy                # current dist/pypy 
             documentation   # developer documentation (inside pypy!) 
         py                  # and other 'externals' 
         setup.py            # should be there at some point 

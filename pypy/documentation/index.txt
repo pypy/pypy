@@ -38,7 +38,7 @@ These file are in the *doc/* directory:
  * wrapping_:
 	a description of application-level and interpreter-level wrapped 		objects
 
-This file is in the *doc/devel/* sub-directory:
+This file is in the *doc/* sub-directory:
 
  * howtosvn_:
 	for new users of subversion
@@ -46,7 +46,7 @@ This file is in the *doc/devel/* sub-directory:
 Before you code
 ---------------
 
-Before doing pypy work, you should also take a look at these developer-specific instructions, found in the *doc/devel/* sub-directory of the repository:
+Before doing pypy work, you should also take a look at these developer-specific instructions, found in the *doc/* sub-directory of the repository:
 
  * coding-style_:
 	covers pypy coding conventions
@@ -90,10 +90,10 @@ Further reading
 .. _howtopypy: http://codespeak.net/pypy/index.cgi?doc/howtopypy.html
 .. _readme: http://codespeak.net/pypy/index.cgi?doc/readme.html
 .. _wrapping: http://codespeak.net/pypy/index.cgi?doc/wrapping.html
-.. _coding-style: http://codespeak.net/pypy/index.cgi?doc/devel/coding-style.html
-.. _howtosvn: http://codespeak.net/pypy/index.cgi?doc/devel/howtosvn.html
-.. _optionaltool: http://codespeak.net/pypy/index.cgi?doc/devel/optionaltool.html
-.. _testdesign: http://codespeak.net/pypy/index.cgi?doc/devel/testdesign.html
+.. _coding-style: http://codespeak.net/pypy/index.cgi?doc/coding-style.html
+.. _howtosvn: http://codespeak.net/pypy/index.cgi?doc/howtosvn.html
+.. _optionaltool: http://codespeak.net/pypy/index.cgi?doc/optionaltool.html
+.. _testdesign: http://codespeak.net/pypy/index.cgi?doc/testdesign.html
 .. _feasible: http://codespeak.net/pipermail/pypy-dev/2004q2/001289.html
 .. _rock: http://codespeak.net/pipermail/pypy-dev/2004q1/001255.html
 .. _Scheme: http://codespeak.net/pipermail/pypy-dev/2004q1/001256.html
