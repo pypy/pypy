@@ -40,12 +40,6 @@ class W_Object(object):
         # XXX Somehow importing this at module level doesn't work
         raise UnwrapException(self)
 
-    def __eq__(self, other):
-        return type(other) is type(self)
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
 # ______________________________________________________________________
 
 class W_Variable(W_Object, Variable):

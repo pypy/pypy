@@ -5,6 +5,14 @@ from pypy.interpreter.pyframe \
 from pypy.objspace.flow.wrapper import W_Variable, W_Constant, UnwrapException
 from pypy.translator.flowmodel import *
 
+
+def constantsof(lst):
+    result = {}
+    for i in range(len(lst)):
+        if isinstance(lst[i], W_Constant):
+            result[i] = lst[i]
+    return result
+
 class SpamBlock(BasicBlock):
     dead = False
     
@@ -40,14 +48,14 @@ class SpamBlock(BasicBlock):
 
         newstate = []
         for w1, w2 in zip(mergeablestate1, mergeablestate2):
-            if w1 == w2:
+            if w1 == w2 or isinstance(w1, W_Variable):
                 w = w1
             else:
                 w = W_Variable()
             newstate.append(w)
-        if newstate == mergeablestate1:
+        if constantsof(newstate) == constantsof(mergeablestate1):
             return self
-        elif newstate == mergeablestate2:
+        elif constantsof(newstate) == constantsof(mergeablestate2):
             return other
         else:
             return SpamBlock((newstate, unmergeablestate1))
@@ -86,8 +94,8 @@ class ReplayList:
         self.index = 0
         
     def append(self, operation):
-        assert operation == self.listtoreplay[self.index]
         operation.result = self.listtoreplay[self.index].result
+        assert operation == self.listtoreplay[self.index]
         self.index += 1
 
     def finished(self):
