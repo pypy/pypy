@@ -253,10 +253,6 @@ class TestItem:
 
         # credit: adapted from Python's unittest.TestCase.run
 
-        # make sure that TestResult classes refer to the same objects
-        # as in test modules importing this module
-        from pypy.tool import newtest
-
         testobject = self.cls()
         testmethod = getattr(testobject, self.method.__name__)
 
@@ -267,22 +263,22 @@ class TestItem:
                 testobject.setUp()
             except KeyboardInterrupt:
                 raise
-            except newtest.TestResult, result:
+            except TestResult, result:
                 # reconstruct TestResult object, implicitly set exception
                 result = result.__class__(msg=result.msg, item=self)
             except Exception, exc:
-                return newtest.Error(msg=str(exc), item=self)
+                return Error(msg=str(exc), item=self)
 
             try:
                 testmethod()
-                result = newtest.Success(msg='success', item=self)
+                result = Success(msg='success', item=self)
             except KeyboardInterrupt:
                 raise
-            except newtest.TestResult, result:
+            except TestResult, result:
                 # reconstruct TestResult object, implicitly set exception
                 result = result.__class__(msg=result.msg, item=self)
             except Exception, exc:
-                result = newtest.Error(msg=str(exc), item=self)
+                result = Error(msg=str(exc), item=self)
 
             try:
                 testobject.tearDown()
@@ -292,7 +288,7 @@ class TestItem:
                 # if we already had an exception in the test method,
                 # don't overwrite it
                 if result.traceback is None:
-                    result = newtest.Error(msg=str(exc), item=self)
+                    result = Error(msg=str(exc), item=self)
         finally:
             if posttest is not None:
                 posttest(self)
@@ -335,7 +331,7 @@ class TestSuite:
         items = []
         # scan the module for classes derived from TestCase
         for obj in vars(module).values():
-            if inspect.isclass(obj) and issubclass(obj, newtest.TestCase):
+            if inspect.isclass(obj) and issubclass(obj, TestCase):
                 # we found a TestCase class, now scan it for test methods
                 for obj2 in vars(obj).values():
                     # inspect.ismethod doesn't seem to work here
@@ -445,4 +441,7 @@ def main(do_selftest=False):
 
 
 if __name__ == '__main__':
-    main(do_selftest=True)
+    # used to avoid subtle problems with class matching after different
+    # import statements
+    from pypy.tool import newtest
+    newtest.main(do_selftest=True)
