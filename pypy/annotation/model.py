@@ -103,3 +103,7 @@ for _type, _name in immutable_types.items():
     basicannotations.append(ANN.type[_val, _tval])
     basicannotations.append(ANN.constant(_type)[_tval])
     basicannotations.append(ANN.immutable[_val])
+
+# 'any immutable value'
+immutablevalue = SomeValue()
+basicannotations.append(ANN.immutable[immutablevalue])

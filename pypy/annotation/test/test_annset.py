@@ -88,6 +88,23 @@ class TestAnnotationSet(test.IntTestCase):
         clist = a.query(ANN.constant(42)[QUERYARG])
         self.assertEquals(clist, [c1])
 
+    def test_newconstant(self):
+        a = AnnotationSet([])
+        def f(rec):
+            return rec.newconstant(42)
+        c = a.record(f)
+        self.assertSameSet(a, [ANN.constant(42)[c]])
+
+    def test_queryconstant(self):
+        lst = [
+            ANN.constant(42)[c1],
+        ]
+        a = AnnotationSet(lst)
+        vlist = a.queryconstant(c1)
+        self.assertEquals(vlist, [42])
+        vlist = a.queryconstant(c2)
+        self.assertEquals(vlist, [])
+
     def test_query_blackholevalue(self):
         lst = [
             ANN.add[c1, c3, c2],

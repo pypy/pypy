@@ -1,6 +1,6 @@
 from __future__ import generators
 import types
-from model import Annotation, SomeValue, QueryArgument, ANN
+from model import Annotation, SomeValue, QueryArgument, ANN, ConstPredicate
 from model import immutable_types, blackholevalue, basicannotations
 
 QUERYARG = QueryArgument()
@@ -95,6 +95,15 @@ class AnnotationSet:
             return ann  # :-)
         else:
             return None
+
+    def queryconstant(self, cell):
+        "Return the list of all 'x' such that ANN.constant(x)[cell] is set."
+        cell = self.normalized(cell)
+        result = []
+        for ann in self.annlist:
+            if isinstance(ann.predicate, ConstPredicate) and ann.args[0] is cell:
+                result.append(ann.predicate.value)
+        return result
 
     def record(self, recfunc, *args):
         """ invoke the given 'recording' function by passing it a new 
@@ -259,6 +268,11 @@ class Recorder:
         self.set(ANN.constant(knowntype)[typeval])
         if knowntype in immutable_types:
             self.set(ANN.immutable[someval])
+
+    def newconstant(self, value):
+        cell = SomeValue()
+        self.set(ANN.constant(value)[cell])
+        return cell
 
 '''
 class XXXTransaction:
