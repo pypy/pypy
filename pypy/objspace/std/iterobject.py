@@ -5,12 +5,11 @@ tested, and complete. The only missing feature is support
 for function-iteration.
 """
 from pypy.objspace.std.objspace import *
-from itertype import W_SeqIterType
 
 
 class W_SeqIterObject(W_Object):
-    statictype = W_SeqIterType
-
+    from pypy.objspace.std.itertype import iter_typedef as typedef
+    
     def __init__(w_self, space, w_seq, index=0):
         W_Object.__init__(w_self, space)
         w_self.w_seq = w_seq

@@ -1,0 +1,180 @@
+from pypy.interpreter import eval, function, gateway
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import attrproperty, attrproperty_w
+from pypy.objspace.std.multimethod import MultiMethod
+
+__all__ = ['StdTypeDef', 'newmethod', 'gateway',
+           'GetSetProperty', 'attrproperty', 'attrproperty_w',
+           'MultiMethod']
+
+
+class StdTypeDef(TypeDef):
+
+    def __init__(self, name, bases, **rawdict):
+        TypeDef.__init__(self, name, **rawdict)
+        self.bases = bases
+        self.local_multimethods = []
+
+    def registermethods(self, namespace):
+        self.local_multimethods += hack_out_multimethods(namespace)
+
+    def mro(self, space):
+        assert len(self.bases) <= 1
+        if self.bases:
+            return [self] + self.bases[0].mro()
+        else:
+            return [self]
+
+def newmethod(descr_new):
+    # XXX make the result a staticmethod
+    return gateway.interp2app(descr_new)
+
+# ____________________________________________________________
+#
+# All the code below fishes from the multimethod registration tables
+# the descriptors to put into the W_TypeObjects.
+#
+
+def buildtypeobject(typedef, space):
+    # build a W_TypeObject from this StdTypeDef
+    from pypy.objspace.std.typeobject import W_TypeObject
+
+    w = space.wrap
+    rawdict = typedef.rawdict.copy()
+
+    if isinstance(typedef, StdTypeDef):
+        # get all the sliced multimethods
+        multimethods = slicemultimethods(space.__class__, typedef)
+        for name, code in multimethods.items():
+            #print typedef.name, ':', name
+            fn = function.Function(space, code, defs_w=code.getdefaults(space))
+            assert name not in rawdict, 'name clash: %s in %s_typedef' % (
+                name, typedef.name)
+            rawdict[name] = fn
+        bases_w = [space.gettypeobject(basedef) for basedef in typedef.bases]
+    else:
+        from pypy.objspace.std.objecttype import object_typedef
+        bases_w = [space.gettypeobject(object_typedef)]
+
+    # wrap everything
+    dict_w = {}
+    for descrname, descrvalue in rawdict.items():
+        dict_w[descrname] = w(descrvalue)
+
+    return W_TypeObject(space, typedef.name, bases_w, dict_w)
+
+def hack_out_multimethods(ns):
+    result = []
+    for value in ns.itervalues():
+        if isinstance(value, MultiMethod):
+            result.append(value)
+    return result
+
+def slicemultimethods(spaceclass, typeclass):
+    result = {}
+    # import and slice all multimethods of the space.MM container
+    for multimethod in (hack_out_multimethods(spaceclass.MM.__dict__) +
+                        typeclass.local_multimethods):
+        for i in range(len(multimethod.specialnames)):
+            # each MultimethodCode embeds a multimethod
+            name = multimethod.specialnames[i]
+            if name in result:
+                # conflict between e.g. __lt__ and
+                # __lt__-as-reversed-version-of-__gt__
+                code = result[name]
+                if code.bound_position < i:
+                    continue
+            mmframeclass = multimethod.extras.get('mmframeclass')
+            if mmframeclass is None:
+                if len(multimethod.specialnames) > 1:
+                    mmframeclass = SpecialMmFrame
+                else:
+                    mmframeclass = MmFrame
+            code = MultimethodCode(multimethod, mmframeclass, typeclass, i)
+            result[name] = code
+    # add some more multimethods with a special interface
+    code = MultimethodCode(spaceclass.MM.next, MmFrame, typeclass)
+    result['next'] = code
+    code = MultimethodCode(spaceclass.is_true, NonZeroMmFrame, typeclass)
+    result['__nonzero__'] = code
+    # remove the empty slices
+    for name, code in result.items():
+        if code.slice().is_empty():
+            del result[name]
+    return result
+
+class MultimethodCode(eval.Code):
+    """A code object that invokes a multimethod."""
+    
+    def __init__(self, multimethod, framecls, typeclass, bound_position=0):
+        eval.Code.__init__(self, multimethod.operatorsymbol)
+        self.basemultimethod = multimethod
+        self.typeclass = typeclass
+        self.bound_position = bound_position
+        self.framecls = framecls
+        argnames = ['x%d'%(i+1) for i in range(multimethod.arity)]
+        argnames.insert(0, argnames.pop(self.bound_position))
+        varargname = kwargname = None
+        if multimethod.extras.get('varargs', False):
+            varargname = 'args'
+        if multimethod.extras.get('keywords', False):
+            kwargname = 'keywords'
+        self.sig = argnames, varargname, kwargname
+        
+    def signature(self):
+        return self.sig
+
+    def getdefaults(self, space):
+        return [space.wrap(x)
+                for x in self.basemultimethod.extras.get('defaults', ())]
+
+    def slice(self):
+        return self.basemultimethod.slice(self.typeclass, self.bound_position)
+
+    def create_frame(self, space, w_globals, closure=None):
+        return self.framecls(space, self)
+
+class MmFrame(eval.Frame):
+    def run(self):
+        "Call the multimethod, raising a TypeError if not implemented."
+        mm = self.code.slice().get(self.space)
+        args = self.fastlocals_w
+        #print mm.multimethod.operatorsymbol, args
+        #print
+        w_result = mm(*args)
+        # we accept a real None from operations with no return value
+        if w_result is None:
+            w_result = self.space.w_None
+        return w_result
+
+class SpecialMmFrame(eval.Frame):
+    def run(self):
+        "Call the multimethods, possibly returning a NotImplemented."
+        mm = self.code.slice().get(self.space)
+        args = self.fastlocals_w
+        try:
+            return mm.perform_call(args)
+        except FailedToImplement, e:
+            if e.args:
+                raise OperationError(*e.args)
+            else:
+                return self.space.w_NotImplemented
+
+##class NextMmFrame(eval.Frame):
+##    def run(self):
+##        "Call the next() multimethod."
+##        mm = self.code.slice().get(self.space)
+##        args = self.fastlocals_w
+##        try:
+##            return mm(*args)
+##        except NoValue:
+##            raise OperationError(self.space.w_StopIteration,
+##                                 self.space.w_None)
+
+class NonZeroMmFrame(eval.Frame):
+    def run(self):
+        "Call the is_true() multimethods."
+        mm = self.code.slice().get(self.space)
+        args = self.fastlocals_w
+        result = mm(*args)
+        return self.space.newbool(result)

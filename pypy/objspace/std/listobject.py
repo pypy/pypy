@@ -1,5 +1,4 @@
 from pypy.objspace.std.objspace import *
-from listtype import W_ListType
 from intobject import W_IntObject
 from sliceobject import W_SliceObject
 from tupleobject import W_TupleObject
@@ -10,8 +9,8 @@ from restricted_int import r_int, r_uint
 
 
 class W_ListObject(W_Object):
-    statictype = W_ListType
-
+    from pypy.objspace.std.listtype import list_typedef as typedef
+    
     def __init__(w_self, space, wrappeditems):
         W_Object.__init__(w_self, space)
         w_self.ob_item = []
@@ -54,7 +53,7 @@ def object_init__List(space, w_list, w_args, w_kwds):
                 w_item = space.next(w_iterator)
             except OperationError, e:
                 if not e.match(space, space.w_StopIteration):
-                    raise 
+                    raise
                 break  # done
             _ins1(w_list, w_list.ob_size, w_item)
     else:
@@ -535,4 +534,5 @@ static PyMethodDef list_methods[] = {
 };
 """
 
-register_all(vars(), W_ListType)
+from pypy.objspace.std import listtype
+register_all(vars(), listtype)

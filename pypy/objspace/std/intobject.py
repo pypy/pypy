@@ -1,5 +1,4 @@
 from pypy.objspace.std.objspace import *
-from inttype import W_IntType
 from noneobject import W_NoneObject
 from restricted_int import r_int, LONG_BIT
 
@@ -19,7 +18,7 @@ RPython, just for test purposes.
 """
 
 class W_IntObject(W_Object):
-    statictype = W_IntType
+    from inttype import int_typedef as typedef
     
     def __init__(w_self, space, intval):
         W_Object.__init__(w_self, space)

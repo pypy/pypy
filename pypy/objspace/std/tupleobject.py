@@ -1,13 +1,12 @@
 from pypy.objspace.std.objspace import *
-from tupletype import W_TupleType
 from intobject import W_IntObject
 from sliceobject import W_SliceObject
 import slicetype
 
 
 class W_TupleObject(W_Object):
-    statictype = W_TupleType
-
+    from pypy.objspace.std.tupletype import tuple_typedef as typedef
+    
     def __init__(w_self, space, wrappeditems):
         W_Object.__init__(w_self, space)
         w_self.wrappeditems = wrappeditems   # a list of wrapped values

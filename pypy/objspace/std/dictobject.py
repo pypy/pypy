@@ -7,7 +7,6 @@ for order comparisons.
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
-from dicttype import W_DictType
 from stringobject import W_StringObject
 
 class _NoValueInCell: pass
@@ -39,7 +38,7 @@ class Cell:
     
 
 class W_DictObject(W_Object):
-    statictype = W_DictType
+    from pypy.objspace.std.dicttype import dict_typedef as typedef
 
     def __init__(w_self, space, list_pairs_w):
         W_Object.__init__(w_self, space)
@@ -125,7 +124,13 @@ def delitem__Dict_ANY(space, w_dict, w_lookup):
             cell.make_empty()
             return
     raise OperationError(space.w_KeyError, w_lookup)
-    
+
+def is_true__Dict(space, w_dict):
+    # this must be implemented in addition to len() for dictionaries
+    # for infinite recursion reasons (is_true -> len -> call to len ->
+    # checking for keywords -> is_true etc.)
+    return not not w_dict.non_empties()
+
 def len__Dict(space, w_dict):
     return space.wrap(len(w_dict.non_empties()))
 
@@ -226,5 +231,5 @@ def app_str__Dict(d):
     return "{%s}" % ', '.join(items)
 
 repr__Dict = str__Dict = gateway.app2interp(app_str__Dict)
-register_all(vars(), W_DictType)
-
+from pypy.objspace.std import dicttype
+register_all(vars(), dicttype)

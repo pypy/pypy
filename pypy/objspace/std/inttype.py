@@ -1,32 +1,17 @@
-from pypy.objspace.std.objspace import *
-from typeobject import W_TypeObject
+from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.objecttype import object_typedef
 
 
-class W_IntType(W_TypeObject):
-
-    typename = 'int'
-
-registerimplementation(W_IntType)
-
-
-def type_new__IntType_IntType(space, w_basetype, w_inttype, w_args, w_kwds):
-    if space.is_true(w_kwds):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("no keyword arguments expected"))
-    args = space.unpackiterable(w_args)
-    arglen = len(args)
-    
-    if arglen == 0:
-        return space.newint(0), True
-    elif arglen > 2:
-        raise OperationError(space.w_TypeError,
-                 space.wrap("int() takes at most 2 arguments"))
-    elif space.is_true(space.issubtype(space.type(args[0]), space.w_str)):
+def descr__new__(space, w_inttype, w_value=0, w_base=None):
+    from intobject import W_IntObject
+    if w_base == space.w_None:
+        return space.int(w_value)
+    else:
+        # XXX write the logic for int("str", base)
+        s = space.unwrap(w_value)
+        base = space.unwrap(w_base)
         try:
-            if arglen == 1:
-                return space.newint(int(space.unwrap(args[0]))), True
-            else:
-                return space.newint(int(space.unwrap(args[0]),space.unwrap(args[1]))), True
+            value = int(s, base)
         except TypeError, e:
             raise OperationError(space.w_TypeError,
                          space.wrap(str(e)))
@@ -36,10 +21,10 @@ def type_new__IntType_IntType(space, w_basetype, w_inttype, w_args, w_kwds):
         except OverflowError, e:
             raise OperationError(space.w_OverflowError,
                          space.wrap(str(e)))
-    elif arglen == 2:
-        raise OperationError(space.w_TypeError,
-             space.wrap("int() can't convert non-string with explicit base"))
-    else:
-        return space.int(args[0]), True
+        return W_IntObject(value)
 
-register_all(vars())
+# ____________________________________________________________
+
+int_typedef = StdTypeDef("int", [object_typedef],
+    __new__ = newmethod(descr__new__),
+    )

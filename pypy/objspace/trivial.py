@@ -200,6 +200,9 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
     def is_(self, w_obj1, w_obj2):
         return self.unwrap(w_obj1) is self.unwrap(w_obj2)
 
+    def id(self, w_obj):
+        return id(self.unwrap(w_obj))
+
     def unpacktuple(self, w_tuple, expected_length=None):
         assert isinstance(w_tuple, tuple)
         if expected_length is not None and expected_length != len(w_tuple):
@@ -250,7 +253,7 @@ def %(name)s(self, x, *args):
     is_true   = operator.truth
     # 'is_true' is not called 'truth' because it returns a *non-wrapped* boolean
 
-    for _name in ('id', 'type', 'ord', 'round'):
+    for _name in ('type', 'ord', 'round'):
         _auto(_name, _name, locals())
 
     def not_(self, w_obj):  # default implementation

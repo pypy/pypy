@@ -73,10 +73,9 @@ zfill             OK
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
-from stringtype import W_StringType
 from intobject   import W_IntObject
 from sliceobject import W_SliceObject
-import slicetype
+#import slicetype
 from listobject import W_ListObject
 from noneobject import W_NoneObject
 from tupleobject import W_TupleObject
@@ -86,7 +85,7 @@ from tupleobject import W_TupleObject
 
 
 class W_StringObject(W_Object):
-    statictype = W_StringType
+    from stringtype import str_typedef as typedef
 
     def __init__(w_self, space, str):
         W_Object.__init__(w_self, space)
@@ -1005,7 +1004,6 @@ def app_mod__String_ANY(format, values):
 
 mod__String_ANY = gateway.app2interp(app_mod__String_ANY) 
 
-# register all methods 
-register_all(vars(), W_StringType)
-
-
+# register all methods
+from pypy.objspace.std import stringtype
+register_all(vars(), stringtype)

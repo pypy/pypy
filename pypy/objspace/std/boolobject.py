@@ -1,18 +1,9 @@
-"""
-Reviewed 03-06-21
-There are no new methods here, since everything is inherited
-from int, except:
-
-__repr__  tested, OK
-"""
-
 from pypy.objspace.std.objspace import *
-from booltype import W_BoolType
 import intobject
 
 
 class W_BoolObject(W_Object):
-    statictype = W_BoolType
+    from booltype import bool_typedef as typedef
 
     def __init__(w_self, space, boolval):
         W_Object.__init__(w_self, space)

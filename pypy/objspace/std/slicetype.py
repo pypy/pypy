@@ -1,40 +1,8 @@
-from pypy.objspace.std.objspace import *
-from pypy.interpreter import gateway
-from typeobject import W_TypeObject
+from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.objecttype import object_typedef
+from pypy.objspace.std.register_all import register_all
 
-
-class W_SliceType(W_TypeObject):
-
-    typename = 'slice'
-
-    slice_indices = MultiMethod('indices', 2)
-
-
-registerimplementation(W_SliceType)
-
-
-def type_new__SliceType_SliceType(space, w_basetype, w_slicetype, w_args, w_kwds):
-    if space.is_true(w_kwds):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("no keyword arguments expected"))
-    args = space.unpackiterable(w_args)
-    start = space.w_None
-    stop = space.w_None
-    step = space.w_None
-    if len(args) == 1:
-        stop, = args
-    elif len(args) == 2:
-        start, stop = args
-    elif len(args) == 3:
-        start, stop, step = args        
-    elif len(args) > 3:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("slice() takes at most 3 arguments"))
-    else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("slice() takes at least 1 argument"))
-    return space.newslice(start, stop, step), True
-
+slice_indices = MultiMethod('indices', 2)
 
 # default application-level implementations for some operations
 
@@ -108,5 +76,31 @@ def indices4(space, w_slice, length):
     return (space.unwrap(w_1), space.unwrap(w_2),
             space.unwrap(w_3), space.unwrap(w_4))
 
+register_all(vars(), globals())
 
-register_all(vars(), W_SliceType)
+# ____________________________________________________________
+
+def descr__new__(space, w_slicetype, *args_w):
+    w_start = space.w_None
+    w_stop = space.w_None
+    w_step = space.w_None
+    if len(args_w) == 1:
+        w_stop, = args_w
+    elif len(args_w) == 2:
+        w_start, w_stop = args_w
+    elif len(args_w) == 3:
+        w_start, w_stop, w_step = args_w
+    elif len(args) > 3:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("slice() takes at most 3 arguments"))
+    else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("slice() takes at least 1 argument"))
+    return space.newslice(w_start, w_stop, w_step)
+
+# ____________________________________________________________
+
+slice_typedef = StdTypeDef("slice", [object_typedef],
+    __new__ = newmethod(descr__new__),
+    )
+slice_typedef.registermethods(globals())

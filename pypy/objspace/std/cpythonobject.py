@@ -23,8 +23,7 @@ class W_CPythonObject(W_Object):
 
     def __repr__(w_self):
         """ representation for debugging purposes """
-        return "wrap(%r)" % (w_self.cpyobj,)
-
+        return "cpyobj(%r)" % (w_self.cpyobj,)
 
 registerimplementation(W_CPythonObject)
 
@@ -216,8 +215,8 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
             raise ValueError, '_arity too large'
 
         arglist = [W_CPythonObject] + [W_ANY]*(_arity-1)
-        if _name == 'getattr': _name = 'getattribute'  # XXX hack
-        multimethod = getattr(StdObjSpace, _name)
+        #if _name == 'getattr': _name = 'getattribute'  # XXX hack
+        multimethod = getattr(StdObjSpace.MM, _name)
         multimethod.register(cpython_f, *arglist)
 
         if len(multimethod.specialnames) > 1 and _arity == 2:
@@ -302,7 +301,7 @@ def next__CPython(space, w_obj):
         wrap_exception(space)
     return space.wrap(result)
 
-def call__CPython_ANY_ANY(space, w_obj, w_arguments, w_keywords):
+def call__CPython(space, w_obj, w_arguments, w_keywords):
     # XXX temporary hack similar to objspace.trivial.call()
     callable = space.unwrap(w_obj)
     if hasattr(callable, 'pypy_call'):

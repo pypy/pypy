@@ -5,10 +5,9 @@
 """ 
 
 from pypy.objspace.std.objspace import *
-from nonetype import W_NoneType
 
 class W_NoneObject(W_Object):
-    statictype = W_NoneType
+    from pypy.objspace.std.nonetype import none_typedef as typedef
 registerimplementation(W_NoneObject)
 
 def unwrap__None(space, w_none):

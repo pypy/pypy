@@ -161,7 +161,8 @@ class ObjSpace:
 
     def call_function(self, w_func, *args_w, **kw_w):
         w_kw = self.newdict([(self.wrap(k), w_v) for k, w_v in kw_w.iteritems()])
-        return self.call(w_func, self.newtuple(list(args_w)), w_kw)
+        w_args = self.newtuple(list(args_w))
+        return self.call(w_func, w_args, w_kw)
 
     def call_method(self, w_obj, methname, *arg_w, **kw_w):
         w_meth = self.getattr(w_obj, self.wrap(methname))

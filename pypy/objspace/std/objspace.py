@@ -1,11 +1,12 @@
-from register_all import register_all
+from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import *
-from multimethod import *
+from pypy.objspace.std.multimethod import *
+from pypy.objspace.descroperation import DescrOperation
 
 
 class W_Object:
     "Parent base class for wrapped objects."
-    statictype = None
+    typedef = None
     
     def __init__(w_self, space):
         w_self.space = space     # XXX not sure this is ever used any more
@@ -13,15 +14,9 @@ class W_Object:
     def __repr__(self):
         return '<objwrapper %s(%s)>' % (
             self.__class__.__name__,
-            getattr(self, 'statictype', '<no statictype>')
+           #', '.join(['%s=%r' % keyvalue for keyvalue in self.__dict__.items()])
+            getattr(self, 'name', '')
             )
-
-class W_AbstractTypeObject(W_Object):
-    "Do not use. For W_TypeObject only."
-
-
-BoundMultiMethod.ASSERT_BASE_TYPE = W_Object
-MultiMethod.BASE_TYPE_OBJECT = W_AbstractTypeObject
 
 # delegation priorities
 PRIORITY_SAME_TYPE    = 2  # converting between several impls of the same type
@@ -32,14 +27,14 @@ PRIORITY_ANY          = -999 # hard-wired in multimethod.py (... -> W_ANY)
 
 def registerimplementation(implcls):
     # this function should ultimately register the implementation class somewhere
-    # it may be modified to take 'statictype' instead of requiring it to be
+    # it may be modified to take 'typedef' instead of requiring it to be
     # stored in 'implcls' itself
     assert issubclass(implcls, W_Object)
 
 
 ##################################################################
 
-class StdObjSpace(ObjSpace):
+class StdObjSpace(ObjSpace, DescrOperation):
     """The standard object space, implementing a general-purpose object
     library in Restricted Python."""
 
@@ -49,21 +44,21 @@ class StdObjSpace(ObjSpace):
         class result:
             "Import here the types you want to have appear in __builtin__."
 
-            from objecttype import W_ObjectType
-            from booltype   import W_BoolType
-            from inttype    import W_IntType
-            from floattype  import W_FloatType
-            from tupletype  import W_TupleType
-            from listtype   import W_ListType
-            from dicttype   import W_DictType
-            from stringtype import W_StringType
-            from typetype   import W_TypeType
-            from slicetype  import W_SliceType
+            from objecttype import object_typedef
+            #from booltype   import W_BoolType
+            from inttype    import int_typedef
+            #from floattype  import W_FloatType
+            #from tupletype  import W_TupleType
+            #from listtype   import W_ListType
+            #from dicttype   import W_DictType
+            #from stringtype import W_StringType
+            from typetype   import type_typedef
+            #from slicetype  import W_SliceType
         return [value for key, value in result.__dict__.items()
                       if not key.startswith('_')]   # don't look
 
     def clone_exception_hierarchy(self):
-        from usertype import W_UserType
+        from pypy.objspace.std.typeobject import W_TypeObject
         from pypy.interpreter import gateway
         w = self.wrap
         def app___init__(self, *args):
@@ -84,15 +79,12 @@ class StdObjSpace(ObjSpace):
         # but being able to do that depends on the existence of some
         # of the exceptions...
         
-        self.w_Exception = W_UserType(
+        self.w_Exception = W_TypeObject(
             self,
-            w('Exception'),
-            self.newtuple([]),
-            self.newdict([(w('__init__'), w_init),
-                          (w('__str__'), w_str)]))
-       
-        self.w_IndexError = self.w_StopIteration = self.w_Exception 
-        
+            'Exception',
+            [],
+            {'__init__': w_init,
+             '__str__': w_str})
         done = {'Exception': self.w_Exception}
 
         # some of the complexity of the following is due to the fact
@@ -115,11 +107,11 @@ class StdObjSpace(ObjSpace):
                             continue
                         else:
                             base = done[b.__name__]
-                            newtype = self.call_function(
-                                self.w_type,
-                                w(next),
-                                self.newtuple([base]),
-                                self.newdict([]))
+                            newtype = W_TypeObject(
+                                self,
+                                next,
+                                [base],
+                                {})
                             setattr(self,
                                     'w_' + next,
                                     newtype)
@@ -132,7 +124,6 @@ class StdObjSpace(ObjSpace):
     def initialize(self):
         from noneobject    import W_NoneObject
         from boolobject    import W_BoolObject
-        from cpythonobject import W_CPythonObject
 
         # singletons
         self.w_None  = W_NoneObject(self)
@@ -151,10 +142,10 @@ class StdObjSpace(ObjSpace):
 
         # types
         self.types_w = {}
-        for typeclass in self.standard_types():
-            w_type = self.get_typeinstance(typeclass)
-            setattr(self, 'w_' + typeclass.typename, w_type)
-            for_builtins[typeclass.typename] = w_type
+        for typedef in self.standard_types():
+            w_type = self.gettypeobject(typedef)
+            setattr(self, 'w_' + typedef.name, w_type)
+            for_builtins[typedef.name] = w_type
 
         # exceptions
         for_builtins.update(self.clone_exception_hierarchy())
@@ -165,14 +156,14 @@ class StdObjSpace(ObjSpace):
         for key, w_value in for_builtins.items():
             self.setitem(self.w_builtins, self.wrap(key), w_value)
 
-    def get_typeinstance(self, typeclass):
-        assert typeclass.typename is not None, (
-            "get_typeinstance() cannot be used for %r" % typeclass)
-        # types_w maps each W_XxxType class to its unique-for-this-space instance
+    def gettypeobject(self, typedef):
+        # types_w maps each StdTypeDef instance to its
+        # unique-for-this-space W_TypeObject instance
         try:
-            w_type = self.types_w[typeclass]
-        except:
-            w_type = self.types_w[typeclass] = typeclass(self)
+            w_type = self.types_w[typedef]
+        except KeyError:
+            from pypy.objspace.std.stdtypedef import buildtypeobject
+            w_type = self.types_w[typedef] = buildtypeobject(typedef, self)
         return w_type
 
     def wrap(self, x):
@@ -207,8 +198,8 @@ class StdObjSpace(ObjSpace):
             wrappeditems = [self.wrap(item) for item in x]
             import listobject
             return listobject.W_ListObject(self, wrappeditems)
-        if hasattr(type(x), '__wrap__'):
-            return x.__wrap__(self)
+        if isinstance(x, Wrappable):
+            return x.__spacebind__(self)
         #print "wrapping %r (%s)" % (x, type(x))
         import cpythonobject
         return cpythonobject.W_CPythonObject(self, x)
@@ -222,6 +213,7 @@ class StdObjSpace(ObjSpace):
         return floatobject.W_FloatObject(self, int_w)
 
     def newtuple(self, list_w):
+        assert isinstance(list_w, list)
         import tupleobject
         return tupleobject.W_TupleObject(self, list_w)
 
@@ -250,37 +242,41 @@ class StdObjSpace(ObjSpace):
         import stringobject
         return stringobject.W_StringObject(self, ''.join(chars))
 
-    # special multimethods
+    def type(self, w_obj):
+        assert w_obj.typedef, w_obj
+        return self.gettypeobject(w_obj.typedef)
+
+    def lookup(self, w_obj, name):
+        from pypy.objspace.std.cpythonobject import W_CPythonObject
+        if not isinstance(w_obj, W_CPythonObject):
+            # usual case
+            w_type = self.type(w_obj)
+            return w_type.lookup(name)
+        else:
+            # hack
+            for cls in w_obj.cpyobj.__class__.__mro__:
+                if name in cls.__dict__:
+                    return self.wrap(cls.__dict__[name])
+            return None
+
+    def unpacktuple(self, w_tuple):
+        import tupleobject
+        assert isinstance(w_tuple, tupleobject.W_TupleObject)
+        return w_tuple.wrappeditems
+
+    # special visible multimethods
     delegate = DelegateMultiMethod()          # delegators
     unwrap  = MultiMethod('unwrap', 1, [])    # returns an unwrapped object
     is_true = MultiMethod('nonzero', 1, [])   # returns an unwrapped bool
-    is_data_descr = MultiMethod('is_data_descr', 1, []) # returns an unwrapped bool
+    issubtype = MultiMethod('issubtype', 2, [])
 
-    getdict = MultiMethod('getdict', 1, [])  # get '.__dict__' attribute
-    next    = MultiMethod('next', 1, [])     # iterator interface
-    call    = MultiMethod('call', 3, [], varargs=True, keywords=True)
-    getattribute = MultiMethod('getattr', 2, ['__getattribute__'])  # XXX hack
-    usergetattr  = MultiMethod('usergetattr', 2, ['__getattr__'])   # XXX hack
-
-    def getattr(self, w_obj, w_attr):
-        try:
-            return self.getattribute(w_obj, w_attr)
-        except OperationError, e:
-            if not e.match(self, self.w_AttributeError):
-                raise
-            result = self.getattr_try_harder(w_obj, w_attr)
-            if result is None:
-                raise
-            return result
-
-    def getattr_try_harder(self, *args_w):
-        # this needs to be in another function so that the exception caught
-        # here doesn't prevent the bare 'raise' in self.getattr() to
-        # re-raise the previous OperationError with correct traceback.
-        try:
-            return self.usergetattr.perform_call(args_w)
-        except FailedToImplement:
-            return None
+    class MM:
+        "Container for multimethods."
+        #is_data_descr = MultiMethod('is_data_descr', 1, []) # returns an unwrapped bool
+        #getdict = MultiMethod('getdict', 1, [])  # get '.__dict__' attribute
+        next    = MultiMethod('next', 1, ['next'])     # iterator interface
+        call    = MultiMethod('call', 1, ['__call__'], varargs=True, keywords=True)
+        #getattribute = MultiMethod('getattr', 2, ['__getattribute__'])  # XXX hack
 
     def is_(self, w_one, w_two):
         # XXX a bit of hacking to gain more speed 
@@ -297,8 +293,9 @@ class StdObjSpace(ObjSpace):
 
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
-    if not hasattr(StdObjSpace,_name):
-        setattr(StdObjSpace, _name, MultiMethod(_symbol, _arity, _specialnames))
+    if (not hasattr(StdObjSpace.MM, _name) and     # XXX!
+        not isinstance(getattr(StdObjSpace, _name, None), MultiMethod)):
+        setattr(StdObjSpace.MM, _name, MultiMethod(_symbol, _arity, _specialnames))
 
 
 # import the common base W_ObjectObject as well as

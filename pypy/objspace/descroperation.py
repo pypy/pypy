@@ -86,12 +86,15 @@ class DescrOperation:
             w_impl = space.get(w_descr, w_obj, space.type(w_obj))
             return space.call_function(w_impl, *args_w, **kwargs_w)
 
+    def unwrap_builtin(self, w_obj):
+        return w_obj    # hook for hack by TrivialObjSpace
+
     def call(space, w_obj, w_args, w_kwargs):
         #print "call %r, %r, %r" %(w_obj, w_args, w_kwargs)
         w_descr = space.lookup(w_obj, '__call__')
         if w_descr is None:
             raise OperationError(space.w_TypeError, 
-                                 space.wrap('object is not callable'))
+                              space.wrap('object %r is not callable' % (w_obj,)))
         return space.get_and_call(w_descr, w_obj, w_args, w_kwargs)
 
     def get(space,w_descr,w_obj,w_type):

@@ -1,34 +1,18 @@
-from pypy.objspace.std.objspace import *
-from typeobject import W_TypeObject
+from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.objecttype import object_typedef
 
-
-class W_FloatType(W_TypeObject):
-
-    typename = 'float'
-
-registerimplementation(W_FloatType)
-
-
-def type_new__FloatType_FloatType(space, w_basetype, w_floattype, w_args, w_kwds):
-    if space.is_true(w_kwds):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("no keyword arguments expected"))
-    args = space.unpackiterable(w_args)
-    if len(args) == 0:
-        return space.newfloat(0), True
-    elif len(args) == 1:
-        arg = args[0]
-        if space.is_true(space.issubtype(space.type(arg),
-                                         space.w_str)):
-            try:
-                return space.newfloat(float(space.unwrap(arg))), True
-            except ValueError, e:
-                raise OperationError(space.w_ValueError,
-                                     space.wrap(str(e)))
-        else:
-            return space.float(args[0]), True
+def descr__new__(space, w_floattype, w_value=0):
+    if space.is_true(space.isinstance(w_value, space.w_str)):
+        try:
+            return space.newfloat(float(space.unwrap(w_value)))
+        except ValueError, e:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap(str(e)))
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("float() takes at most 1 argument"))
+        return space.float(w_value)
 
-register_all(vars())
+# ____________________________________________________________
+
+float_typedef = StdTypeDef("float", [object_typedef],
+    __new__ = newmethod(descr__new__),
+    )

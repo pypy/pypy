@@ -6,7 +6,7 @@ class FailedToImplement(Exception):
 
 class W_ANY:
     "Catch-all in case multimethods don't find anything else."
-    statictype = None
+    typedef = None
 
 
 # This file defines three major classes:
@@ -364,7 +364,7 @@ class UnboundMultiMethod(AbstractMultiMethod):
         # restriction of the present UnboundMultiMethod.
         # Only accept an exact match; having merely subclass should
         # be taken care of by the general look-up rules.
-        t = types[self.bound_position].statictype
+        t = types[self.bound_position].typedef
         return t is self.typeclass
 
     def __get__(self, space, cls=None):

@@ -1,6 +1,5 @@
 from pypy.objspace.std.objspace import *
 from noneobject import W_NoneObject
-from floattype import W_FloatType
 
 ##############################################################
 # for the time being, all calls that are made to some external
@@ -15,7 +14,7 @@ class W_FloatObject(W_Object):
     """This is a reimplementation of the CPython "PyFloatObject" 
        it is assumed that the constructor takes a real Python float as
        an argument"""
-    statictype = W_FloatType
+    from pypy.objspace.std.floattype import float_typedef as typedef
     
     def __init__(w_self, space, floatval):
         W_Object.__init__(w_self, space)

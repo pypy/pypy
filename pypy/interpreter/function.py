@@ -47,12 +47,12 @@ class Function(Wrappable):
         # We try to give error messages following CPython's, which are
         # very informative.
         #
-        if w_kwds is None or not space.is_true(w_kwds):
-            w_kwargs = space.newdict([])
-        else:
-            # space.is_true() above avoids infinite recursion copy<->parse_args
-            w_kwargs = space.call_method(w_kwds, "copy")
-
+        if w_kwds is not None:
+            if space.is_true(w_kwds):
+                # space.is_true() avoids infinite recursion copy<->parse_args
+                w_kwargs = space.call_method(w_kwds, "copy")
+            else:
+                w_kwargs = None
         co_argcount = len(argnames) # expected formal arguments, without */**
 
         # put as many positional input arguments into place as available
@@ -61,17 +61,19 @@ class Function(Wrappable):
         input_argcount = len(scope_w)
 
         # check that no keyword argument conflicts with these
-        for name in argnames[:input_argcount]:
-            w_name = space.wrap(name)
-            if space.is_true(space.contains(w_kwargs, w_name)):
-                self.raise_argerr_multiple_values(name)
+        if w_kwargs is not None:
+            for name in argnames[:input_argcount]:
+                w_name = space.wrap(name)
+                if space.is_true(space.contains(w_kwargs, w_name)):
+                    self.raise_argerr_multiple_values(name)
 
         if input_argcount < co_argcount:
             # not enough args, fill in kwargs or defaults if exists
             def_first = co_argcount - len(self.defs_w)
             for i in range(input_argcount, co_argcount):
                 w_name = space.wrap(argnames[i])
-                if space.is_true(space.contains(w_kwargs, w_name)):
+                if (w_kwargs is not None and
+                        space.is_true(space.contains(w_kwargs, w_name))):
                     scope_w.append(space.getitem(w_kwargs, w_name))
                     space.delitem(w_kwargs, w_name)
                 elif i >= def_first:
@@ -86,11 +88,15 @@ class Function(Wrappable):
             self.raise_argerr(w_args, w_kwds, True)
 
         # collect extra keyword arguments into the **kwarg
-        if kwargname is not None:
-            # XXX this doesn't check that the keys of kwargs are strings
-            scope_w.append(w_kwargs)
-        elif space.is_true(w_kwargs):
-            self.raise_argerr_unknown_kwds(w_kwds)
+        if w_kwargs:
+            if kwargname is not None:
+                # XXX this doesn't check that the keys of kwargs are strings
+                scope_w.append(w_kwargs)
+            elif space.is_true(w_kwargs):
+                self.raise_argerr_unknown_kwds(w_kwds)
+        else:
+            if kwargname is not None:
+                scope_w.append(space.newdict([]))
         return scope_w
 
     # helper functions to build error message for the above
@@ -170,7 +176,7 @@ class Function(Wrappable):
     def descr_function_call(self, *args_w, **kwds_w):
         # XXX refactor to avoid unwrapping and rewrapping all around
         space = self.space
-        return self.call(space.newtuple(args_w),
+        return self.call(space.newtuple(list(args_w)),
                          space.newdict([(space.wrap(key), w_item)
                                         for key, w_item in kwds_w.items()]))
 
@@ -211,6 +217,6 @@ class Method(Wrappable):
     def descr_method_call(self, *args_w, **kwds_w):
         # XXX refactor to avoid unwrapping and rewrapping all around
         space = self.space
-        return self.call(space.newtuple(args_w),
+        return self.call(space.newtuple(list(args_w)),
                          space.newdict([(space.wrap(key), w_item)
                                         for key, w_item in kwds_w.items()]))

@@ -1,9 +1,8 @@
-from pypy.objspace.std.objspace import *
-from typeobject import W_TypeObject
+from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.objecttype import object_typedef
 
 
-class W_NoneType(W_TypeObject):
+# ____________________________________________________________
 
-    typename = 'NoneType'
-
-registerimplementation(W_NoneType)
+none_typedef = StdTypeDef("NoneType", [object_typedef],
+    )

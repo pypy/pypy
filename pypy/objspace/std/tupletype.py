@@ -1,26 +1,13 @@
-from pypy.objspace.std.objspace import *
-from typeobject import W_TypeObject
+from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.objecttype import object_typedef
 
 
-class W_TupleType(W_TypeObject):
+def descr__new__(space, w_tupletype, w_items=()):
+    tuple_w = space.unpackiterable(w_items)
+    return space.newtuple(tuple_w)
 
-    typename = 'tuple'
+# ____________________________________________________________
 
-registerimplementation(W_TupleType)
-
-
-def type_new__TupleType_TupleType(space, w_basetype, w_tupletype, w_args, w_kwds):
-    if space.is_true(w_kwds):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("no keyword arguments expected"))
-    args = space.unpackiterable(w_args)
-    if len(args) == 0:
-        tuple_w = []
-    elif len(args) == 1:
-        tuple_w = space.unpackiterable(args[0])
-    else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("tuple() takes at most 1 argument"))
-    return space.newtuple(tuple_w), True
-
-register_all(vars())
+tuple_typedef = StdTypeDef("tuple", [object_typedef],
+    __new__ = newmethod(descr__new__),
+    )

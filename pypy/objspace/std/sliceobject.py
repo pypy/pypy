@@ -6,11 +6,10 @@ indices method              tested, OK
 """
 
 from pypy.objspace.std.objspace import *
-from slicetype import W_SliceType
 
 
 class W_SliceObject(W_Object):
-    statictype = W_SliceType
+    from pypy.objspace.std.slicetype import slice_typedef as typedef
     
     def __init__(w_self, space, w_start, w_stop, w_step):
         W_Object.__init__(w_self, space)
@@ -21,7 +20,8 @@ class W_SliceObject(W_Object):
 registerimplementation(W_SliceObject)
 
 
-def getattribute__Slice_ANY(space, w_slice, w_attr):
+def getattr__Slice_ANY(space, w_slice, w_attr):
+    # XXX later
     if space.is_true(space.eq(w_attr, space.wrap('start'))):
         if w_slice.w_start is None:
             return space.w_None

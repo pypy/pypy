@@ -1,51 +1,39 @@
-from pypy.objspace.std.objspace import *
-from pypy.objspace.std.register_all import register_all
-from pypy.interpreter import eval
-from typeobject import W_TypeObject
+from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.objecttype import object_typedef
 
 
-class NewMmFrame(eval.Frame):
-    def run(self):
-        "Call the __new__() method of typetype.py."
-        mm = self.code.slice().get(self.space)
-        args = self.fastlocals_w
-        w_result, callinit = mm(*args)
-        return w_result
+def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
+    # XXX staticmethod-ify w_dict['__new__']
+    from pypy.objspace.std.typeobject import W_TypeObject
+    # XXX check types
+    name = space.unwrap(w_name)
+    assert isinstance(name, str)
+    bases_w = space.unpackiterable(w_bases)
+    dict_w = {}
+    dictkeys_w = space.unpackiterable(w_dict)
+    for w_key in dictkeys_w:
+        key = space.unwrap(w_key)
+        assert isinstance(key, str)
+        dict_w[key] = space.getitem(w_dict, w_key)
+    return W_TypeObject(space, name, bases_w, dict_w)
 
+def descr_get__mro__(space, w_type):
+    # XXX this should be inside typeobject.py
+    return space.newtuple(w_type.getmro())
 
-class W_TypeType(W_TypeObject):
-    """The single instance of this class is the object the user sees as
-    '__builtin__.type'."""
+def descr__dict__(space, w_type):
+    # XXX should return a <dictproxy object>
+    dictspec = []
+    for key, w_value in w_type.dict_w.items():
+        dictspec.append((space.wrap(key), w_value))
+    return space.newdict(dictspec)
 
-    typename = 'type'
+# ____________________________________________________________
 
-    # XXX this is worth tons of comments.
-    # the four arguments are (T, S, args, kw) for the expression
-    # T.__new__(S, *args, **kw).  There is no (known?) way to get it as
-    # an unbound method, because 'type.__new__' means reading from the
-    # instance 'type' of the class 'type', as opposed to reading from
-    # the class 'type'.
-    # Attention, this internally returns a tuple (w_result, flag),
-    # where 'flag' specifies whether we would like __init__() to be called.
-    type_new = MultiMethod('__new__', 2, varargs=True, keywords=True,
-                                         mmframeclass=NewMmFrame)
-
-registerimplementation(W_TypeType)
-
-def type_new__TypeType_TypeType(space, w_basetype, w_typetype, w_args, w_kwds):
-    if space.is_true(w_kwds):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("no keyword arguments expected"))
-    args = space.unpackiterable(w_args)
-    if len(args) == 1:
-        return space.type(args[0]), False   # don't call __init__() on that
-    elif len(args) == 3:
-        from usertype import W_UserType
-        w_name, w_bases, w_dict = args
-        w_usertype = W_UserType(space, w_name, w_bases, w_dict)
-        return w_usertype, True
-    else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("type() takes 1 or 3 arguments"))
-
-register_all(vars())
+type_typedef = StdTypeDef("type", [object_typedef],
+    __new__ = newmethod(descr__new__),
+    __name__ = attrproperty('name'),
+    #__bases__ = XXX use newtuple
+    __dict__ = GetSetProperty(descr__dict__),
+    __mro__ = GetSetProperty(descr_get__mro__),
+    )

@@ -14,7 +14,7 @@ def register_all(module_dict, alt_ns=None):
     for registration. 
     """
     from pypy.objspace.std.objspace import StdObjSpace, W_ANY, W_Object
-    namespaces = [StdObjSpace]
+    namespaces = [StdObjSpace.MM, StdObjSpace]
     if alt_ns:
         namespaces.insert(0, alt_ns)
 
@@ -53,19 +53,23 @@ def register_all(module_dict, alt_ns=None):
 
 def hack_func_by_name(funcname, namespaces):
     for ns in namespaces:
-        if hasattr(ns, funcname):
-            return getattr(ns, funcname)
-    import typetype
+        if isinstance(ns, dict):
+            if funcname in ns:
+                return ns[funcname]
+        else:
+            if hasattr(ns, funcname):
+                return getattr(ns, funcname)
+    #import typetype
+    #try:
+    #    return getattr(typetype.W_TypeType, funcname)
+    #except AttributeError:
+    #    pass  # catches not only the getattr() but the typetype.W_TypeType
+    #          # in case it is not fully imported yet :-((((
+    from pypy.objspace.std import objecttype
     try:
-        return getattr(typetype.W_TypeType, funcname)
+        return getattr(objecttype, funcname)
     except AttributeError:
-        pass  # catches not only the getattr() but the typetype.W_TypeType
-              # in case it is not fully imported yet :-((((
-    import objecttype
-    try:
-        return getattr(objecttype.W_ObjectType, funcname)
-    except AttributeError:
-        pass  # same comment
+        pass
     raise NameError, ("trying hard but not finding a multimethod named %s" %
                       funcname)
 
@@ -109,10 +113,10 @@ def add_extra_comparisons():
     from pypy.objspace.std.objspace import StdObjSpace, W_ANY
     originaltable = {}
     for op in OPERATORS:
-        originaltable[op] = getattr(StdObjSpace, op).dispatch_table.copy()
+        originaltable[op] = getattr(StdObjSpace.MM, op).dispatch_table.copy()
 
     for op1, op2, correspondance in OP_CORRESPONDANCES:
-        mirrorfunc = getattr(StdObjSpace, op2)
+        mirrorfunc = getattr(StdObjSpace.MM, op2)
         for types, functions in originaltable[op1].iteritems():
             t1, t2 = types
             if t1 is t2:
