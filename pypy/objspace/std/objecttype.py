@@ -26,6 +26,9 @@ def descr__new__(space, w_type, *args_w, **kwds_w):
     w_obj = W_ObjectObject(space)
     return space.w_object.check_user_subclass(w_type, w_obj)
 
+def descr__init__(space, *args_w, **kwds_w):
+    pass   # XXX 2.2. behavior: ignoring all arguments
+
 # ____________________________________________________________
 
 object_typedef = StdTypeDef("object", [],
@@ -37,4 +40,5 @@ object_typedef = StdTypeDef("object", [],
     __hash__ = gateway.interp2app(descr__hash__),
     __class__ = GetSetProperty(descr__class__),
     __new__ = newmethod(descr__new__),
+    __init__ = gateway.interp2app(descr__init__),
     )

@@ -36,7 +36,7 @@ class TestBuiltinApp(testit.AppTestCase):
         self.assertEquals(d.f("abc"), (D, "abc"))
         self.assertEquals(D.f("abc"), (D, "abc"))
 
-    def xtest_property_simple(self):
+    def test_property_simple(self):
         
         class a(object):
             def _get(self): return 42
@@ -47,6 +47,31 @@ class TestBuiltinApp(testit.AppTestCase):
         self.assertEquals(a1.name, 42)
         self.assertRaises(AttributeError, setattr, a1, 'name', 42)
         self.assertRaises(KeyError, delattr, a1, 'name')
+
+    def test_super(self):
+        class A:
+            def f(self):
+                return 'A'
+        class B(A):
+            def f(self):
+                return 'B' + super(B,self).f()
+        class C(A):
+            def f(self):
+                return 'C' + super(C,self).f()
+        class D(B, C):
+            def f(self):
+                return 'D' + super(D,self).f()
+        d = D()
+        self.assertEquals(d.f(), "DBCA")
+
+    def test_super_metaclass(self):
+        class xtype(type):
+            def __init__(self, name, bases, dict):
+                super(xtype, self).__init__(name, bases, dict)
+        A = xtype('A', (), {})
+        self.assert_(isinstance(A, xtype))
+        a = A()
+        self.assert_(isinstance(a, A))
 
 if __name__ == '__main__':
     testit.main()

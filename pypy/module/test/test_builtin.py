@@ -230,22 +230,6 @@ class TestBuiltinApp(testit.AppTestCase):
         self.assertRaises(TypeError, hash, [])
         self.assertRaises(TypeError, hash, {})
 
-    def test_super(self):
-        class A:
-            def f(self):
-                return 'A'
-        class B(A):
-            def f(self):
-                return 'B' + super(B,self).f()
-        class C(A):
-            def f(self):
-                return 'C' + super(C,self).f()
-        class D(B, C):
-            def f(self):
-                return 'D' + super(D,self).f()
-        d = D()
-        self.assertEquals(d.f(), "DBCA")
-
         
 class TestInternal(testit.IntTestCase):
 

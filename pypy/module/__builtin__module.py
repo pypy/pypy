@@ -563,6 +563,7 @@ if not hasattr(dict, 'fromkeys'):
 # it exposes the same special attributes as CPython's.
 class super(object):
     def __init__(self, type, obj=None):
+        # XXX check the arguments
         self.__thisclass__ = type
         self.__self__ = obj
         if obj is not None and isinstance(obj, type):
@@ -570,14 +571,18 @@ class super(object):
         else:
             self.__self_class__ = obj
     def __get__(self, obj, type=None):
-        if self.__self__ is None and obj is not None:
-            return super(self.__thisclass__, obj)
+        ga = object.__getattribute__
+        if ga(self, '__self__') is None and obj is not None:
+            return super(ga(self, '__thisclass__'), obj)
         else:
             return self
-    def __getattr__(self, attr):
-        mro = iter(self.__self_class__.__mro__)
+    def __getattribute__(self, attr):
+        d = object.__getattribute__(self, '__dict__')
+        if attr in d:
+            return d[attr]   # for __self__, __thisclass__, __self_class__
+        mro = iter(d['__self_class__'].__mro__)
         for cls in mro:
-            if cls is self.__thisclass__:
+            if cls is d['__thisclass__']:
                 break
         # Note: mro is an iterator, so the second loop
         # picks up where the first one left off!
@@ -587,7 +592,7 @@ class super(object):
             except KeyError:
                 continue
             if hasattr(x, '__get__'):
-                x = x.__get__(self.__self__, type(self.__self__))
+                x = x.__get__(d['__self__'], type(d['__self__']))
             return x
         raise AttributeError, attr
 
