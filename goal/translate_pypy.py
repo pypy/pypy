@@ -51,15 +51,11 @@ if __name__ == '__main__':
             return
         print "don't know about", x
 
-    def run_server(background=False):
+    def run_server():
         from pypy.translator.tool.pygame.flowviewer import TranslatorLayout
         from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
         display = GraphDisplay(TranslatorLayout(t))
-        if background:
-            import thread
-            thread.start_new_thread(display.run, ())
-        else:
-            display.run()
+        display.run()
 
     def debug():
         import traceback
@@ -74,10 +70,11 @@ if __name__ == '__main__':
             about(block)
             print '-'*60
         
-        run_server(background=True)
         print >> sys.stderr
+        import thread
         import pdb
-        pdb.post_mortem(tb)
+        thread.start_new_thread(pdb.post_mortem, (tb,))
+        run_server()
 
     try:
         analyse()
