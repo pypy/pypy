@@ -156,26 +156,26 @@ def zip(*collections):
         except StopIteration:
             return res
 
-def reduce(function, l, *initialt):
+def reduce(function, seq, *initialt):
     """ Apply function of two arguments cumulatively to the items of
         sequence, from left to right, so as to reduce the sequence to a
         single value.  Optionally begin with an initial value."""
 
+    seqiter = iter(seq)
     if initialt:
        initial, = initialt
-       idx = 0
     else:
        try:
-          initial = l[0]
-       except IndexError:
+          initial = seqiter.next()
+       except StopIteration:
           raise TypeError, "reduce() of empty sequence with no initial value"
-       idx = 1
     while 1:
-       try:
-         initial = function(initial, l[idx])
-         idx = idx + 1
-       except IndexError:
-         break
+        try:
+            arg = seqiter.next()
+        except StopIteration:
+            break
+        initial = function(initial, arg)
+
     return initial
 
 def issubclass(cls, klass_or_tuple):
