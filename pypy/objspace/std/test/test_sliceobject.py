@@ -49,3 +49,9 @@ class AppTest_SliceObject:
         assert slice(11,4,-2).indices(28) == (11, 4, -2)
         assert slice(11,4,-2).indices(8) == (7, 4, -2)
         assert slice(11,4,-2).indices(2) == (1, 2, -2)
+
+    def test_repr(self):
+        assert repr(slice(1, 2, 3)) == 'slice(1, 2, 3)'
+        assert repr(slice(1, 2)) == 'slice(1, 2, None)'
+        assert repr(slice('a', 'b')) == "slice('a', 'b', None)"
+        

@@ -6,6 +6,7 @@ indices method              tested, OK
 """
 
 from pypy.objspace.std.objspace import *
+from pypy.interpreter import gateway
 
 
 class W_SliceObject(W_Object):
@@ -18,5 +19,10 @@ class W_SliceObject(W_Object):
         w_self.w_step = w_step
 
 registerimplementation(W_SliceObject)
+
+def app_repr__Slice(aslice):
+    return 'slice(%r, %r, %r)' % (aslice.start, aslice.stop, aslice.step)
+
+repr__Slice = gateway.app2interp(app_repr__Slice)
 
 register_all(vars())
