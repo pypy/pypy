@@ -37,7 +37,9 @@ def builtin_isinstance(s_obj, s_type):
     # XXX simple case only
     if s_type.is_constant():
         typ = s_type.const
-        if issubclass(s_obj.knowntype, typ):
+        if s_obj.is_constant():
+            return immutablevalue(isinstance(s_obj.const, typ))
+        elif issubclass(s_obj.knowntype, typ):
             return immutablevalue(True)
         else:
             # XXX HACK HACK HACK
@@ -71,7 +73,8 @@ def builtin_tuple(s_iterable):
 def builtin_type(s_obj, *moreargs):
     if moreargs:
         raise Exception, 'type() called with more than one argument'
-    #...
+    if s_obj.is_constant():
+        return immutablevalue(type(s_obj.const))
     return SomeObject()
 
 def builtin_str(s_obj):
