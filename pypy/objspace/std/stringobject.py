@@ -404,6 +404,10 @@ def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
 
     return (self, sub, start, end)
 
+def contains__String_String(space, w_self, w_sub):
+    self = w_self._value
+    sub = w_sub._value
+    return space.newbool(_find(self, sub, 0, len(self), 1) >= 0)
 
 def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
@@ -973,9 +977,6 @@ app = gateway.applevel(r'''
         L =  [ table[ord(s[i])] for i in range(len(s)) if s[i] not in deletechars ]
         return ''.join(L)
 
-    def contains__String_String(self, sub):
-        return self.find(sub) >= 0
-
     def repr__String(s):
         quote = "'"
         if quote in s and '"' not in s:
@@ -1017,7 +1018,6 @@ app = gateway.applevel(r'''
 str_translate__String_ANY_ANY = app.interphook('str_translate__String_ANY_ANY') 
 str_decode__String_ANY_ANY = app.interphook('str_decode__String_ANY_ANY') 
 mod__String_ANY = app.interphook('mod__String_ANY') 
-contains__String_String = app.interphook('contains__String_String') 
 repr__String = app.interphook('repr__String') 
 
 # register all methods
