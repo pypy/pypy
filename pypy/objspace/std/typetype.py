@@ -10,7 +10,7 @@ class W_TypeType(W_TypeObject):
 
 
 # XXX we'll worry about the __new__/__init__ distinction later
-def typetype_new(space, w_typetype, w_args, w_kwds):
+def new__TypeType_ANY_ANY(space, w_typetype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))
@@ -26,4 +26,4 @@ def typetype_new(space, w_typetype, w_args, w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("type() takes 1 or 3 arguments"))
 
-StdObjSpace.new.register(typetype_new, W_TypeType, W_ANY, W_ANY)
+register_all(vars())
