@@ -47,7 +47,7 @@ StdObjSpace
 
 * (documentation) generate a nice dot-graph from the structure of PyPy
 
-* port pypy's testing framework to std.utest (probably a sprint topic, 
+* port pypy's testing framework to py.test (probably a sprint topic, 
   as some discussion how to do it is required) 
 
 * clear out and do a clean implementation of multimethod delegation.
