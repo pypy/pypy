@@ -141,6 +141,9 @@ class TestImport(testit.AppTestCase):
         #self.assertEquals(sys.modules.get('pkg.x'),None)
         #self.assert_('pkg.x.y' not in sys.modules)
         
+    def test_substituting_import(self):
+        from pkg_substituting import mod
+        self.assertEquals(mod.__name__,'pkg_substituting.mod')
         
         
 if __name__ == '__main__':
