@@ -57,3 +57,91 @@ class Builtin(BuiltinModule):
         res._from_code(c)
         return space.wrap(res)
     compile = appmethod(compile)
+
+
+    ####essentially implemented by the objectspace
+    def abs(self, w_val):
+        pass
+    abs = appmethod(abs)
+
+
+    def chr(self, w_val):
+        pass
+    chr = appmethod(chr)
+
+
+    def delattr(self, w_val):
+        pass
+    delattr = appmethod(delattr)
+
+
+    def getattr(self, w_val):
+        pass
+    getattr = appmethod(getattr)
+
+
+    def hash(self, w_val):
+        pass
+    hash = appmethod(hash)
+
+
+    def hex(self, w_val):
+        pass
+    hex = appmethod(hex)
+
+
+    def id(self, w_val):
+        pass
+    id = appmethod(id)
+
+
+    def isinstance(self, w_val):
+        pass
+    isinstance = appmethod(isinstance)
+
+
+    def issubclass(self, w_val):
+        pass
+    issubclass = appmethod(issubclass)
+
+
+    def iter(self, w_val):
+        pass
+    iter = appmethod(iter)
+
+
+    def len(self, w_val):
+        pass
+    len = appmethod(len)
+
+
+    def eon(self, w_val):
+        pass
+    eon = appmethod(eon)
+
+
+    def ord(self, w_val):
+        pass
+    ord = appmethod(ord)
+
+
+    def pow(self, w_val):
+        pass
+    pow = appmethod(pow)
+
+
+    def repr(self, w_val):
+        pass
+    repr = appmethod(repr)
+
+
+    def setattr(self, w_val):
+        pass
+    setattr = appmethod(setattr)
+
+
+    def unichr(self, w_val):
+        pass
+    unichr = appmethod(unichr)
+
+
