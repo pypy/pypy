@@ -106,6 +106,7 @@ def transform_dead_op_vars(self):
     CanRemove = {'newtuple': True,
                  'newlist': True,
                  'newdict': True,
+                 'is_': True, 
                  'is_true': True}
     read_vars = {}  # set of variables really used
     variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
@@ -155,8 +156,14 @@ def transform_dead_op_vars(self):
         # look for removable operations whose result is never used
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
-            if op.opname in CanRemove and op.result not in read_vars:
-                del block.operations[i]
+            if op.result not in read_vars: 
+                if op.opname in CanRemove: 
+                    del block.operations[i]
+                elif op.opname == 'simple_call': 
+                    if op.args and isinstance(op.args[0], Constant):
+                        func = op.args[0].value 
+                        if func is isinstance: 
+                            del block.operations[i]
                 
         # look for output variables never used
         # warning: this must be completely done *before* we attempt to

@@ -239,6 +239,9 @@ class RPythonAnnotator:
         # Generic simplifications
         from pypy.translator import transform
         transform.transform_graph(self)
+        from pypy.translator import simplify 
+        for graph in self.translator.flowgraphs.values(): 
+            simplify.eliminate_empty_blocks(graph) 
 
 
     #___ flowing annotations in blocks _____________________
