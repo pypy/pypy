@@ -3,7 +3,8 @@
 
 import os
 os.error = OSError
-__builtins__['reload'] = lambda x: x
+import __builtin__
+__builtin__.reload = lambda x: x
 import ihooks
 ihooks.install()
 import compiler
