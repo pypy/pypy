@@ -1,9 +1,40 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace
 
+class Object:
+    def descr__getattribute__(space, w_obj, w_name):
+        name = space.unwrap(w_name)
+        w_descr = space.lookup(w_obj, name)
+        if w_descr is not None:
+            if space.is_data_descr(w_descr):  # 
+                return space.get(w_descr,w_obj,space.type(w_obj))
+        w_dict = space.getdict(w_obj)   # 
+        if w_dict is not None:  
+            try:
+                return space.getitem(w_dict,w_name)
+            except OperationError, e:
+                if not e.match(space,space.w_KeyError):
+                    raise
+        if w_descr is not None:
+            return space.get(w_descr,w_obj,space.wrap(type))
+        raise OperationError(space.w_AttributeError,w_name)
+        
 class DescrOperation:
 
+    def getdict(self, w_obj):
+        if isinstance(w_obj, Wrappable):
+            descr = self.lookup(w_obj, '__dict__')
+            if descr is None:
+                return None 
+            return #w_dict 
+        else:
+            try:
+                return w_obj.__dict__
+            except AttributeError:
+                return None 
+
     def call(space, w_obj, w_args, w_kwargs):
+        print "call %r, %r, %r" %(w_obj, w_args, w_kwargs)
         w_descr = space.lookup(w_obj, '__call__')
         if w_descr is None:
             raise OperationError(space.w_TypeError, 

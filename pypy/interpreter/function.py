@@ -166,7 +166,7 @@ class Function(Wrappable):
             return wrap(Method(space, wrap(self), None, w_cls))
 
 
-class Method(object):
+class Method(Wrappable): 
     """A method is a function bound to a specific instance or class."""
 
     def __init__(self, space, w_function, w_instance, w_class):

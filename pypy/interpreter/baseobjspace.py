@@ -25,6 +25,7 @@ class ObjSpace:
 
     def __init__(self):
         "Basic initialization of objects."
+        # sets all the internal descriptors 
         self.initialize()
 
     def make_builtins(self):
