@@ -7,6 +7,9 @@ done after control flow graphs are built by the FlowObjSpace,
 but before these graphs are translated into low-level code
 (e.g. C/Lisp/Pyrex).
 
+**THIS IS OUT OF DATE** (not to mention insane!)
+
+I guess we should document the new world sometime..
 
 An example: the factorial
 -------------------------
