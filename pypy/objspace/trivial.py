@@ -199,7 +199,10 @@ def %(_name)s(self, *args):
         return nufun(self, code, globals, defaultarguments, closure)
 
     def newstring(self, asciilist):
-        return ''.join([chr(ascii) for ascii in asciilist])
+        try:
+            return ''.join([chr(ascii) for ascii in asciilist])
+        except:
+            raise OperationError(*sys.exc_info()[:2])            
 
     def call(self, callable, args, kwds):
         if isinstance(callable, types.ClassType):
