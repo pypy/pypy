@@ -141,7 +141,9 @@ class GraphDisplay(Display):
                 self.must_redraw = True
             if event.type == QUIT:
                 break
-        pygame.display.quit()
+        # cannot safely close and re-open the display, depending on
+        # Pygame version and platform.
+        pygame.display.set_mode((self.width,1))
 
 
 if __name__ == '__main__':
