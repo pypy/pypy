@@ -100,3 +100,9 @@ def tuple_eq(space, w_tuple1, w_tuple2):
     return space.w_True
 
 StdObjSpace.eq.register(tuple_eq, W_TupleObject, W_TupleObject)
+
+def tuple_repr(space, w_tuple):
+    # XXX slimy! --mwh
+    return space.wrap(repr(space.unwrap(w_tuple)))
+
+StdObjSpace.repr.register(tuple_repr, W_TupleObject)
