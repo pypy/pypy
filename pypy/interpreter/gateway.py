@@ -113,7 +113,7 @@ def call_with_prepared_arguments(space, function, argarray):
     return function(*argarray, **keywords)
 
 
-class Gateway(object):
+class Gateway(Wrappable):
     """General-purpose utility for the interpreter-level to create callables
     that transparently invoke code objects (and thus possibly interpreted
     app-level code)."""
@@ -132,10 +132,10 @@ class Gateway(object):
         #   staticglobals 
         #   staticdefs 
 
-    def __wrap__(self, space):
+    def __spacebind__(self, space):
         # to wrap a Gateway, we first make a real Function object out of it
         # and the result is a wrapped version of this Function.
-        return space.wrap(self.get_function(space))
+        return self.get_function(space)
 
     def get_function(self, space):
         try:

@@ -10,6 +10,9 @@ from pypy.objspace.descroperation import DescrOperation, Object
 import operator, types, new, sys
 import __builtin__ as cpy_builtin
 
+class CPyWrapper(object):
+    pass
+
 class TrivialObjSpace(ObjSpace, DescrOperation):
 
     def clone_exception_hierarchy(self):
@@ -110,15 +113,56 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
 
     # general stuff
     def wrap(self, x):
-        if hasattr(type(x), '__wrap__'):
-            return x.__wrap__(self)
+        if isinstance(x, Wrappable):
+            x = x.__spacebind__(self)
+            wrapperclass = self.hackwrapperclass(x.typedef)
+            instance = CPyWrapper.__new__(wrapperclass)
+            instancedict = CPyWrapper.__dict__['__dict__'].__get__(instance)
+            instancedict['__internalpypyobject__'] = x
+            return instance
         else:
+            # optional check for double-wrapping
+            if isinstance(x, CPyWrapper):
+                raise TypeError, "wrapping an already-wrapped object"
             return x
 
     def unwrap(self, w):
-        #if hasattr(type(w), '__unwrap__'):
-        #    w = w.__unwrap__()
-        return w
+        if isinstance(w, CPyWrapper):
+            instancedict = CPyWrapper.__dict__['__dict__'].__get__(w)
+            return instancedict['__internalpypyobject__']
+        else:
+            return w
+
+    def hackwrapperclass(self, typedef):
+        try:
+            return typedef.trivialwrapperclass
+        except AttributeError:
+            # make the base first (assuming single inheritance)
+            mro = typedef.mro(self)
+            if len(mro) > 1:
+                bases = (self.hackwrapperclass(mro[1]),)
+            else:
+                bases = (CPyWrapper,)
+            # make the class dict with descriptors redirecting to the ones
+            # in rawdict
+            descrdict = {}
+            for descrname, descr in typedef.rawdict.items():
+                def fget(w_obj, w_descr=descr, space=self):
+                    return space.get(w_descr, w_obj, space.type(w_obj))
+                def fset(w_obj, w_value, w_descr=descr, space=self):
+                    return space.set(w_descr, w_obj, w_value)
+                def fdel(w_obj, w_descr=descr, space=self):
+                    return space.set(w_descr, w_obj)
+                descrdict[descrname] = property(fget, fset, fdel)
+            cls = type(typedef.name, bases, descrdict)
+            typedef.trivialwrapperclass = cls
+            return cls
+
+    def unwrap_builtin(self, w_obj):
+        if isinstance(w_obj, CPyWrapper):
+            return self.unwrap(w_obj)
+        else:
+            return None
 
     def is_(self, w_obj1, w_obj2):
         return self.unwrap(w_obj1) is self.unwrap(w_obj2)
@@ -356,8 +400,10 @@ def %(name)s(self, x, *args):
     #    return round(*args)
 
     def lookup(space, w_obj, name):
-        if isinstance(w_obj, Wrappable):
-            for basedef in w_obj.typedef.mro(space):
+        assert not isinstance(w_obj, Wrappable)
+        if isinstance(w_obj, CPyWrapper):
+            obj = space.unwrap(w_obj)
+            for basedef in obj.typedef.mro(space):
                 if name in basedef.rawdict:
                     return space.wrap(basedef.rawdict[name])
             return None 
@@ -372,7 +418,7 @@ def %(name)s(self, x, *args):
             return None
 
     def get_and_call(self, w_descr, w_obj, w_args, w_kwargs):
-        if isinstance(w_descr, Wrappable):
+        if isinstance(w_descr, CPyWrapper):
             return DescrOperation.get_and_call(self, w_descr, w_obj,
                                                w_args, w_kwargs)
         else:
@@ -383,7 +429,7 @@ def %(name)s(self, x, *args):
                 self.reraise()
 
     def get_and_call_function(self, w_descr, w_obj, *args_w, **kwargs_w):
-        if isinstance(w_descr, Wrappable):
+        if isinstance(w_descr, CPyWrapper):
             return DescrOperation.get_and_call_function(self, w_descr, w_obj,
                                                         *args_w, **kwargs_w)
         else:

@@ -11,7 +11,10 @@ class TypeDef:
         self.rawdict = rawdict
 
     def mro(self, space):
-        return [self, space.object_typedef]
+        if self is space.object_typedef:
+            return [self]
+        else:
+            return [self, space.object_typedef]
 
 class GetSetProperty(Wrappable):
     def __init__(self, fget, fset=None, fdel=None, doc=None):

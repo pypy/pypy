@@ -62,24 +62,26 @@ class DescrOperation:
         return space.lookup(w_obj, '__set__') is not None
 
     def get_and_call(space, w_descr, w_obj, w_args, w_kwargs):
-        if isinstance(w_descr, Function):  # wrapped Function actually
+        descr = space.unwrap_builtin(w_descr)
+        if isinstance(descr, Function):
             # special-case Functions to avoid infinite recursion
             args_w = space.unpacktuple(w_args)
             args_w = [w_obj] + args_w
             w_args = space.newtuple(args_w)
-            return w_descr.call(w_args, w_kwargs)
+            return descr.call(w_args, w_kwargs)
         else:
             w_impl = space.get(w_descr, w_obj, space.type(w_obj))
             return space.call(w_impl, w_args, w_kwargs)
 
     def get_and_call_function(space, w_descr, w_obj, *args_w, **kwargs_w):
-        if isinstance(w_descr, Function):  # wrapped Function actually
+        descr = space.unwrap_builtin(w_descr)
+        if isinstance(descr, Function):
             # special-case Functions to avoid infinite recursion
             args_w = [w_obj] + list(args_w)
             w_args = space.newtuple(args_w)
             w_kwargs = space.newdict([(space.wrap(key), w_item)
                                       for key, w_item in kwargs_w])
-            return w_descr.call(w_args, w_kwargs)
+            return descr.call(w_args, w_kwargs)
         else:
             w_impl = space.get(w_descr, w_obj, space.type(w_obj))
             return space.call_function(w_impl, *args_w, **kwargs_w)
