@@ -187,8 +187,8 @@ def div__Float_Float(space, w_float1, w_float2):
 truediv__Float_Float = div__Float_Float
 
 def floordiv__Float_Float(space, w_float1, w_float2):
-    t = divmod__Float_Float(space, w_float1, w_float2)
-    return space.getitem(t, space.wrap(0))
+    w_t = divmod__Float_Float(space, w_float1, w_float2)
+    return space.getitem(w_t, space.wrap(0))
 
 def mod__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
