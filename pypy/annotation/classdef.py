@@ -53,6 +53,10 @@ class ClassDef:
         sources = {}
         baselist = list(cls.__bases__)
         baselist.reverse()
+        if Exception in baselist and len(baselist)>1: # special-case
+            baselist.remove(Exception)
+            mixeddict['__init__'] = Exception.__init__.im_func
+        
         for b1 in baselist:
             if b1 is object:
                 continue

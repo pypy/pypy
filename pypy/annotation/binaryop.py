@@ -24,7 +24,9 @@ BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
                          'getitem', 'setitem',
                          'inplace_add', 'inplace_sub',
                          'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_',
-                         'union', 'issubtype'])
+                         'union', 'issubtype',
+                         'lshift',
+                         ])
 
 for opname in BINARY_OPERATIONS:
     missing_operation(pairtype(SomeObject, SomeObject), opname)
@@ -130,6 +132,10 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         return SomeInteger(nonneg = int1.nonneg or int1.nonneg,
                            unsigned = int1.unsigned or int2.unsigned)
 
+    def lshift((int1, int2)):
+        if int1.unsigned:
+            return SomeInteger(unsigned=True)
+        return SomeInteger()
 
 class __extend__(pairtype(SomeBool, SomeBool)):
 
@@ -295,14 +301,15 @@ class __extend__(pairtype(SomePBC, SomePBC)):
                         (x, classdef, d[x]))
                 if isclassdef(classdef):
                     classdef2 = classdef
-                    classdef = classdef.commonbase(d[x])
-                    for cand in classdef.getmro():
-                        if x in cand.__dict__.values():
-                            break
-                    else:
-                        assert False, ("confused pbc union trying unwarranted"
-                                       "moving up of method %s from pair %s %s" %
-                                       (x, d[x], classdef2))
+                    if classdef != d[x]:
+                        classdef = classdef.commonbase(d[x])
+                        for cand in classdef.getmro():
+                            if x in cand.cls.__dict__.values():
+                                break
+                        else:
+                            assert False, ("confused pbc union trying unwarranted"
+                                           "moving up of method %s from pair %s %s" %
+                                           (x, d[x], classdef2))
             d[x] = classdef
         result =  SomePBC(d)
         return result

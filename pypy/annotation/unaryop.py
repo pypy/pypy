@@ -22,7 +22,7 @@ def immutablevalue(x):
 
 UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr',
                         'simple_call', 'call_args',
-                        'iter', 'next'])
+                        'iter', 'next', 'invert'])
 
 for opname in UNARY_OPERATIONS:
     missing_operation(SomeObject, opname)
@@ -78,6 +78,13 @@ class __extend__(SomeObject):
         ansi_print("*** WARNING: [%s] cannot follow call(%r, %r)" %
                    (getbookkeeper().whereami(), obj, args), esc="31") # RED
         return SomeObject()
+
+class __extend__(SomeInteger):
+
+    def invert(self):
+        if self.unsigned:
+            return SomeInteger(unsigned=True)
+        return SomeInteger()
 
 
 class __extend__(SomeBool):
