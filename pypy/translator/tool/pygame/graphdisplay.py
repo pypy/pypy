@@ -84,11 +84,11 @@ class GraphDisplay(Display):
              'quit' : 'quit',
         'meta right' : 'layout_forward',
         'meta left': 'layout_back',
-        'p' : 'layout_back',
         'backspace' : 'layout_back',
         'f': 'search',
         '/': 'search',
         'n': 'find_next',
+        'p': 'find_prev',
         'left' : ('pan', (-1, 0)),
         'right' : ('pan', (1, 0)),
         'up' : ('pan', (0, -1)),
@@ -117,6 +117,7 @@ class GraphDisplay(Display):
 
         F or /          Search for text
         N               Find next occurrence
+        P               Find previous occurrence
 
         F1, H or ?      This help message
 
@@ -143,7 +144,8 @@ class GraphDisplay(Display):
         self.ascii_key_cache = {}
         self.status_bar_height = 0
         self.searchstr = None
-        self.searchpos = None
+        self.searchpos = 0
+        self.searchresults = []
         self.initialize_keys()
         self.setlayout(layout)
 
@@ -277,17 +279,29 @@ class GraphDisplay(Display):
         if not searchstr:
             return
         self.searchstr = searchstr
-        self.searchpos = None
+        self.searchpos = -1
+        self.searchresults = list(self.viewer.findall(self.searchstr))
         self.find_next()
 
     def find_next(self):
         if not self.searchstr:
             return
-        item = self.viewer.search(self.searchstr, start_at=self.searchpos)
-        if item is None:
+        if self.searchpos + 1 >= len(self.searchresults):
             self.setstatusbar('Not found: %s' % self.searchstr)
             return
-        self.searchpos = item
+        self.searchpos += 1
+        self.highlight_found_item(self.searchresults[self.searchpos])
+
+    def find_prev(self):
+        if not self.searchstr:
+            return
+        if self.searchpos - 1 < 0:
+            self.setstatusbar('Not found: %s' % self.searchstr)
+            return
+        self.searchpos -= 1
+        self.highlight_found_item(self.searchresults[self.searchpos])
+
+    def highlight_found_item(self, item):
         self.sethighlight(obj=item)
         if isinstance(item, Node):
             self.setstatusbar('Found node containing %s' % self.searchstr)
@@ -305,7 +319,8 @@ class GraphDisplay(Display):
             del self.forward_viewers_history[:]
         self.layout = layout
         self.viewer = GraphRenderer(self.screen, layout)
-        self.searchpos = None
+        self.searchpos = 0
+        self.searchresults = []
         self.zoom_to_fit()
 
     def zoom_actual_size(self):

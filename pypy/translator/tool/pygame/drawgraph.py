@@ -448,23 +448,15 @@ class GraphRenderer:
         for cmd in self.draw_commands():
             cmd()
 
-    def _search_for(self, items, searchstr, start_at=None):
-        """Find an object that contains a search string."""
-        it = iter(items)
-        if start_at is not None:
-            # Skip all items up to and including 'start_at'
-            for item in it:
-                if item is start_at:
-                    break
-        for item in it:
+    def findall(self, searchstr):
+        """Return an iterator for all nodes and edges that contain a searchstr.
+        """
+        for item in self.graphlayout.nodes.itervalues():
             if item.label and searchstr in item.label:
-                return item
-        return None
-
-    def search(self, searchstr, start_at=None):
-        """Find a node or an edge that contains a search string."""
-        items = self.graphlayout.nodes.values() + self.graphlayout.edges
-        return self._search_for(items, searchstr, start_at)
+                yield item
+        for item in self.graphlayout.edges:
+            if item.label and searchstr in item.label:
+                yield item
 
     def at_position(self, (x, y)):
         """Figure out the word under the cursor."""
