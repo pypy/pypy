@@ -6,8 +6,9 @@
 #include "compile.h"
 #include "frameobject.h"
 #include "structmember.h"
+#include "traceback.h"
 
-#ifndef MIN
+#if !defined(MIN)
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */
 
@@ -15,13 +16,13 @@ static PyObject *this_module_globals;
 
 /* Turn this off if you don't want the call trace frames to be built */
 #define USE_CALL_TRACE
+
 #if 0
 #define OBNOXIOUS_PRINT_STATEMENTS
 #endif
-#define INSIDE_FUNCTION "<unknown>"
 
-#define op_richcmp(x,y,r,err,dir)   \
-					   if (!(r=PyObject_RichCompare(x,y,dir))) goto err;
+#define op_richcmp(x,y,r,err,dir) \
+					if (!(r=PyObject_RichCompare(x,y,dir))) FAIL(err)
 #define OP_LT(x,y,r,err)  op_richcmp(x,y,r,err, Py_LT)
 #define OP_LE(x,y,r,err)  op_richcmp(x,y,r,err, Py_LE)
 #define OP_EQ(x,y,r,err)  op_richcmp(x,y,r,err, Py_EQ)
@@ -29,84 +30,88 @@ static PyObject *this_module_globals;
 #define OP_GT(x,y,r,err)  op_richcmp(x,y,r,err, Py_GT)
 #define OP_GE(x,y,r,err)  op_richcmp(x,y,r,err, Py_GE)
 
-#define OP_IS_(x,y,r,err) r = x == y ? Py_True : Py_False; Py_INCREF(r);
+#define OP_IS_(x,y,r,err) \
+					r = x == y ? Py_True : Py_False; Py_INCREF(r);
 
-#define OP_IS_TRUE(x,r,err)	switch (PyObject_IsTrue(x)) {	\
-				case 0: r=Py_False; break;	\
-				case 1: r=Py_True;  break;	\
-				default: goto err;		\
+#define OP_IS_TRUE(x,r,err) \
+				switch (PyObject_IsTrue(x)) {	\
+					case 0: r=Py_False; break;	\
+					case 1: r=Py_True;  break;	\
+					default: FAIL(err)		\
 				}				\
 				Py_INCREF(r);
 
-#define OP_NEG(x,r,err)           if (!(r=PyNumber_Negative(x)))     goto err;
-#define OP_POS(x,r,err)           if (!(r=PyNumber_Positive(x)))     goto err;
-#define OP_INVERT(x,r,err)        if (!(r=PyNumber_Invert(x)))       goto err;
+#define OP_NEG(x,r,err)           if (!(r=PyNumber_Negative(x)))     FAIL(err)
+#define OP_POS(x,r,err)           if (!(r=PyNumber_Positive(x)))     FAIL(err)
+#define OP_INVERT(x,r,err)        if (!(r=PyNumber_Invert(x)))       FAIL(err)
 
-#define OP_ADD(x,y,r,err)         if (!(r=PyNumber_Add(x,y)))        goto err;
-#define OP_SUB(x,y,r,err)         if (!(r=PyNumber_Subtract(x,y)))   goto err;
-#define OP_MUL(x,y,r,err)         if (!(r=PyNumber_Multiply(x,y)))   goto err;
-#define OP_TRUEDIV(x,y,r,err)     if (!(r=PyNumber_TrueDivide(x,y))) goto err;
-#define OP_FLOORDIV(x,y,r,err)    if (!(r=PyNumber_FloorDivide(x,y)))goto err;
-#define OP_DIV(x,y,r,err)         if (!(r=PyNumber_Divide(x,y)))     goto err;
-#define OP_MOD(x,y,r,err)         if (!(r=PyNumber_Remainder(x,y)))  goto err;
-#define OP_POW(x,y,r,err)         if (!(r=PyNumber_Power(x,y,Py_None)))goto err;
-#define OP_LSHIFT(x,y,r,err)      if (!(r=PyNumber_Lshift(x,y)))     goto err;
-#define OP_RSHIFT(x,y,r,err)      if (!(r=PyNumber_Rshift(x,y)))     goto err;
-#define OP_AND_(x,y,r,err)        if (!(r=PyNumber_And(x,y)))        goto err;
-#define OP_OR_(x,y,r,err)         if (!(r=PyNumber_Or(x,y)))         goto err;
-#define OP_XOR(x,y,r,err)         if (!(r=PyNumber_Xor(x,y)))        goto err;
+#define OP_ADD(x,y,r,err)         if (!(r=PyNumber_Add(x,y)))        FAIL(err)
+#define OP_SUB(x,y,r,err)         if (!(r=PyNumber_Subtract(x,y)))   FAIL(err)
+#define OP_MUL(x,y,r,err)         if (!(r=PyNumber_Multiply(x,y)))   FAIL(err)
+#define OP_TRUEDIV(x,y,r,err)     if (!(r=PyNumber_TrueDivide(x,y))) FAIL(err)
+#define OP_FLOORDIV(x,y,r,err)    if (!(r=PyNumber_FloorDivide(x,y)))FAIL(err)
+#define OP_DIV(x,y,r,err)         if (!(r=PyNumber_Divide(x,y)))     FAIL(err)
+#define OP_MOD(x,y,r,err)         if (!(r=PyNumber_Remainder(x,y)))  FAIL(err)
+#define OP_POW(x,y,r,err)         if (!(r=PyNumber_Power(x,y,Py_None)))FAIL(err)
+#define OP_LSHIFT(x,y,r,err)      if (!(r=PyNumber_Lshift(x,y)))     FAIL(err)
+#define OP_RSHIFT(x,y,r,err)      if (!(r=PyNumber_Rshift(x,y)))     FAIL(err)
+#define OP_AND_(x,y,r,err)        if (!(r=PyNumber_And(x,y)))        FAIL(err)
+#define OP_OR_(x,y,r,err)         if (!(r=PyNumber_Or(x,y)))         FAIL(err)
+#define OP_XOR(x,y,r,err)         if (!(r=PyNumber_Xor(x,y)))        FAIL(err)
 
 #define OP_INPLACE_ADD(x,y,r,err) if (!(r=PyNumber_InPlaceAdd(x,y)))           \
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_SUB(x,y,r,err) if (!(r=PyNumber_InPlaceSubtract(x,y)))      \
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_MUL(x,y,r,err) if (!(r=PyNumber_InPlaceMultiply(x,y)))      \
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_TRUEDIV(x,y,r,err) if (!(r=PyNumber_InPlaceTrueDivide(x,y)))\
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_FLOORDIV(x,y,r,err)if(!(r=PyNumber_InPlaceFloorDivide(x,y)))\
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_DIV(x,y,r,err) if (!(r=PyNumber_InPlaceDivide(x,y)))        \
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_MOD(x,y,r,err) if (!(r=PyNumber_InPlaceRemainder(x,y)))     \
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_POW(x,y,r,err) if (!(r=PyNumber_InPlacePower(x,y,Py_None))) \
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_LSHIFT(x,y,r,err) if (!(r=PyNumber_InPlaceLshift(x,y)))     \
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_RSHIFT(x,y,r,err) if (!(r=PyNumber_InPlaceRshift(x,y)))     \
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_AND(x,y,r,err)    if (!(r=PyNumber_InPlaceAnd(x,y)))        \
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_OR(x,y,r,err)     if (!(r=PyNumber_InPlaceOr(x,y)))         \
-								     goto err;
+								     FAIL(err)
 #define OP_INPLACE_XOR(x,y,r,err)    if (!(r=PyNumber_InPlaceXor(x,y)))        \
-								     goto err;
+								     FAIL(err)
 
-#define OP_GETITEM(x,y,r,err)     if (!(r=PyObject_GetItem1(x,y)))   goto err;
-#define OP_SETITEM(x,y,z,r,err)   if ((PyObject_SetItem1(x,y,z))<0)  goto err; \
+#define OP_GETITEM(x,y,r,err)     if (!(r=PyObject_GetItem1(x,y)))   FAIL(err)
+#define OP_SETITEM(x,y,z,r,err)   if ((PyObject_SetItem1(x,y,z))<0)  FAIL(err) \
 				  r=Py_None; Py_INCREF(r);
 #define OP_CONTAINS(x,y,r,err)    switch (PySequence_Contains(x,y)) {	\
 	case 1:								\
 		Py_INCREF(Py_True); r = Py_True; break;			\
 	case 0:								\
 		Py_INCREF(Py_False); r = Py_False; break;		\
-	default: goto err; }
+	default: FAIL(err) }
 
-#define OP_GETATTR(x,y,r,err)     if (!(r=PyObject_GetAttr(x,y)))    goto err;
-#define OP_SETATTR(x,y,z,r,err)   if ((PyObject_SetAttr(x,y,z))<0)   goto err; \
+#define OP_GETATTR(x,y,r,err)     if (!(r=PyObject_GetAttr(x,y)))    FAIL(err)
+#define OP_SETATTR(x,y,z,r,err)   if ((PyObject_SetAttr(x,y,z))<0)   FAIL(err) \
 				  r=Py_None; Py_INCREF(r);
-#define OP_DELATTR(x,y,r,err)     if ((PyObject_SetAttr(x,y,NULL))<0)goto err; \
+#define OP_DELATTR(x,y,r,err)     if ((PyObject_SetAttr(x,y,NULL))<0)FAIL(err) \
 				  r=Py_None; Py_INCREF(r);
 
-#define OP_NEWSLICE(x,y,z,r,err)  if (!(r=PySlice_New(x,y,z)))       goto err;
+#define OP_NEWSLICE(x,y,z,r,err)  if (!(r=PySlice_New(x,y,z)))       FAIL(err)
 
-#define OP_ITER(x,r,err)          if (!(r=PyObject_GetIter(x)))      goto err;
+#define OP_ITER(x,r,err)          if (!(r=PyObject_GetIter(x)))      FAIL(err)
 #define OP_NEXT(x,r,err)          if (!(r=PyIter_Next(x))) {                   \
 		if (!PyErr_Occurred()) PyErr_SetNone(PyExc_StopIteration);     \
-		goto err;                                                      \
+		FAIL(err)                                                      \
 	}
 
+#define OP_SIMPLE_CALL(args,r,err) if (!(r=PyObject_CallFunctionObjArgs args)) \
+					FAIL(err)
 
 /*** tests ***/
 
@@ -140,6 +145,38 @@ static PyObject *this_module_globals;
 
 #define SETUP_INSTANCE(i, cls)                  \
 	(i = PyType_GenericAlloc((PyTypeObject *)cls, 0))
+
+
+
+#if defined(USE_CALL_TRACE)
+
+#define FAIL(err) { __f->f_lineno = __LINE__; goto err; }
+
+#define FUNCTION_HEAD(signature, self, args, names, file, line) \
+	PyThreadState *__tstate = PyThreadState_GET(); \
+	PyObject *__localnames = PyList_CrazyStringPack names; \
+	PyFrameObject *__f = traced_function_head(self, args, signature, file, line, __tstate, __localnames);
+
+#define FUNCTION_CHECK() \
+	assert (__f != NULL);
+
+#define FUNCTION_RETURN(rval) return traced_function_tail(rval, __f, __tstate);
+
+#else /* !defined(USE_CALL_TRACE) */
+
+#define FAIL(err) { goto err; }
+
+#define FUNCTION_HEAD(signature, self, args, names, file, line)
+
+#define FUNCTION_CHECK()
+
+#define FUNCTION_RETURN(rval) return rval;
+
+#endif /* defined(USE_CALL_TRACE) */
+
+
+
+
 
 /* we need a subclass of 'builtin_function_or_method' which can be used
    as methods: builtin function objects that can be bound on instances */
@@ -202,9 +239,9 @@ static PyTypeObject PyGenCFunction_Type = {
 
 /*** operations with a variable number of arguments ***/
 
-#define OP_NEWLIST0(r,err)         if (!(r=PyList_New(0))) goto err;
-#define OP_NEWLIST(args,r,err)     if (!(r=PyList_Pack args)) goto err;
-#define OP_NEWTUPLE(args,r,err)    if (!(r=PyTuple_Pack args)) goto err;
+#define OP_NEWLIST0(r,err)         if (!(r=PyList_New(0))) FAIL(err)
+#define OP_NEWLIST(args,r,err)     if (!(r=PyList_Pack args)) FAIL(err)
+#define OP_NEWTUPLE(args,r,err)    if (!(r=PyTuple_Pack args)) FAIL(err)
 
 #if defined(USE_CALL_TRACE)
 
@@ -212,6 +249,130 @@ static int callstack_depth = -1;
 static PyCodeObject* getcode(char *func_name, char *func_filename, int lineno);
 static int trace_frame(PyThreadState *tstate, PyFrameObject *f, int code, PyObject *val);
 static int trace_frame_exc(PyThreadState *tstate, PyFrameObject *f);
+
+static int
+trace_frame(PyThreadState *tstate, PyFrameObject *f, int code, PyObject *val)
+{
+	int result = 0;
+	if (!tstate->use_tracing || tstate->tracing) {
+		/*printf("if (!tstate->use_tracing || tstate->tracing)\n");*/
+		return 0;
+	}
+	if (tstate->c_profilefunc != NULL) {
+		/*printf("if (tstate->c_profilefunc != NULL)\n");*/
+		tstate->tracing++;
+		result = tstate->c_profilefunc(tstate->c_profileobj,
+						   f, code , val);
+		tstate->use_tracing = ((tstate->c_tracefunc != NULL)
+					   || (tstate->c_profilefunc != NULL));
+		tstate->tracing--;
+		if (result) {
+			/*printf("	if (result)\n");*/
+			return result;
+		}
+	}
+	if (tstate->c_tracefunc != NULL) {
+		/*printf("if (tstate->c_tracefunc != NULL)\n");*/
+		tstate->tracing++;
+		result = tstate->c_tracefunc(tstate->c_traceobj,
+						 f, code , val);
+		tstate->use_tracing = ((tstate->c_tracefunc != NULL)
+					   || (tstate->c_profilefunc != NULL));
+		tstate->tracing--;
+	}   
+	/*printf("return result;\n");*/
+	return result;
+}
+
+static int
+trace_frame_exc(PyThreadState *tstate, PyFrameObject *f)
+{
+	PyObject *type, *value, *traceback, *arg;
+	int err;
+
+	if (tstate->c_tracefunc == NULL) {
+		return 0;
+	}
+
+	PyErr_Fetch(&type, &value, &traceback);
+	if (value == NULL) {
+		value = Py_None;
+		Py_INCREF(value);
+	}
+	arg = PyTuple_Pack(3, type, value, traceback);
+	if (arg == NULL) {
+		PyErr_Restore(type, value, traceback);
+		return 0;
+	}
+	err = trace_frame(tstate, f, PyTrace_EXCEPTION, arg);
+	Py_DECREF(arg);
+	if (err == 0) {
+		PyErr_Restore(type, value, traceback);
+	} else {
+		Py_XDECREF(type);
+		Py_XDECREF(value);
+		Py_XDECREF(traceback);
+	}
+	return err;
+}
+
+static PyCodeObject*
+getcode(char *func_name, char *func_filename, int lineno)
+{
+	PyObject *code = NULL;
+	PyObject *name = NULL;
+	PyObject *nulltuple = NULL;
+	PyObject *filename = NULL;
+	PyCodeObject *tb_code = NULL;
+	int i;
+
+#if defined(OBNOXIOUS_PRINT_STATEMENTS)
+	printf("%5d: ", lineno);
+	assert(callstack_depth >= 0);
+	if (callstack_depth) {
+		for (i=0; i<callstack_depth; ++i) {
+			printf("  ");
+		}
+	}
+	printf("%s\n", func_name);
+#endif /* !defined(OBNOXIOUS_PRINT_STATEMENTS) */
+	code = PyString_FromString("");
+	if (code == NULL)
+		goto failed;
+	name = PyString_FromString(func_name);
+	if (name == NULL)
+		goto failed;
+	nulltuple = PyTuple_New(0);
+	if (nulltuple == NULL)
+		goto failed;
+	filename = PyString_FromString(func_filename);
+	tb_code = PyCode_New(0,       /* argcount */
+						 0,       /* nlocals */
+						 0,       /* stacksize */
+						 0,       /* flags */
+						 code,        /* code */
+						 nulltuple,   /* consts */
+						 nulltuple,   /* names */
+						 nulltuple,   /* varnames */
+						 nulltuple,   /* freevars */
+						 nulltuple,   /* cellvars */
+						 filename,    /* filename */
+						 name,        /* name */
+						 lineno,      /* firstlineno */
+						 code     /* lnotab */
+						 );
+	if (tb_code == NULL)
+		goto failed;
+	Py_DECREF(code);
+	Py_DECREF(nulltuple);
+	Py_DECREF(filename);
+	Py_DECREF(name);
+	return tb_code;
+failed:
+	Py_XDECREF(code);
+	Py_XDECREF(name);
+	return NULL;
+}
 
 static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, char *c_signature, char *filename, int c_lineno, PyThreadState *tstate, PyObject *extra_local_names) {
 	/*
@@ -227,11 +388,8 @@ static PyFrameObject *traced_function_head(PyObject *function, PyObject *args, c
 	int i;
 	int max_locals;
 
-	if (function == NULL || args == NULL || tstate == NULL) {
-		printf("BAD ARGUMENTS!\n");
-		printf("function = 0x%08X args = %08X tstate = %08X\n", function, args, tstate);
-		return NULL;
-	}
+	assert(function && args && tstate);
+
 	locals = PyDict_New();
 	locals_signature = PyString_FromString(c_signature);
 	locals_lineno = PyInt_FromLong(c_lineno);
@@ -294,7 +452,10 @@ static PyObject *traced_function_tail(PyObject *rval, PyFrameObject *f, PyThread
 	}
 	if (rval == NULL) {
 		if (tstate->curexc_traceback == NULL) {
-			PyTraceBack_Here(f);
+			if (PyTraceBack_Here(f) != -1) {
+				/* XXX - this is probably evil */
+				((PyTracebackObject*)tstate->curexc_traceback)->tb_lineno = f->f_lineno;
+			}
 		}
 		if (trace_frame_exc(tstate, f) < 0) {
 			goto end;
@@ -313,123 +474,6 @@ bad_args:
 	return rval;
 }
 
-static PyObject *traced_function_call(PyObject *allargs, char *c_signature, char *filename, int c_lineno) {
-	/*
-		STEALS a reference to allargs
-	*/
-	PyFrameObject *f;
-	PyObject *rval;
-	PyThreadState *tstate;
-	PyObject *function;
-	PyObject *args;
-
-	if (allargs == NULL) {
-		return NULL;
-	}
-	args = PyTuple_GetSlice(allargs, 1, PyTuple_Size(allargs));
-	function = PyTuple_GetItem(allargs, 0);
-	if (args == NULL || function == NULL) {
-		return NULL;
-	}
-	Py_INCREF(function);
-	Py_DECREF(allargs);
-
-	tstate = PyThreadState_GET();
-	f = traced_function_head(function, args, c_signature, filename, c_lineno, tstate, NULL);
-	if (f == NULL) {
-		Py_DECREF(function);
-		Py_DECREF(args);
-		return NULL;
-	}
-
-	rval = PyObject_Call(function, args, NULL);
-	Py_DECREF(function);
-	Py_DECREF(args);
-	return traced_function_tail(rval, f, tstate);
-}
-
-#define OP_SIMPLE_CALL(args, r, err) if ((r = traced_function_call(PyTuple_CrazyPack args, INSIDE_FUNCTION " OP_SIMPLE_CALL" #args, __FILE__, __LINE__)) == NULL) \
-					goto err;
-
-#define FUNCTION_HEAD(signature, self, args, names) \
-	PyThreadState *__tstate = PyThreadState_GET(); \
-	PyObject *__localnames = PyList_CrazyStringPack names; \
-	PyFrameObject *__f = traced_function_head(self, args, signature, __FILE__, __LINE__, __tstate, __localnames); \
-	if (__f == NULL) { \
-		printf("frame is null, wtf?!\n"); \
-		return NULL; \
-	}
-
-#define FUNCTION_RETURN(rval) return traced_function_tail(rval, __f, __tstate);
-
-
-#else
-
-#define OP_SIMPLE_CALL(args,r,err) if (!(r=PyObject_CallFunctionObjArgs args)) \
-					goto err;
-
-#define FUNCTION_HEAD(signature, self, args)
-#define FUNCTION_RETURN(rval) return rval;
-
-#endif
-
-static PyObject* PyTuple_CrazyPack(PyObject *begin, ...)
-{
-	int i;
-	PyObject *o;
-	PyObject *result;
-	PyObject *tuple;
-	va_list vargs;
-
-	result = PyList_New(0);
-	if (result == NULL || begin == NULL) {
-		return result;
-	}
-	va_start(vargs, begin);
-	if (PyList_Append(result, begin) == -1) {
-		Py_XDECREF(result);
-		return result;
-	}
-	while ((o = va_arg(vargs, PyObject *)) != NULL) {
-		if (PyList_Append(result, o) == -1) {
-			Py_XDECREF(result);
-			return NULL;
-		}
-	}
-	va_end(vargs);
-	if ((tuple = PySequence_Tuple(result)) == NULL) {
-		Py_DECREF(result);
-		return NULL;
-	}
-	Py_DECREF(result);
-	return tuple;
-}
-
-static PyObject* PyList_CrazyPack(PyObject *begin, ...)
-{
-	int i;
-	PyObject *o;
-	PyObject *result;
-	va_list vargs;
-
-	result = PyList_New(0);
-	if (result == NULL || begin == NULL) {
-		return result;
-	}
-	va_start(vargs, begin);
-	if (PyList_Append(result, begin) == -1) {
-		Py_XDECREF(result);
-		return result;
-	}
-	while ((o = va_arg(vargs, PyObject *)) != NULL) {
-		if (PyList_Append(result, o) == -1) {
-			Py_XDECREF(result);
-			return NULL;
-		}
-	}
-	va_end(vargs);
-	return result;
-}
 static PyObject* PyList_CrazyStringPack(char *begin, ...)
 {
 	int i;
@@ -470,7 +514,7 @@ static PyObject* PyList_CrazyStringPack(char *begin, ...)
 	return result;
 }
 
-
+#endif /* defined(USE_CALL_TRACE) */
 
 static PyObject* PyList_Pack(int n, ...)
 {
@@ -592,127 +636,6 @@ static PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
 		}
 	}
 	return PySequence_SetSlice(obj, start, stop, v);
-}
-#endif
-
-#ifdef USE_CALL_TRACE
-static int
-trace_frame(PyThreadState *tstate, PyFrameObject *f, int code, PyObject *val)
-{
-	int result = 0;
-	if (!tstate->use_tracing || tstate->tracing) {
-		return 0;
-	}
-	if (tstate->c_profilefunc != NULL) {
-		tstate->tracing++;
-		result = tstate->c_profilefunc(tstate->c_profileobj,
-						   f, code , val);
-		tstate->use_tracing = ((tstate->c_tracefunc != NULL)
-					   || (tstate->c_profilefunc != NULL));
-		tstate->tracing--;
-		if (result) {
-			return result;
-		}
-	}
-	if (tstate->c_tracefunc != NULL) {
-		tstate->tracing++;
-		result = tstate->c_tracefunc(tstate->c_traceobj,
-						 f, code , val);
-		tstate->use_tracing = ((tstate->c_tracefunc != NULL)
-					   || (tstate->c_profilefunc != NULL));
-		tstate->tracing--;
-	}   
-	return result;
-}
-
-static int
-trace_frame_exc(PyThreadState *tstate, PyFrameObject *f)
-{
-	PyObject *type, *value, *traceback, *arg;
-	int err;
-
-	if (tstate->c_tracefunc == NULL) {
-		return 0;
-	}
-
-	PyErr_Fetch(&type, &value, &traceback);
-	if (value == NULL) {
-		value = Py_None;
-		Py_INCREF(value);
-	}
-	arg = PyTuple_Pack(3, type, value, traceback);
-	if (arg == NULL) {
-		PyErr_Restore(type, value, traceback);
-		return 0;
-	}
-	err = trace_frame(tstate, f, PyTrace_EXCEPTION, arg);
-	Py_DECREF(arg);
-	if (err == 0) {
-		PyErr_Restore(type, value, traceback);
-	} else {
-		Py_XDECREF(type);
-		Py_XDECREF(value);
-		Py_XDECREF(traceback);
-	}
-	return err;
-}
-
-static PyCodeObject*
-getcode(char *func_name, char *func_filename, int lineno)
-{
-	PyObject *code = NULL;
-	PyObject *name = NULL;
-	PyObject *nulltuple = NULL;
-	PyObject *filename = NULL;
-	PyCodeObject *tb_code = NULL;
-	int i;
-
-#if defined(OBNOXIOUS_PRINT_STATEMENTS)
-	printf("%5d: ", lineno);
-	assert(callstack_depth >= 0);
-	if (callstack_depth) {
-		for (i=0; i<callstack_depth; ++i) {
-			printf("  ");
-		}
-	}
-	printf("%s\n", func_name);
-#endif
-	code = PyString_FromString("");
-	if (code == NULL)
-		goto failed;
-	name = PyString_FromString(func_name);
-	if (name == NULL)
-		goto failed;
-	nulltuple = PyTuple_New(0);
-	if (nulltuple == NULL)
-		goto failed;
-	filename = PyString_FromString(func_filename);
-	tb_code = PyCode_New(0,       /* argcount */
-						 0,       /* nlocals */
-						 0,       /* stacksize */
-						 0,       /* flags */
-						 code,        /* code */
-						 nulltuple,   /* consts */
-						 nulltuple,   /* names */
-						 nulltuple,   /* varnames */
-						 nulltuple,   /* freevars */
-						 nulltuple,   /* cellvars */
-						 filename,    /* filename */
-						 name,        /* name */
-						 lineno,      /* firstlineno */
-						 code     /* lnotab */
-						 );
-	if (tb_code == NULL)
-		goto failed;
-	Py_DECREF(code);
-	Py_DECREF(nulltuple);
-	Py_DECREF(filename);
-	Py_DECREF(name);
-	return tb_code;
-failed:
-	Py_XDECREF(code);
-	Py_XDECREF(name);
-	return NULL;
 }
 #endif
 

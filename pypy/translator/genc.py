@@ -531,12 +531,10 @@ class GenC:
         name = self.nameof(func)
         assert name.startswith('gfunc_')
         f_name = 'f_' + name[6:]
-        print >> f, 'static PyObject* %s(PyObject* self, PyObject* args)' % (
-            f_name,)
+        print >> f, 'static PyObject*'
+        print >> f, '%s(PyObject* self, PyObject* args)' % (f_name,)
         print >> f, '{'
-        print >> f, '\t#undef INSIDE_FUNCTION'
-        print >> f, '\t#define INSIDE_FUNCTION "%s"' % (f_name,)
-        print >> f, '\tFUNCTION_HEAD(%s, %s, args, %s)' % (
+        print >> f, '\tFUNCTION_HEAD(%s, %s, args, %s, __FILE__, __LINE__ - 2)' % (
             c_string('%s(%s)' % (name, ', '.join(name_of_defaults))),
             name,
             '(%s)' % (', '.join(map(c_string, name_of_defaults) + ['NULL']),),
@@ -549,9 +547,11 @@ class GenC:
             if isinstance(node, Block):
                 localslst.extend(node.getvariables())
         traverse(visit, graph)
-        for a in uniqueitems(localslst):
-            print >> f, '\tPyObject* %s;' % a.name
+        localnames = [a.name for a in uniqueitems(localslst)]
+        print >> f, '\tPyObject *%s;' % (', *'.join(localnames),)
         print >> f
+        
+        print >> f, '\tFUNCTION_CHECK()'
 
         # argument unpacking
         if func.func_code.co_flags & CO_VARARGS:
@@ -606,8 +606,6 @@ class GenC:
             else:
                 fmt = '%s\n'
             f.write(fmt % line)
-        print >> f, '#undef INSIDE_FUNCTION'
-        print >> f, '#define INSIDE_FUNCTION "unknown"'
         print >> f, '}'
 
         # print the PyMethodDef
