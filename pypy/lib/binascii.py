@@ -135,33 +135,46 @@ def quadruplets_base64(s):
 
 def a2b_base64(s):
     s = s.rstrip()
+    # clean out all invalid characters, this also strips the final '=' padding
+    clean_s = []
+    for item in s:
+        if item in table_a2b_base64:
+            clean_s.append(item)
+    s = ''.join(clean_s)
+    # Add '=' padding back into the string
+    if len(s) % 4:
+        s = s + ('=' * (4 - len(s) % 4))
+     
     a = quadruplets_base64(s[:-4])
     result = [
         chr(A << 2 | ((B >> 4) & 0x3)) + 
         chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF)) + 
         chr((C & 0x3) << 6 | D )
         for A, B, C, D in a]
-    final = s[-4:]
-    if final[2] == '=':
-        A = table_a2b_base64[final[0]]
-        B = table_a2b_base64[final[1]]
-        snippet =  chr(A << 2 | ((B >> 4) & 0x3))
-    elif final[3] == '=':
-        A = table_a2b_base64[final[0]]
-        B = table_a2b_base64[final[1]]
-        C = table_a2b_base64[final[2]]
-        snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
-                  chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF))
-    else:
-        A = table_a2b_base64[final[0]]
-        B = table_a2b_base64[final[1]]
-        C = table_a2b_base64[final[2]]
-        D = table_a2b_base64[final[3]]
-        snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
-                  chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF)) + \
-                  chr((C & 0x3) << 6 | D )
 
-    return ''.join(result) + snippet
+    if s:
+        final = s[-4:]
+        if final[2] == '=':
+            A = table_a2b_base64[final[0]]
+            B = table_a2b_base64[final[1]]
+            snippet =  chr(A << 2 | ((B >> 4) & 0x3))
+        elif final[3] == '=':
+            A = table_a2b_base64[final[0]]
+            B = table_a2b_base64[final[1]]
+            C = table_a2b_base64[final[2]]
+            snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
+                    chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF))
+        else:
+            A = table_a2b_base64[final[0]]
+            B = table_a2b_base64[final[1]]
+            C = table_a2b_base64[final[2]]
+            D = table_a2b_base64[final[3]]
+            snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
+                    chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF)) + \
+                    chr((C & 0x3) << 6 | D )
+        result.append(snippet)
+
+    return ''.join(result) 
     
 table_b2a_base64 = \
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
