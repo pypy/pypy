@@ -100,8 +100,10 @@ class Annotator:
         arg1,arg2 = op.args
         type1 = annotations.get_type(arg1)
         type2 = annotations.get_type(arg2)
-        if type1 == int and type2 == int:
+        if type1 is int and type2 is int:
             annotations.set_type(op.result,int)
+        if type1 is str and type2 is str:
+            annotations.set_type(op.result, str)
 
     consider_op_sub = consider_op_add
     consider_op_and_ = consider_op_add   # don't forget the trailing '_'

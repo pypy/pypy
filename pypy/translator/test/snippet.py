@@ -156,3 +156,7 @@ def int_id(x):
     while i < x:
         i = i + 1
     return i
+
+def greet(target):
+    hello = "hello"
+    return hello + target

@@ -30,7 +30,7 @@ class Op:
         print ";", self.op
         print "; Op", self.opname, "is missing"
     binary_ops = {
-        "add": "+",
+        #"add": "+",
         "sub": "-",
         "inplace_add": "+", # weird, but it works
         "mod": "mod",
@@ -45,17 +45,35 @@ class Op:
         result, (arg1, arg2) = self.result, self.args
         cl_op = self.binary_ops[op]
         print "(setq", s(result), "(", cl_op, s(arg1), s(arg2), "))"
+    def op_add(self):
+        s = self.str
+        result, (arg1, arg2) = self.result, self.args
+        print "(setq", s(result),
+        table = {
+            (int, int): "(+ %s %s)",
+            (str, str): "(concatenate 'string %s %s)",
+        }
+        self.gen.emit_typecase(table, arg1, arg2)
+        print ")"
     def op_not_(self):
         s = self.str
         result, (arg1,) = self.result, self.args
         print "(setq", s(result), "(not"
-        self.gen.emit_truth_test(arg1)
+        table = {
+            (bool,): "(not %s)",
+            (int,): "(zerop %s)",
+        }
+        self.gen.emit_typecase(table, arg1)
         print "))"
     def op_is_true(self):
         s = self.str
         result, (arg1,) = self.result, self.args
         print "(setq", s(result)
-        self.gen.emit_truth_test(arg1)
+        table = {
+            (bool,): "%s",
+            (int,): "(not (zerop %s))",
+        }
+        self.gen.emit_typecase(table, arg1)
         print ")"
     def op_alloc_and_set(self):
         s = self.str
@@ -96,6 +114,11 @@ class GenCL:
             return str(val)
         elif val is None:
             return "nil"
+        elif isinstance(val, str):
+            val.replace("\\", "\\\\")
+            val.replace("\"", "\\\"")
+            val = '"' + val + '"'
+            return val
         else:
             return "#<"
     def emitcode(self):
@@ -177,21 +200,27 @@ class GenCL:
                 print var, init,
         print ")"
         self.emit_jump(link.target)
-    def emit_truth_test(self, obj):
+    typemap = {
+        bool: "boolean",
+        int: "fixnum",
+        type(''): "string", # hack, 'str' is in the namespace!
+    }
+    def emit_typecase(self, table, *args):
+        argreprs = tuple(map(self.str, args))
         annset = self.ann.annotated[self.cur_block]
-        tp = annset.get_type(obj)
-        s = self.str
-        if tp is bool:
-            print s(obj)
-        elif tp is int:
-            print "(not (zerop", s(obj), "))"
+        argtypes = tuple(map(annset.get_type, args))
+        if argtypes in table:
+            trans = table[argtypes]
+            print trans % argreprs
         else:
-            print self.template(s(obj), [
-                "(typecase %",
-                "(boolean %)",
-                "(fixnum (not (zerop %)))",
-                ")"])
-    def template(self, sub, seq):
-        def _(x):
-            return x.replace("%", sub)
-        return "\n".join(map(_, seq))
+            print "(cond"
+            for argtypes in table:
+                print "((and",
+                for tp, s in zip(argtypes, argreprs):
+                    cl_tp = "'" + self.typemap[tp]
+                    print "(typep", s, cl_tp, ")",
+                print ")"
+                trans = table[argtypes]
+                print trans % argreprs,
+                print ")"
+            print ")"

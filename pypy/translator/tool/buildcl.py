@@ -7,18 +7,21 @@ from pypy.translator.gencl import GenCL
 from vpath.adapter.process import exec_cmd
 
 def readlisp(s):
-    # Return bool and int only
+    # Return bool/int/str
     s = s.strip()
     if s == "T":
         return True
     elif s == "NIL":
         return False
+    elif s[0] == '"':
+        return s[1:-1]
     else:
         return int(s)
 
-def _make_cl_func(func, cl, path):
+def _make_cl_func(func, cl, path, argtypes=[]):
     fun = FlowObjSpace().build_flow(func)
     gen = GenCL(fun)
+    gen.annotate(argtypes)
     out = gen.emitcode()
     i = 1
     fpath = path.join("%s.lisp" % fun.name)

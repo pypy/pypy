@@ -28,9 +28,9 @@ def is_on_path(name):
 
 global_cl = get_cl()
 
-def make_cl_func(func):
+def make_cl_func(func, argtypes=[]):
     from pypy.translator.tool.buildcl import _make_cl_func
-    return _make_cl_func(func, global_cl, udir)
+    return _make_cl_func(func, global_cl, udir, argtypes)
 
 
 from pypy.translator.test import snippet as t
@@ -76,10 +76,22 @@ class GenCLTestCase(test.IntTestCase):
         self.assertEquals(cl_sieve(), 1028)
 
     def test_easy(self):
+        # These are the Pyrex tests which were easy to adopt.
         f1 = make_cl_func(t.simple_func)
         self.assertEquals(f1(1), 2)
         f2 = make_cl_func(t.while_func)
         self.assertEquals(f2(10), 55)
+        f3 = make_cl_func(t.simple_id)
+        self.assertEquals(f3(9), 9)
+        f4 = make_cl_func(t.branch_id)
+        self.assertEquals(f4(1, 2, 3), 2)
+        self.assertEquals(f4(0, 2, 3), 3)
+        f5 = make_cl_func(t.int_id)
+        self.assertEquals(f5(3), 3)
+
+    def test_string(self):
+        cl_greet = make_cl_func(t.greet, [str])
+        self.assertEquals(cl_greet("world"), "helloworld")
 
 if __name__ == '__main__':
     test.main()
