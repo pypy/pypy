@@ -1,6 +1,6 @@
 
 def main():
     aStr = "hello world"
-    print len(aStr)
+    print aStr
 
 main()

@@ -11,15 +11,14 @@ def run_string(source, fname):
         code = compile(source, fname, 'exec')
         ec = executioncontext.ExecutionContext(space)
 
-        w_globals = ec.make_standard_w_globals()
-
-        space.setitem(w_globals,
-                      space.wrap("__name__"),
-                      space.wrap("__main__"))
+        w_mainmodule = space.newmodule(space.wrap("__main__"))
+        w_globals = space.getattr(w_mainmodule, space.wrap("__dict__"))
+        space.setitem(w_globals, space.wrap("__builtins__"),
+                      ec.get_w_builtins())
         
         frame = pyframe.PyFrame(space, code, w_globals, w_globals)
     except baseobjspace.OperationError, operationerr:
-        raise PyPyError(operationerr)
+        raise baseobjspace.PyPyError(space, operationerr)
     else:
         ec.eval_frame(frame)
 
@@ -33,9 +32,9 @@ def main(argv=None):
 
     try:
         run_file(argv[1])
-    except baseobjspace.OperationError, operationerr:
+    except baseobjspace.PyPyError, pypyerr:
         # XXX insert exception info into the application-level sys.last_xxx
-        operationerr.print_detailed_traceback(space)
+        pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))

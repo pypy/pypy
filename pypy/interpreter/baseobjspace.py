@@ -5,7 +5,10 @@ __all__ = ['ObjSpace', 'OperationError', 'NoValue', 'PyPyError']
 
 class PyPyError(Exception):
     "Raise this when you encounter an exceptional situation in PyPy itself."
-    pass
+    def __init__(self, space, operationerr):
+        self.space = space
+        self.operationerr = operationerr
+
 
 class ObjSpace:
     """Base class for the interpreter-level implementations of object spaces.
