@@ -60,6 +60,23 @@ hacky_delegate_to_long.priority = PRIORITY_CHANGE_TYPE + 0.1  # XXX too
 StdObjSpace.delegate.register(hacky_delegate_to_long, W_IntObject)
 
 
+# XXX XXX XXX
+# std space lookup now *refers directly* to the cpython descriptors
+# so the multimethods implementations here are not reachable
+# nor used, except for things implemented as multimethod directly on the space
+# not through descriptors in DescrOperation
+#
+# delegate
+# id
+# issubtype
+# ord
+# round
+# unwrap
+#
+# TODO kill
+
+
+
 # real-to-wrapped exceptions
 def wrap_exception(space):
     exc, value, tb = sys.exc_info()
