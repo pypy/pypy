@@ -24,6 +24,11 @@ def uniquemodulename(name, SEEN={}):
             SEEN[result] = True
             return result
 
+def go_figure_out_this_name(source):
+    # ahem
+    return 'PyRun_String("%s", Py_eval_input, PyEval_GetGlobals(), NULL)' % (
+        source, )
+
 
 class GenC:
     MODNAMES = {}
@@ -243,24 +248,43 @@ class GenC:
     nameof_class = nameof_classobj   # for Python 2.2
 
     typename_mapping = {
-        object: 'PyBaseObject_Type',
-        int:    'PyInt_Type',
-        long:   'PyLong_Type',
-        bool:   'PyBool_Type',
-        list:   'PyList_Type',
-        tuple:  'PyTuple_Type',
-        dict:   'PyDict_Type',
-        str:    'PyString_Type',
-        float:  'PyFloat_Type',
-        type:   'PyType_Type',
-        complex:'PyComplex_Type',
-        r_int:  'PyInt_Type',
-        r_uint: 'PyInt_Type',
+        object: '&PyBaseObject_Type',
+        int:    '&PyInt_Type',
+        long:   '&PyLong_Type',
+        bool:   '&PyBool_Type',
+        list:   '&PyList_Type',
+        tuple:  '&PyTuple_Type',
+        dict:   '&PyDict_Type',
+        str:    '&PyString_Type',
+        float:  '&PyFloat_Type',
+        type:   '&PyType_Type',
+        complex:'&PyComplex_Type',
+        unicode:'&PyUnicode_Type',
+        file:   '&PyFile_Type',
+
+        r_int:  '&PyInt_Type',
+        r_uint: '&PyInt_Type',
+
+        # XXX we leak 5 references here, but that's the least of the
+        #     problems with this section of code
+        # type 'builtin_function_or_method':
+        type(len): go_figure_out_this_name('type(len)'),
+        # type 'method_descriptor':
+        type(list.append): go_figure_out_this_name('type(list.append)'),
+        # type 'wrapper_descriptor':
+        type(type(None).__repr__): go_figure_out_this_name(
+            'type(type(None).__repr__)'),
+        # type 'getset_descriptor':
+        type(type.__dict__['__dict__']): go_figure_out_this_name(
+            "type(type.__dict__['__dict__'])"),
+        # type 'member_descriptor':
+        type(type.__dict__['__basicsize__']): go_figure_out_this_name(
+            "type(type.__dict__['__basicsize__'])"),
         }
 
     def nameof_type(self, cls):
         if cls in self.typename_mapping:
-            return '(PyObject*) &%s' % self.typename_mapping[cls]
+            return '(PyObject*) %s' % self.typename_mapping[cls]
         assert cls.__module__ != '__builtin__', \
             "built-in class %r not found in typename_mapping" % (cls,)
         return self.nameof_classobj(cls)
@@ -324,7 +348,9 @@ class GenC:
             # collect more of the latercode after each function
             while self.latercode:
                 gen = self.latercode.pop(0)
-                self.initcode.extend(gen)
+                #self.initcode.extend(gen) -- eats TypeError! bad CPython!
+                for line in gen:
+                    self.initcode.append(line)
             self.gen_global_declarations()
 
         # footer
