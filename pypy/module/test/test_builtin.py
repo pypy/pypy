@@ -25,6 +25,12 @@ class TestCompile(unittest_w.TestCase_w):
       w_chr = self.get_builtin('chr')
       self.assertEqual_w(w(chr(65)),
                          s.call_function(w_chr, w(65)))
+      self.assertWRaises_w(s.w_ValueError,
+                           w_chr,
+                           w(-1))
+      self.assertWRaises_w(s.w_TypeError,
+                           w_chr,
+                           w('a'))
       
 if __name__ == '__main__':
     unittest.main()
