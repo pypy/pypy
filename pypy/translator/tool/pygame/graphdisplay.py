@@ -145,7 +145,7 @@ class GraphDisplay(Display):
         self.statusbarinfo = None
         self.must_redraw = True
         if self.viewers_history:
-            info = 'Press Left Arrow to go back to previous screen'
+            info = 'Press Backspace to go back to previous screen'
         else:
             info = ('Click to move around, or drag mouse buttons '
                     '(left to zoom, right to scroll)')
