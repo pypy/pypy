@@ -101,8 +101,7 @@ class Method(Wrappable):
         return self.space.call_args(self.w_function, args)
 
     def descr_method_get(self, w_obj, w_cls=None):
-        function = self.space.unwrap(self.w_function)
-        return function.descr_function_get(w_obj, w_cls=w_cls)
+        return self.space.get(self.w_function, w_obj, w_type=w_cls)
 
     def descr_method_call(self, __args__):
         return self.call_args(__args__)
