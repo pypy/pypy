@@ -124,7 +124,7 @@ def _islower(ch):
     o = ord(ch)
     return (o>=97 and o<=122)
 
-def _is_generic(self, fun): 
+def _is_generic(w_self, fun): 
     space = w_self.space   
     v = space.unwrap(w_self)
     if len(v) == 0:

@@ -277,27 +277,27 @@ class TestStringObject(test.AppTestCase):
     
     
     def test_startswith(self):
-        self.assertEquals('ab'.startswith('ab'),1)
-        self.assertEquals('ab'.startswith('a'),1)
-        self.assertEquals('ab'.startswith(''),1)
-        self.assertEquals('x'.startswith('a'),0)
-        self.assertEquals('x'.startswith('x'),1)
-        self.assertEquals(''.startswith(''),1)
-        self.assertEquals(''.startswith('a'),0)
-        self.assertEquals('x'.startswith('xx'),0)
-        self.assertEquals('y'.startswith('xx'),0)
+        self.assertEquals('ab'.startswith('ab'), 1)
+        self.assertEquals('ab'.startswith('a'), 1)
+        self.assertEquals('ab'.startswith(''), 1)
+        self.assertEquals('x'.startswith('a'), 0)
+        self.assertEquals('x'.startswith('x'), 1)
+        self.assertEquals(''.startswith(''), 1)
+        self.assertEquals(''.startswith('a'), 0)
+        self.assertEquals('x'.startswith('xx'), 0)
+        self.assertEquals('y'.startswith('xx'), 0)
                 
 
     def test_endswith(self):
-        self.assertEquals('ab'.endswith('ab'),1)
-        self.assertEquals('ab'.endswith('b'),1)
-        self.assertEquals('ab'.endswith(''),1)
-        self.assertEquals('x'.endswith('a'),0)
-        self.assertEquals('x'.endswith('x'),1)
-        self.assertEquals(''.endswith(''),1)
-        self.assertEquals(''.endswith('a'),0)
-        self.assertEquals('x'.endswith('xx'),0)
-        self.assertEquals('y'.endswith('xx'),0)
+        self.assertEquals('ab'.endswith('ab'), 1)
+        self.assertEquals('ab'.endswith('b'), 1)
+        self.assertEquals('ab'.endswith(''), 1)
+        self.assertEquals('x'.endswith('a'), 0)
+        self.assertEquals('x'.endswith('x'), 1)
+        self.assertEquals(''.endswith(''), 1)
+        self.assertEquals(''.endswith('a'), 0)
+        self.assertEquals('x'.endswith('xx'), 0)
+        self.assertEquals('y'.endswith('xx'), 0)
       
     def test_expandtabs(self):
         self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(),    'abc\rab      def\ng       hi')
@@ -385,6 +385,13 @@ class TestStringObject(test.AppTestCase):
     def test_upper(self):
         self.assertEquals("aaa AAA".upper(), "AAA AAA")
         self.assertEquals("".upper(), "")
+
+    def test_alnum(self):
+        self.assertEquals("".isalnum(), False)
+        self.assertEquals("!Bro12345w&&&&n Fox".isalnum(), False)
+        self.assertEquals("125 Brown Foxes".isalnum(), False)
+        self.assertEquals("125BrownFoxes".isalnum(), True)
+        
     
     def test_swapcase(self):
         self.assertEquals("aaa AAA 111".swapcase(), "AAA aaa 111")
