@@ -41,9 +41,22 @@ class Module(py.test.collect.Module):
         and at interp-level (because we need to stick a space 
         at the class) ourselves. 
     """
+    def collect_function(self, extpy): 
+        if extpy.check(func=1, basestarts='test_'):
+            if extpy.check(genfunc=1): 
+                yield IntTestGenerator(extpy) 
+            else: 
+                yield IntTestFunction(extpy)
+
+    def collect_app_function(self, extpy): 
+        if extpy.check(func=1, basestarts='app_test_'):
+            assert not extpy.check(genfunc=1), "you must be joking" 
+            yield AppTestFunction(extpy)
+            
     def collect_class(self, extpy): 
         if extpy.check(class_=1, basestarts="Test"): 
             yield IntClassCollector(extpy) 
+
     def collect_appclass(self, extpy): 
         if extpy.check(class_=1, basestarts="AppTest"): 
             yield AppClassCollector(extpy) 
@@ -54,16 +67,35 @@ def gettestobjspace(name=None):
         py.test.skip('test requires object space %r' % (name,))
     return space
 
+class IntTestFunction(py.test.Item): 
+    def execute(self, target, *args):
+        name = target.func_globals.get('objspacename', None) 
+        space = gettestobjspace(name) 
+        return target(space, *args)
+
+class AppTestFunction(py.test.Item): 
+    def execute(self, target, *args): 
+        assert not args 
+        name = target.func_globals.get('objspacename', None) 
+        space = gettestobjspace(name) 
+        func = app2interp_temp(target, target.__name__) 
+        func(space) 
+
 class IntTestMethod(py.test.Item): 
     def execute(self, target, *args):
-        name = getattr(target.im_class, 'objspacename', None)
+        name = target.func_globals.get('objspacename', None) 
+        if name is None: 
+            name = getattr(target.im_class, 'objspacename', None)
         instance = target.im_self
         instance.space = gettestobjspace(name)
         return target(*args)
 
 class AppTestMethod(py.test.Item): 
     def execute(self, target, *args): 
-        name = getattr(target.im_class, 'objspacename', None)
+        assert not args 
+        name = target.func_globals.get('objspacename', None) 
+        if name is None: 
+            name = getattr(target.im_class, 'objspacename', None)
         space = gettestobjspace(name)
         func = app2interp_temp(target.im_func, target.__name__) 
         func(space, space.w_None) 
