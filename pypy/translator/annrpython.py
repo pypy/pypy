@@ -313,7 +313,7 @@ class RPythonAnnotator:
             self.links_followed[link] = True
             import types
             in_except_block = False
-            if isinstance(link.exitcase, types.ClassType) \
+            if isinstance(link.exitcase, (types.ClassType, type)) \
                    and issubclass(link.exitcase, Exception):
                 last_exception_object = annmodel.SomeObject()
                 last_exc_value_object = annmodel.SomeObject()

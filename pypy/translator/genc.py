@@ -11,7 +11,7 @@ from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.translator.simplify import remove_direct_loops
 from pypy.interpreter.pycode import CO_VARARGS
 from pypy.annotation import model as annmodel
-from types import FunctionType, CodeType, InstanceType
+from types import FunctionType, CodeType, InstanceType, ClassType
 
 from pypy.objspace.std.restricted_int import r_int, r_uint
 
@@ -292,7 +292,7 @@ class GenC:
         # For the moment, use old-style classes exactly when the
         # pypy source uses old-style classes, to avoid strange problems.
         if not isinstance(cls, type):
-            assert type(cls) is type(Exception)
+            assert type(cls) is ClassType
             metaclass = "types.ClassType"
 
         name = self.uniquename('gcls_' + cls.__name__)
