@@ -98,7 +98,7 @@ class TestTypeObject(testit.AppTestCase):
         else:
             raise AssertionError, "this multiple inheritance should fail"
 
-    def skip_test_metaclass(self):
+    def test_metaclass(self):
         class OuterMetaClass(type):
             pass
 
@@ -132,7 +132,6 @@ class TestTypeObject(testit.AppTestCase):
                 def mro(self):
                     return [self, object]
 
-        #self.assertEquals(type(B_mro), B_mro.__metaclass__)
         self.assertEquals(B_mro.__bases__, (A_mro,))
         self.assertEquals(B_mro.__mro__, (B_mro, object))
         self.assertEquals(B_mro.mro(), [B_mro, object])
