@@ -16,7 +16,7 @@ def inttype_new(space, w_inttype, w_args, w_kwds):
     if len(args) == 0:
         return space.newint(0)
     elif len(args) == 1:
-        return space.newint(args[0])
+        return space.newint(space.unwrap(args[0]))
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("int() takes at most 1 argument"))
