@@ -128,7 +128,32 @@ class DescrOperation:
                    space.wrap("cannot delete items from object"))
         return space.get_and_call_function(w_descr,w_obj,w_key)
 
+    def pow(space,w_obj1,w_obj2,w_obj3):
+        w_typ1 = space.type(w_obj1)
+        w_typ2 = space.type(w_obj2)
+        w_left_impl = space.lookup(w_obj1,'__pow__')
+        if space.is_true(space.is_(w_typ1,w_typ2)):
+            w_right_impl = None
+        else:
+            w_right_impl = space.lookup(w_obj2,'__rpow__')
+            if space.issubtype(w_typ1,w_typ2):
+                w_obj1,w_obj2 = w_obj2,w_obj1
+                w_left_impl,w_right_impl = w_right_impl,w_left_impl
+        if w_left_impl is not None:
+            w_res = space.get_and_call_function(w_left_impl,w_obj1,w_obj2,
+                                                w_obj3)
+            if _check_notimplemented(w_res):
+                return w_res
+        if w_right_impl is not None:
+           w_res = space.get_and_call_function(w_right_impl,w_obj2,w_obj1,
+                                                w_obj3)
+           if _check_notimplemented(w_res):
+               return w_res
 
+        raise OperationError(space.w_TypeError,
+                space.wrap("operands do not support **"))
+        
+    
     # not_ has a default implementation
 
     # xxx round, ord
@@ -137,10 +162,13 @@ class DescrOperation:
 
 # helpers
 
-def _invoke_binop(self,w_impl,w_obj1,w_obj2):
+def _check_notimplemented(space,w_obj):
+    return not space.is_true(space.is_(w_res,space.w_NotImplemented))
+
+def _invoke_binop(space,w_impl,w_obj1,w_obj2):
     if w_impl is not None:
         w_res = space.get_and_call_function(w_impl,w_obj1,w_obj2)
-        if not space.is_true(space.is_(w_res,space.w_NotImplemented)):
+        if _check_notimplemented(w_res):
             return w_res
     return None
 
@@ -245,6 +273,7 @@ def _make_inplace_impl(symbol,specialnames):
     return inplace_impl
 
 def _make_unaryop_impl(symbol,specialnames):
+    specialname, = specialnames
     def unaryop_impl(space,w_obj):
         w_impl = space.lookup(w_obj,specialname)
         if w_impl is None:
@@ -276,7 +305,7 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
         elif _name not in ['id','type','issubtype',
                            # not really to be defined in DescrOperation
                            'ord','not_','round']:
-            print "missing %s" % _name
+            raise Exception,"missing def for operation%s" % _name
             
             
 
