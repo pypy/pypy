@@ -14,7 +14,7 @@ METAKEYS = dict([
 if sys.platform == 'darwin':
     PMETA = 'lmeta', 'rmeta'
 else:
-    PMETA = 'lalt', 'ralt'
+    PMETA = 'lalt', 'ralt', 'lctrl', 'rctrl'
 
 METAKEYS['meta'] = PMETA
 METAKEYS['shift'] = 'lshift', 'rshift'
@@ -72,10 +72,17 @@ class GraphDisplay(Display):
 
     KEYS = {
         'meta -' : ('zoom', 0.5),
+             '-' : ('zoom', 0.5),
         'meta plus' : ('zoom', 2.0),
+             'plus' : ('zoom', 2.0),
+        'meta .' : ('zoom', 2.0),    # '+' is shift-1 on my keyboard
+             '.' : ('zoom', 2.0),
         'meta 0' : 'zoom_actual_size',
+             '0' : 'zoom_actual_size',
         'meta 1' : 'zoom_to_fit',
+             '1' : 'zoom_to_fit',
         'meta quit' : 'quit',
+             'quit' : 'quit',
         'escape' : 'quit',
         'meta right' : 'layout_forward',
         'meta left': 'layout_back',
@@ -83,6 +90,7 @@ class GraphDisplay(Display):
         'backspace' : 'layout_back',
         'f': 'search',
         '/': 'search',
+        'shift 7': 'search',    # '/' is shift-7 on my keyboard
         'n': 'find_next',
         'left' : ('pan', (-1, 0)),
         'right' : ('pan', (1, 0)),
@@ -100,7 +108,7 @@ class GraphDisplay(Display):
     Key bindings:
 
         Meta -          Zoom out
-        Meta +          Zoom in
+        Meta + or .     Zoom in
         Meta 0          Actual size
         Meta 1          Zoom to fit
 
