@@ -702,7 +702,8 @@ for i in range(256):
     if opname in globals():
         fn = globals()[opname]
     elif not opname.startswith('<') and i>0:
-        print "* Warning, missing opcode %s" % opname
+        import warnings
+        warnings.warn("* Warning, missing opcode %s" % opname)
     dispatch_table.append(fn)
 
 
