@@ -47,6 +47,28 @@ class TestModel(test.TestCase):
         self.assertEquals(v.graph, graph)
         self.assertEquals(v.links[0], graph.startblock.exits[0])
 
+    def test_partial_class(self):
+        graph = self.getflow(self.simplefunc)
+
+        class MyVisitor:
+            def __init__(self):
+                self.blocks = []
+                self.links = []
+
+            def visit_FunctionGraph(self, graph):
+                self.graph = graph
+            def visit_Block(self, block):
+                self.blocks.append(block)
+            def visit(self, link):
+                self.links.append(link)
+
+        v = MyVisitor()
+        traverse(v, graph)
+        self.assertEquals(len(v.blocks), 2)
+        self.assertEquals(len(v.links), 1)
+        self.assertEquals(v.graph, graph)
+        self.assertEquals(v.links[0], graph.startblock.exits[0])
+
     def loop(x):
         x = abs(x)
         while x:

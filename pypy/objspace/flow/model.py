@@ -125,8 +125,9 @@ class traverse:
             if consume:
                 break
         else:
-            consume = self.visitor
+            consume = getattr(self.visitor, 'visit', self.visitor)
 
+        assert callable(consume), "visitor not found for %r on %r" % (cls, self.visitor)
         self.seen[id(node)] = consume(node)
 
         # recurse
