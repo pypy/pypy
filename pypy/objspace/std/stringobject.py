@@ -73,7 +73,7 @@ StdObjSpace.getitem.register(getitem_str_slice,
 def add_str_str(space, w_left, w_right):
     return W_StringObject(w_left.value + w_right.value)
 
-StdObjSpace.getitem.register(add_str_str, W_StringObject, W_StringObject)
+StdObjSpace.add.register(add_str_str, W_StringObject, W_StringObject)
 
 def mod_str_ANY(space, w_left, w_right):
     notImplemented
