@@ -125,7 +125,7 @@ def int_hash_liberal(space, w_int1):
     # Armin: unlike CPython we have no need to special-case the value -1
     return w_int1
 
-# Chris: I'm not yet convinced that we want to make has()
+# Chris: I'm not yet convinced that we want to make hash()
 # return different values that CPython does.
 # So for the moment, both versions are here,
 # and we might think of some config options
