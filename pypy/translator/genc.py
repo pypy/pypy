@@ -10,6 +10,8 @@ from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.translator.simplify import remove_direct_loops
 from types import FunctionType
 
+from pypy.objspace.std.restricted_int import r_int, r_uint
+
 # ____________________________________________________________
 
 def uniquemodulename(name, SEEN={}):
@@ -197,11 +199,15 @@ class GenC:
         return name
 
     def nameof_classobj(self, cls):
-        if issubclass(cls, Exception) and cls.__module__ == 'exceptions':
-            return 'PyExc_%s'%cls.__name__
+        if issubclass(cls, Exception):
+            if cls.__module__ == 'exceptions':
+                return 'PyExc_%s'%cls.__name__
+            else:
+                assert cls.__name__ == "OperationError"
+                return 'PyExc_%s'%cls.__name__
+            
         name = self.uniquename('gcls_' + cls.__name__)
-        bases = [base for base in cls.__bases__ if base is not object]
-        basenames = [self.nameof(base) for base in bases]
+        basenames = [self.nameof(base) for base in cls.__bases__]
         def initclassobj():
             content = cls.__dict__.items()
             content.sort()
@@ -213,6 +219,7 @@ class GenC:
                     # XXX some __NAMES__ are important... nicer solution sought
                     #raise Exception, "unexpected name %r in class %s"%(key, cls)
                 if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
+                    print value
                     continue
                     
                 yield 'INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
@@ -225,7 +232,7 @@ class GenC:
         self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*) &PyType_Type,'
                              %(name,))
         self.initcode.append('\t\t"s(%s){}", "%s"%s))'
-                             %("O"*len(bases), cls.__name__, baseargs))
+                             %("O"*len(basenames), cls.__name__, baseargs))
         
         self.latercode.append(initclassobj())
         return name
@@ -244,6 +251,8 @@ class GenC:
         float:  'PyFloat_Type',
         type:   'PyType_Type',
         complex:'PyComplex_Type',
+        r_int:  'PyInt_Type',
+        r_uint: 'PyInt_Type',
         }
 
     def nameof_type(self, cls):
