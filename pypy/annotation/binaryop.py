@@ -275,8 +275,6 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
 
 class __extend__(pairtype(SomePBC, SomePBC)):
     def union((pbc1, pbc2)):
-        if isinstance(pbc1, SomeBuiltin) or isinstance(pbc2, SomeBuiltin):
-            assert False, "merging builtin & PBC == BAD!"
         if len(pbc2.prebuiltinstances) > len(pbc1.prebuiltinstances):
             pbc1, pbc2 = pbc2, pbc1
         d = pbc1.prebuiltinstances.copy()

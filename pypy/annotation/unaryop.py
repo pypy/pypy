@@ -249,6 +249,14 @@ class RPythonCallsSpace:
     def newdict(self, stuff):
         raise Exception, "call pattern too complicated (** argument)"
 
+    def unpackiterable(self, s_obj, expected_length=None):
+        if isinstance(s_obj, SomeTuple):
+            if (expected_length is not None and
+                expected_length != len(s_obj.items)):
+                raise ValueError
+            return s_obj.items
+        raise Exception, "RPythonCallsSpace.unpackiterable(): only for tuples"
+
     # XXX the following is only a hack to lead Arguments.parse() believe
     # XXX that the *arg is always a tuple!
     w_tuple = object()

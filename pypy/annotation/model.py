@@ -214,7 +214,7 @@ class SomePBC(SomeObject):
         else:
             return kt.__name__
 
-class SomeBuiltin(SomePBC):
+class SomeBuiltin(SomeObject):
     "Stands for a built-in function or method with special-cased analysis."
     knowntype = BuiltinFunctionType  # == BuiltinMethodType
     def __init__(self, analyser, s_self=None):
