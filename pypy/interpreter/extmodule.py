@@ -70,7 +70,7 @@ class BuiltinModule:
         space = self.space
         modulename = self.__pythonname__
         w_module = space.newmodule(space.wrap(modulename))
-        for key, value in self.__class__.__dict__.items():
+        for key, value in self.__class__.__dict__.items() + self.__dict__.items():
             if isinstance(value, appmethod):
                 w_function = make_builtin_func(space,value.func.__get__(self),boundmethod=True)
                 space.setattr(w_module, space.wrap(key), w_function)
