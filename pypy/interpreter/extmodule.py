@@ -1,4 +1,4 @@
-import pycode
+from pypy.interpreter import pycode
 import appfile
 
 class appmethod(object):
