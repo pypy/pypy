@@ -13,12 +13,18 @@ class TestW_DictObject(unittest.TestCase):
         pass
 
     def test_empty(self):
+	space = self.space
         d = dobj.W_DictObject([])
-        self.failIf(self.space.is_true(d))
+        self.failIf(space.is_true(d))
 
     def test_nonempty(self):
-        d = dobj.W_DictObject([(self.space.w_None, self.space.w_None)])
+	space = self.space
+        wNone = space.w_None
+        d = dobj.W_DictObject([(wNone, wNone)])
         self.failUnless(self.space.is_true(d))
+	i = space.getitem(d, wNone)
+        equal = space.eq(i, wNone)
+        self.failUnless(space.is_true(equal))
 
 if __name__ == '__main__':
     unittest.main()
