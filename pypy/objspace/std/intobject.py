@@ -206,6 +206,8 @@ def div__Int_Int(space, w_int1, w_int2):
     else:
         return _truediv(space, w_int1, w_int2)
 
+floordiv__Int_Int = _floordiv
+
 # helper for pow()
 def _impl_int_int_pow(space, iv, iw, iz=None):
     if iw < 0:
