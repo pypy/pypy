@@ -1,3 +1,4 @@
+import types
 
 # XXX kwds yet to come
 
@@ -10,3 +11,16 @@ def apply(function, args):#, kwds):
 def map(function, list):
     "docstring"
     return [function(x) for x in list]
+
+def isinstance(obj, klass_or_tuple):
+    objcls = obj.__class__
+    if type(klass_or_tuple) == types.TupleType:
+       for klass in klass_or_tuple:
+           if issubclass(objcls, klass):
+              return 1
+       return 0
+    elif type(klass_ot_tuple) == types.ClassType:
+       return issubclass(objcls, klass)
+    else:
+       raise TypeError, "isinstance() arg 2 must be a class or type"
+ 
