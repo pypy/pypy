@@ -119,7 +119,6 @@ LT = 5
 NE = 6
 
 def string_richcompare(space, w_str1, w_str2, op):
-    print "string_richcompare ", w_str1, w_str2, op
     str1 = w_str1._value
     str2 = w_str2._value
 
@@ -176,40 +175,27 @@ def string_richcompare(space, w_str1, w_str2, op):
             raise NotImplemented
 
 def str_str_lt(space, w_str1, w_str2):
-    i = w_str1._value.value()
-    j = w_str2._value.value()
-    return space.newbool( i < j )
+    return string_richcompare(space, w_str1, w_str2, LT)
+
 StdObjSpace.lt.register(str_str_lt, W_StringObject, W_StringObject)
 
 def str_str_le(space, w_str1, w_str2):
-    i = w_str1._value.value()
-    j = w_str2._value.value()
-    return space.newbool( i <= j )
+    return string_richcompare(space, w_str1, w_str2, LE)
+
 StdObjSpace.le.register(str_str_le, W_StringObject, W_StringObject)
 
 def str_str_eq(space, w_str1, w_str2):
-    val1 = w_str1._value
-    val2 = w_str2._value
-    if val1.len == val2.len:
-        for i in range(val1.len):
-            if ord(val1.charat(i)) != ord(val2.charat(i)):
-                return space.w_False
-        return space.w_True           
-    else:
-        return space.w_False
+    return string_richcompare(space, w_str1, w_str2, EQ)
+
 StdObjSpace.eq.register(str_str_eq, W_StringObject, W_StringObject)
 
 def str_str_ne(space, w_str1, w_str2):
-    #i = w_str1._value.value()
-    #j = w_str2._value.value()
-    #return space.newbool( i != j )
     return string_richcompare(space, w_str1, w_str2, NE)
 StdObjSpace.ne.register(str_str_ne, W_StringObject, W_StringObject)
 
 def str_str_gt(space, w_str1, w_str2):
-    i = w_str1._value.value()
-    j = w_str2._value.value()
-    return space.newbool( i > j )
+    return string_richcompare(space, w_str1, w_str2, GT)
+
 StdObjSpace.gt.register(str_str_gt, W_StringObject, W_StringObject)
 
 def str_str_ge(space, w_str1, w_str2):
