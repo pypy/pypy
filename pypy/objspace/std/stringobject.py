@@ -66,12 +66,13 @@ startswith        str_startswith__String_String    [optional arguments not suppo
 strip             def str_strip__String_String(space, w_self, w_chars):
 swapcase          OK
 title             def str_title__String(space, w_self):
-translate
+translate         OK
 upper             def str_upper__String(space, w_self):
 zfill             OK
 """
 
 from pypy.objspace.std.objspace import *
+from pypy.interpreter import gateway
 from stringtype import W_StringType
 from intobject   import W_IntObject
 from sliceobject import W_SliceObject
@@ -723,7 +724,21 @@ def str_zfill__String_Int(space, w_self, w_width):
     
     return space.wrap("".join(buf))
     
-        
+    
+def app_str_translate__String_String_String(s, table, deletechars=''):
+    """charfilter - unicode handling is not implemented
+    
+    Return a copy of the string where all characters occurring 
+    in the optional argument deletechars are removed, and the 
+    remaining characters have been mapped through the given translation table, 
+    which must be a string of length 256"""
+
+    L =  [ table[ord(s[i])] for i in range(len(s)) if s[i] not in deletechars ]
+    return ''.join(L)
+
+str_translate__String_String_String = gateway.app2interp(app_str_translate__String_String_String)
+
+    
 def unwrap__String(space, w_str):
     return w_str._value
 
