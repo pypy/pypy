@@ -7,14 +7,15 @@ from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeClass
-from pypy.annotation.model import SomeFunction, SomeMethod
+from pypy.annotation.model import SomeFunction, SomeMethod, SomeIterator
 from pypy.annotation.model import immutablevalue, decode_simple_call
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
 from pypy.annotation.factory import InstanceFactory, FuncCallFactory
 
 
-UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'call'])
+UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'call',
+                        'iter', 'next'])
 
 for opname in UNARY_OPERATIONS:
     missing_operation(SomeObject, opname)
@@ -57,6 +58,15 @@ class __extend__(SomeList):
 
     def method_append(lst, s_item):
         pair(lst, SomeInteger()).setitem(s_item)
+
+    def iter(lst):
+        return SomeIterator(lst.s_item)
+
+
+class __extend__(SomeIterator):
+
+    def next(itr):
+        return itr.s_item
 
 
 class __extend__(SomeInstance):

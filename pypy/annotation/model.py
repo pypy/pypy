@@ -87,6 +87,12 @@ class SomeDict(SomeObject):
         self.factories = factories
         self.items = items    # dict {realkey: s_value}
 
+class SomeIterator(SomeObject):
+    "Stands for an iterator returning objects of a known type."
+    knowntype = type(iter([]))  # arbitrarily chose seqiter as the type
+    def __init__(self, s_item=SomeObject()):
+        self.s_item = s_item
+
 class SomeClass(SomeObject):
     "Stands for a user-defined class object."
     # only used when the class object is loaded in a variable
