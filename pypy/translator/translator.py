@@ -28,8 +28,7 @@ Some functions are provided for the benefit of interactive testing.
 Try dir(test) for list of current snippets.
 """
 
-
-import autopath
+import test.autopath
 
 from pypy.objspace.flow.model import *
 from pypy.translator.annotation import *

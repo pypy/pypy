@@ -4,7 +4,6 @@ The difference between simplification and transformation is that
 transformation may introduce new space operation.
 """
 
-import autopath
 import types
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.translator.annotation import XCell, XConstant

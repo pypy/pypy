@@ -1,4 +1,3 @@
-import autopath
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.objspace import implicitexc
 from pypy.translator.annrpython import RPythonAnnotator
