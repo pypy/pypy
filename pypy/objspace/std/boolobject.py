@@ -16,6 +16,9 @@ class W_BoolObject(W_Object):
         return (isinstance(w_other, W_BoolObject) and
                 w_self.boolval == w_other.boolval)
 
+    def __nonzero__(self):
+        raise "you cannot do that, you must use space.is_true()"
+
 
 def bool_is_true(space, w_bool):
     return w_bool.boolval
