@@ -6,7 +6,7 @@ from pypy.interpreter.argument import Arguments
 
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '_coerce'
 ## firstlineno 7
 ##SECTION##
@@ -68,7 +68,7 @@ def _coerce(space, w_left, w_right):
 fastf__coerce = _coerce
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'uid'
 ## firstlineno 18
 ##SECTION##
@@ -122,7 +122,7 @@ def uid(space, w_o):
 fastf_uid = uid
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'type_err'
 ## firstlineno 34
 ##SECTION##
@@ -160,7 +160,7 @@ def type_err(space, w_arg, w_expected, w_v):
 fastf_type_err = type_err
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'set_name'
 ## firstlineno 37
 ##SECTION##
@@ -211,7 +211,7 @@ def set_name(space, w_cls, w_name):
 fastf_set_name = set_name
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'set_bases'
 ## firstlineno 42
 ##SECTION##
@@ -296,7 +296,7 @@ def set_bases(space, w_cls, w_bases):
 fastf_set_bases = set_bases
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'set_dict'
 ## firstlineno 50
 ##SECTION##
@@ -346,7 +346,7 @@ def set_dict(space, w_cls, w_dic):
 fastf_set_dict = set_dict
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'retrieve'
 ## firstlineno 55
 ##SECTION##
@@ -420,7 +420,7 @@ def retrieve(space, w_obj, w_attr):
 fastf_retrieve = retrieve
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'lookup'
 ## firstlineno 62
 ##SECTION##
@@ -552,7 +552,7 @@ def lookup(space, w_cls, w_attr):
 fastf_lookup = lookup
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'get_class_module'
 ## firstlineno 74
 ##SECTION##
@@ -632,7 +632,7 @@ def get_class_module(space, w_cls):
 fastf_get_class_module = get_class_module
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'mro_lookup'
 ## firstlineno 83
 ##SECTION##
@@ -709,71 +709,9 @@ def mro_lookup(space, w_v, w_name):
 fastf_mro_lookup = mro_lookup
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
-## function    'seqiter'
-## firstlineno 93
-##SECTION##
-def seqiter(space, __args__):
-    funcname = "seqiter"
-    signature = ['func'], None, None
-    defaults_w = []
-    w_func, = __args__.parse(funcname, signature, defaults_w)
-    return fastf_seqiter(space, w_func)
-
-f_seqiter = seqiter
-
-def seqiter(space, w_func):
-
-    w_1=w_2=w_3=w_4=w_5=w_6=v7=w_10=w_11=w_12=w_13=v14=w_etype=w_evalue=None
-
-    goto = 1 # startblock
-    while True:
-
-        if goto == 1:
-            try:
-                w_1 = space.call_function(w_func, gi_0)
-                w_2 = w_1
-                goto = 5
-            except OperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    w_3, w_4, w_5 = e.w_type, e.w_value, e.w_type
-                    goto = 2
-                else:raise # unhandled case, should not happen
-
-        if goto == 2:
-            w_6 = space.is_(w_5, space.w_IndexError)
-            v7 = space.is_true(w_6)
-            if v7 == True:
-                w_etype, w_evalue = space.w_StopIteration, space.w_None
-                goto = 4
-            else:
-                assert v7 == False
-                w_10, w_11, w_12 = w_3, w_4, w_5
-                goto = 3
-
-        if goto == 3:
-            w_13 = space.issubtype(w_12, space.w_IndexError)
-            v14 = space.is_true(w_13)
-            if v14 == True:
-                w_etype, w_evalue = space.w_StopIteration, space.w_None
-                goto = 4
-            else:
-                assert v14 == False
-                w_etype, w_evalue = w_10, w_11
-                goto = 4
-
-        if goto == 4:
-            raise OperationError(w_etype, w_evalue)
-
-        if goto == 5:
-            return w_2
-
-fastf_seqiter = seqiter
-
-##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__new__'
-## firstlineno 109
+## firstlineno 111
 ##SECTION##
 # global declarations
 # global object gfunc_type_err
@@ -1188,9 +1126,9 @@ def __new__(space, w_subtype, w_name, w_bases, w_dic):
 fastf___new__ = __new__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__setattr__'
-## firstlineno 159
+## firstlineno 161
 ##SECTION##
 # global declarations
 # global object gfunc_set_name
@@ -1276,9 +1214,9 @@ def __setattr__(space, w_self, w_attr, w_value):
 fastf_classobj___setattr__ = __setattr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__delattr__'
-## firstlineno 169
+## firstlineno 171
 ##SECTION##
 # global declarations
 # global object g3tuple_2
@@ -1327,9 +1265,9 @@ def __delattr__(space, w_self, w_attr):
 fastf_classobj___delattr__ = __delattr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__getattribute__'
-## firstlineno 176
+## firstlineno 178
 ##SECTION##
 # global declarations
 # global object gs___get__
@@ -1468,9 +1406,9 @@ def __getattribute__(space, w_self, w_attr):
 fastf_classobj___getattribute__ = __getattribute__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__repr__'
-## firstlineno 193
+## firstlineno 195
 ##SECTION##
 # global declarations
 # global object gfunc_uid
@@ -1507,9 +1445,9 @@ def __repr__(space, w_self):
 fastf_classobj___repr__ = __repr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__str__'
-## firstlineno 197
+## firstlineno 199
 ##SECTION##
 # global declarations
 # global object gfunc_get_class_module
@@ -1563,9 +1501,9 @@ def __str__(space, w_self):
 fastf_classobj___str__ = __str__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__call__'
-## firstlineno 204
+## firstlineno 206
 ##SECTION##
 # global declarations
 # global object gbltinmethod___new__
@@ -1633,9 +1571,9 @@ def __call__(space, w_self, w_args, w_kwds):
 fastf_classobj___call__ = __call__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'instance_getattr1'
-## firstlineno 225
+## firstlineno 227
 ##SECTION##
 # global declarations
 # global object gs___class__
@@ -1853,9 +1791,9 @@ def instance_getattr1(space, w_inst, w_name, w_exc):
 fastf_instance_getattr1 = instance_getattr1
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__getattribute__'
-## firstlineno 249
+## firstlineno 251
 ##SECTION##
 # global declaration
 # global object gs___getattr__
@@ -1960,9 +1898,9 @@ def __getattribute__(space, w_self, w_name):
 fastf_instance___getattribute__ = __getattribute__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__new__'
-## firstlineno 258
+## firstlineno 260
 ##SECTION##
 # global declarations
 # global object gs_instance___first_arg_must_be_cla
@@ -2049,9 +1987,9 @@ def __new__(space, w_typ, w_klass, w_dic):
 fastf___new___1 = __new__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__setattr__'
-## firstlineno 271
+## firstlineno 273
 ##SECTION##
 # global declarations
 # global object gs___dict___must_be_set_to_a_dictio
@@ -2173,9 +2111,9 @@ def __setattr__(space, w_self, w_name, w_value):
 fastf_instance___setattr__ = __setattr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__delattr__'
-## firstlineno 287
+## firstlineno 289
 ##SECTION##
 # global declarations
 # global object g2tuple_2
@@ -2315,9 +2253,9 @@ def __delattr__(space, w_self, w_name):
 fastf_instance___delattr__ = __delattr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__repr__'
-## firstlineno 303
+## firstlineno 305
 ##SECTION##
 # global declaration
 # global object gs___s__s_instance_at_0x_x_
@@ -2409,9 +2347,9 @@ def __repr__(space, w_self):
 fastf_instance___repr__ = __repr__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__str__'
-## firstlineno 312
+## firstlineno 314
 ##SECTION##
 def __str__(space, __args__):
     funcname = "__str__"
@@ -2489,9 +2427,9 @@ def __str__(space, w_self):
 fastf_instance___str__ = __str__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__hash__'
-## firstlineno 319
+## firstlineno 321
 ##SECTION##
 # global declarations
 # global object gs_unhashable_instance
@@ -2602,9 +2540,9 @@ def __hash__(space, w_self):
 fastf_instance___hash__ = __hash__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__len__'
-## firstlineno 333
+## firstlineno 335
 ##SECTION##
 # global declarations
 # global object gs___len_____should_return____0
@@ -2667,9 +2605,9 @@ def __len__(space, w_self):
 fastf_instance___len__ = __len__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__getitem__'
-## firstlineno 342
+## firstlineno 344
 ##SECTION##
 # global declaration
 # global object gs___getslice__
@@ -2749,9 +2687,9 @@ def __getitem__(space, w_self, w_key):
 fastf_instance___getitem__ = __getitem__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__setitem__'
-## firstlineno 349
+## firstlineno 351
 ##SECTION##
 # global declarations
 # global object gs_step
@@ -2837,9 +2775,9 @@ def __setitem__(space, w_self, w_key, w_value):
 fastf_instance___setitem__ = __setitem__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__delitem__'
-## firstlineno 356
+## firstlineno 358
 ##SECTION##
 # global declaration
 # global object gs___delslice__
@@ -2919,9 +2857,9 @@ def __delitem__(space, w_self, w_key):
 fastf_instance___delitem__ = __delitem__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__contains__'
-## firstlineno 363
+## firstlineno 365
 ##SECTION##
 def __contains__(space, __args__):
     funcname = "__contains__"
@@ -2991,9 +2929,9 @@ def __contains__(space, w_self, w_obj):
 fastf_instance___contains__ = __contains__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__coerce__'
-## firstlineno 384
+## firstlineno 386
 ##SECTION##
 def __coerce__(space, __args__):
     funcname = "__coerce__"
@@ -3033,9 +2971,9 @@ def __coerce__(space, w_self, w_other):
 fastf_instance___coerce__ = __coerce__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__pow__'
-## firstlineno 438
+## firstlineno 440
 ##SECTION##
 def __pow__(space, __args__):
     funcname = "__pow__"
@@ -3139,9 +3077,9 @@ def __pow__(space, w_self, w_other, w_modulo):
 fastf_instance___pow__ = __pow__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__rpow__'
-## firstlineno 456
+## firstlineno 458
 ##SECTION##
 def __rpow__(space, __args__):
     funcname = "__rpow__"
@@ -3245,9 +3183,9 @@ def __rpow__(space, w_self, w_other, w_modulo):
 fastf_instance___rpow__ = __rpow__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__nonzero__'
-## firstlineno 474
+## firstlineno 476
 ##SECTION##
 # global declarations
 # global object gs___nonzero_____should_return____0
@@ -3337,9 +3275,9 @@ def __nonzero__(space, w_self):
 fastf_instance___nonzero__ = __nonzero__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__call__'
-## firstlineno 489
+## firstlineno 491
 ##SECTION##
 # global declaration
 # global object gs__s_instance_has_no___call___meth
@@ -3394,14 +3332,14 @@ def __call__(space, w_self, w_args, w_kwds):
 fastf_instance___call__ = __call__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__iter__'
-## firstlineno 509
+## firstlineno 511
 ##SECTION##
 # global declarations
 # global object gs___iter___returned_non_iterator_o
 # global object gs_iteration_over_non_sequence
-# global object gfunc_seqiter
+# global object gs__seqiter
 
 def __iter__(space, __args__):
     funcname = "__iter__"
@@ -3414,7 +3352,7 @@ f_instance___iter__ = __iter__
 
 def __iter__(space, w_self):
 
-    w_func=v2=w_self_1=w_func_2=v12=w_etype=w_evalue=w_func_3=w_13=None
+    w_func=v2=w_self_1=w_func_2=v12=w_etype=w_evalue=w_self_2=w_13=None
     w_6=w_func_1=w_ret=w_4=v5=w_ret_1=w_7=w_8=w_9=None
 
     goto = 1 # startblock
@@ -3454,7 +3392,7 @@ def __iter__(space, w_self):
             w_func_2 = space.call_function(gfunc_instance_getattr1, w_self_1, gs___getitem__, space.w_False)
             v12 = space.is_true(w_func_2)
             if v12 == True:
-                w_func_3 = w_func_2
+                w_self_2 = w_self_1
                 goto = 5
             else:
                 assert v12 == False
@@ -3463,7 +3401,7 @@ def __iter__(space, w_self):
                 goto = 6
 
         if goto == 5:
-            w_13 = fastf_seqiter(space, w_func_3)
+            w_13 = space.call_function((space.getattr(space.w_builtin, gs__seqiter)), w_self_2)
             w_6 = w_13
             goto = 7
 
@@ -3476,9 +3414,9 @@ def __iter__(space, w_self):
 fastf_instance___iter__ = __iter__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'next'
-## firstlineno 524
+## firstlineno 526
 ##SECTION##
 # global declaration
 # global object gs_instance_has_no_next___method
@@ -3525,9 +3463,9 @@ def next(space, w_self):
 fastf_instance_next = next
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    '__cmp__'
-## firstlineno 530
+## firstlineno 532
 ##SECTION##
 # global declarations
 # global object gs___cmp___must_return_int
@@ -3726,9 +3664,9 @@ def __cmp__(space, w_self, w_other):
 fastf_instance___cmp__ = __cmp__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/lib/_classobj.py'
+## filename    '/Users/pedronis/PyPy/dist/pypy/lib/_classobj.py'
 ## function    'purify'
-## firstlineno 568
+## firstlineno 570
 ##SECTION##
 # global declarations
 # global object g3tuple
@@ -3937,7 +3875,7 @@ fastf_purify = purify
 # global object gfunc_classobj___str__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__abs__'
 ## firstlineno 4
 ##SECTION##
@@ -3969,7 +3907,7 @@ def __abs__(space, w_self):
 fastf_instance___abs__ = __abs__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__add__'
 ## firstlineno 4
 ##SECTION##
@@ -4046,7 +3984,7 @@ def __add__(space, w_self, w_other):
 fastf_instance___add__ = __add__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__and__'
 ## firstlineno 4
 ##SECTION##
@@ -4123,7 +4061,7 @@ def __and__(space, w_self, w_other):
 fastf_instance___and__ = __and__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__div__'
 ## firstlineno 4
 ##SECTION##
@@ -4200,7 +4138,7 @@ def __div__(space, w_self, w_other):
 fastf_instance___div__ = __div__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__divmod__'
 ## firstlineno 4
 ##SECTION##
@@ -4277,7 +4215,7 @@ def __divmod__(space, w_self, w_other):
 fastf_instance___divmod__ = __divmod__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__eq__'
 ## firstlineno 4
 ##SECTION##
@@ -4352,7 +4290,7 @@ def __eq__(space, w_self, w_other):
 fastf_instance___eq__ = __eq__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__float__'
 ## firstlineno 4
 ##SECTION##
@@ -4384,7 +4322,7 @@ def __float__(space, w_self):
 fastf_instance___float__ = __float__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__floordiv__'
 ## firstlineno 4
 ##SECTION##
@@ -4461,7 +4399,7 @@ def __floordiv__(space, w_self, w_other):
 fastf_instance___floordiv__ = __floordiv__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__ge__'
 ## firstlineno 4
 ##SECTION##
@@ -4536,7 +4474,7 @@ def __ge__(space, w_self, w_other):
 fastf_instance___ge__ = __ge__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__gt__'
 ## firstlineno 4
 ##SECTION##
@@ -4611,7 +4549,7 @@ def __gt__(space, w_self, w_other):
 fastf_instance___gt__ = __gt__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__hex__'
 ## firstlineno 4
 ##SECTION##
@@ -4643,7 +4581,7 @@ def __hex__(space, w_self):
 fastf_instance___hex__ = __hex__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__iadd__'
 ## firstlineno 4
 ##SECTION##
@@ -4685,7 +4623,7 @@ def __iadd__(space, w_self, w_other):
 fastf_instance___iadd__ = __iadd__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__iand__'
 ## firstlineno 4
 ##SECTION##
@@ -4727,7 +4665,7 @@ def __iand__(space, w_self, w_other):
 fastf_instance___iand__ = __iand__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__idiv__'
 ## firstlineno 4
 ##SECTION##
@@ -4769,7 +4707,7 @@ def __idiv__(space, w_self, w_other):
 fastf_instance___idiv__ = __idiv__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__ifloordiv__'
 ## firstlineno 4
 ##SECTION##
@@ -4811,7 +4749,7 @@ def __ifloordiv__(space, w_self, w_other):
 fastf_instance___ifloordiv__ = __ifloordiv__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__ilshift__'
 ## firstlineno 4
 ##SECTION##
@@ -4853,7 +4791,7 @@ def __ilshift__(space, w_self, w_other):
 fastf_instance___ilshift__ = __ilshift__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__imod__'
 ## firstlineno 4
 ##SECTION##
@@ -4895,7 +4833,7 @@ def __imod__(space, w_self, w_other):
 fastf_instance___imod__ = __imod__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__imul__'
 ## firstlineno 4
 ##SECTION##
@@ -4937,7 +4875,7 @@ def __imul__(space, w_self, w_other):
 fastf_instance___imul__ = __imul__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__int__'
 ## firstlineno 4
 ##SECTION##
@@ -4969,7 +4907,7 @@ def __int__(space, w_self):
 fastf_instance___int__ = __int__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__invert__'
 ## firstlineno 4
 ##SECTION##
@@ -5001,7 +4939,7 @@ def __invert__(space, w_self):
 fastf_instance___invert__ = __invert__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__ior__'
 ## firstlineno 4
 ##SECTION##
@@ -5043,7 +4981,7 @@ def __ior__(space, w_self, w_other):
 fastf_instance___ior__ = __ior__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__ipow__'
 ## firstlineno 4
 ##SECTION##
@@ -5085,7 +5023,7 @@ def __ipow__(space, w_self, w_other):
 fastf_instance___ipow__ = __ipow__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__irshift__'
 ## firstlineno 4
 ##SECTION##
@@ -5127,7 +5065,7 @@ def __irshift__(space, w_self, w_other):
 fastf_instance___irshift__ = __irshift__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__isub__'
 ## firstlineno 4
 ##SECTION##
@@ -5169,7 +5107,7 @@ def __isub__(space, w_self, w_other):
 fastf_instance___isub__ = __isub__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__itruediv__'
 ## firstlineno 4
 ##SECTION##
@@ -5211,7 +5149,7 @@ def __itruediv__(space, w_self, w_other):
 fastf_instance___itruediv__ = __itruediv__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__ixor__'
 ## firstlineno 4
 ##SECTION##
@@ -5253,7 +5191,7 @@ def __ixor__(space, w_self, w_other):
 fastf_instance___ixor__ = __ixor__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__le__'
 ## firstlineno 4
 ##SECTION##
@@ -5328,7 +5266,7 @@ def __le__(space, w_self, w_other):
 fastf_instance___le__ = __le__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__long__'
 ## firstlineno 4
 ##SECTION##
@@ -5360,7 +5298,7 @@ def __long__(space, w_self):
 fastf_instance___long__ = __long__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__lshift__'
 ## firstlineno 4
 ##SECTION##
@@ -5437,7 +5375,7 @@ def __lshift__(space, w_self, w_other):
 fastf_instance___lshift__ = __lshift__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__lt__'
 ## firstlineno 4
 ##SECTION##
@@ -5512,7 +5450,7 @@ def __lt__(space, w_self, w_other):
 fastf_instance___lt__ = __lt__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__mod__'
 ## firstlineno 4
 ##SECTION##
@@ -5589,7 +5527,7 @@ def __mod__(space, w_self, w_other):
 fastf_instance___mod__ = __mod__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__mul__'
 ## firstlineno 4
 ##SECTION##
@@ -5666,7 +5604,7 @@ def __mul__(space, w_self, w_other):
 fastf_instance___mul__ = __mul__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__ne__'
 ## firstlineno 4
 ##SECTION##
@@ -5741,7 +5679,7 @@ def __ne__(space, w_self, w_other):
 fastf_instance___ne__ = __ne__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__neg__'
 ## firstlineno 4
 ##SECTION##
@@ -5773,7 +5711,7 @@ def __neg__(space, w_self):
 fastf_instance___neg__ = __neg__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__oct__'
 ## firstlineno 4
 ##SECTION##
@@ -5805,7 +5743,7 @@ def __oct__(space, w_self):
 fastf_instance___oct__ = __oct__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__or__'
 ## firstlineno 4
 ##SECTION##
@@ -5882,7 +5820,7 @@ def __or__(space, w_self, w_other):
 fastf_instance___or__ = __or__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__pos__'
 ## firstlineno 4
 ##SECTION##
@@ -5914,7 +5852,7 @@ def __pos__(space, w_self):
 fastf_instance___pos__ = __pos__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rshift__'
 ## firstlineno 4
 ##SECTION##
@@ -5991,7 +5929,7 @@ def __rshift__(space, w_self, w_other):
 fastf_instance___rshift__ = __rshift__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__sub__'
 ## firstlineno 4
 ##SECTION##
@@ -6068,7 +6006,7 @@ def __sub__(space, w_self, w_other):
 fastf_instance___sub__ = __sub__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__truediv__'
 ## firstlineno 4
 ##SECTION##
@@ -6145,7 +6083,7 @@ def __truediv__(space, w_self, w_other):
 fastf_instance___truediv__ = __truediv__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__xor__'
 ## firstlineno 4
 ##SECTION##
@@ -6225,7 +6163,7 @@ def __xor__(space, w_self, w_other):
 fastf_instance___xor__ = __xor__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__radd__'
 ## firstlineno 14
 ##SECTION##
@@ -6302,7 +6240,7 @@ def __radd__(space, w_self, w_other):
 fastf_instance___radd__ = __radd__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rand__'
 ## firstlineno 14
 ##SECTION##
@@ -6379,7 +6317,7 @@ def __rand__(space, w_self, w_other):
 fastf_instance___rand__ = __rand__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rdiv__'
 ## firstlineno 14
 ##SECTION##
@@ -6456,7 +6394,7 @@ def __rdiv__(space, w_self, w_other):
 fastf_instance___rdiv__ = __rdiv__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rdivmod__'
 ## firstlineno 14
 ##SECTION##
@@ -6533,7 +6471,7 @@ def __rdivmod__(space, w_self, w_other):
 fastf_instance___rdivmod__ = __rdivmod__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rfloordiv__'
 ## firstlineno 14
 ##SECTION##
@@ -6610,7 +6548,7 @@ def __rfloordiv__(space, w_self, w_other):
 fastf_instance___rfloordiv__ = __rfloordiv__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rlshift__'
 ## firstlineno 14
 ##SECTION##
@@ -6687,7 +6625,7 @@ def __rlshift__(space, w_self, w_other):
 fastf_instance___rlshift__ = __rlshift__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rmod__'
 ## firstlineno 14
 ##SECTION##
@@ -6764,7 +6702,7 @@ def __rmod__(space, w_self, w_other):
 fastf_instance___rmod__ = __rmod__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rmul__'
 ## firstlineno 14
 ##SECTION##
@@ -6841,7 +6779,7 @@ def __rmul__(space, w_self, w_other):
 fastf_instance___rmul__ = __rmul__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__ror__'
 ## firstlineno 14
 ##SECTION##
@@ -6918,7 +6856,7 @@ def __ror__(space, w_self, w_other):
 fastf_instance___ror__ = __ror__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rrshift__'
 ## firstlineno 14
 ##SECTION##
@@ -6995,7 +6933,7 @@ def __rrshift__(space, w_self, w_other):
 fastf_instance___rrshift__ = __rrshift__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rsub__'
 ## firstlineno 14
 ##SECTION##
@@ -7072,7 +7010,7 @@ def __rsub__(space, w_self, w_other):
 fastf_instance___rsub__ = __rsub__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rtruediv__'
 ## firstlineno 14
 ##SECTION##
@@ -7149,7 +7087,7 @@ def __rtruediv__(space, w_self, w_other):
 fastf_instance___rtruediv__ = __rtruediv__
 
 ##SECTION##
-## filename    '/u/pedronis/PyPy/dist/pypy/purify'
+## filename    '/Users/pedronis/PyPy/dist/pypy/purify'
 ## function    '__rxor__'
 ## firstlineno 14
 ##SECTION##
@@ -7606,9 +7544,8 @@ def initclassobj(space):
     del m.__itruediv__
     m.gs___iter___returned_non_iterator_o = space.wrap('__iter__ returned non-iterator of type %s')
     m.gs_iteration_over_non_sequence = space.wrap('iteration over non-sequence')
-    m.gfunc_seqiter = space.wrap(interp2app(f_seqiter))
+    m.gs__seqiter = space.wrap('_seqiter')
     del m.__iter__
-    del m.seqiter
     del m.__isub__
     del m.__irshift__
     del m.__ipow__

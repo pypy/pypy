@@ -432,6 +432,9 @@ class GenRpy:
         return s.translate(C_IDENTIFIER)
 
     def nameof_function(self, func, namehint=''):
+        if hasattr(func, 'geninterplevel_name'):
+            return func.geninterplevel_name(self)
+
         printable_name = '(%s:%d) %s' % (
             self.trans_funcname(func.func_globals.get('__name__', '?')),
             func.func_code.co_firstlineno,

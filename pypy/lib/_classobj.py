@@ -89,9 +89,9 @@ def mro_lookup(v, name):
         if name in x.__dict__:
             return x.__dict__[name]
     return None
-    
-def seqiter(func): # XXX may want to access and instatiate the internal
-                   # sequence-iterator type instead
+
+def _seqiter(obj):
+    func = obj.__getitem__
     i = 0
     while 1:
         try:
@@ -99,6 +99,8 @@ def seqiter(func): # XXX may want to access and instatiate the internal
         except IndexError:
             return
         i += 1
+# let geninterplevel retrieve the PyPy builtin instead
+_seqiter.geninterplevel_name = lambda gen: "(space.getattr(space.w_builtin, %s))" % gen.nameof('_seqiter')
 
 OLD_STYLE_CLASSES_IMPL = object()
 
@@ -519,7 +521,7 @@ class instance(object):
             raise TypeError, "iteration over non-sequence"
         # moved sequiter away from here:
         # flow space cannot handle nested functions.
-        return seqiter(func)
+        return _seqiter(self)
 
     def next(self):
         func = instance_getattr1(self, 'next', False)
