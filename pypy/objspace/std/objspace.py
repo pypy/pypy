@@ -105,3 +105,8 @@ class StdObjSpace(ObjSpace):
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity in ObjSpace.MethodTable:
     setattr(StdObjSpace, _name, MultiMethod(_symbol, _arity))
+
+def default_eq(space, a, b):
+    return space.is_(a, b)
+
+StdObjSpace.eq.register(default_eq, W_ANY, W_ANY)
