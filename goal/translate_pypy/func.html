@@ -1,0 +1,24 @@
+<HTML>
+<HEAD>
+</HEAD>
+<BODY>
+
+  <OBJECT data="%(img)s" type="image/png" usemap="#map1">
+     <MAP name="map1">
+       <P>Variables:
+%(
+for n, rect, text in zones:
+    print '<A href="var?n=%s" shape="rect"' % n
+    print 'coords="%d,%d,%d,%d"' % rect
+    s1 = htmlquote(text)
+    print 'title="%s"' % s1
+    s2 = repr(text)[1:-1].replace('"', '\\"').replace("'", "\\'")
+    print 'onmouseover="window.status=\'%s\'">' % s2
+    print s1
+    print '</A>'
+)s
+     </MAP>
+  </OBJECT>
+
+</BODY>
+</HTML>

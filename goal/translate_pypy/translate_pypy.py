@@ -1,7 +1,6 @@
 #
 #  
 #
-
 import autopath
 
 from pypy.objspace.std.objspace import StdObjSpace, W_Object
@@ -27,10 +26,14 @@ if __name__ == '__main__':
         a = t.annotate([])
         #a.simplify()
     except:
-        import sys, traceback
+        import sys, traceback, thread
         exc, val, tb = sys.exc_info()
         print >> sys.stderr
         traceback.print_exception(exc, val, tb)
         print >> sys.stderr
+        import graphserver
+        def bkgnd_server():
+            graphserver.Server(t).serve()
+        thread.start_new_thread(bkgnd_server, ())
         import pdb
         pdb.post_mortem(tb)

@@ -1,3 +1,4 @@
+from __future__ import generators
 import autopath
 import sys, os, re
 import pygame
@@ -90,6 +91,20 @@ class GraphViewer(object):
                         break
                 return word, text, name
         return None, None, None
+
+    def getzones(self, re_nonword=re.compile(r'(\W+)')):
+        for (rx,ry,rw,rh), originalw, text, name in self.positions:
+            words = [s for s in re_nonword.split(text) if s]
+            segment = ''
+            dx1 = 0
+            for word in words:
+                segment += word
+                img = self.font.render(segment, 1, (255, 0, 0))
+                w, h = img.get_size()
+                dx2 = int(float(w) * originalw / rw)
+                if word.strip():
+                    yield (rx+dx1, ry, dx2-dx1, rh), word
+                dx1 = dx2
 
     def parse_xdot_output(self, lines):
         for i in range(len(lines)):

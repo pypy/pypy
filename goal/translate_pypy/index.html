@@ -1,0 +1,16 @@
+<html>
+<head><title>Functions</title></head>
+<body><h1>Functions</h1>
+<table CELLSPACING=1 CELLPADDING=1 BORDER=1>
+%(
+for i, func in zip(range(len(t.functions)), t.functions):
+    print "<tr><td>&nbsp;"
+    print "%s:%d" % (htmlquote(func.func_globals.get('__name__', '?')),
+                     func.func_code.co_firstlineno)
+    print "&nbsp;</td><td>&nbsp;<code><a href='func?i=%d'>" % i
+    print htmlquote(func.__name__)
+    print "</a></code>&nbsp;</td></tr>"
+)s
+</table>
+</body>
+</html>
