@@ -296,7 +296,7 @@ class PyFrame(eval.Frame):
         if self.last_exception is not None:
             f = self.f_back
             while f is not None and f.last_exception is None:
-                f = f_back
+                f = f.f_back
             if f is not None:
                 return f.last_exception.w_type
         return space.w_None
@@ -306,7 +306,7 @@ class PyFrame(eval.Frame):
         if self.last_exception is not None:
             f = self.f_back
             while f is not None and f.last_exception is None:
-                f = f_back
+                f = f.f_back
             if f is not None:
                 return f.last_exception.w_value
         return space.w_None
@@ -316,7 +316,7 @@ class PyFrame(eval.Frame):
         if self.last_exception is not None:
             f = self.f_back
             while f is not None and f.last_exception is None:
-                f = f_back
+                f = f.f_back
             if f is not None:
                 return space.wrap(f.last_exception.application_traceback)
         return space.w_None
