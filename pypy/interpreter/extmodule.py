@@ -86,7 +86,7 @@ class BuiltinModule:
             w_dict = space.getattr(w_module, space.wrap("__dict__"))
             appfile.AppHelper(space, sappfile, w_dict)
 
-    def callhelp(functioname,argslist):
+    def callhelp(self, functioname, argslist):
         if self._helper is None:
             self._helper = appfile.AppHelper(self.space,
                                              self.__helper_appfile__)
