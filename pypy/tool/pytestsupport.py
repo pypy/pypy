@@ -86,7 +86,7 @@ def build_pytest_assertion(space):
         try:
             source = runner.statement
             source = str(source).strip()
-        except py.path.NotFound:
+        except py.error.ENOENT: 
             source = None
         if source:
             msg = exprinfo.interpret(source, runner, should_fail=True)
