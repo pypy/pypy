@@ -46,6 +46,10 @@ class GraphLayout:
                 break
         self.links = {}
 
+    def display(self):
+        from graphdisplay import GraphDisplay
+        GraphDisplay(self).run()
+
 class Node:
     def __init__(self, name, x, y, w, h, label, style, shape, color, fillcolor):
         self.name = name

@@ -122,6 +122,7 @@ class FlowObjSpace(ObjSpace):
         for c in "<>&!":
             name = name.replace(c, '_')
         ec.graph.name = name
+        checkgraph(ec.graph)
         return ec.graph
 
     def unpacktuple(self, w_tuple, expected_length=None):

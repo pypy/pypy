@@ -139,6 +139,7 @@ class FlowExecutionContext(ExecutionContext):
                 # directly at the new block which is its generalization
                 block.dead = True
                 block.operations = ()
+                block.exitswitch = None
                 outputargs = block.framestate.getoutputargs(newstate)
                 block.recloseblock(Link(outputargs, newblock))
             newblock.patchframe(frame, self)

@@ -60,10 +60,13 @@ def fake_type(cpy_type, ignored=None):
         def __init__(w_self, space, val):
             W_Object.__init__(w_self, space)
             w_self.val = val
+    # cannot write to W_Fake.__name__ in Python 2.2!
+    W_Fake = type(W_Object)('W_Fake%s'%(cpy_type.__name__.capitalize()),
+                            (W_Object,),
+                            dict(W_Fake.__dict__.items()))
     def fake_unwrap(space, w_obj):
         return w_obj.val
     StdObjSpace.unwrap.register(fake_unwrap, W_Fake)
-    W_Fake.__name__ = 'W_Fake%s'%(cpy_type.__name__.capitalize())
     W_Fake.typedef.fakedcpytype = cpy_type
     _fake_type_cache[cpy_type] = W_Fake
     return W_Fake

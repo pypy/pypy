@@ -105,9 +105,8 @@ class Translator:
     def view(self, *functions):
         """Shows the control flow graph with annotations if computed.
         Requires 'dot' and pygame."""
-        from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
         from pypy.translator.tool.pygame.flowviewer import FlowGraphLayout
-        GraphDisplay(FlowGraphLayout(self)).run()
+        FlowGraphLayout(self).display()
 
     def simplify(self, func=None):
         """Simplifies the control flow graph (default: for all functions)."""
@@ -129,6 +128,10 @@ class Translator:
         graph = self.getflowgraph(func)
         self.annotator.build_types(graph, input_args_types, func)
         return self.annotator
+
+    def checkgraphs(self):
+        for graph in self.flowgraphs.itervalues():
+            checkgraph(graph)
 
     def source(self, func=None):
         """Returns original Python source.

@@ -6,7 +6,8 @@ from __future__ import generators
 import autopath, os
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
-from pypy.objspace.flow.model import traverse, uniqueitems
+from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
+from pypy.translator.simplify import remove_direct_loops
 
 # ____________________________________________________________
 
@@ -134,6 +135,8 @@ class GenC:
         self.initcode.extend(lines)
         return name
 
+    nameof_class = nameof_classobj   # for Python 2.2
+
     def nameof_type(self, cls):
         assert hasattr(cls, '__weakref__'), (
             "%r is not a user-defined class" % (cls,))
@@ -227,6 +230,9 @@ class GenC:
 
     def cfunction_body(self, func):
         graph = self.translator.getflowgraph(func)
+        remove_direct_loops(graph)
+        checkgraph(graph)
+
         blocknum = {}
         allblocks = []
 
@@ -315,9 +321,10 @@ class GenC:
 
     C_INIT_HEADER = C_SEP + '''
 
+static PyMethodDef no_methods[] = { NULL, NULL };
 void init%(modname)s(void)
 {
-\tPyObject* m = Py_InitModule("%(modname)s", NULL);
+\tPyObject* m = Py_InitModule("%(modname)s", no_methods);
 \tSETUP_MODULE
 '''
 

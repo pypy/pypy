@@ -6,6 +6,15 @@ from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from pypy.annotation import model, factory
 
 
+class SingleGraphLayout(GraphLayout):
+    """ A GraphLayout showing a single precomputed FlowGraph."""
+
+    def __init__(self, graph):
+        from pypy.translator.tool.make_dot import make_dot
+        fn = make_dot(graph.name, graph, target='plain')
+        GraphLayout.__init__(self, fn)
+
+
 class FlowGraphLayout(GraphLayout):
     """ A GraphLayout showing a Flow Graph (or a few flow graphs).
     """

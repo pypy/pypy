@@ -1,7 +1,7 @@
 # test the integration of unicode and strings (even though we don't
 # really implement unicode yet).
 
-import autopath
+import autopath, sys
 from pypy.tool import testit
 
 
@@ -31,8 +31,13 @@ class TestUnicodeString(testit.AppTestCase):
         check(', '.join(['a', u'b']), u'a, b')
         check(u', '.join(['a', 'b']), u'a, b')
 
+    if sys.version_info >= (2,3):
+        def test_contains_ex(self):
+            self.failUnless(u'' in 'abc')
+            self.failUnless(u'bc' in 'abc')
+            self.failUnless('bc' in 'abc')
+
     def test_contains(self):
-        self.failUnless(u'' in 'abc')
         self.failUnless(u'a' in 'abc')
         self.failUnless('a' in u'abc')
         

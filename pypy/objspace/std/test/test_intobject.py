@@ -294,7 +294,7 @@ class AppIntTest(testit.AppTestCase):
 
     def test_int_string(self):
         self.assertEquals(42, int("42"))
-        self.assertEquals(10000000000, int("10000000000"))
+        self.assertEquals(10000000000, long("10000000000"))
 
     def test_int_float(self):
         self.assertEquals(4, int(4.2))

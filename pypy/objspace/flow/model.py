@@ -32,6 +32,10 @@ class FunctionGraph:
             block.exits      = ()
         return block
 
+    def show(self):
+        from pypy.translator.tool.pygame.flowviewer import SingleGraphLayout
+        SingleGraphLayout(self).display()
+
 class Link:
     def __init__(self, args, target, exitcase=None):
         assert len(args) == len(target.inputargs), "output args mismatch"
@@ -225,3 +229,46 @@ def mkentrymap(funcgraph):
             lst.append(link)
     traverse(visit, funcgraph)
     return result
+
+def checkgraph(graph):
+    "Check the consistency of a flow graph."
+    if __debug__:
+        exitblocks = [graph.returnblock] + graph.exceptblocks.values()
+        for block in exitblocks:
+            assert len(block.inputargs) == 1
+            assert not block.operations
+            assert not block.exits
+
+        vars_previous_blocks = {}
+
+        def visit(node):
+            if isinstance(node, Block):
+                assert bool(node.isstartblock) == (node is graph.startblock)
+                if not node.exits:
+                    assert node in exitblocks
+                vars = {}
+                for v in node.inputargs + [op.result for op in node.operations]:
+                    assert isinstance(v, Variable)
+                    assert v not in vars, "duplicate variable %r" % (v,)
+                    assert v not in vars_previous_blocks, (
+                        "variable %r used in more than one block" % (v,))
+                    vars[v] = True
+                for op in node.operations:
+                    for v in op.args:
+                        assert isinstance(v, (Constant, Variable))
+                        if isinstance(v, Variable):
+                            assert v in vars
+                if node.exitswitch is not None:
+                    assert isinstance(node.exitswitch, (Constant, Variable))
+                    if isinstance(node.exitswitch, Variable):
+                        assert node.exitswitch in vars
+                for link in node.exits:
+                    assert len(link.args) == len(link.target.inputargs)
+                    assert link.prevblock is node
+                    for v in link.args:
+                        assert isinstance(v, (Constant, Variable))
+                        if isinstance(v, Variable):
+                            assert v in vars
+                vars_previous_blocks.update(vars)
+
+        traverse(visit, graph)

@@ -4,6 +4,7 @@
 
 """
 
+from __future__ import generators
 from pypy.tool import pydis 
 from pypy.interpreter.baseobjspace import ObjSpace
 

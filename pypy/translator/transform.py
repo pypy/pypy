@@ -299,9 +299,13 @@ def renamevariables(self, block):
 
 def transform_graph(ann):
     """Apply set of transformations available."""
+    if ann.translator:
+        ann.translator.checkgraphs()
     transform_allocate(ann)
     transform_slice(ann)
     transform_listextend(ann)
     # do this last, after the previous transformations had a
     # chance to remove dependency on certain variables
     transform_dead_op_vars(ann)
+    if ann.translator:
+        ann.translator.checkgraphs()

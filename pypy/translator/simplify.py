@@ -81,9 +81,11 @@ def remove_implicit_exceptions(graph):
 
 def simplify_graph(graph):
     """Apply all the existing optimisations to the graph."""
+    checkgraph(graph)
     eliminate_empty_blocks(graph)
     remove_implicit_exceptions(graph)
     join_blocks(graph)
+    checkgraph(graph)
     return graph
 
 

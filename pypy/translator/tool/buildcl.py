@@ -36,12 +36,6 @@ def writelisp(gen, obj):
             content = "'" + content # quote Lisp list
         return content
 
-# for test
-# ultimately, GenCL's str and conv will move to here
-def f(): pass
-fun = FlowObjSpace().build_flow(f)
-gen = GenCL(fun)
-
 def _make_cl_func(func, cl, path, argtypes=[]):
     fun = FlowObjSpace().build_flow(func)
     gen = GenCL(fun, argtypes)
@@ -61,6 +55,12 @@ def _make_cl_func(func, cl, path, argtypes=[]):
     return _
 
 if __name__ == '__main__':
+    # for test
+    # ultimately, GenCL's str and conv will move to here
+    def f(): pass
+    fun = FlowObjSpace().build_flow(f)
+    gen = GenCL(fun)
+
     what = [True, "universe", 42, None, ("of", "them", ["eternal", 95])]
     it = writelisp(gen, what)
     print what
