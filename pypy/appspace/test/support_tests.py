@@ -9,7 +9,7 @@ import sys
 from os import unlink
 
 import py 
-TESTFN = str(py.test.config.tempdir.join('@test'))
+TESTFN = str(py.test.config.tmpdir.join('@test'))
 
 class Error(Exception):
     """Base class for regression test exceptions."""
@@ -35,7 +35,7 @@ class ResourceDenied(TestSkipped):
     and unexpected skips.
     """
 
-verbose = 1              # Flag set to 0 by regrtest.py
+verbose = 0              # Flag set to 0 by regrtest.py
 use_resources = None       # Flag set to [] by regrtest.py
 
 # _original_stdout is meant to hold stdout at the time regrtest began.
@@ -121,9 +121,9 @@ is_jython = sys.platform.startswith('java')
 
 
 
-if fp is not None:
-    fp.close()
-del fp
+##if fp is not None:
+##    fp.close()
+##del fp
 
 def findfile(file, here=__file__):
     """Try to find a file on sys.path and the working directory.  If it is not
