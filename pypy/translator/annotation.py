@@ -39,7 +39,9 @@ class Annotator:
             self.annotated[block] = annotations[:]
         else:
             oldannotations = self.annotated[block]
+            #import sys; print >> sys.stderr, block, oldannotations, annotations,
             newannotations = self.unify(oldannotations,annotations)
+            #import sys; print >> sys.stderr, newannotations
             if newannotations == oldannotations:
                 return
             self.annotated[block] = newannotations
@@ -73,32 +75,44 @@ class Annotator:
         
         for w_from,w_to in zip(branch.args,branch.target.input_args):
             if isinstance(w_from,Variable):
-                renaming[w_from] = w_to
+                renaming.setdefault(w_from, []).append(w_to)
             else:
                 self.consider_const(w_to,w_from,newannotations)        
 
         def rename(w):
             if isinstance(w,Constant):
-                return w
+                return [w]
             if isinstance(w,GraphGlobalVariable):
-                return w
+                return [w]
             else:
-                return renaming[w]
+                return renaming.get(w, [])
+
+        def renameall(list_w):
+            if list_w:
+                for w in rename(list_w[0]):
+                    for tail_w in renameall(list_w[1:]):
+                        yield [w] + tail_w
+            else:
+                yield []
 
         for ann in self.annotated[curblock]:
-            try:
-                result = rename(ann.result)
-                args = [ rename(arg) for arg in ann.args ]
-            except KeyError:
-                pass
-            else:
+            # we translate a single SpaceOperation(...) into either
+            # 0 or 1 or multiple ones, by replacing each variable
+            # used in the original operation by (in turn) any of
+            # the variables it can be renamed into
+            for list_w in renameall([ann.result] + ann.args):
+                result = list_w[0]
+                args = list_w[1:]
                 newannotations.append(SpaceOperation(ann.opname,args,result))
 
         self.flowin(branch.target,newannotations)
          
     def flownext_ConditionalBranch(self,branch,curblock):
-        self.flownext(branch.ifbranch,curblock)
-        self.flownext(branch.elsebranch,curblock)
+        # XXX this hack depends on the fact that ConditionalBranches
+        # XXX point to two EggBlocks with *no* renaming necessary
+        curannotations = self.annotated[curblock]
+        self.flowin(branch.ifbranch.target,curannotations)
+        self.flowin(branch.elsebranch.target,curannotations)
 
     def flownext_EndBranch(self,branch,curblock):
         branch = Branch([branch.returnvalue], self.endblock)
