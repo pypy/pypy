@@ -21,7 +21,7 @@ class TestAnnotationObjSpace(test.TestCase):
         return self.space.call(w_func, w_args, w_kwds)
 
     def setUp(self):
-        self.space = AnnotationObjSpace()
+        self.space = test.objspace('ann')
 
     def test_any2any(self):
         x = self.codetest("def f(i):\n"
