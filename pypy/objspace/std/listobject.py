@@ -35,7 +35,7 @@ class W_ListObject(W_Object):
     def insert(w_self, w_idx, w_obj):
         return list_insert(w_self.space, w_self, w_idx, w_obj)
 
-    insert = implmethod().register(insert, W_ANY)
+    insert = implmethod().register(insert, W_IntObject, W_ANY)
 
     def extend(w_self, w_seq):
         return list_extend(w_self.space, w_self, w_seq)
