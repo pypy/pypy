@@ -251,7 +251,12 @@ class Bookkeeper:
         except KeyError:
             if isinstance(thing, FunctionType):
                 # XXX XXX XXX HAAAAAAAAAAAACK
+                # xxx we need a way to let know subsequent phases (the generator) about the specialized function
+                # the caller flowgraph as it is doesn't.
+                # This line just avoids that the flowgraph of the original function, which is what will be considered
+                # and compiled for now will be computed during generation itself
                 self.annotator.translator.getflowgraph(thing)
+                #
                 thing = func_with_new_name(thing, name or thing.func_name)
             elif isinstance(thing, (type, ClassType)):
                 assert not "not working yet"
