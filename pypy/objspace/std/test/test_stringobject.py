@@ -324,14 +324,18 @@ class AppTestStringObject:
         assert 'abcdefghiabc'.find('def', 4) == -1
 
     def test_index(self):
+        from sys import maxint
         assert 'abcdefghiabc'.index('') == 0
         assert 'abcdefghiabc'.index('def') == 3
         assert 'abcdefghiabc'.index('abc') == 0
         assert 'abcdefghiabc'.index('abc', 1) == 9
+        assert 'abcdefghiabc'.index('def', -4*maxint, 4*maxint) == 3
         raises(ValueError, 'abcdefghiabc'.index, 'hib')
         raises(ValueError, 'abcdefghiab'.index, 'abc', 1)
         raises(ValueError, 'abcdefghi'.index, 'ghi', 8)
         raises(ValueError, 'abcdefghi'.index, 'ghi', -1)
+        raises(TypeError, 'abcdefghijklmn'.index, 'abc', 0, 0.0)
+        raises(TypeError, 'abcdefghijklmn'.index, 'abc', -10.0, 30)
 
     def test_rfind(self):
         assert 'abcdefghiabc'.rfind('abc') == 9
@@ -340,15 +344,19 @@ class AppTestStringObject:
         assert 'abcdefghiabc'.rfind('abcz') == -1
 
     def test_rindex(self):
+        from sys import maxint
         assert 'abcdefghiabc'.rindex('') == 12
         assert 'abcdefghiabc'.rindex('def') == 3
         assert 'abcdefghiabc'.rindex('abc') == 9
         assert 'abcdefghiabc'.rindex('abc', 0, -1) == 0
+        assert 'abcdefghiabc'.rindex('abc', -4*maxint, 4*maxint) == 9
         raises(ValueError, 'abcdefghiabc'.rindex, 'hib')
         raises(ValueError, 'defghiabc'.rindex, 'def', 1)
         raises(ValueError, 'defghiabc'.rindex, 'abc', 0, -1)
         raises(ValueError, 'abcdefghi'.rindex, 'ghi', 0, 8)
         raises(ValueError, 'abcdefghi'.rindex, 'ghi', 0, -1)
+        raises(TypeError, 'abcdefghijklmn'.rindex, 'abc', 0, 0.0)
+        raises(TypeError, 'abcdefghijklmn'.rindex, 'abc', -10.0, 30)
 
 
     def test_split_maxsplit(self):

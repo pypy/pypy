@@ -395,31 +395,28 @@ def str_ljust__String_ANY(space, w_self, w_arg):
 def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
     self = w_self._value
     sub = w_sub._value
-    if space.is_true(space.is_(w_start,space.w_None)):
-        start = 0
-    else:
-        start = space.int_w(w_start)
-    if space.is_true(space.is_(w_end,space.w_None)):
-        end = len(self)
-    else:
-        end = space.int_w(w_end)
+    w_start = slicetype.adapt_bound(space, w_start, space.wrap(len(self)))
+    w_end = slicetype.adapt_bound(space, w_end, space.wrap(len(self)))
+
+    start = space.int_w(w_start)
+    end = space.int_w(w_end)
 
     return (self, sub, start, end)
 
 
-def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=None):
+def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
     res = _find(self, sub, start, end, 1)
     return space.wrap(res)
 
-def str_rfind__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=None):
+def str_rfind__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
     res = _find(self, sub, start, end, -1)
     return space.wrap(res)
 
-def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=None):
+def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
     res = _find(self, sub, start, end, 1)
@@ -431,7 +428,7 @@ def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=N
     return space.wrap(res)
 
 
-def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=None):
+def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
     res = _find(self, sub, start, end, -1)
@@ -590,26 +587,16 @@ def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
     u_self  = w_self._value
     u_arg   = w_arg._value
 
-    if space.is_true(space.is_(w_start,space.w_None)):
-        u_start = 0
-    else:
-        u_start = space.int_w(w_start)
-
-    if space.is_true(space.is_(w_end,space.w_None)):
-        u_end = len(u_self)
-    else:
-        u_end = space.int_w(w_end)
-        if u_end < 0:
-            u_end += len(u_self)
-    
-    area =  u_self [u_start:u_end]
+    w_start = slicetype.adapt_bound(space, w_start, space.wrap(len(u_self)))
+    w_end = slicetype.adapt_bound(space, w_end, space.wrap(len(u_self)))
+    u_start = space.int_w(w_start)
+    u_end = space.int_w(w_end)
     
     count = 0  
 
-    pos = -1
+    pos = u_start - 1 
     while 1: 
-       pos = _find(area, u_arg, pos+1, u_end, 1)
-       #pos = area.find(u_arg, pos+1, u_end)
+       pos = _find(u_self, u_arg, pos+1, u_end, 1)
        if pos == -1:
           break
        count += 1
