@@ -224,7 +224,10 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
     
     def getitem((tup1, int2)):
         if int2.is_constant():
-            return tup1.items[int2.const]
+            try:
+                return tup1.items[int2.const]
+            except IndexError:
+                return SomeImpossibleValue()
         else:
             return unionof(*tup1.items)
 
@@ -282,6 +285,8 @@ class __extend__(pairtype(SomePBC, SomePBC)):
     def union((pbc1, pbc2)):
         if isinstance(pbc1, SomeBuiltin) or isinstance(pbc2, SomeBuiltin):
             assert False, "merging builtin & PBC == BAD!"
+        if len(pbc2.prebuiltinstances) > len(pbc1.prebuiltinstances):
+            pbc1, pbc2 = pbc2, pbc1
         d = pbc1.prebuiltinstances.copy()
         for x, classdef in pbc2.prebuiltinstances.items():
             if x in d:
