@@ -31,6 +31,8 @@ def get_standard_options():
     return options
 
 def process_options(optionlist, input_options, argv=None):
+    global Options
+    Options = input_options
     op = optik.OptionParser()
     op.add_options(optionlist)
     options, args = op.parse_args(argv, input_options)
@@ -43,7 +45,11 @@ def objspace(name='', _spacecache={}):
 
     this is configured via the environment variable OBJSPACE
     """
-    name = name or Options.spaces[-1]
+    if not name:
+        if hasattr(Options, 'spacename'):
+            name = Options.spacename
+        else:
+            name = Options.spaces[-1]
     if name == 'std':
         from pypy.objspace.std import Space
     elif name == 'trivial':
