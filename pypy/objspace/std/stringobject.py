@@ -3,7 +3,6 @@ from stringtype import W_StringType
 from intobject   import W_IntObject
 from sliceobject import W_SliceObject
 from listobject import W_ListObject
-from instmethobject import W_InstMethObject
 from noneobject import W_NoneObject
 from tupleobject import W_TupleObject
 
