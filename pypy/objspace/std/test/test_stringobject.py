@@ -13,7 +13,9 @@ class TestW_StringObject(testsupport.TestCase):
 
     def test_order_rich(self):
         space = self.space
-        w = space.wrap
+        def w(txt):
+             return W_StringObject(space, txt)
+
         self.failUnless_w(string_richcompare(space, w('abc'), w('abc'), EQ))
 
     def test_equality(self):

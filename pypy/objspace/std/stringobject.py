@@ -129,31 +129,31 @@ def string_richcompare(space, w_str1, w_str2, op):
             return space.w_False
     else:
         if op == EQ:
-            if val1.len == val2.len:
-                for i in range(val1.len):
-                    if ord(val1.charat(i)) != ord(val2.charat(i)):
+            if str1.len == str2.len:
+                for i in range(str1.len):
+                    if ord(str1.charat(i)) != ord(str2.charat(i)):
                         return space.w_False
                 return space.w_True
             else:
                 return space.w_False
         else:
-            if val1.len > val2.len:
-                min_len = val2.len
+            if str1.len > str2.len:
+                min_len = str2.len
             else:
-                min_len = val1.len
+                min_len = str1.len
 
             idx = 0
             if (min_len > 0):
                 while (c == 0) and (idx < min_len):
-                    c = ord(val1.charat[idx]) - ord(val2.charat[idx])
+                    c = ord(str1.charat[idx]) - ord(str2.charat[idx])
                     idx = idx + 1
             else:
                 c = 0
 
         if (c == 0):
-            if val1.len < val2.len:
+            if str1.len < str2.len:
                 c = -1
-            elif val1.len > val2.leb:
+            elif str1.len > str2.leb:
                 c = 1
             else:
                 c = 0
@@ -170,9 +170,6 @@ def string_richcompare(space, w_str1, w_str2, op):
             return space.newbool(c >= 0)
         else:
             raise NotImplemented
-
-
-
 
 def str_str_lt(space, w_str1, w_str2):
     i = w_str1._value.value()
