@@ -1,8 +1,6 @@
 import sys, os
 import unittest
 
-sys.path.insert(0, os.path.dirname(rootdir))
-
 class TestCase_w(unittest.TestCase):
     """ enrich TestCase with wrapped-methods """
 

@@ -6,6 +6,12 @@ class appmethod(object):
     def __get__(self, instance, cls=None):
         return self.func.__get__(instance, cls)
 
+class appdata(object):
+    def __init__(self, data):
+        self.data = data
+    def __get__(self, instance, cls=None):
+        return self.data
+
 
 class PyBuiltinCode(PyBaseCode):
     """The code object implementing a built-in (interpreter-level) hook."""
@@ -52,4 +58,7 @@ class BuiltinModule:
                 code = PyBuiltinCode(self, value)
                 w_function = space.newfunction(code, space.w_None, None)
                 space.setattr(w_module, space.wrap(key), w_function)
+            elif isinstance(value, appdata):
+                w_data = space.wrap(value.data)
+                space.setattr(w_module, space.wrap(key), w_data)
         return w_module
