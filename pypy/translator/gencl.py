@@ -98,24 +98,33 @@ class GenCL:
     def emit(self):
         self.emit_defun(self.fun)
     def emit_defun(self, fun):
-        print "(defun", fun.functionname, "(",
-        for arg in fun.get_args():
+        print "(defun", fun.functionname
+        arglist = fun.get_args()
+        print "(",
+        for arg in arglist:
             print self.str(arg),
         print ")"
-        print "(block nil"
-        print "(tagbody"
+        print "(prog"
         startblock = fun.startblock
         blocklist = []
         def collect_block(node):
             if isinstance(node, BasicBlock):
                 blocklist.append(node)
         startblock.visit(collect_block)
+        varlist = []
         for block in blocklist:
             tag = len(self.blockref)
             self.blockref[block] = tag
+            varlist.extend(block.getlocals())
+        print "(",
+        for var in varlist:
+            if var in arglist:
+                print "(", self.str(var), self.str(var), ")"
+            else:
+                print self.str(var),
+        print ")"
         for block in blocklist:
             self.emit_block(block)
-        print ")"
         print ")"
         print ")"
     def emit_block(self, block):
