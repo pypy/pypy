@@ -96,11 +96,12 @@ def make_module_from_c(cfile, include_dirs=None):
                                 os.environ[key] = value
             finally:
                 foutput, foutput = c.done()
+                data = foutput.read()
+                if data:
+                    fdump = open("%s.errors" % modname, "w")
+                    fdump.write(data)
+                    fdump.close()
         except:
-            data = foutput.read()
-            fdump = open("%s.errors" % modname, "w")
-            fdump.write(data)
-            fdump.close()
             print data
             raise
         # XXX do we need to do some check on fout/ferr?
