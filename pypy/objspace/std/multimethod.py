@@ -44,6 +44,9 @@ class AbstractMultiMethod(object):
         self.cache_table = {}
         self.cache_delegator_key = None
 
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, self.operatorsymbol)
+
     def register(self, function, *types):
         functions = self.dispatch_table.setdefault(types, [])
         if function not in functions:
@@ -255,6 +258,7 @@ class MultiMethod(AbstractMultiMethod):
         self.specialnames = specialnames  # e.g. ['__xxx__', '__rxxx__']
         self.extras = extras
         self.unbound_versions = {}
+
 
     def __get__(self, space, cls=object): # cls is some W_xxxType
         if issubclass(cls, self.BASE_TYPE_OBJECT):

@@ -10,6 +10,11 @@ class W_Object:
     def __init__(w_self, space):
         w_self.space = space     # XXX not sure this is ever used any more
 
+    def __repr__(self):
+        return '<objwrapper %s(%s)>' % (
+            self.__class__.__name__,
+            getattr(self, 'statictype', '<no statictype>')
+            )
 
 class W_AbstractTypeObject(W_Object):
     "Do not use. For W_TypeObject only."

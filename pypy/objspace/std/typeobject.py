@@ -19,6 +19,12 @@ class W_TypeObject(W_AbstractTypeObject):
         W_Object.__init__(w_self, space)
         w_self.w_tpname = space.wrap(w_self.typename)
 
+    def __repr__(self):
+        return '<typewrapper %s(%s)>' % (
+            self.__class__.__name__,
+            getattr(self, 'statictype', '<no statictype>')
+            )
+
     def getbases(w_self):
         parents = w_self.staticbases
         if parents is None:

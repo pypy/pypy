@@ -53,6 +53,7 @@ registerimplementation(W_UserType)
 #   but we're documenting it here as there seems no better place!!!
 #   The problem is actually that, currently, several types such as
 #   int and float just cannot be CALLED -- this needs to be fixed soon.
+# Note: currently (03-12-21) this appears to be fully & correctly fixed.
 def type_new__UserType_UserType(space, w_basetype, w_usertype, w_args, w_kwds):
     import typetype
     # XXX this uses the following algorithm:
