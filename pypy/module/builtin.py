@@ -7,12 +7,6 @@ from pypy.interpreter.pycode import PyByteCode
 
 import __builtin__ as _b
 
-def compile(*args, **kwargs):
-    c = _b.compile(*args, **kwargs)
-    res = PyByteCode()
-    res._from_code(c)
-    return res
-
 ##compile.__doc__ = _b.compile.__doc__
 
 
@@ -27,3 +21,23 @@ class Builtin(BuiltinModule):
     def len(self, w_obj):
         return self.space.len(w_obj)
     len = appmethod(len)
+
+    def compile(self, w_str, w_filename, w_startstr,
+                w_supplied_flags=None, w_dont_inherit=None):
+        str = space.unwrap(w_str)
+        filename = space.unwrap(w_filename)
+        startstr = space.unwrap(w_startstr)
+        if w_supplied_flags is None:
+            supplied_flags = 0
+        else:
+            supplied_flags = space.unwrap(w_supplied_flags)
+        if w_dont_inherit is None:
+            dont_inherit = False
+        else:
+            dont_inherit = space.unwrap(w_supplied_flags)
+
+        c = _b.compile(str, filename, startstr, supplied_flags, dont_inherit)
+        res = PyByteCode()
+        res._from_code(c)
+        return space.wrap(res)
+    compile = appmethod(compile)
