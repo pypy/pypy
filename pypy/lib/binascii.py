@@ -212,8 +212,10 @@ def a2b_qp(s):
 
     # Change the parts in-place
     for index, part in enumerate(parts[1:]):
-        if len(parts) > 2 and part[0] in hex_numbers and part[1] in hex_numbers:
+        if len(part) > 1 and part[0] in hex_numbers and part[1] in hex_numbers:
             parts[index + 1] = chr(strhex_to_int(part[0:2])) + part[2:]
+        elif index == len(parts) - 2 and len(part) < 2:
+            parts[index + 1] = ''
         else:
             parts[index + 1] = '=' + parts[index + 1]
             
@@ -231,11 +233,39 @@ def b2a_qp(s):
         and does not encode newlines as CRLF sequences. This seems to be
         non-standard, and we copy this behaviour.
     """
-    def f(c):
-        if '!' <= c <= '<' or '>' <= c <= '~' or c in '\n\r':
-            return c
-        return '=' + two_hex_digits(ord(c))
-    return ''.join([ f(c) for c in s])
+    crlf = s.find('\r\n')
+    lf = s.find('\n')
+    linebreak = None
+    if crlf >= 0 and crlf <= lf:
+        linebreak = '\r\n'
+    elif lf > 0:
+        linebreak = '\n'
+
+    if linebreak:
+        s = s.replace('\r\n', '\n')
+
+    lines = s.split('\n')
+
+    result = []
+    for line in lines:
+        charlist = []
+        count = 0
+        for c in line:
+            if '!' <= c <= '<' or '>' <= c <= '~' or c in '\n\r':
+                if count >= 75:
+                    charlist.append('=\r\n')
+                    count = 0
+                charlist.append(c)
+                count += 1
+            else:
+                if count >= 72:
+                    charlist.append('=\r\n')
+                    count = 0
+                snippet = '=' + two_hex_digits(ord(c))
+                count += len(snippet)
+                charlist.append(snippet)
+        result.append(''.join(charlist))
+    return linebreak.join(result)
 
 hex_numbers = '0123456789ABCDEF'
 def hex(n):
