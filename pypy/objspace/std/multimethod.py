@@ -33,82 +33,6 @@ class W_ANY:
 #   has been bound to a specific object space. It is obtained by
 #   'space.xxx' or explicitly by calling 'xxx.get(space)'.
 
-class SourceCallList(object):
-    def __new__(cls, operatorsymbol, callist, dispatch_arity):
-        self = super(SourceCallList, cls).__new__()
-        if len(calllist) == 1:
-            fn, conversions = calllist[0]
-            if conversions == ((),) * len(conversions):
-                # no conversion, just calling a single function: return
-                # that function directly
-                return fn
-        
-        def do(space, *args):
-            args, extraargs = args[:dispatch_arity], args[dispatch_arity:]
-            if len(args) < dispatch_arity:
-                raise TypeError, 'MultiMethod %s has an arity of %d (%d given)' % (operatorsymbol, len(args))
-
-        converted = [{(): (i, False)} for i in range(dispatch_arity)]
-        all_functions = {}
-
-        def make_conversion(dct, convtuple):
-            rval = dct.get(convtuple)
-            if rval is not None:
-                return rval
-            prev, can_fail = make_conversion(dct, convtuple[:-1])
-            new = '%s_%d' % (prev, len(dct))
-            fname = all_functions.setdefault(convtuple[-1],
-                                             'd%d' % len(all_functions))
-            if can_fail:
-                source.append(' if isinstance(%s, FailedToImplement):' % prev)
-                source.append('  %s = %s' % (new, prev))
-                source.append(' else:')
-                indent = '  '
-            else:
-                indent = ' '
-            source.append('%s%s = %s(space,%s)' % (indent, new, fname, prev))
-            can_fail = can_fail or getattr(convtuple[-1], 'can_fail', False)
-            dct[convtuple] = new, can_fail
-            return new, can_fail
-
-        all_functions = {}
-        has_firstfailure = False
-        for fn, conversions in calllist:
-            # make the required conversions
-            fname = all_functions.setdefault(fn, 'f%d' % len(all_functions))
-            arglist = []
-            failcheck = []
-            for i in range(dispatch_arity):
-                argname, can_fail = make_conversion(i, conversions[i])
-                arglist.append(argname)
-                if can_fail:
-                    failcheck.append(argname)
-            arglist.append('*extraargs')
-            source.append(    ' try:')
-            for argname in failcheck:
-                source.append('  if isinstance(%s, FailedToImplement):' % argname)
-                source.append('   raise %s' % argname)
-            source.append(    '  return %s(space,%s)' % (
-                fname, ','.join(arglist)))
-            if has_firstfailure:
-                source.append(' except FailedToImplement:')
-            else:
-                source.append(' except FailedToImplement, firstfailure:')
-                has_firstfailure = True
-            source.append(    '  pass')
-
-        # complete exhaustion
-        if has_firstfailure:
-            source.append(' raise firstfailure')
-        else:
-            source.append(' raise FailedToImplement()')
-        source.append('')
-
-        glob = {'FailedToImplement': FailedToImplement}
-        for fn, fname in all_functions.items():
-            glob[fname] = fn
-        return '\n'.join(source), glob
-
 class AbstractMultiMethod(object):
     """Abstract base class for MultiMethod and UnboundMultiMethod
     i.e. the classes that are not bound to a specific space instance."""
@@ -167,8 +91,6 @@ class AbstractMultiMethod(object):
 
     def internal_compilecalllist(self, calllist):
         source, glob = self.internal_sourcecalllist(calllist)
-        print glob
-        print source
         # compile the function
         exec source in glob
         return glob['do']
