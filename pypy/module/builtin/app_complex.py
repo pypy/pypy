@@ -13,24 +13,29 @@ class complex(object):
     # XXX this class is not well tested
 
     def __init__(self, real=0.0, imag=None):
-        if isinstance(real, str) and imag is not None:
-            msg = "complex() can't take second arg if first is a string"
-            raise TypeError, msg
+        if isinstance(real, str): 
+            if imag is not None:
+                msg = "complex() can't take second arg if first is a string"
+                raise TypeError, msg
+            re, im = self._makeComplexFromString(real)
+        elif isinstance(real, complex):
+            re = real.real
+            im = real.imag
+        else:
+            re = float(real)
+            im = 0.0
 
         if isinstance(imag, str): 
             msg = "complex() second arg can't be a string"
             raise TypeError, msg
+        elif isinstance(imag, complex):
+            re -= imag.imag
+            im += imag.real
+        elif imag is not None:
+            im += float(imag)
 
-        if isinstance(real, str): 
-            real, imag = self._makeComplexFromString(real)
-            self.__dict__['real'] = real
-            self.__dict__['imag'] = imag
-        else:
-            if imag is None:
-               imag = 0.
-            self.__dict__['real'] = float(real)
-            self.__dict__['imag'] = float(imag)
-        
+        self.__dict__['real'] = re
+        self.__dict__['imag'] = im
 
     def __setattr__(self, name, value):
         if name in ('real', 'imag'):

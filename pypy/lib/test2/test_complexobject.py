@@ -24,14 +24,16 @@ import math
 import cmath
 import sys
 import types
-import unittest
+#import unittest
 
-from pypy.tool import testit
+#from pypy.tool import testit
 #from pypy.appspace.complexobject import complex as pycomplex
-from pypy.module.test.applevel_in_cpython import applevel_in_cpython
-our_own_builtin = applevel_in_cpython('__builtin__')
-pycomplex = our_own_builtin.complex
+
+#from pypy.module.test.applevel_in_cpython import applevel_in_cpython
+#our_own_builtin = applevel_in_cpython('__builtin__')
+#pycomplex = our_own_builtin.complex
     
+from pypy.module.builtin.app_complex import complex as pycomplex
 
 try:
     unicode
@@ -79,11 +81,10 @@ def enumerate():
 
 
 
-class TestComplex(unittest.TestCase):
+class TestComplex:
 
     def assertAEqual(self, a, b):
-        if not equal(a, b):
-            raise self.failureException, '%s ~== %s'%(a, b)
+        assert equal(a, b)
 
     def test_wrongInit1(self):
         "Compare wrong init. with CPython."
@@ -189,8 +190,8 @@ class TestComplex(unittest.TestCase):
             self.assertAEqual(abs(zc), abs(zp))
             self.assertAEqual(zc, zp)
             #self.assertEqual(zc.conjugate(), zp.conjugate()) XXX 
-            self.assertEqual(str(zc), str(zp))
-            self.assertEqual(hash(zc), hash(zp))
+            assert str(zc) == str(zp)
+            assert hash(zc) == hash(zp)
 
 
     # this fails on python2.3 and is depreacted anyway
@@ -250,6 +251,17 @@ class TestComplex(unittest.TestCase):
                 pc = z0c**z0c.real
                 pp = z0p**z0p.real
                 self.assertAEqual(pc, pp)
+                
+    def test_complex(self):                
+        "Compare complex() with CPython (with complex arguments)"
+        ours = pycomplex(pycomplex(1,10), 100)
+        cpy = complex(complex(1,10), 100)
+        self.assertAEqual(ours, cpy)
 
-if __name__ == "__main__":
-    testit.main()
+        ours = pycomplex(pycomplex(1,10), pycomplex(100,1000))
+        cpy = complex(complex(1,10), complex(100,1000))
+        self.assertAEqual(ours, cpy)
+
+        ours = pycomplex(10, pycomplex(100,1000))
+        cpy = complex(10, complex(100,1000))
+        self.assertAEqual(ours, cpy)
