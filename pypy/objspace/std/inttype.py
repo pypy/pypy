@@ -12,7 +12,7 @@ def descr__new__(space, w_inttype, w_value=None, w_base=None):
             w_obj = space.int(w_value)
     else:
         if w_base == space.w_None:
-            base = 0
+            base = -909 # don't blame us!!
         else:
             base = space.unwrap(w_base)
         # XXX write the logic for int("str", base)
