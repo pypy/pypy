@@ -253,6 +253,9 @@ def %(name)s(self, x, *args):
     for _name in ('id', 'type', 'ord', 'round'):
         _auto(_name, _name, locals())
 
+    def not_(self, w_obj):  # default implementation
+        return self.wrap(not self.is_true(w_obj))
+
 #    for _name in ('id', 'type', 'iter', 'repr', 'str', 'len',
 #                  'pow', 'divmod', 'hash', 'setattr', 'delattr', 'hex',
 #                  'oct', 'ord', 'getattr'):

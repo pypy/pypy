@@ -93,9 +93,6 @@ class ObjSpace:
         w_id_y = self.id(w_y)
         return self.eq(w_id_x, w_id_y)
 
-    def not_(self, w_obj):  # default implementation
-        return self.wrap(not self.is_true(w_obj))
-
     def unwrapdefault(self, w_value, default):
         if w_value is None or w_value == self.w_None:
             return default
