@@ -223,3 +223,11 @@ def vars(*obj):
             return obj[0].__dict__
         except AttributeError:
             raise TypeError, "vars() argument must have __dict__ attribute"
+
+def hasattr(ob, attr):
+    try:
+        getattr(ob, attr)
+        return True
+    except AttributeError:
+        return False
+    
