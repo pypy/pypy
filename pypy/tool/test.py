@@ -283,10 +283,10 @@ def get_test_options():
         '-r', action="store_true", dest="testreldir",
         help="gather only tests relative to current dir"))
     options.append(make_option(
-        '-i', action="store_true", dest="individualtime",
+        '-t', action="store_true", dest="individualtime",
         help="time each test individually"))
     options.append(make_option(
-        '-k', action="store_true", dest="interactive",
+        '-i', action="store_true", dest="interactive",
         help="enter an interactive mode on failure or error"))
     options.append(make_option(
         '-c', action="store_true", dest="runcts",
