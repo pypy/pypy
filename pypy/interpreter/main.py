@@ -5,15 +5,9 @@ from pypy.interpreter import pyframe
 
 import sys
 
-def main(argv=None):
-    if argv is None:
-        argv = sys.argv
-
-    fname = argv[1]
-
+def run_string(source, fname):
     space = StdObjSpace()
-    ifile = open(fname)
-    code = compile(ifile.read(), fname, 'exec')
+    code = compile(source, fname, 'exec')
     ec = executioncontext.ExecutionContext(space)
 
     w_globals = ec.make_standard_w_globals()
@@ -23,7 +17,16 @@ def main(argv=None):
     except baseobjspace.OperationError, operationerr:
         # XXX insert exception info into the application-level sys.last_xxx
         operationerr.print_detailed_traceback(space)
-    
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+
+    fname = argv[1]
+
+    ifile = open(fname)
+    run_string(ifile.read(), fname)
+
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
     
