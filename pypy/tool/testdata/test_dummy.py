@@ -1,7 +1,12 @@
+"""Module docstring."""
+
 import autopath
 from pypy.tool import newtest
 
 class TestDummy1(newtest.TestCase):
+    """
+    Example of a docstring for a class.
+    """
     def test_success1(self):
         self.assertEquals(1+1, 2)
 
@@ -17,6 +22,7 @@ class TestDummy2(newtest.TestCase):
         self.assertEquals(1+1, 2)
 
     def test_error2(self):
+        """Docstring of a method."""
         raise ValueError
 
     def test_failure2(self):

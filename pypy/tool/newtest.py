@@ -13,8 +13,7 @@ import vpath
 # - add support for ignored tests (do we need to differentiate between
 #   skipped and ignored tests at all?)
 # - support TestItem.run with different object spaces
-# - add docstring of loaded test method to TestItem
-# - unify naming of methods/functions
+# - unify naming of methods/functions; what about the TestCase class?
 # - support for pickling and retrieving TestItems and TestResults?
 
 #
@@ -206,6 +205,10 @@ class TestItem:
         self.module = module
         self.cls = cls
         self.method = testmethod
+        # remove trailing whitespace but leave things such indentation
+        # of first line(s) alone
+        self.docs = (self._docstring(module), self._docstring(cls),
+                     self._docstring(testmethod))
         #XXX inspect.getsourcelines may fail if the file path stored
         #  in a module's pyc/pyo file doesn't match the py file's
         #  actual location. This can happen if a py file, together with
@@ -215,6 +218,13 @@ class TestItem:
         lines, self.lineno = inspect.getsourcelines(testmethod)
         # removing trailing newline(s) but not the indentation
         self.source = ''.join(lines).rstrip()
+
+    def _docstring(self, obj):
+        """
+        Return the docstring of object obj or an empty string, if the
+        docstring doesn't exist, i. e. is None.
+        """
+        return inspect.getdoc(obj) or ""
 
     def __eq__(self, other):
         """
