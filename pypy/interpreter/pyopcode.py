@@ -494,8 +494,6 @@ class PyInterpFrame(pyframe.PyFrame):
             except OperationError, e:
                 if not e.match(f.space, f.space.w_KeyError):
                     raise
-        # rxe Why global???
-        #message = "global name '%s' is not defined" % varname
         message = "name '%s' is not defined" % varname
         w_exc_type = f.space.w_NameError
         w_exc_value = f.space.wrap(message)
