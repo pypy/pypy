@@ -41,9 +41,24 @@ def really_build_fake_type(cpy_type, ignored):
     "NOT_RPYTHON (not remotely so!)."
     debug_print('faking %r'%(cpy_type,))
     kw = {}
-    for s, v in cpy_type.__dict__.items():
-        if cpy_type is not unicode or s not in ['__add__', '__contains__']:
-            kw[s] = v
+    
+    if cpy_type.__name__ == 'SRE_Pattern':
+        import re
+        import __builtin__
+        p = re.compile("foo")
+        for meth_name in p.__methods__:
+            kw[meth_name] = __builtin__.eval("lambda p,*args,**kwds: p.%s(*args,**kwds)" % meth_name)
+    elif cpy_type.__name__ == 'SRE_Match':
+        import re
+        import __builtin__
+        m = re.compile("foo").match('foo')
+        for meth_name in m.__methods__:
+            kw[meth_name] = __builtin__.eval("lambda m,*args,**kwds: m.%s(*args,**kwds)" % meth_name)
+    else:
+        for s, v in cpy_type.__dict__.items():
+            if cpy_type is not unicode or s not in ['__add__', '__contains__']:
+                kw[s] = v
+            
     def fake__new__(space, w_type, args_w):
         args = [space.unwrap(w_arg) for w_arg in args_w]
         try:
