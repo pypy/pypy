@@ -22,7 +22,8 @@ Example:
     assert f(arg) == func(arg)
 
 Some functions will be provided for the benefit of interactive testing.
-Currently there are my_bool and my_range.
+Currently there are my_bool and my_range, plus the ones defined in
+test.snippet.
 """
 
 import autopath
@@ -109,6 +110,7 @@ class Translator:
 
 
 if __name__ == '__main__':
+    from pypy.translator.test.snippet import *
 
     def my_bool(x):
         return not not x

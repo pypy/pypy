@@ -2,26 +2,37 @@
 generate Pyrex files from the flowmodel. 
 
 """
-from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
+from pypy.objspace.flow.model import *
 
 # debug
 from pypy.translator.genpyrex import GenPyrex
 
 
-def eliminate_fun_params_renaming(graph):
-    """We allways rename the params - at the first branch, which isn't really necessary"""
-    return graph
-
 def eliminate_empty_blocks(graph):
-    """simplify_vars()
-    Things we know we can remove:
-    1. Basic blocks that do not contain any operations.
-       When this happens, we need to replace the preceeding branch with the
-       following branch.  Arguments of the following branch should be
-       overwritten with the arguments of the preceeding branch, but any
-       additional arguments should be kept.
-    2. Branches into basic blocks that have a single entry point.
+    """Eliminate basic blocks that do not contain any operations.
+    When this happens, we need to replace the preceeding link with the
+    following link.  Arguments of the links should be updated."""
+    def visit(link):
+        if isinstance(link, Link):
+            while not link.target.operations and len(link.target.exits) == 1:
+                block1 = link.target
+                exit = block1.exits[0]
+                outputargs = []
+                for v in exit.args:
+                    if isinstance(v, Variable):
+                        # this variable is valid in the context of block1
+                        # but it must come from 'link'
+                        i = block1.inputargs.index(v)
+                        v = link.args[i]
+                    outputargs.append(v)
+                link.args = outputargs
+                link.target = exit.target
+                # the while loop above will simplify recursively the new link
+    traverse(visit, graph)
+
+def xxx_not_done_yet():
+    """
+    2. Unconditional links into basic blocks that have a single entry point.
        At this point, we can append all the operations of the following basic
        block to the preceeding basic block (but renaming variables with the
        appropriate arguments.) 
@@ -66,7 +77,5 @@ def eliminate_empty_blocks(graph):
 
 def simplify_graph(graph):
     """apply all the existing optimisations to the graph"""
-    #XXX doesn't work right on sieve_of_eras... graph = eliminate_empty_blocks(graph)
-    graph = eliminate_fun_params_renaming(graph)
+    eliminate_empty_blocks(graph)
     return graph
-
