@@ -55,10 +55,6 @@ class PyInterpFrame(pyframe.PyFrame):
         self.next_instr += 1
         return ord(c)
 
-    def get_index(self):
-        return index
-
-
     def nextarg(self):
         lo = self.nextop()
         hi = self.nextop()
