@@ -536,11 +536,7 @@ def _find(self, sub, start, end, dir):
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"
     u_self = w_self._value
-    assert isinstance(w_chars,W_StringObject)
     u_chars = w_chars._value
-    
-    if u_self == None or u_chars == None:
-        return w_self
     
     lpos = 0
     rpos = len(u_self)
@@ -551,23 +547,48 @@ def _strip(space, w_self, w_chars, left, right):
            lpos += 1
        
     if right:
-        while rpos > 0 and u_self[rpos - 1] in u_chars:
+        while rpos > lpos and u_self[rpos - 1] in u_chars:
            rpos -= 1
        
     return space.wrap(u_self[lpos:rpos])
 
+def _strip_none(space, w_self, left, right):
+    "internal function called by str_xstrip methods"
+    u_self = w_self._value
+    
+    lpos = 0
+    rpos = len(u_self)
+    
+    if left:
+        #print "while %d < %d and -%s- in -%s-:"%(lpos, rpos, u_self[lpos],w_chars)
+        while lpos < rpos and u_self[lpos].isspace():
+           lpos += 1
+       
+    if right:
+        while rpos > lpos and u_self[rpos - 1].isspace():
+           rpos -= 1
+       
+    return space.wrap(u_self[lpos:rpos])
 
 def str_strip__String_String(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, left=1, right=1)
 
+def str_strip__String_None(space, w_self, w_chars):
+    return _strip_none(space, w_self, left=1, right=1)
    
 def str_rstrip__String_String(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, left=0, right=1)
 
+def str_rstrip__String_None(space, w_self, w_chars):
+    return _strip_none(space, w_self, left=0, right=1)
+
    
 def str_lstrip__String_String(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, left=1, right=0)
-   
+
+def str_lstrip__String_None(space, w_self, w_chars):
+    return _strip_none(space, w_self, left=1, right=0)
+
 
 def str_center__String_Int(space, w_self, w_arg):
     u_self = w_self._value
@@ -890,8 +911,13 @@ def getitem__String_Slice(space, w_str, w_slice):
 def mul__String_Int(space, w_str, w_mul):
     input = w_str._value
     mul = space.int_w(w_mul)
-
-    buffer = [' '] * (mul*len(input))
+    if mul < 0:
+        return space.wrap("")
+    input_len = len(input)
+    try:
+        buffer = [' '] * (mul*input_len)
+    except (MemoryError,OverflowError):
+        raise OperationError( space.w_OverflowError, space.wrap("repeated string is too long: %d %d" % (input_len,mul) ))
 
     pos = 0
     for i in range(mul):
