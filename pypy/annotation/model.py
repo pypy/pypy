@@ -134,6 +134,23 @@ class SomeObject:
     del set_caused_by_merge
 
 
+    # structural expansion
+
+    def structure(self, memo=None):
+        if self.is_constant():
+            return self.const
+        if memo is None:
+            memo = {}
+        return self._structure(memo)
+
+    def _structure(self, memo):
+        return self
+
+class struct(tuple):
+    def __new__(cls, *args):
+        return tuple.__new__(cls,args)
+
+
 class SomeInteger(SomeObject):
     "Stands for an object which is known to be an integer."
     knowntype = int
@@ -170,6 +187,9 @@ class SomeList(SomeObject):
     def hom_contains(self, other):
         return self.s_item.contains(other.s_item)
 
+    def _structure(self, memo):
+        return struct(list, self.s_item.structure(memo))
+
 
 class SomeSlice(SomeObject):
     knowntype = slice
@@ -182,6 +202,14 @@ class SomeSlice(SomeObject):
         return contains_and(self.start.contains(other.start),
                             self.stop.contains(other.stop),
                             self.step.contains(other.step))
+
+    def _structure(self, memo):
+        return struct(slice,
+                      self.start.structure(memo),
+                      self.stop.structure(memo),
+                      self.step.structure(memo),
+                      )
+                
 
 
 class SomeTuple(SomeObject):
@@ -202,6 +230,10 @@ class SomeTuple(SomeObject):
             return False
         return contains_and(*[i1.contains(i2) for i1,i2 in zip(self_items, other_items)])
 
+    def _structure(self, memo):
+        return struct(tuple,*[ i.structure(memo) for i in self.items])
+                      
+
 
 class SomeDict(SomeObject):
     "Stands for a dict."
@@ -216,6 +248,12 @@ class SomeDict(SomeObject):
                             self.s_value.contains(other.s_value))
 
 
+    def _structure(self, memo):
+        return struct(dict,
+                      self.s_key.structure(memo),
+                      self.s_value.structure(memo))
+                      
+
 class SomeIterator(SomeObject):
     "Stands for an iterator returning objects of a known type."
     knowntype = type(iter([]))  # arbitrarily chose seqiter as the type
@@ -224,6 +262,10 @@ class SomeIterator(SomeObject):
 
     def hom_contains(self, other):
         return self.s_item.contains(other.s_item)
+
+    def _structure(self, memo):
+        return struct(iter,
+                      self.s_item.structure(memo))
 
 class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
@@ -243,6 +285,27 @@ class SomeInstance(SomeObject):
             else:
                 return RevDiff
         return self.classdef.commonbase(other.classdef) is self.classdef
+
+    def _classdef_structure(self, classdef, memo):
+        if classdef is None:
+            return None
+        if classdef in memo or classdef.cls.__module__ == '__builtin__':
+            return struct(classdef)
+        attr_names = classdef.attrs.keys()
+        attr_names.sort()
+        attrs = classdef.attrs
+        parts = [classdef]
+        memo[classdef] = None
+        parts.append(self._classdef_structure(classdef.basedef, memo))
+        for name in attr_names:
+            a = attrs[name]
+            parts.append((name, a.getvalue().structure(memo)))
+        strct = struct(*parts)
+        return strct
+         
+    def _structure(self, memo): # xxx try later an approach that can cache classef expansions
+        return self._classdef_structure(self.classdef, memo)
+
 
 def new_or_old_class(c):
     if hasattr(c, '__class__'):
@@ -314,6 +377,15 @@ class SomeBuiltin(SomeObject):
             return other.s_self is None        
         return self.s_self.contains(other.s_self)
 
+    def _structure(self, memo):
+        if self.s_self:
+            return struct(len,
+                          self.analyser,
+                          self.s_self.structure(memo))
+        else:
+            return struct(len,
+                          self.analyser)
+                     
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that

@@ -6,6 +6,7 @@ from __future__ import generators
 from types import FunctionType
 from pypy.annotation.model import SomeImpossibleValue, unionof, RevDiff
 
+notyet = object()
 
 class Attribute:
     # readonly-ness
@@ -20,8 +21,11 @@ class Attribute:
         self.s_value = SomeImpossibleValue()
         self.readonly = True
 
+        self.flat = notyet
+
     def getvalue(self):
         while self.sources:
+            self.flat = notyet
             source, classdef = self.sources.popitem()
             s_value = self.bookkeeper.immutablevalue(
                 source.__dict__[self.name])
@@ -35,6 +39,13 @@ class Attribute:
         self.sources.update(other.sources)
         self.s_value = unionof(self.s_value, other.s_value)
         self.readonly = self.readonly and other.readonly
+        self.flat = notyet
+
+    def structure(self):
+        s_value = self.getvalue()
+        if self.flat is notyet:
+            self.flat = s_value.structure()
+        return self.flat
 
 
 class ClassDef:
@@ -125,13 +136,19 @@ class ClassDef:
                 del subdef.attrs[attr]
 
         bump = True
+        attach_flat = None
         # don't bump if the only cause is rev diff discrepancies
         if was_here and len(subclass_attrs) == 1 and s_value is not None:
             old_attr = subclass_attrs[0]
             wasgeneralenough = old_attr.s_value.contains(s_value)
             assert not wasgeneralenough
             if wasgeneralenough is RevDiff:
-                bump = False
+                s_value_struct = s_value.structure()
+                if not old_attr.flat is notyet:
+                    old_attr_struct = old_attr.structure()
+                    if s_value_struct == old_attr_struct:
+                        bump = False
+                attach_flat = s_value_struct
 
         if bump:
             # bump the revision number of this class and all subclasses           
@@ -146,6 +163,9 @@ class ClassDef:
         for subattr in subclass_attrs:
             newattr.merge(subattr)
         self.attrs[attr] = newattr
+
+        if attach_flat is not None:
+            newattr.flat = attach_flat
 
         # reflow from all factories
         for position in self.getallinstantiations():

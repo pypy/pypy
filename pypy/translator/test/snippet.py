@@ -956,3 +956,32 @@ def make_eo(n):
         return Odd(n)
 
 
+# shows that we care about the expanded structure in front of changes to attributes involving only
+# instances rev numbers
+
+class Box:
+ pass
+
+class Box2:
+  pass
+
+class Box3(Box2):
+  pass
+
+def flow_rev_numbers(n):
+  bx3 = Box3()
+  bx3.x = 1
+  bx = Box()
+  bx.bx3 = bx3
+  if n >0:
+     z =  bx.bx3.x
+     if n >0:
+        bx2 = Box2()
+        bx2.x = 3
+     return z
+  raise Exception
+
+
+
+
+

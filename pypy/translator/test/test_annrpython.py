@@ -552,6 +552,11 @@ class TestAnnonateTestCase:
         assert Odd_def.attrs['x'].s_value.s_item.knowntype == snippet.Even
         assert Odd_def.attrs['y'].s_value.s_item.knowntype == snippet.Odd        
 
+    def test_flow_rev_numbers(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.flow_rev_numbers, [])
+        assert s.knowntype == int
+        assert not s.is_constant() # !
 
 
 def g(n):
