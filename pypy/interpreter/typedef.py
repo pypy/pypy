@@ -131,6 +131,34 @@ def interp_attrproperty_w(name):
 
     return GetSetProperty(fget)
 
+class Member(Wrappable):
+    """For slots."""
+    def __init__(self, index, name):  # XXX ,cls later
+        self.index = index
+        self.name = name
+
+    def descr_member_get(space, w_member, w_obj, w_cls=None):
+        if space.is_w(w_obj, space.w_None):
+            return w_member
+        else:
+            w_result = w_obj.slots_w[self.index]
+            if w_result is None:
+                raise OperationError(space.w_AttributeError,
+                                     space.wrap(self.name)) # XXX better message
+            return w_result
+
+    def descr_member_set(space, w_member, w_obj, w_value):
+        w_obj.slots_w[self.index] = w_value
+
+    def descr_member_del(space, w_member, w_obj):
+        w_obj.slots_w[self.index] = None
+
+    typedef = TypeDef("member",
+        __get__ = interp2app(descr_member_get),
+        __set__ = interp2app(descr_member_set),
+        __delete__ = interp2app(descr_member_del),
+        )
+
 # ____________________________________________________________
 #
 # Definition of the type's descriptors for all the internal types
