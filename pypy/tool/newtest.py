@@ -135,6 +135,8 @@ class TestResult(Exception):
         self.name = self.__class__.__name__
         self.traceback = None
 
+    #XXX possibly, we need an attribute/method has_traceback?
+
     def __eq__(self, other):
         """
         Return True if both TestResult objects are semantically the same.
@@ -163,7 +165,7 @@ class Ignored(TestResult):
 
 class TestResultWithTraceback(TestResult):
     def __init__(self, msg='', item=None):
-        TestResult.__init__(self, item)
+        TestResult.__init__(self, msg, item)
         self.setexception()
 
     def __eq__(self, other):
@@ -251,34 +253,36 @@ class TestItem:
 
         # credit: adapted from Python's unittest.TestCase.run
 
+        # make sure that TestResult classes refer to the same objects
+        # as in test modules importing this module
+        from pypy.tool import newtest
+
         testobject = self.cls()
         testmethod = getattr(testobject, self.method.__name__)
 
         if pretest is not None:
             pretest(self)
         try:
-            #XXX possibly will have to change
-            from pypy.tool import test
             try:
                 testobject.setUp()
             except KeyboardInterrupt:
                 raise
-            except TestResult, result:
+            except newtest.TestResult, result:
                 # reconstruct TestResult object, implicitly set exception
                 result = result.__class__(msg=result.msg, item=self)
             except Exception, exc:
-                return Error(msg=str(exc), item=self)
+                return newtest.Error(msg=str(exc), item=self)
 
             try:
                 testmethod()
-                result = Success(msg='success', item=self)
+                result = newtest.Success(msg='success', item=self)
             except KeyboardInterrupt:
                 raise
-            except TestResult, result:
+            except newtest.TestResult, result:
                 # reconstruct TestResult object, implicitly set exception
                 result = result.__class__(msg=result.msg, item=self)
             except Exception, exc:
-                result = Error(msg=str(exc), item=self)
+                result = newtest.Error(msg=str(exc), item=self)
 
             try:
                 testobject.tearDown()
@@ -288,7 +292,7 @@ class TestItem:
                 # if we already had an exception in the test method,
                 # don't overwrite it
                 if result.traceback is None:
-                    result = Error(msg=str(exc), item=self)
+                    result = newtest.Error(msg=str(exc), item=self)
         finally:
             if posttest is not None:
                 posttest(self)
@@ -317,8 +321,8 @@ class TestSuite:
         # is present in sys.modules. Unfortunately, the module returned
         # from the __import__ function doesn't correspond to the last
         # component of the module path but the first. In the example
-        # listed in the docstring we thus would get the pypy module,
-        # not the test_minmax module.
+        # listed in the docstring we thus would get the pypy module
+        # (i. e. package), not the test_minmax module.
         __import__(modpath)
         return sys.modules[modpath]
 
@@ -374,7 +378,8 @@ class TestSuite:
                 else:
                     self.items.extend(items)
 
-    def testresults(self, classify=lambda result: result.item.module.__name__):
+    def result_generator(self,
+                         classify=lambda result: result.item.module.__name__):
         """
         Return a generator to get the test result for each test item.
 
@@ -393,6 +398,15 @@ class TestSuite:
             self.lastresults.setdefault(key, []).append(result)
             yield result
 
+    def run(self):
+        """
+        Run all the test items. After that, the results are available
+        via the attribute lastresults.
+        """
+        # perform all the tests by using the existing generator; discard
+        # the results; they are then available via self.lastresults
+        [result for result in self.generator()]
+
 #
 # demonstrate test framework usage
 #
@@ -408,7 +422,7 @@ def main(do_selftest=False):
     #ts.initfromdir(autopath.pypydir, filterfunc=filterfunc)
     ts.initfromdir('.', filterfunc=filterfunc)
     # iterate over tests and collect data
-    for res in ts.testresults():
+    for res in ts.result_generator():
         if res.traceback is None:
             continue
         print 79 * '-'
