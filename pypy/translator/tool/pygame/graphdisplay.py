@@ -62,6 +62,9 @@ class GraphDisplay(Display):
     STATUSBAR_ALPHA = 0.75
     STATUSBAR_FGCOLOR = (255, 255, 80)
     STATUSBAR_BGCOLOR = (128, 0, 0)
+    HELP_ALPHA = 0.95
+    HELP_FGCOLOR = (255, 255, 80)
+    HELP_BGCOLOR = (0, 128, 0)
 
     KEYS = {
         'meta -' : ('zoom', 0.5),
@@ -82,9 +85,38 @@ class GraphDisplay(Display):
         'shift right' : ('fast_pan', (1, 0)),
         'shift up' : ('fast_pan', (0, -1)),
         'shift down' : ('fast_pan', (0, 1)),
+        'h': 'help',
+        'f1': 'help',
     }
-        
-        
+
+    HELP_MSG = """
+    Key bindings:
+
+        Meta -          Zoom out
+        Meta +          Zoom in
+        Meta 0          Actual size
+        Meta 1          Zoom to fit
+
+        Arrows          Scroll
+        Shift+Arrows    Scroll faster
+
+        Backspace       Go back in history
+        Meta Left       Go back in history
+        Meta Right      Go forward in history
+
+        H               This help message
+
+        Esc             Quit
+        Meta Q          Quit
+
+    Mouse bindings:
+
+        Click on objects to move around
+        Drag with the left mouse button to zoom in/out
+        Drag with the right mouse button to scroll
+    """.replace('\n    ', '\n').strip()  # poor man's dedent
+
+
     def __init__(self, layout):
         super(GraphDisplay, self).__init__()
         self.font = pygame.font.Font(self.STATUSBARFONT, 16)
@@ -134,7 +166,32 @@ class GraphDisplay(Display):
             for key in keys:
                 for mod in permute_mods(basemod, mods):
                     self.key_cache[(key, mod)] = (method, args)
-    
+
+    def help(self):
+        margin_x = margin_y = 64
+        fgcolor = self.HELP_FGCOLOR
+        bgcolor = self.HELP_BGCOLOR
+        helpmsg = self.HELP_MSG
+        width = self.width - 2*margin_x
+        height = self.height - 2*margin_y
+        lines = rendertext(helpmsg, self.font, fgcolor, width)
+        block = pygame.Surface((width, height), SWSURFACE | SRCALPHA)
+        block.fill(bgcolor)
+        sx = sy = 8
+        for img in lines:
+            w, h = img.get_size()
+            block.blit(img, (sx, sy))
+            sy += h
+        block.set_alpha(int(255 * self.HELP_ALPHA))
+        self.screen.blit(block, (margin_x, margin_y))
+
+        pygame.display.flip()
+        while 1:
+            e = pygame.event.wait()
+            if e.type in (MOUSEBUTTONDOWN, KEYDOWN, QUIT):
+                break
+        self.must_redraw = True
+
     def setlayout(self, layout):
         if self.viewer:
             self.viewers_history.append(self.viewer)
@@ -181,8 +238,7 @@ class GraphDisplay(Display):
         if self.viewers_history:
             info = 'Press Backspace to go back to previous screen'
         else:
-            info = ('Click to move around, or drag mouse buttons '
-                    '(left to zoom, right to scroll)')
+            info = 'Press H for help'
         self.setstatusbar(info)
     
     def updated_viewer(self):
@@ -214,25 +270,11 @@ class GraphDisplay(Display):
 
     def drawstatusbar(self):
         text, fgcolor, bgcolor = self.statusbarinfo
-        words = text.split(' ')
-        lines = []
+        lines = renderline(text, self.font, fgcolor, self.width)
         totalh = 0
-        while words:
-            line = words.pop(0)
-            img = self.font.render(line, 1, fgcolor)
-            while words:
-                longerline = line + ' ' + words[0]
-                longerimg = self.font.render(longerline, 1, fgcolor)
-                w, h = longerimg.get_size()
-                if w > self.width:
-                    break
-                words.pop(0)
-                line = longerline
-                img = longerimg
-            lines.append(img)
+        for img in lines:
             w, h = img.get_size()
             totalh += h
-        
         y = self.height - totalh
         self.status_bar_height = totalh + 16
         block = pygame.Surface((self.width, self.status_bar_height), SWSURFACE | SRCALPHA)
@@ -453,3 +495,36 @@ class GraphDisplay(Display):
 def shortlabel(label):
     """Shorten a graph node label."""
     return label.replace('\\l', '').splitlines()[0]
+
+
+def renderline(text, font, fgcolor, width):
+    """Render a single line of text into a list of images.
+
+    Performs word wrapping.
+    """
+    words = text.split(' ')
+    lines = []
+    while words:
+        line = words.pop(0)
+        img = font.render(line, 1, fgcolor)
+        while words:
+            longerline = line + ' ' + words[0]
+            longerimg = font.render(longerline, 1, fgcolor)
+            w, h = longerimg.get_size()
+            if w > width:
+                break
+            words.pop(0)
+            line = longerline
+            img = longerimg
+        lines.append(img)
+    return lines
+
+
+def rendertext(text, font, fgcolor, width):
+    """Render a multiline string into a list of images.
+
+    Performs word wrapping for each line individually."""
+    lines = []
+    for line in text.splitlines():
+        lines.extend(renderline(line, font, fgcolor, width))
+    return lines
