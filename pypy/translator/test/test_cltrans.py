@@ -12,12 +12,25 @@ class GenCLTestCase(test.IntTestCase):
         if cl:
             self.cl = cl
         else:
-            try:
-                out = exec_cmd('clisp --version')
-            except ExecutionFailed:
-                raise test.TestSkip, "no list interpreter configured and no 'clisp' found"
+            cl = self.cl_detect()
+            if cl:
+                self.cl = cl
             else:
-                self.cl = 'clisp'
+                raise (test.TestSkip,
+                       "Common Lisp neither configured nor detected.")
+
+    def cl_detect(self):
+        import os
+        if self.is_on_path("clisp"):
+            return "clisp"
+        elif self.is_on_path("lisp"):
+            if self.is_on_path("cmuclinvoke.sh"):
+                return "cmuclinvoke.sh"
+        return None
+
+    def is_on_path(self, name):
+        import os
+        return os.system("which %s >/dev/null" % name) == 0
 
     def cl_func(self, func):
         return make_cl_func(func, self.cl, udir)
