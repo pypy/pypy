@@ -24,15 +24,14 @@ KEYS = dict([
     for ident in dir(pygame.locals) if ident.startswith('K_')
 ])
 
-KEYS['plus'] = ('=', '+', '.')
-KEYS['quit'] = ('q', 'f4', 'escape')
+KEYS['plus'] = ('=', '+')
+KEYS['quit'] = ('q', 'escape')
+KEYS['help'] = ('h', '?', 'f1')
 
 def GET_KEY(key):
-    k = KEYS.get(key)
-    if k is None:
-        assert len(key) == 1
-        return ord(key)
-    return k
+    if len(key) == 1:
+        return key
+    return KEYS[key]
 
 def permute_mods(base, args):
     if not args:
@@ -44,7 +43,7 @@ def permute_mods(base, args):
             yield rval
 
 class Display(object):
-    
+
     def __init__(self, (w,h)=(800,680)):
         pygame.init()
         self.resize((w,h))
@@ -79,6 +78,7 @@ class GraphDisplay(Display):
              '0' : 'zoom_actual_size',
         'meta 1' : 'zoom_to_fit',
              '1' : 'zoom_to_fit',
+        'meta f4' : 'quit',
         'meta quit' : 'quit',
              'quit' : 'quit',
         'meta right' : 'layout_forward',
@@ -87,7 +87,6 @@ class GraphDisplay(Display):
         'backspace' : 'layout_back',
         'f': 'search',
         '/': 'search',
-        'shift 7': 'search',    # '/' is shift-7 on my keyboard
         'n': 'find_next',
         'left' : ('pan', (-1, 0)),
         'right' : ('pan', (1, 0)),
@@ -97,17 +96,16 @@ class GraphDisplay(Display):
         'shift right' : ('fast_pan', (1, 0)),
         'shift up' : ('fast_pan', (0, -1)),
         'shift down' : ('fast_pan', (0, 1)),
-        'h': 'help',
-        'f1': 'help',
+        'help': 'help',
     }
 
     HELP_MSG = """
     Key bindings:
 
-        Meta -          Zoom out
-        Meta + or .     Zoom in
-        Meta 0          Actual size
-        Meta 1          Zoom to fit
+        + or =          Zoom in
+        -               Zoom out
+        1               Zoom to fit
+        0               Actual size
 
         Arrows          Scroll
         Shift+Arrows    Scroll faster
@@ -119,10 +117,9 @@ class GraphDisplay(Display):
         F or /          Search for text
         N               Find next occurrence
 
-        H               This help message
+        F1, H or ?      This help message
 
-        Esc             Quit
-        Meta Q          Quit
+        Q or Esc        Quit
 
     Mouse bindings:
 
@@ -142,6 +139,7 @@ class GraphDisplay(Display):
         self.viewer = None
         self.method_cache = {}
         self.key_cache = {}
+        self.ascii_key_cache = {}
         self.status_bar_height = 0
         self.searchstr = None
         self.searchpos = None
@@ -175,14 +173,20 @@ class GraphDisplay(Display):
                 else:
                     val = GET_KEY(name)
                     assert len(keys) == 0
-                    if not isinstance(val, int):
+                    if not isinstance(val, (int, basestring)):
                         keys.extend([GET_KEY(k) for k in val])
                     else:
                         keys.append(val)
             assert keys
             for key in keys:
-                for mod in permute_mods(basemod, mods):
-                    self.key_cache[(key, mod)] = (method, args)
+                if isinstance(key, int):
+                    for mod in permute_mods(basemod, mods):
+                        self.key_cache[(key, mod)] = (method, args)
+                else:
+                    for mod in permute_mods(basemod, mods):
+                        char = key.lower()
+                        mod = mod & ~KMOD_SHIFT
+                        self.ascii_key_cache[(char, mod)] = (method, args)
 
     def help(self):
         """Show a help window and wait for a key or a mouse press."""
@@ -544,6 +548,10 @@ class GraphDisplay(Display):
 
     def process_KeyDown(self, event):
         method, args = self.key_cache.get((event.key, event.mod), (None, None))
+        if method is None and event.unicode:
+            char = event.unicode.lower()
+            mod = event.mod & ~ KMOD_SHIFT
+            method, args = self.ascii_key_cache.get((char, mod), (None, None))
         if method is not None:
             method(*args)
 
