@@ -63,7 +63,10 @@ def find_someobjects(annotator):
             return False
 
     def short_binding(var):
-        binding = annotator.binding(var)
+        try:
+            binding = annotator.binding(var)
+        except KeyError:
+            return "?"
         if binding.is_constant():
             return 'const %s' % binding.__class__.__name__
         else:
