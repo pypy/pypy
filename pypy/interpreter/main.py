@@ -23,7 +23,6 @@ def main(argv=None):
     except baseobjspace.OperationError, operationerr:
         # XXX insert exception info into the application-level sys.last_xxx
         operationerr.print_detailed_traceback(space)
-        
     
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
