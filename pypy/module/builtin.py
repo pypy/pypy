@@ -179,6 +179,9 @@ class Builtin(BuiltinModule):
     # we have None! But leave these at the bottom, otherwise the default
     # arguments of the above-defined functions will see this new None...
     None = appdata(_b.None)
+    # XXX Add these for Ann space.
+    TypeError = appdata(_b.TypeError)
+    type = appdata(_b.type)
 ##    False = appdata(_b.False)
 ##    True = appdata(_b.True)
 ##    dict = appdata(_b.dict)   # XXX temporary
