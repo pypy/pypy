@@ -189,9 +189,10 @@ class GenCL:
         import sys
         from cStringIO import StringIO
         out = StringIO()
+        oldstdout = sys.stdout
         sys.stdout = out
         self.emit()
-        sys.stdout = sys.__stdout__
+        sys.stdout = oldstdout
         return out.getvalue()
     def emit(self):
         self.emit_prelude()
