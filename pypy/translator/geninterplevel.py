@@ -54,7 +54,7 @@ def eval_helper(self, typename, expr):
         '    dic = space.newdict([(%s, space.w_builtins)])\n'
         '    space.exec_("import types", dic, dic)\n'
         '    return space.eval(expr, dic, dic)' % bltinsname)
-    self.initcode.append1('m.%s = eval_helper(%r)' % (name, expr))
+    self.initcode.append1('%s = eval_helper(%r)' % (name, expr))
     return name
 
 class GenRpy:
@@ -69,14 +69,11 @@ class GenRpy:
         
         def late_OperationError():
             self.initcode.append1(
-                'from pypy.interpreter.error import OperationError\n'
-                'm.OperationError = OperationError')
-            return 'OperationError'
+                'from pypy.interpreter.error import OperationError as gOperationError')
+            return 'gOperationError'
         def late_Arguments():
-            self.initcode.append1(
-                'from pypy.interpreter.argument import Arguments\n'
-                'm.Arguments = Arguments')
-            return 'Arguments'
+            self.initcode.append1('from pypy.interpreter import gateway')
+            return 'gateway.Arguments'
 
         self.rpynames = {Constant(None).key:  'space.w_None',
                          Constant(False).key: 'space.w_False',
@@ -150,16 +147,16 @@ class GenRpy:
         if op.opname == "call_args":
             v = op.args[0]
             exv = self.expr(v, localscope)
-            self.nameof(Arguments) # trigger init
             fmt = (
-                "_args = Arguments.fromshape(space, %(shape)s, [%(data_w)s])\n"
+                "_args = %(Arg)s.fromshape(space, %(shape)s, [%(data_w)s])\n"
                 "%(res)s = space.call_args(%(func)s, _args)")
             assert isinstance(op.args[1], Constant)
             shape = op.args[1].value
             return fmt % {"res": self.expr(op.result, localscope),
                           "func": exv,
                           "shape": repr(shape),
-                          "data_w": self.arglist(op.args[2:], localscope) }
+                          "data_w": self.arglist(op.args[2:], localscope),
+                          'Arg': self.nameof(Arguments) }
         if op.opname in self.has_listarg:
             fmt = "%s = %s([%s])"
         else:
@@ -203,7 +200,7 @@ class GenRpy:
                     'from pypy.objspace.flow.framestate import SpecTag')
                 lbname = self.uniquename("glabel_%d" % blocknum)
                 self._labeltable[blocknum] = lbname
-                self.initcode.append1('m.%s = SpecTag()' % lbname)
+                self.initcode.append1('%s = SpecTag()' % lbname)
             return lbname
         else:
             return repr(blocknum)
@@ -285,11 +282,11 @@ class GenRpy:
         if type(value) is not object:
             # try to just wrap it?
             name = self.uniquename('g_%sinst_%r' % (type(value).__name__, value))
-            self.initcode.append1('m.%s = space.wrap(%r)' % (name, value))
+            self.initcode.append1('%s = space.wrap(%r)' % (name, value))
             return name
         name = self.uniquename('g_object')
         self.initcode.append('_tup = space.newtuple([])\n'
-                                'm.%s = space.call(space.w_object, _tup)'
+                                '%s = space.call(space.w_object, _tup)'
                                 % name)
         return name
 
@@ -301,7 +298,7 @@ class GenRpy:
                "%r is not a builtin module (probably :)"%value
         name = self.uniquename('mod_%s' % value.__name__)
         self.initcode.append1('import %s as _tmp' % value.__name__)
-        self.initcode.append1('m.%s = space.wrap(_tmp)' % (name))
+        self.initcode.append1('%s = space.wrap(_tmp)' % (name))
         return name
         
 
@@ -313,7 +310,7 @@ class GenRpy:
             # the prefixbefore the initial '_' for easy postprocessing
             name = 'gi_minus_%d' % abs(value)
         name = self.uniquename(name)
-        self.initcode.append1('m.%s = space.newint(%d)' % (name, value))
+        self.initcode.append1('%s = space.newint(%d)' % (name, value))
         return name
 
     def nameof_long(self, value):
@@ -332,7 +329,7 @@ class GenRpy:
             # the prefix  before the initial '_'
             name = 'glong_minus_%d' % abs(value)
         name = self.uniquename(name)
-        self.initcode.append1('m.%s = space.wrap(%s) # XXX implement long!' % (name, s))
+        self.initcode.append1('%s = space.wrap(%s) # XXX implement long!' % (name, s))
         return name
 
     def nameof_float(self, value):
@@ -340,7 +337,7 @@ class GenRpy:
         name = (name.replace('-', 'minus')
                     .replace('.', 'dot'))
         name = self.uniquename(name)
-        self.initcode.append1('m.%s = space.newfloat(%r)' % (name, value))
+        self.initcode.append1('%s = space.newfloat(%r)' % (name, value))
         return name
     
     def nameof_str(self, value):
@@ -353,9 +350,9 @@ class GenRpy:
         if not namestr:
             namestr = "_emptystr_"
         name = self.uniquename('gs_' + namestr[:32])
-        # self.initcode.append1('m.%s = space.newstring(%r)' % (name, value))
+        # self.initcode.append1('%s = space.newstring(%r)' % (name, value))
         # ick! very unhandy
-        self.initcode.append1('m.%s = space.wrap(%r)' % (name, value))
+        self.initcode.append1('%s = space.wrap(%r)' % (name, value))
         return name
 
     def skipped_function(self, func):
@@ -398,7 +395,7 @@ class GenRpy:
             namehint + func.__name__))
         f_name = 'f_' + name[6:]
         self.initcode.append1('from pypy.interpreter import gateway')
-        self.initcode.append1('m.%s = space.wrap(gateway.interp2app(%s, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))' % (name, f_name))
+        self.initcode.append1('%s = space.wrap(gateway.interp2app(%s, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))' % (name, f_name))
         self.pendingfunctions.append(func)
         return name
 
@@ -407,7 +404,7 @@ class GenRpy:
         func = sm.__get__(42.5)
         name = self.uniquename('gsm_' + func.__name__)
         functionname = self.nameof(func)
-        self.initcode.append1('m.%s = space.wrap(%s)' % (name, functionname))
+        self.initcode.append1('%s = space.wrap(%s)' % (name, functionname))
         return name
 
     def nameof_instancemethod(self, meth):
@@ -462,7 +459,7 @@ class GenRpy:
                         print >> sys.stderr, "Problem while generating %s of %r" % (
                                 name, instance)
                         raise
-        self.initcode.append1("m.%s = space.call_method(%s, '__new__', %s)" % (
+        self.initcode.append1("%s = space.call_method(%s, '__new__', %s)" % (
                              name, cls, cls))
         self.later(initinstance())
         return name
@@ -499,7 +496,7 @@ class GenRpy:
             else:
                 raise Exception, '%r not found in any built-in module' % (func,)
             if modname == '__builtin__':
-                #self.initcode.append1('m.%s = space.getattr(space.w_builtin, %s)'% (
+                #self.initcode.append1('%s = space.getattr(space.w_builtin, %s)'% (
                 #    name, self.nameof(func.__name__)))
                 # be lazy
                 return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
@@ -510,12 +507,12 @@ class GenRpy:
                 print ("WARNING: accessing builtin modules different from sys or __builtin__"
                        " is likely producing non-sense: %s %s" % (module.__name__, func.__name__))
                 name = self.uniquename('gbltin_' + func.__name__)
-                self.initcode.append1('m.%s = space.getattr(%s, %s)' % (
+                self.initcode.append1('%s = space.getattr(%s, %s)' % (
                     name, self.nameof(module), self.nameof(func.__name__)))
         else:
             # builtin (bound) method
             name = self.uniquename('gbltinmethod_' + func.__name__)
-            self.initcode.append1('m.%s = space.getattr(%s, %s)' % (
+            self.initcode.append1('%s = space.getattr(%s, %s)' % (
                 name, self.nameof(func.__self__), self.nameof(func.__name__)))
         return name
 
@@ -582,7 +579,7 @@ class GenRpy:
                 self.nameof("__doc__"),))
         self.initcode.append1('_bases = space.newtuple([%(bases)s])\n'
                              '_args = space.newtuple([%(name)s, _bases, _dic])\n'
-                             'm.%(klass)s = space.call(%(meta)s, _args)'
+                             '%(klass)s = space.call(%(meta)s, _args)'
                              % {"bases": baseargs,
                                 "klass": name,
                                 "name" : self.nameof(cls.__name__),
@@ -654,7 +651,7 @@ class GenRpy:
         name = self.uniquename('g%dtuple' % len(tup))
         args = [self.nameof(x) for x in tup]
         args = ', '.join(args)
-        self.initcode.append1('m.%s = space.newtuple([%s])' % (name, args))
+        self.initcode.append1('%s = space.newtuple([%s])' % (name, args))
         return name
 
     def nameof_list(self, lis):
@@ -664,8 +661,8 @@ class GenRpy:
                 item = self.nameof(lis[i])
                 yield 'space.setitem(%s, %s, %s);' % (
                     name, self.nameof(i), item)
-        self.initcode.append1('m.%s = space.newlist([space.w_None])' % (name,))
-        self.initcode.append1('m.%s = space.mul(%s, %s)' % (name, name, self.nameof(len(lis))))
+        self.initcode.append1('%s = space.newlist([space.w_None])' % (name,))
+        self.initcode.append1('%s = space.mul(%s, %s)' % (name, name, self.nameof(len(lis))))
         self.later(initlist())
         return name
 
@@ -678,7 +675,7 @@ class GenRpy:
             for k in dic:
                 yield ('space.setitem(%s, %s, %s)'%(
                             name, self.nameof(k), self.nameof(dic[k])))
-        self.initcode.append1('m.%s = space.newdict([])' % (name,))
+        self.initcode.append1('%s = space.newdict([])' % (name,))
         self.later(initdict())
         return name
 
@@ -689,7 +686,7 @@ class GenRpy:
             md.__objclass__.__name__, md.__name__))
         cls = self.nameof(md.__objclass__)
         # do I need to take the dict and then getitem???
-        self.initcode.append1('m.%s = space.getattr(%s, %s)' %
+        self.initcode.append1('%s = space.getattr(%s, %s)' %
                                 (name, cls, self.nameof(md.__name__)))
         return name
     nameof_getset_descriptor  = nameof_member_descriptor
@@ -775,7 +772,11 @@ class GenRpy:
             # make sure it is not rendered again
             key = Constant(doc).key
             self.rpynames[key] = "__doc__"
-            self.initcode.append1("m.__doc__ = space.wrap(m.__doc__)")
+            self.initcode.append1("__doc__ = space.wrap(globals()['__doc__'])")
+
+        # header """def initmodule(space):"""
+        print >> f, self.RPY_INIT_HEADER % info
+
         # function implementations
         while self.pendingfunctions or self.latercode:
             if self.pendingfunctions:
@@ -794,10 +795,9 @@ class GenRpy:
         # set the final splitter
         print >> f, "##SECTION##"
         # footer, init code
-        print >> f, self.RPY_INIT_HEADER % info
         for codelines in self.initcode:
             # keep docstrings unindented
-            indent = "    "
+            indent = "  "
             if type(codelines) is tuple:
                 codelines = codelines[0].split("\n", 1)
                 codelines[0] = indent + codelines[0]
@@ -807,7 +807,7 @@ class GenRpy:
             for codeline in codelines:
                 print >> f, indent + codeline
 
-        self.gen_trailer(info, "    ")
+        self.gen_trailer(info, "  ")
         # do not close the file here!
 
     def gen_trailer(self, info, indent):
@@ -905,20 +905,20 @@ class GenRpy:
         # create function declaration
         name = self.trans_funcname(func.__name__) # for <lambda>
         argstr = ", ".join(['space'] + fast_args)
-        fast_function_header = ('def %s(%s):'
+        fast_function_header = ('  def %s(%s):'
                                 % (name, argstr))
 
         def install_func(f_name, name):
             yield ''
-            yield '%s = %s' % (f_name, name)
-            import __builtin__
-            dic = __builtin__.__dict__
-            if dic.get(name):
-                yield 'del %s # hiding a builtin!' % name
-            else:
-                self.initcode.append1('del m.%s' % (name,))
+            yield '  %s = %s' % (f_name, name)
+            #import __builtin__
+            #dic = __builtin__.__dict__
+            #if dic.get(name):
+            #    yield 'del %s # hiding a builtin!' % name
+            #else:
+            #    self.initcode.append1('del m.%s' % (name,))
 
-        print >> f, 'def %s(space, __args__):' % (name,)
+        print >> f, '  def %s(space, __args__):' % (name,)
         if docstr is not None:
             print >> f, docstr
             print >> f
@@ -1027,8 +1027,8 @@ class GenRpy:
                     # exceptional return block
                     exc_cls = self.expr(block.inputargs[0], localscope)
                     exc_val = self.expr(block.inputargs[1], localscope)
-                    self.nameof(OperationError) # trigger init
-                    yield "raise OperationError(%s, %s)" % (exc_cls, exc_val)
+                    yield "raise %s(%s, %s)" % (self.nameof(OperationError),
+                                                exc_cls, exc_val)
                 else:
                     # regular return block
                     retval = self.expr(block.inputargs[0], localscope)
@@ -1049,8 +1049,7 @@ class GenRpy:
                 # we must catch the exception raised by the last operation,
                 # which goes to the last err%d_%d label written above.
                 # Since we only have OperationError, we need to select:
-                self.nameof(OperationError) # trigger init
-                yield "except OperationError, e:"
+                yield "except %s, e:" % (self.nameof(OperationError),)
                 q = "if"
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
@@ -1104,11 +1103,7 @@ class GenRpy:
     RPY_INIT_HEADER = RPY_SEP + '''
 
 def init%(modname)s(space):
-    """NOT_RPYTHON"""
-    class m: pass # fake module
-    m.__dict__ = globals()
-    # make sure that this function is run only once:
-    m.init%(modname)s = lambda *ign:True
+  """NOT_RPYTHON"""
 '''
 
     RPY_INIT_FOOTER = '''
