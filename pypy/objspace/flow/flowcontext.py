@@ -55,7 +55,12 @@ class ReplayList:
         
     def append(self, operation):
         operation.result = self.listtoreplay[self.index].result
-        assert operation == self.listtoreplay[self.index]
+        assert operation == self.listtoreplay[self.index], (
+            '\n'.join(["Not generating the same operation sequence:"] +
+                      [str(s) for s in self.listtoreplay[:self.index]] +
+                      ["  ---> | while repeating we see here"] +
+                      ["       | %s" % operation] +
+                      [str(s) for s in self.listtoreplay[self.index:]]))
         self.index += 1
 
     def finished(self):
