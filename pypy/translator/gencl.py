@@ -199,20 +199,25 @@ class GenCL:
             if isinstance(node, Block):
                 blocklist.append(node)
         traverse(collect_block, fun)
-        varlist = {}
+        vardict = {}
         for block in blocklist:
             tag = len(self.blockref)
             self.blockref[block] = tag
+            annset = self.ann.annotated[block]
             for var in block.getvariables():
-                varlist[var] = None
-        varlist = varlist.keys()
+                vardict[var] = annset.get_type(var)
         print "(",
-        for var in varlist:
+        for var in vardict:
             if var in arglist:
                 print "(", self.str(var), self.str(var), ")",
             else:
                 print self.str(var),
         print ")"
+        print "; DEBUG: type inference"
+        for var in vardict:
+            tp = vardict[var]
+            if tp:
+                print ";", self.str(var), "is", tp.__name__
         for block in blocklist:
             self.emit_block(block)
         print ")"
