@@ -344,3 +344,5 @@ def %(_name)s(self, *args):
 for m in ObjSpace.MethodTable:
     if not hasattr(TrivialObjSpace, m[0]):
         print m[0]
+
+Space = TrivialObjSpace
