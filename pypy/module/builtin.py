@@ -64,7 +64,7 @@ class __builtin__(ExtModule):
 
             import os
             for path in space.unpackiterable(space.sys.w_path):
-                f = os.path.join(path, space.unwrap(w_modulename) + '.py')
+                f = os.path.join(space.unwrap(path), space.unwrap(w_modulename) + '.py')
                 if os.path.exists(f):
                     w_mod = space.wrap(Module(space, w_modulename))
                     space.setitem(space.sys.w_modules, w_modulename, w_mod)
