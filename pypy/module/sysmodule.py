@@ -19,7 +19,9 @@ from __interplevel__ import displayhook, _getframe, exc_info
 # Dummy
 executable = ''
 prefix = ''
-version = '0.0.0 (not released yet)'
+version = '0.5.0 (not released yet)'
+ps1 = '>>>> '
+ps2 = '.... '
 
 # XXX not called by the core yet
 def excepthook(exctype, value, traceback):
