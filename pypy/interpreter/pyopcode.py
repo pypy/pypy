@@ -769,6 +769,7 @@ class PyInterpFrame(pyframe.PyFrame):
 
     __metaclass__ = InitializedClass
     def __initclass__(cls):
+        "NOT_RPYTHON"
         # create the 'cls.dispatch_table' attribute
         import dis
         dispatch_table = []

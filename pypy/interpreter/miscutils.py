@@ -44,11 +44,10 @@ class InitializedClass(type):
     subclasses) by calling __initclass__() as a class method."""
     def __init__(self, name, bases, dict):
         super(InitializedClass, self).__init__(name, bases, dict)
-        if hasattr(self, '__initclass__'):
-            raw = dict.get('__initclass__')
+        for basecls in self.__mro__:
+            raw = basecls.__dict__.get('__initclass__')
             if isinstance(raw, types.FunctionType):
-                self.__initclass__ = classmethod(raw)
-            self.__initclass__()
+                raw(self)   # call it as a class method
 
 
 class RwDictProxy(object):
