@@ -262,6 +262,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.gettypeobject(ft.typedef)
         ft = self.loadfromcache(type(x), fake_type, self._faketypecache)
         return ft(self, x)
+    wrap.specialize = "argtypes"
 
     def newint(self, intval):
         return W_IntObject(self, intval)
