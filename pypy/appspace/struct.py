@@ -342,5 +342,5 @@ def unpack(fmt,data):
 if __name__ == '__main__':
     print pack_float(1.23,4,'little')
     import struct
-    print struct.pack('f',1.23), pack('f',1.23)
+    print (struct.pack('f',1.23), pack('f',1.23))
     print unpack('f',pack('f',1.23))   
