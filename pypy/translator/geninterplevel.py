@@ -98,7 +98,7 @@ class GenRpy:
         for name in "newtuple newlist newdict newstring".split():
             self.has_listarg[name] = name
 
-        # catching all builtins inj advance, to avoid problems
+        # catching all builtins in advance, to avoid problems
         # with modified builtins
         import __builtin__
         
@@ -110,7 +110,7 @@ class GenRpy:
             
         self.builtin_ids = dict( [
             (id(value), bltinstub(key))
-            for key, value in __builtins__.items()
+            for key, value in __builtin__.__dict__.items()
             if callable(value) and type(value) not in [type(Exception), type] ] )
         
         self.space = FlowObjSpace() # for introspection
