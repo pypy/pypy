@@ -50,7 +50,7 @@ Return the encoding used to convert Unicode filenames in
 operating system filenames."""
     
     if platform == "win32":
-        encoding = "mcbs"
+        encoding = "mbcs"
     elif platform == "darwin":
         encoding = "utf-8"
     else:
