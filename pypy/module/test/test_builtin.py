@@ -42,6 +42,15 @@ class TestBuiltinApp(test.AppTestCase):
             return dir()
         self.assertEquals(f(), [])
         self.assertEquals(g(), ['a', 'b', 'c'])
+        class X: pass
+        self.assertEquals(dir(X), ['__module__', ])
+        class X: a = 23
+        self.assertEquals(dir(X), ['__module__', 'a'])
+        class X:
+            a = 23
+            c = 45
+            b = 67
+        self.assertEquals(dir(X), ['__module__', 'a', 'b', 'c'])
 
     def test_vars(self):
         def f():

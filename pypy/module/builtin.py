@@ -650,13 +650,17 @@ class __builtin__(ExtModule):
         
         if isinstance(obj, types.ModuleType):
             try:
-                return module.__dict__.keys()
+                result = module.__dict__.keys()
+                result.sort()
+                return result
             except AttributeError:
                 return []
 
         elif isinstance(obj, (types.TypeType, types.ClassType)):
             #Don't look at __class__, as metaclass methods would be confusing.
-            return _classdir(obj).keys()
+            result = _classdir(obj).keys()
+            result.sort()
+            return result
 
         else: #(regular item)
             Dict = {}
@@ -678,7 +682,9 @@ class __builtin__(ExtModule):
                             Dict[item] = None
                 except (AttributeError, TypeError): pass
                 
-            return Dict.keys()
+            result = Dict.keys()
+            result.sort()
+            return result
 
     def app_intern(self, s):
         """
