@@ -8,14 +8,16 @@ from test.test_support import TestFailed
 # incorporated into the core after translation,
 # this test file should really vanish!
 
-import pypy, os
+import pypy, os, new
 prefix = os.path.dirname(pypy.__file__)
 libdir = os.path.join(prefix, "lib")
 fname = "_classobj.py"
 fpath = os.path.join(libdir, fname)
-execfile(fpath)
+mod = new.module("_classobj")
+mod.__file__ = fpath
+execfile(fpath, mod.__dict__)
 
-__metaclass__ = classobj
+__metaclass__ = mod.classobj
 
 # HACK END
 
