@@ -281,3 +281,9 @@ class C(object): pass
 def build_instance():
     c = C()
     return c
+
+def set_attr():
+    c = C()
+    c.a = 1
+    c.a = 2
+    return c.a

@@ -40,6 +40,8 @@ a = t.annotate(argtypes)
 lines = []
 for key, value in a.bindings.items():
     lines.append('%r: %r' % (key, value))
+for cl, attrdict in a.classes.items():
+    lines.append('%s: %r' % (cl.__name__,attrdict))
 lines.sort()
 for line in lines:
     print line
