@@ -242,9 +242,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result
+        # anything below this line is implicitly XXX'ed
         SlotWrapperType = type(type(None).__repr__)
         if isinstance(x, (types.FunctionType, types.BuiltinFunctionType, SlotWrapperType)):
             return W_BuiltinFunctionObject(self, x)
+        if isinstance(x, type(Exception)) and issubclass(x, Exception):
+            if hasattr(self, 'w_' + x.__name__):
+                return getattr(self, 'w_' + x.__name__)
         print "cpython wrapping %r" % (x,)
         #if hasattr(x, '__bases__'): 
         #    print "cpython wrapping a class %r (%s)" % (x, type(x))
