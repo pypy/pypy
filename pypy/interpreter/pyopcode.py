@@ -302,12 +302,6 @@ class PyInterpFrame(pyframe.PyFrame):
         if nbargs >= 1: w_type      = f.valuestack.pop()
         w_resulttuple = prepare_raise(f.space, w_type, w_value, w_traceback)
         w_type, w_value, w_traceback = f.space.unpacktuple(w_resulttuple, 3)
-        # XXX the three-arguments 'raise' is not supported yet
-        raise f._make_op_err(w_type, w_value)
-
-    def _make_op_err(f, w_type, w_value):
-        # hook to let a "raise StopIteration" in a generator be a
-        # normal termination for that generator:
         raise OperationError(w_type, w_value)
 
     def LOAD_LOCALS(f):

@@ -35,13 +35,6 @@ class GeneratorFrame(Frame):
         raise SYieldValue(w_yieldedvalue)
     YIELD_STMT = YIELD_VALUE  # misnamed in old versions of dis.opname
 
-    def _make_op_err(f, w_type, w_value):
-        # hook to let a "raise StopIteration" in a generator be a
-        # normal termination for that generator:
-        if w_type is f.space.w_StopIteration:
-            raise SGeneratorReturn()
-        else:
-            raise OperationError(w_type, w_value)
 
 class GeneratorIterator(object):
     "An iterator created by a generator."
