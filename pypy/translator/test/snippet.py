@@ -474,6 +474,12 @@ def flow_identity_info(x=object, y=object):
         else:
             return (None, None)
 
+def star_args(x, y, *args):
+    return x + args[0]
+
+def call_star_args(z):
+    return star_args(z, 5, 10, 15, 20)
+
 def powerset(setsize=int):
     """Powerset
 

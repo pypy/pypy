@@ -8,6 +8,7 @@ from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link, last_exception
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.translator.simplify import remove_direct_loops
+from pypy.interpreter.pycode import CO_VARARGS
 from types import FunctionType
 
 from pypy.objspace.std.restricted_int import r_int, r_uint
@@ -395,14 +396,45 @@ class GenC:
         print >> f
 
         # argument unpacking
-        lst = ['args',
-               '"%s"' % func.__name__,
-               '%d' % len(graph.getargs()),
-               '%d' % len(graph.getargs()),
-               ]
-        lst += ['&' + a.name for a in graph.getargs()]
-        print >> f, '\tif (!PyArg_UnpackTuple(%s))' % ', '.join(lst)
-        print >> f, '\t\treturn NULL;'
+        if func.func_code.co_flags & CO_VARARGS:
+            vararg = graph.getargs()[-1]
+            positional_args = graph.getargs()[:-1]
+            print >> f, '\t%s = PyTuple_GetSlice(args, %d, INT_MAX);' % (
+                vararg, len(positional_args))
+            print >> f, '\tif (%s == NULL)' % vararg
+            print >> f, '\t\treturn NULL;'
+            print >> f, '\targs = PyTuple_GetSlice(args, 0, %d);' % (
+                len(positional_args),)
+            print >> f, '\tif (args == NULL) {'
+            print >> f, '\t\tPy_DECREF(%s);' % vararg
+            print >> f, '\t\treturn NULL;'
+            print >> f, '\t}'
+            lst = ['args',
+                   '"%s"' % func.__name__,
+                   '%d' % len(positional_args),
+                   '%d' % len(positional_args),
+                   ]
+            lst += ['&' + a.name for a in positional_args]
+            print >> f, '\tif (!PyArg_UnpackTuple(%s)) {' % ', '.join(lst)
+            print >> f, '\t\tPy_DECREF(args);'
+            print >> f, '\t\tPy_DECREF(%s);' % vararg
+            print >> f, '\t\treturn NULL;'
+            print >> f, '\t}'
+            print >> f, '\tPy_DECREF(args);'
+        else:
+            positional_args = graph.getargs()
+            lst = ['args',
+                   '"%s"' % func.__name__,
+                   '%d' % len(positional_args),
+                   '%d' % len(positional_args),
+                   ]
+            lst += ['&' + a.name for a in positional_args]
+            print >> f, '\tif (!PyArg_UnpackTuple(%s))' % ', '.join(lst)
+            print >> f, '\t\treturn NULL;'
+
+        # generate an incref for each input argument
+        for v in positional_args:
+            print >> f, '\tPy_INCREF(%s);' % v.name
 
         # print the body
         for line in body:
@@ -462,10 +494,6 @@ class GenC:
                 allblocks.append(block)
                 blocknum[block] = len(blocknum)
         traverse(visit, graph)
-
-        # generate an incref for each input argument
-        for v in graph.getargs():
-            yield 'Py_INCREF(%s);' % v.name
 
         # generate the body of each block
         for block in allblocks:

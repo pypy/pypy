@@ -126,6 +126,10 @@ class NoTypeCGenTestCase(testit.IntTestCase):
         multiple_inheritance = self.build_cfunc(snippet.multiple_inheritance)
         self.assertEquals(multiple_inheritance(), 1+2+3+4)
 
+    def test_call_star_args(self):
+        call_star_args = self.build_cfunc(snippet.call_star_args)
+        self.assertEquals(call_star_args(42), 52)
+
 class TypedTestCase(testit.IntTestCase):
 
     def getcompiled(self, func):
