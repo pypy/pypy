@@ -5,3 +5,6 @@ class frozendict(dict):
         raise TypeError, "this dict is already frozen, you are too late!" 
     __delitem__ = setdefault = update = pop = popitem = clear = __setitem__ 
 
+    def __hash__(self):
+        return id(self) 
+
