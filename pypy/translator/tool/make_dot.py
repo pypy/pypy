@@ -11,11 +11,13 @@ from std.process import cmdexec
 
 class DotGen:
     
-    def __init__(self, graphname):
+    def __init__(self, graphname, rankdir=None):
         self.graphname = graphname
         self.lines = []
         self.source = None
         self.emit("digraph %s {" % graphname)
+        if rankdir:
+            self.emit('rankdir="%s"' % rankdir)
 
     def generate(self, storedir=None, target='ps'):
         source = self.get_source()

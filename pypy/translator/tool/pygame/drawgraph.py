@@ -94,8 +94,11 @@ class Edge:
             dir = -1
         n = 1
         while True:
-            x0, y0 = self.points[head]
-            x1, y1 = self.points[head+n*dir]
+            try:
+                x0, y0 = self.points[head]
+                x1, y1 = self.points[head+n*dir]
+            except IndexError:
+                return []
             vx = x0-x1
             vy = y0-y1
             try:
@@ -308,9 +311,10 @@ class GraphRenderer:
             edgebodycmd.append(drawedgebody)
 
             points = [self.map(*xy) for xy in edge.arrowhead()]
-            def drawedgehead(points=points, fgcolor=fgcolor):
-                pygame.draw.polygon(self.screen, fgcolor, points, 0)
-            edgeheadcmd.append(drawedgehead)
+            if points:
+                def drawedgehead(points=points, fgcolor=fgcolor):
+                    pygame.draw.polygon(self.screen, fgcolor, points, 0)
+                edgeheadcmd.append(drawedgehead)
             
             if edge.label:
                 x, y = self.map(edge.xl, edge.yl)
