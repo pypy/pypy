@@ -74,7 +74,7 @@ class TestW_TupleObject(unittest_w.TestCase_w):
         w = self.space.wrap
 
         def test1(testtuple, start, stop, step, expected):
-            w_slice  = self.space.newslice(w(start), w(end), w(step))
+            w_slice  = self.space.newslice(w(start), w(stop), w(step))
             w_tuple = tobj.W_TupleObject([w(i) for i in testtuple])
             w_result = self.space.getitem(w_tuple, w_slice)
             self.assertEqual(self.space.unwrap(w_result), expected)
@@ -89,7 +89,7 @@ class TestW_TupleObject(unittest_w.TestCase_w):
         test1((5,7,1,4), 3, -1, -2, ())
         test1((5,7,1,4), -2, 11, 2, (1,))
         test1((5,7,1,4), -3, 11, 2, (7, 4))
-        test1((5,7,1,4), -5, 11, 2, (7, 4))
+        test1((5,7,1,4), -5, 11, 2, (5, 1))
 
 if __name__ == '__main__':
     unittest.main()
