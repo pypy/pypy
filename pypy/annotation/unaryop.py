@@ -69,6 +69,8 @@ class __extend__(SomeTuple):
     def len(tup):
         return immutablevalue(len(tup.items))
 
+    def iter(tup):
+        return SomeIterator(unionof(*tup.items))
 
 class __extend__(SomeDict):
 
@@ -205,4 +207,6 @@ class __extend__(SomePrebuiltConstant):
         return unionof(*actuals)
 
     def setattr(pbc, s_attr, s_value):
-        raise Exception, "oops!"
+        #raise Exception, "oops!"
+        print "*** WARNING: setattr not wanted on %r" % pbc 
+        pass
