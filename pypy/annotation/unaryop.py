@@ -166,7 +166,22 @@ class __extend__(SomeInstance):
             attrdef = ins.classdef.find_attribute(attr)
             position = getbookkeeper().position_key
             attrdef.read_locations[position] = True
-            return attrdef.getvalue()
+            s_result = attrdef.getvalue()
+            # hack: if s_result is a set of methods, discard the ones
+            #       that can't possibly apply to an instance of ins.classdef.
+            if isinstance(s_result, SomePBC):
+                d = {}
+                for func, value in s_result.prebuiltinstances.items():
+                    if (isclassdef(value) and
+                        value not in ins.classdef.getmro() and
+                        ins.classdef not in value.getmro()):
+                        continue
+                    d[func] = value
+                if d:
+                    s_result = SomePBC(d)
+                else:
+                    s_result = SomeImpossibleValue()
+            return s_result
         return SomeObject()
 
     def setattr(ins, s_attr, s_value):

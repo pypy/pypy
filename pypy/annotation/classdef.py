@@ -157,6 +157,7 @@ class ClassDef:
         for clsdef in self.getmro():
             if attr in clsdef.attrs:
                 clsdef._generalize_attr(attr, s_value)
+                break
         else:
             self._generalize_attr(attr, s_value)
 
