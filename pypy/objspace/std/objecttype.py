@@ -41,18 +41,13 @@ def descr__hash__(space, w_obj):
 def descr__init__(space, w_obj, __args__):
     pass
 
-def descr__reduce_ex__(space, w_obj, __args__):
-    funcname = "__reduce_ex__"
-    signature = ['proto'], None, None
-    defaults_w = [space.wrap(0)]
-    w_proto, = __args__.parse(funcname, signature, defaults_w)
-
+def descr__reduce_ex__(space, w_obj, proto=0):
     # we intentionally avoid to ask for __reduce__ here
     # XXX check for integerness of proto ?
 
-    if space.is_true(space.ge(w_proto, space.wrap(2))):
+    if proto >= 2:
         return reduce_2(space, w_obj)
-
+    w_proto = space.wrap(proto)
     return reduce_1(space, w_obj, w_proto)
 
 app = gateway.applevel(r'''
@@ -139,9 +134,9 @@ object_typedef = StdTypeDef("object",
                         unwrap_spec = [gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     __hash__ = gateway.interp2app(descr__hash__),
     __reduce_ex__ = gateway.interp2app(descr__reduce_ex__,
-                                  unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
+                                  unwrap_spec=[gateway.ObjSpace,gateway.W_Root,int]),
     __reduce__ = gateway.interp2app(descr__reduce_ex__,
-                                  unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
+                                  unwrap_spec=[gateway.ObjSpace,gateway.W_Root,int]),
     __init__ = gateway.interp2app(descr__init__,
                                   unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     )
