@@ -58,9 +58,9 @@ def main(argv=None):
     
     runner = unittest.TextTestRunner()
     alltests, flexible = find_tests(PYPYDIR, inc_names,  exc_names)
-    os.environ.set('OBJSPACE', '')
+    os.environ['OBJSPACE'] = ''
     runner.run(alltests)
-    os.environ.set('OBJSPACE', 'pypy.objspace.std.objspace.StdObjSpace')
+    os.environ['OBJSPACE'] = 'pypy.objspace.std.objspace.StdObjSpace'
     runner.run(flexible)
     
 if __name__ == '__main__':
