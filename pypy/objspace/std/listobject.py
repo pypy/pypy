@@ -439,11 +439,9 @@ def _del_slice(w_list, ilow, ihigh):
         ihigh = w_list.ob_size
     items = w_list.ob_item
     d = ihigh-ilow
-    # XXX this is done by CPython to hold the elements
-    # to be deleted. I have no idea how to express
-    # this here, but we need to be aware when we write
-    # a compiler.
-    # recycle = [items[i] for i in range(ilow, ihigh)]
+    # keep a reference to the objects to be removed,
+    # preventing side effects during destruction
+    recycle = [items[i] for i in range(ilow, ihigh)]
     for i in range(ilow, w_list.ob_size - d):
         items[i] = items[i+d]
         items[i+d] = None
