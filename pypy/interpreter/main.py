@@ -18,7 +18,10 @@ def _run_eval_string(source, filename, space, eval):
         w = space.wrap
         w_code = compile(source, filename, cmd, 0, 0)
 
-        mainmodule = module.Module(space, space.wrap("__main__"))
+        w_main = space.wrap('__main__')
+        mainmodule = module.Module(space, w_main)
+        space.setitem(space.sys.w_modules, w_main, mainmodule)
+
         w_globals = mainmodule.w_dict
 
         pycode = space.interpclass_w(w_code)
