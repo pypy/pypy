@@ -332,24 +332,24 @@ def _cmp(space,w_obj1,w_obj2):
 
 # regular methods def helpers
 
-def _make_binop_impl(symbol,specialnames):
+def _make_binop_impl(symbol, specialnames):
     left, right = specialnames
-    def binop_impl(space,w_obj1,w_obj2):
+    def binop_impl(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
-        w_left_impl = space.lookup(w_obj1,left)
-        if space.is_true(space.is_(w_typ1,w_typ2)):
+        w_left_impl = space.lookup(w_obj1, left)
+        if space.is_true(space.is_(w_typ1, w_typ2)):
             w_right_impl = None
         else:
-            w_right_impl = space.lookup(w_obj2,right)
-            if space.is_true(space.issubtype(w_typ1,w_typ2)):
-                w_obj1,w_obj2 = w_obj2,w_obj1
-                w_left_impl,w_right_impl = w_right_impl,w_left_impl
+            w_right_impl = space.lookup(w_obj2, right)
+            if space.is_true(space.issubtype(w_typ1, w_typ2)):
+                w_obj1, w_obj2 = w_obj2, w_obj1
+                w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
-        w_res = _invoke_binop(space,w_left_impl,w_obj1,w_obj2)
+        w_res = _invoke_binop(space, w_left_impl, w_obj1, w_obj2)
         if w_res is not None:
             return w_res
-        w_res = _invoke_binop(space,w_right_impl,w_obj2,w_obj1)
+        w_res = _invoke_binop(space, w_right_impl, w_obj2, w_obj1)
         if w_res is not None:
             return w_res
         raise OperationError(space.w_TypeError,
