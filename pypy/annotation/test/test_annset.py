@@ -2,7 +2,7 @@
 import autopath
 from pypy.tool import test
 
-from pypy.annotation.model import ann, SomeValue
+from pypy.annotation.model import ANN, SomeValue
 from pypy.annotation.annset import AnnotationSet
 
 
@@ -36,41 +36,41 @@ class TestAnnotationSet(test.IntTestCase):
         c1,c2,c3,c4 = SomeValue(), SomeValue(), SomeValue(), SomeValue()
         a = AnnotationSet()
         a.setshared(c1,c4)
-        self.assert_(a.annequal(ann.add[c1,c2,c3],
-                                ann.add[c4,c2,c3]))
+        self.assert_(a.annequal(ANN.add[c1,c2,c3],
+                                ANN.add[c4,c2,c3]))
     
     def test_query_one_annotation_arg(self):
         c1,c2,c3 = SomeValue(), SomeValue(), SomeValue()
-        lst = [ann.add[c1, c3, c2]]
+        lst = [ANN.add[c1, c3, c2]]
         a = AnnotationSet(lst)
-        c = a.query(ann.add[c1, c3, ...])
+        c = a.query(ANN.add[c1, c3, ...])
         self.assertEquals(c, [c2])
-        c = a.query(ann.add[c1, ..., c2])
+        c = a.query(ANN.add[c1, ..., c2])
         self.assertEquals(c, [c3])
-        c = a.query(ann.add[..., c3, c2])
+        c = a.query(ANN.add[..., c3, c2])
         self.assertEquals(c, [c1])
 
-        c = a.query(ann.add[..., c1, c2])
+        c = a.query(ANN.add[..., c1, c2])
         self.assertEquals(c, [])
 
     def test_query_multiple_annotations(self):
         c1,c2,c3 = SomeValue(), SomeValue(), SomeValue()
         lst = [
-            ann.add[c1, c3, c2],
-            ann.snuff[c2, c3],
+            ANN.add[c1, c3, c2],
+            ANN.type[c2, c3],
         ]
         a = AnnotationSet(lst)
-        c = a.query(ann.add[c1, c3, ...],
-                    ann.snuff[..., c3])
+        c = a.query(ANN.add[c1, c3, ...],
+                    ANN.type[..., c3])
         self.assertEquals(c, [c2])
 
     def test_constant(self):
         c1,c2,c3 = SomeValue(), SomeValue(), SomeValue()
         lst = [
-            ann.constant(42)[c1],
+            ANN.constant(42)[c1],
         ]
         a = AnnotationSet(lst)
-        c = a.query(ann.constant(42)[...])
+        c = a.query(ANN.constant(42)[...])
         self.assertEquals(c, [c1])
 
 c1,c2,c3,c4 = SomeValue(), SomeValue(), SomeValue(), SomeValue()
@@ -79,9 +79,9 @@ class TestRecording(test.IntTestCase):
 
     def setUp(self):
         self.lst = [
-            ann.add[c1, c3, c2],
-            ann.type[c1, c4],
-            ann.constant(int)[c4],
+            ANN.add[c1, c3, c2],
+            ANN.type[c1, c4],
+            ANN.constant(int)[c4],
         ]
         self.annset = AnnotationSet(self.lst)
 
@@ -102,10 +102,10 @@ class TestRecording(test.IntTestCase):
     def test_simple(self):
         a = self.annset
         def f(rec):
-            if rec.query(ann.add[c1, c3, ...]):
-                rec.set(ann.snuff[c1, c3]) 
+            if rec.query(ANN.add[c1, c3, ...]):
+                rec.set(ANN.type[c1, c3]) 
         a.record(f)
-        self.assertSameSet(a, a, self.lst + [ann.snuff[c1, c3]])
+        self.assertSameSet(a, a, self.lst + [ANN.type[c1, c3]])
 
         a.kill(self.lst[0])
         self.assertSameSet(a, a, self.lst[1:])
@@ -116,8 +116,8 @@ class TestRecording(test.IntTestCase):
             if rec.check_type(c1, int):
                 rec.set_type(c2, str)
         a.record(f)
-        self.assert_(a.query(ann.type[c2, ...],
-                             ann.constant(str)[...]))
+        self.assert_(a.query(ANN.type[c2, ...],
+                             ANN.constant(str)[...]))
 
 if __name__ == '__main__':
     test.main()

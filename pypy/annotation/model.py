@@ -3,20 +3,6 @@ import types
 class SomeValue:
     pass
 
-def debugname(someval, _seen = {}):
-    """ return a simple name for a SomeValue. """
-    try:
-        return _seen[id(someval)]
-    except KeyError:
-        if not _seen:
-            for name, value in globals().items():
-                if isinstance(value, SomeValue):
-                    _seen[id(value)] = name
-            return debugname(someval)
-        name = "V%d" % len(_seen)
-        _seen[id(someval)] = name
-        return name
-
 class Predicate:
     def __init__(self, debugname, arity):
         self.debugname = debugname
@@ -39,9 +25,8 @@ class ConstPredicate(Predicate):
     def __hash__(self):
         return hash(self.value)
 
-class ann:
+class ANN:
     add = Predicate('add', 3)
-    snuff = Predicate('snuff', 2)   # for testing, to remove :-)
     constant = ConstPredicate
     type = Predicate('type', 2)
     immutable = Predicate('immutable', 1)
@@ -67,6 +52,19 @@ class Annotation:
         return "Annotation(%s, %s)" % (
                 self.predicate, ", ".join(map(debugname, self.args)))
 
+def debugname(someval, _seen = {}):
+    """ return a simple name for a SomeValue. """
+    try:
+        return _seen[id(someval)]
+    except KeyError:
+        if not _seen:
+            for name, value in globals().items():
+                if isinstance(value, SomeValue):
+                    _seen[id(value)] = name
+            return debugname(someval)
+        name = "V%d" % len(_seen)
+        _seen[id(someval)] = name
+        return name
 
 immutable_types = {
     int: 'int',
@@ -86,6 +84,6 @@ basicannotations = []
 for _type, _name in immutable_types.items():
     _val = globals()['%svalue' % _name] = SomeValue()
     _tval = SomeValue()
-    basicannotations.append(ann.type[_val, _tval])
-    basicannotations.append(ann.constant(_type)[_tval])
-    basicannotations.append(ann.immutable[_val])
+    basicannotations.append(ANN.type[_val, _tval])
+    basicannotations.append(ANN.constant(_type)[_tval])
+    basicannotations.append(ANN.immutable[_val])

@@ -1,6 +1,6 @@
 from __future__ import generators
 import types
-from model import Annotation, SomeValue, ann
+from model import Annotation, SomeValue, ANN
 from model import immutable_types, blackholevalue, basicannotations
 
 class AnnotationSet:
@@ -53,14 +53,18 @@ class AnnotationSet:
     __iter__ = enumerate
 
     def query(self, *querylist):
-        return [match for depends, match in self.getmatches(*querylist)]
+        return [matchvalue for matchanns, matchvalue in self.match(*querylist)]
 
-    def getmatches(self, query, *querylist):
+    def match(self, query, *querylist):
+        """ yield (matchanns, matchvalue) tuples with 'matchanns'
+        beeing a list of matching annotations and 'matchvalue' beeing
+        the queried value. """
+
         # slightly limited implementation for ease of coding :-)
         assert query.args.count(Ellipsis) == 1, (
             "sorry, the algorithm is a bit too naive for this case")
         queryarg = query.args.index(Ellipsis)
-        for ann in self._annmatch(query):
+        for ann in self._annmatches(query):
             # does the returned match also agree with the other queries?
             match = ann.args[queryarg]
             depends = [ann]
@@ -73,9 +77,10 @@ class AnnotationSet:
             else:
                 yield depends, match
 
-    def _annmatch(self, queryann):
+    def _annmatches(self, queryann):
+        """ yield annotations matching the given queryannotation. """
         testindices = [i for i in range(queryann.predicate.arity)
-                         if queryann.args[i] is not Ellipsis]
+                             if queryann.args[i] is not Ellipsis]
         for ann in self.annlist:
             if ann.predicate == queryann.predicate:
                 for i in testindices:
@@ -90,7 +95,7 @@ class AnnotationSet:
         # annotations; e.g. killing an annotation will take care
         # that all matching annotations are removed, and thus also 
         # all dependencies listed on any of the duplicate annotation.
-        for ann in self._annmatch(checkann):
+        for ann in self._annmatches(checkann):
             return ann  # :-)
         else:
             return None
@@ -159,9 +164,9 @@ class Recorder:
 
     def query(self, *querylist):
         results = []
-        for depends, match in self.annset.getmatches(*querylist):                
-            self.using(*depends)
-            results.append(match)
+        for matchanns, matchvalue in self.annset.match(*querylist):                
+            self.using(*matchanns)
+            results.append(matchvalue)
         return results
 
     def set(self, ann):
@@ -173,15 +178,15 @@ class Recorder:
             deps.append(ann)
 
     def check_type(self, someval, checktype):
-        return self.query(ann.type[someval, ...],
-                          ann.constant(checktype)[...])
+        return self.query(ANN.type[someval, ...],
+                          ANN.constant(checktype)[...])
 
     def set_type(self, someval, knowntype):
         typeval = SomeValue()
-        self.set(ann.type[someval, typeval])
-        self.set(ann.constant(knowntype)[typeval])
+        self.set(ANN.type[someval, typeval])
+        self.set(ANN.constant(knowntype)[typeval])
         if knowntype in immutable_types:
-            self.set(ann.immutable[someval])
+            self.set(ANN.immutable[someval])
 
 '''
     def merge(self, oldcell, newcell):
@@ -235,9 +240,8 @@ class Recorder:
                 # apply changes
                 self.simplify(kill=deleting)
                 return newcell
+
 '''
-
-
 class XXXTransaction:
     """A transaction contains methods to look for annotations in the
     AnnotationHeap and create new annotations accordingly.  Each
