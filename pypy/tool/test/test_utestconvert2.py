@@ -2,7 +2,7 @@ import autopath
 from pypy.tool.utestconvert import rewrite_utest
 import unittest
 
-class Testit(unittest.TestCase):
+class NonPyTest(unittest.TestCase):
     def test(self):
         self.assertEquals(rewrite_utest("badger badger badger"),
                           "badger badger badger")
