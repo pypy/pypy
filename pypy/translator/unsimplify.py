@@ -34,3 +34,16 @@ def remove_direct_loops(translator, graph):
         if isinstance(link, Link) and link.prevblock is link.target:
             insert_empty_block(translator, link)
     traverse(visit, graph)
+
+
+def remove_double_links(translator, graph):
+    """This can be useful for code generators: it ensures that no block has
+    more than one incoming links from one and the same other block. It allows
+    argument passing along links to be implemented with phi nodes since the
+    value of an argument can be determined by looking from which block the
+    control passed. """
+    def visit(block):
+        if isinstance(block, Block) and len(block.exits) == 2 and \
+               block.exits[0].target == block.exits[1].target:
+            insert_empty_block(translator, block.exits[0])
+    traverse(visit, graph)
