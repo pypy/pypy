@@ -43,7 +43,7 @@ except NameError:
     StringTypes = (StringType,)
 
 try:
-    BufferType = type(buffer(''))
+    BufferType = buffer
 except NameError:
     pass
 
