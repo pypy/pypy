@@ -376,10 +376,20 @@ def list_remove__List_ANY(space, w_list, w_any):
     raise OperationError(space.w_IndexError,
                          space.wrap("list.remove(x): x not in list"))
 
-def list_index__List_ANY(space, w_list, w_any):
+def list_index__List_ANY_Int_Int(space, w_list, w_any, w_start, w_stop):
     eq = space.eq
     items = w_list.ob_item
-    for i in range(w_list.ob_size):
+    size = w_list.ob_size
+    start = space.unwrap(w_start)
+    if start < 0:
+        start += size
+    start = min(max(0,start),size)
+    stop = space.unwrap(w_stop)
+    if stop < 0:
+        stop += size
+    stop = min(max(start,stop),size)
+    
+    for i in range(start,stop):
         cmp = eq(items[i], w_any)
         if space.is_true(cmp):
             return space.wrap(i)

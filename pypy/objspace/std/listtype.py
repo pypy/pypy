@@ -1,6 +1,6 @@
 from pypy.objspace.std.objspace import *
 from typeobject import W_TypeObject
-
+from sys import maxint
 
 class W_ListType(W_TypeObject):
 
@@ -11,7 +11,7 @@ class W_ListType(W_TypeObject):
     list_extend = MultiMethod('extend', 2)
     list_pop    = MultiMethod('pop',    2, defaults=(-1,))
     list_remove = MultiMethod('remove', 2)
-    list_index  = MultiMethod('index',  2)
+    list_index  = MultiMethod('index',  4, defaults=(0,maxint))
     list_count  = MultiMethod('count',  2)
     list_reverse= MultiMethod('reverse',1)
     list_sort   = MultiMethod('sort',   1)
