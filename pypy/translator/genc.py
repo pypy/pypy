@@ -13,33 +13,17 @@ from pypy.interpreter.pycode import CO_VARARGS
 from pypy.annotation import model as annmodel
 from types import FunctionType, CodeType, InstanceType, ClassType
 
+from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
+     c_string, uniquemodulename, C_IDENTIFIER, NameManager
+
 from pypy.objspace.std.restricted_int import r_int, r_uint
 
 # ____________________________________________________________
-
-def c_string(s):
-    return '"%s"' % (s.replace('\\', '\\\\').replace('"', '\"'),)
-
-def uniquemodulename(name, SEEN={}):
-    # never reuse the same module name within a Python session!
-    i = 0
-    while True:
-        i += 1
-        result = '%s_%d' % (name, i)
-        if result not in SEEN:
-            SEEN[result] = True
-            return result
 
 #def go_figure_out_this_name(source):
 #    # ahem
 #    return 'PyRun_String("%s", Py_eval_input, PyEval_GetGlobals(), NULL)' % (
 #        source, )
-
-def builtin_base(obj):
-    typ = type(obj)
-    while typ.__module__ != '__builtin__':
-        typ = typ.__base__
-    return typ
 
 class GenC:
     MODNAMES = {}
@@ -61,15 +45,19 @@ class GenC:
             'Py_False = False',
             'Py_True  = True',
             ]
-        # just a few predefined names which cannot be reused.
-        # I think this should come from some external file,
-        # if we want to be complete
-        self.reserved_names = {}
-        for each in 'typedef static void const'.split():
-            self.reserved_names[each] = 1
+
         self.latercode = []    # list of generators generating extra lines
                                #   for later in initxxx() -- for recursive
                                #   objects
+        self.namespace= NameManager()
+        # just a few predefined names which cannot be reused.
+        # I think this should come from some external file,
+        # if we want to be complete
+        self.namespace.make_reserved_names('typedef static void const')
+        # these names are used in function headers,
+        # therefore pseudo-preserved in scope 1:
+        self.namespace.make_reserved_names('self args kwds')
+
         self.globaldecl = []
         self.globalobjects = []
         self.pendingfunctions = []
@@ -107,15 +95,10 @@ class GenC:
             return name
 
     def uniquename(self, basename):
-        basename = basename.translate(C_IDENTIFIER)
-        n = self.seennames.get(basename, 0)
-        self.seennames[basename] = n+1
-        if n == 0:
-            self.globalobjects.append(basename)
-            self.globaldecl.append('static PyObject *%s;' % (basename,))
-            return basename
-        else:
-            return self.uniquename('%s_%d' % (basename, n))
+        name = self.namespace.uniquename(basename)
+        self.globalobjects.append(basename)
+        self.globaldecl.append('static PyObject *%s;' % (basename,))
+        return name
 
     def initcode_python(self, name, pyexpr):
         # generate init code that will evaluate the given Python expression
@@ -540,8 +523,8 @@ class GenC:
 ##             func.__name__)
 
         f = self.f
-        localvars = {}
-        body = list(self.cfunction_body(func, localvars))
+        localscope = self.namespace.localScope()
+        body = list(self.cfunction_body(func, localscope))
         name_of_defaults = [self.nameof(x, debug=('Default argument of', func))
                             for x in (func.func_defaults or ())]
         self.gen_global_declarations()
@@ -558,7 +541,7 @@ class GenC:
             if isinstance(node, Block):
                 localslst.extend(node.getvariables())
         traverse(visit, graph)
-        localnames = [self.expr(a, localvars) for a in uniqueitems(localslst)]
+        localnames = [self.expr(a, localscope) for a in uniqueitems(localslst)]
 
         # collect all the arguments
         if func.func_code.co_flags & CO_VARARGS:
@@ -569,9 +552,10 @@ class GenC:
             positional_args = graph.getargs()
         min_number_of_args = len(positional_args) - len(name_of_defaults)
 
-        fast_args = [self.expr(a, localvars) for a in positional_args]
+        fast_args = [self.expr(a, localscope) for a in positional_args]
         if vararg is not None:
-            fast_args.append(str(vararg))
+            vararg = self.expr(vararg, localscope)
+            fast_args.append(vararg)
         fast_name = 'fast' + f_name
 
         fast_set = dict(zip(fast_args, fast_args))
@@ -630,7 +614,7 @@ class GenC:
             tail = '\n\t\tFUNCTION_RETURN(NULL)'
         for i in range(len(name_of_defaults)):
             print >> f, '\t%s = %s;' % (
-                self.expr(positional_args[min_number_of_args+i], localvars),
+                self.expr(positional_args[min_number_of_args+i], localscope),
                 name_of_defaults[i])
         fmt = 'O'*min_number_of_args
         if min_number_of_args < len(positional_args):
@@ -639,7 +623,7 @@ class GenC:
                '"%s:%s"' % (fmt, func.__name__),
                'kwlist',
                ]
-        lst += ['&' + self.expr(a, localvars) for a in positional_args]
+        lst += ['&' + self.expr(a, localscope) for a in positional_args]
         print >> f, '\tif (!PyArg_ParseTupleAndKeywords(%s))' % ', '.join(lst),
         print >> f, tail
 
@@ -662,7 +646,7 @@ class GenC:
         
         # generate an incref for each input argument
         for v in positional_args:
-            print >> f, '\tPy_INCREF(%s);' % self.expr(v, localvars)
+            print >> f, '\tPy_INCREF(%s);' % self.expr(v, localscope)
 
         # print the body
         for line in body:
@@ -683,48 +667,16 @@ class GenC:
             del self.translator.flowgraphs[func]
             Variable.instances.clear()
 
-    def expr(self, v, localnames, wrapped = False):
-        # this function is copied from geninterp just with a different default.
-        # the purpose is to generate short local names.
-        # This is intermediate. Common code will be extracted into a base class.
+    def expr(self, v, localscope):
         if isinstance(v, Variable):
-            n = v.name
-            # there is a problem at the moment.
-            # use the name as is until this is solved
-            return v.name
-            if n.startswith("v") and n[1:].isdigit():
-                ret = localnames.get(v.name)
-                if not ret:
-                    if wrapped:
-                        localnames[v.name] = ret = "w_%d" % len(localnames)
-                    else:
-                        localnames[v.name] = ret = "v%d" % len(localnames)
-                return ret
-            scorepos = n.rfind("_")
-            if scorepos >= 0 and n[scorepos+1:].isdigit():
-                name = n[:scorepos]
-                # do individual numbering on named vars
-                thesenames = localnames.setdefault(name, {})
-                ret = thesenames.get(v.name)
-                if not ret:
-                    if wrapped:
-                        fmt = "w_%s_%d"
-                    else:
-                        fmt = "%s_%d"
-                    # don't use zero
-                    if len(thesenames) == 0 and name not in self.reserved_names:
-                        fmt = fmt[:-3]
-                        thesenames[v.name] = ret = fmt % name
-                    else:
-                        thesenames[v.name] = ret = fmt % (name, len(thesenames))
-                return ret
+            return localscope.localname(v.name)
         elif isinstance(v, Constant):
             return self.nameof(v.value,
                                debug=('Constant in the graph of', self.currentfunc))
         else:
             raise TypeError, "expr(%r)" % (v,)
 
-    def cfunction_body(self, func, localvars):
+    def cfunction_body(self, func, localscope):
         graph = self.translator.getflowgraph(func)
         remove_direct_loops(graph)
         checkgraph(graph)
@@ -737,18 +689,18 @@ class GenC:
             has_ref = {}
             linklocalvars = linklocalvars or {}
             for v in to_release:
-                linklocalvars[v] = self.expr(v, localvars)
+                linklocalvars[v] = self.expr(v, localscope)
             has_ref = linklocalvars.copy()
             for a1, a2 in zip(link.args, link.target.inputargs):
                 if a1 in linklocalvars:
                     src = linklocalvars[a1]
                 else:
-                    src = self.expr(a1, localvars)
-                line = 'MOVE(%s, %s)' % (src, self.expr(a2, localvars))
+                    src = self.expr(a1, localscope)
+                line = 'MOVE(%s, %s)' % (src, self.expr(a2, localscope))
                 if a1 in has_ref:
                     del has_ref[a1]
                 else:
-                    line += '\tPy_INCREF(%s);' % self.expr(a2, localvars)
+                    line += '\tPy_INCREF(%s);' % self.expr(a2, localscope)
                 yield line
             for v in has_ref:
                 yield 'Py_DECREF(%s);' % linklocalvars[v]
@@ -767,8 +719,8 @@ class GenC:
             yield 'block%d:' % blocknum[block]
             to_release = list(block.inputargs)
             for op in block.operations:
-                lst = [self.expr(v, localvars) for v in op.args]
-                lst.append(self.expr(op.result, localvars))
+                lst = [self.expr(v, localscope) for v in op.args]
+                lst.append(self.expr(op.result, localscope))
                 lst.append('err%d_%d' % (blocknum[block], len(to_release)))
                 macro = 'OP_%s' % op.opname.upper()
                 meth = getattr(self, macro, None)
@@ -782,13 +734,13 @@ class GenC:
             if len(block.exits) == 0:
                 if len(block.inputargs) == 2:   # exc_cls, exc_value
                     # exceptional return block
-                    exc_cls   = self.expr(block.inputargs[0], localvars)
-                    exc_value = self.expr(block.inputargs[1], localvars)
+                    exc_cls   = self.expr(block.inputargs[0], localscope)
+                    exc_value = self.expr(block.inputargs[1], localscope)
                     yield 'PyErr_Restore(%s, %s, NULL);' % (exc_cls, exc_value)
                     yield 'FUNCTION_RETURN(NULL)'
                 else:
                     # regular return block
-                    retval = self.expr(block.inputargs[0], localvars)
+                    retval = self.expr(block.inputargs[0], localscope)
                     yield 'FUNCTION_RETURN(%s)' % retval
                 continue
             elif block.exitswitch is None:
@@ -831,13 +783,13 @@ class GenC:
                 # block ending in a switch on a value
                 for link in block.exits[:-1]:
                     yield 'if (EQ_%s(%s)) {' % (link.exitcase,
-                                                self.expr(block.exitswitch, localvars))
+                                                self.expr(block.exitswitch, localscope))
                     for op in gen_link(link):
                         yield '\t' + op
                     yield '}'
                 link = block.exits[-1]
                 yield 'assert(EQ_%s(%s));' % (link.exitcase,
-                                              self.expr(block.exitswitch, localvars))
+                                              self.expr(block.exitswitch, localscope))
                 for op in gen_link(block.exits[-1]):
                     yield op
                 yield ''
@@ -845,7 +797,7 @@ class GenC:
             while to_release:
                 v = to_release.pop()
                 if err_reachable:
-                    yield 'ERR_DECREF(%s)' % self.expr(v, localvars)
+                    yield 'ERR_DECREF(%s)' % self.expr(v, localscope)
                 yield 'err%d_%d:' % (blocknum[block], len(to_release))
                 err_reachable = True
             if err_reachable:
@@ -924,9 +876,3 @@ def cdecl(type, name):
     else:
         return ('%s %s' % (type, name)).rstrip()
 
-# a translation table suitable for str.translate() to remove
-# non-C characters from an identifier
-C_IDENTIFIER = ''.join([(('0' <= chr(i) <= '9' or
-                          'a' <= chr(i) <= 'z' or
-                          'A' <= chr(i) <= 'Z') and chr(i) or '_')
-                        for i in range(256)])
