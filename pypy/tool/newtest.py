@@ -1,5 +1,5 @@
 import autopath
-import imp
+import inspect
 import os
 import sys
 import unittest
@@ -30,14 +30,15 @@ class TestResult:
 
 class TestItem:
     """Represent a single test method from a TestCase class."""
-    def __init__(self, testmethod):
+    def __init__(self, module, cls, testmethod):
         #TODO implement the code to initialze these attributes
         self.module = None
         self.file = None
         self.lineno = None
         self.source = None
+        self._module = module
+        self._class = cls
         self._method = testmethod
-        self._class = testmethod.__class__
 
     def run(self):
         """Run this TestItem and return a corresponding TestResult object."""
@@ -45,9 +46,11 @@ class TestItem:
         #  as argument
 
     def __str__(self):
-        return "TestItem from method %s" % self._method
+        return "TestItem from %s.%s.%s" % (self._module.__name__,\
+               self._class.__name__, self._method.__name__)
 
-    __repr__ = __str__
+    def __repr__(self):
+        return "%s at %#x" % (str(self), id(self))
 
 
 class TestSuite:
@@ -60,18 +63,13 @@ class TestSuite:
         items = []
         # scan the module for classes derived from unittest.TestCase
         for obj in vars(module).values():
-            try:
-                is_testclass = issubclass(obj, unittest.TestCase)
-            except TypeError:
-                # not a class at all; ignore it
-                continue
-            if not is_testclass:
-                continue
-            # scan class for test methods
-            for obj in vars(obj).values():
-                if hasattr(obj, 'func_code') and \
-                  obj.__name__.startswith("test"):
-                    items.append(TestItem(obj))
+            if inspect.isclass(obj) and issubclass(obj, unittest.TestCase):
+                # we found a TestCase class, now scan it for test methods
+                for obj2 in vars(obj).values():
+                    # ismethod doesn't seem to work here
+                    if inspect.isfunction(obj2) and \
+                      obj2.__name__.startswith("test"):
+                        items.append(TestItem(module, obj, obj2))
         return items
 
     def _module_from_modpath(self, modpath):
@@ -122,6 +120,7 @@ class TestSuite:
                     items = self._items_from_module(module)
                 except:
                     print "skipping testfile (failed loading it)", modpath
+                    raise
                 else:
                     self.items.extend(items)
 
