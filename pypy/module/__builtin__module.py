@@ -144,19 +144,17 @@ def zip(*collections):
        ignoring the trailing items in the other collections."""
 
     if len(collections) == 0:
-        raise TypeError, "zip() requires at least one sequence"
+        return []
     res = []
-    idx = 0
+    iterators = [ iter(collection) for collection in collections ]
     while 1:
         try:
             elems = []
-            for collection in collections:
-                elems.append(collection[idx])
+            for iterator in iterators:
+                elems.append(iterator.next())
             res.append(tuple(elems))
-        except IndexError:
-            break
-        idx = idx + 1
-    return res
+        except StopIteration:
+            return res
 
 def reduce(function, l, *initialt):
     """ Apply function of two arguments cumulatively to the items of
