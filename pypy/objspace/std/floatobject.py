@@ -226,7 +226,7 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     return W_FloatObject(space, z)
 
 def neg__Float(space, w_float1):
-    return W_FloatObject(space, w_float1.floatval)
+    return W_FloatObject(space, -w_float1.floatval)
 
 def pos__Float(space, w_float):
     if w_float.__class__ == W_FloatObject:
