@@ -244,7 +244,7 @@ class GenC:
         name = self.uniquename('ginst_' + klass.__name__)
         cls = self.nameof(klass)
         if hasattr(klass, '__base__'):
-            base_class = klass.__base__
+            base_class = builtin_base(instance)
             base = self.nameof(base_class)
         else:
             base_class = None
@@ -260,7 +260,7 @@ class GenC:
             import copy_reg
             reduced = instance.__reduce_ex__()
             assert reduced[0] is copy_reg._reconstructor
-            assert reduced[1][1] is base_class
+            assert reduced[1][1] is base_class, "not clever enough for %r vs. %r" % (base_class, reduced)
             state = reduced[1][2]
         else:
             state = None
