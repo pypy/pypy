@@ -21,6 +21,8 @@ Command-line options for translate_pypy:
    -tcc       Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
                   -- http://fabrice.bellard.free.fr/tcc/
    -no-d      Disable recording of debugging information
+   -huge=%    Threshold in the number of functions after which only a local call
+              graph and not a full one is displayed
 """
 import autopath, sys, threading, pdb, os
 
@@ -43,7 +45,7 @@ buildpyxmodule.enable_fast_compilation()
 # __________  Main  __________
 
 def analyse(target):
-    global t
+    global t, entry_point
 
     entry_point, inputtypes = target()
 
@@ -152,6 +154,7 @@ def run_async_server():
 if __name__ == '__main__':
 
     targetspec = 'targetpypy'
+    huge = 100
 
     options = {'-text': False,
                '-no-c': False,
@@ -172,6 +175,8 @@ if __name__ == '__main__':
         except ValueError:
             if os.path.isfile(arg+'.py'):
                 targetspec = arg
+            elif arg.startwith('-huge='):
+                huge = int(arg[6:])
             else:                
                 assert arg in options, "unknown option %r" % (arg,)
                 options[arg] = True
@@ -206,7 +211,7 @@ if __name__ == '__main__':
         print "don't know about", x
 
     def run_server():
-        from pypy.translator.tool.graphpage import TranslatorPage
+        from pypy.translator.tool import graphpage
         from pypy.translator.tool.pygame.graphclient import get_layout
         from pypy.translator.tool.pygame.graphdisplay import GraphDisplay
         import pygame
@@ -214,7 +219,12 @@ if __name__ == '__main__':
         if not options['-no-mark-some-objects']:
             find_someobjects(t, quiet=True)
 
-        display = GraphDisplay(get_layout(TranslatorPage(t)))
+        if len(t.functions) <= huge:
+            page = graphpage.TranslatorPage(t)
+        else:
+            page = graphpage.LocalizedCallGraphPage(t, entry_point)
+
+        display = GraphDisplay(get_layout(page))
         async_quit = display.async_quit
         def show(page):
             display.async_cmd(layout=get_layout(page))
@@ -236,27 +246,103 @@ if __name__ == '__main__':
                 return
             self.show(page)
 
-        def do_show(self, arg):
-            if '.' in arg:
-                name = ''
-                obj = None
-                for comp in arg.split('.'):
-                    name += comp
-                    obj = getattr(obj, comp, None)
-                    if obj is None:
-                        try:
-                            obj = __import__(name, {}, {}, ['*'])
-                        except ImportError:
-                            print "*** Not found: %s" % arg
-                            return
-                    name += '.'
-                if hasattr(obj, 'im_func'):
-                    obj = obj.im_func
-                if obj in t.flowgraphs:
-                    from pypy.translator.tool.graphpage import FlowGraphPage                    
-                    self._show(FlowGraphPage(t, [obj]))
+        def _importobj(self, fullname):
+            obj = None
+            name = ''
+            for comp in fullname.split('.'):
+                name += comp
+                obj = getattr(obj, comp, None)
+                if obj is None:
+                    try:
+                        obj = __import__(name, {}, {}, ['*'])
+                    except ImportError:
+                        raise NameError
+                name += '.'
+            return obj
+
+        TRYPREFIXES = ['','pypy.','pypy.objspace.','pypy.interpreter.', 'pypy.objspace.std.' ]
+
+        def _getobj(self, name):
+            if '.' in name:
+                for pfx in self.TRYPREFIXES:
+                    try:
+                        return self._importobj(pfx+name)
+                    except NameError:
+                        pass
+            try:
+                return self._getval(name)
+            except (NameError, AttributeError, LookupError):
+                print "*** Not found:", name
+            return None
+
+        def do_showg(self, arg):
+            """showg obj
+show graph for obj, obj can be an expression or a dotted name
+(in which case prefixing with some packages in pypy is tried (see help pypyprefixes)).
+if obj is a function or method, the localized call graph is shown;
+if obj is a class or ClassDef the class definition graph is shown"""            
+            from pypy.annotation.classdef import ClassDef
+            from pypy.translator.tool import graphpage            
+            obj = self._getobj(arg)
+            if obj is None:
+                return
+            if hasattr(obj, 'im_func'):
+                obj = obj.im_func
+            if obj in t.flowgraphs:
+                page = graphpage.LocalizedCallGraphPage(t, obj)
+            elif obj in getattr(t.annotator, 'getuserclasses', lambda: {})():
+                page = graphpage.ClassDefPage(t, t.annotator.getuserclasses()[obj])
+            elif isinstance(obj, ClassDef):
+                page = graphpage.ClassDefPage(t, obj)
             else:
                 print "*** Nothing to do"
+                return
+            self._show(page)
+
+        def do_flowg(self, arg):
+            """callg obj
+show flow graph for function obj, obj can be an expression or a dotted name
+(in which case prefixing with some packages in pypy is tried (see help pypyprefixes))"""            
+            import types
+            from pypy.translator.tool import graphpage                        
+            obj = self._getobj(arg)
+            if obj is None:
+                return
+            if hasattr(obj, 'im_func'):
+                obj = obj.im_func
+            if not isinstance(obj, types.FunctionType):
+                print "*** Not a function"
+                return
+            self._show(graphpage.FlowGraphPage(t, [obj]))
+
+        def do_callg(self, arg):
+            """callg obj
+show localized call-graph for function obj, obj can be an expression or a dotted name
+(in which case prefixing with some packages in pypy is tried (see help pypyprefixes))"""
+            import types
+            from pypy.translator.tool import graphpage                        
+            obj = self._getobj(arg)
+            if obj is None:
+                return
+            if hasattr(obj, 'im_func'):
+                obj = obj.im_func
+            if not isinstance(obj, types.FunctionType):
+                print "*** Not a function"
+                return
+            self._show(graphpage.LocalizedCallGraphPage(t, obj))
+
+        def do_classhier(self, arg):
+            """classhier
+show class hierarchy graph"""
+            from pypy.translator.tool import graphpage           
+            self._show(graphpage.ClassHierarchyPage(t))
+
+        def help_graphs(self):
+            print "graph commands are: showg, flowg, callg, classhier"
+
+        def help_pypyprefixes(self):
+            print "these prefixes are tried for dotted names in graph commands:"
+            print self.TRYPREFIXES
 
     def debug(got_error):
         pdb_plus_show = PdbPlusShow()

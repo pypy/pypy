@@ -1,4 +1,4 @@
-import inspect
+import inspect, types
 from pypy.objspace.flow.model import traverse, Block
 from pypy.translator.tool.make_dot import DotGen, make_dot, make_dot_graphs
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
@@ -208,7 +208,7 @@ class BaseTranslatorPage(GraphPage):
             if isinstance(obj, ClassDef):
                 #data = '%s.%s' % (obj.cls.__module__, obj.cls.__name__)
                 data = repr(obj.cls)
-            else:
+            elif isinstance(obj, types.FunctionType):
                 func = obj
                 try:
                     source = inspect.getsource(func)
@@ -217,6 +217,8 @@ class BaseTranslatorPage(GraphPage):
                 data = '%s:%d\n%s' % (func.func_globals.get('__name__', '?'),
                                       func.func_code.co_firstlineno,
                                       source.split('\n')[0])
+            else:
+                continue
             self.links[name] = data
 
     def get_blocked_functions(self, functions):
@@ -299,6 +301,70 @@ class TranslatorPage(BaseTranslatorPage):
         # show the class hierarchy
         self.compute_class_hieararchy(dotgen)
 
+
+class LocalizedCallGraphPage(BaseTranslatorPage):
+    """A GraphPage showing a the call graph between functions
+    as well as the class hierarchy."""
+
+    def graph_name(self, func0):
+        return 'LCG_%s' % nameof(func0)
+
+    def do_compute(self, dotgen, func0):
+        translator = self.translator
+
+        functions = {}
+
+        for f1, f2 in translator.callgraph.itervalues():
+            if f1 is func0 or f2 is func0:
+                dotgen.emit_edge(nameof(f1), nameof(f2))
+                functions[f1] = True
+                functions[f2] = True
+
+        functions = functions.keys()
+
+        # show the call graph
+        blocked_functions = self.get_blocked_functions(functions)
+
+        highlight_functions = getattr(translator, 'highlight_functions', {}) # XXX
+        for func in functions:
+            name = func.func_name
+            class_ = getattr(func, 'class_', None)
+            if class_ is not None:
+                name = '%s.%s' % (class_.__name__, name)
+            data = self.labelof(func, name)
+            if func in blocked_functions:
+                kw = {'fillcolor': 'red'}
+            elif func in highlight_functions:
+                kw = {'fillcolor': '#ffcccc'}
+            else:
+                kw = {}
+            dotgen.emit_node(nameof(func), label=data, shape="box", **kw)
+
+            if func is not func0:
+                lcg = 'LCG_%s' % nameof(func)
+                label = name+'...'
+                dotgen.emit_node(lcg, label=label)
+                dotgen.emit_edge(nameof(func), lcg)
+                self.links[label] = 'go to its localized call graph'
+                self.object_by_name[label] = func
+
+    def followlink(self, name):
+        if name.endswith('...'):
+            obj = self.object_by_name[name]
+            return LocalizedCallGraphPage(self.translator, obj)
+        return BaseTranslatorPage.followlink(self, name)
+
+class ClassHierarchyPage(BaseTranslatorPage):
+    """A GraphPage showing the class hierarchy."""
+
+    def graph_name(self):
+        return 'class_hierarchy'
+
+    def do_compute(self, dotgen):
+        translator = self.translator
+
+        # show the class hierarchy
+        self.compute_class_hieararchy(dotgen)
 
 def nameof(obj, cache={}):
     # NB. the purpose of the cache is not performance, but to ensure that
