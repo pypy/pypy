@@ -366,6 +366,19 @@ class AppTestW_ListObject:
         assert l is l0
         assert l == [1,2,3,4,5]
 
+    def test_imul(self):
+        l = l0 = [4,3]
+        l *= 2
+        assert l is l0
+        assert l == [4,3,4,3]
+        l *= 0
+        assert l is l0
+        assert l == []
+        l = l0 = [4,3]
+        l *= (-1)
+        assert l is l0
+        assert l == []
+
     def test_index(self):
         l = ['a', 'b', 'c', 'd', 'e', 'f']
         raises(TypeError, l.index, 'c', 0, 4.3)

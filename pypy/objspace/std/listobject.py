@@ -34,6 +34,10 @@ class W_ListObject(W_Object):
         items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]# XXX generic mixed types unwrap
         return list(items)
 
+    def clear(w_list):
+        w_list.ob_item = []
+        w_list.ob_size = 0
+
 
 registerimplementation(W_ListObject)
 
@@ -42,7 +46,7 @@ def init__List(space, w_list, __args__):
     w_iterable, = __args__.parse('list',
                                (['sequence'], None, None),   # signature
                                [W_ListObject(space, [])])    # default argument
-    w_list.ob_size = 0  # XXX think about it later
+    w_list.clear()
 	
     length = 0
     try:
@@ -144,6 +148,23 @@ def mul__List_ANY(space, w_list, w_times):
 
 def mul__ANY_List(space, w_times, w_list):
     return mul_list_times(space, w_list, space.int_w(w_times))
+
+def inplace_mul__List_ANY(space, w_list, w_times):
+    times = space.int_w(w_times)
+    if times <= 0:
+        w_list.clear()
+        return w_list
+    size = w_list.ob_size
+    newlen = size * times  # XXX check overflow
+    _list_resize(w_list, newlen)
+    items = w_list.ob_item
+    p = size
+    for _ in range(1, times):
+        for i in range(size):
+            items[p] = items[i]
+            p += 1
+    w_list.ob_size = newlen
+    return w_list
 
 def eq__List_List(space, w_list1, w_list2):
     items1 = w_list1.ob_item
