@@ -25,7 +25,7 @@ def hack_cpython_module(modname):
 #
 # List of built-in modules.
 # It should contain the name of all the files 'module/*module.py'.
-builtin_module_names = ['__builtin__', 'sys',
+builtin_module_names = ['__builtin__', 'sys', 'exceptions'
                         ]
 
 # Create the builtin_modules dictionary, mapping names to Module instances

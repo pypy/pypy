@@ -559,15 +559,22 @@ class GenRpy:
                     name, self.nameof(key), self.nameof(value))
 
         baseargs = ", ".join(basenames)
+        self.initcode.appendnew('_dic = space.newdict([])')
+        for key, value in cls.__dict__.items():
+            if key.startswith('__'):
+                if key in ['__module__', '__metaclass__']:
+                    keyname = self.nameof(key)
+                    valname = self.nameof(value)
+                    self.initcode.appendnew("space.setitem(_dic, %s, %s)" % (
+                        keyname, valname))
+
         if cls.__doc__ is not None:
             sdoc = self.nameof("__doc__")
             lines = list(self.render_docstr(cls, "_doc = space.wrap("))
             lines[-1] +=")"
             self.initcode.extend(lines)
-            self.initcode.appendnew('_dic = space.newdict([(%s, %s)])' % (
-                self.nameof("__doc__"), "_doc") )
-        else:
-            self.initcode.appendnew('_dic = space.newdict([])')
+            self.initcode.appendnew("space.setitem(_dic, %s, _doc)" % (
+                self.nameof("__doc__"),))
         self.initcode.append('_bases = space.newtuple([%(bases)s])\n'
                              '_args = space.newtuple([%(name)s, _bases, _dic])\n'
                              'm.%(klass)s = space.call(%(meta)s, _args)'

@@ -204,9 +204,42 @@ class StdObjSpace(ObjSpace, DescrOperation):
             for_builtins[typedef.name] = w_type
         
         # exceptions
-        for_builtins.update(self.clone_exception_hierarchy())
+        ##for_builtins.update(self.clone_exception_hierarchy())
+        ## hacking things in
+        from pypy.module import exceptionsinterp as ex
+        hold = self.call
+        def call(w_type, w_args):
+            space = self
+            # too early for unpackiterable as well :-(
+            name  = space.unwrap(space.getitem(w_args, space.wrap(0)))
+            bases = space.unpacktuple(space.getitem(w_args, space.wrap(1)))
+            dic   = space.unwrap(space.getitem(w_args, space.wrap(2)))
+            dic = dict([(key,space.wrap(value)) for (key, value) in dic.items()])
+            bases = list(bases)
+            if not bases:
+                bases = [space.w_object]
+            res = W_TypeObject(space, name, bases, dic)
+            return res
+        w_dic = self.newdict([])
+        try:
+            self.call = call
+            ex.inittest_exceptions_1(self)
+            for name, w_obj in ex.__dict__.items():
+                if name.startswith("gcls_"):
+                    excname = name[5:]
+                    setattr(self, "w_"+excname, w_obj) # into space
+                    for_builtins[excname] = w_obj # into builtins
+                    self.setitem(w_dic, self.wrap(excname), w_obj) # into exc
+        finally:
+            self.call = hold
         
         self.make_builtins(for_builtins)
+        # XXX refine things,clean up, create a builtin module...
+        # but for now, we do a regular one.
+        from pypy.interpreter.module import Module
+        m = Module(self, self.wrap("exceptions"), w_dic)
+        w_exceptions = self.wrap(m)
+        self.sys.setbuiltinmodule(w_exceptions, 'exceptions')
 
     def gettypeobject(self, typedef):
         # types_w maps each StdTypeDef instance to its
