@@ -101,10 +101,13 @@ class Constant:
     def __repr__(self):
         return '(%r)' % (self.value,)
 
-class UndefinedConstant(Constant):
-    # for local variables not defined yet.
-    def __init__(self):
-        Constant.__init__(self, None)
+# hack! it is useful to have UNDEFINED be an instance of Constant too.
+# PyFrame then automatically uses this Constant as a marker for
+# non-initialized variables.
+from pypy.interpreter.eval import UNDEFINED
+UndefinedConstant = UNDEFINED.__class__
+UndefinedConstant.__bases__ += (Constant,)
+Constant.__init__(UNDEFINED, None)
 
 class SpaceOperation:
     def __init__(self, opname, args, result): 

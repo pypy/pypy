@@ -18,6 +18,9 @@ class FrameState:
         else:
             raise TypeError("can't get framestate for %r" % 
                             state.__class__.__name__)
+        for w1 in self.mergeable:
+            assert isinstance(w1, (Variable, Constant)), (
+                '%r found in frame state' % w1)
 
     def restoreframe(self, frame):
         if isinstance(frame, PyFrame):
@@ -82,8 +85,6 @@ class FrameState:
         for w_output, w_target in zip(self.mergeable, targetstate.mergeable):
             if isinstance(w_target, Variable):
                 result.append(w_output)
-            elif not isinstance(w_target, Constant):
-                raise TypeError('output arg %r' % w_target.__class__.__name__)
         return result
 
 

@@ -86,11 +86,9 @@ class FlowExecutionContext(ExecutionContext):
             self.closure = [Cell(Constant(value)) for value in closure]
         frame = self.create_frame()
         formalargcount = code.getformalargcount()
-        dummy = UndefinedConstant()
         arg_list = [Variable() for i in range(formalargcount)]
         for position, value in constargs.items():
             arg_list[position] = Constant(value)
-        arg_list += [dummy] * (len(frame.fastlocals_w) - formalargcount)
         frame.setfastscope(arg_list)
         self.joinpoints = {}
         for joinpoint in code.getjoinpoints():

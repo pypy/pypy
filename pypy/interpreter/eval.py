@@ -49,7 +49,9 @@ class Code(Wrappable):
     def getdocstring(self):
         return None
 
-UNDEFINED = object()  # marker for undefined local variables
+class UndefinedClass:
+    pass
+UNDEFINED = UndefinedClass()  # marker for undefined local variables
 
 
 class Frame(Wrappable):

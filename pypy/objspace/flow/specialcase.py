@@ -2,7 +2,7 @@ import types
 from pypy.interpreter import pyframe, baseobjspace
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.objspace import UnwrapException
-from pypy.objspace.flow.model import Variable, Constant
+from pypy.objspace.flow.model import Constant
 
 
 def getconstclass(space, w_cls):
@@ -28,8 +28,8 @@ def normalize_exception(space, args):
     w_arg1, w_arg2 = args.args_w
     etype = getconstclass(space, w_arg1)
     if etype is not None:
-        # raise Class or raise Class, Arg: ignore the Arg
-        return (w_arg1, Variable())
+        # raise Class or raise Class, Arg: no normalization
+        return (w_arg1, w_arg2)
     else:
         # raise Instance: we need a hack to figure out of which class it is.
         # Normally, Instance should have been created by the previous operation

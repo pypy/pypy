@@ -246,6 +246,17 @@ class TestFlowObjSpace(testit.TestCase):
         x = self.codetest(self.raise3)
         self.show(x)
 
+    #__________________________________________________________
+    def dellocal():
+        x = 1
+        del x
+        for i in range(10):
+            pass
+    
+    def test_dellocal(self):
+        x = self.codetest(self.dellocal)
+        self.show(x)
+
 
 if __name__ == '__main__':
     testit.main()

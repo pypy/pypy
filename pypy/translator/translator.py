@@ -43,9 +43,10 @@ from pypy.objspace.flow import FlowObjSpace
 
 class Translator:
 
-    def __init__(self, func, verbose=False):
+    def __init__(self, func, verbose=False, simplifying=False):
         self.entrypoint = func
         self.verbose = verbose
+        self.simplifying = simplifying
         self.clear()
 
     def clear(self):
@@ -73,8 +74,10 @@ class Translator:
             else:
                 constargs = {}
             space = FlowObjSpace()
-            graph = self.flowgraphs[func] = space.build_flow(im_func,
-                                                             constargs)
+            graph = space.build_flow(im_func, constargs)
+            if self.simplifying:
+                graph = simplify_graph(graph)
+            self.flowgraphs[func] = graph
             self.functions.append(func)
             try:
                 import inspect
@@ -100,11 +103,11 @@ class Translator:
             dest = make_dot(graph.name, graph)
         os.system('gv %s' % str(dest))
 
-    def view(self):
+    def view(self, *functions):
         """Shows the control flow graph with annotations if computed.
         Requires 'dot' and pygame."""
         from pypy.translator.tool.pygame.graphviewer import GraphDisplay
-        GraphDisplay(self).run()
+        GraphDisplay(self, functions).run()
 
     def simplify(self, func=None):
         """Simplifies the control flow graph (default: for all functions)."""

@@ -129,7 +129,13 @@ class RPythonAnnotator:
         # generalize the function's input arguments
         block = graph.startblock
         inputcells = list(args)
-        assert len(inputcells) == len(block.inputargs)
+        # add default arguments if necessary
+        missingargs = len(block.inputargs) - len(inputcells)
+        if missingargs:
+            assert missingargs >= 0
+            assert missingargs <= len(func.func_defaults or ())
+            for extra in func.func_defaults[-missingargs:]:
+                inputcells.append(annmodel.immutablevalue(extra))
         self.addpendingblock(block, inputcells)
         # get the (current) return value
         v = graph.getreturnvar()

@@ -38,7 +38,7 @@ if __name__ == '__main__':
     import os
     os.putenv("PYTHONINSPECT", "1")
 
-    t = Translator(entry_point, verbose=True)
+    t = Translator(entry_point, verbose=True, simplifying=True)
     t.simplify()
     a = t.annotate([])
     a.simplify()

@@ -156,7 +156,7 @@ def decodepixmap(f):
 class GraphDisplay(Display):
     STATUSBARFONT = os.path.join(autopath.this_dir, 'VeraMoBd.ttf')
 
-    def __init__(self, translator):
+    def __init__(self, translator, functions=None):
         super(GraphDisplay, self).__init__()
         self.translator = translator
         self.annotator = translator.annotator
@@ -168,11 +168,12 @@ class GraphDisplay(Display):
                 self.variables_by_name[var.name] = var
 
         graphs = []
-        for func in self.translator.functions:
+        functions = functions or self.translator.functions
+        for func in functions:
             graph = self.translator.getflowgraph(func)
             graphs.append((graph.name, graph))
-        xdotfile = make_dot_graphs(self.translator.entrypoint.__name__, graphs, target='xdot')
-        pngfile = make_dot_graphs(self.translator.entrypoint.__name__, graphs, target='png')
+        xdotfile = make_dot_graphs(functions[0].__name__, graphs, target='xdot')
+        pngfile = make_dot_graphs(functions[0].__name__, graphs, target='png')
         self.viewer = GraphViewer(str(xdotfile), str(pngfile))
         self.viewer.offsetx = (self.viewer.width - self.width) // 2
         self.statusbarinfo = None
