@@ -56,6 +56,7 @@ class StdObjSpace(ObjSpace):
             from dicttype   import W_DictType
             from stringtype import W_StringType
             from typetype   import W_TypeType
+            from slicetype  import W_SliceType
         return [value for key, value in result.__dict__.items()
                       if not key.startswith('_')]   # don't look
 

@@ -2,11 +2,14 @@ from pypy.objspace.std.objspace import *
 from pypy.interpreter.appfile import AppFile
 from pypy.interpreter.extmodule import make_builtin_func
 from pypy.objspace.std.instmethobject import W_InstMethObject
+from slicetype import W_SliceType
 
 appfile = AppFile(__name__, ["objspace.std"])
 
 
 class W_SliceObject(W_Object):
+    statictype = W_SliceType
+    
     def __init__(w_self, space, w_start, w_stop, w_step):
         W_Object.__init__(w_self, space)
         w_self.w_start = w_start
@@ -18,6 +21,9 @@ class W_SliceObject(W_Object):
         return w_start, w_stop, w_step, w_slicelength
     def indices2(w_self, w_length):
         return w_self.space.newtuple(w_self.indices(w_length)[:-1])
+
+
+registerimplementation(W_SliceObject)
 
 
 def getattr_slice_any(space, w_slice, w_attr):
