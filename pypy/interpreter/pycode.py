@@ -57,9 +57,9 @@ class PyCode(eval.Code):
         self.co_code = None          # string: instruction opcodes
         self.co_consts_w = []        # list of constants used (wrapped!)
         self.co_names = []           # list of strings: names (for attrs..)
-        self.co_varnames = ()        # tuple of strings: local variable names
-        self.co_freevars = ()        # tuple of strings: free variable names
-        self.co_cellvars = ()        # tuple of strings: cell variable names
+        self.co_varnames = []        # tuple of strings: local variable names
+        self.co_freevars = []        # tuple of strings: free variable names
+        self.co_cellvars = []        # tuple of strings: cell variable names
         # The rest doesn't count for hash/cmp
         self.co_filename = ""        # string: where it was loaded from
         #self.co_name (in base class)# string: name, for reference
@@ -89,13 +89,13 @@ class PyCode(eval.Code):
         self.co_code = x
         #self.co_consts = <see below>
         x = code.co_names; assert isinstance(x, tuple)
-        self.co_names = list(x)
+        self.co_names = [ str(n) for n in x ]
         x = code.co_varnames; assert isinstance(x, tuple)
-        self.co_varnames = x
+        self.co_varnames = [ str(n) for n in x ]
         x = code.co_freevars; assert isinstance(x, tuple)
-        self.co_freevars = x
+        self.co_freevars = [ str(n) for n in x ]
         x = code.co_cellvars; assert isinstance(x, tuple)
-        self.co_cellvars = x
+        self.co_cellvars = [ str(n) for n in x ]
         x = code.co_filename; assert isinstance(x, str)
         self.co_filename = x
         x = code.co_name; assert isinstance(x, str)
@@ -152,13 +152,20 @@ class PyCode(eval.Code):
         # first approximation
         return dis.findlabels(self.co_code)
 
-    def fget_co_consts(space, w_self):
-        self = space.interpclass_w(w_self)
+    def fget_co_consts(space, self):
         return space.newtuple(self.co_consts_w)
     
-    def fget_co_names(space, w_self):
-        self = space.interpclass_w(w_self)
+    def fget_co_names(space, self):
         return space.newtuple([space.wrap(name) for name in self.co_names])
+
+    def fget_co_varnames(space, self):
+        return space.newtuple([space.wrap(name) for name in self.co_varnames])
+
+    def fget_co_cellvars(space, self):
+        return space.newtuple([space.wrap(name) for name in self.co_freevars])
+
+    def fget_co_freevars(space, self):
+        return space.newtuple([space.wrap(name) for name in self.co_cellvars])    
 
     def descr_code__eq__(self, w_other):
         space = self.space
