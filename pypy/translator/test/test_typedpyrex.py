@@ -6,7 +6,7 @@ from pypy.objspace.flow.model import *
 from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring
 
 
-make_dot = False
+make_dot = True
 
 if make_dot: 
     from pypy.translator.test.make_dot import make_dot
