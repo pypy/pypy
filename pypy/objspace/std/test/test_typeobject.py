@@ -186,7 +186,9 @@ class TestTypeObject(testit.AppTestCase):
         except TypeError:
             pass
         except AttributeError:
-            print 'XXX - Python raises TypeError for several descriptors, we always raise AttributeError.'
+            # XXX - Python raises TypeError for several descriptors,
+            #       we always raise AttributeError.
+            pass
         else:
             raise AssertionError, '__doc__ should not be writable'
 
