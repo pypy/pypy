@@ -19,8 +19,9 @@ def get_standard_options():
 
     options.append(make_option(
         '-o', '--objspace', action="callback",
-        callback=objspace_callback, type="string",
+        callback=objspace_callback,  type="string", dest="objspacename",
         help="object space to run PyPy on."))
+
     options.append(make_option(
         '--oldstyle', action="store_true",dest="oldstyle",
         help="enable oldstyle classes as default metaclass (std objspace only)"))    
