@@ -266,7 +266,7 @@ class BuiltinCodeSignature(Signature):
             return frame_cls, box_cls
         except KeyError:
             label = '_'.join([getattr(el, '__name__', el) for el in self.unwrap_spec])
-            print label
+            #print label
             setfastscope = self.setfastscope
             if not setfastscope:
                 setfastscope = ["pass"]
