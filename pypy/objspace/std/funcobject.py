@@ -26,7 +26,6 @@ StdObjSpace.unwrap.register(function_unwrap, W_FuncObject)
 
 def func_call(space, w_function, w_arguments, w_keywords):
     somecode = w_function.code
-    print somecode
     w_globals = w_function.w_globals
     w_locals = somecode.build_arguments(space, w_arguments, w_keywords,
                   w_defaults = w_function.w_defaultarguments,
