@@ -52,11 +52,18 @@ def ln(lineno):
 class FileSystemView(Renderer):
     def render_self(self, args):
         fname = '/' + '/'.join(args)
-        lines = html.pre()
+        lines = html.table()
         i = 1
         for line in open(fname):
-            lines.append(ln(i))
-            lines.append(xml.escape(line)[:-1])
+            row = html.tr(
+                html.td(html.a("%03d" % i, name=str(i)), 
+                        style='text-align: left;'),
+                html.td(
+                    html.pre(xml.escape(line)[:-1]),
+                        #style="white-space: pre; font-family: monospace;"
+                ), 
+            )
+            lines.append(row) 
             i += 1
         return lines
     

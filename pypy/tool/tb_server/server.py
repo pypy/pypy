@@ -86,6 +86,8 @@ def wait_until_interrupt():
         stop()
 
 def publish_tb(tb):
+    if server_thread is None:
+        return 
     from pypy.tool.tb_server.render import TracebackView
     x = TracebackView(tb)
     print "traceback is at http://localhost:%d/%s" % (server_port, x.name)
