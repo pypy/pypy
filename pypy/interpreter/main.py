@@ -1,7 +1,8 @@
+import testsupport
 from pypy.objspace.std import StdObjSpace
 from pypy.module.builtin import Builtin
 from pypy.interpreter import executioncontext, baseobjspace, pyframe
-import sys
+import sys, os
 
 def run_string(source, fname, space=None):
     try:
@@ -34,9 +35,14 @@ def run_file(fname, space=None):
 def main(argv=None):
     if argv is None:
         argv = sys.argv
+    if os.environ.get('OBJSPACE'):
+        space = testsupport.objspace()
+        print "Running with %r" % os.environ.get('OBJSPACE')
+    else:
+        space = None
 
     try:
-        run_file(argv[1])
+        run_file(argv[1], space)
     except baseobjspace.PyPyError, pypyerr:
         pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
 
