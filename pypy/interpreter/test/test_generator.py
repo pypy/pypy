@@ -8,13 +8,13 @@ class AppTestGenerator(test.AppTestCase):
         def f():
             yield 1
         self.assertEquals(f().next(), 1)
-        
+
     def test_generator2(self):
         def f():
             yield 1
         g = f()
         self.assertEquals(g.next(), 1)
-        self.assertRaises(StopIteration, g.next) 
+        self.assertRaises(StopIteration, g.next)
 
     def test_generator3(self):
         def f():
@@ -34,7 +34,14 @@ class AppTestGenerator(test.AppTestCase):
             raise StopIteration
         g = f()
         self.assertEquals([x for x in g], [1])
-        
+
+    def test_generator_propagate_stopiteration(self):
+        def f():
+            it = iter([1])
+            while 1: yield it.next()
+        g = f()
+        self.assertEquals([x for x in g], [1])
+
     def test_generator_restart(self):
         def g():
             i = me.next()
