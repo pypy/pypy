@@ -170,9 +170,13 @@ def %(_name)s(self, *args):
             raise NoValue
 
     def newfunction(self, code, globals, defaultarguments, closure=None):
-        if closure is None:   # temp hack for Python 2.2
-            return new.function(code, globals, None, defaultarguments)
-        return new.function(code, globals, None, defaultarguments, closure)
+        def newfun(self, *args, **kwds):
+            locals = code.build_arguments(self, args, kwds,
+                w_defaults = defaultarguments,
+                w_closure = closure)
+            return code.evalcode(self, globals, locals)
+        newfun.__name__ = code.co_name
+        return newfun
 
     def newstring(self, asciilist):
         return ''.join([chr(ascii) for ascii in asciilist])
