@@ -44,10 +44,6 @@ from pypy.interpreter.gateway import app2interp, interp2app
 
 from pypy.tool.sourcetools import render_docstr
 
-# this thingy should be moved into a better place
-# and be modified to work without annotation.
-from pypy.translator.transform import transform_dead_op_vars
-
 # ____________________________________________________________
 
 def c_string(s):
@@ -149,13 +145,20 @@ class GenRpy:
             scorepos = n.rfind("_")
             if scorepos >= 0 and n[scorepos+1:].isdigit():
                 name = n[:scorepos]
-                ret = localnames.get(v.name)
+                # do individual numbering on named vars
+                thesenames = localnames.setdefault(name, {})
+                ret = thesenames.get(v.name)
                 if not ret:
                     if wrapped:
                         fmt = "w_%s_%d"
                     else:
                         fmt = "%s_%d"
-                    localnames[v.name] = ret = fmt % (name, len(localnames))
+                    # don't use zero
+                    if len(thesenames) == 0:
+                        fmt = fmt[:-3]
+                        thesenames[v.name] = ret = fmt % name
+                    else:
+                        thesenames[v.name] = ret = fmt % (name, len(thesenames))
                 return ret
         elif isinstance(v, Constant):
             return self.nameof(v.value,
@@ -572,8 +575,8 @@ class GenRpy:
 
         if cls.__doc__ is not None:
             sdoc = self.nameof("__doc__")
-            lines = list(render_docstr(cls, "_doc = space.wrap(", ")"))
-            self.initcode.extend(lines)
+            docstr = render_docstr(cls, "_doc = space.wrap(", ")")
+            self.initcode.append((docstr,)) # not splitted
             self.initcode.appendnew("space.setitem(_dic, %s, _doc)" % (
                 self.nameof("__doc__"),))
         self.initcode.append('_bases = space.newtuple([%(bases)s])\n'
@@ -760,8 +763,7 @@ class GenRpy:
         # doc
         if self.moddict and self.moddict.get("__doc__"):
             doc = self.moddict["__doc__"]
-            for line in render_docstr(doc):
-                print >> f, line
+            print >> f, render_docstr(doc)
             print >> f
             # make sure it is not rendered again
             key = Constant(doc).key
@@ -787,8 +789,16 @@ class GenRpy:
         # footer
         print >> f, self.RPY_INIT_HEADER % info
         for codelines in self.initcode:
-            for codeline in codelines.split("\n"):
-                print >> f, "    %s" % codeline
+            # keep docstrings unindented
+            indent = "    "
+            if type(codelines) is tuple:
+                codelines = codelines[0].split("\n", 1)
+                codelines[0] = indent + codelines[0]
+                indent = ""
+            else:
+                codelines = codelines.split("\n")
+            for codeline in codelines:
+                print >> f, indent + codeline
         print >> f, self.RPY_INIT_FOOTER % info
         f.close()
 
@@ -824,7 +834,7 @@ class GenRpy:
         self.gen_global_declarations()
 
         # print header
-        doc_lines = render_docstr(func, "    ")
+        docstr = render_docstr(func, "    ")
         cname = self.nameof(func)
         assert cname.startswith('gfunc_')
         f_name = 'f_' + cname[6:]
@@ -861,8 +871,8 @@ class GenRpy:
                                 % (name, argstr))
 
         print >> f, 'def %s(space, *args_w):' % (name,)
-        for line in doc_lines:
-            print >> f, line
+        if docstr is not None:
+            print >> f, docstr
         kwlist = ['"%s"' % var for var in
                       func.func_code.co_varnames[:func.func_code.co_argcount]]
         print >> f, '    kwlist = [%s]' % (', '.join(kwlist),)
@@ -906,8 +916,8 @@ class GenRpy:
         print >> f
 
         print >> f, fast_function_header
-        for line in doc_lines:
-            print >> f, line
+        if docstr is not None:
+            print >> f, docstr
 
         fast_locals = [arg for arg in localnames if arg not in fast_set]
         if fast_locals:
@@ -954,13 +964,6 @@ class GenRpy:
         start = graph.startblock
         allblocks = ordered_blocks(graph)
         nblocks = len(allblocks)
-
-        # HAACK
-        # I willmove that function to simplify.py,
-        # removing the dependency of annotated,
-        # which basically is just a list of blocks.
-        self.annotated = allblocks
-        transform_dead_op_vars(self)
 
         blocknum = {}
         for block in allblocks:

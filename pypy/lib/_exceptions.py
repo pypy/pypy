@@ -100,13 +100,14 @@ class Exception:
 
     # auto-generated code, please check carefully!
     def __str__(self):
-        argc = len(self.args)
+        args = self.args
+        argc = len(args)
         if argc == 0:
             return ''
         elif argc == 1:
-            return str(self.args[0])
+            return str(args[0])
         else:
-            return str(self.args)
+            return str(args)
 
 class StandardError(Exception):
     """Base class for all standard Python exceptions."""
@@ -140,11 +141,11 @@ class UnicodeTranslateError(UnicodeError):
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
-           'start=' + str(self.start),
-           'reason=' + str(self.reason),
-           'args=' + str(self.args),
-           'end=' + str(self.end),
-           'object=' + str(self.object),
+           'start=' + str(getattr(self, 'start', None)),
+           'reason=' + str(getattr(self, 'reason', None)),
+           'args=' + str(getattr(self, 'args', None)),
+           'end=' + str(getattr(self, 'end', None)),
+           'object=' + str(getattr(self, 'object', None)),
         ])
         return res
 
@@ -156,13 +157,14 @@ class KeyError(LookupError):
 
     # auto-generated code, please check carefully!
     def __str__(self):
-        argc = len(self.args)
+        args = self.args
+        argc = len(args)
         if argc == 0:
             return ''
         elif argc == 1:
-            return repr(self.args[0])
+            return repr(args[0])
         else:
-            return str(self.args)
+            return str(args)
 
 class Warning(Exception):
     """Base class for warning categories."""
@@ -197,10 +199,10 @@ class EnvironmentError(StandardError):
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
-           'errno=' + str(self.errno),
-           'args=' + str(self.args),
-           'strerror=' + str(self.strerror),
-           'filename=' + str(self.filename),
+           'errno=' + str(getattr(self, 'errno', None)),
+           'args=' + str(getattr(self, 'args', None)),
+           'strerror=' + str(getattr(self, 'strerror', None)),
+           'filename=' + str(getattr(self, 'filename', None)),
         ])
         return res
 
@@ -228,12 +230,12 @@ class UnicodeEncodeError(UnicodeError):
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
-           'object=' + str(self.object),
-           'end=' + str(self.end),
-           'encoding=' + str(self.encoding),
-           'args=' + str(self.args),
-           'start=' + str(self.start),
-           'reason=' + str(self.reason),
+           'object=' + str(getattr(self, 'object', None)),
+           'end=' + str(getattr(self, 'end', None)),
+           'encoding=' + str(getattr(self, 'encoding', None)),
+           'args=' + str(getattr(self, 'args', None)),
+           'start=' + str(getattr(self, 'start', None)),
+           'reason=' + str(getattr(self, 'reason', None)),
         ])
         return res
 
@@ -280,7 +282,7 @@ class SyntaxError(StandardError):
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
-           'args=' + str(self.args),
+           'args=' + str(getattr(self, 'args', None)),
         ])
         return res
 
@@ -340,12 +342,12 @@ class UnicodeDecodeError(UnicodeError):
     def __str__(self):
         # this is a bad hack, please supply an implementation
         res = ' '.join([
-           'object=' + str(self.object),
-           'end=' + str(self.end),
-           'encoding=' + str(self.encoding),
-           'args=' + str(self.args),
-           'start=' + str(self.start),
-           'reason=' + str(self.reason),
+           'object=' + str(getattr(self, 'object', None)),
+           'end=' + str(getattr(self, 'end', None)),
+           'encoding=' + str(getattr(self, 'encoding', None)),
+           'args=' + str(getattr(self, 'args', None)),
+           'start=' + str(getattr(self, 'start', None)),
+           'reason=' + str(getattr(self, 'reason', None)),
         ])
         return res
 

@@ -119,6 +119,9 @@ def transform_slice(self):
 
 ##        block.operations = operations
 
+# XXX this function now lives in simplify, too.
+# there, it accepts a graph or a block list as argument.
+# Fell free to use it instead, and remove the function here.
 def transform_dead_op_vars(self):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block."""

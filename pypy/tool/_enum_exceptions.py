@@ -43,8 +43,7 @@ def makeExceptionsTemplate(f=None):
         f = sys.stdout
 
     import exceptions
-    for line in render_docstr(exceptions, ""):
-        print >> f, line
+    print >> f, render_docstr(exceptions, "")
         
     for exc in enumClassesInOrder(exceptions):
         name = exc.__name__
@@ -307,13 +306,14 @@ def tryGenerate__str__(exc, maxprobe=20):
         simple = arg1_methods and min(arg1_methods) == max(arg1_methods)
     if simple:
         yield "def __str__(self):"
-        yield "    argc = len(self.args)"
+        yield "    args = self.args"
+        yield "    argc = len(args)"
         yield "    if argc == 0:"
         yield "        return ''"
         yield "    elif argc == 1:"
-        yield "        return %s(self.args[0])" % arg1_methods.pop()
+        yield "        return %s(args[0])" % arg1_methods.pop()
         yield "    else:"
-        yield "        return str(self.args)"
+        yield "        return str(args)"
         return
     # no idea how I should do this
     probe = exc(*working[0])
@@ -325,7 +325,7 @@ def tryGenerate__str__(exc, maxprobe=20):
     yield "    # this is a bad hack, please supply an implementation"
     yield "    res = ' '.join(["
     for key in dic.keys():
-        yield "       '%s=' + str(self.%s)," % (key, key)
+        yield "       '%s=' + str(getattr(self, '%s', None))," % (key, key)
     yield "    ])"
     yield "    return res"
 
