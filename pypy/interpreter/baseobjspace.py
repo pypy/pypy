@@ -1,8 +1,11 @@
 from executioncontext import ExecutionContext, OperationError, NoValue
 import pyframe
 
-__all__ = ['ObjSpace', 'OperationError', 'NoValue']
+__all__ = ['ObjSpace', 'OperationError', 'NoValue', 'PyPyError']
 
+class PyPyError(Exception):
+    "Raise this when you encounter an exceptional situation in PyPy itself."
+    pass
 
 class ObjSpace:
     """Base class for the interpreter-level implementations of object spaces.
