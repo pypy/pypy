@@ -913,3 +913,46 @@ class EC:
 def propagation_of_fresh_instances_through_attrs(x):
     e = EC()
     e.enter(x)
+
+# same involving recursion
+
+
+class R:
+  def __init__(self, n):
+      if n>0:
+          self.r = R(n-1)
+      else:
+          self.r = None
+      self.n = n
+      if self.r:
+          self.m = self.r.n
+      else:
+          self.m = -1
+
+def make_r(n):
+    return R(n)
+
+class B:
+    pass
+
+class Even(B):
+    def __init__(self,n):
+        if n > 0:
+            self.x = [Odd(n-1)]
+            self.y = self.x[0].x
+        else:
+            self.x = []
+            self.y = []
+
+class Odd(B):
+    def __init__(self,n):
+        self.x = [Even(n-1)]
+        self.y = self.x[0].x
+
+def make_eo(n):
+    if n%2 == 0:
+        return Even(n)
+    else:
+        return Odd(n)
+
+

@@ -31,7 +31,108 @@ def test_contains():
                                         (s4,s4),          (s4,s6),
                                         (s5,s4), (s5,s5), (s5,s6),
                                                           (s6,s6),
-                                                          (s7,s6), (s7, s7)])
+                                                          (s7,s6), (s7,s7)])
+
+             
+def test_contains_more():
+    from pypy.annotation import bookkeeper
+    bk = bookkeeper.Bookkeeper(None)
+    class C:
+        pass
+    C_classdef = bk.getclassdef(C)
+    si1 = SomeInstance(C_classdef)
+    C_classdef.revision += 1
+    si2 = SomeInstance(C_classdef)
+
+    assert s1.contains(si1)
+    assert si1.contains(si1)
+    assert si1.contains(s6)
+
+    assert si2.contains(si1)
+    assert not si1.contains(si2)
+    assert si1.contains(si2) is RevDiff
+
+    # dicts
+
+    sd1 = SomeDict({}, SomeString(), s1)
+    sd6 = SomeDict({}, SomeString(), s6)
+    sdi1 = SomeDict({}, SomeString(), si1)
+    sdi2 = SomeDict({}, SomeString(), si2)
+    sdi3 = SomeDict({}, SomeInteger(), si1)
+
+    assert sd1.contains(sdi1)
+    assert sdi1.contains(sdi1)
+    assert sdi1.contains(sd6)
+
+    assert sdi2.contains(sdi1)
+    assert not sdi1.contains(sdi2)
+    assert sdi1.contains(sdi2) is RevDiff
+
+    assert not sdi1.contains(sdi3)
+    assert sdi1.contains(sdi3) is False
+    assert not sdi3.contains(sdi1)
+    assert sdi3.contains(sdi1) is False
+
+    sdx = SomeDict({}, si1, SomeString())
+    sdy = SomeDict({}, si2, SomeString())
+
+    assert sdy.contains(sdx)
+    assert not sdx.contains(sdy)
+    assert sdx.contains(sdy) is RevDiff
+
+    sdz = SomeDict({}, si1, SomeInteger())
+    
+    assert not sdz.contains(sdx)
+    assert not sdx.contains(sdz)
+    assert sdz.contains(sdx) is False
+    assert sdx.contains(sdz) is False
+
+    # tuples
+
+    st1 = SomeTuple((SomeString(), s1))
+    st6 = SomeTuple((SomeString(), s6))
+    sti1 = SomeTuple((SomeString(), si1))
+    sti2 = SomeTuple((SomeString(), si2))
+    sti3 = SomeTuple((SomeInteger(), si1))
+
+    assert st1.contains(sti1)
+    assert sti1.contains(sti1)
+    assert sti1.contains(st6)
+
+    assert sti2.contains(sti1)
+    assert not sti1.contains(sti2)
+    assert sti1.contains(sti2) is RevDiff
+
+    assert not sti1.contains(sti3)
+    assert sti1.contains(sti3) is False
+    assert not sti3.contains(sti1)
+    assert sti3.contains(sti1) is False
+
+    stx = SomeTuple((si1, SomeString()))
+    sty = SomeTuple((si2, SomeString()))
+
+    assert sty.contains(stx)
+    assert not stx.contains(sty)
+    assert stx.contains(sty) is RevDiff
+
+    stz = SomeTuple((si1, SomeInteger()))
+    
+    assert not stz.contains(stx)
+    assert not stx.contains(stz)
+    assert stz.contains(stx) is False
+    assert stx.contains(stz) is False
+
+    C_classdef.revision += 1
+    si3 = SomeInstance(C_classdef)
+
+    sti12 = SomeTuple((si1,si2))
+    sti23 = SomeTuple((si2,si3))
+
+    assert sti23.contains(sti12)
+    assert not sti12.contains(sti23)
+    assert sti12.contains(sti23) is RevDiff
+    
+
 
 def test_union():
     assert ([unionof(s,t) for s in slist for t in slist] ==

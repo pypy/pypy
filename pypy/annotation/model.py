@@ -39,6 +39,31 @@ import inspect
 DEBUG = True    # set to False to disable recording of debugging information
 
 
+# weak false, for contains in the case of SomeInstance revision differences
+
+class _RevDiff(object):
+    def __nonzero__(self):
+        return False
+
+    def __repr__(self):
+        return "RevDiff"
+
+RevDiff = _RevDiff()
+
+# False contains_and RevDiff = False
+# RevDiff contains_and False = False
+# RevDiff contains_and True = RevDiff
+# True contains_and RevDiff = RevDiff
+
+def contains_and(*args):
+    if False in args:
+        return False
+    if RevDiff in args:
+        return RevDiff
+    assert args == (True,) * len(args)
+    return True
+    
+
 class SomeObject:
     """The set of all objects.  Each instance stands
     for an arbitrary object about which nothing is known."""
@@ -77,6 +102,7 @@ class SomeObject:
         return self.hom_contains(s_union)
 
     # default hom_contains, hom_contains can assume self.__class__ == other.__class__
+    # IMPORTANT: use contains_and or equivalent in here
     def hom_contains(self, other):
         return pair(self, other).union() == self
     
@@ -153,9 +179,9 @@ class SomeSlice(SomeObject):
         self.step = step
 
     def hom_contains(self, other):
-        return (self.start.contains(other.start) and
-                self.stop.contains(other.stop) and
-                self.step.contains(other.step))
+        return contains_and(self.start.contains(other.start),
+                            self.stop.contains(other.stop),
+                            self.step.contains(other.step))
 
 
 class SomeTuple(SomeObject):
@@ -174,11 +200,7 @@ class SomeTuple(SomeObject):
         other_items = other.items
         if len(self.items) != len(self.items):
             return False
-        for i1, i2 in zip(self_items, other_items):
-            if not i1.contains(i2):
-                return False
-        return True
-
+        return contains_and(*[i1.contains(i2) for i1,i2 in zip(self_items, other_items)])
 
 
 class SomeDict(SomeObject):
@@ -190,7 +212,8 @@ class SomeDict(SomeObject):
         self.s_value = s_value
 
     def hom_contains(self, other):
-        return self.s_key.contains(other.s_key) and self.s_value.contains(other.s_value)
+        return contains_and(self.s_key.contains(other.s_key),
+                            self.s_value.contains(other.s_value))
 
 
 class SomeIterator(SomeObject):
@@ -215,7 +238,10 @@ class SomeInstance(SomeObject):
 
     def hom_contains(self, other):
         if self.classdef is other.classdef:
-            return self.revision >= other.revision
+            if self.revision >= other.revision:
+                return True
+            else:
+                return RevDiff
         return self.classdef.commonbase(other.classdef) is self.classdef
 
 def new_or_old_class(c):
@@ -282,7 +308,11 @@ class SomeBuiltin(SomeObject):
         self.s_self = s_self
 
     def hom_contains(self, other):
-        return self.analyser == other.analyser and (not self.s_self or self.s_self.contains(other.s_self))
+        if self.analyser != other.analyser:
+            return False
+        if self.s_self is None:
+            return other.s_self is None        
+        return self.s_self.contains(other.s_self)
 
 
 class SomeImpossibleValue(SomeObject):

@@ -194,6 +194,7 @@ class __extend__(SomeInstance):
             # if the attrdef is new, this must fail
             if attrdef.getvalue().contains(s_value):
                 return
+
             # create or update the attribute in clsdef
             clsdef.generalize_attr(attr, s_value)
             raise BlockedInference

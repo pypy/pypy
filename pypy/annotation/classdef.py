@@ -4,7 +4,7 @@ Type inference for user-defined classes.
 
 from __future__ import generators
 from types import FunctionType
-from pypy.annotation.model import SomeImpossibleValue, unionof
+from pypy.annotation.model import SomeImpossibleValue, unionof, RevDiff
 
 
 class Attribute:
@@ -118,12 +118,25 @@ class ClassDef:
     def _generalize_attr(self, attr, s_value):
         # first remove the attribute from subclasses -- including us!
         subclass_attrs = []
+        was_here = attr in self.attrs
         for subdef in self.getallsubdefs():
             if attr in subdef.attrs:
                 subclass_attrs.append(subdef.attrs[attr])
                 del subdef.attrs[attr]
-            # bump the revision number of this class and all subclasses
-            subdef.revision += 1
+
+        bump = True
+        # don't bump if the only cause is rev diff discrepancies
+        if was_here and len(subclass_attrs) == 1 and s_value is not None:
+            old_attr = subclass_attrs[0]
+            wasgeneralenough = old_attr.s_value.contains(s_value)
+            assert not wasgeneralenough
+            if wasgeneralenough is RevDiff:
+                bump = False
+
+        if bump:
+            # bump the revision number of this class and all subclasses           
+            for subdef in self.getallsubdefs():
+                subdef.revision += 1
 
         # do the generalization
         newattr = Attribute(attr, self.bookkeeper)
@@ -140,11 +153,16 @@ class ClassDef:
 
     def generalize_attr(self, attr, s_value=None):
         # if the attribute exists in a superclass, generalize there.
+        found = 0
         for clsdef in self.getmro():
             if attr in clsdef.attrs:
-                clsdef._generalize_attr(attr, s_value)
-        else:
+                if found == 0:
+                    clsdef._generalize_attr(attr, s_value)
+                found += 1
+        if found == 0:
             self._generalize_attr(attr, s_value)
+        else:
+            assert found == 1, "generalization itself should prevent this"
 
     def about_attribute(self, name):
         for cdef in self.getmro():

@@ -530,7 +530,29 @@ class TestAnnonateTestCase:
         a = RPythonAnnotator()
         s = a.build_types(snippet.propagation_of_fresh_instances_through_attrs, [int])
         assert s is not None
+
+    def test_propagation_of_fresh_instances_through_attrs_rec_0(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.make_r, [int])
+        assert s.knowntype == snippet.R
+        Rdef = a.getuserclasses()[snippet.R]
+        assert Rdef.attrs['r'].s_value.knowntype == snippet.R
+        assert Rdef.attrs['n'].s_value.knowntype == int
+        assert Rdef.attrs['m'].s_value.knowntype == int
+    
         
+    def test_propagation_of_fresh_instances_through_attrs_rec_eo(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.make_eo, [int])
+        assert s.knowntype == snippet.B
+        Even_def = a.getuserclasses()[snippet.Even]
+        Odd_def = a.getuserclasses()[snippet.Odd]
+        assert Even_def.attrs['x'].s_value.s_item.knowntype == snippet.Odd
+        assert Even_def.attrs['y'].s_value.s_item.knowntype == snippet.Even
+        assert Odd_def.attrs['x'].s_value.s_item.knowntype == snippet.Even
+        assert Odd_def.attrs['y'].s_value.s_item.knowntype == snippet.Odd        
+
+
 
 def g(n):
     return [0,1,2,n]
