@@ -189,6 +189,15 @@ class AnnonateTestCase(testit.IntTestCase):
         self.assertEquals(s.items[1].knowntype, int)
         self.assertEquals(s.items[1].nonneg, True)
 
+    def test_classes_methodcall1(self):
+        a = RPythonAnnotator()
+        a.build_types(snippet.methodcall1, [int])
+        # the user classes should have the following attributes:
+        classes = a.bookkeeper.userclasses
+        self.assertEquals(classes[snippet.F].attrs.keys(), ['m'])
+        self.assertEquals(classes[snippet.G].attrs.keys(), ['m2'])
+        self.assertEquals(classes[snippet.H].attrs,
+                          {'attr': annmodel.immutablevalue(1)})
 
 def g(n):
     return [0,1,2,n]
