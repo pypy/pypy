@@ -44,5 +44,15 @@ class TestW_IterObject(test.TestCase):
         w_iter = self.space.iter(w_list)
         self.body0(w_iter)
 
+class TestW_IterObjectApp(test.AppTestCase):
+
+    def test_user_iter(self):
+        class C:
+            def next(self):
+                raise StopIteration
+            def __iter__(self):
+                return self
+        self.assertEquals(list(C()), [])
+
 if __name__ == '__main__':
     test.main()
