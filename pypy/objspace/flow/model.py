@@ -60,6 +60,9 @@ class Link:
         self.exitcase = exitcase   # this is a concrete value
         self.prevblock = None      # the block this Link is an exit of
 
+    def __repr__(self):
+        return "link from %s to %s" % (str(self.prevblock), str(self.target))
+
 class Block:
     isstartblock = False
     
@@ -69,6 +72,19 @@ class Block:
         self.exitswitch = None            # a variable or
                                           #  Constant(last_exception), see below
         self.exits      = []              # list of Link(s)
+
+    def __str__(self):
+        if self.operations:
+            txt = "block@%d" % self.operations[0].offset
+        else:
+            txt = "codeless block"
+        return txt
+    
+    def __repr__(self):
+        txt = "%s with %d exits" % (str(self), len(self.exits))
+        if self.exitswitch:
+            txt = "%s(%s)" % (txt, self.exitswitch)
+        return txt
 
     def getvariables(self):
         "Return all variables mentioned in this Block."
