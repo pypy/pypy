@@ -36,6 +36,7 @@ from pypy.objspace.flow.model import Constant
 from pypy.tool.cache import Cache 
 import inspect
 
+
 class SomeObject:
     """The set of all objects.  Each instance stands
     for an arbitrary object about which nothing is known."""
@@ -75,10 +76,12 @@ class SomeObject:
     caused_by_merge = property(caused_by_merge, set_caused_by_merge)
     del set_caused_by_merge
 
+
 class SomeNone(SomeObject):
     "Stands for None."
     knowntype = type(None)
     const = None
+
 
 class SomeInteger(SomeObject):
     "Stands for an object which is known to be an integer."
@@ -86,6 +89,7 @@ class SomeInteger(SomeObject):
     def __init__(self, nonneg=False, unsigned=False):
         self.nonneg = nonneg
         self.unsigned = unsigned  # pypy.objspace.std.restricted_int.r_uint
+
 
 class SomeBool(SomeInteger):
     "Stands for true or false."
@@ -95,12 +99,15 @@ class SomeBool(SomeInteger):
     def __init__(self):
         pass
 
+
 class SomeString(SomeObject):
     "Stands for an object which is known to be a string."
     knowntype = str
 
+
 class SomeChar(SomeString):
     "Stands for an object known to be a string of length 1."
+
 
 class SomeList(SomeObject):
     "Stands for a homogenous list of any length."
@@ -108,6 +115,7 @@ class SomeList(SomeObject):
     def __init__(self, factories, s_item=SomeObject()):
         self.factories = factories
         self.s_item = s_item     # general enough for any element
+
 
 class SomeTuple(SomeObject):
     "Stands for a tuple of known length."
@@ -120,6 +128,7 @@ class SomeTuple(SomeObject):
         else:
             self.const = tuple([i.const for i in items])
 
+
 class SomeDict(SomeObject):
     "Stands for a dict with known keys."
     knowntype = dict
@@ -127,18 +136,13 @@ class SomeDict(SomeObject):
         self.factories = factories
         self.items = items    # dict {realkey: s_value}
 
+
 class SomeIterator(SomeObject):
     "Stands for an iterator returning objects of a known type."
     knowntype = type(iter([]))  # arbitrarily chose seqiter as the type
     def __init__(self, s_item=SomeObject()):
         self.s_item = s_item
 
-#class SomeClass(SomeObject):
-#    "Stands for a user-defined class object."
-#    # only used when the class object is loaded in a variable
-#    knowntype = ClassType
-#    def __init__(self, cls):
-#        self.cls = cls
 
 class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
@@ -146,6 +150,7 @@ class SomeInstance(SomeObject):
         self.classdef = classdef
         self.knowntype = classdef.cls
         self.revision = classdef.revision
+
 
 class SomeCallable(SomeObject):
     """Stands for a (callable) function, method, 
@@ -158,6 +163,7 @@ class SomeCallable(SomeObject):
         if len(callables) == 1:
             self.const, = callables
 
+
 class SomeBuiltin(SomeCallable):
     "Stands for a built-in function or method with special-cased analysis."
     knowntype = BuiltinFunctionType  # == BuiltinMethodType
@@ -165,29 +171,15 @@ class SomeBuiltin(SomeCallable):
         self.analyser = analyser
         self.s_self = s_self
 
-#class SomeFunction(SomeObject):
-#    """Stands for a Python function (or some function out of a list).
-#    Alternatively, it can be a constant bound or unbound method."""
-#    knowntype = FunctionType
-#    def __init__(self, funcs):
-#        self.funcs = funcs   # set of functions that this one may be
-#        if len(funcs) == 1:
-#            self.const, = funcs
-
-#class SomeMethod(SomeObject):
-#    "Stands for a bound Python method (or some method out of a list)."
-#    knowntype = MethodType
-#    def __init__(self, meths):
-#        self.meths = meths   # map {python_function: classdef}
-
 
 class SomePBC(SomeObject):
     """Stands for a global user instance, built prior to the analysis,
     or a set of such instances."""
     def __init__(self, prebuiltinstances):
         self.prebuiltinstances = prebuiltinstances  
-        self.knowntype = reduce(commonbase, 
+        self.knowntype = reduce(commonbase,
                                 [x.__class__ for x in prebuiltinstances])
+
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
@@ -221,7 +213,7 @@ def set(it):
     return d
 
 def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
-    l1 = inspect.getmro(cls1) 
+    l1 = inspect.getmro(cls1)
     l2 = inspect.getmro(cls2) 
     if l1[-1] != object: 
         l1 = l1 + (object,) 
