@@ -31,8 +31,8 @@ def run_string(source, fname):
             raise
 
 def run_file(fname):
-    ifile = open(fname)
-    run_string(ifile.read(), fname)
+    istring = open(fname).read()
+    run_string(istring, fname)
 
 def main(argv=None):
     if argv is None:
