@@ -61,8 +61,8 @@ class PyBaseCode:
         w_bytecode = space.wrap(co)
         w_arguments = space.gethelper(appfile).call(
             "decode_code_arguments", [w_arguments, w_kwargs, w_defaults,
-                                       w_closure, w_bytecode])
-        # we assume that decode_codee_arguments() gives us a dictionary
+                                      w_closure, w_bytecode])
+        # we assume that decode_code_arguments() gives us a dictionary
         # of the correct length.
         return w_arguments
         
