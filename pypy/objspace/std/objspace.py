@@ -8,6 +8,12 @@ else:
     booltype = bool
 
 
+class W_Object:
+    "Parent base class for wrapped objects."
+    def __init__(w_self, space):
+        w_self.space = space
+
+
 ##################################################################
 
 class StdObjSpace(ObjSpace):

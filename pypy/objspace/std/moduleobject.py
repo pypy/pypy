@@ -1,11 +1,12 @@
-from objspace import *
+from pypy.objspace.std.objspace import *
 from dictobject import W_DictObject
 
 
-class W_ModuleObject:
+class W_ModuleObject(W_Object):
     delegate_once = {}
 
-    def __init__(self, space, w_name):
+    def __init__(w_self, space, w_name):
+        W_Object.__init__(w_self, space)
         w_key_name = space.wrap('__name__')
         w_key_doc  = space.wrap('__doc__')
         items = [(w_key_name, w_name),

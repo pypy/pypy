@@ -1,10 +1,11 @@
-from objspace import *
+from pypy.objspace.std.objspace import *
 
 
 
-class W_LongObject:
+class W_LongObject(W_Object):
     
-    def __init__(w_self, longval):
+    def __init__(w_self, space, longval):
+        W_Object.__init__(w_self, space)
         w_self.longval = longval
 
     def getattr(w_self, space, w_attrname):

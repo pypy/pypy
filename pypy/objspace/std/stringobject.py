@@ -1,11 +1,12 @@
-from objspace import *
+from pypy.objspace.std.objspace import *
 from intobject   import W_IntObject
 from sliceobject import W_SliceObject
 
 applicationfile = StdObjSpace.AppFile(__name__)
 
-class W_StringObject:
-    def __init__(w_self, str):
+class W_StringObject(W_Object):
+    def __init__(w_self, space, str):
+        W_Object.__init__(w_self, space)
         w_self.value = str
     def __repr__(w_self):
         """ representation for debugging purposes """

@@ -10,12 +10,13 @@ import math
 
 applicationfile = StdObjSpace.AppFile(__name__)
 
-class W_FloatObject:
+class W_FloatObject(W_Object):
     """This is a reimplementation of the CPython "PyFloatObject" 
        it is assumed that the constructor takes a real Python float as
        an argument""" 
     
-    def __init__(w_self, floatval):
+    def __init__(w_self, space, floatval):
+        W_Object.__init__(w_self, space)
         w_self.floatval = floatval
 
 def float_float(space,w_value):

@@ -25,11 +25,12 @@ class Cell:
         return self.w_value is _NoValueInCell
     
 
-class W_DictObject:
+class W_DictObject(W_Object):
     delegate_once = {}
 
-    def __init__(self, list_pairs_w):
-        self.data = [ (w_key,Cell(w_value)) for w_key,w_value in list_pairs_w ]
+    def __init__(w_self, space, list_pairs_w):
+        W_Object.__init__(w_self, space)
+        w_self.data = [ (w_key,Cell(w_value)) for w_key,w_value in list_pairs_w ]
 
     def non_empties(self):
         return [ (w_key,cell) for w_key,cell in self.data if not cell.is_empty()]

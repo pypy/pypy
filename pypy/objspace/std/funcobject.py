@@ -3,8 +3,9 @@ from pypy.objspace.std.objspace import *
 import pypy.interpreter.pyframe
 
 
-class W_FuncObject(object):
-    def __init__(w_self, code, w_globals, w_defaultarguments, w_closure):
+class W_FuncObject(W_Object):
+    def __init__(w_self, space, code, w_globals, w_defaultarguments, w_closure):
+        W_Object.__init__(w_self, space)
         w_self.code = code
         w_self.w_globals = w_globals
         w_self.w_defaultarguments = w_defaultarguments

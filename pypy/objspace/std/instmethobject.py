@@ -2,8 +2,9 @@ from __future__ import nested_scopes
 from pypy.objspace.std.objspace import *
 
 
-class W_InstMethObject(object):
-    def __init__(w_self, w_im_self,w_im_func):
+class W_InstMethObject(W_Object):
+    def __init__(w_self, space, w_im_self, w_im_func):
+        W_Object.__init__(w_self, space)
         w_self.w_im_self = w_im_self
         w_self.w_im_func = w_im_func
 
@@ -22,9 +23,9 @@ class W_InstMethObject(object):
 
 
 def instmeth_call(space, w_instmeth, w_arguments, w_keywords):
-    w_args = space.add(space.newtuple([self.w_im_self]),
+    w_args = space.add(space.newtuple([w_instmeth.w_im_self]),
                        w_arguments)
-    w_ret = space.call(self.w_im_func, w_args, w_keywords)
+    w_ret = space.call(w_instmeth.w_im_func, w_args, w_keywords)
     return w_ret
 
 StdObjSpace.call.register(instmeth_call, W_InstMethObject, W_ANY, W_ANY)

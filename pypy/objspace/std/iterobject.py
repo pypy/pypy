@@ -1,12 +1,13 @@
 from objspace import *
 
 
-class W_SeqIterObject:
+class W_SeqIterObject(W_Object):
     delegate_once = {}
 
-    def __init__(self, w_seq, index=0):
-        self.w_seq = w_seq
-        self.index = index
+    def __init__(w_self, space, w_seq, index=0):
+        W_Object.__init__(w_self, space)
+        w_self.w_seq = w_seq
+        w_self.index = index
 
 
 def iter_seqiter(space, w_seqiter):

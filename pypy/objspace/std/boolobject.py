@@ -1,10 +1,11 @@
 from pypy.objspace.std.objspace import *
 
 
-class W_BoolObject:
+class W_BoolObject(W_Object):
     delegate_once = {}
 
-    def __init__(w_self, boolval):  # please pass in a real bool, not an int
+    def __init__(w_self, space, boolval):# please pass in a real bool, not an int
+        W_Object.__init__(w_self, space)
         w_self.boolval = boolval
 
     def __eq__(w_self, w_other):

@@ -1,7 +1,7 @@
 from pypy.objspace.std.objspace import *
 
 
-class W_NoneObject:
+class W_NoneObject(W_Object):
     delegate_once = {}
 
 

@@ -3,10 +3,11 @@ from intobject import W_IntObject
 from sliceobject import W_SliceObject
 
 
-class W_TupleObject(object):
+class W_TupleObject(W_Object):
 
-    def __init__(self, wrappeditems):
-        self.wrappeditems = wrappeditems   # a list of wrapped values
+    def __init__(w_self, space, wrappeditems):
+        W_Object.__init__(w_self, space)
+        w_self.wrappeditems = wrappeditems   # a list of wrapped values
 
     def __repr__(w_self):
         """ representation for debugging purposes """

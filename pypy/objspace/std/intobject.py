@@ -20,11 +20,12 @@ for native integers, which tries to behave as in
 RPython, just for test purposes.
 """
 
-class W_IntObject:
+class W_IntObject(W_Object):
 
     delegate_once = {}
     
-    def __init__(w_self, intval):
+    def __init__(w_self, space, intval):
+        W_Object.__init__(w_self, space)
         w_self.intval = r_int(intval)
 
     def __repr__(w_self):

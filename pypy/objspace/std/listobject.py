@@ -2,20 +2,23 @@ from pypy.objspace.std.objspace import *
 from intobject import W_IntObject
 from sliceobject import W_SliceObject
 from instmethobject import W_InstMethObject
+from pypy.interpreter.extmodule import make_builtin_func
 
 
-class W_ListObject(object):
+class W_ListObject(W_Object):
 
-    def __init__(self, wrappeditems):
-        self.wrappeditems = wrappeditems   # a list of wrapped values
+    def __init__(w_self, space, wrappeditems):
+        W_Object.__init__(w_self, space)
+        w_self.wrappeditems = wrappeditems   # a list of wrapped values
 
     def __repr__(w_self):
         """ representation for debugging purposes """
         reprlist = [repr(w_item) for w_item in w_self.wrappeditems]
         return "%s(%s)" % (w_self.__class__.__name__, ', '.join(reprlist))
 
-###    def append(w_self):
-###        .:.
+    def append(w_self, w_obj):
+        w_self.wrappeditems.append(w_obj)
+        return w_self.space
 
 
 def list_unwrap(space, w_list):
@@ -96,6 +99,15 @@ StdObjSpace.eq.register(list_eq, W_ListObject, W_ListObject)
 
 # upto here, lists are nearly identical to tuples.
 # XXX have to add over-allocation!
+
+def getattr_list(space, w_list, w_attr):
+    if space.is_true(space.eq(w_attr, space.wrap('append'))):
+        w_builtinfn = make_builtin_func(space, W_ListObject.append)
+        return W_InstMethObject(w_list, w_builtinfn)
+    raise FailedToImplement(space.w_AttributeError)
+
+StdObjSpace.getattr.register(getattr_list, W_ListObject, W_ANY)
+
 
 """
 static PyMethodDef list_methods[] = {

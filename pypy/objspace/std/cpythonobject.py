@@ -2,12 +2,13 @@ from pypy.objspace.std.objspace import *
 from stringobject import W_StringObject
 import sys, operator, types
 
-class W_CPythonObject:
+class W_CPythonObject(W_Object):
     "This class wraps an arbitrary CPython object."
 
     delegate_once = {}
     
-    def __init__(w_self, cpyobj):
+    def __init__(w_self, space, cpyobj):
+        W_Object.__init__(w_self, space)
         w_self.cpyobj = cpyobj
 
     def __repr__(w_self):
