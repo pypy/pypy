@@ -24,9 +24,9 @@ class ObjSpace:
 
     def make_builtins(self):
         self.builtin = pypy.module.builtin.Builtin(self)
-        w_builtin = self.builtin.wrap_me()
-        self.w_builtins = self.getattr(w_builtin, self.wrap("__dict__"))
-        self.setitem(self.w_modules, self.wrap("__builtin__"), w_builtin)
+        self.w_builtin = self.builtin.wrap_me()
+        self.w_builtins = self.getattr(self.w_builtin, self.wrap("__dict__"))
+        self.setitem(self.w_modules, self.wrap("__builtin__"), self.w_builtin)
 
     def make_sys(self):
         import pypy.module.sysmodule
@@ -34,6 +34,15 @@ class ObjSpace:
         self.w_sys = self.sys.wrap_me()
         self.setitem(self.w_modules, self.wrap("sys"), self.w_sys)
         self.setattr(self.w_sys, self.wrap("modules"), self.w_modules)
+
+    # XXX use a dictionary in the future
+    def get_builtin(self,w_name):
+        name = self.unwrap(w_name)
+        if name == '__builtin__':
+            return self.w_builtin
+        elif name == 'sys':
+            return self.w_sys
+        return None
 
     def initialize(self):
         """Abstract method that should put some minimal content into the
