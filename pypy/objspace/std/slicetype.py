@@ -83,15 +83,15 @@ def app_slice_indices3(slice, length):
     return start, stop, step
 slice_indices__ANY_ANY = slice_indices3 = gateway.app2interp(app_slice_indices3)
 
-def app_slice_indices4(slice, length):
-    start, stop, step = slice_indices3(slice, length)
-
-    if (step < 0 and stop >= start) or (step > 0 and start >= stop):
-        slicelength = 0
-    elif step < 0:
-        slicelength = (stop-start+1)//step + 1
+def app_slice_indices4(slice, sequencelength):
+    start, stop, step = slice_indices3(slice, sequencelength)
+    slicelength = stop - start
+    lengthsign = sign(slicelength)
+    stepsign = sign(step)
+    if stepsign == lengthsign:
+        slicelength = (slicelength - lengthsign) // step + 1
     else:
-        slicelength = (stop-start-1)//step + 1
+        slicelength = 0
 
     return start, stop, step, slicelength
 slice_indices4 = gateway.app2interp(app_slice_indices4)
