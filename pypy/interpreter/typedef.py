@@ -83,6 +83,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, Method, StaticMethod
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator 
+from pypy.interpreter.nestedscope import Cell
 
 Code.typedef = TypeDef('internal-code',
     co_name = attrproperty('co_name'),
@@ -166,3 +167,5 @@ GeneratorIterator.typedef = TypeDef("generator",
     gi_running = attrproperty('running'), 
     gi_frame   = attrproperty('frame'), 
 )
+
+Cell.typedef = TypeDef("Cell")

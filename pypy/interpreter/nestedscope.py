@@ -2,9 +2,9 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.eval import UNDEFINED
 from pypy.interpreter.pyopcode import PyInterpFrame
 from pypy.interpreter import function, pycode
+from pypy.interpreter.baseobjspace import Wrappable
 
-
-class Cell(object):
+class Cell(Wrappable):
     "A simple container for a wrapped value."
     
     def __init__(self, w_value=UNDEFINED):
