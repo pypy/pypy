@@ -331,6 +331,15 @@ class AnnonateTestCase(testit.IntTestCase):
         self.assert_(isinstance(s, annmodel.SomeInteger)) 
         self.assertEquals(s.const, 3) 
 
+    def test_pbc_attr_preserved_on_instance(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.preserve_pbc_attr_on_instance, [bool])
+        #a.simplify()
+        #a.translator.view()
+        #self.assert_(isinstance(s, annmodel.SomeInstance)) 
+        #self.assertEquals(s.const, 3) 
+        
+
 def g(n):
     return [0,1,2,n]
 

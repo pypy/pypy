@@ -600,3 +600,17 @@ def funccallsex():
 def func_arg_unpack():
     a,b = 3, "hello"
     return a
+
+class APBC: 
+    def f(self): 
+        pass
+    code = f.func_code 
+
+apbc = APBC()
+
+def preserve_pbc_attr_on_instance(cond):
+    if cond: 
+        x = APBC()
+    else: 
+        x = apbc 
+    return x.code 
