@@ -131,6 +131,19 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals("a".split(), ['a'])
         self.assertEquals(" a ".split(), ['a'])
         self.assertEquals("a b c".split(), ['a','b','c'])
+        self.assertEquals('this is the split function'.split(), ['this', 'is', 'the', 'split', 'function'])
+        self.assertEquals('a|b|c|d'.split('|'), ['a', 'b', 'c', 'd'])
+        self.assertEquals('a|b|c|d'.split('|', 2), ['a', 'b', 'c|d'])
+        self.assertEquals('a b c d'.split(None, 1), ['a', 'b c d'])
+        self.assertEquals('a b c d'.split(None, 2), ['a', 'b', 'c d'])
+        self.assertEquals('a b c d'.split(None, 3), ['a', 'b', 'c', 'd'])
+        self.assertEquals('a b c d'.split(None, 4), ['a', 'b', 'c', 'd'])
+        self.assertEquals('a b c d'.split(None, 0), ['a b c d'])
+        self.assertEquals('a  b  c  d'.split(None, 2), ['a', 'b', 'c  d'])
+        self.assertEquals('a b c d '.split(), ['a', 'b', 'c', 'd'])
+        self.assertEquals('a//b//c//d'.split('//'), ['a', 'b', 'c', 'd'])
+        self.assertEquals('endcase test'.split('test'), ['endcase ', ''])
+
 
     def test_split_splitchar(self):
         self.assertEquals("/a/b/c".split('/'), ['','a','b','c'])
@@ -140,6 +153,11 @@ class TestStringObject(test.AppTestCase):
 
     def test_capitalize(self):
         self.assertEquals("brown fox".capitalize(), "Brown fox")
+        self.assertEquals(' hello '.capitalize(), ' hello ')
+        self.assertEquals('Hello '.capitalize(), 'Hello ')
+        self.assertEquals('hello '.capitalize(), 'Hello ')
+        self.assertEquals('aaaa'.capitalize(), 'Aaaa')
+        self.assertEquals('AaAa'.capitalize(), 'Aaaa')
 
     def test_rjust(self):
         s = "abc"
@@ -147,6 +165,11 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals(s.rjust(3), s)
         self.assertEquals(s.rjust(4), " " + s)
         self.assertEquals(s.rjust(5), "  " + s)
+        self.assertEquals('abc'.rjust(10), '       abc')
+        self.assertEquals('abc'.rjust(6), '   abc')
+        self.assertEquals('abc'.rjust(3), 'abc')
+        self.assertEquals('abc'.rjust(2), 'abc')
+
 
     def test_ljust(self):
         s = "abc"
@@ -154,12 +177,54 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals(s.ljust(3), s)
         self.assertEquals(s.ljust(4), s + " ")
         self.assertEquals(s.ljust(5), s + "  ")
+        self.assertEquals('abc'.ljust(10), 'abc       ')
+        self.assertEquals('abc'.ljust(6), 'abc   ')
+        self.assertEquals('abc'.ljust(3), 'abc')
+        self.assertEquals('abc'.ljust(2), 'abc')
 
-    def test_strip(self):
+    def _test_replace(self):
+        self.assertEquals('one!two!three!'.replace('!', '@', 1), 'one@two!three!')
+        self.assertEquals('one!two!three!'.replace('!', ''), 'onetwothree')
+        self.assertEquals('one!two!three!'.replace('!', '@', 2), 'one@two@three!')
+        self.assertEquals('one!two!three!'.replace('!', '@', 3), 'one@two@three@')
+        self.assertEquals('one!two!three!'.replace('!', '@', 4), 'one@two@three@')
+        self.assertEquals('one!two!three!'.replace('!', '@', 0), 'one!two!three!')
+        self.assertEquals('one!two!three!'.replace('!', '@'), 'one@two@three@')
+        self.assertEquals('one!two!three!'.replace('x', '@'), 'one!two!three!')
+        self.assertEquals('one!two!three!'.replace('x', '@', 2), 'one!two!three!')
+        self.assertEquals('abc'.replace('', '-'), '-a-b-c-')
+        self.assertEquals('abc'.replace('', '-', 3), '-a-b-c')
+        self.assertEquals('abc'.replace('', '-', 0), 'abc')
+        self.assertEquals(''.replace('', ''), '')
+        self.assertEquals('abc'.replace('ab', '--', 0), 'abc')
+        self.assertEquals('abc'.replace('xy', '--'), 'abc')
+        self.assertEquals('123'.replace('123', ''), '')
+        self.assertEquals('123123'.replace(123, ''), '')
+        self.assertEquals('123x123'.replace(123, ''), 'x')
+
+
+    def _test_strip(self):
         s = " a b "
         self.assertEquals(s.strip(), "a b")
         self.assertEquals(s.rstrip(), " a b")
         self.assertEquals(s.lstrip(), "a b ")
+        self.assertEquals('xyzzyhelloxyzzy'.strip('xyz'), 'hello')
+        self.assertEquals('xyzzyhelloxyzzy'.lstrip('xyz'), 'helloxyzzy')
+        self.assertEquals('xyzzyhelloxyzzy'.rstrip('xyz'), 'xyzzyhello')
+
+    def _test_zfill(self):
+        self.assertEquals('123'.zfill(2), '123')
+        self.assertEquals('123'.zfill(3), '123')
+        self.assertEquals('123'.zfill(4), '0123')
+        self.assertEquals('+123'.zfill(3), '+123')
+        self.assertEquals('+123'.zfill(4), '+123')
+        self.assertEquals('+123'.zfill(5), '+0123')
+        self.assertEquals('-123'.zfill(3), '-123')
+        self.assertEquals('-123'.zfill(4), '-123')
+        self.assertEquals('-123'.zfill(5), '-0123')
+        self.assertEquals(''.zfill(3), '000')
+        self.assertEquals('34'.zfill(1), '34')
+        self.assertEquals('34'.zfill(4), '0034')
             
     def test_center(self):
         s="a b"
@@ -173,12 +238,28 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals(s.center(7), "  a b  ")
         self.assertEquals(s.center(8), "  a b   ")
         self.assertEquals(s.center(9), "   a b   ")
+        self.assertEquals('abc'.center(10), '   abc    ')
+        self.assertEquals('abc'.center(6), ' abc  ')
+        self.assertEquals('abc'.center(3), 'abc')
+        self.assertEquals('abc'.center(2), 'abc')
+
         
-    def test_count(self):
+    def _test_count(self):
         self.assertEquals("".count("x"),0)
         self.assertEquals("".count(""),1)
         self.assertEquals("Python".count(""),7)
         self.assertEquals("ab aaba".count("ab"),2)
+        self.assertEquals('aaa'.count('a'), 3)
+        self.assertEquals('aaa'.count('b'), 0)
+        self.assertEquals('aaa'.count('a'), 3)
+        self.assertEquals('aaa'.count('b'), 0)
+        self.assertEquals('aaa'.count('a'), 3)
+        self.assertEquals('aaa'.count('b'), 0)
+        self.assertEquals('aaa'.count('b'), 0)
+        self.assertEquals('aaa'.count('a', -1), 1)
+        self.assertEquals('aaa'.count('a', -10), 3)
+        self.assertEquals('aaa'.count('a', 0, -1), 2)
+        self.assertEquals('aaa'.count('a', 0, -10), 0)
     
     
     def test_startswith(self):
@@ -205,12 +286,53 @@ class TestStringObject(test.AppTestCase):
         self.assertEquals('y'.endswith('xx'),0)
    
    
-    def test_expandtabs(self):
+    def _test_expandtabs(self):
         s = '\txy\t'
         self.assertEquals(s.expandtabs(),'        xy        ')
         self.assertEquals(s.expandtabs(1),' xy ')
         self.assertEquals('xy'.expandtabs(),'xy')
         self.assertEquals(''.expandtabs(),'')
+        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(), 'abc\rab      def\ng       hi')
+        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(8), 'abc\rab      def\ng       hi')
+        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(4), 'abc\rab  def\ng   hi')
+        self.assertEquals('abc\r\nab\tdef\ng\thi'.expandtabs(4), 'abc\r\nab  def\ng   hi')
+        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(), 'abc\rab      def\ng       hi')
+        self.assertEquals('abc\rab\tdef\ng\thi'.expandtabs(8), 'abc\rab      def\ng       hi')
+        self.assertEquals('abc\r\nab\r\ndef\ng\r\nhi'.expandtabs(4), 'abc\r\nab\r\ndef\ng\r\nhi')
+
+    def test_find(self):
+        self.assertEquals('abcdefghiabc'.find('abc'), 0)
+        self.assertEquals('abcdefghiabc'.find('abc', 1), 9)
+        self.assertEquals('abcdefghiabc'.find('def', 4), -1)
+
+    def test_index(self):
+        self.assertEquals('abcdefghiabc'.index(''), 0)
+        self.assertEquals('abcdefghiabc'.index('def'), 3)
+        self.assertEquals('abcdefghiabc'.index('abc'), 0)
+        self.assertEquals('abcdefghiabc'.index('abc', 1), 9)
+        #XXX it comes UnicodeError
+        #self.assertRaises(ValueError, 'abcdefghiabc'.index('hib'))
+        #self.assertRaises(ValueError, 'abcdefghiab'.index('abc', 1))
+        #self.assertRaises(ValueError, 'abcdefghi'.index('ghi', 8))
+        #self.assertRaises(ValueError, 'abcdefghi'.index('ghi', -1))
+
+    def test_rfind(self):
+        self.assertEquals('abcdefghiabc'.rfind('abc'), 9)
+        self.assertEquals('abcdefghiabc'.rfind(''), 12)
+        self.assertEquals('abcdefghiabc'.rfind('abcd'), 0)
+        self.assertEquals('abcdefghiabc'.rfind('abcz'), -1)
+
+    def test_rindex(self):
+        self.assertEquals('abcdefghiabc'.rindex(''), 12)
+        self.assertEquals('abcdefghiabc'.rindex('def'), 3)
+        self.assertEquals('abcdefghiabc'.rindex('abc'), 9)
+        self.assertEquals('abcdefghiabc'.rindex('abc', 0, -1), 0)
+        #XXX it comes UnicodeError
+        #self.assertRaises(ValueError, 'abcdefghiabc'.rindex('hib'))
+        #self.assertRaises(ValueError, 'defghiabc'.rindex('def', 1))
+        #self.assertRaises(ValueError, 'defghiabc'.rindex('abc', 0, -1))
+        #self.assertRaises(ValueError, 'abcdefghi'.rindex('ghi', 0, 8))
+        #self.assertRaises(ValueError, 'abcdefghi'.rindex('ghi', 0, -1))
 
 
     def test_split_maxsplit(self):

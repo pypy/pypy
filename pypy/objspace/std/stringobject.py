@@ -208,8 +208,17 @@ def str_capitalize__String(space, w_self):
         if _islower(ch):
             o = ord(ch) - 32
             buffer[0] = chr(o)
+        else:
+            buffer[0] = ch
+
         for i in range(1, len(input)):
-            buffer[i] = input[i]
+            ch = input[i]
+            if _isupper(ch):
+                o = ord(ch) + 32
+                buffer[i] = chr(o)
+            else:
+                buffer[i] = ch
+
     return space.wrap("".join(buffer))
          
 def str_title__String(space, w_self):
@@ -365,22 +374,37 @@ def str_ljust__String_ANY(space, w_self, w_arg):
         
     return space.wrap(u_self)
 
-def str_find__String_String_Int_Int(space, w_self, w_sub, w_start=None, w_end=None):
+def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
+    u = space.unwrap
+    start = u(w_start)
+    end = u(w_end)
+    self = u(w_self)
+    sub = u(w_sub)
+    if start is None:
+        start = 0
+    if end is None:
+        end = len(self)
 
-    u = space.unwrap 
-    res = _find(u(w_self), u(w_sub), u(w_start), u(w_end), 1)
+    return (self, sub, start, end)
+
+
+def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=None):
+
+    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
+    res = _find(self, sub, start, end, 1)
     return space.wrap(res)
 
-def str_rfind__String_String_Int_Int(space, w_self, w_sub, w_start=None, w_end=None):
+def str_rfind__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=None):
 
-    u = space.unwrap
-    res = _find(u(w_self), u(w_sub), u(w_start), u(w_end), -1)
+    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
+    res = _find(self, sub, start, end, -1)
     return space.wrap(res)
 
-def str_index__String_String_Int_Int(space, w_self, w_sub, w_start=None, w_end=None):
+def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=None):
 
-    u = space.unwrap
-    res = _find(u(w_self), u(w_sub), u(w_start), u(w_end), 1)
+    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
+    res = _find(self, sub, start, end, 1)
+
     if res == -1:
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.index"))
@@ -388,10 +412,10 @@ def str_index__String_String_Int_Int(space, w_self, w_sub, w_start=None, w_end=N
     return space.wrap(res)
 
 
-def str_rindex__String_String_Int_Int(space, w_self, w_sub, w_start=None, w_end=None):
+def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start=None, w_end=None):
 
-    u = space.unwrap
-    res = _find(u(w_self), u(w_sub), u(w_start), u(w_end), -1)
+    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
+    res = _find(self, sub, start, end, -1)
     if res == -1:
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.rindex"))
@@ -432,11 +456,11 @@ def _find(self, sub, start, end, dir):
         return -1
     else:
         if len(sub) == 0 and start < end:
-            return last
+            return end
 
         end = end - len(sub)
 
-        for j in range(end, start+1, -1):
+        for j in range(end, start-1, -1):
             match = 1
             for idx in range(len(sub)):
                 if sub[idx] != self[idx+j]:
