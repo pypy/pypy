@@ -39,7 +39,14 @@ class TestUserObject(test.AppTestCase):
         self.failUnless(isinstance(inst, base))
         self.assertEquals(inst.baseattr,12)
         self.assertEquals(inst.derivedattr,34)
-    
+
+    def test_descr_get(self):
+        class C:
+            class desc:
+                def __get__(self, ob, cls=None):
+                    return 42
+            prop = desc()
+        self.assertEquals(C().prop, 42)
 
 if __name__ == '__main__':
     test.main()
