@@ -137,12 +137,14 @@ from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.nestedscope import Cell
 
 def descr_get_dict(space, w_obj):
-    w_dict = w_obj.getdict()
-    assert w_dict is not None, repr(w_obj)
+    obj = space.unwrap_builtin(w_obj)
+    w_dict = obj.getdict()
+    assert w_dict is not None, repr(obj)
     return w_dict
 
 def descr_set_dict(space, w_obj, w_dict):
-    w_obj.setdict(w_dict)
+    obj = space.unwrap_builtin(w_obj)
+    obj.setdict(w_dict)
 
 default_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict)
 
