@@ -18,8 +18,8 @@ def get_standard_options():
         parser.values.spaces.append(value)
 
     options.append(make_option(
-        '-o', '--objspace', action="callback",
-        callback=objspace_callback,  type="string", dest="objspacename",
+        '-o', '--objspace', action="callback", metavar='NAME',
+        callback=objspace_callback,  type="string",
         help="object space to run PyPy on."))
 
     options.append(make_option(
@@ -32,7 +32,6 @@ def get_standard_options():
         '-H', action="callback",
         callback=run_tb_server,
         help="use web browser for traceback info"))
-        
 
     return options
 
