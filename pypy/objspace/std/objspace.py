@@ -64,7 +64,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             from pypy.objspace.std.typetype   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef
             from pypy.objspace.std.longtype   import long_typedef
-	return [value for key, value in result.__dict__.items()
+        return [value for key, value in result.__dict__.items()
                       if not key.startswith('_')]   # don't look
 
     def clone_exception_hierarchy(self):
@@ -151,26 +151,26 @@ class StdObjSpace(ObjSpace, DescrOperation):
         from pypy.objspace.std import sliceobject
         from pypy.objspace.std import longobject
         from pypy.objspace.std import noneobject
-	from pypy.objspace.std import cpythonobject
-	# hack to avoid imports in the time-critical functions below
+        from pypy.objspace.std import cpythonobject
+        # hack to avoid imports in the time-critical functions below
         global W_ObjectObject, W_BoolObject, W_IntObject, W_FloatObject
-	global W_TupleObject, W_ListObject, W_DictObject, W_StringObject
-	global W_TypeObject, W_SliceObject, W_LongObject, W_NoneObject
-	global W_CPythonObject, W_BuiltinFunctionObject
-	W_ObjectObject = objectobject.W_ObjectObject
-	W_BoolObject = boolobject.W_BoolObject
-	W_IntObject = intobject.W_IntObject
-	W_FloatObject = floatobject.W_FloatObject
-	W_TupleObject = tupleobject.W_TupleObject
-	W_ListObject = listobject.W_ListObject
+        global W_TupleObject, W_ListObject, W_DictObject, W_StringObject
+        global W_TypeObject, W_SliceObject, W_LongObject, W_NoneObject
+        global W_CPythonObject, W_BuiltinFunctionObject
+        W_ObjectObject = objectobject.W_ObjectObject
+        W_BoolObject = boolobject.W_BoolObject
+        W_IntObject = intobject.W_IntObject
+        W_FloatObject = floatobject.W_FloatObject
+        W_TupleObject = tupleobject.W_TupleObject
+        W_ListObject = listobject.W_ListObject
         W_DictObject = dictobject.W_DictObject
-	W_StringObject = stringobject.W_StringObject
-	W_TypeObject = typeobject.W_TypeObject
-	W_SliceObject = sliceobject.W_SliceObject
-	W_LongObject = longobject.W_LongObject
+        W_StringObject = stringobject.W_StringObject
+        W_TypeObject = typeobject.W_TypeObject
+        W_SliceObject = sliceobject.W_SliceObject
+        W_LongObject = longobject.W_LongObject
         W_NoneObject = noneobject.W_NoneObject
-	W_CPythonObject = cpythonobject.W_CPythonObject
-	W_BuiltinFunctionObject = cpythonobject.W_BuiltinFunctionObject
+        W_CPythonObject = cpythonobject.W_CPythonObject
+        W_BuiltinFunctionObject = cpythonobject.W_BuiltinFunctionObject
         # end of hacks
 
         # singletons
@@ -372,7 +372,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             try:
                 return space.newint(hash(w_obj.cpyobj))
             except:
-	    	from pypy.objspace.std import cpythonobject
+                from pypy.objspace.std import cpythonobject
                 cpythonobject.wrap_exception(space)
         else:
             w = space.wrap
