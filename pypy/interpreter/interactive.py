@@ -35,7 +35,7 @@ class PyPyConsole(code.InteractiveConsole):
             print
             banner = ("Python %s on %s\n" % (sys.version, sys.platform) +
                       "*** Entering interpreter-level console ***")
-            code.interact(banner=banner, local=self.__dict__)
+            code.interact(banner=banner, local=self.__dict__.copy())
             print '*** Leaving interpreter-level console ***'
             raise
 
