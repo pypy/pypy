@@ -71,32 +71,33 @@ class BlockRecorder(Recorder):
         self.crnt_block = block
         # saved state at the join point most recently seen
         self.last_join_point = None
-        self.progress = False
+        self.enterspamblock = isinstance(block, SpamBlock)
 
     def append(self, operation):
         if self.last_join_point is not None:
-            # don't add more operations if we already crossed a join point
+            # only add operations corresponding to the first bytecode
             raise MergeBlock(self.crnt_block, self.last_join_point)
         self.crnt_block.operations.append(operation)
 
     def bytecode_trace(self, ec, frame):
         assert frame is ec.crnt_frame, "seeing an unexpected frame!"
-        next_instr = frame.next_instr
-        if self.crnt_block.operations or isinstance(self.crnt_block, EggBlock):
-            # if we have already produced at least one operation or a branch,
-            # make a join point as early as possible (but not before we
-            # actually try to generate more operations)
-            self.last_join_point = FrameState(frame)
-        else:
-            ec.crnt_offset = next_instr # save offset for opcode
+        ec.crnt_offset = frame.next_instr      # save offset for opcode
+        if self.enterspamblock:
+            # If we have a SpamBlock, the first call to bytecode_trace()
+            # occurs as soon as frame.resume() starts, before interpretation
+            # really begins.
             varnames = frame.code.getvarnames()
             for name, w_value in zip(varnames, frame.getfastscope()):
                 if isinstance(w_value, Variable):
                     w_value.rename(name)
-            # record passage over already-existing join points
-            if self.progress and next_instr in ec.joinpoints:
-                self.last_join_point = FrameState(frame)
-        self.progress = True
+            self.enterspamblock = False
+        else:
+            # At this point, we progress to the next bytecode.  When this
+            # occurs, we no longer allow any more operations to be recorded in
+            # the same block.  We will continue, to figure out where the next
+            # such operation *would* appear, and we make a join point just
+            # before.
+            self.last_join_point = FrameState(frame)
 
     def guessbool(self, ec, w_condition, cases=[False,True],
                   replace_last_variable_except_in_first_case = None):
@@ -259,14 +260,27 @@ class FlowExecutionContext(ExecutionContext):
         # EggBlocks reuse the variables of their previous block,
         # which is deemed not acceptable for simplicity of the operations
         # that will be performed later on the flow graph.
-        def fixegg(node):
-            if isinstance(node, EggBlock):
-                mapping = {}
-                for a in node.inputargs:
-                    mapping[a] = Variable(a)
-                node.renamevariables(mapping)
-            elif isinstance(node, SpamBlock):
-                del node.framestate     # memory saver
+        def fixegg(link):
+            if isinstance(link, Link):
+                block = link.target
+                if isinstance(block, EggBlock):
+                    if (not block.operations and len(block.exits) == 1 and
+                        link.args == block.inputargs):   # not renamed
+                        # if the variables are not renamed across this link
+                        # (common case for EggBlocks) then it's easy enough to
+                        # get rid of the empty EggBlock.
+                        link2 = block.exits[0]
+                        link.args = list(link2.args)
+                        link.target = link2.target
+                        assert link2.exitcase is None
+                        fixegg(link)
+                    else:
+                        mapping = {}
+                        for a in block.inputargs:
+                            mapping[a] = Variable(a)
+                        block.renamevariables(mapping)
+            elif isinstance(link, SpamBlock):
+                del link.framestate     # memory saver
         traverse(fixegg, self.graph)
 
     def mergeblock(self, currentblock, currentstate):

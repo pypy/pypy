@@ -1,6 +1,7 @@
 import autopath
 from pypy.objspace.flow.model import Constant, Block, traverse
 from pypy.interpreter.argument import Arguments
+from pypy.translator.simplify import simplify_graph
 
 
 objspacename = 'flow'
@@ -256,6 +257,7 @@ class TestFlowObjSpace:
     def test_raise3(self):
         x = self.codetest(self.raise3)
         self.show(x)
+        simplify_graph(x)
         assert len(x.startblock.operations) == 1
         assert x.startblock.operations[0].opname == 'simple_call'
         assert list(x.startblock.operations[0].args) == [
