@@ -459,24 +459,15 @@ from __interplevel__ import __import__
 
 
 # ________________________________________________________________________
-class enumerate:
+def enumerate(collection):
     'Generates an indexed series:  (0,coll[0]), (1,coll[1]) ...'
-    def __init__(self, collection):
-        self.iter = iter(collection)
-        self.index = 0
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        try:
-            value = self.iter.next()
-        except AttributeError:
-            # CPython raises a TypeError when next() is not defined
-            raise TypeError('%s has no next() method' % self.iter)
-        index = self.index
-        self.index += 1
-        return index, value
+    it = iter(collection)   # raises a TypeError early
+    def do_enumerate(it):
+        index = 0
+        for value in it:
+            yield index, value
+            index += 1
+    return do_enumerate(it)
 
 class xrange:
     def __init__(self, start, stop=None, step=1):
