@@ -35,6 +35,7 @@ class Op:
         #"add": "+",
         "sub": "-",
         "inplace_add": "+", # weird, but it works
+        "inplace_lshift": "ash",
         "mod": "mod",
         "lt": "<",
         "le": "<=",
@@ -55,6 +56,7 @@ class Op:
         table = {
             (int, int): "(+ %s %s)",
             (str, str): "(concatenate 'string %s %s)",
+            (list, list): "(concatenate 'vector %s %s)",
         }
         self.gen.emit_typecase(table, arg1, arg2)
         print ")"
@@ -122,11 +124,6 @@ class Op:
         if func not in self.builtin_map:
             self.op_default()
             return
-        # XXX: generalize this later
-        if func is range:
-            annset = self.gen.cur_annset()
-            annset.set_type(self.result, list)
-            self.gen.reflow()
         s = self.str
         args = self.args[1:]
         print "(setq", s(self.result), "(", self.builtin_map[func],
@@ -140,22 +137,19 @@ class Op:
 
 
 class GenCL:
-    def __init__(self, fun):
+    def __init__(self, fun, input_arg_types=[]):
         simplify_graph(fun)
         self.fun = fun
         self.blockref = {}
-        self.annotate([])
+        self.annotate(input_arg_types)
+        transform_graph(self.ann)
     def annotate(self, input_arg_types):
         ann = Annotator(self.fun)
         ann.build_types(input_arg_types)
         ann.simplify()
-        transform_graph(ann)
         self.ann = ann
     def cur_annset(self):
         return self.ann.annotated[self.cur_block]
-    def reflow(self):
-        # XXX: I know, I know. This is WRONG. -- sanxiyn
-        self.ann.build_annotations(self.cur_annset())
     def str(self, obj):
         if isinstance(obj, Variable):
             return obj.name
@@ -169,7 +163,7 @@ class GenCL:
                 return "t"
             else:
                 return "nil"
-        elif isinstance(val, int):
+        elif isinstance(val, (int, long)):
             return str(val)
         elif val is None:
             return "nil"

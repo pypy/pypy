@@ -4,8 +4,13 @@ from pypy.objspace.flow import FlowObjSpace
 from pypy.translator.gencl import GenCL
 from vpath.adapter.process import exec_cmd
 
+class Literal:
+    def __init__(self, val):
+        self.val = val
+
 def readlisp(s):
-    # Return bool/int/str
+    # Return bool/int/str or give up
+    import string
     s = s.strip()
     if s == "T":
         return True
@@ -13,8 +18,10 @@ def readlisp(s):
         return False
     elif s[0] == '"':
         return s[1:-1]
-    else:
+    elif s.strip(string.digits) == '':
         return int(s)
+    else:
+        return Literal(s)
 
 def writelisp(gen, obj):
     if isinstance(obj, (bool, int, type(None), str)):
@@ -34,8 +41,7 @@ gen = GenCL(fun)
 
 def _make_cl_func(func, cl, path, argtypes=[]):
     fun = FlowObjSpace().build_flow(func)
-    gen = GenCL(fun)
-    gen.annotate(argtypes)
+    gen = GenCL(fun, argtypes)
     out = gen.emitcode()
     i = 1
     fpath = path.join("%s.lisp" % fun.name)

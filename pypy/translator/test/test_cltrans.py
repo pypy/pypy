@@ -34,6 +34,7 @@ def make_cl_func(func, argtypes=[]):
 
 
 from pypy.translator.test import snippet as t
+from pypy.translator.tool.buildcl import Literal
 
 class GenCLTestCase(test.IntTestCase):
 
@@ -106,6 +107,13 @@ class GenCLTestCase(test.IntTestCase):
     def test_slice(self):
         cl_half = make_cl_func(t.half_of_n)
         self.assertEquals(cl_half(10), 5)
+
+    def test_powerset(self):
+        cl_powerset = make_cl_func(t.powerset, [int])
+        result = cl_powerset(3)
+        self.assertEquals(result.__class__, Literal)
+        self.assertEquals(result.val,
+                          '#(#() #(0) #(1) #(0 1) #(2) #(0 2) #(1 2) #(0 1 2))')
 
 if __name__ == '__main__':
     test.main()

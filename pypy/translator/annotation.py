@@ -101,10 +101,18 @@ class Annotator:
             annotations.set_type(op.result,int)
         if type1 is str and type2 is str:
             annotations.set_type(op.result, str)
+        if type1 is list and type2 is list:
+            annotations.set_type(op.result, list)
 
-    consider_op_sub = consider_op_add
-    consider_op_and_ = consider_op_add   # don't forget the trailing '_'
-    # XXX add more
+    def consider_op_sub(self, op, annotations):
+        arg1, arg2 = op.args
+        type1 = annotations.get_type(arg1)
+        type2 = annotations.get_type(arg2)
+        if type1 is int and type2 is int:
+            annotations.set_type(op.result, int)
+
+    consider_op_and_ = consider_op_sub # trailing underline
+    consider_op_inplace_lshift = consider_op_sub
 
     def consider_op_is_true(self, op, annotations):
         annotations.set_type(op.result, bool)
@@ -128,6 +136,9 @@ class Annotator:
             ann = SpaceOperation("getitem",[op.result,Constant(i)],op.args[i])
             annotations.add(ann)
 
+    def consider_op_newlist(self, op, annotations):
+        annotations.set_type(op.result, list)
+
     def consider_op_newslice(self,op,annotations):
         annotations.set_type(op.result, slice)
 
@@ -138,10 +149,30 @@ class Annotator:
         if type1 in (list, tuple) and type2 is slice:
             annotations.set_type(op.result, type1)
 
-    # XXX: this shouldn't be here...
-    def consider_op_getslice(self, op, annotations):
-        tp = annotations.get_type(op.args[0])
-        annotations.set_type(op.result, tp)
+    def consider_op_call(self, op, annotations):
+        func = op.args[0]
+        if not isinstance(func, Constant):
+            return
+        func = func.value
+        # XXX: generalize this later
+        if func is range:
+            annotations.set_type(op.result, list)
+        if func is pow:
+            varargs = op.args[1]
+            def getitem(var, i):
+                class NoMatch(Exception): pass
+                c = Cell()
+                match = annotations.match(
+                    SpaceOperation('getitem', (var, Constant(i)), c))
+                if match: return deref(c)
+                else: raise NoMatch
+            try:
+                tp1 = annotations.get_type(getitem(varargs, 0))
+                tp2 = annotations.get_type(getitem(varargs, 1))
+                if tp1 is int and tp2 is int:
+                    annotations.set_type(op.result, int)
+            except NoMatch:
+                pass
 
     def consider_const(self,to_var,const,annotations):
         if getattr(const, 'dummy', False):
