@@ -340,6 +340,18 @@ class __extend__(pairtype(SomePBC, SomeInstance)):
     def union((pbc, ins)):
         return pair(ins, pbc).union()
 
+# let mix lists and None for now
+class __extend__(pairtype(SomeList, SomePBC)):
+    def union((lst, pbc)):
+        if pbc.isNone():
+            return lst
+        return SomeObject()
+
+class __extend__(pairtype(SomePBC, SomeList    )):
+    def union((pbc, lst)):
+        return pair(lst, pbc).union()
+
+
 class __extend__(pairtype(SomeObject, SomePBC)):
     def issubtype((obj, pbc)):
         s = SomeBool()
