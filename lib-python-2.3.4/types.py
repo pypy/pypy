@@ -1,7 +1,14 @@
-"""Define names for all type symbols known in the standard interpreter.
+"""Appspace types module. 
+
+!! This file has been copied practicaly verbatim from the CPython source.
+!! See http://www.python.org/2.3.2/license.html for licensing info.
+
+Define names for all type symbols known in the standard interpreter.
 
 Types that are part of optional modules (e.g. array) are not listed.
 """
+from __future__ import generators
+
 import sys
 
 # Iterators in Python aren't a matter of type but of protocol.  A large
@@ -14,26 +21,31 @@ TypeType = type
 ObjectType = object
 
 IntType = int
-LongType = long
+try:
+    LongType = long
+except NameError:
+    pass
 FloatType = float
-BooleanType = bool
+try:
+    BooleanType = bool
+except NameError:
+    pass
 try:
     ComplexType = complex
 except NameError:
     pass
 
 StringType = str
-
-# StringTypes is already outdated.  Instead of writing "type(x) in
-# types.StringTypes", you should use "isinstance(x, basestring)".  But
-# we keep around for compatibility with Python 2.2.
 try:
     UnicodeType = unicode
     StringTypes = (StringType, UnicodeType)
 except NameError:
     StringTypes = (StringType,)
 
-BufferType = buffer
+try:
+    BufferType = buffer
+except NameError:
+    pass
 
 TupleType = tuple
 ListType = list
@@ -50,13 +62,25 @@ except RuntimeError:
 
 def g():
     yield 1
-GeneratorType = type(g())
+try:
+    GeneratorType = type(g())
+except:
+    # Refusing generators
+    pass
 del g
 
+# checking whether we can make copy_reg happy
+##class _C:
+##    def _m(self): pass
+##ClassType = type(_C)
+class ClassType: pass
 class _C:
-    def _m(self): pass
-ClassType = type(_C)
-UnboundMethodType = type(_C._m)         # Same as MethodType
+    def _m(self):pass
+## end of testing hack
+try:
+    UnboundMethodType = type(_C._m)         # Same as MethodType
+except AttributeError:
+    pass
 _x = _C()
 InstanceType = type(_x)
 MethodType = type(_x._m)
@@ -65,8 +89,14 @@ BuiltinFunctionType = type(len)
 BuiltinMethodType = type([].append)     # Same as BuiltinFunctionType
 
 ModuleType = type(sys)
-FileType = file
-XRangeType = xrange
+try:
+    FileType = file
+except NameError:
+   pass
+try:
+    XRangeType = type(xrange(0))
+except NameError:
+   pass
 
 try:
     raise TypeError
@@ -81,10 +111,13 @@ except TypeError:
         pass
     tb = None; del tb
 
-SliceType = slice
+SliceType = type(slice(0))
 EllipsisType = type(Ellipsis)
 
-DictProxyType = type(TypeType.__dict__)
-NotImplementedType = type(NotImplemented)
+#DictProxyType = type(TypeType.__dict__)
+try:
+    NotImplementedType = type(NotImplemented)
+except NameError:
+   pass
 
-del sys, _f, _C, _x                  # Not for export
+del sys, _f, _C, _x#, generators                  # Not for export

@@ -32,7 +32,7 @@ class AppTestZip:
                        [('h', 1, 7), ('e', 2, 8), ('l', 3, 9), ('l', 4, 10)])
 
    def test_from_cpython(self):
-      from test.support_tests import TESTFN, unlink
+      from test.test_support import TESTFN, unlink
       class BasicIterClass:
          def __init__(self, n):
             self.n = n

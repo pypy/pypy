@@ -62,9 +62,14 @@ import os
 from pypy.interpreter import autopath
 srcdir = os.path.dirname(autopath.pypydir)
 appdir = os.path.join(autopath.pypydir, 'appspace')
+python_std_lib = os.path.join(autopath.pypydir, '..','lib-python-2.3.4') 
+assert os.path.exists(python_std_lib) 
 del os, autopath # XXX for the translator. Something is very wrong around here.
 
-w_initialpath = space.newlist([space.wrap(''), space.wrap(appdir)] +
+w_initialpath = space.newlist([space.wrap(''), 
+                       space.wrap(python_std_lib), 
+                       #space.wrap(appdir), 
+                       ] +
                        [space.wrap(p) for p in cpy_sys.path if p!= srcdir])
 
 # XXX - Replace with appropriate PyPy version numbering
