@@ -250,6 +250,16 @@ class CMethod(CRepr):
             cost     = cost,
             )
 
+class CList(CRepr):
+    "A list as an array whose items are represented as r_item."
+
+    def __init__(self, r_item):
+        self.r_item = r_item
+        self.impl = ['PyObject*']
+
+    def __repr__(self):
+        return 'CList(%r)' % (self.r_item,)
+
 # ____________________________________________________________
 #
 # Predefined CReprs and caches for building more
@@ -265,6 +275,7 @@ R_CONSTANT_CACHE = {}
 R_INSTANCE_CACHE = {}
 R_FUNCTION_CACHE = {}
 R_METHOD_CACHE   = {}
+R_LIST_CACHE     = {}
 
 def tuple_representation(items_r):
     items_r = tuple(items_r)
@@ -325,6 +336,13 @@ def method_representation(r_func):
         return R_METHOD_CACHE[key]
     except KeyError:
         r = R_METHOD_CACHE[key] = CMethod(r_func)
+        return r
+
+def list_representation(r_item):
+    try:
+        return R_LIST_CACHE[r_item]
+    except KeyError:
+        r = R_LIST_CACHE[r_item] = CList(r_item)
         return r
 
 

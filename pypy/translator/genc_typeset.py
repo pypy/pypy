@@ -12,6 +12,7 @@ from pypy.translator.genc_repr import instance_representation, CInstance
 from pypy.translator.genc_repr import function_representation, CFunction
 from pypy.translator.genc_repr import CConstantFunction
 from pypy.translator.genc_repr import method_representation, CMethod
+from pypy.translator.genc_repr import list_representation, CList
 
 
 class CTypeSet:
@@ -72,6 +73,12 @@ class CTypeSet:
                     return r_func
                 else:
                     return method_representation(r_func)
+            if 0: # still working on it -- isinstance(var, annmodel.SomeList):
+                r_item = self.gethltype(var.s_item)
+                typename = self.genc.declare_list(r_item.impl)
+                r = list_representation(r_item)
+                r.typename = typename
+                return r
             # fall-back
             return R_OBJECT
         if isinstance(var, UndefinedConstant):
@@ -149,9 +156,20 @@ class CTypeSet:
     # ____________________________________________________________
 
     def extend_OP_NEWLIST(self, hltypes):
+        if not hltypes:
+            return
         # LoNewList can build a list of any length from PyObject* args.
         sig = (R_OBJECT,) * len(hltypes)
         yield sig, genc_op.LoNewList
+
+        # LoNewArray can build an array from items of the correct type.
+        r = hltypes[-1]
+        if isinstance(r, CList):
+            sig = (r.r_item,) * (len(hltypes)-1) + (r,)
+            yield sig, genc_op.LoNewArray.With(
+                typename = r.typename,
+                lltypes  = r.r_item.impl,
+                )
 
     def extend_OP_NEWTUPLE(self, hltypes):
         # We can use LoCopy to virtually build a tuple because

@@ -141,5 +141,10 @@
 #define OP_CCALL_i(fn, args, r, err)    if ((r=fn args) == -1 &&            \
                                             PyErr_Occurred()) goto err;
 
+#define OP_NEWARRAY(name,len,r,err)   if (!(r=alloclist_##name(len))) goto err;
+#define OP_NEWARRAY_SET(name,r,i,f,v)   ((PyList_##name*) r)->ob_item[i].f=v;
+#define OP_NEWARRAY_SET_o(name,r,i,f,o) ((PyList_##name*) r)->ob_item[i].f=o; \
+								  Py_INCREF(o);
+
 /************************************************************/
  /***  The rest is produced by genc.py                     ***/

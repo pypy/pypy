@@ -41,6 +41,7 @@ class GenC:
         self.initializationcode = []
         self.llclasses = {};   self.classeslist = []
         self.llfunctions = {}; self.functionslist = []
+        self.llarrays = {}
         # must build functions first, otherwise methods are not found
         self.build_llfunctions()
         self.build_llclasses()
@@ -308,6 +309,44 @@ class GenC:
 
         self.initializationcode.append('SETUP_TYPE(%s)' % llclass.name)
 
+    def declare_list(self, lltypes):
+        # called by genc_typer.py to write the type definition of a list
+        # as an array of "struct { lltypes };"
+        lltypes = tuple(lltypes)
+        if lltypes in self.llarrays:
+            return self.llarrays[lltypes]   # already seen
+
+        s = '_'.join(lltypes)
+        name = ''.join([('a'<=c<='z' or '0'<=c<='9') and c or '_' for c in s])
+        name += '_%d' % len(self.llarrays)
+        self.llarrays[lltypes] = name
+        
+        f = self.f
+        info = {
+            'name': name,
+            }
+        print >> f, self.C_LIST_HEADER % info
+        llvars1 = []
+        for i in range(len(lltypes)):
+            print >> f, '\t%s;' % cdecl(lltypes[i], 'a%d'%i)
+            llvars1.append(LLVar(lltypes[i], 'item->a%d'%i))
+        print >> f, self.C_LIST_FOOTER % info
+
+        print >> f, self.C_LIST_DEALLOC_HEADER % info
+        lldecref = self.typeset.rawoperations['xdecref']
+        line = lldecref(llvars1)
+        code = line.write()
+        if code:
+            print >> f, self.C_LIST_DEALLOC_LOOP_HEADER % info
+            for codeline in code.split('\n'):
+                print >> f, '\t\t' + codeline
+            print >> f, self.C_LIST_DEALLOC_LOOP_FOOTER % info
+        print >> f, self.C_LIST_DEALLOC_FOOTER % info
+
+        print >> f, self.C_LIST_TYPEOBJECT % info
+        return name
+
+
 # ____________________________________________________________
 
     C_HEADER = open(os.path.join(autopath.this_dir, 'genc.h')).read()
@@ -414,6 +453,90 @@ typedef struct {
 	PyType_GenericNew,			/* tp_new */
 	PyObject_Del,				/* tp_free */
 };
+'''
+
+    C_LIST_HEADER = '''/* the type "list of %(name)s" */
+typedef struct {'''
+
+    C_LIST_FOOTER = '''} ListItem_%(name)s;
+
+typedef struct {
+	PyObject_VAR_HEAD
+	ListItem_%(name)s* ob_item;
+} PyList_%(name)s;
+'''
+
+    C_LIST_DEALLOC_HEADER = (
+'''static void dealloclist_%(name)s(PyList_%(name)s* op)
+{''')
+
+    C_LIST_DEALLOC_LOOP_HEADER = (
+'''	int i = op->ob_size;
+	ListItem_%(name)s item = op->ob_item + i;
+	while (--i >= 0) {''')
+
+    C_LIST_DEALLOC_LOOP_FOOTER = (
+'''		--item;
+	}''')
+
+    C_LIST_DEALLOC_FOOTER = (
+'''	PyMem_Free(op->ob_item);
+	PyObject_Del((PyObject*) op);
+}
+''')
+
+    C_LIST_TYPEOBJECT = '''static PyTypeObject g_ListType_%(name)s = {
+	PyObject_HEAD_INIT(&PyType_Type)
+	0,
+	"list of %(name)s",
+	sizeof(PyList_%(name)s),
+	0,
+	(destructor)dealloclist_%(name)s,	/* tp_dealloc */
+	0,					/* tp_print */
+	0,					/* tp_getattr */
+	0,					/* tp_setattr */
+	0,					/* tp_compare */
+	0,					/* tp_repr */
+	0,					/* tp_as_number */
+	0,					/* tp_as_sequence */
+	0,					/* tp_as_mapping */
+	0,					/* tp_hash */
+	0,					/* tp_call */
+	0,					/* tp_str */
+	PyObject_GenericGetAttr,		/* tp_getattro */
+	0,					/* tp_setattro */
+	0,					/* tp_as_buffer */
+	Py_TPFLAGS_DEFAULT,			/* tp_flags */
+ 	0,					/* tp_doc */
+ 	0,	/* XXX need GC */		/* tp_traverse */
+ 	0,					/* tp_clear */
+};
+
+static PyObject* alloclist_%(name)s(int len)
+{
+	void* buffer;
+	PyList_%(name)s* o;
+
+	if (len > 0) {
+		buffer = PyMem_Malloc(len * sizeof(ListItem_%(name)s));
+		if (buffer == NULL) {
+			PyErr_NoMemory();
+			return NULL;
+		}
+	}
+	else
+		buffer = NULL;
+
+	o = PyObject_New(PyList_%(name)s, &g_ListType_%(name)s);
+	if (o != NULL) {
+		o->ob_size = len;
+		o->ob_item = (ListItem_%(name)s*) buffer;
+	}
+	else {
+		PyMem_Free(buffer);
+	}
+	return o;
+}
 '''
 
 # ____________________________________________________________

@@ -156,6 +156,29 @@ class LoNewList(LoNewTuple):
     macro    = 'OP_NEWLIST'
     # self.args: [input PyObjects.., output PyObject]
 
+class LoNewArray(LoC):
+    can_fail = True
+    typename = PARAMETER   # the name of the PyList_Xxx type in the C source
+    lltypes  = PARAMETER   # the C types needed to represent each array item
+    # self.args: [item0.., item1.., item2.., ..., output PyObject]
+    def writestr(self, *stuff):
+        args   = stuff[:-2]
+        result = stuff[-2]
+        err    = stuff[-1]
+        ls = ['OP_NEWARRAY(%s, %d, %s, %s)' % (self.typename,
+                                               len(args) / len(self.lltypes),
+                                               result,
+                                               err)]
+        for i in range(0, len(args), len(self.lltypes)):
+            for j in range(len(self.lltypes)):
+                if self.lltypes[j] == 'PyObject*':
+                    typecode = '_o'
+                else:
+                    typecode = ''
+                ls.append('OP_NEWARRAY_SET%s(%s, %s, %d, a%d, %s)' % (
+                    typecode, self.typename, result, i, j, args[i+j]))
+        return '\n'.join(ls)
+
 class LoGetAttr(LoC):
     cost = 1
     fld  = PARAMETER
