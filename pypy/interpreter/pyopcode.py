@@ -823,8 +823,8 @@ def app_print_item_to(x, stream):
     stream.write(str(x))
     # add a softspace unless we just printed a string which ends in a '\t'
     # or '\n' -- or more generally any whitespace character but ' '
-    #    if isinstance(x, str) and len(x) and x[-1].isspace() and x[-1]!=' ':
-    #        return
+    if isinstance(x, str) and len(x) and x[-1].isspace() and x[-1]!=' ':
+        return
     # XXX add unicode handling
     file_softspace(stream, True)
 
