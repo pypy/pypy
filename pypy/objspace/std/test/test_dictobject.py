@@ -16,5 +16,9 @@ class TestW_DictObject(unittest.TestCase):
         d = dobj.W_DictObject([])
         self.failIf(self.space.is_true(d))
 
+    def test_nonempty(self):
+        d = dobj.W_DictObject([(self.space.w_None, self.space.w_None)])
+        self.failUnless(self.space.is_true(d))
+
 if __name__ == '__main__':
     unittest.main()
