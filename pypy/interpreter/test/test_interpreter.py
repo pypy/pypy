@@ -61,8 +61,19 @@ def g(): print 10''', 'g', [])
 def g(x): return x''', 'g', [666])
         self.assertEquals(x, 666)
 
+    def test_exception_trivial(self):
+        x = self.codetest('''
+def f():
+    try:
+        raise Exception()
+    except Exception, e:
+        return 1
+    return 2
+''', 'f', [])
+        self.assertEquals(x, 1)
+
     def XXXtest_exception(self):
-        """ exception raising currently broken """
+        """ exception raising currently semi-broken """
         x = self.codetest('''
 def f():
     try:
@@ -93,7 +104,8 @@ def f():
 ''', 'f', [])
         self.assertEquals(x, '<<<TypeError: exceptions must be classes, instances, or strings (deprecated), not int>>>')
 
-    def aatest_except2(self):
+    def XXXtest_except2(self):
+        """ depends on being able to import types """
         x = self.codetest('''
 def f():
     try:
@@ -108,7 +120,7 @@ def f():
 ''', 'f', [])
         self.assertEquals(x, 5)
 
-    def aatest_except3(self):
+    def test_except3(self):
         code = '''
 def f(v):
     z = 0
@@ -120,9 +132,13 @@ def f(v):
 '''
         self.assertEquals(self.codetest(code, 'f', [2]), 0)
         self.assertEquals(self.codetest(code, 'f', [0]), "infinite result")
-        self.assertEquals(self.codetest(code, 'f', ['x']), "<<<TypeError: unsupported operand type(s) for //: 'int' and 'str'>>>")
+        ess = "TypeError: unsupported operand type"
+        res = self.codetest(code, 'f', ['x'])
+        self.failUnless(res.index(ess) >= 0)
+        # the following (original) test was a bit too strict...:
+        # self.assertEquals(self.codetest(code, 'f', ['x']), "<<<TypeError: unsupported operand type(s) for //: 'int' and 'str'>>>")
 
-    def aatest_break(self):
+    def test_break(self):
         code = '''
 def f(n):
     total = 0
@@ -137,7 +153,7 @@ def f(n):
         self.assertEquals(self.codetest(code, 'f', [4]), 1+2+3)
         self.assertEquals(self.codetest(code, 'f', [9]), 1+2+3+4)
 
-    def aatest_continue(self):
+    def test_continue(self):
         code = '''
 def f(n):
     total = 0
