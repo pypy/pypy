@@ -23,9 +23,17 @@ class RPythonAnnotator:
         self.pendingblocks = []  # list of (fn, block, list-of-SomeValues-args)
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
-        self.why_not_annotated = {} # {block: traceback_where_BlockedInference_was_raised}
+        self.why_not_annotated = {} # {block: (exc_type, exc_value, traceback)}
+                                    # records the location of BlockedInference
+                                    # exceptions that blocked some blocks.
         self.notify = {}         # {block: {factory-to-invalidate-when-done}}
         self.bindingshistory = {}# map Variables to lists of SomeValues
+        self.binding_caused_by = {}     # map Variables to Factories
+                # records the FuncCallFactory that caused bindings of inputargs
+                # to be updated
+        self.binding_cause_history = {} # map Variables to lists of Factories
+                # history of binding_caused_by, kept in sync with
+                # bindingshistory
         self.bookkeeper = Bookkeeper(self)
 
     #___ convenience high-level interface __________________
@@ -87,6 +95,7 @@ class RPythonAnnotator:
         for attr, s_value in clsdef.attrs.items():
             v = Variable(name=attr)
             self.bindings[v] = s_value
+            self.binding_caused_by[v] = None
             yield v
 
     def getpbcattrs(self, pbc):
@@ -95,20 +104,20 @@ class RPythonAnnotator:
 
     #___ medium-level interface ____________________________
 
-    def addpendingblock(self, fn, block, cells):
+    def addpendingblock(self, fn, block, cells, called_from=None):
         """Register an entry point into block with the given input cells."""
         assert self.translator is None or fn in self.translator.flowgraphs
         for a in cells:
             assert isinstance(a, annmodel.SomeObject)
-        self.pendingblocks.append((fn, block, cells))
+        self.pendingblocks.append((fn, block, cells, called_from))
 
     def complete(self):
         """Process pending blocks until none is left."""
         while self.pendingblocks:
             # XXX don't know if it is better to pop from the head or the tail.
             # but suspect from the tail is better in the new Factory model.
-            fn, block, cells = self.pendingblocks.pop()
-            self.processblock(fn, block, cells)
+            fn, block, cells, called_from = self.pendingblocks.pop()
+            self.processblock(fn, block, cells, called_from)
         if False in self.annotated.values():
             for block in self.annotated:
                 if self.annotated[block] is False:
@@ -134,13 +143,16 @@ class RPythonAnnotator:
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
 
-    def setbinding(self, arg, s_value):
+    def setbinding(self, arg, s_value, called_from=None):
         if arg in self.bindings:
             # for debugging purposes, record the history of bindings that
             # have been given to this variable
             history = self.bindingshistory.setdefault(arg, [])
             history.append(self.bindings[arg])
+            cause_history = self.binding_cause_history.setdefault(arg, [])
+            cause_history.append(self.binding_caused_by[arg])
         self.bindings[arg] = s_value
+        self.binding_caused_by[arg] = called_from
 
 
     #___ interface for annotator.factory _______
@@ -192,7 +204,7 @@ class RPythonAnnotator:
             for extra in func.func_defaults[-missingargs:]:
                 inputcells.append(annmodel.immutablevalue(extra))
         inputcells.extend(extracells)
-        self.addpendingblock(func, block, inputcells)
+        self.addpendingblock(func, block, inputcells, factory)
         # get the (current) return value
         v = graph.getreturnvar()
         return self.bindings.get(v, annmodel.SomeImpossibleValue())
@@ -237,7 +249,7 @@ class RPythonAnnotator:
 
     #___ flowing annotations in blocks _____________________
 
-    def processblock(self, fn, block, cells):
+    def processblock(self, fn, block, cells, called_from=None):
         # Important: this is not called recursively.
         # self.flowin() can only issue calls to self.addpendingblock().
         # The analysis of a block can be in three states:
@@ -252,9 +264,9 @@ class RPythonAnnotator:
 
         #print '* processblock', block, cells
         if block not in self.annotated:
-            self.bindinputargs(block, cells)
+            self.bindinputargs(block, cells, called_from)
         elif cells is not None:
-            self.mergeinputargs(block, cells)
+            self.mergeinputargs(block, cells, called_from)
         if not self.annotated[block]:
             self.annotated[block] = fn or True
             try:
@@ -274,24 +286,24 @@ class RPythonAnnotator:
                 raise
 
     def reflowpendingblock(self, fn, block):
-        self.pendingblocks.append((fn, block, None))
+        self.pendingblocks.append((fn, block, None, None))
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow
 
-    def bindinputargs(self, block, inputcells):
+    def bindinputargs(self, block, inputcells, called_from=None):
         # Create the initial bindings for the input args of a block.
         for a, cell in zip(block.inputargs, inputcells):
-            self.setbinding(a, cell)
+            self.setbinding(a, cell, called_from)
         self.annotated[block] = False  # must flowin.
 
-    def mergeinputargs(self, block, inputcells):
+    def mergeinputargs(self, block, inputcells, called_from=None):
         # Merge the new 'cells' with each of the block's existing input
         # variables.
         oldcells = [self.binding(a) for a in block.inputargs]
         unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
-            self.bindinputargs(block, unions)
+            self.bindinputargs(block, unions, called_from)
 
     def flowin(self, fn, block):
         #print 'Flowing', block, [self.binding(a) for a in block.inputargs]

@@ -16,13 +16,58 @@ class SingleGraphLayout(GraphLayout):
         GraphLayout.__init__(self, fn)
 
 
+class VariableHistoryGraphLayout(GraphLayout):
+    """ A GraphLayout showing the history of variable bindings. """
+
+    def __init__(self, translator, info, caused_by, history, func_names):
+        self.links = {}
+        self.func_by_name = {}
+        self.translator = translator
+        self.func_names = func_names
+        dotgen = DotGen('binding')
+        label = "Most recent binding\\n\\n%s" % nottoowide(info)
+        if caused_by is not None:
+            label += '\\n' + self.createlink(caused_by)
+        dotgen.emit_node('0', shape="box", color="red", label=label)
+        for n, (data, caused_by) in zip(range(len(history)), history):
+            label = nottoowide(data)
+            if caused_by is not None:
+                label += '\\n' + self.createlink(caused_by)
+            dotgen.emit_node(str(n+1), shape="box", label=label)
+            dotgen.emit_edge(str(n+1), str(n))
+        links = self.links  # GraphLayout.__init__ will override it with {}
+        GraphLayout.__init__(self, dotgen.generate(target='plain'))
+        self.links.update(links)
+
+    def createlink(self, factory):
+        fn, block, pos = factory.position_key
+        fn_name = self.func_names.get(fn, fn.func_name)
+        basename = fn_name
+        n = 1
+        while fn_name in self.links:
+            n += 1
+            fn_name = '%s_%d' % (basename, n)
+        self.func_by_name[fn_name] = fn
+        # It would be nice to get the block name somehow
+        blockname = block.__class__.__name__
+        self.links[fn_name] = '%s, %s, position %r' % (basename, blockname,
+                                                       pos)
+        return 'Caused by a call from %s' % fn_name
+
+    def followlink(self, funcname):
+        func = self.func_by_name[funcname]
+        # It would be nice to focus on the block
+        return FlowGraphLayout(self.translator, [func], self.func_names)
+
+
 class FlowGraphLayout(GraphLayout):
     """ A GraphLayout showing a Flow Graph (or a few flow graphs).
     """
-    def __init__(self, translator, functions=None):
+    def __init__(self, translator, functions=None, func_names=None):
         from pypy.translator.tool.make_dot import make_dot_graphs
         self.translator = translator
         self.annotator = translator.annotator
+        self.func_names = func_names or {}
         functions = functions or translator.functions
         graphs = [translator.getflowgraph(func) for func in functions]
         gs = [(graph.name, graph) for graph in graphs]
@@ -30,25 +75,25 @@ class FlowGraphLayout(GraphLayout):
         GraphLayout.__init__(self, fn)
         # make the dictionary of links -- one per annotated variable
         self.binding_history = {}
+        self.caused_by = {}
         if self.annotator:
             for var in self.annotator.bindings:
                 s_value = self.annotator.binding(var)
                 info = '%s: %s' % (var.name, s_value)
                 self.links[var.name] = info
+                self.caused_by[var.name] = self.annotator.binding_caused_by[var]
             for var, history in self.annotator.bindingshistory.items():
-                self.binding_history[var.name] = history
+                cause_history = self.annotator.binding_cause_history[var]
+                self.binding_history[var.name] = zip(history, cause_history)
 
     def followlink(self, varname):
         # clicking on a variable name shows its binding history
-        dotgen = DotGen('binding')
-        data = "Most recent binding\\n\\n%s" % nottoowide(self.links[varname])
-        dotgen.emit_node('0', shape="box", color="red", label=data)
+        info = self.links[varname]
+        caused_by = self.caused_by[varname]
         history = list(self.binding_history.get(varname, []))
         history.reverse()
-        for n, data in zip(range(len(history)), history):
-            dotgen.emit_node(str(n+1), shape="box", label=nottoowide(data))
-            dotgen.emit_edge(str(n+1), str(n))
-        return GraphLayout(dotgen.generate(target='plain'))
+        return VariableHistoryGraphLayout(self.translator, info, caused_by,
+                                          history, self.func_names)
 
 
 def nottoowide(text, width=72):
@@ -99,6 +144,7 @@ class TranslatorLayout(GraphLayout):
     def __init__(self, translator):
         self.translator = translator
         self.object_by_name = {}
+        self.name_by_object = {}
         dotgen = DotGen('translator')
         dotgen.emit('mclimit=15.0')
         
@@ -147,6 +193,7 @@ class TranslatorLayout(GraphLayout):
             i += 1
             name = '%s__%d' % (objname, i)
         self.object_by_name[name] = obj
+        self.name_by_object[obj] = name
         return name
 
     def followlink(self, name):
@@ -154,7 +201,7 @@ class TranslatorLayout(GraphLayout):
         if isinstance(obj, factory.ClassDef):
             return ClassDefLayout(self.translator, obj)
         else:
-            return FlowGraphLayout(self.translator, [obj])
+            return FlowGraphLayout(self.translator, [obj], self.name_by_object)
 
 
 def nameof(obj, cache={}):
