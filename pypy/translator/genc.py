@@ -3,7 +3,7 @@ Generate a C source file from the flowmodel.
 
 """
 from __future__ import generators
-import autopath, os, sys, __builtin__, marshal
+import autopath, os, sys, __builtin__, marshal, zlib
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import last_exception, last_exc_value
@@ -493,9 +493,12 @@ class GenC:
             if c in '\\"': return '\\' + c
             if ' ' <= c < '\x7F': return c
             return '\\%03o' % ord(c)
-        for i in range(0, len(bytecode), 20):
-            print >> f, ''.join([char_repr(c) for c in bytecode[i:i+20]])+'\\'
+        for i in range(0, len(bytecode), 32):
+            print >> f, ''.join([char_repr(c) for c in bytecode[i:i+32]])+'\\'
+            if (i+32) % 1024 == 0:
+                print >> f, self.C_FROZEN_BETWEEN
         print >> f, self.C_FROZEN_END
+        print >> f, "#define FROZEN_INITCODE_SIZE %d" % len(bytecode)
 
         # the footer proper: the module init function */
         print >> f, self.C_FOOTER % info
@@ -523,8 +526,14 @@ class GenC:
         del self.initcode[:]
         co = compile(source, self.modname, 'exec')
         del source
+        small = zlib.compress(marshal.dumps(co))
+        source = """if 1:
+            import zlib, marshal
+            exec marshal.loads(zlib.decompress(%r))""" % small
+        co = compile(source, self.modname, 'exec')
+        del source
         return marshal.dumps(co)
-
+    
     def gen_cfunction(self, func):
 ##         print 'gen_cfunction (%s:%d) %s' % (
 ##             func.func_globals.get('__name__', '?'),
@@ -831,9 +840,11 @@ static globalfunctiondef_t globalfunctiondefs[] = {'''
 
     C_FROZEN_BEGIN = '''
 /* Frozen Python bytecode: the initialization code */
-static char frozen_initcode[] = "\\'''
+static char *frozen_initcode[] = {"\\'''
 
-    C_FROZEN_END = '''";\n'''
+    C_FROZEN_BETWEEN = '''", "\\'''
+
+    C_FROZEN_END = '''"};\n'''
 
     C_FOOTER = C_SEP + '''
 

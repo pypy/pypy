@@ -278,7 +278,7 @@ static PyTypeObject PyGenCFunction_Type = {
 	PyType_Ready(&PyGenCFunction_Type);	\
 	if (setup_globalfunctions(globalfunctiondefs) < 0) \
 		return;	\
-	if (setup_initcode(frozen_initcode, sizeof(frozen_initcode)) < 0) \
+	if (setup_initcode(frozen_initcode, FROZEN_INITCODE_SIZE) < 0) \
 		return;	\
 	if (setup_globalobjects(globalobjectdefs) < 0) \
 		return;
@@ -342,14 +342,29 @@ static int setup_globalfunctions(globalfunctiondef_t* def)
 	return 0;
 }
 
-static int setup_initcode(char* frozendata, int len)
+static int setup_initcode(char* frozendata[], int len)
 {
 	PyObject* co;
 	PyObject* globals;
 	PyObject* res;
-	co = PyMarshal_ReadObjectFromString(frozendata, len);
+	char *buffer, *bufp;
+	int chunk, count = 0;
+	
+	buffer = PyMem_NEW(char, len);
+	if (buffer == NULL)
+		return -1;
+	bufp = buffer;
+	while (count < len) {
+		chunk = len-count < 1024 ? len-count : 1024;
+		memcpy(bufp, *frozendata, chunk);
+		bufp += chunk;
+		count += chunk;
+		++frozendata;
+	}
+	co = PyMarshal_ReadObjectFromString(buffer, len);
 	if (co == NULL)
 		return -1;
+	PyMem_DEL(buffer);
 	if (!PyCode_Check(co)) {
 		PyErr_SetString(PyExc_TypeError, "uh?");
 		return -1;
