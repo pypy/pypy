@@ -152,4 +152,16 @@ class FlowExecutionContext(ExecutionContext):
             if w_result is not None:
                 link = Link([w_result], self.graph.returnblock)
                 self.crnt_block.closeblock(link)
+        self.fixeggblocks()
 
+    def fixeggblocks(self):
+        # EggBlocks reuse the variables of their previous block,
+        # which is deemed not acceptable for simplicity of the operations
+        # that will be performed later on the flow graph.
+        def fixegg(node):
+            if isinstance(node, EggBlock):
+                mapping = {}
+                for a in node.inputargs:
+                    mapping[a] = Variable()
+                node.renamevariables(mapping)
+        traverse(fixegg, self.graph)

@@ -40,6 +40,12 @@ class Block:
             result.append(op.result)
         return uniqueitems([w for w in result if isinstance(w, Variable)])
 
+    def renamevariables(self, mapping):
+        self.inputargs[:] = [mapping.get(a, a) for a in self.inputargs]
+        for op in self.operations:
+            op.args[:] = [mapping.get(a, a) for a in op.args]
+            op.result = mapping.get(op.result, op.result)
+
     def closeblock(self, *exits):
         assert self.exits == [], "block already closed"
         self.recloseblock(*exits)
