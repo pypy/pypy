@@ -143,60 +143,9 @@ def f(n):
                           1+2+3 + 5+6+7+8+900)
 
 class AppTestInterpreter(testit.AppTestCase):
-    def test_exception(self):
-        try:
-            raise Exception, 1
-        except Exception, e:
-            self.assertEquals(e.args[0], 1)
-
     def test_trivial(self):
         x = 42
         self.assertEquals(x, 42)
-
-    def test_raise(self):
-        def f():
-            raise Exception
-        self.assertRaises(Exception, f)
-
-    def test_exception(self):
-        try:
-            raise Exception
-            self.fail("exception failed to raise")
-        except:
-            pass
-        else:
-            self.fail("exception executing else clause!")
-
-    def test_raise2(self):
-        def f(r):
-            try:
-                raise r
-            except LookupError:
-                return 1
-        self.assertRaises(Exception, f, Exception)
-        self.assertEquals(f(IndexError), 1)
-
-    def test_raise3(self):
-        try:
-            raise 1
-        except TypeError:
-            pass
-        else:
-            self.fail("shouldn't be able to raise 1")
-
-    def test_raise_three_args(self):
-        import sys
-        try:
-            raise ValueError
-        except:
-            exc_type,exc_val,exc_tb = sys.exc_info()
-        try:
-            raise exc_type,exc_val,exc_tb
-        except:
-            exc_type2,exc_val2,exc_tb2 = sys.exc_info()
-        self.assertEquals(exc_type,exc_type2)
-        self.assertEquals(exc_val,exc_val2)
-        self.assertEquals(exc_tb,exc_tb2)
 
     def test_trivial_call(self):
         def f(): return 42

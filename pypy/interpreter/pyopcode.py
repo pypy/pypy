@@ -316,7 +316,7 @@ class PyInterpFrame(pyframe.PyFrame):
         if nbargs >= 3: w_traceback = f.valuestack.pop()
         if nbargs >= 2: w_value     = f.valuestack.pop()
         if 1:           w_type      = f.valuestack.pop()
-        w_resulttuple = prepare_raise(f.space, w_type, w_value)
+        w_resulttuple = pyframe.normalize_exception(f.space, w_type, w_value)
         w_type, w_value = f.space.unpacktuple(w_resulttuple, 2)
         tb = f.space.unwrap(w_traceback)
         if tb is not None:
@@ -833,41 +833,6 @@ def app_print_item_to(x, stream):
 def app_print_newline_to(stream):
     stream.write("\n")
     file_softspace(stream, False)
-
-def app_prepare_raise(etype, value):
-    # careful if 'import types' is added here!
-    # we get an infinite loop if this import fails:
-    #    import types -> IMPORT_NAME -> import_name -> raise ImportError
-    #    -> RAISE_VARARGS -> prepare_raise -> import types ...
-    while isinstance(etype, tuple):
-        etype = etype[0]
-    if isinstance(etype, type):
-        if not isinstance(value, etype):
-            if value is None:
-                # raise Type: we assume we have to instantiate Type
-                value = etype()
-            else:
-                # raise Type, X: assume X is the constructor argument
-                value = etype(value)
-        # raise Type, Instance: let etype be the exact type of value
-        etype = value.__class__
-    elif type(etype) is str:
-        # XXX warn -- deprecated
-        if value is not None and type(value) is not str:
-            raise TypeError("string exceptions can only have a string value")
-    else:
-        # raise X: we assume that X is an already-built instance
-        if value is not None:
-            raise TypeError("instance exception may not have a separate value")
-        value = etype
-        etype = value.__class__
-        # for the sake of language consistency we should not allow
-        # things like 'raise 1', but it's probably fine (i.e.
-        # not ambiguous) to allow them in the explicit form 'raise int, 1'
-        if not hasattr(value, '__dict__') and not hasattr(value, '__slots__'):
-            raise TypeError("raising built-in objects can be ambiguous, "
-                            "use 'raise type, value' instead")
-    return etype, value
 
 def app_find_metaclass(bases, namespace, globals):
     if '__metaclass__' in namespace:

@@ -1,5 +1,5 @@
 import types
-from pypy.interpreter import pyopcode
+from pypy.interpreter import pyframe
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.objspace import UnwrapException
 from pypy.objspace.flow.model import Variable
@@ -48,5 +48,5 @@ def prepare_raise(space, args):
 
 def setup(space):
     return {
-        pyopcode.prepare_raise.get_function(space): prepare_raise,
+        pyframe.normalize_exception.get_function(space): prepare_raise,
         }

@@ -152,8 +152,10 @@ class ExceptBlock(FrameBlock):
             if frame.space.full_exceptions:
                 w_normalized = normalize_exception(frame.space, w_type, w_value)
                 w_type, w_value = frame.space.unpacktuple(w_normalized, 2)
-                # this is to make sure that sys.exc_info() etc see
-                # normalized exception -- not sure here is best place!
+                # save the normalized exception back into the OperationError
+                # -- in particular it makes sure that sys.exc_info() etc see
+                #    normalized exception.
+                operationerr.w_type = w_type
                 operationerr.w_value = w_value
             # the stack setup is slightly different than in CPython:
             # instead of the traceback, we store the unroller object,
@@ -165,25 +167,43 @@ class ExceptBlock(FrameBlock):
             return True  # stop unrolling
         return False
 
-def app_normalize_exception(etype, evalue):
-    # XXX should really be defined as a method on OperationError,
-    # but this is not so easy because OperationError cannot be
-    # at the same time an old-style subclass of Exception and a
-    # new-style subclass of Wrappable :-(
-    # moreover, try importing gateway from errors.py and you'll see :-(
-    
+def app_normalize_exception(etype, value):
+    """Normalize an (exc_type, exc_value) pair:
+    exc_value will be an exception instance and exc_type its class.
+    """
     # mistakes here usually show up as infinite recursion, which is fun.
-    if isinstance(evalue, etype):
-        return etype, evalue
-    if isinstance(etype, type) and issubclass(etype, Exception):
-        if evalue is None:
-            evalue = ()
-        elif not isinstance(evalue, tuple):
-            evalue = (evalue,)
-        evalue = etype(*evalue)
+    while isinstance(etype, tuple):
+        etype = etype[0]
+    if isinstance(etype, type):
+        if not isinstance(value, etype):
+            if value is None:
+                # raise Type: we assume we have to instantiate Type
+                value = etype()
+            elif isinstance(value, tuple):
+                # raise Type, Tuple: assume Tuple contains the constructor args
+                value = etype(*value)
+            else:
+                # raise Type, X: assume X is the constructor argument
+                value = etype(value)
+        # raise Type, Instance: let etype be the exact type of value
+        etype = value.__class__
+    elif type(etype) is str:
+        # XXX warn -- deprecated
+        if value is not None and type(value) is not str:
+            raise TypeError("string exceptions can only have a string value")
     else:
-        raise Exception, "?!"   # XXX
-    return etype, evalue
+        # raise X: we assume that X is an already-built instance
+        if value is not None:
+            raise TypeError("instance exception may not have a separate value")
+        value = etype
+        etype = value.__class__
+        # for the sake of language consistency we should not allow
+        # things like 'raise 1', but it's probably fine (i.e.
+        # not ambiguous) to allow them in the explicit form 'raise int, 1'
+        if not hasattr(value, '__dict__') and not hasattr(value, '__slots__'):
+            raise TypeError("raising built-in objects can be ambiguous, "
+                            "use 'raise type, value' instead")
+    return etype, value
 normalize_exception = gateway.app2interp(app_normalize_exception)
 
 
