@@ -1,3 +1,4 @@
+from __future__ import generators 
 import autopath
 import py
 from py.__impl__.magic import exprinfo
@@ -144,6 +145,13 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
                          space.wrap("DID NOT RAISE"))
 
 app_raises = interp2app_temp(pypyraises)
+
+def pypyskip(space, w_message): 
+    """skip a test at app-level. """ 
+    msg = space.unwrap(w_message) 
+    py.test.skip(msg)
+
+app_skip = interp2app_temp(pypyskip)
 
 def raises_w(space, w_ExpectedException, *args, **kwds):
     try:

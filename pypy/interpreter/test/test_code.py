@@ -52,7 +52,11 @@ class AppTestCodeIntrospection:
                 assert getattr(code, key) == value
 
     def test_code(self):
-        import sys, new
+        import sys
+        try: 
+            import new
+        except ImportError: 
+            skip("could not import new module")
         if sys.pypy_objspaceclass == 'TrivialObjSpace':
             return   # skip
         codestr = "global c\na = 1\nb = 2\nc = a + b\n"

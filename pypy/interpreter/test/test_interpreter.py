@@ -8,7 +8,7 @@ class TestInterpreter:
         from pypy.interpreter import pyframe, gateway, module
         space = self.space
 
-        source = str(py.code.Source(source).strip())
+        source = str(py.code.Source(source).strip()) + '\n'
 
         compile = space.builtin.compile
         w = space.wrap
