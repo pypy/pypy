@@ -15,11 +15,15 @@ class TestCase_w(unittest.TestCase):
     def assertEqual_w(self, w_first, w_second, msg=None):
         w_condition = self.space.eq(w_first, w_second)
         condition = self.space.is_true(w_condition)
+        if msg is None:
+            msg = '%s != %s'%(w_first, w_second)
         return self.failUnless(condition, msg)
 
     def assertNotEqual_w(self, w_first, w_second, msg=None):
         w_condition = self.space.eq(w_first, w_second)
         condition = self.space.is_true(w_condition)
+        if msg is None:
+            msg = '%s == %s'%(w_first, w_second)
         return self.failIf(condition, msg)
 
     def assertRaises_w(self, w_exc_class, callable, *args, **kw):
