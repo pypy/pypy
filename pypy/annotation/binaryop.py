@@ -138,12 +138,14 @@ class __extend__(pairtype(SomeMethod, SomeMethod)):
 
     def union((met1, met2)):
         # the union of the two meths dictionaries is a dictionary
-        #   {func: unionof(met1[func], met2[func])}
+        #   {func: commonbase(met1[func], met2[func])}
+        # note that this case is probably very rare
+        # (the same Python object found in two different classes)
         d = met1.meths.copy()
-        for func, s_self in met2.meths.items():
+        for func, classdef in met2.meths.items():
             if func in d:
-                s_self = unionof(d[func], s_self)
-            d[func] = s_self
+                classdef = classdef.commonbase(d[func])
+            d[func] = classdef
         return SomeMethod(d)
 
 

@@ -163,6 +163,7 @@ class ClassDef:
             # the following might still invalidate some blocks if it
             # generalizes existing values in parent classes
             s_value = immutablevalue(value)
+            s_value = s_value.classattribute(self)
             self.generalize(name, s_value, bookkeeper)
 
     def __repr__(self):

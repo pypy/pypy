@@ -110,7 +110,7 @@ class SomeMethod(SomeObject):
     "Stands for a bound Python method (or some method out of a list)."
     knowntype = MethodType
     def __init__(self, meths):
-        self.meths = meths   # map {python_function: s_self}
+        self.meths = meths   # map {python_function: classdef}
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
