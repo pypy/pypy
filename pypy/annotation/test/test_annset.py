@@ -3,7 +3,7 @@ import autopath
 from pypy.tool import test
 
 from pypy.annotation.model import SomeValue, ANN, Predicate
-from pypy.annotation.annset import AnnotationSet, mostgeneralvalue
+from pypy.annotation.annset import AnnotationSet, mostgeneralvalue,impossiblevalue
 
 
 c1,c2,c3,c4 = SomeValue(), SomeValue(), SomeValue(), SomeValue()
@@ -135,6 +135,19 @@ class TestAnnotationSet(test.IntTestCase):
                     links=[c3,c])
         self.assertSameSet(a1, a2)
 
+    def test_level2_merge_w_impossible(self):
+        a1 = annset(ANN.type, c1, list,
+                    ANN.listitems, c1, impossiblevalue,
+                    ANN.type, c2, list,
+                    ANN.listitems, c2, c3,
+                    ANN.type, c3, int)
+        c = a1.merge(c1,c2)
+        a2 = annset(ANN.type, c , list,
+                    ANN.listitems, c, c3,
+                    ANN.type, c3, int,
+                    links=[c1,c])
+        self.assertSameSet(a1,a2)
+                    
     def test_merge_generalize_both_immutables(self):
         a1 = annset(ANN.len, c1, c2,
                     ANN.immutable, c1,

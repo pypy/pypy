@@ -131,6 +131,10 @@ class AnnotationSet:
         if self.isshared(oldvalue, newvalue):
             return oldvalue
 
+        if not (isinstance(oldvalue, SomeValue) and
+                isinstance(newvalue, SomeValue)):
+            return mostgeneralvalue
+        
         # build an About set that is the intersection of the two incoming ones
         about1 = self._about(oldvalue)
         about2 = self._about(newvalue)
@@ -141,13 +145,10 @@ class AnnotationSet:
                 someval2, dep2 = about2.annotations[pred]
                 if someval1 == someval2:
                     someval3 = someval1
-                elif (isinstance(someval1, SomeValue) and
-                      isinstance(someval2, SomeValue)):
+                else:
                     someval3 = self.merge(someval1, someval2)
                     if someval3 is mostgeneralvalue:
-                        continue
-                else:
-                    continue   # annotation not in common
+                        continue # annotation not in common
                 dep3 = dep1.copy()
                 dep3.update(dep2)
                 about3.annotations[pred] = someval3, dep3
