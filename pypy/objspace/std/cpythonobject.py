@@ -168,6 +168,8 @@ def cpython_is_true(space, w_obj):
     except:
         wrap_exception(space)
 
+StdObjSpace.is_true.register(cpython_is_true, W_CPythonObject)
+
 
 # slicing
 def old_slice(index):
