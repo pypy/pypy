@@ -24,7 +24,8 @@ class PyFrame:
         self.bytecode = bytecode # Misnomer; this is really like a code object
         self.w_globals = w_globals
         self.w_locals = w_locals
-        self.localcells, self.nestedcells = bytecode.locals2cells(space, w_locals)
+        self.localcells, self.nestedcells = bytecode.locals2cells(space,
+                                                                  w_locals)
         self.w_builtins = self.load_builtins()
         self.valuestack = Stack()
         self.blockstack = Stack()
@@ -32,14 +33,14 @@ class PyFrame:
         self.next_instr = 0
 
     def clone(self):
-        # Clone the locals (only the annotation space implements this)
-        w_locals = self.space.clone_locals(self.w_locals)
-        # XXX assume globals are constant
-        f = PyFrame(self.space, self.bytecode, self.w_globals, w_locals)
+        # XXX assume locals and globals are constant
+        f = PyFrame(self.space, self.bytecode, self.w_globals, self.w_locals)
         f.valuestack = self.valuestack.clone()
         f.blockstack = self.blockstack.clone()
         f.last_exception = self.last_exception
         f.next_instr = self.next_instr
+        f.localcells = clonecells(self.localcells)
+        f.nestedcells = clonecells(self.nestedcells)
         return f
 
     def eval(self, executioncontext):
@@ -109,7 +110,7 @@ class PyFrame:
 
     def fast2locals(self):
         # Copy values from self.localcells to self.w_locals
-        for i in range(self.bytecode.co_nlocals):
+        for i in range(len(self.localcells)):
             name = self.bytecode.co_varnames[i]
             cell = self.localcells[i]
             w_name = self.space.wrap(name)
@@ -375,3 +376,16 @@ class Cell:
             return "%s()" % self.__class__.__name__
         else:
             return "%s(%s)" % (self.__class__.__name__, self.w_value)
+
+def clonecells(cells):
+    """Clone a list of cells."""
+    newcells = []
+    for cell in cells:
+        try:
+            value = cell.get()
+        except ValueError:
+            newcell = Cell()
+        else:
+            newcell = Cell(value)
+        newcells.append(newcell)
+    return newcells
