@@ -27,7 +27,8 @@ TYPE_LIST     = '['
 TYPE_DICT     = '{'
 TYPE_CODE     = 'c'
 TYPE_UNKNOWN  = '?'
-
+FALSE_CODE    = 'F'
+TRUE_CODE     = 'T'
 
 class Marshaller:
 
@@ -57,14 +58,22 @@ class Marshaller:
 
     def dump_none(self, x):
         self.f.write(TYPE_NONE)
-        dispatch[NoneType] = dump_none
+    dispatch[NoneType] = dump_none
+
+    def dump_bool(self, x):
+        if x:
+            self.f.write(TRUE_CODE)
+        else:
+            self.f.write(FALSE_CODE)
+    dispatch[bool] = dump_bool
 
     def dump_ellipsis(self, x):
         self.f.write(TYPE_ELLIPSIS)
-        try:
-            dispatch[EllipsisType] = dump_ellipsis
-        except NameError:
-            pass
+    
+    try:
+        dispatch[EllipsisType] = dump_ellipsis
+    except NameError:
+        pass
 
     def dump_int(self, x):
         y = x>>31
@@ -220,6 +229,14 @@ class Unmarshaller:
     def load_none(self):
         return None
     dispatch[TYPE_NONE] = load_none
+
+    def load_true(self):
+        return True
+    dispatch[TRUE_CODE] = load_true
+
+    def load_false(self):
+        return False
+    dispatch[FALSE_CODE] = load_false
 
     def load_ellipsis(self):
         return EllipsisType
