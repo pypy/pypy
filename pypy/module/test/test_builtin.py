@@ -200,6 +200,16 @@ class TestBuiltinApp(test.AppTestCase):
         self.failIf(callable(a), 
                     "Builtin function 'callable' tricked by instance-__call__")
 
+    def test_hash(self):
+        self.assertEquals(hash(23), hash(23))
+        self.assertEquals(hash(2.3), hash(2.3))
+        self.assertEquals(hash('23'), hash("23"))
+        self.assertEquals(hash((23,)), hash((23,)))
+        self.assertNotEquals(hash(22), hash(23))
+        self.assertRaises(TypeError, hash, [])
+        self.assertRaises(TypeError, hash, {})
+
+
 
         
 class TestInternal(test.IntTestCase):
@@ -236,7 +246,6 @@ class TestInternal(test.IntTestCase):
     def test_xrange(self):
         self.assert_(hasattr(self.space.builtin, 'xrange'))
         self.assertEquals(self.space.builtin.xrange(3).stop, 3)
-
 
 if __name__ == '__main__':
     test.main()
