@@ -174,13 +174,13 @@ class Ignored(TestResult):
 class TestResultWithTraceback(TestResult):
     def __init__(self, msg='', item=None):
         TestResult.__init__(self, msg, item)
-        self.setexception()
+        self.set_exception()
 
     def __eq__(self, other):
         return TestResult.__eq__(self, other) and \
                self.formatted_traceback == other.formatted_traceback
 
-    def setexception(self):
+    def set_exception(self):
         self.excinfo = sys.exc_info()
         self.traceback = self.excinfo[2]
         # store formatted traceback
@@ -314,7 +314,7 @@ class TestSuite:
     """Represent a collection of test items."""
     def __init__(self):
         self.items = []
-        self.lastresult = {}
+        self.last_results = {}
 
     def _module_from_modpath(self, modpath):
         """
@@ -344,7 +344,7 @@ class TestSuite:
                         items.append(TestItem(module, obj, obj2))
         return items
 
-    def initfromdir(self, dirname, filterfunc=None, recursive=True):
+    def init_from_dir(self, dirname, filterfunc=None, recursive=True):
         """
         Init this suite by reading the directory denoted by dirname,
         then find all test modules in it. Test modules are files that
@@ -391,20 +391,20 @@ class TestSuite:
         will contain a dictionary named lastresult which maps these
         keys to a list of TestResult objects that correspond to the key.
         """
-        self.lastresults = {}
+        self.last_results = {}
         for item in self.items:
             result = item.run()
             key = classify(result)
-            self.lastresults.setdefault(key, []).append(result)
+            self.last_results.setdefault(key, []).append(result)
             yield result
 
     def run(self):
         """
         Run all the test items. After that, the results are available
-        via the attribute lastresults.
+        via the attribute last_results.
         """
         # perform all the tests by using the existing generator; discard
-        # the results; they are then available via self.lastresults
+        # the results; they are then available via self.last_results
         [result for result in self.result_generator()]
 
 #
@@ -421,7 +421,7 @@ def main(do_selftest=False):
     # collect tests
     ts = TestSuite()
     print "Loading test modules ..."
-    ts.initfromdir(autopath.pypydir, filterfunc=filterfunc)
+    ts.init_from_dir(autopath.pypydir, filterfunc=filterfunc)
     # iterate over tests and collect data
     for res in ts.result_generator():
         if res.traceback is None:
@@ -433,15 +433,15 @@ def main(do_selftest=False):
         print res.formatted_traceback
     # emit a summary
     print 79 * '='
-    modules = ts.lastresults.keys()
+    modules = ts.last_results.keys()
     modules.sort()
     for module in modules:
-        results = ts.lastresults[module]
+        results = ts.last_results[module]
         resultstring = ''
         for result in results:
-            statuschar = {Success: '.', Ignored: 'i', Skipped: 's',
-                          Error: 'E', Failure: 'F'}[result.__class__]
-            resultstring += statuschar
+            status_char = {Success: '.', Ignored: 'i', Skipped: 's',
+                           Error: 'E', Failure: 'F'}[result.__class__]
+            resultstring += status_char
         print "%s [%d] %s" % (module, len(results), resultstring)
 
 
