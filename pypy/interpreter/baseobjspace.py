@@ -73,7 +73,7 @@ class ObjSpace(object):
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():
-            if name.startswith('w_'):
+            if name.startswith('w_') and not name.endswith('Type'): 
                 name = name[2:]
                 #print "setitem: space instance %-20s into builtins" % name
                 self.setitem(self.builtin.w_dict, self.wrap(name), value)
