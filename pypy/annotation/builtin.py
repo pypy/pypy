@@ -126,6 +126,9 @@ def builtin_apply(*stuff):
     print "XXX ignoring apply%r" % (stuff,)
     return SomeObject()
 
+def exception_init(s_self, *args):
+    s_self.setattr(immutablevalue('args'), SomeTuple(args))
+
 # collect all functions
 import __builtin__
 BUILTIN_ANALYZERS = {}
@@ -136,3 +139,5 @@ for name, value in globals().items():
 
 BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_int] = builtin_int
 BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_uint] = restricted_uint
+BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
+
