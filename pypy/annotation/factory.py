@@ -298,4 +298,10 @@ class ClassDef:
             for factory in self.getallfactories():
                 bookkeeper.annotator.reflowfromposition(factory.position_key)
 
+    def about_attribute(self, name):
+        for cdef in self.getmro():
+            if name in cdef.attrs:
+                return cdef.attrs[name]
+        return SomeImpossibleValue()
+
 from pypy.annotation.builtin  import BUILTIN_ANALYZERS

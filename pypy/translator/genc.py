@@ -9,6 +9,7 @@ from pypy.objspace.flow.model import FunctionGraph, Block, Link, last_exception
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.translator.simplify import remove_direct_loops
 from pypy.interpreter.pycode import CO_VARARGS
+from pypy.annotation import model as annmodel
 from types import FunctionType
 
 from pypy.objspace.std.restricted_int import r_int, r_uint
@@ -186,7 +187,13 @@ class GenC:
         ann = self.translator.annotator
         if ann is None:
             return "good luck" # True
-        return attr in ann.getpbcattrs(pbc)
+        if attr in ann.getpbcattrs(pbc):
+            return True
+        classdef = ann.getuserclasses().get(pbc.__class__)
+        if (classdef and
+            classdef.about_attribute(attr) != annmodel.SomeImpossibleValue()):
+            return True
+        return False
 
     def nameof_instance(self, instance):
         name = self.uniquename('ginst_' + instance.__class__.__name__)
