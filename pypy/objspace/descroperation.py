@@ -14,19 +14,19 @@ class DescrOperation:
         w_get = space.lookup(w_descr,'__get__')
         if w_get is None:
             raise OperationError(space.w_TypeError) # xxx error
-        return space.get_and_call(w_descr,w_obj,w_type)
+        return space.get_and_call_function(w_descr,w_obj,w_type)
 
     def set(space,w_descr,w_obj,w_val):
         w_get = space.lookup(w_descr,'__set__')
         if w_get is None:
             raise OperationError(space.w_TypeError) # xxx error
-        return space.get_and_call(w_descr,w_obj,w_val)
+        return space.get_and_call_function(w_descr,w_obj,w_val)
 
     def delete(space,w_descr,w_obj):
         w_get = space.lookup(w_descr,'__get__')
         if w_get is None:
             raise OperationError(space.w_TypeError) # xxx error
-        return space.get_and_call(w_descr,w_obj)
+        return space.get_and_call_function(w_descr,w_obj)
 
     def getattr(space,w_obj,w_name):
         w_descr = space.lookup(w_obj,'__getattribute__')
