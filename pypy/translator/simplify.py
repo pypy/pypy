@@ -1,12 +1,7 @@
+"""Flow Graph Simplification
 """
-generate Pyrex files from the flowmodel. 
 
-"""
 from pypy.objspace.flow.model import *
-
-# debug
-from pypy.translator.genpyrex import GenPyrex
-
 
 def eliminate_empty_blocks(graph):
     """Eliminate basic blocks that do not contain any operations.
@@ -66,7 +61,7 @@ def join_blocks(graph):
     traverse(visit, graph)
 
 def simplify_graph(graph):
-    """apply all the existing optimisations to the graph"""
+    """Apply all the existing optimisations to the graph."""
     eliminate_empty_blocks(graph)
     join_blocks(graph)
     return graph

@@ -1,4 +1,7 @@
-"""Peephole Flow Graph Transformation
+"""Flow Graph Transformation
+
+The difference between simplification and transformation is that
+transformation may introduce new space operation.
 """
 
 import autopath
@@ -10,6 +13,7 @@ from pypy.translator.annotation import Annotator
 # --> d = alloc_and_set(c, a)
 
 def transform_allocate(self):
+    """Transforms [a] * b to alloc_and_set(b, a) where b is int."""
     for block, ann in self.annotated.iteritems():
         operations = block.operations[:]
         n_op = len(operations)
@@ -31,6 +35,7 @@ def transform_allocate(self):
 # --> e = getslice(d, a, b)
 
 def transform_slice(self):
+    """Transforms a[b:c] to getslice(a, b, c)."""
     for block, ann in self.annotated.iteritems():
         operations = block.operations[:]
         n_op = len(operations)
@@ -47,5 +52,6 @@ def transform_slice(self):
                 block.operations[i:i+2] = [new_op]
 
 def transform_graph(ann):
+    """Apply set of transformations available."""
     transform_allocate(ann)
     transform_slice(ann)
