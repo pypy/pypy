@@ -104,3 +104,12 @@ def _getframe():
     # XXX No Argument Accepted Yet
     f = space.getexecutioncontext().framestack.items[-1]
     return space.wrap(f)
+
+def exc_info():
+    operror = space.getexecutioncontext().sys_exc_info()
+    if operror is None:
+        return space.newtuple([space.w_None,space.w_None,space.w_None])
+    else:
+        return space.newtuple([operror.w_type,operror.w_value,
+                               space.wrap(operror.application_traceback)])
+    

@@ -13,7 +13,7 @@ from __interplevel__ import stdin, stdout, stderr, maxint
 from __interplevel__ import hexversion, platform
 
 # Functions from interpreter-level
-from __interplevel__ import displayhook, _getframe
+from __interplevel__ import displayhook, _getframe, exc_info
 
 # Dummy
 executable = ''

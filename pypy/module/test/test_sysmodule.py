@@ -65,6 +65,23 @@ class AppSysTests(testit.AppTestCase):
         self.failUnless('__builtin__' in names,
                         "__builtin__ is not listed as a builtin module.")
 
+    def test_sys_exc_info(self):
+        try:
+            raise Exception
+        except Exception,e:
+            import sys
+            exc_type,exc_val,tb = sys.exc_info()
+        try:
+            raise Exception   # 5 lines below the previous one
+        except Exception,e2:
+            exc_type2,exc_val2,tb2 = sys.exc_info()
+        self.assertEquals(exc_type,Exception)
+        self.assertEquals(exc_val,e)
+        self.assertEquals(exc_type2,Exception)
+        self.assertEquals(exc_val2,e2)
+        self.assertEquals(tb2.tb_lineno - tb.tb_lineno, 5)
+        
+
 if __name__ == '__main__':
     testit.main()
 

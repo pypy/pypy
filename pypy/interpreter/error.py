@@ -23,11 +23,8 @@ class OperationError(Exception):
     def __init__(self, w_type, w_value):
         self.w_type = w_type
         self.w_value = w_value
-        self.application_traceback = []
+        self.application_traceback = None
         self.debug_tbs = []
-
-    def record_application_traceback(self, frame, last_instruction):
-        self.application_traceback.append((frame, last_instruction))
 
     def match(self, space, w_check_class):
         "Check if this application-level exception matches 'w_check_class'."
@@ -47,8 +44,7 @@ class OperationError(Exception):
     def getframe(self):
         "The frame this exception was raised in, or None."
         if self.application_traceback:
-            frame, last_instruction = self.application_traceback[0]
-            return frame
+            return self.application_traceback.frame
         else:
             return None
 
@@ -65,14 +61,13 @@ class OperationError(Exception):
         print >> file, self.errorstr(space)
 
     def print_app_tb_only(self, file):
-        tb = self.application_traceback[:]
+        tb = self.application_traceback
         if tb:
             import linecache
-            tb.reverse()
             print >> file, "Traceback (application-level):"
-            for f, i in tb:
-                co = f.code
-                lineno = offset2lineno(co, i)
+            while tb is not None:
+                co = tb.frame.code
+                lineno = tb.lineno
                 fname = co.co_filename
                 if fname.startswith('<inline>\n'):
                     lines = fname.split('\n')
@@ -89,6 +84,7 @@ class OperationError(Exception):
                     if l.endswith('\n'):
                         l = l[:-1]
                     print >> file, l
+                tb = tb.next
 
     def print_detailed_traceback(self, space=None, file=None):
         """Dump a nice detailed interpreter- and application-level traceback,
@@ -130,17 +126,6 @@ def inlinecompile(source, space, symbol='exec'):
     w = space.wrap
     return compile(w(source), w('<inline>\n%s'%source), w(symbol), w(0), w(0))
 
-
-def offset2lineno(c, stopat):
-    tab = c.co_lnotab
-    line = c.co_firstlineno
-    addr = 0
-    for i in range(0, len(tab), 2):
-        addr = addr + ord(tab[i])
-        if addr > stopat:
-            break
-        line = line + ord(tab[i+1])
-    return line
 
 class LinePrefixer:
     """File-like class that inserts a prefix string

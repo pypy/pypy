@@ -6,17 +6,6 @@ import code
 import linecache
 
 
-def offset2lineno(c, stopat):
-    tab = c.co_lnotab
-    line = c.co_firstlineno
-    addr = 0
-    for i in range(0, len(tab), 2):
-        addr = addr + ord(tab[i])
-        if addr > stopat:
-            break
-        line = line + ord(tab[i+1])
-    return line
-
 class PyPyConsole(code.InteractiveConsole):
     def __init__(self, objspace):
         code.InteractiveConsole.__init__(self)

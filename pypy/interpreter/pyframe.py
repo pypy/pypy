@@ -4,6 +4,7 @@
 from pypy.interpreter import eval, baseobjspace, gateway
 from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
+from pypy.interpreter import pytraceback
 
 
 class PyFrame(eval.Frame, baseobjspace.Wrappable):
@@ -50,7 +51,8 @@ class PyFrame(eval.Frame, baseobjspace.Wrappable):
                     except OperationError, e:
                         #import traceback
                         #traceback.print_exc()
-                        e.record_application_traceback(self, last_instr)
+                        pytraceback.record_application_traceback(
+                            self.space, e, self, last_instr)
                         self.last_exception = e
                         executioncontext.exception_trace(e)
                         # convert an OperationError into a control flow
