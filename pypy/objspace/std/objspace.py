@@ -34,6 +34,9 @@ class StdObjSpace(ObjSpace):
                 w_c = W_CPythonObject(c)
                 setattr(self, 'w_' + c.__name__, w_c)
                 self.setitem(self.w_builtins, self.wrap(c.__name__), w_c)
+        self.setitem(self.w_builtins, self.wrap("False"), self.w_False)
+        self.setitem(self.w_builtins, self.wrap("True"), self.w_True)
+        self.setitem(self.w_builtins, self.wrap("None"), self.w_None)
         # add a dummy __import__  XXX fixme
         w_import = self.wrap(__import__)
         self.setitem(self.w_builtins, self.wrap("__import__"), w_import)
