@@ -8,9 +8,9 @@ class Object:
         name = space.unwrap(w_name)
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
-            if space.is_data_descr(w_descr):  # 
+            if space.is_data_descr(w_descr):
                 return space.get(w_descr,w_obj,space.type(w_obj))
-        w_dict = space.getdict(w_obj)   # 
+        w_dict = space.getdict(w_obj)
         if w_dict is not None:  
             try:
                 return space.getitem(w_dict,w_name)
@@ -20,7 +20,32 @@ class Object:
         if w_descr is not None:
             return space.get(w_descr,w_obj,space.type(w_obj))
         raise OperationError(space.w_AttributeError,w_name)
-        
+
+    def descr__setattr__(space, w_obj, w_name, w_value):
+        name = space.unwrap(w_name)
+        w_descr = space.lookup(w_obj, name)
+        if w_descr is not None:
+            if space.is_data_descr(w_descr):
+                return space.set(w_descr,w_obj,w_value)
+        w_dict = space.getdict(w_obj)
+        if w_dict is not None:
+            return space.setitem(w_dict,w_name,w_value)
+        raise OperationError(space.w_AttributeError,w_name)
+
+    def descr__delattr__(space, w_obj, w_name):
+        name = space.unwrap(w_name)
+        w_descr = space.lookup(w_obj, name)
+        if w_descr is not None:
+            if space.is_data_descr(w_descr):
+                return space.delete(w_descr,w_obj)
+        w_dict = space.getdict(w_obj)
+        if w_dict is not None:
+            return space.delitem(w_dict,w_name)
+        raise OperationError(space.w_AttributeError,w_name)
+
+    def descr__init__(space, w_obj, *args_w, **kwds_w):
+        pass   # XXX some strange checking maybe
+
 class DescrOperation:
 
     def getdict(space, w_obj):
@@ -30,9 +55,7 @@ class DescrOperation:
         return space.get(w_descr, w_obj, space.type(w_obj))
 
     def is_data_descr(space, w_obj):
-        # XXX check this logic
-        return (space.lookup(w_obj, '__set__') is not None and
-                space.lookup(w_obj, '__get__') is not None)
+        return space.lookup(w_obj, '__set__') is not None
 
     def get_and_call(space, w_descr, w_obj, w_args, w_kwargs):
         if isinstance(w_descr, Function):  # wrapped Function actually

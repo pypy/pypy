@@ -69,9 +69,12 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
 
         self.object_typedef = TypeDef('object', 
             __getattribute__ = gateway.interp2app(Object.descr__getattribute__.im_func),
+            __setattr__ = gateway.interp2app(Object.descr__setattr__.im_func),
+            __delattr__ = gateway.interp2app(Object.descr__delattr__.im_func),
             __str__ = gateway.interp2app(lambda space, w_x: str(w_x)),
             __repr__ = gateway.interp2app(lambda space, w_x: repr(w_x)),
             __class__ = GetSetProperty(self.__class__.type),
+            __init__ = gateway.interp2app(Object.descr__init__.im_func),
             )
  
         self.w_None = None
