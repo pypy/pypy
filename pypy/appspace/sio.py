@@ -33,7 +33,6 @@ streams on top of it, and then top it off with a buffering stream.
 """
 
 import os
-import mmap
 
 class Stream(object):
     "All streams except the base ones need to inherit from this class."
@@ -465,6 +464,7 @@ class MMapFile(object):
     """Standard I/O basis stream using mmap."""
 
     def __init__(self, filename, mode="r"):
+        import mmap
         self.filename = filename
         self.mode = mode
         if mode == "r":
@@ -515,6 +515,7 @@ class MMapFile(object):
         return self.read()
 
     def read(self, n=-1):
+        import mmap
         if n >= 0:
             aim = self.pos + n
         else:
@@ -534,6 +535,7 @@ class MMapFile(object):
         return self
 
     def readline(self):
+        import mmap
         hit = self.mm.find("\n", self.pos) + 1
         if hit:
             data = self.mm[self.pos:hit]
@@ -554,6 +556,7 @@ class MMapFile(object):
         return data
 
     def next(self):
+        import mmap
         hit = self.mm.find("\n", self.pos) + 1
         if hit:
             data = self.mm[self.pos:hit]

@@ -4,6 +4,8 @@ class file_(object):
     """An implementation of file objects in Python. it relies on Guido's
        sio.py implementation.
     """
+
+    
     def __init__(self, name, mode='r', bufsize=None):
         self.reading = False
         self.writing = False
@@ -51,7 +53,6 @@ class file_(object):
             if bufsize > 2:
                 "Read and write buffered stream."
                 self.fd = sio.BufferingInputOutputStream(self.fd, bufsize)
-        return self.fd
 
     def __getattr__(self, attr):
         """
