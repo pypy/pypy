@@ -4,7 +4,7 @@ Type inference for user-defined classes.
 
 from __future__ import generators
 from types import FunctionType
-from pypy.annotation.model import SomeImpossibleValue, unionof
+from pypy.annotation.model import SomeImpossibleValue, SomePBC, unionof
 
 
 class Attribute:
@@ -119,6 +119,9 @@ class ClassDef:
             yield self
             self = self.basedef
 
+    def issubclass(self, otherclsdef):
+        return issubclass(self.cls, otherclsdef.cls)
+
     def getallsubdefs(self):
         pending = [self]
         seen = {}
@@ -174,6 +177,18 @@ class ClassDef:
                 else:
                     return None
         return None
+
+    def matching(self, pbc):
+        d = {}
+        for func, value in pbc.prebuiltinstances.items():
+            if isclassdef(value):
+                if not value.issubclass(self) and not self.issubclass(value):
+                    continue
+            d[func] = value
+        if d:
+            return SomePBC(d)
+        else:
+            return SomeImpossibleValue()
 
 
 def isclassdef(x):

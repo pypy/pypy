@@ -171,17 +171,7 @@ class __extend__(SomeInstance):
             #       that can't possibly apply to an instance of ins.classdef.
             # XXX do it more nicely
             if isinstance(s_result, SomePBC):
-                d = {}
-                for func, value in s_result.prebuiltinstances.items():
-                    if (isclassdef(value) and
-                        value not in ins.classdef.getmro() and
-                        ins.classdef not in value.getmro()):
-                        continue
-                    d[func] = value
-                if d:
-                    s_result = SomePBC(d)
-                else:
-                    s_result = SomeImpossibleValue()
+                s_result = ins.classdef.matching(s_result)
             return s_result
         return SomeObject()
 
