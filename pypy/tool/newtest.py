@@ -71,6 +71,12 @@ class TestItem:
         doesn't complete successfully). Like for pretest, the
         callable gets the TestItem instance as only argument.
         """
+        # Note on pretest and posttest: I discarded the idea to
+        # supply this functionality by having hypothetical methods
+        # pretest and posttest overwritten in derived classes. That
+        # approach would require to support a factory class for test
+        # items in TestSuite. I wanted to avoid this.
+
         # credit: adapted from Python's unittest.TestCase.run
         #XXX at a later time, this method may accept an object space
         #  as argument
