@@ -40,6 +40,9 @@ class W_ListObject(W_Object):
     def remove(w_self, w_any):
         return list_remove(w_self.space, w_self, w_any)
 
+    def index(w_self, w_any):
+        return list_index(w_self.space, w_self, w_any)
+
 def list_unwrap(space, w_list):
     items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]
     return list(items)
@@ -199,6 +202,9 @@ def getattr_list(space, w_list, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('remove'))):
         w_builtinfn = make_builtin_func(space, W_ListObject.remove)
         return W_InstMethObject(space, w_list, w_builtinfn)
+    if space.is_true(space.eq(w_attr, space.wrap('index'))):
+        w_builtinfn = make_builtin_func(space, W_ListObject.index)
+        return W_InstMethObject(space, w_list, w_builtinfn)
     raise FailedToImplement(space.w_AttributeError)
 
 StdObjSpace.getattr.register(getattr_list, W_ListObject, W_ANY)
@@ -337,6 +343,17 @@ def list_remove(space, w_list, w_any):
             return space.w_None
     raise OperationError(space.w_IndexError,
                          space.wrap("list.remove(x): x not in list"))
+
+def list_index(space, w_list, w_any):
+    eq = space.eq
+    items = w_list.ob_item
+    for i in range(w_list.ob_size):
+        cmp = eq(items[i], w_any)
+        if space.is_true(cmp):
+            return space.wrap(i)
+    raise OperationError(space.w_ValueError,
+                         space.wrap("list.index(x): x not in list"))
+
 
 """
 static PyMethodDef list_methods[] = {
