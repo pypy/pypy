@@ -1,9 +1,5 @@
-Done: refactor the flowmodel to translator/flowmodel.idea
-      (Armin and Holger plan on doing this next saturday)
-
-Task: announce the AmsterdamSprint (maybe together with the next task)
-Task: announce the EU proposal
-      (Armin and Holger plan on doing this sunday)
+Task: review and implement the annotation procedure described in
+        doc/translation/annotation.txt
 
 Task: update pypy homepage
 
