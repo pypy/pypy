@@ -117,7 +117,7 @@ class BuiltinTest(test.AppTestCase):
         app2interp(app_init_globals).get_function(space)()
         self.__class__.fully_initialized = True
         
-    if 0:
+    if 1:
         def test_import(self):
             __import__('sys')
             __import__('time')
