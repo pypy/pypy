@@ -95,9 +95,9 @@ class FlowGraphDotGen(DotGen):
         name = self.prefix # +'_'+funcgraph.name
         data = name
         if hasattr(funcgraph, 'source'):
-            source = funcgraph.source.replace('"', "'")
+            source = funcgraph.source.replace('"', '\\"')
             data += "\\n" + "\\l".join(source.split('\n'))
-           
+
         self.emit_node(name, label=data, shape="box", fillcolor="green", style="filled")
         #('%(name)s [fillcolor="green", shape=box, label="%(data)s"];' % locals())
         self.emit_edge(name, self.blockname(funcgraph.startblock), 'startblock')
@@ -126,6 +126,7 @@ class FlowGraphDotGen(DotGen):
         iargs = " ".join(map(repr, block.inputargs))
         data = "%s(%s)\\ninputargs: %s\\n\\n" % (name, block.__class__.__name__, iargs)
         data = data + "\l".join(lines)
+        data = data.replace('"', '\\"') # make dot happy
 
         self.emit_node(name, label=data, shape=shape, color=color, style="filled", fillcolor=fillcolor)
 
