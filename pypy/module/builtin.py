@@ -1,7 +1,5 @@
 from pypy.interpreter.extmodule import *
-from pypy.interpreter.pycode import PyByteCode
-from pypy.interpreter.appfile import AppFile
-from pypy.interpreter.executioncontext import OperationError
+from pypy.interpreter import pycode, appfile, executioncontext
 
 #######################
 ####  __builtin__  ####
@@ -11,7 +9,7 @@ import __builtin__ as _b
 
 class Builtin(BuiltinModule):
     __pythonname__ = '__builtin__'
-    __appfile__ = AppFile(__name__, ["module"])
+    __appfile__ = appfile.AppFile(__name__, ["module"])
 
     def chr(self, w_ascii):
         w_character = self.space.newstring([w_ascii])
@@ -31,10 +29,11 @@ class Builtin(BuiltinModule):
         try:
             w_mod = space.getitem(space.w_modules, w_modulename)
             return w_mod
-        except OperationError,e:
+        except executioncontext.OperationError,e:
             if not e.match(space, space.w_KeyError):
                 raise
-            raise OperationError(space.w_ImportError, w_modulename)
+            raise executioncontext.OperationError(
+                      space.w_ImportError, w_modulename)
     __import__ = appmethod(__import__)
 
     def compile(self, w_str, w_filename, w_startstr,
@@ -47,7 +46,7 @@ class Builtin(BuiltinModule):
         dont_inherit = space.unwrap(w_dont_inherit)
 
         c = _b.compile(str, filename, startstr, supplied_flags, dont_inherit)
-        res = PyByteCode()
+        res = pycode.PyByteCode()
         res._from_code(c)
         return space.wrap(res)
     compile = appmethod(compile)
