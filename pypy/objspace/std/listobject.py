@@ -12,7 +12,7 @@ class W_ListObject(W_Object):
         w_self.ob_item = []
         w_self.ob_size = 0
         newlen = len(wrappeditems)
-        list_resize(w_self, newlen)
+        _list_resize(w_self, newlen)
         w_self.ob_size = newlen
         items = w_self.ob_item
         p = newlen
@@ -34,6 +34,8 @@ class W_ListObject(W_Object):
     def extend(w_self, w_seq):
         return list_extend(w_self.space, w_self, w_seq)
 
+    def pop(w_self, w_idx=-1):
+        return list_pop(w_self.space, w_self, w_idx)
 
 def list_unwrap(space, w_list):
     items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]
@@ -73,7 +75,7 @@ def getitem_list_slice(space, w_list, w_slice):
     slicelength = space.unwrap(w_slicelength)
     assert slicelength >= 0
     w_res = W_ListObject(space, [])
-    list_resize(w_res, slicelength)
+    _list_resize(w_res, slicelength)
     subitems = w_res.ob_item
     for i in range(slicelength):
         subitems[i] = items[start]
@@ -92,7 +94,7 @@ StdObjSpace.iter.register(list_iter, W_ListObject)
 def list_add(space, w_list1, w_list2):
     w_res = W_ListObject(space, [])
     newlen = w_list1.ob_size + w_list2.ob_size
-    list_resize(w_res, newlen)
+    _list_resize(w_res, newlen)
     p = 0
     items = w_res.ob_item
     src = w_list1.ob_item
@@ -114,7 +116,7 @@ def list_int_mul(space, w_list, w_int):
     src = w_list.ob_item
     size = w_list.ob_size
     newlen = size * times  # XXX check overflow
-    list_resize(w_res, newlen)
+    _list_resize(w_res, newlen)
     items = w_res.ob_item
     p = 0
     for _ in range(times):
@@ -168,7 +170,7 @@ def setitem_list_slice(space, w_list, w_slice, w_list2):
     slicelength = space.unwrap(w_slicelength)
     assert slicelength >= 0
     w_res = W_ListObject(space, [])
-    list_resize(w_res, slicelength)
+    _list_resize(w_res, slicelength)
     subitems = w_res.ob_item
     for i in range(slicelength):
         subitems[i] = items[start]
@@ -188,12 +190,15 @@ def getattr_list(space, w_list, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('extend'))):
         w_builtinfn = make_builtin_func(space, W_ListObject.extend)
         return W_InstMethObject(space, w_list, w_builtinfn)
+    if space.is_true(space.eq(w_attr, space.wrap('pop'))):
+        w_builtinfn = make_builtin_func(space, W_ListObject.pop)
+        return W_InstMethObject(space, w_list, w_builtinfn)
     raise FailedToImplement(space.w_AttributeError)
 
 StdObjSpace.getattr.register(getattr_list, W_ListObject, W_ANY)
 
 # adapted C code
-def roundupsize(n):
+def _roundupsize(n):
     nbits = r_uint(0)
     n2 = n >> 5
 
@@ -234,7 +239,7 @@ def roundupsize(n):
 for_later = """
 #define NRESIZE(var, type, nitems)              \
 do {                                \
-    size_t _new_size = roundupsize(nitems);         \
+    size_t _new_size = _roundupsize(nitems);         \
     if (_new_size <= ((~(size_t)0) / sizeof(type)))     \
         PyMem_RESIZE(var, type, _new_size);     \
     else                            \
@@ -242,16 +247,16 @@ do {                                \
 } while (0)
 """
 
-def list_resize(w_list, newlen):
+def _list_resize(w_list, newlen):
     if newlen > len(w_list.ob_item):
-        true_size = roundupsize(newlen)
+        true_size = _roundupsize(newlen)
         old_items = w_list.ob_item
         w_list.ob_item = items = [None] * true_size
         for p in range(len(old_items)):
             items[p] = old_items[p]
 
-def ins1(w_list, where, w_any):
-    list_resize(w_list, w_list.ob_size+1)
+def _ins1(w_list, where, w_any):
+    _list_resize(w_list, w_list.ob_size+1)
     size = w_list.ob_size
     items = w_list.ob_item
     if where < 0:
@@ -266,23 +271,54 @@ def ins1(w_list, where, w_any):
     w_list.ob_size += 1
 
 def list_insert(space, w_list, w_where, w_any):
-    ins1(w_list, w_where.intval, w_any)
+    _ins1(w_list, w_where.intval, w_any)
     return space.w_None
 
 def list_append(space, w_list, w_any):
-    ins1(w_list, w_list.ob_size, w_any)
+    _ins1(w_list, w_list.ob_size, w_any)
     return space.w_None
 
 def list_extend(space, w_list, w_any):
     lis = space.unpackiterable(w_any)
     newlen = w_list.ob_size + len(lis)
-    list_resize(w_list, newlen)
+    _list_resize(w_list, newlen)
     d = w_list.ob_size
     items = w_list.ob_item
     for i in range(len(lis)):
         items[d+i] = lis[i]
     w_list.ob_size = newlen
     return space.w_None
+
+def _del_slice(w_list, ilow, ihigh):
+    """ similar to the deletion part of list_ass_slice in CPython """
+    if ilow < 0:
+        ilow = 0
+    elif ilow > w_list.ob_size:
+        ilow = w_list.ob_size
+    if ihigh < ilow:
+        ihigh = ilow
+    elif ihigh > w_list.ob_size:
+        ihigh = w_list.ob_size
+    items = w_list.ob_item
+    d = ihigh-ilow
+    recycle = [items[i] for i in range(ilow, ihigh)]
+    for i in range(ilow, ihigh):
+        items[i] = items[i+d]
+
+# note that the default value will come back wrapped!!!
+def list_pop(space, w_list, w_idx=-1):
+    if w_list.ob_size == 0:
+        raise OperationError(space.w_IndexError,
+                             space.wrap("pop from empty list"))
+    i = w_idx.intval
+    if i < 0:
+        i += w_list.ob_size
+    if i < 0 or i >= w_list.ob_size:
+        raise OperationError(space.w_IndexError,
+                             space.wrap("pop index out of range"))
+    w_res = w_list.ob_item[i]
+    _del_slice(w_list, i, i+1)
+    return w_res
 
 """
 static PyMethodDef list_methods[] = {
