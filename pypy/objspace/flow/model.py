@@ -1,4 +1,8 @@
-basic discussion from 4th of october 2003
+# The model produced by the flowobjspace
+# this is to be used by the translator mainly.
+# 
+# the below object/attribute model evolved from
+# a discussion in Berlin, 4th of october 2003
 
 class FunctionGraph:
     startblock  # 
