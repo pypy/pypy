@@ -256,7 +256,7 @@ def str_title__String(space, w_self):
 
     return space.wrap("".join(buffer))
 
-def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):
+def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     res = []
     inword = 0
     value = w_self._value
@@ -284,7 +284,7 @@ def str_split__String_None_Int(space, w_self, w_none, w_maxsplit=-1):
         res[i] = W_StringObject(space, res[i])
     return W_ListObject(space, res)
 
-def str_split__String_String_Int(space, w_self, w_by, w_maxsplit=-1):
+def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     res = []
     start = 0
     value = w_self._value
@@ -440,7 +440,7 @@ def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
     return space.wrap(res)
 
 
-def str_replace__String_String_String_Int(space, w_self, w_sub, w_by, w_maxsplit=-1):
+def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit=-1):
 
     input = w_self._value
     sub = w_sub._value
@@ -591,7 +591,7 @@ def str_lstrip__String_None(space, w_self, w_chars):
     return _strip_none(space, w_self, left=1, right=0)
 
 
-def str_center__String_Int(space, w_self, w_arg):
+def str_center__String_ANY(space, w_self, w_arg):
     u_self = w_self._value
     u_arg  = space.int_w(w_arg)
 
@@ -684,7 +684,7 @@ def _tabindent(u_token, u_tabsize):
     return distance    
     
     
-def str_expandtabs__String_Int(space, w_self, w_tabsize):   
+def str_expandtabs__String_ANY(space, w_self, w_tabsize):   
     u_self = w_self._value
     u_tabsize  = space.int_w(w_tabsize)
     
@@ -701,9 +701,9 @@ def str_expandtabs__String_Int(space, w_self, w_tabsize):
     return W_StringObject(space, u_expanded)        
  
  
-def str_splitlines__String_Int(space, w_self, w_keepends):
+def str_splitlines__String_ANY(space, w_self, w_keepends):
     u_self = w_self._value
-    u_keepends  = space.is_true(w_keepends)
+    u_keepends  = space.int_w(w_keepends)  # truth value, but type checked
     selflen = len(u_self)
     
     L = []
@@ -720,7 +720,7 @@ def str_splitlines__String_Int(space, w_self, w_keepends):
             break    
     return W_ListObject(space, L)
 
-def str_zfill__String_Int(space, w_self, w_width):
+def str_zfill__String_ANY(space, w_self, w_width):
     input = w_self._value
     width = space.int_w(w_width)
 
