@@ -304,7 +304,7 @@ class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
 
 class __extend__(pairtype(SomeInstance, SomePBC)):
     def union((ins, pbc)):
-        classdef = ins.currentdef().superdef_containing(pbc.knowntype)
+        classdef = ins.classdef.superdef_containing(pbc.knowntype)
         if classdef is None:
             # print warning?
             return SomeObject()
