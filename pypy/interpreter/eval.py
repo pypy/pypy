@@ -65,7 +65,7 @@ class Frame(Wrappable):
         self.w_locals   = None       # wrapped dict of locals
         if numlocals < 0:  # compute the minimal size based on arguments
             numlocals = len(code.getvarnames())
-        self.fastlocals_w = [UNDEFINED]*numlocals  # flat list of wrapped locals
+        self.numlocals = numlocals
 
     def resume(self):
         "Resume the execution of the frame from its current state."
@@ -100,22 +100,20 @@ class Frame(Wrappable):
         self.locals2fast()
 
     def getfastscope(self):
-        "Get the fast locals as a list."
-        return self.fastlocals_w
+        "Abstract. Get the fast locals as a list."
+        raise TypeError, "abstract"
 
     def setfastscope(self, scope_w):
-        """Initialize the fast locals from a list of values,
+        """Abstract. Initialize the fast locals from a list of values,
         where the order is according to self.code.signature()."""
-        if len(scope_w) > len(self.fastlocals_w):
-            raise ValueError, "new fastscope is longer than the allocated area"
-        self.fastlocals_w[:len(scope_w)] = scope_w
+        raise TypeError, "abstract"        
 
     def fast2locals(self):
         # Copy values from self.fastlocals_w to self.w_locals
         if self.w_locals is None:
             self.w_locals = self.space.newdict([])
         varnames = self.code.getvarnames()
-        for name, w_value in zip(varnames, self.fastlocals_w):
+        for name, w_value in zip(varnames, self.getfastscope()):
             if w_value is not UNDEFINED:
                 w_name = self.space.wrap(name)
                 self.space.setitem(self.w_locals, w_name, w_value)
@@ -124,7 +122,10 @@ class Frame(Wrappable):
         # Copy values from self.w_locals to self.fastlocals_w
         assert self.w_locals is not None
         varnames = self.code.getvarnames()
-        for name, i in zip(varnames, range(len(self.fastlocals_w))):
+
+        new_fastlocals_w = [UNDEFINED]*self.numlocals
+        
+        for name, i in zip(varnames, range(self.numlocals)):
             w_name = self.space.wrap(varnames[i])
             try:
                 w_value = self.space.getitem(self.w_locals, w_name)
@@ -132,4 +133,6 @@ class Frame(Wrappable):
                 if not e.match(self.space, self.space.w_KeyError):
                     raise
             else:
-                self.fastlocals_w[i] = w_value
+                new_fastlocals_w[i] = w_value
+
+        self.setfastscope(new_fastlocals_w)

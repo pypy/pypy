@@ -88,16 +88,22 @@ class CPythonFakeCode(eval.Code):
         return [], 'args', 'kwds'
 
 class CPythonFakeFrame(eval.Frame):
-    def run(self):
-        fn = self.code.cpy_callable
-        w_args, w_kwds = self.fastlocals_w
+
+    def setfastscope(self, scope_w):
+        w_args, w_kwds = scope_w
         try:
-            unwrappedargs = self.space.unwrap(w_args)
-            unwrappedkwds = self.space.unwrap(w_kwds)
+            self.unwrappedargs = self.space.unwrap(w_args)
+            self.unwrappedkwds = self.space.unwrap(w_kwds)
         except UnwrapError, e:
             raise UnwrapError('calling %s: %s' % (fn, e))
+
+    def getfastscope(self):
+        raise OperationError(self.space.w_TypeError,
+          self.space.wrap("cannot get fastscope of a CPythonFakeFrame"))                           
+    def run(self):
+        fn = self.code.cpy_callable
         try:
-            result = apply(fn, unwrappedargs, unwrappedkwds)
+            result = apply(fn, self.unwrappedargs, self.unwrappedkwds)
         except:
             wrap_exception(self.space)
         return self.space.wrap(result)

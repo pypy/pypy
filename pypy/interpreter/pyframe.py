@@ -34,6 +34,19 @@ class PyFrame(eval.Frame):
         if code.dictscope_needed():
             self.w_locals = space.newdict([])  # set to None by Frame.__init__
 
+        self.fastlocals_w = [eval.UNDEFINED]*self.numlocals
+
+    def getfastscope(self):
+        "Get the fast locals as a list."
+        return self.fastlocals_w
+
+    def setfastscope(self, scope_w):
+        """Initialize the fast locals from a list of values,
+        where the order is according to self.code.signature()."""
+        if len(scope_w) > len(self.fastlocals_w):
+            raise ValueError, "new fastscope is longer than the allocated area"
+        self.fastlocals_w[:len(scope_w)] = scope_w
+        
     def getclosure(self):
         return None
 

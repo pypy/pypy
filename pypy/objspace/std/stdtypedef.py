@@ -160,23 +160,29 @@ class MultimethodCode(eval.Code):
         return self.framecls(space, self)
 
 class MmFrame(eval.Frame):
+
+    def setfastscope(self, scope_w):
+        args = list(scope_w)
+        args.insert(0, args.pop(self.code.bound_position))
+        self.args = args
+
+    def getfastscope(self):
+        raise OperationError(self.space.w_TypeError,
+          self.space.wrap("cannot get fastscope of a MmFrame"))
+    
     def run(self):
         "Call the multimethod, raising a TypeError if not implemented."
-        args = list(self.fastlocals_w)
-        args.insert(0, args.pop(self.code.bound_position))
-        w_result = self.code.mm(*args)
+        w_result = self.code.mm(*self.args)
         # we accept a real None from operations with no return value
         if w_result is None:
             w_result = self.space.w_None
         return w_result
 
-class SpecialMmFrame(eval.Frame):
+class SpecialMmFrame(MmFrame):
     def run(self):
         "Call the multimethods, possibly returning a NotImplemented."
-        args = list(self.fastlocals_w)
-        args.insert(0, args.pop(self.code.bound_position))
         try:
-            return self.code.mm.perform_call(*args)
+            return self.code.mm.perform_call(*self.args)
         except FailedToImplement, e:
             if e.args:
                 raise OperationError(e.args[0], e.args[1])

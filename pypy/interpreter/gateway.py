@@ -99,8 +99,8 @@ class BuiltinFrame(eval.Frame):
     # Initialization of locals is already done by the time run() is called,
     # via the interface defined in eval.Frame.
 
-    def run(self):
-        argarray = list(self.fastlocals_w)
+    def setfastscope(self, scope_w):
+        argarray = list(scope_w)
         if self.code.generalargs:
             w_kwds = argarray.pop()
             w_args = argarray.pop()
@@ -110,6 +110,14 @@ class BuiltinFrame(eval.Frame):
             argarray += self.space.unpacktuple(w_args)
         if self.code.ismethod:
             argarray[0] = self.space.unwrap(argarray[0])
+        self.argarray = argarray
+
+    def getfastscope(self):
+        raise OperationError(self.space.w_TypeError,
+          self.space.wrap("cannot get fastscope of a BuiltinFrame"))
+
+    def run(self):
+        argarray = self.argarray
         if self.code.spacearg:
             w_result = self.code.func(self.space, *argarray)
         else:

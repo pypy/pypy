@@ -9,7 +9,21 @@ class TestFrame:
         def c(x, y, *args):
             pass
         code = PyCode()._from_code(c.func_code)
-        self.f = Frame(self.space, code, numlocals=5)
+
+        class ConcreteFastscopeFrame(Frame):
+            
+            def __init__(self, space, code, numlocals):
+                Frame.__init__(self, space, code, numlocals=numlocals)
+                self.fastlocals_w = [UNDEFINED] * self.numlocals
+
+            def setfastscope(self, scope_w):
+                self.fastlocals_w = scope_w
+
+            def getfastscope(self):
+                return self.fastlocals_w
+        
+        self.f = ConcreteFastscopeFrame(self.space, code, numlocals=5)
+        
 
     def test_fast2locals(self):
         space = self.space 
