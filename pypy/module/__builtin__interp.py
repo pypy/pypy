@@ -32,7 +32,7 @@ def _caller_locals(w_index=None):
     return _actframe(position).getdictscope()
 
 
-def try_import_mod(w_modulename, f, pkgdir=None):
+def try_import_mod(w_modulename, f, w_parent, w_name, pkgdir=None):
     w = space.wrap
     if os.path.exists(f):
         w_mod = space.wrap(Module(space, w_modulename))
@@ -42,6 +42,8 @@ def try_import_mod(w_modulename, f, pkgdir=None):
             space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
         w_dict = space.getattr(w_mod, w('__dict__'))
         execfile(w(f), w_dict, w_dict)
+        if w_parent is not None:
+            space.setattr(w_parent, w_name, w_mod)
         return w_mod
     else:
         return None
@@ -71,7 +73,7 @@ def __import__(w_modulename, w_globals=None,
     w_mod = check_sys_modules(w_modulename)
     if w_mod is not None:
         return w_mod
-    
+
     w_mod = space.get_builtin_module(modulename)
     if w_mod is not None:
         return w_mod
@@ -83,9 +85,9 @@ def __import__(w_modulename, w_globals=None,
     w_path = space.sys.w_path
 
     first = None
-    
+
     for part in parts:
-        w_mod = load_part(w_path, prefix, part)
+        w_mod = load_part(w_path, prefix, part, w_mod)
         if w_mod is None:
             # ImportError
             w_failing = w('.'.join(prefix+[part]))
@@ -104,12 +106,12 @@ def __import__(w_modulename, w_globals=None,
     if w_fromlist is not None and space.is_true(w_fromlist):
         if w_path is not None:
             for w_name in space.unpackiterable(w_fromlist):
-                load_part(w_path, prefix, space.unwrap(w_name))
+                load_part(w_path, prefix, space.unwrap(w_name), w_mod)
         return w_mod
     else:
-        return first    
+        return first
 
-def load_part(w_path, prefix, partname):
+def load_part(w_path, prefix, partname, w_parent):
     w = space.wrap
     w_modulename = w('.'.join(prefix+[partname]))
     w_mod = check_sys_modules(w_modulename)
@@ -119,11 +121,12 @@ def load_part(w_path, prefix, partname):
         dir = os.path.join(space.unwrap(path), partname)
         if os.path.isdir(dir):
             f = os.path.join(dir,'__init__.py')
-            w_mod = try_import_mod(w_modulename, f, pkgdir=dir)
+            w_mod = try_import_mod(w_modulename, f, w_parent, w(partname),
+                                   pkgdir=dir)
             if w_mod is not None:
                 return w_mod
         f = os.path.join(space.unwrap(path), partname + '.py')
-        w_mod = try_import_mod(w_modulename, f)
+        w_mod = try_import_mod(w_modulename, f, w_parent, w(partname))
         if w_mod is not None:
             return w_mod
 
@@ -140,7 +143,7 @@ def compile(w_str, w_filename, w_startstr,
 
     #print (str_, filename, startstr, supplied_flags, dont_inherit)
     # XXX we additionally allow GENERATORS because compiling some builtins
-    #     requires it. doesn't feel quite right to do that here. 
+    #     requires it. doesn't feel quite right to do that here.
     try:
         c = cpy_builtin.compile(str_, filename, startstr, supplied_flags|4096, dont_inherit)
     # It would be nice to propagate all exceptions to app level,
@@ -198,7 +201,7 @@ def hash(w_object):
     return space.hash(w_object)
 
 def oct(w_val):
-    # XXX does this need to be a space operation? 
+    # XXX does this need to be a space operation?
     return space.oct(w_val)
 
 def hex(w_val):
