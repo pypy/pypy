@@ -1,6 +1,5 @@
 
 import autopath
-from pypy.tool import testit
 from pypy.tool.udir import udir
 
 from pypy.translator.genpyrex import GenPyrex
@@ -14,7 +13,7 @@ from pypy.translator.tool import buildpyxmodule
 buildpyxmodule.enable_fast_compilation()
 
 
-class SourceGenTestCase(testit.IntTestCase):
+class TestSourceGenTestCase:
     def test_simple_func(self):
         """
         one test source:
@@ -30,7 +29,7 @@ class SourceGenTestCase(testit.IntTestCase):
         block.closeblock(Link([result], fun.returnblock))
         result = GenPyrex(fun).emitcode()
         mod = make_module_from_pyxstring('test_source1', udir, result)
-        self.assertEquals(mod.f(1), 2)
+        assert mod.f(1) == 2
 
     def test_if(self):
         """
@@ -55,8 +54,8 @@ class SourceGenTestCase(testit.IntTestCase):
         
         result = GenPyrex(fun).emitcode()
         mod = make_module_from_pyxstring('test_source2', udir, result)
-        self.assertEquals(mod.f(-1, 42), 42)
-        self.assertEquals(mod.f(3, 5), 3)
+        assert mod.f(-1, 42) == 42
+        assert mod.f(3, 5) == 3
 
     def test_while_sum(self):
         """
@@ -91,8 +90,5 @@ class SourceGenTestCase(testit.IntTestCase):
 
         result = GenPyrex(fun).emitcode()
         mod = make_module_from_pyxstring('test_source4', udir, result)
-        self.assertEquals(mod.f(3), 6)
-        self.assertEquals(mod.f(-3), 0)
-
-if __name__ == '__main__':
-    testit.main()
+        assert mod.f(3) == 6
+        assert mod.f(-3) == 0

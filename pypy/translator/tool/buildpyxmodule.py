@@ -1,5 +1,4 @@
 import autopath
-from pypy.tool import testit
 from pypy.tool.udir import udir
 
 from py.process import cmdexec 
@@ -54,7 +53,7 @@ def make_module_from_c(cfile, include_dirs=None):
     lastdir = path.local()
     os.chdir(str(dirpath))
     try:
-        modname = cfile.get('purebasename') 
+        modname = cfile.purebasename 
         if debug: print "modname", modname
         c = stdoutcapture.Capture(mixed_out_err = True)
         try:
@@ -143,10 +142,9 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
         base = udir.join(name).new(ext='.py').write(source) 
 
     if dot:
-        from pypy.translator.tool.make_dot import DotGen
-        dotgen = DotGen()
-        subgraphs = []
-        subgraphs.append(dotgen.getsubgraph(name, funcgraph))
+        from pypy.translator.tool.make_dot import FlowGraphDotGen
+        dotgen = FlowGraphDotGen(name)
+        dotgen.emit_subgraph(name, funcgraph)
 
     # apply transformations 
     if simplify:
@@ -177,13 +175,7 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
 
     if dot:
         if name != func.func_name:  # if some transformations have been done
-            subgraphs.append(dotgen.getsubgraph(name, funcgraph))
-        content = dotgen.getgraph("graph_"+func.func_name, subgraphs)
-        base = udir.join(name)
-        base.new(ext='dot').write(content)
-        base.new(ext='ps')
-        cmdexec('dot -Tps -o %s %s' % (
-            str(base.new(ext='ps')),
-            str(base.new(ext='.dot'))))
+            dotgen.emit_subgraph(name, funcgraph)
+        dotgen.generate()
 
     return getattr(mod, func.func_name)
