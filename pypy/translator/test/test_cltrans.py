@@ -14,6 +14,17 @@ class GenCLTestCase(test.IntTestCase):
             raise test.TestSkip
 
     #___________________________________
+    def if_then_else(cond, x, y):
+        if cond:
+            return x
+        else:
+            return y
+    def test_if(self):
+        cl_if = make_cl_func(self.if_then_else, self.cl, udir)
+        self.assertEquals(cl_if(True, 50, 100), 50)
+        self.assertEquals(cl_if(False, 50, 100), 100)
+
+    #___________________________________
     def my_gcd(a, b):
         r = a % b
         while r:

@@ -1,5 +1,6 @@
 import autopath
 from pypy.translator.flowmodel import *
+from pypy.translator.annotation import Annotator
 
 class Op:
     def __init__(self, gen, op):
@@ -28,20 +29,31 @@ class GenCL:
     def __init__(self, fun):
         self.fun = fun
         self.blockref = {}
+        self.annotate([])
+    def annotate(self, input_arg_types):
+        ann = Annotator(self.fun)
+        ann.build_types(input_arg_types)
+        ann.simplify()
+        self.ann = ann
     def str(self, obj):
         if isinstance(obj, Variable):
             return obj.pseudoname
         elif isinstance(obj, Constant):
             return self.conv(obj.value)
         else:
-            return "#<" # unreadable
+            return "#<"
     def conv(self, val):
         if val is None:
             return "nil"
+        elif isinstance(val, bool): # should precedes int
+            if val:
+                return "t"
+            else:
+                return "nil"
         elif isinstance(val, int):
             return str(val)
         else:
-            return "#<" # unreadable
+            return "#<"
     def emitcode(self):
         import sys
         from cStringIO import StringIO
@@ -69,6 +81,7 @@ class GenCL:
             print "(go", "tag" + str(tag), ")"
             print ")" # close tagbody
             return
+        self.cur_block = block
         print "tag" + str(tag)
         for op in block.operations:
             emit_op = Op(self, op)
@@ -88,7 +101,7 @@ class GenCL:
         if branch.target.has_renaming:
             source = branch.args
             target = branch.target.input_args
-            print "(psetq",   # parallel assignment
+            print "(psetq", # parallel assignment
             for item in zip(source, target):
                 init, var = map(self.str, item)
                 print var, init,
@@ -104,5 +117,20 @@ class GenCL:
         retval = self.str(branch.returnvalue)
         print "(return", retval, ")"
     def emit_truth_test(self, obj):
-        # XXX: Fix this
-        print "(not (zerop", self.str(obj), "))"
+        annset = self.ann.annotated[self.cur_block]
+        tp = annset.get_type(obj)
+        s = self.str
+        if tp is bool:
+            print s(obj)
+        elif tp is int:
+            print "(not (zerop", s(obj), "))"
+        else:
+            print self.template(s(obj), [
+                "(typecase %",
+                "(boolean %)",
+                "(fixnum (not (zerop %)))",
+                ")"])
+    def template(self, sub, seq):
+        def _(x):
+            return x.replace("%", sub)
+        return "\n".join(map(_, seq))
