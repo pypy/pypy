@@ -59,42 +59,56 @@ class ExecutionContext:
         "Trace function called before each bytecode."
         if self.is_tracing or frame.w_f_trace is None:
             return
-
+        code = getattr(frame, 'code')
+        doTrace = code.co_name == 'arigo_example XXX'
+        if doTrace:
+            print frame.instr_lb, frame.last_instr, frame.instr_ub
+            if not hasattr(self, 'dumpedLineno'):
+                self.dumpedLineno = None
+                l = 0
+                a = 0
+                for i in range(0, len(code.co_lnotab),2):
+                    print 'Line %3d: %3d'%(l, a)
+                    a += ord(code.co_lnotab[i])
+                    l += ord(code.co_lnotab[i+1])
+                print 'Line %3d: %3d'%(l, a)
         if frame.instr_lb <= frame.last_instr < frame.instr_ub:
             return
-
-        code = getattr(frame, 'code')
 
         size = len(code.co_lnotab) / 2
         addr = 0
         line = code.co_firstlineno
-        p = iter(code.co_lnotab)
-
+        p = 0
+        lineno = code.co_lnotab
         while size > 0:
-            c = ord(p.next())
+            c = ord(lineno[p])
             if (addr + c) > frame.last_instr:
                 break
             addr += c
             if c:
                 frame.instr_lb = addr
 
-            c = ord(p.next())
-            line += c
+            line += ord(lineno[p + 1])
+            p += 2
             size -= 1
-
+            
         if addr == frame.last_instr:
             frame.f_lineno = line
+            if doTrace:
+                print 'At line', line - code.co_firstlineno, 'addr', addr
             self._trace(frame, 'line', self.space.w_None)
+        elif doTrace:
+            print 'Skipping line', line - code.co_firstlineno, 'addr', addr
 
         if size > 0:
-            size -= 1
-            while size >= 0:
-
-                c = ord(p.next())
-                addr += c
-                if c:
+            while True:
+                size -= 1
+                if size < 0:
                     break
-
+                addr += ord(lineno[p])
+                if ord(lineno[p + 1]):
+                    break
+                p += 2
             frame.instr_ub = addr
         else:
             frame.instr_ub = sys.maxint
@@ -139,6 +153,10 @@ class ExecutionContext:
             w_callback = frame.w_f_trace
         if self.is_tracing or w_callback is None:
             return
+        # To get better results when running test_trace.py
+        #if frame.code.co_filename.find('/lib-python-2.3.4/') <0:
+        #    print 'Skipping', event, frame.code.co_name
+        #    return
         self.is_tracing += 1
         try:
             try:

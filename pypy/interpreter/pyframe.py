@@ -178,8 +178,11 @@ class PyFrame(eval.Frame):
 
     def fset_f_trace(space, w_self, w_trace):
         self = space.interpclass_w(w_self)
-        self.w_f_trace = w_trace
-        
+        if space.is_true(space.is_(w_trace, space.w_None)):
+            self.w_f_trace = None
+        else:
+            self.w_f_trace = w_trace
+            self.f_lineno = self.get_last_lineno()
 ### Frame Blocks ###
 
 class FrameBlock:
