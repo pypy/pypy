@@ -194,6 +194,7 @@ Frame.typedef = TypeDef('internal-frame',
 
 PyCode.typedef = TypeDef('code',
     __new__ = interp2app(PyCode.descr_code__new__.im_func),
+    __eq__ = interp2app(PyCode.descr_code__eq__.im_func),
     co_argcount = interp_attrproperty('co_argcount'),
     co_nlocals = interp_attrproperty('co_nlocals'),
     co_stacksize = interp_attrproperty('co_stacksize'),

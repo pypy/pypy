@@ -158,6 +158,38 @@ class PyCode(eval.Code):
         self = space.interpclass_w(w_self)
         return space.newtuple(self.co_names_w)
 
+    def descr_code__eq__(space, w_self, w_other):
+        self = space.interpclass_w(w_self)
+        other = space.interpclass_w(w_other)
+        if not isinstance(other, PyCode):
+            return space.w_False
+        areEqual = (self.co_name == other.co_name and
+                    self.co_argcount == other.co_argcount and
+                    self.co_nlocals == other.co_nlocals and
+                    self.co_flags == other.co_flags and
+                    self.co_firstlineno == other.co_firstlineno and
+                    self.co_code == other.co_code and
+                    len(self.co_consts_w) == len(other.co_consts_w))
+        if not areEqual:
+            return space.w_False
+
+        for i in xrange(len(self.co_consts_w)):
+            if not space.eq_w(self.co_consts_w[i], other.co_consts_w[i]):
+                return space.w_False
+
+        if len(self.co_names_w) != len(other.co_names_w):
+            return space.w_False
+        
+        for i in xrange(len(self.co_names_w)):
+            if not space.eq_w(self.co_names_w[i], other.co_names_w[i]):
+                return space.w_False
+        if (self.co_varnames == other.co_varnames and
+            self.co_freevars == other.co_freevars and
+            self.co_cellvars == other.co_cellvars):
+            return space.w_True
+
+        return space.w_True
+    
     def descr_code__new__(space, w_subtype,
                           w_argcount, w_nlocals, w_stacksize, w_flags,
                           w_codestring, w_constants, w_names,
@@ -184,6 +216,7 @@ class PyCode(eval.Code):
             code.co_cellvars = unpack_str_tuple(space, w_cellvars)
         return space.wrap(code)
 
+    
 def _really_enhanceclass(key, stuff):
     return type("Mixed", key, {})
 
