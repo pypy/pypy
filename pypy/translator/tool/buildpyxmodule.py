@@ -20,15 +20,14 @@ def make_module_from_pyxstring(name, dirpath, string):
         i+=1
     pyxfile.write(string)
     if debug: print "made pyxfile", pyxfile
-    make_c_from_pyxfile(pyxfile)
-    module = make_module_from_c(pyxfile)
+    cfile = make_c_from_pyxfile(pyxfile)
+    module = make_module_from_c(cfile)
     #print "made module", module
     return module
 
-def make_module_from_c(pyxfile):
+def make_module_from_c(cfile):
     from distutils.core import setup
     from distutils.extension import Extension
-    from Pyrex.Distutils import build_ext
 
     #try:
     #    from distutils.log import set_threshold
@@ -37,11 +36,11 @@ def make_module_from_c(pyxfile):
     #    print "ERROR IMPORTING"
     #    pass
 
-    dirpath = pyxfile.dirpath()
+    dirpath = cfile.dirpath()
     lastdir = path.local()
     os.chdir(str(dirpath))
     try:
-        modname = pyxfile.get('purebasename') 
+        modname = cfile.get('purebasename') 
         if debug: print "modname", modname
         c = stdoutcapture.Capture(mixed_out_err = True)
         try:
@@ -49,9 +48,8 @@ def make_module_from_c(pyxfile):
                 setup(
                   name = "testmodules",
                   ext_modules=[ 
-                        Extension(modname, [str(pyxfile)])
+                        Extension(modname, [str(cfile)])
                   ],
-                  cmdclass = {'build_ext': build_ext},
                   script_name = 'setup.py',
                   script_args = ['-q', 'build_ext', '--inplace']
                   #script_args = ['build_ext', '--inplace']
@@ -88,6 +86,7 @@ def make_c_from_pyxfile(pyxfile):
     except PyrexError, e:
         print >>sys.stderr, e
     cfile = pyxfile.new(ext='.c')
+    return cfile
 
 def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
     """ return a pyrex-generated cfunction from the given func. 
