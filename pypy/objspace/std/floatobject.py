@@ -56,7 +56,7 @@ def int__Float(space, w_value):
 def float_w__Float(space, w_float):
     return w_float.floatval
 
-app = gateway.applevel(''' 
+app = gateway.applevelinterp(''' 
     def repr__Float(f):
         r = "%.17g"%f
         for c in r:

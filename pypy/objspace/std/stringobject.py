@@ -964,7 +964,7 @@ def ord__String(space, w_str):
                        "of length %d found"%(len(w_str._value),)))
     return space.wrap(ord(u_str))
    
-app = gateway.applevel(r'''
+app = gateway.applevelinterp(r'''
     import codecs
     
     def str_translate__String_ANY_ANY(s, table, deletechars=''):
@@ -1000,16 +1000,6 @@ app = gateway.applevel(r'''
         repr += quote
         return repr
 
-    def mod__String_ANY(format, values):
-        import _formatting
-        if isinstance(values, tuple):
-            return _formatting.format(format, values, None)
-        else:
-            if hasattr(values, 'keys'):
-                return _formatting.format(format, (values,), values)
-            else:
-                return _formatting.format(format, (values,), None)
-
     def str_decode__String_ANY_ANY(str, encoding=None, errors=None):
         if encoding is None and errors is None:
             return unicode(str)
@@ -1019,10 +1009,24 @@ app = gateway.applevel(r'''
             return codecs.getdecoder(encoding)(str, errors)[0]
 ''') 
 
+# this one should do the import of _formatting:
+app2 = gateway.applevelinterp('''
+
+    def mod__String_ANY(format, values):
+        import _formatting
+        if isinstance(values, tuple):
+            return _formatting.format(format, values, None)
+        else:
+            if hasattr(values, 'keys'):
+                return _formatting.format(format, (values,), values)
+            else:
+                return _formatting.format(format, (values,), None)
+''')## XXX not yet, error in pow:   , do_imports=('_formatting', '_float_formatting'))
+
 str_translate__String_ANY_ANY = app.interphook('str_translate__String_ANY_ANY') 
 str_decode__String_ANY_ANY = app.interphook('str_decode__String_ANY_ANY') 
-mod__String_ANY = app.interphook('mod__String_ANY') 
 repr__String = app.interphook('repr__String') 
+mod__String_ANY = app2.interphook('mod__String_ANY') 
 
 # register all methods
 from pypy.objspace.std import stringtype

@@ -543,11 +543,12 @@ class applevelinterp(applevel):
     """
     NOT_RPYTHON_ATTRIBUTES = []
 
-    def __init__(self, source, filename = None, modname = 'applevelinterp'):
+    def __init__(self, source, filename = None, modname = 'applevelinterp', do_imports=False):
         "NOT_RPYTHON"
         self.filename = filename
         self.source = source
         self.modname = modname
+        self.do_imports = do_imports
 
     def getwdict(self, space):
         return space.loadfromcache(self, applevelinterp._builddict,
@@ -557,7 +558,7 @@ class applevelinterp(applevel):
         "NOT_RPYTHON"
         from pypy.translator.geninterplevel import translate_as_module
         initfunc = translate_as_module(self.source, self.filename,
-                                       self.modname, tmpname="/tmp/look.py")
+                                       self.modname, self.do_imports)
         w_glob = initfunc(space)
         return w_glob
 

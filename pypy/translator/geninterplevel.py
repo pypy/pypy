@@ -310,11 +310,12 @@ class GenRpy:
         return name
 
     def nameof_module(self, value):
-        assert value is os or not hasattr(value, "__file__") or \
-               not (value.__file__.endswith('.pyc') or
-                    value.__file__.endswith('.py') or
-                    value.__file__.endswith('.pyo')), \
-               "%r is not a builtin module (probably :)"%value
+        #assert value is os or not hasattr(value, "__file__") or \
+        #       not (value.__file__.endswith('.pyc') or
+        #            value.__file__.endswith('.py') or
+        #            value.__file__.endswith('.pyo')), \
+        #       "%r is not a builtin module (probably :)"%value
+        # assume that we get a faked module
         name = self.uniquename('mod_%s' % value.__name__)
         self.initcode.append1('import %s as _tmp' % value.__name__)
         self.initcode.append1('%s = space.wrap(_tmp)' % (name))
@@ -1350,7 +1351,7 @@ entrypoints = (small_loop,
                 test_complex,
                 test_NoneType,
                 all_entries)
-entrypoint = entrypoints[-2]
+entrypoint = entrypoints[5]
 
 if False and __name__ == "__main__":
     # XXX TODO:
@@ -1425,7 +1426,8 @@ class memfile(object):
     def close(self):
         pass
 
-def translate_as_module(sourcetext, filename=None, modname="app2interpexec", tmpname=None):
+def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
+                        do_imports=None, tmpname=None):
     """ compile sourcetext as a module, translating to interp level.
     The result is the init function that creates the wrapped module dict.
     This init function needs a space as argument.
@@ -1434,18 +1436,31 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec", tmp
     Example:
 
     initfunc = translate_as_module(text)
-    from pypy.objspace.stdimport Space
+    from pypy.objspace.std import Space
     space = Space()
     dic = ini(space)
     # and now use the members of the dict
     """
     # create something like a module
+    if "_formatting" in sourcetext: tmpname="/tmp/look.py"
     if filename is None: 
         code = py.code.Source(sourcetext).compile()
     else: 
         code = compile(sourcetext, filename, 'exec') 
     dic = {'__name__': modname}
     exec code in dic
+    print do_imports
+    if do_imports:
+        # add lib folder to path
+        hold = sys.path
+        sys.path.insert(0, os.path.join(pypy.__path__[0], "lib"))
+        for modname in do_imports:
+            print 100*modname
+            mod = __import__(modname)
+            try: del mod.__builtins__
+            except:pass
+            dic.update(mod.__dict__)
+        sys.path = hold
     del dic['__builtins__']
     entrypoint = dic
     t = Translator(None, verbose=False, simplifying=True,
