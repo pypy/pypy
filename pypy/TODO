@@ -1,3 +1,8 @@
+General
+=======
+
+* not all of CPython's exceptions use the same __init__!
+
 StdObjSpace
 ===========
 
