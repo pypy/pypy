@@ -26,3 +26,22 @@ class W_DictType(W_TypeObject):
     dict_iterkeys   = MultiMethod('iterkeys',   1)
     dict_itervalues = MultiMethod('itervalues', 1)
     
+# XXX we'll worry about the __new__/__init__ distinction later
+def dicttype_new(space, w_listtype, w_args, w_kwds):
+    # w_kwds = w_kwds.copy() w unwrap & rewrap, but that should not be needed
+    args = space.unpackiterable(w_args)
+    if len(args) == 0:
+        pass
+    elif len(args) == 1:
+        list_of_w_pairs = space.unpackiterable(args[0])
+        list_of_w_pairs.reverse()
+        for pair_w in list_of_w_pairs:
+            k, v = space.unpackiterable(pair_w)
+            if not space.is_true(space.contains(w_kwds, k)):
+                space.setitem(w_kwds, k, v)
+    else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("dict() takes at most 1 argument"))
+    return w_kwds
+
+StdObjSpace.new.register(dicttype_new, W_DictType, W_ANY, W_ANY)

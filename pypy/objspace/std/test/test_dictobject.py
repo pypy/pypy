@@ -188,5 +188,18 @@ class Test_DictObject(test.AppTestCase):
         vals.sort()
         self.assertEqual(vals, [2,4])
 
+    def test_new(self):
+        d = dict()
+        self.assertEqual(d, {})
+        d = dict([])
+        self.assertEqual(d, {})
+        d = dict([['a',2], [23,45]])
+        self.assertEqual(d, {'a':2, 23:45})
+        d = dict([['a',2], [23,45]], a=33, b=44)
+        self.assertEqual(d, {'a':33, 'b':44, 23:45})
+        d = dict(a=33, b=44)
+        self.assertEqual(d, {'a':33, 'b':44})
+        
+
 if __name__ == '__main__':
     test.main()
