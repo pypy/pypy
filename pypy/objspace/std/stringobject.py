@@ -933,7 +933,7 @@ def mul_string_times(space, w_str, mul):
 def mul__String_ANY(space, w_str, w_times):
     return mul_string_times(space, w_str, space.int_w(w_times))
 
-def mul__ANY_String(space, w_mul, w_str):
+def mul__ANY_String(space, w_times, w_str):
     return mul_string_times(space, w_str, space.int_w(w_times))
 
 def add__String_String(space, w_left, w_right):
