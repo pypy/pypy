@@ -23,9 +23,9 @@ def _parse_string(s, literal, base, fname):
     sign = 1
     if s.startswith('-'):
         sign = -1
-        s = s[1:]
+        s = strip_spaces(s[1:])
     elif s.startswith('+'):
-        s = s[1:]
+        s = strip_spaces(s[1:])
     if base == 0:
         if s.startswith('0x') or s.startswith('0X'):
             base = 16
