@@ -16,12 +16,13 @@ class W_TypeObject(W_Object):
         w_self.dict_w = dict_w
         w_self.ensure_static__new__()
 
-        w_self.mro_w = compute_C3_mro(space, w_self)
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
+            w_self.hasdict = overridetypedef.hasdict
         else:
             # find the most specific typedef
             instancetypedef = object_typedef
+            w_self.hasdict = False
             for w_base in bases_w:
                 if not space.is_true(space.isinstance(w_base, space.w_type)):
                     continue
@@ -31,12 +32,11 @@ class W_TypeObject(W_Object):
                     raise OperationError(space.w_TypeError,
                                 space.wrap("instance layout conflicts in "
                                                     "multiple inheritance"))
+                w_self.hasdict = w_self.hasdict or w_base.hasdict
             w_self.instancetypedef = instancetypedef
-        # XXX - this w_self.lookup('__dict__') is why we precalculate a C3 mro
-        #       even for instances that may override the mro.  This probably is not
-        #       a good thing to do.
-        if forcedict and not w_self.lookup('__dict__'):
+         if forcedict and not w_self.hasdict:
             w_self.dict_w['__dict__'] = space.wrap(std_dict_descr)
+            w_self.hasdict = True
         if overridetypedef is None:
             w_type = space.type(w_self)
             if not space.is_true(space.is_(w_type, space.w_type)):
@@ -44,7 +44,11 @@ class W_TypeObject(W_Object):
                 mro_func_args = Arguments(space, [w_self])
                 w_mro = space.call_args(mro_func, mro_func_args)
                 w_self.mro_w = space.unpackiterable(w_mro)
+                return
+        w_self.mro_w = w_self.compute_mro()
 
+    def compute_mro(w_self):
+        return compute_C3_mro(w_self.space, w_self)
 
     def ensure_static__new__(w_self):
         # special-case __new__, as in CPython:

@@ -47,7 +47,7 @@ def descr_get__mro__(space, w_type):
     return space.newtuple(w_type.mro_w)
 
 def descr_mro(space, w_type):
-    return space.newlist(w_type.mro_w)
+    return space.newlist(w_type.compute_mro())
 
 def descr__bases(space, w_type):
     return space.newtuple(w_type.bases_w)
