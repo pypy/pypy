@@ -1,7 +1,7 @@
 # ______________________________________________________________________
 import sys, operator, types
 import pypy
-from pypy.interpreter.baseobjspace import ObjSpace, NoValue
+from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.model import *
@@ -22,7 +22,7 @@ class FlowObjSpace(ObjSpace):
         self.w_None     = Constant(None)
         self.w_False    = Constant(False)
         self.w_True     = Constant(True)
-        for exc in [KeyError, ValueError]:
+        for exc in [KeyError, ValueError, StopIteration]:
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, Constant(exc))
         #self.make_builtins()
@@ -106,7 +106,7 @@ class FlowObjSpace(ObjSpace):
         context = self.getexecutioncontext()
         outcome = context.guessbool(w_curexc, [None, StopIteration])
         if outcome is StopIteration:
-            raise NoValue
+            raise OperationError(self.w_StopIteration, self.w_None)
         else:
             return w_item
 

@@ -158,7 +158,7 @@ def make_dot_graphs(basefilename, graphs, storedir=None, target='ps'):
     source = dotgen.getgraph(basefilename, subgraphs)
     #print source
     dest.write(source)
-    psdest = dest.newext(target)
+    psdest = dest.new(ext=target)
     out = cmdexec('dot -T%s %s' % (target, str(dest)))
     psdest.write(out)
     #print "wrote", psdest
