@@ -226,7 +226,7 @@ class FlowTracer(object):
         func = self.space.unwrap(w_func)
         if hasattr(func, "func_code"):        
             graph = self.flow_space.build_flow(func)
-            graph = simplify_graph(graph)
+            simplify_graph(graph)
             if self.debug:
                 debug(func) 
             return self.execute_function(graph, *args_w)
