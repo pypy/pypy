@@ -193,11 +193,12 @@ class FlowObjSpace(ObjSpace):
 
     def call_args(self, w_callable, args):
         try:
-            sc = self.specialcases[self.unwrap(w_callable)]
+            fn = self.unwrap(w_callable)
+            sc = self.specialcases[fn]
         except (UnwrapException, KeyError):
             pass
         else:
-            return sc(self, args)
+            return sc(self, fn, args)
 
         if args.kwds_w:
             w_args, w_kwds = args.pack()

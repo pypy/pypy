@@ -267,6 +267,33 @@ class TestFlowObjSpace(testit.TestCase):
         x = self.codetest(self.globalconstdict)
         self.show(x)
 
+    #__________________________________________________________
+    def specialcases():
+        import operator
+        operator.lt(2,3)
+        operator.le(2,3)
+        operator.eq(2,3)
+        operator.ne(2,3)
+        operator.gt(2,3)
+        operator.ge(2,3)
+        operator.is_(2,3)
+        operator.__lt__(2,3)
+        operator.__le__(2,3)
+        operator.__eq__(2,3)
+        operator.__ne__(2,3)
+        operator.__gt__(2,3)
+        operator.__ge__(2,3)
+    
+    def test_specialcases(self):
+        x = self.codetest(self.specialcases)
+        self.assertEquals(len(x.startblock.operations), 13)
+        for op in x.startblock.operations:
+            self.assert_(op.opname in ['lt', 'le', 'eq', 'ne',
+                                       'gt', 'ge', 'is_'])
+            self.assertEquals(len(op.args), 2)
+            self.assertEquals(op.args[0].value, 2)
+            self.assertEquals(op.args[1].value, 3)
+
 DATA = {'x': 5,
         'y': 6}
 
