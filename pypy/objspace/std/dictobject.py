@@ -1,6 +1,7 @@
 from objspace import *
 from stringobject import W_StringObject
-
+from instmethobject import W_InstMethObject
+from pypy.interpreter.extmodule import make_builtin_func
 
 class _NoValueInCell: pass
 
@@ -47,6 +48,17 @@ class W_DictObject(W_Object):
 
     def cell(self,space,w_lookup):
         return space.wrap(self._cell(space,w_lookup))
+
+    def copy(w_self):
+        return W_DictObject(w_self.space,[(w_key,cell.get())
+                                          for w_key,cell in
+                                          w_self.non_empties()])
+    def items(w_self):
+        space = w_self.space
+        return space.newlist([ space.newtuple([w_key,cell.get()])
+                               for w_key,cell in
+                               w_self.non_empties()])
+        
                 
 def dict_is_true(space, w_dict):
     return not not w_dict.non_empties()
@@ -99,3 +111,14 @@ def contains_dict_any(space, w_dict, w_lookup):
     return space.w_False
 
 StdObjSpace.contains.register(contains_dict_any, W_DictObject, W_ANY)
+
+def getattr_dict(space, w_dict, w_attr):
+    if space.is_true(space.eq(w_attr, space.wrap('copy'))):
+        w_builtinfn = make_builtin_func(space, W_DictObject.copy)
+        return W_InstMethObject(space, w_dict, w_builtinfn)
+    if space.is_true(space.eq(w_attr, space.wrap('items'))):
+        w_builtinfn = make_builtin_func(space, W_DictObject.items)
+        return W_InstMethObject(space, w_dict, w_builtinfn)    
+    raise FailedToImplement(space.w_AttributeError)
+
+StdObjSpace.getattr.register(getattr_dict, W_DictObject, W_ANY)
