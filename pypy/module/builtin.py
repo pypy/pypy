@@ -47,7 +47,7 @@ class __builtin__(ExtModule):
                 return w_mod
 
             import os
-            for path in space.sys.path:
+            for path in space.unpackiterable(space.sys.w_path):
                 f = os.path.join(path, space.unwrap(w_modulename) + '.py')
                 if os.path.exists(f):
                     w_mod = space.wrap(Module(space, w_modulename))

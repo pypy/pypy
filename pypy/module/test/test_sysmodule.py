@@ -19,6 +19,12 @@ class AppSysTests(test.AppTestCase):
     def test_modules_exists(self):
         import sys
         self.failUnless(hasattr(sys, 'modules'), "sys.modules gone missing")
+    def test_dict_exists(self):
+        import sys
+        self.failUnless(hasattr(sys, '__dict__'), "sys.__dict__ gone missing")
+    def test_name_exists(self):
+        import sys
+        self.failUnless(hasattr(sys, '__name__'), "sys.__name__ gone missing")
 
 if __name__ == '__main__':
     test.main()

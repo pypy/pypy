@@ -241,6 +241,17 @@ def exportall(d):
             if 'app_'+name not in d:
                 d['app_'+name] = interp2app(obj, name)
 
+def export_values(space, dic, w_namespace):
+    for name, w_value in dic.items():
+        if name.startswith('w_'):
+            if name == 'w_dict':
+                w_name = space.wrap('__dict__')
+            elif name == 'w_name':
+                w_name = space.wrap('__name__')
+            else:
+                w_name = space.wrap(name[2:])
+            space.setitem(w_namespace, w_name, w_value)
+
 def importall(d):
     """Import all app_-level functions as Gateways into a dict."""
     for name, obj in d.items():

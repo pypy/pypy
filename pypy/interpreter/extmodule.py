@@ -34,6 +34,7 @@ class ExtModule(Module):
                         continue  
                     space.call_method(self.w_dict, 'setdefault', 
                                       space.wrap(name), space.wrap(value))
+        gateway.export_values(space, self.__dict__, self.w_dict)
 
     __metaclass__ = InitializedClass
     def __initclass__(cls):

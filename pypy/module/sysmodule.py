@@ -17,7 +17,7 @@ class Sys(ExtModule):
         opd = os.path.dirname
         pypydir = opd(opd(os.path.abspath(pypy.__file__)))
         appdir = os.path.join(pypydir, 'pypy', 'appspace')
-        self.path = [appdir] + [p for p in cpy_sys.path if p!= pypydir]
+        self.w_path = space.newlist([appdir] + [p for p in cpy_sys.path if p!= pypydir])
         self.w_modules = space.newdict([])
         ExtModule.__init__(self, space)
 
