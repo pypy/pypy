@@ -242,7 +242,7 @@ def factorial(n=int):
 
 def factorial2(n=int):   # analysed in a different order
     if n > 1:
-        return n * factorial(n-1)
+        return n * factorial2(n-1)
     else:
         return 1
 
