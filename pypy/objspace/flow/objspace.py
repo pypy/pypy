@@ -85,7 +85,8 @@ class FlowObjSpace(ObjSpace):
     # ____________________________________________________________
     def do_operation(self, name, *args_w):
         spaceop = SpaceOperation(name, args_w, Variable())
-        self.executioncontext.crnt_ops.append(spaceop)
+        if hasattr(self, 'executioncontext'):  # not here during bootstrapping
+            self.executioncontext.crnt_ops.append(spaceop)
         return spaceop.result
     
     def is_true(self, w_obj):

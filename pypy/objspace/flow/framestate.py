@@ -11,6 +11,7 @@ class FrameState:
                 state.blockstack.items[:],
                 state.last_exception,
                 state.next_instr,
+                state.w_locals,
             )
         elif isinstance(state, tuple):
             self.mergeable, self.nonmergeable = state
@@ -27,6 +28,7 @@ class FrameState:
                 frame.blockstack.items[:],
                 frame.last_exception,
                 frame.next_instr,
+                frame.w_locals,
             ) = self.nonmergeable
         else:
             raise TypeError("can't set framestate for %r" % 

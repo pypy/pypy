@@ -69,7 +69,7 @@ class FlowExecutionContext(ExecutionContext):
         ExecutionContext.__init__(self, space)
         self.code = code
         self.w_globals = w_globals = space.wrap(globals)
-        frame = code.create_frame(space, w_globals)
+        frame = self.create_frame()
         formalargcount = code.getformalargcount()
         dummy = UndefinedConstant()
         arg_list = ([Variable() for i in range(formalargcount)] +
@@ -81,6 +81,12 @@ class FlowExecutionContext(ExecutionContext):
         initialblock = SpamBlock(FrameState(frame).copy())
         self.pendingblocks = [initialblock]
         self.graph = FunctionGraph(code.co_name, initialblock)
+
+    def create_frame(self):
+        # create an empty frame suitable for the code object
+        # while ignoring any operation like the creation of the locals dict
+        self.crnt_ops = []
+        return self.code.create_frame(self.space, self.w_globals)
 
     def bytecode_trace(self, frame):
         if isinstance(self.crnt_ops, ReplayList):
@@ -148,7 +154,7 @@ class FlowExecutionContext(ExecutionContext):
     def build_flow(self):
         while self.pendingblocks:
             block = self.pendingblocks.pop(0)
-            frame = self.code.create_frame(self.space, self.w_globals)
+            frame = self.create_frame()
             try:
                 block.patchframe(frame, self)
             except ExitFrame:
