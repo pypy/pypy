@@ -3,12 +3,10 @@ from pypy.tool.udir import udir
 import py 
 import os
 
-def get_cl():
-    cl = os.getenv("PYPY_CL")
-    if cl: return cl
-    cl = cl_detect()
-    if cl: return cl
-    return None
+def setup_module(mod): 
+    mod.global_cl = os.getenv("PYPY_CL")
+    if not mod.global_cl:  
+        mod.global_cl = cl_detect()
 
 def cl_detect():
     if is_on_path("clisp"):
@@ -23,11 +21,11 @@ def cl_detect():
 
 def is_on_path(name):
     try:
-        return os.system("which %s >/dev/null 2>/dev/null" % name) == 0
-    except OSError:
-        pass
-
-global_cl = get_cl()
+        py.path.local.sysfind(name) 
+    except py.error.ENOENT: 
+        return False 
+    else: 
+        return True 
 
 def make_cl_func(func, argtypes=[]):
     from pypy.translator.tool.buildcl import _make_cl_func
@@ -38,7 +36,6 @@ from pypy.translator.test import snippet as t
 from pypy.translator.tool.buildcl import Literal
 
 class TestGenCLTestCase:
-
     objspacename = 'flow'
 
     def setup_method(self,method):
