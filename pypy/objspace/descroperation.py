@@ -52,8 +52,6 @@ class Object:
     def descr__init__(space, w_obj, __args__):
         pass   # XXX some strange checking maybe
 
-SlotWrapper = type(None).__repr__
-
 class DescrOperation:
 
     def getdict(space, w_obj):
