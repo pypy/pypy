@@ -126,10 +126,15 @@ def dump_table(mm, impls):
 
 if __name__ == '__main__':
     impls = import_implementations()
-    print impls
+    total = 0
+    restrict = sys.argv[1:]
     for name, mm in list_multimethods():
-        print
-        print '==========', name, '=========='
-        print >> sys.stderr, name   # progress bar
-        print
-        dump_table(mm, impls)
+        if not restrict or name in restrict:
+            print
+            print '==========', name, '=========='
+            print >> sys.stderr, name   # progress bar
+            print
+            dump_table(mm, impls)
+            total += 1
+    if not total:
+        print >> sys.stderr, "no matching multimethod name"
