@@ -71,7 +71,7 @@ class PyFrame:
                 except ControlFlowException, ctlflowexc:
                     # we have a reason to change the control flow
                     # (typically unroll the stack)
-                    ctlflowexc.action(self, last_instr)
+                    ctlflowexc.action(self, last_instr, executioncontext)
             
         except ExitFrame, e:
             # leave that frame
@@ -262,7 +262,7 @@ class ControlFlowException(Exception):
 		WHY_YIELD	SYieldValue
 
     """
-    def action(self, frame, last_instr):
+    def action(self, frame, last_instr, executioncontext):
         "Default unroller implementation."
         try:
             while not frame.blockstack.empty():
@@ -303,7 +303,7 @@ class SReturnValue(ControlFlowException):
 class SYieldValue(ControlFlowException):
     """Signals a 'yield' statement.
     Argument is the wrapped object to return."""
-    def action(self, frame, last_instr):
+    def action(self, frame, last_instr, executioncontext):
         # XXX generators
         raise OperationError(frame.space.w_Exception,
                              frame.space.wrap("generators are not ready yet"))

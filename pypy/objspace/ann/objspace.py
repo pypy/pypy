@@ -53,8 +53,10 @@ class AnnotationObjSpace(ObjSpace):
         raise OperationError(self.wrap(t), self.wrap(v))
 
     def is_true(self, w_obj):
-        if hasattr(w_obj, "force"):
-            return w_obj.force # Forced by cloning machinery
+        if w_obj.force is not None:
+            force = w_obj.force
+            w_obj.force = None
+            return force # Forced by cloning machinery
         if isinstance(w_obj, W_KnownKeysContainer):
             return bool(len(w_obj))
         try:
@@ -164,10 +166,13 @@ class AnnotationObjSpace(ObjSpace):
         return W_Anything()
 
     def next(self, w_iterator):
-        if hasattr(w_iterator, "force"):
-            if w_iterator.force:
+        if w_iterator.force is not None:
+            force = w_iterator.force
+            w_iterator.force = None
+            if force:
                 return W_Anything()
-            raise NoValue
+            else:
+                raise NoValue
         raise IndeterminateCondition(w_iterator)
 
     def call(self, w_func, w_args, w_kwds):

@@ -10,17 +10,25 @@ union of constants or other types too, in some cases.
 
 class W_Object(object):
     """Abstract base class.  do not instantiate."""
+
+    force  = None # See cloningcontext.py
+
     def __new__(cls, *args, **kwd):
         assert cls is not W_Object
         return object.__new__(cls)
+
     def __init__(self):
         pass
+
     def __repr__(self):
         return "%s(%s)" % (self.__class__.__name__, self.argsrepr())
+
     def argsrepr(self):
         return ""
+
     def __eq__(self, other):
         return type(other) is type(self)
+
     def __ne__(self, other):
         return not self.__eq__(other)
 
@@ -38,25 +46,34 @@ class W_Integer(W_Object):
 
 class W_Constant(W_Object):
     """A specific constant value."""
+
     def __init__(self, value):
         self.value = value
+
     def argsrepr(self):
         return repr(self.value)[:50]
+
     def __eq__(self, other):
         return type(other) is type(self) and self.value == other.value
 
 class W_KnownKeysContainer(W_Object):
     """A dict with constant set of keys or a tuple with known length."""
+
     def __init__(self, args_w):
         self.args_w = args_w
+
     def argsrepr(self):
         return repr(self.args_w)
+
     def __eq__(self, other):
         return type(other) is type(self) and self.args_w == other.args_w
+
     def __len__(self):
         return len(self.args_w)
+
     def __getitem__(self, i):
         return self.args_w[i]
+
     def clone(self):
         args_w = self.args_w
         if isinstance(args_w, dict):
