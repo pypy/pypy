@@ -29,7 +29,10 @@ StdObjSpace
 * Review, enhance the new mixed-level module mechanism
   (e.g. the module/builtin*.py files comprise the builtin module)
   and try to apply the same technique for the application level 
-  type definitions (types.py) 
+  type definitions (types.py). Think about a way to split up
+  especially app-level definitions of __builtin__ into multiple
+  files. (like allowing __builtin__ to be a directory with files
+  comprising the complete definition of the builtin module etc.pp) 
 
 * review whatever you like 
 
@@ -42,7 +45,9 @@ StdObjSpace
 
   http://codespeak.net/pypy/index.cgi?doc/objspace/multimethod
 
-  (now irrelevant?  not sure...)
+  (now irrelevant?  not sure... (nowadays, we have the descriptor 
+  mechanism implemented right before EuroPython 2004 for both the 
+  trivial and the stdobjspace))
 
 Translator
 ==========
@@ -54,7 +59,9 @@ Tools
 
 * add web server thread (!) that allows inspection of e.g. app-level
   tracebacks (and stop clogging the user's terminal with them).
+  --> there is some preliminary working code in tool/tb_server 
 
 * improve traceobjectspace! currently it only catches 
   calls from outside the space into the space but not
-  the ones where the space calls operations on itself! 
+  the ones where space operations involve calling more space 
+  operations (the latter are not traced)! 
