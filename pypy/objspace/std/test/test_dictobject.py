@@ -250,6 +250,31 @@ class Test_DictObject(test.AppTestCase):
         vals.sort()
         self.assertEqual(vals, [2,4])
 
+    def test_eq(self):
+        d1 = {1:2, 3:4}
+        d2 = {1:2, 3:4}
+        d3 = {1:2}
+        bool = d1 == d2
+        self.assertEqual(bool, True)
+        bool = d1 == d3
+        self.assertEqual(bool, False)
+        bool = d1 != d2
+        self.assertEqual(bool, False)
+        bool = d1 != d3
+        self.assertEqual(bool, True)
+
+    def test_lt(self):
+        d1 = {1:2, 3:4}
+        d2 = {1:2, 3:4}
+        d3 = {1:2, 3:5}
+        d4 = {1:2}
+        bool = d1 < d2
+        self.assertEqual(bool, False)
+        bool = d1 < d3
+        self.assertEqual(bool, True)
+        bool = d1 < d4
+        self.assertEqual(bool, False)
+        
     def tooslow_test_new(self):
         d = dict()
         self.assertEqual(d, {})
