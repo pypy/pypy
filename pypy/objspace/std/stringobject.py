@@ -110,6 +110,70 @@ def str_is_true(space, w_str):
 
 StdObjSpace.is_true.register(str_is_true, W_StringObject)
 
+
+EQ = 1
+LE = 2
+GE = 3
+GT = 4
+LT = 5
+NE = 6
+
+def string_richcompare(space, w_str1, w_str2, op):
+    str1 = w_str1._value
+    str2 = w_str2._value
+
+    if space.is_(str1, str2):
+        if op == EQ or op == LE or op == GE:
+            return space.w_True
+        elif op == GT or op == LT or op == NE:
+            return space.w_False
+    else:
+        if op == EQ:
+            if val1.len == val2.len:
+                for i in range(val1.len):
+                    if ord(val1.charat(i)) != ord(val2.charat(i)):
+                        return space.w_False
+                return space.w_True
+            else:
+                return space.w_False
+        else:
+            if val1.len > val2.len:
+                min_len = val2.len
+            else:
+                min_len = val1.len
+
+            idx = 0
+            if (min_len > 0):
+                while (c == 0) and (idx < min_len):
+                    c = ord(val1.charat[idx]) - ord(val2.charat[idx])
+                    idx = idx + 1
+            else:
+                c = 0
+
+        if (c == 0):
+            if val1.len < val2.len:
+                c = -1
+            elif val1.len > val2.leb:
+                c = 1
+            else:
+                c = 0
+
+        if op == LT:
+            return space.newbool(c < 0)
+        elif op == LE:
+            return space.newbool(c <= 0)
+        elif op == NE:
+            return space.newbool(c != 0)
+        elif op == GT:
+            return space.newbook(c > 0)
+        elif op == GE:
+            return space.newbool(c >= 0)
+        else:
+            raise NotImplemented
+
+
+
+
 def str_str_lt(space, w_str1, w_str2):
     i = w_str1._value.value()
     j = w_str2._value.value()

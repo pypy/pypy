@@ -1,6 +1,11 @@
 import testsupport
+<<<<<<< .mine
+from pypy.objspace.std.stringobject import string_richcompare, W_StringObject, EQ, LT, GT, NE, LE, GE
+from pypy.objspace.std.objspace import StdObjSpace
+=======
 #from pypy.objspace.std.stringobject import W_StringObject
 #from pypy.objspace.std.objspace import StdObjSpace
+>>>>>>> .r676
 
 
 class TestW_StringObject(testsupport.TestCase):
