@@ -1,7 +1,7 @@
 from pypy.objspace.std.objspace import *
-from intobject import W_IntObject
-from sliceobject import W_SliceObject
-import slicetype
+from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std import slicetype
 
 
 class W_TupleObject(W_Object):
@@ -49,7 +49,7 @@ def getitem__Tuple_Slice(space, w_tuple, w_slice):
     return W_TupleObject(space, subitems)
 
 def iter__Tuple(space, w_tuple):
-    import iterobject
+    from pypy.objspace.std import iterobject
     return iterobject.W_SeqIterObject(space, w_tuple)
 
 def add__Tuple_Tuple(space, w_tuple1, w_tuple2):

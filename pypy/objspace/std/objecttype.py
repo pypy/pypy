@@ -23,7 +23,7 @@ def descr__class__(space, w_obj):
 
 def descr__new__(space, w_type, *args_w, **kwds_w):
     # XXX 2.2 behavior: ignoring all arguments
-    from objectobject import W_ObjectObject
+    from pypy.objspace.std.objectobject import W_ObjectObject
     w_obj = space.allocate_instance(W_ObjectObject, w_type)
     w_obj.__init__(space)
     return w_obj

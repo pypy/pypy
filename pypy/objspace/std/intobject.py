@@ -1,6 +1,6 @@
 from pypy.objspace.std.objspace import *
-from noneobject import W_NoneObject
-from restricted_int import r_int, LONG_BIT
+from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.restricted_int import r_int, LONG_BIT
 
 """
 The implementation of integers is a bit difficult,
@@ -18,7 +18,7 @@ RPython, just for test purposes.
 """
 
 class W_IntObject(W_Object):
-    from inttype import int_typedef as typedef
+    from pypy.objspace.std.inttype import int_typedef as typedef
     
     def __init__(w_self, space, intval):
         W_Object.__init__(w_self, space)

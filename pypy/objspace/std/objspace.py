@@ -53,17 +53,17 @@ class StdObjSpace(ObjSpace, DescrOperation):
         class result:
             "Import here the types you want to have appear in __builtin__."
 
-            from objecttype import object_typedef
-            from booltype   import bool_typedef
-            from inttype    import int_typedef
-            from floattype  import float_typedef
-            from tupletype  import tuple_typedef
-            from listtype   import list_typedef
-            from dicttype   import dict_typedef
-            from stringtype import str_typedef
-            from typetype   import type_typedef
-            from slicetype  import slice_typedef
-            from longtype   import long_typedef
+            from pypy.objspace.std.objecttype import object_typedef
+            from pypy.objspace.std.booltype   import bool_typedef
+            from pypy.objspace.std.inttype    import int_typedef
+            from pypy.objspace.std.floattype  import float_typedef
+            from pypy.objspace.std.tupletype  import tuple_typedef
+            from pypy.objspace.std.listtype   import list_typedef
+            from pypy.objspace.std.dicttype   import dict_typedef
+            from pypy.objspace.std.stringtype import str_typedef
+            from pypy.objspace.std.typetype   import type_typedef
+            from pypy.objspace.std.slicetype  import slice_typedef
+            from pypy.objspace.std.longtype   import long_typedef
 	return [value for key, value in result.__dict__.items()
                       if not key.startswith('_')]   # don't look
 
@@ -139,19 +139,19 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # The object implementations that we want to 'link' into PyPy must be
         # imported here.  This registers them into the multimethod tables,
         # *before* the type objects are built from these multimethod tables.
-        import objectobject
-        import boolobject
-        import intobject
-        import floatobject
-        import tupleobject
-        import listobject
-        import dictobject
-        import stringobject
-        import typeobject
-        import sliceobject
-        import longobject
-        import noneobject
-	import cpythonobject
+        from pypy.objspace.std import objectobject
+        from pypy.objspace.std import boolobject
+        from pypy.objspace.std import intobject
+        from pypy.objspace.std import floatobject
+        from pypy.objspace.std import tupleobject
+        from pypy.objspace.std import listobject
+        from pypy.objspace.std import dictobject
+        from pypy.objspace.std import stringobject
+        from pypy.objspace.std import typeobject
+        from pypy.objspace.std import sliceobject
+        from pypy.objspace.std import longobject
+        from pypy.objspace.std import noneobject
+	from pypy.objspace.std import cpythonobject
 	# hack to avoid imports in the time-critical functions below
         global W_ObjectObject, W_BoolObject, W_IntObject, W_FloatObject
 	global W_TupleObject, W_ListObject, W_DictObject, W_StringObject

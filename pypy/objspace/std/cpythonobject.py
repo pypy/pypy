@@ -3,7 +3,7 @@
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter.function import Function
-from default import UnwrapError
+from pypy.objspace.std.default import UnwrapError
 import sys, operator, types
 
 class W_BuiltinFunctionObject(Function):

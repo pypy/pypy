@@ -1,5 +1,5 @@
 from pypy.objspace.std.objspace import *
-from noneobject import W_NoneObject
+from pypy.objspace.std.noneobject import W_NoneObject
 
 ##############################################################
 # for the time being, all calls that are made to some external
@@ -8,7 +8,7 @@ from noneobject import W_NoneObject
 ##############################################################
 
 import math
-from intobject import W_IntObject
+from pypy.objspace.std.intobject import W_IntObject
 
 class W_FloatObject(W_Object):
     """This is a reimplementation of the CPython "PyFloatObject" 

@@ -1,11 +1,11 @@
 from pypy.objspace.std.objspace import *
-from intobject import W_IntObject
-from sliceobject import W_SliceObject
-from tupleobject import W_TupleObject
+from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std.tupleobject import W_TupleObject
 
-import slicetype
+from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
-from restricted_int import r_int, r_uint
+from pypy.objspace.std.restricted_int import r_int, r_uint
 
 
 class W_ListObject(W_Object):
@@ -90,7 +90,7 @@ def getitem__List_Slice(space, w_list, w_slice):
     return w_res
 
 def iter__List(space, w_list):
-    import iterobject
+    from pypy.objspace.std import iterobject
     return iterobject.W_SeqIterObject(space, w_list)
 
 def add__List_List(space, w_list1, w_list2):

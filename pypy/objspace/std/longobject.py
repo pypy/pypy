@@ -1,8 +1,8 @@
 import sys
 from pypy.objspace.std.objspace import *
-from intobject import W_IntObject
-from floatobject import W_FloatObject
-from noneobject import W_NoneObject
+from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.objspace.std.noneobject import W_NoneObject
 
 class W_LongObject(W_Object):
     """This is a non-reimplementation of longs.

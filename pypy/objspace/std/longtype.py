@@ -1,7 +1,7 @@
 from pypy.objspace.std.stdtypedef import *
 
 def descr__new__(space, w_longtype, w_value=None):
-    from longobject import W_LongObject
+    from pypy.objspace.std.longobject import W_LongObject
     if w_value is None:
         value = 0L
     elif space.is_true(space.isinstance(w_value, space.w_str)):

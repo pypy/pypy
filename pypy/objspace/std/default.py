@@ -8,7 +8,7 @@ from pypy.objspace.std.objspace import *
 
 def id__ANY(space, w_obj):
     #print 'id:', w_obj
-    import intobject
+    from pypy.objspace.std import intobject
     return intobject.W_IntObject(space, id(w_obj))
 
 # __init__ should succeed if called internally as a multimethod

@@ -73,19 +73,19 @@ zfill             OK
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
-from intobject   import W_IntObject
-from sliceobject import W_SliceObject
-import slicetype
-from listobject import W_ListObject
-from noneobject import W_NoneObject
-from tupleobject import W_TupleObject
+from pypy.objspace.std.intobject   import W_IntObject
+from pypy.objspace.std.sliceobject import W_SliceObject
+from pypy.objspace.std import slicetype
+from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.tupleobject import W_TupleObject
 
 # XXX consider reimplementing _value to be a list of characters
 #     instead of a plain string
 
 
 class W_StringObject(W_Object):
-    from stringtype import str_typedef as typedef
+    from pypy.objspace.std.stringtype import str_typedef as typedef
 
     def __init__(w_self, space, str):
         W_Object.__init__(w_self, space)
@@ -933,7 +933,7 @@ def str__String(space, w_str):
 
 
 def iter__String(space, w_list):
-    import iterobject
+    from pypy.objspace.std import iterobject
     return iterobject.W_SeqIterObject(space, w_list)
 
 

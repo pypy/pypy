@@ -2,7 +2,7 @@ from pypy.objspace.std.stdtypedef import *
 from pypy.interpreter.error import OperationError
 
 def descr__new__(space, w_inttype, w_value=None, w_base=None):
-    from intobject import W_IntObject
+    from pypy.objspace.std.intobject import W_IntObject
     if w_base is None:
         w_base = space.w_None
     if w_value is None:

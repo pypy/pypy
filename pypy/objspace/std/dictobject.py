@@ -8,7 +8,7 @@ for order comparisons.
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 
-from restricted_int import r_uint
+from pypy.objspace.std.restricted_int import r_uint
 
 dummy = object()
 
@@ -155,7 +155,7 @@ def contains__Dict_ANY(space, w_dict, w_lookup):
 dict_has_key__Dict_ANY = contains__Dict_ANY
 
 def iter__Dict(space, w_dict):
-    import iterobject
+    from pypy.objspace.std import iterobject
     w_keys = dict_keys__Dict(space, w_dict)
     return iterobject.W_SeqIterObject(space, w_keys)
     

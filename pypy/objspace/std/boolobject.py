@@ -1,9 +1,9 @@
 from pypy.objspace.std.objspace import *
-import intobject
+from pypy.objspace.std import intobject
 
 
 class W_BoolObject(W_Object):
-    from booltype import bool_typedef as typedef
+    from pypy.objspace.std.booltype import bool_typedef as typedef
 
     def __init__(w_self, space, boolval):
         W_Object.__init__(w_self, space)
