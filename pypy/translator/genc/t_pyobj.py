@@ -433,6 +433,8 @@ class CType_PyObject:
         source = """if 1:
             import zlib, marshal
             exec marshal.loads(zlib.decompress(%r))""" % small
+        # Python 2.2 SyntaxError without newline: Bug #501622
+        source += '\n'
         co = compile(source, self.genc.modname, 'exec')
         del source
         return marshal.dumps(co)

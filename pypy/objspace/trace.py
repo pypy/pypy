@@ -165,7 +165,8 @@ def get_operations():
 
     # Remove list
     for name in ["wrap", "unwrap"]:
-        operations.pop(name, None)
+        if name in operations:
+            del operations[name]
     return operations
 
 def create_trace_space(space = None, operations = None):    

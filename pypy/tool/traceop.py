@@ -1,5 +1,11 @@
+from __future__ import generators
 
 import autopath
+
+def reversed(seq):
+    length = len(seq)
+    for index in range(length-1, -1, -1):
+        yield seq[index]
 
 class Stack(list):
     push = list.append
@@ -147,7 +153,7 @@ class ResultPrinter:
             self.indent_state.pop()                
 
     def get_last_frame(self):
-        for c, t, f in self.indent_state[::-1]:
+        for c, t, f in reversed(self.indent_state):
             if f is not None:
                 return f
             

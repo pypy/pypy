@@ -568,7 +568,6 @@ class GenRpy:
 
     def nameof_classobj(self, cls):
         printable_name = cls.__name__
-        gaga = "ssertion" in printable_name
         if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
             #raise Exception, "%r should never be reached" % (cls,)
             print "skipped class", printable_name
@@ -591,11 +590,6 @@ class GenRpy:
             # metaclass = 'space.w_classobj'
 
         basenames = [self.nameof(base) for base in cls.__bases__]
-        if gaga:
-            print cls
-            print cls.__module__
-            print type(cls)
-            1/0
         def initclassobj():
             content = cls.__dict__.items()
             content.sort()
@@ -1480,7 +1474,6 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     # and now use the members of the dict
     """
     # create something like a module
-    if "_formatting" in sourcetext: tmpname="/tmp/look.py"
     if filename is None: 
         code = py.code.Source(sourcetext).compile()
     else: 

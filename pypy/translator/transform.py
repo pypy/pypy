@@ -5,6 +5,8 @@ transformation is based on annotations; it runs after the annotator
 completed.
 """
 
+from __future__ import generators
+
 import types
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
