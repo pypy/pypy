@@ -127,6 +127,8 @@ class ObjSpace:
             try:
                 exclst = self.unpackiterable(w_item)
                 check_list.extend(exclst)
+            except KeyboardInterrupt:
+                raise
             except:
                 #w_check_class is not iterable
                 pass
@@ -138,7 +140,10 @@ class ObjSpace:
             #Match subclasses.
             try:
                 w_rv = self.issubtype(w_exc_type, w_item)
-            except: pass
+            except KeyboardInterrupt:
+                raise
+            except:
+                pass
             else:
                 if self.is_true(w_rv):
                     return w_rv
