@@ -20,6 +20,8 @@ class FlowObjSpace(ObjSpace):
     """
     
     full_exceptions = False
+
+    resolve_constants = True  # used by the appflowspace    
     
     def initialize(self):
         import __builtin__
@@ -302,7 +304,7 @@ def make_op(name, symbol, arity, specialnames):
 
     def generic_operator(self, *args_w):
         assert len(args_w) == arity, name+" got the wrong number of arguments"
-        if op:
+        if op and (self.resolve_constants or self.concrete_mode):
             args = []
             for w_arg in args_w:
                 try:
