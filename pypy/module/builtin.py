@@ -35,6 +35,7 @@ class Builtin(BuiltinModule):
 
     def __import__(self, w_modulename, w_locals, w_globals, w_fromlist):
         space = self.space
+        w = space.wrap
         try:
             w_mod = space.getitem(space.w_modules, w_modulename)
             return w_mod
@@ -45,6 +46,23 @@ class Builtin(BuiltinModule):
             if w_mod is not None:
                 space.setitem(space.w_modules,w_modulename,w_mod)
                 return w_mod
+
+            import os, __future__
+            for path in space.unwrap(space.getattr(space.w_sys, w('path'))):
+                f = os.path.join(path, space.unwrap(w_modulename) + '.py')
+                if os.path.exists(f):
+                    w_mod = space.newmodule(w_modulename)
+                    space.setitem(space.w_modules, w_modulename, w_mod)
+                    space.setattr(w_mod, w('__file__'), w(f))
+                    w_source = w(open(f, 'r').read())
+                    # wrt the __future__.generators.compiler_flag, "um" -- mwh
+                    w_code = self.compile(w_source, w(f), w('exec'),
+                                          w(__future__.generators.compiler_flag))
+                    w_dict = space.getattr(w_mod, w('__dict__'))
+                    space.unwrap(w_code).eval_code(space, w_dict, w_dict)
+
+                    return w_mod
+            
             w_exc = space.call_function(space.w_ImportError, w_modulename)
             raise executioncontext.OperationError(
                       space.w_ImportError, w_exc)

@@ -28,6 +28,16 @@ class TestBuiltin(testsupport.TestCase):
       self.assertWRaises_w(s.w_TypeError,
                            w_chr,
                            w('a'))
+
+   def test_import(self):
+       s = self.space      
+       w = s.wrap
+       w_import = self.get_builtin('__import__')
+       w_dict = s.newdict([])
+       w_fromlist = s.newlist([])
+       # finding a module to import is an odd game; quopri is
+       # sufficiently simple
+       s.call_function(w_import, w('quopri'), w_dict, w_dict, w_fromlist)
      
 class TestCmp(testsupport.TestCase):
    
