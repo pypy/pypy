@@ -130,7 +130,6 @@ class PyCode(eval.Code):
             code.co_cellvars = space.unwrap(w_cellvars)
         return space.wrap(code)
 
-
 def enhanceclass(baseclass, newclass, cache={}):
     # this is a bit too dynamic for RPython, but it looks nice
     # and I assume that we can easily change it into a static
@@ -145,3 +144,16 @@ def enhanceclass(baseclass, newclass, cache={}):
                 pass
             cache[baseclass, newclass] = Mixed
             return Mixed
+
+def keys():
+    from pypy.interpreter.pyopcode import PyInterpFrame as Frame
+    from pypy.interpreter.nestedscope import PyNestedScopeFrame
+    from pypy.interpreter.generator import GeneratorFrame 
+
+    return [
+         (Frame, PyNestedScopeFrame), 
+         (Frame, GeneratorFrame), 
+         (enhanceclass(Frame, PyNestedScopeFrame), GeneratorFrame), 
+        ]
+
+enhanceclass.keys = keys 

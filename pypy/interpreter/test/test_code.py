@@ -92,5 +92,15 @@ class AppTestCodeIntrospection(testit.AppTestCase):
         exec co in d
         self.assertEquals(d['c'], 3)
 
+class TestCodeEnhanceClass(testit.IntTestCase):
+    def test_enhanceclass_for_translator(self):
+        from pypy.interpreter.pycode import enhanceclass
+        assert hasattr(enhanceclass, 'keys')
+        arglist = enhanceclass.keys() 
+        for args in arglist: 
+            enhanceclass(*args)
+        
+        
+
 if __name__ == '__main__':
     testit.main()
