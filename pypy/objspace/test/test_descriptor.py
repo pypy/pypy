@@ -29,7 +29,7 @@ class AppTest_Descriptor:
         assert x.v == 1
         X.v.__set__(x, 0)
         assert x.v == 0
-        raises(AttributeError delattr, x, 'v')
+        raises(AttributeError, delattr, x, 'v')
         raises(AttributeError, X.v.__delete__, x)
 
     def test_special_methods_returning_strings(self): 
