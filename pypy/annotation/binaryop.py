@@ -256,11 +256,6 @@ class __extend__(pairtype(SomeInteger, SomeList)):
 class __extend__(pairtype(SomeInstance, SomeInstance)):
 
     def union((ins1, ins2)):
-        if ins1.classdef == ins2.classdef: 
-            if ins1.revision > ins2.revision: 
-                return ins1 
-            else: 
-                return ins2 
         basedef = ins1.classdef.commonbase(ins2.classdef)
         if basedef is None:
             # print warning?

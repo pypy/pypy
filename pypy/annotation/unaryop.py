@@ -150,6 +150,14 @@ class __extend__(SomeInstance):
             raise BlockedInference
         return
 
+    def contains(self, other):
+        # override the default contains() to ignore revision numbers
+        if self == other:
+            return True
+        s_union = pair(self, other).union()
+        return (isinstance(s_union, SomeInstance) and
+                s_union.classdef is self.classdef)
+
 
 class __extend__(SomeBuiltin):
     def simple_call(bltn, *args):
