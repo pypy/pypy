@@ -113,6 +113,10 @@ class NoTypeCGenTestCase(testit.IntTestCase):
         self.assertEquals(len(lst), 1)
         self.assert_(lst[0] is lst)
 
+##     def test_global_badinit(self):
+##         global_badinit = self.build_cfunc(snippet.global_badinit)
+##         self.assertEquals(global_badinit(), 1)
+
 class TypedTestCase(testit.IntTestCase):
 
     def getcompiled(self, func):

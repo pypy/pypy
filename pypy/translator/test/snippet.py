@@ -419,6 +419,20 @@ global_rl.append(global_rl)
 def global_recursive_list():
     return global_rl
 
+class BadInit(object):
+    def update(self, k):
+        self.k = 1
+    def __init__(self, v):
+        self.update(**{'k':v})
+    def read(self):
+        return self.k
+
+global_bi = BadInit(1)
+
+def global_badinit():
+    return global_bi.read()
+    
+
 def powerset(setsize=int):
     """Powerset
 
