@@ -10,19 +10,16 @@ def readlisp(s):
     # For now, let's return int only
     return int(s)
 
-def make_cl_func(func, path):
+def make_cl_func(func, cl, path):
     fun = Space().build_flow(func)
     gen = GenCL(fun)
-    out = StringIO()
-    sys.stdout = out
-    gen.emit()
-    sys.stdout = sys.__stdout__
+    out = gen.emitcode()
     fp = path.join("test.lisp")
     i = 0
     while fp.exists():
         fp = path.join("test%d.lisp" % i)
         i += 1
-    fp.write(out.getvalue())
+    fp.write(out)
     fname = fp.path
     def _(*args):
         fp = file(fname, "a")
@@ -31,6 +28,6 @@ def make_cl_func(func, path):
             print >>fp, str(arg),
         print >>fp, "))"
         fp.close()
-        output = exec_cmd("clisp %s" % fname)
+        output = exec_cmd("%s %s" % (cl, fname))
         return readlisp(output)
     return _

@@ -36,6 +36,7 @@ from pypy.translator.annset import AnnotationSet, Cell
 from pypy.translator.annotation import Annotator
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.genpyrex import GenPyrex
+from pypy.translator.gencl import GenCL
 from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
 from pypy.objspace.flow import FlowObjSpace
 
@@ -75,6 +76,10 @@ class Translator:
         g = GenPyrex(self.flowgraph)
         if self.annotator:
             g.setannotator(self.annotator)
+        return g.emitcode()
+
+    def cl(self):
+        g = GenCL(self.flowgraph)
         return g.emitcode()
 
     def compile(self):

@@ -5,6 +5,14 @@ from pypy.translator.test.buildclisp import make_cl_func
 
 class GenCLTestCase(test.IntTestCase):
 
+    def setUp(self):
+        import os
+        cl = os.getenv("PYPY_CL")
+        if cl:
+            self.cl = cl
+        else:
+            raise test.TestSkip
+
     #___________________________________
     def my_gcd(a, b):
         r = a % b
@@ -13,11 +21,8 @@ class GenCLTestCase(test.IntTestCase):
             b = r
             r = a % b
         return b
-    def XXXtest_gcd(self):
-        # disabled because it's rude to fail just because the clisp
-        # common lisp implementation isn't installed.
-        # (will arrange to skip the test in that case eventually) -- mwh
-        cl_gcd = make_cl_func(self.my_gcd, udir)
+    def test_gcd(self):
+        cl_gcd = make_cl_func(self.my_gcd, self.cl, udir)
         self.assertEquals(cl_gcd(96, 64), 32)
 
 if __name__ == '__main__':

@@ -8,15 +8,21 @@ class Op:
         self.args = op.args
         self.result = op.result
     def __call__(self):
-        meth_name = "op_" + self.opname
-        meth_default = self.op_default
-        meth = getattr(self, meth_name, meth_default)
-        meth()
+        if self.opname in self.binary_ops:
+            self.op_binary(self.opname)
+        else:
+            self.op_default()
+    binary_ops = {
+        "add": "+",
+        "mod": "mod",
+    }
     def op_default(self):
-        print self.opname, "is missing"
-    def op_mod(self):
-        result, arg1, arg2 = map(self.str, (self.result,) + self.args)
-        print "(setq", result, "(mod", arg1, arg2, "))"
+        print "; Op", self.opname, "is missing"
+    def op_binary(self, op):
+        s = self.str
+        result, (arg1, arg2) = self.result, self.args
+        cl_op = self.binary_ops[op]
+        print "(setq", s(result), "(", cl_op, s(arg1), s(arg2), "))"
 
 class GenCL:
     def __init__(self, fun):
@@ -25,6 +31,25 @@ class GenCL:
     def str(self, obj):
         if isinstance(obj, Variable):
             return obj.pseudoname
+        elif isinstance(obj, Constant):
+            return self.conv(obj.value)
+        else:
+            return "#<" # unreadable
+    def conv(self, val):
+        if val is None:
+            return "nil"
+        elif isinstance(val, int):
+            return str(val)
+        else:
+            return "#<" # unreadable
+    def emitcode(self):
+        import sys
+        from cStringIO import StringIO
+        out = StringIO()
+        sys.stdout = out
+        self.emit()
+        sys.stdout = sys.__stdout__
+        return out.getvalue()
     def emit(self):
         self.emit_defun(self.fun)
     def emit_defun(self, fun):
