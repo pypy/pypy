@@ -29,11 +29,9 @@ class AnnotationObjSpace(ObjSpace):
         self.w_Ellipsis = self.wrap(Ellipsis)
         import __builtin__, types
         for n, c in __builtin__.__dict__.iteritems():
-            if isinstance(c, (types.TypeType, Exception)):
-                setattr(self, 'w_' + c.__name__, self.wrap(c))
+            if isinstance(c, types.TypeType) or isinstance(c, types.ClassType):
+                setattr(self, 'w_'+n, self.wrap(c))
         self.w_builtins = self.wrap(__builtin__)
-        # XXX This should be done differently:
-        self.w_KeyError = self.wrap(KeyError)
 
     # Service methods whose interface is in the abstract base class
 
