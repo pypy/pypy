@@ -287,10 +287,7 @@ def neg__Int(space, w_int1):
 # a derived integer object, where it should return
 # an exact one.
 def pos__Int(space, w_int1):
-    if space.is_true(space.is_(space.type(w_int1), space.w_int)):
-        return w_int1
-    a = w_int1.intval
-    return W_IntObject(space, a)
+    return int__Int(space, w_int1)
 
 def abs__Int(space, w_int1):
     if w_int1.intval >= 0:
@@ -313,7 +310,7 @@ def lshift__Int_Int(space, w_int1, w_int2):
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     if a == 0 or b == 0:
-        return pos__Int(space, w_int1)
+        return int__Int(space, w_int1)
     if b >= LONG_BIT:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer left shift"))
@@ -343,7 +340,7 @@ def rshift__Int_Int(space, w_int1, w_int2):
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     if a == 0 or b == 0:
-        return pos__Int(space, w_int1)
+        return int__Int(space, w_int1)
     if b >= LONG_BIT:
         if a < 0:
             a = -1
@@ -386,8 +383,14 @@ def or__Int_Int(space, w_int1, w_int2):
 ##    return 1; /* Can't do it */
 ##}
 
+# int__Int is supposed to do nothing, unless it has
+# a derived integer object, where it should return
+# an exact one.
 def int__Int(space, w_int1):
-    return w_int1
+    if space.is_true(space.is_(space.type(w_int1), space.w_int)):
+        return w_int1
+    a = w_int1.intval
+    return W_IntObject(space, a)
 
 """
 # Not registered

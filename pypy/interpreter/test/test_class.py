@@ -86,5 +86,14 @@ class C:
         self.assert_(isinstance(object.__new__(A), A))
         self.assert_(isinstance(A.__new__(A), A))
 
+    def test_int_subclass(self):
+        class R(int):
+            pass
+        x = R(5)
+        self.assertEquals(type(x), R)
+        self.assertEquals(x, 5)
+        self.assertEquals(type(int(x)), int)
+        self.assertEquals(int(x), 5)
+
 if __name__ == '__main__':
     testit.main()
