@@ -4,57 +4,54 @@
 """
 Command-line options for translate_pypy:
 
-   port     Listen on the given port number for connexions
-                (see pypy/translator/tool/pygame/graphclient.py)
-   -text    Don't start the Pygame viewer
-   -no-a    Don't infer annotations, just translate everything
-   -no-c    Don't generate the C code
-   -c       Generate the C code, but don't compile it
-   -o       Generate and compile the C code, but don't run it
+   port       Listen on the given port number for connexions
+                  (see pypy/translator/tool/pygame/graphclient.py)
+   targetspec
+              targetspec.py is a python file defining
+              what is the translation target and setting things up for it,
+              it should have a target function returning an entry_point ...;
+              defaults to targetpypy
+   -text      Don't start the Pygame viewer
+   -no-a      Don't infer annotations, just translate everything
+   -no-c      Don't generate the C code
+   -c         Generate the C code, but don't compile it
+   -o         Generate and compile the C code, but don't run it
    -no-mark-some-objects
-            Do not mark functions that have SomeObject in their signature.
-   -tcc     Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
-                -- http://fabrice.bellard.free.fr/tcc/
-   -no-d    Disable recording of debugging information
+              Do not mark functions that have SomeObject in their signature.
+   -tcc       Equivalent to the envvar PYPY_CC='tcc -shared -o "%s.so" "%s.c"'
+                  -- http://fabrice.bellard.free.fr/tcc/
+   -no-d      Disable recording of debugging information
 """
 import autopath, sys, threading, pdb, os
-import buildcache2
-from pypy.objspace.std.objspace import StdObjSpace, W_Object
-from pypy.objspace.std.intobject import W_IntObject
+
 from pypy.translator.translator import Translator
 from pypy.annotation import model as annmodel
 from pypy.tool.cache import Cache
 from pypy.annotation.model import SomeObject
 from pypy.tool.udir import udir 
 
+
+
+
 # XXX this tries to make compiling faster
 from pypy.translator.tool import buildpyxmodule
 buildpyxmodule.enable_fast_compilation()
 
-# __________  Entry point  __________
 
-def entry_point():
-    w_a = W_IntObject(space, -6)
-    w_b = W_IntObject(space, -7)
-    return space.mul(w_a, w_b)
+
 
 # __________  Main  __________
 
-def analyse(entry_point=entry_point):
-    global t, space
-    # disable translation of the whole of classobjinterp.py
-    StdObjSpace.setup_old_style_classes = lambda self: None
-    space = StdObjSpace()
-    # call cache filling code
-    buildcache2.buildcache(space)    
-    # further call the entry_point once to trigger building remaining
-    # caches (as far as analyzing the entry_point is concerned)
-    entry_point()
+def analyse(target):
+    global t
+
+    entry_point, inputtypes = target()
+
     t = Translator(entry_point, verbose=True, simplifying=True)
     if listen_port:
         run_async_server()
     if not options['-no-a']:
-        a = t.annotate([])
+        a = t.annotate(inputtypes)
         a.simplify()
         t.frozen = True   # cannot freeze if we don't have annotations
         if not options['-no-mark-some-objects']:
@@ -154,6 +151,8 @@ def run_async_server():
 
 if __name__ == '__main__':
 
+    targetspec = 'targetpypy'
+
     options = {'-text': False,
                '-no-c': False,
                '-c':    False,
@@ -171,8 +170,11 @@ if __name__ == '__main__':
         try:
             listen_port = int(arg)
         except ValueError:
-            assert arg in options, "unknown option %r" % (arg,)
-            options[arg] = True
+            if os.path.isfile(arg+'.py'):
+                targetspec = arg
+            else:                
+                assert arg in options, "unknown option %r" % (arg,)
+                options[arg] = True
     if options['-tcc']:
         os.environ['PYPY_CC'] = 'tcc -shared -o "%s.so" "%s.c"'
     if options['-no-d']:
@@ -248,7 +250,11 @@ if __name__ == '__main__':
             cleanup()
 
     try:
-        analyse()
+        targetspec_dic = {}
+        sys.path.insert(0, os.path.dirname(targetspec))
+        execfile(targetspec+'.py',targetspec_dic)
+        print "Analysing target as defined by %s" % targetspec
+        analyse(targetspec_dic['target'])
         print '-'*60
         if options['-no-c']:
             print 'Not generating C code.'
@@ -263,10 +269,7 @@ if __name__ == '__main__':
             update_usession_dir()
             if not options['-o']:
                 print 'Running!'
-                w_result = c_entry_point()
-                print w_result
-                print w_result.intval
-                assert w_result.intval == 42
+                targetspec_dic['run'](c_entry_point)
     except:
         debug(True)
     else:

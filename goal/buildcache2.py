@@ -1,8 +1,7 @@
-import autopath
-
-from pypy.interpreter.typedef import interptypes
 
 def buildcache(space):
+    from pypy.interpreter.typedef import interptypes
+    
     space.builtin.getdict()
     print "*builtin*"
     w_dic = space.builtin.w_dict
@@ -41,6 +40,7 @@ def buildcache(space):
     print "cache build finished"
 
 if __name__ == '__main__':
+    import autopath    
     from pypy.objspace.std.objspace import StdObjSpace
 
     space = StdObjSpace()
