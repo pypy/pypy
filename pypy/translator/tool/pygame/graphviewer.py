@@ -6,7 +6,7 @@ from pygame.locals import *
 
 class Display:
     
-    def __init__(self, (w,h)=(700,600)):
+    def __init__(self, (w,h)=(800,740)):
         pygame.init()
         self.resize((w,h))
 
