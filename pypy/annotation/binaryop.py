@@ -4,7 +4,7 @@ Binary operations between SomeValues.
 
 from pypy.annotation.pairtype import pair, pairtype
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
-from pypy.annotation.model import SomeString, SomeList, SomeDict
+from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeFunction, SomeMethod
 from pypy.annotation.model import SomeBuiltin, SomeIterator
@@ -152,6 +152,12 @@ class __extend__(pairtype(SomeList, SomeInteger)):
 
     def setitem((lst1, int2), s_value):
         generalize(lst1.factories, s_value)
+
+
+class __extend__(pairtype(SomeString, SomeInteger)):
+
+    def getitem((str1, int2)):
+        return SomeChar()
 
 
 class __extend__(pairtype(SomeInteger, SomeList)):

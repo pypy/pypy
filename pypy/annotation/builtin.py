@@ -2,7 +2,7 @@
 Built-in functions.
 """
 
-from pypy.annotation.model import SomeInteger, SomeObject
+from pypy.annotation.model import SomeInteger, SomeObject, SomeChar
 from pypy.annotation.factory import ListFactory, getbookkeeper
 import pypy.objspace.std.restricted_int
 
@@ -26,6 +26,9 @@ def builtin_int(s_obj):     # we can consider 'int' as a function
 
 def restricted_uint(s_obj):    # for r_uint
     return SomeInteger(nonneg=True, unsigned=True)
+
+def builtin_chr(s_int):
+    return SomeChar()
 
 
 # collect all functions

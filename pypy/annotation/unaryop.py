@@ -5,7 +5,7 @@ Unary operations on SomeValues.
 from types import FunctionType
 from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
-from pypy.annotation.model import SomeString, SomeList, SomeDict
+from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeClass
 from pypy.annotation.model import SomeFunction, SomeMethod, SomeIterator
@@ -66,6 +66,18 @@ class __extend__(SomeList):
 
     def iter(lst):
         return SomeIterator(lst.s_item)
+
+
+class __extend__(SomeString):
+
+    def iter(str):
+        return SomeIterator(SomeChar())
+
+
+class __extend__(SomeChar):
+
+    def len(chr):
+        return immutablevalue(1)
 
 
 class __extend__(SomeIterator):

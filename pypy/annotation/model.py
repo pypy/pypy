@@ -69,6 +69,9 @@ class SomeString(SomeObject):
     "Stands for an object which is known to be a string."
     knowntype = str
 
+class SomeChar(SomeString):
+    "Stands for an object known to be a string of length 1."
+
 class SomeList(SomeObject):
     "Stands for a homogenous list of any length."
     knowntype = list
