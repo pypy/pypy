@@ -69,14 +69,15 @@ def gettestobjspace(name=None):
     return space
 
 
-class AppRunnerFrame(py.code.InspectableFrame):
+class AppFrame(py.code.Frame):
 
     def __init__(self, pyframe):
-        lineno = pyframe.get_last_lineno() - 1
-        super(AppRunnerFrame, self).__init__(pyframe.code, lineno)
+        self.code = py.code.Code(pyframe.code)
+        self.lineno = pyframe.get_last_lineno() - 1
         self.space = pyframe.space
         self.w_globals = pyframe.w_globals
         self.w_locals = pyframe.getdictscope()
+        self.f_locals = self.w_locals   # for py.test's recursion detection
 
     def eval(self, code, **vars):
         space = self.space
@@ -99,36 +100,25 @@ class AppRunnerFrame(py.code.InspectableFrame):
 
 class AppExceptionInfo(py.code.ExceptionInfo):
     """An ExceptionInfo object representing an app-level exception."""
+    exprinfo = None
 
     def __init__(self, space, operr):
         self.space = space
         self.operr = operr
-        # XXX this is all a hackish forced integration with the not-yet-
-        #     finished API of py.code.ExceptionInfo.
-        w_type, w_value = operr.w_type, operr.w_value
-        if not space.is_true(space.isinstance(w_type, space.w_str)):
-            w_type = space.getattr(w_type, space.wrap('__name__'))
-        t = space.unwrap(space.str(w_type))
-        v = space.unwrap(space.str(w_value))
-        if v:
-            operrtext = '(app-level) %s: %s' % (t, v)
-        else:
-            operrtext = '(app-level) %s' % (t,)
-        tup = (operr.__class__, operrtext, operr.application_traceback)
-        super(AppExceptionInfo, self).__init__(tup)
+
+    def __str__(self):
+        return '(app-level) ' + self.operr.errorstr(self.space)
 
     def __iter__(self):
-        tb = self.tb
+        tb = self.operr.application_traceback
         while tb is not None:
-            iframe = AppRunnerFrame(tb.frame)
-            iframe.f_locals = {}   # XXX remove me
-            yield AppTracebackEntry(iframe, tb.lineno - 1)
+            yield AppTracebackEntry(tb)
             tb = tb.next
 
-class AppTracebackEntry(py.__impl__.code.excinfo.TracebackEntry):
-    def __init__(self, frame, lineno):
-        self.frame = frame
-        self.lineno = lineno
+class AppTracebackEntry(py.code.TracebackEntry):
+    def __init__(self, tb):
+        self.frame = AppFrame(tb.frame)
+        self.lineno = tb.lineno - 1
 
 
 class PyPyItem(py.test.Item):
