@@ -35,7 +35,7 @@ class FunctionGraph:
 class Link:
     def __init__(self, args, target, exitcase=None):
         assert len(args) == len(target.inputargs), "output args mismatch"
-        self.args = args           # mixed list of var/const
+        self.args = list(args)     # mixed list of var/const
         self.target = target       # block
         self.exitcase = exitcase   # this is a concrete value
         self.prevblock = None      # the block this Link is an exit of
@@ -44,10 +44,10 @@ class Block:
     isstartblock = False
     
     def __init__(self, inputargs):
-        self.inputargs = inputargs    # mixed list of variable/const 
-        self.operations = []          # list of SpaceOperation(s)
-        self.exitswitch = None        # variable
-        self.exits      = []          # list of Link(s)
+        self.inputargs = list(inputargs)  # mixed list of variable/const 
+        self.operations = []              # list of SpaceOperation(s)
+        self.exitswitch = None            # variable
+        self.exits      = []              # list of Link(s)
 
     def getvariables(self):
         "Return all variables mentionned in this Block."

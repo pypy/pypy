@@ -158,9 +158,11 @@ def transform_dead_op_vars(self):
         # Otherwise the link.args get out of sync with the
         # link.target.inputargs.
         for link in block.exits:
+            assert len(link.args) == len(link.target.inputargs)
             for i in range(len(link.args)-1, -1, -1):
                 if link.target.inputargs[i] not in read_vars:
                     del link.args[i]
+            # the above assert would fail here
 
     for block in self.annotated:
         # look for input variables never used
