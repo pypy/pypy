@@ -499,17 +499,33 @@ def _quicksort(list, start, end, lt):
         _quicksort(list, start, split-1, lt)        # ... and sort both halves.
         _quicksort(list, split+1, end, lt)
 
+class Comparer:
+    """Just a dumb container class for a space and a w_cmp, because
+    we can't use nested scopes for that in RPython.
+    """
+    def __init__(self, space, w_cmp):
+        self.space = space
+        self.w_cmp = w_cmp
+
+    def simple_lt(self, a, b):
+        space = self.space
+        return space.is_true(space.lt(a, b))
+
+    def complex_lt(self, a, b):
+        space = self.space
+        w_cmp = self.w_cmp
+        result = space.unwrap(space.call_function(w_cmp, a, b))
+        if not isinstance(result,int):
+            raise OperationError(space.w_TypeError,
+                     space.wrap("comparison function must return int"))
+        return result < 0
+
 def list_sort__List_ANY(space, w_list, w_cmp):
+    comparer = Comparer(space, w_cmp)
     if w_cmp is space.w_None:
-        def lt(a,b):
-            return space.is_true(space.lt(a,b))
+        lt = comparer.simple_lt
     else:
-        def lt(a,b):
-            result = space.unwrap(space.call_function(w_cmp, a, b))
-            if not isinstance(result,int):
-                raise OperationError(space.w_TypeError,
-                         space.wrap("comparison function must return int"))
-            return result < 0
+        lt = comparer.complex_lt
 
     # XXX Basic quicksort implementation
     # XXX this is not stable !!
