@@ -47,6 +47,14 @@ def init__List(space, w_list, w_args, w_kwds):
         pass   # empty list
     elif len(args) == 1:
         w_iterable = args[0]
+        length = 0
+        try:
+            length = space.int_w(space.len(w_iterable))
+            if length < 0:
+                length = 8 
+        except OperationError, e:
+            pass # for now
+        _list_resize(w_list, length)
         w_iterator = space.iter(w_iterable)
         while True:
             try:
