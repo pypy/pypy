@@ -214,7 +214,7 @@ class __builtin__(ExtModule):
     def compile(self, w_str, w_filename, w_startstr,
                 w_supplied_flags=None, w_dont_inherit=None):
         space = self.space
-        str = space.unwrap(w_str)
+        str_ = space.unwrap(w_str)
         filename = space.unwrap(w_filename)
         startstr = space.unwrap(w_startstr)
         if w_supplied_flags is None:
@@ -230,10 +230,18 @@ class __builtin__(ExtModule):
             if dont_inherit is None:
                 dont_inherit = 0
 
-        #print (str, filename, startstr, supplied_flags, dont_inherit)
+        #print (str_, filename, startstr, supplied_flags, dont_inherit)
         # XXX we additionally allow GENERATORS because compiling some builtins
         #     requires it. doesn't feel quite right to do that here. 
-        c = cpy_builtin.compile(str, filename, startstr, supplied_flags|4096, dont_inherit)
+        try:
+            c = cpy_builtin.compile(str_, filename, startstr, supplied_flags|4096, dont_inherit)
+        # It would be nice to propagate all exceptions to app level,
+        # but here we only propagate the 'usual' ones, until we figure
+        # out how to do it generically.
+        except ValueError,e:
+            raise OperationError(space.w_ValueError,space.wrap(str(e)))
+        except TypeError,e:
+            raise OperationError(space.w_TypeError,space.wrap(str(e)))
         from pypy.interpreter.pycode import PyCode
         return space.wrap(PyCode()._from_code(c))
 
