@@ -163,15 +163,17 @@ class CallableFactory:
             func = func.im_func
         assert isinstance(func, FunctionType), "expected function, got %r"%func
         # do we need to specialize this function in several versions?
-        x = getattr(func, 'specialize', False)
-        if x: 
+        x = getattr(func, '_specialize_', False)
+        if x:
             if x == 'argtypes':
                 key = "_".join([arg.__class__.__name__ for arg in args])
                 name = func.__name__+'_'+key
                 func = self.specialize_by_key(func, key, name) 
-            else:
+            elif x == "location":
                 # fully specialize: create one version per call position
                 func = self.specialize_by_key(func, self.position_key)
+            else:
+                raise Exception, "unsupported specialization type '%s'"%(x,)
             
         elif func.func_code.co_flags & CO_VARARGS:
             # calls to *arg functions: create one version per number of args

@@ -30,7 +30,7 @@ class Cache(dict):
             return self.setdefault(key, builder(key, space))
     # note to annotator: we want loadfromcache() to be 
     # specialized for the different cache types 
-    getorbuild.specialize = True 
+    getorbuild._specialize_ = "location"
 
     def freeze(self):
         del self.frozen 
