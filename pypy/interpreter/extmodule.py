@@ -47,10 +47,13 @@ class PyBuiltinCode(pycode.PyBaseCode):
 
 class BuiltinModule:
     __appfile__ = None
+    __apphelperfile__ = None
 
     def __init__(self, space):
         self.space = space
-
+        if self.__apphelperfile__ is not None:
+            self._helper = AppHelper(self.space, self.__apphelperfile__)
+            
     def wrap_me(self):
         space = self.space
         modulename = self.__pythonname__
@@ -68,3 +71,7 @@ class BuiltinModule:
             w_dict = space.getattr(w_module, space.wrap("__dict__"))
             appfile.AppHelper(space, sappfile, w_dict)
         return w_module
+
+    def callhelp(functioname,argslist):
+        self._helper.call(functioname,argslist)
+        
