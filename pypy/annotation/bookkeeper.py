@@ -8,6 +8,7 @@ from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef
 from pypy.interpreter.miscutils import getthreadlocals
 from pypy.tool.hack import func_with_new_name
+from pypy.interpreter.pycode import CO_VARARGS
 
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
@@ -221,11 +222,18 @@ class Bookkeeper:
             else:
                 raise Exception, "unsupported specialization type '%s'"%(x,)
 
-##        elif func.func_code.co_flags & CO_VARARGS:
-##            # calls to *arg functions: create one version per number of args
-##            func = self.specialize_by_key(func, len(args),
-##                                          name='%s__%d' % (func.func_name,
-##                                                           len(args)))
+        elif func.func_code.co_flags & CO_VARARGS:
+            # calls to *arg functions: create one version per number of args
+            assert not args.kwds_w, (
+                "keyword forbidden in calls to *arg functions")
+            nbargs = len(args.arguments_w)
+            if args.w_stararg is not None:
+                s_len = args.w_stararg.len()
+                assert s_len.is_constant(), "calls require known number of args"
+                nbargs += s_len.const
+            func = self.specialize_by_key(func, nbargs,
+                                          name='%s__%d' % (func.func_name,
+                                                           nbargs))
         return self.annotator.recursivecall(func, self.position_key, args)
 
     def specialize_by_key(self, thing, key, name=None):

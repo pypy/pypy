@@ -176,7 +176,7 @@ class SpecialMmFrame(eval.Frame):
         args = list(self.fastlocals_w)
         args.insert(0, args.pop(self.code.bound_position))
         try:
-            return self.code.mm.perform_call(args)
+            return self.code.mm.perform_call(*args)
         except FailedToImplement, e:
             if e.args:
                 raise OperationError(e.args[0], e.args[1])

@@ -466,7 +466,7 @@ class BoundMultiMethod:
             raise TypeError, ("multimethod needs at least %d arguments" %
                               self.multimethod.arity)
         try:
-            return self.perform_call(args)
+            return self.perform_call(*args)
         except FailedToImplement, e:
             if e.args:
                 raise OperationError(e.args[0], e.args[1])
@@ -485,7 +485,7 @@ class BoundMultiMethod:
                 w_value = self.space.wrap(message)
                 raise OperationError(self.space.w_TypeError, w_value)
 
-    def perform_call(self, args):
+    def perform_call(self, *args):
         for a in args:
             assert isinstance(a, self.ASSERT_BASE_TYPE), (
                 "'%s' multimethod got a non-wrapped argument: %r" % (
