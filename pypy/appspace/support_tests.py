@@ -94,7 +94,7 @@ FUZZ = 1e-6
 def fcmp(x, y): # fuzzy comparison function
     if type(x) == type(0.0) or type(y) == type(0.0):
         try:
-            x, y = coerce(x, y)
+            x, y = float(x), float(y)
             fuzz = (abs(x) + abs(y)) * FUZZ
             if abs(x-y) <= fuzz:
                 return 0
