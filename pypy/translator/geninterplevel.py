@@ -566,17 +566,13 @@ class GenRpy:
 
         metaclass = "space.w_type"
         name = self.uniquename('gcls_' + cls.__name__)
+
         if issubclass(cls, Exception):
             if cls.__module__ == 'exceptions':
-                if hasattr(self.space, "w_%s" % cls.__name__):
-                    return 'space.w_%s'%cls.__name__
-                else:
-                    self.initcode.append('m.%s = space.wrap(%s)' % (
-                                         name, cls.__name__))
-                    return name
-            #else:
-            #    # exceptions must be old-style classes (grr!)
-            #    metaclass = "&PyClass_Type"
+                # exception are defined on the space
+                return 'space.w_%s'%cls.__name__
+
+
         # For the moment, use old-style classes exactly when the
         # pypy source uses old-style classes, to avoid strange problems.
         if not isinstance(cls, type):

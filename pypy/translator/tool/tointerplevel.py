@@ -9,7 +9,7 @@ from pypy.translator.translator import Translator
 from pypy.translator.geninterplevel import GenRpy
 
 # change default
-FlowObjSpace.bultins_can_raise_exceptions = True
+FlowObjSpace.builtins_can_raise_exceptions = True
 
 def main():
     opt_parser = optparse.OptionParser(usage="usage: %prog [options] module-file obj-name...")
