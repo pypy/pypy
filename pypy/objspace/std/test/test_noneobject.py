@@ -18,6 +18,9 @@ class TestW_NoneObject(testsupport.TestCase_w):
     def test_inequality(self):
         neresult = self.space.ne(self.space.w_None, self.space.w_None)
         self.failIf_w(neresult)
+
+    def test_false(self):
+        self.failIf_w(self.space.w_None)
         
 
 if __name__ == '__main__':
