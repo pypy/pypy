@@ -74,7 +74,7 @@ class __extend__(SomeObject):
 
     def call(obj, args):
         #raise Exception, "cannot follow call_args%r" % ((obj, args),)
-        print "*** cannot follow call(%r, %r)" % (obj, args)
+        print "*** [%s] cannot follow call(%r, %r)" % (getbookkeeper().whereami(), obj, args)
         return SomeObject()
 
 

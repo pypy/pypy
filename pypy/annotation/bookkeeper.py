@@ -251,6 +251,9 @@ class Bookkeeper:
 
         return self.annotator.recursivecall(func, self.position_key, inputcells)
 
+    def whereami(self):
+        return self.annotator.whereami(self.position_key)
+
     def specialize_by_key(self, thing, key, name=None):
         key = thing, key
         try:

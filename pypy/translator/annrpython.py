@@ -292,6 +292,15 @@ class RPythonAnnotator:
         if unions != oldcells:
             self.bindinputargs(block, unions, called_from)
 
+    def whereami(self, position_key):
+        fn, block, i = position_key
+        mod = getattr(fn, '__module__', None)
+        if mod is None:
+            mod = '?'
+        name = fn.__name__
+        firstlineno = fn.func_code.co_firstlineno
+        return "(%s:%d) %s" % (mod, firstlineno, name)
+
     def flowin(self, fn, block):
         #print 'Flowing', block, [self.binding(a) for a in block.inputargs]
         for i in range(len(block.operations)):
