@@ -21,7 +21,8 @@ class TrivialObjSpace(ObjSpace):
                     "None" : self.w_None,
                     }
         for n, c in __builtin__.__dict__.iteritems():
-            if isinstance(c, types.ClassType) and issubclass(c, Exception):
+            if ((isinstance(c, types.ClassType) and issubclass(c, Exception)) or
+                isinstance(c, types.TypeType)):
                 w_c = c
                 setattr(self, 'w_' + c.__name__, w_c)
                 newstuff[c.__name__] = w_c

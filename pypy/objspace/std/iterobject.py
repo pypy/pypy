@@ -1,13 +1,17 @@
-from objspace import *
+from pypy.objspace.std.objspace import *
+from itertype import W_SeqIterType
 
 
 class W_SeqIterObject(W_Object):
-    delegate_once = {}
+    statictype = W_SeqIterType
 
     def __init__(w_self, space, w_seq, index=0):
         W_Object.__init__(w_self, space)
         w_self.w_seq = w_seq
         w_self.index = index
+
+
+registerimplementation(W_SeqIterObject)
 
 
 def iter_seqiter(space, w_seqiter):

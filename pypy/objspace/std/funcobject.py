@@ -1,16 +1,22 @@
 from __future__ import nested_scopes
 from pypy.objspace.std.objspace import *
+from functype import W_FuncType
 import pypy.interpreter.pyframe
 from pypy.objspace.std.instmethobject import W_InstMethObject
 
 
 class W_FuncObject(W_Object):
+    statictype = W_FuncType
+
     def __init__(w_self, space, code, w_globals, w_defaultarguments, w_closure):
         W_Object.__init__(w_self, space)
         w_self.code = code
         w_self.w_globals = w_globals
         w_self.w_defaultarguments = w_defaultarguments
         w_self.w_closure = w_closure
+
+
+registerimplementation(W_FuncObject)
 
 
 def function_unwrap(space, w_function):

@@ -1,8 +1,14 @@
+from __future__ import nested_scopes
 from pypy.objspace.std.objspace import *
+import typeobject, objecttype
 from typeobject import W_TypeObject
 
 
 class W_UserType(W_TypeObject):
+    """Instances of this class are user-defined Python type objects.
+    All user-defined types are instances of the present class.
+    Builtin-in types, on the other hand, each have their own W_XxxType
+    class."""
 
     # 'typename' is an instance property here
 
@@ -13,10 +19,15 @@ class W_UserType(W_TypeObject):
         w_self.w_bases  = w_bases
         w_self.w_dict   = w_dict
 
-    def getbases(w_self, space):
-        return space.unpackiterable(w_self.w_bases)
+    def getbases(w_self):
+        bases = w_self.space.unpackiterable(w_self.w_bases)
+        if bases:
+            return bases
+        else:
+            return W_TypeObject.getbases(w_self)   # defaults to (w_object,)
 
-    def lookup_exactly_here(w_self, space, w_key):
+    def lookup_exactly_here(w_self, w_key):
+        space = w_self.space
         try:
             w_value = space.getitem(w_self.w_dict, w_key)
         except OperationError, e:
@@ -31,6 +42,6 @@ class W_UserType(W_TypeObject):
 def usertype_new(space, w_usertype, w_args, w_kwds):
     # XXX no __init__ support at all here
     from userobject import W_UserObject
-    return W_UserObject(space, w_usertype)
+    return W_UserObject(space, w_usertype, w_args, w_kwds)
 
 StdObjSpace.new.register(usertype_new, W_UserType, W_ANY, W_ANY)

@@ -13,7 +13,6 @@ from rarray import CharArrayFromStr, CharArraySize
 applicationfile = StdObjSpace.AppFile(__name__)
 
 class W_StringObject(W_Object):
-    delegate_once = {}
     statictype = W_StringType
 
     def __init__(w_self, space, str):
@@ -24,11 +23,9 @@ class W_StringObject(W_Object):
         """ representation for debugging purposes """
         return "%s(%r)" % (w_self.__class__.__name__, w_self._value.value())
 
-    def nonzero(w_self):
-        return W_IntObject(self.space, w_self._value.len != 0)
 
-    def hash(w_self):
-        return W_IntObject(self, self._value.hash())
+registerimplementation(W_StringObject)
+
 
 def _isspace(ch):
     return ord(ch) in (9, 10, 11, 12, 13, 32)  
@@ -181,6 +178,11 @@ def str_is_true(space, w_str):
     return w_str._value.len != 0
 
 StdObjSpace.is_true.register(str_is_true, W_StringObject)
+
+def str_hash(space, w_str):
+    return W_IntObject(space, w_str._value.hash())
+
+StdObjSpace.hash.register(str_hash, W_StringObject)
 
 
 EQ = 1

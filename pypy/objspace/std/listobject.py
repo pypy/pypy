@@ -8,7 +8,6 @@ from restricted_int import r_int, r_uint
 
 
 class W_ListObject(W_Object):
-    delegate_once = {}
     statictype = W_ListType
 
     def __init__(w_self, space, wrappeditems):
@@ -28,6 +27,9 @@ class W_ListObject(W_Object):
         """ representation for debugging purposes """
         reprlist = [repr(w_item) for w_item in w_self.ob_item[:w_self.ob_size]]
         return "%s(%s)" % (w_self.__class__.__name__, ', '.join(reprlist))
+
+
+registerimplementation(W_ListObject)
 
 
 def list_unwrap(space, w_list):

@@ -4,7 +4,6 @@ from dictobject import W_DictObject
 
 
 class W_ModuleObject(W_Object):
-    delegate_once = {}
     statictype = W_ModuleType
 
     def __init__(w_self, space, w_name):
@@ -14,6 +13,9 @@ class W_ModuleObject(W_Object):
         items = [(w_key_name, w_name),
                  (w_key_doc,  space.w_None)]
         w_self.w_dict = W_DictObject(w_self.space, items)
+
+
+registerimplementation(W_ModuleObject)
 
 
 def getattr_module_any(space, w_module, w_attr):

@@ -1,24 +1,27 @@
 from pypy.objspace.std.objspace import *
 from booltype import W_BoolType
+import intobject
 
 
 class W_BoolObject(W_Object):
-    delegate_once = {}
     statictype = W_BoolType
 
     def __init__(w_self, space, boolval):# please pass in a real bool, not an int
         W_Object.__init__(w_self, space)
         w_self.boolval = boolval
 
-    def __eq__(w_self, w_other):
-        "Implements 'is'."
-        # all w_False wrapped values are equal ('is'-identical)
-        # and so do all w_True wrapped values
-        return (isinstance(w_other, W_BoolObject) and
-                w_self.boolval == w_other.boolval)
-
     def __nonzero__(w_self):
         raise Exception, "you cannot do that, you must use space.is_true()"
+
+
+registerimplementation(W_BoolObject)
+
+# bool-to-int delegation requires translating the .boolvar attribute
+# to an .intval one
+def bool_to_int(space, w_bool):
+    return intobject.W_IntObject(space, int(w_bool.boolval))
+
+W_BoolObject.delegate_once[intobject.W_IntObject] = bool_to_int
 
 
 def bool_is_true(space, w_bool):

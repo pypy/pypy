@@ -3,6 +3,7 @@ import testsupport
 
 from pypy.objspace.std.multimethod import *
 
+MultiMethod.ASSERT_BASE_TYPE = None
 W_ANY = object
 
 

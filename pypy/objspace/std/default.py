@@ -3,6 +3,10 @@
 from pypy.objspace.std.objspace import *
 
 
+# These are operations that must fall back to some default behavior that
+# should not appear in the explicit object.__xxx__ methods.
+
+
 # 'eq' falls back to 'is'
 
 def default_eq(space, w_a, w_b):
@@ -53,45 +57,6 @@ def default_is_true(space, w_obj):
 StdObjSpace.is_true.register(default_is_true, W_ANY)
 
 
-# give objects some default attributes and a default way to complain
-# about missing attributes
-
-def default_getattr(space, w_obj, w_attr):
-    # XXX build a nicer error message along these lines:
-    #w_type = space.type(w_obj)
-    #w_typename = space.getattr(w_type, space.wrap('__name__'))
-    #...
-
-    w_type = space.type(w_obj)
-    if space.is_true(space.eq(w_attr, space.wrap('__class__'))):
-        return w_type
-
-    # XXX implement lookup as a multimethod
-    from typeobject import W_TypeObject
-    if isinstance(w_type, W_TypeObject):  # XXX must always be true at some point
-        try:
-            w_value = w_type.lookup(space, w_attr)
-        except KeyError:
-            pass
-        else:
-            return space.get(w_value, w_obj, w_type)
-        
-    raise OperationError(space.w_AttributeError, w_attr)
-
-
-StdObjSpace.getattr.register(default_getattr, W_ANY, W_ANY)
-
-def default_setattr(space, w_obj, w_attr, w_value):
-    raise OperationError(space.w_AttributeError, w_attr)
-
-StdObjSpace.setattr.register(default_setattr, W_ANY, W_ANY, W_ANY)
-
-def default_delattr(space, w_obj, w_attr, w_value):
-    raise OperationError(space.w_AttributeError, w_attr)
-
-StdObjSpace.delattr.register(default_delattr, W_ANY, W_ANY)
-
-
 # in-place operators fall back to their non-in-place counterpart
 
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
@@ -123,27 +88,3 @@ def default_get(space, w_descr, w_inst, w_cls):
     return w_descr
 
 StdObjSpace.get.register(default_get, W_ANY, W_ANY, W_ANY)
-
-
-# static types
-
-def default_type(space, w_obj):
-    if w_obj.statictype is None:
-        # XXX remove me, temporary
-        return space.wrap(space.unwrap(w_obj).__class__)
-    else:
-        w_type = space.get_typeinstance(w_obj.statictype)
-        return w_type
-
-StdObjSpace.type.register(default_type, W_ANY)
-
-def default_str(space, w_obj):
-    return space.repr(w_obj)
-
-StdObjSpace.str.register(default_str, W_ANY)
-
-def default_repr(space, w_obj):
-    return space.wrap('<%s object at %s>'%(
-        space.type(w_obj).typename, space.unwrap(space.id(w_obj))))
-
-StdObjSpace.repr.register(default_repr, W_ANY)

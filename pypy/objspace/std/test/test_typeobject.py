@@ -16,8 +16,9 @@ class TestPyMultimethodCode(unittest_w.TestCase_w):
     def test_int_sub(self):
         w = self.space.wrap
         for i in range(2):
-            meth = tobj.PyMultimethodCode(self.space.sub, i, self.space.w_int)
-            self.assertEqual(meth.multimethod.is_empty(), False)
+            meth = tobj.PyMultimethodCode(self.space.sub.multimethod,
+                                          i, self.space.w_int)
+            self.assertEqual(meth.slice().is_empty(), False)
             # test int.__sub__ and int.__rsub__
             self.assertEqual_w(meth.eval_code(self.space, None,
                                               w({'x1': 5, 'x2': 7})),
@@ -31,16 +32,17 @@ class TestPyMultimethodCode(unittest_w.TestCase_w):
 
     def test_empty_inplace_add(self):
         for i in range(2):
-            meth = tobj.PyMultimethodCode(self.space.inplace_add, i,
-                                          self.space.w_int)
-            self.assertEqual(meth.multimethod.is_empty(), True)
+            meth = tobj.PyMultimethodCode(self.space.inplace_add.multimethod,
+                                          i, self.space.w_int)
+            self.assertEqual(meth.slice().is_empty(), True)
 
     def test_float_sub(self):
         w = self.space.wrap
         w(1.5)   # force floatobject imported
         for i in range(2):
-            meth = tobj.PyMultimethodCode(self.space.sub, i, self.space.w_float)
-            self.assertEqual(meth.multimethod.is_empty(), False)
+            meth = tobj.PyMultimethodCode(self.space.sub.multimethod,
+                                          i, self.space.w_float)
+            self.assertEqual(meth.slice().is_empty(), False)
             # test float.__sub__ and float.__rsub__
 
             # some of these tests are pointless for Python because

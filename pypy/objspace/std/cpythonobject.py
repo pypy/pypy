@@ -4,8 +4,6 @@ import sys, operator, types
 
 class W_CPythonObject(W_Object):
     "This class wraps an arbitrary CPython object."
-
-    delegate_once = {}
     
     def __init__(w_self, space, cpyobj):
         W_Object.__init__(w_self, space)
@@ -14,6 +12,9 @@ class W_CPythonObject(W_Object):
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "wrap(%r)" % (w_self.cpyobj,)
+
+
+registerimplementation(W_CPythonObject)
 
 
 def cpython_unwrap(space, w_obj):

@@ -7,6 +7,8 @@ class FailedToImplement(Exception):
 
 class MultiMethod(object):
 
+    ASSERT_BASE_TYPE = None
+
     def __init__(self, operatorsymbol, arity, specialnames=None):
         "MultiMethod dispatching on the first 'arity' arguments."
         self.arity = arity
@@ -15,6 +17,8 @@ class MultiMethod(object):
         if specialnames is None:
             specialnames = [operatorsymbol]
         self.specialnames = specialnames  # list like ['__xxx__', '__rxxx__']
+        self.cache_dependencies = {}
+        self.cache_table = {}
 
     def register(self, function, *types):
         # W_ANY can be used as a placeholder to dispatch on any value.
@@ -22,19 +26,30 @@ class MultiMethod(object):
             raise error, "we already got an implementation for %r %r" % (
                 self.operatorsymbol, types)
         self.dispatch_table[types] = function
+        # clear caches
+        self.cache_table.clear()
+        for cache in self.cache_dependencies:
+            cache.cleardependency()
+        self.cache_dependencies.clear()
 
     def __get__(self, space, cls):
         if space is None:
             return self  # <-------------------------- Hack
         return BoundMultiMethod(space, self)
 
+    def cache_dependency(self, cache):
+        self.cache_dependencies[cache] = 1
+
     def buildchoices(self, types):
         """Build a list of all possible combinations of delegated types,
         sorted by cost."""
-        result = []
-        self.internal_buildchoices(types, (), (), result)
-        # the result is sorted by costs by construction.
-        # it is a list of (delegator, function) pairs.
+        try:
+            result = self.cache_table[types]  # try from the cache first
+        except KeyError:
+            result = self.cache_table[types] = []
+            self.internal_buildchoices(types, (), (), result)
+            # the result is sorted by costs by construction.
+            # it is a list of (delegator, function) pairs.
         return result
 
     def internal_buildchoices(self, initialtypes, currenttypes,
@@ -45,7 +60,9 @@ class MultiMethod(object):
             except KeyError:
                 pass
             else:
-                result.append((currentdelegators, function))
+                newentry = (currentdelegators, function)
+                if newentry not in result:      # don't add duplicates
+                    result.append(newentry)
         else:
             nexttype = initialtypes[len(currenttypes)]
             delegators = {}
@@ -53,12 +70,20 @@ class MultiMethod(object):
                 self.internal_buildchoices(initialtypes,
                                            currenttypes + (nexttype,),
                                            currentdelegators + (None,), result)
-                delegators.update(getattr(nexttype, "delegate_once", {}))
+                #assert "delegate_once" in nexttype.__dict__, (
+                #    "you must call registerimplementation() to initialize %r" %
+                #    nexttype)
+                if "delegate_once" in nexttype.__dict__:
+                    for key, value in nexttype.__dict__["delegate_once"].items():
+                        if key not in delegators:
+                            delegators[key] = value
                 # before general delegation, try superclasses
                 if not nexttype.__bases__:
                     # debugging assertion
-                    assert nexttype.__name__ == 'W_Object',  \
-                    "calling a multimethod with an argument which is not wrapped"
+                    if self.ASSERT_BASE_TYPE:
+                        assert nexttype is self.ASSERT_BASE_TYPE, (
+                            "calling a multimethod with an argument "
+                            "which is not wrapped")
                     break
                 nexttype, = nexttype.__bases__ # no multiple inheritance pleeease
             for othertype, delegator in delegators.items():
@@ -70,8 +95,7 @@ class MultiMethod(object):
     def slicetable(self, position, slicetype):
         m = MultiMethod(self.operatorsymbol, self.arity, self.specialnames)
         for key, value in self.dispatch_table.iteritems():
-            if (key[position].statictype is not None and
-                issubclass(key[position].statictype, slicetype.__class__)):
+            if slicetype.acceptclass(key[position]):
                 m.dispatch_table[key] = value
         return m
 
@@ -101,10 +125,10 @@ class BoundMultiMethod:
                     plural = ""
                 else:
                     plural = "s"
-                typenames = [t.__name__ for t in initialtypes]
-                message = "unsupported operand type%s for %s: %s" % (
+                debugtypenames = [t.__name__ for t in initialtypes]
+                message = "unsupported operand type%s for %s (%s)" % (
                     plural, self.multimethod.operatorsymbol,
-                    ', '.join(typenames))
+                    ', '.join(debugtypenames))
                 w_value = self.space.wrap(message)
                 raise OperationError(self.space.w_TypeError, w_value)
 
@@ -129,10 +153,6 @@ class BoundMultiMethod:
                 if firstfailure is None:
                     firstfailure = e
         raise firstfailure or FailedToImplement()
-
-    def slicetable(self, position, slicetype):
-        return BoundMultiMethod(self.space,
-            self.multimethod.slicetable(position, slicetype))
 
     def is_empty(self):
         return self.multimethod.is_empty()

@@ -1,12 +1,18 @@
 from __future__ import nested_scopes
 from pypy.objspace.std.objspace import *
+from instmethtype import W_InstMethType
 
 
 class W_InstMethObject(W_Object):
+    statictype = W_InstMethType
+    
     def __init__(w_self, space, w_im_self, w_im_func):
         W_Object.__init__(w_self, space)
         w_self.w_im_self = w_im_self
         w_self.w_im_func = w_im_func
+
+
+registerimplementation(W_InstMethObject)
 
 
 #def function_unwrap(space, w_function):

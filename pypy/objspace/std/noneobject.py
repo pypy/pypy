@@ -3,8 +3,10 @@ from nonetype import W_NoneType
 
 
 class W_NoneObject(W_Object):
-    delegate_once = {}
     statictype = W_NoneType
+
+
+registerimplementation(W_NoneObject)
 
 
 def none_unwrap(space, w_none):

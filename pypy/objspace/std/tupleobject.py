@@ -5,7 +5,6 @@ from sliceobject import W_SliceObject
 
 
 class W_TupleObject(W_Object):
-    delegate_once = {}
     statictype = W_TupleType
 
     def __init__(w_self, space, wrappeditems):
@@ -16,6 +15,9 @@ class W_TupleObject(W_Object):
         """ representation for debugging purposes """
         reprlist = [repr(w_item) for w_item in w_self.wrappeditems]
         return "%s(%s)" % (w_self.__class__.__name__, ', '.join(reprlist))
+
+
+registerimplementation(W_TupleObject)
 
 
 def tuple_unwrap(space, w_tuple):

@@ -57,7 +57,7 @@ class OperationError(Exception):
         self.w_type = w_type
         self.w_value = w_value
         self.application_traceback = []
-        self.debug_tb = None
+        self.debug_tbs = []
 
     def record_application_traceback(self, frame, last_instruction):
         self.application_traceback.append((frame, last_instruction))
@@ -88,8 +88,7 @@ class OperationError(Exception):
         """Records the current traceback inside the interpreter.
         This traceback is only useful to debug the interpreter, not the
         application."""
-        if self.debug_tb is None:
-            self.debug_tb = sys.exc_info()[2]
+        self.debug_tbs.append(sys.exc_info()[2])
 
     def print_application_traceback(self, space, file=None):
         "Dump a standard application-level traceback."
@@ -127,12 +126,12 @@ class OperationError(Exception):
         """Dump a nice detailed interpreter- and application-level traceback,
         useful to debug the interpreter."""
         if file is None: file = sys.stderr
-        self.print_app_tb_only(file)
-        if self.debug_tb:
+        for i in range(len(self.debug_tbs)-1, -1, -1):
             import traceback
             interpr_file = LinePrefixer(file, '||')
             print >> interpr_file, "Traceback (interpreter-level):"
-            traceback.print_tb(self.debug_tb, file=interpr_file)
+            traceback.print_tb(self.debug_tbs[i], file=interpr_file)
+        self.print_app_tb_only(file)
         if space is None:
             exc_typename = str(self.w_type)
             exc_value    = self.w_value
@@ -218,7 +217,7 @@ class Stack:
 # installing the excepthook for OperationErrors
 def operr_excepthook(exctype, value, traceback):
     if issubclass(exctype, OperationError):
-        value.debug_tb = value.debug_tb or traceback
+        value.debug_tbs.append(traceback)
         value.print_detailed_traceback()
     else:
         old_excepthook(exctype, value, traceback)

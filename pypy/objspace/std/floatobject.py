@@ -16,13 +16,14 @@ class W_FloatObject(W_Object):
     """This is a reimplementation of the CPython "PyFloatObject" 
        it is assumed that the constructor takes a real Python float as
        an argument"""
-
-    delegate_once = {}
     statictype = W_FloatType
     
     def __init__(w_self, space, floatval):
         W_Object.__init__(w_self, space)
         w_self.floatval = floatval
+
+
+registerimplementation(W_FloatObject)
 
 # int-to-float delegation
 def int_to_float(space, w_intobj):

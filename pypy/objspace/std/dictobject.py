@@ -12,7 +12,7 @@ class Cell:
 
     def get(self):
         if self.is_empty():
-            raise OperatioError(w_SystemError)
+            raise ValueError, "get() from an empty cell"
         return self.w_value
 
     def set(self,w_value):
@@ -20,7 +20,7 @@ class Cell:
 
     def make_empty(self):
         if self.is_empty():
-            raise OperatioError(w_SystemError)
+            raise ValueError, "make_empty() on an empty cell"
         self.w_value = _NoValueInCell
 
     def is_empty(self):
@@ -33,32 +33,39 @@ class Cell:
     
 
 class W_DictObject(W_Object):
-    delegate_once = {}
     statictype = W_DictType
 
     def __init__(w_self, space, list_pairs_w):
         W_Object.__init__(w_self, space)
-        w_self.data = [ (w_key,Cell(w_value)) for w_key,w_value in list_pairs_w ]
+        w_self.data = [ (w_key, space.unwrap(space.hash(w_key)), Cell(w_value))
+                        for w_key,w_value in list_pairs_w ]
 
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "%s(%s)" % (w_self.__class__.__name__, w_self.data)
 
     def non_empties(self):
-        return [ (w_key,cell) for w_key,cell in self.data if not cell.is_empty()]
+        return [ (w_key,cell) for w_key,hash,cell in self.data
+                              if not cell.is_empty()]
 
     def _cell(self,space,w_lookup):
         data = self.data
-        for w_key, cell in data:
-            if space.is_true(space.eq(w_lookup, w_key)):
+        # this lookup is where most of the start-up time is consumed.
+        # Hashing helps a lot.
+        lookup_hash = space.unwrap(space.hash(w_lookup))
+        for w_key, hash, cell in data:
+            if lookup_hash == hash and space.is_true(space.eq(w_lookup, w_key)):
                 break
         else:
             cell = Cell()
-            data.append((w_lookup,cell))
+            data.append((w_lookup,lookup_hash,cell))
         return cell
 
     def cell(self,space,w_lookup):
         return space.wrap(self._cell(space,w_lookup))
+
+
+registerimplementation(W_DictObject)
 
 
 def dict_is_true(space, w_dict):
@@ -133,7 +140,7 @@ StdObjSpace.contains.register(contains_dict_any, W_DictObject, W_ANY)
 def eq_dict_dict(space, w_left, w_right):
     if len(w_left.data) != len(w_right.data):
         return space.newbool(0)
-    for w_k, cell in w_left.data:
+    for w_k, hash, cell in w_left.data:
         try:
             w_v = space.getitem(w_right, w_k)
         except OperationError:

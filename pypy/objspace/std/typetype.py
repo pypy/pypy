@@ -3,12 +3,10 @@ from typeobject import W_TypeObject
 
 
 class W_TypeType(W_TypeObject):
+    """The single instance of this class is the object the user sees as
+    '__builtin__.type'."""
 
     typename = 'type'
-
-
-# hack that in place
-W_TypeObject.statictype = W_TypeType
 
 
 # XXX we'll worry about the __new__/__init__ distinction later

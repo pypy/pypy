@@ -1,7 +1,6 @@
 from pypy.objspace.std.objspace import *
 from inttype import W_IntType
 from noneobject import W_NoneObject
-from boolobject import W_BoolObject
 from restricted_int import r_int, LONG_BIT
 
 applicationfile = StdObjSpace.AppFile(__name__)
@@ -22,8 +21,6 @@ RPython, just for test purposes.
 """
 
 class W_IntObject(W_Object):
-
-    delegate_once = {}
     statictype = W_IntType
     
     def __init__(w_self, space, intval):
@@ -35,9 +32,7 @@ class W_IntObject(W_Object):
         return "%s(%d)" % (w_self.__class__.__name__, w_self.intval)
 
 
-def bool_to_int(space, w_bool):
-    return W_IntObject(space, int(w_bool.boolval))
-W_BoolObject.delegate_once[W_IntObject] = bool_to_int
+registerimplementation(W_IntObject)
 
 
 """

@@ -10,6 +10,7 @@ else:
 
 class W_Object:
     "Parent base class for wrapped objects."
+    delegate_once = {}
     statictype = None
     
     def __init__(w_self, space):
@@ -19,6 +20,14 @@ class W_Object:
         return w_self.__class__
 
 W_ANY = W_Object  # synonyms for use in .register()
+MultiMethod.ASSERT_BASE_TYPE = W_Object
+
+
+def registerimplementation(implcls):
+    # this function should ultimately register the implementation class somewhere
+    # right now its only purpose is to make sure there is a
+    # delegate_once attribute.
+    implcls.__dict__.setdefault("delegate_once", {})
 
 
 ##################################################################
@@ -38,6 +47,7 @@ class StdObjSpace(ObjSpace):
         class result:
             "Import here the types you want to have appear in __builtin__."
 
+            from objecttype import W_ObjectType
             from booltype   import W_BoolType
             from inttype    import W_IntType
             from floattype  import W_FloatType
@@ -87,8 +97,8 @@ class StdObjSpace(ObjSpace):
 #        self.setitem(self.w_builtins, self.wrap("__import__"), w_import)
 
     def get_typeinstance(self, typeclass):
-        assert hasattr(typeclass, 'typename'),  \
-               "get_typeinstance() cannot be used for W_UserType"
+        assert typeclass.typename is not None, (
+            "get_typeinstance() cannot be used for %r" % typeclass)
         # types_w maps each W_XxxType class to its unique-for-this-space instance
         try:
             w_type = self.types_w[typeclass]
@@ -171,24 +181,15 @@ class StdObjSpace(ObjSpace):
     is_true = MultiMethod('nonzero', 1, [])  # returns an unwrapped bool
     # XXX do something about __nonzero__ !
 
-##    # handling of the common fall-back cases
-##    def compare_any_any(self, w_1, w_2, operation):
-##        if operation == "is":
-##            return self.newbool(w_1 == w_2)
-##        elif operation == "is not":
-##            return self.newbool(w_1 != w_2)
-##        else:
-##            raise FailedToImplement(self.w_TypeError,
-##                                    "unknown comparison operator %r" % operation)
-        
-##    compare.register(compare_any_any, W_ANY, W_ANY)
+    getdict = MultiMethod('getdict', 1, [])  # get '.__dict__' attribute
 
 
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     setattr(StdObjSpace, _name, MultiMethod(_symbol, _arity, _specialnames))
 
+# import the common base W_ObjectObject as well as
 # default implementations of some multimethods for all objects
 # that don't explicitely override them or that raise FailedToImplement
-
+import pypy.objspace.std.objectobject
 import pypy.objspace.std.default

@@ -104,10 +104,6 @@ class Builtin(BuiltinModule):
         return self.space.len(w_obj)
     len = appmethod(len)
 
-    def str(self, w_obj):
-        return self.space.str(w_obj)
-    str = appmethod(str)
-
     def delattr(self, w_object, w_name):
         return self.space.delattr(w_object, w_name)
     delattr = appmethod(delattr)
@@ -178,8 +174,8 @@ class Builtin(BuiltinModule):
     # we have None! But leave these at the bottom, otherwise the default
     # arguments of the above-defined functions will see this new None...
     None = appdata(_b.None)
-    False = appdata(_b.False)
-    True = appdata(_b.True)
-    dict = appdata(_b.dict)   # XXX temporary
-    tuple = appdata(_b.tuple) # XXX temporary
-    int = appdata(_b.int) # XXX temporary
+##    False = appdata(_b.False)
+##    True = appdata(_b.True)
+##    dict = appdata(_b.dict)   # XXX temporary
+##    tuple = appdata(_b.tuple) # XXX temporary
+##    int = appdata(_b.int) # XXX temporary
