@@ -1,5 +1,3 @@
-import math,sys
-
 """Functions to convert between Python values and C structs. 
 Python strings are used to hold the data representing the C struct 
 and also as format strings to describe the layout of data in the C struct.
@@ -35,6 +33,8 @@ Special case (not in native mode unless 'long long' in platform C):
 Whitespace between formats is ignored. 
  
 The variable struct.error is an exception raised on errors."""
+
+import math,sys
 
 # TODO: XXX Find a way to get information on native sizes and alignments
 class StructError(Exception):
