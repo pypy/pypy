@@ -57,7 +57,7 @@ def print_item_to(x, stream):
     stream.write(str(x))
     # add a softspace unless we just printed a string which ends in a '\t'
     # or '\n' -- or more generally any whitespace character but ' '
-    if isinstance(x, str) and x[-1].isspace() and x[-1]!=' ':
+    if isinstance(x, str) and len(x) and x[-1].isspace() and x[-1]!=' ':
         return
     # XXX add unicode handling
     file_softspace(stream, True)
@@ -144,3 +144,45 @@ def concatenate_keywords(kw, extra_kw):
                               "for keyword argument '%s'" % key)
         result[key] = value
     return result
+
+def exec_statement(prog, globals, locals,
+                   builtins, caller_globals, caller_locals):
+    """Manipulate parameters to exec statement to (codeobject, dict, dict).
+    """
+    import types
+    if (globals is None and locals is None and
+        isinstance(prog, builtins.tuple) and
+        (len(prog) == 2 or len(prog) == 3)):
+        globals = prog[1]
+        if len(prog) == 3:
+            locals = prog[2]
+        prog = prog[0]
+    if globals is None:
+        globals = caller_globals
+        if locals is None:
+            locals = caller_locals
+    if locals is None:
+        locals = globals
+    if not isinstance(globals, types.DictType):
+        raise TypeError("exec: arg 2 must be a dictionary or None")
+    elif not globals.has_key('__builtins__'):
+        globals['__builtins__'] = builtins
+    if not isinstance(locals, types.DictType):
+        raise TypeError("exec: arg 3 must be a dictionary or None")
+    #HACK to check for code object
+    co = compile('1','<string>','eval')
+    if isinstance(prog, type(co)):
+        return (prog, globals, locals)
+    if not (isinstance(prog, types.StringTypes) or
+            isinstance(prog, types.FileType)):
+        raise TypeError("exec: arg 1 must be a string, file, or code object")
+    if isinstance(prog, types.FileType):
+        flags = 0
+        ## XXX add in parent flag merging
+        co = compile(prog.read(),prog.name,'exec',flags,1)
+        return (co,globals,locals)
+    else: # prog is a string
+        flags = 0
+        ## XXX add in parent flag merging
+        co = compile(prog,'<string>','exec',flags,1)
+        return (co,globals,locals)

@@ -283,10 +283,16 @@ def EXEC_STMT(f):
     w_locals  = f.valuestack.pop()
     w_globals = f.valuestack.pop()
     w_prog    = f.valuestack.pop()
-    f.space.gethelper(appfile).call("exec_statement",
+    w_tuple = f.space.gethelper(appfile).call("exec_statement",
                                     [w_prog, w_globals, w_locals,
                                      f.w_builtins, f.w_globals, f.w_locals])
-
+    w_prog = f.space.getitem(w_tuple,f.space.wrap(0))
+    w_globals = f.space.getitem(w_tuple,f.space.wrap(1))
+    w_locals = f.space.getitem(w_tuple,f.space.wrap(2))
+    newframe = pyframe.PyFrame(f.space,f.space.unwrap(w_prog),w_globals,w_locals)
+    ec = f.space.getexecutioncontext()
+    ec.eval_frame(newframe) #discard return value
+    
 def POP_BLOCK(f):
     block = f.blockstack.pop()
     block.cleanup(f)  # the block knows how to clean up the value stack
