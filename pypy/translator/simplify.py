@@ -3,7 +3,7 @@ generate Pyrex files from the flowmodel.
 
 """
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.translator.flowmodel import *
+from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 
 # debug
 from pypy.translator.genpyrex import GenPyrex

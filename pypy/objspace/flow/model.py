@@ -35,7 +35,7 @@ class Block:
         result = self.inputargs[:]
         for op in self.operations:
             result += op.args
-            result.append(result)
+            result.append(op.result)
         return uniqueitems([w for w in result if isinstance(w, Variable)])
 
     def closeblock(self, *exits):
@@ -49,6 +49,8 @@ class Variable:
             name = 'v%d' % Variable.counter
             Variable.counter += 1
         self.name = name
+    def __repr__(self):
+        return '<%s>' % self.name
 
 class Constant:
     def __init__(self, value):
@@ -57,6 +59,10 @@ class Constant:
         return isinstance(other, Constant) and self.value == other.value
     def __ne__(self, other):
         return not (self == other)
+    def __hash__(self):
+        return hash(self.value)
+    def __repr__(self):
+        return '<%r>' % (self.value,)
 
 class SpaceOperation:
     def __init__(self, opname, args, result): 
@@ -70,6 +76,10 @@ class SpaceOperation:
                 self.result == other.result)
     def __ne__(self, other):
         return not (self == other)
+    def __hash__(self):
+        return hash((self.opname,tuple(self.args),self.result))
+    def __repr__(self):
+        return "%r <- %s(%s)" % (self.result, self.opname, ", ".join(map(repr, self.args)))
 
 def uniqueitems(lst):
     "Returns a list with duplicate elements removed."

@@ -3,7 +3,7 @@ generate Pyrex files from the flowmodel.
 
 """
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.translator.flowmodel import *
+from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.translator.annotation import Annotator
 
 class Op:
@@ -105,6 +105,9 @@ class Op:
         else: 
             return "%s = getattr(%s)" % (self.resultname, ", ".join(args))
 
+    def op_is_true(self):
+        return "%s = not not %s" % (self.resultname, self.argnames[0])
+
 class GenPyrex:
     def __init__(self, functiongraph):
         self.functiongraph = functiongraph
@@ -131,34 +134,44 @@ class GenPyrex:
         #self.variablelocations = {}
         self.lines = []
         self.indent = 0
-        self.gen_Graph()
+        self.gen_graph()
         return "\n".join(self.lines)
 
     def putline(self, line):
         for l in line.split('\n'):
             self.lines.append("  " * self.indent + l)
 
-    def gen_Graph(self):
+    def gen_graph(self):
         fun = self.functiongraph
-        self.entrymap = fun.mkentrymap()
+        #self.entrymap = fun.mkentrymap()
         currentlines = self.lines
         self.lines = []
         self.indent += 1 
-        self.gen_BasicBlock(fun.startblock)
+        self.gen_block(fun.startblock)
         self.indent -= 1
         # emit the header after the body
         functionbodylines = self.lines
         self.lines = currentlines
-        inputargnames = [ " ".join(self._paramvardecl(var)) for var in fun.startblock.input_args ]
+        inputargnames = [ " ".join(self._paramvardecl(var)) for var in fun.getargs() ]
         params = ", ".join(inputargnames)
-        self.putline("def %s(%s):" % (fun.functionname, params))
+        self.putline("def %s(%s):" % (fun.name, params))
         self.indent += 1
         #self.putline("# %r" % self.annotations)
+        decllines = []
+        missing_decl = []
         for var in self.variables_ann:
-            if var not in fun.startblock.input_args:
+            if var not in fun.getargs():
                 decl = self._vardecl(var)
                 if decl:
-                    self.putline(decl)
+                    decllines.append(decl)
+                else:
+                    missing_decl.append(self.get_varname(var))
+        if missing_decl:
+            missing_decl.sort()
+            decllines.append('# untyped variables: ' + ' '.join(missing_decl))
+        decllines.sort()
+        for decl in decllines:
+            self.putline(decl)
         self.indent -= 1
         self.lines.extend(functionbodylines)
 
@@ -174,7 +187,7 @@ class GenPyrex:
             prefix = "i_"
         else:
             prefix = ""
-        return prefix + var.pseudoname
+        return prefix + var.name
 
     def _paramvardecl(self, var):
         vartype = self.get_type(var)
@@ -197,18 +210,21 @@ class GenPyrex:
             #self.variablelocations[obj] = block
             return self.get_varname(obj)
         elif isinstance(obj, Constant):
+            value = obj.value
             try:
-                name = obj.value.__name__
+                name = value.__name__
             except AttributeError:
                 pass
             else:
-                if __builtins__.get(name) is obj.value:
+                if __builtins__.get(name) is value:
                     return name    # built-in functions represented as their name only
-            return repr(obj.value)
+            if isinstance(value, int):
+                value = int(value)  # cast subclasses of int (i.e. bools) to ints
+            return repr(value)
         else:
             raise TypeError("Unknown class: %s" % obj.__class__)
 
-    def gen_BasicBlock(self, block):
+    def gen_block(self, block):
         if self.blockids.has_key(block):
             self.putline('cinline "goto Label%s;"' % self.blockids[block])
             return 
@@ -217,45 +233,45 @@ class GenPyrex:
         blockids.setdefault(block, len(blockids))
 
         #the label is only, if there are more, then are multiple references to the block
-        if len(self.entrymap[block]) > 1:
-            self.putline('cinline "Label%s:"' % blockids[block])
+        #XXX if len(self.entrymap[block]) > 1:
+        self.putline('cinline "Label%s:"' % blockids[block])
         for op in block.operations:
             opg = Op(op, self, block)
             self.putline(opg())
 
-        self.dispatchBranch(block, block.branch)
+        exits = block.exits
+        if len(exits) == 1:
+            self.gen_link(block, exits[0])
+        elif len(exits) > 1:
+            varname = self._str(block.exitswitch, block)
+            for i in range(len(exits)):
+                exit = exits[-i-1]  # reverse order
+                cond = self._str(Constant(exit.exitcase), block)
+                if i == 0:
+                    self.putline("if %s == %s:" % (varname, cond))
+                elif i < len(exits) - 1:
+                    self.putline("elif %s == %s:" % (varname, cond))
+                else:
+                    self.putline("else: # %s == %s" % (varname, cond))
+                self.indent += 1
+                self.gen_link(block, exit)
+                self.indent -= 1
+        else:
+            self.putline("return %s" % self._str(block.inputargs[0], block))
 
-    def dispatchBranch(self, prevblock, branch):
-        method = getattr(self, "gen_" + branch.__class__.__name__)
-        method(prevblock, branch)
-
-    def gen_Branch(self, prevblock, branch):
+    def gen_link(self, prevblock, link):
         _str = self._str
-        block = branch.target
-        sourceargs = [_str(arg, prevblock) for arg in branch.args]       
-        targetargs = [_str(arg, branch.target) for arg in block.input_args]
-        assert(len(sourceargs) == len(targetargs))
-        # get rid of identity-assignments 
+        block = link.target
+        sourceargs = [_str(arg, prevblock) for arg in link.args]
+        targetargs = [_str(arg, block) for arg in block.inputargs]
+        assert len(sourceargs) == len(targetargs)
+        # get rid of identity-assignments
         sargs, targs = [], []
         for s,t in zip(sourceargs, targetargs):
             if s != t:
-                sargs.append(s) 
+                sargs.append(s)
                 targs.append(t)
         if sargs:
             self.putline("%s = %s" % (", ".join(targs), ", ".join(sargs)))
 
-        self.gen_BasicBlock(block)    
-
-    def gen_EndBranch(self, prevblock, branch):
-        self.putline("return %s" % self._str(branch.returnvalue, prevblock))
- 
-    def gen_ConditionalBranch(self, prevblock, branch):
-        self.putline("if %s:" % self._str(branch.condition, prevblock))
-        self.indent += 1
-        self.dispatchBranch(prevblock, branch.ifbranch)
-        self.indent -= 1
-        self.putline("else:")
-        self.indent += 1
-        self.dispatchBranch(prevblock, branch.elsebranch)
-        self.indent -= 1
-
+        self.gen_block(block)

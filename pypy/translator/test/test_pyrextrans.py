@@ -2,8 +2,8 @@ import autopath
 from pypy.tool import test
 from pypy.tool.udir import udir
 from pypy.translator.genpyrex import GenPyrex
-from pypy.translator.flowmodel import *
-from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
+from pypy.objspace.flow.model import *
+from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring
 
 
 make_dot = False
