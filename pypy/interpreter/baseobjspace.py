@@ -92,7 +92,7 @@ class ObjSpace(object):
 
     def loadfromcache(self, key, builder, cache):
         return cache.getorbuild(key, builder, self) 
-    loadfromcache.specialize = True 
+    loadfromcache._specialize_ = "location" 
 
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
