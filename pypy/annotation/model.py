@@ -174,6 +174,7 @@ def new_or_old_class(c):
     else:
         return type(c)
 
+
 class SomePBC(SomeObject):
     """Stands for a global user instance, built prior to the analysis,
     or a set of such instances."""
@@ -221,6 +222,7 @@ class SomePBC(SomeObject):
             return None
         else:
             return kt.__name__
+
 
 class SomeBuiltin(SomeObject):
     "Stands for a built-in function or method with special-cased analysis."
