@@ -226,7 +226,7 @@ class FunctionDef:
             print >> f, '\t' + footer
         print >> f, '\treturn oret;'
 
-        if conversions:
+        if conversions or footer:
             print >> f, '    type_error:'
             print >> f, '        return NULL;'
         

@@ -2,6 +2,7 @@ import autopath
 import py
 from pypy.tool.udir import udir
 from pypy.translator.genc import GenC
+from pypy.translator.typer import GenCSpecializer
 from pypy.objspace.flow.model import *
 from pypy.translator.tool.buildpyxmodule import make_module_from_c
 from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
@@ -214,7 +215,7 @@ class TestNoTypeCGenTestCase:
         assert fn(117, 124) == -3
 
 
-class TestTypedTestCase:
+class TestAnnotatedTestCase:
 
     def getcompiled(self, func):
         t = Translator(func, simplifying=True)
@@ -313,4 +314,21 @@ class TestTypedTestCase:
         assert result == list('abc')
         result = fn(l, 2**64)
         assert result == list('abc')
-        
+
+
+class IN_PROGRESS_TestTypedTestCase(TestAnnotatedTestCase):
+
+    def getcompiled(self, func):
+        t = Translator(func, simplifying=True)
+        # builds starting-types from func_defs 
+        argstypelist = []
+        if func.func_defaults:
+            for spec in func.func_defaults:
+                if isinstance(spec, tuple):
+                    spec = spec[0] # use the first type only for the tests
+                argstypelist.append(spec)
+        a = t.annotate(argstypelist)
+        a.simplify()
+        GenCSpecializer(a).specialize()
+        t.checkgraphs()
+        return skip_missing_compiler(t.ccompile)

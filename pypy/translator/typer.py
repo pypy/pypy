@@ -8,7 +8,7 @@ class TypeMatch:
         self.s_type = s_type
         self.type_cls = type_cls
 
-class TyperError:
+class TyperError(Exception):
     pass
 
 

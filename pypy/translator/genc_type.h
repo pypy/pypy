@@ -10,3 +10,6 @@
 							  FAIL(err)
 
 #define OP_INT_IS_TRUE(x,r,err)   r = (x != 0);
+
+#define OP_INT_ADD(x,y,r,err)     r = x + y;
+#define OP_INT_SUB(x,y,r,err)     r = x - y;
