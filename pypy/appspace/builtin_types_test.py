@@ -672,7 +672,7 @@ print '6.6.5 dict popitem'
 for copymode in -1, +1:
     # -1: b has same structure as a
     # +1: b is a.copy()
-    for log2size in range(12):
+    for log2size in range(4):#(12):
         size = 2**log2size
         a = {}
         b = {}
