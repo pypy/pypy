@@ -9,6 +9,7 @@ from pypy.interpreter import gateway, function
 from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.miscutils import InitializedClass
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter.pycode import PyCode
 from pypy.tool import hack
 
 def unaryoperation(operationname):
@@ -357,6 +358,7 @@ class PyInterpFrame(pyframe.PyFrame):
         if plain:
             w_locals = f.getdictscope()
         pycode = f.space.interpclass_w(w_prog)
+        assert isinstance(pycode, PyCode)
         pycode.exec_code(f.space, w_globals, w_locals)
         if plain:
             f.setdictscope(w_locals)
@@ -655,7 +657,8 @@ class PyInterpFrame(pyframe.PyFrame):
 
     def MAKE_FUNCTION(f, numdefaults):
         w_codeobj = f.valuestack.pop()
-        codeobj = f.space.interpclass_w(w_codeobj)   
+        codeobj = f.space.interpclass_w(w_codeobj)
+        assert isinstance(codeobj, PyCode)        
         defaultarguments = [f.valuestack.pop() for i in range(numdefaults)]
         defaultarguments.reverse()
         fn = function.Function(f.space, codeobj, f.w_globals, defaultarguments)
