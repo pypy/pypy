@@ -742,6 +742,17 @@ xrange_appsource = """if 1:
                 raise ValueError, 'xrange() step-argument (arg 3) must not be zero'
             self.step = step
 
+        def __len__(self):
+            if not hasattr(self, '_len'):
+                slicelength = self.stop - self.start
+                lengthsign = cmp(slicelength, 0)
+                stepsign = cmp(self.step, 0)
+                if stepsign == lengthsign:
+                    self._len = (slicelength - lengthsign) // self.step + 1
+                else:
+                    self._len = 0
+            return self._len
+
         def __iter__(self):
             def gen(self):
                 start, stop, step = self.start, self.stop, self.step
