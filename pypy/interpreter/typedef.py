@@ -25,7 +25,7 @@ def get_unique_interplevel_subclass(cls):
 
         class User_InsertNameHere(object):
             
-            def getclass(self):
+            def getclass(self, space):
                 return self.w__class__
             
             def setclass(self, w_subtype):
@@ -54,12 +54,9 @@ def get_unique_interplevel_subclass(cls):
                     self.w__dict__ = space.newdict([])
 
         body = dict(User_InsertNameHere.__dict__.items())
-        subcls = type(name, (cls, UserSubclass), body)
+        subcls = type(name, (cls,), body)
         unique_interplevel_subclass_cache[cls] = subcls
         return subcls
-
-class UserSubclass(object):
-    pass   # XXX this should probably not exist
 
 def instantiate(cls):
     "Create an empty instance of 'cls'."

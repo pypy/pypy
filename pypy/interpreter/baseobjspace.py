@@ -3,14 +3,21 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.miscutils import getthreadlocals
 from pypy.interpreter.argument import Arguments
 
-__all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable']
+__all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable',
+           'W_Root']
 
 
-class BaseWrappable:
-    """A subclass of BaseWrappable is an internal, interpreter-level class
-    that can nevertheless be exposed at application-level by space.wrap()."""
+class W_Root:
+    """This is the abstract root class of all wrapped objects that live
+    in a 'normal' object space like StdObjSpace."""
     def getdict(self):
         return None
+    def getclass(self, space):
+        return space.gettypeobject(self.typedef)
+
+class BaseWrappable(W_Root):
+    """A subclass of BaseWrappable is an internal, interpreter-level class
+    that can nevertheless be exposed at application-level by space.wrap()."""
     def __spacebind__(self, space):
         return self
 

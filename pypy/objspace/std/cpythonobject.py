@@ -41,6 +41,27 @@ class W_CPythonObject(W_Object):
         """ representation for debugging purposes """
         return "cpyobj(%r)" % (w_self.cpyobj,)
 
+    def getclass(w_self, space):
+        return space.wrap(w_self.cpyobj.__class__)
+
+    def lookup(w_self, name):
+        # hack for wrapped CPython types
+        cls = w_self.cpyobj
+        if isinstance(cls, type):
+            for base in cls.__mro__:
+                if name in base.__dict__:
+                    return w_self.space.wrap(base.__dict__[name])
+            return None
+        elif isinstance(cls, types.ClassType):
+            while True:
+                if name in cls.__dict__:
+                    return w_self.space.wrap(base.__dict__[name])
+                if not cls.__bases__:
+                    return None
+                cls, = cls.__bases__  # no old-style multiple inheritance
+        else:
+            raise TypeError, '%r is not a class' % (cls,)
+
 registerimplementation(W_CPythonObject)
 
 

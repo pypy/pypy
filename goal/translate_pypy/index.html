@@ -7,9 +7,10 @@ for i, func in zip(range(len(t.functions)), t.functions):
     print "<tr><td>&nbsp;"
     print "%s:%d" % (htmlquote(func.func_globals.get('__name__', '?')),
                      func.func_code.co_firstlineno)
-    print "&nbsp;</td><td>&nbsp;<code><a href='func?i=%d'>" % i
-    print htmlquote(func.__name__)
-    print "</a></code>&nbsp;</td></tr>"
+    print "&nbsp;</td><td>&nbsp;"
+    print "<code><a href='func?i=%d'>%s</a></code>" % (i,
+        htmlquote(func.__name__))
+    print "&nbsp;</td></tr>"
 )s
 </table>
 </body>

@@ -1,14 +1,14 @@
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import *
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
-from pypy.interpreter.typedef import instantiate, UserSubclass
+from pypy.interpreter.typedef import instantiate
 from pypy.objspace.std.multimethod import *
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
 import types
 
 
-class W_Object(object):
+class W_Object(W_Root, object):
     "Parent base class for wrapped objects."
     typedef = None
 
@@ -24,9 +24,6 @@ class W_Object(object):
         if hasattr(self, 'w__class__'):
             s += ' instance of %s' % self.w__class__
         return '<%s>' % s
-
-    def getdict(self):
-        return None
 
 # delegation priorities
 PRIORITY_SAME_TYPE    = 2  # converting between several impls of the same type
@@ -290,26 +287,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_SeqIterObject(self, w_obj)
 
     def type(self, w_obj):
-        if isinstance(w_obj, UserSubclass):
-            return w_obj.getclass()
-        elif isinstance(w_obj, W_CPythonObject):
-                #raise TypeError, str(w_obj.cpyobj)
-                return self.wrap(type(w_obj.cpyobj))
-        else:
-            assert w_obj.typedef, w_obj
-            return self.gettypeobject(w_obj.typedef)
+        return w_obj.getclass(self)
 
     def lookup(self, w_obj, name):
-        if not isinstance(w_obj, W_CPythonObject):
-            # usual case
-            w_type = self.type(w_obj)
-            return w_type.lookup(name)
-        else:
-            # hack
-            for cls in type(w_obj.cpyobj).__mro__:
-                if name in cls.__dict__:
-                    return self.wrap(cls.__dict__[name])
-            return None
+        w_type = w_obj.getclass(self)
+        return w_type.lookup(name)
 
     def allocate_instance(self, cls, w_subtype):
         """Allocate the memory needed for an instance of an internal or
