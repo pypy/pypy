@@ -3,3 +3,4 @@
 #
 
 from pickle import *
+from pickle import __doc__
