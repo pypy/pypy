@@ -119,14 +119,20 @@ LT = 5
 NE = 6
 
 def string_richcompare(space, w_str1, w_str2, op):
+    print "string_richcompare ", w_str1, w_str2, op
     str1 = w_str1._value
     str2 = w_str2._value
 
-    if space.is_(str1, str2):
-        if op == EQ or op == LE or op == GE:
-            return space.w_True
-        elif op == GT or op == LT or op == NE:
-            return space.w_False
+    #There is still problem with it
+    #
+    #if space.is_(w_str1, w_str2):
+    #    print "Oooh, str1 and str2 are the same!"
+    #    if op == EQ or op == LE or op == GE:
+    #        return space.w_True
+    #    elif op == GT or op == LT or op == NE:
+    #        return space.w_False
+    if 0:
+        pass
     else:
         if op == EQ:
             if str1.len == str2.len:
@@ -159,6 +165,7 @@ def string_richcompare(space, w_str1, w_str2, op):
             else:
                 c = 0
 
+        print "c is ", c
         if op == LT:
             return space.newbool(c < 0)
         elif op == LE:
@@ -197,9 +204,10 @@ def str_str_eq(space, w_str1, w_str2):
 StdObjSpace.eq.register(str_str_eq, W_StringObject, W_StringObject)
 
 def str_str_ne(space, w_str1, w_str2):
-    i = w_str1._value.value()
-    j = w_str2._value.value()
-    return space.newbool( i != j )
+    #i = w_str1._value.value()
+    #j = w_str2._value.value()
+    #return space.newbool( i != j )
+    return string_richcompare(space, w_str1, w_str2, NE)
 StdObjSpace.ne.register(str_str_ne, W_StringObject, W_StringObject)
 
 def str_str_gt(space, w_str1, w_str2):
