@@ -107,13 +107,11 @@ edge [fontname=Times];
             label = " ".join(map(repr, block.exits[0].args))
             self.emit_edge(name, name2, label, style="solid")
         elif numblocks >1:
-            i = 0
             for link in block.exits:
                 name2 = self.blockname(link.target)
                 label = " ".join(map(repr, link.args))
-                label = "%s: %s" %(str(i), label)
+                label = "%s: %s" %(link.exitcase, label)
                 self.emit_edge(name, name2, label, style="dotted", color=color)
-                i+=1
 
 
 def make_dot(graph, storedir=None, target='ps'):
