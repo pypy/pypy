@@ -85,8 +85,12 @@ class __extend__(pairtype(SomeList, SomeList)):
 
     add = union
 
-    def inplace_add((lst1, lst2)):
-        pair(lst1, SomeInteger()).setitem(lst2.s_item)
+
+class __extend__(pairtype(SomeList, SomeObject)):
+
+    def inplace_add((lst1, obj2)):
+        s_iter = obj2.iter()
+        pair(lst1, SomeInteger()).setitem(s_iter.next())
         return lst1
 
 
