@@ -123,7 +123,6 @@ def _min(a, b):
     return b
 
 def lt__List_List(space, w_list1, w_list2):
-    # XXX list_le, list_gt, list_ge, list_ne must also be explicitely done
     items1 = w_list1.ob_item
     items2 = w_list2.ob_item
     ncmp = _min(w_list1.ob_size, w_list2.ob_size)
@@ -133,6 +132,17 @@ def lt__List_List(space, w_list1, w_list2):
             return space.lt(items1[p], items2[p])
     # No more items to compare -- compare sizes
     return space.newbool(w_list1.ob_size < w_list2.ob_size)
+
+def gt__List_List(space, w_list1, w_list2):
+    items1 = w_list1.ob_item
+    items2 = w_list2.ob_item
+    ncmp = _min(w_list1.ob_size, w_list2.ob_size)
+    # Search for the first index where items are different
+    for p in range(ncmp):
+        if not space.is_true(space.eq(items1[p], items2[p])):
+            return space.gt(items1[p], items2[p])
+    # No more items to compare -- compare sizes
+    return space.newbool(w_list1.ob_size > w_list2.ob_size)
 
 # upto here, lists are nearly identical to tuples, despite the
 # fact that we now support over-allocation!
