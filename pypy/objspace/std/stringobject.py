@@ -58,23 +58,26 @@ class W_StringObject(W_Object):
         else:
             return W_StringObject(w_self.space, "")
 
-    def char_isspace(ch):
+    def _char_isspace(ch):
         return ord(ch) in (9, 10, 11, 12, 13, 32)  
- 
-    def isspace(w_self):
+
+    def is_generic(w_self, fun): 
         space = w_self.space   
         v = w_self._value
         if v.len == 0:
             return space.w_False
         if v.len == 1:
             c = v.charat(0)
-            return space.newbool(ord(c) in (9, 10, 11, 12, 13, 32))
+            return space.newbool(fun(c))
         else:
             res = 1
             for idx in range(v.len):
-                if not (ord(v.charat(idx)) in (9, 10, 11, 12, 13, 32)):
+                if not fun(v.charat(idx)):
                     return space.w_False
             return space.w_True
+
+    def isspace(w_self):
+       return is_generic(w_self, _char_isspace)
 
     def isdigit(w_self):
         pass
