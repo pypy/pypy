@@ -493,7 +493,7 @@ class applevel:
             self.code = py.code.Source(source).compile()
         else: 
             self.code = compile(source, filename, 'exec') 
-
+        
     def getwdict(self, space):
         return space.loadfromcache(self, applevel._builddict,
                                    space._gatewaycache)
@@ -504,8 +504,11 @@ class applevel:
 
     def _builddict(self, space):
         "NOT_RPYTHON"
+
+        from pypy.interpreter.pycode import PyCode
+        code = PyCode(space)._from_code(self.code, applevel=True)
         w_glob = space.newdict([])
-        space.exec_(self.code, w_glob, w_glob)
+        space.exec_(code, w_glob, w_glob)
         return w_glob
     
     def wget(self, space, name): 

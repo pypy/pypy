@@ -96,13 +96,15 @@ class PyCode(eval.Code):
         #self.co_name (in base class)# string: name, for reference
         self.co_firstlineno = 0      # first source line number
         self.co_lnotab = ""          # string: encoding addr<->lineno mapping
+        self.applevel = False
 
-    def _from_code(self, code):
+    def _from_code(self, code, applevel=False):
         """ Initialize the code object from a real (CPython) one.
             This is just a hack, until we have our own compile.
             At the moment, we just fake this.
             This method is called by our compile builtin function.
         """
+        self.applevel = applevel
         import types
         assert isinstance(code, types.CodeType)
         # simply try to suck in all attributes we know of
@@ -140,7 +142,7 @@ class PyCode(eval.Code):
         newconsts_w = []
         for const in code.co_consts:
             if isinstance(const, types.CodeType):
-                const = PyCode(space)._from_code(const)
+                const = PyCode(space)._from_code(const, applevel=applevel)
             newconsts_w.append(space.wrap(const))
         self.co_consts_w = newconsts_w
         return self
@@ -160,6 +162,9 @@ class PyCode(eval.Code):
 
     signature = cpython_code_signature
 
+    def getapplevel(self):
+        return self.applevel
+    
     def getvarnames(self):
         return self.co_varnames
 

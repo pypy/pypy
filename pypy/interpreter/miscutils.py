@@ -42,6 +42,10 @@ class Stack:
     def empty(self):
         return not self.items
 
+    def __iter__(self):
+        # Walk the stack backwards
+        for ii in self.items[::-1]:
+            yield ii
 
 class InitializedClass(type):
     """NOT_RPYTHON.  A meta-class that allows a class to initialize itself (or

@@ -21,10 +21,14 @@ class ExecutionContext:
         locals = getthreadlocals()
         previous_ec = locals.executioncontext
         locals.executioncontext = self
-        if self.framestack.empty():
-            frame.f_back = None
+
+        for ff in self.framestack:
+            if not frame.code.getapplevel():
+                frame.f_back = ff
+                break
         else:
-            frame.f_back = self.framestack.top()
+            frame.f_back = None
+
         self.framestack.push(frame)
         return previous_ec
     
@@ -147,6 +151,9 @@ class ExecutionContext:
             self.w_tracefunc = w_func
 
     def _trace(self, frame, event, w_arg):
+        if frame.code.getapplevel():
+            return
+        
         if event == 'call':
             w_callback = self.w_tracefunc
         else:
