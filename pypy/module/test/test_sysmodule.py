@@ -12,6 +12,14 @@ class SysTests(test.TestCase):
         s = self.space
         self.failUnless_w(s.getattr(self.sys_w, s.wrap("stdout")))
 
+class AppSysTests(test.AppTestCase):
+    def test_path_exists(self):
+        import sys
+        self.failUnless(hasattr(sys, 'path'), "sys.path gone missing")
+    def test_modules_exists(self):
+        import sys
+        self.failUnless(hasattr(sys, 'modules'), "sys.modules gone missing")
+
 if __name__ == '__main__':
     test.main()
 
