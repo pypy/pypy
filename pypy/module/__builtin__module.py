@@ -928,5 +928,3 @@ class buffer:
     def __init__(self, object, offset=None, size=None):
         raise NotImplementedError, "XXX nobody needs this anyway"
 
-from _file import file_ as file
-open = file
