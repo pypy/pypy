@@ -190,7 +190,7 @@ class GraphDisplay(Display):
                     dx = event.pos[0] - dragging[0]
                     dy = event.pos[1] - dragging[1]
                     if event.buttons[0]:   # left mouse button
-                        self.viewer.shiftscale(1.003 ** dy)
+                        self.viewer.shiftscale(1.003 ** (dx+dy))
                     else:
                         self.viewer.shiftoffset(-2*dx, -2*dy)
                     dragging = event.pos
