@@ -100,6 +100,8 @@ def seqiter(func): # XXX may want to access and instatiate the internal
             return
         i += 1
 
+OLD_STYLE_CLASSES_IMPL = object()
+
 class classobj(object):
 
     __slots__ = ('_name', '_bases', '__dict__')
@@ -126,7 +128,12 @@ class classobj(object):
             dic['__module__']
         except KeyError:
             try:
-                g = sys._getframe(1).f_globals
+                i = 0
+                while 1:
+                    g = sys._getframe(i).f_globals
+                    if not g.get('OLD_STYLE_CLASSES_IMPL',None) is OLD_STYLE_CLASSES_IMPL:
+                        break
+                    i += 1
             except ValueError:
                 pass
             else:
@@ -557,5 +564,13 @@ class instance(object):
 # capture _class slot for usage and then hide them!
 instance_class_slot = instance._class
 del instance._class
+
+def purify(): # to use in geninterplevel case, because global side-effects are lost
+    del classobj._name
+    del classobj._bases
+    del classobj.__slots__
+    del instance._class
+    del instance.__slots__
+
     
 del _compile, NiceCompile
