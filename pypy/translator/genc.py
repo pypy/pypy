@@ -103,9 +103,35 @@ class GenC:
         return name
 
     def nameof_instancemethod(self, meth):
-        assert meth.im_self is None, "meth must be unbound (for now)"
-        # no error checking here
-        return self.nameof(meth.im_func)
+        if meth.im_self is None:
+            # no error checking here
+            return self.nameof(meth.im_func)
+        else:
+            ob = self.nameof(meth.im_self)
+            func = self.nameof(meth.im_func)
+            typ = self.nameof(meth.im_class)
+            us = self.uniquename('gmeth_'+meth.im_func.__name__)
+            self.globaldecl.append('static PyObject* %s;'%(us,))
+            self.initcode.append(
+                'INITCHK(%s = gencfunc_descr_get(%s, %s, %s))'%(
+                us, func, ob, typ))
+            return us
+                                   
+    def nameof_instance(self, instance):
+        name = self.uniquename('ginst_' + instance.__class__.__name__)
+        cls = self.nameof(instance.__class__)
+        content = instance.__dict__.items()
+        content.sort()
+        lines = []
+        for key, value in content:
+            lines.append('INITCHK(SETUP_INSTANCE_ATTR(%s, "%s", %s))' % (
+                name, key, self.nameof(value)))
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('INITCHK(SETUP_INSTANCE(%s, %s))' % (
+            name, cls))
+        self.initcode.extend(lines)
+        return name
+        
 
     def nameof_builtin_function_or_method(self, func):
         import __builtin__

@@ -99,6 +99,10 @@ class NoTypeCGenTestCase(testit.IntTestCase):
         self.assertEquals(with_more_init(10, False), -10)
         self.assertEquals(with_more_init(20, True), 20)
 
+    def test_global_instance(self):
+        global_instance = self.build_cfunc(snippet.global_instance)
+        self.assertEquals(global_instance(), 42)
+
 class TypedTestCase(testit.IntTestCase):
 
     def getcompiled(self, func):

@@ -110,6 +110,14 @@
 #define SETUP_CLASS_ATTR(t, attr, value)	\
 	(PyObject_SetAttrString(t, attr, value) >= 0)
 
+/*** instances ***/
+
+#define SETUP_INSTANCE_ATTR(t, attr, value)	\
+	(PyObject_SetAttrString(t, attr, value) >= 0)
+
+#define SETUP_INSTANCE(i, cls)                  \
+	(i = PyType_GenericAlloc(cls, 0))
+
 /* we need a subclass of 'builtin_function_or_method' which can be used
    as methods: builtin function objects that can be bound on instances */
 static PyObject *
