@@ -161,7 +161,6 @@ def type_call(space, w_type, w_args, w_kwds):
 
 StdObjSpace.call.register(type_call, W_TypeObject, W_ANY, W_ANY)
 
-
 def type_issubtype(space, w_type1, w_type2):
     return space.newbool(w_type2 in w_type1.getmro())
 
@@ -171,3 +170,11 @@ def type_repr(space, w_obj):
     return space.wrap("<type '%s'>" % w_obj.typename) 
 
 StdObjSpace.repr.register(type_repr, W_TypeObject)
+
+def type_getattr(space, w_type, w_attr):
+    # XXX mwh doubts this is the Right Way to do this...
+    if space.is_true(space.eq(w_attr, space.wrap('__name__'))):
+        return w_type.w_tpname
+    raise FailedToImplement
+
+StdObjSpace.getattr.register(type_getattr, W_TypeObject, W_ANY)
