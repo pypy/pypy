@@ -15,6 +15,7 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.translator.translator import Translator
 from pypy.annotation import model as annmodel
 from pypy.tool.cache import Cache
+from pypy.annotation.model import SomeObject
 
 # XXX this tries to make compiling faster
 from pypy.translator.tool import buildpyxmodule
@@ -40,6 +41,43 @@ def analyse(entry_point=entry_point):
     t = Translator(entry_point, verbose=True, simplifying=True)
     a = t.annotate([])
     a.simplify()
+
+    count_someobjects(a)
+
+def count_someobjects(annotator):
+    translator = annotator.translator
+
+    def is_someobject(var):
+        try:
+            return annotator.binding(var).__class__ == SomeObject
+        except KeyError:
+            return False
+
+    def short_binding(var):
+        binding = annotator.binding(var)
+        if binding.is_constant():
+            return 'const %s' % binding.__class__.__name__
+        else:
+            return binding.__class__.__name__
+
+    header = True
+    for func, graph in translator.flowgraphs.items():
+        unknown_input_args = len(filter(is_someobject, graph.getargs()))
+        unknown_return_value = is_someobject(graph.getreturnvar())
+        if unknown_input_args or unknown_return_value:
+            if header:
+                header = False
+                print "=" * 70
+                print "Functions that have SomeObject in their signature"
+                print "=" * 70
+            print ("%(name)s(%(args)s) -> %(result)s\n"
+                   "%(filename)s:%(lineno)s\n"
+                   % {'name': graph.name,
+                      'filename': func.func_globals.get('__name__', '?'),
+                      'lineno': func.func_code.co_firstlineno,
+                      'args': ', '.join(map(short_binding, graph.getargs())),
+                      'result': short_binding(graph.getreturnvar())})
+
 
 if __name__ == '__main__':
 
