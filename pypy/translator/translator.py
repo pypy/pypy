@@ -221,7 +221,7 @@ class Translator:
         mod = make_module_from_pyxstring(name, udir, pyxcode)
         return getattr(mod, name)
 
-    def ccompile(self):
+    def ccompile(self, really_compile=True):
         """Returns compiled function, compiled using the C generator.
         """
         from pypy.tool.udir import udir
@@ -230,6 +230,8 @@ class Translator:
         f = cfile.open('w')
         GenC(f, self, name)
         f.close()
+        if not really_compile:
+            return cfile
         mod = make_module_from_c(cfile)
         return getattr(mod, self.entrypoint.func_name)
 
