@@ -17,12 +17,12 @@ def _caller_locals():
 def _recursive_issubclass(cls, klass_or_tuple):
     if cls is klass_or_tuple:
         return True
-    for base in cls.__bases__:
+    for base in getattr(cls, '__bases__', ()):
         if _recursive_issubclass(base, klass_or_tuple):
             return True
     return False
 
-def issubclass(cls, klass_or_tuple):
+def _issubclass(cls, klass_or_tuple, check_cls):
     if _issubtype(type(klass_or_tuple), tuple):
         for klass in klass_or_tuple:
             if issubclass(cls, klass):
@@ -31,12 +31,14 @@ def issubclass(cls, klass_or_tuple):
     try:
         return _issubtype(cls, klass_or_tuple)
     except TypeError:
-        if not hasattr(cls, '__bases__'):
+        if check_cls and not hasattr(cls, '__bases__'):
             raise TypeError, "arg 1 must be a class or type"
         if not hasattr(klass_or_tuple, '__bases__'):
             raise TypeError, "arg 2 must be a class or type or a tuple thereof"
         return _recursive_issubclass(cls, klass_or_tuple)
 
+def issubclass(cls, klass_or_tuple):
+    return _issubclass(cls, klass_or_tuple, True)
 
 def isinstance(obj, klass_or_tuple):
     if issubclass(type(obj), klass_or_tuple):
@@ -46,7 +48,8 @@ def isinstance(obj, klass_or_tuple):
     except AttributeError:
         return False
     else:
-        return objcls is not type(obj) and issubclass(objcls, klass_or_tuple)
+        return (objcls is not type(obj) and
+                _issubclass(objcls, klass_or_tuple, False))
 
 
 def vars(*obj):

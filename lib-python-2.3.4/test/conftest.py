@@ -40,6 +40,7 @@ working_unittests = (
 'test_heapq.py',
 'test_htmllib.py',
 'test_htmlparser.py',
+'test_isinstance.py',
 'test_operator.py',
 'test_pprint.py',
 'test_sgmllib.py',
