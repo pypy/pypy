@@ -2,7 +2,7 @@
 import autopath
 from pypy.tool import test
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.translater.controlflow import *
+from pypy.translator.controlflow import *
 
 class GenPyrex:
     def __init__(self, functiongraph):
@@ -37,8 +37,10 @@ class GenPyrex:
     def _str(self, obj):
         if isinstance(obj, Variable):
             return obj.pseudoname
-        else:
+        elif isinstance(obj, Constant):
             return repr(obj.value)
+        else:
+            raise ValueError("Unknow class: %s" % obj.__class__)
 
     def createCodeFromBasicBlock(self, block):
         if self.blockids.has_key(block):
@@ -56,9 +58,9 @@ class GenPyrex:
             argsnames = [self._str(arg) for arg in args]
             if arity == 1 or arity == 3 or "a" <= opsymbol[0] <= "z":
                 
-                self.putline("%s = %s(%s)" % (result.pseudoname, opsymbol, ", ".join([argnames]))
+                self.putline("%s = %s(%s)" % (result.pseudoname, opsymbol, ", ".join([argnames])))
             else:
-                self.putline("%s = %s %s %s") % (result.pseudoname, argnames[0], opsymbol, argnames[1]))
+                self.putline("%s = %s %s %s" % (result.pseudoname, argnames[0], opsymbol, argnames[1]))
 
         self.dispatchBranch(block.branch)
 
@@ -73,7 +75,7 @@ class GenPyrex:
         targetargs = [arg.pseudoname for arg in block.input_args]
         assert(len(sourceargs) == len(targetargs))
         if sourceargs: 
-            self.putline("%s = %s" % (", ".join(targetargs), ", ".join(sourceargs))
+            self.putline("%s = %s" % (", ".join(targetargs), ", ".join(sourceargs)))
 
         self.createCodeFromBasicBlock(block)    
 
