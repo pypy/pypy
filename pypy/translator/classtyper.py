@@ -58,18 +58,27 @@ class LLClass(LLTyper):
         self.bindings = typeset.bindings
         self.s_instance = annmodel.SomeInstance(self.cdef)
 
+    def setup(self):
+        # two-phase initialization.  The code below might require other
+        # classes to be already present in GenC.llclasses.
+
         # collect the fields that the annotator deduced for this class
+        typeset = self.typeset
+        cdef = self.cdef
         cls = cdef.cls
         mainletters = [c.lower() for c in cls.__name__ if 'A' <= c <= 'Z']
         self.field_prefix = ''.join(mainletters[:3] or ['f'])
-        self.fields_here = [ClassField(typeset.gethltype(s_value), attr, self,
-                                       is_class_attr = cdef.readonly[attr])
-                            for attr, s_value in cdef.attrs.items()]
+        self.fields_here = []
+        for attr, s_value in cdef.attrs.items():
+            is_class_attr = cdef.readonly[attr]
+            hltype = typeset.gethltype(s_value, unbound=is_class_attr)
+            fld = ClassField(hltype, attr, self, is_class_attr)
+            self.fields_here.append(fld)
         # fields are divided in instance attributes and class attributes
         # according to whether they are ever accessed with SET_ATTR or not
-        if llparent:
-            self.instance_fields = list(llparent.instance_fields)
-            self.class_fields    = list(llparent.class_fields)
+        if self.llparent:
+            self.instance_fields = list(self.llparent.instance_fields)
+            self.class_fields    = list(self.llparent.class_fields)
         else:
             self.instance_fields = []
             self.class_fields    = []

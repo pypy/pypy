@@ -47,6 +47,12 @@ class LoC(LLOp):
 class LoOptimized(LoC):
     def write(self):
         raise NotImplementedError, 'should be optimized away'
+    def optimize(self, typer, llresult):
+        # patch the result with the known answer
+        constantsllrepr = self.optimized_result(typer)
+        assert len(constantsllrepr) == len(llresult)
+        llresult[:] = constantsllrepr
+        return True
 
 # ____________________________________________________________
 
@@ -61,7 +67,7 @@ class LoStandardOperation(LoC):
 class LoKnownAnswer(LoOptimized):
     known_answer = PARAMETER
     cost         = 0
-    def optimize(self, typer):
+    def optimized_result(self, typer):
         return self.known_answer
 
 class LoNewList(LoC):
@@ -109,7 +115,7 @@ class LoConvertTupleItem(LoOptimized):
     target_r = PARAMETER   # tuple-of-hltypes, one per item of the output tuple
     cost     = PARAMETER
 
-    def optimize(self, typer):
+    def optimized_result(self, typer):
         # replace this complex conversion by the simpler conversion of
         # only the items that changed
         llinputs = []
@@ -155,7 +161,6 @@ class LoGetAttr(LoC):
     fld  = PARAMETER
 
     def writestr(self, inst, *result):
-        assert len(result) == len(self.fld.llvars)
         ls = []
         llclass = self.fld.llclass
         if self.fld.is_class_attr:
@@ -175,6 +180,15 @@ class LoGetAttr(LoC):
                 else:
                     ls.append('%s = %s;' % (dstname, fldexpr))
         return '\n'.join(ls)
+
+class LoGetAttrMethod(LoGetAttr):
+    def optimize(self, typer, llresult):
+        # for a OP_GETATTR that must return a bound method.  The 'self'
+        # part of the result can be statically copied from self.args[0].
+        # The rest is done as with LoGetAttr.
+        inst = self.args[0]
+        llresult[-1] = inst  # patch to do the copy statically
+        return False  # proceed with the normal LoGetAttr.writestr()
 
 class LoSetAttr(LoC):
     cost    = 1
@@ -210,13 +224,30 @@ class LoInitClassAttr(LoC):
                 ls.append('%s = %s;' % (fldexpr, srcname))
         return '\n'.join(ls)
 
+class LoConvertBoundMethod(LoOptimized):
+    r_source = PARAMETER
+    r_target = PARAMETER
+    cost     = PARAMETER
+
+    def optimized_result(self, typer):
+        # self.args: [input-func..., PyObject*, output-func..., PyObject*]
+        slen = len(self.r_source.impl)
+        tlen = len(self.r_target.impl)
+        assert len(self.args) == slen+1+tlen+1
+        # convert the 'func' part of the method
+        answer = typer.convert(self.r_source, self.args[:slen],
+                               self.r_target, self.args[slen+1:-1])
+        # pass the 'self' argument unchanged
+        answer.append(self.args[slen])
+        return answer
+
 class LoConvertChain(LoOptimized):
     r_from   = PARAMETER
     r_middle = PARAMETER
     r_to     = PARAMETER
     cost     = PARAMETER
 
-    def optimize(self, typer):
+    def optimized_result(self, typer):
         half = len(self.r_from.impl)
         assert half + len(self.r_to.impl) == len(self.args)
         input = self.args[:half]
@@ -248,7 +279,7 @@ class LoGoto(LoC):
 
 class LoCopy(LoOptimized):
     cost = 0
-    def optimize(self, typer):
+    def optimized_result(self, typer):
         # the result's llvars is equal to the input's llvars.
         assert len(self.args) % 2 == 0
         half = len(self.args) // 2

@@ -41,8 +41,9 @@ class GenC:
         self.initializationcode = []
         self.llclasses = {};   self.classeslist = []
         self.llfunctions = {}; self.functionslist = []
-        self.build_llclasses()
+        # must build functions first, otherwise methods are not found
         self.build_llfunctions()
+        self.build_llclasses()
         self.build_llentrypoint()
         self.gen_source()
 
@@ -107,8 +108,13 @@ class GenC:
                 )
             self.llclasses[cls] = llclass
             self.classeslist.append(llclass)
-            self.functionslist += llclass.get_management_functions()
             n += 1
+        for llclass in self.classeslist:
+            llclass.setup()
+        management_functions = []
+        for llclass in self.classeslist:
+            management_functions += llclass.get_management_functions()
+        self.functionslist[:0] = management_functions
 
     def build_llfunctions(self):
         n = 0

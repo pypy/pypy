@@ -122,6 +122,8 @@ class SomeFunction(SomeObject):
     knowntype = FunctionType
     def __init__(self, funcs):
         self.funcs = funcs   # set of functions that this one may be
+        if len(funcs) == 1:
+            self.const, = funcs
 
 class SomeMethod(SomeObject):
     "Stands for a bound Python method (or some method out of a list)."

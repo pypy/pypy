@@ -107,23 +107,19 @@ class CConstantBuiltin(CConstant):   # a constant from the __builtin__ module
 class CConstantFunction(CConstant):
     def convert_to(self, target, typeset):
         if isinstance(target, CFunction):
-            name, my_header_r = self.get_function_signature(typeset)
+            fn = self.value
+            if fn not in typeset.genc.llfunctions:
+                raise CannotConvert
+            llfunc = typeset.genc.llfunctions[fn]
+            my_header_r = typeset.getfunctionsig(llfunc)
             if my_header_r != target.header_r:
                 raise CannotConvert(self, my_header_r, target)
             cfunctype, = target.impl
             return genc_op.LoKnownAnswer.With(
-                known_answer = [LLConst(cfunctype, name)],
+                known_answer = [LLConst(cfunctype, llfunc.name)],
                 )
         else:
             raise CannotConvert
-
-    def get_function_signature(self, typeset):
-        fn = self.value
-        if fn in typeset.genc.llfunctions:
-            llfunc = typeset.genc.llfunctions[fn]
-            return llfunc.name, llfunc.hl_header()
-        else:
-            return None, None
 
 
 class CTuple(CRepr):
@@ -176,17 +172,22 @@ class CInstance(CRepr):
     impl = ['PyObject*']
 
     def __init__(self, llclass):
-        self.llclass = llclass     # instance of classtyper.LLClass
+        self.llclass = llclass     # instance of classtyper.LLClass or None
+        # R_INSTANCE is CInstance(None): a match-all, any-type instance.
 
     def __repr__(self):
-        cls = self.llclass.cdef.cls
-        return 'CInstance(%s.%s)' % (cls.__module__, cls.__name__)
+        if self.llclass is None:
+            return 'CInstance(*)'
+        else:
+            cls = self.llclass.cdef.cls
+            return 'CInstance(%s.%s)' % (cls.__module__, cls.__name__)
 
     def convert_to(self, target, typeset):
         if isinstance(target, CInstance):
-            # can convert to an instance of a parent class
-            if target.llclass.cdef not in self.llclass.cdef.getmro():
-                raise CannotConvert
+            if not (self.llclass is None or target.llclass is None):
+                # can only convert to an instance of a parent class
+                if target.llclass.cdef not in self.llclass.cdef.getmro():
+                    raise CannotConvert
             return genc_op.LoCopy
         elif target == R_OBJECT:
             # can convert to a generic PyObject*
@@ -199,7 +200,7 @@ class CFunction(CRepr):
     "A C-level function or a pointer to a function."
 
     def __init__(self, header_r):
-        self.header_r = list(header_r)  # CReprs: [arg1, arg2, ..., retval]
+        self.header_r = header_r  # list of CReprs: [arg1, arg2, ..., retval]
         # C syntax is quite strange: a pointer to a function is declared
         # with a syntax like "int (*varname)(long, char*)".  We build here
         # a 'type' string like "int (*@)(long, char*)" that will be combined
@@ -224,8 +225,30 @@ class CFunction(CRepr):
         cfunctype = cdecl(retlltype, '(*@)(%s)' % ', '.join(llargs))
         self.impl = [cfunctype]
 
-    def get_function_signature(self, typeset):
-        return None, self.header_r
+    def __repr__(self):
+        args = [repr(r) for r in self.header_r[:-1]]
+        return 'CFunction(%s -> %r)' % (', '.join(args), self.header_r[-1])
+
+
+class CMethod(CRepr):
+    "A CFunction or CConstantFunction with its first argument bound."
+
+    def __init__(self, r_func):
+        self.r_func = r_func
+        self.impl = r_func.impl + ['PyObject*']
+
+    def __repr__(self):
+        return 'CMethod(%r)' % (self.r_func,)
+
+    def convert_to(self, target, typeset):
+        if not isinstance(target, CMethod):
+            raise CannotConvert
+        cost = typeset.getconversion(self.r_func, target.r_func).cost
+        return genc_op.LoConvertBoundMethod.With(
+            r_source = self.r_func,
+            r_target = target.r_func,
+            cost     = cost,
+            )
 
 # ____________________________________________________________
 #
@@ -235,11 +258,13 @@ R_VOID      = CAtomicRepr([])
 R_INT       = CAtomicRepr(['int'],       parse_code='i')
 R_OBJECT    = CAtomicRepr(['PyObject*'], parse_code='O')
 R_UNDEFINED = CUndefined()
+R_INSTANCE  = CInstance(None)
 
 R_TUPLE_CACHE    = {}
 R_CONSTANT_CACHE = {}
 R_INSTANCE_CACHE = {}
 R_FUNCTION_CACHE = {}
+R_METHOD_CACHE   = {}
 
 def tuple_representation(items_r):
     items_r = tuple(items_r)
@@ -255,7 +280,6 @@ CONST_TYPES = {
     types.NoneType:            CConstantNone,
     types.BuiltinFunctionType: CConstantBuiltin,
     types.FunctionType:        CConstantFunction,
-#    types.MethodType:          CConstantMethod,
     }
 
 def constant_representation(value):
@@ -273,6 +297,9 @@ def constant_representation(value):
                 cls = CONST_TYPES[cls]
                 break
         else:
+            if isinstance(value, types.MethodType) and value.im_self is None:
+                # replace unbound methods with plain funcs
+                return constant_representation(value.im_func)
             cls = CConstant
         r = R_CONSTANT_CACHE[key] = cls(value)
         return r
@@ -285,11 +312,19 @@ def instance_representation(llclass):
         return r
 
 def function_representation(sig):
-    sig = tuple(sig)
+    key = tuple(sig)
     try:
-        return R_FUNCTION_CACHE[sig]
+        return R_FUNCTION_CACHE[key]
     except KeyError:
-        r = R_FUNCTION_CACHE[sig] = CFunction(sig)
+        r = R_FUNCTION_CACHE[key] = CFunction(sig)
+        return r
+
+def method_representation(r_func):
+    key = r_func
+    try:
+        return R_METHOD_CACHE[key]
+    except KeyError:
+        r = R_METHOD_CACHE[key] = CMethod(r_func)
         return r
 
 

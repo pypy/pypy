@@ -3,13 +3,15 @@ import re
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.annotation import model as annmodel
 from pypy.translator import genc_op
-from pypy.translator.typer import CannotConvert, TypingError
+from pypy.translator.typer import CannotConvert, TypingError, LLConst
 from pypy.translator.genc_repr import R_VOID, R_INT, R_OBJECT, R_UNDEFINED
+from pypy.translator.genc_repr import R_INSTANCE
 from pypy.translator.genc_repr import tuple_representation
 from pypy.translator.genc_repr import constant_representation, CConstant
 from pypy.translator.genc_repr import instance_representation, CInstance
 from pypy.translator.genc_repr import function_representation, CFunction
 from pypy.translator.genc_repr import CConstantFunction
+from pypy.translator.genc_repr import method_representation, CMethod
 
 
 class CTypeSet:
@@ -45,7 +47,7 @@ class CTypeSet:
     # Here, we assume that every high-level type has a canonical representation
     # so a high-level type is just a CRepr.
 
-    def gethltype(self, var):
+    def gethltype(self, var, unbound=False):
         if isinstance(var, Variable):
             var = self.bindings.get(var) or annmodel.SomeObject()
         if isinstance(var, annmodel.SomeObject):
@@ -64,6 +66,12 @@ class CTypeSet:
             if isinstance(var, annmodel.SomeFunction):
                 func_sig = self.regroup_func_sig(var.funcs)
                 return function_representation(func_sig)
+            if isinstance(var, annmodel.SomeMethod):
+                r_func = self.gethltype(annmodel.SomeFunction(var.meths))
+                if unbound:
+                    return r_func
+                else:
+                    return method_representation(r_func)
             # fall-back
             return R_OBJECT
         if isinstance(var, UndefinedConstant):
@@ -109,19 +117,34 @@ class CTypeSet:
 
     # ____________________________________________________________
 
+    def getfunctionsig(self, llfunc):
+        "Get the high-level header (argument types and result) for a function."
+        # XXX messy! we allow different CInstances to appear as function
+        #     arguments by replacing them with the generic R_INSTANCE.
+        #     This is not too clean, but it might be unavoidable, because
+        #     the whole implementation relies on this "coincidence" that
+        #     pointers to objects of different classes are interchangeable.
+        result = []
+        for v in llfunc.graph.getargs() + [llfunc.graph.getreturnvar()]:
+            r = self.gethltype(v)
+            if isinstance(r, CInstance):
+                r = R_INSTANCE
+            result.append(r)
+        return result
+
     def regroup_func_sig(self, funcs):
         # find a common signature for the given functions
         signatures = []
         for func in funcs:
             llfunc = self.genc.llfunctions[func]
-            signatures.append(llfunc.hl_header())
+            signatures.append(self.getfunctionsig(llfunc))
         # XXX we expect the functions to have exactly the same signature
         #     but this is currently not enforced by the annotator.
-        assert signatures
+        result = signatures[0]
         for test in signatures[1:]:
-            if test != signatures[0]:
-                raise TypingError(signatures[0], test)
-        return signatures[0]
+            if test != result:
+                raise TypingError(test, result)
+        return result
 
     # ____________________________________________________________
 
@@ -145,20 +168,47 @@ class CTypeSet:
         # it can be converted to PyObject*.
         sig = (R_OBJECT,) * len(hltypes)
         yield sig, genc_op.LoCallFunction
-        # Calling another user-defined generated function
+
         r = hltypes[0]
-        if isinstance(r, (CConstantFunction, CFunction)):
-            # it might be a known one or just one we have a pointer to
-            sig = tuple(r.get_function_signature(self)[1])
-            r_func = function_representation(sig)
-            sig = (r_func,) + sig
+        if (isinstance(r, CConstantFunction) and
+            r.value in self.genc.llfunctions):
+            # a constant function can be converted to a function pointer,
+            # so we fall back to the latter case
+            llfunc = self.genc.llfunctions[r.value]
+            r = function_representation(self.getfunctionsig(llfunc))
+
+        if isinstance(r, CFunction):
+            # a function pointer (the pointer is a C pointer, but points
+            # to a C function generated from a user-defined Python function).
+            sig = (r,) + tuple(r.header_r)
             yield sig, genc_op.LoCallPyFunction.With(
                 hlrettype = sig[-1],
                 )
-        # But not all variables holding pointers to function can nicely
-        # be converted to PyObject*.  We might be calling a well-known
-        # (constant) function:
+
+        if isinstance(r, CMethod):
+            # first consider how we could call the underlying function
+            # with an extra R_INSTANCE first argument
+            hltypes2 = (r.r_func, R_INSTANCE) + hltypes[1:]
+            self.typemismatch('OP_SIMPLE_CALL', hltypes2)
+            # then lift all OP_SIMPLE_CALLs to method calls
+            opsimplecall = self.lloperations.setdefault('OP_SIMPLE_CALL', {})
+            for sig, opcls in opsimplecall.items():
+                if sig[1:2] == (R_INSTANCE,):
+                    r = method_representation(sig[0])
+                    sig2 = (r,) + sig[2:]
+                    yield sig2, opcls
+            # Note that we are reusing the same opcls.  Indeed, both the
+            # original 'sig' and the modified one expand to the same list
+            # of LLVars, so opcls cannot tell the difference:
+            #
+            # sig =    r.r_func     R_INSTANCE      ...
+            #          /-----\    /------------\
+            # LLVars:  funcptr,   PyObject* self,  arguments..., result
+            #          \-----------------------/
+            # sig2 =               r                ...
+
         if isinstance(r, CConstant):
+            # maybe it is a well-known constant non-user-defined function
             fn = r.value
             if not callable(fn):
                 return
@@ -206,11 +256,24 @@ class CTypeSet:
             # record the OP_GETATTR operation for this field
             fld = (r_obj.llclass.get_instance_field(r_attr.value) or
                    r_obj.llclass.get_class_field(r_attr.value))
-            if fld is not None:
-                sig = (r_obj, r_attr, fld.hltype)
-                yield sig, genc_op.LoGetAttr.With(
-                    fld     = fld,
-                    )
+            if fld is None:
+                return
+            sig = (r_obj, r_attr, fld.hltype)
+            # special case: reading a function out of a class attribute
+            # produces a bound method
+            if fld.is_class_attr:
+                r = sig[-1]
+                if isinstance(r, (CFunction, CConstantFunction)):
+                    r_method = method_representation(r)
+                    sig = (r_obj, r_attr, r_method)
+                    yield sig, genc_op.LoGetAttrMethod.With(
+                        fld = fld,
+                        )
+                    return
+            # common case
+            yield sig, genc_op.LoGetAttr.With(
+                fld = fld,
+                )
 
     def extend_OP_SETATTR(self, hltypes):
         if len(hltypes) != 4:

@@ -28,12 +28,12 @@ class LLOp(object):
         self.args = args            # list of LLVars
         self.errtarget = errtarget  # label to jump to in case of error
 
-    def optimize(self, typer):
+    def optimize(self, typer, llresult):
         """If the operation can be statically optimized, this method can
-        return a list [new-llvars-for-result] and optionally generate
+        patch the llresult list of LLVars and optionally generate
         replacement operations by calling typer.operation() or
-        typer.convert()."""
-        return None
+        typer.convert().  Can return True to skip the 'self' operation."""
+        return False
 
 class TypingError(Exception):
     pass
@@ -128,19 +128,6 @@ class LLFunction(LLTyper):
         remove_direct_loops(graph)
         self.name = name
         self.graph = graph
-
-    def hl_header(self):
-        """
-        Get the high-level signature (argument types and return type).
-        """
-        result = []
-        for v in self.graph.getargs():
-            self.makevar(v)
-            result.append(self.hltypes[v])
-        v = self.graph.getreturnvar()
-        self.makevar(v)
-        result.append(self.hltypes[v])
-        return result
 
     def ll_header(self):
         """
@@ -314,13 +301,7 @@ class LLFunction(LLTyper):
             errlabel = self.to_release.getlabel()
         # create the LLOp instance
         llop = llopcls(llargs + llresult, errlabel)
-        constantllreprs = llop.optimize(self)
-        if constantllreprs is not None:
-            # the result is a constant: patch llresult, i.e. replace its
-            # LLVars with the given constants which will be used by the
-            # following operations.
-            assert len(constantllreprs) == len(llresult)
-            llresult[:] = constantllreprs
+        if llop.optimize(self, llresult):
             return False   # operation skipped
         else:
             # common case: emit the LLOp.
