@@ -86,19 +86,26 @@ class Edge:
     def arrowhead(self):
         bottom_up = self.points[0][1] > self.points[-1][1]
         if (self.tail.y > self.head.y) != bottom_up:   # reversed edge
-            x0, y0 = self.points[0]
-            x1, y1 = self.points[1]
+            head = 0
+            dir = 1
         else:
-            x0, y0 = self.points[-1]
-            x1, y1 = self.points[-2]
-        vx = x0-x1
-        vy = y0-y1
-        f = 0.12 / math.sqrt(vx*vx + vy*vy)
-        vx *= f
-        vy *= f
-        return [(x0 + 0.9*vx, y0 + 0.9*vy),
-                (x0 + 0.4*vy, y0 - 0.4*vx),
-                (x0 - 0.4*vy, y0 + 0.4*vx)]
+            head = -1
+            dir = -1
+        n = 1
+        while True:
+            x0, y0 = self.points[head]
+            x1, y1 = self.points[head+n*dir]
+            vx = x0-x1
+            vy = y0-y1
+            try:
+                f = 0.12 / math.sqrt(vx*vx + vy*vy)
+                vx *= f
+                vy *= f
+                return [(x0 + 0.9*vx, y0 + 0.9*vy),
+                        (x0 + 0.4*vy, y0 - 0.4*vx),
+                        (x0 - 0.4*vy, y0 + 0.4*vx)]
+            except (ZeroDivisionError, ValueError):
+                n += 1
 
 def beziercurve((x0,y0), (x1,y1), (x2,y2), (x3,y3), resolution=8):
     result = []
@@ -117,13 +124,13 @@ def segmentdistance((x0,y0), (x1,y1), (x,y)):
     "Distance between the point (x,y) and the segment (x0,y0)-(x1,y1)."
     vx = x1-x0
     vy = y1-y0
-    l = math.sqrt(vx*vx+vy*vy)
-    if l < 0.00001:
-        dlong = -1
-    else:
+    try:
+        l = math.sqrt(vx*vx+vy*vy)
         vx /= l
         vy /= l
         dlong = vx*(x-x0) + vy*(y-y0)
+    except (ZeroDivisionError, ValueError):
+        dlong = -1
     if dlong < 0.0:
         return math.sqrt((x-x0)*(x-x0) + (y-y0)*(y-y0))
     elif dlong > l:
@@ -142,7 +149,7 @@ def splitline(line, re_word = re.compile(r'[^\s"]\S*|["]["]|["].*?[^\\]["]')):
 
 class GraphRenderer:
     MARGIN = 0.2
-    SCALEMIN = 30
+    SCALEMIN = 3
     SCALEMAX = 100
     FONTCACHE = {}
     
@@ -162,9 +169,11 @@ class GraphRenderer:
         self.width = int((w + 2*self.MARGIN)*scale)
         self.height = int((h + 2*self.MARGIN)*scale)
         self.bboxh = h
-        size = max(4, int(15 * (scale-10) / 75))
+        size = int(15 * (scale-10) / 75)
         if size in self.FONTCACHE:
             self.font = self.FONTCACHE[size]
+        elif size < 4:
+            self.font = None
         else:
             self.font = self.FONTCACHE[size] = pygame.font.Font(FONT, size)
 
@@ -370,7 +379,11 @@ class TextSnippet:
     
     def __init__(self, renderer, text, fgcolor, bgcolor=None):
         self.renderer = renderer
-        parts = []
+        self.imgs = []
+        self.parts = []
+        if renderer.font is None:
+            return
+        parts = self.parts
         for word in re_nonword.split(text):
             if not word:
                 continue
@@ -391,7 +404,6 @@ class TextSnippet:
             if parts[i][2] is None:
                 parts[i] = parts[i][:2]
         # render parts
-        self.imgs = []
         i = 0
         while i < len(parts):
             part = parts[i]
@@ -404,7 +416,6 @@ class TextSnippet:
             else:
                 self.imgs.append(img)
                 i += 1
-        self.parts = parts
 
     def get_size(self):
         if self.imgs:
