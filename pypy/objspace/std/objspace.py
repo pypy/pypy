@@ -177,8 +177,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         self.w_None  = W_NoneObject(self)
         self.w_False = W_BoolObject(self, False)
         self.w_True  = W_BoolObject(self, True)
-        self.w_NotImplemented = self.wrap(NotImplemented)  # XXX do me
-        self.w_Ellipsis = self.wrap(Ellipsis)  # XXX do me too
+        from pypy.interpreter.special import NotImplemented, Ellipsis 
+        self.w_NotImplemented = self.wrap(NotImplemented(self))  
+        self.w_Ellipsis = self.wrap(Ellipsis(self))  
 
         for_builtins = {"False": self.w_False,
                         "True" : self.w_True,

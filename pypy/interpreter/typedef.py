@@ -135,6 +135,7 @@ from pypy.interpreter.function import Function, Method, StaticMethod
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator 
 from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.special import NotImplemented, Ellipsis
 
 def descr_get_dict(space, w_obj):
     obj = space.unwrap_builtin(w_obj)
@@ -236,5 +237,13 @@ GeneratorIterator.typedef = TypeDef("generator",
 )
 
 Cell.typedef = TypeDef("Cell")
+
+Ellipsis.typedef = TypeDef("Ellipsis", 
+    __repr__   = interp2app(Ellipsis.descr__repr__.im_func),
+)
+
+NotImplemented.typedef = TypeDef("NotImplemented", 
+    __repr__   = interp2app(NotImplemented.descr__repr__.im_func), 
+)
 
 ControlFlowException.typedef = TypeDef("ControlFlowException")
