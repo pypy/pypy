@@ -7,10 +7,6 @@ General
 
 * mark debugging variables to make our code more readable 
 
-* re-allow more than one instance of StdObjSpace 
-  (probably requiring geninterp to generate less global 
-  init-code) 
-
 * extend the testing mechanisms to specifically allow: 
   - running plain CPython regrtests (including outputtests, 
     unittests, doctests, ...)  
