@@ -98,11 +98,15 @@ class Annotator:
         type1 = annotations.get_type(arg1)
         type2 = annotations.get_type(arg2)
         if type1 is int and type2 is int:
-            annotations.set_type(op.result,int)
+            annotations.set_type(op.result, int)
+        elif type1 in (int, long) and type2 in (int, long):
+            annotations.set_type(op.result, long)
         if type1 is str and type2 is str:
             annotations.set_type(op.result, str)
         if type1 is list and type2 is list:
             annotations.set_type(op.result, list)
+
+    consider_op_inplace_add = consider_op_add
 
     def consider_op_sub(self, op, annotations):
         arg1, arg2 = op.args
@@ -110,6 +114,8 @@ class Annotator:
         type2 = annotations.get_type(arg2)
         if type1 is int and type2 is int:
             annotations.set_type(op.result, int)
+        elif type1 in (int, long) and type2 in (int, long):
+            annotations.set_type(op.result, long)
 
     consider_op_and_ = consider_op_sub # trailing underline
     consider_op_inplace_lshift = consider_op_sub

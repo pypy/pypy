@@ -61,6 +61,9 @@ class Op:
         print "(setq", s(result)
         table = {
             (int, int): "(+ %s %s)",
+            (int, long): "(+ %s %s)",
+            (long, int): "(+ %s %s)",
+            (long, long): "(+ %s %s)",
             (str, str): "(concatenate 'string %s %s)",
             (list, list): "(concatenate 'vector %s %s)",
         }
@@ -73,6 +76,7 @@ class Op:
         table = {
             (bool,): "(not %s)",
             (int,): "(zerop %s)",
+            (long,): "(zerop %s)",
             (list,): "(zerop (length %s))",
         }
         self.gen.emit_typecase(table, arg1)
@@ -84,6 +88,7 @@ class Op:
         table = {
             (bool,): "%s",
             (int,): "(not (zerop %s))",
+            (long,): "(not (zerop %s))",
             (list,): "(not (zerop (length %s)))",
         }
         self.gen.emit_typecase(table, arg1)
@@ -269,6 +274,7 @@ class GenCL:
     typemap = {
         bool: "boolean",
         int: "fixnum",
+        long: "bignum",
         type(''): "string", # hack, 'str' is in the namespace!
         list: "vector",
     }

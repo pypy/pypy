@@ -51,11 +51,11 @@ class GenCLTestCase(test.IntTestCase):
         self.assertEquals(cl_if(1, 50, 100), 50)
 
     def test_gcd(self):
-        cl_gcd = make_cl_func(t.my_gcd)
+        cl_gcd = make_cl_func(t.my_gcd, [int, int])
         self.assertEquals(cl_gcd(96, 64), 32)
 
     def test_is_perfect(self): # pun intended
-        cl_perfect = make_cl_func(t.is_perfect_number)
+        cl_perfect = make_cl_func(t.is_perfect_number, [int])
         self.assertEquals(cl_perfect(24), False)
         self.assertEquals(cl_perfect(28), True)
 
@@ -75,24 +75,24 @@ class GenCLTestCase(test.IntTestCase):
 
     def test_easy(self):
         # These are the Pyrex tests which were easy to adopt.
-        f1 = make_cl_func(t.simple_func)
+        f1 = make_cl_func(t.simple_func, [int])
         self.assertEquals(f1(1), 2)
-        f2 = make_cl_func(t.while_func)
+        f2 = make_cl_func(t.while_func, [int])
         self.assertEquals(f2(10), 55)
         f3 = make_cl_func(t.simple_id)
         self.assertEquals(f3(9), 9)
         f4 = make_cl_func(t.branch_id)
         self.assertEquals(f4(1, 2, 3), 2)
         self.assertEquals(f4(0, 2, 3), 3)
-        f5 = make_cl_func(t.int_id)
+        f5 = make_cl_func(t.int_id, [int])
         self.assertEquals(f5(3), 3)
-        f6 = make_cl_func(t.time_waster)
+        f6 = make_cl_func(t.time_waster, [int])
         self.assertEquals(f6(30), 3657)
 
     def test_string(self):
         cl_greet = make_cl_func(t.greet, [str])
         self.assertEquals(cl_greet("world"), "helloworld")
-        cl_stringmaker = make_cl_func(t.nested_whiles)
+        cl_stringmaker = make_cl_func(t.nested_whiles, [int, int])
         self.assertEquals(cl_stringmaker(111, 114),
                           "...!...!...!...!...!")
 
@@ -105,7 +105,7 @@ class GenCLTestCase(test.IntTestCase):
         self.assertEquals(cl_builtinusage(), 4)
 
     def test_slice(self):
-        cl_half = make_cl_func(t.half_of_n)
+        cl_half = make_cl_func(t.half_of_n, [int])
         self.assertEquals(cl_half(10), 5)
 
     def test_powerset(self):
