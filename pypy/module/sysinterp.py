@@ -121,4 +121,4 @@ def exc_info():
 
 def pypy_getudir():
     from pypy.tool.udir import udir
-    return space.wrap(udir)
+    return space.wrap(str(udir))
