@@ -17,6 +17,7 @@ class FlowObjSpace(ObjSpace):
     
     def initialize(self):
         import __builtin__
+        self.concrete_mode = 0
         self.w_builtins = Constant(__builtin__.__dict__)
         self.w_None     = Constant(None)
         self.w_False    = Constant(False)
@@ -27,7 +28,27 @@ class FlowObjSpace(ObjSpace):
         #self.make_builtins()
         #self.make_sys()
 
+    def loadfromcache(self, key, builder):
+        try:
+            return self.generalcache[key]
+        except KeyError:
+            # this method is overloaded to allow the space to switch to
+            # "concrete mode" when building the object that goes into
+            # the cache.  In concrete mode, only Constants are allowed.
+            previous_ops = self.executioncontext.crnt_ops
+            self.executioncontext.crnt_ops = flowcontext.ConcreteNoOp()
+            self.concrete_mode += 1
+            try:
+                return self.generalcache.setdefault(key, builder(self))
+            finally:
+                self.executioncontext.crnt_ops = previous_ops
+                self.concrete_mode -= 1
+
     def newdict(self, items_w):
+        if self.concrete_mode:
+            content = [(self.unwrap(w_key), self.unwrap(w_value))
+                       for w_key, w_value in items_w]
+            return Constant(dict(content))
         flatlist_w = []
         for w_key, w_value in items_w:
             flatlist_w.append(w_key)
@@ -35,16 +56,31 @@ class FlowObjSpace(ObjSpace):
         return self.do_operation('newdict', *flatlist_w)
 
     def newtuple(self, args_w):
-        return self.do_operation('newtuple', *args_w)
+        try:
+            content = [self.unwrap(w_arg) for w_arg in args_w]
+        except UnwrapException:
+            return self.do_operation('newtuple', *args_w)
+        else:
+            return Constant(tuple(content))
 
     def newlist(self, args_w):
+        if self.concrete_mode:
+            content = [self.unwrap(w_arg) for w_arg in args_w]
+            return Constant(content)
         return self.do_operation('newlist', *args_w)
 
     def newslice(self, w_start=None, w_stop=None, w_step=None):
         if w_start is None: w_start = self.w_None
         if w_stop  is None: w_stop  = self.w_None
         if w_step  is None: w_step  = self.w_None
-        return self.do_operation('newslice', w_start, w_stop, w_step)
+        try:
+            content = slice(self.unwrap(w_start),
+                            self.unwrap(w_stop),
+                            self.unwrap(w_step))
+        except UnwrapException:
+            return self.do_operation('newslice', w_start, w_stop, w_step)
+        else:
+            return Constant(content)
 
     def wrap(self, obj):
         if isinstance(obj, (Variable, Constant)):

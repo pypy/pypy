@@ -66,6 +66,13 @@ class ReplayList:
     def finished(self):
         return self.index == len(self.listtoreplay)
 
+class ConcreteNoOp:
+    # In "concrete mode", no SpaceOperations between Variables are allowed.
+    # Concrete mode is used to precompute lazily-initialized caches,
+    # when we don't want this precomputation to show up on the flow graph.
+    def append(self, operation):
+        raise AssertionError, "concrete mode: cannot perform %s" % operation
+
 class FlowExecutionContext(ExecutionContext):
 
     def __init__(self, space, code, globals, constargs={}, closure=None):
@@ -100,7 +107,7 @@ class FlowExecutionContext(ExecutionContext):
                                       self.closure)
 
     def bytecode_trace(self, frame):
-        if isinstance(self.crnt_ops, ReplayList):
+        if not isinstance(self.crnt_ops, list):
             return
         next_instr = frame.next_instr
         if next_instr in self.joinpoints:
@@ -140,7 +147,7 @@ class FlowExecutionContext(ExecutionContext):
             self.joinpoints[next_instr].insert(0, newblock)
 
     def guessbool(self, w_condition, cases=[False,True]):
-        if not isinstance(self.crnt_ops, ReplayList):
+        if isinstance(self.crnt_ops, list):
             block = self.crnt_block
             vars = block.getvariables()
             links = []
@@ -156,11 +163,14 @@ class FlowExecutionContext(ExecutionContext):
             # actually have block.exits[False] = elseLink and
             # block.exits[True] = ifLink.
             raise ExitFrame(None)
-        replaylist = self.crnt_ops
-        assert replaylist.finished()
-        self.crnt_block = replaylist.nextblock
-        self.crnt_ops = replaylist.nextreplaylist
-        return replaylist.booloutcome
+        if isinstance(self.crnt_ops, ReplayList):
+            replaylist = self.crnt_ops
+            assert replaylist.finished()
+            self.crnt_block = replaylist.nextblock
+            self.crnt_ops = replaylist.nextreplaylist
+            return replaylist.booloutcome
+        raise AssertionError, "concrete mode: cannot guessbool(%s)" % (
+            w_condition,)
 
     def build_flow(self):
         while self.pendingblocks:

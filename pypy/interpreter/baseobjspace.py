@@ -24,8 +24,15 @@ class ObjSpace:
 
     def __init__(self):
         "Basic initialization of objects."
-        # sets all the internal descriptors 
+        self.generalcache = {}
+        # sets all the internal descriptors
         self.initialize()
+
+    def loadfromcache(self, key, builder):
+        try:
+            return self.generalcache[key]
+        except KeyError:
+            return self.generalcache.setdefault(key, builder(self))
 
     def make_builtins(self, for_builtins):
         # initializing builtins may require creating a frame which in
@@ -82,7 +89,7 @@ class ObjSpace:
 
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
-        ec = getthreadlocals().executioncontext  #it's allways None (dec. 2003)
+        ec = getthreadlocals().executioncontext
         if ec is None:
             ec = self.createexecutioncontext()
         return ec

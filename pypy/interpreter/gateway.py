@@ -11,10 +11,6 @@ Gateway between app-level and interpreter-level:
 """
 
 import types
-try:
-    from weakref import WeakKeyDictionary
-except ImportError:
-    WeakKeyDictionary = dict   # XXX for PyPy
 from pypy.interpreter import eval, pycode
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import Wrappable
@@ -123,9 +119,6 @@ class Gateway(Wrappable):
     # explicitely as the first argument (for plain function), or is read
     # from 'self.space' for methods.
 
-    def __init__(self): 
-        self.functioncache = WeakKeyDictionary()  # map {space: Function}
-
         # after initialization the following attributes should be set
         #   name
         #   code 
@@ -138,40 +131,40 @@ class Gateway(Wrappable):
         return self.get_function(space)
 
     def get_function(self, space):
-        try:
-            return self.functioncache[space]
-        except KeyError:
-            # the construction is supposed to be done only once in advance,
-            # but must be done lazily when needed only, because
-            #   1) it depends on the object space
-            #   2) the w_globals must not be built before the underlying
-            #      staticglobals is completely initialized, because
-            #      w_globals must be built only once for all the Gateway
-            #      instances of staticglobals
-            if self.staticglobals is None:
-                w_globals = None
+        return space.loadfromcache(self, self.build_all_functions)
+
+    def build_all_functions(self, space):
+        # the construction is supposed to be done only once in advance,
+        # but must be done lazily when needed only, because
+        #   1) it depends on the object space
+        #   2) the w_globals must not be built before the underlying
+        #      staticglobals is completely initialized, because
+        #      w_globals must be built only once for all the Gateway
+        #      instances of staticglobals
+        if self.staticglobals is None:
+            w_globals = None
+        else:
+            # is there another Gateway in staticglobals for which we
+            # already have a w_globals for this space ?
+            for value in self.staticglobals.itervalues():
+                if isinstance(value, Gateway):
+                    if self in space.generalcache:
+                        # yes, we share its w_globals
+                        fn = space.generalcache[value]
+                        w_globals = fn.w_func_globals
+                        break
             else:
-                # is there another Gateway in staticglobals for which we
-                # already have a w_globals for this space ?
-                for value in self.staticglobals.itervalues():
-                    if isinstance(value, Gateway):
-                        if space in value.functioncache:
-                            # yes, we share its w_globals
-                            fn = value.functioncache[space]
-                            w_globals = fn.w_func_globals
-                            break
-                else:
-                    # no, we build all Gateways in the staticglobals now.
-                    w_globals = build_dict(self.staticglobals, space)
-            return self.build_function(space, w_globals)
+                # no, we build all Gateways in the staticglobals now.
+                w_globals = build_dict(self.staticglobals, space)
+        return self.build_function(space, w_globals)
 
     def build_function(self, space, w_globals):
-        if space in self.functioncache:
-            fn = self.functioncache[space]
+        if self in space.generalcache:
+            fn = space.generalcache[self]
         else:
             defs = self.getdefaults(space)  # needs to be implemented by subclass
             fn = Function(space, self.code, w_globals, defs, forcename = self.name)
-            self.functioncache[space] = fn
+            space.generalcache[self] = fn
         return fn
 
     def get_method(self, obj):

@@ -108,6 +108,7 @@ class CallableTracer:
 
 class TraceObjSpace:
     def __init__(self, space=None):
+        self.generalcache = {}
         if space is None:
             # make up a TrivialObjSpace by default
             # ultimately, remove this hack and fix the -P option of tests
@@ -121,6 +122,19 @@ class TraceObjSpace:
 
     def getresult(self):
         return self.__result
+
+    def loadfromcache(self, key, builder):
+        # hiding self.__cache.loadfromcache so that builder() can be called
+        # on self instead of self.__space, ignore the operations it performs
+        try:
+            return self.generalcache[key]
+        except KeyError:
+            saved = self.__result
+            self.settrace()
+            try:
+                return self.generalcache.setdefault(key, builder(self))
+            finally:
+                self.__result = saved
 
     def getexecutioncontext(self):
         ec = self.__space.getexecutioncontext()

@@ -14,10 +14,9 @@ class Test_TraceObjSpace(testit.IntTestCase):
 
     def perform_trace(self, app_func):
         tspace = TraceObjSpace(self.space)
-        func_gw = app2interp(app_func) 
+        func_gw = app2interp(app_func)
         func = func_gw.get_function(tspace)
-        tspace.settrace()
-        self.space.call_function(self.space.wrap(func))
+        tspace.call_function(tspace.wrap(func))
         res = tspace.getresult()
         return res 
 
