@@ -143,7 +143,7 @@ class SpecialMethod:
         try:
             return self.do_call(space, args_w)
         except OperationError, e:
-            if not e.match(self.space, self.space.w_StopIteration):
+            if not e.match(space, space.w_StopIteration):
                 raise
             raise NoValue
 
