@@ -584,7 +584,7 @@ def call_function_extra(f, oparg, with_varargs, with_varkw):
     for i in range(n_keywords):
         w_value = f.valuestack.pop()
         w_key   = f.valuestack.pop()
-        keywords.append((w_value, w_key))
+        keywords.append((w_key, w_value))
     arguments = [f.valuestack.pop() for i in range(n_arguments)]
     arguments.reverse()
     w_function  = f.valuestack.pop()
