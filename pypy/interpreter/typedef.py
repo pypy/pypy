@@ -10,6 +10,7 @@ class TypeDef:
     def __init__(self, __name, __base=None, **rawdict):
         self.name = __name
         self.base = __base
+        self.hasdict = '__dict__' in rawdict or (__base and __base.hasdict)
         self.rawdict = rawdict
 
 
@@ -31,13 +32,12 @@ def get_unique_interplevel_subclass(cls):
                 # XXX sanity checks here
                 self.w__class__ = w_subtype
             
-            if cls.hasdict:
+            if typedef.hasdict:
                 def user_setup(self, space, w_subtype):
                     self.space = space
                     self.w__class__ = w_subtype
                     
             else:
-                hasdict = True
                 def getdict(self):
                     return self.w__dict__
 
@@ -136,6 +136,17 @@ from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator 
 from pypy.interpreter.nestedscope import Cell
 
+def descr_get_dict(space, w_obj):
+    w_dict = w_obj.getdict()
+    assert w_dict is not None, repr(w_obj)
+    return w_dict
+
+def descr_set_dict(space, w_obj, w_dict):
+    w_obj.setdict(w_dict)
+
+default_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict)
+
+
 Code.typedef = TypeDef('internal-code',
     co_name = attrproperty('co_name'),
     # XXX compute more co_xxx from the methods in Code
@@ -172,6 +183,7 @@ PyFrame.typedef = TypeDef('frame',
 Module.typedef = TypeDef("module",
     __new__ = interp2app(Module.descr_module__new__.im_func),
     __init__ = interp2app(Module.descr_module__init__.im_func),
+    __dict__ = default_dict_descr,
     )
 
 getset_func_doc = GetSetProperty(Function.fget_func_doc,
@@ -188,7 +200,8 @@ Function.typedef = TypeDef("function",
     func_defaults = GetSetProperty(Function.fget_func_defaults),
     func_globals = attrproperty_w('w_func_globals'),
     __doc__ = getset_func_doc,
-    __name__ = attrproperty('name'), 
+    __name__ = attrproperty('name'),
+    __dict__ = default_dict_descr,
     # XXX func_closure, etc.pp
     )
 

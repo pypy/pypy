@@ -49,7 +49,7 @@ class TestBuiltinApp(testit.AppTestCase):
         self.assertRaises(KeyError, delattr, a1, 'name')
 
     def test_super(self):
-        class A:
+        class A(object):
             def f(self):
                 return 'A'
         class B(A):
@@ -63,6 +63,7 @@ class TestBuiltinApp(testit.AppTestCase):
                 return 'D' + super(D,self).f()
         d = D()
         self.assertEquals(d.f(), "DBCA")
+        self.assertEquals(D.__mro__, (D, B, C, A, object))
 
     def test_super_metaclass(self):
         class xtype(type):

@@ -129,5 +129,20 @@ class TestUserObject(testit.AppTestCase):
         c1.a = 5
         self.assertEquals(c1.a, 5)
 
+    def test_dict(self):
+        class A(object):
+            pass
+        class B(A):
+            pass
+        self.failIf('__dict__' in object.__dict__)
+        self.assert_('__dict__' in A.__dict__)
+        self.failIf('__dict__' in B.__dict__)
+        a = A()
+        a.x = 5
+        self.assertEquals(a.__dict__, {'x': 5})
+        a.__dict__ = {'y': 6}
+        self.assertEquals(a.y, 6)
+        self.failIf(hasattr(a, 'x'))
+
 if __name__ == '__main__':
     testit.main()

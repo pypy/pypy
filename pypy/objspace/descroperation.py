@@ -53,10 +53,7 @@ class Object:
 class DescrOperation:
 
     def getdict(space, w_obj):
-        if w_obj.hasdict:
-            return w_obj.getdict()
-        else:
-            return None
+        return w_obj.getdict()
 
     def is_data_descr(space, w_obj):
         return space.lookup(w_obj, '__set__') is not None

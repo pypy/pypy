@@ -148,10 +148,7 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
     def getdict(self, w_obj):
         if isinstance(w_obj, CPyWrapper):
             obj = self.unwrap(w_obj)
-            if obj.hasdict:
-                return obj.getdict()
-            else:
-                return None
+            return obj.getdict()
         else:
             try:
                 return w_obj.__dict__

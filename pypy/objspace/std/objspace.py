@@ -10,8 +10,7 @@ import types
 class W_Object(object):
     "Parent base class for wrapped objects."
     typedef = None
-    hasdict = False
-    
+
     def __init__(w_self, space):
         w_self.space = space     # XXX not sure this is ever used any more
 
@@ -24,6 +23,9 @@ class W_Object(object):
         if hasattr(self, 'w__class__'):
             s += ' instance of %s' % self.w__class__
         return '<%s>' % s
+
+    def getdict(self):
+        return None
 
 # delegation priorities
 PRIORITY_SAME_TYPE    = 2  # converting between several impls of the same type

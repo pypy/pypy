@@ -1,4 +1,5 @@
 from pypy.objspace.std.stdtypedef import *
+from pypy.interpreter.typedef import default_dict_descr
 
 
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
@@ -15,7 +16,7 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
         assert isinstance(key, str)
         dict_w[key] = space.getitem(w_dict, w_key)
     w_type = space.allocate_instance(W_TypeObject, w_typetype)
-    w_type.__init__(space, name, bases_w or [space.w_object], dict_w, None)
+    w_type.__init__(space, name, bases_w or [space.w_object], dict_w)
     return w_type
 
 def descr_get__mro__(space, w_type):
@@ -32,4 +33,5 @@ type_typedef = StdTypeDef("type",
     __name__ = attrproperty('name'),
     __bases__ = GetSetProperty(descr__bases),
     __mro__ = GetSetProperty(descr_get__mro__),
+    __dict__ = default_dict_descr,
     )

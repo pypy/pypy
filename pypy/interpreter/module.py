@@ -15,9 +15,9 @@ class Module(Wrappable):
         self.w_name = w_name
         space.setitem(w_dict, space.wrap('__name__'), w_name)
 
-    hasdict = True
     def getdict(self):
         return self.w_dict
+
     def setdict(self, w_dict):
         self.w_dict = w_dict
 

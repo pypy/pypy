@@ -72,7 +72,8 @@ def buildtypeobject(typedef, space):
     for descrname, descrvalue in rawdict.items():
         dict_w[descrname] = w(descrvalue)
 
-    return W_TypeObject(space, typedef.name, bases_w, dict_w, typedef)
+    return W_TypeObject(space, typedef.name, bases_w, dict_w,
+                        overridetypedef=typedef, forcedict=False)
 
 def hack_out_multimethods(ns):
     result = []
