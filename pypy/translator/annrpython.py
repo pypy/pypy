@@ -142,18 +142,14 @@ class RPythonAnnotator:
             print "++-" * 20
             
 
-    def binding(self, arg, in_link=None):
+    def binding(self, arg):
         "Gives the SomeValue corresponding to the given Variable or Constant."
         if isinstance(arg, Variable):
             return self.bindings[arg]
         elif isinstance(arg, UndefinedConstant):  # undefined local variables
             return annmodel.SomeImpossibleValue()
         elif isinstance(arg, Constant):
-            if arg.value is last_exception or arg.value is last_exc_value:
-                assert in_link
-                assert isinstance(in_link.exitcase, type(Exception))
-                assert issubclass(in_link.exitcase, Exception)
-                return annmodel.SomeObject()   # XXX
+            assert not arg.value is last_exception and not arg.value is last_exc_value
             return self.bookkeeper.immutablevalue(arg.value)
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
@@ -311,17 +307,41 @@ class RPythonAnnotator:
             if s_exitswitch.is_constant():
                 exits = [link for link in exits
                               if link.exitcase == s_exitswitch.const]
-        knownvar, knownvarvalue = getattr(self.bindings.get(block.exitswitch),
+        knownvars, knownvarvalue = getattr(self.bindings.get(block.exitswitch),
                                           "knowntypedata", (None, None))
         for link in exits:
             self.links_followed[link] = True
-            cells = []
-            for a in link.args:
-                cell = self.binding(a, in_link=link)
-                if link.exitcase is True and a is knownvar \
-                       and not knownvarvalue.contains(cell):
-                    cell = knownvarvalue
-                cells.append(cell)
+            import types
+            if isinstance(link.exitcase, types.ClassType) and issubclass(link.exitcase, Exception):
+                last_exception_object = annmodel.SomeObject()
+                last_exc_value_object = annmodel.SomeObject()
+                last_exc_value_vars = last_exception_object.is_type_of = []
+                cells = []
+                for a,v in zip(link.args,link.target.inputargs):
+                    if a == Constant(last_exception):
+                        cells.append(last_exception_object)
+                    elif a == Constant(last_exc_value):
+                        cells.append(last_exc_value_object)
+                        last_exc_value_vars.append(v)
+                    else:
+                        assert False, "exception handling blocks should only have exception inputargs!!"
+            else:
+                cells = []
+                renaming = dict(zip(link.args,link.target.inputargs))
+                for a in link.args:
+                    cell = self.binding(a)
+                    if link.exitcase is True and knownvars is not None and a in knownvars \
+                            and not knownvarvalue.contains(cell):
+                        cell = knownvarvalue
+                    if hasattr(cell,'is_type_of'):
+                        renamed_is_type_of = []
+                        for v in cell.is_type_of:
+                            new_v = renaming.get(v,None)
+                            if new_v is not None:
+                                renamed_is_type_of.append(new_v)
+                        cell = annmodel.SomeObject()
+                        cell.is_type_of = renamed_is_type_of
+                    cells.append(cell)
             self.addpendingblock(fn, link.target, cells)
         if block in self.notify:
             # reflow from certain positions when this block is done

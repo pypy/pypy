@@ -74,7 +74,7 @@ def builtin_isinstance(s_obj, s_type):
         assert len(op.args) == 3
         assert op.args[0] == Constant(isinstance)
         assert annotator.binding(op.args[1]) == s_obj
-        s.knowntypedata = (op.args[1], bk.valueoftype(typ))
+        s.knowntypedata = ([op.args[1]], bk.valueoftype(typ))
     return s 
 
 def builtin_issubclass(s_cls1, s_cls2):

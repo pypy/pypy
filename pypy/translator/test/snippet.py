@@ -694,6 +694,19 @@ def dict_items():
     d = {'a' : 1}
     return d.items()
 
+class Exc(Exception):
+    pass
+
+def exception_deduction0(x):
+    pass
+
+def exception_deduction():
+    try:
+        exception_deduction0(2)
+    except Exc, e:
+        return e
+    return Exc()
+    
 def slice_union(x):
     if x:
         return slice(1)

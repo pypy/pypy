@@ -97,13 +97,17 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
-        fn, block, i = getbookkeeper().position_key
-        annotator = getbookkeeper().annotator
+        bk = getbookkeeper()
+        if hasattr(obj1,'is_type_of') and obj2.is_constant():
+            r.knowntypedata = (obj1.is_type_of, bk.valueoftype(obj2.const))
+            return r
+        fn, block, i = bk.position_key
+        annotator = bk.annotator
         op = block.operations[i]
         assert op.opname == "is_" 
         assert len(op.args) == 2
         assert annotator.binding(op.args[0]) == obj1 
-        r.knowntypedata = (op.args[0], obj2)
+        r.knowntypedata = ([op.args[0]], obj2)
         return r
 
 class __extend__(pairtype(SomeInteger, SomeInteger)):
@@ -311,3 +315,12 @@ class __extend__(pairtype(SomeInstance, SomePBC)):
 class __extend__(pairtype(SomePBC, SomeInstance)):
     def union((pbc, ins)):
         return pair(ins, pbc).union()
+
+class __extend__(pairtype(SomeObject, SomePBC)):
+    def issubtype((obj, pbc)):
+        s = SomeBool()
+        if hasattr(obj,'is_type_of') and pbc.is_constant():
+            bk = getbookkeeper()
+            s.knowntypedata = (obj.is_type_of, bk.valueoftype(pbc.const))
+        return s
+
