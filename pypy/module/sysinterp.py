@@ -106,9 +106,16 @@ def setbuiltinmodule(w_module, name):
 ##        space.call_method(w_stdout, 'write', 
 ##        space.setitem(space.w_builtins, w('_'), w_x)
 
-def _getframe():
-    # XXX No Argument Accepted Yet
-    f = space.getexecutioncontext().framestack.items[-1]
+def _getframe(w_depth=0):
+    depth = space.int_w(w_depth)
+    try:
+        f = space.getexecutioncontext().framestack.top(depth)
+    except IndexError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("call stack is not deep enough"))
+    except ValueError:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("frame index must not be negative"))
     return space.wrap(f)
 
 def exc_info():
