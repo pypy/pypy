@@ -6,9 +6,29 @@
 def apply(function, args, kwds):
     return function(*args, **kwds)
 
-def map(function, list):
-    "docstring"
-    return [function(x) for x in list]
+def map(function, *collections):
+    if len(collections) == 1:
+       #it's the most common case, so make it faster
+       return [function(x) for x in collections[0]]
+    else:
+       res = []
+       idx = 0   
+       while 1:
+          cont = 0     #is any collection not empty?
+          args = []
+          for collection in collections:
+              try:
+                 elem = collection[idx]
+                 cont = cont + 1
+              except IndexError:
+                 elem = None
+              args.append(elem)
+          if cont:
+              res.append(function(*args))
+          else:
+              return res
+          idx = idx + 1
+          print idx
 
 def filter(function, collection):
     res = []
@@ -20,9 +40,9 @@ def filter(function, collection):
        for elem in collection:
            if function(elem):
               res.append(elem)
-    if type(collection) == tuple:
+    if type(collection) is tuple:
        return tuple(res)
-    elif type(collection) == str:
+    elif type(collection) is str:
        return "".join(res)
     else:
        return res
