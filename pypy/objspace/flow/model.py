@@ -137,6 +137,8 @@ class Variable:
             if not name.renamed:
                 return
             name = name.name[:name.name.rfind('_')]
+        # remove strange characters in the name
+        name = ''.join([c for c in name if c.isalnum() or c == '_'])
         del Variable.instances[self.name]
         self.renamed = True
         self.name = name + '_' + self.name[1:]
