@@ -1,2 +1,2 @@
-from objspace import FlowObjSpace
+from pypy.objspace.flow.objspace import FlowObjSpace
 Space = FlowObjSpace
