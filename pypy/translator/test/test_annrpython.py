@@ -369,7 +369,8 @@ class TestAnnonateTestCase:
         # the annotator (it doesn't check that they operate property, though)
         for example, methname, s_example in [
             ('', 'join',    annmodel.SomeString()),
-            ([], 'append',  annmodel.SomeList({})),
+            ([], 'append',  annmodel.SomeList({})), 
+            ([], 'extend',  annmodel.SomeList({})),           
             ([], 'reverse', annmodel.SomeList({})),
             ([], 'insert',  annmodel.SomeList({})),
             ([], 'pop',     annmodel.SomeList({})),

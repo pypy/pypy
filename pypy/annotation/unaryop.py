@@ -118,6 +118,9 @@ class __extend__(SomeList):
     def method_append(lst, s_value):
         pair(lst, SomeInteger()).setitem(s_value)
 
+    def method_extend(lst, s_iterable):
+        pair(lst, SomeInteger()).setitem(s_iterable.iter())
+
     def method_reverse(lst):
         pass
 

@@ -55,6 +55,10 @@ def sc_normalize_exception(space, fn, args):
     # Normally, Instance should have been created by the previous operation
     # which should be a simple_call(<Class>, ...).
     # Fetch the <Class> out of there.  (This doesn't work while replaying)
+    # XXX this case is likely not triggered anymore, because the instance creation op
+    # is walled off in a different block by the surrounding it with exception
+    # handling logic that is always put in place for calls.
+    # We may want to make this more clever!
     operations = space.executioncontext.recorder.crnt_block.operations
     if operations:
         spaceop = operations[-1]
