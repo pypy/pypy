@@ -42,7 +42,10 @@ class W_CPythonObject(W_Object):
         return "cpyobj(%r)" % (w_self.cpyobj,)
 
     def getclass(w_self, space):
-        return space.wrap(w_self.cpyobj.__class__)
+        try:
+            return space.wrap(w_self.cpyobj.__class__)
+        except AttributeError:   # no __class__!
+            return space.wrap(type(w_self.cpyobj))
 
     def lookup(w_self, name):
         # hack for wrapped CPython types
