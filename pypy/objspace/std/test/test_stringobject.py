@@ -94,6 +94,10 @@ class TestW_StringObject(testsupport.TestCase):
 
     def test_extended_slice(self):
         space = self.space
+        if self.space.__class__.__name__.startswith('Trivial'):
+            import sys
+            if sys.version < (2, 3):
+                return
         w_None = space.w_None
         w = space.wrap
         w_str = w('hello')
