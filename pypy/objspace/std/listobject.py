@@ -4,8 +4,9 @@ from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.tupleobject import W_TupleObject
 
 from pypy.objspace.std import slicetype
-from pypy.interpreter import gateway
+from pypy.interpreter import gateway, baseobjspace
 from pypy.objspace.std.restricted_int import r_int, r_uint
+from pypy.objspace.std.listsort import TimSort
 
 
 class W_ListObject(W_Object):
@@ -514,76 +515,21 @@ def list_reverse__List(space, w_list):
         _reverse_slice(w_list.ob_item, 0, w_list.ob_size)
     return space.w_None
 
-    
+# ____________________________________________________________
+# Sorting
 
-# Python Quicksort Written by Magnus Lie Hetland
-# http://www.hetland.org/python/quicksort.html
+class KeyContainer(baseobjspace.W_Root):
+    def __init__(self, w_key, w_item):
+        self.w_key = w_key
+        self.w_item = w_item
 
-# NOTE:  we cannot yet detect that a user comparision
-#        function modifies the list in-place.  The
-#        CPython sort() should be studied to learn how
-#        to implement this functionality.
-
-def _partition(list, key_list, start, end, lt):
-    pivot = list[end]
-    key_pivot = key_list[end]                          # Partition around the last value
-    bottom = start-1                           # Start outside the area to be partitioned
-    top = end                                  # Ditto
-
-    done = 0
-    while not done:                            # Until all elements are partitioned...
-
-        while not done:                        # Until we find an out of place element...
-            bottom = bottom+1                  # ... move the bottom up.
-
-            if bottom == top:                  # If we hit the top...
-                done = 1                       # ... we are done.
-                break
-
-            if lt(key_pivot, key_list[bottom]):        # Is the bottom out of place?
-                key_list[top] = key_list[bottom]
-                list[top] = list[bottom]       # Then put it at the top...
-                break                          # ... and start searching from the top.
-
-        while not done:                        # Until we find an out of place element...
-            top = top-1                        # ... move the top down.
-            
-            if top == bottom:                  # If we hit the bottom...
-                done = 1                       # ... we are done.
-                break
-
-            if lt(key_list[top], key_pivot):           # Is the top out of place?
-                key_list[bottom] = key_list[top]
-                list[bottom] = list[top]       # Then put it at the bottom...
-                break                          # ...and start searching from the bottom.
-
-    key_list[top] = key_pivot
-    list[top] = pivot                          # Put the pivot in its place.
-    return top                                 # Return the split point
-
-
-def _quicksort(list, key_list, start, end, lt):
-    """list is the list to be sorted
-    key_list is the list that will be used for comparisions
-    """
-    if start < end:                            # If there are two or more elements...
-        split = _partition(list, key_list, start, end, lt)    # ... partition the sublist...
-        _quicksort(list, key_list, start, split-1, lt)        # ... and sort both halves.
-        _quicksort(list, key_list, split+1, end, lt)
-
-class Comparer:
-    """Just a dumb container class for a space and a w_cmp, because
-    we can't use nested scopes for that in RPython.
-    """
-    def __init__(self, space, w_cmp):
-        self.space = space
-        self.w_cmp = w_cmp
-
-    def simple_lt(self, a, b):
+class SimpleSort(TimSort):
+    def lt(self, a, b):
         space = self.space
         return space.is_true(space.lt(a, b))
 
-    def complex_lt(self, a, b):
+class CustomCompareSort(TimSort):
+    def lt(self, a, b):
         space = self.space
         w_cmp = self.w_cmp
         w_result = space.call_function(w_cmp, a, b)
@@ -596,45 +542,81 @@ class Comparer:
             raise
         return result < 0
 
-def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_key, w_reverse):
-    comparer = Comparer(space, w_cmp)
-    if w_cmp is space.w_None:
-        lt = comparer.simple_lt
-    else:
-        lt = comparer.complex_lt
-    # The key_list is the result of map(w_key, w_list), and will be
-    # used for comparisons during the qsort
-    if w_key is not space.w_None:
-        key_list = [space.call_function(w_key, item)
-                    for item in w_list.ob_item[:w_list.ob_size]]
-    else:
-        # If no key was specified, then comparison will be made on
-        # the original list
-        key_list = w_list.ob_item
-    # XXX Basic quicksort implementation
-    # XXX this is not stable !!
-    _quicksort(w_list.ob_item, key_list, 0, w_list.ob_size-1, lt)
-    # _quicksort(w_list.ob_item, 0, w_list.ob_size-1, lt)
-    # reverse list if needed
-    if space.is_true(w_reverse):
-        list_reverse__List(space, w_list)
+class CustomKeySort(TimSort):
+    def lt(self, a, b):
+        assert isinstance(a, KeyContainer)
+        assert isinstance(b, KeyContainer)
+        space = self.space
+        return space.is_true(space.lt(a.w_key, b.w_key))
+
+class CustomKeyCompareSort(CustomCompareSort):
+    def lt(self, a, b):
+        assert isinstance(a, KeyContainer)
+        assert isinstance(b, KeyContainer)
+        return CustomCompareSort.lt(self, a.w_key, b.w_key)
+
+SortClass = {
+    (False, False): SimpleSort,
+    (True,  False): CustomCompareSort,
+    (False, True) : CustomKeySort,
+    (True,  True) : CustomKeyCompareSort,
+    }
+
+def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
+    has_cmp = not space.is_w(w_cmp, space.w_None)
+    has_key = not space.is_w(w_keyfunc, space.w_None)
+    has_reverse = space.is_true(w_reverse)
+
+    # create and setup a TimSort instance
+    sorterclass = SortClass[has_cmp, has_key]
+    sorter = sorterclass(w_list.ob_item, w_list.ob_size)
+    sorter.space = space
+    sorter.w_cmp = w_cmp
+
+    try:
+        # The list is temporarily made empty, so that mutations performed
+	# by comparison functions can't affect the slice of memory we're
+        # sorting (allowing mutations during sorting is an IndexError or
+        # core-dump factory, since ob_item may change).
+        w_list.clear()
+
+        # wrap each item in a KeyContainer if needed
+        if has_key:
+            for i in range(sorter.listlength):
+                w_item = sorter.list[i]
+                w_key = space.call_function(w_keyfunc, w_item)
+                sorter.list[i] = KeyContainer(w_key, w_item)
+
+        # Reverse sort stability achieved by initially reversing the list,
+	# applying a stable forward sort, then reversing the final result.
+        if has_reverse:
+            _reverse_slice(sorter.list, 0, sorter.listlength)
+
+        # perform the sort
+        sorter.sort()
+
+        # check if the user mucked with the list during the sort
+        if w_list.ob_item:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("list modified during sort"))
+
+    finally:
+        # unwrap each item if needed
+        if has_key:
+            for i in range(sorter.listlength):
+                w_obj = sorter.list[i]
+                if isinstance(w_obj, KeyContainer):
+                    sorter.list[i] = w_obj.w_item
+
+        if has_reverse:
+            _reverse_slice(sorter.list, 0, sorter.listlength)
+
+        # put the items back into the list
+        w_list.ob_item = sorter.list
+        w_list.ob_size = sorter.listlength
+
     return space.w_None
 
-
-"""
-static PyMethodDef list_methods[] = {
-    {"append",  (PyCFunction)listappend,  METH_O, append_doc},
-    {"insert",  (PyCFunction)listinsert,  METH_VARARGS, insert_doc},
-    {"extend",      (PyCFunction)listextend,  METH_O, extend_doc},
-    {"pop",     (PyCFunction)listpop,     METH_VARARGS, pop_doc},
-    {"remove",  (PyCFunction)listremove,  METH_O, remove_doc},
-    {"index",   (PyCFunction)listindex,   METH_O, index_doc},
-    {"count",   (PyCFunction)listcount,   METH_O, count_doc},
-    {"reverse", (PyCFunction)listreverse, METH_NOARGS, reverse_doc},
-    {"sort",    (PyCFunction)listsort,    METH_VARARGS, sort_doc},
-    {NULL,      NULL}       /* sentinel */
-};
-"""
 
 from pypy.objspace.std import listtype
 register_all(vars(), listtype)
