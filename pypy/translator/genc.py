@@ -123,7 +123,9 @@ class GenC:
 
     def nameof_function(self, func):
         if self.translator.frozen:
-            assert func in self.translator.flowgraphs, func
+            if func not in self.translator.flowgraphs:
+                print "NOT GENERATING", func
+                return self.nameof(None)
         name = self.uniquename('gfunc_' + func.__name__)
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
@@ -239,13 +241,16 @@ class GenC:
         tuple:  'PyTuple_Type',
         dict:   'PyDict_Type',
         str:    'PyString_Type',
+        float:  'PyFloat_Type',
+        type:   'PyType_Type',
+        complex:'PyComplex_Type',
         }
 
     def nameof_type(self, cls):
         if cls in self.typename_mapping:
             return '(PyObject*) &%s' % self.typename_mapping[cls]
-        assert hasattr(cls, '__weakref__'), (
-            "built-in class %r not found in typename_mapping" % (cls,))
+        assert cls.__module__ != '__builtin__', \
+            "built-in class %r not found in typename_mapping" % (cls,)
         return self.nameof_classobj(cls)
 
     def nameof_tuple(self, tup):
