@@ -3,6 +3,7 @@ Unary operations on SomeValues.
 """
 
 from types import FunctionType
+from pypy.interpreter.argument import Arguments
 from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
@@ -18,7 +19,8 @@ from pypy.annotation.classdef import isclassdef
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'simple_call',
+UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr',
+                        'simple_call', 'call_args',
                         'iter', 'next'])
 
 for opname in UNARY_OPERATIONS:
@@ -62,9 +64,17 @@ class __extend__(SomeObject):
     def bindcallables(obj, classdef):
         return obj   # default unbound __get__ implementation
 
-    def simple_call(*obj_and_args):
-        #raise Exception, "cannot follow simple_call%r" % (obj_and_args,)
-        print "*** cannot follow simple_call%r" % (obj_and_args,)
+    def simple_call(obj, *args_s):
+        space = RPythonCallsSpace(getbookkeeper())
+        return obj.call(Arguments(space, args_s))
+
+    def call_args(obj, s_shape, *args_s):
+        space = RPythonCallsSpace(getbookkeeper())
+        return obj.call(Arguments.fromshape(space, s_shape.const, args_s))
+
+    def call(obj, args):
+        #raise Exception, "cannot follow call_args%r" % (obj_and_args,)
+        print "*** cannot follow call(%r, %r)" % (obj, args)
         return SomeObject()
 
 
@@ -192,7 +202,7 @@ class __extend__(SomePBC):
         print "*** WARNING: setattr not wanted on %r" % pbc 
         pass
 
-    def simple_call(pbc, *args):
+    def call(pbc, args):
         bookkeeper = getbookkeeper()
         results = []
         for func, classdef in pbc.prebuiltinstances.items():
@@ -201,9 +211,10 @@ class __extend__(SomePBC):
                 s_self = SomeInstance(classdef)
                 classdef.instantiation_locations[
                     bookkeeper.position_key] = True
-                results.append(bookkeeper.pycall(func, s_self, *args))
+                args1 = args.prepend(s_self)
             else:
-                results.append(bookkeeper.pycall(func, *args))
+                args1 = args
+            results.append(bookkeeper.pycall(func, args1))
         return unionof(*results) 
 
     def bindcallables(pbc, classdef):   
@@ -223,3 +234,27 @@ class __extend__(SomePBC):
                 d[func] = value 
         return SomePBC(d)
 
+
+class RPythonCallsSpace:
+    """Pseudo Object Space providing almost no real operation.
+    For the Arguments class: if it really needs other operations, it means
+    that the call pattern is too complex for R-Python.
+    """
+    def __init__(self, bookkeeper):
+        self.bookkeeper = bookkeeper
+
+    def newtuple(self, items_s):
+        return SomeTuple(items_s)
+
+    def newdict(self, stuff):
+        raise Exception, "call pattern too complicated (** argument)"
+
+    # XXX the following is only a hack to lead Arguments.parse() believe
+    # XXX that the *arg is always a tuple!
+    w_tuple = object()
+    def type(self, w_obj):
+        return self.w_tuple
+    def is_(self, w1, w2):
+        return w1 is w2
+    def is_true(self, x):
+        return bool(x)

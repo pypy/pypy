@@ -7,7 +7,6 @@ from types import BuiltinMethodType
 from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef
 from pypy.interpreter.miscutils import getthreadlocals
-from pypy.interpreter.pycode import CO_VARARGS
 from pypy.tool.hack import func_with_new_name
 
 class Bookkeeper:
@@ -156,7 +155,7 @@ class Bookkeeper:
             o.knowntype = t
             return o
 
-    def pycall(self, func, *args):
+    def pycall(self, func, args):
         if func is None:   # consider None as a NULL function pointer
             return SomeImpossibleValue()
         if isinstance(func, (type, ClassType)) and \
@@ -184,9 +183,12 @@ class Bookkeeper:
                 else:
                     assert isinstance(init, BuiltinMethodType)
                 s_init = self.immutablevalue(init)
-                s_init.simple_call(s_instance, *args)
+                s_init.call(args.prepend(s_instance))
             else:
-                assert not args, "no __init__ found in %r" % (cls,)
+                try:
+                    args.fixedunpack(0)
+                except ValueError:
+                    raise Exception, "no __init__ found in %r" % (cls,)
             return s_instance
         if hasattr(func, '__call__') and \
            isinstance(func.__call__, MethodType):
@@ -194,7 +196,7 @@ class Bookkeeper:
         if hasattr(func, 'im_func'):
             if func.im_self is not None:
                 s_self = self.immutablevalue(func.im_self)
-                args = [s_self] + list(args)
+                args = args.prepend(s_self)
             # for debugging only, but useful to keep anyway:
             try:
                 func.im_func.class_ = func.im_class
@@ -219,12 +221,12 @@ class Bookkeeper:
             else:
                 raise Exception, "unsupported specialization type '%s'"%(x,)
 
-        elif func.func_code.co_flags & CO_VARARGS:
-            # calls to *arg functions: create one version per number of args
-            func = self.specialize_by_key(func, len(args),
-                                          name='%s__%d' % (func.func_name,
-                                                           len(args)))
-        return self.annotator.recursivecall(func, self.position_key, *args)
+##        elif func.func_code.co_flags & CO_VARARGS:
+##            # calls to *arg functions: create one version per number of args
+##            func = self.specialize_by_key(func, len(args),
+##                                          name='%s__%d' % (func.func_name,
+##                                                           len(args)))
+        return self.annotator.recursivecall(func, self.position_key, args)
 
     def specialize_by_key(self, thing, key, name=None):
         key = thing, key
@@ -259,7 +261,8 @@ def ishashable(x):
 
 def short_type_name(args):
     l = []
-    for x in args:
+    shape, args_w = args.flatten()
+    for x in args_w:
         if isinstance(x, SomeInstance) and hasattr(x, 'knowntype'):
             name = "SI_" + x.knowntype.__name__
         else:

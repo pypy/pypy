@@ -690,7 +690,7 @@ class PyInterpFrame(pyframe.PyFrame):
         block = pyframe.FinallyBlock(f, f.next_instr + offsettoend)
         f.blockstack.push(block)
 
-    def CALL_FUNCTION(f, oparg, extra_args=None):
+    def CALL_FUNCTION(f, oparg, w_star=None, w_starstar=None):
         n_arguments = oparg & 0xff
         n_keywords = (oparg>>8) & 0xff
         keywords = {}
@@ -701,28 +701,23 @@ class PyInterpFrame(pyframe.PyFrame):
             keywords[key] = w_value
         arguments = [f.valuestack.pop() for i in range(n_arguments)]
         arguments.reverse()
-        args = Arguments(f.space, arguments, keywords)
-        if extra_args:
-            args = args.join(extra_args)
+        args = Arguments(f.space, arguments, keywords, w_star, w_starstar)
         w_function  = f.valuestack.pop()
         w_result = f.space.call_args(w_function, args)
         f.valuestack.push(w_result)
 
     def CALL_FUNCTION_VAR(f, oparg):
         w_varargs = f.valuestack.pop()
-        extra_args = Arguments.frompacked(f.space, w_varargs)
-        f.CALL_FUNCTION(oparg, extra_args)
+        f.CALL_FUNCTION(oparg, w_varargs)
 
     def CALL_FUNCTION_KW(f, oparg):
         w_varkw = f.valuestack.pop()
-        extra_args = Arguments.frompacked(f.space, w_kwds=w_varkw)
-        f.CALL_FUNCTION(oparg, extra_args)
+        f.CALL_FUNCTION(oparg, None, w_varkw)
 
     def CALL_FUNCTION_VAR_KW(f, oparg):
         w_varkw = f.valuestack.pop()
         w_varargs = f.valuestack.pop()
-        extra_args = Arguments.frompacked(f.space, w_varargs, w_varkw)
-        f.CALL_FUNCTION(oparg, extra_args)
+        f.CALL_FUNCTION(oparg, w_varargs, w_varkw)
 
     def MAKE_FUNCTION(f, numdefaults):
         w_codeobj = f.valuestack.pop()

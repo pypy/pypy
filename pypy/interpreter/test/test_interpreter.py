@@ -180,6 +180,50 @@ def f(x):
 ''' % ((longexpr,)*10)
         self.assertEquals(self.codetest(code, 'f', [3]), 0)
 
+    def test_call_star_starstar(self):
+        code = '''
+def f1(n):
+    return n*2
+def f38(n):
+    f = f1
+    r = [
+        f(n, *[]),
+        f(n),
+        apply(f, (n,)),
+        apply(f, [n]),
+        f(*(n,)),
+        f(*[n]),
+        f(n=n),
+        f(**{'n': n}),
+        apply(f, (n,), {}),
+        apply(f, [n], {}),
+        f(*(n,), **{}),
+        f(*[n], **{}),
+        f(n, **{}),
+        f(n, *[], **{}),
+        f(n=n, **{}),
+        f(n=n, *[], **{}),
+        f(*(n,), **{}),
+        f(*[n], **{}),
+        f(*[], **{'n':n}),
+        ]
+    return r
+'''
+        self.assertEquals(self.codetest(code, 'f38', [117]), [234]*19)
+
+    def test_star_arg(self):
+        code = textwrap.dedent('''
+            def f(x, *y):
+                return y
+            def g(u, v):
+                return f(u, *v)
+            ''')
+        self.assertEquals(self.codetest(code, 'g', [12, ()]),    ())
+        self.assertEquals(self.codetest(code, 'g', [12, (3,4)]), (3,4))
+        self.assertEquals(self.codetest(code, 'g', [12, []]),    ())
+        self.assertEquals(self.codetest(code, 'g', [12, [3,4]]), (3,4))
+        self.assertEquals(self.codetest(code, 'g', [12, {}]),    ())
+        self.assertEquals(self.codetest(code, 'g', [12, {3:1}]), (3,))
 
 class AppTestInterpreter(testit.AppTestCase):
     def test_trivial(self):

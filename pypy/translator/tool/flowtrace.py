@@ -19,6 +19,7 @@ from pypy.objspace.flow import FlowObjSpace
 from pypy.objspace.flow.model import traverse, Constant, Variable, Block, Link
 from pypy.translator.simplify import simplify_graph
 from pypy.interpreter.baseobjspace import OperationError
+from pypy.interpreter.argument import Arguments
 
 
 class FlowTracer(object):
@@ -141,9 +142,11 @@ class FlowTracer(object):
                     else:
                         res = self.space.w_None
 
-                elif op.opname == "simple_call":
-                    assert (len(opargs) >= 1)
-                    res = self.simple_call(opargs[0], *opargs[1:])
+                elif op.opname == "call_args":
+                    assert (len(opargs) >= 2)
+                    shape = self.space.unwrap(opargs[1])
+                    args = Arguments.fromshape(shape, *opargs[2:])
+                    res = self.call_args(opargs[0], args)
 
                 else:
                     # More special cases
@@ -225,15 +228,16 @@ class FlowTracer(object):
                 return result.e_value
 
 
-    def simple_call(self, w_func, *args_w):
+    def call_args(self, w_func, args):
         
         func = self.space.unwrap(w_func)
         if hasattr(func, "func_code"):        
             graph = self.flow_space.build_flow(func)
             simplify_graph(graph)
             if self.debug:
-                debug(func) 
-            return self.execute_function(graph, *args_w)
+                debug(func)
+            scope_w = args.parse(func.name, func.code.signature(), func.defs_w)
+            return self.execute_function(graph, *scope_w)
 
         else:
             # XXX We could try creating the flow graph by runnning another
@@ -244,7 +248,7 @@ class FlowTracer(object):
             if self.trace:
                 print "WOA! Cheating!", w_func
 
-            return self.space.call_function(w_func, *args_w)  
+            return self.space.call_args(w_func, args)
             
 
     def call(self, f, *args):
@@ -252,7 +256,7 @@ class FlowTracer(object):
         args_w = [w(ii) for ii in args]
         w_func = w(f)
 
-        res = self.simple_call(w_func, *args_w)
+        res = self.call_args(w_func, Arguments(self.space, args_w))
         return self.space.unwrap(res)
             
 
@@ -282,7 +286,6 @@ if __name__ == '__main__':
 
         import new 
         from pypy.interpreter.gateway import app2interp
-        from pypy.interpreter.argument import Arguments    
 
         # Horrible hack (ame needs to start with "app_")
         app_func = new.function(app_func.func_code,

@@ -154,25 +154,28 @@ class FlowObjSpace(ObjSpace):
 
     def unpackiterable(self, w_iterable, expected_length=None):
         if isinstance(w_iterable, Variable) and expected_length is None:
-            # XXX TEMPORARY HACK XXX TEMPORARY HACK XXX TEMPORARY HACK
-            #print ("*** cannot unpack a Variable iterable "
-            #       "without knowing its length,")
-            #print "    assuming a list or tuple with up to 7 items"
-            items = []
-            w_len = self.len(w_iterable)
-            i = 0
-            while True:
-                w_i = self.wrap(i)
-                w_cond = self.eq(w_len, w_i)
-                if self.is_true(w_cond):
-                    break  # done
-                if i == 7:
-                    # too many values
-                    raise OperationError(self.w_AssertionError, self.w_None)
-                w_item = self.do_operation('getitem', w_iterable, w_i)
-                items.append(w_item)
-                i += 1
-            return items
+            raise UnwrapException, ("cannot unpack a Variable iterable"
+                                    "without knowing its length")
+##            # XXX TEMPORARY HACK XXX TEMPORARY HACK XXX TEMPORARY HACK
+##            print ("*** cannot unpack a Variable iterable "
+##                   "without knowing its length,")
+##            print "    assuming a list or tuple with up to 7 items"
+##            items = []
+##            w_len = self.len(w_iterable)
+##            i = 0
+##            while True:
+##                w_i = self.wrap(i)
+##                w_cond = self.eq(w_len, w_i)
+##                if self.is_true(w_cond):
+##                    break  # done
+##                if i == 7:
+##                    # too many values
+##                    raise OperationError(self.w_AssertionError, self.w_None)
+##                w_item = self.do_operation('getitem', w_iterable, w_i)
+##                items.append(w_item)
+##                i += 1
+##            return items
+##            # XXX TEMPORARY HACK XXX TEMPORARY HACK XXX TEMPORARY HACK
         elif expected_length is not None:
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, self.wrap(expected_length))
@@ -180,7 +183,6 @@ class FlowObjSpace(ObjSpace):
                 raise OperationError(self.w_ValueError, self.w_None)
             return [self.do_operation('getitem', w_iterable, self.wrap(i)) 
                         for i in range(expected_length)]
-            # XXX TEMPORARY HACK XXX TEMPORARY HACK XXX TEMPORARY HACK
         return ObjSpace.unpackiterable(self, w_iterable, expected_length)
 
     # ____________________________________________________________
@@ -220,11 +222,18 @@ class FlowObjSpace(ObjSpace):
         else:
             return sc(self, fn, args)
 
-        if args.kwds_w:
-            w_args, w_kwds = args.pack()
-            w_res = self.do_operation('call', w_callable, w_args, w_kwds)
+        try:
+            args_w, kwds_w = args.unpack()
+        except UnwrapError:
+            args_w, kwds_w = '?', '?'
+        if not kwds_w:
+            # simple case
+            w_res = self.do_operation('simple_call', w_callable, *args_w)
         else:
-            w_res = self.do_operation('simple_call', w_callable, *args.args_w)
+            # general case
+            shape, args_w = args.flatten()
+            w_res = self.do_operation('call_args', w_callable, Constant(shape),
+                                      *args_w)
 
         # maybe the call has generated an exception (any one)
         # but, let's say, not if we are calling a built-in class or function

@@ -26,9 +26,13 @@ def descr__new__(space, w_type, __args__):
     # don't allow arguments if the default object.__init__() is about
     # to be called
     w_parentinit, w_ignored = w_type.lookup_where('__init__')
-    if w_parentinit is space.w_object and (__args__.args_w or __args__.kwds_w):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("default __new__ takes no parameters"))
+    if w_parentinit is space.w_object:
+        try:
+            __args__.fixedunpack(0)
+        except ValueError:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("default __new__ takes "
+                                            "no parameters"))
     w_obj = space.allocate_instance(W_ObjectObject, w_type)
     w_obj.__init__(space)
     return w_obj

@@ -41,10 +41,11 @@ class TestBuiltinCode(testit.IntTestCase):
 
     def test_call_args(self):
         def c(space, w_x, w_y, __args__):
+            args_w, kwds_w = __args__.unpack()
             u = space.unwrap
             w = space.wrap
-            return w((u(w_x) - u(w_y) + len(__args__.args_w))
-                     * u(__args__.kwds_w['boo']))
+            return w((u(w_x) - u(w_y) + len(args_w))
+                     * u(kwds_w['boo']))
         code = gateway.BuiltinCode(c)
         w = self.space.wrap
         w_dict = self.space.newdict([

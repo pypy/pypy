@@ -170,3 +170,7 @@ def enhanceclass(baseclass, newclass, cache=Cache()):
     else:
         return cache.getorbuild((newclass, baseclass),
                                 _really_enhanceclass, None)
+
+
+def cpython_code_signature(co):
+    return PyCode()._from_code(co).signature()

@@ -1,6 +1,7 @@
 import autopath
 from pypy.tool import testit
 from pypy.objspace.flow.model import Constant
+from pypy.interpreter.argument import Arguments
 
 
 class TestFlowObjSpace(testit.TestCase):

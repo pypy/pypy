@@ -12,6 +12,20 @@ from pypy.annotation import model as annmodel
 
 # XXX: Lots of duplicated codes. Fix this!
 
+# ----------------------------------------------------------------------
+# The 'call_args' operation is the strangest one.  The meaning of its
+# arguments is as follows:
+#
+#      call_args(<callable>, <shape>, <arg0>, <arg1>, <arg2>...)
+#
+# The shape must be a constant object, which describes how the remaining
+# arguments are regrouped.  The class pypy.interpreter.argument.Arguments
+# has a method 'fromshape(shape, list-of-args)' that reconstructs a complete
+# Arguments instance from this information.  Don't try to interpret the
+# shape anywhere else, but for reference, it is a 3-tuple:
+# (number-of-pos-arg, tuple-of-keyword-names, flag-presence-of-*-arg)
+# ----------------------------------------------------------------------
+
 # [a] * b
 # -->
 # c = newlist(a)
@@ -75,7 +89,7 @@ def transform_slice(self):
 # -->
 # e = simple_call(a, *b)
 
-## REMOVED: now FlowObjSpace produces 'simple_call' operations only
+## REMOVED: now FlowObjSpace produces 'call_args' operations only
 ##def transform_simple_call(self):
 ##    """Transforms call(a, (...), {}) to simple_call(a, ...)"""
 ##    for block in self.annotated:

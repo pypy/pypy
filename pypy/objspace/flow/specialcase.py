@@ -34,8 +34,7 @@ def sc_normalize_exception(space, fn, args):
        - assumes that Arg is the value you want for the exception, and
          that Class is exactly the exception class.  No check or normalization.
     """
-    assert len(args.args_w) == 3 and args.kwds_w == {}
-    w_arg1, w_arg2, w_tb = args.args_w
+    w_arg1, w_arg2, w_tb = args.fixedunpack(3)
 
     # w_arg3 (the traceback) is ignored and replaced with None
     # if it is a Variable, because pyopcode.py tries to unwrap it.
@@ -70,18 +69,18 @@ def sc_normalize_exception(space, fn, args):
     # by FlowObjSpace.unpacktuple()
 
 def sc_import(space, fn, args):
-    assert len(args.args_w) == 4 and args.kwds_w == {}
-    unwrapped_args = []
-    for w_arg in args.args_w:
-        assert isinstance(w_arg, Constant)
-        unwrapped_args.append(space.unwrap(w_arg))
-    return space.wrap(__import__(*unwrapped_args))
+    w_name, w_glob, w_loc, w_frm = args.fixedunpack(4)
+    return space.wrap(__import__(space.unwrap(w_name),
+                                 space.unwrap(w_glob),
+                                 space.unwrap(w_loc),
+                                 space.unwrap(w_frm)))
 
 def sc_operator(space, fn, args):
     # XXX do this more cleanly
-    assert args.kwds_w == {}
+    args_w, kwds_w = args.unpack()
+    assert kwds_w == {}
     opname = fn.__name__.replace('__', '')
-    return space.do_operation(opname, *args.args_w)
+    return space.do_operation(opname, *args_w)
 
 def setup(space):
     fn = pyframe.normalize_exception.get_function(space)

@@ -199,9 +199,6 @@ def repr_value(space, value):
         if isinstance(value, Method):
             res = "Method(%s, %s)" % (value.w_function.name, value.w_function.code)
 
-        if isinstance(value, Arguments):
-            res = "Argument(%s, %s)" % (value.args_w, value.kwds_w)
-
     except Exception, exc:
         pass
     

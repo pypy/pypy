@@ -94,9 +94,9 @@ class BuiltinCode(eval.Code):
 
     def performance_shortcut_call(self, space, args):
         # this shortcut is only used for performance reasons
-        if self.generalargs or args.kwds_w:
+        args_w, kwds_w = args.unpack()
+        if self.generalargs or kwds_w:
             return None
-        args_w = args.args_w
         if not (self.minargs <= len(args_w) <= self.maxargs):
             return None
         if self.ismethod:
@@ -120,16 +120,17 @@ class BuiltinCode(eval.Code):
             else:
                 return None
         else:
-            if args.kwds_w:
+            args_w, kwds_w = args.unpack()
+            if kwds_w:
                 return None
-            if not (self.minargs <= 1+len(args.args_w) <= self.maxargs):
+            if not (self.minargs <= 1+len(args_w) <= self.maxargs):
                 return None
             if self.ismethod:
                 w_obj = space.unwrap(w_obj) # abuse name w_obj
             if self.spacearg:
-                w_result = self.func(space, w_obj, *args.args_w)
+                w_result = self.func(space, w_obj, *args_w)
             else:
-                w_result = self.func(w_obj, *args.args_w)
+                w_result = self.func(w_obj, *args_w)
         if w_result is None:
             w_result = space.w_None
         return w_result

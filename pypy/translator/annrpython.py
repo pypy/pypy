@@ -8,7 +8,7 @@ from pypy.annotation.bookkeeper import Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
 from pypy.objspace.flow.model import last_exception, last_exc_value
-from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
+from pypy.interpreter.pycode import cpython_code_signature
 
 
 class AnnotatorError(Exception):
@@ -176,7 +176,7 @@ class RPythonAnnotator:
 
     #___ interface for annotator.factory _______
 
-    def recursivecall(self, func, position_key, *args):
+    def recursivecall(self, func, position_key, args):
         parent_fn, parent_block, parent_index = position_key
         graph = self.translator.getflowgraph(func, parent_fn,
                                              position_key)
@@ -185,45 +185,18 @@ class RPythonAnnotator:
         # return block of this graph has been analysed.
         callpositions = self.notify.setdefault(graph.returnblock, {})
         callpositions[position_key] = True
+
+        # parse the arguments according to the function we are calling
+        defs_s = []
+        if func.func_defaults:
+            for x in func.func_defaults:
+                defs_s.append(self.bookkeeper.immutablevalue(x))
+        inputcells = args.parse(func.func_name,
+                                cpython_code_signature(func.func_code),
+                                defs_s)
+
         # generalize the function's input arguments
-        block = graph.startblock
-        inputcells = list(args)
-        # process *varargs in the called function
-        expectedargs = len(block.inputargs)
-        if func.func_code.co_flags & CO_VARARGS:
-            expectedargs -= 1
-        if func.func_code.co_flags & CO_VARKEYWORDS:
-            expectedargs -= 1
-        extracells = []
-        if func.func_code.co_flags & CO_VARARGS:
-            s_varargs = annmodel.SomeTuple(inputcells[expectedargs:])
-            extracells = [s_varargs]
-            del inputcells[expectedargs:]
-        if func.func_code.co_flags & CO_VARKEYWORDS:
-            raise AnnotatorError, "** argument of %r unsupported" % (func,)
-        # add default arguments if necessary
-        if len(inputcells) != expectedargs:
-            missingargs = expectedargs - len(inputcells)
-            nbdefaults = len(func.func_defaults or ())
-            if not (0 <= missingargs <= nbdefaults):
-                # XXX hack to avoid "*args" related processing 
-                #     to bail out
-                #v = graph.getreturnvar()
-                #return self.bindings.get(v, annmodel.SomeImpossibleValue())
-                # XXX end hack 
-                if nbdefaults:
-                    msg = "%d to %d" % (expectedargs-nbdefaults,
-                                        expectedargs)
-                else:
-                    msg = "%d" % expectedargs
-                print ("!!! AnnotatorError, (ignored!!!)" 
-                    "got %d inputcells in call to %r; expected %s" % (
-                    len(inputcells), func, msg))
-                return annmodel.SomeImpossibleValue()
-            for extra in func.func_defaults[-missingargs:]:
-                inputcells.append(self.bookkeeper.immutablevalue(extra))
-        inputcells.extend(extracells)
-        self.addpendingblock(func, block, inputcells, position_key)
+        self.addpendingblock(func, graph.startblock, inputcells, position_key)
 
         # get the (current) return value
         v = graph.getreturnvar()
@@ -319,6 +292,7 @@ class RPythonAnnotator:
 
     def bindinputargs(self, block, inputcells, called_from=None):
         # Create the initial bindings for the input args of a block.
+        assert len(block.inputargs) == len(inputcells)
         for a, cell in zip(block.inputargs, inputcells):
             self.setbinding(a, cell, called_from)
         self.annotated[block] = False  # must flowin.

@@ -341,7 +341,8 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
                 obj = self.unwrap(w_obj)
                 if hasattr(w_descr, '__get__'):
                     obj = w_descr.__get__(obj, type(obj))
-                return obj(*args.args_w, **args.kwds_w)
+                args_w, kwds_w = args.unpack()
+                return obj(*args_w, **kwds_w)
             except:
                 #import traceback; traceback.print_exc()
                 self.reraise()

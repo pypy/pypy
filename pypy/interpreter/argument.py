@@ -16,64 +16,92 @@ class Arguments:
 
     blind_arguments = 0
 
-    def __init__(self, space, args_w=[], kwds_w={}):
+    def __init__(self, space, args_w=[], kwds_w={},
+                 w_stararg=None, w_starstararg=None):
         self.space = space
-        self.args_w = args_w
-        self.kwds_w = kwds_w
+        self.arguments_w = list(args_w)
+        self.kwds_w = kwds_w.copy()
+        self.w_stararg = w_stararg
+        if w_starstararg is not None:
+            # unlike the * argument we unpack the ** argument immediately.
+            # maybe we could allow general mappings?
+            if not space.is_true(space.isinstance(w_starstararg, space.w_dict)):
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("the keywords must be "
+                                                "a dictionary"))
+            for w_key in space.unpackiterable(w_starstararg):
+                key = space.unwrap(w_key)
+                if not isinstance(key, str):
+                    raise OperationError(space.w_TypeError,
+                                         space.wrap("keywords must be strings"))
+                if key in self.kwds_w:
+                    raise OperationError(self.space.w_TypeError,
+                                         self.space.wrap("got multiple values "
+                                                         "for keyword argument "
+                                                         "'%s'" % key))
+                self.kwds_w[key] = space.getitem(w_starstararg, w_key)
 
     def frompacked(space, w_args=None, w_kwds=None):
-        """Static method to build an Arguments
-        from a wrapped sequence and optionally a wrapped dictionary.
-        """
-        if w_args is None:
-            args_w = []
-        else:
-            args_w = space.unpackiterable(w_args)
-        if w_kwds is None:
-            return Arguments(space, args_w)
-        # maybe we could allow general mappings?
-        if not space.is_true(space.isinstance(w_kwds, space.w_dict)):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("the keywords must be "
-                                            "a dictionary"))
-        kwds_w = {}
-        for w_key in space.unpackiterable(w_kwds):
-            key = space.unwrap(w_key)
-            if not isinstance(key, str):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("keywords must be strings"))
-            kwds_w[key] = space.getitem(w_kwds, w_key)
-        return Arguments(space, args_w, kwds_w)
+        """Convenience static method to build an Arguments
+           from a wrapped sequence and a wrapped dictionary."""
+        return Arguments(space, w_stararg=w_args, w_starstararg=w_kwds)
     frompacked = staticmethod(frompacked)
+
+    def __repr__(self):
+        if self.w_stararg is None:
+            if not self.kwds_w:
+                return 'Arguments(%s)' % (self.arguments_w,)
+            else:
+                return 'Arguments(%s, %s)' % (self.arguments_w, self.kwds_w)
+        else:
+            return 'Arguments(%s, %s, %s)' % (self.arguments_w,
+                                              self.kwds_w,
+                                              self.w_stararg)
 
     ###  Manipulation  ###
 
+    def unpack(self):
+        "Return a ([w1,w2...], {'kw':w3...}) pair."
+        if self.w_stararg is not None:
+            self.arguments_w += self.space.unpackiterable(self.w_stararg)
+            self.w_stararg = None
+        return self.arguments_w, self.kwds_w
+
     def prepend(self, w_firstarg):
         "Return a new Arguments with a new argument inserted first."
-        args =  Arguments(self.space, [w_firstarg] + self.args_w, self.kwds_w)
+        args =  Arguments(self.space, [w_firstarg] + self.arguments_w,
+                          self.kwds_w, self.w_stararg)
         args.blind_arguments = self.blind_arguments + 1
         return args
 
-    def join(self, other):
-        "Return a new Arguments combining the content of two Arguments."
-        args_w = self.args_w + other.args_w
-        kwds_w = self.kwds_w.copy()
-        for key, w_value in other.kwds_w.items():
-            if key in kwds_w:
-                raise OperationError(self.space.w_TypeError,
-                                     self.space.wrap("got multiple values for "
-                                                     "keyword argument '%s'" %
-                                                     key))
-            kwds_w[key] = w_value
-        return Arguments(self.space, args_w, kwds_w)
+    def fixedunpack(self, argcount):
+        """The simplest argument parsing: get the 'argcount' arguments,
+        or raise a real ValueError if the length is wrong."""
+        if self.kwds_w:
+            raise ValueError, "no keyword arguments expected"
+        if len(self.arguments_w) > argcount:
+            raise ValueError, "too many arguments (%d expected)" % argcount
+        if self.w_stararg is not None:
+            self.arguments_w += self.space.unpackiterable(self.w_stararg,
+                                             argcount - len(self.arguments_w))
+            self.w_stararg = None
+        elif len(self.arguments_w) < argcount:
+            raise ValueError, "not enough arguments (%d expected)" % argcount
+        return self.arguments_w
 
-    def pack(self):
-        "Return a (wrapped tuple, wrapped dictionary)."
-        space = self.space
-        w_args = space.newtuple(self.args_w)
-        w_kwds = space.newdict([(space.wrap(key), w_value)
-                                for key, w_value in self.kwds_w.items()])
-        return w_args, w_kwds
+    def firstarg(self):
+        "Return the first argument for inspection."
+        if self.arguments_w:
+            return self.arguments_w[0]
+        if self.w_stararg is None:
+            return None
+        w_iter = self.space.iter(self.w_stararg)
+        try:
+            return self.space.next(w_iter)
+        except OperationError, e:
+            if not e.match(self.space, self.space.w_StopIteration):
+                raise
+            return None
 
     ###  Parsing for function calls  ###
 
@@ -82,8 +110,6 @@ class Arguments:
         according to the signature of code object.
         """
         space = self.space
-        args_w = self.args_w
-        kwds_w = self.kwds_w
         argnames, varargname, kwargname = signature
         #
         #   args_w = list of the normal actual parameters, wrapped
@@ -95,6 +121,17 @@ class Arguments:
         # very informative.
         #
         co_argcount = len(argnames) # expected formal arguments, without */**
+        if self.w_stararg is not None:
+            # There is a case where we don't have to unpack() a w_stararg:
+            # if it matches exactly a *arg in the signature.
+            if (len(self.arguments_w) == co_argcount and varargname is not None
+                and space.is_true(space.is_(space.type(self.w_stararg),
+                                            space.w_tuple))):
+                pass
+            else:
+                self.unpack()   # sets self.w_stararg to None
+        args_w = self.arguments_w
+        kwds_w = self.kwds_w
 
         # put as many positional input arguments into place as available
         scope_w = args_w[:co_argcount]
@@ -125,7 +162,10 @@ class Arguments:
                     
         # collect extra positional arguments into the *vararg
         if varargname is not None:
-            scope_w.append(space.newtuple(args_w[co_argcount:]))
+            if self.w_stararg is None:   # common case
+                scope_w.append(space.newtuple(args_w[co_argcount:]))
+            else:      # shortcut for the non-unpack() case above
+                scope_w.append(self.w_stararg)
         elif len(args_w) > co_argcount:
             self.raise_argerr(fnname, signature, defaults_w, True)
 
@@ -142,14 +182,15 @@ class Arguments:
 
     def raise_argerr(self, fnname, signature, defaults_w, too_many):
         argnames, varargname, kwargname = signature
-        nargs = len(self.args_w)
+        args_w, kwds_w = self.unpack()
+        nargs = len(args_w)
         n = len(argnames)
         if n == 0:
             if kwargname is not None:
                 msg2 = "non-keyword "
             else:
                 msg2 = ""
-                nargs += len(self.kwds_w)
+                nargs += len(kwds_w)
             msg = "%s() takes no %sargument (%d given)" % (
                 fnname, 
                 msg2,
@@ -181,7 +222,7 @@ class Arguments:
         raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
 
     def raise_argerr_multiple_values(self, fnname, argname):
-        msg = "%s() got multiple values for keyword argument %s" % (
+        msg = "%s() got multiple values for keyword argument '%s'" % (
             fnname,
             argname)
         raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
@@ -196,3 +237,26 @@ class Arguments:
                 fnname,
                 len(kwds_w))
         raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
+
+    ### Argument <-> list of w_objects together with "shape" information
+
+    def flatten(self):
+        shape_cnt  = len(self.arguments_w)        # Number of positional args
+        shape_keys = self.kwds_w.keys()           # List of keywords (strings)
+        shape_star = self.w_stararg is not None   # Flag: presence of *arg
+        data_w = self.arguments_w + [self.kwds_w[key] for key in shape_keys]
+        if shape_star:
+            data_w.append(self.w_stararg)
+        return (shape_cnt, tuple(shape_keys), shape_star), data_w
+
+    def fromshape(space, (shape_cnt, shape_keys, shape_star), data_w):
+        args_w = data_w[:shape_cnt]
+        kwds_w = {}
+        for i in range(len(shape_keys)):
+            kwds_w[shape_keys[i]] = data_w[shape_cnt+i]
+        if shape_star:
+            w_star = data_w[-1]
+        else:
+            w_star = None
+        return Arguments(space, args_w, kwds_w, w_star)
+    fromshape = staticmethod(fromshape)

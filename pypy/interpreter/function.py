@@ -102,8 +102,9 @@ class Method(Wrappable):
             args = args.prepend(self.w_instance)
         else:
             # unbound method
-            if (len(args.args_w) >= 1 and self.space.is_true(
-                    self.space.isinstance(args.args_w[0], self.w_class))):
+            w_firstarg = args.firstarg()
+            if w_firstarg is not None and self.space.is_true(
+                    self.space.isinstance(w_firstarg, self.w_class)):
                 pass  # ok
             else:
                 msg = ("unbound method must be called with "

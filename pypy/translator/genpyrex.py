@@ -3,6 +3,7 @@ generate Pyrex files from the flowmodel.
 
 """
 from pypy.interpreter.baseobjspace import ObjSpace
+from pypy.interpreter.argument import Arguments
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import mkentrymap, last_exception
 from pypy.translator.annrpython import RPythonAnnotator
@@ -108,9 +109,16 @@ class Op:
         a = self.argnames
         return "%s = slice(%s, %s, %s)" % (self.resultname, a[0], a[1], a[2])
 
-    def op_call(self):
+    def op_call_args(self):
         a = self.argnames
-        return "%s = %s(*%s, **%s)" % (self.resultname, a[0], a[1], a[2])
+        shape = self.op.args[1].value
+        args = Arguments.fromshape(None, shape, a[2:])
+        lst = args.arguments_w[:]
+        for key, value in args.kwds_w:
+            lst.append("%s=%s" % (key, value))
+        if args.w_stararg is not None:
+            lst.append("*%s" % args.w_stararg)
+        return "%s = %s(%s)" % (self.resultname, a[0], ", ".join(lst))
 
     def op_simple_call(self):
         a = self.argnames

@@ -106,9 +106,13 @@ class W_TypeObject(W_Object):
 def call__Type(space, w_type, w_args, w_kwds):
     args = Arguments.frompacked(space, w_args, w_kwds)
     # special case for type(x)
-    if (space.is_true(space.is_(w_type, space.w_type)) and
-        len(args.args_w) == 1 and not args.kwds_w):
-        return space.type(args.args_w[0])
+    if space.is_true(space.is_(w_type, space.w_type)):
+        try:
+            w_obj, = args.fixedunpack(1)
+        except ValueError:
+            pass
+        else:
+            return space.type(w_obj)
     # invoke the __new__ of the type
     w_newfunc = space.getattr(w_type, space.wrap('__new__'))
     w_newobject = space.call_args(w_newfunc, args.prepend(w_type))
