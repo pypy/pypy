@@ -224,7 +224,10 @@ if __name__ == '__main__':
                             os.link(*args)
                         except OSError:
                             shutil.copy2(*args)
-                c_entry_point()
+                w_result = c_entry_point()
+                print w_result
+                print w_result.intval
+                assert w_result.intval == 42
     except:
         debug(True)
     else:
