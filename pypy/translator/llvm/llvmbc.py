@@ -95,15 +95,15 @@ class BasicBlock(object):
     def malloc(self, l_target, l_type, num=1):
         self.phi_done = True
         s = "%s = malloc %s" % (l_target.llvmname(),
-                                l_type.llvmname_wo_pointer())
+                                l_type.typename_wo_pointer())
         if num > 1:
             s += ", uint %i" % num
         self.instructions.append(s)
 
     def getelementptr(self, l_target, l_ptr, adresses):
         self.phi_done = True
-        s = "%s = getelementptr %s %s, " % (l_target.llvmname(),
-                                            l_ptr.llvmtype(), l_ptr.llvmname())
+        s = "%s = getelementptr %s, " % (l_target.llvmname(),
+                                         l_ptr.typed_name())
         adr = []
         for a in adresses:
             try:
@@ -158,8 +158,6 @@ class BasicBlock(object):
         if self.phi_done:
             raise LLVMError, "Can't create phi node."
         vars_string = []
-        print "inserting phi node", l_arg, l_values, blocks
-        print l_arg.llvmname(), l_arg.llvmtype()
         fd = "" + "%s = phi %s " % (l_arg.llvmname(), l_arg.llvmtype())
         fd += ", ".join(["[%s, %s]" % (v.llvmname(), b)
                for v, b in zip(l_values, blocks)])

@@ -22,7 +22,7 @@ from pypy.translator.llvm.representation import LLVMRepr, TmpVariableRepr
 from pypy.translator.llvm.representation import CompileError
 from pypy.translator.llvm.funcrepr import EntryFunctionRepr
 
-debug = True
+debug = False
 
 
 def llvmcompile(transl, optimize=False):
@@ -174,5 +174,4 @@ def traverse_dependencies(l_repr, seen_reprs):
         for l_dep1 in traverse_dependencies(l_dep, seen_reprs):
             yield l_dep1
     yield l_repr
-
 

@@ -13,6 +13,8 @@ from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
 from pypy.translator.llvm.funcrepr import FunctionRepr, BoundMethodRepr
 from pypy.translator.llvm.funcrepr import VirtualMethodRepr
 
+debug = True
+
 class ClassRepr(TypeRepr):
     l_classes = {}
     def get(obj, gen):
@@ -87,9 +89,12 @@ class ClassRepr(TypeRepr):
                     print "--> value"
         self.l_attrs_types = [gen.get_repr(attr.s_value) for attr in attribs]
         self.dependencies = sets.Set(self.l_attrs_types)
-        attributes = ", ".join([at.llvmname() for at in self.l_attrs_types])
-        self.definition = "%s = type {%%std.class*, %s}" % (self.name,
-                                                           attributes)
+        attributes = ", ".join([at.typename() for at in self.l_attrs_types])
+        if attributes != "":
+            self.definition = "%s = type {%%std.class*, %s}" % (self.name,
+                                                                attributes)
+        else:
+            self.definition = "%s = type {%%std.class*}" % self.name
         self.attributes = attribs
         self.attr_num = {}
         for i, attr in enumerate(attribs):
@@ -112,14 +117,10 @@ class ClassRepr(TypeRepr):
                            (self.l_base.objectname, l_tmp.llvmname()))
 
     def llvmtype(self):
-        return "%std.class* "
+        return "%std.class*"
 
-    def typed_name(self):
-        #XXXX: Ouch. I get bitten by the fact that
-        #      in LLVM typedef != class object
-        # This will work, as long as class objects are only passed to functions
-        # (as opposed to used in LLVM instructions)
-        return "%%std.class* %s" % self.objectname
+    def llvmname(self):
+        return self.objectname
 
     def op_simple_call(self, l_target, args, lblock, l_func):
         lblock.malloc(l_target, self)
@@ -240,7 +241,7 @@ class ExceptionTypeRepr(TypeRepr):
         else:
             self.l_base = None
 
-    def llvmname(self):
+    def typename(self):
         return "%std.exception* "
 
     def llvmtype(self):

@@ -123,6 +123,17 @@ void setitem(struct list* l, int index, struct item* value) {
     l->data[index] = value;
 }
 
+void setitem_EXCEPTION(struct list* l, int index, struct item* value) {
+    if (index < 0)
+	index = l->length + index;
+    if (valid_index(index, l) == 0) {
+	LAST_EXCEPTION_TYPE = &INDEX_ERROR;
+	unwind();
+	return;
+    }
+    l->data[index] = value;
+}
+
 struct list* add(struct list* a, struct list* b) {
     struct list* nlist = malloc(sizeof(struct list));
     unsigned int newlength = a->length + b->length;
@@ -177,6 +188,24 @@ struct item* pop(struct list* a, int index) {
     return ret;
 }
 
+struct item* pop_EXCEPTION(struct list* a, int index) {
+    if (index < 0)
+	index = a->length + index;
+    if (valid_index(index, a) == 0) {
+	LAST_EXCEPTION_TYPE = &INDEX_ERROR;
+	return unwind();
+    }
+    struct item* ret = a->data[index];
+    struct item** newdata = malloc(sizeof(struct item*) * (a->length - 1));
+    copy(a->data, newdata, index);
+    copy(a->data + index + 1, newdata + index, a->length - 1 - index);
+    a->length -= 1;
+    free(a->data);
+    a->data = newdata;
+    return ret;
+}
+
+
 struct item* pop_ALTERNATIVE1(struct list* a) {
     return pop(a, a->length - 1);
 }
@@ -194,5 +223,4 @@ void reverse(struct list* a) {
 	hi -= 1;
     }
 }
-
-
+ 

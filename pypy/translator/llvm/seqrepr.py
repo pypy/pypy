@@ -28,7 +28,7 @@ class ListTypeRepr(TypeRepr):
         self.gen = gen
         self.l_itemtype = gen.get_repr(obj.s_item)
         self.dependencies = sets.Set([self.l_itemtype])
-        itemtype = self.l_itemtype.llvmname()
+        itemtype = self.l_itemtype.typename()
         self.name = "%%std.list.%s" % itemtype.strip("%").replace("*", "")
         self.definition = self.name + " = type {uint, %s*}" % itemtype
 
@@ -36,8 +36,8 @@ class ListTypeRepr(TypeRepr):
         f = file(autopath.this_dir + "/list_template.ll", "r")
         s = f.read()
         f.close()
-        itemtype = self.l_itemtype.llvmname()
-        s = s.replace("%(item)s", self.l_itemtype.llvmname())
+        itemtype = self.l_itemtype.typename()
+        s = s.replace("%(item)s", self.l_itemtype.typename())
         s = s.replace("%(name)s", itemtype.strip("%").replace("*", ""))
         if isinstance(self.l_itemtype, IntTypeRepr):
             f1 = file(autopath.this_dir + "/int_list.ll", "r")
@@ -82,11 +82,11 @@ class TupleTypeRepr(TypeRepr):
         self.gen = gen
         self.l_itemtypes = [gen.get_repr(l) for l in obj.items]
         self.name = (("{" + ", ".join(["%s"] * len(self.l_itemtypes)) + "}") %
-                     tuple([l.llvmname() for l in self.l_itemtypes]))
+                     tuple([l.typename() for l in self.l_itemtypes]))
 
     def get_functions(self):
         s = ("internal int %%std.len(%s %%t) {\n\tret int %i\n}\n" %
-             (self.llvmname(), len(self.l_itemtypes)))
+             (self.typename(), len(self.l_itemtypes)))
         return s
 
     def t_op_newtuple(self, l_target, args, lblock, l_func):
@@ -94,7 +94,7 @@ class TupleTypeRepr(TypeRepr):
         l_func.dependencies.update(l_args)
         lblock.malloc(l_target, self)
         l_ptrs = [self.gen.get_local_tmp(\
-            PointerTypeRepr(l.llvmname(),self.gen), l_func)
+            PointerTypeRepr(l.typename(),self.gen), l_func)
                   for l in self.l_itemtypes]
         l_func.dependencies.update(l_ptrs)
         for i, l in enumerate(self.l_itemtypes):

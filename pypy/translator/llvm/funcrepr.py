@@ -10,18 +10,20 @@ from pypy.annotation import model as annmodel
 from pypy.translator.llvm import llvmbc
 from pypy.translator.unsimplify import remove_double_links
 
-from pypy.translator.llvm.representation import debug, LLVMRepr
+from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError
 from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
 
+debug = True
 
-INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is", "is_true", "len",
+INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is_", "is_true", "len",
                  "neg", "pos", "invert", "add", "sub", "mul", "truediv",
                  "floordiv", "div", "mod", "pow", "lshift", "rshift", "and_",
                  "or", "xor", "inplace_add", "inplace_sub", "inplace_mul",
                  "inplace_truediv", "inplace_floordiv", "inplace_div",
                  "inplace_mod", "inplace_pow", "inplace_lshift",
                  "inplace_rshift", "inplace_and", "inplace_or", "inplace_xor",
-                 "contains", "newlist", "newtuple", "alloc_and_set"]
+                 "contains", "newlist", "newtuple", "alloc_and_set",
+                 "issubtype"]
 
 C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
                   annmodel.SomeString: "char*",
@@ -124,6 +126,8 @@ class FunctionRepr(LLVMRepr):
         checkgraph(self.graph)
         a = self.annotator
         for number, pyblock in enumerate(self.allblocks):
+            if debug:
+                print "#" * 20, self.graph.name, number, pyblock
             pyblock = self.allblocks[number]
             is_tryblock = isinstance(pyblock.exitswitch, Constant) and \
                           pyblock.exitswitch.value == last_exception
@@ -147,12 +151,15 @@ class FunctionRepr(LLVMRepr):
                 if isinstance(node, Link) and node.target == pyblock:
                     incoming_links.append(node)
             traverse(visit, self.graph)
+            print "***** phi nodes *****"
             if len(incoming_links) != 0:
                 for i, arg in enumerate(pyblock.inputargs):
+                    print "___", i, arg, "___", 
                     l_arg = self.gen.get_repr(arg)
                     l_values = [self.gen.get_repr(l.args[i])
                                 for l in incoming_links]
                     for j in range(len(l_values)):
+                        print j, l_values[j].llvmtype(), l_arg.llvmtype()
                         if l_values[j].llvmtype() != l_arg.llvmtype():
                             try:
                                 l_values[j] = \
@@ -193,26 +200,56 @@ class FunctionRepr(LLVMRepr):
             # type there, we have to make the cast in this block since the phi
             # instructions in the next block cannot be preceded by any other
             # instruction
+            print "******Casts:******"
             for link in pyblock.exits:
+                print "____________block:", link.target
                 for i, arg in enumerate(link.args):
-                    localtype = self.annotator.binding(arg)
-                    targettype = self.annotator.binding(
-                        link.target.inputargs[i])
-                    l_targettype = self.gen.get_repr(targettype)
-                    l_localtype = self.gen.get_repr(localtype)
+                    print arg,
+                    l_target = self.gen.get_repr(link.target.inputargs[i])
                     l_local = self.gen.get_repr(arg)
-                    self.dependencies.update([l_targettype, l_localtype,
-                                              l_local])
-                    if l_targettype.llvmname() != l_localtype.llvmname():
-                        l_tmp = self.gen.get_local_tmp(l_targettype, self)
+                    self.dependencies.update([l_target, l_local])
+                    print "local", l_local.typed_name()
+                    print "target", l_target.typed_name()
+                    print "from ", l_local.llvmtype(),
+                    print "to", l_target.llvmtype(),
+                    if l_target.llvmtype() != l_local.llvmtype():
+                        print "change: ", 
+                        l_tmp = self.gen.get_local_tmp(l_target.type, self)
                         lblock.cast(l_tmp, l_local)
-                        l_local.alt_types = {l_targettype.llvmname(): l_tmp}
+                        try:
+                            print l_local.alt_types
+                            l_local.alt_types[l_target.llvmtype()] = l_tmp
+                        except (AttributeError, TypeError):
+                            l_local.alt_types = {l_target.llvmtype(): l_tmp}
+                            print l_local.alt_types
+                    else:
+                        print
             #Create branches
             if pyblock.exitswitch is None:
                 if pyblock == self.graph.returnblock:
                     l_returnvalue = self.gen.get_repr(pyblock.inputargs[0])
                     self.dependencies.add(l_returnvalue)
                     lblock.ret(l_returnvalue)
+                elif pyblock == self.graph.exceptblock:
+                    l_exc = self.gen.get_repr(pyblock.inputargs[0])
+                    l_val = self.gen.get_repr(pyblock.inputargs[1])
+                    l_last_exception = self.gen.get_repr(last_exception)
+                    l_last_exc_value = self.gen.get_repr(last_exc_value)
+                    self.dependencies.update([l_exc, l_val, l_last_exception,
+                                              l_last_exc_value])
+                    if "%std.class" != l_exc.llvmtype():
+                        l_tmp = self.gen.get_local_tmp(
+                            PointerTypeRepr("%std.class", self.gen), self)
+                        lblock.cast(l_tmp, l_exc)
+                        l_exc = l_tmp
+                    if  "%std.exception" != l_val.llvmtype():
+                        l_tmp = self.gen.get_local_tmp(
+                            PointerTypeRepr("%std.exception", self.gen), self)
+                        lblock.cast(l_tmp, l_val)
+                        l_val = l_tmp
+                    lblock.store(l_exc, l_last_exception)
+                    lblock.store(l_val, l_last_exc_value)
+                    lblock.unwind()
                 else:
                     lblock.uncond_branch(
                         "%%block%i" % self.blocknum[pyblock.exits[0].target])

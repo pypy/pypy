@@ -39,7 +39,7 @@ class LLVMRepr(object):
         return self.name
 
     def llvmtype(self):
-        return self.type.llvmname()
+        return self.type.typename()
 
     def typed_name(self):
         return self.llvmtype() + " " + self.llvmname()
@@ -160,9 +160,6 @@ class TmpVariableRepr(LLVMRepr):
     def llvmname(self):
         return "%" + self.name
 
-    def llvmtype(self):
-        return self.type.llvmname()
-
 class NoneRepr(LLVMRepr):
     def get(obj, gen):
         if isinstance(obj, Constant) and obj.value is None:
@@ -205,7 +202,7 @@ class StringRepr(LLVMRepr):
 
     def get_globals(self):
         d = {"len": len(self.s), "gv1": self.glvar1, "gv2": self.glvar2,
-             "type": self.type.llvmname_wo_pointer(), "string": self.s}
+             "type": self.type.typename_wo_pointer(), "string": self.s}
         s = """%(gv1)s = internal global [%(len)i x sbyte] c"%(string)s"
 %(gv2)s = internal global %(type)s {uint %(len)i,\
 sbyte* getelementptr ([%(len)i x sbyte]* %(gv1)s, uint 0, uint 0)}"""
@@ -256,4 +253,3 @@ class TupleRepr(LLVMRepr):
         else:
             raise AttributeError, ("TupleRepr instance has no attribute %s"
                                    % repr(name))
-

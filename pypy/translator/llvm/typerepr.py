@@ -7,7 +7,7 @@ from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.annotation import model as annmodel
 
-from pypy.translator.llvm.representation import debug, LLVMRepr
+from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError
 from pypy.translator.llvm.representation import LLVM_SIMPLE_TYPES
 
 
@@ -19,10 +19,10 @@ class TypeRepr(LLVMRepr):
             return TypeRepr("%std.void", "%std.void = type sbyte", "", gen)
     get = staticmethod(get)
 
-    def __init__(self, llvmname, definition, includefile, gen):
-        if debug:
-            print "TypeRepr: %s, %s" % (llvmname, definition)
-        self.name = llvmname
+    def __init__(self, typename, definition, includefile, gen):
+        if debug: 
+            print "TypeRepr: %s, %s" % (typename, definition)
+        self.name = typename
         self.definition = definition
         self.gen = gen
         self.includefile = includefile
@@ -44,11 +44,18 @@ class TypeRepr(LLVMRepr):
             pass
         return ""
 
-    def llvmname(self):
+    def typename(self):
         return self.name + "*"
 
-    def llvmname_wo_pointer(self):
+    def typename_wo_pointer(self):
         return self.name
+
+    def llvmname(self):
+        raise CompileError, "This type is not an object."
+
+    def llvmtype(self):
+        raise CompileError, "This type is not an object."
+
 
 class StringTypeRepr(TypeRepr):
     def get(obj, gen):
@@ -66,7 +73,7 @@ class StringTypeRepr(TypeRepr):
         self.l_charlist = self.gen.get_repr(
             annmodel.SomeList(None, annmodel.SomeChar()))
         self.dependencies.add(self.l_charlist)
-        self.name = self.l_charlist.llvmname_wo_pointer()
+        self.name = self.l_charlist.typename_wo_pointer()
 
     def t_op_getitem(self, l_target, args, lblock, l_func):
         l_args = [self.gen.get_repr(arg) for arg in args]
@@ -96,7 +103,7 @@ class IntTypeRepr(TypeRepr):
             self.name = "int"
         self.gen = gen
 
-    def llvmname(self):
+    def typename(self):
         return self.name
 
     def cast_to_signed(self, l_val, lblock, l_function):
@@ -133,30 +140,31 @@ class SimpleTypeRepr(TypeRepr):
             return l_repr
         elif obj.__class__ is annmodel.SomePBC:
             if obj.knowntype == object or obj.knowntype == ClassType:
-                return SimpleTypeRepr("%std.class", gen)
+                return SimpleTypeRepr("%std.class*", gen)
+        elif obj.__class__ is annmodel.SomeObject and \
+             hasattr(obj, "is_type_of"):
+            return SimpleTypeRepr("%std.class*", gen)
+        elif obj.__class__ is annmodel.SomeObject:
+            return SimpleTypeRepr("%std.object*", gen)
         return None
     get = staticmethod(get)
 
-    def __init__(self, llvmname, gen):
+    def __init__(self, typename, gen):
         if debug:
-            print "SimpleTypeRepr: %s" % llvmname
-        self.name = llvmname
+            print "SimpleTypeRepr: %s" % typename
+        self.name = typename
         self.gen = gen
         self.definition = ""
         self.includefile = ""
 
-    def llvmname(self):
+    def typename(self):
         return self.name
 
 class PointerTypeRepr(TypeRepr):
-    def get(obj, gen):
-        return None
-    get = staticmethod(get)
+    def __init__(self, type_, gen):
+        self.type = type_
 
-    def __init__(self, type, gen):
-        self.type = type
-
-    def llvmname(self):
+    def typename(self):
         return self.type + "*"
 
 class ImpossibleValueRepr(TypeRepr):
@@ -171,7 +179,6 @@ class ImpossibleValueRepr(TypeRepr):
         self.dependencies = sets.Set()
         self.includefile = ""
 
-    def llvmname(self):
+    def typename(self):
         return "void"
-
 
