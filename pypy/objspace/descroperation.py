@@ -375,6 +375,8 @@ def _make_inplace_impl(symbol,specialnames):
     specialname, = specialnames
     assert specialname.startswith('__i') and specialname.endswith('__')
     noninplacespacemethod = specialname[3:-2]
+    if noninplacespacemethod in ['or', 'and']:
+        noninplacespacemethod += '_'     # not too clean
     def inplace_impl(space,w_lhs,w_rhs):
         w_impl = space.lookup(w_lhs,specialname)
         if w_impl is not None:
