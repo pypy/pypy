@@ -12,7 +12,6 @@
 
 """
 
-import autopath
 from pypy.objspace import std
 from pypy.interpreter import gateway
 
