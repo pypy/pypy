@@ -164,9 +164,10 @@ static PyObject *this_module_globals;
 #define SETUP_INSTANCE_ATTR(t, attr, value)	\
 	(PyObject_SetAttrString(t, attr, value) >= 0)
 
-#define SETUP_INSTANCE(i, cls)                  \
-	(i = PyType_GenericAlloc((PyTypeObject *)cls, 0))
-
+#define SETUP_INSTANCE(i, cls)						\
+	(PyType_Check(cls) ?						\
+		(i = PyType_GenericAlloc((PyTypeObject *)cls, 0)) :	\
+		(i = PyInstance_NewRaw(cls, NULL)))
 
 
 #if defined(USE_CALL_TRACE)

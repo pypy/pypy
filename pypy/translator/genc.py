@@ -303,9 +303,14 @@ class GenC:
         if issubclass(cls, Exception):
             if cls.__module__ == 'exceptions':
                 return 'PyExc_%s'%cls.__name__
-            else:
-                # exceptions must be old-style classes (grr!)
-                metaclass = "&PyClass_Type"
+            #else:
+            #    # exceptions must be old-style classes (grr!)
+            #    metaclass = "&PyClass_Type"
+        # For the moment, use old-style classes exactly when the
+        # pypy source uses old-style classes, to avoid strange problems.
+        if not isinstance(cls, type):
+            assert type(cls) is type(Exception)
+            metaclass = "&PyClass_Type"
 
         name = self.uniquename('gcls_' + cls.__name__)
         basenames = [self.nameof(base) for base in cls.__bases__]
