@@ -19,10 +19,10 @@ class AppTest_Thunk:
 
     def test_setitem(self):
         computed = []
-        def f():
+        def f(a):
             computed.append(True)
-            return 6*7
-        x = thunk(f)
+            return a*7
+        x = thunk(f, 6)
         d = {5: x}
         d[6] = x
         d[7] = []

@@ -18,28 +18,32 @@
 """
 
 from proxy import create_proxy_space
-from pypy.interpreter import gateway
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter import gateway, baseobjspace, argument
 
 # __________________________________________________________________________
 
-class W_Thunk(W_Root, object):
-    def __init__(w_self, space, w_callable):
+class W_Thunk(baseobjspace.W_Root, object):
+    def __init__(w_self, space, w_callable, args=argument.Arguments([])):
         w_self.space = space
         w_self.w_callable = w_callable
+        w_self.args = args
         w_self.w_value = None
 
 def force(w_self):
     while isinstance(w_self, W_Thunk):
         if w_self.w_value is None:
-            w_self.w_value = w_self.space.call_function(w_self.w_callable)
+            w_self.w_value = w_self.space.call_args(w_self.w_callable,
+                                                    w_self.args)
             w_self.w_callable = None
+            w_self.args = None
         w_self = w_self.w_value
     return w_self
 
-def thunk(space, w_callable):
-    return W_Thunk(space, w_callable)
-app_thunk = gateway.interp2app(thunk)
+def thunk(space, w_callable, __args__):
+    return W_Thunk(space, w_callable, __args__)
+app_thunk = gateway.interp2app(thunk, unwrap_spec=[baseobjspace.ObjSpace,
+                                                   baseobjspace.W_Root,
+                                                   argument.Arguments])
 
 # __________________________________________________________________________
 
