@@ -1,16 +1,17 @@
 from pypy.interpreter.extmodule import *
+from pypy.interpreter.pycode import PyByteCode
 
 #######################
 ####  __builtin__  ####
 #######################
 
-##import __builtin__ as _b
+import __builtin__ as _b
 
-##def compile(*args, **kwargs):
-##    c = _b.compile(*args, **kwargs)
-##    res = PyCode()
-##    res._from_code(c)
-##    return res
+def compile(*args, **kwargs):
+    c = _b.compile(*args, **kwargs)
+    res = PyByteCode()
+    res._from_code(c)
+    return res
 
 ##compile.__doc__ = _b.compile.__doc__
 
