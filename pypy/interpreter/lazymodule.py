@@ -112,4 +112,7 @@ def getappfileloader(pkgroot, spec):
 def buildapplevelfrommodule(mod, _):
     """ NOT_RPYTHON """ 
     source = inspect.getsource(mod) 
-    return gateway.applevel(source) 
+    fn = mod.__file__
+    if fn.endswith('.pyc'): 
+        fn = fn[:-1]
+    return gateway.applevel(source, filename=fn) 

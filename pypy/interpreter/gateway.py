@@ -487,9 +487,12 @@ class applevel:
 
     NOT_RPYTHON_ATTRIBUTES = ['code']
 
-    def __init__(self, source):
+    def __init__(self, source, filename=None):
         "NOT_RPYTHON"
-        self.code = py.code.Source(source).compile()
+        if filename is None: 
+            self.code = py.code.Source(source).compile()
+        else: 
+            self.code = compile(source, filename, 'exec') 
 
     def getwdict(self, space):
         return space.loadfromcache(self, applevel._builddict,
