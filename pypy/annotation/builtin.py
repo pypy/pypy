@@ -3,7 +3,7 @@ Built-in functions.
 """
 
 import types
-import sys
+import sys, math
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
@@ -48,8 +48,14 @@ def builtin_id(o):
 def builtin_hex(o):
     return SomeString()
 
+def builtin_oct(o):
+    return SomeString()
+
 def builtin_abs(o):
     return o.__class__()
+
+def builtin_divmod(o1, o2):
+    return SomeTuple([SomeObject(), SomeObject()])    # XXX
 
 def builtin_unicode(s_obj): 
     return SomeString() 
@@ -188,6 +194,12 @@ def builtin_bool(s_obj):
 def count(s_obj):
     return SomeInteger()
 
+def math_fmod(x, y):
+    return SomeObject()
+
+def math_floor(x):
+    return SomeObject()
+
 # collect all functions
 import __builtin__
 BUILTIN_ANALYZERS = {}
@@ -200,3 +212,5 @@ BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_int] = builtin_int
 BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_uint] = restricted_uint
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[sys.getrefcount] = count
+BUILTIN_ANALYZERS[math.fmod] = math_fmod
+BUILTIN_ANALYZERS[math.floor] = math_floor
