@@ -449,16 +449,6 @@ global_rl.append(global_rl)
 def global_recursive_list():
     return global_rl
 
-class BadInit(object):
-    def update(self, k):
-        self.k = 1
-    def __init__(self, v):
-        self.update(**{'k':v})
-    def read(self):
-        return self.k
-
-global_bi = BadInit(1)
-
 class MI_A(object):
     a = 1
 class MI_B(MI_A):
@@ -471,9 +461,6 @@ class MI_D(MI_B, MI_C):
 def multiple_inheritance():
     i = MI_D()
     return i.a + i.b + i.c + i.d
-
-def global_badinit():
-    return global_bi.read()
 
 def flow_type_info(i):
     if isinstance(i, int):
@@ -575,16 +562,30 @@ def _inheritance_nonrunnable():
     e.stuff = (3, "world")
     return C().stuff
 
-# --------------------(Currently) Non compillable Functions ---------------------
+def _getstuff(x):
+    return x.stuff
+
+# --------------------(Currently) Non compilable Functions ---------------------
+
+class BadInit(object):
+    def update(self, k):
+        self.k = 1
+    def __init__(self, v):
+        return
+        self.update(**{'k':v})
+    def read(self):
+        return self.k
+
+global_bi = BadInit(1)
+
+def global_badinit():
+    return global_bi.read()
 
 def _attrs():
     def b(): pass
     b.f = 4
     b.g = 5
     return b.f + b.g
-
-def _getstuff(x):
-    return x.stuff
 
 def _methodcall1(cond):
     if cond:
