@@ -1,6 +1,6 @@
 import autopath
 
-import sys, os
+import os
 import unittest
 from pypy.interpreter import gateway
 

@@ -1,7 +1,6 @@
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.miscutils import Stack, getthreadlocals
-import pypy.module
+from pypy.interpreter.miscutils import getthreadlocals
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable']
 

@@ -2,7 +2,7 @@
 Unary operations on SomeValues.
 """
 
-from pypy.annotation.pairtype import pair, pairtype
+from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue

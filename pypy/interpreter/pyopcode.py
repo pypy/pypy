@@ -6,7 +6,7 @@ pyfastscope.py and pynestedscope.py.
 
 from pypy.interpreter.baseobjspace import OperationError
 from pypy.interpreter.eval import UNDEFINED
-from pypy.interpreter import baseobjspace, gateway, function
+from pypy.interpreter import gateway, function
 from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.miscutils import InitializedClass
 

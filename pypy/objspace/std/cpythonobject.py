@@ -3,8 +3,6 @@
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter.function import Function
-from stringobject import W_StringObject
-from intobject import W_IntObject
 from default import UnwrapError
 import sys, operator, types
 

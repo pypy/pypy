@@ -6,8 +6,6 @@ The bytecode interpreter itself is implemented by the PyFrame class.
 
 import dis
 from pypy.interpreter import eval
-from pypy.interpreter.error import OperationError
-
 
 # code object contants, for co_flags below
 CO_OPTIMIZED    = 0x0001

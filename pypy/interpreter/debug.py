@@ -2,7 +2,7 @@
 PyPy-oriented interface to pdb.
 """
 
-import pdb, sys
+import pdb
 
 def fire(operationerr):
     if not operationerr.debug_excs:

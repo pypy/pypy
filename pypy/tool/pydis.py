@@ -7,7 +7,6 @@ XXX this only works for python-2.3 because of the linenumber
 
 import autopath
 import sys
-import types
 
 from pypy.tool.opcode import *
 from pypy.tool.opcode import __all__ as _opcodes_all

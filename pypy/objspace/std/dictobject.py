@@ -7,7 +7,6 @@ for order comparisons.
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
-from stringobject import W_StringObject
 
 from restricted_int import r_uint
 

@@ -1,8 +1,8 @@
 import autopath
 from pypy.tool import option
-from pypy.interpreter import executioncontext, baseobjspace, gateway, module
+from pypy.interpreter import executioncontext, module
 from pypy.interpreter.error import OperationError, PyPyError
-import sys, os
+import sys
 
 def _run_eval_string(source, filename, space, eval):
     if eval:

@@ -3,8 +3,7 @@ Implementation of interpreter-level 'sys' routines.
 """
 import os
 from pypy.interpreter import autopath
-from pypy.interpreter.module import Module
-from pypy.interpreter.pycode import PyCode
+#from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 
 import sys as cpy_sys

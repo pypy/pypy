@@ -23,6 +23,7 @@ class TestModel(testit.TestCase):
     def test_simplefunc(self):
         graph = self.getflow(self.simplefunc)
         l = flatten(graph)
+        print l
         self.assertEquals(len(l), 4)
 
     def test_class(self):

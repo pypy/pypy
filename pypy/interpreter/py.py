@@ -7,7 +7,7 @@ except ImportError:
 
 from pypy.tool import option
 from pypy.tool.optik import make_option
-from pypy.interpreter import main, interactive, baseobjspace, error
+from pypy.interpreter import main, interactive, error
 import sys
 
 class Options(option.Options):

@@ -4,10 +4,10 @@
 # correctly wrap the exceptions.
 #
 
-from pypy.interpreter import pyframe, gateway
+from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import *
 from pypy.objspace.descroperation import DescrOperation, Object
-import operator, types, new, sys
+import operator, types, sys
 import __builtin__ as cpy_builtin
 
 class CPyWrapper(object):

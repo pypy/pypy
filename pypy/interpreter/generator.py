@@ -2,7 +2,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Frame
 from pypy.interpreter.pyframe import ControlFlowException, ExitFrame
-from pypy.interpreter import function, gateway
 
 #
 # Generator support. Note that GeneratorFrame is not a subclass of PyFrame.

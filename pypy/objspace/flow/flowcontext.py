@@ -1,7 +1,5 @@
 from pypy.interpreter.executioncontext import ExecutionContext
-from pypy.interpreter.miscutils import Stack
-from pypy.interpreter.pyframe \
-     import ControlFlowException, ExitFrame, PyFrame
+from pypy.interpreter.pyframe import ExitFrame
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import FrameState

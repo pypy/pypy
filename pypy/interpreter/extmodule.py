@@ -5,7 +5,7 @@ Helpers to build extension modules.
 """
 
 from __future__ import generators   # for generators.compiler_flag
-import os, sys, types
+import os, sys
 import autopath
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError

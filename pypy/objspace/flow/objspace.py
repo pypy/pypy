@@ -1,6 +1,5 @@
 # ______________________________________________________________________
-import sys, operator, types
-import pypy
+import sys, operator
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError

@@ -17,7 +17,7 @@ except ImportError:
     WeakKeyDictionary = dict   # XXX for PyPy
 from pypy.interpreter import eval, pycode
 from pypy.interpreter.function import Function, Method
-from pypy.interpreter.baseobjspace import Wrappable, ObjSpace
+from pypy.interpreter.baseobjspace import Wrappable
 
 
 class BuiltinCode(eval.Code):

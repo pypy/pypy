@@ -1,9 +1,8 @@
 import autopath
 
-from pypy.interpreter import executioncontext, pyframe, baseobjspace
+from pypy.interpreter import executioncontext, baseobjspace
 import sys
 import code
-import linecache
 
 
 class PyPyConsole(code.InteractiveConsole):
