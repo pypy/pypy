@@ -428,7 +428,7 @@ class TestSuite:
         Else, the __main__ module will be used.
         """
         if module is None:
-            module = sys.modules['__main__']
+            module = __import__('__main__')
         items = []
         # scan the values for test functions, and for classes derived
         # from TestCase
@@ -586,10 +586,10 @@ def main():
     Find all tests in the current module (i. e. the module from which this
     function is called), execute them and print results.
     """
+    import __main__
     from pypy.tool import newtest
     suite = TestSuite()
-    print globals()
-    suite.init_from_dict(globals())
+    suite.init_from_dict(vars(__main__))
     _print_results(suite)
 
 def test(do_selftest=False):
