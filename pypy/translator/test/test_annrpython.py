@@ -336,7 +336,7 @@ class AnnonateTestCase(testit.IntTestCase):
         s = a.build_types(snippet.preserve_pbc_attr_on_instance, [bool])
         #a.simplify()
         #a.translator.view()
-        #self.assert_(isinstance(s, annmodel.SomeInstance)) 
+        self.assert_(not s.__class__ is annmodel.SomeObject) 
         #self.assertEquals(s.const, 3) 
         
 
