@@ -130,6 +130,16 @@ class NoTypeCGenTestCase(testit.IntTestCase):
         call_star_args = self.build_cfunc(snippet.call_star_args)
         self.assertEquals(call_star_args(42), 52)
 
+    def test_call_default_args(self):
+        call_default_args = self.build_cfunc(snippet.call_default_args)
+        self.assertEquals(call_default_args(42), 111+42+3)
+
+    def test_call_default_and_star_args(self):
+        call_default_and_star_args = self.build_cfunc(
+            snippet.call_default_and_star_args)
+        self.assertEquals(call_default_and_star_args(42),
+                          (111+42+3+0, -1000-2000-3000+2))
+
 class TypedTestCase(testit.IntTestCase):
 
     def getcompiled(self, func):

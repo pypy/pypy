@@ -480,6 +480,19 @@ def star_args(x, y, *args):
 def call_star_args(z):
     return star_args(z, 5, 10, 15, 20)
 
+def default_args(x, y=2, z=3):
+    return x+y+z
+
+def call_default_args(u):
+    return default_args(111, u)
+
+def default_and_star_args(x, y=2, z=3, *more):
+    return x+y+z+len(more)
+
+def call_default_and_star_args(u):
+    return (default_and_star_args(111, u),
+            default_and_star_args(-1000, -2000, -3000, -4000, -5000))
+
 def powerset(setsize=int):
     """Powerset
 

@@ -374,6 +374,7 @@ class GenC:
 ##             func.__name__)
         f = self.f
         body = list(self.cfunction_body(func))
+        name_of_defaults = [self.nameof(x) for x in (func.func_defaults or ())]
         self.gen_global_declarations()
 
         # print header
@@ -411,28 +412,28 @@ class GenC:
             print >> f, '\t\tPy_DECREF(%s);' % vararg
             print >> f, '\t\treturn NULL;'
             print >> f, '\t}'
-            lst = ['args',
-                   '"%s"' % func.__name__,
-                   '%d' % len(positional_args),
-                   '%d' % len(positional_args),
-                   ]
-            lst += ['&' + a.name for a in positional_args]
-            print >> f, '\tif (!PyArg_UnpackTuple(%s)) {' % ', '.join(lst)
-            print >> f, '\t\tPy_DECREF(args);'
-            print >> f, '\t\tPy_DECREF(%s);' % vararg
-            print >> f, '\t\treturn NULL;'
-            print >> f, '\t}'
-            print >> f, '\tPy_DECREF(args);'
+            tail = """{
+\t\tPy_DECREF(args);
+\t\tPy_DECREF(%s);
+\t\treturn NULL;
+\t}
+\tPy_DECREF(args);""" % vararg
         else:
             positional_args = graph.getargs()
-            lst = ['args',
-                   '"%s"' % func.__name__,
-                   '%d' % len(positional_args),
-                   '%d' % len(positional_args),
-                   ]
-            lst += ['&' + a.name for a in positional_args]
-            print >> f, '\tif (!PyArg_UnpackTuple(%s))' % ', '.join(lst)
-            print >> f, '\t\treturn NULL;'
+            tail = '\n\t\treturn NULL;'
+        min_number_of_args = len(positional_args) - len(name_of_defaults)
+        for i in range(len(name_of_defaults)):
+            print >> f, '\t%s = %s;' % (
+                positional_args[min_number_of_args+i],
+                name_of_defaults[i])
+        lst = ['args',
+               '"%s"' % func.__name__,
+               '%d' % min_number_of_args,
+               '%d' % len(positional_args),
+               ]
+        lst += ['&' + a.name for a in positional_args]
+        print >> f, '\tif (!PyArg_UnpackTuple(%s))' % ', '.join(lst),
+        print >> f, tail
 
         # generate an incref for each input argument
         for v in positional_args:
