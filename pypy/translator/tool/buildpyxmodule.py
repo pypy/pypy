@@ -35,7 +35,7 @@ def enable_fast_compilation():
         opt = '-O0'
     gcv['OPT'] = opt
 
-def make_module_from_c(cfile):
+def make_module_from_c(cfile, include_dirs=None):
     from distutils.core import setup
     from distutils.extension import Extension
 
@@ -45,6 +45,8 @@ def make_module_from_c(cfile):
     #except ImportError:
     #    print "ERROR IMPORTING"
     #    pass
+    if include_dirs is None:
+        include_dirs = []
 
     dirpath = cfile.dirpath()
     lastdir = path.local()
@@ -57,8 +59,9 @@ def make_module_from_c(cfile):
             try:
                 setup(
                   name = "testmodules",
-                  ext_modules=[ 
-                        Extension(modname, [str(cfile)])
+                  ext_modules=[
+                        Extension(modname, [str(cfile)],
+                            include_dirs=include_dirs)
                   ],
                   script_name = 'setup.py',
                   script_args = ['-q', 'build_ext', '--inplace']

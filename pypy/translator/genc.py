@@ -594,7 +594,7 @@ class GenC:
 
 # ____________________________________________________________
 
-    C_HEADER = open(os.path.join(autopath.this_dir, 'genc.h')).read()
+    C_HEADER = '#include "genc.h"'
 
     C_SEP = "/************************************************************/"
 

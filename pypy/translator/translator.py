@@ -232,7 +232,8 @@ class Translator:
         f.close()
         if not really_compile:
             return cfile
-        mod = make_module_from_c(cfile)
+        mod = make_module_from_c(cfile,
+            include_dirs=[autopath.this_dir])
         return getattr(mod, self.entrypoint.func_name)
 
     def call(self, *args):
