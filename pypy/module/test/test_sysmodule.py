@@ -3,8 +3,7 @@ import testsupport
 class SysTests(testsupport.TestCase):
     def setUp(self):
         self.space = testsupport.objspace()
-        self.sys_w = self.space.getitem(self.space.w_modules,
-                                        self.space.wrap("sys"))
+        self.sys_w = self.space.get_builtin_module(self.space.wrap("sys"))
     def tearDown(self):
         pass
 
