@@ -175,4 +175,4 @@ if __name__ == '__main__':
 
     space = Space()
     graph = space.build_flow(f)
-    make_dot(graph, udir.dirname())
+    make_dot('f', graph)
