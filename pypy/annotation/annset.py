@@ -15,6 +15,14 @@ class AnnotationSet:
         self.annlist = list(annlist)    # List of annotations
         self._normalized = {}  # maps SomeValues to some 'standard' one that
                                # is shared with it
+        self.mappings_to_normalize = [self._normalized]
+
+    def getbindings(self):
+        """Return a general-purpose mapping between whatever you want and
+        SomeValues.  The SomeValues are kept normalized by the AnnotationSet."""
+        bindings = {}
+        self.mappings_to_normalize.append(bindings)
+        return bindings
 
     def normalized(self, someval):
         return self._normalized.get(someval, someval)
@@ -22,10 +30,11 @@ class AnnotationSet:
     def setshared(self, someval1, someval2):
         someval1 = self.normalized(someval1)
         someval2 = self.normalized(someval2)
-        for key, value in self._normalized.items():
-            if value is someval1:
-                self._normalized[key] = someval2
-        self._normalized[someval1] = someval2
+        for mapping in self.mappings_to_normalize:
+            for key, value in mapping.items():
+                if value is someval2:
+                    mapping[key] = someval1
+        self._normalized[someval2] = someval1
     
     def isshared(self, someval1, someval2):
         return self.normalized(someval1) is self.normalized(someval2)
@@ -95,6 +104,10 @@ class AnnotationSet:
             return ann  # :-)
         else:
             return None
+
+    def findall(self, checkann):
+        """ list all matching annotations."""
+        return list(self._annmatches(checkann))
 
     def queryconstant(self, cell):
         "Return the list of all 'x' such that ANN.constant(x)[cell] is set."
@@ -250,6 +263,16 @@ class Recorder:
             results.append(matchvalue)
         return results
 
+    def get(self, *querylist):
+        """Like query() but asserts that there is at most one answer.
+        Returns None if there isn't any answer."""
+        resultlist = self.query(*querylist)
+        assert len(resultlist) <= 1, "Confusing annotations..."
+        if resultlist:
+            return resultlist[0]
+        else:
+            return None
+
     def set(self, ann):
         """Insert the annotation into the AnnotationSet, recording dependency
         from all previous queries done on this Recorder instance."""
@@ -258,11 +281,23 @@ class Recorder:
         for previous_ann in self.using_annotations:
             self.annset.adddependency(previous_ann, ann)
 
-    def check_type(self, someval, checktype):
-        return bool(self.query(ANN.type[someval, QUERYARG],
-                               ANN.constant(checktype)[QUERYARG]))
+    def delete(self, queryann):
+        """Kill the annotations matching the pattern."""
+        matchannlist = self.annset.findall(queryann)
+        self.annset.simplify(kill=matchannlist)
 
-    def set_type(self, someval, knowntype):
+    def checktype(self, someval, checktype):
+        if isinstance(checktype, tuple):
+            for t in checktype:
+                if self.checktype(someval, t):
+                    return True
+            else:
+                return False
+        else:
+            return bool(self.query(ANN.type[someval, QUERYARG],
+                                   ANN.constant(checktype)[QUERYARG]))
+
+    def settype(self, someval, knowntype):
         typeval = SomeValue()
         self.set(ANN.type[someval, typeval])
         self.set(ANN.constant(knowntype)[typeval])

@@ -307,11 +307,27 @@ class TestRecording(test.IntTestCase):
     def test_type(self):
         a = self.annset
         def f(rec):
-            if rec.check_type(c1, int):
-                rec.set_type(c2, str)
+            if rec.checktype(c1, int):
+                rec.settype(c2, str)
         a.record(f)
         self.assert_(a.query(ANN.type[c2, QUERYARG],
                              ANN.constant(str)[QUERYARG]))
+
+    def test_type2(self):
+        a = self.annset
+        def f(rec):
+            if rec.checktype(c1, (int, long)):
+                rec.settype(c2, str)
+        a.record(f)
+        self.assert_(a.query(ANN.type[c2, QUERYARG],
+                             ANN.constant(str)[QUERYARG]))
+
+    def test_delete(self):
+        a = self.annset
+        def f(rec):
+            rec.delete(ANN.add[c1, c3, ...])
+        a.record(f)
+        self.assertSameSet(a, self.lst[1:])
 
 if __name__ == '__main__':
     test.main()
