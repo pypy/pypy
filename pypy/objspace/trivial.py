@@ -50,9 +50,9 @@ class TrivialObjSpace(ObjSpace):
     # 'is_true' is not called 'truth' because it returns a *non-wrapped* boolean
 
     def getattr(self, w_obj, w_name):
+        obj = self.unwrap(w_obj)
+        name = self.unwrap(w_name)
         try:
-            obj = self.unwrap(w_obj)
-            name = self.unwrap(w_name)
             return getattr(obj, name)
         except:
             raise OperationError(*sys.exc_info()[:2])
@@ -60,8 +60,7 @@ class TrivialObjSpace(ObjSpace):
     for _name in ('pos', 'neg', 'not_', 'abs', 'invert',
                  'mul', 'truediv', 'floordiv', 'div', 'mod',
                  'add', 'sub', 'lshift', 'rshift', 'and_', 'xor', 'or_',
-                 'getitem', 'setitem', 'delitem', 'contains',
-                  'lt', 'le', 'eq', 'ne', 'gt', 'ge'):
+                  'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'contains'):
         exec """
 def %(_name)s(self, *args):
     try:
@@ -112,6 +111,56 @@ def %(_name)s(self, *args):
         w1 ^= w2
         return w1
 
+
+    # slicing
+    def old_slice(self, index):
+        # return the (start, stop) indices of the slice, or None
+        # if the w_index is not a slice or a slice with a step
+        # this is no longer useful in Python 2.3
+        if isinstance(index, types.SliceType):
+            if index.step is None or index.step == 1:
+                start, stop = index.start, index.stop
+                if start is None: start = 0
+                if stop  is None: stop  = sys.maxint
+                return start, stop
+        return None
+        
+    def getitem(self, w_obj, w_index):
+        obj = self.unwrap(w_obj)
+        index = self.unwrap(w_index)
+        sindex = self.old_slice(index)
+        try:
+            if sindex is None:
+                return obj[index]
+            else:
+                return operator.getslice(obj, sindex[0], sindex[1])
+        except:
+            raise OperationError(*sys.exc_info()[:2])
+
+    def setitem(self, w_obj, w_index, w_value):
+        obj = self.unwrap(w_obj)
+        index = self.unwrap(w_index)
+        value = self.unwrap(w_value)
+        sindex = self.old_slice(index)
+        try:
+            if sindex is None:
+                obj[index] = value
+            else:
+                return operator.setslice(obj, sindex[0], sindex[1], value)
+        except:
+            raise OperationError(*sys.exc_info()[:2])
+
+    def delitem(self, w_obj, w_index):
+        obj = self.unwrap(w_obj)
+        index = self.unwrap(w_index)
+        sindex = self.old_slice(index)
+        try:
+            if sindex is None:
+                del obj[index]
+            else:
+                operator.delslice(obj, sindex[0], sindex[1])
+        except:
+            raise OperationError(*sys.exc_info()[:2])
 
     # misc
     def next(self, w):
