@@ -20,7 +20,7 @@ class W_DictObject(W_Object):
         
         w_self.used = 0
         w_self.data = []
-        w_self.resize(min(len(list_pairs_w)*2, 8))
+        w_self.resize(len(list_pairs_w)*2)
         for w_k, w_v in list_pairs_w:
             w_self.insert(w_self.hash(w_k), w_k, w_v)
         
@@ -41,7 +41,7 @@ class W_DictObject(W_Object):
             cell[2] = w_value
 
     def resize(self, minused):
-        newsize = 1
+        newsize = 4
         while newsize < minused:
             newsize *= 2
         od = self.data
@@ -73,9 +73,16 @@ class W_DictObject(W_Object):
             freeslot = None
 
         perturb = lookup_hash
-        c = 0
+        if __debug__:
+            c = len(self.data) + 99
         while 1:
-            c += 1
+            if __debug__:
+                c -= 1
+                if not c:
+                    import sys, pdb
+                    print >> sys.stderr, 'dict lookup lost in infinite loop'
+                    pdb.set_trace()
+                
             i = (i << 2) + i + perturb + 1
             entry = self.data[i%len(self.data)]
             if entry[1] is None:
