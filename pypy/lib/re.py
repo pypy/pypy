@@ -1,4 +1,7 @@
-from dumbre import Pattern
+from sre import *
+
+'''
+# from dumbre import Pattern
 # from plexre import Pattern
 # from sre_adapt import Pattern
 
@@ -37,3 +40,4 @@ def compile(pattern, flags=0):
 
 def match(pattern, string, flags=0):
     return compile(pattern, flags).match(string)
+'''

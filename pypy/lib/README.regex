@@ -19,10 +19,14 @@ dumbre.py is a backend that exits as soon as regular expression is met.
 plexre.py uses Plex module to implement regular expression. sre_adapt.py
 cheats and imports CPython _sre.
 
+Following information is now out-of-date and incorrect:
+
+(fixed in r8876)
 Importing CPython _sre doesn't work currently, because C types are not
 succesfully faked. The reason seems to be the lack of __dict__. This is
 also why we have pure Python random.py from 2.2 in this directory.
 
+(fixed in r8873)
 sre_parse.py is patched because it uses deprecated __getslice__ in
 a special way, and PyPy fails to interpret it correctly. Delete this
 file when this is fixed.
