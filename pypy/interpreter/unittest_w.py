@@ -12,7 +12,6 @@ else:
     IGNORE_TESTS = [s.strip() for s in f.readlines()]
     f.close()
 
-
 def make_testcase_class(space, tc_w):
     # XXX this is all a bit insane (but it works)
 
@@ -22,7 +21,7 @@ def make_testcase_class(space, tc_w):
     for name in dir(AppTestCase):
         if ( name.startswith('assert') or name.startswith('fail')
              and name != 'failureException'):
-            fn = gateway.app2interp(getattr(tc_w, name).im_func, name)
+            fn = gateway.app2interp_temp(getattr(tc_w, name).im_func, name)
             space.setitem(w_dict, w(name), w(fn))
 
     # space-dependent part: make an object-space-level dictionary
@@ -52,7 +51,7 @@ class WrappedFunc(object):
             setattr(space, w_tc_attr, w_tc)
 
         f = self.testMethod.im_func
-        gway = gateway.app2interp(f, f.func_name)
+        gway = gateway.app2interp_temp(f, f.func_name)
         gway(space, w_tc)
 
 

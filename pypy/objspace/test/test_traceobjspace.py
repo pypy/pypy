@@ -1,8 +1,8 @@
 import autopath
 from pypy.tool import testit
 from pypy.objspace import trace 
-from pypy.interpreter.gateway import app2interp
 from pypy.tool import pydis
+from pypy.interpreter import gateway 
     
 class Test_TraceObjSpace(testit.IntTestCase):
 
@@ -15,7 +15,7 @@ class Test_TraceObjSpace(testit.IntTestCase):
 
     def perform_trace(self, app_func):
         tspace = self.space
-        func_gw = app2interp(app_func)
+        func_gw = gateway.app2interp_temp(app_func)
         func = func_gw.get_function(tspace)
         tspace.settrace()
         tspace.call_function(tspace.wrap(func))

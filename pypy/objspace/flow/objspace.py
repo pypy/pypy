@@ -28,9 +28,9 @@ class FlowObjSpace(ObjSpace):
         #self.make_builtins()
         #self.make_sys()
 
-    def loadfromcache(self, key, builder):
+    def loadfromcache(self, key, builder, cache):
         try:
-            return self.generalcache[key]
+            return cache[key] 
         except KeyError:
             # this method is overloaded to allow the space to switch to
             # "concrete mode" when building the object that goes into
@@ -39,7 +39,7 @@ class FlowObjSpace(ObjSpace):
             self.executioncontext.crnt_ops = flowcontext.ConcreteNoOp()
             self.concrete_mode += 1
             try:
-                return self.generalcache.setdefault(key, builder(key, self))
+                return cache.setdefault(key, builder(key, self))
             finally:
                 self.executioncontext.crnt_ops = previous_ops
                 self.concrete_mode -= 1

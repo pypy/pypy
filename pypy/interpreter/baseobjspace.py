@@ -2,6 +2,7 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.miscutils import getthreadlocals
 from pypy.interpreter.argument import Arguments
+from pypy.tool.frozendict import frozendict 
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable',
            'W_Root']
@@ -32,20 +33,17 @@ class ObjSpace(object):
 
     def __init__(self):
         "Basic initialization of objects."
-        self.generalcache = {}
-        self.allowbuildcache = True 
+        self._gatewaycache = {}
         # sets all the internal descriptors
         self.initialize()
 
-    def loadfromcache(self, key, builder):
+    def loadfromcache(self, key, builder, cache):
         try:
-            return self.generalcache[key]
+            return cache[key]
         except KeyError:
-            if self.allowbuildcache: 
-                #print "building for key %r" % key 
-                return self.generalcache.setdefault(key, builder(key, self))
-            raise 
-    loadfromcache.translated_version = lambda s, k, b: s.generalcache[k]
+            assert not isinstance(cache, frozendict)
+            #print "building for key %r" % key 
+            return cache.setdefault(key, builder(key, self))
 
     def make_builtins(self, for_builtins):
         # initializing builtins may require creating a frame which in

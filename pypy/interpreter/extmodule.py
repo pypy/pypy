@@ -55,7 +55,7 @@ class BuiltinModule(Module):
             ('__interplevel__eval',     self.interpleveleval.im_func),
             ('__interplevel__execfile', self.interplevelexecfile.im_func),
             ('__import__',              self.interplevelimport.im_func)]:
-            hook = gateway.interp2app(impl).get_method(self)
+            hook = gateway.interp2app_temp(impl).get_method(self)
             w_name = space.wrap(name)
             try:
                 self.__saved_hooks[name] = space.getitem(w_builtins, w_name)

@@ -182,7 +182,9 @@ class Gateway(Wrappable):
         return self.get_function(space)
 
     def get_function(self, space):
-        return space.loadfromcache(self, Gateway.build_all_functions)
+        return space.loadfromcache(self, 
+                                   Gateway.build_all_functions, 
+                                   self.getcache(space))
 
     def build_all_functions(self, space):
         # the construction is supposed to be done only once in advance,
@@ -197,25 +199,31 @@ class Gateway(Wrappable):
         else:
             # is there another Gateway in staticglobals for which we
             # already have a w_globals for this space ?
+            cache = self.getcache(space) 
             for value in self.staticglobals.itervalues():
                 if isinstance(value, Gateway):
-                    if self in space.generalcache:
+                    if value in cache: 
                         # yes, we share its w_globals
-                        fn = space.generalcache[value]
+                        fn = cache[value] 
                         w_globals = fn.w_func_globals
                         break
             else:
                 # no, we build all Gateways in the staticglobals now.
                 w_globals = build_dict(self.staticglobals, space)
-        return self.build_function(space, w_globals)
+        return self._build_function(space, w_globals)
 
-    def build_function(self, space, w_globals):
-        if not space.allowbuildcache: 
-            return space.generalcache[self]
-        defs = self.getdefaults(space)  # needs to be implemented by subclass
-        fn = Function(space, self.code, w_globals, defs, forcename = self.name)
-        space.generalcache[self] = fn
-        return fn
+    def getcache(self, space):
+        return space._gatewaycache 
+
+    def _build_function(self, space, w_globals):
+        cache = self.getcache(space) 
+        try: 
+            return cache[self] 
+        except KeyError: 
+            defs = self.getdefaults(space)  # needs to be implemented by subclass
+            fn = Function(space, self.code, w_globals, defs, forcename = self.name)
+            cache[self] = fn 
+            return fn
 
     def get_method(self, obj):
         # to get the Gateway as a method out of an instance, we build a
@@ -289,8 +297,12 @@ class interp2app(Gateway):
     def getdefaults(self, space):
         return self.staticdefs
 
-def exportall(d):
+def exportall(d, temporary=False):
     """Publish every function from a dict."""
+    if temporary:
+        i2a = interp2app_temp
+    else:
+        i2a = interp2app
     for name, obj in d.items():
         if isinstance(obj, types.FunctionType):
             # names starting in 'app_' are supposedly already app-level
@@ -303,7 +315,7 @@ def exportall(d):
             if name.startswith('_') and not name.endswith('_'):
                 continue
             if 'app_'+name not in d:
-                d['app_'+name] = interp2app(obj, name)
+                d['app_'+name] = i2a(obj, name)
 
 def export_values(space, dic, w_namespace):
     for name, w_value in dic.items():
@@ -316,22 +328,40 @@ def export_values(space, dic, w_namespace):
                 w_name = space.wrap(name[2:])
             space.setitem(w_namespace, w_name, w_value)
 
-def importall(d):
+def importall(d, temporary=False):
     """Import all app_-level functions as Gateways into a dict."""
+    if temporary:
+        a2i = app2interp_temp
+    else:
+        a2i = app2interp
     for name, obj in d.items():
         if name.startswith('app_') and name[4:] not in d:
             if isinstance(obj, types.FunctionType):
-                d[name[4:]] = app2interp(obj, name[4:])
+                d[name[4:]] = a2i(obj, name[4:])
 
 def build_dict(d, space):
     """Search all Gateways and put them into a wrapped dictionary."""
     w_globals = space.newdict([])
     for value in d.itervalues():
         if isinstance(value, Gateway):
-            fn = value.build_function(space, w_globals)
+            fn = value._build_function(space, w_globals)
             w_name = space.wrap(value.name)
             w_object = space.wrap(fn)
             space.setitem(w_globals, w_name, w_object)
     if hasattr(space, 'w_sys'):  # give them 'sys' if it exists already
         space.setitem(w_globals, space.wrap('sys'), space.w_sys)
     return w_globals
+
+
+# 
+# the next gateways are to be used only for 
+# temporary/initialization purposes 
+class app2interp_temp(app2interp): 
+    def getcache(self, space): 
+        return self.__dict__.setdefault(space, {}) 
+        #                               ^^^^^
+        #                          armin suggested this 
+     
+class interp2app_temp(interp2app): 
+    def getcache(self, space): 
+        return self.__dict__.setdefault(space, {}) 

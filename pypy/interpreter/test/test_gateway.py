@@ -3,7 +3,6 @@ import autopath
 from pypy.tool import testit
 from pypy.interpreter import gateway
 
-
 class TestBuiltinCode(testit.IntTestCase):
     def setUp(self):
         self.space = testit.objspace()
@@ -66,7 +65,7 @@ class TestGateway(testit.IntTestCase):
         w = self.space.wrap
         def app_g3(a, b):
             return a+b
-        g3 = gateway.app2interp(app_g3)
+        g3 = gateway.app2interp_temp(app_g3)
         self.assertEqual_w(g3(self.space, w('foo'), w('bar')), w('foobar'))
         
     def test_interp2app(self):
@@ -74,7 +73,7 @@ class TestGateway(testit.IntTestCase):
         w = space.wrap
         def g3(space, w_a, w_b):
             return space.add(w_a, w_b)
-        app_g3 = gateway.interp2app(g3)
+        app_g3 = gateway.interp2app_temp(g3)
         w_app_g3 = space.wrap(app_g3) 
         self.assertEqual_w(
             space.call(w_app_g3, 
@@ -94,7 +93,7 @@ def app_g3(a, b):
 def app_g1(x):
     return g3('foo', x)
 """ in g
-        gateway.importall(g)
+        gateway.importall(g, temporary=True)
         g1 = g['g1']
         self.assertEqual_w(g1(self.space, w('bar')), w('foobar'))
 
@@ -107,8 +106,8 @@ def g3(space, w_a, w_b):
 def app_g1(x):
     return g3('foo', x)
 """ in g
-        gateway.exportall(g)
-        g1 = gateway.app2interp(g['app_g1'])
+        gateway.exportall(g, temporary=True)
+        g1 = gateway.app2interp_temp(g['app_g1'])
         self.assertEqual_w(g1(self.space, w('bar')), w('foobar'))
 
 

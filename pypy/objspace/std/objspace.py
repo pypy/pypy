@@ -7,7 +7,6 @@ from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
 import types
 
-
 class W_Object(W_Root, object):
     "Parent base class for wrapped objects."
     typedef = None
@@ -136,6 +135,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return done
                             
     def initialize(self):
+        self._typecache = {}
+        self._faketypecache = {}
+
         # The object implementations that we want to 'link' into PyPy must be
         # imported here.  This registers them into the multimethod tables,
         # *before* the type objects are built from these multimethod tables.
@@ -206,7 +208,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def gettypeobject(self, typedef):
         # types_w maps each StdTypeDef instance to its
         # unique-for-this-space W_TypeObject instance
-        return self.loadfromcache(typedef, stdtypedef.buildtypeobject)
+        return self.loadfromcache(typedef, 
+                                  stdtypedef.buildtypeobject,
+                                  self._typecache)
 
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."
@@ -251,9 +255,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             if hasattr(self, 'w_' + x.__name__):
                 return getattr(self, 'w_' + x.__name__)
         if isinstance(x, type):
-            ft = self.loadfromcache(x, fake_type)
+            ft = self.loadfromcache(x, fake_type, self._faketypecache)
             return self.gettypeobject(ft.typedef)
-        ft = self.loadfromcache(type(x), fake_type)
+        ft = self.loadfromcache(type(x), fake_type, self._faketypecache)
         return ft(self, x)
 
     def newint(self, intval):

@@ -1,5 +1,6 @@
-from pypy.tool import option, autopath, testit 
+from pypy.tool import option, autopath, testit
 from pypy.interpreter import gateway 
+from pypy.tool.frozendict import frozendict 
 
 #######################################################
 def app_triggergenerator():
@@ -19,5 +20,9 @@ if __name__ == '__main__':
     space = option.objspace('std') 
     #triggercachebuild(space) 
     testit.main(autopath.pypydir)
-    space.allowbuildcache = False 
+
+    space._typecache = frozendict(space._typecache) 
+    space._faketypecache = frozendict(space._faketypecache) 
+    space._gatewaycache = frozendict(space._gatewaycache) 
+
     testit.main(autopath.pypydir)
