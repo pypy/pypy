@@ -132,6 +132,8 @@ class SubPattern:
         return repr(self.data)
     def __len__(self):
         return len(self.data)
+    def __iter__(self):
+        return iter(self.data)
     def __delitem__(self, index):
         del self.data[index]
     def __getitem__(self, index):
