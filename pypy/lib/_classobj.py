@@ -469,7 +469,7 @@ def __%(op)s__(self, other):
                 raise TypeError, ("__iter__ returned non-iterator of type %s"
                                   % type(ret).__name__)
             return ret
-        func = instance_getattr1(self, '__getitem__')
+        func = instance_getattr1(self, '__getitem__', False)
         if not func:
             raise TypeError, "iteration over non-sequence"
         # moved sequiter away from here:
@@ -477,7 +477,7 @@ def __%(op)s__(self, other):
         return seqiter(func)
 
     def next(self):
-        func = instance_getattr1(self, '__next__', False)
+        func = instance_getattr1(self, 'next', False)
         if not func:
             raise TypeError, "instance has no next() method"
         return func()
