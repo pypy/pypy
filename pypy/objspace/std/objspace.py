@@ -90,7 +90,8 @@ class StdObjSpace(ObjSpace):
             self.newtuple([]),
             self.newdict([(w('__init__'), w_init),
                           (w('__str__'), w_str)]))
-        self.w_IndexError = self.w_Exception
+       
+        self.w_IndexError = self.w_StopIteration = self.w_Exception 
         
         done = {'Exception': self.w_Exception}
 
