@@ -1,7 +1,5 @@
 import testsupport
 
-import unittest
-
 from pypy.interpreter import unittest_w
 from pypy.objspace.std import StdObjSpace
 
@@ -33,5 +31,5 @@ class TestCompile(unittest_w.TestCase_w):
                            w('a'))
       
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()
  
