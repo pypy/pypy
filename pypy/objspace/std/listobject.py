@@ -35,6 +35,27 @@ def unwrap__List(space, w_list):
     items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]
     return list(items)
 
+def object_init__List_ANY_ANY(space, w_list, w_args, w_kwds):
+    if space.is_true(w_kwds):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("no keyword arguments expected"))
+    w_list.ob_size = 0  # XXX think about it later
+    args = space.unpackiterable(w_args)
+    if len(args) == 0:
+        pass   # empty list
+    elif len(args) == 1:
+        w_iterable = args[0]
+        w_iterator = space.iter(w_iterable)
+        while True:
+            try:
+                w_item = space.next(w_iterator)
+            except NoValue:
+                break  # done
+            _ins1(w_list, w_list.ob_size, w_item)
+    else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("list() takes at most 1 argument"))
+
 def len__List(space, w_list):
     result = w_list.ob_size
     return W_IntObject(space, result)
@@ -158,23 +179,24 @@ def setitem__List_Int_ANY(space, w_list, w_index, w_any):
     items[idx] = w_any
     return space.w_None
 
-# not trivial!
+# XXX not trivial!
 def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
-    items = w_list.ob_item
-    w_length = space.wrap(w_list.ob_size)
-    w_start, w_stop, w_step, w_slicelength = w_slice.indices(w_length)
-    start       = space.unwrap(w_start)
-    step        = space.unwrap(w_step)
-    slicelength = space.unwrap(w_slicelength)
-    assert slicelength >= 0
-    w_res = W_ListObject(space, [])
-    _list_resize(w_res, slicelength)
-    subitems = w_res.ob_item
-    for i in range(slicelength):
-        subitems[i] = items[start]
-        start += step
-    w_res.ob_size = slicelength
-    return w_res
+    raise Exception, "not done!"
+##    items = w_list.ob_item
+##    w_length = space.wrap(w_list.ob_size)
+##    w_start, w_stop, w_step, w_slicelength = w_slice.indices(w_length)
+##    start       = space.unwrap(w_start)
+##    step        = space.unwrap(w_step)
+##    slicelength = space.unwrap(w_slicelength)
+##    assert slicelength >= 0
+##    w_res = W_ListObject(space, [])
+##    _list_resize(w_res, slicelength)
+##    subitems = w_res.ob_item
+##    for i in range(slicelength):
+##        subitems[i] = items[start]
+##        start += step
+##    w_res.ob_size = slicelength
+##    return w_res
 
 def repr__List(space, w_list):
     w = space.wrap

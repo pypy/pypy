@@ -14,6 +14,9 @@ def register_all(module_dict, alt_ns=None):
     for registration. 
     """
     from pypy.objspace.std.objspace import StdObjSpace, W_ANY
+    namespaces = [StdObjSpace]
+    if alt_ns:
+        namespaces.insert(0, alt_ns)
 
     for name, obj in module_dict.items():
         if name.find('__')<1:
@@ -32,23 +35,40 @@ def register_all(module_dict, alt_ns=None):
                              i, i, name)
             l.append(icls)
 
-        if len(l) != obj.func_code.co_argcount-1:
-            raise ValueError, \
-                  "function name %s doesn't specify exactly %d arguments" % (
-                     repr(name), obj.func_code.co_argcount-1)
+        #XXX trying to be too clever at the moment for userobject.SpecialMethod
+        #if len(l) != obj.func_code.co_argcount-1:
+        #    raise ValueError, \
+        #          "function name %s doesn't specify exactly %d arguments" % (
+        #             repr(name), obj.func_code.co_argcount-1)
 
         funcname =  _name_mappings.get(funcname, funcname)
 
-        if hasattr(alt_ns, funcname):
-            getattr(alt_ns, funcname).register(obj, *l)
-        else:
-            getattr(StdObjSpace, funcname).register(obj, *l)
+        func = hack_func_by_name(funcname, namespaces)
+        func.register(obj, *l)
     add_extra_comparisons()
+
+def hack_func_by_name(funcname, namespaces):
+    for ns in namespaces:
+        if hasattr(ns, funcname):
+            return getattr(ns, funcname)
+    import typetype
+    try:
+        return getattr(typetype.W_TypeType, funcname)
+    except AttributeError:
+        pass  # catches not only the getattr() but the typetype.W_TypeType
+              # in case it is not fully imported yet :-((((
+    import objecttype
+    try:
+        return getattr(objecttype.W_ObjectType, funcname)
+    except AttributeError:
+        pass  # same comment
+    raise NameError, ("trying hard but not finding a multimethod named %s" %
+                      funcname)
 
 class Curry:
     def __init__(self, fun, arg):
         self.fun = fun
-        self.pending = [arg]
+        self.pending = (arg,)
 
     def __call__(self, *args):
         return self.fun(*(self.pending + args))

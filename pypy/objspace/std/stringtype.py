@@ -41,16 +41,15 @@ class W_StringType(W_TypeObject):
 registerimplementation(W_StringType)
 
 
-# XXX we'll worry about the __new__/__init__ distinction later
-def new__StringType_ANY_ANY(space, w_stringtype, w_args, w_kwds):
+def type_new__StringType_StringType_ANY_ANY(space, w_basetype, w_stringtype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))
     args = space.unpackiterable(w_args)
     if len(args) == 0:
-        return space.newstring([])
+        return space.newstring([]), True
     elif len(args) == 1:
-        return space.str(args[0])
+        return space.str(args[0]), True
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("str() takes at most 1 argument"))

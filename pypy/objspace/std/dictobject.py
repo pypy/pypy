@@ -88,6 +88,26 @@ def unwrap__Dict(space, w_dict):
         result[space.unwrap(w_key)] = space.unwrap(cell.get())
     return result
 
+def object_init__Dict_ANY_ANY(space, w_dict, w_args, w_kwds):
+    # w_kwds = w_kwds.copy() w unwrap & rewrap, but that should not be needed
+    dict_clear__Dict(space, w_dict)
+    args = space.unpackiterable(w_args)
+    if len(args) == 0:
+        pass
+    elif len(args) == 1:
+        # XXX do dict({...}) with dict_update__Dict_Dict()
+        list_of_w_pairs = space.unpackiterable(args[0])
+        for w_pair in list_of_w_pairs:
+            pair = space.unpackiterable(w_pair)
+            if len(pair)!=2:
+                raise OperationError(space.w_ValueError,
+                             space.wrap("dict() takes a sequence of pairs"))
+            w_k, w_v = pair
+            setitem__Dict_ANY_ANY(space, w_dict, w_k, w_v)
+    else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("dict() takes at most 1 argument"))
+
 def getitem__Dict_ANY(space, w_dict, w_lookup):
     data = w_dict.non_empties()
     # XXX shouldn't this use hashing? -- mwh

@@ -9,8 +9,7 @@ class W_TupleType(W_TypeObject):
 registerimplementation(W_TupleType)
 
 
-# XXX we'll worry about the __new__/__init__ distinction later
-def tupletype_new(space, w_tupletype, w_args, w_kwds):
+def type_new__TupleType_TupleType_ANY_ANY(space, w_basetype, w_tupletype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))
@@ -22,6 +21,6 @@ def tupletype_new(space, w_tupletype, w_args, w_kwds):
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("tuple() takes at most 1 argument"))
-    return space.newtuple(tuple_w)
+    return space.newtuple(tuple_w), True
 
-StdObjSpace.new.register(tupletype_new, W_TupleType, W_ANY, W_ANY)
+register_all(vars())

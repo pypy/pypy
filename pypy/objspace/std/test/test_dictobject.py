@@ -84,7 +84,7 @@ class TestW_DictObject(test.TestCase):
         w = space.wrap
         wd = space.newdict
         def mydict(w_args=w(()), w_kwds=w({})):
-            return space.new(space.w_dict, w_args, w_kwds)
+            return space.call(space.w_dict, w_args, w_kwds)
         def deepwrap(lp):
             return [[w(a),w(b)] for a,b in lp]
         d = mydict()
@@ -104,7 +104,7 @@ class TestW_DictObject(test.TestCase):
         w = space.wrap
         wd = space.newdict
         def mydict(w_args=w(()), w_kwds=w({})):
-            return space.new(space.w_dict, w_args, w_kwds)
+            return space.call(space.w_dict, w_args, w_kwds)
         def deepwrap(lp):
             return [[w(a),w(b)] for a,b in lp]
         d = mydict(w_kwds=w({1:2, 3:4}))
@@ -129,7 +129,7 @@ class TestW_DictObject(test.TestCase):
         space = self.space
         w = space.wrap
         def mydict(w_args=w(()), w_kwds=w({})):
-            return space.new(space.w_dict, w_args, w_kwds)
+            return space.call(space.w_dict, w_args, w_kwds)
         d = mydict(w_kwds=w({1:2, 3:4}))
         get = space.getattr(d, w("get"))
         self.assertEqual_w(space.call_function(get, w(1)), w(2))

@@ -8,7 +8,8 @@ class W_SliceType(W_TypeObject):
 
 registerimplementation(W_SliceType)
 
-def slicetype_new(space, w_slicetype, w_args, w_kwds):
+
+def type_new__SliceType_SliceType_ANY_ANY(space, w_basetype, w_slicetype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))
@@ -28,6 +29,6 @@ def slicetype_new(space, w_slicetype, w_args, w_kwds):
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap("slice() takes at least 1 argument"))
-    return space.newslice(start, stop, step)
+    return space.newslice(start, stop, step), True
 
-StdObjSpace.new.register(slicetype_new, W_SliceType, W_ANY, W_ANY)
+register_all(vars())

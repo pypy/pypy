@@ -302,5 +302,6 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
 # import the common base W_ObjectObject as well as
 # default implementations of some multimethods for all objects
 # that don't explicitely override them or that raise FailedToImplement
+from pypy.objspace.std.register_all import register_all
 import pypy.objspace.std.objectobject
 import pypy.objspace.std.default

@@ -226,8 +226,6 @@ ObjSpace.MethodTable = [
     ('get',             'get',       3, ['__get__']),
     ('set',             'set',       2, ['__set__']),
     ('delete',          'delete',    2, ['__delete__']),
-    ('new',             'new',       3, ['__new__']),
-    ('init',            'init',      3, ['__init__']),
     ]
 
 ObjSpace.BuiltinModuleTable = [

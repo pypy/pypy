@@ -94,11 +94,13 @@ def getmultimethods(spaceclass, typeclass):
                     code = multimethods[name]
                     if code.bound_position < i:
                         continue
-                if len(multimethod.specialnames) > 1:
-                    mmcls = SpecialMultimethodCode
-                else:
-                    mmcls = PyMultimethodCode
-                code = mmcls(multimethod, typeclass, i)
+                pycodeclass = multimethod.extras.get('pycodeclass')
+                if pycodeclass is None:
+                    if len(multimethod.specialnames) > 1:
+                        pycodeclass = SpecialMultimethodCode
+                    else:
+                        pycodeclass = PyMultimethodCode
+                code = pycodeclass(multimethod, typeclass, i)
                 multimethods[name] = code
         # add some more multimethods with a special interface
         code = NextMultimethodCode(spaceclass.next, typeclass)
@@ -182,10 +184,21 @@ class NonZeroMultimethodCode(PyMultimethodCode):
         result = self.do_call(space, w_globals, w_locals)
         return space.newbool(result)
 
+class NewMultimethodCode(PyMultimethodCode):
+
+    def eval_code(self, space, w_globals, w_locals):
+        "Call the __new__() method of typetype.py."
+        w_result, callinit = self.do_call(space, w_globals, w_locals)
+        return w_result
+
 
 def call__Type_ANY_ANY(space, w_type, w_args, w_kwds):
-    w_newobject = space.new(w_type, w_args, w_kwds)
-    # XXX call __init__() later
+    type_new = typetype.W_TypeType.type_new.get(space)
+    w_newobject, callinit = type_new(w_type, w_type, w_args, w_kwds)
+    if callinit:
+        import objecttype
+        object_init = objecttype.W_ObjectType.object_init.get(space)
+        object_init(w_newobject, w_args, w_kwds)
     return w_newobject
 
 def issubtype__Type_Type(space, w_type1, w_type2):

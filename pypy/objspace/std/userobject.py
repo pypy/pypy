@@ -42,10 +42,11 @@ def _make_bltin_subclass(cls):
     try:
         return _bltin_subclass_cache[cls]
     except:
-        _bltin_subclass_cache[cls] = subcls = type(W_Object)("%s_sub" % cls.__name__,(cls,),
-                                                       {'statictype': W_UserType,
-                                                        'bltbase': cls,
-                                                        'dispatchtype': W_UserObject})
+        subcls = type(W_Object)("%s_sub" % cls.__name__, (cls,),
+                                {'statictype'   : W_UserType,
+                                 'bltbase'      : cls,
+                                 'dispatchclass': W_UserObject})
+        _bltin_subclass_cache[cls] = subcls
         return subcls
 
 def morph_into_user_object(space,w_type,newobj):
@@ -109,12 +110,7 @@ class SpecialMethod:
         self.method_name = method_name
         self.bound_position = bound_position
 
-    def do_call(self, space, args_w):
-        # args_w is in the standard multimethod order
-        # we need it in the Python-friendly order (i.e. swapped for __rxxx__)
-        args_w = list(args_w)
-        w_userobj = args_w.pop(self.bound_position)
-        w_args = space.newtuple(args_w)
+    def internal_do_call(self, space, w_userobj, w_args, w_kwds):
         w_key = space.wrap(self.method_name)
         w_mro = space.getattr(w_userobj.w_type, space.wrap('__mro__'))
         mro = space.unpacktuple(w_mro)
@@ -126,8 +122,16 @@ class SpecialMethod:
             except KeyError:
                 continue
             w_method = space.get(w_function, w_userobj, w_base)
-            return space.call(w_method, w_args, space.newdict([]))
+            return space.call(w_method, w_args, w_kwds)
         raise FailedToImplement
+
+    def do_call(self, space, args_w):
+        # args_w is in the standard multimethod order
+        # we need it in the Python-friendly order (i.e. swapped for __rxxx__)
+        args_w = list(args_w)
+        w_userobj = args_w.pop(self.bound_position)
+        w_args = space.newtuple(args_w)
+        return self.internal_do_call(space, w_userobj, w_args, space.newdict([]))
 
     def normal_call(self, space, *args_w):
         "Call a user-defined __xxx__ method and convert the result back."
@@ -155,6 +159,10 @@ class SpecialMethod:
         w_result = self.do_call(space, args_w)
         return space.is_true(w_result)
 
+    def argskwds_call(self, space, w_userobj, w_args, w_kwds):
+        "For __init__()."
+        return self.internal_do_call(space, w_userobj, w_args, w_kwds)
+
 
 import new
 for multimethod in typeobject.hack_out_multimethods(StdObjSpace):
@@ -166,6 +174,6 @@ for multimethod in typeobject.hack_out_multimethods(StdObjSpace):
 
 next__User    = SpecialMethod('next').next_call
 is_true__User = SpecialMethod('nonzero').nonzero_call
-
+object_init__User_ANY_ANY = SpecialMethod('__init__').argskwds_call
 
 register_all(vars())

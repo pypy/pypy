@@ -53,17 +53,35 @@ registerimplementation(W_UserType)
 #   but we're documenting it here as there seems no better place!!!
 #   The problem is actually that, currently, several types such as
 #   int and float just cannot be CALLED -- this needs to be fixed soon.
-def new__UserType_ANY_ANY(space, w_usertype, w_args, w_kwds):
-    from userobject import make_user_object
-    newobj = make_user_object(space, w_usertype, w_args, w_kwds)
-    try:
-        init = space.getattr(newobj, space.wrap('__init__'))
-    except OperationError, err:
-        if not err.match(space, space.w_AttributeError):
-            raise
-    else:
-        space.call(init, w_args, w_kwds)
-    return newobj
+def type_new__UserType_UserType_ANY_ANY(space, w_basetype, w_usertype, w_args, w_kwds):
+    import typetype
+    # XXX this uses the following algorithm:
+    #     walk the __mro__ of the user type
+    #     for each *user* type t in there, just look for a __new__ in t.__dict__
+    #     if we get to a *built-in* type t, we use t.__new__, which is a
+    #       bound method from the type 'type'.
+    for w_looktype in w_basetype.getmro():
+        if not isinstance(w_looktype, W_UserType):
+            # no user-defined __new__ found
+            type_new = typetype.W_TypeType.type_new.get(space)
+            return type_new(w_looktype, w_usertype, w_args, w_kwds)
+        try:
+            w_new = w_looktype.lookup_exactly_here(space.wrap('__new__'))
+        except KeyError:
+            pass
+        else:
+            w_newobj = space.call_function(w_new, [w_usertype, w_args, w_kwds])
+            return w_newobj, True
+    raise AssertionError, "execution should not get here"
+
+def type_new__ANY_UserType_ANY_ANY(space, w_basetype, w_usertype, w_args, w_kwds):
+    import typetype
+    from userobject import morph_into_user_object, getsinglebuiltintype
+    assert w_basetype is getsinglebuiltintype(space, w_usertype)
+    type_new = typetype.W_TypeType.type_new.get(space)
+    w_newobject, callinit = type_new(w_basetype, w_basetype, w_args, w_kwds)
+    morph_into_user_object(space, w_usertype, w_newobject)
+    return w_newobject, True
 
 def getdict__UserType(space, w_usertype):
     return w_usertype.w_dict

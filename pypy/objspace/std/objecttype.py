@@ -20,14 +20,16 @@ class W_ObjectType(W_TypeObject):
     object_str     = StdObjSpace.str
     object_hash    = StdObjSpace.hash
 
+    # this is a method in 'object' because it is not an object space operation
+    object_init    = MultiMethod('__init__', 3, varargs=True, keywords=True)
+
 registerimplementation(W_ObjectType)
 
 
-# XXX we'll worry about the __new__/__init__ distinction later
-def new__ObjectType_ANY_ANY(space, w_objecttype, w_args, w_kwds):
+def type_new__ObjectType_ObjectType_ANY_ANY(space, w_basetype, w_objecttype, w_args, w_kwds):
     # XXX 2.2 behavior: ignoring all arguments
     from objectobject import W_ObjectObject
-    return W_ObjectObject(space)
+    return W_ObjectObject(space), True
 
 
 ### The following implementations are registered to the

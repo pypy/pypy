@@ -28,26 +28,8 @@ class W_DictType(W_TypeObject):
 
 registerimplementation(W_DictType)
 
-# XXX we'll worry about the __new__/__init__ distinction later
-def dicttype_new(space, w_listtype, w_args, w_kwds):
-    # w_kwds = w_kwds.copy() w unwrap & rewrap, but that should not be needed
-    args = space.unpackiterable(w_args)
-    if len(args) == 0:
-        pass
-    elif len(args) == 1:
-        list_of_w_pairs = space.unpackiterable(args[0])
-        list_of_w_pairs.reverse()
-        for pair_w in list_of_w_pairs:
-            pair = space.unpackiterable(pair_w)
-            if len(pair)!=2:
-                raise OperationError(space.w_ValueError,
-                             space.wrap("dict() takes a sequence of pairs"))
-            k, v = pair
-            if not space.is_true(space.contains(w_kwds, k)):
-                space.setitem(w_kwds, k, v)
-    else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("dict() takes at most 1 argument"))
-    return w_kwds
 
-StdObjSpace.new.register(dicttype_new, W_DictType, W_ANY, W_ANY)
+def type_new__DictType_DictType_ANY_ANY(space, w_basetype, w_dicttype, w_args, w_kwds):
+    return space.newdict([]), True
+
+register_all(vars())

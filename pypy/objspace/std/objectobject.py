@@ -17,5 +17,8 @@ def delegate__ANY(space, w_obj):
     return W_ObjectObject(space)
 delegate__ANY.priority = PRIORITY_PARENT_TYPE
 
+def object_init__Object_ANY_ANY(space, w_object, w_args, w_kwds):
+    pass
+
 
 register_all(vars())
