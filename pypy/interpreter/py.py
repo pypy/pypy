@@ -34,7 +34,6 @@ def get_main_options():
 def main_(argv=None):
     from pypy.tool import tb_server
     args = option.process_options(get_main_options(), Options, argv[1:])
-    print 'options processed'
     try:
         space = option.objspace()
         go_interactive = Options.interactive
@@ -64,7 +63,6 @@ def main_(argv=None):
             con.interact(banner)
     except:
         sys.excepthook(*sys.exc_info())
-        print 'waiting'
         tb_server.wait_until_interrupt()
             
     tb_server.stop()

@@ -78,6 +78,7 @@ def stop():
 def wait_until_interrupt():
     if server_thread is None:
         return
+    print "waiting"
     import signal
     try:
         signal.pause()
