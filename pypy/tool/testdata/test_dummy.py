@@ -1,6 +1,6 @@
 """Module docstring."""
 
-import autopath
+#import autopath
 from pypy.tool import newtest
 
 
@@ -58,3 +58,7 @@ def f():
 class X:
     def test_skip(self):
         newtest.service.skip()
+
+
+if __name__ == '__main__':
+    newtest.main()

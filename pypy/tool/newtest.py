@@ -403,8 +403,54 @@ class TestItem:
 class TestSuite:
     """Represent a collection of test items."""
     def __init__(self):
+        self.reset()
+
+    def reset(self):
+        """
+        Clear this TestSuite instance from all stored items and
+        test results.
+        """
         self.items = []
         self.last_results = {}
+
+    #
+    # get lists of TestItems from a dictionary, a module, or a directory tree
+    #
+    def items_from_dict(self, dict_, module=None):
+        """
+        Return a list of TestItems as extracted from the given dictionary
+        dict_. The keys of the dictionary are names of objects, the values
+        are the corresponding objects. Think of the value returned by the
+        builtin function globals.
+
+        You may pass in a module object via the optional argument module.
+        If the argument is present, it will be included in the TestItems.
+        Else, the __main__ module will be used.
+        """
+        if module is None:
+            module = sys.modules['__main__']
+        items = []
+        # scan the values for test functions, and for classes derived
+        # from TestCase
+        for obj in dict_.values():
+            # find TestCase classes and methods within them
+            if inspect.isclass(obj) and issubclass(obj, TestCase):
+                # we found a TestCase class, now scan it for test methods
+                for obj2 in vars(obj).values():
+                    # inspect.ismethod doesn't seem to work here
+                    if inspect.isfunction(obj2) and \
+                      obj2.__name__.startswith("test"):
+                        items.append(TestItem(module=module, cls=obj,
+                                              callable=obj2))
+            # find test functions
+            elif (callable(obj) and hasattr(obj, '__name__') and
+                  obj.__name__.startswith('test_')):
+                items.append(TestItem(module, callable=obj))
+        return items
+
+    def items_from_module(self, module):
+        """Return a list of TestItems read from the given module."""
+        return self.items_from_dict(vars(module), module=module)
 
     def _module_from_modpath(self, modpath):
         """
@@ -420,31 +466,11 @@ class TestSuite:
         __import__(modpath)
         return sys.modules[modpath]
 
-    def _items_from_module(self, module):
-        """Return a list of TestItems read from the given module."""
-        items = []
-        # scan the module for test functions, and for classes derived
-        # from TestCase
-        for obj in vars(module).values():
-            # find TestCase classes and methods within them
-            if inspect.isclass(obj) and issubclass(obj, TestCase):
-                # we found a TestCase class, now scan it for test methods
-                for obj2 in vars(obj).values():
-                    # inspect.ismethod doesn't seem to work here
-                    if inspect.isfunction(obj2) and \
-                      obj2.__name__.startswith("test"):
-                        items.append(TestItem(module, cls=obj, callable=obj2))
-            # find test functions
-            elif (callable(obj) and hasattr(obj, '__name__') and
-                  obj.__name__.startswith('test_')):
-                items.append(TestItem(module, callable=obj))
-        return items
-
-    def init_from_dir(self, dirname, filterfunc=None, recursive=True):
+    def items_from_dir(self, dirname, filterfunc=None, recursive=True):
         """
-        Init this suite by reading the directory denoted by dirname,
-        then find all test modules in it. Test modules are files that
-        comply with the shell pattern shell_pattern "test_*.py".
+        Return a list of TestItems found by reading the directory denoted
+        by dirname. Find all test modules in it. Test modules are files that
+        comply with the shell pattern "test_*.py".
 
         filterfunc is a callable that can be used to filter the test
         modules by module path. By default, all test modules are used.
@@ -452,7 +478,7 @@ class TestSuite:
         If recursive is true, which is the default, find all test modules
         by scanning the start directory recursively.
         """
-        self.items = []
+        items = []
         dirname = vpath.getlocal(dirname)
 
         def testfilefilter(path):
@@ -467,13 +493,34 @@ class TestSuite:
             if (filterfunc is None) or filterfunc(modpath):
                 try:
                     module = self._module_from_modpath(modpath)
-                    items = self._items_from_module(module)
+                    module_items = self.items_from_module(module)
                 except:
                     print >> sys.stderr, \
                           "Warning: can't load module %s" % modpath
+                    raise
                 else:
-                    self.items.extend(items)
+                    items.extend(module_items)
+        return items
 
+    #
+    # init TestSuite instance from a dictionary, a module, or a directory tree
+    #
+    def init_from_dict(self, dict_, module=None):
+        self.reset()
+        self.items = self.items_from_dict(dict_, module=module)
+
+    def init_from_module(self, module):
+        self.reset()
+        self.items = self.items_from_module(module)
+
+    def init_from_dir(self, dirname, filterfunc=None, recursive=True):
+        self.reset()
+        self.items = self.items_from_dir(dirname, filterfunc=None,
+                                         recursive=True)
+
+    #
+    # running tests and getting results
+    #
     def result_generator(self,
                          classify=lambda result: result.item.module.__name__):
         """
@@ -503,10 +550,49 @@ class TestSuite:
         # the results; they are then available via self.last_results
         return [result for result in self.result_generator()]
 
-#
-# demonstrate test framework usage
-#
-def main(do_selftest=False):
+
+def _print_results(suite):
+    """Print results for the items in a test suite."""
+    # iterate over tests and collect data
+    for result in suite.result_generator():
+        if result.traceback is None:
+            continue
+        print 79 * '-'
+        # print a line with the qualified name of the bad callable
+        item = result.item
+        if result.item.isfunction:
+            print "%s.%s: %s" % (item.module.__name__, item.callable.__name__,
+                                 result.name.upper())
+        else:
+            print "%s.%s.%s: %s" % (item.module.__name__, item.cls.__name__,
+                                    item.callable.__name__, result.name.upper())
+        print
+        print result.formatted_traceback
+    # emit a summary
+    print 79 * '='
+    modules = suite.last_results.keys()
+    modules.sort()
+    for module in modules:
+        results = suite.last_results[module]
+        resultstring = ''
+        for result in results:
+            status_char = {Success: '.', Ignored: 'i', Skipped: 's',
+                           Error: 'E', Failure: 'F'}[result.__class__]
+            resultstring += status_char
+        print "%s [%d] %s" % (module, len(results), resultstring)
+
+def main():
+    """
+    Find all tests in the current module (i. e. the module from which this
+    function is called), execute them and print results.
+    """
+    from pypy.tool import newtest
+    suite = TestSuite()
+    print globals()
+    suite.init_from_dict(globals())
+    _print_results(suite)
+
+def test(do_selftest=False):
     # possibly ignore dummy unit tests
     if do_selftest:
         # include only selftest module
@@ -515,40 +601,14 @@ def main(do_selftest=False):
         # exclude selftest module
         filterfunc = lambda m: m.find("pypy.tool.testdata.") == -1
     # collect tests
-    ts = TestSuite()
+    suite = TestSuite()
     print "Loading test modules ..."
-    ts.init_from_dir(autopath.pypydir, filterfunc=filterfunc)
-    # iterate over tests and collect data
-    for res in ts.result_generator():
-        if res.traceback is None:
-            continue
-        print 79 * '-'
-        # print a line with the qualified name of the bad callable
-        item = res.item
-        if res.item.isfunction:
-            print "%s.%s: %s" % (item.module.__name__, item.callable.__name__,
-                                 res.name.upper())
-        else:
-            print "%s.%s.%s: %s" % (item.module.__name__, item.cls.__name__,
-                                    item.callable.__name__, res.name.upper())
-        print
-        print res.formatted_traceback
-    # emit a summary
-    print 79 * '='
-    modules = ts.last_results.keys()
-    modules.sort()
-    for module in modules:
-        results = ts.last_results[module]
-        resultstring = ''
-        for result in results:
-            status_char = {Success: '.', Ignored: 'i', Skipped: 's',
-                           Error: 'E', Failure: 'F'}[result.__class__]
-            resultstring += status_char
-        print "%s [%d] %s" % (module, len(results), resultstring)
+    suite.init_from_dir(autopath.pypydir, filterfunc=filterfunc)
+    _print_results(suite)
 
 
 if __name__ == '__main__':
     # used to avoid subtle problems with class matching after different
     # import statements
     from pypy.tool import newtest
-    newtest.main(do_selftest=True)
+    newtest.test(do_selftest=True)
