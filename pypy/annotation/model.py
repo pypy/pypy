@@ -51,8 +51,20 @@ class SomeObject:
     def __ne__(self, other):
         return not (self == other)
     def __repr__(self):
-        kwds = ', '.join(['%s=%r' % item for item in self.__dict__.items()])
+        items = self.__dict__.items()
+        items.sort()
+        args = []
+        for k, v in items:
+            m = getattr(self, 'fmt_' + k, repr)
+            r = m(v)
+            if r is not None:
+                args.append('%s=%s'%(k, r))
+        kwds = ', '.join(args)
         return '%s(%s)' % (self.__class__.__name__, kwds)
+
+    def fmt_knowntype(self, t):
+        return t.__name__
+    
     def contains(self, other):
         return self == other or pair(self, other).union() == self
     def is_constant(self):
@@ -150,6 +162,10 @@ class SomeInstance(SomeObject):
         self.classdef = classdef
         self.knowntype = classdef.cls
         self.revision = classdef.revision
+    def fmt_knowntype(self, kt):
+        return None
+    def fmt_classdef(self, cd):
+        return cd.cls.__name__
 
 def new_or_old_class(c):
     if hasattr(c, '__class__'):
@@ -184,6 +200,18 @@ class SomePBC(SomeObject):
                 classdef = self.prebuiltinstances[x.im_func]
                 if isinstance(x.im_self, classdef.cls):
                     del self.prebuiltinstances[x]
+
+    def fmt_prebuiltinstances(self, pbis):
+        if hasattr(self, 'const'):
+            return None
+        else:
+            return '{...%s...}'%(len(pbis),)
+
+    def fmt_knowntype(self, kt):
+        if self.is_constant():
+            return None
+        else:
+            return kt.__name__
 
 class SomeBuiltin(SomePBC):
     "Stands for a built-in function or method with special-cased analysis."
