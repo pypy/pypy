@@ -62,7 +62,7 @@ def builtin_isinstance(s_obj, s_type):
         assert op.opname == "simple_call" 
         assert len(op.args) == 3
         assert op.args[0] == Constant(isinstance)
-        assert annotator.binding(op.args[1]) is s_obj
+        assert annotator.binding(op.args[1]) == s_obj
         s.knowntypedata = (op.args[1], bk.valueoftype(typ))
     return s 
 
