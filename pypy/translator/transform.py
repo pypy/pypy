@@ -306,7 +306,7 @@ def transform_dead_code(self):
     them."""
     for block in self.annotated:
         for link in block.exits:
-            if link.target not in self.annotated:
+            if link not in self.links_followed:
                 lst = list(block.exits)
                 lst.remove(link)
                 block.exits = tuple(lst)

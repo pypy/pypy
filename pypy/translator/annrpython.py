@@ -23,6 +23,7 @@ class RPythonAnnotator:
         self.pendingblocks = []  # list of (fn, block, list-of-SomeValues-args)
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
+        self.links_followed = {} # set of links that have ever been followed
         self.why_not_annotated = {} # {block: (exc_type, exc_value, traceback)}
                                     # records the location of BlockedInference
                                     # exceptions that blocked some blocks.
@@ -317,6 +318,7 @@ class RPythonAnnotator:
         knownvar, knownvarvalue = getattr(self.bindings.get(block.exitswitch),
                                           "knowntypedata", (None, None))
         for link in exits:
+            self.links_followed[link] = True
             cells = []
             for a in link.args:
                 if link.exitcase is True and a is knownvar \
