@@ -31,7 +31,6 @@ from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.restricted_int import r_int, r_uint
 
 from pypy.translator.translator import Translator
-from pypy.objspace.std import StdObjSpace
 from pypy.objspace.flow import FlowObjSpace
 
 from pypy.interpreter.gateway import app2interp, interp2app
@@ -99,6 +98,21 @@ class GenRpy:
         for name in "newtuple newlist newdict newstring".split():
             self.has_listarg[name] = name
 
+        # catching all builtins inj advance, to avoid problems
+        # with modified builtins
+        import __builtin__
+        
+        class bltinstub:
+            def __init__(self, name):
+                self.__name__ = name
+            def __repr__(self):
+                return '<%s>' % self.__name__
+            
+        self.builtin_ids = dict( [
+            (id(value), bltinstub(key))
+            for key, value in __builtins__.items()
+            if callable(value) and type(value) not in [type(Exception), type] ] )
+        
         self.space = FlowObjSpace() # for introspection
 
         self.use_fast_call = True
@@ -250,20 +264,25 @@ class GenRpy:
                 # assume it's a user defined thingy
                 name = self.nameof_instance(obj)
             else:
-                for cls in type(obj).__mro__:
-                    meth = getattr(self,
-                                   'nameof_' + cls.__name__.replace(' ', ''),
-                                   None)
-                    if meth:
-                        break
+                # shortcutting references to __builtin__
+                if id(obj) in self.builtin_ids:
+                    func = self.builtin_ids[id(obj)]
+                    name = "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
                 else:
-                    raise Exception, "nameof(%r)" % (obj,)
+                    for cls in type(obj).__mro__:
+                        meth = getattr(self,
+                                       'nameof_' + cls.__name__.replace(' ', ''),
+                                       None)
+                        if meth:
+                            break
+                    else:
+                        raise Exception, "nameof(%r)" % (obj,)
 
-                code = meth.im_func.func_code
-                if namehint and 'namehint' in code.co_varnames[:code.co_argcount]:
-                    name = meth(obj, namehint=namehint)
-                else:
-                    name = meth(obj)
+                    code = meth.im_func.func_code
+                    if namehint and 'namehint' in code.co_varnames[:code.co_argcount]:
+                        name = meth(obj, namehint=namehint)
+                    else:
+                        name = meth(obj)
             self.debugstack, x = self.debugstack
             assert x is stackentry
             self.rpynames[key] = name
@@ -473,10 +492,9 @@ class GenRpy:
         return self._space_arities
         
     def try_space_shortcut_for_builtin(self, v, nargs):
-        if isinstance(v, Constant) and type(v.value) is type(len):
-            func = v.value
-            name = func.__name__
-            if func.__self__ is None and hasattr(self.space, name):
+        if isinstance(v, Constant) and id(v.value) in self.builtin_ids:
+            name = self.builtin_ids[id(v.value)].__name__
+            if hasattr(self.space, name):
                 if self.space_arities().get(name, -1) == nargs:
                     return "space.%s" % name
         return None
@@ -484,6 +502,9 @@ class GenRpy:
     def nameof_builtin_function_or_method(self, func):
         if func.__self__ is None:
             # builtin function
+            if id(func) in self.builtin_ids:
+                func = self.builtin_ids[id(func)]
+                return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
             # where does it come from? Python2.2 doesn't have func.__module__
             for modname, module in sys.modules.items():
                 if hasattr(module, '__file__'):
@@ -496,8 +517,6 @@ class GenRpy:
             else:
                 raise Exception, '%r not found in any built-in module' % (func,)
             if modname == '__builtin__':
-                #self.initcode.append1('%s = space.getattr(space.w_builtin, %s)'% (
-                #    name, self.nameof(func.__name__)))
                 # be lazy
                 return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
             elif modname == 'sys':
