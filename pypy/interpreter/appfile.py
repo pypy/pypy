@@ -25,7 +25,7 @@ class AppFile:
                 break
         else:
             raise IOError, "cannot locate helper module '%s' in %s" % (
-                modulename, lookuppaths_ext)
+                modulename, path_ext)
         f = open(filename, 'r')
         src = f.read()
         f.close()

@@ -17,10 +17,16 @@ For this setting, use environment variable OBJSPACE and set it to
 a value such as 'pypy.objspace.trivial.TrivialObjSpace' (which is
 also the default if the environment variable is not found or empty
 or without any dot in it).
+
+When run as a script, runs all tests found in files called 'test_*.py'
+in the same directory.
 """
 import sys, os
 
-head = this_path = os.path.abspath(__file__)
+try:
+    head = this_path = os.path.abspath(__file__)
+except NameError:
+    head = this_path = os.path.abspath(os.path.dirname(sys.argv[0]))
 while 1:
     head, tail = os.path.split(head)
     if not tail:
@@ -33,6 +39,8 @@ import pypy.interpreter.unittest_w
 TestCase = pypy.interpreter.unittest_w.TestCase_w
 import unittest
 main = unittest.main
+
+from pypy.interpreter import testtools
 
 objspace_path = os.environ.get('OBJSPACE')
 if not objspace_path or '.' not in objspace_path:
@@ -47,3 +55,6 @@ else:
     objspace_classname = objspace_pieces[-1]
     objspace = getattr(objspace_module, objspace_classname)
 
+if __name__ == '__main__':
+    runner = unittest.TextTestRunner()
+    runner.run(testtools.get_tests_for_dir(os.path.dirname(sys.argv[0])))
