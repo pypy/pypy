@@ -6,6 +6,7 @@ The bytecode interpreter itself is implemented by the PyFrame class.
 
 import dis
 from pypy.interpreter import eval
+from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.tool.cache import Cache 
 
 # helper
@@ -194,7 +195,8 @@ class PyCode(eval.Code):
                           w_argcount, w_nlocals, w_stacksize, w_flags,
                           w_codestring, w_constants, w_names,
                           w_varnames, w_filename, w_name, w_firstlineno,
-                          w_lnotab, w_freevars=None, w_cellvars=None):
+                          w_lnotab, w_freevars=NoneNotWrapped,
+                          w_cellvars=NoneNotWrapped):
         code = space.allocate_instance(PyCode, w_subtype)
         code.__init__(space)
         # XXX typechecking everywhere!

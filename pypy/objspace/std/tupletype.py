@@ -1,7 +1,7 @@
 from pypy.objspace.std.stdtypedef import *
+from pypy.interpreter.gateway import NoneNotWrapped
 
-
-def descr__new__(space, w_tupletype, w_items=None):
+def descr__new__(space, w_tupletype, w_items=NoneNotWrapped):
     from pypy.objspace.std.tupleobject import W_TupleObject
     if w_items is None:
         tuple_w = []

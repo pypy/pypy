@@ -1,145 +1,94 @@
 import autopath
+from py.test import raises
 
 from pypy.objspace.std.multimethod import *
 
-BoundMultiMethod.ASSERT_BASE_TYPE = object
+
+class W_Root(object):
+    pass
+
+class W_IntObject(W_Root):
+    pass
+
+class W_BoolObject(W_Root):
+    pass
+
+class W_StringObject(W_Root):
+    pass
+
+def delegate_b2i(w_x):
+    assert isinstance(w_x, W_BoolObject)
+    return W_IntObject()
+
+add = MultiMethodTable(2, root_class=W_Root, argnames_before=['space'])
+
+def add__Int_Int(space, w_x, w_y):
+    assert space == 'space'
+    assert isinstance(w_x, W_IntObject)
+    assert isinstance(w_y, W_IntObject)
+    return 'fine'
+
+add.register(add__Int_Int, W_IntObject, W_IntObject)
 
 
-objspacename = 'std'
-
-class X:
-    def __init__(self, value):
-        self.value = value
-    def __repr__(self):
-        return '<X %r>' % self.value
-
-def from_y_to_x(space, yinstance):
-    return X(yinstance)
-
-from_y_to_x.result_class = X
-from_y_to_x.priority = 2
-
-def from_x_to_str(space, xinstance):
-    #if xinstance.value:
-    return w('!' + repr(xinstance.value))
-    #else:
-    #    return []
-
-from_x_to_str.result_class = str
-from_x_to_str.priority = 2
+def setup_module(mod):
+    typeorder = {
+        W_IntObject: [(W_IntObject, None)],
+        W_BoolObject: [(W_BoolObject, None), (W_IntObject, delegate_b2i)],
+        W_StringObject: [(W_StringObject, None)],
+        }
+    mod.typeorder = typeorder
+    mod.add1 = add.install('__add', [typeorder, typeorder])
 
 
-class Y:
-    def __init__(self, value):
-        self.value = value
-    def __repr__(self):
-        return '<Y %r>' % self.value
-    def __nonzero__(self):
-        return self.value != 666
+def test_simple():
+    space = 'space'
+    w_x = W_IntObject()
+    w_y = W_IntObject()
+    assert add1(space, w_x, w_y) == 'fine'
+
+def test_failtoimplement():
+    space = 'space'
+    w_x = W_IntObject()
+    w_s = W_StringObject()
+    raises(FailedToImplement, "add1(space, w_x, w_s)")
+    raises(FailedToImplement, "add1(space, w_s, w_x)")
+
+def test_delegate():
+    space = 'space'
+    w_x = W_IntObject()
+    w_s = W_StringObject()
+    w_b = W_BoolObject()
+    assert add1(space, w_x, w_b) == 'fine'
+    assert add1(space, w_b, w_x) == 'fine'
+    assert add1(space, w_b, w_b) == 'fine'
+    raises(FailedToImplement, "add1(space, w_b, w_s)")
+    raises(FailedToImplement, "add1(space, w_s, w_b)")
+
+def test_not_baked():
+    add2 = add.install('__add2', [typeorder, typeorder],baked_perform_call=False)
+    assert add2[0] == ['space', 'arg0', 'arg1']
+    assert add2[1] == 'arg0.__add2(space, arg1)'
+    assert isinstance(add2[2], dict)
+    assert not add2[3]
+
+def test_empty():
+    add3_installer = Installer(add, '__add3', [{},{}])
+    assert add3_installer.is_empty()
+    assert len(add3_installer.to_install) == 1
+    assert add3_installer.to_install[0][0] is None
+
+def test_empty_direct():
+    assert not add.install_if_not_empty('__add4', [{},{}])
 
 
-def add_x_x(space, x1, x2):
-    return "add_x_x", x1, x2
-
-def add_x_y(space, x1, y2):
-    if x1.value < 0:
-        raise FailedToImplement(ValueError, 'not good')
-    return "add_x_y", x1, y2
-
-def add_y_y(space, y1, y2):
-    return "add_y_y", y1, y2
-
-def add_string_string(space, x, y):
-    return "add_string_string", x, y
-
-def add_int_string(space, x, y):
-    return "add_int_string", x, y
-
-def add_int_any(space, y1, o2):
-    return "add_int_any", y1, o2
-
-class FakeObjSpace:
-    add = MultiMethod('+', 2, [])
-    add.register(add_x_x,           X,   X)
-    add.register(add_x_y,           X,   Y)
-    add.register(add_y_y,           Y,   Y)
-    add.register(add_string_string, str, str)
-    add.register(add_int_string,    int, str)
-    add.register(add_int_any,       int, object)
-
-    delegate = DelegateMultiMethod()
-    delegate.register(from_y_to_x,    Y)
-    delegate.register(from_x_to_str,  X)
+def test_empty_not_baked():
+    add5_installer = Installer(add, '__add5', [{},{}], baked_perform_call=False)
+    assert add5_installer.is_empty()
+    assert len(add5_installer.to_install) == 0
+    add5 = add5_installer.install()
+    assert add5[0] == ['space', 'arg0', 'arg1']
+    assert add5[1] == 'raiseFailedToImplement()'
+    assert isinstance(add5[2], dict)
+    assert add5[3]
     
-    def wrap(self, x):
-        return '<wrapped %r>' % (x,)
-    w_TypeError = 'w_TypeError'
-
-##def w(x, cache={}):
-##    if type(x) in cache:
-##        Stub = cache[type(x)]
-##    else:
-##        Stub = type(type(x))('%s_stub' % type(x).__name__, (type(x),), {})
-##        Stub.dispatchclass = Stub
-##        cache[type(x)] = Stub
-##    return Stub(x)
-
-##X.dispatchclass = X
-##Y.dispatchclass = Y
-
-def w(x):
-    return x
-
-
-class TestMultiMethod:
-    def setup_method(self,method):
-        # only run when testing stdobjectspace 
-        #XXX removed: self.space
-        self.space = FakeObjSpace()
-
-    def test_non_delegate(self):
-        space = self.space
-        
-        r = space.add(X(2), X(5))
-        assert repr(r) == "('add_x_x', <X 2>, <X 5>)"
-        
-        r = space.add(X(3), Y(4))
-        assert repr(r) == "('add_x_y', <X 3>, <Y 4>)"
-
-        r = space.add(Y(0), Y(20))
-        assert repr(r) == "('add_y_y', <Y 0>, <Y 20>)"
-
-        r = space.add(w(-3), w([7,6,5]))
-        assert repr(r) == "('add_int_any', -3, [7, 6, 5])"
-
-        r = space.add(w(5), w("test"))
-        assert repr(r) == "('add_int_string', 5, 'test')"
-
-        r = space.add(w("x"), w("y"))
-        assert repr(r) == "('add_string_string', 'x', 'y')"
-        
-    def test_delegate_y_to_x(self):
-        space = self.space
-        r = space.add(Y(-1), X(7))
-        assert repr(r) == "('add_x_x', <X <Y -1>>, <X 7>)"
-        
-        r = space.add(Y(1), X(7))
-        assert repr(r) == "('add_x_x', <X <Y 1>>, <X 7>)"
-        
-        r = space.add(X(-3), Y(20))
-        assert repr(r) == "('add_x_x', <X -3>, <X <Y 20>>)"
-       
-    def test_no_operation_defined(self):
-        space = self.space
-        raises(OperationError, space.add, w([3]), w(4))
-        raises(OperationError, space.add, w(3.0), w('bla'))
-        #raises(OperationError, space.add, X(0), w("spam"))
-        #raises(OperationError, space.add, Y(666), w("egg"))
-
-    def test_delegate_x_to_str(self):
-        space = self.space
-        r = space.add(X(42), w("spam"))
-        assert repr(r) == "('add_string_string', '!42', 'spam')"
-
-        r = space.add(Y(20), w("egg"))
-        assert repr(r) == "('add_string_string', '!<Y 20>', 'egg')"

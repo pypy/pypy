@@ -13,7 +13,7 @@ def id__ANY(space, w_obj):
 
 # __init__ should succeed if called internally as a multimethod
 
-def init__ANY(space, w_obj, w_args, w_kwds):
+def init__ANY(space, w_obj, __args__):
     pass
 
 
@@ -216,9 +216,6 @@ def init__ANY(space, w_obj, w_args, w_kwds):
 
 # ugh
 
-class UnwrapError(Exception):
-    pass
-
 def typed_unwrap_error_msg(space, expected, w_obj):
     w = space.wrap
     type_name = space.str_w(space.getattr(space.type(w_obj),w("__name__")))
@@ -235,12 +232,6 @@ def str_w__ANY(space,w_obj):
 def float_w__ANY(space,w_obj):
     raise OperationError(space.w_TypeError,
                          typed_unwrap_error_msg(space, "float", w_obj))
-
-def unwrap__ANY(space, w_obj):
-    if isinstance(w_obj, BaseWrappable):
-        return w_obj
-    else:
-        raise UnwrapError, 'cannot unwrap %r' % (w_obj,)
 
 
 register_all(vars())

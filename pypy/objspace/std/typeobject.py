@@ -170,24 +170,29 @@ class W_TypeObject(W_Object):
                              space.wrap("attribute '__dict__' of type objects "
                                         "is not writable"))
 
+    def unwrap(w_self):
+        if hasattr(w_self.instancetypedef, 'fakedcpytype'):
+            return w_self.instancetypedef.fakedcpytype
+        from pypy.objspace.std.model import UnwrapError
+        raise UnwrapError(w_self)
 
-def call__Type(space, w_type, w_args, w_kwds):
-    args = Arguments.frompacked(space, w_args, w_kwds)
+
+def call__Type(space, w_type, __args__):
     # special case for type(x)
     if space.is_true(space.is_(w_type, space.w_type)):
         try:
-            w_obj, = args.fixedunpack(1)
+            w_obj, = __args__.fixedunpack(1)
         except ValueError:
             pass
         else:
             return space.type(w_obj)
     # invoke the __new__ of the type
     w_newfunc = space.getattr(w_type, space.wrap('__new__'))
-    w_newobject = space.call_args(w_newfunc, args.prepend(w_type))
+    w_newobject = space.call_args(w_newfunc, __args__.prepend(w_type))
     # maybe invoke the __init__ of the type
     if space.is_true(space.isinstance(w_newobject, w_type)):
         w_descr = space.lookup(w_newobject, '__init__')
-        space.get_and_call_args(w_descr, w_newobject, args)
+        space.get_and_call_args(w_descr, w_newobject, __args__)
     return w_newobject
 
 def issubtype__Type_Type(space, w_type1, w_type2):
@@ -228,11 +233,6 @@ def delattr__Type_ANY(space, w_type, w_name):
     
 # XXX __delattr__
 # XXX __hash__ ??
-
-def unwrap__Type(space, w_type):
-    if hasattr(w_type.instancetypedef, 'fakedcpytype'):
-        return w_type.instancetypedef.fakedcpytype
-    raise FailedToImplement
 
 # ____________________________________________________________
 

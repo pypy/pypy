@@ -39,15 +39,12 @@ str_decode     = MultiMethod('decode', 3, defaults=(None, None))
 
 # ____________________________________________________________
 
-def descr__new__(space, w_stringtype, w_obj=None):
+def descr__new__(space, w_stringtype, w_obj=''):
     from pypy.objspace.std.stringobject import W_StringObject
-    if w_obj is None:
-        value = ''
-    else:
-        w_obj = space.str(w_obj)
-        if space.is_true(space.is_(w_stringtype, space.w_str)):
-            return w_obj  # XXX might be reworked when space.str() typechecks
-        value = space.str_w(w_obj)
+    w_obj = space.str(w_obj)
+    if space.is_true(space.is_(w_stringtype, space.w_str)):
+        return w_obj  # XXX might be reworked when space.str() typechecks
+    value = space.str_w(w_obj)
     w_obj = space.allocate_instance(W_StringObject, w_stringtype)
     w_obj.__init__(space, value)
     return w_obj

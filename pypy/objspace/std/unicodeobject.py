@@ -5,10 +5,10 @@ from pypy.objspace.std.stringobject import W_StringObject
 W_UnicodeObject = fake_type(unicode)
 
 # string-to-unicode delegation
-def delegate__String(space, w_str):
+def delegate_String2Unicode(w_str):
+    space = w_str.space
     return W_UnicodeObject(space, unicode(space.str_w(w_str)))
-delegate__String.result_class = W_UnicodeObject
-delegate__String.priority = PRIORITY_CHANGE_TYPE
+
 
 def eq__Unicode_ANY(space, w_uni, w_other):
     try:

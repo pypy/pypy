@@ -21,14 +21,19 @@ class W_FloatObject(W_Object):
         W_Object.__init__(w_self, space)
         w_self.floatval = floatval
 
+    def unwrap(w_self):
+        return w_self.floatval
+
 
 registerimplementation(W_FloatObject)
 
+# bool-to-float delegation
+def delegate_Bool2Float(w_bool):
+    return W_FloatObject(w_bool.space, float(w_bool.boolval))
+
 # int-to-float delegation
-def delegate__Int(space, w_intobj):
-    return W_FloatObject(space, float(w_intobj.intval))
-delegate__Int.result_class = W_FloatObject
-delegate__Int.priority = PRIORITY_CHANGE_TYPE
+def delegate_Int2Float(w_intobj):
+    return W_FloatObject(w_intobj.space, float(w_intobj.intval))
 
 
 # float__Float is supposed to do nothing, unless it has
@@ -47,9 +52,6 @@ def int__Float(space, w_value):
     return space.newint(value)
 
 def float_w__Float(space, w_float):
-    return w_float.floatval
-
-def unwrap__Float(space, w_float):
     return w_float.floatval
 
 def app_repr__Float(f):

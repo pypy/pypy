@@ -16,21 +16,19 @@ class W_BoolObject(W_Object):
         """ representation for debugging purposes """
         return "%s(%s)" % (w_self.__class__.__name__, w_self.boolval)
 
+    def unwrap(w_self):
+        return w_self.boolval
+
 registerimplementation(W_BoolObject)
 
 # bool-to-int delegation requires translating the .boolvar attribute
 # to an .intval one
-def delegate__Bool(space, w_bool):
-    return intobject.W_IntObject(space, int(w_bool.boolval))
-delegate__Bool.result_class = intobject.W_IntObject
-delegate__Bool.priority = PRIORITY_PARENT_TYPE
+def delegate_Bool2Int(w_bool):
+    return intobject.W_IntObject(w_bool.space, int(w_bool.boolval))
 
 
 def nonzero__Bool(space, w_bool):
     return w_bool
-
-def unwrap__Bool(space, w_bool):
-    return w_bool.boolval
 
 def repr__Bool(space, w_bool):
     if w_bool.boolval:

@@ -4,7 +4,7 @@ from pypy.interpreter import eval
 from pypy.interpreter.function import Function
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.objspace import W_Object, StdObjSpace
-from pypy.objspace.std.default import UnwrapError
+from pypy.objspace.std.model import UnwrapError
 from pypy.tool.cache import Cache 
 
 # this file automatically generates non-reimplementations of CPython
@@ -83,13 +83,12 @@ def really_build_fake_type(cpy_type, ignored):
         def __init__(w_self, space, val):
             W_Object.__init__(w_self, space)
             w_self.val = val
+        def unwrap(w_self):
+            return w_self.val
     # cannot write to W_Fake.__name__ in Python 2.2!
     W_Fake = type(W_Object)('W_Fake%s'%(cpy_type.__name__.capitalize()),
                             (W_Object,),
                             dict(W_Fake.__dict__.items()))
-    def fake_unwrap(space, w_obj):
-        return w_obj.val
-    StdObjSpace.unwrap.register(fake_unwrap, W_Fake)
     W_Fake.typedef.fakedcpytype = cpy_type
     return W_Fake
 

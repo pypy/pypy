@@ -1,14 +1,13 @@
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.strutil import string_to_int
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import NoneNotWrapped
 
-def descr__new__(space, w_inttype, w_value=None, w_base=None):
+def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
     from pypy.objspace.std.intobject import W_IntObject
     if w_base is None:
         # check for easy cases
-        if w_value is None:
-            value = 0
-        elif isinstance(w_value, W_IntObject):
+        if isinstance(w_value, W_IntObject):
             value = w_value.intval
         elif space.is_true(space.isinstance(w_value, space.w_str)):
             try:

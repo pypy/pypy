@@ -29,52 +29,47 @@ class W_ListObject(W_Object):
         reprlist = [repr(w_item) for w_item in w_self.ob_item[:w_self.ob_size]]
         return "%s(%s)" % (w_self.__class__.__name__, ', '.join(reprlist))
 
+    def unwrap(w_list):
+        space = w_list.space
+        items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]# XXX generic mixed types unwrap
+        return list(items)
+
 
 registerimplementation(W_ListObject)
 
 
-def unwrap__List(space, w_list): 
-    items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]# XXX generic mixed types unwrap
-    return list(items)
-
-def init__List(space, w_list, w_args, w_kwds):
-    if space.is_true(w_kwds):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("no keyword arguments expected"))
+def init__List(space, w_list, __args__):
+    w_iterable, = __args__.parse('list',
+                               (['sequence'], None, None),   # signature
+                               [W_ListObject(space, [])])    # default argument
     w_list.ob_size = 0  # XXX think about it later
-    args = space.unpackiterable(w_args)
-    if len(args) == 0:
-        pass   # empty list
-    elif len(args) == 1:
-        w_iterable = args[0]
-        length = 0
+	
+    length = 0
+    try:
+        length = space.int_w(space.len(w_iterable))
+        if length < 0:
+            length = 8 
+    except OperationError, e:
+        pass # for now
+    _list_resize(w_list, length)
+    w_iterator = space.iter(w_iterable)
+    while True:
         try:
-            length = space.int_w(space.len(w_iterable))
-            if length < 0:
-                length = 8 
+            w_item = space.next(w_iterator)
         except OperationError, e:
-            pass # for now
-        _list_resize(w_list, length)
-        w_iterator = space.iter(w_iterable)
-        while True:
-            try:
-                w_item = space.next(w_iterator)
-            except OperationError, e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break  # done
-            _ins1(w_list, w_list.ob_size, w_item)
-    else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("list() takes at most 1 argument"))
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break  # done
+        _ins1(w_list, w_list.ob_size, w_item)
+
 
 def len__List(space, w_list):
     result = w_list.ob_size
     return W_IntObject(space, result)
 
-def getitem__List_Int(space, w_list, w_index):
+def getitem__List_ANY(space, w_list, w_index):
     items = w_list.ob_item
-    idx = w_index.intval
+    idx = space.int_w(w_index)
     if idx < 0:
         idx += w_list.ob_size
     if idx < 0 or idx >= w_list.ob_size:
@@ -129,9 +124,8 @@ def inplace_add__List_ANY(space, w_list1, w_iterable2):
     list_extend__List_ANY(space, w_list1, w_iterable2)
     return w_list1
 
-def mul__List_Int(space, w_list, w_int):
+def mul_list_times(space, w_list, times):
     w_res = W_ListObject(space, [])
-    times = w_int.intval
     src = w_list.ob_item
     size = w_list.ob_size
     newlen = size * times  # XXX check overflow
@@ -145,8 +139,11 @@ def mul__List_Int(space, w_list, w_int):
     w_res.ob_size = p
     return w_res
 
-def mul__Int_List(space, w_int, w_list):
-    return mul__List_Int(space, w_list, w_int)
+def mul__List_ANY(space, w_list, w_times):
+    return mul_list_times(space, w_list, space.int_w(w_times))
+
+def mul__ANY_List(space, w_times, w_list):
+    return mul_list_times(space, w_list, space.int_w(w_times))
 
 def eq__List_List(space, w_list1, w_list2):
     items1 = w_list1.ob_item
@@ -188,8 +185,8 @@ def gt__List_List(space, w_list1, w_list2):
 # upto here, lists are nearly identical to tuples, despite the
 # fact that we now support over-allocation!
 
-def delitem__List_Int(space, w_list, w_idx):
-    i = w_idx.intval
+def delitem__List_ANY(space, w_list, w_idx):
+    i = space.int_w(w_idx)
     if i < 0:
         i += w_list.ob_size
     if i < 0 or i >= w_list.ob_size:
@@ -217,9 +214,9 @@ def delitem__List_Slice(space, w_list, w_slice):
         _del_slice(w_list, i, i+1)
     return space.w_None
 
-def setitem__List_Int_ANY(space, w_list, w_index, w_any):
+def setitem__List_ANY_ANY(space, w_list, w_index, w_any):
     items = w_list.ob_item
-    idx = w_index.intval
+    idx = space.int_w(w_index)
     if idx < 0:
         idx += w_list.ob_size
     if idx < 0 or idx >= w_list.ob_size:

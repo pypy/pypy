@@ -1,11 +1,9 @@
 from pypy.objspace.std.stdtypedef import *
 from pypy.interpreter.error import OperationError
 
-def descr__new__(space, w_floattype, w_value=None):
+def descr__new__(space, w_floattype, w_value=0.0):
     from pypy.objspace.std.floatobject import W_FloatObject
-    if w_value is None:
-        value = 0.0
-    elif space.is_true(space.isinstance(w_value, space.w_str)):
+    if space.is_true(space.isinstance(w_value, space.w_str)):
         try:
             value = float(space.str_w(w_value))
         except ValueError, e:

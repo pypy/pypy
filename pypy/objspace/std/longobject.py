@@ -17,7 +17,23 @@ class W_LongObject(W_Object):
         assert isinstance(longval, long)
         w_self.longval = longval
 
+    def unwrap(w_self):
+        return w_self.longval
+
 registerimplementation(W_LongObject)
+
+
+# bool-to-long
+def delegate_Bool2Long(w_bool):
+    return W_LongObject(w_bool.space, long(w_bool.boolval))
+
+# int-to-long delegation
+def delegate_Int2Long(w_intobj):
+    return W_LongObject(w_intobj.space, long(w_intobj.intval))
+
+# long-to-float delegation
+def delegate_Long2Float(w_longobj):
+    return W_FloatObject(w_longobj.space, float(w_longobj.longval))
 
 
 # long__Long is supposed to do nothing, unless it has
@@ -55,9 +71,6 @@ def int_w__Long(space, w_value):
     else:
         raise OperationError(space.w_OverflowError,
                              space.wrap("long int too large to convert to int"))        
-
-def unwrap__Long(space, w_long):
-    return w_long.longval
 
 def repr__Long(space, w_long):
     return space.wrap(repr(w_long.longval))
@@ -223,35 +236,47 @@ def hex__Long(space, w_long1):
 
 register_all(vars())
 
-# delegations must be registered manually because we have more than one
-# long-to-something delegation
+# register implementations of ops that recover int op overflows
 
-# int-to-long delegation
-def delegate_from_int(space, w_intobj):
-    return W_LongObject(space, long(w_intobj.intval))
-delegate_from_int.result_class = W_LongObject
-delegate_from_int.priority = PRIORITY_CHANGE_TYPE
+# binary ops
+for opname in ['add', 'sub', 'mul', 'div', 'floordiv', 'truediv', 'mod', 'divmod']:
+    exec """
+def %(opname)s_ovr__Int_Int(space, w_int1, w_int2):
+    w_long1 = delegate_Int2Long(w_int1)
+    w_long2 = delegate_Int2Long(w_int2)
+    return %(opname)s__Long_Long(space, w_long1, w_long2)
+""" % {'opname': opname}
 
-StdObjSpace.delegate.register(delegate_from_int, W_IntObject)
+    getattr(StdObjSpace.MM, opname).register(globals()['%s_ovr__Int_Int' %opname], W_IntObject, W_IntObject, order=1)
 
-# long-to-int delegation
-def delegate_to_int(space, w_longobj):
-    if -sys.maxint-1 <= w_longobj.longval <= sys.maxint:
-        return W_IntObject(space, int(w_longobj.longval))
-    else:
-        # note the 'return' here -- hack
-        return FailedToImplement(space.w_OverflowError,
-                   space.wrap("long int too large to convert to int"))
-delegate_to_int.result_class = W_IntObject
-delegate_to_int.priority = PRIORITY_CHANGE_TYPE
-delegate_to_int.can_fail = True
+# unary ops
+for opname in ['neg', 'abs']:
+    exec """
+def %(opname)s_ovr__Int(space, w_int1):
+    w_long1 = delegate_Int2Long(w_int1)
+    return %(opname)s__Long(space, w_long1)
+""" % {'opname': opname}
 
-StdObjSpace.delegate.register(delegate_to_int, W_LongObject)
+    getattr(StdObjSpace.MM, opname).register(globals()['%s_ovr__Int' %opname], W_IntObject, order=1)
 
-# long-to-float delegation
-def delegate_to_float(space, w_longobj):
-    return W_FloatObject(space, float(w_longobj.longval))
-delegate_to_float.result_class = W_FloatObject
-delegate_to_float.priority = PRIORITY_CHANGE_TYPE
+# lshift
+def lshift_ovr__Int_Int(space, w_int1, w_cnt):
+    w_long1 = delegate_Int2Long(w_int1)
+    return lshift__Long_Int(space, w_long1, w_cnt)
 
-StdObjSpace.delegate.register(delegate_to_float, W_LongObject)
+StdObjSpace.MM.lshift.register(lshift_ovr__Int_Int, W_IntObject, W_IntObject, order=1)
+
+# pow
+def pow_ovr__Int_Int_None(space, w_int1, w_int2, w_none3):
+    w_long1 = delegate_Int2Long(w_int1)
+    w_long2 = delegate_Int2Long(w_int2)
+    return pow__Long_Long_None(space, w_long1, w_long2, w_none3)
+
+def pow_ovr__Int_Int_Int(space, w_int1, w_int2, w_int3):
+    w_long1 = delegate_Int2Long(w_int1)
+    w_long2 = delegate_Int2Long(w_int2)
+    w_long3 = delegate_Int2Long(w_int3)
+    return pow__Long_Long_Long(space, w_long1, w_long2, w_long3)
+
+StdObjSpace.MM.pow.register(pow_ovr__Int_Int_None, W_IntObject, W_IntObject, W_NoneObject, order=1)
+StdObjSpace.MM.pow.register(pow_ovr__Int_Int_Int , W_IntObject, W_IntObject, W_IntObject,  order=1)

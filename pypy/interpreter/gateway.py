@@ -14,11 +14,13 @@ import types, sys
 
 from pypy.tool import hack
 from pypy.interpreter.error import OperationError 
-from pypy.interpreter import eval, pycode
+from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import W_Root,ObjSpace,Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.tool.cache import Cache 
+
+NoneNotWrapped = object()
 
 class Signature:
     def __init__(self, func=None, argnames=None, varargname=None,
@@ -127,7 +129,16 @@ def unwrap_spec_check_args_w(orig_sig, new_sig):
     assert new_sig.varargname is None,(
         "built-in function %r has conflicting rest args specs" % orig_sig.func)
     new_sig.varargname = argname[:-2]
-        
+
+def unwrap_spec_check_w_args(orig_sig, new_sig):
+    argname = orig_sig.next()
+    assert argname.startswith('w_'), (
+        "rest arguments arg %s of built-in function %r should start 'w_'" %
+        (argname, orig_sig.func))
+    assert new_sig.varargname is None,(
+        "built-in function %r has conflicting rest args specs" % orig_sig.func)
+    new_sig.varargname = argname[2:]
+      
 # recipes for checking interp2app func argumes wrt unwrap_spec
 unwrap_spec_checks = {
     ObjSpace: unwrap_spec_check_space,
@@ -136,6 +147,7 @@ unwrap_spec_checks = {
     Arguments: unwrap_spec_check_arguments,
     '*': unwrap_spec_check_starargs,
     'args_w': unwrap_spec_check_args_w,
+    'w_args': unwrap_spec_check_w_args,    
 }
 
 def unwrap_spec_emit_space(orig_sig, new_sig):
@@ -178,6 +190,13 @@ def unwrap_spec_emit_args_w(orig_sig, new_sig):
              (new_sig.through_scope_w))
     new_sig.through_scope_w += 1
     new_sig.run_args.append("self.args_w")
+
+def unwrap_spec_emit_w_args(orig_sig, new_sig):
+    cur = new_sig.through_scope_w
+    new_sig.setfastscope.append(
+        "self.w_args = scope_w[%d]" % cur)
+    new_sig.through_scope_w += 1
+    new_sig.run_args.append("self.w_args")
         
 # recipes for emitting unwrapping code for arguments of a interp2app func
 # wrt a unwrap_spec
@@ -188,6 +207,7 @@ unwrap_spec_emit = {
     Arguments: unwrap_spec_emit_arguments,
     '*': unwrap_spec_emit_starargs,
     'args_w': unwrap_spec_emit_args_w,
+    'w_args': unwrap_spec_emit_w_args,
 }
 
 # unwrap_spec_check/emit for str,int,float
@@ -257,10 +277,12 @@ class BuiltinCode(eval.Code):
         #  'self' is used to specify a self method argument
         #  baseobjspace.W_Root is for wrapped arguments to keep wrapped
         #  argument.Arguments is for a final rest arguments Arguments object
-        # 'args_w' for unpacktuple applied rest arguments
+        # 'args_w' for unpacktuple applied to rest arguments
+        # 'w_args' for rest arguments passed as wrapped tuple
         # str,int,float: unwrap argument as such type
         
         # First extract the signature from the (CPython-level) code object
+        from pypy.interpreter import pycode
         argnames, varargname, kwargname = pycode.cpython_code_signature(func.func_code)
 
         if unwrap_spec is None:
@@ -459,6 +481,7 @@ class app2interp(Gateway):
                 raise ValueError, ("function name must start with 'app_'; "
                                    "%r does not" % app.func_name)
             app_name = app.func_name[4:]
+        self.__name__ = app.func_name
         self.name = app_name
         self._staticcode = app.func_code
         self._staticglobals = app.func_globals
@@ -466,6 +489,7 @@ class app2interp(Gateway):
 
     def getcode(self, space):
         "NOT_RPYTHON"
+        from pypy.interpreter import pycode
         code = pycode.PyCode(space)
         code._from_code(self._staticcode)
         return code
@@ -518,6 +542,7 @@ class interp2app(Gateway):
         self._code = BuiltinCode(f, ismethod=ismethod,
                                   spacearg=spacearg,
                                   unwrap_spec=unwrap_spec)
+        self.__name__ = f.func_name
         self.name = app_name
         self._staticdefs = list(f.func_defaults or ())
         #if self._staticdefs:
@@ -531,8 +556,8 @@ class interp2app(Gateway):
         "NOT_RPYTHON"
         defs_w = []
         for val in self._staticdefs:
-            if val is None:
-                defs_w.append(val)
+            if val is NoneNotWrapped:
+                defs_w.append(None)
             else:
                 defs_w.append(space.wrap(val))
         return defs_w

@@ -74,17 +74,17 @@ def hack_func_by_name(funcname, namespaces):
 
 
 def op_negated(function):
-    def op(space, w_1, w_2, function=function):
+    def op(space, w_1, w_2):
         return space.not_(function(space, w_1, w_2))
     return op
 
 def op_swapped(function):
-    def op(space, w_1, w_2, function=function):
+    def op(space, w_1, w_2):
         return function(space, w_2, w_1)
     return op
 
 def op_swapped_negated(function):
-    def op(space, w_1, w_2, function=function):
+    def op(space, w_1, w_2):
         return space.not_(function(space, w_2, w_1))
     return op
 
@@ -110,16 +110,17 @@ def add_extra_comparisons():
     table, thus favouring swapping the arguments over negating the result.
     """
     from pypy.objspace.std.objspace import StdObjSpace, W_ANY
-    originaltable = {}
+    originalentries = {}
     for op in OPERATORS:
-        originaltable[op] = getattr(StdObjSpace.MM, op).dispatch_table.copy()
+        originalentries[op] = getattr(StdObjSpace.MM, op).signatures()
 
     for op1, op2, correspondance in OP_CORRESPONDANCES:
         mirrorfunc = getattr(StdObjSpace.MM, op2)
-        for types, functions in originaltable[op1].iteritems():
+        for types in originalentries[op1]:
             t1, t2 = types
             if t1 is t2:
-                if types not in mirrorfunc.dispatch_table:
+                if not mirrorfunc.has_signature(types):
+                    functions = getattr(StdObjSpace.MM, op1).getfunctions(types)
                     assert len(functions) == 1, ('Automatic'
                             ' registration of comparison functions'
                             ' only work when there is a single method for'

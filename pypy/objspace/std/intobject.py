@@ -28,6 +28,9 @@ class W_IntObject(W_Object):
         """ representation for debugging purposes """
         return "%s(%d)" % (w_self.__class__.__name__, w_self.intval)
 
+    def unwrap(w_self):
+        return int(w_self.intval)
+
 
 registerimplementation(W_IntObject)
 
@@ -41,9 +44,6 @@ print
 """
 
 def int_w__Int(space, w_int1):
-    return int(w_int1.intval)
-
-def unwrap__Int(space, w_int1):
     return int(w_int1.intval)
 
 def repr__Int(space, w_int1):

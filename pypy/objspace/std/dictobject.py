@@ -98,40 +98,40 @@ class W_DictObject(W_Object):
                 freeslot = entry
             perturb >>= 5
 
+    def unwrap(w_dict):
+        space = w_dict.space
+        result = {}
+        for entry in w_dict.non_empties():
+            # XXX generic mixed types unwrap
+            result[space.unwrap(entry.w_key)] = space.unwrap(entry.w_value)
+        return result
+
 registerimplementation(W_DictObject)
 
 
-def unwrap__Dict(space, w_dict):
-    result = {}
-    for entry in w_dict.non_empties():
-        result[space.unwrap(entry.w_key)] = space.unwrap(entry.w_value) # XXX generic mixed types unwrap
-    return result
-
-def init__Dict(space, w_dict, w_args, w_kwds):
+def init__Dict(space, w_dict, __args__):
+    w_src, w_kwds = __args__.parse('dict',
+                          (['seq_or_map'], None, 'kwargs'), # signature
+                          [W_DictObject(space, [])])        # default argument
     dict_clear__Dict(space, w_dict)
-    args = space.unpackiterable(w_args)
-    if len(args) == 0:
-        pass
-    elif len(args) == 1:
-        # XXX do dict({...}) with dict_update__Dict_Dict()
-        try:
-            space.getattr(args[0], space.wrap("keys"))
-        except OperationError:
-            list_of_w_pairs = space.unpackiterable(args[0])
-            for w_pair in list_of_w_pairs:
-                pair = space.unpackiterable(w_pair)
-                if len(pair)!=2:
-                    raise OperationError(space.w_ValueError,
-                                 space.wrap("dict() takes a sequence of pairs"))
-                w_k, w_v = pair
-                setitem__Dict_ANY_ANY(space, w_dict, w_k, w_v)
-        else:
-            from pypy.objspace.std.dicttype import dict_update__ANY_ANY
-            dict_update__ANY_ANY(space, w_dict, args[0])
+    # XXX do dict({...}) with dict_update__Dict_Dict()
+    try:
+        space.getattr(w_src, space.wrap("keys"))
+    except OperationError:
+        list_of_w_pairs = space.unpackiterable(w_src)
+        for w_pair in list_of_w_pairs:
+            pair = space.unpackiterable(w_pair)
+            if len(pair)!=2:
+                raise OperationError(space.w_ValueError,
+                             space.wrap("dict() takes a sequence of pairs"))
+            w_k, w_v = pair
+            setitem__Dict_ANY_ANY(space, w_dict, w_k, w_v)
     else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("dict() takes at most 1 argument"))
-    space.call_method(w_dict, 'update', w_kwds)
+        if space.is_true(w_src):
+            from pypy.objspace.std.dicttype import dict_update__ANY_ANY
+            dict_update__ANY_ANY(space, w_dict, w_src)
+    if space.is_true(w_kwds):
+        space.call_method(w_dict, 'update', w_kwds)
 
 def getitem__Dict_ANY(space, w_dict, w_lookup):
     entry = w_dict.lookdict(w_dict.hash(w_lookup), w_lookup)

@@ -2,14 +2,13 @@ from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.strutil import string_to_long
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.inttype import int_typedef
+from pypy.interpreter.gateway import NoneNotWrapped
 
-def descr__new__(space, w_longtype, w_value=None, w_base=None):
+def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
     from pypy.objspace.std.longobject import W_LongObject
     if w_base is None:
         # check for easy cases
-        if w_value is None:
-            value = 0L
-        elif isinstance(w_value, W_LongObject):
+        if isinstance(w_value, W_LongObject):
             value = w_value.longval
         elif space.is_true(space.isinstance(w_value, space.w_str)):
             try:

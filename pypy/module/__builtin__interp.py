@@ -5,6 +5,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import BaseWrappable, W_Root
+from pypy.interpreter.gateway import NoneNotWrapped
 
 import __builtin__ as cpy_builtin
 
@@ -225,7 +226,7 @@ def compile(str_, filename, startstr,
 compile.unwrap_spec = [str,str,str,int,int]
 
 
-def eval(w_source, w_globals=None, w_locals=None):
+def eval(w_source, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
     w = space.wrap
 
     if space.is_true(space.isinstance(w_source, space.w_str)):
@@ -259,7 +260,7 @@ def delattr(w_object, w_name):
     space.delattr(w_object, w_name)
     return space.w_None
 
-def getattr(w_object, w_name, w_defvalue=None):
+def getattr(w_object, w_name, w_defvalue=NoneNotWrapped):
     try:
         return space.getattr(w_object, w_name)
     except OperationError, e:
@@ -278,9 +279,7 @@ def oct(w_val):
 def hex(w_val):
     return space.hex(w_val)
 
-def round(w_val, w_n=None):
-    if w_n is None:
-        w_n = space.wrap(0)
+def round(w_val, w_n=0):
     return space.round(w_val, w_n)
 
 def id(w_object):
@@ -295,7 +294,7 @@ def cmp(w_x, w_y):
 def _issubtype(w_cls1, w_cls2):
     return space.issubtype(w_cls1, w_cls2)
 
-def iter(w_collection_or_callable, w_sentinel=None):
+def iter(w_collection_or_callable, w_sentinel=NoneNotWrapped):
     if w_sentinel is None:
         return space.iter(w_collection_or_callable)
     else:
@@ -308,8 +307,6 @@ def ord(w_val):
     return space.ord(w_val)
 
 def pow(w_base, w_exponent, w_modulus=None):
-    if w_modulus is None:
-        w_modulus = space.w_None
     return space.pow(w_base, w_exponent, w_modulus)
 
 def repr(w_object):
