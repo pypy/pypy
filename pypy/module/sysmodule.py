@@ -35,4 +35,6 @@ def exit(exitcode=0):
 def displayhook(obj):
     if obj is not None:
         __builtins__['_'] = obj
-        stdout.write(`obj` + '\n')
+        # NB. this is slightly more complicated in CPython,
+        # see e.g. the difference with  >>> print 5,; 8
+        print `obj`
