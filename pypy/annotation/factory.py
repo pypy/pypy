@@ -97,6 +97,9 @@ def generalize(factories, *args):
 class ListFactory:
     s_item = SomeImpossibleValue()
 
+    def __repr__(self):
+        return '%s(s_item=%r)' % (self.__class__.__name__, self.s_item)
+    
     def create(self):
         return SomeList(factories = {self: True}, s_item = self.s_item)
 
@@ -110,6 +113,9 @@ class ListFactory:
 
 class DictFactory:
     items = {}
+
+    def __repr__(self):
+        return '%s(items=%r)' % (self.__class__.__name__, self.items)
 
     def create(self):
         return SomeDict(factories = {self: True}, items = self.items)
