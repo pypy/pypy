@@ -8,7 +8,7 @@ from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin 
-from pypy.annotation.model import SomeIterator, SomePBC
+from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
 from pypy.annotation.factory import isclassdef 
@@ -161,12 +161,16 @@ class __extend__(SomeBuiltin):
 class __extend__(SomePBC):
 
     def getattr(pbc, s_attr):
+        bookkeeper = getbookkeeper()
         assert s_attr.is_constant()
         attr = s_attr.const
         actuals = []
-        
         for c in pbc.prebuiltinstances:
             if hasattr(c, attr):
+                # force the attribute to be considered on the class
+                classdef = bookkeeper.getclassdef(new_or_old_class(c))
+                classdef.find_attribute(attr).getvalue()
+                # but only return the more precise result getattr(c, attr)
                 actuals.append(immutablevalue(getattr(c, attr)))
         return unionof(*actuals)
 
