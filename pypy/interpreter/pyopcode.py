@@ -305,10 +305,16 @@ class PyInterpFrame(pyframe.PyFrame):
         # we use the .app.py file to prepare the exception/value/traceback
         # but not to actually raise it, because we cannot use the 'raise'
         # statement to implement RAISE_VARARGS
-        w_type = w_value = w_traceback = f.space.w_None
+        if nbargs == 0:
+            operror = f.space.getexecutioncontext().sys_exc_info()
+            if operror is None:
+                raise OperationError(f.space.w_TypeError,
+                    f.space.wrap("raise: no active exception to re-raise"))
+            raise operror   # re-raise the same OperationError
+        w_value = w_traceback = f.space.w_None
         if nbargs >= 3: w_traceback = f.valuestack.pop()
         if nbargs >= 2: w_value     = f.valuestack.pop()
-        if nbargs >= 1: w_type      = f.valuestack.pop()
+        if 1:           w_type      = f.valuestack.pop()
         w_resulttuple = prepare_raise(f.space, w_type, w_value, w_traceback)
         w_type, w_value, w_traceback = f.space.unpacktuple(w_resulttuple, 3)
         tb = f.space.unwrap(w_traceback)
@@ -788,8 +794,11 @@ class PyInterpFrame(pyframe.PyFrame):
 # There are also a couple of helpers that are methods, defined in the
 # class above.
 
-def app_print_expr(x):
+def app___setupgateways__():
+    global sys
     import sys
+
+def app_print_expr(x):
     try:
         displayhook = sys.displayhook
     except AttributeError:
@@ -808,7 +817,6 @@ def app_file_softspace(file, newflag):
     return softspace
 
 def app_sys_stdout():
-    import sys
     try:
         return sys.stdout
     except AttributeError:
@@ -834,15 +842,6 @@ def app_prepare_raise(etype, value, traceback):
     # we get an infinite loop if this import fails:
     #    import types -> IMPORT_NAME -> import_name -> raise ImportError
     #    -> RAISE_VARARGS -> prepare_raise -> import types ...
-    if etype is None:
-        # reraise
-        # XXX this means that "raise" is equivalent to "raise None"
-        #     which is not the case in CPython, but well
-        import sys
-        etype, value, traceback = sys.exc_info()
-    #XXX re-enable the following check
-    #if not isinstance(traceback, (types.NoneType, types.TracebackType)):
-    #    raise TypeError, "raise: arg 3 must be traceback or None"
     while isinstance(etype, tuple):
         etype = etype[0]
     if isinstance(etype, type):
