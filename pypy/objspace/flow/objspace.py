@@ -1,5 +1,5 @@
 # ______________________________________________________________________
-import sys, operator
+import sys, operator, types
 import pypy
 from pypy.interpreter.baseobjspace import ObjSpace, NoValue
 from pypy.interpreter.pycode import PyCode
@@ -121,9 +121,9 @@ def make_op(name, symbol, arity, specialnames):
 
     op = getattr(operator, name, None)
     if not op:
-        if name == 'call':
-            op = apply
-        elif name == 'issubtype':
+        #if name == 'call':
+        #    op = apply
+        if name == 'issubtype':
             op = issubclass
         elif name == 'id':
             op = id
@@ -134,16 +134,16 @@ def make_op(name, symbol, arity, specialnames):
 
     def generic_operator(self, *args_w):
         assert len(args_w) == arity, name+" got the wrong number of arguments"
-        args = []
-        for w_arg in args_w:
-            try:
-                arg = self.unwrap(w_arg)
-            except UnwrapException:
-                break
+        if op:
+            args = []
+            for w_arg in args_w:
+                try:
+                    arg = self.unwrap(w_arg)
+                except UnwrapException:
+                    break
+                else:
+                    args.append(arg)
             else:
-                args.append(arg)
-        else:
-            if op:
                 # All arguments are constants: call the operator now
                 #print >> sys.stderr, 'Constant operation', op
                 try:
