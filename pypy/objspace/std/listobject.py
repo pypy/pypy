@@ -454,8 +454,9 @@ def list_reverse__List(space, w_list):
 #        CPython sort() should be studied to learn how
 #        to implement this functionality.
 
-def _partition(list, start, end, lt):
-    pivot = list[end]                          # Partition around the last value
+def _partition(list, key_list, start, end, lt):
+    pivot = list[end]
+    key_pivot = key_list[end]                          # Partition around the last value
     bottom = start-1                           # Start outside the area to be partitioned
     top = end                                  # Ditto
 
@@ -469,7 +470,8 @@ def _partition(list, start, end, lt):
                 done = 1                       # ... we are done.
                 break
 
-            if lt(pivot, list[bottom]):        # Is the bottom out of place?
+            if lt(key_pivot, key_list[bottom]):        # Is the bottom out of place?
+                key_list[top] = key_list[bottom]
                 list[top] = list[bottom]       # Then put it at the top...
                 break                          # ... and start searching from the top.
 
@@ -480,19 +482,24 @@ def _partition(list, start, end, lt):
                 done = 1                       # ... we are done.
                 break
 
-            if lt(list[top], pivot):           # Is the top out of place?
+            if lt(key_list[top], key_pivot):           # Is the top out of place?
+                key_list[bottom] = key_list[top]
                 list[bottom] = list[top]       # Then put it at the bottom...
                 break                          # ...and start searching from the bottom.
 
+    key_list[top] = key_pivot
     list[top] = pivot                          # Put the pivot in its place.
     return top                                 # Return the split point
 
 
-def _quicksort(list, start, end, lt):
+def _quicksort(list, key_list, start, end, lt):
+    """list is the list to be sorted
+    key_list is the list that will be used for comparisions
+    """
     if start < end:                            # If there are two or more elements...
-        split = _partition(list, start, end, lt)    # ... partition the sublist...
-        _quicksort(list, start, split-1, lt)        # ... and sort both halves.
-        _quicksort(list, split+1, end, lt)
+        split = _partition(list, key_list, start, end, lt)    # ... partition the sublist...
+        _quicksort(list, key_list, start, split-1, lt)        # ... and sort both halves.
+        _quicksort(list, key_list, split+1, end, lt)
 
 class Comparer:
     """Just a dumb container class for a space and a w_cmp, because
@@ -519,16 +526,28 @@ class Comparer:
             raise
         return result < 0
 
-def list_sort__List_ANY(space, w_list, w_cmp):
+def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_key, w_reverse):
     comparer = Comparer(space, w_cmp)
     if w_cmp is space.w_None:
         lt = comparer.simple_lt
     else:
         lt = comparer.complex_lt
-
+    # The key_list is the result of map(w_key, w_list), and will be
+    # used for comparisons during the qsort
+    if w_key is not space.w_None:
+        key_list = [space.call_function(w_key, item)
+                    for item in w_list.ob_item[:w_list.ob_size]]
+    else:
+        # If no key was specified, then comparison will be made on
+        # the original list
+        key_list = w_list.ob_item
     # XXX Basic quicksort implementation
     # XXX this is not stable !!
-    _quicksort(w_list.ob_item, 0, w_list.ob_size-1, lt)
+    _quicksort(w_list.ob_item, key_list, 0, w_list.ob_size-1, lt)
+    # _quicksort(w_list.ob_item, 0, w_list.ob_size-1, lt)
+    # reverse list if needed
+    if space.is_true(w_reverse):
+        list_reverse__List(space, w_list)
     return space.w_None
 
 

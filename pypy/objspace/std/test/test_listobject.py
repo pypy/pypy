@@ -313,6 +313,35 @@ class AppTestW_ListObject:
         l = [ 'a' ]
         l.sort(lencmp)
         assert l == [ 'a' ]
+
+    def test_sort_key(self):
+        def lower(x): return x.lower()
+        l = ['a', 'C', 'b']
+        l.sort(key = lower)
+        assert l == ['a', 'b', 'C']
+        l = []
+        l.sort(key = lower)
+        assert l == []
+        l = [ 'a' ]
+        l.sort(key = lower)
+        assert l == [ 'a' ]
+        
+    def test_sort_reversed(self):
+        l = range(10)
+        l.sort(reverse = True)
+        assert l == range(9, -1, -1)
+        l = []
+        l.sort(reverse = True)
+        assert l == []
+        l = [1]
+        l.sort(reverse = True)
+        assert l == [1]
+
+    def test_sort_cmp_key_reverse(self):
+        def lower(x): return x.lower()
+        l = ['a', 'C', 'b']
+        l.sort(reverse = True, key = lower)
+        assert l == ['C', 'b', 'a']
         
     def test_extended_slice(self):
         l = range(10)
