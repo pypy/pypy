@@ -13,7 +13,13 @@ class TestImport(testit.AppTestCase):
       import sys
       sys.path.append('impsubdir')
       import a
+      self.assert_('a' in sys.modules)
 
+   def test_import_pkg(self):
+      import sys
+      sys.path.append('impsubdir')
+      import pkg
+      self.assert_('pkg' in sys.modules)
 
 if __name__ == '__main__':
     testit.main()

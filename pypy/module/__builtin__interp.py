@@ -32,6 +32,19 @@ def _caller_locals(w_index=None):
     return _actframe(position).getdictscope()
 
 
+def try_import_mod(w_modulename,f):
+    w = space.wrap
+    if os.path.exists(f):
+        w_mod = space.wrap(Module(space, w_modulename))
+        space.sys.setmodule(w_mod)
+        space.setattr(w_mod, w('__file__'), w(f))
+        w_dict = space.getattr(w_mod, w('__dict__'))
+        execfile(w(f), w_dict, w_dict)
+        return w_mod
+    else:
+        return None
+
+
 def __import__(w_modulename, w_globals=None,
                w_locals=None, w_fromlist=None):
     modulename = space.unwrap(w_modulename)
@@ -58,14 +71,17 @@ def __import__(w_modulename, w_globals=None,
     import os
     for path in space.unpackiterable(space.sys.w_path):
         f = os.path.join(space.unwrap(path), modulename + '.py')
-        if os.path.exists(f):
-            w_mod = space.wrap(Module(space, w_modulename))
-            space.sys.setmodule(w_mod)
-            space.setattr(w_mod, w('__file__'), w(f))
-            w_dict = space.getattr(w_mod, w('__dict__'))
-            execfile(w(f), w_dict, w_dict)
+        w_mod = try_import_mod(w_modulename,f)
+        if w_mod is not None:
             return w_mod
-
+        dir = os.path.join(space.unwrap(path),modulename)
+        if not os.path.isdir(dir):
+            continue
+        f = os.path.join(dir,'__init__.py')
+        w_mod = try_import_mod(w_modulename,f)
+        if w_mod is not None:
+            return w_mod
+        
     w_exc = space.call_function(space.w_ImportError, w_modulename)
     raise OperationError(space.w_ImportError, w_exc)
 
