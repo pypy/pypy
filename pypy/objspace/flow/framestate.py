@@ -32,6 +32,7 @@ class FrameState:
         else:
             raise TypeError("can't get framestate for %r" % 
                             state.__class__.__name__)
+        self.next_instr = self.nonmergeable[1]
         for w1 in self.mergeable:
             assert isinstance(w1, (Variable, Constant)), (
                 '%r found in frame state' % w1)

@@ -1,11 +1,16 @@
 from pypy.interpreter.executioncontext import ExecutionContext
-from pypy.interpreter.pyframe import ExitFrame
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow.framestate import FrameState
 
 
 class OperationThatShouldNotBePropagatedError(OperationError):
+    pass
+
+class StopFlowing(Exception):
+    pass
+
+class MergeBlock(Exception):
     pass
 
 
@@ -18,7 +23,7 @@ class SpamBlock(Block):
 
     def patchframe(self, frame):
         if self.dead:
-            raise ExitFrame(None)
+            raise StopFlowing
         self.framestate.restoreframe(frame)
         return BlockRecorder(self)
 
@@ -64,54 +69,34 @@ class BlockRecorder(Recorder):
 
     def __init__(self, block):
         self.crnt_block = block
+        # saved state at the join point most recently seen
+        self.last_join_point = None
+        self.progress = False
 
     def append(self, operation):
+        if self.last_join_point is not None:
+            # don't add more operations if we already crossed a join point
+            raise MergeBlock(self.crnt_block, self.last_join_point)
         self.crnt_block.operations.append(operation)
 
     def bytecode_trace(self, ec, frame):
         assert frame is ec.crnt_frame, "seeing an unexpected frame!"
         next_instr = frame.next_instr
-        ec.crnt_offset = next_instr # save offset for opcode
-        varnames = frame.code.getvarnames()
-        for name, w_value in zip(varnames, frame.getfastscope()):
-            if isinstance(w_value, Variable):
-                w_value.rename(name)
-        if next_instr in ec.joinpoints:
-            currentstate = FrameState(frame)
-            # can 'currentstate' be merged with one of the blocks that
-            # already exist for this bytecode position?
-            for block in ec.joinpoints[next_instr]:
-                newstate = block.framestate.union(currentstate)
-                if newstate is not None:
-                    # yes
-                    finished = newstate == block.framestate
-                    break
-            else:
-                # no
-                newstate = currentstate.copy()
-                finished = False
-                block = None
-            
-            if finished:
-                newblock = block
-            else:
-                newblock = SpamBlock(newstate)
-            # unconditionally link the current block to the newblock
-            outputargs = currentstate.getoutputargs(newstate)
-            self.crnt_block.closeblock(Link(outputargs, newblock))
-            # phew
-            if finished:
-                raise ExitFrame(None)
-            if block is not None and block.exits:
-                # to simplify the graph, we patch the old block to point
-                # directly at the new block which is its generalization
-                block.dead = True
-                block.operations = ()
-                block.exitswitch = None
-                outputargs = block.framestate.getoutputargs(newstate)
-                block.recloseblock(Link(outputargs, newblock))
-            ec.recorder = newblock.patchframe(frame)
-            ec.joinpoints[next_instr].insert(0, newblock)
+        if self.crnt_block.operations or isinstance(self.crnt_block, EggBlock):
+            # if we have already produced at least one operation or a branch,
+            # make a join point as early as possible (but not before we
+            # actually try to generate more operations)
+            self.last_join_point = FrameState(frame)
+        else:
+            ec.crnt_offset = next_instr # save offset for opcode
+            varnames = frame.code.getvarnames()
+            for name, w_value in zip(varnames, frame.getfastscope()):
+                if isinstance(w_value, Variable):
+                    w_value.rename(name)
+            # record passage over already-existing join points
+            if self.progress and next_instr in ec.joinpoints:
+                self.last_join_point = FrameState(frame)
+        self.progress = True
 
     def guessbool(self, ec, w_condition, cases=[False,True],
                   replace_last_variable_except_in_first_case = None):
@@ -137,7 +122,7 @@ class BlockRecorder(Recorder):
         # in the exits tuple so that (just in case we need it) we
         # actually have block.exits[False] = elseLink and
         # block.exits[True] = ifLink.
-        raise ExitFrame(None)
+        raise StopFlowing
 
 
 class Replayer(Recorder):
@@ -198,8 +183,8 @@ class FlowExecutionContext(ExecutionContext):
             arg_list[position] = Constant(value)
         frame.setfastscope(arg_list)
         self.joinpoints = {}
-        for joinpoint in code.getjoinpoints():
-            self.joinpoints[joinpoint] = []  # list of blocks
+        #for joinpoint in code.getjoinpoints():
+        #    self.joinpoints[joinpoint] = []  # list of blocks
         initialblock = SpamBlock(FrameState(frame).copy())
         self.pendingblocks = [initialblock]
         self.graph = FunctionGraph(name or code.co_name, initialblock)
@@ -236,7 +221,7 @@ class FlowExecutionContext(ExecutionContext):
             frame = self.create_frame()
             try:
                 self.recorder = block.patchframe(frame)
-            except ExitFrame:
+            except StopFlowing:
                 continue   # restarting a dead SpamBlock
             try:
                 self.crnt_frame = frame
@@ -244,18 +229,29 @@ class FlowExecutionContext(ExecutionContext):
                     w_result = frame.resume()
                 finally:
                     self.crnt_frame = None
+
             except OperationThatShouldNotBePropagatedError, e:
                 raise Exception(
                     'found an operation that always raises %s: %s' % (
                         self.space.unwrap(e.w_type).__name__,
                         self.space.unwrap(e.w_value)))
+
             except OperationError, e:
                 link = Link([e.w_type, e.w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
+
+            except StopFlowing:
+                pass
+
+            except MergeBlock, e:
+                block, currentstate = e.args
+                self.mergeblock(block, currentstate)
+
             else:
-                if w_result is not None:
-                    link = Link([w_result], self.graph.returnblock)
-                    self.recorder.crnt_block.closeblock(link)
+                assert w_result is not None
+                link = Link([w_result], self.graph.returnblock)
+                self.recorder.crnt_block.closeblock(link)
+
             del self.recorder
         self.fixeggblocks()
 
@@ -270,3 +266,40 @@ class FlowExecutionContext(ExecutionContext):
                     mapping[a] = Variable(a)
                 node.renamevariables(mapping)
         traverse(fixegg, self.graph)
+
+    def mergeblock(self, currentblock, currentstate):
+        next_instr = currentstate.next_instr
+        # can 'currentstate' be merged with one of the blocks that
+        # already exist for this bytecode position?
+        candidates = self.joinpoints.setdefault(next_instr, [])
+        for block in candidates:
+            newstate = block.framestate.union(currentstate)
+            if newstate is not None:
+                # yes
+                finished = newstate == block.framestate
+                break
+        else:
+            # no
+            newstate = currentstate.copy()
+            finished = False
+            block = None
+
+        if finished:
+            newblock = block
+        else:
+            newblock = SpamBlock(newstate)
+        # unconditionally link the current block to the newblock
+        outputargs = currentstate.getoutputargs(newstate)
+        currentblock.closeblock(Link(outputargs, newblock))
+        # phew
+        if not finished:
+            if block is not None and block.exits:
+                # to simplify the graph, we patch the old block to point
+                # directly at the new block which is its generalization
+                block.dead = True
+                block.operations = ()
+                block.exitswitch = None
+                outputargs = block.framestate.getoutputargs(newstate)
+                block.recloseblock(Link(outputargs, newblock))
+            candidates.insert(0, newblock)
+            self.pendingblocks.append(newblock)

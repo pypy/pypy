@@ -1,5 +1,5 @@
 import autopath
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant, Block, traverse
 from pypy.interpreter.argument import Arguments
 
 
@@ -338,6 +338,8 @@ class TestFlowObjSpace:
     
     def test_specialcases(self):
         x = self.codetest(self.specialcases)
+        from pypy.translator.simplify import join_blocks
+        join_blocks(x)
         assert len(x.startblock.operations) == 13
         for op in x.startblock.operations:
             assert op.opname in ['lt', 'le', 'eq', 'ne',
@@ -345,6 +347,23 @@ class TestFlowObjSpace:
             assert len(op.args) == 2
             assert op.args[0].value == 2
             assert op.args[1].value == 3
+
+    #__________________________________________________________
+    def jump_target_specialization(x):
+        if x:
+            n = 5
+        else:
+            n = 6
+        return n*2
+
+    def test_jump_target_specialization(self):
+        x = self.codetest(self.jump_target_specialization)
+        self.show(x)
+        def visitor(node):
+            if isinstance(node, Block):
+                for op in node.operations:
+                    assert op.opname != 'mul', "mul should have disappeared"
+        traverse(visitor, x)
 
 DATA = {'x': 5,
         'y': 6}
