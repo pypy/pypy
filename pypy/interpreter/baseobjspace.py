@@ -182,6 +182,7 @@ ObjSpace.MethodTable = [
     ('not_',            'not',       1),
     ('abs' ,            'abs',       1),
     ('hex',             'hex',       1),
+    ('oct',             'oct',       1),
     ('ord',             'ord',       1),
     ('invert',          '~',         1),
     ('add',             '+',         2),

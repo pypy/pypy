@@ -87,6 +87,11 @@ class Builtin(BuiltinModule):
         return self.space.hash(w_object)
     hash = appmethod(hash)
 
+    def oct(self, w_val):
+        return self.space.oct(w_val)
+    oct = appmethod(oct)
+
+
     def hex(self, w_val):
         return self.space.hex(w_val)
     hex = appmethod(hex)
