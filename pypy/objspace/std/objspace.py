@@ -55,20 +55,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             from stringtype import str_typedef
             from typetype   import type_typedef
             from slicetype  import slice_typedef
-        # The object implementations that we want to 'link' into PyPy must be
-        # imported here.  This registers them into the multimethod tables,
-        # *before* the type objects are built from these multimethod tables.
-        import objectobject
-        import boolobject
-        import intobject
-        import floatobject
-        import tupleobject
-        import listobject
-        import dictobject
-        import stringobject
-        import typeobject
-        import sliceobject
-        return [value for key, value in result.__dict__.items()
+	return [value for key, value in result.__dict__.items()
                       if not key.startswith('_')]   # don't look
 
     def clone_exception_hierarchy(self):
@@ -138,6 +125,39 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return done
                             
     def initialize(self):
+        # The object implementations that we want to 'link' into PyPy must be
+        # imported here.  This registers them into the multimethod tables,
+        # *before* the type objects are built from these multimethod tables.
+        import objectobject
+        import boolobject
+        import intobject
+        import floatobject
+        import tupleobject
+        import listobject
+        import dictobject
+        import stringobject
+        import typeobject
+        import sliceobject
+	import cpythonobject
+	# hack to avoid imports in the time-critical functions below
+        global W_ObjectObject, W_BoolObject, W_IntObject, W_FloatObject
+	global W_TupleObject, W_ListObject, W_DictObject, W_StringObject
+	global W_TypeObject, W_SliceObject
+	global W_CPythonObject, W_BuiltinFunctionObject
+	W_ObjectObject = objectobject.W_ObjectObject
+	W_BoolObject = boolobject.W_BoolObject
+	W_IntObject = intobject.W_IntObject
+	W_FloatObject = floatobject.W_FloatObject
+	W_TupleObject = tupleobject.W_TupleObject
+	W_ListObject = listobject.W_ListObject
+        W_DictObject = dictobject.W_DictObject
+	W_StringObject = stringobject.W_StringObject
+	W_TypeObject = typeobject.W_TypeObject
+	W_SliceObject = sliceobject.W_SliceObject
+	W_CPythonObject = cpythonobject.W_CPythonObject
+	W_BuiltinFunctionObject = cpythonobject.W_BuiltinFunctionObject
+        # end of hacks
+
         from noneobject    import W_NoneObject
         from boolobject    import W_BoolObject
 
@@ -192,65 +212,52 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, int):
             if isinstance(bool, type) and isinstance(x, bool):
                 return self.newbool(x)
-            import intobject
-            return intobject.W_IntObject(self, x)
+            return W_IntObject(self, x)
         if isinstance(x, str):
-            import stringobject
-            return stringobject.W_StringObject(self, x)
+            return W_StringObject(self, x)
         if isinstance(x, dict):
             items_w = [(self.wrap(k), self.wrap(v)) for (k, v) in x.iteritems()]
-            import dictobject
-            return dictobject.W_DictObject(self, items_w)
+            return W_DictObject(self, items_w)
         if isinstance(x, float):
-            import floatobject
-            return floatobject.W_FloatObject(self, x)
+            return W_FloatObject(self, x)
         if isinstance(x, tuple):
             wrappeditems = [self.wrap(item) for item in x]
-            import tupleobject
-            return tupleobject.W_TupleObject(self, wrappeditems)
+            return W_TupleObject(self, wrappeditems)
         if isinstance(x, list):
             wrappeditems = [self.wrap(item) for item in x]
-            import listobject
-            return listobject.W_ListObject(self, wrappeditems)
+            return W_ListObject(self, wrappeditems)
         if isinstance(x, Wrappable):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result
-        import cpythonobject
         SlotWrapperType = type(type(None).__repr__)
         if isinstance(x, (types.FunctionType, types.BuiltinFunctionType, SlotWrapperType)):
-            return cpythonobject.W_BuiltinFunctionObject(self, x)
+            return W_BuiltinFunctionObject(self, x)
         #print "cpython wrapping %r (%s)" % (x, type(x))
         #if hasattr(x, '__bases__'): 
         #    print "cpython wrapping a class %r (%s)" % (x, type(x))
             #raise TypeError, "cannot wrap classes"
-        return cpythonobject.W_CPythonObject(self, x)
+        return W_CPythonObject(self, x)
 
     def newint(self, int_w):
-        import intobject
-        return intobject.W_IntObject(self, int_w)
+        return W_IntObject(self, int_w)
 
     def newfloat(self, int_w):
-        import floatobject
-        return floatobject.W_FloatObject(self, int_w)
+        return W_FloatObject(self, int_w)
 
     def newtuple(self, list_w):
         assert isinstance(list_w, list)
-        import tupleobject
-        return tupleobject.W_TupleObject(self, list_w)
+        return W_TupleObject(self, list_w)
 
     def newlist(self, list_w):
-        import listobject
-        return listobject.W_ListObject(self, list_w)
+        return W_ListObject(self, list_w)
 
     def newdict(self, list_pairs_w):
-        import dictobject
-        return dictobject.W_DictObject(self, list_pairs_w)
+        return W_DictObject(self, list_pairs_w)
 
     def newslice(self, w_start, w_end, w_step):
         # w_step may be a real None
-        import sliceobject
-        return sliceobject.W_SliceObject(self, w_start, w_end, w_step)
+        return W_SliceObject(self, w_start, w_end, w_step)
 
     def newstring(self, chars_w):
         try:
@@ -261,11 +268,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         except ValueError:  # chr(out-of-range)
             raise OperationError(self.w_ValueError,
                                  self.wrap("character code not in range(256)"))
-        import stringobject
-        return stringobject.W_StringObject(self, ''.join(chars))
+        return W_StringObject(self, ''.join(chars))
 
     def type(self, w_obj):
-        from pypy.objspace.std.cpythonobject import W_CPythonObject
         if isinstance(w_obj, W_CPythonObject):
             #raise TypeError, str(w_obj.cpyobj)
             return self.wrap(type(w_obj.cpyobj))
@@ -276,7 +281,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.gettypeobject(w_obj.typedef)
 
     def lookup(self, w_obj, name):
-        from pypy.objspace.std.cpythonobject import W_CPythonObject
         if not isinstance(w_obj, W_CPythonObject):
             # usual case
             w_type = self.type(w_obj)
@@ -289,8 +293,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return None
 
     def unpacktuple(self, w_tuple, expected_length=None):
-        import tupleobject
-        assert isinstance(w_tuple, tupleobject.W_TupleObject)
+        assert isinstance(w_tuple, W_TupleObject)
         t = w_tuple.wrappeditems
         if expected_length is not None and expected_length != len(t):
             raise ValueError, "got a tuple of length %d instead of %d" % (
@@ -321,7 +324,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         #
         if w_one is w_two:
             return self.newbool(1)
-        from cpythonobject import W_CPythonObject
         if isinstance(w_one, W_CPythonObject):
             if isinstance(w_two, W_CPythonObject):
                 if w_one.cpyobj is w_two.cpyobj:
@@ -331,18 +333,17 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def is_true(self, w_obj):
         # XXX don't look!
-        from dictobject import W_DictObject
         if isinstance(w_obj, W_DictObject):
             return not not w_obj.non_empties()
         else:
             return DescrOperation.is_true(self, w_obj)
 
     def hash(space, w_obj):
-        import cpythonobject 
-        if isinstance(w_obj, cpythonobject.W_CPythonObject):
+        if isinstance(w_obj, W_CPythonObject):
             try:
                 return space.newint(hash(w_obj.cpyobj))
             except:
+	    	from pypy.objspace.std import cpythonobject
                 cpythonobject.wrap_exception(space)
         else:
             w = space.wrap
