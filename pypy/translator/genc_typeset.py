@@ -379,6 +379,18 @@ class CTypeSet:
                 lltypes  = r.r_item.impl,
                 )
 
+    def extend_OP_INPLACE_ADD(self, hltypes):
+        if len(hltypes) != 3:
+            return
+        r1, r2, r_result = hltypes
+        # concatenating CLists of the same type
+        if isinstance(r1, CList) and r1 == r2:
+            sig = (r1, r1, r1)
+            yield sig, genc_op.LoConcatArray.With(
+                typename = r1.typename,
+                lltypes  = r1.r_item.impl,
+                )
+
     # ____________________________________________________________
 
     def parse_operation_templates(self):

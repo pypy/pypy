@@ -348,8 +348,16 @@ class GenC:
         print >> f, self.C_LIST_DEALLOC_FOOTER % info
 
         print >> f, self.C_LIST_TYPEOBJECT % info
-        return name
 
+        print >> f, self.C_LIST_CONCAT_HEADER % info
+        for j in range(len(lltypes)):
+            print >> f, '\t\tdest->a%d = src->a%d;' % (j, j),
+            if lltypes[j] == 'PyObject*':
+                print >> f, 'Py_INCREF(dest->a%d);' % j,
+            print >> f
+        print >> f, self.C_LIST_CONCAT_FOOTER % info
+
+        return name
 
 # ____________________________________________________________
 
@@ -542,5 +550,33 @@ static PyObject* alloclist_%(name)s(int len)
 	return (PyObject*) o;
 }
 '''
+
+    C_LIST_CONCAT_HEADER = (
+'''static int concatlist_%(name)s(PyObject* a1, PyObject* a2)
+{
+	PyList_%(name)s* o1 = (PyList_%(name)s*) a1;
+	PyList_%(name)s* o2 = (PyList_%(name)s*) a2;
+	int l1 = o1->ob_size;
+	int l2 = o2->ob_size;
+	ListItem_%(name)s* src;
+	ListItem_%(name)s* dest;
+	void* buffer = PyMem_Realloc(o1->ob_item,
+				     (l1+l2)*sizeof(ListItem_%(name)s));
+	if (buffer == NULL) {
+		PyErr_NoMemory();
+		return -1;
+	}
+	o1->ob_item = (ListItem_%(name)s*) buffer;
+	src = o2->ob_item;
+	dest = o1->ob_item + l1;
+	while (--l2 >= 0) {''')
+
+    C_LIST_CONCAT_FOOTER = (
+'''		src++;
+		dest++;
+	}
+	return 0;
+}
+''')
 
 # ____________________________________________________________

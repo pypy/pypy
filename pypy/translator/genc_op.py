@@ -230,6 +230,21 @@ class LoSetArrayItem(LoGetArrayItem):
     macro = 'OP_SETARRAYITEM'
     # self.args: [PyObject, int_index, input_item..]
 
+class LoConcatArray(LoC):
+    can_fail = True
+    typename = PARAMETER   # the name of the PyList_Xxx type in the C source
+    lltypes  = PARAMETER   # the C types needed to represent each array item
+    # self.args: [PyObject, PyObject, output-PyObject]
+    def writestr(self, array1, array2, output_array, err):
+        return 'OP_CONCATARRAY(%s, %s, %s, %s)' % (
+            self.typename, array1, array2, err)
+    def optimize(self, typer, llresult):
+        # the result of the concatenation is the same array as the first
+        # input argument.
+        array1 = self.args[0]
+        llresult[-1] = array1  # patch to do the copy statically
+        return False  # proceed with the normal writestr()
+
 class LoGetAttr(LoC):
     cost = 1
     fld  = PARAMETER

@@ -154,6 +154,8 @@
 					  OP_SETARRAYITEM(name,a,i,f,v)     \
 					  Py_INCREF(v); Py_DECREF(tmp);     \
 					}
+#define OP_ARRAYLEN(name,a,r)          r=((PyList_##name*) a)->ob_size;
+#define OP_CONCATARRAY(name,a1,a2,err) if (concatlist_##name(a1,a2)) goto err;
 
 /************************************************************/
  /***  The rest is produced by genc.py                     ***/
