@@ -63,31 +63,41 @@ class __builtin__(ExtModule):
     def __import__(self, w_modulename, w_globals=None,
                    w_locals=None, w_fromlist=None):
         space = self.space
+        modulename = space.unwrap(w_modulename)
+        if not isinstance(modulename, str):
+            try:
+                helper = ', not ' + modulename.__class__.__name__
+            except AttributeError:
+                helper = ''
+            raise OperationError(space.w_TypeError,
+                  space.wrap("__import__() argument 1 must be string" + helper))
         w = space.wrap
         try:
             w_mod = space.getitem(space.sys.w_modules, w_modulename)
-            return w_mod
         except OperationError,e:
-            if not e.match(space, space.w_KeyError):
-                raise
-            w_mod = space.get_builtin_module(space.unwrap(w_modulename))
-            if w_mod is not None:
-                space.setitem(space.sys.w_modules, w_modulename, w_mod)
-                return w_mod
+            pass
+        else:
+            return w_mod
+        if not e.match(space, space.w_KeyError):
+            raise
+        w_mod = space.get_builtin_module(modulename)
+        if w_mod is not None:
+            space.setitem(space.sys.w_modules, w_modulename, w_mod)
+            return w_mod
 
-            import os
-            for path in space.unpackiterable(space.sys.w_path):
-                f = os.path.join(space.unwrap(path), space.unwrap(w_modulename) + '.py')
-                if os.path.exists(f):
-                    w_mod = space.wrap(Module(space, w_modulename))
-                    space.setitem(space.sys.w_modules, w_modulename, w_mod)
-                    space.setattr(w_mod, w('__file__'), w(f))
-                    w_dict = space.getattr(w_mod, w('__dict__'))
-                    self.execfile(w(f), w_dict, w_dict)
-                    return w_mod
-            
-            w_exc = space.call_function(space.w_ImportError, w_modulename)
-            raise OperationError(space.w_ImportError, w_exc)
+        import os
+        for path in space.unpackiterable(space.sys.w_path):
+            f = os.path.join(space.unwrap(path), modulename + '.py')
+            if os.path.exists(f):
+                w_mod = space.wrap(Module(space, w_modulename))
+                space.setitem(space.sys.w_modules, w_modulename, w_mod)
+                space.setattr(w_mod, w('__file__'), w(f))
+                w_dict = space.getattr(w_mod, w('__dict__'))
+                self.execfile(w(f), w_dict, w_dict)
+                return w_mod
+        
+        w_exc = space.call_function(space.w_ImportError, w_modulename)
+        raise OperationError(space.w_ImportError, w_exc)
 
 ##    def app___import__(self, *args):
 ##        # NOTE: No import statements can be done in this function,
