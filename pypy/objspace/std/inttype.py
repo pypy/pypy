@@ -33,9 +33,16 @@ def descr__new__(space, w_inttype, w_value=None, w_base=None):
         except OverflowError, e:
             raise OperationError(space.w_OverflowError,
                          space.wrap(str(e)))
-    w_obj = space.allocate_instance(W_IntObject, w_inttype)
-    w_obj.__init__(space, value)
-    return w_obj
+    if isinstance(value, long):
+        # XXX is this right??
+        from pypy.objspace.std.longobject import W_LongObject
+        w_obj = space.allocate_instance(W_LongObject, space.w_long)
+        w_obj.__init__(space, value)
+        return w_obj
+    else:
+        w_obj = space.allocate_instance(W_IntObject, w_inttype)
+        w_obj.__init__(space, value)
+        return w_obj
 
 # ____________________________________________________________
 
