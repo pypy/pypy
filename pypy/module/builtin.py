@@ -658,7 +658,7 @@ class __builtin__(ExtModule):
         
         if isinstance(obj, types.ModuleType):
             try:
-                result = module.__dict__.keys()
+                result = obj.__dict__.keys()
                 result.sort()
                 return result
             except AttributeError:
