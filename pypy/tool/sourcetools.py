@@ -16,6 +16,7 @@ def render_docstr(func, indent_str='', closing_str=''):
         doc = func
     if doc is None:
         return None
+    doc = doc.replace('\\', r'\\')
     compare = []
     for q in '"""', "'''":
         txt = indent_str + q + doc.replace(q[0], "\\"+q[0]) + q + closing_str
