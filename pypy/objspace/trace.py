@@ -4,7 +4,8 @@
 """
 
 from __future__ import generators
-from pypy.tool import pydis 
+from pypy.tool import pydis
+from pypy.tool.traceop import ResultPrinter
 from pypy.interpreter.baseobjspace import ObjSpace
 
 # __________________________________________________________________________
@@ -49,24 +50,21 @@ class CallException(object):
     def __init__(self, callinfo, e):
         self.callinfo = callinfo
         self.ex = e
-
+                
 class TraceResult(object):
-    """ this is the state of tracing-in-progress. """
+    """ This is the state of tracing-in-progress. """
     def __init__(self, tracespace):
         self.events = []
+        self.reentrant = True
         self.tracespace = tracespace
+        self.printer = ResultPrinter()
 
-    def append(self, arg):
-        self.events.append(arg)
-
-    def getdisresult(self, frame, _cache = {}):
-        """ return (possibly cached) pydis result for the given frame. """
-        try:
-            return _cache[id(frame.code)]
-        except KeyError:
-            res = _cache[id(frame.code)] = pydis.pydis(frame.code)
-            assert res is not None
-            return res
+    def append(self, event):
+        if self.reentrant:
+            self.reentrant = False
+            self.events.append(event)
+            self.printer.print_event(self.tracespace, self, event)
+            self.reentrant = True
 
     def getbytecodes(self):
         for event in self.events:
@@ -83,6 +81,16 @@ class TraceResult(object):
         for event in self.events:
             yield event
 
+    def getdisresult(self, frame, _cache = {}): # XXX Should perhaps be local to TraceResult
+        """ return (possibly cached) pydis result for the given frame. """
+
+        try:
+            return _cache[id(frame.code)]
+        except KeyError:
+            res = _cache[id(frame.code)] = pydis.pydis(frame.code)
+            assert res is not None
+            return res
+
 # __________________________________________________________________________
 #
 # Tracer Proxy objects 
@@ -93,7 +101,7 @@ class ExecutionContextTracer(object):
     def __init__(self, result, ec):
         self.ec = ec
         self.result = result
-
+        
     def __getattr__(self, name):
         """ generically pass through everything else ... """
         return getattr(self.ec, name)
@@ -112,13 +120,14 @@ class ExecutionContextTracer(object):
     def bytecode_trace(self, frame):
         """ called just before execution of a bytecode. """
         self.result.append(ExecBytecode(frame))
+        self.ec.bytecode_trace(frame)
 
 class CallableTracer(object):
     def __init__(self, result, name, func):
         self.result = result
         self.name = name
         self.func = func
-
+        
     def __call__(self, *args, **kwargs):
         callinfo = CallInfo(self.name, self.func, args, kwargs) 
         self.result.append(CallBegin(callinfo))
@@ -152,9 +161,12 @@ def get_operations():
     global operations
     if operations is None:
         operations = dict([(r[0], r[0]) for r in ObjSpace.MethodTable])
-        for name in ObjSpace.IrregularOpTable+ ["get_and_call_function"]:
+        for name in ObjSpace.IrregularOpTable + ["get_and_call_function"]:
             operations[name] = name
 
+    # Remove list
+    for name in ["wrap", "unwrap"]:
+        operations.pop(name, None)
     return operations
 
 def create_trace_space(space = None, operations = None):    
@@ -207,8 +219,7 @@ def create_trace_space(space = None, operations = None):
 
     trace_clz = type("Trace" + space.__class__.__name__, (Trace,), {})
     space.__oldclass__, space.__class__ = space.__class__, trace_clz
-
-    # XXX Ensure space's sys & builtin are fully loaded?
+    
     space.settrace()
     return space
 

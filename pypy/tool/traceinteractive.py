@@ -18,7 +18,6 @@ except:
 import autopath
 
 from pypy.tool import pydis
-from pypy.tool.traceop import ResultPrinter
 
 from pypy.interpreter import executioncontext, pyframe, baseobjspace
 from pypy.interpreter.baseobjspace import ObjSpace
@@ -109,7 +108,6 @@ class TraceConsole(code.InteractiveConsole):
         # Trace is binary (on or off), but we have different print levels
         # for tracelevel > 0
         self.tracelevel = 0
-        self.resprinter = ResultPrinter()
         
     def interact(self, banner=None):
         if banner is None:
@@ -160,10 +158,6 @@ class TraceConsole(code.InteractiveConsole):
 
         self.tracelevel = tracelevel
 
-        # XXX Do something better than this - I'm not really sure what is useful
-        # and what isn't (rxe)
-        self.resprinter.operations_level = tracelevel
-
     def runcode(self, code):
         # 'code' is a CPython code object
         from pypy.interpreter.pycode import PyCode
@@ -189,14 +183,13 @@ class TraceConsole(code.InteractiveConsole):
             if tracelevel != self.tracelevel:
                 self.set_tracelevel(tracelevel)
 
-            if res is not None and self.tracelevel:                
-                self.resprinter.print_result(s, res)
+            #if res is not None and self.tracelevel:                
+            #    self.resprinter.print_result(s, res)
                               
         except baseobjspace.OperationError, operationerr:
             if self.tracelevel:
                 res = s.getresult()
                 s.settrace()
-                self.resprinter.print_result(s, res)
 
             # XXX insert exception info into the application-level sys.last_xxx
             print

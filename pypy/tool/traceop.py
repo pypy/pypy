@@ -1,21 +1,6 @@
 
 import autopath
 
-from pypy.tool import pydis
-from pypy.objspace import trace
-
-def getdisresult(obj, _cache={}):
-    """ return dissassemble result for the given obj which can be a
-        pyframe or function or a code object. 
-    """
-    obj = getattr(obj, 'func_code', obj)
-    obj = getattr(obj, 'code', obj)
-    try:
-        return _cache[obj]
-    except KeyError:
-        disresult = _cache[obj] = pydis.pydis(obj)
-        return disresult
-
 class Stack(list):
     push = list.append
 
@@ -30,49 +15,37 @@ class Stack(list):
 
 class ResultPrinter:
 
-    def __init__(self,
-                 operations_level = 2,
-                 indentor = '  ',
-                 skip_bytecodes = ["PRINT_EXPR", "PRINT_ITEM", "PRINT_NEWLINE"]):
+    def __init__(self, show_applevel = False, recursive_operations = False, indentor = '  '):
         
         # Configurable stuff
-        self.indentor = indentor
-        self.skip_bytecodes = skip_bytecodes
-        self.operations_level = operations_level
-        
-        self.reset()
+        self.indentor = indentor        
+        self.show_applevel = show_applevel
+        self.recursive_operations = recursive_operations
+
+        # Keeps a stack of current state to handle
+        # showing of applevel and recursive operations
+        self.indent_state = Stack()
 
     def reset(self):
-        # State stuff
-        self.ops = Stack()
-        self.frames = Stack()
-        self.frame_count = 0
-        self.skip_frame_count = None
+        self.indent_state = Stack()
 
     def print_line(self, line, additional_indent = 0):
-        if self.skip_frame_count is not None:
-            return
-
-        if self.frame_count:
-            indent = self.frame_count + additional_indent - 1
+        state = self.indent_state.top()
+        if state is not None and not state[0]:
+            return  
+        
+        indent_count = len([c for c, t, f in self.indent_state if c])
+        if indent_count:
+            indent = indent_count + additional_indent - 1
             assert (indent >= 0)
             line = (self.indentor * indent) + "|-" + line 
 
         print line
-
+        
     def print_line_operations(self, line, additional_indent = 0):
-        # Don't allow operations to be exposed if operations level is up
-        # but do allow operations to be printed
-        if len(self.ops) > self.operations_level:
-            return
-
         self.print_line(line, additional_indent = additional_indent)
         
     def print_frame(self, print_type, frame):
-
-        # Don't allow frames to be exposed if operations level is up
-        if len(self.ops) >= self.operations_level:
-            return
 
         code = getattr(frame, 'code', None)
         filename = getattr(code, 'co_filename', "")
@@ -82,14 +55,8 @@ class ResultPrinter:
         self.print_line(s)        
 
     def print_bytecode(self, index, bytecode):
-
-        # Don't allow bytecodes to be exposed if operations level is up
-        if len(self.ops) >= self.operations_level:
-            return
-
         s = "%2d%s%s" % (index, (self.indentor * 2), bytecode)
         self.print_line(s)
-
 
     def print_op_enter(self, name, str_args):
         s = " " * 17
@@ -102,104 +69,105 @@ class ResultPrinter:
         s += "%s =: %s" % (name, str_res)
         self.print_line_operations(s)
 
-
     def print_op_exc(self, name, exc):
         s = " " * 17
         s += "x= %s %s" % (name, exc)
         self.print_line_operations(s)
 
-       
-    def print_result(self, space, traceres):
-
-        self.reset()
-
-        for event in traceres.getevents():
-
-            if isinstance(event, trace.EnterFrame):
-                frame = event.frame
-                self.print_frame("enter", frame)
-
-                self.frames.push(frame)
-                self.frame_count += 1
-                
-            elif isinstance(event, trace.LeaveFrame):
-                lastframe = self.frames.pop()
-                self.frame_count -= 1
-                
-                # Reset skip frame count?
-                if self.frame_count < self.skip_frame_count:
-                    self.skip_frame_count = None
-                    
-                self.print_frame("leave", lastframe)           
-                
-            elif isinstance(event, trace.ExecBytecode):
-
-                # Reset skip frame count?
-                if self.frame_count == self.skip_frame_count:
-                    self.skip_frame_count = None
-
-                frame = event.frame 
-                assert (frame == self.frames.top())
-                
-                # Get bytecode from frame
-                disresult = getdisresult(frame)
-                bytecode = disresult.getbytecode(event.index)
-                self.print_bytecode(event.index, bytecode)
-
-                # When operations_level > 1, some bytecodes produce high number of
-                # operations / bytecodes (usually because they have been written at app
-                # level) - this hack avoids them recursing on them selves
-                if bytecode.name in self.skip_bytecodes:
-                    self.print_line("...", 1)
-                    self.skip_frame_count = self.frame_count           
-
-            elif isinstance(event, trace.CallBegin):
-                info = event.callinfo
-
-                self.ops.push(info)
-                lastframe = self.frames.top()
-                self.print_op_enter(info.name, repr_args(space, lastframe, info.args))
-                self.frame_count += 1
-
-            elif isinstance(event, trace.CallFinished):
-                info = event.callinfo
-
-                self.frame_count -= 1
-                self.print_op_leave(info.name, repr_value(space, event.res))
-                
-                assert self.ops.pop() == event.callinfo
-                    
-            elif isinstance(event, trace.CallException):
-                info = event.callinfo
-                self.frame_count -= 1
-                
-                self.print_op_exc(info.name, event.ex)
-                
-                assert self.ops.pop() == event.callinfo
-
+    def print_result(self, space, event_result):
+        for event in event_result.getevents():
+            print_event(space, event, event_result)
+            
+    def print_event(self, space, event_result, event):
+        from pypy.objspace import trace
+        
+        if isinstance(event, trace.EnterFrame):
+            frame = event.frame
+            if self.show_applevel or not frame.code.getapplevel():
+                show = True
             else:
-                pass
+                show = False
 
+            self.indent_state.append((show, trace.EnterFrame, frame))
+            self.print_frame("enter", frame)
+
+        elif isinstance(event, trace.LeaveFrame):
+
+            lastframe = self.indent_state.top()[2]
+            assert lastframe is not None
+
+            self.print_frame("leave", lastframe)           
+            self.indent_state.pop()
+
+        elif isinstance(event, trace.ExecBytecode):
+
+            frame = event.frame
+            assert (frame == self.get_last_frame())
+
+            # Get bytecode from frame
+            disresult = event_result.getdisresult(frame)
+            bytecode = disresult.getbytecode(event.index)
+            self.print_bytecode(event.index, bytecode)
+
+        elif isinstance(event, trace.CallBegin):
+            lastframe = self.get_last_frame()
+            info = event.callinfo
+
+            show = True
+
+            # Check if we are in applevel?
+            if not self.show_applevel:
+                if lastframe is None or lastframe.code.getapplevel():
+                    show = False
+
+            # Check if recursive operations?
+            prev_indent_state = self.indent_state.top()
+            if not self.recursive_operations and prev_indent_state is not None:
+                if prev_indent_state[1] == trace.CallBegin:
+                    show = False
+
+            self.indent_state.append((show, trace.CallBegin, None))
+            self.print_op_enter(info.name, repr_args(space,
+                                                     self.get_last_frame(),
+                                                     info.args))
+
+        elif isinstance(event, trace.CallFinished):
+            info = event.callinfo
+
+            self.print_op_leave(info.name, repr_value(space, event.res))
+            self.indent_state.pop()
+
+        elif isinstance(event, trace.CallException):
+            info = event.callinfo
+
+            self.print_op_exc(info.name, event.ex)
+            self.indent_state.pop()                
+
+    def get_last_frame(self):
+        for c, t, f in self.indent_state[::-1]:
+            if f is not None:
+                return f
+            
 print_result = ResultPrinter().print_result
 
 def repr_value(space, value):
     """ representations for debugging purposes """        
-    res = str(value)
     try:
         # XXX Sure this won't go down well - didn't really want
         # to clutter up the interpeter code 
         from pypy.interpreter.function import Function, Method
+        from pypy.interpreter.eval import Code
 
         if isinstance(value, Function):
-            res = "Function(%s, %s)" % (value.name, value.code)
+            res = "Function(%s)" % value.name
 
         if isinstance(value, Method):
-            res = "Method(%s, %s)" % (value.w_function.name, value.w_function.code)
-
-    except Exception, exc:
-        pass
+            res = "Method(%s)" % value.w_function.name
+        raise Exception, "XXX only certain types or toooo slow"
+    except:
+        res = str(value)
     
-    return res[:240]
+    return res[:80]
 
 def repr_args(space, frame, args):
     l = []
@@ -212,7 +180,6 @@ def repr_args(space, frame, args):
             l.append(repr_value(space, arg))
             
     return "(" + ", ".join(l) + ")"
-
 
 def perform_trace(tspace, app_func, *args_w, **kwds_w):
     from pypy.interpreter.gateway import app2interp
@@ -231,8 +198,9 @@ def perform_trace(tspace, app_func, *args_w, **kwds_w):
     tspace.settrace()
     return w_result, trace_result
 
-
 if __name__ == '__main__':
+
+    from pypy.objspace import trace
     from pypy.tool import option
     args = option.process_options(option.get_standard_options(),
                                   option.Options)
@@ -250,7 +218,5 @@ if __name__ == '__main__':
         return count
 
     # Note includes lazy loading of builtins
-    res, traceres = perform_trace(tspace, app_test, tspace.wrap(5))
-    print_result(tspace, traceres)
-
-    print "Result", res
+    res = perform_trace(tspace, app_test, tspace.wrap(5))
+    print "Result:", res
