@@ -12,6 +12,8 @@ from pypy.interpreter.pycode import CO_VARARGS
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import ArgErr
 
+import inspect, new
+
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
     It ensures that the same 'choice objects' will be returned if we ask
@@ -259,8 +261,26 @@ class Bookkeeper:
                 #
                 thing = func_with_new_name(thing, name or thing.func_name)
             elif isinstance(thing, (type, ClassType)):
-                assert not "not working yet"
-                thing = type(thing)(name or thing.__name__, (thing,))
+                superclasses = iter(inspect.getmro(thing))
+                superclasses.next() # skip thing itself
+                for cls in superclasses:
+                    assert not hasattr(cls, "_specialize_"), "for now specialization only for leaf classes"
+                
+                newdict = {}
+                for attrname,val in thing.__dict__.iteritems():
+                    if attrname == '_specialize_': # don't copy the marker
+                        continue
+                    if isinstance(val, FunctionType):
+                        fname = val.func_name
+                        if name:
+                            fname = "%s_for_%s" % (fname, name)
+                        newval = func_with_new_name(val, fname)
+                    # xxx more special cases
+                    else: 
+                        newval  = val
+                    newdict[attrname] = newval
+
+                thing = type(thing)(name or thing.__name__, (thing,), newdict)
             else:
                 raise Exception, "specializing %r?? why??"%thing
             self.cachespecializations[key] = thing

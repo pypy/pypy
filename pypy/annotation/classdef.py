@@ -66,7 +66,10 @@ class ClassDef:
                 assert base is object, ("multiple inheritance only supported "
                                         "with _mixin_: %r" % (cls,))
                 base = b1
-        mixeddict.update(cls.__dict__)
+        if '_specialize_' not in cls.__dict__: # otherwise make the original specialized class appear empty
+            mixeddict.update(cls.__dict__)
+        else:
+            assert not mixeddict, " _specialize_ +  mixins not both supported right now"
         self.basedef = bookkeeper.getclassdef(base)
         if self.basedef:
             self.basedef.subdefs[cls] = self

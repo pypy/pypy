@@ -569,6 +569,11 @@ class TestAnnonateTestCase:
                 a.bookkeeper.immutablevalue('world'))
         assert s == a.bookkeeper.immutablevalue(42)
 
+    def test_class_spec(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.class_spec, [])
+        assert s.items[0].knowntype == int
+        assert s.items[1].knowntype == str
 
 def g(n):
     return [0,1,2,n]
