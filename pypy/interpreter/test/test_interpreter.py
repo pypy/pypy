@@ -1,4 +1,3 @@
-from __future__ import generators
 import autopath
 from pypy.tool import test
 
@@ -213,67 +212,6 @@ class AppTestInterpreter(test.AppTestCase):
     def test_identity(self):
         def f(x): return x
         self.assertEquals(f(666), 666)
-
-    def test_nested_scope(self):
-        x = 42
-        def f(): return x
-        self.assertEquals(f(), 42)
-
-    def test_nested_scope2(self):
-        x = 42
-        y = 3
-        def f(): return x
-        self.assertEquals(f(), 42)
-
-    def test_nested_scope3(self):
-        x = 42
-        def f():
-            def g():
-                return x
-            return g
-        self.assertEquals(f()(), 42)
-
-    def test_nested_scope4(self):
-        def f():
-            x = 3
-            def g():
-                return x
-            a = g()
-            x = 4
-            b = g()
-            return (a, b)
-        self.assertEquals(f(), (3, 4))
-
-    def test_generator(self):
-        def f():
-            yield 1
-        self.assertEquals(f().next(), 1)
-        
-    def test_generator2(self):
-        def f():
-            yield 1
-        g = f()
-        self.assertEquals(g.next(), 1)
-        self.assertRaises(StopIteration, g.next) 
-
-    def test_generator3(self):
-        def f():
-            yield 1
-        g = f()
-        self.assertEquals(list(g), [1])
-
-    def test_generator4(self):
-        def f():
-            yield 1
-        g = f()
-        self.assertEquals([x for x in g], [1])
-        
-    def test_generator_restart(self):
-        def g():
-            i = me.next()
-            yield i
-        me = g()
-        self.assertRaises(ValueError, me.next)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.extmodule import ExtModule
+from pypy.interpreter.gateway import interp2app
 import os, pypy
 
 import sys as cpy_sys
@@ -38,3 +39,9 @@ class Sys(ExtModule):
             except OperationError:
                 print "! could not print", w_x
             space.setitem(space.w_builtins, w('_'), w_x)
+
+    def _getframe(self):
+        # XXX No Argument Accepted Yet
+        f = self.space.getexecutioncontext().framestack.items[-1]
+        return self.space.wrap(f)
+    app__getframe = interp2app(_getframe)
