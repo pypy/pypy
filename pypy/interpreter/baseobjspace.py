@@ -33,11 +33,13 @@ class ObjSpace:
             self.make_sys()
 
         from pypy.module import builtin
+
+        # the builtins are iteratively initialized 
         self.builtin = builtin.__builtin__(self)
         self.w_builtin = self.wrap(self.builtin)
-        #self.w_builtins = self.getattr(self.w_builtin, self.wrap("__dict__"))
         self.w_builtins = self.builtin.w_dict
 
+        # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():
             if name.startswith('w_'):
                 name = name[2:]
@@ -45,6 +47,11 @@ class ObjSpace:
                     continue
                 #print "setitem: space instance %-20s into builtins" % name
                 self.setitem(self.w_builtins, self.wrap(name), value)
+
+        # only here can we add those builtins that require 
+        # execution of source code -- because this requires 
+        # an almost functional 'builtin' attribute on the space
+        self.builtin._initcompiledbuiltins()
 
         self.sys._setmodule(self.w_builtin)
 

@@ -29,6 +29,9 @@ class ExtModule(Module):
                     elif hasattr(value, '__get__'):
                         continue  # ignore CPython functions
 
+                    # ignore tricky class-attrs we can't send from interp to app-level 
+                    if name in ('__metaclass__', '__init__', '__new__', ): 
+                        continue  
                     space.call_method(self.w_dict, 'setdefault', 
                                       space.wrap(name), space.wrap(value))
 
@@ -36,3 +39,15 @@ class ExtModule(Module):
     def __initclass__(cls):
         gateway.exportall(RwDictProxy(cls))   # xxx() -> app_xxx()
         gateway.importall(RwDictProxy(cls))   # app_xxx() -> xxx()
+
+    def _eval_app_source(self, sourcestring):
+        """ compile/execute a sourcestring in the applevel module dictionary """
+        w = self.space.wrap
+        w_code = self.compile(w(sourcestring), w('<pypyinline>'), w('exec'))
+        code = self.space.unwrap(w_code)
+        code.exec_code(self.space, self.w_dict, self.w_dict)
+
+        # XXX do we actually want an interp-proxy to the app-level thing here? 
+        #     or no interp-level "mirror" at all? 
+        co = compile(sourcestring, '<inline>','exec', 4096)
+        exec co in self.__dict__

@@ -1,6 +1,6 @@
 import sys
 
-AUTO_DEBUG = 1
+AUTO_DEBUG = 0
 
 
 class PyPyError(Exception):

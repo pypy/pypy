@@ -19,6 +19,10 @@ class __builtin__(ExtModule):
     open = cpy_builtin.open
     file = cpy_builtin.file
 
+    def _initcompiledbuiltins(self):
+        """ add 'compiled' builtins to app-level dict and interp-level """
+        self._eval_app_source(xrange_appsource)
+
     def _actframe(self, index=-1):
         return self.space.getexecutioncontext().framestack.items[index]
 
@@ -379,31 +383,31 @@ class __builtin__(ExtModule):
         except AttributeError:
             return False
 
+# source code for the builtin xrange-class
+xrange_appsource = """if 1: 
+    class xrange:
+        def __init__(self, start, stop=None, step=1):
+            if stop is None: 
+                self.start = 0
+                self.stop = start
+            else:
+                self.start = start
+                self.stop = stop
+            if step == 0:
+                raise ValueError, 'xrange() step-argument (arg 3) must not be zero'
+            self.step = step
 
-    def app_xrange(self, start, stop=None, step=1):
-        class xrange:
-            def __init__(self, start, stop=None, step=1):
-                if stop is None: 
-                    self.start = 0
-                    self.stop = start
+        def __iter__(self):
+            def gen(self):
+                start, stop, step = self.start, self.stop, self.step
+                i = start
+                if step > 0:
+                    while i < stop:
+                        yield i
+                        i+=step
                 else:
-                    self.start = start
-                    self.stop = stop
-                if step == 0:
-                    raise ValueError, 'xrange() step-argument (arg 3) must not be zero'
-                self.step = step
-
-            def __iter__(self):
-                def gen(self):
-                    start, stop, step = self.start, self.stop, self.step
-                    i = start
-                    if step > 0:
-                        while i < stop:
-                            yield i
-                            i+=step
-                    else:
-                        while i > stop:
-                            yield i
-                            i+=step
-                return gen(self)
-        return xrange(start, stop, step)
+                    while i > stop:
+                        yield i
+                        i+=step
+            return gen(self)
+"""

@@ -52,6 +52,9 @@ class TestBuiltinApp(test.AppTestCase):
         self.assertEquals(iter_x.next(), 3)
         self.assertRaises(StopIteration, iter_x.next)
 
+    def test_xrange_has_type_identity(self):
+        self.assertEquals(type(xrange(1)), type(xrange(1)))
+
     def test_cmp(self):
         self.assertEquals(cmp(9,9), 0)
         self.assert_(cmp(0,9) < 0)
@@ -87,6 +90,11 @@ class TestInternal(test.IntTestCase):
         finally:
             import os
             os.remove(fn)
+
+    def test_xrange(self):
+        self.assert_(hasattr(self.space.builtin, 'xrange'))
+        self.assertEquals(self.space.builtin.xrange(3).stop, 3)
+
 
 if __name__ == '__main__':
     test.main()
