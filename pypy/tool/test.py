@@ -1,5 +1,6 @@
 import autopath
 import os, sys, unittest, re, warnings, unittest, traceback, StringIO
+import fnmatch
 from unittest import TestCase, TestLoader
 
 import pypy.interpreter.unittest_w
@@ -124,7 +125,7 @@ class MyTextTestResult(unittest._TextTestResult):
 
 
 class CtsTestRunner:
-    def __methodname(self, result):
+    def _methodname(self, result):
         "Return a normalized form of the method name for result."
         # use private method, id() is not enough for us
         return "%s.%s" % (result.__class__.__name__,
@@ -132,7 +133,6 @@ class CtsTestRunner:
 
     def run(self, test):
         import pickle
-        import cStringIO as StringIO
 
         result = MyTestResult()
         try:
@@ -149,16 +149,16 @@ class CtsTestRunner:
         else:
             oldstatus = {}
 
-        # store status from this run in a dictionary named status
+        # store status from this run
         status = {}
         for e in result.errors:
-            name = self.__methodname(e[0])
+            name = self._methodname(e[0])
             status[name] = 'ERROR'
         for f in result.failures:
-            name = self.__methodname(f[0])
+            name = self._methodname(f[0])
             status[name] = 'FAILURE'
         for s in result.successes:
-            name = self.__methodname(s)
+            name = self._methodname(s)
             status[name] = 'success'
 
         # compare statuses from previous and this run
@@ -208,21 +208,21 @@ class MyTextTestRunner(unittest.TextTestRunner):
 
 
 def testsuite_from_main():
-    """ return test modules from __main__
-    """
+    """Return test modules from __main__."""
     loader = unittest.TestLoader()
     m = __import__('__main__')
     return loader.loadTestsFromModule(m)
 
 def testsuite_from_dir(root, filterfunc=None, recursive=0, loader=None):
-    """ return test modules that optionally match filterfunc.
+    """
+    Return test modules that optionally match filterfunc.
 
-    all files matching the glob-pattern "test_*.py" are considered.
-    additionally their fully qualified python module path has
+    All files matching the glob-pattern "test_*.py" are considered.
+    Additionally, their fully qualified python module path has
     to be accepted by filterfunc (if it is not None).
     """
-    if Options.verbose>2:
-        print >>sys.stderr, "scanning for test files in", root
+    if Options.verbose > 2:
+        print >> sys.stderr, "scanning for test files in", root
 
     if loader is None:
         loader = unittest.TestLoader()
@@ -233,21 +233,22 @@ def testsuite_from_dir(root, filterfunc=None, recursive=0, loader=None):
     names = os.listdir(root)
     names.sort()
     for fn in names:
+        # ignore "hidden" files
         if fn.startswith('.'):
             continue
         fullfn = os.path.join(root, fn)
-        if os.path.isfile(fullfn) and \
-               fn.startswith('test_') and \
-               fn.endswith('.py'):
+        if os.path.isfile(fullfn) and fnmatch.fnmatch(fn, 'test_*.py'):
+            # strip the leading pypy directory and the .py suffix
             modpath = fullfn[len(autopath.pypydir)+1:-3]
             modpath = 'pypy.' + modpath.replace(os.sep, '.')
-            if not filterfunc or filterfunc(modpath):
+            if (filterfunc is None) or filterfunc(modpath):
                 try:
                     subsuite = loader.loadTestsFromName(modpath)
                 except:
                     print "skipping testfile (failed loading it)", modpath
                 else:
                     suite.addTest(subsuite, modpath)
+        # possibly, collect tests from subdirectories recursively
         elif recursive and os.path.isdir(fullfn):
             subsuite = testsuite_from_dir(fullfn, filterfunc, 1, loader)
             if subsuite:
@@ -277,17 +278,17 @@ def objspace(name=''):
 
 
 class RegexFilterFunc:
-    """ stateful function to filter included/excluded strings via
-    a Regular Expression.
+    """
+    Stateful function to filter included/excluded strings via
+    a regular expression.
 
     An 'excluded' regular expressions has a '%' prependend.
     """
-
     def __init__(self, *regex):
         self.exclude = []
         self.include = []
         for x in regex:
-            if x[:1]=='%':
+            if x.startswith('%'):
                 self.exclude.append(re.compile(x[1:]).search)
             else:
                 self.include.append(re.compile(x).search)
@@ -324,7 +325,7 @@ def run_tests(suite):
         run_tests_on_space(suite, spacename)
 
 def run_tests_on_space(suite, spacename=''):
-    """ run the suite on the given space """
+    """Run the suite on the given space."""
     if Options.runcts:
         runner = CtsTestRunner() # verbosity=Options.verbose+1)
     else:
@@ -338,8 +339,10 @@ def run_tests_on_space(suite, spacename=''):
     runner.run(suite)
 
 def main(root=None):
-    """ run this to test everything in the __main__ or
-    in the given root-directory (recursive)"""
+    """
+    Test everything in the __main__ or in the given root
+    directory (recursive).
+    """
     args = option.process_options(get_test_options(), Options)
 
     filterfunc = RegexFilterFunc(*args)
