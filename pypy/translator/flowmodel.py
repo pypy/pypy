@@ -80,3 +80,5 @@ class FunctionGraph:
         self.startblock = startblock
         self.functionname = functionname
 
+    def get_args(self):
+        return self.startblock.input_args
