@@ -79,7 +79,7 @@ class TestCase(test.IntTestCase):
         lst.reverse()
         return lst
 
-    def dont_yet_test_poor_man_range(self):
+    def test_poor_man_range(self):
         poor_man_range = self.make_cfunc(self.poor_man_range)
         self.assertEquals(poor_man_range(10), range(10))
 

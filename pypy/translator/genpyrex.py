@@ -100,14 +100,49 @@ class GenPyrex:
         
         self.putline('cinline "Label%s:"' % blockids[block])
         for op in block.operations:
-            opsymbol = self.ops[op.opname] 
-            arity = self.oparity[op.opname]
-            assert(arity == len(op.args))
             argnames = [self._str(arg, block) for arg in op.args]
-            if arity == 1 or arity == 3 or "a" <= opsymbol[0] <= "z":
-                self.putline("%s = %s(%s)" % (self._str(op.result, block), opsymbol, ", ".join(argnames)))
+            resultname = self._str(op.result, block)
+            # XXX refactor me
+            if op.opname == 'next_and_flag':
+                self.putline("try:")
+                self.putline("    _nextval = %s.next()" % argnames[0])
+                self.putline("except StopIteration:")
+                self.putline("    %s = None, 0" % resultname)
+                self.putline("else:")
+                self.putline("    %s = _nextval, 1" % resultname)
+            elif op.opname == 'getitem':
+                self.putline("%s = %s[%s]" % (resultname, argnames[0],
+                                              argnames[1]))
+            elif op.opname == 'newtuple':
+                self.putline("%s = (%s)" % (
+                    resultname, "".join([s+", " for s in argnames])))
+            elif op.opname == 'newlist':
+                self.putline("%s = [%s]" % (
+                    resultname, "".join([s+", " for s in argnames])))
+            elif op.opname == 'newdict':
+                pairs = []
+                for i in range(0, len(argnames), 2):
+                    pairs.append("%s: %s, " % (argnames[i], argnames[i+1]))
+                self.putline("%s = {%s}" % (resultname, "".join(pairs)))
+            elif op.opname == 'call':
+                self.putline("%s = %s(*%s, **%s)" % (resultname, argnames[0],
+                                                     argnames[1], argnames[2]))
             else:
-                self.putline("%s = %s %s %s" % (self._str(op.result, block), argnames[0], opsymbol, argnames[1]))
+                opsymbol = self.ops[op.opname]
+                arity = self.oparity[op.opname]
+                assert(arity == len(op.args))
+                if arity == 1 or arity == 3 or "a" <= opsymbol[0] <= "z":
+                    self.putline("%s = %s(%s)" % (resultname, opsymbol,
+                                                  ", ".join(argnames)))
+                elif opsymbol[-1] == '=':
+                    # in-place operator
+                    self.putline("%s = %s; %s += %s" % (
+                        resultname, argnames[0],
+                        resultname, argnames[1]))
+                else:
+                    # infix operator
+                    self.putline("%s = %s %s %s" % (resultname, argnames[0],
+                                                    opsymbol, argnames[1]))
 
         self.dispatchBranch(block, block.branch)
 

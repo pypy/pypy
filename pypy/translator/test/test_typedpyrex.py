@@ -58,12 +58,12 @@ class TestCase(test.IntTestCase):
     def yast(lst):
         total = 0
         for z in lst:
-            total += z
+            total = total + z
         return total
 
-    def dont_test_yast(self):
+    def test_yast(self):
         yast = self.make_cfunc(self.yast, [list])
-        self.assertEquals(yast(range(11)), 66)
+        self.assertEquals(yast(range(12)), 66)
 
     #____________________________________________________
     def nested_whiles(i, j):
@@ -92,7 +92,7 @@ class TestCase(test.IntTestCase):
         lst.reverse()
         return lst
 
-    def dont_yet_test_poor_man_range(self):
+    def test_poor_man_range(self):
         poor_man_range = self.make_cfunc(self.poor_man_range, [int])
         self.assertEquals(poor_man_range(10), range(10))
 
