@@ -16,7 +16,7 @@ class AnnotatorError(Exception):
 
 class RPythonAnnotator:
     """Block annotator for RPython.
-    See description in doc/transation/annotation.txt."""
+    See description in doc/translation/annotation.txt."""
 
     def __init__(self, translator=None):
         self.translator = translator
