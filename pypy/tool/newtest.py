@@ -144,6 +144,7 @@ class TestSuite:
     """Represent a collection of test items."""
     def __init__(self):
         self.items = []
+        self.lastresult = []
 
     def _module_from_modpath(self, modpath):
         """
@@ -207,8 +208,11 @@ class TestSuite:
 
     def testresults(self):
         """Return a generator to get the test result for each test item."""
+        self.lastresults = []
         for item in self.items:
-            yield item.run()
+            result = item.run()
+            self.lastresults.append(result)
+            yield result
 
 
 def main():
@@ -217,7 +221,7 @@ def main():
     for res in ts.testresults():
         if res.status == SUCCESS:
             continue
-        print 75 * '-'
+        print 79 * '-'
         print "%s: %s" % (res.item, res.status)
         if res.traceback:
             print
