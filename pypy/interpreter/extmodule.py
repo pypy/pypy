@@ -15,8 +15,21 @@ from pypy.interpreter.module import Module
 
 
 class BuiltinModule(Module):
+    """A Module subclass specifically for built-in modules."""
 
     def __init__(self, space, modulename, w_dict=None, sourcefile=None):
+        """Load the named built-in module, by default from the source file
+        'pypy/module/<name>module.py', which is app-level Python code
+        with a few special features that allow it to include interp-level
+        bits.  (See pypy/module/test/foomodule.py)
+
+        The module has two parts: the interp-level objects, stored as
+        attributes of 'self', and the app-level objects, stored in the
+        dictionary 'self.w_dict'.  The app-level definition of the module
+        runs with 'self.w_dict' as globals.  The interp-level bits are
+        executed with 'self.__dict__' as globals, i.e. they can read and
+        change the attributes of 'self' as global variables.
+        """
         Module.__init__(self, space, space.wrap(modulename), w_dict)
         w_dict = self.w_dict
 
@@ -78,11 +91,14 @@ class BuiltinModule(Module):
         del self.__saved_hooks
 
     def interplevelexec(self, w_codestring):
+        "'exec' a string at interp-level."
         codestring = self.space.unwrap(w_codestring)
         exec codestring in self.__dict__
         return self.space.w_None
 
     def interpleveleval(self, w_codestring):
+        """'eval' a string at interp-level.  The result must be None or
+        a wrapped object, which is returned to the caller."""
         space = self.space
         codestring = space.unwrap(w_codestring)
         w_result = eval(codestring, self.__dict__)
@@ -91,12 +107,19 @@ class BuiltinModule(Module):
         return w_result
 
     def interplevelexecfile(self, w_filename):
+        """'exec' a file at interp-level.  The file should be in the same
+        directory as the xxxmodule.py source file of the module."""
         filename = self.space.unwrap(w_filename)
         filename = os.path.join(os.path.dirname(self.__file__), filename)
         execfile(filename, self.__dict__)
         return self.space.w_None
 
     def interplevelimport(self, w_modulename, w_globals, w_locals, w_fromlist):
+        """Hook for 'from __interplevel__ import something'.
+        If there is a wrapped interp-level object 'w_something', returns it.
+        If there is an interp-level function 'def something(w_x, w_y...)',
+        build an appropriate gateway and returns it.
+        """
         space = self.space
         w = space.wrap
         if space.is_true(space.eq(w_modulename, w('__interplevel__'))):
@@ -126,6 +149,9 @@ class BuiltinModule(Module):
     app_interplevelimport   = gateway.interp2app(interplevelimport)
 
     class AppModuleHack:
+        """For interp-level convenience: 'from __applevel__ import func'
+        imports the app-level function 'func' via an appropriate gateway.
+        """
         def __init__(self, builtinmodule):
             self.space = builtinmodule.space
             self.w_dict = builtinmodule.w_dict
