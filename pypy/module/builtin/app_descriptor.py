@@ -5,6 +5,7 @@ Plain Python definition of the builtin descriptors.
 # Descriptor code, shamelessly stolen to Raymond Hettinger:
 #    http://users.rcn.com/python/download/Descriptor.htm
 class property(object):
+    __slots__ = ['fget', 'fset', 'fdel', '__doc__']
 
     def __init__(self, fget=None, fset=None, fdel=None, doc=None):
         self.fget = fget
@@ -33,30 +34,33 @@ class property(object):
 # XXX there is an interp-level pypy.interpreter.function.StaticMethod
 # XXX because __new__ needs to be a StaticMethod early.
 class staticmethod(object):
+    __slots__ = ['_f']
 
     def __init__(self, f):
-        self.f = f
+        self._f = f
 
     def __get__(self, obj, objtype=None):
-        return self.f
+        return self._f
 
 
 class classmethod(object):
+    __slots__ = ['_f']
 
     def __init__(self, f):
-        self.f = f
+        self._f = f
 
     def __get__(self, obj, klass=None):
         if klass is None:
             klass = type(obj)
         def newfunc(*args, **kwargs):
-            return self.f(klass, *args, **kwargs)
+            return self._f(klass, *args, **kwargs)
         return newfunc
 
 # super is a modified version from Guido's tutorial
 #     http://www.python.org/2.2.3/descrintro.html
 # it exposes the same special attributes as CPython's.
 class super(object):
+    __slots__ = ['__thisclass__', '__self__', '__self_class__']
     def __init__(self, typ, obj=None):
         if obj is None:
             objcls = None        # unbound super object
