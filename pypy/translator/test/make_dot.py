@@ -37,7 +37,10 @@ class Node:
         style = self.linestyle()
         for node,name in self.edges:
             if node in self.allnodes:
-                l.append('edge [style=%s, label="%s"]; %s -> %s;' % (style, name, self, node))
+                if name == 'prevblock':
+                    l.append('edge [style=dotted, weight=0, label="%s"]; %s -> %s;' % (name, self, node))
+                else:
+                    l.append('edge [style=%s, label="%s"]; %s -> %s;' % (style, name, self, node))
             else:
                 pass
         return "\n".join(l)
@@ -76,14 +79,14 @@ class NodeBranch(Node):
         """ args, target """
         name = self.name
         data = self.get_data()
-        return '%(name)s [shape=box, label="%(data)s"];' % locals()
+        return '%(name)s [shape=circle, label="%(data)s"];' % locals()
 
 class NodeConditionalBranch(Node):
     def descr_node(self):
         """ args, target """
         name = self.name
         data = self.get_data()
-        return '%(name)s [shape=box, label="%(data)s"];' % locals()
+        return '%(name)s [shape=diamond, label="%(data)s"];' % locals()
 
     def linestyle(self):
         return 'dashed'
@@ -93,7 +96,7 @@ class NodeEndBranch(Node):
         """ args, target """
         name = self.name
         data = self.get_data()
-        return '%(name)s [shape=box, label="%(data)s"];' % locals()
+        return '%(name)s [shape=circle, label="%(data)s"];' % locals()
 
 def flatten(*args):
     for arg in args:
@@ -208,6 +211,8 @@ if __name__ == '__main__':
         headerbranch2.set([i, sum], headerblock)
         startblock = BasicBlock([i], [i, sum],
                                 [], headerbranch)
+
+        startblock.prevblock = headerblock
 
         fun = FunctionGraph(startblock, "f")
 
