@@ -23,6 +23,9 @@ class PyPyConsole(code.InteractiveConsole):
         self.space = objspace()
         self.ec = executioncontext.ExecutionContext(self.space)
         self.w_globals = self.ec.make_standard_w_globals()
+        self.space.setitem(self.w_globals,
+                           self.space.wrap("__name__"),
+                           self.space.wrap("__main__"))
 
     def interact(self):
         banner = "Python %s in pypy\n%s / %s" % (
@@ -30,7 +33,6 @@ class PyPyConsole(code.InteractiveConsole):
         code.InteractiveConsole.interact(self, banner)
 
     def runcode(self, code):
-        # ah ha!
         frame = pyframe.PyFrame(self.space, code,
                                 self.w_globals, self.w_globals)
         try:
@@ -55,6 +57,10 @@ class PyPyConsole(code.InteractiveConsole):
         return 0
 
 if __name__ == '__main__':
+    try:
+        import readline
+    except ImportError:
+        pass
     # object space selection
     if len(sys.argv) < 2:
         choice = 'trivial'   # default
