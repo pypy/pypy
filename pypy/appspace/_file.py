@@ -4,35 +4,35 @@ class file_(object):
     """An implementation of file objects in Python. it relies on Guido's
        sio.py implementation.
     """
-    def __init__(self, filename, mode='r', bufsize=None):
+    def __init__(self, filename, filemode='r', bufsize=None):
         self.reading = False
         self.writing = False
         
-        if not mode:
+        if not filemode:
             raise IOError('invalid mode :  ')
-        if mode[0] not in ['r', 'w', 'a', 'U']:
-            raise IOError('invalid mode : %s' % mode)
+        if filemode[0] not in ['r', 'w', 'a', 'U']:
+            raise IOError('invalid mode : %s' % filemode)
         else:
-            if mode[0] in ['r', 'U']:
+            if filemode[0] in ['r', 'U']:
                 self.reading = True
             else:
                 self.writing = True
         try:
-            if mode[1] == 'b':
-                plus = mode[2]
+            if filemode[1] == 'b':
+                plus = filemode[2]
             else:
-                plus = mode[1]
+                plus = filemode[1]
             if plus == '+':
                 self.reading = self.writing = True
         except IndexError:
             pass
 
-        self.mode = mode
-        self.name = filename
-        self.closed = False
+        self.filemode = filemode
+        self.filename = filename
+        self.isclosed = False
         self.softspace =  0 # Required according to file object docs 
-        self.fd = sio.DiskFile(filename, mode)
-        if mode in ['U', 'rU']:
+        self.fd = sio.DiskFile(filename, filemode)
+        if filemode in ['U', 'rU']:
             # Wants universal newlines
             self.fd = sio.TextInputFilter(self.fd)
         if bufsize < 0:
@@ -52,13 +52,14 @@ class file_(object):
                 self.fd = sio.BufferingInputOutputStream(self.fd, bufsize)
         return self.fd
 
-    def __getattr__(self, name):
-        if name == 'close':
-            self.closed = True
+    def __getattr__(self, attr):
         """
-        Delegate all other methods to the underlying file object.
+        Delegate all methods to the underlying file object.
         """
-        return getattr(self.fd, name)
+        if attr == 'close':
+            self.isclosed = True
+        
+        return getattr(self.fd, attr)
 
     def __setattr__(self, attr, val):
         "Make some attributes readonly."
