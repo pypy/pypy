@@ -14,11 +14,6 @@ def get_type(w,annotations):
 def set_type(var,type,annotations):
     ann = SpaceOperation("type",[var],Constant(type))
     annotations.append(ann)    
-    
-
-def annotate(flowgraph):
-    annotator = Annotator(flowgraph)
-    annotator.flowin()
 
 class Annotator:
 
