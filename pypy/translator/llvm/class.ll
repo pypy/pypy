@@ -8,6 +8,8 @@
 %std.last_exception.type = internal global %std.class* null
 %std.last_exception.value = internal global %std.exception* null
 
+%pypy__uncaught_exception = global int 0
+
 implementation
 
 

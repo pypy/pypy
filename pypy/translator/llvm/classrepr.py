@@ -23,7 +23,7 @@ class ClassRepr(TypeRepr):
             bind = gen.annotator.binding(obj)
             if bind.__class__ is annmodel.SomePBC and \
                 gen.annotator.bookkeeper.userclasses.has_key(bind.const):
-                    classdef = gen.annotator.bookkeeper.userclasses[bind.const]
+                classdef = gen.annotator.bookkeeper.userclasses[bind.const]
         elif isinstance(obj, annmodel.SomeInstance):
             classdef = obj.classdef
         elif isinstance(obj, ClassDef):
@@ -46,6 +46,8 @@ class ClassRepr(TypeRepr):
                                              self.classdef.cls.__name__)
         if debug:
             print self.name
+        if ".Exception.object" in self.objectname:
+            1/0
         self.dependencies = sets.Set()
         self.setup_done = False
         self.attr_num = {}
@@ -59,9 +61,18 @@ class ClassRepr(TypeRepr):
             print len(ClassRepr.l_classes)
         gen = self.gen
         if self.classdef.basedef is not None: #get attributes from base classes
-            self.l_base = gen.get_repr(self.classdef.basedef)
+            #XXX if the base class is a builtin Exception we want the
+            #ExceptionTypeRepr, not the ClassRepr
+            if self.classdef.basedef.cls.__module__ == "exceptions":
+                self.l_base = gen.get_repr(self.classdef.basedef.cls)
+                #XXX we want something more complicated here:
+                #if the class has no __init__ function we need to insert the
+                #'args' attribute the builtin exceptions have
+                attribs = []
+            else:
+                self.l_base = gen.get_repr(self.classdef.basedef)
+                attribs = self.l_base.attributes
             self.dependencies.add(self.l_base)
-            attribs = self.l_base.attributes
         else:
             self.l_base = None
             attribs = []
@@ -114,7 +125,7 @@ class ClassRepr(TypeRepr):
             (l_tmp.llvmname(), self.objectname)
         lblock.instruction(i)
         lblock.instruction("store %%std.class* %s, %%std.class** %s" %
-                           (self.l_base.objectname, l_tmp.llvmname()))
+                           (self.l_base.llvmname(), l_tmp.llvmname()))
 
     def llvmtype(self):
         return "%std.class*"
@@ -212,7 +223,7 @@ class ClassRepr(TypeRepr):
 
 def create_builtin_exceptions(gen, dependencies):
     import exceptions
-    for exc in dir(exceptions):
+    for exc in ["IndexError"]:
         if "__" not in exc:
             l_exc = gen.get_repr(getattr(exceptions, exc))
             dependencies.add(l_exc)
@@ -256,6 +267,9 @@ class ExceptionTypeRepr(TypeRepr):
     def llvmtype(self):
         return "%std.class* "
 
+    def llvmname(self):
+        return self.objectname
+
     def typed_name(self):
         return "%%std.class* %s" % self.objectname
 
@@ -267,7 +281,7 @@ class ExceptionTypeRepr(TypeRepr):
             (l_tmp.llvmname(), self.objectname)
         lblock.instruction(i)
         lblock.instruction("store %%std.class* %s, %%std.class** %s" %
-                           (self.l_base.objectname, l_tmp.llvmname()))
+                           (self.l_base.llvmname(), l_tmp.llvmname()))
 
     def op_simple_call(self, l_target, args, lblock, l_func):
         lblock.malloc(l_target)

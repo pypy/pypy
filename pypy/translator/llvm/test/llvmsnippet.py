@@ -298,15 +298,16 @@ def catch_base_exception(n):
 
 #doesn't work yet!
 class MyException(Exception):
-    pass
+    def __init__(self, n):
+        self.n = n
 
 def raises(i):
     if i:
-        raise MyException
+        raise MyException, 10
     return 1
 
 def catches(i):
     try:
         return raises(i)
-    except MyException:
-        return 2
+    except MyException, e:
+        return e.n

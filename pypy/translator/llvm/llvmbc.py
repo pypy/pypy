@@ -16,14 +16,19 @@ class Function(object):
         self.funcdef = funcdef
         self.startbb = startbb
         self.blocks = {}
+        self.blocklist = []
 
     def basic_block(self, block):
-        assert block.label != self.startbb.label, "Block has same label as startblock!"
+        assert block.label != self.startbb.label, \
+               "Block has same label as startblock!"
+        if block.label in self.blocks:
+            raise ValueError, "Can't add another block with the same name."
         self.blocks[block.label] = block
+        self.blocklist.append(block)
 
     def __str__(self):
         r = [self.funcdef, " {\n", str(self.startbb)]
-        r += [str(bb) for bb in self.blocks.values()] + ["}\n\n"]
+        r += [str(bb) for bb in self.blocklist] + ["}\n\n"]
         return "".join(r)
 
 class BasicBlock(object):
@@ -97,7 +102,7 @@ class BasicBlock(object):
         if l_type is None:
             #XXX assuming that l_target.llvmtype() ends with an "*" here
             s = "%s = malloc %s" % (l_target.llvmname(),
-                                    l_target.llvmtype()[:1])
+                                    l_target.llvmtype()[:-1])
         else:
             s = "%s = malloc %s" % (l_target.llvmname(),
                                     l_type.typename_wo_pointer())

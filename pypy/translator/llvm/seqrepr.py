@@ -92,7 +92,7 @@ class TupleTypeRepr(TypeRepr):
     def t_op_newtuple(self, l_target, args, lblock, l_func):
         l_args = [self.gen.get_repr(arg) for arg in args]
         l_func.dependencies.update(l_args)
-        lblock.malloc(l_target, self)
+        lblock.malloc(l_target)
         l_ptrs = [self.gen.get_local_tmp(\
             PointerTypeRepr(l.typename(),self.gen), l_func)
                   for l in self.l_itemtypes]

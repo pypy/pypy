@@ -197,7 +197,7 @@ class BlockRepr(object):
                 l_arg = self.gen.get_repr(arg)
                 l_values = [l_l.l_args[i] for l_l in l_incoming_links]
                 self.l_func.dependencies.add(l_arg)
-                self.lblock.phi(l_arg, l_values, ["%" + l_l.blockname
+                self.lblock.phi(l_arg, l_values, ["%" + l_l.fromblock
                                                   for l_l in l_incoming_links])
 
     def create_space_ops(self):
@@ -232,14 +232,14 @@ class BlockRepr(object):
         l_func = self.l_func
         l_link = LinkRepr.get_link(pyblock.exits[0], l_func, self.gen)
         if self.pyblock.exitswitch is None:
-            self.lblock.uncond_branch("%" + l_link.blockname)
+            self.lblock.uncond_branch("%" + l_link.toblock)
         else:
             l_switch = self.gen.get_repr(pyblock.exitswitch)
             l_link = LinkRepr.get_link(pyblock.exits[0], l_func, self.gen)
             l_link2 = LinkRepr.get_link(pyblock.exits[1], l_func, self.gen)
             l_func.dependencies.add(l_switch)
-            self.lblock.cond_branch(l_switch, "%" + l_link2.blockname,
-                                    "%" + l_link.blockname)
+            self.lblock.cond_branch(l_switch, "%" + l_link2.toblock,
+                                    "%" + l_link.toblock)
         #1 / 0
 
 
@@ -270,7 +270,7 @@ class TryBlockRepr(BlockRepr):
                                            regularblock, exceptblock)
         l_func.add_block(self.lblock)
         l_link = LinkRepr.get_link(pyblock.exits[0], l_func, gen)
-        self.lblock.regularblock = l_link.blockname
+        self.lblock.regularblock = l_link.toblock
         self.build_bb()
         self.build_exc_block()
 
@@ -303,7 +303,7 @@ class TryBlockRepr(BlockRepr):
         l_exitcases = [self.gen.get_repr(ex.exitcase)
                        for ex in self.pyblock.exits[1:]]
         self.l_func.dependencies.update(l_exitcases)
-        sw = [(str(abs(id(ex.exitcase))), "%" + l_l.blockname)
+        sw = [(str(abs(id(ex.exitcase))), "%" + l_l.toblock)
               for ex, l_l in zip(self.pyblock.exits[1:], l_exits)]
         lexcblock.switch(l_ui, "%" + self.lblock.label + ".unwind", sw)
         lunwindblock = llvmbc.BasicBlock(self.lblock.label + ".unwind")
@@ -357,6 +357,7 @@ class LinkRepr(object):
         self.create_link_block()
 
     def create_link_block(self):
+        #a block is created in which the neccessary cast can be performed
         link = self.link
         l_func = self.l_func
         self.blockname = "bl%i_to_bl%i" % (l_func.blocknum[link.prevblock],
@@ -382,7 +383,18 @@ class LinkRepr(object):
                 self.lblock.cast(l_tmp, l_a)
                 self.l_args[i] = l_tmp
         self.lblock.uncond_branch("%%block%i" % l_func.blocknum[link.target])
-        self.l_func.add_block(self.lblock)
+        #try to remove unneded blocks to increase readability
+        if len(self.lblock.instructions) == 1:
+            prevblock = self.link.prevblock
+            self.fromblock = "block%i" % self.l_func.blocknum[prevblock]
+            is_tryblock = isinstance(prevblock.exitswitch, Constant) and \
+                          prevblock.exitswitch.value == last_exception
+            if is_tryblock and self.link.exitcase not in (None, True, False):
+                 self.fromblock += ".except"
+            self.toblock = "block%i" % self.l_func.blocknum[self.link.target]
+        else:
+            self.fromblock = self.toblock = self.blockname
+            self.l_func.add_block(self.lblock)
 
 
 class EntryFunctionRepr(LLVMRepr):
@@ -396,23 +408,39 @@ class EntryFunctionRepr(LLVMRepr):
     def setup(self):
         self.l_function = self.gen.get_repr(self.function)
         self.dependencies.add(self.l_function)
-        lblock = llvmbc.BasicBlock("entry")
         #XXX clean this up
+        #create entry block
+        lblock = llvmbc.BasicBlock("entry")
         lblock.instruction("%tmp = load bool* %Initialized.0__")
         lblock.instruction("br bool %tmp, label %real_entry, label %init")
         lblock.phi_done = True
         lblock.closed = True
         self.llvm_func = llvmbc.Function(self.llvmfuncdef(), lblock)
+        #create init block. The LLVM "module" is initialized there
         self.init_block = llvmbc.BasicBlock("init")
         self.init_block.instruction("store bool true, bool* %Initialized.0__")
-        real_entry = llvmbc.BasicBlock("real_entry")
+        self.llvm_func.basic_block(self.init_block)
+        #create the block that calls the "real" function
+        real_entry = llvmbc.TryBasicBlock("real_entry", "retblock", "exc")
         l_ret = self.gen.get_local_tmp(self.l_function.retvalue.type,
                                        self)
+        real_entry.last_op = True
         self.l_function.op_simple_call(
             l_ret, [self.function] + self.l_function.l_args, real_entry, self)
-        real_entry.ret(l_ret)
         self.llvm_func.basic_block(real_entry)
-        self.llvm_func.basic_block(self.init_block)
+        #create the block that catches remaining unwinds and sets
+        #pypy____uncaught_exception to 1
+        self.exceptblock = llvmbc.BasicBlock("exc")
+        ins = """store int 1, int* %%pypy__uncaught_exception
+\t%%dummy_ret = cast int 0 to %s
+\tret %s %%dummy_ret""" % tuple([self.l_function.retvalue.llvmtype()] * 2)
+        self.exceptblock.instruction(ins)
+        self.exceptblock.closed = True
+        self.llvm_func.basic_block(self.exceptblock)
+        #create the return block
+        retblock = llvmbc.BasicBlock("retblock")
+        retblock.ret(l_ret)
+        self.llvm_func.basic_block(retblock)
         
     def cfuncdef(self):
         a = self.l_function.translator.annotator
@@ -433,13 +461,23 @@ class EntryFunctionRepr(LLVMRepr):
         name = self.name[1:]
         args = self.l_function.graph.startblock.inputargs
         self.pyrex_source = ["cdef extern %s\n" %
-                             (self.cfuncdef())]
-        self.pyrex_source += ["def wrap_%s(" % name]
+                             (self.cfuncdef()),
+                             "cdef extern int pypy__uncaught_exception\n"]
+        
+        self.pyrex_source.append("def wrap_%s(" % name)
         t = []
         for i, a in enumerate(args):
             t += ["%s" % a]
         t = ", ".join(t)
-        self.pyrex_source += t + "):\n\treturn %s(%s)\n\n" % (name, t)
+        s = """
+    result = %s(%s)
+    global pypy__uncaught_exception
+    if pypy__uncaught_exception != 0:
+        pypy__uncaught_exception = 0
+        raise RuntimeError('An uncaught exception occured in the LLVM code.')
+    else:
+        return result""" % (name, t)
+        self.pyrex_source.append(t + "):\n" + s)
         self.pyrex_source = "".join(self.pyrex_source)
         return self.pyrex_source
 
