@@ -11,7 +11,7 @@ d={}
 #  function.
 
 # Old Unittest Name             new name         operator  # of args
-d['assertRaises']           = ('raises',               '', ['Any'])
+#d['assertRaises']           = ('raises',               '', ['Any'])
 d['fail']                   = ('raise AssertionError', '', [0,1])
 d['assert_']                = ('assert',               '', [1,2])
 d['failIf']                 = ('assert not',           '', [1,2])
@@ -25,7 +25,7 @@ d['assertNotAlmostEqual']   = ('assert round',      ' !=', [2,3,4])
 d['failUnlessAlmostEquals'] = ('assert not round',  ' !=', [2,3,4])
 
 #  the list of synonyms
-d['failUnlessRaises']      = d['assertRaises']
+#d['failUnlessRaises']      = d['assertRaises']
 d['failUnless']            = d['assert_']
 d['assertEquals']          = d['assertEqual']
 d['assertNotEquals']       = d['assertNotEqual']
@@ -87,18 +87,21 @@ def rewrite_utest(block):
     # when they fail.  It is always the last argument to the function.
 
     try:
-        indent, args, message, trailer = decompose_unittest(
-            old, block, message_pos)
+        indent, argl, trailer = decompose_unittest(old, block)
+
     except SyntaxError: # but we couldn't parse it!
         return block
-
-    argnum = len(args)
-    if message:
-        argnum += 1
-
+    
+    argnum = len(argl)
     if argnum not in possible_args:
         # sanity check - this one isn't real either
         return block
+
+    elif argnum == message_pos:
+        message = argl[-1]
+        argl = argl[:-1]
+    else:
+        message = None
 
     if argnum is 0 or (argnum is 1 and argnum is message_pos): #unittest fail()
         string = ''
@@ -107,26 +110,25 @@ def rewrite_utest(block):
 
     elif message_pos is 4:  # assertAlmostEqual & friends
         try:
-            pos = args[2].lstrip()
+            pos = argl[2].lstrip()
         except IndexError:
             pos = '7' # default if none is specified
-        string = '(%s -%s, %s)%s 0' % (args[0], args[1], pos, op )
+        string = '(%s -%s, %s)%s 0' % (argl[0], argl[1], pos, op )
 
     else: # assert_, assertEquals and all the rest
-        string = ' ' + op.join(args)
+        string = ' ' + op.join(argl)
 
     if message:
         string = string + ',' + message
 
     return indent + new + string + trailer
 
-def decompose_unittest(old, block, message_pos):
+def decompose_unittest(old, block):
     '''decompose the block into its component parts'''
 
-    ''' returns indent, arglist, message, trailer 
+    ''' returns indent, arglist, trailer 
         indent -- the indentation
         arglist -- the arguments to the unittest function
-        message -- the optional message to print when it fails, and
         trailer -- any extra junk after the closing paren, such as #commment
     '''
  
@@ -137,25 +139,18 @@ def decompose_unittest(old, block, message_pos):
     arglist = break_args(args, [])
 
     if arglist == ['']: # there weren't any
-        return indent, [], [], trailer
+        return indent, [], trailer
 
-    else:
-        for i in range(len(arglist)):
-            try:
-                parser.expr(arglist[i].lstrip('\t '))
-            except SyntaxError:
-                if i == 0:
-                    arglist[i] = '(' + arglist[i] + ')'
-                else:
-                    arglist[i] = ' (' + arglist[i] + ')'
+    for i in range(len(arglist)):
+        try:
+            parser.expr(arglist[i].lstrip('\t '))
+        except SyntaxError:
+            if i == 0:
+                arglist[i] = '(' + arglist[i] + ')'
+            else:
+                arglist[i] = ' (' + arglist[i] + ')'
 
-    if len(arglist) != message_pos:
-        message = None
-    else:
-        message = arglist[-1]
-        arglist = arglist[:-1]
-
-    return indent, arglist, message, trailer
+    return indent, arglist, trailer
 
 def break_args(args, arglist):
     '''recursively break a string into a list of arguments'''
@@ -241,7 +236,7 @@ if __name__ == '__main__':
             if output == 'inplace':
                 outfile = file(infilename, 'w+')
             elif output == 'copy': # yes, just go clobber any existing .cp
-                outfile = file (infilename + '.cp', 'w+')
+                outfile = file (infilename[:-3]+ '.cp.py', 'w+')
             else:
                 outfile = sys.stdout
 
