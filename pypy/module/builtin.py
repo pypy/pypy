@@ -39,6 +39,10 @@ class Builtin(BuiltinModule):
         except executioncontext.OperationError,e:
             if not e.match(space, space.w_KeyError):
                 raise
+            w_mod = space.get_builtin(w_modulename)
+            if w_mod is not None:
+                space.setitem(space.w_modules,w_modulename,w_mod)
+                return w_mod
             raise executioncontext.OperationError(
                       space.w_ImportError, w_modulename)
     __import__ = appmethod(__import__)
