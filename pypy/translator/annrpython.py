@@ -100,8 +100,7 @@ class RPythonAnnotator:
             yield v
 
     def getpbcattrs(self, pbc):
-        c = Constant(pbc)
-        return self.bookkeeper.attrs_read_from_constants.get(c, {})
+        return self.bookkeeper.attrs_read_from_constants.get(pbc, {})
 
     #___ medium-level interface ____________________________
 
