@@ -17,18 +17,21 @@ class appdata(object):
 class PyBuiltinCode(pycode.PyBaseCode):
     """The code object implementing a built-in (interpreter-level) hook."""
 
-    def __init__(self, bltinmodule, appmethod):
+    def __init__(self, func, boundmethod=False):
         pycode.PyBaseCode.__init__(self)
-        self.bltinmodule = bltinmodule
-        self.appmethod = appmethod
-        co = appmethod.func.func_code
-        self.co_name = appmethod.func.__name__
+        self.func = func
+        co = func.func_code
+        self.co_name = func.__name__
         self.co_flags = co.co_flags
         # extract argument names from 'co',
         # removing 'self' and the 'w_' prefixes
-        assert co.co_varnames[0] == "self"
+        if boundmethod:
+            assert co.co_varnames[0] == "self"
+            start = 1
+        else:
+            start = 0
         argnames = []
-        for argname in co.co_varnames[1:co.co_argcount]:
+        for argname in co.co_varnames[start:co.co_argcount]:
             assert argname.startswith('w_')
             argnames.append(argname[2:])
         self.co_varnames = tuple(argnames)
@@ -41,7 +44,7 @@ class PyBuiltinCode(pycode.PyBaseCode):
         for argname in self.co_varnames:
             w_arg = space.getitem(w_locals, space.wrap(argname))
             args.append(w_arg)
-        w_ret = self.appmethod.func(self.bltinmodule, *args)
+        w_ret = self.func(*args)
         return w_ret
 
 
@@ -65,7 +68,7 @@ class BuiltinModule:
         w_module = space.newmodule(space.wrap(modulename))
         for key, value in self.__class__.__dict__.items():
             if isinstance(value, appmethod):
-                code = PyBuiltinCode(self, value)
+                code = PyBuiltinCode(value.func.__get__(self),boundmethod=True)
                 w_function = space.newfunction(code, space.w_None, None)
                 space.setattr(w_module, space.wrap(key), w_function)
             elif isinstance(value, appdata):
