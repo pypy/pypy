@@ -25,20 +25,22 @@ def make_module_from_pyxstring(name, dirpath, string):
     #print "made module", module
     return module
 
+def compiler_command():
+    return os.getenv('PYPY_CC')
+
 def enable_fast_compilation():
+    if compiler_command():
+        return   # don't bother importing distutils
     from distutils import sysconfig
     gcv = sysconfig.get_config_vars()
     opt = gcv.get('OPT') # not always existent
     if opt:
-        opt = re.sub('-O.', '-O0', opt)
+        opt = re.sub('-O\d+', '-O0', opt)
     else:
         opt = '-O0'
     gcv['OPT'] = opt
 
 def make_module_from_c(cfile, include_dirs=None):
-    from distutils.core import setup
-    from distutils.extension import Extension
-
     #try:
     #    from distutils.log import set_threshold
     #    set_threshold(10000)
@@ -57,16 +59,25 @@ def make_module_from_c(cfile, include_dirs=None):
         c = stdoutcapture.Capture(mixed_out_err = True)
         try:
             try:
-                setup(
-                  name = "testmodules",
-                  ext_modules=[
-                        Extension(modname, [str(cfile)],
-                            include_dirs=include_dirs)
-                  ],
-                  script_name = 'setup.py',
-                  script_args = ['-q', 'build_ext', '--inplace']
-                  #script_args = ['build_ext', '--inplace']
-                )
+                if compiler_command():
+                    # GCC-ish options only
+                    cmd = compiler_command().replace('%s', modname)
+                    for dir in include_dirs:
+                        cmd += ' -I%s' % dir
+                    cmdexec(cmd)
+                else:
+                    from distutils.core import setup
+                    from distutils.extension import Extension
+                    setup(
+                      name = "testmodules",
+                      ext_modules=[
+                            Extension(modname, [str(cfile)],
+                                include_dirs=include_dirs)
+                      ],
+                      script_name = 'setup.py',
+                      script_args = ['-q', 'build_ext', '--inplace']
+                      #script_args = ['build_ext', '--inplace']
+                    )
             finally:
                 foutput, foutput = c.done()
         except:
