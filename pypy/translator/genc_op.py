@@ -55,24 +55,36 @@ class LoOptimized(LoC):
         return True
 
 # ____________________________________________________________
+#
+# For each operation we describe what argument list it expected.
+# These arguments are LLVars expanded from high-level arguments (Variables)
+# and the result, also as zero or more LLVars, all put together in a single
+# list.  The occasionally hackish look of self.args manipulations come from
+# the fact that the boundaries between the original high-level arguments
+# are lost by design.  In the #self.args comments below, a trailing '..'
+# means that zero or more items can come here.
 
 class LoStandardOperation(LoC):
     "A standard operation is one defined by a macro in genc.h."
     can_fail = PARAMETER
     llname   = PARAMETER
     cost     = PARAMETER
+    # self.args: [macro args expanded from Variables..]
     def writestr(self, *args):
         return self.llname + '(' + ', '.join(args) + ')'
 
 class LoKnownAnswer(LoOptimized):
     known_answer = PARAMETER
     cost         = 0
+    # self.args: [ignored input args..,
+    #             output args to replace with known_answer..]
     def optimized_result(self, typer):
         return self.known_answer
 
 class LoNewList(LoC):
     can_fail = True
     cost     = 3
+    # self.args: [input PyObjects.., output PyObject]
     def writestr(self, *stuff):
         content = stuff[:-2]
         result = stuff[-2]
@@ -87,6 +99,7 @@ class LoNewList(LoC):
 class LoCallFunction(LoC):
     can_fail = True
     cost     = 3
+    # self.args: [callable PyObject, argument PyObjects.., result PyObject]
     def writestr(self, func, *stuff):
         args = stuff[:-2]
         result = stuff[-2]
@@ -99,6 +112,7 @@ class LoCallFunction(LoC):
 class LoInstantiate(LoC):
     can_fail = True
     llclass  = PARAMETER
+    # self.args: [output PyObject instance]
     def writestr(self, res, err):
         return 'INSTANTIATE(%s, %s, %s)' % (
             self.llclass.name, res, err)
@@ -106,6 +120,7 @@ class LoInstantiate(LoC):
 class LoAllocInstance(LoC):
     can_fail = True
     llclass  = PARAMETER
+    # self.args: [output PyObject instance]
     def writestr(self, res, err):
         return 'ALLOC_INSTANCE(%s, %s, %s)' % (
             self.llclass.name, res, err)
@@ -114,7 +129,7 @@ class LoConvertTupleItem(LoOptimized):
     source_r = PARAMETER   # tuple-of-hltypes, one per item of the input tuple
     target_r = PARAMETER   # tuple-of-hltypes, one per item of the output tuple
     cost     = PARAMETER
-
+    # self.args: [input unpacked tuple items.., output unpacked tuple items..]
     def optimized_result(self, typer):
         # replace this complex conversion by the simpler conversion of
         # only the items that changed
@@ -144,7 +159,7 @@ class LoConvertTupleItem(LoOptimized):
 class LoNewTuple(LoC):
     can_fail = True
     cost     = 3
-
+    # self.args: [input PyObjects.., output PyObject]
     def writestr(self, *stuff):
         args   = stuff[:-2]
         result = stuff[-2]
@@ -159,7 +174,7 @@ class LoNewTuple(LoC):
 class LoGetAttr(LoC):
     cost = 1
     fld  = PARAMETER
-
+    # self.args: [PyObject instance, result..]
     def writestr(self, inst, *result):
         ls = []
         llclass = self.fld.llclass
@@ -182,6 +197,7 @@ class LoGetAttr(LoC):
         return '\n'.join(ls)
 
 class LoGetAttrMethod(LoGetAttr):
+    # self.args: [PyObject instance, result..]
     def optimize(self, typer, llresult):
         # for a OP_GETATTR that must return a bound method.  The 'self'
         # part of the result can be statically copied from self.args[0].
@@ -194,7 +210,7 @@ class LoSetAttr(LoC):
     cost    = 1
     llclass = PARAMETER   # the class involved in the operation
     fld     = PARAMETER   # the field, which might come from a parent class
-
+    # self.args: [PyObject instance, new value..]
     def writestr(self, inst, *value):
         assert len(value) == len(self.fld.llvars)
         ls = []
@@ -211,7 +227,7 @@ class LoInitClassAttr(LoC):
     cost    = 1
     llclass = PARAMETER   # the class involved in the operation
     fld     = PARAMETER   # the field, which might come from a parent class
-
+    # self.args: [constant value to store..]
     def writestr(self, *value):
         assert len(value) == len(self.fld.llvars)
         ls = []
@@ -228,9 +244,8 @@ class LoConvertBoundMethod(LoOptimized):
     r_source = PARAMETER
     r_target = PARAMETER
     cost     = PARAMETER
-
+    # self.args: [im_func.., im_self PyObject, output im_func.., im_self PyObj]
     def optimized_result(self, typer):
-        # self.args: [input-func..., PyObject*, output-func..., PyObject*]
         slen = len(self.r_source.impl)
         tlen = len(self.r_target.impl)
         assert len(self.args) == slen+1+tlen+1
@@ -246,7 +261,7 @@ class LoConvertChain(LoOptimized):
     r_middle = PARAMETER
     r_to     = PARAMETER
     cost     = PARAMETER
-
+    # self.args: [input value.., output value..]
     def optimized_result(self, typer):
         half = len(self.r_from.impl)
         assert half + len(self.r_to.impl) == len(self.args)
@@ -257,6 +272,7 @@ class LoConvertChain(LoOptimized):
 
 class LoDummyResult(LoC):
     cost = 1
+    # self.args: [output value..]
     def write(self):
         ls = []
         for a in self.args:
@@ -269,16 +285,19 @@ class LoDummyResult(LoC):
 
 class LoMove(LoC):
     cost = 1
+    # self.args: [input LLVar, output LLVar]
     def writestr(self, x, y):
         return '%s = %s;' % (y, x)
 
 class LoGoto(LoC):
     cost = 0
+    # self.args: []
     def write(self):
         return 'goto %s;' % self.errtarget
 
 class LoCopy(LoOptimized):
     cost = 0
+    # self.args: [input LLVars.., output LLVars..]
     def optimized_result(self, typer):
         # the result's llvars is equal to the input's llvars.
         assert len(self.args) % 2 == 0
@@ -288,6 +307,7 @@ class LoCopy(LoOptimized):
 class LoDoSomethingWithRef(LoC):
     do_what = PARAMETER
     cost    = 1
+    # self.args: [value..]
     def write(self):
         ls = []
         for a in self.args:
@@ -301,6 +321,7 @@ LoXDecref = LoDoSomethingWithRef.With(do_what = 'Py_XDECREF')
 
 class LoComment(LoC):
     cost = 0
+    # self.args: []
     def write(self):
         s = self.errtarget
         s = s.replace('/*', '/+')
@@ -322,6 +343,7 @@ ERROR_CHECK = {
 class LoCallPyFunction(LoC):
     can_fail  = True
     hlrettype = PARAMETER
+    # self.args: [C function pointer, arguments.., result..]
     def write(self):
         funcptr = self.args[0].name
         L = len(self.hlrettype.impl)
@@ -343,6 +365,7 @@ class LoCallPyFunction(LoC):
 
 class LoReturn(LoC):
     cost = 1
+    # self.args: [return value..]
     def write(self):
         if not self.args:
             return 'return 0;'
