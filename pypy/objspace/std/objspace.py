@@ -20,10 +20,10 @@ BoundMultiMethod.ASSERT_BASE_TYPE = W_Object
 MultiMethod.BASE_TYPE_OBJECT = W_AbstractTypeObject
 
 # delegation priorities
-PRIORITY_SAME_TYPE    = 2  # converting between several impls of the same type
-PRIORITY_PARENT_TYPE  = 1  # converting to a base type (e.g. bool -> int)
+PRIORITY_SAME_TYPE    = 3  # converting between several impls of the same type
+PRIORITY_PARENT_TYPE  = 2  # converting to a base type (e.g. bool -> int)
+PRIORITY_CHANGE_TYPE  = 1  # changing type altogether (e.g. int -> float)
 PRIORITY_PARENT_IMPL  = 0  # hard-wired in multimethod.py
-PRIORITY_CHANGE_TYPE  = -1 # changing type altogether (e.g. int -> float)
 
 def registerimplementation(implcls):
     # this function should ultimately register the implementation class somewhere
