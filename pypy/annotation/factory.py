@@ -38,6 +38,7 @@ class Bookkeeper:
         self.annotator = annotator
         self.creationpoints = {} # map positions-in-blocks to Factories
         self.userclasses = {}    # map classes to ClassDefs
+        self.userclasseslist = []# userclasses.keys() in creation order
 
     def enter(self, position_key):
         """Start of an operation.
@@ -81,7 +82,9 @@ class Bookkeeper:
         try:
             return self.userclasses[cls]
         except KeyError:
-            self.userclasses[cls] = ClassDef(cls, self)
+            cdef = ClassDef(cls, self)
+            self.userclasses[cls] = cdef
+            self.userclasseslist.append(cdef)
             return self.userclasses[cls]
 
 

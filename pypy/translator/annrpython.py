@@ -73,6 +73,10 @@ class RPythonAnnotator:
         """Return a set of known user classes."""
         return self.bookkeeper.userclasses
 
+    def getuserclassdefinitions(self):
+        """Return a list of ClassDefs."""
+        return self.bookkeeper.userclasseslist
+
     def getuserattributes(self, cls):
         """Enumerate the attributes of the given user class, as Variable()s."""
         clsdef = self.bookkeeper.userclasses[cls]

@@ -314,12 +314,15 @@ def inheritance1():
     lst = [d, e]
     return d.stuff, e.stuff
 
+def getstuff(x):
+    return x.stuff
+
 def inheritance2():
     d = D()
     d.stuff = (-12, -12)
     e = E()
     e.stuff = (3, "world")
-    return C().stuff
+    return getstuff(d), getstuff(e)
 
 class F:
     pass
