@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import *
 
-def copyvar(v):
+def copyvar(translator, v):
     """Make a copy of the Variable v, preserving annotations and type_cls."""
     assert isinstance(v, Variable)
     newvar = Variable(v)
@@ -20,7 +20,7 @@ def remove_direct_loops(translator, graph):
     def visit(link):
         if isinstance(link, Link) and link.prevblock is link.target:
             # insert an empty block with fresh variables.
-            intermediate = [copyvar(a) for a in link.args]
+            intermediate = [copyvar(translator, a) for a in link.args]
             b = Block(intermediate)
             b.closeblock(Link(intermediate, link.target))
             link.target = b

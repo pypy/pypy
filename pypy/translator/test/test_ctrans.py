@@ -201,6 +201,19 @@ class TestNoTypeCGenTestCase:
         fn = self.build_cfunc(snippet.one_thing2)
         assert fn() == 4
 
+    def test_direct_loop(self):
+        # check that remove_direct_loops() does its job correctly
+        def direct_loop(n, m):
+            while 1:
+                o = n; n = m; m = o
+                n -= 10
+                if n < 0:
+                    return n
+        fn = self.build_cfunc(direct_loop)
+        assert fn(117, 114) == -6
+        assert fn(117, 124) == -3
+
+
 class TestTypedTestCase:
 
     def getcompiled(self, func):
