@@ -2,32 +2,34 @@ import pypy.interpreter.appfile
 from pypy.interpreter.baseobjspace import *
 from multimethod import *
 
-if not isinstance(bool, type):
-    booltype = ()
-else:
-    booltype = bool
-
 
 class W_Object:
     "Parent base class for wrapped objects."
-    delegate_once = {}
     statictype = None
     
     def __init__(w_self, space):
-        w_self.space = space
+        w_self.space = space     # XXX not sure this is ever used any more
 
-    def get_builtin_impl_class(w_self):
-        return w_self.__class__
+
+class W_AbstractTypeObject(W_Object):
+    "Do not use. For W_TypeObject only."
+
 
 W_ANY = W_Object  # synonyms for use in .register()
 MultiMethod.ASSERT_BASE_TYPE = W_Object
+MultiMethod.BASE_TYPE_OBJECT = W_AbstractTypeObject
 
+# delegation priorities
+PRIORITY_SAME_TYPE    = 4  # converting between several impls of the same type
+PRIORITY_PARENT_TYPE  = 3  # converting to a base type (e.g. bool -> int)
+PRIORITY_PARENT_IMPL  = 2  # this one is always done implicitely in default.py
+PRIORITY_CHANGE_TYPE  = 1  # changing type altogether (e.g. int -> float)
 
 def registerimplementation(implcls):
     # this function should ultimately register the implementation class somewhere
-    # right now its only purpose is to make sure there is a
-    # delegate_once attribute.
-    implcls.__dict__.setdefault("delegate_once", {})
+    # it may be modified to take 'statictype' instead of requiring it to be
+    # stored in 'implcls' itself
+    assert issubclass(implcls, W_Object)
 
 
 ##################################################################
@@ -187,7 +189,7 @@ class StdObjSpace(ObjSpace):
         if isinstance(x, W_Object):
             raise TypeError, "attempt to wrap already wrapped object: %s"%(x,)
         if isinstance(x, int):
-            if isinstance(x, booltype):
+            if isinstance(bool, type) and isinstance(x, bool):
                 return self.newbool(x)
             import intobject
             return intobject.W_IntObject(self, x)
@@ -250,8 +252,10 @@ class StdObjSpace(ObjSpace):
         import stringobject
         return stringobject.W_StringObject(self, ''.join(chars))
 
-    unwrap  = MultiMethod('unwrap', 1, [])   # returns an unwrapped object
-    is_true = MultiMethod('nonzero', 1, [])  # returns an unwrapped bool
+    # special multimethods
+    delegate = DelegateMultiMethod()          # delegators
+    unwrap  = MultiMethod('unwrap', 1, [])    # returns an unwrapped object
+    is_true = MultiMethod('nonzero', 1, [])   # returns an unwrapped bool
     # XXX do something about __nonzero__ !
 
     getdict = MultiMethod('getdict', 1, [])  # get '.__dict__' attribute
@@ -296,10 +300,15 @@ def register_all(module_dict, alt_ns=None):
         l=[]
         for i in sig.split('_'):
             if i == 'ANY':
-                i = W_ANY
+                icls = W_ANY
             else:
-                i = module_dict.get('W_%s' % i) or module_dict.get('W_%sObject'%i)
-            l.append(i)
+                icls = (module_dict.get('W_%s' % i) or
+                        module_dict.get('W_%sObject' % i))
+                if icls is None:
+                    raise ValueError, \
+                          "no W_%s or W_%sObject for the definition of %s" % (
+                             i, i, name)
+            l.append(icls)
 
         if len(l) != obj.func_code.co_argcount-1:
             raise ValueError, \
@@ -308,10 +317,10 @@ def register_all(module_dict, alt_ns=None):
 
         funcname =  _name_mappings.get(funcname, funcname)
 
-        if hasattr(StdObjSpace, funcname):
-            getattr(StdObjSpace, funcname).register(obj, *l)
-        else:
+        if hasattr(alt_ns, funcname):
             getattr(alt_ns, funcname).register(obj, *l)
+        else:
+            getattr(StdObjSpace, funcname).register(obj, *l)
 
 # import the common base W_ObjectObject as well as
 # default implementations of some multimethods for all objects

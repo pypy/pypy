@@ -9,48 +9,18 @@ class W_UserObject(W_Object):
     class."""
     statictype = W_UserType
 
-    # Nota Bene: we expect W_UserObject instances whose type inherits
-    # from a built-in type to also contain the attributes of the
-    # corresponding W_XxxObject class.  This is a non-restricted-Python-
-    # compliant hack that we may have to rethink at some point.
-    # It is similar to CPython's instances of subtypes of built-in
-    # types whose memory layout start with what looks like an instance
-    # of the parent built-in type.
-
     def __init__(w_self, space, w_type, w_args, w_kwds):
         # the restriction that a single built-in type is allowed among the
         # bases is specific to our W_UserObject implementation of user
         # objects, and should thus not be enforced in W_UserType.
-        w_builtintype = getsinglebuiltintype(space, w_type)
+        # Note: w_type may be any object, not necessarily a W_UserType
+        # (in case 'type' is subclassed).
         
-        # first create an instance of the parent built-in type
-        w_preself = space.call(w_builtintype, w_args, w_kwds)
-        if not space.is_true(space.is_(space.type(w_preself), w_builtintype)):
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("instantiating a subtype of a type "
-                                            "with a misbehaving constructor"))
-
-        # add custom attributes
-        w_self.__dict__.update(
-            {'w_uo_preself': w_preself,
-             'w_uo_type': w_type,
-             'w_uo_dict': space.newdict([]),
-             })
-
-    def __getattr__(w_self, attr):
-        return getattr(w_self.w_uo_preself, attr)
-
-    def __setattr__(w_self, attr, value):
-        if attr in w_self.__dict__:
-            w_self.__dict__[attr] = value
-        else:
-            setattr(w_self.w_preself, attr, value)
-
-    def __delattr__(w_self, attr):
-        raise AttributeError, "we don't wants attribute deletion in RPython"
-
-    def get_builtin_impl_class(w_self):
-        return w_self.w_uo_preself.get_builtin_impl_class()
+        # create an instance of the parent built-in type
+        w_builtintype = getsinglebuiltintype(space, w_type)
+        w_self.w_embedded = space.call(w_builtintype, w_args, w_kwds)
+        w_self.w_type = w_type
+        w_self.w_dict = space.newdict([])
 
 
 registerimplementation(W_UserObject)
@@ -59,7 +29,8 @@ registerimplementation(W_UserObject)
 def getsinglebuiltintype(space, w_type):
     "Return the (asserted unique) built-in type that w_type inherits from."
     mostspecialized = space.w_object
-    mro = list(w_type.getmro())
+    mro = space.getattr(w_type, space.wrap('__mro__'))
+    mro = space.unpacktuple(mro)
     mro.reverse()
     for w_base in mro:
         if not isinstance(w_base, W_UserType):
@@ -71,56 +42,67 @@ def getsinglebuiltintype(space, w_type):
     return mostspecialized
 
 
-def type__User(space, w_userobj):
-    return w_userobj.w_uo_type
+# W_UserObject-to-the-parent-builtin-type delegation
+# So far this is the only delegation that produces a result
+# of a variable type.
+def delegate__User(space, w_userobj):
+    return w_userobj.w_embedded
+delegate__User.priority = PRIORITY_PARENT_TYPE
 
+
+def type__User(space, w_userobj):
+    return w_userobj.w_type
 
 def getdict__User(space, w_userobj):
     # XXX check getdict() of the base built-in implementation
-    return w_userobj.w_uo_dict
+    return w_userobj.w_dict
 
-# We register here all multimethods with at least one W_UserObject.
-# No multimethod must be explicitely registered on W_UserObject except
-# here, unless you want to completely override a behavior for user-defined
-# types, as in user_type and user_getdict.
 
-def build_user_operation(multimethod):
-    def user_operation(space, *args_w):
-        if len(args_w) != multimethod.arity:
-            raise TypeError, "wrong number of arguments"
-        for i in range(len(multimethod.specialnames)):
-            w_arg = args_w[i]
-            if isinstance(w_arg, W_UserObject):
-                specialname = multimethod.specialnames[i]
-                try:
-                    w_value = w_arg.w_uo_type.lookup(space.wrap(specialname))
-                except KeyError:
-                    pass
-                else:
-                    # 'w_value' is a __xxx__ function object
-                    w_value = space.get(w_value, w_arg, w_arg.w_uo_type)
-                    # 'w_value' is now a bound method.
-                    # if it is a sliced multimethod it should do the
-                    # get_builtin_impl_class() trick automatically, not
-                    # dispatching again on W_UserObject.
-                    rest_args = list(args_w)
-                    del rest_args[i]
-                    w_args_w = space.newtuple(rest_args)
-                    w_result = space.call(w_value, w_args_w, space.newdict([]))
-                    if not space.is_true(space.is_(w_result,
-                                                   space.w_NotImplemented)):
-                        return w_result   # if w_result is not NotImplemented
-        raise FailedToImplement
-    return user_operation
+# register an implementation for all multimethods that define special names
+def user_specialmethod(space, *args_w):
+    # args_w is in the standard multimethod order
+    # we need it in the Python-friendly order (i.e. swapped for __rxxx__)
+    args_w = list(args_w)
+    w_userobj = args_w.pop(g_bound_position)
+    w_args = space.newtuple(args_w)
+    w_key = space.wrap(g_method_name)
+    mro = space.getattr(w_userobj.w_type, space.wrap('__mro__'))
+    mro = space.unpacktuple(mro)
+    for w_base in mro:
+        if not isinstance(w_base, W_UserType):
+            continue
+        try:
+            w_function = w_base.lookup_exactly_here(w_key)
+        except KeyError:
+            continue
+        w_method = space.get(w_function, w_userobj, w_base)
+        w_result = space.call(w_method, w_args, space.newdict([]))
+        # XXX hack to accept real Nones from operations with no return value
+        if w_result is None:
+            return space.w_None
+        elif space.is_true(space.is_(w_result, space.w_NotImplemented)):
+            raise FailedToImplement
+        else:
+            return w_result
+    raise FailedToImplement
 
+import new
 for multimethod in typeobject.hack_out_multimethods(StdObjSpace):
-    if multimethod not in (StdObjSpace.getdict,
-                           StdObjSpace.type):
-        user_operation = build_user_operation(multimethod)
-        for i in range(multimethod.arity):
-            signature = [W_ANY] * multimethod.arity
-            signature[i] = W_UserObject
-            multimethod.register(user_operation, *signature)
+    for i in range(len(multimethod.specialnames)):
+        # a hack to avoid nested scopes is to give the function
+        # a custom globals dictionary
+
+        g = {'W_UserType'       : W_UserType,
+             'FailedToImplement': FailedToImplement,
+             '__builtins__'     : __builtins__,
+             'g_method_name'    : multimethod.specialnames[i],
+             'g_bound_position' : i}
+        f = new.function(user_specialmethod.func_code, g,
+                         'user_%s' % multimethod.specialnames[i])
+
+        signature = [W_ANY] * multimethod.arity
+        signature[i] = W_UserObject
+        multimethod.register(f, *signature)
 
 
 register_all(vars())

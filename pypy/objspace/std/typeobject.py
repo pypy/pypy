@@ -2,14 +2,14 @@ from pypy.interpreter import pycode
 from pypy.objspace.std.objspace import *
 
 
-class W_TypeObject(W_Object):
+class W_TypeObject(W_AbstractTypeObject):
     """This class is abstract.  Subclasses are defined in 'xxxtype.py' files.
     The instances of these subclasses are what the user sees as Python's
     type objects.  This class defines all general type-oriented behavior
     like attribute lookup and method resolution order.  Inheritance
     relationships are implemented *only* with the getbases() methods of
     W_TypeObject subclasses, *not* with interpreter-level inheritance between
-    X_Xxx classes *nor* with multimethod delegation."""
+    W_Xxx classes *nor* with multimethod delegation."""
 
     typename = None              # to be overridden by subclasses or instances
     #statictype = W_TypeType     (hacked into place below)
@@ -19,18 +19,19 @@ class W_TypeObject(W_Object):
         W_Object.__init__(w_self, space)
         w_self.w_tpname = space.wrap(w_self.typename)
         w_self.multimethods = {}
-        # import all multimethods of the space and of the type class
-        for multimethod in (hack_out_multimethods(space.__class__) +
-                            hack_out_multimethods(w_self.__class__)):
+        # import all multimethods of the type class and of the objspace
+        for multimethod in (hack_out_multimethods(w_self.__class__) +
+                            hack_out_multimethods(space.__class__)):
             for i in range(len(multimethod.specialnames)):
-                # each PyMultimethodCode bytecode is a (lazy, cached,
-                # dynamically recomputed) slice of a multimethod.
-                code = PyMultimethodCode(multimethod, i, w_self)
-                w_self.multimethods[multimethod.specialnames[i]] = code
+                # each PyMultimethodCode embeds a multimethod
+                name = multimethod.specialnames[i]
+                code = PyMultimethodCode(multimethod, w_self.__class__, i)
+                w_self.multimethods[name] = code
 
     def getbases(w_self):
         parents = w_self.staticbases
         if parents is None:
+            # Note: this code is duplicated in multimethod.py
             import objecttype
             parents = (objecttype.W_ObjectType,)
         basetypes = [w_self.space.get_typeinstance(parent) for parent in parents]
@@ -45,8 +46,9 @@ class W_TypeObject(W_Object):
         return tuple(mro)
 
     def lookup(w_self, w_key):
-        "XXX at some point, turn this into a multimethod"
         # note that this doesn't call __get__ on the result at all
+        # XXX this should probably also return the (parent) class in which
+        # the attribute was found
         for w_class in w_self.getmro():
             try:
                 return w_class.lookup_exactly_here(w_key)
@@ -66,20 +68,6 @@ class W_TypeObject(W_Object):
             raise KeyError
         return space.newfunction(code, space.w_None, code.getdefaults(space))
 
-    def acceptclass(w_self, cls):
-        # For multimethod slicing. This checks whether a Python object of
-        # type 'w_self' would be acceptable for a multimethod implementation
-        # defined on the 'W_Xxx' class specified by 'cls'.
-        # Currently implemented by following the 'statictype' attribute.
-        # This results in operations defined on W_ObjectObject to be accepted,
-        # but operations defined on W_ANY to be rejected.
-        statictypeclass = cls.statictype
-        if statictypeclass is not None:
-            for w_parent in w_self.getmro():
-                if isinstance(w_parent, statictypeclass):
-                    return True
-        return False
-
 
 import typetype, objecttype
 W_TypeObject.statictype = typetype.W_TypeType
@@ -87,13 +75,18 @@ registerimplementation(W_TypeObject)
 
 
 def hack_out_multimethods(cls):
-    return [value for value in cls.__dict__.itervalues()
-                  if isinstance(value, MultiMethod)]
+    result = []
+    for base in cls.__bases__:
+        result += hack_out_multimethods(base)
+    for value in cls.__dict__.itervalues():
+        if isinstance(value, MultiMethod):
+            result.append(value)
+    return result
 
 
 class PyMultimethodCode(pycode.PyBaseCode):
 
-    def __init__(self, multimethod, bound_position, w_type):
+    def __init__(self, multimethod, typeclass, bound_position=0):
         pycode.PyBaseCode.__init__(self)
         argnames = ['x%d'%(i+1) for i in range(multimethod.arity)]
         argnames.insert(0, argnames.pop(bound_position))
@@ -102,45 +95,26 @@ class PyMultimethodCode(pycode.PyBaseCode):
         self.co_varnames = tuple(argnames)
         self.co_argcount = multimethod.arity
         self.basemultimethod = multimethod
-        self.slicedmultimethod = None
+        self.typeclass = typeclass
         self.bound_position = bound_position
-        self.w_type = w_type
 
     def getdefaults(self, space):
         return space.wrap(self.basemultimethod.defaults)
 
-    def cleardependency(self):
-        # called when the underlying dispatch table is modified
-        self.slicedmultimethod = None
-
     def slice(self):
-        if self.slicedmultimethod is None:
-            multimethod = self.basemultimethod
-            #print "pypy: slicing %r for a %r argument at position %d" % (
-            #    multimethod.operatorsymbol,
-            #    self.w_type.typename, self.bound_position)
-            # slice the multimethod and cache the result
-            sliced = multimethod.slicetable(self.bound_position, self.w_type)
-            #if sliced.is_empty():
-            #    print "the slice is empty"
-            self.slicedmultimethod = sliced.__get__(self.w_type.space, None)
-            multimethod.cache_dependency(self)
-        return self.slicedmultimethod
+        return self.basemultimethod.slice(self.typeclass, self.bound_position)
 
     def eval_code(self, space, w_globals, w_locals):
         """Call the multimethod, ignoring all implementations that do not
         have exactly the expected type at the bound_position."""
         multimethod = self.slice()
         dispatchargs = []
-        initialtypes = []
-        for i in range(multimethod.multimethod.arity):
+        for i in range(multimethod.arity):
             w_arg = space.getitem(w_locals, space.wrap('x%d'%(i+1)))
             dispatchargs.append(w_arg)
-            initialtypes.append(w_arg.get_builtin_impl_class())
         dispatchargs = tuple(dispatchargs)
-        initialtypes = tuple(initialtypes)
         try:
-            w_result = multimethod.perform_call(dispatchargs, initialtypes)
+            w_result = multimethod.get(space).perform_call(dispatchargs)
         except FailedToImplement, e:
             if e.args:
                 raise OperationError(*e.args)
@@ -169,8 +143,9 @@ def getattr__Type_ANY(space, w_type, w_attr):
     # XXX mwh doubts this is the Right Way to do this...
     if space.is_true(space.eq(w_attr, space.wrap('__name__'))):
         return w_type.w_tpname
+    if space.is_true(space.eq(w_attr, space.wrap('__mro__'))):
+        return space.newtuple(list(w_type.getmro()))
     raise FailedToImplement
 
 
 register_all(vars())
-

@@ -8,7 +8,7 @@ from floattype import W_FloatType
 ##############################################################
 
 import math
-import intobject
+from intobject import W_IntObject
 
 applicationfile = StdObjSpace.AppFile(__name__)
 
@@ -26,9 +26,9 @@ class W_FloatObject(W_Object):
 registerimplementation(W_FloatObject)
 
 # int-to-float delegation
-def int_to_float(space, w_intobj):
+def delegate__Int(space, w_intobj):
     return W_FloatObject(space, float(w_intobj.intval))
-intobject.W_IntObject.delegate_once[W_FloatObject] = int_to_float
+delegate__Int.priority = PRIORITY_CHANGE_TYPE
 
 
 def float_float(space,w_value):

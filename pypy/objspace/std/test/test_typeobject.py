@@ -12,8 +12,8 @@ class TestPyMultimethodCode(testsupport.TestCase):
     def test_int_sub(self):
         w = self.space.wrap
         for i in range(2):
-            meth = PyMultimethodCode(self.space.sub.multimethod,
-                                     i, self.space.w_int)
+            meth = PyMultimethodCode(self.space.sub.multimethod, 
+                                     self.space.w_int.__class__, i)
             self.assertEqual(meth.slice().is_empty(), False)
             # test int.__sub__ and int.__rsub__
             self.assertEqual_w(meth.eval_code(self.space, None,
@@ -29,7 +29,7 @@ class TestPyMultimethodCode(testsupport.TestCase):
     def test_empty_inplace_add(self):
         for i in range(2):
             meth = PyMultimethodCode(self.space.inplace_add.multimethod,
-                                     i, self.space.w_int)
+                                     self.space.w_int.__class__, i)
             self.assertEqual(meth.slice().is_empty(), True)
 
     def test_float_sub(self):
@@ -37,7 +37,7 @@ class TestPyMultimethodCode(testsupport.TestCase):
         w(1.5)   # force floatobject imported
         for i in range(2):
             meth = PyMultimethodCode(self.space.sub.multimethod,
-                                     i, self.space.w_float)
+                                     self.space.w_float.__class__, i)
             self.assertEqual(meth.slice().is_empty(), False)
             # test float.__sub__ and float.__rsub__
 

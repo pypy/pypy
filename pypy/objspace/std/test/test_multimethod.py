@@ -3,12 +3,21 @@ import testsupport
 
 from pypy.objspace.std.multimethod import *
 
-MultiMethod.ASSERT_BASE_TYPE = None
-W_ANY = object
+
+# default delegator
+
+def class_to_parent_classes(space, w_obj):
+    converted = []
+    W_Cls = w_obj.__class__
+    while len(W_Cls.__bases__) == 1:
+        W_Cls, = W_Cls.__bases__
+        converted.append((W_Cls, w_obj))
+    return converted
+
+class_to_parent_classes.priority = 1
 
 
 class X:
-    delegate_once = {}
     def __init__(self, value):
         self.value = value
     def __repr__(self):
@@ -17,12 +26,24 @@ class X:
 def from_y_to_x(space, yinstance):
     return X(yinstance)
 
+from_y_to_x.priority = 2
+
+def from_x_to_str_sometimes(space, xinstance):
+    if xinstance.value:
+        return '!' + repr(xinstance.value)
+    else:
+        return []
+
+from_x_to_str_sometimes.priority = 2
+
+
 class Y:
-    delegate_once = {X: from_y_to_x}
     def __init__(self, value):
         self.value = value
     def __repr__(self):
         return '<Y %r>' % self.value
+    def __nonzero__(self):
+        return self.value != 666
 
 
 def add_x_x(space, x1, x2):
@@ -52,7 +73,12 @@ class FakeObjSpace:
     add.register(add_y_y,           Y,   Y)
     add.register(add_string_string, str, str)
     add.register(add_int_string,    int, str)
-    add.register(add_int_any,       int, W_ANY)
+    add.register(add_int_any,       int, object)
+
+    delegate = DelegateMultiMethod()
+    delegate.register(from_y_to_x,              Y)
+    delegate.register(from_x_to_str_sometimes,  X)
+    delegate.register(class_to_parent_classes,  Ellipsis)
     
     def wrap(self, x):
         return '<wrapped %r>' % (x,)
@@ -94,6 +120,16 @@ class TestMultiMethod(unittest.TestCase):
         self.assertRaises(OperationError, space.add, [3],4)
         
         self.assertRaises(OperationError, space.add, 3.0,'bla')
+
+        r = space.add(X(42),"spam")
+        self.assertEquals(repr(r), "('add_string_string', '!42', 'spam')")
+
+        r = space.add(Y(20),"egg")
+        self.assertEquals(repr(r), "('add_string_string', '!<Y 20>', 'egg')")
+
+        self.assertRaises(OperationError, space.add, X(0),"spam")
+
+        self.assertRaises(OperationError, space.add, Y(666),"egg")
 
 
 if __name__ == '__main__':

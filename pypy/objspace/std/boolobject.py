@@ -17,10 +17,9 @@ registerimplementation(W_BoolObject)
 
 # bool-to-int delegation requires translating the .boolvar attribute
 # to an .intval one
-def bool_to_int(space, w_bool):
+def delegate__Bool(space, w_bool):
     return intobject.W_IntObject(space, int(w_bool.boolval))
-
-W_BoolObject.delegate_once[intobject.W_IntObject] = bool_to_int
+delegate__Bool.priority = PRIORITY_PARENT_TYPE
 
 
 def is_true__Bool(space, w_bool):

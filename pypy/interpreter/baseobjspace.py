@@ -1,5 +1,5 @@
 from executioncontext import ExecutionContext, OperationError, NoValue
-import pyframe
+import pyframe, threadlocals
 import pypy.module.builtin
 
 __all__ = ['ObjSpace', 'OperationError', 'NoValue', 'PyPyError']
@@ -48,15 +48,10 @@ class ObjSpace:
 
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
-        import sys
-        f = sys._getframe()           # !!hack!!
-        while f:
-            if f.f_locals.has_key('__executioncontext__'):
-                result = f.f_locals['__executioncontext__']
-                if result.space is self:
-                    return result
-            f = f.f_back
-        return ExecutionContext(self)
+        ec = threadlocals.getlocals().executioncontext
+        if ec is None:
+            ec = ExecutionContext(self)
+        return ec
 
     def gethelper(self, applicationfile):
         try:

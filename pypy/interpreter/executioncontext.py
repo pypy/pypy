@@ -1,4 +1,5 @@
 import sys
+import threadlocals
 
 class ExecutionContext:
 
@@ -7,11 +8,14 @@ class ExecutionContext:
         self.framestack = Stack()
 
     def eval_frame(self, frame):
-        __executioncontext__ = self
+        locals = threadlocals.getlocals()
         self.framestack.push(frame)
+        previous_ec = locals.executioncontext
+        locals.executioncontext = self
         try:
             result = frame.eval(self)
         finally:
+            locals.executioncontext = previous_ec
             self.framestack.pop()
         return result
 
