@@ -312,6 +312,9 @@ class AppIntTest(testit.AppTestCase):
         self.assertEquals(42, int('42', 10))
         self.assertRaises(TypeError, int, 1, 10)
 
+    def test_shift_zeros(self):
+        assert (1 << 0) == 1
+        assert (1 >> 0) == 1
 
 if __name__ == '__main__':
     testit.main()
