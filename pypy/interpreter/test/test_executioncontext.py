@@ -1,16 +1,14 @@
-import unittest
-import support
+import testsupport
 
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter import baseobjspace, executioncontext
-from pypy.objspace.trivial import TrivialObjSpace
 
 
-class TestExecutionContext(unittest.TestCase):
+class TestExecutionContext(testsupport.TestCase):
 
     def test_trivial1(self):
         # build frame
-        space = TrivialObjSpace()
+        space = testsupport.objspace()
         ec = executioncontext.ExecutionContext(space)
         
         bytecode = compile('def f(x): return x+1', '', 'exec').co_consts[0]
@@ -24,4 +22,4 @@ class TestExecutionContext(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    testsupport.main()

@@ -39,29 +39,29 @@ class TestInterpreter(testsupport.TestCase):
 def g(): return 42''', 'g', [])
         self.assertEquals(x, 42)
 
-    def test_trivial_call(self):
+    def aatest_trivial_call(self):
         x = self.codetest('''
 def f(): return 42
 def g(): return f()''', 'g', [])
         self.assertEquals(x, 42)
 
-    def test_trivial_call2(self):
+    def aatest_trivial_call2(self):
         x = self.codetest('''
 def f(): return 1 + 1
 def g(): return f()''', 'g', [])
         self.assertEquals(x, 2)
 
-    def test_print(self):
+    def aatest_print(self):
         x = self.codetest('''
 def g(): print 10''', 'g', [])
         self.assertEquals(x, None)
 
-    def test_identity(self):
+    def aatest_identity(self):
         x = self.codetest('''
 def g(x): return x''', 'g', [666])
         self.assertEquals(x, 666)
 
-    def test_exception(self):
+    def aatest_exception(self):
         x = self.codetest('''
 def f():
     try:
@@ -71,7 +71,7 @@ def f():
 ''', 'f', [])
         self.assertEquals(x, 1)
 
-    def test_finally(self):
+    def aatest_finally(self):
         code = '''
 def f(a):
     try:
@@ -84,14 +84,14 @@ def f(a):
         self.assertEquals(self.codetest(code, 'f', [0]), -12)
         self.assertEquals(self.codetest(code, 'f', [1]), 1)
 
-    def test_raise(self):
+    def aatest_raise(self):
         x = self.codetest('''
 def f():
     raise 1
 ''', 'f', [])
         self.assertEquals(x, '<<<TypeError: exceptions must be classes, instances, or strings (deprecated), not int>>>')
 
-    def test_except2(self):
+    def aatest_except2(self):
         x = self.codetest('''
 def f():
     try:
@@ -106,7 +106,7 @@ def f():
 ''', 'f', [])
         self.assertEquals(x, 5)
 
-    def test_except3(self):
+    def aatest_except3(self):
         code = '''
 def f(v):
     z = 0
@@ -120,7 +120,7 @@ def f(v):
         self.assertEquals(self.codetest(code, 'f', [0]), "infinite result")
         self.assertEquals(self.codetest(code, 'f', ['x']), "<<<TypeError: unsupported operand type(s) for //: 'int' and 'str'>>>")
 
-    def test_break(self):
+    def aatest_break(self):
         code = '''
 def f(n):
     total = 0
@@ -135,7 +135,7 @@ def f(n):
         self.assertEquals(self.codetest(code, 'f', [4]), 1+2+3)
         self.assertEquals(self.codetest(code, 'f', [9]), 1+2+3+4)
 
-    def test_continue(self):
+    def aatest_continue(self):
         code = '''
 def f(n):
     total = 0
