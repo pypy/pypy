@@ -54,6 +54,13 @@ class file_(object):
                 "Read and write buffered stream."
                 self.fd = sio.BufferingInputOutputStream(self.fd, bufsize)
 
+    def close(self):
+        """
+        Close the file
+        """
+        self._closed = True
+        getattr(self.fd, 'close', lambda: None)()
+
     def __getattr__(self, attr):
         """
         Handle the readonly attributes and then delegate the other
@@ -64,8 +71,6 @@ class file_(object):
             return self.__dict__[attr]
         elif attr in ['mode', 'name', 'closed', 'encoding']:
             return self.__dict__['_' + attr]
-        elif attr == 'close':
-            self._closed = True
                 
         return getattr(self.fd, attr)
 
