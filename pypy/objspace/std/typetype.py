@@ -87,7 +87,7 @@ def descr__doc(space, w_type):
     if w_result is None:
         return space.w_None
     else:
-        return w_result
+        return space.get(w_result, space.w_None, w_type)
 
 def descr__flags(space, w_type):
     return space.wrap(w_type.__flags__)

@@ -2,16 +2,26 @@
 Plain Python definition of the builtin descriptors.
 """
 
+# Don't look!  This is needed for the property class, which has a slot
+# called __doc__ but also needs a __doc__ string for itself.
+class propertydoc(object):
+    def __get__(self, p, cls=None):
+        if p is None:
+            return PROPERTY_DOCSTRING   # getting __doc__ on the class
+        else:
+            return PROPERTY_DOCSLOT.__get__(p)          # on an instance
+
 # Descriptor code, shamelessly stolen to Raymond Hettinger:
 #    http://users.rcn.com/python/download/Descriptor.htm
 class property(object):
-    __slots__ = ['fget', 'fset', 'fdel', '__doc__']
+    __slots__ = ['fget', 'fset', 'fdel', 'doc']   # NB. 'doc' hacked away below
+    __doc__ = propertydoc()
 
     def __init__(self, fget=None, fset=None, fdel=None, doc=None):
         self.fget = fget
         self.fset = fset
         self.fdel = fdel
-        self.__doc__ = doc or ""   # XXX why:  or ""  ?
+        PROPERTY_DOCSLOT.__set__(self, doc)
 
     def __get__(self, obj, objtype=None):
         if obj is None:
@@ -29,6 +39,20 @@ class property(object):
         if self.fdel is None:
             raise AttributeError, "can't delete attribute"
         self.fdel(obj)
+
+PROPERTY_DOCSTRING = '''property(fget=None, fset=None, fdel=None, doc=None) -> property attribute
+
+fget is a function to be used for getting an attribute value, and likewise
+fset is a function for setting, and fdel a function for deleting, an
+attribute.  Typical use is to define a managed attribute x:
+class C(object):
+    def getx(self): return self.__x
+    def setx(self, value): self.__x = value
+    def delx(self): del self.__x
+    x = property(getx, setx, delx, "I am the 'x' property.")'''
+
+PROPERTY_DOCSLOT = property.doc
+del property.doc
 
 
 # XXX there is an interp-level pypy.interpreter.function.StaticMethod
