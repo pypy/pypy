@@ -66,10 +66,29 @@ class PyPyConsole(code.InteractiveConsole):
             pycode.exec_code(self.space, self.w_globals, self.w_globals)
         except error.OperationError, operationerr:
             space = self.space
-            if operationerr.match(space, space.w_SystemExit):
-                # XXX fetch the exit code from somewhere inside the w_SystemExit
-                raise SystemExit
-            # XXX insert exception info into the application-level sys.last_xxx
+            try:
+                if operationerr.match(space, space.w_SystemExit):
+                    w_exitcode = space.getattr(operationerr.w_value,
+                                               space.wrap('code'))
+                    if space.is_w(w_exitcode, space.w_None):
+                        exitcode = 0
+                    else:
+                        try:
+                            exitcode = space.int_w(w_exitcode)
+                        except error.OperationError:
+                            # not an integer: print it to stderr
+                            msg = space.str_w(space.str(w_exitcode))
+                            print >> sys.stderr, msg
+                            exitcode = 1
+                    raise SystemExit(exitcode)
+                space.setitem(space.sys.w_dict, space.wrap('last_type'),
+                              operationerr.w_type)
+                space.setitem(space.sys.w_dict, space.wrap('last_value'),
+                              operationerr.w_value)
+                space.setitem(space.sys.w_dict, space.wrap('last_traceback'),
+                              space.wrap(operationerr.application_traceback))
+            except error.OperationError, operationerr:
+                pass   # let the code below print any error we get above
             if self.verbose:
                 operationerr.print_detailed_traceback(space)
             else:
