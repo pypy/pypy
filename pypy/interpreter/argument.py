@@ -181,6 +181,7 @@ class Arguments:
                     raise ArgErrMultipleValues(name)
 
         remainingkwds_w = kwds_w.copy()
+        not_enough = False
         if input_argcount < co_argcount:
             # not enough args, fill in kwargs or defaults if exists
             def_first = co_argcount - len(defaults_w)
@@ -192,8 +193,11 @@ class Arguments:
                 elif i >= def_first:
                     scope_w.append(defaults_w[i-def_first])
                 else:
-                    raise ArgErrCount(signature, defaults_w, False)
-                    
+                    # error: not enough arguments.  Don't signal it immediately
+                    # because it might be related to a problem with */** or
+                    # keyword arguments, will be checked for below.
+                    not_enough = True
+
         # collect extra positional arguments into the *vararg
         if varargname is not None:
             if self.w_stararg is None:   # common case
@@ -211,6 +215,9 @@ class Arguments:
             scope_w.append(w_kwds)
         elif remainingkwds_w:
             raise ArgErrUnknownKwds(remainingkwds_w)
+
+        if not_enough:
+            raise ArgErrCount(signature, defaults_w, False)
         return scope_w
 
     ### Argument <-> list of w_objects together with "shape" information
