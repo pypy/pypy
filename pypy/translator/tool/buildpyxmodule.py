@@ -70,6 +70,7 @@ def make_module_from_c(cfile, include_dirs=None):
                 else:
                     from distutils.dist import Distribution
                     from distutils.extension import Extension
+                    from distutils.ccompiler import get_default_compiler
                     saved_environ = os.environ.items()
                     try:
                         # distutils.core.setup() is really meant for end-user
@@ -77,13 +78,16 @@ def make_module_from_c(cfile, include_dirs=None):
                         # turn them into SystemExits.  Instead, we directly
                         # instantiate a Distribution, which also allows us to
                         # ignore unwanted features like config files.
+                        extra_compile_args = []
+                        if get_default_compiler() == 'unix':
+                            extra_compile_args.extend(["-Wno-unused-label",
+                                                        "-Wno-unused-variable"])
                         attrs = {
                             'name': "testmodule",
                             'ext_modules': [
                                 Extension(modname, [str(cfile)],
                                     include_dirs=include_dirs,
-                                    extra_compile_args=["-Wno-unused-label",
-                                                        "-Wno-unused-variable"])
+                                    extra_compile_args=extra_compile_args)
                                 ],
                             'script_name': 'setup.py',
                             'script_args': ['-q', 'build_ext', '--inplace'],
