@@ -218,13 +218,22 @@ PyFrame.typedef = TypeDef('frame',
 Module.typedef = TypeDef("module",
     __new__ = interp2app(Module.descr_module__new__.im_func),
     __init__ = interp2app(Module.descr_module__init__.im_func),
-    __dict__ = interp_dict_descr,
+    __dict__ = GetSetProperty(descr_get_dict), # module dictionaries are readonly attributes
     __getattr__ = interp2app(Module.descr_module__getattr__.im_func),
     )
 
 getset_func_doc = GetSetProperty(Function.fget_func_doc,
                                  Function.fset_func_doc,
                                  Function.fdel_func_doc)
+
+# __module__ attribute lazily gets its value from the w_globals
+# at the time of first invocation. This is not 100% compatible but
+# avoid problems at the time we construct the first functions when
+# it's not really possible to do a get or getitem on dictionaries
+# (mostly because wrapped exceptions don't exist at that time)
+getset___module__ = GetSetProperty(Function.fget___module__,
+                                 Function.fset___module__,
+                                 Function.fdel___module__)
 
 Function.typedef = TypeDef("function",
     __call__ = interp2app(Function.descr_function_call.im_func),
@@ -237,7 +246,8 @@ Function.typedef = TypeDef("function",
     func_globals = interp_attrproperty_w('w_func_globals'),
     __doc__ = getset_func_doc,
     __name__ = interp_attrproperty('name'),
-    __dict__ = interp_dict_descr,
+    __dict__ = GetSetProperty(descr_get_dict, descr_set_dict),
+    __module__ = getset___module__,
     # XXX func_closure, etc.pp
     )
 

@@ -24,6 +24,7 @@ class Function(Wrappable):
         self.closure   = closure    # normally, list of Cell instances or None
         self.defs_w    = defs_w     # list of w_default's
         self.w_func_dict = space.newdict([])
+        self.w_module = None
 
     def __repr__(self):
         # return "function %s.%s" % (self.space, self.name)
@@ -41,6 +42,9 @@ class Function(Wrappable):
         return self.w_func_dict
 
     def setdict(self, w_dict):
+        space = self.space
+        if not space.is_true(space.isinstance( w_dict, space.w_dict )):
+            raise OperationError( space.w_TypeError, space.wrap("setting function's dictionary to a non-dict") )
         self.w_func_dict = w_dict
 
     def descr_function_get(self, w_obj, w_cls=None):
@@ -79,6 +83,23 @@ class Function(Wrappable):
     def fdel_func_doc(space, w_self):
         self = space.interpclass_w(w_self)
         self.w_doc = space.w_None
+
+    def fget___module__(space, w_self):
+        self = space.interpclass_w(w_self)
+        if self.w_module is None:
+            if self.w_func_globals is not None and not space.is_w(self.w_func_globals, space.w_None):
+                self.w_module = space.call_method( self.w_func_globals, "get", space.wrap("__name__") )
+            else:
+                self.w_module = space.w_None
+        return self.w_module
+        
+    def fset___module__(space, w_self, w_module ):
+        self = space.interpclass_w(w_self)
+        self.w_module = space.w_module
+    
+    def fdel___module__(space, w_self, w_module ):
+        self = space.interpclass_w(w_self)
+        self.w_module = space.w_None
 
 class Method(Wrappable): 
     """A method is a function bound to a specific instance or class."""
