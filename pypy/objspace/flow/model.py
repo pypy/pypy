@@ -51,7 +51,7 @@ class Variable:
             Variable.counter += 1
         self.name = name
     def __repr__(self):
-        return '<%s>' % self.name
+        return '%s' % self.name
 
 class Constant:
     def __init__(self, value):
@@ -63,7 +63,7 @@ class Constant:
     def __hash__(self):
         return hash(self.value)
     def __repr__(self):
-        return '<%r>' % (self.value,)
+        return '%r' % (self.value,)
 
 class SpaceOperation:
     def __init__(self, opname, args, result): 
@@ -80,7 +80,7 @@ class SpaceOperation:
     def __hash__(self):
         return hash((self.opname,tuple(self.args),self.result))
     def __repr__(self):
-        return "%r <- %s(%s)" % (self.result, self.opname, ", ".join(map(repr, self.args)))
+        return "%r = %s(%s)" % (self.result, self.opname, ", ".join(map(repr, self.args)))
 
 def uniqueitems(lst):
     "Returns a list with duplicate elements removed."

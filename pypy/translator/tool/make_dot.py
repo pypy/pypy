@@ -38,16 +38,16 @@ edge [fontname=Times];
     def emit(self, line):
         self.lines.append(line)
 
-    def emit_edge(self, name1, name2, label="", style="dashed", **kw):
+    def emit_edge(self, name1, name2, label="", style="dashed", color="black", **kw):
         d = locals()
         d.update(kw)
-        self.emit('edge [style="%(style)s", dir="forward", weight=0, label="%(label)s"];' % d)
+        self.emit('edge [style=%(style)s, color=%(color)s, dir="forward", weight=0, label="%(label)s"];' % d)
         self.emit('%(name1)s -> %(name2)s;' % d)
 
-    def emit_node(self, name, shape, label, **kw):
+    def emit_node(self, name, shape, label, color="black", **kw):
         d = locals()
         d.update(kw)
-        self.emit('%(name)s [shape=%(shape)s, label="%(label)s"];' % d)
+        self.emit('%(name)s [shape=%(shape)s, color="%(color)s" label="%(label)s"];' % d)
 
     def visit(self, obj):
         # ignore for now 
@@ -68,18 +68,20 @@ edge [fontname=Times];
 
         numblocks = len(block.exits)
 
+        color = "black"
         if not numblocks:
            shape = "circle"
         elif numblocks == 1:
             shape = "box"
         else:
+            color = "red"
             lines.append("exitswitch: %s" % block.exitswitch)
             shape = "octagon"
 
         iargs = " ".join(map(repr, block.inputargs))
         data = "%s(%s)\\ninputargs: %s\\n\\n" % (name, block.__class__.__name__, iargs)
         data = data + "\l".join(lines)
-        self.emit_node(name, shape, data)
+        self.emit_node(name, label=data, shape=shape, color=color)
 
         if numblocks == 1:
             name2 = self.blockname(block.exits[0].target)
@@ -91,7 +93,7 @@ edge [fontname=Times];
                 name2 = self.blockname(link.target)
                 label = " ".join(map(repr, link.args))
                 label = "%s: %s" %(str(i), label)
-                self.emit_edge(name, name2, label, style="dotted")
+                self.emit_edge(name, name2, label, style="dotted", color=color)
                 i+=1
 
 
@@ -124,4 +126,4 @@ if __name__ == '__main__':
 
     space = Space()
     graph = space.build_flow(f)
-    make_dot(graph)
+    make_dot(graph, udir.dirname())
