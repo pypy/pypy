@@ -273,21 +273,16 @@ class TestInternal:
         return w_obj
 
     def test_execfile(self):
-        # we need cpython's tempfile currently to test
-        from tempfile import mktemp
-        fn = mktemp()
+        from pypy.tool.udir import udir
+        fn = str(udir.join('test_execfile'))
         f = open(fn, 'w')
         print >>f, "i=42"
         f.close()
 
-        try:
-            w_execfile = self.get_builtin('execfile')
-            space = self.space
-            w_dict = space.newdict([])
-            self.space.call_function(w_execfile,
-                space.wrap(fn), w_dict, space.w_None)
-            w_value = space.getitem(w_dict, space.wrap('i'))
-            assert self.space.eq_w(w_value, space.wrap(42))
-        finally:
-            import os
-            os.remove(fn)
+        w_execfile = self.get_builtin('execfile')
+        space = self.space
+        w_dict = space.newdict([])
+        self.space.call_function(w_execfile,
+            space.wrap(fn), w_dict, space.w_None)
+        w_value = space.getitem(w_dict, space.wrap('i'))
+        assert self.space.eq_w(w_value, space.wrap(42))
