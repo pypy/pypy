@@ -110,6 +110,16 @@ class RPythonAnnotator:
             fn, block, cells = self.pendingblocks.pop()
             self.processblock(fn, block, cells)
         if False in self.annotated.values():
+            for block in self.annotated:
+                if self.annotated[block] is False:
+                    import traceback
+                    print '-+' * 30
+                    print 'BLOCKED block at:',
+                    print self.why_not_annotated[block][1].break_at
+                    print 'because of:'
+                    traceback.print_exception(*self.why_not_annotated[block])
+                    print '-+' * 30
+                    print
             raise AnnotatorError('%d blocks are still blocked' %
                                  self.annotated.values().count(False))
 
@@ -256,7 +266,7 @@ class RPythonAnnotator:
                 #traceback.print_tb(sys.exc_info()[2])
                 self.annotated[block] = False   # failed, hopefully temporarily
                 import sys
-                self.why_not_annotated[block] = sys.exc_info()[2]
+                self.why_not_annotated[block] = sys.exc_info()
             except Exception, e:
                 # hack for debug tools only
                 if not hasattr(e, '__annotator_block'):
