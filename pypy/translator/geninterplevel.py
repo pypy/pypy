@@ -892,6 +892,11 @@ class GenRpy:
         fast_function_header = ('def %s(%s):'
                                 % (name, argstr))
 
+        def install_func(f_name, name):
+            yield ''
+            yield '%s = %s' % (f_name, name)
+            yield 'del %s' % (name,)
+
         print >> f, 'def %s(space, __args__):' % (name,)
         if docstr is not None:
             print >> f, docstr
@@ -920,9 +925,11 @@ class GenRpy:
         print >> f, '    %s__args__.parse(funcname, signature, def_w)' % (
             tupassstr(fast_args),)
         print >> f, '    return %s(%s)' % (fast_name, ', '.join(["space"]+fast_args))
-        print >> f, '%s = globals().pop("%s")' % (f_name, name)
-        print >> f
 
+        for line in install_func(f_name, name):
+            print >> f, line
+
+        print >> f
         print >> f, fast_function_header
         if docstr is not None:
             print >> f, docstr
@@ -939,7 +946,8 @@ class GenRpy:
         # print the body
         for line in body:
             print >> f, line
-        print >> f, '%s = globals().pop("%s")' % (fast_name, name)
+        for line in install_func("fast"+f_name, name):
+            print >> f, line
         print >> f
 
         # print the PyMethodDef
@@ -1067,7 +1075,7 @@ class GenRpy:
     RPY_HEADER = '''#!/bin/env python
 # -*- coding: LATIN-1 -*-
 
-from pypy.interpreter.argument import Arguments
+from pypy.interpreter.error import OperationError
 '''
 
     RPY_SEP = "#*************************************************************"
@@ -1083,7 +1091,7 @@ def init%(modname)s(space):
 '''
 
     RPY_INIT_FOOTER = '''
-# entry point: %(entrypointname)s, %(entrypoint)s)
+# entry point: %(entrypointname)s, %(entrypoint)s
 if __name__ == "__main__":
     from pypy.objspace.std import StdObjSpace
     from pypy.objspace.std.default import UnwrapError
@@ -1256,6 +1264,24 @@ def test_iter():
         res.append(i)
     return res
 
+def test_loop():
+    res = []
+    i = 0
+    while 1:
+        i += 1
+        res.append(i)
+        if i == 42:
+            break
+        res.append(-i)
+    return res
+
+def test_exc(a=5):
+    try:
+        b = 0
+        return a / b
+    except ZeroDivisionError:
+        return 42
+
 def test_strutil():
     from pypy.objspace.std import strutil
     return (strutil.string_to_int("42"),
@@ -1308,12 +1334,14 @@ entrypoints = (small_loop,
                 test_md5,
                 test_join,
                 test_iter,
+                test_loop,
+                test_exc,
                 test_strutil,
                 test_struct,
                 test_exceptions_helper,
                 make_class_instance_helper,
                 all_entries)
-entrypoint = entrypoints[-2]
+entrypoint = entrypoints[-6]
 
 if __name__ == "__main__":
     import os, sys
