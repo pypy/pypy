@@ -69,9 +69,14 @@ except:
     pass
 del g
 
+# checking whether we can make copy_reg happy
+##class _C:
+##    def _m(self): pass
+##ClassType = type(_C)
+class ClassType: pass
 class _C:
-    def _m(self): pass
-ClassType = type(_C)
+    def _m(self):pass
+## end of testing hack
 try:
     UnboundMethodType = type(_C._m)         # Same as MethodType
 except AttributeError:
