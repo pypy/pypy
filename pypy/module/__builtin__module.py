@@ -287,10 +287,12 @@ def divmod(x, y):
 
 def cmp(x, y):
     """return 0 when x == y, -1 when x < y and 1 when x > y """
-    if x < y:
-        return -1
-    elif x == y:
+    if x is y:
         return 0
+    if x == y:
+        return 0
+    elif x < y:
+        return -1
     else:
         return 1
 
@@ -694,7 +696,10 @@ class complex(object):
 
 
     def __add__(self, other):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
         real = self.real + other.real
         imag = self.imag + other.imag
         return complex(real, imag)
@@ -702,17 +707,26 @@ class complex(object):
     __radd__ = __add__
 
     def __sub__(self, other):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
         real = self.real - other.real
         imag = self.imag - other.imag
         return complex(real, imag)
     
     def __rsub__(self, other):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
         return other.__sub__(self)
 
     def __mul__(self, other):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
         real = self.real*other.real - self.imag*other.imag
         imag = self.real*other.imag + self.imag*other.real
         return complex(real, imag)
@@ -720,7 +734,10 @@ class complex(object):
     __rmul__ = __mul__
 
     def __div__(self, other):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
         if abs(other.real) >= abs(other.imag):
             # divide tops and bottom by other.real
             try:
@@ -741,30 +758,48 @@ class complex(object):
         return complex(real, imag)
 
     def __rdiv__(self, other):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
         return other.__div__(self)
 
     def __floordiv__(self, other):
-        div, mod = self.__divmod__(other)
+        result = self.__divmod__(other)
+        if result is NotImplemented:
+            return result
+        div, mod = result
         return div
 
     def __rfloordiv__(self, other):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
         return other.__floordiv__(self)
 
     __truediv__ = __div__
     __rtruediv__ = __rdiv__
 
     def __mod__(self, other):
-        div, mod = self.__divmod__(other)
+        result = self.__divmod__(other)
+        if result is NotImplemented:
+            return result
+        div, mod = result
         return mod
 
     def __rmod__(self, other):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
         return other.__mod__(self)
 
     def __divmod__(self, other):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
 
         import warnings, math
         warnings.warn("complex divmod(), // and % are deprecated", DeprecationWarning)
@@ -779,7 +814,12 @@ class complex(object):
 
 
     def __pow__(self, other, mod=None):
-        a, b = self.__coerce__(other)
+        if mod is not None:
+            raise ValueError("complex modulo")
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        a, b = result
         import math
 
         if b.real == 0. and b.imag == 0.:
@@ -800,12 +840,13 @@ class complex(object):
             imag = len*math.sin(phase)
 
         result = complex(real, imag)
-        if mod is not None:
-            result %= mod
         return result
 
     def __rpow__(self, other, mod=None):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
         return other.__pow__(self, mod)
 
     def __neg__(self):
@@ -831,18 +872,23 @@ class complex(object):
             return self, other
         if isinstance(other, (int, long, float)):
             return self, complex(other)
-        raise TypeError, "number %r coercion failed" % (type(other),)
-
+        return NotImplemented
 
     def conjugate(self):
         return complex(self.real, -self.imag)
 
     def __eq__(self, other):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
         return self.real == other.real and self.imag == other.imag
 
     def __ne__(self, other):
-        self, other = self.__coerce__(other)
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
+        self, other = result
         return self.real != other.real or self.imag != other.imag
 
 
