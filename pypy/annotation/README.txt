@@ -37,3 +37,11 @@ that during type inference SomeValue's start with a lot of annotations
 annotations, more possibilities. 
 
 Annotations are stored in a global list, which is an AnnotationSet instance.  AnnotationSet provides (via Transactions) methods to query, add and kill annotations.  It also manages "sharing": two different SomeValue's can be later found to be identical (in the Python sense of "is"), and the AnnotationSet can be taught about this.
+
+You can't directly add annotations to an AnnotationSet. Adding an
+annotation is considered to be dependent on previous annotations. 
+Thus you invoke annset.record(func), and your function 'func' will
+be invoked with a 'Recorder' instance: you perform queries with it
+and when you add/set a new annotation the recorder will remember
+the dependency of the previous (queried) annotation towards the
+new annotation. 

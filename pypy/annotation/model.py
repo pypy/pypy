@@ -23,6 +23,8 @@ class Predicate:
         if self.arity == 1:
             args = (args,)
         return Annotation(self, *args)
+    def __str__(self):
+        return self.name
 
 class ann:
     add = Predicate('add', 3)
@@ -44,14 +46,6 @@ class Annotation:
     def copy(self, renameargs={}):
         args = [renameargs.get(arg, arg) for arg in self.args]
         return Annotation(self.predicate, *args)
-
-    def __eq__(self, other):
-        return (self.__class__ is other.__class__ and 
-                self.predicate == other.predicate and
-                self.args == other.args)
-
-    def __ne__(self, other):
-        return not (self == other)
 
     def __repr__(self):
         return "Annotation(%s, %s)" % (

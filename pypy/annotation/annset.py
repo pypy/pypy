@@ -10,6 +10,7 @@ class AnnotationSet:
     def __init__(self, annlist=[]):
         self.annlist = list(annlist)    # List of annotations
         self._shared = {}
+        self.forward_deps = {}
 
     def getsharelist(self, someval):
         return self._shared.get(someval, [someval])
@@ -27,6 +28,18 @@ class AnnotationSet:
 
     def tempid(self, someval):
         return id(self.getsharelist(someval)[0])
+
+    def annequal(self, ann1, ann2):
+        if ann1.predicate != ann2.predicate:
+            return False
+        for a1, a2 in zip(ann1.args, ann2.args):
+            if not self.isshared(a1, a2):
+                return False
+        return True
+
+    def temporarykey(self, ann):
+        """ a temporary hashable representation of an annotation """
+        return (ann.predicate, tuple([self.tempid(arg) for arg in ann.args]))
 
     def dump(self):     # debugging
         for ann in self.enumerate():
@@ -81,6 +94,53 @@ class AnnotationSet:
         else:
             return None
 
+    def record(self, recfunc, *args):
+        rec = Recorder(self)
+        return recfunc(rec, *args)
+
+    def kill(self, *annlist):
+        self.simplify(kill=annlist)
+
+    def simplify(self, kill=[]):
+        """Kill annotations in the list, and recursively all the annotations
+        that depend on them, and simplify the resulting list to remove
+        duplicates."""
+        # temporarykey() returns a tuple with all the information about
+        # the annotation; equal temporarykey() means equal annotations.
+        # Such keys are temporary because making SomeValues shared can
+        # change the temporarykey(), but this doesn't occur during
+        # one call to simplify().
+        
+        allkeys = {}   # map temporarykeys to Annotation instances
+        for ann in self.annlist:
+            key = self.temporarykey(ann)
+            if key in allkeys:  # duplicate?
+                previous = allkeys[key]
+                if ann in self.forward_deps:
+                    deps = self.forward_deps.setdefault(previous, [])
+                    deps += self.forward_deps[ann]   # merge
+            else:
+                allkeys[key] = ann
+
+        killkeys = {}  # set of temporarykeys of annotations to remove
+        for ann in kill:
+            killkeys[self.temporarykey(ann)] = True
+        
+        pending = killkeys.keys()
+        for key in pending:
+            if key in allkeys:
+                ann = allkeys[key]
+                del allkeys[key]    # remove annotations from the dict
+                if ann in self.forward_deps:
+                    for dep in self.forward_deps[ann]:   # propagate dependencies
+                        depkey = self.temporarykey(dep)
+                        if depkey not in killkeys:
+                            killkeys[depkey] = True
+                            pending.append(depkey)
+                    del self.forward_deps[ann]
+
+        self.annlist = allkeys.values()
+
 
 class Recorder:
     """A recorder contains methods to look for annotations in the
@@ -103,43 +163,14 @@ class Recorder:
             results.append(match)
         return results
 
+    def set(self, ann):
+        """Insert the annotation into the AnnotationSet, recording dependency
+        from all previous queries done on this Recorder instance."""
+        self.annset.annlist.append(ann)
+        for previous_ann in self.using_annotations:
+            deps = self.annset.forward_deps.setdefault(previous_ann, [])
+            deps.append(ann)
 '''
-    def simplify(self, kill=[]):
-        """Kill annotations in the list, and recursively all the annotations
-        that depend on them, and simplify the resulting heap to remove
-        duplicates."""
-        # temporarykey() returns a tuple with all the information about
-        # the annotation; equal temporarykey() means equal annotations.
-        # Such keys are temporary because making new XCells shared can
-        # change the temporarykey(), but this doesn't occur during
-        # one call to simplify().
-        
-        allkeys = {}   # map temporarykeys to Annotation instances
-        for ann in self.annlist:
-            key = ann.temporarykey()
-            if key in allkeys:  # duplicate?
-                previous = allkeys[key]
-                previous.forward_deps += ann.forward_deps   # merge
-            else:
-                allkeys[key] = ann
-
-        killkeys = {}  # set of temporarykeys of annotations to remove
-        for ann in kill:
-            killkeys[ann.temporarykey()] = True
-
-        pending = killkeys.keys()
-        for key in pending:
-            if key in allkeys:
-                ann = allkeys[key]
-                del allkeys[key]    # remove annotations from the dict
-                for dep in ann.forward_deps:   # propagate dependencies
-                    depkey = dep.temporarykey()
-                    if depkey not in killkeys:
-                        killkeys[depkey] = True
-                        pending.append(depkey)
-
-        self.annlist = allkeys.values()
-
     def merge(self, oldcell, newcell):
         """Update the heap to account for the merging of oldcell and newcell.
         Return the merged cell."""
