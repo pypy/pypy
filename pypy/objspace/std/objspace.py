@@ -80,11 +80,23 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # exceptions
         mod = self.setup_exceptions(for_builtins)
 
+        # old-style classes
+        #self.setup_old_style_classes()
+
         # install things in the __builtin__ module
         self.make_builtins(for_builtins)
 
         w_exceptions = self.wrap(mod)
         self.sys.setbuiltinmodule(w_exceptions, 'exceptions')
+
+    def setup_old_style_classes(self):
+        """NOT_RPYTHON"""
+        from pypy.module import classobjinterp
+        w_setup = classobjinterp.initclassobj(self)
+        w_classobj, w_instance, w_purify = self.unpackiterable(w_setup)
+        self.call_function(w_purify)
+        self.w_classobj = w_classobj
+        self.w_instance = w_instance
 
     def setup_exceptions(self, for_builtins):
         """NOT_RPYTHON"""
