@@ -44,10 +44,10 @@ class GeneratorIterator(object):
         self.frame = frame
         self.running = False
 
-    def pypy_iter(self):
+    def descr__iter__(self):
         return self.space.wrap(self)
 
-    def pypy_next(self):
+    def descr_next(self):
         # raise NoValue when exhausted
         if self.running:
             space = self.frame.space
@@ -66,20 +66,15 @@ class GeneratorIterator(object):
         finally:
             self.running = False
 
+    # XXX the next two methods we don't really want here, 
+    #     it appears to be there for trivial object space 
     def next(self):
         try:
-            return self.pypy_next()
+            return self.descr_next() # 
         except NoValue:
             raise OperationError(self.space.w_StopIteration,
                                  self.space.w_None)
     app_next = gateway.interp2app(next)
-
-    def pypy_getattr(self, w_attr):
-        # XXX boilerplate that should disappear at some point
-        attr = self.space.unwrap(w_attr)
-        if attr == 'next':
-            return self.space.wrap(self.app_next)
-        raise OperationError(self.space.w_AttributeError, w_attr)
 
     # XXX the following is for TrivialObjSpace only, when iteration is
     # done by C code (e.g. when calling 'list(g())').

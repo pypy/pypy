@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.miscutils import Stack, getthreadlocals
 import pypy.module
 
-__all__ = ['ObjSpace', 'OperationError', 'NoValue']
+__all__ = ['ObjSpace', 'OperationError', 'NoValue', 'Wrappable']
 
 
 class Wrappable(object):

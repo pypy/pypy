@@ -53,6 +53,7 @@ from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.pytraceback import PyTraceback
+from pypy.interpreter.generator import GeneratorIterator 
 
 Code.typedef = TypeDef('internal-code',
     co_name = attrproperty('co_name'),
@@ -117,3 +118,10 @@ PyTraceback.typedef = TypeDef("traceback",
     tb_lineno = attrproperty('tb_line'),
     tb_next   = attrproperty('tb_next'),
     )
+
+GeneratorIterator.typedef = TypeDef("generator",
+    next       = interp2app(GeneratorIterator.descr_next.im_func),
+    __iter__   = interp2app(GeneratorIterator.descr__iter__.im_func),
+    gi_running = attrproperty('running'), 
+    gi_frame   = attrproperty('frame'), 
+)
