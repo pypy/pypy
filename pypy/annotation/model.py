@@ -185,8 +185,13 @@ class SomePBC(SomeObject):
         prebuiltinstances = prebuiltinstances.copy()
         self.prebuiltinstances = prebuiltinstances
         self.simplify()
-        self.knowntype = reduce(commonbase,
-                                [new_or_old_class(x) for x in prebuiltinstances])
+        if self.isNone():
+            self.knowntype = type(None)
+        else:
+            self.knowntype = reduce(commonbase,
+                                    [new_or_old_class(x)
+                                     for x in prebuiltinstances
+                                     if x is not None])
         if prebuiltinstances.values() == [True]:
             # hack for the convenience of direct callers to SomePBC():
             # only if there is a single object in prebuiltinstances and
@@ -201,6 +206,9 @@ class SomePBC(SomeObject):
                 classdef = self.prebuiltinstances[x.im_func]
                 if isinstance(x.im_self, classdef.cls):
                     del self.prebuiltinstances[x]
+
+    def isNone(self):
+        return self.prebuiltinstances == {None:True}
 
     def fmt_prebuiltinstances(self, pbis):
         if hasattr(self, 'const'):

@@ -24,7 +24,7 @@ BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
                          'getitem', 'setitem',
                          'inplace_add', 'inplace_sub',
                          'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_',
-                         'union'])
+                         'union', 'issubtype'])
 
 for opname in BINARY_OPERATIONS:
     missing_operation(pairtype(SomeObject, SomeObject), opname)
@@ -286,6 +286,8 @@ class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
 
 class __extend__(pairtype(SomeInstance, SomePBC)):
     def union((ins, pbc)):
+        if pbc.isNone():
+            return ins
         classdef = ins.classdef.superdef_containing(pbc.knowntype)
         if classdef is None:
             # print warning?
