@@ -3,6 +3,7 @@ import testsupport
 
 from pypy.objspace.std.multimethod import *
 
+W_ANY = object
 
 
 class X:
