@@ -24,7 +24,10 @@ def cl_detect():
     return None
 
 def is_on_path(name):
-    return os.system("which %s >/dev/null" % name) == 0
+    try:
+        return os.system("which %s >/dev/null 2>/dev/null" % name) == 0
+    except OSError:
+        pass
 
 global_cl = get_cl()
 
