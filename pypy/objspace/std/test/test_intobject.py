@@ -1,10 +1,11 @@
 import unittest, sys
 import testsupport
+from pypy.interpreter import unittest_w
 from pypy.objspace.std import intobject as iobj
 from pypy.objspace.std.objspace import *
 
 
-class TestW_IntObject(testsupport.TestCase_w):
+class TestW_IntObject(unittest_w.TestCase_w):
 
     def setUp(self):
         self.space = StdObjSpace()

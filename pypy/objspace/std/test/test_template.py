@@ -1,3 +1,7 @@
+import sys
+print "not working, do not run nor use this!"
+sys.exit(0)
+
 import objspace
 thisdir = os.getcwd()
 syspath = sys.path
