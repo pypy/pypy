@@ -86,11 +86,10 @@ def zip(*collections):
        idx = idx + 1
     return res
 
-
 def reduce(function, l, *initialt):
     """ Apply function of two arguments cumulatively to the items of
         sequence, from left to right, so as to reduce the sequence to a
-        single value."""
+        single value.  Optionally begin with an initial value."""
     
     if initialt:
        initial, = initialt
@@ -123,9 +122,11 @@ def isinstance(obj, klass_or_tuple):
           raise TypeError, "isinstance() arg 2 must be a class or type"
  
 def range(x, y=None, step=1):
-    "docstring"
+    """ returns a list of integers in arithmetic position from start (defaults
+        to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
+        get a list in decending order."""
 
-    if y is None:
+    if y is None: 
             start = 0
             stop = x
     else:
@@ -135,16 +136,17 @@ def range(x, y=None, step=1):
     if step == 0:
         raise ValueError, 'range() arg 3 must not be zero'
 
-    elif (stop <= start and step > 0) or (stop >= start and step < 0):
-        return []   # easy, no work for us.
-
     elif step > 0:
+        if stop <= start: # no work for us
+            return []
         howmany = (stop - start + step - 1)/step
 
-    else:  # step must be < 0
+    else:  # step must be < 0, or we would have raised ValueError
+        if stop >= start: # no work for us
+            return []
         howmany = (start - stop - step  - 1)/-step
        
-    arr = [None] * howmany
+    arr = [None] * howmany  # this is to avoid using append.
 
     i = start
     n = 0
@@ -155,16 +157,18 @@ def range(x, y=None, step=1):
 
     return arr
 
+# min and max could be one function if we had operator.__gt__ and
+# operator.__lt__  Perhaps later when we have operator.
+
 def min(*arr):
-    "docstring"
+    """return the smallest number in a list"""
 
     if not arr:
         raise TypeError, 'min() takes at least one argument'
 
     if len(arr) == 1:
         arr = arr[0]
-        
-    
+     
     min = arr[0]
     for i in arr:
         if min > i:
@@ -172,7 +176,7 @@ def min(*arr):
     return min
 
 def max(*arr):
-    "docstring"
+    """return the largest number in a list"""
 
     if not arr:
         raise TypeError, 'max() takes at least one argument'
@@ -188,20 +192,24 @@ def max(*arr):
 
 
 def cmp(x, y):
-  if x < y:
-     return -1
-  elif x == y:
-     return 0
-  else:
-     return 1
+    """return 0 when x == y, -1 when x < y and 1 when x > y """
+    if x < y:
+        return -1
+    elif x == y:
+        return 0
+    else:
+        return 1
 
-def vars(*objectt):
-    if len(objectt) == 0:
+def vars(*obj):
+    """return a dictionary of all the attributes currently bound in obj.  If
+    called with no argument, return the variables bound in local scope."""
+
+    if len(obj) == 0:
         return locals()
-    elif len(objectt) != 1:
+    elif len(obj) != 1:
         raise TypeError, "vars() takes at most 1 argument."
     else:
         try:
-            return object.__dict__
+            return obj.__dict__
         except AttributeError:
             raise TypeError, "vars() argument must have __dict__ attribute"
