@@ -144,16 +144,18 @@ class Translator:
         else:
             ann = RPythonAnnotator(self)
         if func is None:
-            code = self.generatecode1(gencls, input_arg_types,
-                                      self.entrypoint, ann)
-            codes = [code]
+            codes = [self.generatecode1(gencls, input_arg_types,
+                                        self.entrypoint, ann)]
             for func in self.functions:
                 if func is not self.entrypoint:
                     code = self.generatecode1(gencls, None, func, ann)
                     codes.append(code)
-            return '\n\n#_________________\n\n'.join(codes)
         else:
-            return self.generatecode1(gencls, input_arg_types, func, ann)
+            codes = [self.generatecode1(gencls, input_arg_types, func, ann)]
+        code = self.generateglobaldecl(gencls, func, ann)
+        if code:
+            codes.insert(0, code)
+        return '\n\n#_________________\n\n'.join(codes)
 
     def generatecode1(self, gencls, input_arg_types, func, ann):
         graph = self.getflowgraph(func)
@@ -163,6 +165,13 @@ class Translator:
         if ann is not None:
             g.setannotator(ann)
         return g.emitcode()
+
+    def generateglobaldecl(self, gencls, func, ann):
+        graph = self.getflowgraph(func)
+        g = gencls(graph)
+        if ann is not None:
+            g.setannotator(ann)
+        return g.globaldeclarations()
 
     def compile(self):
         """Returns compiled function.

@@ -45,7 +45,7 @@ gen = GenCL(fun)
 def _make_cl_func(func, cl, path, argtypes=[]):
     fun = FlowObjSpace().build_flow(func)
     gen = GenCL(fun, argtypes)
-    out = gen.emitcode()
+    out = gen.globaldeclarations() + '\n' + gen.emitcode()
     i = 1
     fpath = path.join("%s.lisp" % fun.name)
     def _(*args):

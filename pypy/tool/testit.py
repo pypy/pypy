@@ -68,8 +68,12 @@ class MyTextTestResult(unittest._TextTestResult):
 
     def record_trace(self, test):
         # XXX hack for TraceObjSpace
-        if hasattr(test.space, 'settrace'):
-            self.trace_information += test.space.getresult(),
+        try:
+            result = test.space.getresult()
+        except AttributeError:
+            pass
+        else:
+            self.trace_information += result
             test.space.settrace()
 
     def addError(self, test, err):

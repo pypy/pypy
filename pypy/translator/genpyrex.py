@@ -127,6 +127,14 @@ class Op:
         else: 
             return "%s = getattr(%s)" % (self.resultname, ", ".join(args))
 
+    def op_setattr(self):
+        args = self.argnames
+        attr = self.op.args[1]
+        if isinstance(attr, Constant) and self.ispythonident(attr.value):
+            return "%s.%s = %s" % (args[0], attr.value, args[2])
+        else:
+            return "setattr(%s, %s, %s)" % args
+
     def op_not(self):
         return "%s = not %s" % (self.resultname, self.argnames[0])
 
@@ -214,8 +222,11 @@ class GenPyrex:
             return None
 
     def get_varname(self, var):
-        if self.get_type(var) in (int, bool):
+        vartype = self.get_type(var)
+        if vartype in (int, bool):
             prefix = "i_"
+        elif self.annotator and vartype in self.annotator.getuserclasses():
+            prefix = "p_"
         else:
             prefix = ""
         return prefix + var.name
@@ -224,10 +235,15 @@ class GenPyrex:
         vartype = self.get_type(var)
         if vartype in (int, bool):
             ctype = "int"
+        elif self.annotator and vartype in self.annotator.getuserclasses():
+            ctype = self.get_classname(vartype)
         else:
             ctype = "object"
 
         return (ctype, self.get_varname(var))
+
+    def get_classname(self, userclass):
+        return userclass.__name__
 
     def _vardecl(self, var):
             vartype, varname = self._paramvardecl(var)
@@ -310,3 +326,27 @@ class GenPyrex:
             self.putline("%s = %s" % (", ".join(targs), ", ".join(sargs)))
 
         self.gen_block(block)
+
+    def globaldeclarations(self):
+        """Static method to generate the global class declaration for a
+        group of functions."""
+        if self.annotator:
+            self.lines = []
+            self.indent = 0
+            for cls in self.annotator.getuserclasses():
+                self.putline("cdef class %s:" % self.get_classname(cls))
+                self.indent += 1
+                empty = True
+                for var in self.annotator.getuserattributes(cls):
+                    vartype, varname = self._paramvardecl(var)
+                    varname = var.name   # no 'i_' prefix
+                    self.putline("cdef %s %s" % (vartype, varname))
+                    empty = False
+                else:
+                    if empty:
+                        self.putline("pass")
+                self.indent -= 1
+                self.putline("")
+            return '\n'.join(self.lines)
+        else:
+            return ''

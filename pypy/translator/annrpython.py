@@ -28,6 +28,8 @@ class RPythonAnnotator:
         self.bindings = {}       # map Variables/Constants to SomeValues
         self.annotated = {}      # set of blocks already seen
         self.translator = translator
+        self.userclasses = {}    # set of user classes discovered,
+                                 # mapped to sets of instance attributes
 
     #___ convenience high-level interface __________________
 
@@ -57,6 +59,19 @@ class RPythonAnnotator:
         else:
             raise TypeError, ("Variable or Constant instance expected, "
                               "got %r" % (variable,))
+
+    def getuserclasses(self):
+        """Return a set of known user classes."""
+        return self.userclasses
+
+    def getuserattributes(self, cls):
+        """Enumerate the attributes of the given user class, as Variable()s."""
+        for attr in self.userclasses[cls]:
+            clscell = self.constant(cls)
+            attrcell = self.heap.get(ANN.instanceattr[attr], clscell)
+            v = Variable(name=attr)
+            self.bindings[v] = attrcell
+            yield v
 
 
     #___ medium-level interface ____________________________
@@ -214,25 +229,33 @@ class RPythonAnnotator:
 
     def consider_op_setattr(self,obj,attr,newval):
         objtype = self.heap.get(ANN.type,obj)
-        if isinstance(objtype,type):
+        if objtype in self.userclasses:
             attr = self.heap.get(ANN.const,attr)
             if isinstance(attr, str):
-                # update the annotation 'instanceattr' about the class 'cls'
-                cls = self.constant(objtype)
-                self.heap.set_or_generalize(ANN.instanceattr[attr], cls, newval)
+                # do we already know about this attribute?
+                attrdict = self.userclasses[objtype]
+                clscell = self.constant(objtype)
+                if attr not in attrdict:
+                    # no -> create it
+                    attrdict[attr] = True
+                    self.heap.set(ANN.instanceattr[attr], clscell, newval)
+                else:
+                    # yes -> update it
+                    self.heap.generalize(ANN.instanceattr[attr], clscell, newval)
         return SomeValue()
 
     def consider_op_getattr(self,obj,attr):
         result = SomeValue()
         objtype = self.heap.get(ANN.type,obj)
-        if isinstance(objtype,type):
+        if objtype in self.userclasses:
             attr = self.heap.get(ANN.const,attr)
             if isinstance(attr, str):
-                if hasattr(objtype,attr): # XXX shortcut to keep methods working
-                    return result
-                # return the current annotation for the class 'cls'
-                cls = self.constant(objtype)
-                return self.heap.get(ANN.instanceattr[attr], cls)
+                # do we know something about this attribute?
+                attrdict = self.userclasses[objtype]
+                if attr in attrdict:
+                    # yes -> return the current annotation
+                    clscell = self.constant(objtype)
+                    return self.heap.get(ANN.instanceattr[attr], clscell)
         return result
         
 
@@ -376,6 +399,8 @@ class RPythonAnnotator:
         elif isinstance(func,type):
             # XXX flow into __init__/__new__
             self.heap.settype(result,func)
+            if func.__module__ != '__builtin__':
+                self.userclasses.setdefault(func, {})
         return result
 
     def consider_const(self, constvalue):

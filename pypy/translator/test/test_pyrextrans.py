@@ -7,7 +7,7 @@ from pypy.translator.tool.buildpyxmodule import build_cfunc
 
 from pypy.translator.test import snippet as t
 
-class TypedPyrexGenTestCase(testit.IntTestCase):
+class NoTypePyrexGenTestCase(testit.IntTestCase):
 
     def setUp(self):
         self.space = testit.objspace('flow')
@@ -20,7 +20,6 @@ class TypedPyrexGenTestCase(testit.IntTestCase):
         options = {
             'simplify' : 1,
             'dot' : dot,
-            'inputargtypes' : [int] * func.func_code.co_argcount
             }
         return build_cfunc(func, **options)
 
@@ -84,7 +83,7 @@ class TypedPyrexGenTestCase(testit.IntTestCase):
         self.assertEquals(sand(0, 6), "no")
         self.assertEquals(sand(0, 0), "no")
 
-class NoTypePyrexGenTestCase(TypedPyrexGenTestCase):
+class TypedPyrexGenTestCase(NoTypePyrexGenTestCase):
 
     def build_cfunc(self, func):
         try: func = func.im_func
@@ -94,8 +93,15 @@ class NoTypePyrexGenTestCase(TypedPyrexGenTestCase):
         options = {
             'simplify' : 1,
             'dot' : dot,
+            'inputargtypes' : [int] * func.func_code.co_argcount
             }
         return build_cfunc(func, **options)
+
+    # _______________________________________________________
+    # The following tests require the type inference to work.
+    def test_set_attr(self):
+        set_attr = self.build_cfunc(t.set_attr)
+        self.assertEquals(set_attr(), 2)
 
 if __name__ == '__main__':
     testit.main()

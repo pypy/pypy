@@ -133,10 +133,11 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
 
         pyxstring = genpyrex.emitcode()
         #funcgraph.source = inspect.getsource(func)
-        mod = make_module_from_pyxstring(name, udir, pyxstring)
     else:
         pyxstring = genpyrex.emitcode()
-        mod = make_module_from_pyxstring(name, udir, pyxstring)
+
+    pyxheader = genpyrex.globaldeclarations()
+    mod = make_module_from_pyxstring(name, udir, pyxheader + '\n' + pyxstring)
 
     if dot:
         if name != func.func_name:  # if some transformations have been done

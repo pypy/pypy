@@ -205,7 +205,6 @@ class GenCL:
         sys.stdout = oldstdout
         return out.getvalue()
     def emit(self):
-        self.emit_prelude()
         self.emit_defun(self.fun)
     def emit_defun(self, fun):
         print ";;;; Main"
@@ -322,12 +321,11 @@ class GenCL:
                 print trans % argreprs,
                 print ")"
             print ")"
-    def emit_prelude(self):
-        print ";;;; Prelude"
-        print prelude
+    def globaldeclarations(self):
+        return prelude
 
 
-prelude = """\
+prelude = """;;;; Prelude
 (defun make-iterator (seq)
   (let ((i 0))
     (lambda ()
