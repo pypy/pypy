@@ -5,11 +5,15 @@ if __name__ != 'test.test_support':
     raise ImportError, 'test_support must be imported from the test package'
 '''
 
-import sys
+import sys, os
 from os import unlink
 
-import py 
-TESTFN = str(py.test.config.tmpdir.join('@test'))
+try:
+    tmpdir = sys.pypy_getudir()
+except AttributeError:
+    import py 
+    tmpdir = str(py.test.config.tmpdir)
+TESTFN = os.path.join(tmpdir, '@test')
 
 class Error(Exception):
     """Base class for regression test exceptions."""

@@ -118,3 +118,7 @@ def exc_info():
     else:
         return space.newtuple([operror.w_type,operror.w_value,
                                space.wrap(operror.application_traceback)])
+
+def pypy_getudir():
+    from pypy.tool.udir import udir
+    return space.wrap(udir)
