@@ -2,20 +2,36 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import threading
 import sys
 
-global content
-content = ''
 server_thread = None
+server_port = None
 
 class TBRequestHandler(BaseHTTPRequestHandler):
+    views = {}
+
     def do_GET(self):
         if self.path == '/quit':
             global server_thread
             server_thread = None
             raise SystemExit
-        self.send_response(200)
-        self.send_header("Content-Type", "text/plain")
-        self.end_headers()
-        self.wfile.write(content)
+        parts = [x for x in self.path.split('/') if x]
+        if not parts:
+            tb_name = 'traceback' 
+            args = []
+        else:
+            tb_name = parts[0]
+            args = parts[1:]
+        if not self.views.has_key(tb_name):
+            self.send_response(404)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write('traceback named %r not found' % tb_name)
+        else:
+            tbview = self.views[tb_name]
+            s = tbview.render(args) 
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html ; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(unicode(s).encode('utf8')) 
 
     def log_message(self, format, *args):
         pass
@@ -29,6 +45,7 @@ class TBServer(HTTPServer):
             HTTPServer.handle_error(self, request, client_address)
 
 def serve():
+    import socket
     port = 8080
     while 1:
         try:
@@ -68,10 +85,9 @@ def wait_until_interrupt():
         stop()
 
 def publish_tb(tb):
-    import traceback
-    s = traceback.format_tb(tb)
-    global content
-    content = ''.join(s)
+    from pypy.tool.tb_server.render import TracebackView
+    x = TracebackView(tb)
+    print "traceback is at http://localhost:%d/%s" % (server_port, x.name)
 
 if __name__ == "__main__":
     t = main()
