@@ -144,7 +144,9 @@ class GenPyrex:
         #self.putline("# %r" % self.annotations)
         for var in self.variablelocations:
             if var not in fun.startblock.input_args:
-                self.putline(self._vardecl(var))
+                decl = self._vardecl(var)
+                if decl:
+                    self.putline(decl)
         self.indent -= 1
         self.lines.extend(functionbodylines)
 
