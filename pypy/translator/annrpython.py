@@ -5,7 +5,6 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.model import pair
 from pypy.annotation.factory import ListFactory, InstanceFactory
 from pypy.annotation.factory import BlockedInference, Bookkeeper
-from pypy.objspace.flow import FlowObjSpace
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
 
@@ -18,7 +17,8 @@ class RPythonAnnotator:
     """Block annotator for RPython.
     See description in doc/transation/annotation.txt."""
 
-    def __init__(self):
+    def __init__(self, translator=None):
+        self.translator = translator
         self.pendingblocks = []  # list of (block, list-of-SomeValues-args)
         self.bindings = {}       # map Variables to SomeValues
         self.annotated = {}      # set of blocks already seen
@@ -27,12 +27,15 @@ class RPythonAnnotator:
 
     #___ convenience high-level interface __________________
 
-    def build_types(self, func, input_arg_types):
+    def build_types(self, func_or_flowgraph, input_arg_types):
         """Recursively build annotations about the specific entry point."""
-        if not isinstance(func, FunctionGraph):
-            flowgraph = self.bookkeeper.getflowgraph(func)
+        if isinstance(func_or_flowgraph, FunctionGraph):
+            flowgraph = func_or_flowgraph
         else:
-            flowgraph = func
+            if self.translator is None:
+                from pypy.translator.translator import Translator
+                self.translator = Translator(func_or_flowgraph)
+            flowgraph = self.translator.getflowgraph(func_or_flowgraph)
         # make input arguments and set their type
         input_arg_types = list(input_arg_types)
         nbarg = len(flowgraph.getargs())
@@ -111,25 +114,19 @@ class RPythonAnnotator:
 
     #___ interface for annotator.factory _______
 
-    def buildflowgraph(self, func):
-        space = FlowObjSpace()
-        graph = space.build_flow(func)
-        # the dictionary of all FuncCallFactories (call points to this func)
-        # is populated via graph.funccallfactories in pypy.annotation.factory
-        # and read via self.notify[graph.returnblock] whenever the return block
-        # of this graph has been analysed.
-        callfactories = {}
-        graph.funccallfactories = callfactories
-        self.notify[graph.returnblock] = callfactories
-        return graph
-
-    def generalizeinputargs(self, flowgraph, inputcells):
-        block = flowgraph.startblock
+    def recursivecall(self, func, inputcells, factory):
+        graph = self.translator.getflowgraph(func)
+        # self.notify[graph.returnblock] is a dictionary of
+        # FuncCallFactories (call points to this func) which triggers a
+        # reflow whenever the return block of this graph has been analysed.
+        callfactories = self.notify.setdefault(graph.returnblock, {})
+        callfactories[factory] = True
+        # generalize the function's input arguments
+        block = graph.startblock
         assert len(inputcells) == len(block.inputargs)
         self.addpendingblock(block, inputcells)
-
-    def getoutputvalue(self, flowgraph):
-        v = flowgraph.getreturnvar()
+        # get the (current) return value
+        v = graph.getreturnvar()
         return self.bindings.get(v, annmodel.SomeImpossibleValue())
 
     def reflowfromposition(self, position_key):

@@ -41,8 +41,6 @@ from pypy.objspace.flow import FlowObjSpace
 
 
 class Translator:
-    # XXX this class should handle recursive analysis of functions called
-    #     by the entry point function.
 
     def __init__(self, func):
         self.entrypoint = func
@@ -104,7 +102,7 @@ class Translator:
         """
         func = func or self.entrypoint
         if self.annotator is None:
-            self.annotator = RPythonAnnotator()
+            self.annotator = RPythonAnnotator(self)
         graph = self.getflowgraph(func)
         self.annotator.build_types(graph, input_args_types)
         return self.annotator
@@ -141,7 +139,7 @@ class Translator:
         if input_arg_types is None:
             ann = self.annotator
         else:
-            ann = RPythonAnnotator()
+            ann = RPythonAnnotator(self)
         if func is None:
             codes = [self.generatecode1(gencls, input_arg_types,
                                         self.entrypoint, ann)]

@@ -38,7 +38,6 @@ class Bookkeeper:
         self.annotator = annotator
         self.creationpoints = {} # map positions-in-blocks to Factories
         self.userclasses = {}    # map classes to ClassDefs
-        self.flowgraphs = {}     # map functions to flow graphs
 
     def enter(self, position_key):
         """Start of an operation.
@@ -85,14 +84,6 @@ class Bookkeeper:
             self.userclasses[cls] = ClassDef(cls, self)
             return self.userclasses[cls]
 
-    def getflowgraph(self, func):
-        """Get the flow graph associated with the given Python func."""
-        try:
-            return self.flowgraphs[func]
-        except KeyError:
-            self.flowgraphs[func] = self.annotator.buildflowgraph(func)
-            return self.flowgraphs[func]
-
 
 def getbookkeeper():
     """Get the current Bookkeeper.
@@ -119,11 +110,7 @@ class ListFactory:
 class FuncCallFactory:
 
     def pycall(self, func, arglist):
-        bookkeeper = getbookkeeper()
-        graph = bookkeeper.getflowgraph(func)
-        graph.funccallfactories[self] = True
-        bookkeeper.annotator.generalizeinputargs(graph, arglist)
-        return bookkeeper.annotator.getoutputvalue(graph)
+        return getbookkeeper().annotator.recursivecall(func, arglist, self)
 
 
 class InstanceFactory:
