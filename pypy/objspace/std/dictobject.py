@@ -106,6 +106,12 @@ def contains__Dict_ANY(space, w_dict, w_lookup):
             return space.w_True
     return space.w_False
 
+def iter__Dict(space, w_dict):
+    import iterobject
+    w_keys = dict_keys__Dict(space, w_dict)
+    return iterobject.W_SeqIterObject(space, w_keys)
+    
+
 ##def getattr_dict(space, w_dict, w_attr):
 ##    if space.is_true(space.eq(w_attr, space.wrap('copy'))):
 ##        w_builtinfn = make_builtin_func(space, W_DictObject.copy)
@@ -154,6 +160,5 @@ def dict_values__Dict(space, w_self):
     return space.newlist([ cell.get()
                            for w_key,cell in
                            w_self.non_empties()])
-
 
 register_all(vars(), W_DictType)
