@@ -110,3 +110,8 @@ def default_eq(space, a, b):
     return space.is_(a, b)
 
 StdObjSpace.eq.register(default_eq, W_ANY, W_ANY)
+
+def default_ne(space, a, b):
+    return space.not_(space.is_(a, b))
+
+StdObjSpace.ne.register(default_ne, W_ANY, W_ANY)
