@@ -271,7 +271,7 @@ class ArgErrCount(ArgErr):
         argnames, varargname, kwargname = signature
         args_w, kwds_w = args.unpack()
         nargs = len(args_w)
-        if kwargname is not None:
+        if kwargname is not None or (kwds_w and defaults_w):
             msg2 = "non-keyword "
         else:
             msg2 = ""
