@@ -1,11 +1,7 @@
 import autopath
 
-from pypy.tool import testit
 
-class TestBuiltinApp(testit.AppTestCase):
-    def setUp(self):
-        self.space = testit.objspace()
-
+class AppTestBuiltinApp:
     def test_staticmethod(self):
         class C:
             def f(a, b):
@@ -16,10 +12,10 @@ class TestBuiltinApp(testit.AppTestCase):
 
         c = C()
         d = D()
-        self.assertEquals(c.f("abc", "def"), "abcdef")
-        self.assertEquals(C.f("abc", "def"), "abcdef")
-        self.assertEquals(d.f("abc", "def"), "abcdef")
-        self.assertEquals(D.f("abc", "def"), "abcdef")
+        assert c.f("abc", "def") == "abcdef"
+        assert C.f("abc", "def") == "abcdef"
+        assert d.f("abc", "def") == "abcdef"
+        assert D.f("abc", "def") == "abcdef"
 
     def test_classmethod(self):
         class C:
@@ -31,10 +27,10 @@ class TestBuiltinApp(testit.AppTestCase):
 
         c = C()
         d = D()
-        self.assertEquals(c.f("abc"), (C, "abc"))
-        self.assertEquals(C.f("abc"), (C, "abc"))
-        self.assertEquals(d.f("abc"), (D, "abc"))
-        self.assertEquals(D.f("abc"), (D, "abc"))
+        assert c.f("abc") == (C, "abc")
+        assert C.f("abc") == (C, "abc")
+        assert d.f("abc") == (D, "abc")
+        assert D.f("abc") == (D, "abc")
 
     def test_property_simple(self):
         
@@ -44,9 +40,9 @@ class TestBuiltinApp(testit.AppTestCase):
             def _del(self): raise KeyError
             name = property(_get, _set, _del)
         a1 = a()
-        self.assertEquals(a1.name, 42)
-        self.assertRaises(AttributeError, setattr, a1, 'name', 42)
-        self.assertRaises(KeyError, delattr, a1, 'name')
+        assert a1.name == 42
+        raises(AttributeError, setattr, a1, 'name', 42)
+        raises(KeyError, delattr, a1, 'name')
 
     def test_super(self):
         class A(object):
@@ -62,17 +58,14 @@ class TestBuiltinApp(testit.AppTestCase):
             def f(self):
                 return 'D' + super(D,self).f()
         d = D()
-        self.assertEquals(d.f(), "DBCA")
-        self.assertEquals(D.__mro__, (D, B, C, A, object))
+        assert d.f() == "DBCA"
+        assert D.__mro__ == (D, B, C, A, object)
 
     def test_super_metaclass(self):
         class xtype(type):
             def __init__(self, name, bases, dict):
                 super(xtype, self).__init__(name, bases, dict)
         A = xtype('A', (), {})
-        self.assert_(isinstance(A, xtype))
+        assert isinstance(A, xtype)
         a = A()
-        self.assert_(isinstance(a, A))
-
-if __name__ == '__main__':
-    testit.main()
+        assert isinstance(a, A)

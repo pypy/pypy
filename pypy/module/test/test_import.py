@@ -1,5 +1,4 @@
 import autopath
-from pypy.tool import testit
 from pypy.interpreter import gateway
 import os
 
@@ -19,19 +18,18 @@ def _teardown(saved_modules):
 
 _teardown = gateway.app2interp_temp(_teardown,'teardown')
 
-class TestImport(testit.AppTestCase):
+class AppTestImport:
 
-    def setUp(self): # interpreter-level
-        testit.AppTestCase.setUp(self)
-        self.saved_modules = _setup(self.space)
+    def setup_class(cls): # interpreter-level
+	cls.saved_modules = _setup(cls.space)
 
-    def tearDown(self): # interpreter-level
-        _teardown(self.space,self.saved_modules) 
+    def teardown_class(cls): # interpreter-level
+        _teardown(cls.space,cls.saved_modules) 
 
     def test_import_bare_dir_fails(self):
         def imp():
            import notapackage
-        self.assertRaises(ImportError,imp)
+        raises(ImportError,imp)
 
     def test_import_sys(self):
         import sys
@@ -39,112 +37,108 @@ class TestImport(testit.AppTestCase):
     def test_import_a(self):
         import sys
         import a
-        self.assertEquals(a, sys.modules.get('a'))
+        assert a == sys.modules.get('a')
 
     def test_import_a_cache(self):
         import sys
         import a
         a0 = a
         import a
-        self.assertEquals(a, a0)
+        assert a == a0
 
     def test_import_pkg(self):
         import sys
         import pkg
-        self.assertEquals(pkg, sys.modules.get('pkg'))
+        assert pkg == sys.modules.get('pkg')
 
     def test_import_dotted(self):
         import sys
         import pkg.a
-        self.assertEquals(pkg, sys.modules.get('pkg'))
-        self.assertEquals(pkg.a, sys.modules.get('pkg.a'))
+        assert pkg == sys.modules.get('pkg')
+        assert pkg.a == sys.modules.get('pkg.a')
 
     def test_import_dotted_cache(self):
         import sys
         import pkg.a
-        self.assertEquals(pkg, sys.modules.get('pkg'))
-        self.assertEquals(pkg.a, sys.modules.get('pkg.a'))
+        assert pkg == sys.modules.get('pkg')
+        assert pkg.a == sys.modules.get('pkg.a')
         pkg0 = pkg
         pkg_a0 = pkg.a
         import pkg.a
-        self.assertEquals(pkg, pkg0)
-        self.assertEquals(pkg.a, pkg_a0)
+        assert pkg == pkg0
+        assert pkg.a == pkg_a0
 
     def test_import_dotted2(self):
         import sys
         import pkg.pkg1.a
-        self.assertEquals(pkg, sys.modules.get('pkg'))
-        self.assertEquals(pkg.pkg1, sys.modules.get('pkg.pkg1'))
-        self.assertEquals(pkg.pkg1.a, sys.modules.get('pkg.pkg1.a'))
+        assert pkg == sys.modules.get('pkg')
+        assert pkg.pkg1 == sys.modules.get('pkg.pkg1')
+        assert pkg.pkg1.a == sys.modules.get('pkg.pkg1.a')
 
     def test_import_ambig(self):
         import sys
         import ambig
-        self.assertEquals(ambig, sys.modules.get('ambig'))
-        self.assert_(hasattr(ambig,'imapackage'))
+        assert ambig == sys.modules.get('ambig')
+        assert hasattr(ambig,'imapackage')
 
     def test_from_a(self):
         import sys
         from a import imamodule
-        self.assert_('a' in sys.modules)
-        self.assertEquals(imamodule, 1)
+        assert 'a' in sys.modules
+        assert imamodule == 1
 
     def test_from_dotted(self):
         import sys
         from pkg.a import imamodule
-        self.assert_('pkg' in sys.modules)
-        self.assert_('pkg.a' in sys.modules)
-        self.assertEquals(imamodule, 1)
+        assert 'pkg' in sys.modules
+        assert 'pkg.a' in sys.modules
+        assert imamodule == 1
 
     def test_from_pkg_import_module(self):
         import sys
         from pkg import a
-        self.assert_('pkg' in sys.modules)
-        self.assert_('pkg.a' in sys.modules)
+        assert 'pkg' in sys.modules
+        assert 'pkg.a' in sys.modules
         pkg = sys.modules.get('pkg')
-        self.assertEquals(a, pkg.a)
+        assert a == pkg.a
         aa = sys.modules.get('pkg.a')
-        self.assertEquals(a, aa)
+        assert a == aa
 
     def test_import_relative(self):
         from pkg import relative_a
-        self.assertEquals(relative_a.a.inpackage,1)
+        assert relative_a.a.inpackage ==1
 
     def test_import_relative_back_to_absolute(self):
         from pkg import abs_b
-        self.assertEquals(abs_b.b.inpackage,0)
+        assert abs_b.b.inpackage ==0
         import sys
-        self.assertEquals(sys.modules.get('pkg.b'),None)
+        assert sys.modules.get('pkg.b') ==None
 
     def test_import_pkg_relative(self):
         import pkg_relative_a
-        self.assertEquals(pkg_relative_a.a.inpackage,1)
+        assert pkg_relative_a.a.inpackage ==1
 
     def test_import_relative_partial_success(self):
         def imp():
             import pkg_r.inpkg
-        self.assertRaises(ImportError,imp)
+        raises(ImportError,imp)
 
     def test_import_Globals_Are_None(self):
         import sys
         m = __import__('sys')
-        self.assertEquals(sys, m) 
+        assert sys == m 
         n = __import__('sys', None, None, [''])
-        self.assertEquals(sys, n) 
+        assert sys == n 
 
     def test_import_relative_back_to_absolute2(self):
         from pkg import abs_x_y
         import sys
-        self.assertEquals(abs_x_y.x.__name__,'x')
-        self.assertEquals(abs_x_y.x.y.__name__,'x.y')
+        assert abs_x_y.x.__name__ =='x'
+        assert abs_x_y.x.y.__name__ =='x.y'
         # grrr XXX not needed probably...
         #self.assertEquals(sys.modules.get('pkg.x'),None)
         #self.assert_('pkg.x.y' not in sys.modules)
         
     def test_substituting_import(self):
         from pkg_substituting import mod
-        self.assertEquals(mod.__name__,'pkg_substituting.mod')
-        
-        
-if __name__ == '__main__':
-    testit.main()
+        assert mod.__name__ =='pkg_substituting.mod'

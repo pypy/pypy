@@ -1,47 +1,43 @@
 import autopath
 
-from pypy.tool import testit
 
-class TestBuiltinApp(testit.AppTestCase):
-    def setUp(self):
-        self.space = testit.objspace()
-    
+class AppTestBuiltinApp:
     def test_import(self):
         m = __import__('pprint')
-        self.assertEquals(m.pformat({}), '{}')
-        self.assertEquals(m.__name__, "pprint")
-        self.assertRaises(ImportError, __import__, 'spamspam')
-        self.assertRaises(TypeError, __import__, 1, 2, 3, 4)
+        assert m.pformat({}) == '{}'
+        assert m.__name__ == "pprint"
+        raises(ImportError, __import__, 'spamspam')
+        raises(TypeError, __import__, 1, 2, 3, 4)
 
     def test_chr(self):
-        self.assertEquals(chr(65), 'A')
-        self.assertRaises(ValueError, chr, -1)
-        self.assertRaises(TypeError, chr, 'a')
+        assert chr(65) == 'A'
+        raises(ValueError, chr, -1)
+        raises(TypeError, chr, 'a')
 
     def test_intern(self):
-        self.assertRaises(TypeError, intern)
-        self.assertRaises(TypeError, intern, 1)
+        raises(TypeError, intern)
+        raises(TypeError, intern, 1)
         s = "never interned before"
         s2 = intern(s)
-        self.assertEquals(s, s2)
+        assert s == s2
         s3 = s.swapcase()
-        self.assert_(s3 != s2)
+        assert s3 != s2
         s4 = s3.swapcase()
-        self.assert_(intern(s4) is s2)
+        assert intern(s4) is s2
 
     def test_globals(self):
         d = {"foo":"bar"}
         exec "def f(): return globals()" in d
         d2 = d["f"]()
-        self.assert_(d2 is d)
+        assert d2 is d
 
     def test_locals(self):
         def f():
             return locals()
         def g(c=0, b=0, a=0):
             return locals()
-        self.assertEquals(f(), {})
-        self.assertEquals(g(), {'a':0, 'b':0, 'c':0})
+        assert f() == {}
+        assert g() == {'a':0, 'b':0, 'c':0}
         
     def test_dir(self):
         def f():
@@ -49,48 +45,48 @@ class TestBuiltinApp(testit.AppTestCase):
         def g(c=0, b=0, a=0):
             return dir()
         def nosp(x): return [y for y in x if y[0]!='_']
-        self.assertEquals(f(), [])
-        self.assertEquals(g(), ['a', 'b', 'c'])
+        assert f() == []
+        assert g() == ['a', 'b', 'c']
         class X: pass
-        self.assertEquals(nosp(dir(X)), [])
+        assert nosp(dir(X)) == []
         class X:
             a = 23
             c = 45
             b = 67
-        self.assertEquals(nosp(dir(X)), ['a', 'b', 'c'])
+        assert nosp(dir(X)) == ['a', 'b', 'c']
 
     def test_vars(self):
         def f():
             return vars()
         def g(c=0, b=0, a=0):
             return vars()
-        self.assertEquals(f(), {})
-        self.assertEquals(g(), {'a':0, 'b':0, 'c':0})
+        assert f() == {}
+        assert g() == {'a':0, 'b':0, 'c':0}
         
     def test_getattr(self):
         class a: 
             i = 5
-        self.assertEquals(getattr(a, 'i'), 5)
-        self.assertRaises(AttributeError, getattr, a, 'k')
-        self.assertEquals(getattr(a, 'k', 42), 42)
+        assert getattr(a, 'i') == 5
+        raises(AttributeError, getattr, a, 'k')
+        assert getattr(a, 'k', 42) == 42
 
     def test_sum(self):
-        self.assertEquals(sum([]),0)
-        self.assertEquals(sum([42]),42)
-        self.assertEquals(sum([1,2,3]),6)
-        self.assertEquals(sum([],5),5)
-        self.assertEquals(sum([1,2,3],4),10)
+        assert sum([]) ==0
+        assert sum([42]) ==42
+        assert sum([1,2,3]) ==6
+        assert sum([],5) ==5
+        assert sum([1,2,3],4) ==10
         
     def test_type_selftest(self):
-        self.assert_(type(type) is type)
+        assert type(type) is type
 
     def test_iter_sequence(self):
-        self.assertRaises(TypeError,iter,3)
+        raises(TypeError,iter,3)
         x = iter(['a','b','c'])
-        self.assertEquals(x.next(),'a')
-        self.assertEquals(x.next(),'b')
-        self.assertEquals(x.next(),'c')
-        self.assertRaises(StopIteration,x.next)
+        assert x.next() =='a'
+        assert x.next() =='b'
+        assert x.next() =='c'
+        raises(StopIteration,x.next)
 
     def test_iter___iter__(self):
         # This test assumes that dict.keys() method returns keys in
@@ -99,7 +95,7 @@ class TestBuiltinApp(testit.AppTestCase):
         # it tests 4 calls to __iter__() in one assert.  It could
         # be modified if better granularity on the assert is required.
         mydict = {'a':1,'b':2,'c':3}
-        self.assertEquals(list(iter(mydict)),mydict.keys())
+        assert list(iter(mydict)) ==mydict.keys()
 
     def test_iter_callable_sentinel(self):
         class count(object):
@@ -114,97 +110,99 @@ class TestBuiltinApp(testit.AppTestCase):
         #self.assertRaises(TypeError,iter,[],5)
         #self.assertRaises(TypeError,iter,{},5)
         x = iter(count(),3)
-        self.assertEquals(x.next(),1)
-        self.assertEquals(x.next(),2)
-        self.assertRaises(StopIteration,x.next)
+        assert x.next() ==1
+        assert x.next() ==2
+        raises(StopIteration,x.next)
         
     def test_enumerate(self):
         seq = range(2,4)
         enum = enumerate(seq)
-        self.assertEquals(enum.next(), (0, 2))
-        self.assertEquals(enum.next(), (1, 3))
-        self.assertRaises(StopIteration, enum.next)
+        assert enum.next() == (0, 2)
+        assert enum.next() == (1, 3)
+        raises(StopIteration, enum.next)
         
     def test_xrange_args(self):
         x = xrange(2)
-        self.assertEquals(x.start, 0)
-        self.assertEquals(x.stop, 2)
-        self.assertEquals(x.step, 1)
+        assert x.start == 0
+        assert x.stop == 2
+        assert x.step == 1
 
         x = xrange(2,10,2)
-        self.assertEquals(x.start, 2)
-        self.assertEquals(x.stop, 10)
-        self.assertEquals(x.step, 2)
+        assert x.start == 2
+        assert x.stop == 10
+        assert x.step == 2
 
-        self.assertRaises(ValueError, xrange, 0, 1, 0) 
+        raises(ValueError, xrange, 0, 1, 0) 
 
     def test_xrange_up(self):
         x = xrange(2)
-        self.assertEquals(x.start, 0)
-        self.assertEquals(x.stop, 2)
-        self.assertEquals(x.step, 1)
+        assert x.start == 0
+        assert x.stop == 2
+        assert x.step == 1
 
         iter_x = iter(x)
-        self.assertEquals(iter_x.next(), 0)
-        self.assertEquals(iter_x.next(), 1)
-        self.assertRaises(StopIteration, iter_x.next)
+        assert iter_x.next() == 0
+        assert iter_x.next() == 1
+        raises(StopIteration, iter_x.next)
 
     def test_xrange_down(self):
         x = xrange(4,2,-1)
 
         iter_x = iter(x)
-        self.assertEquals(iter_x.next(), 4)
-        self.assertEquals(iter_x.next(), 3)
-        self.assertRaises(StopIteration, iter_x.next)
+        assert iter_x.next() == 4
+        assert iter_x.next() == 3
+        raises(StopIteration, iter_x.next)
 
     def test_xrange_has_type_identity(self):
-        self.assertEquals(type(xrange(1)), type(xrange(1)))
+        assert type(xrange(1)) == type(xrange(1))
 
     def test_xrange_len(self):
         x = xrange(33)
-        self.assertEquals(len(x), 33)
+        assert len(x) == 33
         x = xrange(33,0,-1)
-        self.assertEquals(len(x), 33)
+        assert len(x) == 33
         x = xrange(33,0)
-        self.assertEquals(len(x), 0)
+        assert len(x) == 0
         x = xrange(0,33)
-        self.assertEquals(len(x), 33)
+        assert len(x) == 33
         x = xrange(0,33,-1)
-        self.assertEquals(len(x), 0)
+        assert len(x) == 0
         x = xrange(0,33,2)
-        self.assertEquals(len(x), 17)
+        assert len(x) == 17
         x = xrange(0,32,2)
-        self.assertEquals(len(x), 16)
+        assert len(x) == 16
 
     def test_xrange_indexing(self):
         x = xrange(0,33,2)
-        self.assertEquals(x[7], 14)
-        self.assertEquals(x[-7], 20)
-        self.assertRaises(IndexError, x.__getitem__, 17)
-        self.assertRaises(IndexError, x.__getitem__, -18)
-        self.assertRaises(TypeError, x.__getitem__, slice(0,3,1))
+        assert x[7] == 14
+        assert x[-7] == 20
+        raises(IndexError, x.__getitem__, 17)
+        raises(IndexError, x.__getitem__, -18)
+        raises(TypeError, x.__getitem__, slice(0,3,1))
 
     def test_cmp(self):
-        self.assertEquals(cmp(9,9), 0)
-        self.assert_(cmp(0,9) < 0)
-        self.assert_(cmp(9,0) > 0)
+        assert cmp(9,9) == 0
+        assert cmp(0,9) < 0
+        assert cmp(9,0) > 0
 
     def test_return_None(self):
-        self.assertEquals(setattr(self, 'x', 11), None)
-        self.assertEquals(delattr(self, 'x'), None)
+	class X: pass
+	x = X()
+        assert setattr(x, 'x', 11) == None
+        assert delattr(x, 'x') == None
         # To make this test, we need autopath to work in application space.
         #self.assertEquals(execfile('emptyfile.py'), None)
 
     def test_divmod(self):
-        self.assertEquals(divmod(15,10),(1,5))
+        assert divmod(15,10) ==(1,5)
 
     def test_callable(self):
         class Call:
             def __call__(self, a):
                 return a+2
-        self.failIf(not callable(Call()),
+        assert not not callable(Call()), (
                     "Builtin function 'callable' misreads callable object")
-        self.assert_(callable(int),
+        assert callable(int), (
                     "Builtin function 'callable' misreads int")
 
     def test_uncallable(self):
@@ -215,55 +213,55 @@ class TestBuiltinApp(testit.AppTestCase):
         class NoCall(object):
             pass
         a = NoCall()
-        self.failIf(callable(a),
+        assert not callable(a), (
                     "Builtin function 'callable' misreads uncallable object")
         a.__call__ = lambda: "foo"
-        self.failIf(callable(a), 
+        assert not callable(a), ( 
                     "Builtin function 'callable' tricked by instance-__call__")
 
     def test_hash(self):
-        self.assertEquals(hash(23), hash(23))
-        self.assertEquals(hash(2.3), hash(2.3))
-        self.assertEquals(hash('23'), hash("23"))
-        self.assertEquals(hash((23,)), hash((23,)))
-        self.assertNotEquals(hash(22), hash(23))
-        self.assertRaises(TypeError, hash, [])
-        self.assertRaises(TypeError, hash, {})
+        assert hash(23) == hash(23)
+        assert hash(2.3) == hash(2.3)
+        assert hash('23') == hash("23")
+        assert hash((23,)) == hash((23,))
+        assert hash(22) != hash(23)
+        raises(TypeError, hash, [])
+        raises(TypeError, hash, {})
 
     def test_compile(self):
         co = compile('1+2', '?', 'eval')
-        self.assertEquals(eval(co), 3)
-        self.assertRaises(SyntaxError, compile, '-', '?', 'eval')
-        self.assertRaises(ValueError, compile, '"\\xt"', '?', 'eval')
-        self.assertRaises(ValueError, compile, '1+2', '?', 'maybenot')
-        self.assertRaises(TypeError, compile, '1+2', 12, 34)
+        assert eval(co) == 3
+        raises(SyntaxError, compile, '-', '?', 'eval')
+        raises(ValueError, compile, '"\\xt"', '?', 'eval')
+        raises(ValueError, compile, '1+2', '?', 'maybenot')
+        raises(TypeError, compile, '1+2', 12, 34)
 
     def test_isinstance(self):
-        self.assert_(isinstance(5, int))
-        self.assert_(isinstance(5, object))
-        self.assert_(not isinstance(5, float))
-        self.assert_(isinstance(True, (int, float)))
-        self.assert_(not isinstance(True, (type, float)))
-        self.assert_(isinstance(True, ((type, float), bool)))
-        self.assertRaises(TypeError, isinstance, 5, 6)
-        self.assertRaises(TypeError, isinstance, 5, (float, 6))
+        assert isinstance(5, int)
+        assert isinstance(5, object)
+        assert not isinstance(5, float)
+        assert isinstance(True, (int, float))
+        assert not isinstance(True, (type, float))
+        assert isinstance(True, ((type, float), bool))
+        raises(TypeError, isinstance, 5, 6)
+        raises(TypeError, isinstance, 5, (float, 6))
 
     def test_issubclass(self):
-        self.assert_(issubclass(int, int))
-        self.assert_(issubclass(int, object))
-        self.assert_(not issubclass(int, float))
-        self.assert_(issubclass(bool, (int, float)))
-        self.assert_(not issubclass(bool, (type, float)))
-        self.assert_(issubclass(bool, ((type, float), bool)))
-        self.assertRaises(TypeError, issubclass, 5, int)
-        self.assertRaises(TypeError, issubclass, int, 6)
-        self.assertRaises(TypeError, issubclass, int, (float, 6))
+        assert issubclass(int, int)
+        assert issubclass(int, object)
+        assert not issubclass(int, float)
+        assert issubclass(bool, (int, float))
+        assert not issubclass(bool, (type, float))
+        assert issubclass(bool, ((type, float), bool))
+        raises(TypeError, issubclass, 5, int)
+        raises(TypeError, issubclass, int, 6)
+        raises(TypeError, issubclass, int, (float, 6))
 
         
-class TestInternal(testit.IntTestCase):
+class TestInternal:
 
-    def setUp(self):
-        self.space = space = testit.objspace()
+    def setup_method(self,method):
+        space = self.space
 
     def get_builtin(self, name):
         w = self.space.wrap
@@ -286,11 +284,7 @@ class TestInternal(testit.IntTestCase):
             self.space.call_function(w_execfile,
                 space.wrap(fn), w_dict, space.w_None)
             w_value = space.getitem(w_dict, space.wrap('i'))
-            self.assertEqual_w(w_value, space.wrap(42))
+            assert self.space.eq_w(w_value, space.wrap(42))
         finally:
             import os
             os.remove(fn)
-
-if __name__ == '__main__':
-    testit.main()
- 

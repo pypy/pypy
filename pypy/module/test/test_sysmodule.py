@@ -1,68 +1,63 @@
 import autopath
-from pypy.tool import testit 
 
-class SysTests(testit.TestCase):
-    def setUp(self):
-        self.space = testit.objspace()
+class TestSysTests:
+    def setup_method(self,method):
         self.sys_w = self.space.get_builtin_module("sys")
-    def tearDown(self):
-        pass
-
     def test_stdout_exists(self):
         s = self.space
-        self.failUnless_w(s.getattr(self.sys_w, s.wrap("stdout")))
+        assert s.is_true(s.getattr(self.sys_w, s.wrap("stdout")))
 
-class AppSysTests(testit.AppTestCase):
+class AppTestAppSysTests:
     def test_path_exists(self):
         import sys
-        self.failUnless(hasattr(sys, 'path'), "sys.path gone missing")
+        assert hasattr(sys, 'path'), "sys.path gone missing"
     def test_modules_exists(self):
         import sys
-        self.failUnless(hasattr(sys, 'modules'), "sys.modules gone missing")
+        assert hasattr(sys, 'modules'), "sys.modules gone missing"
     def test_dict_exists(self):
         import sys
-        self.failUnless(hasattr(sys, '__dict__'), "sys.__dict__ gone missing")
+        assert hasattr(sys, '__dict__'), "sys.__dict__ gone missing"
     def test_name_exists(self):
         import sys
-        self.failUnless(hasattr(sys, '__name__'), "sys.__name__ gone missing")
+        assert hasattr(sys, '__name__'), "sys.__name__ gone missing"
     def test_builtin_module_names_exists(self):
         import sys
-        self.failUnless(hasattr(sys, 'builtin_module_names'),
+        assert hasattr(sys, 'builtin_module_names'), (
                         "sys.builtin_module_names gone missing")        
     def test_warnoptions_exists(self):
         import sys
-        self.failUnless(hasattr(sys, 'warnoptions'),
+        assert hasattr(sys, 'warnoptions'), (
                         "sys.warnoptions gone missing")
     def test_hexversion_exists(self):
         import sys
-        self.failUnless(hasattr(sys, 'hexversion'),
+        assert hasattr(sys, 'hexversion'), (
                         "sys.hexversion gone missing")
     def test_platform_exists(self):
         import sys
-        self.failUnless(hasattr(sys, 'platform'), "sys.platform gone missing")
+        assert hasattr(sys, 'platform'), "sys.platform gone missing"
 
     def test_sys_in_modules(self):
         import sys
         modules = sys.modules
-        self.failUnless('sys' in modules, "An entry for sys "
+        assert 'sys' in modules, ( "An entry for sys "
                                         "is not in sys.modules.")
         sys2 = sys.modules['sys']
-        self.failUnless(sys is sys2, "import sys is not sys.modules[sys].") 
+        assert sys is sys2, "import sys is not sys.modules[sys]." 
     def test_builtin_in_modules(self):
         import sys
         modules = sys.modules
-        self.failUnless('__builtin__' in modules, "An entry for __builtin__ "
+        assert '__builtin__' in modules, ( "An entry for __builtin__ "
                                                     "is not in sys.modules.")
         import __builtin__
         builtin2 = sys.modules['__builtin__']
-        self.failUnless(__builtin__ is builtin2, "import __builtin__ "
+        assert __builtin__ is builtin2, ( "import __builtin__ "
                                             "is not sys.modules[__builtin__].")
     def test_builtin_module_names(self):
         import sys
         names = sys.builtin_module_names
-        self.failUnless('sys' in names,
+        assert 'sys' in names, (
                         "sys is not listed as a builtin module.")
-        self.failUnless('__builtin__' in names,
+        assert '__builtin__' in names, (
                         "__builtin__ is not listed as a builtin module.")
 
     def test_sys_exc_info(self):
@@ -75,11 +70,11 @@ class AppSysTests(testit.AppTestCase):
             raise Exception   # 5 lines below the previous one
         except Exception,e2:
             exc_type2,exc_val2,tb2 = sys.exc_info()
-        self.assertEquals(exc_type,Exception)
-        self.assertEquals(exc_val,e)
-        self.assertEquals(exc_type2,Exception)
-        self.assertEquals(exc_val2,e2)
-        self.assertEquals(tb2.tb_lineno - tb.tb_lineno, 5)
+        assert exc_type ==Exception
+        assert exc_val ==e
+        assert exc_type2 ==Exception
+        assert exc_val2 ==e2
+        assert tb2.tb_lineno - tb.tb_lineno == 5
 
     def test_exc_info_normalization(self):
         import sys
@@ -87,10 +82,6 @@ class AppSysTests(testit.AppTestCase):
             1/0
         except ZeroDivisionError:
             etype, val, tb = sys.exc_info()
-            self.assert_(isinstance(val, etype))
+            assert isinstance(val, etype)
         else:
-            self.fail("ZeroDivisionError not caught")
-
-if __name__ == '__main__':
-    testit.main()
-
+            raise AssertionError, "ZeroDivisionError not caught"
