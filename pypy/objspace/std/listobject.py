@@ -191,12 +191,9 @@ def setitem__List_Slice_List(space, w_list, w_slice, w_list2):
     _list_resize(w_list, newsize)
     items = w_list.ob_item
     w_list.ob_size = newsize
+    r = range(stop+delta,newsize)
     if delta > 0:
-        r = range(newsize-1,stop+delta-1,-1)
-    elif delta < 0:
-        r = range(stop+delta,newsize)
-    else:
-        r = ()
+        r.reverse()
 
     for i in r:
         items[i] = items[i-delta]
