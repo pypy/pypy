@@ -6,7 +6,9 @@ transformation may introduce new space operation.
 
 import autopath
 import types
-from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
+from pypy.objspace.flow.model import SpaceOperation
+from pypy.translator.annotation import XCell, XConstant
+from pypy.translator.annrpython import CannotSimplify
 
 # XXX: Lots of duplicated codes. Fix this!
 
@@ -70,30 +72,46 @@ def transform_slice(self):
 # e = simple_call(a, *b)
 
 def transform_simple_call(self):
-    """Transforms a(*b) to simple_call(a, *b)"""
+    """Transforms call(a, (...), {}) to simple_call(a, ...)"""
     t = self.transaction()
     for block in self.annotated:
-        operations = block.operations[:]
-        n_op = len(operations)
-        for i in range(0, n_op-2):
-            op1 = operations[i]
-            op2 = operations[i+1]
-            op3 = operations[i+2]
-            if not op3.args: continue
-            op3arg0type = t.get_type(self.binding(op3.args[0]))
-            if (op1.opname == 'newtuple' and
-                op2.opname == 'newdict' and
-                len(op2.args) == 0 and
-                op3.opname == 'call' and
-                op1.result is op3.args[1] and
-                op2.result is op3.args[2] and
-                # eek!
-                (op3arg0type is types.FunctionType or
-                 op3arg0type is types.BuiltinFunctionType)):
-                new_op = SpaceOperation('simple_call',
-                                        (op3.args[0],) + tuple(op1.args),
-                                        op3.result)
-                block.operations[i:i+3] = [new_op]
+        known_vars = block.inputargs[:]
+        operations = []
+        for op in block.operations:
+            try:
+                if op.opname != 'call':
+                    raise CannotSimplify
+                varargs_cell = self.binding(op.args[1])
+                varkwds_cell = self.binding(op.args[2])
+                
+                len_cell = t.get('len', [varargs_cell])
+                if not isinstance(len_cell, XConstant):
+                    raise CannotSimplify
+                nbargs = len_cell.value
+                arg_cells = [t.get('getitem', [varargs_cell, self.constant(j)])
+                             for j in range(nbargs)]
+                if None in arg_cells:
+                    raise CannotSimplify
+                
+                len_cell = t.get('len', [varkwds_cell])
+                if not isinstance(len_cell, XConstant):
+                    raise CannotSimplify
+                nbkwds = len_cell.value
+                if nbkwds != 0:
+                    raise CannotSimplify
+
+                args = [self.reverse_binding(known_vars, c) for c in arg_cells]
+                args.insert(0, op.args[0])
+                new_ops = [SpaceOperation('simple_call', args, op.result)]
+                
+            except CannotSimplify:
+                new_ops = [op]
+
+            for op in new_ops:
+                operations.append(op)
+                known_vars.append(op.result)
+
+        block.operations = operations
 
 def transform_graph(ann):
     """Apply set of transformations available."""

@@ -109,6 +109,11 @@ class RPythonAnnotator:
             else:
                 raise CannotSimplify
 
+    def simplify(self):
+        # Generic simpliciations
+        from pypy.translator import transform
+        transform.transform_simple_call(self)
+
 
     #___ flowing annotations in blocks _____________________
 
@@ -226,6 +231,11 @@ class RPythonAnnotator:
 
     def consider_op_newslice(self, args, result, t):
         t.set_type(result, slice)
+
+    def consider_op_newdict(self, args, result, t):
+        t.set_type(result, dict)
+        if not args:
+            t.set("len", [result], self.constant(0))
 
     def consider_op_getitem(self, (arg1,arg2), result, t):
         type1 = t.get_type(arg1)
