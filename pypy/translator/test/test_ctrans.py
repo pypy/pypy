@@ -84,21 +84,20 @@ class NoTypeCGenTestCase(testit.IntTestCase):
         self.assertEquals(sand(0, 6), "no")
         self.assertEquals(sand(0, 0), "no")
 
-if 0:
-  class TypedTestCase(testit.IntTestCase):
+class TypedTestCase(testit.IntTestCase):
 
     def getcompiled(self, func):
         t = Translator(func) 
         t.simplify()
-        # builds starting-types from func_defs 
-        argstypelist = []
-        if func.func_defaults:
-            for spec in func.func_defaults:
-                if isinstance(spec, tuple):
-                    spec = spec[0] # use the first type only for the tests
-                argstypelist.append(spec)
-        a = t.annotate(argstypelist)
-        a.simplify()
+##        # builds starting-types from func_defs 
+##        argstypelist = []
+##        if func.func_defaults:
+##            for spec in func.func_defaults:
+##                if isinstance(spec, tuple):
+##                    spec = spec[0] # use the first type only for the tests
+##                argstypelist.append(spec)
+##        a = t.annotate(argstypelist)
+##        a.simplify()
         return t.ccompile()
 
     def test_set_attr(self):
@@ -132,10 +131,10 @@ if 0:
     def test_call_five(self):
         call_five = self.getcompiled(snippet.call_five)
         result = call_five()
-        #self.assertEquals(result, [5])
+        self.assertEquals(result, [5])
         # --  currently result isn't a real list, but a pseudo-array
         #     that can't be inspected from Python.
-        self.assertEquals(result.__class__.__name__[:8], "list of ")
+        #self.assertEquals(result.__class__.__name__[:8], "list of ")
 
     def test_call_unpack_56(self):
         call_unpack_56 = self.getcompiled(snippet.call_unpack_56)

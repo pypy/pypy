@@ -22,12 +22,50 @@
 				}				\
 				Py_INCREF(r);
 
+#define OP_NEG(x,r,err)           if (!(r=PyNumber_Negative(x)))     goto err;
+#define OP_POS(x,r,err)           if (!(r=PyNumber_Positive(x)))     goto err;
+#define OP_INVERT(x,r,err)        if (!(r=PyNumber_Invert(x)))       goto err;
+
 #define OP_ADD(x,y,r,err)         if (!(r=PyNumber_Add(x,y)))        goto err;
 #define OP_SUB(x,y,r,err)         if (!(r=PyNumber_Subtract(x,y)))   goto err;
 #define OP_MUL(x,y,r,err)         if (!(r=PyNumber_Multiply(x,y)))   goto err;
+#define OP_TRUEDIV(x,y,r,err)     if (!(r=PyNumber_TrueDivide(x,y))) goto err;
+#define OP_FLOORDIV(x,y,r,err)    if (!(r=PyNumber_FloorDivide(x,y)))goto err;
 #define OP_DIV(x,y,r,err)         if (!(r=PyNumber_Divide(x,y)))     goto err;
 #define OP_MOD(x,y,r,err)         if (!(r=PyNumber_Remainder(x,y)))  goto err;
-#define OP_INPLACE_ADD(x,y,r,err) if(!(r=PyNumber_InPlaceAdd(x,y)))  goto err;
+#define OP_POW(x,y,r,err)         if (!(r=PyNumber_Power(x,y,Py_None)))goto err;
+#define OP_LSHIFT(x,y,r,err)      if (!(r=PyNumber_Lshift(x,y)))     goto err;
+#define OP_RSHIFT(x,y,r,err)      if (!(r=PyNumber_Rshift(x,y)))     goto err;
+#define OP_AND_(x,y,r,err)        if (!(r=PyNumber_And(x,y)))        goto err;
+#define OP_OR_(x,y,r,err)         if (!(r=PyNumber_Or(x,y)))         goto err;
+#define OP_XOR(x,y,r,err)         if (!(r=PyNumber_Xor(x,y)))        goto err;
+
+#define OP_INPLACE_ADD(x,y,r,err) if (!(r=PyNumber_InPlaceAdd(x,y)))           \
+								     goto err;
+#define OP_INPLACE_SUB(x,y,r,err) if (!(r=PyNumber_InPlaceSubtract(x,y)))      \
+								     goto err;
+#define OP_INPLACE_MUL(x,y,r,err) if (!(r=PyNumber_InPlaceMultiply(x,y)))      \
+								     goto err;
+#define OP_INPLACE_TRUEDIV(x,y,r,err) if (!(r=PyNumber_InPlaceTrueDivide(x,y)))\
+								     goto err;
+#define OP_INPLACE_FLOORDIV(x,y,r,err)if(!(r=PyNumber_InPlaceFloorDivide(x,y)))\
+								     goto err;
+#define OP_INPLACE_DIV(x,y,r,err) if (!(r=PyNumber_InPlaceDivide(x,y)))        \
+								     goto err;
+#define OP_INPLACE_MOD(x,y,r,err) if (!(r=PyNumber_InPlaceRemainder(x,y)))     \
+								     goto err;
+#define OP_INPLACE_POW(x,y,r,err) if (!(r=PyNumber_InPlacePower(x,y,Py_None))) \
+								     goto err;
+#define OP_INPLACE_LSHIFT(x,y,r,err) if (!(r=PyNumber_InPlaceLshift(x,y)))     \
+								     goto err;
+#define OP_INPLACE_RSHIFT(x,y,r,err) if (!(r=PyNumber_InPlaceRshift(x,y)))     \
+								     goto err;
+#define OP_INPLACE_AND(x,y,r,err)    if (!(r=PyNumber_InPlaceAnd(x,y)))        \
+								     goto err;
+#define OP_INPLACE_OR(x,y,r,err)     if (!(r=PyNumber_InPlaceOr(x,y)))         \
+								     goto err;
+#define OP_INPLACE_XOR(x,y,r,err)    if (!(r=PyNumber_InPlaceXor(x,y)))        \
+								     goto err;
 
 #define OP_GETITEM(x,y,r,err)     if (!(r=PyObject_GetItem(x,y)))    goto err;
 #define OP_SETITEM(x,y,z,r,err)   if ((PyObject_SetItem(x,y,z))<0)   goto err; \
@@ -56,6 +94,69 @@
 #define OP_EXCEPTION(x,r,err)  r=Py_None; Py_INCREF(r);
 
 #define MOVE(x, y)             y = x;
+
+#define INITCHK(expr)          if (!(expr)) return;
+
+
+/*** classes ***/
+
+#define SETUP_CLASS(t, name, base)				\
+	t = PyObject_CallFunction((PyObject*) &PyType_Type,	\
+				  "s(O){}", name, base)
+
+#define SETUP_CLASS_ATTR(t, attr, value)	\
+	(PyObject_SetAttrString(t, attr, value) >= 0)
+
+/* we need a subclass of 'builtin_function_or_method' which can be used
+   as methods: builtin function objects that can be bound on instances */
+static PyObject *
+gencfunc_descr_get(PyObject *func, PyObject *obj, PyObject *type)
+{
+	if (obj == Py_None)
+		obj = NULL;
+	return PyMethod_New(func, obj, type);
+}
+static PyTypeObject PyGenCFunction_Type = {
+	PyObject_HEAD_INIT(NULL)
+	0,
+	"pypy_generated_function",
+	sizeof(PyCFunctionObject),
+	0,
+	0,					/* tp_dealloc */
+	0,					/* tp_print */
+	0,					/* tp_getattr */
+	0,					/* tp_setattr */
+	0,					/* tp_compare */
+	0,					/* tp_repr */
+	0,					/* tp_as_number */
+	0,					/* tp_as_sequence */
+	0,					/* tp_as_mapping */
+	0,					/* tp_hash */
+	0,					/* tp_call */
+	0,					/* tp_str */
+	0,					/* tp_getattro */
+	0,					/* tp_setattro */
+	0,					/* tp_as_buffer */
+	Py_TPFLAGS_DEFAULT,			/* tp_flags */
+	0,					/* tp_doc */
+	0,					/* tp_traverse */
+	0,					/* tp_clear */
+	0,					/* tp_richcompare */
+	0,					/* tp_weaklistoffset */
+	0,					/* tp_iter */
+	0,					/* tp_iternext */
+	0,					/* tp_methods */
+	0,					/* tp_members */
+	0,					/* tp_getset */
+	/*&PyCFunction_Type set below*/ 0,	/* tp_base */
+	0,					/* tp_dict */
+	gencfunc_descr_get,			/* tp_descr_get */
+	0,					/* tp_descr_set */
+};
+
+#define SETUP_MODULE						\
+	PyGenCFunction_Type.tp_base = &PyCFunction_Type;	\
+	PyType_Ready(&PyGenCFunction_Type);
 
 
 /*** operations with a variable number of arguments ***/

@@ -69,7 +69,8 @@ class GenC:
         else:
             name = 'gint_minus%d' % abs(value)
         self.globaldecl.append('static PyObject* %s;' % name)
-        self.initcode.append('%s = PyInt_FromLong(%d);' % (name, value))
+        self.initcode.append('INITCHK(%s = '
+                             'PyInt_FromLong(%d))' % (name, value))
         return name
 
     def nameof_str(self, value):
@@ -87,15 +88,16 @@ class GenC:
         else:
             # printable string
             s = '"%s"' % value
-        self.initcode.append('%s = PyString_FromStringAndSize(%s, %d);' % (
-            name, s, len(value)))
+        self.initcode.append('INITCHK(%s = PyString_FromStringAndSize('
+                             '%s, %d))' % (name, s, len(value)))
         return name
 
     def nameof_function(self, func):
         name = self.uniquename('gfunc_' + func.__name__)
         self.globaldecl.append('static PyObject* %s;' % name)
-        self.initcode.append('%s = PyCFunction_New(&ml_%s, NULL);' % (name,
-                                                                      name))
+        self.initcode.append('INITCHK(%s = PyCFunction_New('
+                             '&ml_%s, NULL))' % (name, name))
+        self.initcode.append('\t%s->ob_type = &PyGenCFunction_Type;' % name)
         self.pendingfunctions.append(func)
         return name
 
@@ -105,9 +107,48 @@ class GenC:
             '%r is not from __builtin__' % (func,))
         name = self.uniquename('gbltin_' + func.__name__)
         self.globaldecl.append('static PyObject* %s;' % name)
-        self.initcode.append('%s = PyMapping_GetItemString('
-                             'PyEval_GetBuiltins(), "%s");' % (
+        self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
+                             'PyEval_GetBuiltins(), "%s"))' % (
             name, func.__name__))
+        return name
+
+    def nameof_classobj(self, cls):
+        name = self.uniquename('gcls_' + cls.__name__)
+        bases = [base for base in cls.__bases__ if base is not object]
+        assert len(bases) <= 1, "%r needs multiple inheritance" % (cls,)
+        if bases:
+            base = self.nameof(bases[0])
+        else:
+            base = '(PyObject*) &PyBaseObject_Type'
+        content = cls.__dict__.items()
+        content.sort()
+        lines = []
+        for key, value in content:
+            if key.startswith('__'):
+                continue
+            lines.append('INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
+                name, key, self.nameof(value)))
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('INITCHK(SETUP_CLASS(%s, "%s", %s))' % (
+            name, cls.__name__, base))
+        self.initcode.extend(lines)
+        return name
+
+    def nameof_type(self, cls):
+        assert hasattr(cls, '__weakref__'), (
+            "%r is not a user-defined class" % (cls,))
+        return self.nameof_classobj(cls)
+
+    def nameof_tuple(self, tup):
+        name = self.uniquename('g%dtuple' % len(tup))
+        lines = []
+        for i in range(len(tup)):
+            item = self.nameof(tup[i])
+            lines.append('\tPy_INCREF(%s);' % item)
+            lines.append('\tPyTuple_SET_ITEM(%s, %d, %s);' % (name, i, item))
+        self.globaldecl.append('static PyObject* %s;' % name)
+        self.initcode.append('INITCHK(%s = PyTuple_New(%d))' % (name, len(tup)))
+        self.initcode.extend(lines)
         return name
 
     def gen_source(self):
@@ -245,7 +286,7 @@ class GenC:
             if len(block.exits) == 0:
                 yield 'return %s;' % expr(block.inputargs[0])
                 continue
-            if block.exitswitch is not None:
+            if len(block.exits) > 1:
                 for link in block.exits[:-1]:
                     yield 'if (EQ_%s(%s)) {' % (link.exitcase,
                                                 block.exitswitch.name)
@@ -277,6 +318,7 @@ class GenC:
 void init%(modname)s(void)
 {
 \tPyObject* m = Py_InitModule("%(modname)s", NULL);
+\tSETUP_MODULE
 '''
 
     C_INIT_FOOTER = '''
