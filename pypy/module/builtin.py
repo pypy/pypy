@@ -577,6 +577,14 @@ class __builtin__(ExtModule):
         Otherwise:  its attributes, its class's attributes, and recursively the
             attributes of its class's base classes.
         """
+        if len(args) > 1:
+            raise TypeError("dir expected at most 1 arguments, got %d"
+                            % len(args))
+        if len(args) == 0:
+            local_names = _caller_locals().keys() # 2 stackframes away
+            local_names.sort()
+            return local_names
+        
         import types
         def _classdir(klass):
             """Return a dict of the accessible attributes of class/type klass.
@@ -606,14 +614,6 @@ class __builtin__(ExtModule):
             return Dict
         #End _classdir
 
-        if len(args) > 1:
-            raise TypeError("dir expected at most 1 arguments, got %d"
-                            % len(args))
-        if len(args) == 0:
-            local_names = _caller_locals().keys() # 2 stackframes away
-            local_names.sort()
-            return local_names
-        
         obj = args[0]
         
         if isinstance(obj, types.ModuleType):
