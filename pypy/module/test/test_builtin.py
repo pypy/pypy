@@ -230,6 +230,14 @@ class TestBuiltinApp(testit.AppTestCase):
         self.assertRaises(TypeError, hash, [])
         self.assertRaises(TypeError, hash, {})
 
+    def test_compile(self):
+        co = compile('1+2', '?', 'eval')
+        self.assertEquals(eval(co), 3)
+        self.assertRaises(SyntaxError, compile, '-', '?', 'eval')
+        self.assertRaises(ValueError, compile, '"\\xt"', '?', 'eval')
+        self.assertRaises(ValueError, compile, '1+2', '?', 'maybenot')
+        self.assertRaises(TypeError, compile, '1+2', 12, 34)
+
         
 class TestInternal(testit.IntTestCase):
 

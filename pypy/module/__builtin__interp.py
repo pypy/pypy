@@ -209,6 +209,8 @@ def compile(w_str, w_filename, w_startstr,
     # It would be nice to propagate all exceptions to app level,
     # but here we only propagate the 'usual' ones, until we figure
     # out how to do it generically.
+    except SyntaxError,e:
+        raise OperationError(space.w_SyntaxError,space.wrap(str(e)))
     except ValueError,e:
         raise OperationError(space.w_ValueError,space.wrap(str(e)))
     except TypeError,e:
