@@ -62,7 +62,22 @@ class C:
                 raise RuntimeError
         c = C()
         self.assertRaises(RuntimeError, c.meth)
-            
-        
+
+    def test_class_attr(self):
+        class C:
+            a = 42
+        c = C()
+        self.assertEquals(c.a, 42)
+        self.assertEquals(C.a, 42)
+
+    def test_class_attr_inherited(self):
+        class C:
+            a = 42
+        class D(C):
+            pass
+        d = D()
+        self.assertEquals(d.a, 42)
+        self.assertEquals(D.a, 42)
+
 if __name__ == '__main__':
     testit.main()
