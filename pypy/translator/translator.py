@@ -82,10 +82,12 @@ class Translator:
         """
         return self.py_source
 
-    def pyrex(self):
+    def pyrex(self, input_arg_types=None):
         """Returns Pyrex translation."""
         g = GenPyrex(self.flowgraph)
-        if self.annotator:
+        if input_arg_types is not None:
+            g.annotate(input_arg_types)
+        elif self.annotator:
             g.setannotator(self.annotator)
         return g.emitcode()
 

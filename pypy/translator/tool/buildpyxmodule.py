@@ -116,8 +116,6 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
         from pypy.translator.simplify import simplify_graph
         simplify_graph(funcgraph)
         name += '_s'
-        if dot:
-            subgraphs.append(dotgen.getsubgraph(name, funcgraph))
 
     # get the pyrex generator
     genpyrex = GenPyrex(funcgraph)
@@ -140,6 +138,8 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
         mod = make_module_from_pyxstring(name, udir, pyxstring)
 
     if dot:
+        if name != func.func_name:  # if some transformations have been done
+            subgraphs.append(dotgen.getsubgraph(name, funcgraph))
         content = dotgen.getgraph("graph_"+func.func_name, subgraphs)
         base = udir.join(name)
         base.newext('dot').write(content)
