@@ -1,6 +1,7 @@
-import dis, pyframe, baseobjspace
 from appfile import AppFile
-from baseobjspace import OperationError, NoValue
+from pypy.interpreter.baseobjspace import OperationError, NoValue
+import dis
+from pypy.interpreter import pyframe, baseobjspace
 
 
 # dynamically loaded application-space utilities

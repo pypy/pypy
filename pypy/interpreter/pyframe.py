@@ -1,13 +1,8 @@
 """ PyFrame class implementation with the interpreter main loop.
 """
-import opcode
-# XXX this is probably a Python bug:
-# circular import doesn't work if we spell this
-# from pypy.interpreter import opcode
-# report this to python-dev
-from executioncontext import OperationError, Stack
-import baseobjspace
-from appfile import AppFile
+
+from pypy.interpreter.executioncontext import OperationError, Stack
+from pypy.interpreter.appfile import AppFile
 
 appfile = AppFile(__name__, ["interpreter"])
 
@@ -37,6 +32,7 @@ class PyFrame:
 
     def eval(self, executioncontext):
         "Interpreter main loop!"
+        from pypy.interpreter import opcode
         try:
             while True:
                 try:
