@@ -466,7 +466,7 @@ class TestSuite:
         for item in self.items:
             result = item.run()
             key = classify(result)
-            self.last_resuaalts.setdefault(key, []).append(result)
+            self.last_results.setdefault(key, []).append(result)
             yield result
 
     def run(self):
@@ -476,7 +476,7 @@ class TestSuite:
         """
         # perform all the tests by using the existing generator; discard
         # the results; they are then available via self.last_results
-        [result for result in self.result_generator()]
+        return [result for result in self.result_generator()]
 
 #
 # demonstrate test framework usage
