@@ -42,7 +42,6 @@ class Annotation:
     def __init__(self, predicate, *args):
         self.predicate = predicate      # the operation or predicate
         self.args      = list(args)     # list of SomeValues
-        self.forward_deps = []          # for annset.py
         assert len(args) == predicate.arity
         # note that for predicates that are simple operations like
         # op.add, the result is stored as the last argument.

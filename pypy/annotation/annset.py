@@ -132,8 +132,7 @@ class AnnotationSet:
         self.simplify(kill=annlist)
 
     def simplify(self, kill=[]):
-        """Kill annotations in the list, and recursively all the annotations
-        that depend on them, and simplify the resulting list to remove
+        """Kill annotations in the 'kill' list, and normalize and remove
         duplicates."""
         # temporarykey() returns a tuple with all the information about
         # the annotation; equal temporarykey() means equal annotations.
@@ -148,31 +147,15 @@ class AnnotationSet:
         allkeys = {}   # map temporarykeys to Annotation instances
         for ann in self.annlist:
             key = temporarykey(ann)
-            if key in allkeys:  # duplicate?
-                previous = allkeys[key]
-                previous.forward_deps += ann.forward_deps  # merge
-            else:
+            if key not in allkeys:  # if not duplicate
                 allkeys[key] = ann
 
-        killkeys = {}  # set of temporarykeys of annotations to remove
         for ann in kill:
-            killkeys[temporarykey(ann)] = True
-        
-        pending = killkeys.keys()
-        for key in pending:
+            key = temporarykey(ann)
             if key in allkeys:
-                ann = allkeys[key]
-                del allkeys[key]    # remove annotations from the dict
-                for dep in ann.forward_deps:   # propagate dependencies
-                    depkey = temporarykey(dep)
-                    if depkey not in killkeys:
-                        killkeys[depkey] = True
-                        pending.append(depkey)
+                del allkeys[key]
 
         self.annlist = allkeys.values()
-
-    def adddependency(self, hypothesisann, conclusionann):
-        hypothesisann.forward_deps.append(conclusionann)
 
     def merge(self, oldcell, newcell):
         """Update the heap to account for the merging of oldcell and newcell.
@@ -237,31 +220,7 @@ class AnnotationSet:
                 for oldann, newann in common:
                     resultann = newann.copy(renameargs={newcell: resultcell})
                     annlist.append(resultann)
-                    self.adddependency(oldann, resultann)
-                    self.adddependency(newann, resultann)
                 return resultcell
-
-
-class Recorder:
-    """A recorder contains methods to look for annotations in the
-    AnnotationSet and create new annotations accordingly.  Each
-    Recorder instance records which Annotations were needed, which
-    allows dependencies to be tracked."""
-
-    def __init__(self, annset):
-        self.annset = annset
-        self.using_annotations = []  # annotations that we have used
-
-    def using(self, *annlist):
-        """Mark all 'ann' in 'annlist' as used in this transaction."""
-        self.using_annotations += annlist
-
-    def query(self, *querylist):
-        results = []
-        for matchanns, matchvalue in self.annset.match(*querylist):                
-            self.using(*matchanns)
-            results.append(matchvalue)
-        return results
 
     def get(self, *querylist):
         """Like query() but asserts that there is at most one answer.
@@ -274,17 +233,14 @@ class Recorder:
             return None
 
     def set(self, ann):
-        """Insert the annotation into the AnnotationSet, recording dependency
-        from all previous queries done on this Recorder instance."""
-        self.annset.normalizeann(ann)
-        self.annset.annlist.append(ann)
-        for previous_ann in self.using_annotations:
-            self.annset.adddependency(previous_ann, ann)
+        """Insert the annotation into the AnnotationSet."""
+        self.normalizeann(ann)
+        self.annlist.append(ann)
 
     def delete(self, queryann):
         """Kill the annotations matching the pattern."""
-        matchannlist = self.annset.findall(queryann)
-        self.annset.simplify(kill=matchannlist)
+        matchannlist = self.findall(queryann)
+        self.simplify(kill=matchannlist)
 
     def checktype(self, someval, checktype):
         if isinstance(checktype, tuple):

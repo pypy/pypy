@@ -9,31 +9,27 @@ from pypy.annotation.annset import AnnotationSet, QUERYARG
 c1,c2,c3,c4 = SomeValue(), SomeValue(), SomeValue(), SomeValue()
 
 
-def assertSameSet(testcase, annset, annotations):
-    for ann in annotations:
-        annset.normalizeann(ann)
-    a = list(annset)
-    b = annotations
-    # try to reorder a to match b, without failing if the lists
-    # are different -- this will be checked by assertEquals()
-    for i in range(len(b)):
-        try:
-            j = i + a[i:].index(b[i])
-        except ValueError:
-            pass
-        else:
-            a[i], a[j] = a[j], a[i]
-    testcase.assertEquals(a, b)
-
-def assertSameCells(testcase, annset, *cells):
-    cells = [annset.normalized(c) for c in cells]
-    for c in cells[1:]:
-        testcase.assertEquals(cells[0], c)
-
-
 class TestAnnotationSet(test.IntTestCase):
-    assertSameSet = assertSameSet
-    assertSameCells = assertSameCells
+    def assertSameSet(self, annset, annotations):
+        for ann in annotations:
+            annset.normalizeann(ann)
+        a = list(annset)
+        b = annotations
+        # try to reorder a to match b, without failing if the lists
+        # are different -- this will be checked by assertEquals()
+        for i in range(len(b)):
+            try:
+                j = i + a[i:].index(b[i])
+            except ValueError:
+                pass
+            else:
+                a[i], a[j] = a[j], a[i]
+        self.assertEquals(a, b)
+
+    def assertSameCells(self, annset, *cells):
+        cells = [annset.normalized(c) for c in cells]
+        for c in cells[1:]:
+            self.assertEquals(cells[0], c)
 
     def test_isshared(self):
         a = AnnotationSet()
@@ -90,9 +86,7 @@ class TestAnnotationSet(test.IntTestCase):
 
     def test_newconstant(self):
         a = AnnotationSet([])
-        def f(rec):
-            return rec.newconstant(42)
-        c = a.record(f)
+        c = a.newconstant(42)
         self.assertSameSet(a, [ANN.constant(42)[c]])
 
     def test_queryconstant(self):
@@ -144,18 +138,6 @@ class TestAnnotationSet(test.IntTestCase):
         a = AnnotationSet(lst)
         a.kill(ann1)
         self.assertSameSet(a, lst[1:])
-
-    def test_adddependency(self):
-        ann1 = ANN.add[c1, c3, c2]
-        ann2 = ANN.add[c1, c2, c2]
-        ann3 = ANN.add[c1, c1, c2]
-        lst = [ann1, ann2, ann3,
-               ANN.neg[c2, c3]]
-        a = AnnotationSet(lst)
-        a.adddependency(ann1, ann2)
-        a.adddependency(ann2, ann3)
-        a.kill(ann1)
-        self.assertSameSet(a, lst[3:])
 
     def test_merge_blackholevalue(self):
         lst = [ANN.add[c1, c3, c2],
@@ -280,54 +262,45 @@ class TestAnnotationSet(test.IntTestCase):
 ##                ANN.immutable', [], c)]
 ##        self.assertSameSet(a, lst)
 
-
-class TestRecording(test.IntTestCase):
-    assertSameSet = assertSameSet
-    assertSameCells = assertSameCells
-
-    def setUp(self):
-        self.lst = [
+    def test_set_kill(self):
+        lst = [
             ANN.add[c1, c3, c2],
             ANN.type[c1, c4],
             ANN.constant(int)[c4],
         ]
-        self.annset = AnnotationSet(self.lst)
+        a = AnnotationSet(lst)
+        a.set(ANN.type[c1, c3])
+        lst += [ANN.type[c1, c3]]
+        self.assertSameSet(a, lst)
 
-    def test_simple(self):
-        a = self.annset
-        def f(rec):
-            if rec.query(ANN.add[c1, c3, QUERYARG]):
-                rec.set(ANN.type[c1, c3]) 
-        a.record(f)
-        self.assertSameSet(a, self.lst + [ANN.type[c1, c3]])
-
-        a.kill(self.lst[0])
-        self.assertSameSet(a, self.lst[1:])
+        a.kill(lst[0])
+        del lst[0]
+        self.assertSameSet(a, lst)
 
     def test_type(self):
-        a = self.annset
-        def f(rec):
-            if rec.checktype(c1, int):
-                rec.settype(c2, str)
-        a.record(f)
-        self.assert_(a.query(ANN.type[c2, QUERYARG],
-                             ANN.constant(str)[QUERYARG]))
-
-    def test_type2(self):
-        a = self.annset
-        def f(rec):
-            if rec.checktype(c1, (int, long)):
-                rec.settype(c2, str)
-        a.record(f)
+        lst = [
+            ANN.add[c1, c3, c2],
+            ANN.type[c1, c4],
+            ANN.constant(int)[c4],
+        ]
+        a = AnnotationSet(lst)
+        self.assert_(a.checktype(c1, int))
+        self.assert_(a.checktype(c1, (int, long)))
+        self.failIf(a.checktype(c1, str))
+        a.settype(c2, str)
         self.assert_(a.query(ANN.type[c2, QUERYARG],
                              ANN.constant(str)[QUERYARG]))
 
     def test_delete(self):
-        a = self.annset
-        def f(rec):
-            rec.delete(ANN.add[c1, c3, ...])
-        a.record(f)
-        self.assertSameSet(a, self.lst[1:])
+        lst = [
+            ANN.add[c1, c3, c2],
+            ANN.type[c1, c4],
+            ANN.constant(int)[c4],
+        ]
+        a = AnnotationSet(lst)
+        a.delete(ANN.add[c1, c3, ...])
+        self.assertSameSet(a, lst[1:])
+
 
 if __name__ == '__main__':
     test.main()
