@@ -274,7 +274,7 @@ class TestItem:
     Represent either a test function, or a single test method from a
     TestCase class.
     """
-    def __init__(self, callable_=None):
+    def __init__(self, callable_):
         """
         Construct a test item. The argument callable_ must be a
         callable object, i. e. a plain function, a bound or unbound
