@@ -145,7 +145,9 @@ class GenRpy:
 
         self.space = FlowObjSpace() # for introspection
 
-        self.use_fast_call = False        
+        self.use_fast_call = False
+
+        self._space_arities = None
         
     def expr(self, v, localnames, wrapped = True):
         if isinstance(v, Variable):
@@ -189,11 +191,13 @@ class GenRpy:
     def oper(self, op, localnames):
         if op.opname == "simple_call":
             v = op.args[0]
-            exv = self.expr(v, localnames)
-            if exv.startswith("space.") and not exv.startswith("space.w_"):
-                # it is a space method
+            space_shortcut = self.try_space_shortcut_for_builtin(v, len(op.args)-1)
+            if space_shortcut is not None:
+                # space method call
+                exv = space_shortcut
                 fmt = "%(res)s = %(func)s(%(args)s)"
             else:
+                exv = self.expr(v, localnames)                
                 # default for a spacecall:
                 fmt = "%(res)s = space.call_function(%(func)s, %(args)s)"
                 # see if we can optimize for a fast call.
@@ -523,11 +527,26 @@ class GenRpy:
         self.later(initinstance())
         return name
 
+    def space_arities(self):
+        if self._space_arities is None:
+            arities = self._space_arities = {}
+            for name, sym, arity, specnames in self.space.MethodTable:
+                arities[name] = arity
+        return self._space_arities
+        
+    def try_space_shortcut_for_builtin(self, v, nargs):
+        if isinstance(v, Constant) and type(v.value) is type(len):
+            func = v.value
+            name = func.__name__
+            if func.__self__ is None and hasattr(self.space, name):
+                if self.space_arities().get(name, -1) == nargs:
+                    return "space.%s" % name
+        return None
+        
     def nameof_builtin_function_or_method(self, func):
         if func.__self__ is None:
             # builtin function
-            if hasattr(self.space, func.__name__):
-                return "space.%s" % func.__name__
+            
             # where does it come from? Python2.2 doesn't have func.__module__
             for modname, module in sys.modules.items():
                 if hasattr(module, '__file__'):
