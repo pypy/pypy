@@ -32,7 +32,17 @@ StdObjSpace.len.register(tuple_len, W_TupleObject)
 
 def tuple_getitem(space, w_tuple, w_index):
     items = w_tuple.wrappeditems
-    w_item = items[w_index.intval]
+    try:
+        w_item = items[w_index.intval]
+    except IndexError:
+        raise OperationError(space.w_IndexError,
+                             space.wrap("tuple index out of range"))
     return w_item
 
 StdObjSpace.getitem.register(tuple_getitem, W_TupleObject, W_IntObject)
+
+def tuple_iter(space, w_tuple):
+    import iterobject
+    return iterobject.W_SeqIterObject(w_tuple)
+
+StdObjSpace.iter.register(tuple_iter, W_TupleObject)

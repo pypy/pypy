@@ -1,10 +1,27 @@
-from pypy.objspace.std.objspace import *
-
-appfile = StdObjSpace.AppFile(__name__)
-W_SequenceIterator = pull_class_from_appfile(appfile, 'SequenceIterator')
-
-StdObjSpace.getiter.register(W_SequenceIterator.method('__iter__'),
-                             W_SequenceIterator....)
+from objspace import *
 
 
-# XXX figure out some nice syntax to grab multimethods from the _app.py file
+class W_SeqIterObject:
+    delegate_once = {}
+
+    def __init__(self, w_seq, index=0):
+        self.w_seq = w_seq
+        self.index = index
+
+
+def iter_seqiter(space, w_seqiter):
+    return w_seqiter
+
+StdObjSpace.iter.register(iter_seqiter, W_SeqIterObject)
+
+def next_seqiter(space, w_seqiter):
+    try:
+        w_item = space.getitem(w_seqiter.w_seq, space.wrap(w_seqiter.index))
+    except OperationError, e:
+        if e.match(space, space.w_IndexError):
+            raise NoValue
+        raise
+    w_seqiter.index += 1
+    return w_item
+
+StdObjSpace.next.register(next_seqiter, W_SeqIterObject)

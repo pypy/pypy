@@ -31,6 +31,7 @@ class TestW_ModuleObject(unittest_w.TestCase_w):
         space.delattr(w_m, space.wrap('x'))
         self.assertRaises_w(space.w_AttributeError, space.getattr,
                             w_m, space.wrap('x'))
+        self.assertEqual_w(space.getattr(w_m, space.wrap('yy')), w_yy)
 
 if __name__ == '__main__':
     unittest.main()

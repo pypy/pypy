@@ -13,3 +13,5 @@ class SequenceIterator:
         self.it_index += 1
         return item
     # Yes, the implementation is complete, I think
+
+# XXX design a way to have this working and get rid of iterobject.py
