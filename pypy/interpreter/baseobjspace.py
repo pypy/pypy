@@ -1,6 +1,7 @@
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.miscutils import Stack, getthreadlocals
+import pypy.module
 
 __all__ = ['ObjSpace', 'OperationError', 'NoValue']
 
@@ -55,6 +56,9 @@ class ObjSpace:
 
         self.sys._setbuiltinmodule(self.w_builtin)
 
+        #Now we can load all the builtin (interpreter level) modules.
+        self.make_builtin_modules()
+
     def make_sys(self):
         assert not hasattr(self, 'sys')
         from pypy.module import sysmodule
@@ -62,6 +66,17 @@ class ObjSpace:
         self.w_sys = self.wrap(self.sys)
         self.sys._setbuiltinmodule(self.w_sys)
 
+    def make_builtin_modules(self):
+        for filename, classname, spaces in pypy.module._builtin_modules:
+            if self.__class__.__name__ not in spaces:
+                continue
+            mod = __import__("pypy.module.%s"%filename, globals(), locals(),
+                             [classname])
+            klass = getattr(mod, classname)
+            module = klass(self)
+            if module is not None:
+                self.sys._setbuiltinmodule(self.wrap(module))
+        
     # XXX get rid of this. 
     def get_builtin_module(self, name):
         if name == '__builtin__':
