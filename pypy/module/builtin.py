@@ -22,6 +22,7 @@ class _noarg:
     """
 
 def app_iter_generator(callable_,sentinel):
+    """ This generator implements the __iter__(callable,sentinel) protocol """
     while 1:
         result = callable_()
         if result == sentinel:
