@@ -57,7 +57,7 @@ class DescrOperation:
             return space.call_function(w_impl, *args_w, **kwargs_w)
 
     def call(space, w_obj, w_args, w_kwargs):
-        print "call %r, %r, %r" %(w_obj, w_args, w_kwargs)
+        #print "call %r, %r, %r" %(w_obj, w_args, w_kwargs)
         w_descr = space.lookup(w_obj, '__call__')
         if w_descr is None:
             raise OperationError(space.w_TypeError, 
@@ -91,8 +91,10 @@ class DescrOperation:
         except OperationError,e:
             if not e.match(space,space.w_AttributeError):
                 raise
-        w_descr = space.lookup(w_obj,'__getattr__')
-        return space.get_and_call_function(w_descr,w_obj,w_name)
+            w_descr = space.lookup(w_obj,'__getattr__')
+            if w_descr is None:
+                raise
+            return space.get_and_call_function(w_descr,w_obj,w_name)
 
     def setattr(space,w_obj,w_name,w_val):
         w_descr = space.lookup(w_obj,'__setattr__')

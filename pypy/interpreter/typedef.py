@@ -3,6 +3,7 @@
 
 """
 from pypy.interpreter.gateway import interp2app 
+from pypy.interpreter.baseobjspace import Wrappable
 
 class TypeDef:
     def __init__(self, __name, **rawdict):
@@ -12,7 +13,7 @@ class TypeDef:
     def mro(self, space):
         return [self, space.object_typedef]
 
-class GetSetProperty:
+class GetSetProperty(Wrappable):
     def __init__(self, fget, fset=None, fdel=None, doc=None):
         self.fget = fget
         self.fset = fset

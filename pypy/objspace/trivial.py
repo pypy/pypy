@@ -69,6 +69,8 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
 
         self.object_typedef = TypeDef('object', 
             __getattribute__ = gateway.interp2app(Object.descr__getattribute__.im_func),
+            __str__ = gateway.interp2app(lambda space, w_x: str(w_x)),
+            __repr__ = gateway.interp2app(lambda space, w_x: repr(w_x)),
             )
  
         self.w_None = None
@@ -378,11 +380,12 @@ def %(name)s(self, x, *args):
                 impl = w_descr.__get__(w_obj, type(w_obj))
                 return impl(*args_w, **kwargs_w)
             except:
+                #import traceback; traceback.print_exc()
                 self.reraise()
 
 
 for m in ObjSpace.MethodTable:
     if not hasattr(TrivialObjSpace, m[0]):
-        print m[0] # this should raise something
+        print 'XXX there is no', m[0], 'in TrivialObjSpace'
 
 Space = TrivialObjSpace
