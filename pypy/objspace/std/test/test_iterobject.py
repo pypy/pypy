@@ -56,5 +56,19 @@ class TestW_IterObjectApp(test.AppTestCase):
                 return self
         self.assertEquals(list(C()), [])
 
+    def test_iter_getitem(self):
+        class C:
+            def __getitem__(self, i):
+                return range(2)[i]
+        self.assertEquals(list(C()), range(2))
+
+    def test_iter_fail_noseq(self):
+        class C:
+            pass
+        self.assertRaises(TypeError,
+                          iter,
+                          C())
+        
+
 if __name__ == '__main__':
     test.main()

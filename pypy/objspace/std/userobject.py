@@ -163,6 +163,19 @@ class SpecialMethod:
         "For __init__()."
         return self.internal_do_call(space, w_userobj, w_args, w_kwds)
 
+    def iter_call(self, space, *args_w):
+        try:
+            return self.do_call(space, args_w)
+        except FailedToImplement:
+            w_userobj = args_w[0]
+            try:
+                space.type(w_userobj).lookup(space.wrap('__getitem__'))
+            except KeyError:
+                raise FailedToImplement
+            else:
+                from iterobject import W_SeqIterObject
+                return W_SeqIterObject(space, args_w[0])
+
 
 import new
 for multimethod in typeobject.hack_out_multimethods(StdObjSpace):
@@ -175,5 +188,6 @@ for multimethod in typeobject.hack_out_multimethods(StdObjSpace):
 next__User    = SpecialMethod('next').next_call
 is_true__User = SpecialMethod('nonzero').nonzero_call
 object_init__User_ANY_ANY = SpecialMethod('__init__').argskwds_call
+iter__User = SpecialMethod('__iter__').iter_call
 
 register_all(vars())
