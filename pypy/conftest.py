@@ -78,7 +78,21 @@ def gettestobjspace(name=None):
 
 class PyPyItem(py.test.Item):
     # All PyPy test items catch and display OperationErrors specially.
-    def execute_in_space(self, space, target, *args):
+
+    #def setup_module(self, mod): 
+    #    if hasattr(mod, 'objspacename'): 
+    #        mod.space = getttestobjspace(mod.objspacename)
+    #    super(PyPyItem, self).setup_module(mod) 
+
+    def setup_method(self, method): 
+        base = getattr(method, 'im_self', method) 
+        name = getattr(base, 'objspacename', None) 
+        if name is None: 
+            name = method.im_func.func_globals.get('objspacename', None) 
+        base.space = gettestobjspace(name) 
+        super(PyPyItem, self).setup_method(method) 
+
+    def execute_appex(self, space, target, *args):
         try:
             target(*args)
         except OperationError, e:
@@ -90,7 +104,7 @@ class IntTestFunction(PyPyItem):
         if 'space' in co.co_varnames[:co.co_argcount]: 
             name = target.func_globals.get('objspacename', None) 
             space = gettestobjspace(name) 
-            self.execute_in_space(space, target, space, *args)
+            self.execute_appex(space, target, space, *args)
         else:
             target(*args)
 
@@ -100,26 +114,19 @@ class AppTestFunction(PyPyItem):
         name = target.func_globals.get('objspacename', None) 
         space = gettestobjspace(name) 
         func = app2interp_temp(target, target.__name__)
-        self.execute_in_space(space, func, space)
+        self.execute_appex(space, func, space)
 
 class IntTestMethod(PyPyItem): 
     def execute(self, target, *args):
-        name = target.func_globals.get('objspacename', None) 
-        if name is None: 
-            name = getattr(target.im_class, 'objspacename', None)
-        instance = target.im_self
-        instance.space = space = gettestobjspace(name)
-        self.execute_in_space(space, target, *args)
+        space = target.im_self.space 
+        self.execute_appex(space, target, *args) 
 
 class AppTestMethod(PyPyItem): 
     def execute(self, target, *args): 
         assert not args 
-        name = target.func_globals.get('objspacename', None) 
-        if name is None: 
-            name = getattr(target.im_class, 'objspacename', None)
-        space = gettestobjspace(name)
+        space = target.im_self.space 
         func = app2interp_temp(target.im_func, target.__name__) 
-        self.execute_in_space(space, func, space, space.w_None)
+        self.execute_appex(space, func, space, space.w_None)
 
 class AppClassCollector(py.test.collect.Class): 
     Item = AppTestMethod 

@@ -119,6 +119,10 @@ class ObjSpace(object):
     #    w_id_x = self.id(w_x)
     #    w_id_y = self.id(w_y)
     #    return self.eq(w_id_x, w_id_y)
+    #
+    def _isequal(self, w_obj1, w_obj2): 
+        """ only for shortcutting purposes. """ 
+        return self.is_true(self.eq(w_obj1, w_obj2))
 
     def not_(self, w_obj):
         return self.wrap(not self.is_true(w_obj))
