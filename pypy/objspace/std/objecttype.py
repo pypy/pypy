@@ -169,9 +169,6 @@ def object_delattr__ANY_ANY(space, w_obj, w_attr):
                 raise
             raise OperationError(space.w_AttributeError, w_attr)
 
-    raise OperationError(space.w_AttributeError, w_attr)
-
-
 # static types
 
 def object_type__ANY(space, w_obj):
