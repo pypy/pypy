@@ -1,28 +1,33 @@
 import autopath
 from pypy.tool import testit
-from pypy.objspace.trace import TraceObjSpace 
+from pypy.objspace import trace 
 from pypy.interpreter.gateway import app2interp
 from pypy.tool import pydis
     
 class Test_TraceObjSpace(testit.IntTestCase):
-
+    tspace = None
+    
     def setUp(self):
-        self.space = testit.objspace()
-
+        # XXX hack so we only have one trace space
+        if Test_TraceObjSpace.tspace is None:
+            newspace = testit.objspace().__class__()
+            Test_TraceObjSpace.tspace = trace.create_trace_space(newspace)
+        
     def tearDown(self):
         pass
 
     def perform_trace(self, app_func):
-        tspace = TraceObjSpace(self.space)
+        tspace = self.tspace
         func_gw = app2interp(app_func)
         func = func_gw.get_function(tspace)
+        tspace.settrace()
         tspace.call_function(tspace.wrap(func))
         res = tspace.getresult()
         return res 
 
     def test_traceobjspace_basic(self):
-        t = TraceObjSpace(self.space)
-        self.assert_(t.is_true(t.w_builtins))
+        tspace = self.tspace
+        self.assert_(tspace.is_true(tspace.w_builtins))
         #for name, value in vars(self.space).items():
         #    if not name.startswith('_'):
         #        self.assert_(value is getattr(t, name))
@@ -34,30 +39,39 @@ class Test_TraceObjSpace(testit.IntTestCase):
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
         self.assertEquals(disresult.bytecodes, list(res.getbytecodes()))
-        #self.assertEquals(len(list(res.getoperations())), 0)
 
-    def test_some_builtin(self):
-        def app_f(): 
-            filter(None, []) # mapglobals() # ("c")
+    def test_some_builtin1(self):
+        def app_f():
+            len([1,2,3,4,5])
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
-        self.assertEquals(disresult.bytecodes, list(res.getbytecodes()))
-        #self.assertEquals(len(list(res.getoperations())), 0)
+        self.assertEquals(len(disresult.bytecodes), len(list(res.getbytecodes())))
 
+    def test_some_builtin2(self):
+        def app_f(): 
+            filter(None, []) # filter implemented in appspace -> has many more bytecodes        
+        res = self.perform_trace(app_f)
+        disresult = pydis.pydis(app_f)
+        self.failUnless(len(disresult.bytecodes) < len(list(res.getbytecodes())))
+
+    def get_operation(self, iter, optype, name):
+        for op in iter:
+            if isinstance(op, optype):
+                if op.callinfo.name == name:
+                    return op
+                
     def test_trace_oneop(self):
         def app_f(): 
             1 + 1
-        w = self.space.wrap
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
-        self.assertEquals(disresult.bytecodes, list(res.getbytecodes()))
-        ops = list(res.getoperations())
-        self.assert_(len(ops) > 0)
-        #op = ops[0]
-        #self.assertEquals(pydis.getbytecodename(op.bytecode), 'binary_add') # XXX 
-        #self.assertEquals(op.name, 'add')
-        #expected_w = (w(1), w(1))
-        #self.assertEquals_w(op.args_w, expected_w)
+        uw = self.tspace.unwrap
+        ops = res.getoperations()
+        op_start = self.get_operation(ops, trace.CallBegin, "add")
+        args = [uw(x) for x in op_start.callinfo.args]
+        self.assertEquals(args, [1, 1])
+        op_end = self.get_operation(ops, trace.CallFinished, "add")        
+        self.assertEquals(uw(op_end.res), 2)
 
 if __name__ == '__main__':
     testit.main()

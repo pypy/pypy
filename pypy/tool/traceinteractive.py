@@ -12,7 +12,6 @@ try:
 except:
     have_readline = False
     
-
 # PyPy imports
 import autopath
 
@@ -23,9 +22,6 @@ from pypy.interpreter import executioncontext, pyframe, baseobjspace
 from pypy.interpreter.baseobjspace import ObjSpace
 
 from pypy.objspace import trace
-
-
-#//////////////////////////////////////////////////////////////////////////
 
 if have_readline:
 
@@ -45,7 +41,6 @@ if have_readline:
 
             except IndexError:
                 return None
-
 
         def global_matches(self, text):
             
@@ -85,31 +80,24 @@ if have_readline:
 
             return matches
 
-
-#//////////////////////////////////////////////////////////////////////////
-
 class TraceConsole(code.InteractiveConsole):
     def __init__(self, space):
         code.InteractiveConsole.__init__(self)
-        s = self.space = trace.TraceObjSpace(space)
+        s = self.space = trace.create_trace_space(space)
         s.setitem(s.w_globals, s.wrap("__pytrace__"), s.w_True)
-        self.objspacename = space.__class__.__name__
-
+        self.objspacename = space.__class__.__bases__[0].__name__
 
     def interact(self, banner=None):
         if banner is None:
-            banner = "Python %s in pypy(trace)\n%s / %s - %s" % (
-                sys.version, self.__class__.__name__,
-                self.space,
-                " [Use  __pytrace__ flag to turn off tracing.]" )
+            banner = "PyPy in TraceObjSpace(%s) on top of %s\n%s" % (
+                self.objspacename, sys.version.split()[0],
+                " [Use  __pytrace__ flag to turn off tracing]" )
         code.InteractiveConsole.interact(self, banner)
-
 
     def raw_input(self, prompt=""):
         # add a character to the PyPy prompt so that you know where you
         # are when you debug it with "python -i py.py"
         return code.InteractiveConsole.raw_input(self, prompt[0] + prompt)
-
 
     def runcode(self, code):
         # 'code' is a CPython code object
@@ -117,8 +105,8 @@ class TraceConsole(code.InteractiveConsole):
         pycode = PyCode()._from_code(code)
 
         s = self.space
-        trace_flag = s.unwrap(s.getitem(s.w_globals,
-                                        s.wrap("__pytrace__")))
+        trace_flag = s.is_true(s.getitem(s.w_globals,
+                                         s.wrap("__pytrace__")))
         if trace_flag:
             s.settrace()
 
@@ -127,23 +115,24 @@ class TraceConsole(code.InteractiveConsole):
             if trace_flag:
                 res = s.getresult()
                 s.settrace()
-                print_result(res)
+                print_result(s, res)
                 
         except baseobjspace.OperationError, operationerr:
             if trace_flag:
                 res = s.getresult()
                 s.settrace()
-                print_result(res)
+                print_result(s, res)
 
             # XXX insert exception info into the application-level sys.last_xxx
             print
-            operationerr.print_detailed_traceback(self.space)
+            operationerr.print_application_traceback(self.space)
 
         else:
             print
 
     def runsource(self, source, ignored_filename = "<input>", symbol = "single"):
-        hacked_filename = '<inline>\n' + source
+        hacked_filename = '<inline> ' + source[:80] + "..."
+        hacked_filename = hacked_filename.replace("\n", r"\n")
         try:
             code = self.compile(source, hacked_filename, symbol)
 
@@ -157,9 +146,6 @@ class TraceConsole(code.InteractiveConsole):
         self.runcode(code)
         return False
 
-
-#//////////////////////////////////////////////////////////////////////////
-
 def trace_interactive(space, banner = None):
     s = space
 
@@ -172,7 +158,6 @@ def trace_interactive(space, banner = None):
 
     if have_readline:
         # Keep here to save windoze tears
-
         readline.set_completer(Completer(s).complete)
         readline.parse_and_bind("tab: complete")
         readline.set_history_length(25000)
@@ -188,14 +173,10 @@ def trace_interactive(space, banner = None):
 
     console.interact(banner)
 
-
-#//////////////////////////////////////////////////////////////////////////
-
 if __name__ == '__main__':
     from pypy.tool import option
     args = option.process_options(option.get_standard_options(),
                                   option.Options)
-
 
     # Create objspace...
     space = option.objspace()

@@ -24,7 +24,7 @@ class BaseWrappable(W_Root):
 class Wrappable(BaseWrappable, object):
     """Same as BaseWrappable, just new-style instead."""
 
-class ObjSpace:
+class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://codespeak.net/moin/pypy/moin.cgi/ObjectSpace"""
     
