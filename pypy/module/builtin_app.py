@@ -49,6 +49,10 @@ def map(function, *collections):
           idx = idx + 1
 
 def filter(function, collection):
+    """construct a list of those elements of collection for which function
+       is True.  If function is None, then return the items in the sequence
+       which are True."""
+     
     res = []
     if function is None:
        for elem in collection:
