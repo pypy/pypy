@@ -31,14 +31,13 @@ class TestResult:
 class TestItem:
     """Represent a single test method from a TestCase class."""
     def __init__(self, module, cls, testmethod):
-        #TODO implement the code to initialze these attributes
-        self.module = None
-        self.file = None
-        self.lineno = None
-        self.source = None
-        self._module = module
-        self._class = cls
-        self._method = testmethod
+        self.file = inspect.getsourcefile(module)
+        self.source = inspect.getsource(testmethod)
+        self.module = module
+        self.cls = cls
+        self.method = testmethod
+        # we can only derive this from a frame or traceback?
+        #self.lineno = None
 
     def run(self):
         """Run this TestItem and return a corresponding TestResult object."""
@@ -46,8 +45,8 @@ class TestItem:
         #  as argument
 
     def __str__(self):
-        return "TestItem from %s.%s.%s" % (self._module.__name__,\
-               self._class.__name__, self._method.__name__)
+        return "TestItem from %s.%s.%s" % (self.module.__name__,\
+               self.cls.__name__, self.method.__name__)
 
     def __repr__(self):
         return "%s at %#x" % (str(self), id(self))
