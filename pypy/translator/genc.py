@@ -210,15 +210,11 @@ class GenC:
     def nameof_staticmethod(self, sm):
         # XXX XXX XXXX
         func = sm.__get__(42.5)
-        if self.translator.frozen:
-            assert func in self.translator.flowgraphs, func
-            
         name = self.uniquename('gsm_' + func.__name__)
+        functionname = self.nameof(func)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
-                             '&ml_%s, NULL))' % (name, name))
-        self.pendingfunctions.append(func)
+                             '&ml_%s, NULL))' % (name, functionname))
         return name
-
 
     def nameof_instancemethod(self, meth):
         if meth.im_self is None:
