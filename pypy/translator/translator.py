@@ -111,14 +111,14 @@ class Translator:
         from pypy.translator.tool.pygame.flowviewer import FlowGraphLayout
         FlowGraphLayout(self).display()
 
-    def simplify(self, func=None, rpython=True):
+    def simplify(self, func=None):
         """Simplifies the control flow graph (default: for all functions)."""
         if func is None:
             for func in self.flowgraphs.keys():
-                self.simplify(func, rpython)
+                self.simplify(func)
         else:
             graph = self.getflowgraph(func)
-            simplify_graph(graph, rpython)
+            simplify_graph(graph)
 
     def annotate(self, input_args_types, func=None):
         """annotate(self, input_arg_types[, func]) -> Annotator

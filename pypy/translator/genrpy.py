@@ -6,11 +6,11 @@ of methods into some equivalent representation at interpreter level.
 Then, the RPython to C translation might hopefully spit out some
 more efficient code than always interpreting these methods.
 
+Note that the appspace things are treated as RPythonic, in a sense
+that globals are constant,for instance.
+
 This module is very much under construction and not yet usable but
 for testing.
-
-XXX to do: Subclass parts of the flow space and translator and teach
-them that this is not to be treated as RPython.
 """
 
 from pypy.objspace.flow.model import traverse
@@ -95,6 +95,7 @@ class GenRpy:
         self.f = f
         self.translator = translator
         self.rpynames = {}
+        self.seennames = {}
 
         # special constructors:
         self.has_listarg = {}
@@ -106,9 +107,354 @@ class GenRpy:
         try:
             return self.rpynames[key]
         except KeyError:
-            name = "w(%s)" % str(obj)
+            #name = "w(%s)" % str(obj)
+            #self.rpynames[key] = name
+            #return name
+            if (type(obj).__module__ != '__builtin__' and
+                not isinstance(obj, type)):   # skip user-defined metaclasses
+                # assume it's a user defined thingy
+                name = self.nameof_instance(obj)
+            else:
+                for cls in type(obj).__mro__:
+                    meth = getattr(self,
+                                   'nameof_' + cls.__name__.replace(' ', ''),
+                                   None)
+                    if meth:
+                        break
+                else:
+                    raise Exception, "nameof(%r)" % (obj,)
+                name = meth(obj)
             self.rpynames[key] = name
             return name
+
+    def uniquename(self, basename):
+        n = self.seennames.get(basename, 0)
+        self.seennames[basename] = n+1
+        if n == 0:
+            self.globalobjects.append(basename)
+            self.globaldecl.append('static PyObject *%s;' % (basename,))
+            return basename
+        else:
+            return self.uniquename('%s_%d' % (basename, n))
+
+    def nameof_object(self, value):
+        if type(value) is not object:
+            raise Exception, "nameof(%r)" % (value,)
+        name = self.uniquename('g_object')
+        self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*)&PyBaseObject_Type, ""))'%name)
+        return name
+
+    def nameof_module(self, value):
+        assert value is os or not hasattr(value, "__file__") or \
+               not (value.__file__.endswith('.pyc') or
+                    value.__file__.endswith('.py') or
+                    value.__file__.endswith('.pyo')), \
+               "%r is not a builtin module (probably :)"%value
+        name = self.uniquename('mod%s'%value.__name__)
+        self.initcode.append('INITCHK(%s = PyImport_ImportModule("%s"))'%(name, value.__name__))
+        return name
+        
+
+    def nameof_int(self, value):
+        if value >= 0:
+            name = 'gint_%d' % value
+        else:
+            name = 'gint_minus%d' % abs(value)
+        name = self.uniquename(name)
+        self.initcode.append('INITCHK(%s = '
+                             'PyInt_FromLong(%d))' % (name, value))
+        return name
+
+    def nameof_long(self, value):
+        assert type(int(value)) is int, "your literal long is too long"
+        if value >= 0:
+            name = 'glong%d' % value
+        else:
+            name = 'glong_minus%d' % abs(value)
+        name = self.uniquename(name)
+        self.initcode.append('INITCHK(%s = '
+                             'PyLong_FromLong(%d))' % (name, value))
+        return name
+
+    def nameof_float(self, value):
+        name = 'gfloat_%s' % value
+        name = (name.replace('-', 'minus')
+                    .replace('.', 'dot'))
+        chrs = [c for c in name if ('a' <= c <='z' or
+                                    'A' <= c <='Z' or
+                                    '0' <= c <='9' or
+                                    '_' == c )]
+        name = ''.join(chrs)
+        name = self.uniquename(name)
+        self.initcode.append('INITCHK(%s = '
+                             'PyFloat_FromDouble(%r))' % (name, value))
+        return name
+
+    def nameof_str(self, value):
+        chrs = [c for c in value[:32] if ('a' <= c <='z' or
+                                          'A' <= c <='Z' or
+                                          '0' <= c <='9' or
+                                          '_' == c )]
+        name = self.uniquename('gstr_' + ''.join(chrs))
+        if [c for c in value if c<' ' or c>'~' or c=='"' or c=='\\']:
+            # non-printable string
+            s = 'chr_%s' % name
+            self.globaldecl.append('static char %s[] = { %s };' % (
+                s, ', '.join(['%d' % ord(c) for c in value])))
+        else:
+            # printable string
+            s = '"%s"' % value
+        self.initcode.append('INITCHK(%s = PyString_FromStringAndSize('
+                             '%s, %d))' % (name, s, len(value)))
+        return name
+
+    def skipped_function(self, func):
+        # debugging only!  Generates a placeholder for missing functions
+        # that raises an exception when called.
+        name = self.uniquename('gskippedfunc_' + func.__name__)
+        self.globaldecl.append('static PyMethodDef ml_%s = { "%s", &skipped, METH_VARARGS };' % (name, name))
+        self.initcode.append('INITCHK(%s = PyCFunction_New('
+                             '&ml_%s, NULL))' % (name, name))
+        self.initcode.append('\tPy_INCREF(%s);' % name)
+        self.initcode.append('\tPyCFunction_GET_SELF(%s) = %s;' % (name, name))
+        return name
+
+    def nameof_function(self, func, progress=['-\x08', '\\\x08',
+                                              '|\x08', '/\x08']):
+        printable_name = '(%s:%d) %s' % (
+            func.func_globals.get('__name__', '?'),
+            func.func_code.co_firstlineno,
+            func.__name__)
+        if self.translator.frozen:
+            if func not in self.translator.flowgraphs:
+                print "NOT GENERATING", printable_name
+                return self.skipped_function(func)
+        else:
+            if (func.func_doc and
+                func.func_doc.lstrip().startswith('NOT_RPYTHON')):
+                print "skipped", printable_name
+                return self.skipped_function(func)
+            p = progress.pop(0)
+            sys.stderr.write(p)
+            progress.append(p)
+        name = self.uniquename('gfunc_' + func.__name__)
+        self.initcode.append('INITCHK(%s = PyCFunction_New('
+                             '&ml_%s, NULL))' % (name, name))
+        self.initcode.append('\t%s->ob_type = &PyGenCFunction_Type;' % name)
+        self.pendingfunctions.append(func)
+        return name
+
+    def nameof_staticmethod(self, sm):
+        # XXX XXX XXXX
+        func = sm.__get__(42.5)
+        name = self.uniquename('gsm_' + func.__name__)
+        functionname = self.nameof(func)
+        self.initcode.append('INITCHK(%s = PyCFunction_New('
+                             '&ml_%s, NULL))' % (name, functionname))
+        return name
+
+    def nameof_instancemethod(self, meth):
+        if meth.im_self is None:
+            # no error checking here
+            return self.nameof(meth.im_func)
+        else:
+            ob = self.nameof(meth.im_self)
+            func = self.nameof(meth.im_func)
+            typ = self.nameof(meth.im_class)
+            name = self.uniquename('gmeth_'+meth.im_func.__name__)
+            self.initcode.append(
+                'INITCHK(%s = gencfunc_descr_get(%s, %s, %s))'%(
+                name, func, ob, typ))
+            return name
+
+    def should_translate_attr(self, pbc, attr):
+        ann = self.translator.annotator
+        if ann is None:
+            ignore = getattr(pbc.__class__, 'NOT_RPYTHON_ATTRIBUTES', [])
+            if attr in ignore:
+                return False
+            else:
+                return "probably"   # True
+        if attr in ann.getpbcattrs(pbc):
+            return True
+        classdef = ann.getuserclasses().get(pbc.__class__)
+        if (classdef and
+            classdef.about_attribute(attr) != annmodel.SomeImpossibleValue()):
+            return True
+        return False
+
+    def later(self, gen):
+        self.latercode.append((gen, self.debugstack))
+
+    def nameof_instance(self, instance):
+        name = self.uniquename('ginst_' + instance.__class__.__name__)
+        cls = self.nameof(instance.__class__)
+        def initinstance():
+            content = instance.__dict__.items()
+            content.sort()
+            for key, value in content:
+                if self.should_translate_attr(instance, key):
+                    yield 'INITCHK(SETUP_INSTANCE_ATTR(%s, "%s", %s))' % (
+                        name, key, self.nameof(value))
+        self.initcode.append('INITCHK(SETUP_INSTANCE(%s, %s))' % (
+            name, cls))
+        self.later(initinstance())
+        return name
+
+    def nameof_builtin_function_or_method(self, func):
+        if func.__self__ is None:
+            # builtin function
+            # where does it come from? Python2.2 doesn't have func.__module__
+            for modname, module in sys.modules.items():
+                if hasattr(module, '__file__'):
+                    if (module.__file__.endswith('.py') or
+                        module.__file__.endswith('.pyc') or
+                        module.__file__.endswith('.pyo')):
+                        continue    # skip non-builtin modules
+                if func is getattr(module, func.__name__, None):
+                    break
+            else:
+                raise Exception, '%r not found in any built-in module' % (func,)
+            name = self.uniquename('gbltin_' + func.__name__)
+            if modname == '__builtin__':
+                self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
+                                     'PyEval_GetBuiltins(), "%s"))' % (
+                    name, func.__name__))
+            else:
+                self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
+                                     '%s, "%s"))' % (
+                    name, self.nameof(module), func.__name__))
+        else:
+            # builtin (bound) method
+            name = self.uniquename('gbltinmethod_' + func.__name__)
+            self.initcode.append('INITCHK(%s = PyObject_GetAttrString('
+                                 '%s, "%s"))' % (
+                name, self.nameof(func.__self__), func.__name__))
+        return name
+
+    def nameof_classobj(self, cls):
+        if cls.__doc__ and cls.__doc__.lstrip().startswith('NOT_RPYTHON'):
+            raise Exception, "%r should never be reached" % (cls,)
+
+        metaclass = "&PyType_Type"
+        if issubclass(cls, Exception):
+            if cls.__module__ == 'exceptions':
+                return 'PyExc_%s'%cls.__name__
+            #else:
+            #    # exceptions must be old-style classes (grr!)
+            #    metaclass = "&PyClass_Type"
+        # For the moment, use old-style classes exactly when the
+        # pypy source uses old-style classes, to avoid strange problems.
+        if not isinstance(cls, type):
+            assert type(cls) is type(Exception)
+            metaclass = "&PyClass_Type"
+
+        name = self.uniquename('gcls_' + cls.__name__)
+        basenames = [self.nameof(base) for base in cls.__bases__]
+        def initclassobj():
+            content = cls.__dict__.items()
+            content.sort()
+            for key, value in content:
+                if key.startswith('__'):
+                    if key in ['__module__', '__doc__', '__dict__',
+                               '__weakref__', '__repr__', '__metaclass__']:
+                        continue
+                    # XXX some __NAMES__ are important... nicer solution sought
+                    #raise Exception, "unexpected name %r in class %s"%(key, cls)
+                if isinstance(value, staticmethod) and value.__get__(1) not in self.translator.flowgraphs and self.translator.frozen:
+                    print value
+                    continue
+                if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
+                    print value
+                    continue
+                    
+                yield 'INITCHK(SETUP_CLASS_ATTR(%s, "%s", %s))' % (
+                    name, key, self.nameof(value))
+
+        baseargs = ", ".join(basenames)
+        if baseargs:
+            baseargs = ', '+baseargs
+        self.initcode.append('INITCHK(%s = PyObject_CallFunction((PyObject*) %s,'
+                             %(name, metaclass))
+        self.initcode.append('\t\t"s(%s){}", "%s"%s))'
+                             %("O"*len(basenames), cls.__name__, baseargs))
+        
+        self.later(initclassobj())
+        return name
+
+    nameof_class = nameof_classobj   # for Python 2.2
+
+
+    def nameof_type(self, cls):
+        if cls in self.typename_mapping:
+            return '(PyObject*) %s' % self.typename_mapping[cls]
+        assert cls.__module__ != '__builtin__', \
+            "built-in class %r not found in typename_mapping" % (cls,)
+        return self.nameof_classobj(cls)
+
+    def nameof_tuple(self, tup):
+        name = self.uniquename('g%dtuple' % len(tup))
+        args = [self.nameof(x) for x in tup]
+        args.insert(0, '%d' % len(tup))
+        args = ', '.join(args)
+        self.initcode.append('INITCHK(%s = PyTuple_Pack(%s))' % (name, args))
+        return name
+
+    def nameof_list(self, lis):
+        name = self.uniquename('g%dlist' % len(lis))
+        def initlist():
+            for i in range(len(lis)):
+                item = self.nameof(lis[i])
+                yield '\tPy_INCREF(%s);' % item
+                yield '\tPyList_SET_ITEM(%s, %d, %s);' % (name, i, item)
+        self.initcode.append('INITCHK(%s = PyList_New(%d))' % (name, len(lis)))
+        self.later(initlist())
+        return name
+
+    def nameof_dict(self, dic):
+        assert dic is not __builtins__
+        assert '__builtins__' not in dic, 'Seems to be the globals of %s' % (
+            dic.get('__name__', '?'),)
+        name = self.uniquename('g%ddict' % len(dic))
+        def initdict():
+            for k in dic:
+                if type(k) is str:
+                    yield ('\tINITCHK(PyDict_SetItemString'
+                           '(%s, "%s", %s) >= 0)'%(
+                               name, k, self.nameof(dic[k])))
+                else:
+                    yield ('\tINITCHK(PyDict_SetItem'
+                           '(%s, %s, %s) >= 0)'%(
+                               name, self.nameof(k), self.nameof(dic[k])))
+        self.initcode.append('INITCHK(%s = PyDict_New())' % (name,))
+        self.later(initdict())
+        return name
+
+    # strange prebuilt instances below, don't look too closely
+    # XXX oh well.
+    def nameof_member_descriptor(self, md):
+        name = self.uniquename('gdescriptor_%s_%s' % (
+            md.__objclass__.__name__, md.__name__))
+        cls = self.nameof(md.__objclass__)
+        self.initcode.append('INITCHK(PyType_Ready((PyTypeObject*) %s) >= 0)' %
+                             cls)
+        self.initcode.append('INITCHK(%s = PyMapping_GetItemString('
+                             '((PyTypeObject*) %s)->tp_dict, "%s"))' %
+                                (name, cls, md.__name__))
+        return name
+    nameof_getset_descriptor  = nameof_member_descriptor
+    nameof_method_descriptor  = nameof_member_descriptor
+    nameof_wrapper_descriptor = nameof_member_descriptor
+
+    def nameof_file(self, fil):
+        if fil is sys.stdin:
+            return 'PySys_GetObject("stdin")'
+        if fil is sys.stdout:
+            return 'PySys_GetObject("stdout")'
+        if fil is sys.stderr:
+            return 'PySys_GetObject("stderr")'
+        raise Exception, 'Cannot translate an already-open file: %r' % (fil,)
+
 
     def gen_rpyfunction(self, func):
 
@@ -258,9 +604,11 @@ class GenRpy:
             for line in render_block(block):
                 print "            %s" % line
 
-entry_point = (f, ff, fff, app_str_decode__String_ANY_ANY) [0]
+entry_point = (f, ff, fff, app_str_decode__String_ANY_ANY) [2]
 
 t = Translator(entry_point, verbose=False, simplifying=False)
+# hack: replace class
+
 #t.simplify(rpython=False)
 #t.view()
 gen = GenRpy(sys.stdout, t)
