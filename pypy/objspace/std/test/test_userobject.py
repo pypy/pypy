@@ -81,5 +81,21 @@ class TestUserObject(test.AppTestCase):
         self.assert_(hasattr(C, 'a'))
         self.assertEquals(C.a, 1)
 
+    def test_add(self):
+        class C:
+            def __add__(self, other):
+                return self, other
+        c1 = C()
+        self.assertEquals(c1+3, (c1, 3))
+
+    def test_call(self):
+        class C:
+            def __call__(self, *args):
+                return args
+        c1 = C()
+        self.assertEquals(c1(), ())
+        self.assertEquals(c1(5), (5,))
+        self.assertEquals(c1("hello", "world"), ("hello", "world"))
+
 if __name__ == '__main__':
     test.main()
