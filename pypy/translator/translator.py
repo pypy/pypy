@@ -32,8 +32,7 @@ Try dir(test) for list of current snippets.
 import autopath
 
 from pypy.objspace.flow.model import *
-from pypy.translator.annset import AnnotationSet, Cell
-from pypy.translator.annotation import Annotator
+from pypy.translator.annrpython import RPythonAnnotator
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.genpyrex import GenPyrex
 from pypy.translator.gencl import GenCL
@@ -73,8 +72,8 @@ class Translator:
 
         Provides type information of arguments. Returns annotator.
         """
-        self.annotator = Annotator(self.flowgraph)
-        self.annotator.build_types(input_args_types)
+        self.annotator = RPythonAnnotator()
+        self.annotator.build_types(self.flowgraph, input_args_types)
         return self.annotator
 
     def source(self):
