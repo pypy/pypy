@@ -27,9 +27,9 @@ def next__SeqIter(space, w_seqiter):
     try:
         w_item = space.getitem(w_seqiter.w_seq, space.wrap(w_seqiter.index))
     except OperationError, e:
-        if e.match(space, space.w_IndexError):
-            raise NoValue
-        raise
+        if not e.match(space, space.w_IndexError):
+            raise
+        raise OperationError(space, space.w_StopIteration, space.w_None) 
     w_seqiter.index += 1
     return w_item
 

@@ -178,11 +178,7 @@ class NextMmFrame(eval.Frame):
         "Call the next() multimethod."
         mm = self.code.slice().get(self.space)
         args = self.fastlocals_w
-        try:
-            return mm(*args)
-        except NoValue:
-            raise OperationError(self.space.w_StopIteration,
-                                 self.space.w_None)
+        return mm(*args)
 
 class NonZeroMmFrame(eval.Frame):
     def run(self):

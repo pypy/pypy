@@ -52,7 +52,9 @@ def object_init__List(space, w_list, w_args, w_kwds):
         while True:
             try:
                 w_item = space.next(w_iterator)
-            except NoValue:
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise 
                 break  # done
             _ins1(w_list, w_list.ob_size, w_item)
     else:

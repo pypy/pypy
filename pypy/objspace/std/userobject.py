@@ -143,12 +143,7 @@ class SpecialMethod:
     def next_call(self, space, *args_w):
         "For .next()."
         # don't accept NotImplemented nor a real None, but catch StopIteration
-        try:
-            return self.do_call(space, args_w)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            raise NoValue
+        return self.do_call(space, args_w)
 
     def nonzero_call(self, space, *args_w):
         "For __nonzero__()."
