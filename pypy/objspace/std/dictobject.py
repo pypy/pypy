@@ -85,7 +85,7 @@ class W_DictObject(W_Object):
         while 1:
             i = (i << 2) + i + perturb + 1
             entry = self.data[i%len(self.data)]
-            if entry.w_value is None:
+            if entry.w_key is None:
                 if freeslot:
                     return freeslot
                 else:
