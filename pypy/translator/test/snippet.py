@@ -272,5 +272,5 @@ def append_five(lst):
 
 def call_five():
     a = []
-    h(a)
+    append_five(a)
     return a
