@@ -50,10 +50,19 @@ class GenC:
                                #   for later in initxxx() -- for recursive
                                #   objects
         self.namespace= NameManager()
-        # just a few predefined names which cannot be reused.
-        # I think this should come from some external file,
-        # if we want to be complete
-        self.namespace.make_reserved_names('typedef static void const')
+        # keywords cannot be reused.  This is the C99 draft's list.
+        self.namespace.make_reserved_names('''
+           auto      enum      restrict  unsigned
+           break     extern    return    void
+           case      float     short     volatile
+           char      for       signed    while
+           const     goto      sizeof    _Bool
+           continue  if        static    _Complex
+           default   inline    struct    _Imaginary
+           do        int       switch
+           double    long      typedef
+           else      register  union
+           ''')
         # these names are used in function headers,
         # therefore pseudo-preserved in scope 1:
         self.namespace.make_reserved_names('self args kwds')
