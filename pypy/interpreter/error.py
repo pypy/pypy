@@ -137,7 +137,7 @@ def inlinecompile(source, space, symbol='exec'):
 def debug_print(text, file=None):
     if file is None: file = sys.stderr
     text = text.rstrip()
-    if file.isatty():
+    if sys.platform != "win32" and file.isatty():
         text = ('\x1b[31m' +   # ANSI color code "red"
                 text +
                 '\x1b[0m')     # ANSI color code "reset"
