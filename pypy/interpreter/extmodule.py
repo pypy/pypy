@@ -31,7 +31,7 @@ class ExtModule(Module):
                         continue  # ignore CPython functions
 
                     # ignore tricky class-attrs we can't send from interp to app-level 
-                    if name in ('__metaclass__','__module__',):
+                    if name in ('__metaclass__','__module__','w_dict',):
                         continue
                     contents.setdefault(space.wrap(name), space.wrap(value))
         w_contents = space.newdict(contents.items())
