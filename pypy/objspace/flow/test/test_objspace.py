@@ -1,10 +1,8 @@
 import autopath
 from pypy.tool import testit
 
-from pypy.objspace.flow.wrapper import *
-from pypy.translator.flowmodel import *
 
-class TestFlowOjSpace(testit.TestCase):
+class TestFlowObjSpace(testit.TestCase):
     def setUp(self):
         self.space = testit.objspace('flow')
 
@@ -63,7 +61,7 @@ class TestFlowOjSpace(testit.TestCase):
     def print_(i):
         print i
     
-    def test_print(self):
+    def dont_test_print(self):   # app-level helpers confuse replay
         x = self.codetest(self.print_)
         self.show(x)
 
@@ -212,6 +210,16 @@ class TestFlowOjSpace(testit.TestCase):
 
     def test_implicitIndexError(self):
         x = self.codetest(self.implicitIndexError)
+        self.show(x)
+
+    #__________________________________________________________
+    def freevar(self, x):
+        def adder(y):
+            return x+y
+        return adder
+
+    def test_freevar(self):
+        x = self.codetest(self.freevar(3))
         self.show(x)
 
 

@@ -63,10 +63,15 @@ class ReplayList:
 
 class FlowExecutionContext(ExecutionContext):
 
-    def __init__(self, space, code, globals, constargs={}):
+    def __init__(self, space, code, globals, constargs={}, closure=None):
         ExecutionContext.__init__(self, space)
         self.code = code
         self.w_globals = w_globals = space.wrap(globals)
+        if closure is None:
+            self.closure = None
+        else:
+            from pypy.interpreter.nestedscope import Cell
+            self.closure = [Cell(Constant(value)) for value in closure]
         frame = self.create_frame()
         formalargcount = code.getformalargcount()
         dummy = UndefinedConstant()
@@ -86,7 +91,8 @@ class FlowExecutionContext(ExecutionContext):
         # create an empty frame suitable for the code object
         # while ignoring any operation like the creation of the locals dict
         self.crnt_ops = []
-        return self.code.create_frame(self.space, self.w_globals)
+        return self.code.create_frame(self.space, self.w_globals,
+                                      self.closure)
 
     def bytecode_trace(self, frame):
         if isinstance(self.crnt_ops, ReplayList):

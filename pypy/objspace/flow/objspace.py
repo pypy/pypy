@@ -72,8 +72,12 @@ class FlowObjSpace(ObjSpace):
         """
         code = func.func_code
         code = PyCode()._from_code(code)
+        if func.func_closure is None:
+            closure = None
+        else:
+            closure = [extract_cell_content(c) for c in func.func_closure]
         ec = flowcontext.FlowExecutionContext(self, code, func.func_globals,
-                                              constargs)
+                                              constargs, closure)
         self.executioncontext = ec
         ec.build_flow()
         name = ec.graph.name
@@ -119,6 +123,16 @@ class ImplicitExcValue:
     def __repr__(self):
         return 'implicitexc'
 implicitexc = ImplicitExcValue()
+
+def extract_cell_content(c):
+    """Get the value contained in a CPython 'cell', as read through
+    the func_closure of a function object."""
+    import new
+    def hackout():
+        return hackout   # this access becomes a cell reference
+    # now change the cell to become 'c'
+    hackout = new.function(hackout.func_code, {}, '', None, (c,))
+    return hackout()
 
 def make_op(name, symbol, arity, specialnames):
     if hasattr(FlowObjSpace, name):
