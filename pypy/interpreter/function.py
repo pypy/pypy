@@ -176,7 +176,9 @@ class Function(object):
         w_args = self.space.newtuple(args_w)
         w_kwds = self.space.newdict([(wrap(key), w_value)
                                      for key, w_value in kwds_w.items()])
-        return self.call(w_args, w_kwds)
+        # go through the object space, don't call directly here
+        # (for FlowObjSpace)
+        return self.space.call(wrap(self), w_args, w_kwds)
 
 
 class Method(object):

@@ -36,7 +36,43 @@ class TestFlowOjSpace(test.TestCase):
                           "        i = j\n"
                           "    return g(i) + 1\n",
                           'f')
-        
+
+    def test_print(self):
+        x = self.codetest("def f(i):\n"
+                          "    print i\n",
+                          'f')
+
+    def test_while(self):
+        x = self.codetest("def f(i):\n"
+                          "    while i > 0:\n"
+                          "        i = i - 1\n"
+                          "        print i\n",
+                          'f')
+
+    def test_union_easy(self):
+        x = self.codetest("def f(i):\n"
+                          "    if i:\n"
+                          "        pass\n"
+                          "    else:\n"
+                          "        i = 5\n"
+                          "    return i\n",
+                          'f')
+
+    def test_union_hard(self):
+        x = self.codetest("def f(i):\n"
+                          "    if i:\n"
+                          "        i = 5\n"
+                          "    return i\n",
+                          'f')
+
+    def dont_test_while_union(self):
+        x = self.codetest("def f(i):\n"
+                          "    total = 0\n"
+                          "    while i > 0:\n"
+                          "        total += i\n"
+                          "        i = i - 1\n"
+                          "    return total\n",
+                          'f')
 
 if __name__ == '__main__':
     test.main()
