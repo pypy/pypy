@@ -1,3 +1,5 @@
+from __future__ import generators
+
 from pypy.translator.flowmodel import *
 
 class GraphGlobalVariable(Variable):
