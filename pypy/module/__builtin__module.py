@@ -610,8 +610,8 @@ class complex(object):
 
     Create a complex number from a real part and an optional imaginary part.
     This is equivalent to (real + imag*1j) where imag defaults to 0."""
-    PREC_REPR = 0 # 17
-    PREC_STR = 0 # 12
+    PREC_REPR = 17
+    PREC_STR = 12
     
     def __init__(self, real=0.0, imag=None):
         if isinstance(real, str) and imag is not None:
@@ -651,16 +651,10 @@ class complex(object):
 
 
     def __description(self, precision):
-        sign = '+'
-        if self.imag < 0.:
-            sign = ''
         if self.real != 0.:
-            format = "(%%%02dg%%s%%%02dgj)" % (precision, precision)
-            args = (self.real, sign, self.imag)
+            return "(%.*g%+.*gj)"%(precision, self.real, precision, self.imag)
         else:
-            format = "%%%02dgj" % precision
-            args = self.imag
-        return format % args
+            return "%.*gj"%(precision, self.imag)
 
 
     def __repr__(self):
@@ -952,6 +946,9 @@ class complex(object):
     def __idiv__(self, other):
         return self / other
     
+
+    def __radd__(self, other):
+        return self + other
 
 #    def __new__(self, ...):
 #        pass
