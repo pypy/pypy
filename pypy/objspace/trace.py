@@ -165,6 +165,11 @@ class TraceResult:
             if isinstance(event, CallBegin):
                 yield event.callinfo
 
+    def getevents(self):
+        for event in self.events:
+            yield event
+            
+
 Space = TraceObjSpace
 
 # ______________________________________________________________________
