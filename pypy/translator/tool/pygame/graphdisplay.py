@@ -4,6 +4,7 @@ import os, time, sys
 import pygame
 from pygame.locals import *
 from pypy.translator.tool.pygame.drawgraph import GraphRenderer
+from pypy.translator.tool.pygame.drawgraph import Node, Edge
 
 
 METAKEYS = dict([
@@ -282,15 +283,21 @@ class GraphDisplay(Display):
     def find_next(self):
         if not self.searchstr:
             return
-        node = self.viewer.search_for_node(self.searchstr,
-                                           start_at=self.searchpos)
-        if node:
-            self.searchpos = node
-            self.sethighlight(obj=node)
-            self.look_at_node(node, keep_highlight=True)
-            self.sethighlight(obj=node)
-        else:
+        item = self.viewer.search(self.searchstr, start_at=self.searchpos)
+        if item is None:
             self.setstatusbar('Not found: %s' % self.searchstr)
+            return
+        self.searchpos = item
+        self.sethighlight(obj=item)
+        if isinstance(item, Node):
+            self.setstatusbar('Found node containing %s' % self.searchstr)
+            self.look_at_node(item, keep_highlight=True)
+        elif isinstance(item, Edge):
+            self.setstatusbar('Found edge containing %s' % self.searchstr)
+            self.look_at_edge(item, keep_highlight=True)
+        else:
+            # should never happen
+            self.setstatusbar('Found %r containing %s' % (item, self.searchstr))
 
     def setlayout(self, layout):
         if self.viewer:
@@ -298,6 +305,7 @@ class GraphDisplay(Display):
             del self.forward_viewers_history[:]
         self.layout = layout
         self.viewer = GraphRenderer(self.screen, layout)
+        self.searchpos = None
         self.zoom_to_fit()
 
     def zoom_actual_size(self):
@@ -345,9 +353,8 @@ class GraphDisplay(Display):
         self.reoffset()
         if not keep_highlight:
             self.sethighlight()
-        self.statusbarinfo = None
+            self.update_status_bar()
         self.must_redraw = True
-        self.update_status_bar()
 
     def layout_back(self):
         if self.viewers_history:
@@ -469,12 +476,30 @@ class GraphDisplay(Display):
 
     def look_at_node(self, node, keep_highlight=False):
         """Shift the node in view."""
-        endscale = min(float(self.width-40) / node.w,
-                       float(self.height-40) / node.h,
+        self.look_at(node.x, node.y, node.w, node.h, keep_highlight)
+
+    def look_at_edge(self, edge, keep_highlight=False):
+        """Shift the edge's label into view."""
+        points = edge.bezierpoints()
+        xmin = min([x for (x, y) in points])
+        xmax = max([x for (x, y) in points])
+        ymin = min([y for (x, y) in points])
+        ymax = max([y for (x, y) in points])
+        x = (xmin + xmax) / 2
+        y = (ymin + ymax) / 2
+        w = max(1, xmax - xmin)
+        h = max(1, ymax - ymin)
+        self.look_at(x, y, w, h, keep_highlight)
+
+    def look_at(self, targetx, targety, targetw, targeth,
+                     keep_highlight=False):
+        """Shift the node in view."""
+        endscale = min(float(self.width-40) / targetw,
+                       float(self.height-40) / targeth,
                        75)
         startscale = self.viewer.scale
         cx1, cy1 = self.viewer.getcenter()
-        cx2, cy2 = node.x, node.y
+        cx2, cy2 = targetx, targety
         moving = (abs(startscale-endscale) + abs(cx1-cx2) + abs(cy1-cy2)
                   > 0.4)
         if moving:
@@ -486,8 +511,8 @@ class GraphDisplay(Display):
                 bumpscale = 4.0 * (middlescale - 0.5*(startscale+endscale))
             else:
                 bumpscale = 0.0
-            self.statusbarinfo = None
             if not keep_highlight:
+                self.statusbarinfo = None
                 self.sethighlight()
             for t in self.animation():
                 self.viewer.setscale(startscale*(1-t) + endscale*t +
@@ -495,6 +520,10 @@ class GraphDisplay(Display):
                 self.viewer.setcenter(cx1*(1-t) + cx2*t, cy1*(1-t) + cy2*t)
                 self.updated_viewer(keep_highlight=keep_highlight)
                 self.viewer.render()
+                if self.statusbarinfo:
+                    self.drawstatusbar()
+                else:
+                    self.status_bar_height = 0
                 pygame.display.flip()
         return moving
 
