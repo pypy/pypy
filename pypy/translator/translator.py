@@ -27,13 +27,13 @@ Currently there are my_bool and my_range.
 
 import autopath
 
-from pypy.translator.flowmodel import *
+from pypy.objspace.flow.model import *
 from pypy.translator.annset import AnnotationSet, Cell
 from pypy.translator.annotation import Annotator
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.genpyrex import GenPyrex
 from pypy.translator.gencl import GenCL
-from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
+from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring
 from pypy.objspace.flow import FlowObjSpace
 
 
@@ -56,7 +56,7 @@ class Translator:
     def gv(self):
         """Shows the control flow graph -- requires 'dot' and 'gv'."""
         import os
-        from pypy.translator.test.make_dot import make_dot
+        from pypy.translator.tool.make_dot import make_dot
         from pypy.tool.udir import udir
         dest = make_dot(self.flowgraph, udir, 'ps')
         os.system('gv %s' % str(dest))

@@ -105,6 +105,9 @@ class Op:
         else: 
             return "%s = getattr(%s)" % (self.resultname, ", ".join(args))
 
+    def op_not(self):
+        return "%s = not %s" % (self.resultname, self.argnames[0])
+
     def op_is_true(self):
         return "%s = not not %s" % (self.resultname, self.argnames[0])
 
