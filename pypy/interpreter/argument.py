@@ -143,7 +143,7 @@ class Arguments:
 
     def match_signature(self, signature, defaults_w=[]):
         """Parse args and kwargs according to the signature of a code object,
-        or raise ArgumentMatch in case of failure.
+        or raise an ArgErr in case of failure.
         """
         argnames, varargname, kwargname = signature
         #
