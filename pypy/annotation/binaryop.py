@@ -29,14 +29,6 @@ BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
 for opname in BINARY_OPERATIONS:
     missing_operation(pairtype(SomeObject, SomeObject), opname)
 
-#class __extend__(pairtype(SomeFunction, SomeObject)):
-#    def union((obj1, obj2)):
-#        raise TypeError, "generalizing not allowed: %r AND %r" % (obj1, obj2)
-#
-#class __extend__(pairtype(SomeObject, SomeFunction)):
-#    def union((obj1, obj2)):
-#        raise TypeError, "generalizing not allowed: %r AND %r" % (obj2, obj1)
-
 class __extend__(pairtype(SomeObject, SomeObject)):
 
     def union((obj1, obj2)):
