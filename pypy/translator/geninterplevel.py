@@ -582,7 +582,7 @@ class GenRpy:
             for key, value in content:
                 if key.startswith('__'):
                     if key in ['__module__', '__doc__', '__dict__',
-                               '__weakref__', '__repr__', '__metaclass__']:
+                               '__weakref__', '__repr__', '__metaclass__', '__slots__']:
                         continue
 
                 # redirect value through class interface, in order to
@@ -603,7 +603,7 @@ class GenRpy:
         self.initcode.appendnew('_dic = space.newdict([])')
         for key, value in cls.__dict__.items():
             if key.startswith('__'):
-                if key in ['__module__', '__metaclass__']:
+                if key in ['__module__', '__metaclass__', '__slots__']:
                     keyname = self.nameof(key)
                     valname = self.nameof(value)
                     self.initcode.appendnew("space.setitem(_dic, %s, %s)" % (
@@ -1128,7 +1128,7 @@ def init%(modname)s(space):
 # entry point: %(entrypointname)s, %(entrypoint)s
 if __name__ == "__main__":
     from pypy.objspace.std import StdObjSpace
-    from pypy.objspace.std.default import UnwrapError
+    from pypy.objspace.std.model import UnwrapError
     space = StdObjSpace()
     init%(modname)s(space)
     ret = space.call(gfunc_%(entrypointname)s, space.newtuple([]))
