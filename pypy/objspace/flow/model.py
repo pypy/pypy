@@ -42,9 +42,13 @@ class Block:
 
     def closeblock(self, *exits):
         assert self.exits == [], "block already closed"
+        self.recloseblock(*exits)
+        
+    def recloseblock(self, *exits):
         for exit in exits:
             exit.prevblock = self
         self.exits = exits
+
 
 class Variable:
     counter = 0
