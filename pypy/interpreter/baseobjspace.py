@@ -3,14 +3,17 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.miscutils import Stack, getthreadlocals
 import pypy.module
 
-__all__ = ['ObjSpace', 'OperationError', 'Wrappable']
+__all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable']
 
 
-class Wrappable(object):
-    """A subclass of Wrappable is an internal, interpreter-level class
+class BaseWrappable:
+    """A subclass of BaseWrappable is an internal, interpreter-level class
     that can nevertheless be exposed at application-level by space.wrap()."""
     def __spacebind__(self, space):
         return self
+
+class Wrappable(BaseWrappable, object):
+    """Same as BaseWrappable, just new-style instead."""
 
 class ObjSpace:
     """Base class for the interpreter-level implementations of object spaces.

@@ -216,7 +216,7 @@ class FinallyBlock(FrameBlock):
 ### Internal exceptions that change the control flow ###
 ### and (typically) unroll the block stack           ###
 
-class ControlFlowException(Exception):
+class ControlFlowException(Exception, baseobjspace.BaseWrappable):
     """Abstract base class for interpreter-level exceptions that
     instruct the interpreter to change the control flow and the
     block stack.

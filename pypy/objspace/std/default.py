@@ -220,7 +220,7 @@ class UnwrapError(Exception):
     pass
 
 def unwrap__ANY(space, w_obj):
-    if isinstance(w_obj, Wrappable):
+    if isinstance(w_obj, BaseWrappable):
         return w_obj
     else:
         raise UnwrapError, 'cannot unwrap %r' % (w_obj,)

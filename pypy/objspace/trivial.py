@@ -120,7 +120,7 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
 
     # general stuff
     def wrap(self, x):
-        if isinstance(x, Wrappable):
+        if isinstance(x, BaseWrappable):
             x = x.__spacebind__(self)
             wrapperclass = self.hackwrapperclass(x.typedef)
             instance = CPyWrapper.__new__(wrapperclass)
@@ -438,7 +438,7 @@ def %(name)s(self, x, *args):
     #    return round(*args)
 
     def lookup(space, w_obj, name):
-        assert not isinstance(w_obj, Wrappable)
+        assert not isinstance(w_obj, BaseWrappable)
         if isinstance(w_obj, CPyWrapper):
             typedef = type(w_obj).__internalpypytypedef__
             for basedef in typedef.mro(space):

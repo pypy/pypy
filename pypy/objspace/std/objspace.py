@@ -233,7 +233,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_ListObject(self, wrappeditems)
         if isinstance(x, long):
             return W_LongObject(self, x)
-        if isinstance(x, Wrappable):
+        if isinstance(x, BaseWrappable):
             w_result = x.__spacebind__(self)
             #print 'wrapping', x, '->', w_result
             return w_result
