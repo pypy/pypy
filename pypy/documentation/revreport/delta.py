@@ -668,7 +668,13 @@ def cls_delta(clsname, expl1, cls1, expl2, cls2):
         names.update(expl1.names(cls))
 
     for cls in expl2.get_mro(cls2):
-        names.update(expl2.names(cls))
+        d = Set(expl2.names(cls))
+        if ('__cmp__' in d and '__cmp__' not in names and
+            '__eq__' in d and '__ne__' in d and
+            '__lt__' in d and '__le__' in d and
+            '__gt__' in d and '__ge__' in d):
+            del d['__cmp__']
+        names.update(d)
     
     names = list(names)
     names.sort()
