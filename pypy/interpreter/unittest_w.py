@@ -30,3 +30,12 @@ class TestCase_w(unittest.TestCase):
             self.failUnless(e.match(self.space, w_exc_class))
         else:
             self.fail('should have got an exception')
+
+    def assertWRaises_w(self, w_exc_class, w_callable, *args_w, **kw_w):
+        from pypy.objspace.std.objspace import OperationError
+        try:
+            self.space.call_function(w_callable, *args_w, **kw_w)
+        except OperationError, e:
+            self.failUnless(e.match(self.space, w_exc_class))
+        else:
+            self.fail('should have got an exception')
