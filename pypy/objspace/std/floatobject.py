@@ -245,6 +245,8 @@ def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
         raise FailedToImplement(space.w_OverflowError, space.wrap("float power"))
     except ValueError, e:
         raise FailedToImplement(space.w_ValueError, space.wrap(str(e)))
+    except ZeroDivisionError, e:   # (0.0 ** -1)
+        raise OperationError(space.w_ZeroDivisionError, space.wrap(str(e)))
 
     return W_FloatObject(space, z)
 
