@@ -615,7 +615,8 @@ class __builtin__(ExtModule):
             return False
 
     def app_callable(self, ob):
-        return hasattr(ob, '__call__')
+        t = type(ob)
+        return t is type or hasattr(t, '__call__')
 
     def app_dir(self, *args):
         """dir([object]) -> list of strings
