@@ -3,6 +3,7 @@ import py
 py.magic.autopath()
 from pypy.objspace.std import StdObjSpace
 from pypy.interpreter.gateway import app2interp, interp2app
+from pypy.interpreter.argument import Arguments
 
 class AppRunnerFrame:
 
@@ -50,13 +51,24 @@ def build_pytest_assertion(space):
                   w_inspect_assertion)
     return w_myassertion 
 
-def test():
-    space = StdObjSpace()
+def setup_module(mod):
+    mod.space = StdObjSpace()
+
+def test_AppRunnerFrame():
     w_glob = space.newdict([])
     w_loc = space.newdict([])
     runner = AppRunnerFrame(space, w_glob, w_loc)
     exprinfo.run("f = lambda x: x+1", runner)
     exprinfo.check("isinstance(f(2), float)", runner)
+
+def test_myexception():
+    def app_test_func():
+        assert 42 == 43 
+    t = app2interp(app_test_func)
+    f = t.get_function(space)
+    #space.setitem(space.w_builtins, space.wrap('AssertionError'), 
+    #              build_pytest_assertion(space)) 
+    f.call_args(Arguments([]))
 
 if __name__ == '__main__':
     test()
