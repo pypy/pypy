@@ -6,7 +6,7 @@ from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.objspace.flow.model import Variable, Constant, UndefinedConstant
 from pypy.objspace.flow.model import mkentrymap, last_exception
 from pypy.translator.annrpython import RPythonAnnotator
-#from pypy.annotation.model import SomeCallable
+from pypy.annotation.model import SomePBC
 from pypy.annotation.factory import isclassdef
 import inspect
 
@@ -417,11 +417,11 @@ class GenPyrex:
                 empty = True
                 for attr, attrdef in cls.attrs.items():
                     s_value = attrdef.s_value
-                    if isinstance(s_value, SomeCallable):
-                        for py_fun,fun_class in s_value.callables.items():
-                            assert isclassdef(fun_class), (
-                                "%r must have a classdef" % py_fun)
-                            delay_methods.setdefault(fun_class,[]).append(py_fun)                          
+                    if isinstance(s_value, SomePBC):
+                        for py_fun,fun_class in s_value.prebuiltinstances.items():
+                            assert isclassdef(fun_class), ("don't support "
+                                "prebuilt constants like %r" % py_fun)
+                            delay_methods.setdefault(fun_class,[]).append(py_fun)
                     else:
                         vartype=self._gettypename(s_value.knowntype)
                         self.putline("cdef public %s %s" % (vartype, attr))
