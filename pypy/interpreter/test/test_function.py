@@ -123,6 +123,12 @@ class AppTestFunction(testit.AppTestCase):
             return arg1, kw
         self.assertRaises(TypeError, func, 42, **{'arg1': 23})
 
+    def test_kwargs_confusing_name(self):
+        def func(self):    # 'self' conflicts with the interp-level
+            return self*7  # argument to call_function()
+        res = func(self=6)
+        self.assertEquals(res, 42)
+
 
 class TestMethod(testit.IntTestCase):
     def setUp(self):
