@@ -4,8 +4,12 @@ import optparse
 import os
 import new
 
+from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.translator.translator import Translator
 from pypy.translator.geninterplevel import GenRpy
+
+# change default
+FlowObjSpace.bultins_can_raise_exceptions = True
 
 def main():
     opt_parser = optparse.OptionParser(usage="usage: %prog [options] module-file obj-name...")

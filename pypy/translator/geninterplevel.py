@@ -332,6 +332,9 @@ class GenRpy:
         else:
             return self.uniquelocalname('%s_%d' % (basename, n), seennames)
 
+    def nameof_NotImplementedType(self, value):
+        return "space.w_NotImplemented"
+
     def nameof_object(self, value):
         if type(value) is not object:
             # try to just wrap it?
@@ -533,11 +536,18 @@ class GenRpy:
                     break
             else:
                 raise Exception, '%r not found in any built-in module' % (func,)
-            name = self.uniquename('gbltin_' + func.__name__)
             if modname == '__builtin__':
-                self.initcode.append('m.%s = space.getattr(space.w_builtin, %s)'% (
-                    name, self.nameof(func.__name__)))
+                #self.initcode.append('m.%s = space.getattr(space.w_builtin, %s)'% (
+                #    name, self.nameof(func.__name__)))
+                # be lazy
+                return "(space.getattr(space.w_builtin, %s))" % self.nameof(func.__name__)
+            elif modname == 'sys':
+                # be lazy
+                return "(space.getattr(space.w_sys, %s))" % self.nameof(func.__name__)                
             else:
+                print ("WARNING: accessing builtin modules different from sys or __builtin__"
+                       " is likely producing non-sense")
+                name = self.uniquename('gbltin_' + func.__name__)
                 self.initcode.append('m.%s = space.getattr(%s, %s)' % (
                     name, self.nameof(module), self.nameof(func.__name__)))
         else:
@@ -585,7 +595,7 @@ class GenRpy:
             for key, value in content:
                 if key.startswith('__'):
                     if key in ['__module__', '__doc__', '__dict__',
-                               '__weakref__', '__repr__', '__metaclass__', '__slots__']:
+                               '__weakref__', '__metaclass__', '__slots__','__new__']:
                         continue
 
                 # redirect value through class interface, in order to
@@ -606,7 +616,7 @@ class GenRpy:
         self.initcode.appendnew('_dic = space.newdict([])')
         for key, value in cls.__dict__.items():
             if key.startswith('__'):
-                if key in ['__module__', '__metaclass__', '__slots__']:
+                if key in ['__module__', '__metaclass__', '__slots__','__new__']:
                     keyname = self.nameof(key)
                     valname = self.nameof(value)
                     self.initcode.appendnew("space.setitem(_dic, %s, %s)" % (
@@ -1118,6 +1128,7 @@ class GenRpy:
 # -*- coding: LATIN-1 -*-
 
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.argument import Arguments
 '''
 
     RPY_SEP = "#*************************************************************"
