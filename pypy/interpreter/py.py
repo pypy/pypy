@@ -6,17 +6,32 @@ import sys
 
 class Options(option.Options):
     interactive = 0
+    command = []
 
 def get_main_options():
     options = option.get_standard_options()
     options.append(make_option(
         '-i', action="store_true", dest="interactive"))
+    
+    def command_callback(option, opt, value, parser):
+        parser.values.command = parser.rargs[:]
+        parser.rargs[:] = []
+        
+    options.append(make_option(
+        '-c', action="callback",
+        callback=command_callback))
+        
     return options
 
 def main_(argv=None):
     args = option.process_options(get_main_options(), Options, argv[1:])
     space = option.objspace()
-    if args:
+    if Options.command:
+        try:
+            main.run_string(Options.command[0], '<string>', space)
+        except baseobjspace.PyPyError, pypyerr:
+            pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
+    elif args:
         try:
             main.run_file(args[0], space)
         except baseobjspace.PyPyError, pypyerr:
@@ -24,7 +39,6 @@ def main_(argv=None):
     else:
         con = interactive.PyPyConsole(space)
         con.interact()
-        
         
 
 if __name__ == '__main__':
