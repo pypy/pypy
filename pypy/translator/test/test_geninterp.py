@@ -36,17 +36,15 @@ from pypy.interpreter.error import OperationError
 from py.code import Source
 
 class TestGenRpyTestCase:
-    objspacename = 'flow'
+    objspacename = 'std'
 
     def __init__(self):
-        from pypy.objspace.std import Space
-        self.space = Space()
         # simply compile snippets just once
         src = str(Source(snippet))
         # truncate non-compilable stuff for now:
         p = src.index('Non compilable Functions')
         src = src[:p]
-        ini = translate_as_module(src, tmpname="d:/tmp/look.py")
+        ini = translate_as_module(src, tmpname = str(udir.join("_geninterp_test.py")))
         self.w_glob = ini(self.space)
 
     def build_interpfunc(self, func, *morefuncs):
