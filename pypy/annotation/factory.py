@@ -50,6 +50,7 @@ class Bookkeeper:
         self.userclasses = {}    # map classes to ClassDefs
         self.userclasseslist = []# userclasses.keys() in creation order
         self.cachespecializations = {}
+        self.pbccache = {}
 
     def enter(self, position_key):
         """Start of an operation.
@@ -126,21 +127,31 @@ class Bookkeeper:
                 s_name = self.immutablevalue(x.__name__)
                 result = s_self.getattr(s_name)
             else:
-                result = SomePBC({x : True})
+                return self.getpbc(x)
         elif hasattr(x, '__class__') \
                  and x.__class__.__module__ != '__builtin__':
             if isinstance(x, Cache) and not x.frozen:
                 x.freeze()
-            result = SomePBC({x: True}) # pre-built inst
-            clsdef = self.getclassdef(x.__class__)
-            for attr in x.__dict__:
-                clsdef.add_source_for_attribute(attr, x)
+            return self.getpbc(x)
         elif x is None:
             result = SomeNone()
         else:
             result = SomeObject()
         result.const = x
         return result
+
+    def getpbc(self, x):
+        try:
+            # this is not just an optimization, but needed to avoid
+            # infinitely repeated calls to add_source_for_attribute()
+            return self.pbccache[x]
+        except KeyError:
+            result = SomePBC({x: True}) # pre-built inst
+            clsdef = self.getclassdef(new_or_old_class(x))
+            for attr in x.__dict__:
+                clsdef.add_source_for_attribute(attr, x)
+            self.pbccache[x] = result
+            return result
 
     def valueoftype(self, t):
         """The most precise SomeValue instance that contains all
