@@ -54,6 +54,7 @@ E_DONE = 1
 E_SYNTAX = 2
 
 __DEBUG__ = 0
+__BASIL__ = 0
 
 if __DEBUG__:
     import string
@@ -280,10 +281,7 @@ def main (inputGrammar, inputFile = None):
     # ____________________________________________________________
     # Build tokenizer
     import sys
-    try:
-        from basil.lang.python import StdTokenizer
-    except ImportError:
-        import StdTokenizer
+    import StdTokenizer
     if inputFile == None:
         inputFile = "<stdin>"
         fileObj = sys.stdin
@@ -293,32 +291,34 @@ def main (inputGrammar, inputFile = None):
     # ____________________________________________________________
     # Build parser
     import pprint
-    from basil.parsing import pgen
-    gramAst = pgen.metaParser.parseFile(inputGrammar)
-    myParser = pgen.buildParser(gramAst)
-    grammar = myParser.toTuple()
+    import PgenParser
+    import PyPgen
+    gramAst = PgenParser.parseFile(inputGrammar)
+    grammarObj = PyPgen.PyPgen()(gramAst) # XXX - Maybe this API should change?
+    myParser = PyPgen.PyPgenParser(grammarObj)
     if __DEBUG__:
-        pprint.pprint(grammar)
+        pprint.pprint(grammarObj)
     symbols = myParser.stringToSymbolMap()
     # ____________________________________________________________
     # Run parser
     import time
     t0 = time.time()
-    parseTree = parsetok(tokenizer, grammar, symbols['file_input'])
+    parseTree = parsetok(tokenizer, grammarObj, symbols['file_input'])
     t1 = time.time()
     print "DFAParser took %g seconds" % (t1 - t0)
     fileObj.close()
     # ____________________________________________________________
     # Display AST
-    from basil.visuals.TreeBox import showTree
-    showTree(parseTree).mainloop()
+    if __BASIL__:
+        from basil.visuals.TreeBox import showTree
+        showTree(parseTree).mainloop()
 
 # ______________________________________________________________________
 
 if __name__ == "__main__":
     import sys
     # XXX - Maybe this file location should not be hard coded??
-    inputGrammar = "../../parsing/tests/test.pgen"
+    inputGrammar = "Grammar"
     if len(sys.argv) == 1:
         main(inputGrammar)
     else:

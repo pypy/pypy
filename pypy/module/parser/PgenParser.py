@@ -212,8 +212,6 @@ def main ():
         parseTree = parseFile(sys.argv[1])
     else:
         parseTree = parseString(sys.stdin.read())
-    from basil.visuals.TreeBox import showTree
-    showTree(parseTree).mainloop()
 
 # ______________________________________________________________________
 

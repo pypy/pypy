@@ -1,4 +1,4 @@
-import basil.common.python.pyparser as parser
+import parser
 import unittest
 from test import test_support
 
