@@ -77,7 +77,7 @@ def builtin_isinstance(s_obj, s_type):
 
 def builtin_issubclass(s_cls1, s_cls2):
     if s_cls1.is_constant() and s_cls2.is_constant():
-        return immutablevalue(issubclass(s_cls1, s_cls2))
+        return immutablevalue(issubclass(s_cls1.const, s_cls2.const))
     else:
         return SomeBool()
 
