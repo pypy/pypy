@@ -189,18 +189,22 @@ def nonzero__Long(space, w_long):
 def invert__Long(space, w_long):
     return W_LongObject(space, ~w_long.longval)
 
-def lshift__Long_Int(space, w_long1, w_int2):
+def lshift__Long_Long(space, w_long1, w_long2):
     a = w_long1.longval
-    b = w_int2.intval
+    b = w_long2.longval
     if b < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
-    res = a << b
+    try:
+        res = a << b
+    except OverflowError:   # b too big
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("shift count too large"))
     return W_LongObject(space, res)
 
-def rshift__Long_Int(space, w_long1, w_int2):
+def rshift__Long_Long(space, w_long1, w_long2):
     a = w_long1.longval
-    b = w_int2.intval
+    b = w_long2.longval
     if b < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
@@ -239,7 +243,7 @@ register_all(vars())
 # register implementations of ops that recover int op overflows
 
 # binary ops
-for opname in ['add', 'sub', 'mul', 'div', 'floordiv', 'truediv', 'mod', 'divmod']:
+for opname in ['add', 'sub', 'mul', 'div', 'floordiv', 'truediv', 'mod', 'divmod', 'lshift']:
     exec """
 def %(opname)s_ovr__Int_Int(space, w_int1, w_int2):
     w_long1 = delegate_Int2Long(w_int1)
@@ -258,13 +262,6 @@ def %(opname)s_ovr__Int(space, w_int1):
 """ % {'opname': opname}
 
     getattr(StdObjSpace.MM, opname).register(globals()['%s_ovr__Int' %opname], W_IntObject, order=1)
-
-# lshift
-def lshift_ovr__Int_Int(space, w_int1, w_cnt):
-    w_long1 = delegate_Int2Long(w_int1)
-    return lshift__Long_Int(space, w_long1, w_cnt)
-
-StdObjSpace.MM.lshift.register(lshift_ovr__Int_Int, W_IntObject, W_IntObject, order=1)
 
 # pow
 def pow_ovr__Int_Int_None(space, w_int1, w_int2, w_none3):
