@@ -96,10 +96,36 @@ class ObjSpace:
 
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
-        # XXX very limited version!
-        return self.is_(w_exc_type, w_check_class)
-
-
+        #Match identical items.
+        w_rv = self.is_(w_exc_type, w_check_class)
+        if self.is_true(w_rv):
+            return w_rv
+        #Match subclasses.
+        try:
+            w_rv = self.issubtype(w_exc_type, w_check_class)
+        except: pass
+        else:
+            if self.is_true(w_rv):
+                return w_rv
+        #Match tuples containing identical or parent classes
+        try:
+            exclst = self.unpackiterable(w_check_class)
+        except:
+            #w_check_class is not iterable
+            return self.w_False
+        #w_check_class is iterable
+        for w_item in exclst:
+            w_rv = self.is_(w_exc_type, w_item)
+            if self.is_true(w_rv):
+                return w_rv
+            try:
+                w_rv = self.issubtype(w_exc_type, w_item)
+            except: pass
+            else:
+                if self.is_true(w_rv):
+                    return w_rv
+        return self.w_False
+            
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result
 ## (if any).  XXX Maybe we should say that these methods must be accessed
