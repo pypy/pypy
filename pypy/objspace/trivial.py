@@ -32,6 +32,26 @@ class nugen(object):
     def __iter__(self):
         return self
 
+class numeth(object):
+    def __init__(self, space, func, inst, cls):
+        self.space = space
+        self.func = func
+        self.inst = inst
+        self.cls = cls
+    def _call_(self, *args, **kws):
+        if self.inst is None and self.cls is not type(None):
+            pass
+        else:
+            args = (self.inst,) + args
+        return self.func(*args, **kws)
+    def __call__(self, *args, **kws):
+        try:
+            return self._call_(*args, **kws)
+        except OperationError, oe:
+            raise eval(oe.w_type.__name__)
+        except:
+            raise
+
 class nufun(object):
     def __init__(self, space, code, globals, defaultarguments, closure):
         self.space = space
@@ -54,8 +74,7 @@ class nufun(object):
     def __call__(self, *args, **kwds):
         return self.do_call(*args, **kwds)
     def __get__(self, ob, cls=None):
-        import new
-        return new.instancemethod(self, ob, cls)
+        return numeth(self.space, self, ob, cls)
 
 
 class TrivialObjSpace(ObjSpace):
