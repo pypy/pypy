@@ -71,6 +71,8 @@ def decode_code_arguments(args, kws, defs, closure, codeobject):
                 # XXX This should be improved to show the parameters that
                 #     shouldn't be here.
                 raise TypeError, 'Setting keyword parameter that does not exist in formal parameter list.'
+    else:
+        newkw = {}
                 
     # Fill in with defaults, starting at argcount - defcount
     if defs:
