@@ -73,7 +73,7 @@ class __extend__(SomeObject):
         return obj.call(Arguments.fromshape(space, s_shape.const, args_s))
 
     def call(obj, args):
-        #raise Exception, "cannot follow call_args%r" % (obj_and_args,)
+        #raise Exception, "cannot follow call_args%r" % ((obj, args),)
         print "*** cannot follow call(%r, %r)" % (obj, args)
         return SomeObject()
 
@@ -180,6 +180,14 @@ class __extend__(SomeBuiltin):
         else:
             return bltn.analyser(*args)
 
+    def call(bltn, args):
+        args, kw = args.unpack()
+        assert not kw, "don't call builtins with keywords arguments"
+        if bltn.s_self is not None:
+            return bltn.analyser(bltn.s_self, *args)
+        else:
+            return bltn.analyser(*args)
+        
 
 class __extend__(SomePBC):
 
