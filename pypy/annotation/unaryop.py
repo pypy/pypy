@@ -55,7 +55,7 @@ class __extend__(SomeInstance):
     def currentdef(ins):
         if ins.revision != ins.classdef.revision:
             #print ins.revision, ins.classdef.revision
-            raise BlockedInference()
+            raise BlockedInference
         return ins.classdef
 
     def getattr(ins, s_attr):
@@ -67,8 +67,8 @@ class __extend__(SomeInstance):
                     return clsdef.attrs[attr]
             # maybe the attribute exists in some subclass? if so, lift it
             clsdef = ins.classdef
-            clsdef.generalize(attr, SomeImpossibleValue())
-            raise BlockedInference(clsdef.getallfactories())
+            clsdef.generalize(attr, SomeImpossibleValue(), getbookkeeper())
+            raise BlockedInference
         return SomeObject()
 
     def setattr(ins, s_attr, s_value):
@@ -85,8 +85,8 @@ class __extend__(SomeInstance):
                 # if the attribute doesn't exist yet, create it here
                 clsdef = ins.classdef
             # create or update the attribute in clsdef
-            clsdef.generalize(attr, s_value)
-            raise BlockedInference(clsdef.getallfactories())
+            clsdef.generalize(attr, s_value, getbookkeeper())
+            raise BlockedInference
         return SomeObject()
 
 

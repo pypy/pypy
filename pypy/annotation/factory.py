@@ -18,9 +18,7 @@ class BlockedInference(Exception):
     """This exception signals the type inference engine that the situation
     is currently blocked, and that it should try to progress elsewhere."""
 
-    def __init__(self, factories = ()):
-        # factories that need to be invalidated
-        self.invalidatefactories = factories
+    def __init__(self):
         try:
             self.break_at = getbookkeeper().position_key
         except AttributeError:
@@ -111,8 +109,10 @@ class ListFactory:
     def create(self):
         return SomeList(factories = {self: True}, s_item = self.s_item)
 
-    def generalize(self, s_new_item):
+    def generalize(self, s_new_item, bookkeeper=None):
         self.s_item = unionof(self.s_item, s_new_item)
+        if bookkeeper:
+            bookkeeper.annotator.reflowfromposition(self.position_key)
 
 
 class FuncCallFactory:
@@ -182,7 +182,7 @@ class ClassDef:
             factories.update(clsdef.instancefactories)
         return factories
 
-    def generalize(self, attr, s_value):
+    def generalize(self, attr, s_value, bookkeeper=None):
         # we make sure that an attribute never appears both in a class
         # and in some subclass, in two steps:
         # (1) assert that the attribute is in no superclass
@@ -197,3 +197,7 @@ class ClassDef:
             # bump the revision number of this class and all subclasses
             subdef.revision += 1
         self.attrs[attr] = unionof(s_value, *subclass_values)
+        # reflow from all factories
+        if bookkeeper:
+            for factory in self.getallfactories():
+                bookkeeper.annotator.reflowfromposition(factory.position_key)

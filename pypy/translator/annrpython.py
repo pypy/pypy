@@ -114,7 +114,13 @@ class RPythonAnnotator:
     def buildflowgraph(self, func):
         space = FlowObjSpace()
         graph = space.build_flow(func)
-        self.notify[graph.returnblock] = graph.funccallfactories = {}
+        # the dictionary of all FuncCallFactories (call points to this func)
+        # is populated via graph.funccallfactories in pypy.annotation.factory
+        # and read via self.notify[graph.returnblock] whenever the return block
+        # of this graph has been analysed.
+        callfactories = {}
+        graph.funccallfactories = callfactories
+        self.notify[graph.returnblock] = callfactories
         return graph
 
     def generalizeinputargs(self, flowgraph, inputcells):
@@ -125,6 +131,10 @@ class RPythonAnnotator:
     def getoutputvalue(self, flowgraph):
         v = flowgraph.getreturnvar()
         return self.bindings.get(v, annmodel.SomeImpossibleValue())
+
+    def reflowfromposition(self, position_key):
+        block, index = position_key
+        self.reflowpendingblock(block)
 
 
     #___ simplification (should be moved elsewhere?) _______
@@ -190,9 +200,6 @@ class RPythonAnnotator:
                 #import traceback, sys
                 #traceback.print_tb(sys.exc_info()[2])
                 self.annotated[block] = False   # failed, hopefully temporarily
-                for factory in e.invalidatefactories:
-                    oldblock, oldindex = factory.position_key
-                    self.reflowpendingblock(oldblock)
 
     def reflowpendingblock(self, block):
         self.pendingblocks.append((block, None))
@@ -227,11 +234,8 @@ class RPythonAnnotator:
             self.addpendingblock(link.target, cells)
         if block in self.notify:
             # invalidate some factories when this block is done
-            factories = self.notify[block].keys()
-            self.notify[block].clear()  # don't del: the dict can be re-populated
-            for factory in factories:
-                oldblock, oldindex = factory.position_key
-                self.reflowpendingblock(oldblock)
+            for factory in self.notify[block]:
+                self.reflowfromposition(factory.position_key)
 
 
     #___ creating the annotations based on operations ______

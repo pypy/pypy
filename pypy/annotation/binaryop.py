@@ -8,7 +8,7 @@ from pypy.annotation.model import SomeString, SomeList
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeFunction
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.factory import BlockedInference
+from pypy.annotation.factory import BlockedInference, getbookkeeper
 
 
 # XXX unify this with ObjSpace.MethodTable
@@ -110,9 +110,9 @@ class __extend__(pairtype(SomeList, SomeInteger)):
 
     def setitem((lst1, int2), s_value):
         if not lst1.s_item.contains(s_value):
+            bookkeeper = getbookkeeper()
             for factory in lst1.factories:
-                factory.generalize(s_value)
-            raise BlockedInference(lst1.factories)
+                factory.generalize(s_value, bookkeeper)
 
 
 class __extend__(pairtype(SomeInteger, SomeList)):
