@@ -4,6 +4,7 @@ from drawgraph import GraphLayout
 from pypy.translator.tool.make_dot import DotGen
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from pypy.annotation import model, factory
+from pypy.tool.uid import uid
 
 
 class SingleGraphLayout(GraphLayout):
@@ -162,7 +163,7 @@ def nameof(obj, cache={}):
     try:
         return cache[obj]
     except KeyError:
-        result = '%s__0x%x' % (getattr(obj, '__name__', ''), id(obj))
+        result = '%s__0x%x' % (getattr(obj, '__name__', ''), uid(obj))
         cache[obj] = result
         return result
 
