@@ -31,11 +31,11 @@ class OperationError(Exception):
         return space.exception_match(self.w_type, w_check_class)
 
     def __str__(self):
-        "Convenience for tracebacks."
+        "NOT_RPYTHON: Convenience for tracebacks."
         return '[%s: %s]' % (self.w_type, self.w_value)
 
     def errorstr(self, space):
-        "The exception class and value, as a string."
+        "NOT_RPYTHON: The exception class and value, as a string."
         exc_type  = space.unwrap(
             space.getattr(self.w_type, space.wrap('__name__')))
         exc_value = space.unwrap(space.str(self.w_value))
@@ -49,18 +49,19 @@ class OperationError(Exception):
             return None
 
     def record_interpreter_traceback(self):
-        """Records the current traceback inside the interpreter.
+        """NOT_RPYTHON: Records the current traceback inside the interpreter.
         This traceback is only useful to debug the interpreter, not the
         application."""
         self.debug_excs.append(sys.exc_info())
 
     def print_application_traceback(self, space, file=None):
-        "Dump a standard application-level traceback."
+        "NOT_RPYTHON: Dump a standard application-level traceback."
         if file is None: file = sys.stderr
         self.print_app_tb_only(file)
         print >> file, self.errorstr(space)
 
     def print_app_tb_only(self, file):
+        "NOT_RPYTHON"
         tb = self.application_traceback
         if tb:
             import linecache
@@ -87,8 +88,8 @@ class OperationError(Exception):
                 tb = tb.next
 
     def print_detailed_traceback(self, space=None, file=None):
-        """Dump a nice detailed interpreter- and application-level traceback,
-        useful to debug the interpreter."""
+        """NOT_RPYTHON: Dump a nice detailed interpreter- and
+        application-level traceback, useful to debug the interpreter."""
         if file is None: file = sys.stderr
         for i in range(len(self.debug_excs)-1, -1, -1):
             import traceback

@@ -16,6 +16,7 @@ _fake_type_cache = Cache()
 
 # real-to-wrapped exceptions
 def wrap_exception(space):
+    "NOT_RPYTHON"  # XXX this needs to end up in the translated code somehow!
     exc, value, tb = sys.exc_info()
     if exc is OperationError:
         raise exc, value, tb   # just re-raise it

@@ -22,7 +22,8 @@ class BuiltinModule(Module):
     NOT_RPYTHON_ATTRIBUTES = ['__builtins__']
 
     def __init__(self, space, modulename, w_dict=None, sourcefile=None):
-        """Load the named built-in module, by default from the source file
+        """NOT_RPYTHON
+        Load the named built-in module, by default from the source file
         'pypy/module/<name>module.py', which is app-level Python code
         with a few special features that allow it to include interp-level
         bits.  (See pypy/module/test/foomodule.py)
@@ -73,13 +74,17 @@ class BuiltinModule(Module):
                       space.w_builtins)
 
         # Temporarily install an '__applevel__' pseudo-module
-        sys.modules['__applevel__'] = BuiltinModule.AppModuleHack(self)
+        sys.modules['__applevel__'] = AppModuleHack(self)
 
         # Run the app-level module definition (xxxmodule.py)
         pycode.exec_code(space, w_dict, w_dict)
 
         # Remove the pseudo-module
         del sys.modules['__applevel__']
+        try:
+            del self.__applevel__
+        except AttributeError:
+            pass
 
         # Remove/restore the hooks unless they have been modified at app-level
         for name, w_hook in newhooks.items():
@@ -98,14 +103,14 @@ class BuiltinModule(Module):
         del self.__saved_hooks
 
     def interplevelexec(self, w_codestring):
-        "'exec' a string at interp-level."
+        "NOT_RPYTHON: 'exec' a string at interp-level."
         codestring = self.space.unwrap(w_codestring)
         exec codestring in self.__dict__
         return self.space.w_None
 
     def interpleveleval(self, w_codestring):
-        """'eval' a string at interp-level.  The result must be None or
-        a wrapped object, which is returned to the caller."""
+        """NOT_RPYTHON: 'eval' a string at interp-level.  The result must
+        be None or a wrapped object, which is returned to the caller."""
         space = self.space
         codestring = space.unwrap(w_codestring)
         w_result = eval(codestring, self.__dict__)
@@ -114,15 +119,15 @@ class BuiltinModule(Module):
         return w_result
 
     def interplevelexecfile(self, w_filename):
-        """'exec' a file at interp-level.  The file should be in the same
-        directory as the xxxmodule.py source file of the module."""
+        """NOT_RPYTON: 'exec' a file at interp-level.  The file should be in
+        the same directory as the xxxmodule.py source file of the module."""
         filename = self.space.unwrap(w_filename)
         filename = os.path.join(os.path.dirname(self.__file__), filename)
         execfile(filename, self.__dict__)
         return self.space.w_None
 
     def interplevelimport(self, w_modulename, w_globals, w_locals, w_fromlist):
-        """Hook for 'from __interplevel__ import something'.
+        """NOT_RPYTHON: Hook for 'from __interplevel__ import something'.
         If there is a wrapped interp-level object 'w_something', returns it.
         If there is an interp-level function 'def something(w_x, w_y...)',
         build an appropriate gateway and returns it.
@@ -150,15 +155,18 @@ class BuiltinModule(Module):
                                        w_modulename, w_globals,
                                        w_locals, w_fromlist)
 
-    class AppModuleHack:
-        """For interp-level convenience: 'from __applevel__ import func'
-        imports the app-level function 'func' via an appropriate gateway.
-        """
-        def __init__(self, builtinmodule):
-            self.space = builtinmodule.space
-            self.w_dict = builtinmodule.w_dict
-        def __getattr__(self, name):
-            w_func = self.space.getitem(self.w_dict, self.space.wrap(name))
-            def caller(*args, **kwds):
-                return self.space.call_function(w_func, *args, **kwds)
-            return caller
+class AppModuleHack:
+    """NOT_RPYTHON
+    For interp-level convenience: 'from __applevel__ import func'
+    imports the app-level function 'func' via an appropriate gateway.
+    """
+    def __init__(self, builtinmodule):
+        self.space = builtinmodule.space
+        self.w_dict = builtinmodule.w_dict
+    def __getattr__(self, name):
+        if name.startswith('__'):
+            raise AttributeError, name
+        w_func = self.space.getitem(self.w_dict, self.space.wrap(name))
+        def caller(*args):
+            return self.space.call_function(w_func, *args)
+        return caller

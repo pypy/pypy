@@ -103,8 +103,10 @@ class GenC:
         return name
 
     def nameof_module(self, value):
-        assert not hasattr(value, "__file__") or \
-               not (value.__file__.endswith('.pyc') or value.__file__.endswith('.py') or value.__file__.endswith('.pyo')), \
+        assert value is os or not hasattr(value, "__file__") or \
+               not (value.__file__.endswith('.pyc') or
+                    value.__file__.endswith('.py') or
+                    value.__file__.endswith('.pyo')), \
                "%r is not a builtin module (probably :)"%value
         name = self.uniquename('mod%s'%value.__name__)
         self.globalobjects.append(name)
