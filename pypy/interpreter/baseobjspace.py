@@ -166,7 +166,12 @@ class ObjSpace:
             except OperationError:
                 # Assume that this is a TypeError: w_item not a type,
                 # and assume that w_item is then actually a tuple.
-                exclst = self.unpackiterable(w_item)
+                try:
+                    exclst = self.unpackiterable(w_item)
+                except OperationError:
+                    # hum, maybe it is not a tuple after all, and w_exc_type
+                    # was not a type at all (string exceptions).  Give up.
+                    continue
                 check_list.extend(exclst)
         return False
 

@@ -104,11 +104,17 @@ class OperationError(Exception):
             exc_value    = self.w_value
         else:
             w = space.wrap
-            exc_typename  = space.unwrap(
-                space.getattr(self.w_type, w('__name__')))
-            exc_value = space.unwrap(space.str(self.w_value))
+            if space.is_true(space.is_(space.type(self.w_type), space.w_str)):
+                exc_typename = space.unwrap(self.w_type)
+            else:
+                exc_typename = space.unwrap(
+                    space.getattr(self.w_type, w('__name__')))
+            if self.w_value == space.w_None:
+                exc_value = None
+            else:
+                exc_value = space.unwrap(space.str(self.w_value))
             print >> file, '(application-level)',
-        if exc_value is None:
+        if not exc_value:
             print >> file, exc_typename
         else:
             print >> file, exc_typename+':', exc_value

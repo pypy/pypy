@@ -853,29 +853,37 @@ def app_prepare_raise(etype, value, traceback):
         #     which is not the case in CPython, but well
         import sys
         etype, value, traceback = sys.exc_info()
+    #XXX re-enable the following check
     #if not isinstance(traceback, (types.NoneType, types.TracebackType)):
     #    raise TypeError, "raise: arg 3 must be traceback or None"
     while isinstance(etype, tuple):
         etype = etype[0]
-    if type(etype) is str:
-        # XXX warn
-        pass
-    elif isinstance(etype, Exception):
+    if isinstance(etype, type):
+        if isinstance(value, etype):
+            # raise Type, Instance: everything is fine
+            pass
+        elif value is None:
+            # raise Type: we assume we have to instantiate Type
+            value = etype()
+        else:
+            # raise Type, X: assume X is the constructor argument
+            value = etype(value)
+    elif type(etype) is str:
+        # XXX warn -- deprecated
+        if value is not None and type(value) is not str:
+            raise TypeError("string exceptions can only have a string value")
+    else:
+        # raise X: we assume that X is an already-built instance
         if value is not None:
             raise TypeError("instance exception may not have a separate value")
         value = etype
         etype = value.__class__
-    elif isinstance(etype, type) and issubclass(etype, Exception):
-        if not isinstance(value,etype):
-            if value is None:
-                value = ()
-            elif not isinstance(value, tuple):
-                value = (value,)
-            value = etype(*value)
-    else:
-        raise TypeError("exceptions must be instances or subclasses of "
-                        "Exception or strings (deprecated), not %s" %
-                        (type(etype).__name__,))
+        # for the sake of language consistency we should not allow
+        # things like 'raise 1', but it's probably fine (i.e.
+        # not ambiguous) to allow them in the explicit form 'raise int, 1'
+        if not hasattr(value, '__dict__') and not hasattr(value, '__slots__'):
+            raise TypeError("raising built-in objects can be ambiguous, "
+                            "use 'raise type, value' instead")
     return etype, value, traceback
 
 def app_find_metaclass(bases, namespace, globals):
