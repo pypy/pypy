@@ -1,0 +1,45 @@
+
+
+def dict_update(d,o):
+    for k in o.keys():
+        d[k] = o[k]
+
+def dict_popitem(d):
+    k = d.keys()[0]
+    v = d[k]
+    del d[k]
+    return k, v
+
+def dict_get(d, k, v=None):
+    if d.has_key(k):
+        return d[k]
+    return v
+
+def dict_setdefault(d, k, v):
+    if d.has_key(k):
+        return d[k]
+    d[k] = v
+    return v
+
+def dict_pop_no_default(d, k):
+    v = d[k]
+    del d[k]
+    return v
+
+def dict_pop_with_default(d, k, v):
+    try:
+        v = d[k]
+        del d[k]
+    except KeyError:
+        pass
+    return v
+
+def dict_iteritems(d):
+    return iter(d.items())
+
+def dict_iterkeys(d):
+    return iter(d.keys())
+
+def dict_itervalues(d):
+    return iter(d.values())
+
