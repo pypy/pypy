@@ -51,6 +51,8 @@ def builtin_type(s_obj, *moreargs):
     #...
     return SomeObject()
 
+def builtin_str(s_obj):
+    return SomeString()
 
 # collect all functions
 import __builtin__
