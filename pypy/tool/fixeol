@@ -1,12 +1,56 @@
 #! /usr/bin/env python
-import os
+import sys, os
+
+forbidden = range(0,32)
+forbidden.remove(9)    # tab
+forbidden.remove(10)   # lf
+forbidden.remove(12)   # ^L
+forbidden.remove(13)   # cr
+
+def looksbinary(data, forbidden = [chr(i) for i in forbidden]):
+    for c in forbidden:
+        if c in data:
+            return True
+    return False
+
+# hack to get the platform's native end-of-line format
+f = open('@fixeol@tmp.txt', 'w')
+print >> f
+f.close()
+f = open('@fixeol@tmp.txt', 'rb')
+native_eol = f.read()
+f.close()
+os.unlink('@fixeol@tmp.txt')
+
+def binary2text(filename, native_eol = native_eol):
+    # convert to the platform's native end-of-line format if needed
+    f = open(filename, 'rb')
+    data = f.read()
+    f.close()
+    if looksbinary(data):
+        return False
+    original = data
+    data = data.replace('\r\n', '\n')
+    data = data.replace('\n', native_eol)
+    data = data.replace('\r', native_eol)
+    if data != original:
+        f = open(filename, 'wb')
+        f.write(data)
+        f.close()
+    return True
+
 
 def fixpyfiles(ignored, dirname, fnames):
     numpyfiles = 0
     for fname in fnames:
-        if fname.endswith('.py'):
-            # change end-of-line style of each .py file to 'native'
+        if fname.endswith('.py') or fname.endswith('.txt'):
+            # safety check to nail binary files
             fname = os.path.join(dirname, fname)
+            if not binary2text(fname):
+                print >> sys.stderr, "*** warning, looks like a binary file:",
+                print >> sys.stderr, fname
+                continue
+            # change end-of-line style of each .py and .txt file to 'native'
             os.system('svn propset svn:eol-style native %s' % fname)
             numpyfiles += 1
     if numpyfiles:
@@ -21,5 +65,7 @@ def fixpyfiles(ignored, dirname, fnames):
             g.close()
             os.system('svn propset svn:ignore -F svn-ignore.tmp %s' % dirname)
             os.unlink('svn-ignore.tmp')
+    if '.svn' in fnames:
+        fnames.remove('.svn')
 
 os.path.walk(os.curdir, fixpyfiles, None)
