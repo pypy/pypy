@@ -7,7 +7,7 @@ def descr__new__(space, w_longtype, w_value=None):
         w_obj = W_LongObject(space)
     else:
         w_obj = space.long(w_value)
-    return space.w_long.check_user_subclass(w_longtype, w_obj)
+    return space.w_long.build_user_subclass(w_longtype, w_obj)
 
 # ____________________________________________________________
 

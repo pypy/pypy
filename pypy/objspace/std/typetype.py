@@ -16,7 +16,7 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
         assert isinstance(key, str)
         dict_w[key] = space.getitem(w_dict, w_key)
     w_type = W_TypeObject(space, name, bases_w or [space.w_object], dict_w, None)
-    return space.w_type.check_user_subclass(w_typetype, w_type)
+    return space.w_type.build_user_subclass(w_typetype, w_type)
 
 def descr_get__mro__(space, w_type):
     # XXX this should be inside typeobject.py

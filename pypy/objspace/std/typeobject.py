@@ -62,7 +62,7 @@ class W_TypeObject(W_Object):
                 pass
         return None
 
-    def check_user_subclass(w_self, w_subtype, w_obj):
+    def build_user_subclass(w_self, w_subtype, w_obj):
         """This morphs an object newly created by the w_self's __new__
         function into an instance of a subclass of w_self if needed."""
         space = w_self.space

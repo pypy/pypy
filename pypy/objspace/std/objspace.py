@@ -299,6 +299,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     return self.wrap(cls.__dict__[name])
             return None
 
+    def build_user_subclass(self, typedef, w_subtype, w_obj):
+        w_type = self.gettypeobject(typedef)
+        return w_type.build_user_subclass(w_subtype, w_obj)
+
     def unpacktuple(self, w_tuple, expected_length=None):
         assert isinstance(w_tuple, W_TupleObject)
         t = w_tuple.wrappeditems

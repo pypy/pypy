@@ -8,7 +8,7 @@ def descr__new__(space, w_tupletype, w_items=None):
     else:
         tuple_w = space.unpackiterable(w_items)
     w_obj = space.newtuple(tuple_w)
-    return space.w_tuple.check_user_subclass(w_tupletype, w_obj)
+    return space.w_tuple.build_user_subclass(w_tupletype, w_obj)
 
 # ____________________________________________________________
 

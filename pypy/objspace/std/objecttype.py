@@ -24,7 +24,7 @@ def descr__new__(space, w_type, *args_w, **kwds_w):
     # XXX 2.2 behavior: ignoring all arguments
     from objectobject import W_ObjectObject
     w_obj = W_ObjectObject(space)
-    return space.w_object.check_user_subclass(w_type, w_obj)
+    return space.w_object.build_user_subclass(w_type, w_obj)
 
 def descr__init__(space, *args_w, **kwds_w):
     pass   # XXX 2.2. behavior: ignoring all arguments

@@ -13,7 +13,7 @@ def descr__new__(space, w_floattype, w_value=None):
                                      space.wrap(str(e)))
         else:
             w_obj = space.float(w_value)
-    return space.w_float.check_user_subclass(w_floattype, w_obj)
+    return space.w_float.build_user_subclass(w_floattype, w_obj)
 
 # ____________________________________________________________
 

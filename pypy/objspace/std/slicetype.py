@@ -98,7 +98,7 @@ def descr__new__(space, w_slicetype, *args_w):
         raise OperationError(space.w_TypeError,
                              space.wrap("slice() takes at least 1 argument"))
     w_obj = space.newslice(w_start, w_stop, w_step)
-    return space.w_slice.check_user_subclass(w_slicetype, w_obj)
+    return space.w_slice.build_user_subclass(w_slicetype, w_obj)
 
 # ____________________________________________________________
 

@@ -16,7 +16,7 @@ list_sort   = MultiMethod('sort',   2, defaults=(None,))
 
 def descr__new__(space, w_listtype, *args_w, **kwds_w):
     w_obj = space.newlist([])
-    return space.w_list.check_user_subclass(w_listtype, w_obj)
+    return space.w_list.build_user_subclass(w_listtype, w_obj)
 
 # ____________________________________________________________
 

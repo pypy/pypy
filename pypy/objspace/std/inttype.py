@@ -29,7 +29,7 @@ def descr__new__(space, w_inttype, w_value=None, w_base=None):
             raise OperationError(space.w_OverflowError,
                          space.wrap(str(e)))
         w_obj = W_IntObject(space, value)
-    return space.w_int.check_user_subclass(w_inttype, w_obj)
+    return space.w_int.build_user_subclass(w_inttype, w_obj)
 
 # ____________________________________________________________
 

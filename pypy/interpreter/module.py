@@ -15,8 +15,9 @@ class Module(Wrappable):
         self.w_name = w_name
         space.setitem(w_dict, space.wrap('__name__'), w_name)
 
-    def descr_module__new__(space, *args_w, **kwds_w):
-        return Module(space, space.wrap('?'))
+    def descr_module__new__(space, w_subtype, *args_w, **kwds_w):
+        w_obj = space.wrap(Module(space, space.wrap('?')))
+        return space.build_user_subclass(Module.typedef, w_subtype, w_obj)
 
     def descr_module__init__(self, w_name):
         space = self.space
