@@ -22,6 +22,9 @@ class Builtin(BuiltinModule):
         return self.space.len(w_obj)
     len = appmethod(len)
 
+    def str(self, w_obj):
+        return self.space.str(w_obj)
+    str = appmethod(str)
 
     def __import__(self,w_modulename,w_locals,w_globals,w_fromlist):
         space = self.space
