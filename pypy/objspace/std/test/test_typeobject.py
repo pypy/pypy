@@ -116,13 +116,27 @@ class TestTypeObject(testit.AppTestCase):
         self.assertEquals(type(HasInnerMetaclass), HasInnerMetaclass.__metaclass__)
 
     def test_implicit_metaclass(self):
+        global __metaclass__
+        try:
+            old_metaclass = __metaclass__
+            has_old_metaclass = True
+        except NameError:
+            has_old_metaclass = False
+            
         class __metaclass__(type):
             pass
 
         class HasImplicitMetaclass:
             pass
 
-        self.assertEquals(type(HasImplicitMetaclass), __metaclass__)
+        try:
+            self.assertEquals(type(HasImplicitMetaclass), __metaclass__)
+        finally:
+            if has_old_metaclass:
+                __metaclass__ = old_metaclass
+            else:
+                del __metaclass__
+
 
     def test_mro(self):
         class A_mro(object):
