@@ -2,7 +2,6 @@ from pypy.objspace.std.objspace import *
 from listtype import W_ListType
 from intobject import W_IntObject
 from sliceobject import W_SliceObject
-from instmethobject import W_InstMethObject
 from pypy.interpreter.extmodule import make_builtin_func
 from restricted_int import r_int, r_uint
 
