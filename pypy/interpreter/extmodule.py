@@ -35,7 +35,7 @@ class PyBuiltinCode(pycode.PyBaseCode):
             assert argname.startswith('w_')
             argnames.append(argname[2:])
         self.co_varnames = tuple(argnames)
-        self.co_argcount = co.co_argcount - 1
+        self.co_argcount = co.co_argcount - start
 
     def eval_code(self, space, w_globals, w_locals):
         # this isn't quite complete: varargs and kwargs are missing
