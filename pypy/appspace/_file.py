@@ -71,5 +71,5 @@ class file_(object):
     def __setattr__(self, attr, val):
         "Make some attributes readonly."
         if attr in ['mode', 'name', 'closed', 'encoding']:
-            raise TypeError('readonly attribute: %s' % attr)
+            raise TypeError, "readonly attribute:'%s'" % attr
         self.__dict__[attr] = val
