@@ -29,3 +29,12 @@ def bool_is_true(space, w_bool):
 
 StdObjSpace.is_true.register(bool_is_true, W_BoolObject)
 StdObjSpace.unwrap. register(bool_is_true, W_BoolObject)
+
+def bool_repr(space, w_bool):
+    if w_bool.boolval:
+        return space.wrap('True')
+    else:
+        return space.wrap('False')
+
+StdObjSpace.repr.register(bool_repr, W_BoolObject)
+        
