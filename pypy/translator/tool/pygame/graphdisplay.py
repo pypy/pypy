@@ -410,6 +410,8 @@ class GraphDisplay(Display):
         if edge:
             info = '%s -> %s' % (shortlabel(edge.tail.label),
                                  shortlabel(edge.head.label))
+            if edge.label:
+                info += '\n' + shortlabel(edge.label)
             self.setstatusbar(info)
             self.sethighlight(obj=edge)
             return
