@@ -160,6 +160,7 @@ class Transaction:
     def get_type(self, cell):
         """Get the type of 'cell', as specified by the annotations, or None."""
         # Returns None if cell is None.
+        assert isinstance(cell, XCell) or cell is None
         c = self.get('type', [cell])
         if isinstance(c, XConstant):
             return c.value

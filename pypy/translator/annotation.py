@@ -17,6 +17,10 @@ class Annotation:
         self.args   = list(args)  # list of XCells
         self.result = result      # an XCell
         self.forward_deps = []    # annotations that depend on this one
+        # catch bugs involving confusion between Variables/Constants
+        # and XCells/XConstants
+        for cell in args + [result]:
+            assert isinstance(cell, XCell)
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and 
