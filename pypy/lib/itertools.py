@@ -339,7 +339,7 @@ class imap:
 
 
 
-class islice:
+def islice(iterable, *args):
     """Make an iterator that returns selected elements from the
     iterable.  If start is non-zero, then elements from the iterable
     are skipped until start is reached. Afterward, elements are
@@ -351,63 +351,17 @@ class islice:
     step. Can be used to extract related fields from data where the
     internal structure has been flattened (for example, a multi-line
     report may list a name field on every third line).
-
-    Equivalent to :
-
-    def islice(iterable, *args):
-        s = slice(*args)
-        next, stop, step = s.start or 0, s.stop, s.step or 1
-        for cnt, element in enumerate(iterable):
-            if cnt < next:
-                continue
-            if stop is not None and cnt >= stop:
-                break
-            yield element
-            next += step
-    """
-    def __init__(self, iterable, arg, *other_args):
-        if len(other_args) > 2 :
-            raise TypeError("islice() takes at most 4 arguments, got %s" %
-                            (2 + len(other_args)))
-        self._enum = enumerate(iterable)
-        start, stop, step = 0, -1, 1
-        # We must do the same checks that in the CPython implementation
-        # Only one arg passed means it's the "stop" one
-        if not other_args:
-            stop = arg
-        else:
-            start = arg
-            try:
-                stop, step = other_args
-            except ValueError: # <=> No step specified
-                stop = other_args[0]
-            if not isinstance(start, int):
-                raise ValueError("Start argument must be an integer")
-        if stop is not None and not isinstance(stop, int):
-            raise ValueError("Stop argument must be an integer or None")
-        if start < 0 or (stop is not None and stop < -1):
-            raise ValueError("Indices for islice() must be non-negative integers.")
-        if step < 1:
-            raise ValueError("Step must be one or larger for islice()")
-        s = slice(start, stop, step)
-        self._next, self._stop, self._step = start, stop, step
-        # self._next, self._stop, self._step = s.start or 0, s.stop, s.step or 1
-        
-        
-    def __iter__(self):
-        return self
-
-    def next(self):
-        while True:
-            index, element = self._enum.next()
-            if self._stop is not None and index >= self._stop:
-                raise StopIteration()
-            if index < self._next:
-                continue
-            self._next += self._step
-            return element
-        
-        
+    """ 
+    s = slice(*args)
+    next, stop, step = s.start or 0, s.stop, s.step or 1
+    cnt = 0 
+    for element in enumerate(iterable):
+        if cnt < next:
+            continue
+        if stop is not None and cnt >= stop:
+            break
+        yield element
+        next += step
 
 class izip:
     """Make an iterator that aggregates elements from each of the
