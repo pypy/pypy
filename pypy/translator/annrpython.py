@@ -329,7 +329,7 @@ class RPythonAnnotator:
             cells = []
             for a in link.args:
                 if link.exitcase is True and a is knownvar \
-                       and self.binding(a).contains(knownvarvalue):
+                       and not knownvarvalue.contains(self.binding(a)):
                     cell = knownvarvalue
                 else:
                     cell = self.binding(a)

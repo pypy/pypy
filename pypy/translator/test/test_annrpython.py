@@ -283,6 +283,14 @@ class AnnonateTestCase(testit.IntTestCase):
         #a.translator.view()
         self.assertEquals(s.knowntype, int)
 
+    def test_flow_type_info_2(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.flow_type_info,
+                          [annmodel.SomeInteger(nonneg=True)])
+        # this checks that isinstance(i, int) didn't loose the
+        # actually more precise information that i is non-negative
+        self.assertEquals(s, annmodel.SomeInteger(nonneg=True))
+
     def test_flow_identity_info(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.flow_identity_info, [object, object])
