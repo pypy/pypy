@@ -106,7 +106,14 @@ class AnnotationSet:
     def generalize(self, predicate, subject, otherpossibleanswer):
         """Generalize the given annotation to also account for the given
         answer."""
-        oldanswer = self.get(predicate, subject)
+        # We shouldn't record a dependency so
+        # we can't just do 'oldanswer = self.get(predicate, subject)'
+        oldanswer = mostgeneralvalue
+        if subject is not mostgeneralvalue:
+            about = self._about(subject)
+            old = about.annotations.get(predicate)
+            if old:
+                oldanswer, dependencies = old
         newanswer = self.merge(oldanswer, otherpossibleanswer)
         if not self.isshared(oldanswer, newanswer):
             self.kill(predicate, subject)
