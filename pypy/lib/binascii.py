@@ -139,7 +139,7 @@ def a2b_base64(s):
     result = [
         chr(A << 2 | ((B >> 4) & 0x3)) + 
         chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF)) + 
-        chr((C & 0xF) << 6 | D )
+        chr((C & 0x3) << 6 | D )
         for A, B, C, D in a]
     final = s[-4:]
     if final[2] == '=':
@@ -159,7 +159,7 @@ def a2b_base64(s):
         D = table_a2b_base64[final[3]]
         snippet =  chr(A << 2 | ((B >> 4) & 0x3)) + \
                   chr((B & 0xF) << 4 | ((C >> 2 ) & 0xF)) + \
-                  chr((C & 0xF) << 6 | D )
+                  chr((C & 0x3) << 6 | D )
 
     return ''.join(result) + snippet
     
@@ -170,7 +170,7 @@ def b2a_base64(s):
     length = len(s)
     final_length = length % 3
     
-    a = triples(s[: -final_length])
+    a = triples(s[ :length - final_length])
 
     result = [''.join(
         [table_b2a_base64[( A >> 2                    ) & 0x3F],
@@ -179,10 +179,10 @@ def b2a_base64(s):
          table_b2a_base64[( C                         ) & 0x3F]])
               for A, B, C in a]
 
-    final = s[-final_length:]
-    if len(final) == 0:
+    final = s[length - final_length:]
+    if final_length == 0:
         snippet = ''
-    elif len(final) == 1:
+    elif final_length == 1:
         a = ord(final[0])
         snippet = table_b2a_base64[(a >> 2 ) & 0x3F] + \
                   table_b2a_base64[(a << 4 ) & 0x3F] + '=='
@@ -190,7 +190,7 @@ def b2a_base64(s):
         a = ord(final[0])
         b = ord(final[1])
         snippet = table_b2a_base64[(a >> 2) & 0x3F] + \
-                  table_b2a_base64[(a << 4) | ((b >> 4) & 0xF) & 0x3F] + \
+                  table_b2a_base64[((a << 4) | (b >> 4) & 0xF) & 0x3F] + \
                   table_b2a_base64[(b << 2) & 0x3F] + '='
     return ''.join(result) + snippet + '\n'
 
