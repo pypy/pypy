@@ -11,7 +11,7 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin 
 from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.factory import BlockedInference
+from pypy.annotation.factory import BlockedInference, generalize
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
 
@@ -110,10 +110,13 @@ class __extend__(SomeList):
 
 class __extend__(SomeDict):
     def iter(dct):
-	return SomeIterator(dct.s_key)
+        return SomeIterator(dct.s_key)
 
     def method_copy(dct):
-	return SomeDict(dct.factories, dct.s_key, dct.s_value)
+        return SomeDict(dct.factories, dct.s_key, dct.s_value)
+
+    def method_update(dct1, dct2):
+        generalize(dct1.factories, dct2.s_key, dct2.s_value)
     
 class __extend__(SomeString):
 

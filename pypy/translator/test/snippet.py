@@ -664,3 +664,8 @@ def simple_iter(x):
 
 def dict_copy(d):
     return d.copy()
+
+def dict_update(x):
+    d = {x:x}
+    d.update({1:2})
+    return d
