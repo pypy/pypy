@@ -4,7 +4,7 @@ Define names for all type symbols known in the standard interpreter.
 
 Types that are part of optional modules (e.g. array) are not listed.
 """
-#from __future__ import generators
+from __future__ import generators
 
 import sys
 

@@ -12,7 +12,6 @@ due to numerical problems with floor() in complex.__div__.
 import math
 import cmath
 import sys
-import types
 import unittest
 import autopath
 
