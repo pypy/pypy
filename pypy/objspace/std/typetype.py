@@ -26,12 +26,22 @@ def descr_get__mro__(space, w_type):
 def descr__bases(space, w_type):
     return space.newtuple(w_type.bases_w)
 
+def descr__base(space, w_type):
+    if w_type is space.w_object:
+        return space.w_None
+    b = w_type.instancetypedef.base
+    if b is not None:
+        return space.gettypeobject(b)
+    else:
+        return space.w_object
+
 # ____________________________________________________________
 
 type_typedef = StdTypeDef("type",
     __new__ = newmethod(descr__new__),
     __name__ = attrproperty('name'),
     __bases__ = GetSetProperty(descr__bases),
+    __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
     __dict__ = default_dict_descr,
     )

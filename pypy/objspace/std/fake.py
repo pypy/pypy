@@ -43,7 +43,11 @@ def fake_type(space, cpy_type):
         return w_obj.val
     kw['__new__'] = gateway.interp2app(fake__new__)
     if cpy_type.__base__ is not object:
-        base = space.wrap(cpy_type.__base__).instancetypedef
+        n = 'w_' + cpy_type.__base__.__name__
+        if hasattr(space, n):
+            base = getattr(space, n).instancetypedef
+        else:
+            base = space.wrap(cpy_type.__base__).instancetypedef
     else:
         base = None
     class W_Fake(W_Object):

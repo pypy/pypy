@@ -58,6 +58,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             from pypy.objspace.std.tupletype  import tuple_typedef
             from pypy.objspace.std.listtype   import list_typedef
             from pypy.objspace.std.dicttype   import dict_typedef
+            from pypy.objspace.std.basestringtype import basestring_typedef
             from pypy.objspace.std.stringtype import str_typedef
             from pypy.objspace.std.typetype   import type_typedef
             from pypy.objspace.std.slicetype  import slice_typedef

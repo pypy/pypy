@@ -1,4 +1,6 @@
 from pypy.objspace.std.stdtypedef import *
+from pypy.objspace.std.basestringtype import basestring_typedef
+
 
 str_join    = MultiMethod('join', 2)
 str_split   = MultiMethod('split', 3, defaults=(None,-1))
@@ -51,7 +53,7 @@ def descr__new__(space, w_stringtype, w_obj=None):
 
 # ____________________________________________________________
 
-str_typedef = StdTypeDef("str",
+str_typedef = StdTypeDef("str", basestring_typedef,
     __new__ = newmethod(descr__new__),
     )
 str_typedef.registermethods(globals())

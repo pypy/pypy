@@ -11,7 +11,6 @@ __builtins__['__debug__']  = True
 
 object = __interplevel__eval('space.w_object')
 # XXX these are faked:
-basestring = __interplevel__eval('space.wrap(basestring)')
 unicode = __interplevel__eval('space.wrap(unicode)')
 file = __interplevel__eval('space.wrap(file)')
 open = file
