@@ -40,7 +40,60 @@ def getdisresult(obj, _cache={}):
         disresult = _cache[obj] = pydis.pydis(obj)
         return disresult
 
+import repr
+def get_repr():
+    " Our own repr function for pretty print. "
+    repr_obj = repr.Repr()
+    repr_obj.maxstring = 120
+    repr_obj.maxother = 120
+
+    def our_repr(*args):
+        try:
+            return repr_obj.repr(*args)
+
+        except:
+            return "ERROR"
+
+    return our_repr
+Repr = get_repr()
+
+def line_begin(indent):
+    if indent:
+        return ("  " * indent) + "|-"
+    else:
+        return ""
+    
+def print_result(traceres):
+    indentor = '    '
+    lastframe = None
+    frame_count = 0
+    indent = ""
+    for event in traceres.getevents():
+        if isinstance(event, trace.EnterFrame):
+            print line_begin(frame_count) + ("<<<<<enter %s >>>>>>>" % event.frame)
+            lastframe = event.frame
+            frame_count += 1
+        elif isinstance(event, trace.LeaveFrame):
+            frame_count -= 1
+            print line_begin(frame_count) + ("<<<<<leave %s >>>>>>>" % lastframe)
+        elif isinstance(event, trace.ExecBytecode):
+            disresult = getdisresult(event.frame) 
+            print line_begin(frame_count), event.index, "      ", disresult.getbytecode(event.index)
+            lastframe = event.frame
+
+        elif isinstance(event, trace.CallBegin):
+            info = event.callinfo
+            if info.name in operations:
+                print line_begin(frame_count), " " * 40, info.name, repr_args(lastframe, info.args)
+                indent += indentor 
+        elif isinstance(event, trace.CallFinished):
+            indent = indent[:-len(indentor)]
+        else:
+            pass
+    
+
 def trace_function(space, fn, *arg, **kwds):
+    
     funcres, traceres = perform_trace(space, fn, *arg, **kwds)
     indentor = '    '
     indent = ' '
@@ -75,7 +128,7 @@ def repr_args(frame, args):
         elif frame and space.is_true(space.is_(arg, space.w_builtins)):
             l.append('w_builtins')
         else:
-            l.append(repr(arg) [:50])
+            l.append(Repr(arg) [:50])
     return ", ".join(l)
 
 def app_test():
@@ -83,33 +136,20 @@ def app_test():
     for i in range(10):
         print i
     
-    return "Hello World"
 
 def test():
     space = TrivialObjSpace()
     #space = StdObjSpace()
+    
+
     funcres, traceres =  trace_function(space, app_test)
     print "function result -->", funcres
 
-test()
-                   
-"""
-import repr
-def get_repr():
-    " Our own repr function for pretty print. "
-    repr_obj = repr.Repr()
-    repr_obj.maxstring = 120
-    repr_obj.maxother = 120
-
-    def our_repr(*args):
-        try:
-            return repr_obj.repr(*args)
-
-        except:
-            return "ERROR"
-
-    return our_repr
-"""
+## from earthenware.utils.stacktrace
+## try:
+##     test()
+## except:
+##     earthenware.utils.stacktrace.print_exception(sys.
  
 ## def rpretty_print(spacedump):
 ##     " Pretty print for rdump() calls to Trace object spaces. "
