@@ -20,11 +20,14 @@ class W_TypeObject(W_Object):
         w_self.dict_w = dict_w
         w_self.ensure_static__new__()
         w_self.nslots = 0
+        w_self.w_bestbase = None
 
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
             w_self.hasdict = overridetypedef.hasdict
             w_self.w__flags__ = space.wrap(0) # not a heaptype
+            if overridetypedef.base is not None:
+                w_self.w_bestbase = space.gettypeobject(overridetypedef.base)
         else:
             w_self.w__flags__ = space.wrap(_HEAPTYPE)
             # find the most specific typedef
@@ -33,7 +36,9 @@ class W_TypeObject(W_Object):
                 if not space.is_true(space.isinstance(w_base, space.w_type)):
                     continue
                 if issubtypedef(w_base.instancetypedef, instancetypedef):
-                    instancetypedef = w_base.instancetypedef
+                    if instancetypedef is not w_base.instancetypedef:
+                        instancetypedef = w_base.instancetypedef
+                        w_self.w_bestbase = w_base
                 elif not issubtypedef(instancetypedef, w_base.instancetypedef):
                     raise OperationError(space.w_TypeError,
                                 space.wrap("instance layout conflicts in "
@@ -64,6 +69,7 @@ class W_TypeObject(W_Object):
                 w_self.hasdict = w_self.hasdict or w_base.hasdict
             if w_most_derived_base_with_slots:
                 nslots = w_most_derived_base_with_slots.nslots
+                self.w_bestbase = w_most_derived_base_with_slots
             else:
                 nslots = 0
   

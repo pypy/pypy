@@ -73,13 +73,12 @@ def descr__bases(space, w_type):
 
 def descr__base(space, w_type):
     w_type = _check(space, w_type)
-    if w_type is space.w_object:
-        return space.w_None
-    b = w_type.instancetypedef.base
-    if b is not None:
-        return space.gettypeobject(b)
-    else:
+    if w_type.w_bestbase is not None:
+        return w_type.w_bestbase
+    elif w_type is not space.w_object:
         return space.w_object
+    else:
+        return space.w_None
 
 def descr__doc(space, w_type):
     w_type = _check(space, w_type)
