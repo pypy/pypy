@@ -219,6 +219,12 @@ class file(object):
 _register(pypy.FileObjectFactory, file, in_builtin='open')
 
 
+# XXX: for float as for all other classes, __new__ defers to a suitable
+# factory from pypy; in floattype.py, the implementation of __new__ was
+# quite differently, but we think that was not needed -- remove this
+# comment once this is definitively established.
+# NB: other rich implementations of __new__ from old *type.py modules
+# not reproduced here: int, slice, str, tuple, type
 class float(object):
 
     def __new__(cls, *args):
@@ -408,6 +414,49 @@ class slice(object):
 
     def __repr__(self):
         return str(self)
+
+    def indices(self, length):
+        step = self.step
+        if step is None:
+            step = 1
+        elif step == 0:
+            raise ValueError, "slice step cannot be zero"
+        if step < 0:
+            defstart = length - 1
+            defstop = -1
+        else:
+            defstart = 0
+            defstop = length
+
+        start = self.start
+        if start is None:
+            start = defstart
+        else:
+            if start < 0:
+                start += length
+                if start < 0:
+                    if step < 0:
+                        start = -1
+                    else:
+                        start = 0
+            elif start >= length:
+                if step < 0:
+                    start = length - 1
+                else:
+                    start = length
+
+        stop = self.stop
+        if stop is None:
+            stop = defstop
+        else:
+            if stop < 0:
+                stop += length
+                if stop < 0:
+                    stop = -1
+            elif stop > length:
+                stop = length
+
+        return start, stop, step
 
 _register(pypy.SliceObjectFactory, slice)
 
