@@ -95,7 +95,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         """NOT_RPYTHON"""
         from pypy.module import classobjinterp
         # sanity check that this approach is working and is not too late
-        assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_classobj')))
+        assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_classobj'))),"app-level code has seen dummy old style classes"
         w_setup = classobjinterp.initclassobj(self)
         w_classobj, w_instance, w_purify = self.unpackiterable(w_setup)
         self.call_function(w_purify)
