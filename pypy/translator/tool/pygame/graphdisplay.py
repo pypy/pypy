@@ -270,7 +270,7 @@ class GraphDisplay(Display):
 
     def drawstatusbar(self):
         text, fgcolor, bgcolor = self.statusbarinfo
-        lines = renderline(text, self.font, fgcolor, self.width)
+        lines = rendertext(text, self.font, fgcolor, self.width)
         totalh = 0
         for img in lines:
             w, h = img.get_size()

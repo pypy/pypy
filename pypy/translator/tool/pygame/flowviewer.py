@@ -54,8 +54,8 @@ class VariableHistoryGraphLayout(GraphLayout):
         self.linkinfo[linkname] = position_key
         # It would be nice to get the block name somehow
         blockname = block.__class__.__name__
-        self.links[linkname] = '%s, %s, position %r' % (basename, blockname,
-                                                       pos)
+        self.links[linkname] = '%s, %s, position %r:\n%s' % (basename,
+                                        blockname, pos, block.operations[pos])
         return '%s %s' % (wording, linkname)
 
     def followlink(self, funcname):
@@ -187,7 +187,7 @@ class TranslatorLayout(GraphLayout):
                     source = inspect.getsource(func)
                 except IOError:   # e.g. when func is defined interactively
                     source = func.func_name
-                data = '%s:%d  %s' % (func.func_globals.get('__name__', '?'),
+                data = '%s:%d\n%s' % (func.func_globals.get('__name__', '?'),
                                       func.func_code.co_firstlineno,
                                       source.split('\n')[0])
             self.links[name] = data
