@@ -56,7 +56,7 @@ class GenC:
                        }
         self.seennames = {}
         self.initcode = [      # list of lines for the module's initxxx()
-            'import new, types',
+            'import new, types, sys',
             'Py_None  = None',
             'Py_False = False',
             'Py_True  = True',
@@ -259,7 +259,7 @@ class GenC:
         if hasattr(instance,'__reduce_ex__'):
             import copy_reg
             reduced = instance.__reduce_ex__()
-            assert reduced[0] is copy_reg._reconstructor
+            assert reduced[0] is copy_reg._reconstructor,"not clever enough"
             assert reduced[1][1] is base_class, "not clever enough for %r vs. %r" % (base_class, reduced)
             state = reduced[1][2]
         else:
@@ -435,11 +435,17 @@ class GenC:
 
     def nameof_file(self, fil):
         if fil is sys.stdin:
-            return 'PySys_GetObject("stdin")'
+            name = self.uniquename("gsys_stdin")
+            self.initcode_python(name, "sys.stdin")
+            return name
         if fil is sys.stdout:
-            return 'PySys_GetObject("stdout")'
+            name = self.uniquename("gsys_stdout")
+            self.initcode_python(name, "sys.stdout")
+            return name
         if fil is sys.stderr:
-            return 'PySys_GetObject("stderr")'
+            name = self.uniquename("gsys_stderr")
+            self.initcode_python(name, "sys.stderr")
+            return name
         raise Exception, 'Cannot translate an already-open file: %r' % (fil,)
 
     def gen_source(self):
