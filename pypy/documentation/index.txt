@@ -1,66 +1,44 @@
-Pypy Documentation 
-==================
+=================================================
+PyPy - a Python_ implementation written in Python 
+=================================================
 
-We have a fair amount of documentation for the Pypy project. The files
-are available from the website as html (view them along the left side of
-the pypy-doc webpage). They are also available from the repository,
-under the *doc/* directory or under the *doc/devel* sub-directory. Or,
-to catch up on what we've been up to lately, just peek at the
-recently-modified_ documents page.
+recently-modified_  
 
-Overview
---------
+.. _Python: http://www.python.org/dev/doc/maint24/ref/ref.html
 
-If you just want an overview of the project, take a look at these items in *doc/*.
+Here are some good entry points into PyPy's world: 
 
  * architecture_:
-	a more technical overview of the current architecture 
-
- * oscon2003-paper_:
-	presentation to OSCON on what pypy is about and why you should care
-
-
-Getting Started
----------------
-
-If you want to get involved, take a look at the following documentation  to get a better taste:
-
-These file are in the *doc/* directory:
+	a technical overview of PyPy's current architecture 
 
  * howtopypy_:
-	provides some hands-on instructions for getting started
-	
-
- * readme_:
-	this file is on using ReST for pypy documentation
+    provides some hands-on instructions for getting started, 
+    including a two-liner to run PyPy on your computer. 
 
 
- * wrapping_:
-	a description of application-level and interpreter-level wrapped 		objects
-
-This file is in the *doc/* sub-directory:
-
- * howtosvn_:
-	for new users of subversion
-
-Before you code
----------------
-
-Before doing pypy work, you should also take a look at these developer-specific instructions, found in the *doc/* sub-directory of the repository:
+Before doing pypy coding, you might also take a look at these 
+developer-specific instructions: 
 
  * coding-style_:
 	covers pypy coding conventions
 
-	
-
  * optionaltool_:
 	there are some optional tools we use for pypy. 
 
- * testdesign_:
-	pypy is a test-driven development project.read here to find out more 	about how we're doing testing.
+ * wrapping_:
+    a description of the crucial distinction between application-level and 
+    interpreter-level objects (without understanding this you might 
+    have difficulties understanding PyPy's source code). 
 
-Further reading
----------------
+ * oscon2003-paper_:
+	presentation to OSCON on what pypy is about and why you should care
+
+ * testdesign_:
+    pypy is a test-driven development project. Read here to find out 
+    more about how we're doing testing.
+
+Further reading / related projects 
+----------------------------------
 
 * An interesting thread on an HP tech report that may be proof the pypy is feasible_ . (We already knew that...)
 
