@@ -175,30 +175,97 @@ class ClassDefPage(GraphPage):
         
         self.source = dotgen.generate(target=None)
 
+class BaseTranslatorPage(GraphPage):
+    """Abstract GraphPage for showing some of the call graph between functions
+    and possibily the class hierarchy."""
 
-class TranslatorPage(GraphPage):
-    """A GraphPage showing a the call graph between functions
-    as well as the class hierarchy."""
+    def graph_name(self, *args):
+        raise NotImplementedError
 
-    def compute(self, translator):
+    def compute(self, translator, *args):
         self.translator = translator
         self.object_by_name = {}
         self.name_by_object = {}
-        dotgen = DotGen('translator')
+        dotgen = DotGen(self.graph_name(*args))
         dotgen.emit('mclimit=15.0')
 
-        # show the call graph
-        functions = translator.functions
+        self.do_compute(dotgen, *args)
+        
+        self.source = dotgen.generate(target=None)
+
+        # link the function names to the individual flow graphs
+        for name, obj in self.object_by_name.iteritems():
+            if isinstance(obj, ClassDef):
+                #data = '%s.%s' % (obj.cls.__module__, obj.cls.__name__)
+                data = repr(obj.cls)
+            else:
+                func = obj
+                try:
+                    source = inspect.getsource(func)
+                except IOError:   # e.g. when func is defined interactively
+                    source = func.func_name
+                data = '%s:%d\n%s' % (func.func_globals.get('__name__', '?'),
+                                      func.func_code.co_firstlineno,
+                                      source.split('\n')[0])
+            self.links[name] = data
+
+    def get_blocked_functions(self, functions):
+        translator = self.translator
         blocked_functions = {}
         if translator.annotator:
             # don't use translator.annotator.blocked_functions here because
             # it is not populated until the annotator finishes.
             annotated = translator.annotator.annotated
-            for fn, graph in translator.flowgraphs.items():
+            for fn in functions:
+                graph = translator.flowgraphs[fn]
                 def visit(node):
                     if annotated.get(node) is False:
                         blocked_functions[fn] = True
                 traverse(visit, graph)
+
+        return blocked_functions
+
+    def compute_class_hieararchy(self, dotgen):
+        # show the class hierarchy
+        if self.translator.annotator:
+            dotgen.emit_node(nameof(None), color="red", shape="octagon",
+                             label="Root Class\\nobject")
+            for classdef in self.translator.annotator.getuserclassdefinitions():
+                data = self.labelof(classdef, classdef.cls.__name__)
+                dotgen.emit_node(nameof(classdef), label=data, shape="box")
+                dotgen.emit_edge(nameof(classdef.basedef), nameof(classdef))
+             
+    def labelof(self, obj, objname):
+        name = objname
+        i = 1
+        while name in self.object_by_name:
+            i += 1
+            name = '%s__%d' % (objname, i)
+        self.object_by_name[name] = obj
+        self.name_by_object[obj] = name
+        return name
+
+    def followlink(self, name):
+        obj = self.object_by_name[name]
+        if isinstance(obj, ClassDef):
+            return ClassDefPage(self.translator, obj)
+        else:
+            return FlowGraphPage(self.translator, [obj], self.name_by_object)
+
+class TranslatorPage(BaseTranslatorPage):
+    """A GraphPage showing a the call graph between functions
+    as well as the class hierarchy."""
+
+    def graph_name(self):
+        return 'translator'
+
+    def do_compute(self, dotgen):
+        translator = self.translator
+
+        # show the call graph
+        functions = translator.functions
+        blocked_functions = self.get_blocked_functions(functions)
+
         highlight_functions = getattr(translator, 'highlight_functions', {}) # XXX
         dotgen.emit_node('entry', fillcolor="green", shape="octagon",
                          label="Translator\\nEntry Point")
@@ -220,48 +287,7 @@ class TranslatorPage(GraphPage):
             dotgen.emit_edge(nameof(f1), nameof(f2))
 
         # show the class hierarchy
-        if self.translator.annotator:
-            dotgen.emit_node(nameof(None), color="red", shape="octagon",
-                             label="Root Class\\nobject")
-            for classdef in self.translator.annotator.getuserclassdefinitions():
-                data = self.labelof(classdef, classdef.cls.__name__)
-                dotgen.emit_node(nameof(classdef), label=data, shape="box")
-                dotgen.emit_edge(nameof(classdef.basedef), nameof(classdef))
-        
-        self.source = dotgen.generate(target=None)
-
-        # link the function names to the individual flow graphs
-        for name, obj in self.object_by_name.iteritems():
-            if isinstance(obj, ClassDef):
-                #data = '%s.%s' % (obj.cls.__module__, obj.cls.__name__)
-                data = repr(obj.cls)
-            else:
-                func = obj
-                try:
-                    source = inspect.getsource(func)
-                except IOError:   # e.g. when func is defined interactively
-                    source = func.func_name
-                data = '%s:%d\n%s' % (func.func_globals.get('__name__', '?'),
-                                      func.func_code.co_firstlineno,
-                                      source.split('\n')[0])
-            self.links[name] = data
-
-    def labelof(self, obj, objname):
-        name = objname
-        i = 1
-        while name in self.object_by_name:
-            i += 1
-            name = '%s__%d' % (objname, i)
-        self.object_by_name[name] = obj
-        self.name_by_object[obj] = name
-        return name
-
-    def followlink(self, name):
-        obj = self.object_by_name[name]
-        if isinstance(obj, ClassDef):
-            return ClassDefPage(self.translator, obj)
-        else:
-            return FlowGraphPage(self.translator, [obj], self.name_by_object)
+        self.compute_class_hieararchy(dotgen)
 
 
 def nameof(obj, cache={}):
