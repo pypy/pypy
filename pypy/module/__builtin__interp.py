@@ -237,6 +237,7 @@ def eval(w_source, w_globals=None, w_locals=None):
     return space.unwrap(w_codeobj).exec_code(space, w_globals, w_locals)
 
 def abs(w_val):
+    "abs(number) -> number\n\nReturn the absolute value of the argument."
     return space.abs(w_val)
 
 def chr(w_ascii):

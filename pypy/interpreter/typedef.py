@@ -128,7 +128,7 @@ def attrproperty_w(name):
 # Definition of the type's descriptors for all the internal types
 
 from pypy.interpreter.eval import Code, Frame
-from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame, ControlFlowException
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, Method, StaticMethod
@@ -150,15 +150,40 @@ def descr_set_dict(space, w_obj, w_dict):
 default_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict)
 
 
+# co_xxx interface emulation for built-in code objects
+def fget_co_varnames(space, w_code):
+    code = space.unwrap_builtin(w_code)
+    return space.newtuple([space.wrap(name) for name in code.getvarnames()])
+
+def fget_co_argcount(space, w_code):
+    code = space.unwrap_builtin(w_code)
+    argnames, varargname, kwargname = code.signature()
+    return space.wrap(len(argnames))
+
+def fget_co_flags(space, w_code):
+    code = space.unwrap_builtin(w_code)
+    argnames, varargname, kwargname = code.signature()
+    flags = 0
+    if varargname is not None: flags |= CO_VARARGS
+    if kwargname  is not None: flags |= CO_VARKEYWORDS
+    return space.wrap(flags)
+
+def fget_co_consts(space, w_code):
+    code = space.unwrap_builtin(w_code)
+    w_docstring = space.wrap(code.getdocstring())
+    return space.newtuple([w_docstring])
+
 Code.typedef = TypeDef('internal-code',
     co_name = attrproperty('co_name'),
-    # XXX compute more co_xxx from the methods in Code
+    co_varnames = GetSetProperty(fget_co_varnames),
+    co_argcount = GetSetProperty(fget_co_argcount),
+    co_flags = GetSetProperty(fget_co_flags),
+    co_consts = GetSetProperty(fget_co_consts),
     )
 
 Frame.typedef = TypeDef('internal-frame',
     f_code = attrproperty('code'),
-    f_locals = GetSetProperty(Frame.fget_getdictscope.im_func,
-                              ), # , setdictscope), XXX
+    f_locals = GetSetProperty(Frame.fget_getdictscope.im_func),
     f_globals = attrproperty_w('w_globals'),
     )
 

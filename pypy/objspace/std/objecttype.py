@@ -33,7 +33,7 @@ def descr__new__(space, w_type, __args__):
     w_obj.__init__(space)
     return w_obj
 
-def descr__init__(space, __args__):
+def descr__init__(space, w_obj, __args__):
     pass
 
 # ____________________________________________________________

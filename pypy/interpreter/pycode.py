@@ -87,6 +87,12 @@ class PyCode(eval.Code):
     def getvarnames(self):
         return self.co_varnames
 
+    def getdocstring(self):
+        if self.co_consts:   # it is probably never empty
+            return self.co_consts[0]
+        else:
+            return None
+
     def dictscope_needed(self):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.

@@ -46,6 +46,8 @@ class Code(Wrappable):
             argcount += 1
         return argcount
 
+    def getdocstring(self):
+        return None
 
 UNDEFINED = object()  # marker for undefined local variables
 
@@ -83,7 +85,7 @@ class Frame(Wrappable):
         return self.w_locals
 
     def fget_getdictscope(space, w_self):
-        self = space.unwrap(w_self)
+        self = space.unwrap_builtin(w_self)
         return self.getdictscope()
 
     def setdictscope(self, w_locals):

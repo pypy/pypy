@@ -28,6 +28,7 @@ class BuiltinCode(eval.Code):
         # Note that this uses a lot of (construction-time) introspection.
         eval.Code.__init__(self, func.__name__)
         self.func = func
+        self.docstring = func.__doc__
         # extract the signature from the (CPython-level) code object
         tmp = pycode.PyCode(None)
         tmp._from_code(func.func_code)
@@ -81,6 +82,9 @@ class BuiltinCode(eval.Code):
 
     def signature(self):
         return self.sig
+
+    def getdocstring(self):
+        return self.docstring
 
 
 class BuiltinFrame(eval.Frame):

@@ -12,6 +12,7 @@ from __interplevel__ import warnoptions, builtin_module_names
 # Objects from interpreter-level
 from __interplevel__ import stdin, stdout, stderr, maxint
 from __interplevel__ import hexversion, platform
+from __interplevel__ import pypy_objspaceclass
 
 # Functions from interpreter-level
 from __interplevel__ import displayhook, _getframe, exc_info

@@ -7,7 +7,7 @@
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import *
 from pypy.objspace.descroperation import DescrOperation, Object
-import operator, types, sys
+import types, sys
 import __builtin__ as cpy_builtin
 
 class CPyWrapper(object):
@@ -134,6 +134,9 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             # optional check for double-wrapping
             if isinstance(x, CPyWrapper):
                 raise TypeError, "wrapping an already-wrapped object"
+            # grumble grumble grumble recursive wrapping grumble
+            if isinstance(x, tuple):
+                return tuple([self.wrap(y) for y in x])
             return x
 
     def unwrap(self, w):
@@ -246,31 +249,51 @@ class TrivialObjSpace(ObjSpace, DescrOperation):
             nv = evalue
         raise OperationError, OperationError(nt, nv), etb
 
-    def _auto(name, sourcefn, classlocals):
-        s = """
-def %(name)s(self, x, *args):
-    try:
-        value = %(sourcefn)s(x, *args)
-    except:
-        self.reraise()
-    return self.wrap(value)
-""" % locals()
-        exec s in globals(), classlocals
-
     # from the built-ins
-    _auto('issubtype', 'issubclass', locals())
-    _auto('newtuple',  'tuple',      locals())
-    _auto('newlist',   'list',       locals())
-    _auto('newdict',   'dict',       locals())
-    _auto('newslice',  'slice',      locals())
-    is_true   = operator.truth
-    # 'is_true' is not called 'truth' because it returns a *non-wrapped* boolean
+    def issubtype(self, w_x, w_y):
+        try:
+            return issubclass(w_x, w_y)
+        except:
+            self.reraise()
 
-    for _name in ('type', 'ord', 'round'):
-        _auto(_name, _name, locals())
+    def newtuple(self, args_w):
+        return tuple(args_w)
 
-    def not_(self, w_obj):  # default implementation
-        return self.wrap(not self.is_true(w_obj))
+    def newlist(self, args_w):
+        return list(args_w)
+
+    def newdict(self, items_w):
+        try:
+            return dict(items_w)
+        except:
+            self.reraise()
+
+    def newslice(self, *args_w):
+        try:
+            return slice(*args_w)
+        except:
+            self.reraise()
+
+    def is_true(self, w_obj):
+        return not not w_obj
+
+    def not_(self, w_obj):
+        return not w_obj
+
+    def type(self, w_x):
+        return type(w_x)
+
+    def ord(self, w_x):
+        try:
+            return ord(w_x)
+        except:
+            self.reraise()
+
+    def round(self, w_x):
+        try:
+            return round(w_x)
+        except:
+            self.reraise()
 
     def iter(self, w_obj):
         if isinstance(w_obj, str) and not hasattr(w_obj, '__iter__'):

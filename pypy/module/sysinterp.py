@@ -74,6 +74,8 @@ w_stdin  = space.wrap(cpy_sys.stdin)
 w_stdout = space.wrap(cpy_sys.stdout)
 w_stderr = space.wrap(cpy_sys.stderr)
 
+w_pypy_objspaceclass = space.wrap(space.__class__.__name__)
+
 # ____________________________________________________________
 
 def setmodule(w_module):
