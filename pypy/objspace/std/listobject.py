@@ -45,7 +45,7 @@ class W_ListObject(W_Object):
     def pop(w_self, w_idx=-1):
         return list_pop(w_self.space, w_self, w_idx)
 
-    pop =  implmethod().register(pop, W_IntObject)
+    pop = implmethod().register(pop, W_IntObject)
 
     def remove(w_self, w_any):
         return list_remove(w_self.space, w_self, w_any)
@@ -87,7 +87,8 @@ StdObjSpace.len.register(list_len, W_ListObject)
 def getitem_list_int(space, w_list, w_index):
     items = w_list.ob_item
     idx = w_index.intval
-    if idx < 0: idx += w_list.ob_size
+    if idx < 0:
+        idx += w_list.ob_size
     if idx < 0 or idx >= w_list.ob_size:
         raise OperationError(space.w_IndexError,
                              space.wrap("list index out of range"))
@@ -202,7 +203,8 @@ StdObjSpace.lt.register(list_lt, W_ListObject, W_ListObject)
 def setitem_list_int(space, w_list, w_index, w_any):
     items = w_list.ob_item
     idx = w_index.intval
-    if idx < 0: idx += w_list.ob_size
+    if idx < 0:
+        idx += w_list.ob_size
     if idx < 0 or idx >= w_list.ob_size:
         raise OperationError(space.w_IndexError,
                              space.wrap("list index out of range"))
