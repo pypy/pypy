@@ -1,4 +1,13 @@
+# -*- coding: iso-8859-1 -*-
 import autopath
+from py.test import raises
+from pypy.interpreter.gateway import app2interp_temp
+
+def app_init_globals_via_builtins_hack():
+    import __builtin__ as b
+    import cStringIO, sys
+    b.cStringIO = cStringIO
+    b.sys = sys
 
 class TestSysTests:
     def setup_method(self,method):
@@ -85,3 +94,257 @@ class AppTestAppSysTests:
             assert isinstance(val, etype)
         else:
             raise AssertionError, "ZeroDivisionError not caught"
+
+
+
+
+
+class AppTestSysModulePortedFromCPython:
+
+    def setup_class(cls):
+        app2interp_temp(app_init_globals_via_builtins_hack)(cls.space)
+
+    def test_original_displayhook(self):
+        import __builtin__
+        savestdout = sys.stdout
+        out = cStringIO.StringIO()
+        sys.stdout = out
+
+        dh = sys.__displayhook__
+
+        raises(TypeError, dh)
+        if hasattr(__builtin__, "_"):
+            del __builtin__._
+
+        dh(None)
+        assert out.getvalue() == ""
+        assert not hasattr(__builtin__, "_")
+        dh(42)
+        assert out.getvalue() == "42\n"
+        assert __builtin__._ == 42
+
+        del sys.stdout
+        raises(RuntimeError, dh, 42)
+
+        sys.stdout = savestdout
+
+    def test_lost_displayhook(self):
+        olddisplayhook = sys.displayhook
+        del sys.displayhook
+        code = compile("42", "<string>", "single")
+        raises(RuntimeError, eval, code)
+        sys.displayhook = olddisplayhook
+
+    def test_custom_displayhook(self):
+        olddisplayhook = sys.displayhook
+        def baddisplayhook(obj):
+            raise ValueError
+        sys.displayhook = baddisplayhook
+        code = compile("42", "<string>", "single")
+        raises(ValueError, eval, code)
+        sys.displayhook = olddisplayhook
+
+    def test_original_excepthook(self):
+        import cStringIO
+        savestderr = sys.stderr
+        err = cStringIO.StringIO()
+        sys.stderr = err
+
+        eh = sys.__excepthook__
+
+        raises(TypeError, eh)
+        try:
+            raise ValueError(42)
+        except ValueError, exc:
+            eh(*sys.exc_info())
+
+        sys.stderr = savestderr
+        assert err.getvalue().endswith("ValueError: 42\n")
+
+    # FIXME: testing the code for a lost or replaced excepthook in
+    # Python/pythonrun.c::PyErr_PrintEx() is tricky.
+
+    def test_exc_clear(self):
+        raises(TypeError, sys.exc_clear, 42)
+
+        # Verify that exc_info is present and matches exc, then clear it, and
+        # check that it worked.
+        def clear_check(exc):
+            typ, value, traceback = sys.exc_info()
+            assert typ is not None
+            assert value is exc
+            assert traceback is not None
+
+            sys.exc_clear()
+
+            typ, value, traceback = sys.exc_info()
+            assert typ is None
+            assert value is None
+            assert traceback is None
+
+        def clear():
+            try:
+                raise ValueError, 42
+            except ValueError, exc:
+                clear_check(exc)
+
+        # Raise an exception and check that it can be cleared
+        clear()
+
+        # Verify that a frame currently handling an exception is
+        # unaffected by calling exc_clear in a nested frame.
+        try:
+            raise ValueError, 13
+        except ValueError, exc:
+            typ1, value1, traceback1 = sys.exc_info()
+            clear()
+            typ2, value2, traceback2 = sys.exc_info()
+
+            assert typ1 is typ2
+            assert value1 is exc
+            assert value1 is value2
+            assert traceback1 is traceback2
+
+        # Check that an exception can be cleared outside of an except block
+        clear_check(exc)
+
+    def test_exit(self):
+        raises(TypeError, sys.exit, 42, 42)
+
+        # call without argument
+        try:
+            sys.exit(0)
+        except SystemExit, exc:
+            assert exc.code == 0
+        except:
+            raise AssertionError, "wrong exception"
+        else:
+            raise AssertionError, "no exception"
+
+        # call with tuple argument with one entry
+        # entry will be unpacked
+        try:
+            sys.exit(42)
+        except SystemExit, exc:
+            assert exc.code == 42
+        except:
+            raise AssertionError, "wrong exception"
+        else:
+            raise AssertionError, "no exception"
+
+        # call with integer argument
+        try:
+            sys.exit((42,))
+        except SystemExit, exc:
+            assert exc.code == 42
+        except:
+            raise AssertionError, "wrong exception"
+        else:
+            raise AssertionError, "no exception"
+
+        # call with string argument
+        try:
+            sys.exit("exit")
+        except SystemExit, exc:
+            assert exc.code == "exit"
+        except:
+            raise AssertionError, "wrong exception"
+        else:
+            raise AssertionError, "no exception"
+
+        # call with tuple argument with two entries
+        try:
+            sys.exit((17, 23))
+        except SystemExit, exc:
+            assert exc.code == (17, 23)
+        except:
+            raise AssertionError, "wrong exception"
+        else:
+            raise AssertionError, "no exception"
+
+    def test_getdefaultencoding(self):
+        raises(TypeError, sys.getdefaultencoding, 42)
+        # can't check more than the type, as the user might have changed it
+        assert isinstance(sys.getdefaultencoding(), str)
+            
+    # testing sys.settrace() is done in test_trace.py
+    # testing sys.setprofile() is done in test_profile.py
+
+    def test_setcheckinterval(self):
+        raises(TypeError, sys.setcheckinterval)
+        orig = sys.getcheckinterval()
+        for n in 0, 100, 120, orig: # orig last to restore starting state
+            sys.setcheckinterval(n)
+            assert sys.getcheckinterval() == n
+
+    def test_recursionlimit(self):
+        raises(TypeError, sys.getrecursionlimit, 42)
+        oldlimit = sys.getrecursionlimit()
+        raises(TypeError, sys.setrecursionlimit)
+        raises(ValueError, sys.setrecursionlimit, -42)
+        sys.setrecursionlimit(10000)
+        assert sys.getrecursionlimit() == 10000
+        sys.setrecursionlimit(oldlimit)
+
+    def test_getwindowsversion(self):
+        if hasattr(sys, "getwindowsversion"):
+            v = sys.getwindowsversion()
+            assert isinstance(v, tuple)
+            assert len(v) == 5
+            assert isinstance(v[0], int)
+            assert isinstance(v[1], int)
+            assert isinstance(v[2], int)
+            assert isinstance(v[3], int)
+            assert isinstance(v[4], str)
+
+    def test_dlopenflags(self):
+        if hasattr(sys, "setdlopenflags"):
+            assert hasattr(sys, "getdlopenflags")
+            raises(TypeError, sys.getdlopenflags, 42)
+            oldflags = sys.getdlopenflags()
+            raises(TypeError, sys.setdlopenflags)
+            sys.setdlopenflags(oldflags+1)
+            assert sys.getdlopenflags() == oldflags+1
+            sys.setdlopenflags(oldflags)
+
+    def test_refcount(self):
+        raises(TypeError, sys.getrefcount)
+        c = sys.getrefcount(None)
+        n = None
+        assert sys.getrefcount(None) == c+1
+        del n
+        assert sys.getrefcount(None) == c
+        if hasattr(sys, "gettotalrefcount"):
+            assert isinstance(sys.gettotalrefcount(), int)
+
+    def test_getframe(self):
+        raises(TypeError, sys._getframe, 42, 42)
+        raises(ValueError, sys._getframe, 2000000000)
+        assert sys._getframe().f_code.co_name == 'test_getframe'
+        #assert (
+        #    TestSysModule.test_getframe.im_func.func_code \
+        #    is sys._getframe().f_code
+        #)
+
+    def test_attributes(self):
+        assert isinstance(sys.api_version, int)
+        assert isinstance(sys.argv, list)
+        assert sys.byteorder in ("little", "big")
+        assert isinstance(sys.builtin_module_names, tuple)
+        assert isinstance(sys.copyright, basestring)
+        assert isinstance(sys.exec_prefix, basestring)
+        assert isinstance(sys.executable, basestring)
+        assert isinstance(sys.hexversion, int)
+        assert isinstance(sys.maxint, int)
+        assert isinstance(sys.maxunicode, int)
+        assert isinstance(sys.platform, basestring)
+        assert isinstance(sys.prefix, basestring)
+        assert isinstance(sys.version, basestring)
+        vi = sys.version_info
+        assert isinstance(vi, tuple)
+        assert len(vi) == 5
+        assert isinstance(vi[0], int)
+        assert isinstance(vi[1], int)
+        assert isinstance(vi[2], int)
+        assert vi[3] in ("alpha", "beta", "candidate", "final")
+        assert isinstance(vi[4], int)
