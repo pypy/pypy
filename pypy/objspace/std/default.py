@@ -3,17 +3,29 @@
 from pypy.objspace.std.objspace import *
 
 
-# 'eq' and 'ne' fall back to 'is'
+# 'eq' falls back to 'is'
 
 def default_eq(space, w_a, w_b):
     return space.is_(w_a, w_b)
 
 StdObjSpace.eq.register(default_eq, W_ANY, W_ANY)
 
+
+# 'ne' -> 'eq', 'le/gt/ge' -> 'lt'
+
 def default_ne(space, w_a, w_b):
-    return space.not_(space.is_(w_a, w_b))
+    return space.not_(space.eq(w_a, w_b))
+def default_le(space, w_a, w_b):
+    return space.not_(space.lt(w_b, w_a))
+def default_gt(space, w_a, w_b):
+    return space.lt(w_b, w_a)
+def default_ge(space, w_a, w_b):
+    return space.not_(space.lt(w_a, w_b))
 
 StdObjSpace.ne.register(default_ne, W_ANY, W_ANY)
+StdObjSpace.le.register(default_le, W_ANY, W_ANY)
+StdObjSpace.gt.register(default_gt, W_ANY, W_ANY)
+StdObjSpace.ge.register(default_ge, W_ANY, W_ANY)
 
 
 # 'id' falls back to the address of the wrapper
