@@ -23,7 +23,7 @@ class complex(object):
             msg = "complex() second arg can't be a string"
             raise TypeError, msg
 
-        if type(real) in (types.StringType, types.UnicodeType):
+        if type(real) in types.StringTypes:
             real, imag = self._makeComplexFromString(real)
             self.__dict__['real'] = real
             self.__dict__['imag'] = imag
