@@ -56,6 +56,24 @@ class TestStdObjectSpace(testsupport.TestCase):
         w_false = w(false)
         self.failUnless(self.space.is_true(w_true))
         self.failIf(self.space.is_true(w_false))
-        
+
+    def test_newmodule(self):
+        # a shoddy test:
+        w_mod = self.space.newmodule(self.space.wrap("mod"))
+
+    def test_newfunction(self):
+        # this tests FAR more than newfunction, but that's probably
+        # unavoidable
+        def f(x):
+            return x
+        from pypy.interpreter.pycode import PyByteCode
+        c = PyByteCode()
+        c._from_code(f.func_code)
+        w_globals = self.space.newdict([])
+        w_defs = self.space.newtuple([])
+        w_f = self.space.newfunction(c, w_globals, w_defs)
+        self.assertEqual_w(self.space.call_function(w_f, self.space.wrap(1)),
+                           self.space.wrap(1))
+    
 if __name__ == '__main__':
     testsupport.main()
