@@ -19,6 +19,7 @@ class Builtin(BuiltinModule):
     True = appdata(_b.True)
     dict = appdata(_b.dict)   # XXX temporary
     tuple = appdata(_b.tuple) # XXX temporary
+    int = appdata(_b.int) # XXX temporary
 
     # temporary hack, until we have a real tuple type for calling
     #def tuple(self, w_obj):
@@ -63,8 +64,14 @@ class Builtin(BuiltinModule):
         str = space.unwrap(w_str)
         filename = space.unwrap(w_filename)
         startstr = space.unwrap(w_startstr)
-        supplied_flags = space.unwrap(w_supplied_flags)
-        dont_inherit = space.unwrap(w_dont_inherit)
+        if w_supplied_flags is None:
+            supplied_flags = 0
+        else:
+            supplied_flags = space.unwrap(w_supplied_flags)
+        if w_dont_inherit is None:
+            dont_inherit = 0
+        else:
+            dont_inherit = space.unwrap(w_dont_inherit)
 
         c = _b.compile(str, filename, startstr, supplied_flags, dont_inherit)
         res = pycode.PyByteCode()
