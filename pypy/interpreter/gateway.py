@@ -217,8 +217,9 @@ def make_builtin_frame_class_for_unwrap_spec(unwrap_spec, cache={}):
     try:
         return cache[key]
     except KeyError:
+        name = '<'+ ', '.join([getattr(k, "__name__", k) for k in key]) + '>'
         emit_sig = apply_unwrap_spec(unwrap_spec, None,
-                                     BuiltinCodeSignature(name=repr(key)),
+                                     BuiltinCodeSignature(name=name),
                                      unwrap_spec_emit)
 
         cache[key] = cls = emit_sig.make_frame_class()
