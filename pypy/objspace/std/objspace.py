@@ -86,6 +86,10 @@ class StdObjSpace(ObjSpace):
         return funcobject.W_FuncObject(w_code, w_globals,
                                        w_defaultarguments, w_closure)
 
+    def newmodule(self, w_name):
+        import moduleobject
+        return moduleobject.W_ModuleObject(self, w_name)
+
     # special multimethods
     unwrap  = MultiMethod('unwrap', 1)   # returns an unwrapped object
     is_true = MultiMethod('nonzero', 1)  # returns an unwrapped bool

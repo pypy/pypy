@@ -252,4 +252,5 @@ ObjSpace.ExceptionTable = [
 # newdict([(w_key,w_value),...]) -> w_dict
 # newslice(w_start,w_stop,w_end) -> w_slice     (w_end may be a real None)
 #               newfunction(...) -> w_function
+#              newmodule(w_name) -> w_module
 #
