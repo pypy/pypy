@@ -218,8 +218,7 @@ def app_normalize_exception(etype, value, tb):
         etype = value.__class__
     elif type(etype) is str:
         # XXX warn -- deprecated
-        if value is not None and type(value) is not str:
-            raise TypeError("string exceptions can only have a string value")
+        pass
     else:
         # raise X: we assume that X is an already-built instance
         if value is not None:
