@@ -11,7 +11,7 @@ DEST = BASE.join('revdata')
 
 assert DEST.dirpath().check() 
 
-def updatecurrent(): 
+def updatecurrent(revdir):
     l = []
     for x in DEST.listdir(): 
         try: 
@@ -21,6 +21,8 @@ def updatecurrent():
         else: 
             l.append(x) 
     latest = DEST.join(str(max(l)))
+    if latest != revdir:   # another process is busy generating the next rev
+        return             # then don't change the link!
     assert latest.check()
     current = DEST.join('current') 
     if current.check(): 
@@ -52,4 +54,4 @@ if __name__ == '__main__':
             print "stdout"
             print out 
     print "generated into", revdir 
-    updatecurrent() 
+    updatecurrent(revdir)
