@@ -9,7 +9,7 @@ def _setup(dn=os.path.abspath(os.path.join(os.path.dirname(__file__), 'impsubdir
     sys.path.append(dn)
     return sys.modules.copy()
 
-_setup = gateway.app2interp(_setup,'setup')
+_setup = gateway.app2interp_temp(_setup,'setup')
 
 def _teardown(saved_modules):
     import sys
@@ -17,7 +17,7 @@ def _teardown(saved_modules):
     sys.modules.clear()
     sys.modules.update(saved_modules)
 
-_teardown = gateway.app2interp(_teardown,'teardown')
+_teardown = gateway.app2interp_temp(_teardown,'teardown')
 
 class TestImport(testit.AppTestCase):
 
