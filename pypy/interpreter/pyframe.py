@@ -6,7 +6,7 @@ from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
 
 
-class PyFrame(eval.Frame):
+class PyFrame(eval.Frame, baseobjspace.Wrappable):
     """Represents a frame for a regular Python function
     that needs to be interpreted.
 
@@ -82,17 +82,19 @@ class PyFrame(eval.Frame):
             if valuestackdepth <= self.valuestack.depth():
                 break
             self.exceptionstack.pop()
-
-    ### public attributes ###
-
-    def pypy_getattr(self, w_attr):
-        # XXX surely not the Right Way to do this
-        attr = self.space.unwrap(w_attr)
-        if attr == 'f_locals':   return self.w_locals
-        if attr == 'f_globals':  return self.w_globals
-        if attr == 'f_builtins': return self.w_builtins
-        if attr == 'f_code':     return self.space.wrap(self.code)
-        raise OperationError(self.space.w_AttributeError, w_attr)
+    
+    ### application level visible attributes ###
+    def app_visible(self):
+        def makedict(**kw): return kw
+        space = self.space
+        d = makedict(
+            f_code = space.wrap(self.code),
+            f_locals = self.getdictscope(),
+            f_globals = self.w_globals,
+            f_builtins = self.w_builtins,
+            # XXX f_lasti, f_back, f_exc*, f_restricted need to do pypy_getattr directly
+            )
+        return d.items() 
 
 ### Frame Blocks ###
 

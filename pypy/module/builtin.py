@@ -35,6 +35,10 @@ class __builtin__(ExtModule):
 ##        self.w_imp_path = space.sys.w_path
 ##        ExtModule.__init__(self, space)
 
+    def __init__(self, space):
+        self.w___debug__ = space.newbool(1)
+        ExtModule.__init__(self, space)
+
     def _initcompiledbuiltins(self):
         """ add 'compiled' builtins to app-level dict and interp-level """
         self._eval_app_source(xrange_appsource)

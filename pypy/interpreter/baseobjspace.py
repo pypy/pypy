@@ -23,9 +23,9 @@ class Wrappable(object):
     def app_visible(self):
         """ returns [(name,w_value)...] for application-level visible attributes """ 
         raise NotImplementedError
-            
-    def pypy_getattr(self,w_name):
-        space = self.space
+
+    def pypy_getattr(self, w_name):
+        space = self.space 
         w_dict = self.get_wdict()
         try:
             return space.getitem(w_dict,w_name)

@@ -30,6 +30,7 @@ class Function(Wrappable):
                                             self.closure)
         frame.setfastscope(scope_w)
         return frame.run()
+
     pypy_call = call
 
     def parse_args(self, w_args, w_kwds=None):
@@ -166,13 +167,14 @@ class Function(Wrappable):
             return Method(self.space, wrap(self), None, wrap(cls))
 
     def pypy_get(self, w_obj, w_cls):
-        wrap = self.space.wrap
-        if not self.space.is_true(self.space.is_(w_obj, self.space.w_None)):
-            if self.space.is_true(self.space.is_(w_cls, self.space.w_None)):
-                w_cls = self.space.type(w_obj)
-            return wrap(Method(self.space, wrap(self), w_obj, w_cls))
+        space = self.space
+        wrap = space.wrap
+        if not space.is_true(space.is_(w_obj, space.w_None)):
+            if space.is_true(space.is_(w_cls, space.w_None)):
+                w_cls = space.type(w_obj)
+            return wrap(Method(space, wrap(self), w_obj, w_cls))
         else:
-            return wrap(Method(self.space, wrap(self), None, w_cls))
+            return wrap(Method(space, wrap(self), None, w_cls))
 
     def __call__(self, *args_w, **kwds_w):
         wrap = self.space.wrap
@@ -182,10 +184,6 @@ class Function(Wrappable):
         # go through the object space, don't call directly here
         # (for FlowObjSpace)
         return self.space.call(wrap(self), w_args, w_kwds)
-
-    #def pypy_getattr(self, w_name):
-    #    space = self.space
-    #    raise OperationError(space.w_AttributeError, w_name)
 
     def app_visible(self):  
         space = self.space
@@ -202,6 +200,7 @@ class Function(Wrappable):
         it['__name__'] = it['func_name']
         it['__doc__'] = it['func_doc']
         it['__dict__'] = it['func_dict']
+        it['__call__'] = space.wrap(self)
         return it.items()
 
 class Method(object):
@@ -230,6 +229,7 @@ class Method(object):
                 raise OperationError(self.space.w_TypeError,
                                      self.space.wrap(msg))
         return self.space.call(self.w_function, w_args, w_kwds)
+
     pypy_call = call
 
     def __call__(self, *args_w, **kwds_w):

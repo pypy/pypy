@@ -200,7 +200,7 @@ class StdObjSpace(ObjSpace):
             wrappeditems = [self.wrap(item) for item in x]
             import listobject
             return listobject.W_ListObject(self, wrappeditems)
-        if hasattr(x, '__wrap__'):
+        if hasattr(type(x), '__wrap__'):
             return x.__wrap__(self)
         # print "wrapping %r (%s)" % (x, type(x))
         import cpythonobject
@@ -254,17 +254,17 @@ class StdObjSpace(ObjSpace):
     call    = MultiMethod('call', 3, [], varargs=True, keywords=True)
 
     def is_(self, w_one, w_two):
-        # XXX this is a hopefully temporary speed hack:
+        # XXX a bit of hacking to gain more speed 
+        #
+        if w_one is w_two:
+            return self.newbool(1)
         from cpythonobject import W_CPythonObject
         if isinstance(w_one, W_CPythonObject):
             if isinstance(w_two, W_CPythonObject):
-                return self.newbool(w_one.cpyobj is w_two.cpyobj)
-            else:
-                return self.newbool(0)
-        else:
-            return self.newbool(w_one is w_two)
-
-
+                if w_one.cpyobj is w_two.cpyobj:
+                    return self.newbool(1)
+                return self.newbool(self.unwrap(w_one) is self.unwrap(w_two))
+        return self.newbool(0)
 
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:

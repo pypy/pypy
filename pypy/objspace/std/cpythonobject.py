@@ -29,7 +29,10 @@ registerimplementation(W_CPythonObject)
 
 
 def cpython_unwrap(space, w_obj):
-    return w_obj.cpyobj
+    cpyobj = w_obj.cpyobj
+    if hasattr(cpyobj, '__unwrap__'):
+        cpyobj = cpyobj.__unwrap__()
+    return cpyobj
 
 StdObjSpace.unwrap.register(cpython_unwrap, W_CPythonObject)
 
@@ -159,19 +162,23 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     if f:
         if _arity == 1:
             def cpython_f(space, w_1, f=f, pypymethod='pypy_'+_name):
-                x = space.unwrap(w_1)
-                if hasattr(x, pypymethod):
-                    return getattr(x, pypymethod)()
+                x1 = space.unwrap(w_1)
+                type_x1 = type(x1)
+                if hasattr(type_x1, pypymethod):
+                    return getattr(type_x1, pypymethod)(x1)
                 try:
-                    y = f(x)
+                    y = f(x1)
                 except:
                     wrap_exception(space)
                 return space.wrap(y)
         elif _arity == 2:
             def cpython_f(space, w_1, w_2, f=f, pypymethod='pypy_'+_name):
                 x1 = space.unwrap(w_1)
-                if hasattr(x1, pypymethod):
-                    return getattr(x1, pypymethod)(w_2)
+                type_x1 = type(x1)
+                if hasattr(type_x1, pypymethod):
+                    return getattr(type_x1, pypymethod)(x1, w_2)
+
+                # XXX do we really want to unwrap unknown objects here? 
                 x2 = space.unwrap(w_2)
                 try:
                     y = f(x1, x2)
@@ -181,8 +188,10 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
         elif _arity == 3:
             def cpython_f(space, w_1, w_2, w_3, f=f, pypymethod='pypy_'+_name):
                 x1 = space.unwrap(w_1)
-                if hasattr(x1, pypymethod):
-                    return getattr(x1, pypymethod)(w_2, w_3)
+                type_x1 = type(x1)
+                if hasattr(type_x1, pypymethod):
+                    return getattr(type_x1, pypymethod)(x1, w_2, w_3)
+
                 x2 = space.unwrap(w_2)
                 x3 = space.unwrap(w_3)
                 try:

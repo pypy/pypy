@@ -9,6 +9,7 @@ class AppTestCodeIntrospection(test.AppTestCase):
         def f(): pass
         code = f.func_code    
         self.assert_(hasattr(code, 'co_code'))
+        self.assert_(hasattr(code, '__class__'))
         self.assert_(not hasattr(code,'__dict__'))
         self.assertEquals(code.co_name,'f')
         self.assertEquals(code.co_names,())

@@ -143,12 +143,14 @@ class TrivialObjSpace(ObjSpace):
 
     # general stuff
     def wrap(self, x):
-        if hasattr(x, '__wrap__'):
+        if hasattr(type(x), '__wrap__'):
             return x.__wrap__(self)
         else:
             return x
 
     def unwrap(self, w):
+        if hasattr(type(w), '__unwrap__'):
+            w = w.__unwrap__()
         return w
 
     def reraise(self):
@@ -178,7 +180,7 @@ class TrivialObjSpace(ObjSpace):
     def _auto(name, sourcefn, classlocals):
         s = """
 def %(name)s(self, x, *args):
-    if hasattr(x, 'pypy_%(name)s'):
+    if hasattr(type(x), 'pypy_%(name)s'):
         return x.pypy_%(name)s(*args)
     try:
         value = %(sourcefn)s(x, *args)

@@ -70,6 +70,7 @@ class PyInterpFrame(pyframe.PyFrame):
     def getname(self, index):
         return self.code.co_names[index]
 
+
     ################################################################
     ##  Implementation of the "operational" opcodes
     ##  See also pyfastscope.py and pynestedscope.py for the rest.
@@ -701,7 +702,7 @@ class PyInterpFrame(pyframe.PyFrame):
 
     def MAKE_FUNCTION(f, numdefaults):
         w_codeobj = f.valuestack.pop()
-        codeobj = f.space.unwrap(w_codeobj)
+        codeobj = f.space.unwrap(w_codeobj)   
         defaultarguments = [f.valuestack.pop() for i in range(numdefaults)]
         defaultarguments.reverse()
         fn = function.Function(f.space, codeobj, f.w_globals, defaultarguments)
