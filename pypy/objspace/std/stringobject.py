@@ -991,9 +991,16 @@ def app_mod__String_ANY(format, values):
             else:
                 width = None
                 prec = None
+                lpadchar = ' '
+                padzeros = False
+                seennum = False
                 if c in '-0123456789':
                     j = i
                     while format[j] in '-0123456789':
+                        if format[j] in '0123456789' and not seennum:
+                            seennum = True
+                            if format[j] == '0':
+                                padzeros = True
                         j += 1
                     if format[i:j] != '-':
                         width = int(format[i:j])
@@ -1050,6 +1057,10 @@ def app_mod__String_ANY(format, values):
                 else:
                     raise ValueError, "unsupported format character '%s' (%x) at index %d" % (
                             c, ord(c), i)
+
+                if c in 'xdg' and padzeros:
+                    lpadchar = '0'
+
                 if prec is not None:
                     pieces[-1] = pieces[-1][:prec]
                 if width is not None:
@@ -1059,7 +1070,7 @@ def app_mod__String_ANY(format, values):
                         p = p + ' '*d
                     else:
                         d = max(width - len(p), 0)
-                        p = ' '*d + p
+                        p = lpadchar*d + p
                     pieces[-1] = p
             state = 0
             start = i+1
