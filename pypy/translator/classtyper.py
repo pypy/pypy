@@ -8,6 +8,7 @@ from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.annotation import model as annmodel
 from pypy.translator.typer import LLTyper, LLFunction
+from pypy.translator.genc_repr import R_OBJECT
 
 r_ends_in_underscore_digit = re.compile(r'_\d+$')
 
@@ -54,7 +55,7 @@ class LLClass(LLTyper):
                        for attr, s_value in cdef.attrs.items()]
 
         self.pyobj_fields = [  # XXX this should not be necessary
-            fld.name for fld in self.fields if fld.hltype is typeset.R_OBJECT]
+            fld.name for fld in self.fields if fld.hltype == R_OBJECT]
         self.s_instance = annmodel.SomeInstance(self.cdef)
 
     def get_management_functions(self):

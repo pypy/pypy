@@ -56,13 +56,12 @@ class TypingError(Exception):
 #       ...}
 #       This dict contains the known signatures of each space operation.
 #       Special opnames:
-#         'convert' v w : convert some v to w
-#         'caseXXX'   v : fails (i.e. jump to errlabel) if v is not XXX
+#         'caseXXX'    v : fails (i.e. jump to errlabel) if v is not XXX
 #
 #   rawoperations = {
 #       'opname': subclass-of-LLOp,
 #       ...}
-#       Low-level-only operations on raw LLVars (as opposed to llopeerations,
+#       Low-level-only operations on raw LLVars (as opposed to lloperations,
 #       which are on flow.model.Variables as found in SpaceOperations):
 #         'goto'          : fails unconditionally (i.e. jump to errlabel)
 #         'move'    x y   : raw copy of the LLVar x to the LLVar y
@@ -72,6 +71,11 @@ class TypingError(Exception):
 #         'xdecref' x y...: raw xdecref of the LLVars x, y, etc.
 #         'comment'       : comment (text is in errtarget)
 #         'return'  x y...: return the value stored in the LLVars
+#
+#   def getconvertion(self, hltype1, hltype2):
+#       If it is possible to convert from 'hltype1' to 'hltype2', this
+#       function should return the conversion operation (as a subclass of
+#       LLOp).  Otherwise, it should raise CannotConvert.
 #
 #   def typingerror(self, opname, hltypes):
 #       Called when no match is found in lloperations.  This function must
@@ -88,6 +92,7 @@ class LLTyper:
         self.represent    = typeset.represent
         self.lloperations = typeset.lloperations
         self.rawoperations= typeset.rawoperations
+        self.getconversion= typeset.getconversion
         self.typingerror  = typeset.typingerror
         self.hltypes = {}
         self.llreprs = {}
@@ -210,48 +215,54 @@ class LLFunction(LLTyper):
         # make a new node for the release tree
         self.to_release = ReleaseNode(v, llop, self.to_release)
 
-    def convert_from(self, hltype):
-        # enumerate all types that hltype can be converted to
-        for frm, to in self.lloperations['convert']:
-            if frm == hltype:
-                yield to
-
-    def convert_to(self, hltype):
-        # enumerate all types that can be converted to hltype
-        for frm, to in self.lloperations['convert']:
-            if to == hltype:
-                yield frm
-
     def operation(self, opname, args, result=None, errlabel=None):
         "Helper to build the LLOps for a single high-level operation."
         # get the hltypes of the input arguments
         for v in args:
             self.makevar(v)
         args_t = [self.hltypes[v] for v in args]
-        directions = [self.convert_from] * len(args)
+        directions = [False] * len(args)
         # append the hltype of the result
         if result:
             self.makevar(result)
             args_t.append(self.hltypes[result])
-            directions.append(self.convert_to)
-        # enumerate possible signatures until we get a match
+            directions.append(True)
+        # look for an exact match first
         llsigs = self.lloperations.get(opname, {})
-        for sig in variants(tuple(args_t), directions):
-            if sig in llsigs:
-                llopcls = llsigs[sig]
-                break
+        sig = tuple(args_t)
+        if sig in llsigs:
+            llopcls = llsigs[sig]
         else:
-            retry = self.typingerror(opname, tuple(args_t))
-            # if 'typingerror' did not raise an exception, try again.
-            # infinite recursion here means that 'typingerror' did not
-            # correctly extend 'lloperations'.
-            if retry:
+            # enumerate the existing operation signatures and their costs
+            choices = []
+            for sig, llopcls in llsigs.items():
+                if len(sig) != len(args_t):
+                    continue   # wrong number of arguments
                 try:
-                    self.operation(opname, args, result, errlabel)
-                    return
-                except RuntimeError:   # infinite recursion
-                    pass
-            raise TypingError([opname] + args_t)
+                    cost = llopcls.cost
+                    for hltype1, hltype2, reverse in zip(args_t, sig,
+                                                         directions):
+                        if hltype1 != hltype2:
+                            if reverse:
+                                hltype1, hltype2 = hltype2, hltype1
+                            convop = self.getconversion(hltype1, hltype2)
+                            cost += convop.cost
+                    choices.append((cost, sig, llopcls))
+                except CannotConvert:
+                    continue   # non-matching signature
+            if not choices:
+                retry = self.typingerror(opname, tuple(args_t))
+                # if 'typingerror' did not raise an exception, try again.
+                # infinite recursion here means that 'typingerror' did not
+                # correctly extend 'lloperations'.
+                if retry:
+                    try:
+                        self.operation(opname, args, result, errlabel)
+                        return
+                    except RuntimeError:   # infinite recursion
+                        pass
+                raise TypingError([opname] + args_t)
+            cost, sig, llopcls = min(choices)
         # convert input args to temporary variables
         llargs = []
         for v, v_t, s_t in zip(args, args_t, sig):
@@ -259,59 +270,66 @@ class LLFunction(LLTyper):
                 llargs += self.convert(v_t, self.llreprs[v], s_t)
             else:
                 llargs += self.llreprs[v]
-        # generate an error label if the operation can fail
-        if llopcls.can_fail and errlabel is None:
-            errlabel = self.to_release.getlabel()
         # case-by-case analysis of the result variable
         if result:
             if args_t[-1] == sig[-1]:
                 # the result has the correct type
-                tmp = result
+                if self.writeoperation(llopcls, llargs,
+                                       self.llreprs[result], errlabel):
+                    self.mark_release(result)
             else:
                 # the result has to be converted
                 tmp = Variable()
                 self.makevar(tmp, hltype=sig[-1])
-            llargs += self.llreprs[tmp]
-            llop = llopcls(llargs, errlabel)
-            constantllreprs = llop.optimize(self)
-            if constantllreprs is not None:
-                # the result is a constant: patch the llrepr of result,
-                # i.e. replace its LLVars with the given constants which
-                # will be used by the following operations.
-                assert len(constantllreprs) == len(self.llreprs[tmp])
-                diffs = []
-                interesting = False
-                for x, y in zip(constantllreprs, self.llreprs[tmp]):
-                    if x != y:
-                        diffs.append('%s = %s;' % (y.name, x.name))
-                        interesting = interesting or not isinstance(x, LLConst)
-                self.llreprs[tmp] = list(constantllreprs)
-                if interesting:
-                    llcomment = self.rawoperations['comment']
-                    self.blockops.append(llcomment([], '%s: %s' % (
-                        opname, ' '.join(diffs))))
-            else:
-                # common case: emit the LLOp.
-                self.mark_release(tmp)
-                self.blockops.append(llop)
-            if tmp is not result:
-                self.operation('convert', [tmp], result)
+                if self.writeoperation(llopcls, llargs,
+                                       self.llreprs[tmp], errlabel):
+                    self.mark_release(tmp)
+                self.convert_variable(tmp, result)
         else:
             # no result variable
-            self.blockops.append(llopcls(llargs, errlabel))
+            self.writeoperation(llopcls, llargs, [], errlabel)
+
+    def writeoperation(self, llopcls, llargs, llresult, errlabel=None):
+        # generate an error label if the operation can fail
+        if llopcls.can_fail and errlabel is None:
+            errlabel = self.to_release.getlabel()
+        # create the LLOp instance
+        llop = llopcls(llargs + llresult, errlabel)
+        constantllreprs = llop.optimize(self)
+        if constantllreprs is not None:
+            # the result is a constant: patch llresult, i.e. replace its
+            # LLVars with the given constants which will be used by the
+            # following operations.
+            assert len(constantllreprs) == len(llresult)
+            llresult[:] = constantllreprs
+            return False   # operation skipped
+        else:
+            # common case: emit the LLOp.
+            self.blockops.append(llop)
+            return True
 
     def convert(self, inputtype, inputrepr, outputtype, outputrepr=None):
-        tmpin = Variable()
-        self.makevar(tmpin, hltype=inputtype)
-        tmpout = Variable()
-        self.makevar(tmpout, hltype=outputtype)
-        self.llreprs[tmpin] = inputrepr
+        convop = self.getconversion(inputtype, outputtype)
         if outputrepr is None:
-            outputrepr = self.llreprs[tmpout]
+            tmp = Variable()
+            self.makevar(tmp, hltype=outputtype)
+            outputrepr = self.llreprs[tmp]
+            if self.writeoperation(convop, inputrepr, outputrepr):
+                self.mark_release(tmp)
         else:
-            self.llreprs[tmpout] = outputrepr
-        self.operation('convert', [tmpin], tmpout)
-        return self.llreprs[tmpout]
+            if self.writeoperation(convop, inputrepr, outputrepr):
+                tmp = Variable()
+                self.hltypes[tmp] = outputtype
+                self.llreprs[tmp] = outputrepr
+                self.mark_release(tmp)
+        return outputrepr
+
+    def convert_variable(self, v1, v2):
+        self.makevar(v1)
+        self.makevar(v2)
+        convop = self.getconversion(self.hltypes[v1], self.hltypes[v2])
+        if self.writeoperation(convop, self.llreprs[v1], self.llreprs[v2]):
+            self.mark_release(v2)
 
     def goto(self, exit):
         # generate the exit.args -> target.inputargs copying operations
@@ -324,7 +342,7 @@ class LLFunction(LLTyper):
                 if self.hltypes[v] != self.hltypes[w]:
                     tmp = Variable()
                     self.makevar(tmp, hltype=self.hltypes[w])
-                    self.operation('convert', [v], tmp)
+                    self.convert_variable(v, tmp)
                     v = tmp
                 exitargs.append(v)
             # move the data from exit.args to target.inputargs
@@ -423,16 +441,5 @@ class ReleaseNode:
         yield self.release_operation
 
 
-def variants(args_t, directions):
-    # enumerate all variants of the given signature of hltypes
-    # XXX this can become quadratically slow for large programs because
-    # XXX it enumerates all conversions of the result from a constant value
-    if len(args_t):
-        for sig in variants(args_t[:-1], directions[:-1]):
-            yield sig + args_t[-1:]
-        choices_for_last_arg = list(directions[-1](args_t[-1]))
-        for sig in variants(args_t[:-1], directions[:-1]):
-            for last_arg in choices_for_last_arg:
-                yield sig + (last_arg,)
-    else:
-        yield ()
+class CannotConvert:
+    pass

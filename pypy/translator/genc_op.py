@@ -14,6 +14,7 @@ PARAMETER = object()   # marker
 
 class LoC(LLOp):
     # base class for LLOps that produce C code.
+    cost = 2
 
     def write(self):
         "Default write method, delegating to writestr()."
@@ -53,16 +54,19 @@ class LoStandardOperation(LoC):
     "A standard operation is one defined by a macro in genc.h."
     can_fail = PARAMETER
     llname   = PARAMETER
+    cost     = PARAMETER
     def writestr(self, *args):
         return self.llname + '(' + ', '.join(args) + ')'
 
 class LoKnownAnswer(LoOptimized):
     known_answer = PARAMETER
+    cost         = 0
     def optimize(self, typer):
         return self.known_answer
 
 class LoNewList(LoC):
     can_fail = True
+    cost     = 3
     def writestr(self, *stuff):
         content = stuff[:-2]
         result = stuff[-2]
@@ -76,6 +80,7 @@ class LoNewList(LoC):
 
 class LoCallFunction(LoC):
     can_fail = True
+    cost     = 3
     def writestr(self, func, *stuff):
         args = stuff[:-2]
         result = stuff[-2]
@@ -102,11 +107,11 @@ class LoAllocInstance(LoC):
 class LoConvertTupleItem(LoOptimized):
     source_r = PARAMETER   # tuple-of-hltypes, one per item of the input tuple
     target_r = PARAMETER   # tuple-of-hltypes, one per item of the output tuple
-    index    = PARAMETER   # index of the item to convert
+    cost     = PARAMETER
 
     def optimize(self, typer):
         # replace this complex conversion by the simpler conversion of
-        # only the indexth item
+        # only the items that changed
         llinputs = []
         pos = 0
         for r in self.source_r:
@@ -121,7 +126,7 @@ class LoConvertTupleItem(LoOptimized):
 
         llrepr = []     # answer
         for i in range(len(self.source_r)):
-            if i == self.index:
+            if self.source_r[i] != self.target_r[i]:
                 # convert this item
                 llrepr += typer.convert(self.source_r[i], llinputs[i],
                                         self.target_r[i], lloutputs[i])
@@ -132,6 +137,7 @@ class LoConvertTupleItem(LoOptimized):
 
 class LoNewTuple(LoC):
     can_fail = True
+    cost     = 3
 
     def writestr(self, *stuff):
         args   = stuff[:-2]
@@ -145,10 +151,10 @@ class LoNewTuple(LoC):
         return '\n'.join(ls)
 
 class LoConvertChain(LoOptimized):
-    r_from         = PARAMETER
-    r_middle       = PARAMETER
-    r_to           = PARAMETER
-    convert_length = PARAMETER
+    r_from   = PARAMETER
+    r_middle = PARAMETER
+    r_to     = PARAMETER
+    cost     = PARAMETER
 
     def optimize(self, typer):
         half = len(self.r_from.impl)
@@ -158,17 +164,30 @@ class LoConvertChain(LoOptimized):
         middle = typer.convert(self.r_from, input, self.r_middle)
         return typer.convert(self.r_middle, middle, self.r_to, output)
 
+class LoDummyResult(LoC):
+    cost = 1
+    def write(self):
+        ls = []
+        for a in self.args:
+            if a.type == 'PyObject*':
+                ls.append('%s = Py_None; Py_INCREF(%s); /* dummy */' % (
+                    a.name, a.name))
+        return '\n'.join(ls)
+
 # ____________________________________________________________
 
 class LoMove(LoC):
+    cost = 1
     def writestr(self, x, y):
         return '%s = %s;' % (y, x)
 
 class LoGoto(LoC):
+    cost = 0
     def write(self):
         return 'goto %s;' % self.errtarget
 
 class LoCopy(LoOptimized):
+    cost = 0
     def optimize(self, typer):
         # the result's llvars is equal to the input's llvars.
         assert len(self.args) % 2 == 0
@@ -177,6 +196,7 @@ class LoCopy(LoOptimized):
 
 class LoDoSomethingWithRef(LoC):
     do_what = PARAMETER
+    cost    = 1
     def write(self):
         ls = []
         for a in self.args:
@@ -189,6 +209,7 @@ LoDecref  = LoDoSomethingWithRef.With(do_what = 'Py_DECREF')
 LoXDecref = LoDoSomethingWithRef.With(do_what = 'Py_XDECREF')
 
 class LoComment(LoC):
+    cost = 0
     def write(self):
         s = self.errtarget
         s = s.replace('/*', '/+')
@@ -232,6 +253,7 @@ class LoCallPyFunction(LoC):
                 ERROR_CHECK[retvar.type], err))
 
 class LoReturn(LoC):
+    cost = 1
     def write(self):
         if not self.args:
             return 'return 0;'

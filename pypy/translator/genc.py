@@ -10,6 +10,7 @@ from pypy.translator.typer import LLFunction, LLOp, LLVar, LLConst
 from pypy.translator.classtyper import LLClass
 from pypy.translator.genc_typeset import CTypeSet
 from pypy.translator.genc_op import ERROR_RETVAL
+from pypy.translator.genc_repr import R_INT, R_OBJECT
 
 # ____________________________________________________________
 
@@ -267,9 +268,9 @@ class GenC:
         print >> f, self.C_MEMBERLIST_HEADER % info
         # XXX write member definitions for member with well-known types only
         for fld in llclass.fields:
-            if fld.hltype is self.typeset.R_OBJECT:
+            if fld.hltype == R_OBJECT:
                 t = 'T_OBJECT_EX'
-            elif fld.hltype is self.typeset.R_INT:
+            elif fld.hltype == R_INT:
                 t = 'T_INT'
             else:
                 continue   # ignored
