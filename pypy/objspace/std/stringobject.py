@@ -2,6 +2,9 @@
 """
 stringobject.py
 
+this is here:
+    to not confuse python-mode
+
 Synopsis of implemented methods (* marks work in progress)
 
 Py                PyPy
@@ -968,120 +971,15 @@ repr__String = gateway.app2interp(app_repr__String)
 def ord__String(space, w_str):
     return space.wrap(ord(space.unwrap(w_str)))
 
-def mod__String_ANY(space, w_str, w_item):
-    return mod__String_Tuple(space, w_str, space.newtuple([w_item]))
-
 def app_mod__String_ANY(format, values):
-    pieces = []
-    start = 0
-    state = 0
-    i = 0 
-    index = -1
-    len_format = len(format) 
-    while i < len_format: 
-        c = format[i]
-        if state == 0:
-            # just copy constant-pieces of the format
-            if c=='%':
-                pieces.append(format[start:i])
-                state = 1
+    import _formatting
+    if isinstance(values, tuple):
+        return _formatting.format(format, values, None)
+    else:
+        if hasattr(values, '__getitem__') and not isinstance(values, str):
+            return _formatting.format(format, (), values)
         else:
-            if c=='%':
-                pieces.append('%')
-            else:
-                width = None
-                prec = None
-                lpadchar = ' '
-                padzeros = False
-                seennum = False
-                if c in '-0123456789':
-                    j = i
-                    while format[j] in '-0123456789':
-                        if format[j] in '0123456789' and not seennum:
-                            seennum = True
-                            if format[j] == '0':
-                                padzeros = True
-                        j += 1
-                    if format[i:j] != '-':
-                        width = int(format[i:j])
-                    i = j
-                    c = format[j]
-                if c == '.':
-                    i += 1
-                    j = i
-                    while format[j] in '0123456789':
-                        j += 1
-                    prec = int(format[i:j])
-                    i = j
-                    c = format[j]
-                    
-                if c == '(':
-                    # read name 
-                    j = format.find(')', i+1)
-                    if j == -1:
-                        raise ValueError, "incomplete format string"
-                    if index >= 0:
-                        raise TypeError, "format string mismatch"
-                    name = format[i+1:j]
-                    value = values[name]
-                    index = -2 
-                    i = j+1
-                    c = format[i]
-                else:
-                    index += 1
-                    if index < 0:
-                        raise TypeError, "format string mismatch"
-                    elif index == 0 and not isinstance(values, tuple):
-                        values = tuple([values])
-                    try:
-                        value = values[index]
-                    except IndexError:
-                        raise TypeError, "not enough arguments for format string"
-                 
-                if c=='s':
-                    pieces.append(str(value)) 
-                elif c=='d':
-                    try:
-                        inter = value.__int__
-                    except AttributeError:
-                        raise TypeError, "an integer argument is required"
-                    pieces.append(str(inter()))
-                elif c=='x':
-                    pieces.append(hex(int(value)))
-                elif c=='r':
-                    pieces.append(repr(value))
-                elif c=='f':
-                    pieces.append(str(float(value)))
-                elif c=='g':
-                    pieces.append(str(value))   # XXX
-                else:
-                    raise ValueError, "unsupported format character '%s' (%x) at index %d" % (
-                            c, ord(c), i)
-
-                if c in 'xdg' and padzeros:
-                    lpadchar = '0'
-
-                if prec is not None:
-                    pieces[-1] = pieces[-1][:prec]
-                if width is not None:
-                    p = pieces[-1]
-                    if width < 0:
-                        d = max(-width - len(p), 0)
-                        p = p + ' '*d
-                    else:
-                        d = max(width - len(p), 0)
-                        p = lpadchar*d + p
-                    pieces[-1] = p
-            state = 0
-            start = i+1
-        i += 1
-
-    if state == 1:
-        raise ValueError, "incomplete format"
-    if index >= 0 and index < len(values) - 1:
-        raise TypeError, 'not all arguments converted during string formatting'
-    pieces.append(format[start:])
-    return ''.join(pieces)
+            return _formatting.format(format, (values,), None)
 
 mod__String_ANY = gateway.app2interp(app_mod__String_ANY) 
 

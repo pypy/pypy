@@ -86,21 +86,24 @@ class TestStringObject(testit.AppTestCase):
     def test_format_wrong_char(self):
         self.assertRaises(ValueError, 'a%Zb'.__mod__, ((23,),))
 
+    def test_incomplete_format(self):
+        self.assertRaises(ValueError, '%'.__mod__, ((23,),))
+
 class TestWidthPrec(testit.AppTestCase):
     def setUp(self):
         self.space = testit.objspace()
 
     def test_width(self):
-        self.assertEquals("%3s"%'a', '  a')
+        self.assertEquals("%3s" %'a', '  a')
         self.assertEquals("%-3s"%'a', 'a  ')
 
     def test_prec_string(self):
-        self.assertEquals("%.3s"%'a', 'a')
+        self.assertEquals("%.3s"%'a',     'a')
         self.assertEquals("%.3s"%'abcde', 'abc')
 
     def test_prec_width_string(self):
-        self.assertEquals("%5.3s"%'a',      '    a')
-        self.assertEquals("%5.3s"%'abcde',  '  abc')
+        self.assertEquals("%5.3s" %'a',     '    a')
+        self.assertEquals("%5.3s" %'abcde', '  abc')
         self.assertEquals("%-5.3s"%'a',     'a    ')
         self.assertEquals("%-5.3s"%'abcde', 'abc  ')
 
@@ -114,6 +117,21 @@ class TestWidthPrec(testit.AppTestCase):
         self.assertEquals("%04s"%2.3, " 2.3")
 
         
+    def test_star_width(self):
+        self.assertEquals("%*s" %( 5, 'abc'),  '  abc')
+        self.assertEquals("%*s" %(-5, 'abc'),  'abc  ')
+        self.assertEquals("%-*s"%( 5, 'abc'),  'abc  ')
+        self.assertEquals("%-*s"%(-5, 'abc'),  'abc  ')
+
+    def test_star_prec(self):
+        self.assertEquals("%.*s"%( 3, 'abc'),  'abc')
+        self.assertEquals("%.*s"%( 3, 'abcde'),  'abc')
+        self.assertEquals("%.*s"%(-3, 'abc'),  '')
+
+    def test_star_width_prec(self):
+        self.assertEquals("%*.*s"%( 5, 3, 'abc'),    '  abc')
+        self.assertEquals("%*.*s"%( 5, 3, 'abcde'),  '  abc')
+        self.assertEquals("%*.*s"%(-5, 3, 'abcde'),  'abc  ')
 
 if __name__ == '__main__':
     testit.main()
