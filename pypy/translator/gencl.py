@@ -34,7 +34,7 @@ class Op:
         "lt": "<",
         "le": "<=",
         "eq": "=",
-        "getitem": "aref",
+        "getitem": "elt",
     }
     def op_binary(self, op):
         s = self.str
@@ -50,12 +50,12 @@ class Op:
     def op_alloc_and_set(self):
         s = self.str
         result, (size, init) = self.result, self.args
-        print "(setq", s(result), "(make-array", s(size)
-        print ":initial-element", s(init), "))"
+        print "(setq", s(result), "(make-array", s(size), "))"
+        print "(fill", s(result), s(init), ")"
     def op_setitem(self):
         s = self.str
         (array, index, element) = self.args
-        print "(setf (aref", s(array), s(index), ")", s(element), ")"
+        print "(setf (elt", s(array), s(index), ")", s(element), ")"
 
 class GenCL:
     def __init__(self, fun):
