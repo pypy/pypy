@@ -4,7 +4,8 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.interpreter.typedef import instantiate
 from pypy.tool.cache import Cache 
-from pypy.objspace.std.model import W_Object, W_ANY, MultiMethod, StdTypeModel
+from pypy.objspace.std.model import W_Object, UnwrapError
+from pypy.objspace.std.model import W_ANY, MultiMethod, StdTypeModel
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
@@ -208,7 +209,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def unwrap(self, w_obj):
         if isinstance(w_obj, BaseWrappable):
             return w_obj
-        return w_obj.unwrap()
+        if isinstance(w_obj, W_Object):
+            return w_obj.unwrap()
+        raise UnwrapError, "cannot unwrap: %r" % w_obj
+        
 
     def newint(self, intval):
         return W_IntObject(self, intval)
