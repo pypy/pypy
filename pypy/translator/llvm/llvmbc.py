@@ -41,6 +41,8 @@ class BasicBlock(object):
     def phi(self, l_arg, l_values, blocks):
         assert len(l_values) == len(blocks)
         vars_string = []
+        print "inserting phi node", l_arg, l_values, blocks
+        print l_arg.llvmname(), l_arg.llvmtype()
         fd = "" + "%s = phi %s " % (l_arg.llvmname(), l_arg.llvmtype())
         fd += ", ".join(["[%s, %s]" % (v.llvmname(), b)
                for v, b in zip(l_values, blocks)])
@@ -56,9 +58,18 @@ class BasicBlock(object):
             ", ".join([a.typed_name() for a in l_args]) + ")")
         
     def call(self, l_target, l_func, l_args):
-        s = "%s = call %s %s(" % (l_target.llvmname(), l_target.llvmtype(),
+        if l_target.llvmtype() == "void":
+            s = "call void %%std.%s(" % opname
+        elif  l_target.llvmtype() == "%std.void":
+            s = "call %std.void %%std.%s(" % opname
+        s = "%s = call %s %s(" % (l_target.llvmname(), l_func.rettype(),
                                   l_func.llvmname())
         self.instructions.append(s + 
+            ", ".join([a.typed_name() for a in l_args]) + ")")
+
+    def call_void(self, l_func, l_args):
+        s = "call %s %s(" % (l_func.rettype(), l_func.llvmname())
+        self.instructions.append(s +
             ", ".join([a.typed_name() for a in l_args]) + ")")
 
     def ret(self, l_value):
@@ -70,6 +81,34 @@ class BasicBlock(object):
     def cond_branch(self, l_switch, blocktrue, blockfalse):
         s = "br %s, label %s, label %s" % (l_switch.typed_name(),
                                            blocktrue, blockfalse)
+        self.instructions.append(s)
+
+    def malloc(self, l_target, l_type, num=1):
+        s = "%s = malloc %s" % (l_target.llvmname(),
+                                l_type.llvmname_wo_pointer())
+        if num > 1:
+            s += ", uint %i" % num
+        self.instructions.append(s)
+
+    def getelementptr(self, target, l_ptr, adresses):
+        s = "%s = getelementptr %s %s, " % (target, l_ptr.llvmtype(),
+                                            l_ptr.llvmname())
+        adr = []
+        for a in adresses:
+            if a >= 0:
+                adr.append("uint %i" % a)
+            else:
+                adr.append("int %i" % a)
+        self.instructions.append(s + ", ".join(adr))
+
+    def load(self, l_target, pter):
+        s = "%s = load %s* %s" % (l_target.llvmname(), l_target.llvmtype(),
+                                  pter)
+        self.instructions.append(s)
+
+    def store(self, l_value, pter):
+        s = "store %s %s, %s* %s" % (l_value.llvmtype(), l_value.llvmname(),
+                                     l_value.llvmtype(), pter)
         self.instructions.append(s)
 
 

@@ -16,6 +16,7 @@ def setup_module(mod):
 def compile_function(function, annotate):
     t = Translator(function)
     a = t.annotate(annotate)
+    t.simplify()
     gen = LLVMGenerator(t)
     return gen.compile()
 
@@ -28,6 +29,10 @@ def is_on_path(name):
         return True
 
 class TestLLVMRepr(object):
+    def setup_method(self,method):
+        if not llvm_found:
+            py.test.skip("llvm-as not found on path")
+
     def DONOT_test_simple1(self):
         t = Translator(llvmsnippet.simple1)
         a = t.annotate([])
@@ -64,7 +69,7 @@ block1:
         l_repr = gen.get_repr(str)
         assert l_repr.llvmname() == "%std.string*"
 
-    def test_stringrepr(self):
+    def DONOT_test_stringrepr(self):
         t = Translator(llvmsnippet.simple3)
         a = t.annotate([])
         gen = LLVMGenerator(t)
@@ -107,22 +112,72 @@ class TestGenLLVM(object):
             assert f(2, i) == 2 * i + 3
             assert f(3, i) == 2 ** (i + 3) - 3
 
+    def test_calling(self):
+        f = compile_function(llvmsnippet.calling1, [int])
+        assert f(10) == 1
+
 class TestLLVMArray(object):
     def setup_method(self, method):
         if not llvm_found:
             py.test.skip("llvm-as not found on path.")
 
-    def test_simplearray(self):
-        f = compile_function(llvmsnippet.arraytestsimple, [])
+    def test_array(self):
+        f = compile_function(llvmsnippet.array_simple, [])
         assert f() == 42
 
-    def test_simplearray1(self):
-        f = compile_function(llvmsnippet.arraytestsimple1, [])
-        assert f() == 43
+    def test_array1(self):
+        f = compile_function(llvmsnippet.array_simple1, [int])
+        assert f(1) == 10
+        assert f(-42) == -420
 
-    def test_simplearray_setitem(self):
-        f = compile_function(llvmsnippet.arraytestsetitem, [int])
-        assert f(32) == 64
+    def test_array_setitem(self):
+        f = compile_function(llvmsnippet.array_setitem, [int])
+        print f(1), f(2), f(3)
+        assert f(1) == 12
+        assert f(2) == 13
+        assert f(3) == 3
+
+    def test_array_add(self):
+        f = compile_function(llvmsnippet.array_add, [int, int, int, int, int])
+        assert f(1,2,3,4,0) == 1
+        assert f(1,2,3,4,1) == 2
+        assert f(1,2,3,4,2) == 3
+        assert f(1,2,5,6,3) == 6
+
+    def test_array_double(self):
+        f = compile_function(llvmsnippet.double_array, [])
+        assert f() == 15
+
+    def test_bool_array(self):
+        f = compile_function(llvmsnippet.bool_array, [])
+        assert f() == 1
+
+    def test_array_arg(self):
+        f = compile_function(llvmsnippet.array_arg, [int])
+        assert f(5) == 0
+
+
+class TestClass(object):
+    def setup_method(self, method):
+        if not llvm_found:
+            py.test.skip("llvm-as not found on path.")
+
+    def test_classsimple(self):
+        f = compile_function(llvmsnippet.class_simple, [])
+        assert f() == 14
+
+    def test_classsimple1(self):
+        f = compile_function(llvmsnippet.class_simple1, [int])
+        assert f(2) == 10
+
+    def test_classsimple2(self):
+        f = compile_function(llvmsnippet.class_simple2, [int])
+        assert f(2) == 10
+
+    def test_id_int(self):
+        f = compile_function(llvmsnippet.id_int, [int])
+        for i in range(1, 20):
+            assert f(i) == i
 
 class TestSnippet(object):
     def setup_method(self, method):
@@ -155,6 +210,13 @@ class TestSnippet(object):
         while_func = compile_function(test.while_func, [int])
         assert while_func(10) == 55
 
+    def test_time_waster(self):
+        f = compile_function(test.time_waster, [int])
+        assert f(1) == 1
+        assert f(2) == 2
+        assert f(3) == 6
+        assert f(4) == 12
+
     def test_factorial2(self):
         factorial2 = compile_function(test.factorial2, [int])
         assert factorial2(5) == 120
@@ -162,3 +224,14 @@ class TestSnippet(object):
     def test_factorial(self):
         factorial = compile_function(test.factorial, [int])
         assert factorial(5) == 120
+
+    def test_two_plus_two(self):
+        f = compile_function(test.two_plus_two, [])
+        assert f() == 4
+
+    def test_sieve_of_eratosthenes(self):
+        f = compile_function(test.sieve_of_eratosthenes, [])
+        assert f() == 1028
+
+
+

@@ -1,9 +1,13 @@
 ;implementation of space operations for simple types
+
+
 implementation
 
 declare void %llvm.memmove(sbyte*, sbyte*, uint, uint)
 declare void %llvm.memcpy(sbyte*, sbyte*, uint, uint)
 declare void %llvm.memset(sbyte*, ubyte, uint, uint)
+
+
 
 
 ;Basic operations for ints
@@ -112,7 +116,7 @@ internal bool %std.ge(int %a, int %b) {
 }
 
 ;Logical operations for ints
-internal int %std.and(int %a, int %b) {
+internal int %std.and_(int %a, int %b) {
 	%r = and int %a, %b
 	ret int %r
 }
