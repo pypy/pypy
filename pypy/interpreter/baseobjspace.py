@@ -277,32 +277,38 @@ class ObjSpace(object):
         return statement.exec_code(self, w_globals, w_locals)
 
     def exec_with(self, source, **kwargs_w): 
-        """ execute given source at applevel with given name=wrapped value 
-            parameters as its starting scope.  Note: EXPERIMENTAL. 
+        """ return value from executing given source at applevel with 
+            given name=wrapped value parameters as its starting scope.  
+            Note: EXPERIMENTAL. 
         """ 
         space = self
-        pypyco = getpypycode(space, source) 
-
-        # XXX use the fastscope version of Frames? 
+        pypyco,name2index = pypycodecache.getorbuild((space,source), 
+                                                     buildpypycode, kwargs_w) 
         w_glob = space.newdict([])
+        frame = pypyco.create_frame(space, w_glob) 
         for name, w_value in kwargs_w.items(): 
-            space.setitem(w_glob, space.wrap(name), w_value) 
-        pypyco.exec_code(self, w_glob, w_glob) 
-        w_result = space.getitem(w_glob, space.wrap('__return__')) 
-        return w_result 
+            i = name2index[name]  
+            frame.fastlocals_w[i] = w_value 
+        return frame.run() 
 
-pypycodecache = {}
-def getpypycode(space, source): 
-    try: 
-        return pypycodecache[(space, source)]
-    except KeyError: 
-        # NOT_RPYTHON  
-        # XXX hack a bit to allow for 'return' statements? 
-        from pypy.interpreter.pycode import PyCode
-        co = compile(source, '', 'exec') 
-        pypyco = PyCode(space)._from_code(co) 
-        pypycodecache[(space, co)] = pypyco 
-        return pypyco 
+pypycodecache = Cache() 
+def buildpypycode((space, source), kwargs_w): 
+    """ NOT_RPYTHON """ 
+    # XXX will change once we have our own compiler 
+    from pypy.interpreter.pycode import PyCode
+    from pypy.tool.pytestsupport import py  # aehem
+    names = kwargs_w.keys() 
+    source = py.code.Source(source) 
+    source = source.putaround("def anon(%s):" % ", ".join(kwargs_w.keys()))
+    d = {}
+    exec source.compile() in d
+    newco = d['anon'].func_code 
+    pypyco = PyCode(space)._from_code(newco) 
+    varnames = list(pypyco.getvarnames())
+    name2index = {}
+    for name, w_value in kwargs_w.items(): 
+        name2index[name] = varnames.index(name)
+    return pypyco, name2index   
 
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result
