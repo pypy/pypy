@@ -63,8 +63,8 @@ def proxymaker(space, opname, parentfn):
         return parentfn(*newargs)
     return proxy
 
-def Space():
-    space = create_proxy_space('thunk', proxymaker)
+def Space(space=None):
+    space = create_proxy_space('thunk', proxymaker, space=space)
     space.setitem(space.builtin.w_dict, space.wrap('thunk'),
                   space.wrap(app_thunk))
     return space
