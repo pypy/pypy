@@ -109,7 +109,7 @@ class MyTextTestResult(unittest._TextTestResult):
     def printErrorList(self, flavour, errors):
         from pypy.interpreter.baseobjspace import OperationError
         for test, err in errors:
-            if showinterplevelexceptions:
+            if Options.showinterplevelexceptions:
                 self.stream.writeln(self.separator1)
                 self.stream.writeln("%s: %s" % (flavour,self.getDescription(test)))
                 self.stream.writeln(self.separator2)
@@ -117,7 +117,7 @@ class MyTextTestResult(unittest._TextTestResult):
                 t2 = ''
             if isinstance(err[1], OperationError) and \
               test.space.full_exceptions:
-                if showinterplevelexceptions:
+                if Options.showinterplevelexceptions:
                     t2 = '\nand at app-level:\n\n'
                 else:
                     t2 = ''
@@ -225,40 +225,34 @@ def testsuite_from_dir(root, filterfunc=None, recursive=0, loader=None):
     Additionally, their fully qualified python module path has
     to be accepted by filterfunc (if it is not None).
     """
+    from vpath import getlocal, nodotfile
+    root = getlocal(root)
+
     if Options.verbose > 2:
         print >> sys.stderr, "scanning for test files in", root
 
     if loader is None:
         loader = unittest.TestLoader()
 
-    root = os.path.abspath(root)
-
+    def testfilefilter(path):
+        return path.isfile() and path.fnmatch('test_*.py')
+    def recfilter(path):
+        return recursive and nodotfile(path) 
+    
     suite = unittest.TestLoader.suiteClass()
-    names = os.listdir(root)
-    names.sort()
-    for fn in names:
-        # ignore "hidden" files
-        if fn.startswith('.'):
-            continue
-        fullfn = os.path.join(root, fn)
-        if os.path.isfile(fullfn) and fnmatch.fnmatch(fn, 'test_*.py'):
-            # strip the leading pypy directory and the .py suffix
-            modpath = fullfn[len(autopath.pypydir)+1:-3]
-            modpath = 'pypy.' + modpath.replace(os.sep, '.')
-            if (filterfunc is None) or filterfunc(modpath):
-                try:
-                    subsuite = loader.loadTestsFromName(modpath)
-                except:
-                    print "skipping testfile (failed loading it)", modpath
-                else:
-                    suite.addTest(subsuite, modpath)
-        # possibly, collect tests from subdirectories recursively
-        elif recursive and os.path.isdir(fullfn):
-            subsuite = testsuite_from_dir(fullfn, filterfunc, 1, loader)
-            if subsuite:
-                suite._tests.extend(subsuite._tests)
-    return suite
 
+    for testfn in root.visit(testfilefilter, recfilter):
+        # strip the leading pypy directory and the .py suffix
+        modpath = str(testfn)[len(autopath.pypydir)+1:-3]
+        modpath = 'pypy.' + modpath.replace(os.sep, '.')
+        if (filterfunc is None) or filterfunc(modpath):
+            try:
+                subsuite = loader.loadTestsFromName(modpath)
+            except:
+                print "skipping testfile (failed loading it)", modpath
+            else:
+                suite.addTest(subsuite, modpath)
+    return suite
 
 class Options(option.Options):
     testreldir = 0
@@ -270,6 +264,7 @@ class Options(option.Options):
     def ensure_value(*args):
         return 0
     ensure_value = staticmethod(ensure_value)
+    showinterplevelexceptions = 1
 
 
 class TestSkip(Exception):

@@ -172,7 +172,13 @@ class Test_DictObject(test.AppTestCase):
 
     def setUp(self):
         self.space = test.objspace('std')
-        
+       
+    def test_equality(self):
+        d = {1:2} 
+        f = {1:2} 
+        self.assert_(d == f)
+        self.assert_(d != {1:3})
+
     def test_clear(self):
         d = {1:2, 3:4}
         d.clear()
