@@ -55,6 +55,10 @@ class TestW_DictObject(testsupport.TestCase_w):
        self.failUnless(cell.is_empty())
        cell.set(space.wrap(1))
        self.assertEqual_w(space.getitem(d,wk1),space.wrap(1))
+       wk2 = space.wrap('key2')
+       space.setitem(d,wk2,space.wrap(2))
+       cell = space.unwrap(d.cell(space,wk2))
+       self.assertEqual_w(cell.get(),space.wrap(2))
        
        
 
