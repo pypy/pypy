@@ -169,6 +169,7 @@ class MD5:
         "Initialize the message-digest and set all fields to zero."
 
         self.length = 0L
+        self.count = [0, 0]
         self.input = []
 
         # Load magic initialization constants.
@@ -389,8 +390,17 @@ class MD5:
         to efficiently compute the digests of strings that share
         a common initial substring.
         """
-
-        return copy.deepcopy(self)
+        if 0: # set this to 1 to make the flow space crash
+            return copy.deepcopy(self)
+        clone = self.__class__()
+        clone.length = self.length
+        clone.count  = [] + self.count[:]
+        clone.input  = [] + self.input
+        clone.A = self.A
+        clone.B = self.B
+        clone.C = self.C
+        clone.D = self.D
+        return clone
 
 
 # ======================================================================
