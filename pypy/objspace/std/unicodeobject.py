@@ -17,9 +17,34 @@ def eq__Unicode_ANY(space, w_uni, w_other):
     except:
         wrap_exception(space)
 
+def ne__Unicode_ANY(space, w_uni, w_other):
+    try:
+        return space.newbool(space.unwrap(w_uni) != space.unwrap(w_other))
+    except:
+        wrap_exception(space)
+
+
 def lt__Unicode_ANY(space, w_uni, w_other):
     try:
         return space.newbool(space.unwrap(w_uni) < space.unwrap(w_other))
+    except:
+        wrap_exception(space)
+
+def gt__Unicode_ANY(space, w_uni, w_other):
+    try:
+        return space.newbool(space.unwrap(w_uni) > space.unwrap(w_other))
+    except:
+        wrap_exception(space)
+
+def le__Unicode_ANY(space, w_uni, w_other):
+    try:
+        return space.newbool(space.unwrap(w_uni) <= space.unwrap(w_other))
+    except:
+        wrap_exception(space)
+
+def ge__Unicode_ANY(space, w_uni, w_other):
+    try:
+        return space.newbool(space.unwrap(w_uni) >= space.unwrap(w_other))
     except:
         wrap_exception(space)
 
@@ -38,4 +63,18 @@ def contains__String_Unicode(space, w_left, w_right):
 def contains__Unicode_Unicode(space, w_left, w_right):
     return space.wrap(space.unwrap(w_right) in space.unwrap(w_left))
 
-register_all(vars())
+# str.strip(unicode) needs to convert self to unicode and call unicode.strip
+def str_strip__String_Unicode(space, w_self, w_chars ):
+    self = w_self._value
+    return space.wrap( unicode(self).strip( space.unwrap(w_chars) ) )
+def str_lstrip__String_Unicode(space, w_self, w_chars ):
+    self = w_self._value
+    return space.wrap( unicode(self).lstrip( space.unwrap(w_chars) ) )
+def str_rstrip__String_Unicode(space, w_self, w_chars ):
+    self = w_self._value
+    return space.wrap( unicode(self).rstrip( space.unwrap(w_chars) ) )
+# we use the following magic to register strip_string_unicode as a String multimethod
+import stringtype
+
+
+register_all(vars(), stringtype)
