@@ -8,3 +8,5 @@ from typeobject import W_TypeObject
 class W_SeqIterType(W_TypeObject):
 
     typename = 'SeqIterType'
+
+registerimplementation(W_SeqIterType)

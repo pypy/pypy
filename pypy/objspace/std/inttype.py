@@ -6,6 +6,8 @@ class W_IntType(W_TypeObject):
 
     typename = 'int'
 
+registerimplementation(W_IntType)
+
 
 # XXX we'll worry about the __new__/__init__ distinction later
 def inttype_new(space, w_inttype, w_args, w_kwds):

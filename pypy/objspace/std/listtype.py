@@ -16,6 +16,8 @@ class W_ListType(W_TypeObject):
     list_reverse= MultiMethod('reverse',1)
     list_sort   = MultiMethod('sort',   1)
 
+registerimplementation(W_ListType)
+
 
 # XXX right now, this is responsible for building a whole new list
 # XXX we'll worry about the __new__/__init__ distinction later

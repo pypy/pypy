@@ -6,6 +6,8 @@ class W_FloatType(W_TypeObject):
 
     typename = 'float'
 
+registerimplementation(W_FloatType)
+
 def new__FloatType_ANY_ANY(space, w_inttype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,

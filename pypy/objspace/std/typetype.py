@@ -1,5 +1,5 @@
 from pypy.objspace.std.objspace import *
-from typeobject import W_TypeObject
+from typeobject import W_TypeObject, NewMultimethodCode
 
 
 class W_TypeType(W_TypeObject):
@@ -7,6 +7,8 @@ class W_TypeType(W_TypeObject):
     '__builtin__.type'."""
 
     typename = 'type'
+
+registerimplementation(W_TypeType)
 
 
 # XXX we'll worry about the __new__/__init__ distinction later

@@ -1,4 +1,4 @@
-from pypy.objspace.std.objspace import MultiMethod, StdObjSpace, W_ANY, register_all
+from pypy.objspace.std.objspace import *
 from typeobject import W_TypeObject
 
 
@@ -37,6 +37,8 @@ class W_StringType(W_TypeObject):
     str_expandtabs = MultiMethod('expandtabs', 2, defaults=(8,))
     str_splitlines = MultiMethod('splitlines', 2)
     str_startswith = MultiMethod('startswith', 2) #[optional arguments not supported now]
+
+registerimplementation(W_StringType)
 
 
 # XXX we'll worry about the __new__/__init__ distinction later

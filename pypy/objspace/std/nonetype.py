@@ -5,3 +5,5 @@ from typeobject import W_TypeObject
 class W_NoneType(W_TypeObject):
 
     typename = 'NoneType'
+
+registerimplementation(W_NoneType)

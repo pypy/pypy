@@ -6,6 +6,8 @@ class W_SliceType(W_TypeObject):
 
     typename = 'slice'
 
+registerimplementation(W_SliceType)
+
 def slicetype_new(space, w_slicetype, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,

@@ -6,6 +6,8 @@ class W_TupleType(W_TypeObject):
 
     typename = 'tuple'
 
+registerimplementation(W_TupleType)
+
 
 # XXX we'll worry about the __new__/__init__ distinction later
 def tupletype_new(space, w_tupletype, w_args, w_kwds):

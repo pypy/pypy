@@ -26,10 +26,6 @@ class FailedToImplement(Exception):
 #   one may be automatically registered in the other one to keep
 #   them in sync.
 
-# for dispatching use the result of this function instead of directly
-# using .__class__
-dispatchtype = lambda obj: getattr(obj, 'dispatchtype', obj.__class__)
-
 
 class AbstractMultiMethod(object):
     """Abstract base class for MultiMethod and UnboundMultiMethod
@@ -44,6 +40,11 @@ class AbstractMultiMethod(object):
         self.cache_table = {}
 
     def register(self, function, *types):
+        for type in types:
+            if (hasattr(type, 'dispatchclass') and
+                'dispatchclass' not in type.__dict__):
+                raise error, ('looks like you forgot to call\n'
+                              'registerimplementation(%r)' % type)
         # W_ANY can be used as a placeholder to dispatch on any value.
         functions = self.dispatch_table.setdefault(types, [])
         if function not in functions:
@@ -201,7 +202,7 @@ class UnboundMultiMethod(AbstractMultiMethod):
 
 
 class BoundMultiMethod:
-    ASSERT_BASE_TYPE = None
+    #ASSERT_BASE_TYPE = None
 
     def __init__(self, space, multimethod):
         self.space = space
@@ -218,7 +219,7 @@ class BoundMultiMethod:
                 raise OperationError(*e.args)
             else:
                 # raise a TypeError for a FailedToImplement
-                initialtypes = [dispatchtype(a)
+                initialtypes = [a.dispatchclass
                                 for a in args[:self.multimethod.arity]]
                 if len(initialtypes) <= 1:
                     plural = ""
@@ -235,15 +236,15 @@ class BoundMultiMethod:
         arity = self.multimethod.arity
         extraargs = args[arity:]
 
-        if self.ASSERT_BASE_TYPE:
-            for a in args[:arity]:
-                assert issubclass(dispatchtype(a), self.ASSERT_BASE_TYPE), (
-                    "multimethod '%s' call with non wrapped argument: %r" %
-                    (self.multimethod.operatorsymbol, a))
+##        if self.ASSERT_BASE_TYPE:
+##            for a in args[:arity]:
+##                assert issubclass(a.dispatchclass, self.ASSERT_BASE_TYPE), (
+##                    "multimethod '%s' call with non wrapped argument: %r" %
+##                    (self.multimethod.operatorsymbol, a))
 
         # look for an exact match first
         firstfailure = None
-        types = tuple([(dispatchtype(a),) for a in args])
+        types = tuple([(a.dispatchclass,) for a in args])
         choicelist = self.multimethod.buildchoices(types)
         for signature, function in choicelist:
             try:
@@ -281,7 +282,7 @@ class BoundMultiMethod:
                     else:
                         converted = function(self.space, curobjs[t])
                         if not isinstance(converted, list):
-                            converted = [(dispatchtype(converted),
+                            converted = [(converted.dispatchclass,
                                           converted)]
                         for t, a in converted:
                             if t not in curobjs:

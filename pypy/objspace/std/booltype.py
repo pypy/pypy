@@ -11,3 +11,5 @@ class W_BoolType(W_TypeObject):
 
     typename = 'bool'
     staticbases = (W_IntType,)
+
+registerimplementation(W_BoolType)

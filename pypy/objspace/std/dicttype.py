@@ -25,7 +25,9 @@ class W_DictType(W_TypeObject):
     dict_iteritems  = MultiMethod('iteritems',  1)
     dict_iterkeys   = MultiMethod('iterkeys',   1)
     dict_itervalues = MultiMethod('itervalues', 1)
-    
+
+registerimplementation(W_DictType)
+
 # XXX we'll worry about the __new__/__init__ distinction later
 def dicttype_new(space, w_listtype, w_args, w_kwds):
     # w_kwds = w_kwds.copy() w unwrap & rewrap, but that should not be needed

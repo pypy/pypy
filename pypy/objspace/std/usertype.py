@@ -42,6 +42,8 @@ class W_UserType(W_TypeObject):
             raise KeyError
         return w_value
 
+registerimplementation(W_UserType)
+
 # XXX we'll worry about the __new__/__init__ distinction later
 # XXX NOTE: currently (03-06-21) user-object can only sublass
 #   types which register an implementation for 'new' -- currently

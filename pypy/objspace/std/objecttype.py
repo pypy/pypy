@@ -20,6 +20,8 @@ class W_ObjectType(W_TypeObject):
     object_str     = StdObjSpace.str
     object_hash    = StdObjSpace.hash
 
+registerimplementation(W_ObjectType)
+
 
 # XXX we'll worry about the __new__/__init__ distinction later
 def new__ObjectType_ANY_ANY(space, w_objecttype, w_args, w_kwds):
