@@ -41,6 +41,8 @@ def builtin_isinstance(s_obj, s_type):
             return immutablevalue(isinstance(s_obj.const, typ))
         elif issubclass(s_obj.knowntype, typ):
             return immutablevalue(True)
+        elif not issubclass(typ, s_obj.knowntype): 
+            return immutablevalue(False) 
         else:
             # XXX HACK HACK HACK
             # XXX HACK HACK HACK
