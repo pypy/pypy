@@ -91,6 +91,7 @@ class MultiMethodTable:
 # ____________________________________________________________
 
 class Installer:
+    mmfunccache = {}
 
     prefix_memo = {}
 
@@ -251,9 +252,19 @@ class Installer:
         bodylines.insert(0, 'def %s(%s):' % (funcname, ', '.join(funcargs)))
         bodylines.append('')
         source = '\n'.join(bodylines)
-        #print source
-        #print "*"*60
-        exec compile2(source) in miniglobals
-        func = miniglobals[funcname]
+
+        # XXX find a better place (or way) to avoid duplicate functions 
+        l = miniglobals.items()
+        l.sort()
+        l = tuple(l)
+        key = (source, l)
+        try: 
+            func = self.mmfunccache[key]
+        except KeyError: 
+            exec compile2(source) in miniglobals
+            func = miniglobals[funcname]
+            self.mmfunccache[key] = func 
+        #else: 
+        #    print "avoided duplicate function", func
         self.to_install.append((target, funcname, func, source, fallback))
         return func
