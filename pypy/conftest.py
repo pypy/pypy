@@ -62,7 +62,8 @@ class Module(py.test.collect.Module):
 
     def collect_app_function(self, extpy): 
         if extpy.check(func=1, basestarts='app_test_'):
-            assert not extpy.check(genfunc=1), "you must be joking" 
+            assert not extpy.check(genfunc=1), (
+                "generator app level functions? you must be joking")
             yield AppTestFunction(extpy)
             
     def collect_class(self, extpy): 
