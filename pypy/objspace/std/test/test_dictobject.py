@@ -134,21 +134,19 @@ class TestW_DictObject(testit.TestCase):
         wd = space.newdict
         def mydict(w_args=w(()), w_kwds=w({})):
             return space.call(space.w_dict, w_args, w_kwds)
-        def deepwrap(lp):
-            return [[w(a),w(b)] for a,b in lp]
-        d = mydict(w_kwds=w({1:2, 3:4}))
-        dd = mydict(w_kwds=w({1:2, 3:4})) # means d.copy()
+        d = mydict(w_kwds=w({"1":2, "3":4}))
+        dd = mydict(w_kwds=w({"1":2, "3":4})) # means d.copy()
         pop = space.getattr(dd, w("pop"))
-        result = space.call_function(pop, w(1))
+        result = space.call_function(pop, w("1"))
         self.assertEqual_w(result, w(2))
         self.assertEqual_w(space.len(dd), w(1))
 
-        dd = mydict(w_kwds=w({1:2, 3:4})) # means d.copy()
+        dd = mydict(w_kwds=w({"1":2, "3":4})) # means d.copy()
         pop = space.getattr(dd, w("pop"))
-        result = space.call_function(pop, w(1), w(44))
+        result = space.call_function(pop, w("1"), w(44))
         self.assertEqual_w(result, w(2))
         self.assertEqual_w(space.len(dd), w(1))
-        result = space.call_function(pop, w(1), w(44))
+        result = space.call_function(pop, w("1"), w(44))
         self.assertEqual_w(result, w(44))
         self.assertEqual_w(space.len(dd), w(1))
 
@@ -159,12 +157,12 @@ class TestW_DictObject(testit.TestCase):
         w = space.wrap
         def mydict(w_args=w(()), w_kwds=w({})):
             return space.call(space.w_dict, w_args, w_kwds)
-        d = mydict(w_kwds=w({1:2, 3:4}))
+        d = mydict(w_kwds=w({"1":2, "3":4}))
         get = space.getattr(d, w("get"))
-        self.assertEqual_w(space.call_function(get, w(1)), w(2))
-        self.assertEqual_w(space.call_function(get, w(1), w(44)), w(2))
-        self.assertEqual_w(space.call_function(get, w(33)), w(None))
-        self.assertEqual_w(space.call_function(get, w(33), w(44)), w(44))
+        self.assertEqual_w(space.call_function(get, w("1")), w(2))
+        self.assertEqual_w(space.call_function(get, w("1"), w(44)), w(2))
+        self.assertEqual_w(space.call_function(get, w("33")), w(None))
+        self.assertEqual_w(space.call_function(get, w("33"), w(44)), w(44))
 
 
 
