@@ -152,7 +152,11 @@ class ObjSpace:
     def call_function(self, w_func, *args_w, **kw_w):
         w_kw = self.newdict([(self.wrap(k), w_v) for k, w_v in kw_w.iteritems()])
         return self.call(w_func, self.newtuple(list(args_w)), w_kw)
-            
+
+    def isinstance(self, w_obj, w_type):
+        w_objtype = self.type(w_obj)
+        return self.issubtype(w_objtype, w_type)
+
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result
 ## (if any).  XXX Maybe we should say that these methods must be accessed
