@@ -301,18 +301,3 @@ class __extend__(pairtype(SomePrebuiltConstant, SomePrebuiltConstant)):
     def union((pbc1, pbc2)):
         return SomePrebuiltConstant(setunion(pbc1.prebuiltinstances,
                                              pbc2.prebuiltinstances))
-
-class __extend__(pairtype(SomePrebuiltConstant, SomeObject)):
-    def getitem((pbc1, obj2)):
-        # special case for SomePrebuiltConstants that are dictionaries
-        # (actually frozendicts)
-        possibleresults = []
-        for inst in pbc1.prebuiltinstances:
-            if isinstance(inst, dict):
-                possibleresults += inst.values()
-            #elif isinstance(inst, list):
-            #    possibleresults += inst   # maybe
-            else:
-                raise TypeError, "cannot getitem() from %r" % (inst,)
-        possibleresults = [immutablevalue(x) for x in possibleresults]
-        return unionof(*possibleresults)
