@@ -353,6 +353,7 @@ class GenC:
         file:   '&PyFile_Type',
         type(None): 'Py_None->ob_type',
         CodeType: '&PyCode_Type',
+        slice:  '&PySlice_Type',
 
         r_int:  '&PyInt_Type',
         r_uint: '&PyInt_Type',
