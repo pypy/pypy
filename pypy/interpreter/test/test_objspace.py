@@ -1,5 +1,8 @@
 import testsupport
 
+# this test isn't so much to test that the objspace interface *works*
+# -- it's more to test that it's *there*
+
 class TestStdObjectSpace(testsupport.TestCase):
 
     def setUp(self):
@@ -44,6 +47,15 @@ class TestStdObjectSpace(testsupport.TestCase):
         t = tuple(range(10))
         w_t = self.space.newtuple([w(i) for i in t])
         self.assertEqual_w(w_t, w(t))
+
+    def test_is_true(self):
+        w = self.space.wrap
+        true = (1==1)
+        false = (1==0)
+        w_true = w(true)
+        w_false = w(false)
+        self.failUnless(self.space.is_true(w_true))
+        self.failIf(self.space.is_true(w_false))
         
 if __name__ == '__main__':
     testsupport.main()
