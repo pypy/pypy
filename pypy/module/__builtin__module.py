@@ -31,6 +31,13 @@ def execfile(filename, glob=None, loc=None):
     co = compile(source, filename, 'exec')
     exec co in glob, loc
 
+def raw_input():
+    import sys
+    return sys.stdin.readline()   # XXX review
+
+def input():
+    return eval(raw_input())
+
 
 def sum(sequence, total=0):
     # must forbid "summing" strings, per specs of built-in 'sum'
@@ -937,6 +944,10 @@ class complex(object):
 # test mod, divmod
 
 # add radd, rsub, rmul, rdiv...
+
+
+class long:
+    pass   # XXX do it
 
 # ________________________________________________________________________
 ##    def app___import__(*args):
