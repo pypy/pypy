@@ -173,14 +173,14 @@ class PyCode(eval.Code):
         if not areEqual:
             return space.w_False
 
-        for i in xrange(len(self.co_consts_w)):
+        for i in range(len(self.co_consts_w)):
             if not space.eq_w(self.co_consts_w[i], other.co_consts_w[i]):
                 return space.w_False
 
         if len(self.co_names_w) != len(other.co_names_w):
             return space.w_False
         
-        for i in xrange(len(self.co_names_w)):
+        for i in range(len(self.co_names_w)):
             if not space.eq_w(self.co_names_w[i], other.co_names_w[i]):
                 return space.w_False
         if (self.co_varnames == other.co_varnames and
