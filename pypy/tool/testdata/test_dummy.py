@@ -3,6 +3,14 @@
 import autopath
 from pypy.tool import newtest
 
+
+def test_function1():
+    raise newtest.Failure("failed test")
+
+def test_function2():
+    newtest.skip()
+
+
 class TestDummy1(newtest.TestCase):
     """
     Example of a docstring for a class.
@@ -40,3 +48,13 @@ class TestSkip1(newtest.TestCase):
 class TestSkip2(newtest.TestCase):
     def test_skip2(self):
         self.skip()
+
+
+# these items shouldn't be identified as testable objects
+def f():
+    raise TypeError
+
+
+class X:
+    def test_skip(self):
+        newtest.skip()

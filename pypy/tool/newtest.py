@@ -192,6 +192,13 @@ class TestCase:
     assertRaises = failUnlessRaises
     assert_ = failUnless
 
+
+# provide services from TestCase class also to test functions, e. g.
+# def test_func4711():
+#     service.assertEqual(3, 3.0, msg="objects with same value should be equal")
+#XXX maybe use another name
+service = TestCase()
+
 #
 # TestResult class family
 #
@@ -261,23 +268,33 @@ class Failure(TestResultWithTraceback):
 # other classes
 #
 class TestItem:
-    """Represent a single test method from a TestCase class."""
-    def __init__(self, module, cls, testmethod):
+    """
+    Represent either a test function, or a single test method from a
+    TestCase class.
+    """
+    def __init__(self, module, callable=None, cls=None):
+        """
+        Construct a test item. The argument callable must be either a
+        plain function or an unbound method of a class. In the latter
+        case, the argument cls must receive the test case class.
+        """
+        # do we have a plain function, or a class and a method?
+        self._isfunction = (cls is None)
         self.file = inspect.getsourcefile(module)
         self.module = module
+        self.callable = callable
         self.cls = cls
-        self.method = testmethod
         # remove trailing whitespace but leave things such indentation
         # of first line(s) alone
         self.docs = (self._docstring(module), self._docstring(cls),
-                     self._docstring(testmethod))
+                     self._docstring(callable))
         #XXX inspect.getsourcelines may fail if the file path stored
         #  in a module's pyc/pyo file doesn't match the py file's
         #  actual location. This can happen if a py file, together with
         #  its pyc/pyo file is moved to a new location. See Python
         #  bug "[570300] inspect.getmodule symlink-related failure":
         #  http://sourceforge.net/tracker/index.php?func=detail&aid=570300&group_id=5470&atid=105470
-        lines, self.lineno = inspect.getsourcelines(testmethod)
+        lines, self.lineno = inspect.getsourcelines(callable)
         # removing trailing newline(s) but not the indentation
         self.source = ''.join(lines).rstrip()
 
@@ -286,6 +303,8 @@ class TestItem:
         Return the docstring of object obj or an empty string, if the
         docstring doesn't exist, i. e. is None.
         """
+        if obj is None:
+            return None
         return inspect.getdoc(obj) or ""
 
     def __eq__(self, other):
@@ -302,7 +321,7 @@ class TestItem:
         # http://mail.python.org/pipermail/python-list/2002-September/121655.html
         # for an explanation.
         if (self.module is other.module) and (self.cls is other.cls) and \
-          (self.method.__name__ == other.method.__name__):
+          (self.callable.__name__ == other.callable.__name__):
             return True
         return False
 
@@ -312,15 +331,19 @@ class TestItem:
     def __hash__(self):
         return id(self.module) ^ id(self.cls)
 
-    def run(self, pretest=None, posttest=None):
+    # credit: adapted from Python's unittest.TestCase.run
+    def run(self):
         """Run this TestItem and return a corresponding TestResult object."""
-        # credit: adapted from Python's unittest.TestCase.run
-
-        testobject = self.cls()
-        testmethod = getattr(testobject, self.method.__name__)
+        if self._isfunction:
+            test = self.callable
+        else:
+            # make the test callable a bound method
+            cls_object = self.cls()
+            test = getattr(cls_object, self.callable.__name__)
 
         try:
-            testobject.setUp()
+            # call setUp only for a class
+            self._isfunction or cls_object.setUp()
         except KeyboardInterrupt:
             raise
         except TestResult, result:
@@ -330,7 +353,7 @@ class TestItem:
             return Error(msg=str(exc), item=self)
 
         try:
-            testmethod()
+            test()
             result = Success(msg='success', item=self)
         except KeyboardInterrupt:
             raise
@@ -341,7 +364,8 @@ class TestItem:
             result = Error(msg=str(exc), item=self)
 
         try:
-            testobject.tearDown()
+            # call tearDown only for a class
+            self._isfunction or cls_object.tearDown()
         except KeyboardInterrupt:
             raise
         except Exception, exc:
@@ -352,8 +376,12 @@ class TestItem:
         return result
 
     def __str__(self):
-        return "TestItem from %s.%s.%s" % (self.module.__name__,\
-               self.cls.__name__, self.method.__name__)
+        if self._isfunction:
+            return "TestItem from %s.%s" % (self.module.__name__,
+                                            self.callable.__name__)
+        else:
+            return "TestItem from %s.%s.%s" % (self.module.__name__,
+                   self.cls.__name__, self.callable.__name__)
 
     def __repr__(self):
         return "<%s at %#x>" % (str(self), id(self))
@@ -390,7 +418,10 @@ class TestSuite:
                     # inspect.ismethod doesn't seem to work here
                     if inspect.isfunction(obj2) and \
                       obj2.__name__.startswith("test"):
-                        items.append(TestItem(module, obj, obj2))
+                        items.append(TestItem(module, cls=obj, callable=obj2))
+            elif (callable(obj) and hasattr(obj, '__name__') and
+                  obj.__name__.startswith('test_')):
+                items.append(TestItem(module, callable=obj))
         return items
 
     def init_from_dir(self, dirname, filterfunc=None, recursive=True):
@@ -476,7 +507,8 @@ def main(do_selftest=False):
         if res.traceback is None:
             continue
         print 79 * '-'
-        print "%s.%s: %s" % (res.item.module.__name__, res.item.method.__name__,
+        print "%s.%s: %s" % (res.item.module.__name__,
+                             res.item.callable.__name__,
                              res.name.upper())
         print
         print res.formatted_traceback
@@ -498,4 +530,4 @@ if __name__ == '__main__':
     # used to avoid subtle problems with class matching after different
     # import statements
     from pypy.tool import newtest
-    newtest.main(do_selftest=False)
+    newtest.main(do_selftest=True)
