@@ -45,7 +45,7 @@ def unwrap__Int(space, w_int1):
 
 def repr__Int(space, w_int1):
     a = w_int1.intval
-    res = "%ld" % a
+    res = str(a)
     return space.wrap(res)
 
 str__Int = repr__Int
