@@ -114,6 +114,17 @@ class TestW_StringObject(test.TestCase):
         w_slice = space.newslice(w(1), w_None, w(2))
         self.assertEqual_w(space.getitem(w_str, w_slice), w('el'))
 
+
+#AttributeError: W_StringObject instance has no attribute 'ljust'
+#    def test_ljust(self):
+#        w = self.space.wrap         
+#        s = "abc"
+#
+#        self.assertEqual_w(w(s).ljust(2), w(s))
+#        self.assertEqual_w(w(s).ljust(3), w(s))
+#        self.assertEqual_w(w(s).ljust(4), w(s + " "))
+#        self.assertEqual_w(w(s).ljust(5), w(s + "  "))    
+
 class TestStringObject(test.AppTestCase):
     def test_split(self):
         self.assertEquals("".split(), [])
@@ -124,8 +135,20 @@ class TestStringObject(test.AppTestCase):
     def test_split_splitchar(self):
         self.assertEquals("/a/b/c".split('/'), ['','a','b','c'])
 
+    def test_rjust(self):
+        s = "abc"
+        self.assertEquals(s.rjust(2), s)
+        self.assertEquals(s.rjust(3), s)
+        self.assertEquals(s.rjust(4), " " + s)
+        self.assertEquals(s.rjust(5), "  " + s)
+
     def test_ljust(self):
-        self.assertEquals("abc".ljust(5), "abc  ")
+        s = "abc"
+        self.assertEquals(s.ljust(2), s)
+        self.assertEquals(s.ljust(3), s)
+        self.assertEquals(s.ljust(4), s + " ")
+        self.assertEquals(s.ljust(5), s + "  ")
+    
             
     def test_split_maxsplit(self):
         self.assertEquals("/a/b/c".split('/', 2), ['','a','b/c'])

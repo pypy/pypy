@@ -166,7 +166,7 @@ def str_join__String_ANY(space, w_self, w_list):
         res = CharArraySize(reslen)
 
         pos = 0
-        #fill in the string buffer
+        #fill in the string buffer"
         for w_item in list:
             if firstelem:
                 res.setsubstring(pos, w_item._value.value())
@@ -182,17 +182,30 @@ def str_join__String_ANY(space, w_self, w_list):
         return W_StringObject(space, "")
 
 
-def str_ljust__String_ANY(space, w_str, w_arg):
-    # XXX look away for three lines, please :-) -- mwh
+def str_rjust__String_ANY(space, w_self, w_arg):
     u = space.unwrap
-    w = space.wrap
-    return w(u(w_str).ljust(u(w_arg)))
 
-def str_rjust__String_ANY(space, w_str, w_arg):
-    # XXX and another three -- mwh
+    u_arg = u(w_arg)
+    u_self = u(w_self)
+    
+    d = u_arg - len(u_self)
+    if d>0:
+        u_self = d * ' ' + u_self
+        
+    return W_StringObject(space, u_self)
+
+
+def str_ljust__String_ANY(space, w_self, w_arg):
     u = space.unwrap
-    w = space.wrap
-    return w(u(w_str).rjust(u(w_arg)))
+
+    u_self = u(w_self)
+    u_arg = u(w_arg)
+
+    d = u_arg - len(u_self)
+    if d>0:
+        u_self += d * ' '
+        
+    return W_StringObject(space, u_self)
 
 def unwrap__String(space, w_str):
     return w_str._value.value()
