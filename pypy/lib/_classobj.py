@@ -44,7 +44,7 @@ def lookup(cls, attr):
     try:
         v = retrieve(cls, attr)
         return v, cls
-    except AttributError:
+    except AttributeError:
         for b in obj_getattribute(cls, '__bases__'):
             v, found = lookup(b, attr)
             if found:
@@ -67,6 +67,13 @@ class classobj(object):
     def __new__(subtype, name, bases, dic):
         if not isinstance(name, str):
             type_err('name', 'string', name)
+
+        if bases is None:
+            bases = ()
+
+        if not isinstance(bases, tuple):
+            type_err('bases', 'tuple', bases)
+        
         if not isinstance(dic, dict):
             type_err('dict', 'dict', dic)
 
@@ -77,7 +84,7 @@ class classobj(object):
 
         try:
             dic['__module__']
-        except:
+        except KeyError:
             try:
                 g = sys._getframe(1).f_globals
             except ValueError:
@@ -87,12 +94,6 @@ class classobj(object):
                 if modname is not None:
                     dic['__module__'] = modname
             
-        if not isinstance(bases, tuple):
-            type_err('bases', 'tuple', bases)
-        
-        if bases is None:
-            bases = ()
-
         for b in bases:
             if not isinstance(b, classobj):
                 if callable(type(b)):
@@ -131,7 +132,7 @@ class classobj(object):
         v, found = lookup(self, attr)
         if not found:
             raise AttributeError, "class %s has no attribute %s" % (self.__name__, attr)
-        if attr in ('__name__', '__bases__', '__dict__'):
+        if attr in ('__name__', '__bases__'):
             return v
 
         descr_get = mro_lookup(v, '__get__')
