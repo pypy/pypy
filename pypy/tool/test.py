@@ -148,7 +148,8 @@ class MyTextTestResult(unittest._TextTestResult):
 
 class CtsTestRunner:
     def __methodname(self, result):
-        """Return a normalized form of the method name for result."""
+        "Return a normalized form of the method name for result."
+        # use private method, id() is not enough for us
         return "%s.%s" % (result.__class__.__name__,
                           result._TestCase__testMethodName)
 
@@ -283,6 +284,7 @@ class Options(option.Options):
     spacename = ''
     individualtime = 0
     interactive = 0
+    #XXX what's the purpose of this?
     def ensure_value(*args):
         return 0
     ensure_value = staticmethod(ensure_value)
