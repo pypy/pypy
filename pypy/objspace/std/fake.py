@@ -4,6 +4,7 @@ from pypy.interpreter.function import Function
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.objspace import W_Object, StdObjSpace
 from pypy.objspace.std.default import UnwrapError
+from pypy.tool.cache import Cache 
 
 # this file automatically generates non-reimplementations of CPython
 # types that we do not yet implement in the standard object space
@@ -11,7 +12,7 @@ from pypy.objspace.std.default import UnwrapError
 
 import sys
 
-_fake_type_cache = {}
+_fake_type_cache = Cache()
 
 # real-to-wrapped exceptions
 def wrap_exception(space):
@@ -35,6 +36,7 @@ def fake_type(cpy_type, ignored=None):
     assert type(cpy_type) is type
     if cpy_type in _fake_type_cache:
         return _fake_type_cache[cpy_type]
+    assert not _fake_type_cache.frozen 
     print 'faking %r'%(cpy_type,)
     kw = {}
     for s, v in cpy_type.__dict__.items():

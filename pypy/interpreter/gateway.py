@@ -15,7 +15,7 @@ from pypy.interpreter import eval, pycode
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments
-
+from pypy.tool.cache import Cache 
 
 class BuiltinCode(eval.Code):
     "The code object implementing a built-in (interpreter-level) hook."
@@ -358,10 +358,10 @@ def build_dict(d, space):
 # temporary/initialization purposes 
 class app2interp_temp(app2interp): 
     def getcache(self, space): 
-        return self.__dict__.setdefault(space, {}) 
+        return self.__dict__.setdefault(space, Cache())
         #                               ^^^^^
         #                          armin suggested this 
      
 class interp2app_temp(interp2app): 
     def getcache(self, space): 
-        return self.__dict__.setdefault(space, {}) 
+        return self.__dict__.setdefault(space, Cache())

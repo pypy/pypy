@@ -33,6 +33,7 @@ from types import InstanceType
 import pypy
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.objspace.flow.model import Constant
+from pypy.tool.cache import Cache 
 
 class SomeObject:
     """The set of all objects.  Each instance stands
@@ -215,6 +216,8 @@ def immutablevalue(x):
         else:
             result = SomeCallable({x : True})
     elif hasattr(x, '__class__') and x.__class__.__module__ != '__builtin__':
+        if isinstance(x, Cache) and not x.frozen:
+            x.freeze()
         result = SomePrebuiltConstant({x: True}) # pre-built inst:
     else:
         result = SomeObject()

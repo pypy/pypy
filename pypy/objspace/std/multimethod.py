@@ -1,6 +1,5 @@
 from pypy.interpreter.baseobjspace import OperationError
-from pypy.tool.frozendict import frozendict
-
+from pypy.tool.cache import Cache 
 
 class FailedToImplement(Exception):
     "Signals the dispatcher to try harder."
@@ -43,7 +42,7 @@ class AbstractMultiMethod(object):
         self.arity = arity
         self.operatorsymbol = operatorsymbol
         self.dispatch_table = {}
-        self.cache_table = {}
+        self.cache_table = Cache()
         self.cache_delegator_key = None
         self.dispatch_arity = 0
 
@@ -76,7 +75,7 @@ class AbstractMultiMethod(object):
         try:
             return self.cache_table[argclasses]
         except KeyError:
-            assert not isinstance(self.cache_table, frozendict)
+            assert not self.cache_table.frozen 
             calllist = []
             self.internal_buildcalllist(argclasses, delegate, calllist)
             result = self.internal_compilecalllist(argclasses, calllist)

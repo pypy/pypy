@@ -43,15 +43,6 @@ def normalize_exception(space, args):
     # this function returns a real tuple that can be handled
     # by FlowObjSpace.unpacktuple()
 
-def loadfromcache(space, args):
-    # XXX need some way to know how to fully initialize the cache
-    print space, args
-    assert len(args.args_w) == 2 and args.kwds_w == {}
-    w_key, w_builder = args.args_w
-    w_cache = Constant('space_cache')   # temporary
-    return space.do_operation('getitem', w_cache, w_key)
-
-
 def import_(space, args):
     assert len(args.args_w) == 4 and args.kwds_w == {}
     unwrapped_args = []
@@ -63,6 +54,4 @@ def import_(space, args):
 def setup(space):
     fn = pyframe.normalize_exception.get_function(space)
     space.specialcases[fn] = normalize_exception
-    fn = baseobjspace.ObjSpace.loadfromcache.im_func
-    space.specialcases[fn] = loadfromcache
     space.specialcases[__import__] = import_

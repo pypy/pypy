@@ -1,6 +1,5 @@
 from pypy.tool import option, autopath, testit
 from pypy.interpreter import gateway 
-from pypy.tool.frozendict import frozendict 
 import os
 
 #######################################################
@@ -32,14 +31,21 @@ def app_triggerexec():
 gateway.importall(globals())   # app_xxx() -> xxx()
 
 #######################################################
+from pypy.objspace.std import stdtypedef
     
 def buildcache(space): 
     print "triggering cache build for %r" % space 
     triggerall(space) 
     triggerexec(space)
-    space._typecache = frozendict(space._typecache) 
-    space._faketypecache = frozendict(space._faketypecache) 
-    space._gatewaycache = frozendict(space._gatewaycache) 
+    #testit.main(os.path.join(autopath.pypydir, 'objspace', 'std'))
+    #Cache.freeze()
+    #space._typecache = frozendict(space._typecache) 
+    #space._faketypecache = frozendict(space._faketypecache) 
+    #space._gatewaycache = frozendict(space._gatewaycache) 
+    #space = option.objspace('std')
+    #buildcache(space)
+    #for x in  stdtypedef._temp:
+    #    x.cache_table = frozendict(x.cache_table)
     print "cache build finished, caches are 'frozen' now"
 
 if __name__ == '__main__': 

@@ -6,9 +6,9 @@ from pypy.objspace.std.objspace import StdObjSpace, W_Object
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.translator.translator import Translator
 from pypy.annotation import model as annmodel
+from pypy.tool.cache import Cache
 
-import buildcache 
-
+#from buildcache import buildcache
 # __________  Entry point  __________
 
 def entry_point():
@@ -22,11 +22,12 @@ def entry_point():
 def analyse(entry_point=entry_point):
     global t, space
     space = StdObjSpace()
-    buildcache.buildcache(space) 
+    # call the entry_point once to trigger building of all 
+    # caches (as far as analyzing the entry_point is concerned) 
+    entry_point() 
     t = Translator(entry_point, verbose=True, simplifying=True)
     a = t.annotate([])
     a.simplify()
-
 
 if __name__ == '__main__':
 

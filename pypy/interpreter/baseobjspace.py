@@ -2,7 +2,7 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.miscutils import getthreadlocals
 from pypy.interpreter.argument import Arguments
-from pypy.tool.frozendict import frozendict 
+from pypy.tool.cache import Cache 
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable',
            'W_Root']
@@ -33,20 +33,9 @@ class ObjSpace(object):
 
     def __init__(self):
         "Basic initialization of objects."
-        self._gatewaycache = {}
+        self._gatewaycache = Cache()
         # sets all the internal descriptors
         self.initialize()
-
-    def loadfromcache(self, key, builder, cache):
-        try:
-            return cache[key]
-        except KeyError:
-            assert not isinstance(cache, frozendict)
-            #print "building for key %r" % key 
-            return cache.setdefault(key, builder(key, self))
-    # note to annotator: we want loadfromcache() to be 
-    # specialized for the different cache types 
-    loadfromcache.specialize = True 
 
     def make_builtins(self, for_builtins):
         # initializing builtins may require creating a frame which in
@@ -100,6 +89,10 @@ class ObjSpace(object):
     def initialize(self):
         """Abstract method that should put some minimal content into the
         w_builtins."""
+
+    def loadfromcache(self, key, builder, cache):
+        return cache.getorbuild(key, builder, self) 
+    loadfromcache.specialize = True 
 
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."

@@ -2,6 +2,7 @@ from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.baseobjspace import *
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.interpreter.typedef import instantiate
+from pypy.tool.cache import Cache 
 from pypy.objspace.std.multimethod import *
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
@@ -135,8 +136,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return done
                             
     def initialize(self):
-        self._typecache = {}
-        self._faketypecache = {}
+        self._typecache = Cache()
+        self._faketypecache = Cache()
 
         # The object implementations that we want to 'link' into PyPy must be
         # imported here.  This registers them into the multimethod tables,

@@ -342,7 +342,7 @@ class PyInterpFrame(pyframe.PyFrame):
         w_globals = f.valuestack.pop()
         w_prog    = f.valuestack.pop()
         w_resulttuple = f.prepare_exec(w_prog, w_globals, w_locals)
-        w_prog, w_globals, w_locals = f.space.unpacktuple(w_resulttuple)
+        w_prog, w_globals, w_locals = f.space.unpacktuple(w_resulttuple, 3)
 
         plain = f.space.is_true(f.space.is_(w_locals, f.w_locals))
         if plain:
