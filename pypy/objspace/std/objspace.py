@@ -57,6 +57,8 @@ class StdObjSpace(ObjSpace):
         "Wraps the Python value 'x' into one of the wrapper classes."
         if x is None:
             return self.w_None
+        if isinstance(x, W_Object):
+            raise TypeError, "attempt to wrap already wrapped object: %s"%(x,)
         if isinstance(x, int):
             if isinstance(x, booltype):
                 return self.newbool(x)
