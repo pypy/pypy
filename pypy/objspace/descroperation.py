@@ -311,7 +311,12 @@ class DescrOperation:
             if w_res is None  or space.is_w(w_res, space.w_None):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("coercion failed"))
-        if (not space.is_true(space.isinstance(w_res, space.w_tuple)) or
+            if (not space.is_true(space.isinstance(w_res, space.w_tuple)) or
+                space.int_w(space.len(w_res)) != 2):
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("coercion should return None or 2-tuple"))
+            w_res = space.newtuple([space.getitem(w_res, space.wrap(1)), space.getitem(w_res, space.wrap(0))])
+        elif (not space.is_true(space.isinstance(w_res, space.w_tuple)) or
             space.int_w(space.len(w_res)) != 2):
             raise OperationError(space.w_TypeError,
                                  space.wrap("coercion should return None or 2-tuple"))
