@@ -81,7 +81,23 @@ class PyFrame(eval.Frame):
             if valuestackdepth <= self.valuestack.depth():
                 break
             self.exceptionstack.pop()
-    
+
+    ### line numbers ###
+
+    def fget_f_lineno(space, w_self):
+        "Returns the line number of the instruction currently being executed."
+        self = space.unwrap_builtin(w_self)
+        return space.wrap(self.get_last_lineno())
+
+    def get_last_lineno(self):
+        "Returns the line number of the instruction currently being executed."
+        return pytraceback.offset2lineno(self.code, self.next_instr-1)
+
+    def get_next_lineno(self):
+        "Returns the line number of the next instruction to execute."
+        return pytraceback.offset2lineno(self.code, self.next_instr)
+
+
 ### Frame Blocks ###
 
 class FrameBlock:

@@ -28,6 +28,17 @@ class AppTestPyFrame(testit.AppTestCase):
             return f.f_code
         self.failUnless(g() is g.func_code)
 
+    def test_f_lineno(self):
+        def g():
+            import sys
+            f = sys._getframe()
+            x = f.f_lineno
+            y = f.f_lineno
+            z = f.f_lineno
+            return [x, y, z]
+        origin = g.func_code.co_firstlineno
+        self.assertEquals(g(), [origin+3, origin+4, origin+5])
+
 
 if __name__ == '__main__':
     testit.main()

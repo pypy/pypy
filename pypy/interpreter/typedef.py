@@ -212,6 +212,7 @@ PyCode.typedef = TypeDef('code',
 
 PyFrame.typedef = TypeDef('frame',
     f_builtins = attrproperty_w('w_builtins'),
+    f_lineno = GetSetProperty(PyFrame.fget_f_lineno.im_func),
     **Frame.typedef.rawdict)
 
 Module.typedef = TypeDef("module",
