@@ -6,13 +6,16 @@ into the attributes defined here.
 """
 class FlowNode:
     def getedges(self):
+        """ return all edges of this node """
         raise NotImplementedError, "Abstract base class"
 
     def flatten(self):
+        """ return a list of all nodes reachable from this node """
         nodedict = self.visit(lambda x: None)
         return nodedict.keys()
 
     def visit(self, fn, _visited = None):
+        """ let the function 'fn' visit the subgraph of this node """
         if _visited is None:
             _visited = {}
         _visited[self] = fn(self)
