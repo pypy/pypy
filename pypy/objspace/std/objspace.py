@@ -140,11 +140,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
         import typeobject
         import sliceobject
         import longobject
+        import noneobject
 	import cpythonobject
 	# hack to avoid imports in the time-critical functions below
         global W_ObjectObject, W_BoolObject, W_IntObject, W_FloatObject
 	global W_TupleObject, W_ListObject, W_DictObject, W_StringObject
-	global W_TypeObject, W_SliceObject, W_LongObject
+	global W_TypeObject, W_SliceObject, W_LongObject, W_NoneObject
 	global W_CPythonObject, W_BuiltinFunctionObject
 	W_ObjectObject = objectobject.W_ObjectObject
 	W_BoolObject = boolobject.W_BoolObject
@@ -157,12 +158,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
 	W_TypeObject = typeobject.W_TypeObject
 	W_SliceObject = sliceobject.W_SliceObject
 	W_LongObject = longobject.W_LongObject
+        W_NoneObject = noneobject.W_NoneObject
 	W_CPythonObject = cpythonobject.W_CPythonObject
 	W_BuiltinFunctionObject = cpythonobject.W_BuiltinFunctionObject
         # end of hacks
-
-        from noneobject    import W_NoneObject
-        from boolobject    import W_BoolObject
 
         # singletons
         self.w_None  = W_NoneObject(self)
