@@ -120,12 +120,14 @@ class Gateway(object):
     # explicitely as the first argument (for plain function), or is read
     # from 'self.space' for methods.
 
-    def __init__(self, name, code, staticglobals=None, staticdefs=[]):
+    def __init__(self, name, code, staticglobals=None, staticdefs=[], 
+                 wrapdefaults=0):
         self.name = name
         self.code = code
         self.staticglobals = staticglobals
         self.staticdefs = staticdefs
         self.functioncache = WeakKeyDictionary()  # map {space: Function}
+        self.wrapdefaults = wrapdefaults
 
     def __wrap__(self, space):
         # to wrap a Gateway, we first make a real Function object out of it
@@ -184,7 +186,9 @@ class Gateway(object):
         if space in self.functioncache:
             fn = self.functioncache[space]
         else:
-            defs_w = [space.wrap(def_value) for def_value in self.staticdefs]
+            defs_w = self.staticdefs 
+            if self.wrapdefaults:
+                defs_w = [space.wrap(val) for val in defs_w]
             fn = Function(space, self.code, w_globals, defs_w)
             self.functioncache[space] = fn
         return fn
@@ -206,7 +210,8 @@ def app2interp(app, app_name=None):
     code._from_code(app.func_code)
     staticglobals = app.func_globals
     staticdefs = list(app.func_defaults or ())
-    return Gateway(app_name, code, staticglobals, staticdefs)
+    return Gateway(app_name, code, staticglobals, 
+                   staticdefs, wrapdefaults=1)
 
 def interp2app(f, app_name=None):
     """Build a Gateway that calls 'f' at interp-level."""
@@ -222,7 +227,8 @@ def interp2app(f, app_name=None):
         app_name = f.func_name
     builtincode = BuiltinCode(f)
     staticdefs = list(f.func_defaults or ())
-    return Gateway(app_name, builtincode, None, staticdefs)
+    return Gateway(app_name, builtincode, None, 
+                   staticdefs, wrapdefaults=0)
 
 
 def exportall(d):

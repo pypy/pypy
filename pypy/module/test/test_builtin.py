@@ -17,6 +17,13 @@ class TestBuiltinApp(test.AppTestCase):
         self.assertRaises(ValueError, chr, -1)
         self.assertRaises(TypeError, chr, 'a')
 
+    def test_getattr(self):
+        class a: 
+            i = 5
+        self.assertEquals(getattr(a, 'i'), 5)
+        self.assertRaises(AttributeError, getattr, a, 'k')
+        self.assertEquals(getattr(a, 'k', 42), 42)
+
     def test_type_selftest(self):
         self.assert_(type(type) is type)
 

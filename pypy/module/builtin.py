@@ -14,6 +14,12 @@ import types
 
 import __builtin__ as cpy_builtin
 
+class _noarg: 
+    """ use this class in interpreter level functions for default 
+        values if you want to recognize that no specific value was
+        passed. 
+    """
+
 class __builtin__(ExtModule):
     """ Template for PyPy's '__builtin__' module.
     """
@@ -248,13 +254,20 @@ class __builtin__(ExtModule):
     def delattr(self, w_object, w_name):
         return self.space.delattr(w_object, w_name)
 
-    def getattr(self, w_object, w_name):
-        return self.space.getattr(w_object, w_name)
+    def getattr(self, w_object, w_name, w_defvalue = _noarg): 
+        try:
+            return self.space.getattr(w_object, w_name)
+        except OperationError, e:
+            if e.match(self.space, self.space.w_AttributeError):
+                if w_defvalue is not _noarg:
+                    return w_defvalue
+            raise
 
     def hash(self, w_object):
         return self.space.hash(w_object)
 
     def oct(self, w_val):
+        # XXX does this need to be a space operation? 
         return self.space.oct(w_val)
 
     def hex(self, w_val):
@@ -636,3 +649,4 @@ xrange_appsource = """if 1:
                         i+=step
             return gen(self)
 """
+
