@@ -212,7 +212,7 @@ class TestFlowOjSpace(test.TestCase):
 
     def test_implicitIndexError(self):
         x = self.codetest(self.implicitIndexError)
-        self.reallyshow(x)
+        self.show(x)
 
 
 if __name__ == '__main__':
