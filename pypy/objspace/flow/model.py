@@ -16,6 +16,8 @@ class FunctionGraph:
 
     def getargs(self):
         return self.startblock.inputargs
+    def getreturnvar(self):
+        return self.returnblock.inputargs[0]
 
 class Link:
     def __init__(self, args, target, exitcase=None):
@@ -41,10 +43,12 @@ class Block:
         return uniqueitems([w for w in result if isinstance(w, Variable)])
 
     def renamevariables(self, mapping):
-        self.inputargs[:] = [mapping.get(a, a) for a in self.inputargs]
+        self.inputargs = [mapping.get(a, a) for a in self.inputargs]
         for op in self.operations:
-            op.args[:] = [mapping.get(a, a) for a in op.args]
+            op.args = [mapping.get(a, a) for a in op.args]
             op.result = mapping.get(op.result, op.result)
+        for link in self.exits:
+            link.args = [mapping.get(a, a) for a in link.args]
 
     def closeblock(self, *exits):
         assert self.exits == [], "block already closed"
