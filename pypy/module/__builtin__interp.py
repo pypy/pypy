@@ -32,14 +32,14 @@ def _caller_locals(w_index=None):
     return _actframe(position).getdictscope()
 
 
-def try_import_mod(w_modulename,f,pkgdir=None):
+def try_import_mod(w_modulename, f, pkgdir=None):
     w = space.wrap
     if os.path.exists(f):
         w_mod = space.wrap(Module(space, w_modulename))
         space.sys.setmodule(w_mod)
         space.setattr(w_mod, w('__file__'), w(f))
         if pkgdir is not None:
-            space.setattr(w_mod,w('__path__'),space.newlist([w(pkgdir)]))
+            space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
         w_dict = space.getattr(w_mod, w('__dict__'))
         execfile(w(f), w_dict, w_dict)
         return w_mod
@@ -49,7 +49,7 @@ def try_import_mod(w_modulename,f,pkgdir=None):
 def check_sys_modules(w_modulename):
     try:
         w_mod = space.getitem(space.sys.w_modules, w_modulename)
-    except OperationError,e:
+    except OperationError, e:
         pass
     else:
         return w_mod
@@ -85,7 +85,7 @@ def __import__(w_modulename, w_globals=None,
     first = None
     
     for part in parts:
-        w_mod = load_part(w_path,prefix,part)
+        w_mod = load_part(w_path, prefix, part)
         if w_mod is None:
             # ImportError
             w_failing = w('.'.join(prefix+[part]))
@@ -95,24 +95,26 @@ def __import__(w_modulename, w_globals=None,
             first = w_mod
         prefix.append(part)
         try:
-            w_path = space.getattr(w_mod,w('__path__'))
-        except OperationError,e:
+            w_path = space.getattr(w_mod, w('__path__'))
+        except OperationError, e:
             if not e.match(space, space.w_AttributeError):
                 raise
             w_path = None
 
     if w_fromlist is not None and space.is_true(w_fromlist):
+        if w_path is not None:
+            for w_name in space.unpackiterable(w_fromlist):
+                load_part(w_path, prefix, space.unwrap(w_name))
         return w_mod
     else:
         return first    
 
-def load_part(w_path,prefix,partname):
+def load_part(w_path, prefix, partname):
     w = space.wrap
     w_modulename = w('.'.join(prefix+[partname]))
     w_mod = check_sys_modules(w_modulename)
     if w_mod is not None:
         return w_mod
-    
     for path in space.unpackiterable(w_path):
         dir = os.path.join(space.unwrap(path), partname)
         if os.path.isdir(dir):

@@ -13,7 +13,7 @@ class TestImport(testit.AppTestCase):
         import sys
         sys.path.append('impsubdir')
         import a
-        self.assert_('a' in sys.modules)
+        self.assertEquals(a, sys.modules.get('a'))
 
     def test_import_bare_dir_fails(self):
         def imp():
@@ -24,28 +24,28 @@ class TestImport(testit.AppTestCase):
         import sys
         sys.path.append('impsubdir')
         import pkg
-        self.assert_('pkg' in sys.modules)
+        self.assertEquals(pkg, sys.modules.get('pkg'))
 
     def test_import_dotted(self):
         import sys
         sys.path.append('impsubdir')
         import pkg.a
-        self.assert_('pkg' in sys.modules)
-        self.assert_('pkg.a' in sys.modules)
+        self.assertEquals(pkg, sys.modules.get('pkg'))
+        self.assertEquals(pkg.a, sys.modules.get('pkg.a'))
 
     def test_import_dotted2(self):
         import sys
         sys.path.append('impsubdir')
         import pkg.pkg1.a
-        self.assert_('pkg' in sys.modules)
-        self.assert_('pkg.pkg1' in sys.modules)
-        self.assert_('pkg.pkg1.a' in sys.modules)
+        self.assertEquals(pkg, sys.modules.get('pkg'))
+        self.assertEquals(pkg.pkg1, sys.modules.get('pkg.pkg1'))
+        self.assertEquals(pkg.pkg1.a, sys.modules.get('pkg.pkg1.a'))
 
     def test_import_ambig(self):
         import sys
         sys.path.append('impsubdir')
         import ambig
-        self.assert_('ambig' in sys.modules)
+        self.assertEquals(ambig, sys.modules.get('ambig'))
         self.assert_(hasattr(ambig,'imapackage'))
 
     def test_from_a(self):
@@ -69,7 +69,10 @@ class TestImport(testit.AppTestCase):
         from pkg import a
         self.assert_('pkg' in sys.modules)
         self.assert_('pkg.a' in sys.modules)
-        self.assert_(hasattr(a, 'imamodule'))
+        pkg = sys.modules.get('pkg')
+        self.assertEquals(a, pkg.a)
+        aa = sys.modules.get('pkg.a')
+        self.assertEquals(a, aa)
 
 if __name__ == '__main__':
     testit.main()
