@@ -3,10 +3,19 @@ def apply(function, args, kwds={}):
     return function(*args, **kwds)
 
 def map(function, *collections):
-    """does 3 separate things.
+    """does 3 separate things, hence this enormous docstring.
        1.  if function is None, return a list of tuples, each with one
            item from each collection.  If the collections have different
-           lengths,  shorter ones are padded with None."""
+           lengths,  shorter ones are padded with None.
+
+       2.  if function is not None, and there is only one collection,
+           apply function to every item in the collection and return a
+           list of the results.
+
+       3.  if function is not None, and there are several collections,
+           repeatedly call the function with one argument from each
+           collection.  If the collections have different lengths,
+           shorter ones are padded with None"""
 
     if len(collections) == 0:
         raise TypeError, "map() requires at least one sequence"
