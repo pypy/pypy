@@ -559,7 +559,7 @@ class applevelinterp(applevel):
         return w_glob
 
 # comment this out to check against applevel without translation
-applevel = applevelinterp
+##applevel = applevelinterp
 
 ## XXX there is a problem with the naming convention of app_xxx not allowed
 ## for interp2app! What shall we do?
