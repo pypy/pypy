@@ -27,7 +27,7 @@ class TestCase(test.IntTestCase):
         name = func.func_name
         funcgraph = self.space.build_flow(func)
         from pypy.translator.simplify import eliminate_empty_blocks
-        #eliminate_empty_blocks(funcgraph)
+        eliminate_empty_blocks(funcgraph)
         funcgraph.source = inspect.getsource(func)
         result = GenPyrex(funcgraph).emitcode()
         make_dot(funcgraph, udir, 'ps')

@@ -7,6 +7,9 @@ from pypy.tool import test
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.translator.flowmodel import *
 
+# debug
+from pypy.translator.genpyrex import GenPyrex
+
 
 def eliminate_empty_blocks(graph):
     """simplify_vars()
@@ -34,15 +37,24 @@ def eliminate_empty_blocks(graph):
                     continue
                 prevbranch = prevnodes[0]
                 nextbranch = node.branch
-                if not isinstance(prevbranch, Branch) or isinstance(nextbranch, EndBranch):
+                if not isinstance(prevbranch, Branch):
                    continue 
-                # renaming ... (figure it out yourself :-)
-                if len(prevbranch.args) > len(nextbranch.args):
-                    prevbranch.args = prevbranch.args[:len(nextbranch.args)]
+                if isinstance(nextbranch, EndBranch):
+                    var = nextbranch.returnvalue
+                    prevprevnode = entrymap[prevbranch]
+                    assert len(prevprevnode) == 1 
+                    if var in node.input_args:
+                        i = node.input_args.index(var)
+                        nextbranch.returnvalue = prevbranch.args[i]
+                    prevprevnode[0].replace_branch(prevbranch, nextbranch)
                 else:
-                    prevbranch.args.extend(nextbranch.args[len(prevbranch.args):])
-                prevbranch.target = nextbranch.target
-                print "eliminated", node, nextbranch
+                    # renaming ... (figure it out yourself :-)
+                    if len(prevbranch.args) > len(nextbranch.args):
+                        prevbranch.args = prevbranch.args[:len(nextbranch.args)]
+                    else:
+                        prevbranch.args.extend(nextbranch.args[len(prevbranch.args):])
+                    prevbranch.target = nextbranch.target
+                #print "eliminated", node, nextbranch
                 victims = True
                 break
     return graph

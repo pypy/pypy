@@ -31,6 +31,10 @@ class BasicBlock(FlowNode):
     def getedges(self):
         return [self.branch]
 
+    def replace_branch(self, one, another):
+        assert self.branch is one
+        self.branch = another
+
     def closeblock(self, branch):
         self.operations = tuple(self.operations)  # should no longer change
         self.branch = branch
@@ -96,6 +100,15 @@ class ConditionalBranch(FlowNode):
         self.condition = condition
         self.ifbranch = ifbranch
         self.elsebranch = elsebranch
+
+    def replace_branch(self, one, another):
+        assert self.ifbranch is not self.elsebranch, "please enhance flowobjspace"
+        if one is self.ifbranch:
+            self.ifbranch = another
+        elif one is self.elsebranch:
+            self.elsebranch = another
+        else:
+            raise ValueError, "Don't have this branch %r" % one
 
 class EndBranch(FlowNode):
     def __init__(self, returnvalue):

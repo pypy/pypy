@@ -156,8 +156,14 @@ class GenPyrex:
         sourceargs = [_str(arg, prevblock) for arg in branch.args]       
         targetargs = [_str(arg, branch.target) for arg in block.input_args]
         assert(len(sourceargs) == len(targetargs))
-        if sourceargs and sourceargs != targetargs: 
-            self.putline("%s = %s" % (", ".join(targetargs), ", ".join(sourceargs)))
+        # get rid of identity-assignments 
+        sargs, targs = [], []
+        for s,t in zip(sourceargs, targetargs):
+            if s != t:
+                sargs.append(s) 
+                targs.append(t)
+        if sargs:
+            self.putline("%s = %s" % (", ".join(targs), ", ".join(sargs)))
 
         self.gen_BasicBlock(block)    
 
