@@ -79,7 +79,40 @@ def ge__Float_Float(space, w_float1, w_float2):
     i = w_float1.floatval
     j = w_float2.floatval
     return space.newbool( i >= j )
+
+def _floor(f):
+    return f - (f % 1.0)
+
+def _ceil(f):
+    if f - (f % 1.0) == f:
+        return f
+    return f + 1.0 - (f % 1.0)
+
+def round__Float_Int(space, w_float, w_int):
+    x = w_float.floatval
+    ndigits = w_int.intval
     
+    # Algortithm copied directly from CPython
+    f = 1.0;
+    i = abs(ndigits);
+    
+    while  i > 0:
+        f = f*10.0
+        i -= 1
+    if ndigits < 0:
+        x /= f
+    else:
+        x *= f
+    if x >= 0.0:
+        x = _floor(x + 0.5)
+    else:
+        x = _ceil(x - 0.5)
+    if ndigits < 0:
+        x *= f
+    else:
+        x /= f
+    return W_FloatObject(space, x)
+
 def hash__Float(space,w_value):
     ## %reimplement%
     # real Implementation should be taken from _Py_HashDouble in object.c

@@ -49,8 +49,20 @@ class AppFloatTest(test.AppTestCase):
 
     def test_float_string(self):
         self.assertEquals(42.0, float("42"))
-        
 
+    def test_round(self):
+        self.assertEquals(1.0, round(1.0))
+        self.assertEquals(1.0, round(1.1))
+        self.assertEquals(2.0, round(1.9))
+        self.assertEquals(2.0, round(1.5))
+        self.assertEquals(-2.0, round(-1.5))
+        self.assertEquals(-2.0, round(-1.5))
+        self.assertEquals(-2.0, round(-1.5, 0))
+        self.assertEquals(-2.0, round(-1.5, 0))
+        self.assertEquals(22.2, round(22.222222, 1))
+        self.assertEquals(20.0, round(22.22222, -1))
+        self.assertEquals(0.0, round(22.22222, -2))
+        
 if __name__ == '__main__':
     test.main()
 

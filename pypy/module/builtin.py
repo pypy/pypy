@@ -287,12 +287,17 @@ class __builtin__(ExtModule):
     def hex(self, w_val):
         return self.space.hex(w_val)
 
+    def round(self, w_val, w_n=None):
+        if w_n is None:
+            w_n = self.space.wrap(0)
+        return self.space.round(w_val, w_n)
+    
     def id(self, w_object):
         return self.space.id(w_object)
 
-    def app_sum(self,sequence,total=0):
+    def app_sum(self, sequence, total=0):
         for item in sequence:
-            total = total+item
+            total = total + item
         return total
 
     # This function was not in the original builtins,
