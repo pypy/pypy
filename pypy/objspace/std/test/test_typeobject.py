@@ -156,6 +156,40 @@ class TestTypeObject(testit.AppTestCase):
         self.assertEquals(getattr(B_mro, 'a', None), None)
         self.assertEquals(getattr(B_mro(), 'a', None), None)
 
+    def test_nodoc(self):
+        class NoDoc(object):
+            pass
+
+        try:
+            self.assertEquals(NoDoc.__doc__, None)
+        except AttributeError:
+            raise AssertionError, "__doc__ missing!"
+
+    def test_explicitdoc(self):
+        class ExplicitDoc(object):
+            __doc__ = 'foo'
+
+        self.assertEquals(ExplicitDoc.__doc__, 'foo')
+
+    def test_implicitdoc(self):
+        class ImplicitDoc(object):
+            "foo"
+
+        self.assertEquals(ImplicitDoc.__doc__, 'foo')
+
+    def test_immutabledoc(self):
+        class ImmutableDoc(object):
+            "foo"
+
+        try:
+            ImmutableDoc.__doc__ = "bar"
+        except TypeError:
+            pass
+        else:
+            raise AssertionError, '__doc__ should not be writable'
+
+        self.assertEquals_(ImmutableDoc.__doc__, 'foo')
+
 
 if __name__ == '__main__':
     testit.main()
