@@ -69,8 +69,7 @@ def hack_out_multimethods(ns):
             result.append(value)
     return result
 
-def slicemultimethod(multimethod, typeclass):
-    result = {}
+def slicemultimethod(multimethod, typeclass, result):
     for i in range(len(multimethod.specialnames)):
         # each MultimethodCode embeds a multimethod
         name = multimethod.specialnames[i]
@@ -88,16 +87,15 @@ def slicemultimethod(multimethod, typeclass):
                 mmframeclass = MmFrame
         code = MultimethodCode(multimethod, mmframeclass, typeclass, i)
         result[name] = code
-    return result
 
 def slicemultimethods(spaceclass, typeclass):
     result = {}
     # import and slice all multimethods of the space.MM container
     for multimethod in hack_out_multimethods(spaceclass.MM.__dict__):
-        result.update(slicemultimethod(multimethod, typeclass))
+        slicemultimethod(multimethod, typeclass, result)
     # import all multimethods defined directly on the type without slicing
     for multimethod in typeclass.local_multimethods:
-        result.update(slicemultimethod(multimethod, None))
+        slicemultimethod(multimethod, None, result)
     # add some more multimethods with a special interface
     code = MultimethodCode(spaceclass.MM.next, MmFrame, typeclass)
     result['next'] = code
