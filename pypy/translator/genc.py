@@ -200,7 +200,7 @@ class GenC:
                 func.func_doc.lstrip().startswith('NOT_RPYTHON')):
                 print "skipped", printable_name
                 return self.skipped_function(func)
-            print "nameof", printable_name
+            #print "nameof", printable_name
         name = self.uniquename('gfunc_' + func.__name__)
         self.globaldecl.append('static PyObject* %s;' % name)
         self.initcode.append('INITCHK(%s = PyCFunction_New('
