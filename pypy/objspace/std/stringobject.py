@@ -721,7 +721,10 @@ def str_splitlines__String_ANY(space, w_self, w_keepends):
                 w_item = _strip(space, w_item, W_StringObject(space,'\n'), left=0, right=1)
             L.append(w_item)
         else:
-            break    
+            if oldpos < selflen:
+                w_item = space.wrap(u_self[oldpos:])
+                L.append(w_item)
+            break
     return W_ListObject(space, L)
 
 def str_zfill__String_ANY(space, w_self, w_width):

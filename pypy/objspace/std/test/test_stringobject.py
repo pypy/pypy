@@ -317,6 +317,16 @@ class AppTestStringObject:
 
 
     def test_splitlines(self):
+        s = ""
+        assert s.splitlines() == []
+        assert s.splitlines() == s.splitlines(1)
+        s = "a + 4"
+        assert s.splitlines() == ['a + 4']
+        # The following is true if no newline in string.
+        assert s.splitlines() == s.splitlines(1)
+        s = "a + 4\nb + 2"
+        assert s.splitlines() == ['a + 4', 'b + 2']
+        assert s.splitlines(1) == ['a + 4\n', 'b + 2']
         s="ab\nab\n \n  x\n\n\n"
         assert s.splitlines() ==['ab',    'ab',  ' ',   '  x',   '',    '']
         assert s.splitlines() ==s.splitlines(0)
