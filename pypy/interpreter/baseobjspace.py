@@ -69,7 +69,7 @@ class ObjSpace:
         for name, value in self.__dict__.items():
             if name.startswith('w_'):
                 name = name[2:]
-                if name.startswith('builtin'):
+                if name.startswith('builtin') or name.startswith('sys'):
                     continue
                 #print "setitem: space instance %-20s into builtins" % name
                 self.setitem(self.w_builtins, self.wrap(name), value)
