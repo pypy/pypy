@@ -62,7 +62,12 @@ def main_(argv=None):
                                     space.__class__.__name__)
             con.interact(banner)
     except:
-        sys.excepthook(*sys.exc_info())
+        exc_type, value, tb = sys.exc_info()
+        if (isinstance(exc_type, type(SystemExit)) and
+            issubclass(exc_type, SystemExit)):
+            pass   # don't print tracebacks for SystemExit
+        else:
+            sys.excepthook(exc_type, value, tb)
         tb_server.wait_until_interrupt()
             
     tb_server.stop()

@@ -25,3 +25,6 @@ version = '0.0.0 (not released yet)'
 def excepthook(exctype, value, traceback):
     from traceback import print_exception
     print_exception(exctype, value, traceback)
+
+def exit(exitcode=0):
+    raise SystemExit(exitcode)

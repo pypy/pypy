@@ -36,7 +36,10 @@ def raw_input(prompt=None):
     if prompt is not None:
         sys.stdout.write(prompt)
         sys.stdout.flush()
-    return sys.stdin.readline()   # XXX review
+    line = sys.stdin.readline()
+    if not line:    # inputting an empty line gives line == '\n'
+        raise EOFError
+    return line
 
 def input():
     return eval(raw_input())
