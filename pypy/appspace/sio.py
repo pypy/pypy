@@ -34,7 +34,9 @@ streams on top of it, and then top it off with a buffering stream.
 
 import os
 import mmap
+
 class Stream(object):
+    "All streams except the base ones need to inherit from this class."
     def __getattr__(self, name):
         """
         Delegate all other methods to the underlying file object.
@@ -309,6 +311,10 @@ class BufferingOutputStream(Stream):
             self.buf = ''
             self.write(data[self.bufsize-buflen:])
 
+    def writelines(self, sequence):
+        for s in sequence:
+            self.write(s)
+            
     def close(self):
         self.do_write(self.buf)
         self.buf = ''
@@ -589,6 +595,10 @@ class MMapFile(object):
 class DiskFile(object):
 
     """Standard I/O basis stream using os.open/close/read/write/lseek"""
+
+    # This is not quite correct, since more letters are allowed after
+    # these. However, the following are the only starting strings allowed
+    # in the mode parameter.
     modes = {
         'r'  : os.O_RDONLY,
         'rb' : os.O_RDONLY,
@@ -652,6 +662,12 @@ class DiskFile(object):
             size = self.tell()
         if os.name == 'posix':
             os.ftruncate(self.fd, size)
+        else:
+            raise NotImplementedError
+        
+    def isatty(self):
+        if os.name == 'posix':
+            return os.isatty(self.fd)
         else:
             raise NotImplementedError
         

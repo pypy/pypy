@@ -38,12 +38,18 @@ class file_(object):
         if bufsize < 0:
             bufsize = None
         if not self.writing and (bufsize is None or bufsize > 0):
+            "Read only buffered stream."
             self.fd = sio.BufferingInputStream(self.fd, bufsize)
         if not self.reading:
             if bufsize is None or bufsize > 1:
+                "Write only buffered stream."
                 self.fd = sio.BufferingOutputStream(self.fd, bufsize)
             elif bufsize == 1:
                 self.fd = sio.LineBufferingOutputStream(self.fd)
+        if self.reading and self.writing:
+            if bufsize > 2:
+                "Read and write buffered stream."
+                self.fd = sio.BufferingInputOutputStream(self.fd, bufsize)
         return self.fd
 
     def __getattr__(self, name):
@@ -54,8 +60,8 @@ class file_(object):
         """
         return getattr(self.fd, name)
 
-    def __setattr__(self, name):
+    def __setattr__(self, attr, val):
         "Make some attributes readonly."
-        if name in ['mode', 'name', 'closed']:
-            raise TypeError('readonly attribute')
-        return setattr(self, name)
+        if attr in ['mode', 'name', 'closed', 'encoding']:
+            raise TypeError('readonly attribute: %s' % attr)
+        self.__dict__[attr] = val
