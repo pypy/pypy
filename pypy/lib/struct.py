@@ -60,7 +60,7 @@ def unpack_float(data,index,size,le):
     bytes = [ord(b) for b in data[index:index+size]]
     if len(bytes) != size:
         raise StructError,"Not enough data to unpack"
-    if min(bytes) == 0:
+    if max(bytes) == 0:
         return 0.0
     if le == 'big':
         bytes.reverse()
