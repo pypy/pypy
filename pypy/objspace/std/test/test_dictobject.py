@@ -339,5 +339,12 @@ class Test_DictObject(test.AppTestCase):
         except (TypeError, ValueError): pass
         else: self.fail("dict([[1,2,3]]) should raise!")
 
+    def test_fromkeys(self):
+        self.assertEquals({}.fromkeys([1, 2], 1), {1: 1, 2: 1})
+        self.assertEquals({}.fromkeys([1, 2]), {1: None, 2: None})
+        self.assertEquals({}.fromkeys([]), {})
+        self.assertEquals({1: 0, 2: 0, 3: 0}.fromkeys([1, '1'], 'j'),
+                          {1: 'j', '1': 'j'})
+
 if __name__ == '__main__':
     test.main()
