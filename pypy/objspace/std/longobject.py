@@ -1,3 +1,11 @@
+"""
+Reviewed 03-06-21
+This isn't used at all, nor tested, and is totally cheating.
+There isn't even any corresponding longtype.  Should perhaps
+be just removed.
+"""
+
+
 from pypy.objspace.std.objspace import *
 
 
