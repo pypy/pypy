@@ -125,17 +125,59 @@ def iter__Dict(space, w_dict):
     
 def eq__Dict_Dict(space, w_left, w_right):
     if len(w_left.data) != len(w_right.data):
-        return space.newbool(0)
-    for w_k, hash, cell in w_left.data:
+        return space.w_False
+    for w_key, cell in w_left.non_empties():
         try:
-            w_v = space.getitem(w_right, w_k)
+            w_rightval = space.getitem(w_right, w_key)
         except OperationError:
-            return space.newbool(0)
-        r = space.is_true(space.eq(cell.w_value, w_v))
-        if not r:
-            return space.newbool(r)
-    return space.newbool(1)
+            return space.w_False
+        if not space.is_true(space.eq(cell.w_value, w_rightval)):
+            return space.w_False
+    return space.w_True
         
+def lt__Dict_Dict(space, w_left, w_right):
+    # Different sizes, no problem
+    if len(w_left.data) < len(w_right.data):
+        return space.w_True
+    if len(w_left.data) > len(w_right.data):
+        return space.w_False
+
+    # Same size
+    for w_key, cell in w_left.non_empties():
+        # This is incorrect, but we need to decide what comparisons on
+        # dictionaries of equal size actually means
+        # The Python language specification is silent on the subject
+        try:
+            w_rightval = space.getitem(w_right, w_key)
+        except OperationError:
+            return space.w_True
+        if space.is_true(space.lt(cell.w_value, w_rightval)):
+            return space.w_True
+    # The dictionaries are equal. This is correct.
+    return space.w_False
+
+
+def gt__Dict_Dict(space, w_left, w_right):
+    # Different sizes, no problem
+    if len(w_left.data) > len(w_right.data):
+        return space.w_True
+    if len(w_left.data) < len(w_right.data):
+        return space.w_False
+
+    # Same size
+    for w_key, cell in w_left.non_empties():
+        # This is incorrect, but we need to decide what comparisons on
+        # dictionaries of equal size actually means
+        # The Python language specification is silent on the subject
+        try:
+            w_rightval = space.getitem(w_right, w_key)
+        except OperationError:
+            return space.w_True
+        if space.is_true(space.gt(cell.w_value, w_rightval)):
+            return space.w_True
+    # The dictionaries are equal. This is correct.
+    return space.w_False
+
 def dict_copy__Dict(space, w_self):
     return W_DictObject(space, [(w_key,cell.get())
                                       for w_key,cell in
