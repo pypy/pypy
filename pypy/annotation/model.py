@@ -30,6 +30,7 @@ class ConstPredicate(Predicate):
 
 class ANN:
     add = Predicate('add', 3)
+    neg = Predicate('neg', 2)
     constant = ConstPredicate
     type = Predicate('type', 2)
     immutable = Predicate('immutable', 1)
@@ -41,6 +42,7 @@ class Annotation:
     def __init__(self, predicate, *args):
         self.predicate = predicate      # the operation or predicate
         self.args      = list(args)     # list of SomeValues
+        self.forward_deps = []          # for annset.py
         assert len(args) == predicate.arity
         # note that for predicates that are simple operations like
         # op.add, the result is stored as the last argument.
@@ -53,8 +55,16 @@ class Annotation:
         return Annotation(self.predicate, *args)
 
     def __repr__(self):
-        return "Annotation(%s, %s)" % (
+        return "<ann %s[%s]>" % (
                 self.predicate, ", ".join(map(debugname, self.args)))
+
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self.predicate == other.predicate and
+                self.args == other.args)
+
+    def __ne__(self, other):
+        return not (self == other)
 
 def debugname(someval, _seen = {}):
     """ return a simple name for a SomeValue. """
@@ -79,7 +89,9 @@ immutable_types = {
     types.FunctionType: 'function',
     }
 
-# a conventional value for representing 'all Annotations match this one' 
+# a conventional value for representing 'all Annotations match this one'
+# or, equivalently, something for which it is currently impossible to exist
+# (when it will exist later it will have less annotations).
 blackholevalue = Ellipsis
 
 # a few values representing 'any value of the given type'

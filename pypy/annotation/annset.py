@@ -13,37 +13,26 @@ class AnnotationSet:
 
     def __init__(self, annlist=basicannotations):  
         self.annlist = list(annlist)    # List of annotations
-        self._shared = {}
-        self.forward_deps = {}
+        self._normalized = {}  # maps SomeValues to some 'standard' one that
+                               # is shared with it
 
-    def getsharelist(self, someval):
-        return self._shared.get(someval, [someval])
+    def normalized(self, someval):
+        return self._normalized.get(someval, someval)
 
     def setshared(self, someval1, someval2):
-        list1 = self.getsharelist(someval1)
-        list2 = self.getsharelist(someval2)
-        newlist = list1 + list2
-        for someval in newlist:
-            self._shared[someval] = newlist
+        someval1 = self.normalized(someval1)
+        someval2 = self.normalized(someval2)
+        for key, value in self._normalized.items():
+            if value is someval1:
+                self._normalized[key] = someval2
+        self._normalized[someval1] = someval2
     
     def isshared(self, someval1, someval2):
-        return (self._shared.get(someval1, someval1) is
-                self._shared.get(someval2, someval2))
+        return self.normalized(someval1) is self.normalized(someval2)
 
-    def tempid(self, someval):
-        return id(self.getsharelist(someval)[0])
-
-    def annequal(self, ann1, ann2):
-        if ann1.predicate != ann2.predicate:
-            return False
-        for a1, a2 in zip(ann1.args, ann2.args):
-            if not self.isshared(a1, a2):
-                return False
-        return True
-
-    def temporarykey(self, ann):
-        """ a temporary hashable representation of an annotation """
-        return (ann.predicate, tuple([self.tempid(arg) for arg in ann.args]))
+    def normalizeann(self, ann):
+        "Normalize the annotation's arguments in-place."
+        ann.args = [self.normalized(a) for a in ann.args]
 
     def dump(self):     # debugging
         for ann in self.enumerate():
@@ -62,6 +51,9 @@ class AnnotationSet:
         """ yield (matchanns, matchvalue) tuples with 'matchanns'
         beeing a list of matching annotations and 'matchvalue' beeing
         the queried value. """
+        self.normalizeann(query)
+        for queryann in querylist:
+            self.normalizeann(queryann)
 
         # slightly limited implementation for ease of coding :-)
         assert query.args.count(QUERYARG) == 1, (
@@ -82,12 +74,13 @@ class AnnotationSet:
 
     def _annmatches(self, queryann):
         """ yield annotations matching the given queryannotation. """
+        self.normalizeann(queryann)
         testindices = [i for i in range(queryann.predicate.arity)
                              if queryann.args[i] is not QUERYARG]
         for ann in self.annlist:
             if ann.predicate == queryann.predicate:
                 for i in testindices:
-                    if not self.isshared(ann.args[i], queryann.args[i]):
+                    if ann.args[i] is not queryann.args[i]:
                         break
                 else:
                     yield ann
@@ -125,36 +118,106 @@ class AnnotationSet:
         # Such keys are temporary because making SomeValues shared can
         # change the temporarykey(), but this doesn't occur during
         # one call to simplify().
+
+        def temporarykey(ann):
+            self.normalizeann(ann)
+            return ann.predicate, tuple(ann.args)
         
         allkeys = {}   # map temporarykeys to Annotation instances
         for ann in self.annlist:
-            key = self.temporarykey(ann)
+            key = temporarykey(ann)
             if key in allkeys:  # duplicate?
                 previous = allkeys[key]
-                if ann in self.forward_deps:
-                    deps = self.forward_deps.setdefault(previous, [])
-                    deps += self.forward_deps[ann]   # merge
+                previous.forward_deps += ann.forward_deps  # merge
             else:
                 allkeys[key] = ann
 
         killkeys = {}  # set of temporarykeys of annotations to remove
         for ann in kill:
-            killkeys[self.temporarykey(ann)] = True
+            killkeys[temporarykey(ann)] = True
         
         pending = killkeys.keys()
         for key in pending:
             if key in allkeys:
                 ann = allkeys[key]
                 del allkeys[key]    # remove annotations from the dict
-                if ann in self.forward_deps:
-                    for dep in self.forward_deps[ann]:   # propagate dependencies
-                        depkey = self.temporarykey(dep)
-                        if depkey not in killkeys:
-                            killkeys[depkey] = True
-                            pending.append(depkey)
-                    del self.forward_deps[ann]
+                for dep in ann.forward_deps:   # propagate dependencies
+                    depkey = temporarykey(dep)
+                    if depkey not in killkeys:
+                        killkeys[depkey] = True
+                        pending.append(depkey)
 
         self.annlist = allkeys.values()
+
+    def adddependency(self, hypothesisann, conclusionann):
+        hypothesisann.forward_deps.append(conclusionann)
+
+    def merge(self, oldcell, newcell):
+        """Update the heap to account for the merging of oldcell and newcell.
+        Return the merged cell."""
+        oldcell = self.normalized(oldcell)
+        newcell = self.normalized(newcell)
+        
+        if newcell is blackholevalue or newcell is oldcell:
+            return oldcell
+        elif oldcell is blackholevalue:
+            return newcell
+
+        # if 'oldcell' or 'newcell' is immutable, we should not
+        # modify the annotations about it.  If one of them is mutable,
+        # then we must update its annotations and return it.  As a
+        # consequence if both are mutable then we must return them both,
+        # i.e. make them shared.
+
+        mutablecells = []
+        deleting = []
+        annlist = self.annlist
+        for cell, othercell in [(oldcell, newcell), (newcell, oldcell)]:
+            if ANN.immutable[cell] not in annlist:
+                # for each mutable 'cell', kill the annotation that are
+                # talking about 'cell' but not existing for 'othercell'.
+                for ann in annlist:
+                    if cell in ann.args:
+                        otherann = ann.copy(renameargs={cell: othercell})
+                        if otherann not in annlist:
+                            deleting.append(ann)
+                mutablecells.append(cell)
+
+        if mutablecells:
+            # if there is at least one mutable cell we must return it.
+            # if there are two mutable cells we must merge them.
+            if len(mutablecells) == 2:
+                self.setshared(oldcell, newcell)
+            self.simplify(kill=deleting)
+            return self.normalized(mutablecells[0])
+        else:
+            # no mutable cell, we can create a new result cell
+            # with only the common annotations.
+            common = []
+            deleting = False  # False if annotations of oldcell
+                              #         == annotations common annotations
+            for ann in annlist:
+                if oldcell in ann.args:
+                    newann = ann.copy(renameargs={oldcell: newcell})
+                    try:
+                        i = annlist.index(newann)
+                    except ValueError:
+                        deleting = True  # this annotation about 'oldcell'
+                                         # is no longer there about 'newcell'.
+                    else:
+                        newann = annlist[i]  # existing Annotation
+                        common.append((ann, newann))
+
+            if not deleting:
+                return oldcell  # nothing must be removed from oldcell
+            else:
+                resultcell = SomeValue()  # invent a new cell
+                for oldann, newann in common:
+                    resultann = newann.copy(renameargs={newcell: resultcell})
+                    annlist.append(resultann)
+                    self.adddependency(oldann, resultann)
+                    self.adddependency(newann, resultann)
+                return resultcell
 
 
 class Recorder:
@@ -181,10 +244,10 @@ class Recorder:
     def set(self, ann):
         """Insert the annotation into the AnnotationSet, recording dependency
         from all previous queries done on this Recorder instance."""
+        self.annset.normalizeann(ann)
         self.annset.annlist.append(ann)
         for previous_ann in self.using_annotations:
-            deps = self.annset.forward_deps.setdefault(previous_ann, [])
-            deps.append(ann)
+            self.annset.adddependency(previous_ann, ann)
 
     def check_type(self, someval, checktype):
         return bool(self.query(ANN.type[someval, QUERYARG],
@@ -196,59 +259,6 @@ class Recorder:
         self.set(ANN.constant(knowntype)[typeval])
         if knowntype in immutable_types:
             self.set(ANN.immutable[someval])
-
-'''
-    def merge(self, oldcell, newcell):
-        """Update the heap to account for the merging of oldcell and newcell.
-        Return the merged cell."""
-        if newcell is nothingyet or newcell == oldcell:
-            return oldcell
-        elif oldcell is nothingyet:
-            return newcell
-        else:
-            # any annotation or "constantness" about oldcell that must be killed?
-            deleting = isinstance(oldcell, XConstant)
-            # find the annotations common to oldcell and newcell
-            common = []
-            for ann in self.annlist:
-                if oldcell in ann.args or oldcell == ann.result:
-                    test1 = rename(ann, oldcell, newcell)
-                    test2 = rename(ann, newcell, oldcell)  # may equal 'ann'
-                    if test1 in self.annlist and test2 in self.annlist:
-                        common.append(test1)
-                    else:
-                        deleting = True
-            # the involved objects are immutable if we have both
-            # 'immutable() -> oldcell' and 'immutable() -> newcell'
-            if Annotation('immutable', [], newcell) in common:
-                # for immutable objects we can create a new cell if necessary
-                if not deleting:
-                    return oldcell  # nothing must be removed from oldcell
-                else:
-                    resultcell = XCell()  # invent a new cell
-                    for ann in common:
-                        self.annlist.append(rename(ann, newcell, resultcell))
-                    return resultcell
-            else:
-                if Annotation('immutable', [], oldcell) in self.annlist:
-                    pass # old was immutable, don't touch it
-                elif Annotation('immutable', [], newcell) in self.annlist:
-                    # new is immutable, old was not, inverse the roles
-                    oldcell, newcell = newcell, oldcell
-                else:
-                    # two mutable objects: we identify oldcell and newcell
-                    newcell.share(oldcell)
-                # only keep the common annotations by listing all annotations
-                # to remove, which are the ones that talk about newcell but
-                # are not in 'common'.
-                deleting = []
-                for ann in self.annlist:
-                    if newcell in ann.args or newcell == ann.result:
-                        if ann not in common:
-                            deleting.append(ann)
-                # apply changes
-                self.simplify(kill=deleting)
-                return newcell
 
 '''
 class XXXTransaction:
@@ -343,3 +353,4 @@ if __name__ == '__main__':
     val1, val2, val3 = SomeValue(), SomeValue(), SomeValue()
     annset = AnnotationSet()
 
+'''
