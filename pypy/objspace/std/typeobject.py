@@ -94,7 +94,11 @@ def getmultimethods(spaceclass, typeclass):
                     code = multimethods[name]
                     if code.bound_position < i:
                         continue
-                code = PyMultimethodCode(multimethod, typeclass, i)
+                if len(multimethod.specialnames) > 1:
+                    mmcls = SpecialMultimethodCode
+                else:
+                    mmcls = PyMultimethodCode
+                code = mmcls(multimethod, typeclass, i)
                 multimethods[name] = code
         # add some more multimethods with a special interface
         code = NextMultimethodCode(spaceclass.next, typeclass)
@@ -123,30 +127,40 @@ class PyMultimethodCode(pycode.PyBaseCode):
     def slice(self):
         return self.basemultimethod.slice(self.typeclass, self.bound_position)
 
-    def do_call(self, space, w_globals, w_locals):
-        """Call the multimethod, ignoring all implementations that do not
-        have exactly the expected type at the bound_position."""
+    def prepare_args(self, space, w_globals, w_locals):
         multimethod = self.slice()
         dispatchargs = []
         for i in range(multimethod.arity):
             w_arg = space.getitem(w_locals, space.wrap('x%d'%(i+1)))
             dispatchargs.append(w_arg)
         dispatchargs = tuple(dispatchargs)
-        return multimethod.get(space).perform_call(dispatchargs)
+        return multimethod.get(space), dispatchargs
+
+    def do_call(self, space, w_globals, w_locals):
+        "Call the multimethod, raising a TypeError if not implemented."
+        mm, args = self.prepare_args(space, w_globals, w_locals)
+        return mm(*args)
 
     def eval_code(self, space, w_globals, w_locals):
-        "Call the multimethods, translating back information to Python."
+        "Call the multimethods, or raise a TypeError."
+        w_result = self.do_call(space, w_globals, w_locals)
+        # we accept a real None from operations with no return value
+        if w_result is None:
+            w_result = space.w_None
+        return w_result
+
+class SpecialMultimethodCode(PyMultimethodCode):
+
+    def do_call(self, space, w_globals, w_locals):
+        "Call the multimethods, possibly returning a NotImplemented."
+        mm, args = self.prepare_args(space, w_globals, w_locals)
         try:
-            w_result = self.do_call(space, w_globals, w_locals)
+            return mm.perform_call(args)
         except FailedToImplement, e:
             if e.args:
                 raise OperationError(*e.args)
             else:
                 return space.w_NotImplemented
-        # we accept a real None from operations with no return value
-        if w_result is None:
-            w_result = space.w_None
-        return w_result
 
 class NextMultimethodCode(PyMultimethodCode):
 

@@ -224,6 +224,7 @@ class BoundMultiMethod:
             if e.args:
                 raise OperationError(*e.args)
             else:
+                # raise a TypeError for a FailedToImplement
                 initialtypes = [dispatchtype(a)
                                 for a in args[:self.multimethod.arity]]
                 if len(initialtypes) <= 1:

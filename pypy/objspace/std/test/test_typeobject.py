@@ -1,8 +1,8 @@
 import autopath
 from pypy.tool import test
-from pypy.objspace.std.typeobject import PyMultimethodCode
+from pypy.objspace.std.typeobject import SpecialMultimethodCode
 
-class TestPyMultimethodCode(test.TestCase):
+class TestSpecialMultimethodCode(test.TestCase):
 
     def setUp(self):
         self.space = test.objspace('std')
@@ -13,8 +13,8 @@ class TestPyMultimethodCode(test.TestCase):
     def test_int_sub(self):
         w = self.space.wrap
         for i in range(2):
-            meth = PyMultimethodCode(self.space.sub.multimethod, 
-                                     self.space.w_int.__class__, i)
+            meth = SpecialMultimethodCode(self.space.sub.multimethod, 
+                                          self.space.w_int.__class__, i)
             self.assertEqual(meth.slice().is_empty(), False)
             # test int.__sub__ and int.__rsub__
             self.assertEqual_w(meth.eval_code(self.space, None,
@@ -29,16 +29,16 @@ class TestPyMultimethodCode(test.TestCase):
 
     def test_empty_inplace_add(self):
         for i in range(2):
-            meth = PyMultimethodCode(self.space.inplace_add.multimethod,
-                                     self.space.w_int.__class__, i)
+            meth = SpecialMultimethodCode(self.space.inplace_add.multimethod,
+                                          self.space.w_int.__class__, i)
             self.assertEqual(meth.slice().is_empty(), True)
 
     def test_float_sub(self):
         w = self.space.wrap
         w(1.5)   # force floatobject imported
         for i in range(2):
-            meth = PyMultimethodCode(self.space.sub.multimethod,
-                                     self.space.w_float.__class__, i)
+            meth = SpecialMultimethodCode(self.space.sub.multimethod,
+                                          self.space.w_float.__class__, i)
             self.assertEqual(meth.slice().is_empty(), False)
             # test float.__sub__ and float.__rsub__
 
