@@ -2,6 +2,9 @@ import unittest, sys
 import testsupport
 from pypy.interpreter import unittest_w
 
+# need pypy.module.builtin first to make other imports work (???)
+from pypy.module import builtin
+
 from pypy.interpreter import extmodule
 from pypy.objspace import trivial
 
