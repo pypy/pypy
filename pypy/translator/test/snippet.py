@@ -288,6 +288,14 @@ def set_attr():
     c.a = 2
     return c.a
 
+def merge_setattr(x):
+    if x:
+        c = C()
+        c.a = 1
+    else:
+        c = C()
+    return c.a
+
 class D(C): pass
 class E(C): pass
 

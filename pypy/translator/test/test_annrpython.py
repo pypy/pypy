@@ -150,6 +150,14 @@ class AnnonateTestCase(testit.IntTestCase):
         # result should be an integer
         self.assertEquals(a.gettype(graph.getreturnvar()), int)
 
+    def test_merge_setattr(self):
+        translator = Translator(snippet.merge_setattr)
+        graph = translator.getflowgraph()
+        a = RPythonAnnotator(translator)
+        a.build_types(graph, [int])
+        # result should be an integer
+        self.assertEquals(a.gettype(graph.getreturnvar()), int)
+
     def test_inheritance1(self):
         translator = Translator(snippet.inheritance1)
         graph = translator.getflowgraph()
