@@ -96,8 +96,8 @@ class GenC:
 
     def uniquename(self, basename):
         name = self.namespace.uniquename(basename)
-        self.globalobjects.append(basename)
-        self.globaldecl.append('static PyObject *%s;' % (basename,))
+        self.globalobjects.append(name)
+        self.globaldecl.append('static PyObject *%s;' % (name,))
         return name
 
     def initcode_python(self, name, pyexpr):
