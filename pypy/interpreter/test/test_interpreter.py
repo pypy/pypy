@@ -23,11 +23,10 @@ class TestInterpreter(testit.TestCase):
         code = space.unwrap(w_code)
         code.exec_code(space, w_glob, w_glob)
 
-        wrappedargs = space.newtuple([w(a) for a in args])
+        wrappedargs = [w(a) for a in args]
         wrappedfunc = space.getitem(w_glob, w(functionname))
-        wrappedkwds = space.newdict([])
         try:
-            w_output = space.call(wrappedfunc, wrappedargs, wrappedkwds)
+            w_output = space.call_function(wrappedfunc, *wrappedargs)
         except baseobjspace.OperationError, e:
             #e.print_detailed_traceback(space)
             return '<<<%s>>>' % e.errorstr(space)

@@ -78,8 +78,7 @@ class TestW_CPythonObject(testit.TestCase):
         
     def test_call(self):
         w1 = self.space.wrap(len)
-        w_result = self.space.call(w1, self.space.wrap(("hello world",)),
-                                       self.space.wrap({}))
+        w_result = self.space.call_function(w1, self.space.wrap("hello world"))
         self.assertEquals(self.space.unwrap(w_result), 11)
 
     def test_next(self):

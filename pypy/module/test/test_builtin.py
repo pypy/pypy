@@ -262,8 +262,8 @@ class TestInternal(testit.IntTestCase):
             w_execfile = self.get_builtin('execfile')
             space = self.space
             w_dict = space.newdict([])
-            self.space.call(w_execfile, space.newtuple([
-                space.wrap(fn), w_dict, space.w_None]), space.newdict([]))
+            self.space.call_function(w_execfile,
+                space.wrap(fn), w_dict, space.w_None)
             w_value = space.getitem(w_dict, space.wrap('i'))
             self.assertEqual_w(w_value, space.wrap(42))
         finally:
