@@ -125,29 +125,26 @@ class AppTestBuiltinApp:
         
 
     def test_xrange_args(self):
-        x = xrange(2)
-        assert x.start == 0
-        assert x.stop == 2
-        assert x.step == 1
+##        # xrange() attributes are deprecated and were removed in Python 2.3.
+##        x = xrange(2)
+##        assert x.start == 0
+##        assert x.stop == 2
+##        assert x.step == 1
 
-        x = xrange(2,10,2)
-        assert x.start == 2
-        assert x.stop == 10
-        assert x.step == 2
+##        x = xrange(2,10,2)
+##        assert x.start == 2
+##        assert x.stop == 10
+##        assert x.step == 2
 
-        x = xrange(2.3, 10.5, 2.4)
-        assert x.start == 2
-        assert x.stop == 10
-        assert x.step == 2
+##        x = xrange(2.3, 10.5, 2.4)
+##        assert x.start == 2
+##        assert x.stop == 10
+##        assert x.step == 2
 
         raises(ValueError, xrange, 0, 1, 0)
 
     def test_xrange_up(self):
         x = xrange(2)
-        assert x.start == 0
-        assert x.stop == 2
-        assert x.step == 1
-
         iter_x = iter(x)
         assert iter_x.next() == 0
         assert iter_x.next() == 1
