@@ -1,7 +1,8 @@
 #! /usr/bin/env python
 
 import sys, os
-
+import autopath 
+import py 
 
 forbidden = range(0,32)
 forbidden.remove(9)    # tab
@@ -17,70 +18,81 @@ def looksbinary(data, forbidden = [chr(i) for i in forbidden]):
             return True
     return False
 
-
-def binary2text(filename):
-    "Convert a file to the platform's native end-of-line format if needed."
-    f = open(filename, 'rb')
-    data = f.read()
-    f.close()
-    if looksbinary(data):
-        return False
+def can_set_eol_style(path):
+    "check to see if we could set eol-style on the path." 
+    data = path.read(mode='rb') 
+    if looksbinary(data): 
+        print "%s looks like a binary, ignoring" % path 
+        return False 
     original = data
     data = data.replace('\r\n', '\n')
     data = data.replace('\r',   '\n')
     data = data.replace('\n', os.linesep)
     if data != original:
-        f = open(filename, 'wb')
-        f.write(data)
-        f.close()
+        print "*"*30 
+        print "--->  %s  <---" % path 
+        print ("Hum, in order to run fixeol on this file "
+               "you need to be on the platform which "
+               "matches its line-endings.  Modifying "
+               "the file content here would otherwise "
+               "lead to huge diffs!")
+        print "*"*30 
+        return False 
     return True
 
+def checkeolfile(path):     
+    return path.ext in ('.txt', '.py', '.asc')
 
-def asserttextfile(fname):
-    "Assert a file is a text file or issue a warning otherwise."
-    # safety check to nail binary files
-    try:
-        if not binary2text(fname):
-            print >> sys.stderr, "*** warning, looks like a binary file:",
-            print >> sys.stderr, fname
-            return
-    except IOError, e:
-        print "skipping %r because of %s" %(fname, e)
-    else:
-        # change end-of-line style of each .py and .txt file to 'native'
-        os.system('svn propset svn:eol-style native %s' % fname)
+def fixdirectory(path): 
+    print "+ checking directory", path, 
+    fns = path.listdir(checkeolfile) 
+    if fns: 
+        ignores = path.propget('svn:ignore') 
+        newignores = ignores 
+        l = ignores.split('\n')
+        for x in ('*.pyc', '*.pyo'): 
+            if x not in l: 
+                l.append(x) 
+        newignores = "\n".join(l) 
+        print "setting ignores", newignores  
+        path.propset('svn:ignore', newignores) 
+    else: 
+        print  
+    for fn in fns: 
+        fixfile(fn) 
 
+    for x in path.listdir(py.path.checker(dir=1, versioned=True)): 
+        fixdirectory(x) 
 
-def fixpyfiles(ignored, dirname, fnames):
-    "Fix Python files in some directory."
-    numpyfiles = 0
-    for fname in fnames:
-        if fname.endswith('.py') or fname.endswith('.txt') or fname.endswith('.asc'):
-            asserttextfile(os.path.join(dirname, fname))
-            numpyfiles += 1
-    if numpyfiles:
-        # ignore '*.pyc' and '*.pyo' in any directory containing .py files
-        g = os.popen('svn propget svn:ignore %s' % dirname)
-        content = g.readlines()
-        g.close()
-        oldlen = len(content)
-        if '*.pyc\n' not in content:
-            content.append('*.pyc\n')
-        if '*.pyo\n' not in content:
-            content.append('*.pyo\n')
-        if len(content) > oldlen:
-            g = open('svn-ignore.tmp', 'w')
-            g.writelines(content)
-            g.close()
-            os.system('svn propset svn:ignore -F svn-ignore.tmp %s' % dirname)
-            os.unlink('svn-ignore.tmp')
-    if '.svn' in fnames:
-        fnames.remove('.svn')
-
-
+def fixfile(path): 
+    x = path.localpath.relto(py.path.local())
+    if not x: 
+        x = path.localpath 
+    print "checking", x, 
+    if path.check(versioned=0): 
+        return False 
+    oldprop = path.propget('svn:eol-style')
+    if oldprop: 
+        print "eol-style already set (%r)" %(oldprop, )
+    else:   
+        if can_set_eol_style(path): 
+            print "setting eol-style native" 
+            path.propset('svn:eol-style', 'native') 
+        else: 
+            print "cannot set eol-style"
+    
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         for fname in sys.argv[1:]:
-            asserttextfile(fname)
+            paths = [py.path.svnwc(x) for x in sys.argv[1:]]
     else:
-        os.path.walk(os.curdir, fixpyfiles, None)
+        paths = [py.path.svnwc()]
+
+    for path in paths: 
+        if path.check(dir=1): 
+            fixdirectory(path) 
+        elif path.check(file=1): 
+            fixfile(path) 
+        else: 
+            print "ignoring", path 
+
