@@ -315,6 +315,7 @@ def set(it):
     return d
 
 def commonbase(cls1, cls2):   # XXX single inheritance only  XXX hum
+    assert issubclass(cls1, object)
     while not issubclass(cls1, cls2):
         cls2, = [x for x in cls2.__bases__ if x is not object] or [object]
     return cls2
