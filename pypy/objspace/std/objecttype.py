@@ -35,8 +35,96 @@ def descr__new__(space, w_type, __args__):
     w_obj.__init__(space)
     return w_obj
 
+def descr__hash__(space, w_obj):
+    return space.id(w_obj)
+
 def descr__init__(space, w_obj, __args__):
     pass
+
+def descr__reduce_ex__(space, w_obj, __args__):
+    funcname = "__reduce_ex__"
+    signature = ['proto'], None, None
+    defaults_w = [space.wrap(0)]
+    w_proto, = __args__.parse(funcname, signature, defaults_w)
+
+    # we intentionally avoid to ask for __reduce__ here
+    # XXX check for integerness of proto ?
+
+    if space.is_true(space.ge(w_proto, space.wrap(2))):
+        return reduce_2(space, w_obj)
+
+    return reduce_1(space, w_obj, w_proto)
+
+app = gateway.applevel(r'''
+def reduce_1(obj, proto):
+    import copy_reg
+    return copy_reg._reduce_ex(obj, proto)
+
+def reduce_2(obj):
+    cls = obj.__class__
+
+    try:
+        getnewargs = obj.__getnewargs__
+    except AttributeError:
+        args = ()
+    else:
+        args = getnewargs()
+        if not isinstance(args, tuple):
+            raise TypeError, "__getnewargs__ should return a tuple"
+
+    try:
+        getstate = obj.__getstate__
+    except AttributeError:
+        state = getattr(obj, "__dict__", None)
+        names = slotnames(cls) # not checking for list
+        if names is not None:
+            slots = {}
+            for name in names:
+                try:
+                    value = getattr(obj, name)
+                except AttributeError:
+                    pass
+                else:
+                    slots[name] =  value
+            if slots:
+                state = state, slots
+    else:
+        state = getstate()
+
+    if isinstance(obj, list):
+        listitems = iter(obj)
+    else:
+        listitems = None
+
+    if isinstance(obj, dict):
+        dictitems = obj.iteritems()
+    else:
+        dictitems = None
+
+    import copy_reg
+    newobj = copy_reg.__newobj__
+
+    args2 = (cls,) + args
+    return newobj, args2, state, listitems, dictitems
+
+def slotnames(cls):
+    if not isinstance(cls, type):
+        return None
+
+    try:
+        return cls.__dict__["__slotnames__"]
+    except KeyError:
+        pass
+
+    import copy_reg
+    slotnames = copy_reg._slotnames(cls)
+    if not isinstance(slotnames, list) and slotnames is not None:
+        raise TypeError, "copy_reg._slotnames didn't return a list or None"
+    return slotnames
+''')
+
+reduce_1 = app.interphook('reduce_1') 
+reduce_2 = app.interphook('reduce_2')
 
 # ____________________________________________________________
 
@@ -49,6 +137,11 @@ object_typedef = StdTypeDef("object",
     __class__ = GetSetProperty(descr__class__),
     __new__ = newmethod(descr__new__,
                         unwrap_spec = [gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
+    __hash__ = gateway.interp2app(descr__hash__),
+    __reduce_ex__ = gateway.interp2app(descr__reduce_ex__,
+                                  unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
+    __reduce__ = gateway.interp2app(descr__reduce_ex__,
+                                  unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     __init__ = gateway.interp2app(descr__init__,
                                   unwrap_spec=[gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     )
