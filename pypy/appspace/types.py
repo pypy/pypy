@@ -53,7 +53,11 @@ except RuntimeError:
 
 def g():
     yield 1
-GeneratorType = type(g())
+try:
+    GeneratorType = type(g())
+except:
+    # Refusing generators
+    pass
 del g
 
 class _C:

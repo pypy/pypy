@@ -289,8 +289,9 @@ class SYieldValue(StackUnroller):
     """Signals a 'yield' statement.
     Argument is the wrapped object to return."""
     def unrollstack(self, frame):
-        w_yieldedvalue = self.args[0]
-        raise ExitFrame(w_yieldedvalue)
+        # XXX generators
+        raise OperationError(frame.space.w_Exception,
+                             frame.space.wrap("generators are not ready yet"))
 
 class StopUnrolling(Exception):
     "Signals the end of the block stack unrolling."
