@@ -77,7 +77,7 @@ class AbstractMultiMethod(object):
                     result.append((currenttypes, func))
         else:
             classtuple = initialtypes[len(currenttypes)]
-            for i, nexttype in zip(range(len(classtuple)), classtuple):
+            for nexttype in classtuple:
                 self.internal_buildchoices(initialtypes,
                                            currenttypes + (nexttype,),
                                            result)
