@@ -192,12 +192,14 @@ implicitexc = ImplicitExcValue()
 def extract_cell_content(c):
     """Get the value contained in a CPython 'cell', as read through
     the func_closure of a function object."""
-    import new
-    def hackout():
-        return hackout   # this access becomes a cell reference
-    # now change the cell to become 'c'
-    hackout = new.function(hackout.func_code, {}, '', None, (c,))
-    return hackout()
+    # yuk! this is all I could come up with that works in Python 2.2 too
+    class X(object):
+        def __eq__(self, other):
+            self.other = other
+    x = X()
+    x_cell, = (lambda: x).func_closure
+    x_cell == c
+    return x.other
 
 def make_op(name, symbol, arity, specialnames):
     if hasattr(FlowObjSpace, name):

@@ -560,7 +560,10 @@ if not hasattr(dict, 'fromkeys'):
             r[s] = value
         return r
 
-    dict.fromkeys = classmethod(_fromkeys)
+    try:
+        dict.fromkeys = classmethod(_fromkeys)
+    except TypeError:
+        pass   # Python2.2 with trivial object space
 
     del _fromkeys
 
