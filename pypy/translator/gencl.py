@@ -1,10 +1,11 @@
 import autopath
-from pypy.translator.flowmodel import *
+from pypy.objspace.flow.model import *
 from pypy.translator.annotation import Annotator
 
 from pypy.translator.peepfgt import register as fgt_register
 
-# For 2.2 -- sanxiyn
+# XXX For 2.2 the emitted code isn't quite right, because we cannot tell
+# when we should write "0"/"1" or "nil"/"t".
 if not isinstance(bool, type):
     class bool(int):
         pass
@@ -47,6 +48,12 @@ class Op:
         print "(setq", s(result), "(not"
         self.gen.emit_truth_test(arg1)
         print "))"
+    def op_is_true(self):
+        s = self.str
+        result, (arg1,) = self.result, self.args
+        print "(setq", s(result)
+        self.gen.emit_truth_test(arg1)
+        print ")"
     def op_alloc_and_set(self):
         s = self.str
         result, (size, init) = self.result, self.args
@@ -70,7 +77,7 @@ class GenCL:
         self.ann = ann
     def str(self, obj):
         if isinstance(obj, Variable):
-            return obj.pseudoname
+            return obj.name
         elif isinstance(obj, Constant):
             return self.conv(obj.value)
         else:
@@ -98,24 +105,23 @@ class GenCL:
     def emit(self):
         self.emit_defun(self.fun)
     def emit_defun(self, fun):
-        print "(defun", fun.functionname
-        arglist = fun.get_args()
+        print "(defun", fun.name
+        arglist = fun.getargs()
         print "(",
         for arg in arglist:
             print self.str(arg),
         print ")"
         print "(prog"
-        startblock = fun.startblock
         blocklist = []
         def collect_block(node):
-            if isinstance(node, BasicBlock):
+            if isinstance(node, Block):
                 blocklist.append(node)
-        startblock.visit(collect_block)
+        traverse(collect_block, fun)
         varlist = {}
         for block in blocklist:
             tag = len(self.blockref)
             self.blockref[block] = tag
-            for var in block.getlocals():
+            for var in block.getvariables():
                 varlist[var] = None
         varlist = varlist.keys()
         print "(",
@@ -136,38 +142,37 @@ class GenCL:
         for op in block.operations:
             emit_op = Op(self, op)
             emit_op()
-        self.dispatch_branch(block.branch)
+        exits = block.exits
+        if len(exits) == 1:
+            self.emit_link(exits[0])
+        elif len(exits) > 1:
+            # only works in the current special case
+            assert len(exits) == 2
+            assert exits[0].exitcase == False
+            assert exits[1].exitcase == True
+            print "(if", self.str(block.exitswitch)
+            print "(progn"
+            self.emit_link(exits[1])
+            print ") ; else"
+            print "(progn"
+            self.emit_link(exits[0])
+            print "))"
+        else:
+            retval = self.str(block.inputargs[0])
+            print "(return", retval, ")"
     def emit_jump(self, block):
         tag = self.blockref[block]
         print "(go", "tag" + str(tag), ")"
-    def dispatch_branch(self, branch):
-        if isinstance(branch, Branch):
-            self.emit_branch(branch)
-        elif isinstance(branch, ConditionalBranch):
-            self.emit_conditional_branch(branch)
-        elif isinstance(branch, EndBranch):
-            self.emit_end_branch(branch)
-        else:
-            print "; Branch", branch.__class__, "is missing"
-    def emit_branch(self, branch):
-        if branch.target.has_renaming:
-            source = branch.args
-            target = branch.target.input_args
-            print "(psetq", # parallel assignment
-            for item in zip(source, target):
-                init, var = map(self.str, item)
+    def emit_link(self, link):
+        source = link.args
+        target = link.target.inputargs
+        print "(psetq", # parallel assignment
+        for item in zip(source, target):
+            init, var = map(self.str, item)
+            if var != init:
                 print var, init,
-            print ")"
-        self.emit_jump(branch.target)
-    def emit_conditional_branch(self, branch):
-        print "(if"
-        self.emit_truth_test(branch.condition)
-        self.emit_branch(branch.ifbranch)
-        self.emit_branch(branch.elsebranch)
         print ")"
-    def emit_end_branch(self, branch):
-        retval = self.str(branch.returnvalue)
-        print "(return", retval, ")"
+        self.emit_jump(link.target)
     def emit_truth_test(self, obj):
         annset = self.ann.annotated[self.cur_block]
         tp = annset.get_type(obj)

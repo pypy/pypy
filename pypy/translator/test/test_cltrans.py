@@ -1,7 +1,6 @@
 import autopath
 from pypy.tool import test
 from pypy.tool.udir import udir
-from pypy.translator.test.buildcl import _make_cl_func
 
 
 import os
@@ -30,6 +29,7 @@ def is_on_path(name):
 global_cl = get_cl()
 
 def make_cl_func(func):
+    from pypy.translator.tool.buildcl import _make_cl_func
     return _make_cl_func(func, global_cl, udir)
 
 

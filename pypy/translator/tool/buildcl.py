@@ -28,7 +28,7 @@ def _make_cl_func(func, cl, path):
     def _(*args):
         fpath.write(out)
         fp = file(str(fpath), "a")
-        print >>fp, "(write (", fun.functionname,
+        print >>fp, "(write (", fun.name,
         for arg in args:
             print >>fp, gen.conv(arg),
         print >>fp, "))"

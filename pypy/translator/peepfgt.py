@@ -2,7 +2,7 @@
 """
 
 import autopath
-from pypy.translator.flowmodel import *
+from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.translator.annotation import Annotator
 
 def transform_allocate(self):
