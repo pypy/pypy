@@ -5,7 +5,7 @@ from pypy.objspace.std.objecttype import object_typedef
 def descr__new__(space, w_inttype, w_value=0, w_base=None):
     from intobject import W_IntObject
     if w_base == space.w_None:
-        return space.int(w_value)
+        w_obj = space.int(w_value)
     else:
         # XXX write the logic for int("str", base)
         s = space.unwrap(w_value)
@@ -21,7 +21,8 @@ def descr__new__(space, w_inttype, w_value=0, w_base=None):
         except OverflowError, e:
             raise OperationError(space.w_OverflowError,
                          space.wrap(str(e)))
-        return W_IntObject(value)
+        w_obj = W_IntObject(value)
+    return space.w_int.check_user_subclass(w_inttype, w_obj)
 
 # ____________________________________________________________
 

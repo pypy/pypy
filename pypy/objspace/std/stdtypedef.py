@@ -46,7 +46,6 @@ def buildtypeobject(typedef, space):
         # get all the sliced multimethods
         multimethods = slicemultimethods(space.__class__, typedef)
         for name, code in multimethods.items():
-            #print typedef.name, ':', name
             fn = function.Function(space, code, defs_w=code.getdefaults(space))
             assert name not in rawdict, 'name clash: %s in %s_typedef' % (
                 name, typedef.name)
@@ -61,7 +60,7 @@ def buildtypeobject(typedef, space):
     for descrname, descrvalue in rawdict.items():
         dict_w[descrname] = w(descrvalue)
 
-    return W_TypeObject(space, typedef.name, bases_w, dict_w)
+    return W_TypeObject(space, typedef.name, bases_w, dict_w, typedef)
 
 def hack_out_multimethods(ns):
     result = []

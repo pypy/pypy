@@ -37,7 +37,8 @@ str_translate  = MultiMethod('translate', 3, defaults=('',)) #unicode mimic not 
 # ____________________________________________________________
 
 def descr__new__(space, w_stringtype, w_obj=''):
-    return space.str(w_obj)
+    w_obj = space.str(w_obj)
+    return space.w_str.check_user_subclass(w_stringtype, w_obj)
 
 # ____________________________________________________________
 

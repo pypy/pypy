@@ -84,7 +84,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             'Exception',
             [self.w_object],
             {'__init__': w_init,
-             '__str__': w_str})
+             '__str__': w_str},
+            )
         done = {'Exception': self.w_Exception}
 
         # some of the complexity of the following is due to the fact
@@ -111,7 +112,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
                                 self,
                                 next,
                                 [base],
-                                {})
+                                {},
+                                )
                             setattr(self,
                                     'w_' + next,
                                     newtype)
@@ -141,6 +143,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
                         }
 
         # types
+        from pypy.objspace.std.objecttype import object_typedef
+        self.object_typedef = object_typedef
         self.types_w = {}
         for typedef in self.standard_types():
             w_type = self.gettypeobject(typedef)
@@ -243,8 +247,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return stringobject.W_StringObject(self, ''.join(chars))
 
     def type(self, w_obj):
-        assert w_obj.typedef, w_obj
-        return self.gettypeobject(w_obj.typedef)
+        if hasattr(w_obj, 'w__class__'):
+            return w_obj.w__class__    # user-defined classes
+        else:
+            assert w_obj.typedef, w_obj
+            return self.gettypeobject(w_obj.typedef)
 
     def lookup(self, w_obj, name):
         from pypy.objspace.std.cpythonobject import W_CPythonObject

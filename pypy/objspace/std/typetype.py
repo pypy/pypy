@@ -3,7 +3,7 @@ from pypy.objspace.std.objecttype import object_typedef
 
 
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
-    # XXX staticmethod-ify w_dict['__new__']
+    "This is used to create user-defined classes only."
     from pypy.objspace.std.typeobject import W_TypeObject
     # XXX check types
     name = space.unwrap(w_name)
@@ -15,7 +15,13 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
         key = space.unwrap(w_key)
         assert isinstance(key, str)
         dict_w[key] = space.getitem(w_dict, w_key)
-    return W_TypeObject(space, name, bases_w or [space.w_object], dict_w)
+    # XXX classmethod-ify w_dict['__new__']
+    w_type = W_TypeObject(space, name, bases_w or [space.w_object], dict_w, None)
+    # provide a __dict__ for the instances if there isn't any yet
+    if w_type.lookup('__dict__') is None:
+        w_type.needs_new_dict = True
+        w_type.dict_w['__dict__'] = space.wrap(attrproperty_w('w__dict__'))
+    return space.w_type.check_user_subclass(w_typetype, w_type)
 
 def descr_get__mro__(space, w_type):
     # XXX this should be inside typeobject.py

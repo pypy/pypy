@@ -27,10 +27,29 @@ class GetSetProperty(Wrappable):
         self.doc = doc
 
     def descr_property_get(space, w_property, w_obj, w_ignored):
-        return space.unwrap(w_property).fget(space, w_obj)
+        if w_obj == space.w_None:
+            return w_property
+        else:
+            return space.unwrap(w_property).fget(space, w_obj)
+
+    def descr_property_set(space, w_property, w_obj, w_value):
+        fset = space.unwrap(w_property).fset
+        if fset is None:
+            complains
+        else:
+            do_it
+
+    def descr_property_del(space, w_property, w_obj):
+        fset = space.unwrap(w_property).fset
+        if fset is None:
+            complains
+        else:
+            do_it
 
     typedef = TypeDef("GetSetProperty",
         __get__ = interp2app(descr_property_get),
+        __set__ = interp2app(descr_property_set),
+        __delete__ = interp2app(descr_property_del),
         )
 
 def attrproperty(name):

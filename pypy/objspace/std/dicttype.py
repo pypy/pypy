@@ -96,7 +96,8 @@ register_all(vars(), globals())
 
 def descr__new__(space, w_dicttype, *args_w, **kwds_w):
     from pypy.objspace.std.dictobject import W_DictObject
-    return W_DictObject(space, [])
+    w_obj = W_DictObject(space, [])
+    return space.w_dict.check_user_subclass(w_dicttype, w_obj)
 
 # ____________________________________________________________
 
