@@ -323,5 +323,9 @@ def tryGenerate__str__(exc, maxprobe=20):
         yield "       '%s=' + str(self.%s)," % (key, key)
     yield "    ])"
     yield "    return res"
-    
-makeExceptionsTemplate(file("d:/tmp/look.py", "w"))
+
+if __name__ == "__main__":
+    import pypy.appspace, os
+    targetdir = os.path.dirname(pypy.appspace.__file__)
+    fname = os.path.join(targetdir, "_exceptions.py")
+    makeExceptionsTemplate(file(fname, "w"))
