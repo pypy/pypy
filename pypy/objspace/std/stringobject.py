@@ -767,7 +767,7 @@ def hash__String(space, w_str):
             x = 0
         else:
             for c in s:
-		x = (1000003*x) ^ ord(c)
+                x = (1000003*x) ^ ord(c)
             x ^= len(s)
         # unlike CPython, there is no reason to avoid to return -1
         w_hash = W_IntObject(space, intmask(x))

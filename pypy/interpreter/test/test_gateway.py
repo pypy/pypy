@@ -78,7 +78,7 @@ class TestGateway:
         assert self.space.eq_w(g3(self.space, w('foo'), w('bar')), w('foobar'))
         
     def test_app2interp2(self):
-    	"""same but using transformed code"""
+        """same but using transformed code"""
         w = self.space.wrap
         def noapp_g3(a, b):
             return a+b

@@ -185,7 +185,7 @@ def div__Float_Float(space, w_float1, w_float2):
         raise OperationError(space.w_ZeroDivisionError, space.wrap("float division"))
     except FloatingPointError:
         raise FailedToImplement(space.w_FloatingPointError, space.wrap("float division"))
-	# no overflow
+    # no overflow
     return W_FloatObject(space, z)
 
 truediv__Float_Float = div__Float_Float

@@ -468,13 +468,13 @@ class ControlFlowException(Exception, baseobjspace.BaseWrappable):
     The concrete subclasses correspond to the various values WHY_XXX
     values of the why_code enumeration in ceval.c:
 
-		WHY_NOT,	OK, not this one :-)
-		WHY_EXCEPTION,	SApplicationException
-		WHY_RERAISE,	we don't think this is needed
-		WHY_RETURN,	SReturnValue
-		WHY_BREAK,	SBreakLoop
-		WHY_CONTINUE,	SContinueLoop
-		WHY_YIELD	SYieldValue
+                WHY_NOT,        OK, not this one :-)
+                WHY_EXCEPTION,  SApplicationException
+                WHY_RERAISE,    we don't think this is needed
+                WHY_RETURN,     SReturnValue
+                WHY_BREAK,      SBreakLoop
+                WHY_CONTINUE,   SContinueLoop
+                WHY_YIELD       SYieldValue
 
     """
     def action(self, frame, last_instr, executioncontext):

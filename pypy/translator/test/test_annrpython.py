@@ -432,7 +432,7 @@ class TestAnnonateTestCase:
         assert isinstance(s, annmodel.SomeDict)
         assert isinstance(s.s_key, annmodel.SomeInteger)
         assert isinstance(s.s_value, annmodel.SomeInteger)
-	
+
         a = RPythonAnnotator()
         s = a.build_types(snippet.dict_update, [str])
         assert isinstance(s, annmodel.SomeDict)
@@ -624,6 +624,17 @@ class TestAnnonateTestCase:
         a = RPythonAnnotator()
         s = a.build_types(f, [])
         assert s.knowntype == C
+
+    def test_circular_list_type(self):
+        def f(n):
+            lst = []
+            for i in range(n):
+                lst = [lst]
+            return lst
+        a = RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeList)
+        assert s.s_item == s
 
 def g(n):
     return [0,1,2,n]

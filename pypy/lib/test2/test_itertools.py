@@ -96,8 +96,8 @@ class TestBasicOps(unittest.TestCase):
         self.assertEqual([pair for pair in izip('abc', 'def')],
                          zip('abc', 'def'))
         # the following test deals with a specific implementation detail,
-	# that izip "reuses" the SAME tuple object each time when it can;
-	# it does not apply correctly to pypy, so I'm commenting it -- AM
+        # that izip "reuses" the SAME tuple object each time when it can;
+        # it does not apply correctly to pypy, so I'm commenting it -- AM
         # ids = map(id, izip('abc', 'def'))
         # self.assertEqual(min(ids), max(ids))
         ids = map(id, list(izip('abc', 'def')))

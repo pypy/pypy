@@ -145,7 +145,7 @@ class TimSort:
             lastofs += hint
             ofs += hint
 
-	else:
+        else:
             # key <= a[hint] -- gallop left, until
             #     a[hint - ofs] < key <= a[hint - lastofs]
             maxofs = hint + 1   # a[0] is lowest
@@ -156,7 +156,7 @@ class TimSort:
                     # key <= a[hint - ofs]
                     lastofs = ofs
                     try:
-			ofs = (ofs << 1) + 1
+                        ofs = (ofs << 1) + 1
                     except OverflowError:
                         ofs = maxofs
             if ofs > maxofs:
@@ -164,22 +164,22 @@ class TimSort:
             # Translate back to positive offsets relative to a.
             lastofs, ofs = hint-ofs, hint-lastofs
 
-	assert -1 <= lastofs < ofs <= a.len
+        assert -1 <= lastofs < ofs <= a.len
 
-	# Now a[lastofs] < key <= a[ofs], so key belongs somewhere to the
-	# right of lastofs but no farther right than ofs.  Do a binary
-	# search, with invariant a[lastofs-1] < key <= a[ofs].
+        # Now a[lastofs] < key <= a[ofs], so key belongs somewhere to the
+        # right of lastofs but no farther right than ofs.  Do a binary
+        # search, with invariant a[lastofs-1] < key <= a[ofs].
         
-	lastofs += 1
+        lastofs += 1
         while lastofs < ofs:
             m = lastofs + ((ofs - lastofs) >> 1)
             if lower(a.list[a.base + m], key):
-                lastofs = m+1	# a[m] < key
+                lastofs = m+1   # a[m] < key
             else:
                 ofs = m         # key <= a[m]
 
-	assert lastofs == ofs         # so a[ofs-1] < key <= a[ofs]
-	return ofs
+        assert lastofs == ofs         # so a[ofs-1] < key <= a[ofs]
+        return ofs
 
     # ____________________________________________________________
 
@@ -188,12 +188,12 @@ class TimSort:
     MIN_GALLOP = 7
 
     def merge_init(self):
-	# This controls when we get *into* galloping mode.  It's initialized
+        # This controls when we get *into* galloping mode.  It's initialized
         # to MIN_GALLOP.  merge_lo and merge_hi tend to nudge it higher for
         # random data, and lower for highly structured data.
         self.min_gallop = self.MIN_GALLOP
 
-	# A stack of n pending runs yet to be merged.  Run #i starts at
+        # A stack of n pending runs yet to be merged.  Run #i starts at
         # address pending[i].base and extends for pending[i].len elements.
         # It's always true (so long as the indices are in bounds) that
         #
@@ -227,10 +227,10 @@ class TimSort:
                 return
 
             while True:
-		acount = 0   # number of times A won in a row
-		bcount = 0   # number of times B won in a row
+                acount = 0   # number of times A won in a row
+                bcount = 0   # number of times B won in a row
 
-		# Do the straightforward thing until (if ever) one run
+                # Do the straightforward thing until (if ever) one run
                 # appears to win consistently.
                 while True:
                     if self.lt(b.list[b.base], a.list[a.base]):
@@ -252,11 +252,11 @@ class TimSort:
                         if acount >= min_gallop:
                             break
 
-		# One run is winning so consistently that galloping may
+                # One run is winning so consistently that galloping may
                 # be a huge win.  So try that, and continue galloping until
                 # (if ever) neither run appears to be winning consistently
                 # anymore.
-		min_gallop += 1
+                min_gallop += 1
 
                 while True:
                     min_gallop -= min_gallop > 1
@@ -296,8 +296,8 @@ class TimSort:
                     if acount < self.MIN_GALLOP and bcount < self.MIN_GALLOP:
                         break
 
- 		min_gallop += 1  # penalize it for leaving galloping mode
- 		self.min_gallop = min_gallop
+                min_gallop += 1  # penalize it for leaving galloping mode
+                self.min_gallop = min_gallop
 
         finally:
             # The last element of a belongs at the end of the merge, so we copy
@@ -330,10 +330,10 @@ class TimSort:
                 return
 
             while True:
-		acount = 0   # number of times A won in a row
-		bcount = 0   # number of times B won in a row
+                acount = 0   # number of times A won in a row
+                bcount = 0   # number of times B won in a row
 
-		# Do the straightforward thing until (if ever) one run
+                # Do the straightforward thing until (if ever) one run
                 # appears to win consistently.
                 while True:
                     nexta = a.list[a.base + a.len - 1]
@@ -359,11 +359,11 @@ class TimSort:
                         if bcount >= min_gallop:
                             break
 
-		# One run is winning so consistently that galloping may
+                # One run is winning so consistently that galloping may
                 # be a huge win.  So try that, and continue galloping until
                 # (if ever) neither run appears to be winning consistently
                 # anymore.
-		min_gallop += 1
+                min_gallop += 1
 
                 while True:
                     min_gallop -= min_gallop > 1
@@ -405,8 +405,8 @@ class TimSort:
                     if acount < self.MIN_GALLOP and bcount < self.MIN_GALLOP:
                         break
 
- 		min_gallop += 1  # penalize it for leaving galloping mode
- 		self.min_gallop = min_gallop
+                min_gallop += 1  # penalize it for leaving galloping mode
+                self.min_gallop = min_gallop
 
         finally:
             # The last element of a belongs at the end of the merge, so we copy
@@ -427,12 +427,12 @@ class TimSort:
         assert a.len > 0 and b.len > 0
         assert a.base + a.len == b.base
 
-	# Record the length of the combined runs and remove the run b
+        # Record the length of the combined runs and remove the run b
         self.pending[i] = ListSlice(self.list, a.base, a.len + b.len)
         del self.pending[i+1]
 
-	# Where does b start in a?  Elements in a before that can be
-	# ignored (already in place).
+        # Where does b start in a?  Elements in a before that can be
+        # ignored (already in place).
         k = self.gallop(b.list[b.base], a, hint=0, rightmost=True)
         a.advance(k)
         if a.len == 0:
@@ -440,16 +440,16 @@ class TimSort:
 
         # Where does a end in b?  Elements in b after that can be
         # ignored (already in place).
-	b.len = self.gallop(a.list[a.base+a.len-1], b, hint=b.len-1,
+        b.len = self.gallop(a.list[a.base+a.len-1], b, hint=b.len-1,
                             rightmost=False)
         if b.len == 0:
             return
 
-	# Merge what remains of the runs.  The direction is chosen to
+        # Merge what remains of the runs.  The direction is chosen to
         # minimize the temporary storage needed.
         if a.len <= b.len:
             self.merge_lo(a, b)
-	else:
+        else:
             self.merge_hi(a, b)
 
     # Examine the stack of runs waiting to be merged, merging adjacent runs
@@ -495,11 +495,11 @@ class TimSort:
     # See listsort.txt for more info.
 
     def merge_compute_minrun(self, n):
-	r = 0    # becomes 1 if any 1 bits are shifted off
+        r = 0    # becomes 1 if any 1 bits are shifted off
         while n >= 64:
             r |= n & 1
             n >>= 1
-	return n + r
+        return n + r
 
     # ____________________________________________________________
     # Entry point.
@@ -509,10 +509,10 @@ class TimSort:
         if remaining.len < 2:
             return
 
-	# March over the array once, left to right, finding natural runs,
-	# and extending short natural runs to minrun elements.
+        # March over the array once, left to right, finding natural runs,
+        # and extending short natural runs to minrun elements.
         self.merge_init()
-	minrun = self.merge_compute_minrun(remaining.len)
+        minrun = self.merge_compute_minrun(remaining.len)
 
         while remaining.len > 0:
             # Identify next run.
@@ -532,8 +532,8 @@ class TimSort:
 
         assert remaining.base == self.listlength
 
-	self.merge_force_collapse()
-	assert len(self.pending) == 1
+        self.merge_force_collapse()
+        assert len(self.pending) == 1
         assert self.pending[0].base == 0
         assert self.pending[0].len == self.listlength
 

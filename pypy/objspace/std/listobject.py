@@ -48,7 +48,7 @@ def init__List(space, w_list, __args__):
                                (['sequence'], None, None),   # signature
                                [W_ListObject(space, [])])    # default argument
     w_list.clear()
-	
+
     length = 0
     try:
         length = space.int_w(space.len(w_iterable))
@@ -575,7 +575,7 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
 
     try:
         # The list is temporarily made empty, so that mutations performed
-	# by comparison functions can't affect the slice of memory we're
+        # by comparison functions can't affect the slice of memory we're
         # sorting (allowing mutations during sorting is an IndexError or
         # core-dump factory, since ob_item may change).
         w_list.clear()
@@ -588,7 +588,7 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
                 sorter.list[i] = KeyContainer(w_key, w_item)
 
         # Reverse sort stability achieved by initially reversing the list,
-	# applying a stable forward sort, then reversing the final result.
+        # applying a stable forward sort, then reversing the final result.
         if has_reverse:
             _reverse_slice(sorter.list, 0, sorter.listlength)
 

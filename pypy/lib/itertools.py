@@ -370,9 +370,9 @@ class islice:
     def next(self): 
         if self.donext is None:
             try:
-	        self.donext = self.it.next
+                self.donext = self.it.next
             except AttributeError:
-	        raise TypeError
+                raise TypeError
         while self.cnt < self.start:
             self.donext()
             self.cnt += 1

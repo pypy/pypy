@@ -352,16 +352,16 @@ def _check_for_accepting_states (igrammar):
     accepting state data; this is left to addAccelerators().
     """
     for dfa in igrammar[0]:
-	symbol_no, symbol_name, initial, states, first = dfa
-	acceptingStates = []
-	for state in states:
+        symbol_no, symbol_name, initial, states, first = dfa
+        acceptingStates = []
+        for state in states:
             arcs, accel, accept = state
             if accept:
                 acceptingStates.append(state)
         if len(acceptingStates) == 0:
             print "!" * 70
         print symbol_name, acceptingStates
-	if len(acceptingStates) == 0:
+        if len(acceptingStates) == 0:
             print "!" * 70
         else:
             print
