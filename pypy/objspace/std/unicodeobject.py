@@ -97,7 +97,10 @@ def add__Unicode_Unicode(space, w_left, w_right):
     return space.wrap(space.unwrap(w_left) + space.unwrap(w_right))
 
 def contains__String_Unicode(space, w_left, w_right):
-    return space.wrap(space.unwrap(w_right) in space.unwrap(w_left))
+    try:
+        return space.wrap(space.unwrap(w_right) in space.unwrap(w_left))
+    except:
+        wrap_exception(space)
 
 def contains__Unicode_Unicode(space, w_left, w_right):
     return space.wrap(space.unwrap(w_right) in space.unwrap(w_left))
