@@ -66,10 +66,8 @@ class ClassDef:
                 assert base is object, ("multiple inheritance only supported "
                                         "with _mixin_: %r" % (cls,))
                 base = b1
-        if '_specialize_' not in cls.__dict__: # otherwise make the original specialized class appear empty
-            mixeddict.update(cls.__dict__)
-        else:
-            assert not mixeddict, " _specialize_ +  mixins not both supported right now"
+        mixeddict.update(cls.__dict__)
+
         self.basedef = bookkeeper.getclassdef(base)
         if self.basedef:
             self.basedef.subdefs[cls] = self
@@ -180,16 +178,28 @@ class ClassDef:
 
     def matching(self, pbc):
         d = {}
+        uplookup = None
+        upfunc = None
         for func, value in pbc.prebuiltinstances.items():
             if isclassdef(value):
-                if not value.issubclass(self) and not self.issubclass(value):
+                if value is not self and  value.issubclass(self):
+                    pass # subclasses methods are always candidates
+                elif self.issubclass(value): # upward consider only the best match
+                    if uplookup is None or value.issubclass(uplookup):
+                        uplookup = value
+                        upfunc = func
                     continue
+                    # for clsdef1 >= clsdef2
+                    # clsdef1.matching(pbc) includes clsdef2.matching(pbc)
+                else:
+                    continue # not matching
             d[func] = value
+        if uplookup is not None:
+            d[upfunc] = uplookup
         if d:
             return SomePBC(d)
         else:
             return SomeImpossibleValue()
-
 
 def isclassdef(x):
     return isinstance(x, ClassDef)
