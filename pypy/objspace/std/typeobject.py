@@ -116,9 +116,9 @@ class PyMultimethodCode(pycode.PyBaseCode):
     def slice(self):
         if self.slicedmultimethod is None:
             multimethod = self.basemultimethod
-            print "pypy: slicing %r for a %r argument at position %d" % (
-                multimethod.operatorsymbol,
-                self.w_type.typename, self.bound_position)
+            #print "pypy: slicing %r for a %r argument at position %d" % (
+            #    multimethod.operatorsymbol,
+            #    self.w_type.typename, self.bound_position)
             # slice the multimethod and cache the result
             sliced = multimethod.slicetable(self.bound_position, self.w_type)
             if sliced.is_empty():
