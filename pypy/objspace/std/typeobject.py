@@ -166,3 +166,8 @@ def type_issubtype(space, w_type1, w_type2):
     return space.newbool(w_type2 in w_type1.getmro())
 
 StdObjSpace.issubtype.register(type_issubtype, W_TypeObject, W_TypeObject)
+
+def type_repr(space, w_obj):
+    return space.wrap("<type '%s'>" % w_obj.typename) 
+
+StdObjSpace.repr.register(type_repr, W_TypeObject)
