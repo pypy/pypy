@@ -232,7 +232,7 @@ class RPythonAnnotator:
         #  * self.annotated[block] == False:
         #      the input variables of the block are in self.bindings but we
         #      still have to consider all the operations in the block.
-        #  * self.annotated[block] == <original function object>:
+        #  * self.annotated[block] == True or <original function object>:
         #      analysis done (at least until we find we must generalize the
         #      input variables).
 
@@ -242,7 +242,7 @@ class RPythonAnnotator:
         elif cells is not None:
             self.mergeinputargs(block, cells)
         if not self.annotated[block]:
-            self.annotated[block] = fn
+            self.annotated[block] = fn or True
             try:
                 self.flowin(fn, block)
             except BlockedInference, e:
