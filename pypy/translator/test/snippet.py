@@ -40,6 +40,9 @@ def my_bool(x=int):
 def my_contains(seq=seqtype, elem=anytype):
     return elem in seq
 
+def is_one_or_two(n=int):
+    return n in (1, 2)
+
 def two_plus_two():
     """Array test"""
     array = [0] * 3

@@ -440,6 +440,10 @@ def consider_op_%s(self, arg1, arg2, *args):
     _registeroperations(locals())
     del _registeroperations
 
+    # XXX "contains" clash with SomeObject method
+    def consider_op_contains(self, seq, elem):
+        return annmodel.SomeBool()
+
     def consider_op_newtuple(self, *args):
         return annmodel.SomeTuple(items = args)
 

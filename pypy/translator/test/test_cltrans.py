@@ -66,6 +66,14 @@ class TestGenCLTestCase:
         assert cl_bool(42) == True
         assert cl_bool(True) == True
 
+    def test_contains(self):
+        my_contains = make_cl_func(t.my_contains)
+        assert my_contains([1, 2, 3], 1)
+        assert not my_contains([1, 2, 3], 0)
+        is_one_or_two = make_cl_func(t.is_one_or_two)
+        assert is_one_or_two(2)
+        assert not is_one_or_two(3)
+
     def test_array(self):
         cl_four = make_cl_func(t.two_plus_two)
         assert cl_four() == 4

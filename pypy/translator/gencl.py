@@ -54,6 +54,10 @@ class Op:
         result, (arg1, arg2) = self.result, self.args
         cl_op = self.binary_ops[op]
         print "(setq", s(result), "(", cl_op, s(arg1), s(arg2), "))"
+    def op_contains(self):
+        s = self.str
+        result, (arg1, arg2) = self.result, self.args
+        print "(setq", s(result), "(not (not (find", s(arg2), s(arg1), "))))"
     def op_add(self):
         s = self.str
         result, (arg1, arg2) = self.result, self.args
@@ -171,7 +175,10 @@ class GenCL:
         else:
             return "#<%r>" % (obj,)
     def conv(self, val):
-        if isinstance(val, bool): # should precedes int
+        if isinstance(val, tuple):
+            val = map(self.conv, val)
+            return "'(%s)" % ' '.join(val)
+        elif isinstance(val, bool): # should precedes int
             if val:
                 return "t"
             else:
