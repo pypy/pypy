@@ -66,79 +66,60 @@ def blocksplitter(filename):
 def rewrite_utest(block):
     '''rewrite every block to use the new utest functions'''
 
-    '''This is the code that actually knows the format of the old
-       and new unittests.  The rewriting rules are picky with when
-       to add spaces, and commas, so there are unfortunately 8 exit
-       paths, all some form of 'return indent + new + string + trailer'
-
+    '''returns the rewritten unittest, unless it ran into problems,
+       in which case it just returns the block unchanged.
     '''
     utest = old_names.match(block)
 
-    if not utest:  # just copy uninteresting blocks that don't begin a utest
+    if not utest:
         return block
 
-    else: # we have an interesting block
-        old = utest.group(0).lstrip()[5:-1]
-        # old - the name we want to replace -- between the 'self.' and the '('
-
-        #  d is the dictionary of unittest changes, keyed to the old name
-        #  used by unittest.
-        #  d[old][0] is the new replacement function.
-        #  d[old][1] is the operator you will use , or '' if there is none.
-        #  d[old][2] is the possible number of arguments to the unittest
-        #  function.
-
-        new = d[old][0]
-        op  = d[old][1]
-        possible_args = d[old][2]
+    old = utest.group(0).lstrip()[5:-1] # the name we want to replace
+    new = d[old][0] # the name of the replacement function
+    op  = d[old][1] # the operator you will use , or '' if there is none.
+    possible_args = d[old][2]  # a list of the number of arguments the
+                               # unittest function could possibly take.
                 
-        if new == 'raises': # just rename assertRaises & friends
-            return re.sub('self.'+old, new, block)
-        else:
-            message_pos = possible_args[-1]
-            # the remaining unittests can have an optional message to
-            # print when they fail.  It is always the last argument to
-            # the function.
+    if new == 'raises': # just rename assertRaises & friends
+        return re.sub('self.'+old, new, block)
 
-        try:
-            indent, args, message, trailer = decompose_unittest(
-                old, block, message_pos)
-        except SyntaxError: # but we couldn't parse it!
-            return block
+    message_pos = possible_args[-1]
+    # the remaining unittests can have an optional message to print
+    # when they fail.  It is always the last argument to the function.
 
-        # otherwise, we have a real one that we could parse.
+    try:
+        indent, args, message, trailer = decompose_unittest(
+            old, block, message_pos)
+    except SyntaxError: # but we couldn't parse it!
+        return block
 
-        argnum = len(args)
+    argnum = len(args)
+    if message:
+        argnum += 1
+
+    if argnum not in possible_args:
+        # sanity check - this one isn't real either
+        return block
+
+    if argnum is 0 or (argnum is 1 and argnum is message_pos): #unittest fail()
+        string = ''
         if message:
-            argnum += 1
+            message = ' ' + message
 
-        if argnum not in possible_args:
-            # sanity check - this one isn't real either
-            return block
+    elif message_pos is 4:  # assertAlmostEqual & friends
+        try:
+            pos = args[2].lstrip()
+        except IndexError:
+            pos = '7' # default if none is specified
+        string = '(%s -%s, %s)%s 0' % (args[0], args[1], pos, op )
 
-        if argnum is 0:  # fail()
-            return indent + new + trailer
+    else: # assert_, assertEquals and all the rest
+        string = ' ' + op.join(args)
 
-        elif argnum is 1 and argnum is message_pos: # fail('unhappy message')
-            return indent + new + ', ' + message + trailer
+    if message:
+        string = string + ',' + message
 
-        elif message_pos is 4:  # assertAlmostEqual and friends
-            try:
-                pos = args[2].lstrip()
-            except IndexError:
-                pos = '7' # default if none is specified
-            string = '(' + args[0] + ' -' + args[1] + ', ' + pos + ')'
-            string += op + ' 0'
-            if message:
-                string = string + ',' + message
-            return indent + new + string + trailer
-                
-        else: #assert_, assertEquals and all the rest
-            string = op.join(args)
-            if message:
-                string = string + ',' + message
-
-        return indent + new + ' ' + string + trailer
+    return indent + new + string + trailer
 
 def decompose_unittest(old, block, message_pos):
     '''decompose the block into its component parts'''
@@ -173,16 +154,16 @@ def decompose_unittest(old, block, message_pos):
             # begins, you will need another set of parens, (or a backslash).
 
     if arglist:
-        newl = []
-        for arg in arglist:
+        for i in range(len(arglist)):
             try:
-                parser.expr(arg.lstrip('\t '))
+                parser.expr(arglist[i].lstrip('\t '))
                 # Again we want to enclose things that happen to have
                 # a linebreak just before the new arg.
             except SyntaxError:
-                arg = '(' + arg + ')'
-            newl.append(arg)
-        arglist = newl
+                if i == 0:
+                    arglist[i] = '(' + arglist[i] + ')'
+                else:
+                    arglist[i] = ' (' + arglist[i] + ')'
 
     return indent, arglist, message, trailer
 
@@ -258,12 +239,12 @@ class Testit(unittest.TestCase):
                           "assert func(x) # XXX")
         
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assert_(1 + f(y)
                          + z) # multiline, keep parentheses
             """
             ),
-            r"""
+            """
             assert (1 + f(y)
                          + z) # multiline, keep parentheses
             """
@@ -317,19 +298,19 @@ class Testit(unittest.TestCase):
             """
             ),
             r"""
-            assert 0 ==(
+            assert 0 == (
                  'Run away from the snake.\n')
             """
                           )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertEquals(badger + 0
                               + mushroom
                               + snake, 0)
             """
             ),
-            r"""
+            """
             assert (badger + 0
                               + mushroom
                               + snake) == 0
@@ -337,7 +318,7 @@ class Testit(unittest.TestCase):
                           )
                             
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertNotEquals(badger + 0
                               + mushroom
                               + snake,
@@ -345,25 +326,25 @@ class Testit(unittest.TestCase):
                               - badger)
             """
             ),
-            r"""
+            """
             assert (badger + 0
                               + mushroom
-                              + snake) !=(
+                              + snake) != (
                               mushroom
                               - badger)
             """
                           )
 
         self.assertEqual(rewrite_utest(
-            r"""
+            """
             self.assertEquals(badger(),
                               mushroom()
                               + snake(mushroom)
                               - badger())
             """
             ),
-            r"""
-            assert badger() ==(
+            """
+            assert badger() == (
                               mushroom()
                               + snake(mushroom)
                               - badger())
@@ -376,7 +357,7 @@ class Testit(unittest.TestCase):
                           "assert not 0 != 0")
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.failUnlessEqual(mushroom()
                                  + mushroom()
                                  + mushroom(), '''badger badger badger
@@ -385,7 +366,7 @@ class Testit(unittest.TestCase):
                                  ''') # multiline, must move the parens
             """
             ),
-            r"""
+            """
             assert not (mushroom()
                                  + mushroom()
                                  + mushroom()) != '''badger badger badger
@@ -397,39 +378,39 @@ class Testit(unittest.TestCase):
 
                                    
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertEquals('''snake snake snake
                                  snake snake snake''', mushroom)
             """
             ),
-            r"""
+            """
             assert '''snake snake snake
                                  snake snake snake''' == mushroom
             """
                           )
         
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertEquals(badger(),
                               snake(), 'BAD BADGER')
             """
             ),
-            r"""
-            assert badger() ==(
+            """
+            assert badger() == (
                               snake()), 'BAD BADGER'
             """
                           )
         
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertNotEquals(badger(),
                               snake()+
                               snake(), 'POISONOUS MUSHROOM!\
                               Ai! I ate a POISONOUS MUSHROOM!!')
             """
             ),
-            r"""
-            assert badger() !=(
+            """
+            assert badger() != (
                               snake()+
                               snake()), 'POISONOUS MUSHROOM!\
                               Ai! I ate a POISONOUS MUSHROOM!!'
@@ -437,7 +418,7 @@ class Testit(unittest.TestCase):
                           )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertEquals(badger(),
                               snake(), '''BAD BADGER
                               BAD BADGER
@@ -445,8 +426,8 @@ class Testit(unittest.TestCase):
                               )
             """
             ),
-            r"""
-            assert badger() ==(
+            """
+            assert badger() == (
                               snake()), '''BAD BADGER
                               BAD BADGER
                               BAD BADGER'''
@@ -455,7 +436,7 @@ class Testit(unittest.TestCase):
                         )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertEquals('''BAD BADGER
                               BAD BADGER
                               BAD BADGER''', '''BAD BADGER
@@ -463,7 +444,7 @@ class Testit(unittest.TestCase):
                               BAD BADGER''')
             """
             ),
-            r"""
+            """
             assert '''BAD BADGER
                               BAD BADGER
                               BAD BADGER''' == '''BAD BADGER
@@ -473,7 +454,7 @@ class Testit(unittest.TestCase):
                         )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertEquals('''GOOD MUSHROOM
                               GOOD MUSHROOM
                               GOOD MUSHROOM''',
@@ -485,10 +466,10 @@ class Testit(unittest.TestCase):
                               FAILURE''')
             """
             ),
-            r"""
+            """
             assert '''GOOD MUSHROOM
                               GOOD MUSHROOM
-                              GOOD MUSHROOM''' ==(
+                              GOOD MUSHROOM''' == (
                               '''GOOD MUSHROOM
                               GOOD MUSHROOM
                               GOOD MUSHROOM'''),(
@@ -499,43 +480,43 @@ class Testit(unittest.TestCase):
                         )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertAlmostEquals(first, second, 5, 'A Snake!')
             """
             ),
-            r"""
+            """
             assert round(first - second, 5) == 0, 'A Snake!'
             """
                           )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertAlmostEquals(first, second, 120)
             """
             ),
-            r"""
+            """
             assert round(first - second, 120) == 0
             """
                           )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertAlmostEquals(first, second)
             """
             ),
-            r"""
+            """
             assert round(first - second, 7) == 0
             """
                           )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertAlmostEqual(first, second, 5, '''A Snake!
             Ohh A Snake!  A Snake!!
             ''')
             """
             ),
-            r"""
+            """
             assert round(first - second, 5) == 0, '''A Snake!
             Ohh A Snake!  A Snake!!
             '''
@@ -543,54 +524,54 @@ class Testit(unittest.TestCase):
                           )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.assertNotAlmostEqual(first, second, 5, 'A Snake!')
             """
             ),
-            r"""
+            """
             assert round(first - second, 5) != 0, 'A Snake!'
             """
                           )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.failIfAlmostEqual(first, second, 5, 'A Snake!')
             """
             ),
-            r"""
+            """
             assert not round(first - second, 5) == 0, 'A Snake!'
             """
                           )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.failIfAlmostEqual(first, second, 5, 6, 7, 'Too Many Args')
             """
             ),
-            r"""
+            """
             self.failIfAlmostEqual(first, second, 5, 6, 7, 'Too Many Args')
             """
                           )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
             self.failUnlessAlmostEquals(first, second, 5, 'A Snake!')
             """
             ),
-            r"""
+            """
             assert not round(first - second, 5) != 0, 'A Snake!'
             """
                           )
 
         self.assertEquals(rewrite_utest(
-            r"""
+            """
               self.assertAlmostEquals(now do something reasonable ..()
             oops, I am inside a comment as a ''' string, and the fname was
             mentioned in passing, leaving us with something that isn't an
             expression ... will this blow up?
             """
             ),
-            r"""
+            """
               self.assertAlmostEquals(now do something reasonable ..()
             oops, I am inside a comment as a ''' string, and the fname was
             mentioned in passing, leaving us with something that isn't an
@@ -601,6 +582,15 @@ class Testit(unittest.TestCase):
                               
 if __name__ == '__main__':
     unittest.main()
-    #for block in  blocksplitter('xxx.py'): print rewrite_utest(block)
+    '''count = 1
+    for block in  blocksplitter('xxx.py'):
+        print 'START BLOCK', count
+        print rewrite_utest(block)
+        print 'END BLOCK', count
+        print
+        print
+        count +=1
+    '''
+#for block in  blocksplitter('xxx.py'): print rewrite_utest(block)
 
 
