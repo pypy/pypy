@@ -142,7 +142,6 @@ def f(name, bases, namespace, globals={}):
                            self.space.wrap(()),
                            self.space.wrap({}),
                           ])
-        print x
         self.assertEquals(isinstance(x, W_Anything), False)
 
     def dont_test_global(self):
