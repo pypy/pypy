@@ -141,7 +141,7 @@ class Gateway(object):
         # to call the Gateway as a non-method, 'space' must be explicitely
         # supplied. We build the Function object and call it.
         fn = self.get_function(space)
-        return fn(*args_w, **kwds_w)
+        return fn.descr_function_call(*args_w, **kwds_w)
 
     def __get__(self, obj, cls=None):
         # to get the Gateway as a method out of an instance, we build a

@@ -167,7 +167,7 @@ def %(name)s(self, x, *args):
     is_true   = operator.truth
     # 'is_true' is not called 'truth' because it returns a *non-wrapped* boolean
 
-    for _name in ('id', 'type', 'ord'):
+    for _name in ('id', 'type', 'ord', 'round'):
         _auto(_name, _name, locals())
 
 #    for _name in ('id', 'type', 'iter', 'repr', 'str', 'len',

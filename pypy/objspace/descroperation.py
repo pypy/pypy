@@ -1,3 +1,4 @@
+import operator
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, NoValue
 from pypy.interpreter.function import Function
@@ -26,7 +27,7 @@ class DescrOperation:
         w_descr = space.lookup(w_obj, '__dict__')
         if w_descr is None:
             return None 
-        return space.get_and_call_function(w_descr, w_obj)
+        return space.get(w_descr, w_obj, space.type(w_obj))
 
     def is_data_descr(space, w_obj):
         # XXX check this logic
@@ -68,21 +69,21 @@ class DescrOperation:
         w_get = space.lookup(w_descr,'__get__')
         if w_get is None:
             return w_obj
-        return space.get_and_call_function(w_descr,w_obj,w_type)
+        return space.get_and_call_function(w_get,w_descr,w_obj,w_type)
 
     def set(space,w_descr,w_obj,w_val):
-        w_get = space.lookup(w_descr,'__set__')
-        if w_get is None:
+        w_set = space.lookup(w_descr,'__set__')
+        if w_set is None:
             raise OperationError(space.w_TypeError,
                    space.wrap("object is not a descriptor with set"))
-        return space.get_and_call_function(w_descr,w_obj,w_val)
+        return space.get_and_call_function(w_set,w_descr,w_obj,w_val)
 
     def delete(space,w_descr,w_obj):
-        w_get = space.lookup(w_descr,'__get__')
-        if w_get is None:
+        w_delete = space.lookup(w_descr,'__delete__')
+        if w_delete is None:
             raise OperationError(space.w_TypeError,
                    space.wrap("object is not a descriptor with delete"))
-        return space.get_and_call_function(w_descr,w_obj)
+        return space.get_and_call_function(w_delete,w_descr,w_obj)
 
     def getattr(space,w_obj,w_name):
         w_descr = space.lookup(w_obj,'__getattribute__')
@@ -269,6 +270,7 @@ def _make_binop_impl(symbol,specialnames):
 
 def _make_comparison_impl(symbol,specialnames):
     left, right = specialnames
+    op = getattr(operator, left)
     def comparison_impl(space,w_obj1,w_obj2):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
@@ -290,12 +292,10 @@ def _make_comparison_impl(symbol,specialnames):
         w_res = _invoke_binop(space,w_right_impl,w_obj2,w_obj1)
         if w_res is not None:
             return w_res
-        w_res = _cmp(space,w_first,w_second)
         # fallback: lt(a,b) <= lt(cmp(a,b),0) ...
-        if space.is_true(comparison_impl(space,w_res,space.wrap(0))):
-            return space.w_True
-        else:
-            return space.w_False
+        w_res = _cmp(space,w_first,w_second)
+        res = space.unwrap(w_res)
+        return space.wrap(op(res, 0))
 
     return comparison_impl
 
