@@ -940,50 +940,67 @@ def ord__String(space, w_str):
 def mod__String_ANY(space, w_str, w_item):
     return mod__String_Tuple(space, w_str, space.newtuple([w_item]))
 
-def app_mod__String_Tuple(format, values):
-    l = list(values) 
-    l.reverse()
+def app_mod__String_ANY(format, values):
     pieces = []
     start = 0
     state = 0
-    for i in range(len(format)):
+    i = 0 
+    index = -1
+    len_format = len(format) 
+    while i < len_format: 
         c = format[i]
         if state == 0:
-            """ just copy constant-pieces of the format """
-            if c!='%':
-                continue
-            pieces.append(format[start:i])
-            state = 1
+            # just copy constant-pieces of the format
+            if c=='%':
+                pieces.append(format[start:i])
+                state = 1
         else:
-            try:
-                if c=='%':
-                    pieces.append('%')
-                elif c=='s':
-                    pieces.append(str(l.pop()))
+            if c=='%':
+                pieces.append('%')
+            else:
+                if c == '(':
+                    # read name 
+                    j = format.find(')', i+1)
+                    if j == -1:
+                        raise ValueError, "incomplete format string"
+                    if index != -1:
+                        raise TypeError, "format string mismatch"
+                    name = format[i+1:j]
+                    value = values[name]
+                    index = -2 
+                    i = j+1
+                    c = format[i]
+                else:
+                    index += 1
+                    if index < 0:
+                        raise TypeError, "format string mismatch"
+                    elif index == 0 and not isinstance(values, tuple):
+                        values = tuple([values])
+                    value = values[index]
+                 
+                if c=='s':
+                    pieces.append(str(value)) 
                 elif c=='d':
-                    pieces.append(str(int(l.pop())))
+                    pieces.append(str(value))
                 elif c=='x':
-                    pieces.append(hex(int(l.pop())))
+                    pieces.append(hex(int(value)))
                 elif c=='r':
-                    pieces.append(repr(l.pop()))
+                    pieces.append(repr(value))
                 else:
                     raise ValueError, "unsupported format character '%s' (%x) at index %d" % (
                             c, ord(c), i)
-            except IndexError:
-                raise TypeError, 'not enough arguments for format string'
             state = 0
             start = i+1
+        i += 1
 
     if state == 1:
         raise ValueError, "incomplete format"
-    if l:
+    if index >= 0 and index < len(values) - 1:
         raise TypeError, 'not all arguments converted during string formatting'
-
     pieces.append(format[start:])
     return ''.join(pieces)
 
-
-mod__String_Tuple = gateway.app2interp(app_mod__String_Tuple) 
+mod__String_ANY = gateway.app2interp(app_mod__String_ANY) 
 
 # register all methods 
 register_all(vars(), W_StringType)
