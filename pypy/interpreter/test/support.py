@@ -1,7 +1,9 @@
 import sys, os
 
-testdir   = os.path.dirname(os.path.abspath(__file__))
-parentdir = os.path.dirname(testdir)
-rootdir   = os.path.dirname(parentdir)
+opd = os.path.dirname
 
-sys.path.insert(0, rootdir)
+testdir   = opd(os.path.abspath(__file__))
+parentdir = opd(testdir)
+rootdir   = opd(parentdir)
+
+sys.path.insert(0, opd(rootdir))
