@@ -21,7 +21,7 @@ class W_ObjectType(W_TypeObject):
     object_hash    = StdObjSpace.hash
 
     # this is a method in 'object' because it is not an object space operation
-    object_init    = MultiMethod('__init__', 3, varargs=True, keywords=True)
+    object_init    = MultiMethod('__init__', 1, varargs=True, keywords=True)
 
 registerimplementation(W_ObjectType)
 

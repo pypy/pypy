@@ -36,7 +36,7 @@ def unwrap__List(space, w_list):
     items = [space.unwrap(w_item) for w_item in w_list.ob_item[:w_list.ob_size]]
     return list(items)
 
-def object_init__List_ANY_ANY(space, w_list, w_args, w_kwds):
+def object_init__List(space, w_list, w_args, w_kwds):
     if space.is_true(w_kwds):
         raise OperationError(space.w_TypeError,
                              space.wrap("no keyword arguments expected"))

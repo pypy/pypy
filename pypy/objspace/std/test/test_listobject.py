@@ -278,6 +278,14 @@ class TestW_ListObject(test.TestCase):
 class AppTestW_ListObject(test.AppTestCase):
     def setUp(self):
         self.space = test.objspace('std')
+
+    def test_explicit_init(self):
+        l = []
+        l.__init__([1,2])
+        self.assertEquals(l,[1,2])
+        list.__init__(l,[1,2,3])
+        self.assertEquals(l,[1,2,3])
+        
     def test_extend_list(self):
         l = [1]
         l.extend([2])

@@ -186,7 +186,7 @@ for multimethod in typeobject.hack_out_multimethods(StdObjSpace):
 
 next__User    = SpecialMethod('next').next_call
 is_true__User = SpecialMethod('nonzero').nonzero_call
-object_init__User_ANY_ANY = SpecialMethod('__init__').argskwds_call
+object_init__User = SpecialMethod('__init__').argskwds_call
 iter__User = SpecialMethod('__iter__').iter_call
 
 register_all(vars())
