@@ -16,6 +16,7 @@ def simplify_graph(graph):
     remove_implicit_exceptions(graph)
     join_blocks(graph)
     transform_dead_op_vars(graph)
+    remove_identical_vars(graph)
     checkgraph(graph)
 
 # ____________________________________________________________
@@ -219,3 +220,45 @@ def transform_dead_op_vars_in_blocks(blocks):
         for i in range(len(block.inputargs)-1, -1, -1):
             if block.inputargs[i] not in read_vars:
                 del block.inputargs[i]
+
+def remove_identical_vars(graph):
+    """When the same variable is passed multiple times into the next block,
+    pass it only once.  This enables further optimizations by the annotator,
+    which otherwise doesn't realize that tests performed on one of the copies
+    of the variable also affect the other."""
+
+    entrymap = mkentrymap(graph)
+    consider_blocks = entrymap
+
+    while consider_blocks:
+        blocklist = consider_blocks.keys()
+        consider_blocks = {}
+        for block in blocklist:
+            if not block.exits:
+                continue
+            links = entrymap[block]
+            entryargs = {}
+            for i in range(len(block.inputargs)):
+                # list of possible vars that can arrive in i'th position
+                key = tuple([link.args[i] for link in links])
+                if key not in entryargs:
+                    entryargs[key] = i
+                else:
+                    j = entryargs[key]
+                    # positions i and j receive exactly the same input vars,
+                    # we can remove the argument i and replace it with the j.
+                    argi = block.inputargs[i]
+                    if not isinstance(argi, Variable): continue
+                    argj = block.inputargs[j]
+                    block.renamevariables({argi: argj})
+                    assert block.inputargs[i] == block.inputargs[j] == argj
+                    del block.inputargs[i]
+                    for link in links:
+                        assert link.args[i] == link.args[j]
+                        del link.args[i]
+                    # mark this block and all the following ones as subject to
+                    # possible further optimization
+                    consider_blocks[block] = True
+                    for link in block.exits:
+                        consider_blocks[link.target] = True
+                    break
