@@ -64,7 +64,12 @@ class GeneratorIterator(object):
             raise NoValue
         self.running = True
         try:
-            return Frame.run(self.frame)
+            try: return Frame.run(self.frame)
+            except OperationError, e:
+                if e.w_type is self.space.w_StopIteration:
+                    raise NoValue
+                else:
+                    raise
         finally:
             self.running = False
 
