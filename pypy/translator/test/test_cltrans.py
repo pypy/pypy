@@ -95,5 +95,13 @@ class GenCLTestCase(test.IntTestCase):
         self.assertEquals(cl_stringmaker(111, 114),
                           "...!...!...!...!...!")
 
+    def test_for(self):
+        cl_python = make_cl_func(t.choose_last)
+        self.assertEquals(cl_python(), "python")
+
+    def test_builtin(self):
+        cl_builtinusage = make_cl_func(t.builtinusage)
+        self.assertEquals(cl_builtinusage(), 4)
+
 if __name__ == '__main__':
     test.main()

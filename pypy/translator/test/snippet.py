@@ -158,5 +158,13 @@ def int_id(x):
     return i
 
 def greet(target):
+    """String test"""
     hello = "hello"
     return hello + target
+
+def choose_last():
+    """For loop test"""
+    set = ["foo", "bar", "spam", "egg", "python"]
+    for choice in set:
+        pass
+    return choice

@@ -3,13 +3,15 @@ from pypy.objspace.flow.model import *
 from pypy.translator.annotation import Annotator
 
 from pypy.translator.simplify import simplify_graph
-from pypy.translator.peepfgt import register as fgt_register
+from pypy.translator.transform import transform_graph
+
 
 # XXX For 2.2 the emitted code isn't quite right, because we cannot tell
 # when we should write "0"/"1" or "nil"/"t".
 if not isinstance(bool, type):
     class bool(int):
         pass
+
 
 class Op:
     def __init__(self, gen, op):
@@ -76,6 +78,18 @@ class Op:
         }
         self.gen.emit_typecase(table, arg1)
         print ")"
+    def op_newtuple(self):
+        s = self.str
+        print "(setq", s(self.result), "(list",
+        for arg in self.args:
+            print s(arg),
+        print "))"
+    def op_newlist(self):
+        s = self.str
+        print "(setq", s(self.result), "(vector",
+        for arg in self.args:
+            print s(arg),
+        print "))"
     def op_alloc_and_set(self):
         s = self.str
         result, (size, init) = self.result, self.args
@@ -83,8 +97,35 @@ class Op:
         print "(fill", s(result), s(init), ")"
     def op_setitem(self):
         s = self.str
-        (array, index, element) = self.args
-        print "(setf (elt", s(array), s(index), ")", s(element), ")"
+        (seq, index, element) = self.args
+        print "(setf (elt", s(seq), s(index), ")", s(element), ")"
+    def op_iter(self):
+        s = self.str
+        result, (seq,) = self.result, self.args
+        print "(setq", s(result), "(make-iterator", s(seq), "))"
+    def op_next_and_flag(self):
+        s = self.str
+        result, (iterator,) = self.result, self.args
+        print "(setq", s(result), "(funcall", s(iterator), "))"
+    builtin_map = {
+        pow: "expt",
+    }
+    def op_simple_call(self):
+        func = self.args[0]
+        if not isinstance(func, Constant):
+            self.op_default()
+            return
+        func = func.value
+        if func not in self.builtin_map:
+            self.op_default()
+            return
+        s = self.str
+        args = self.args[1:]
+        print "(setq", s(self.result), "(", self.builtin_map[func],
+        for arg in args:
+            print s(arg),
+        print "))"
+
 
 class GenCL:
     def __init__(self, fun):
@@ -95,8 +136,7 @@ class GenCL:
     def annotate(self, input_arg_types):
         ann = Annotator(self.fun)
         ann.build_types(input_arg_types)
-        fgt_register(ann)
-        ann.simplify()
+        transform_graph(ann)
         self.ann = ann
     def str(self, obj):
         if isinstance(obj, Variable):
@@ -131,8 +171,10 @@ class GenCL:
         sys.stdout = sys.__stdout__
         return out.getvalue()
     def emit(self):
+        self.emit_prelude()
         self.emit_defun(self.fun)
     def emit_defun(self, fun):
+        print ";;;; Main"
         print "(defun", fun.name
         arglist = fun.getargs()
         print "(",
@@ -225,3 +267,16 @@ class GenCL:
                 print trans % argreprs,
                 print ")"
             print ")"
+    def emit_prelude(self):
+        print ";;;; Prelude"
+        print prelude
+
+
+prelude = """\
+(defun make-iterator (seq)
+  (let ((i 0))
+    (lambda ()
+      (if (< i (length seq))
+          (let ((v (elt seq i))) (incf i) (list v t))
+          (list nil nil)))))
+"""

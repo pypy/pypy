@@ -24,5 +24,6 @@ def transform_allocate(self):
                                     (new_op,) +
                                     operations[i+2:])
 
-def register(ann):
+def transform_graph(ann):
     ann.simplify_hooks.append(transform_allocate)
+    ann.simplify()
