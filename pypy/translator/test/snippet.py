@@ -680,3 +680,13 @@ def dict_keys2():
     d[1] = 12
     return keys
 
+def dict_values():
+    d = {"a" : "a"}
+    return d.values()
+
+def dict_values2():
+    d = {"a" : "a"}
+    values = d.values()
+    d[1] = 12
+    return values
+

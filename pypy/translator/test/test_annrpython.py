@@ -442,6 +442,17 @@ class TestAnnonateTestCase:
         assert isinstance(s, annmodel.SomeList)
         assert not isinstance(s.s_item, annmodel.SomeString)
 
+    def test_dict_values(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.dict_values, [])
+        assert isinstance(s, annmodel.SomeList)
+        assert isinstance(s.s_item, annmodel.SomeString)
+    
+    def test_dict_values2(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.dict_values2, [])
+        assert isinstance(s, annmodel.SomeList)
+        assert not isinstance(s.s_item, annmodel.SomeString)
     
         
 

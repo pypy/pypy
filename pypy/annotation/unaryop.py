@@ -122,6 +122,12 @@ class __extend__(SomeDict):
         factory = getbookkeeper().getfactory(ListFactory)
         factory.generalize(dct.s_key)
         return factory.create()
+
+    def method_values(dct):
+        factory = getbookkeeper().getfactory(ListFactory)
+        factory.generalize(dct.s_value)
+        return factory.create()
+
         
 class __extend__(SomeString):
 
