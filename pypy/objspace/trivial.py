@@ -139,7 +139,8 @@ class TrivialObjSpace(ObjSpace):
         self.make_builtins()
         # insert these into the newly-made builtins
         for key, w_value in newstuff.items():
-            self.setitem(self.w_builtins, self.wrap(key), w_value)
+            self.w_builtins.setdefault(key, w_value)
+            # I'm tired of wrapping correctly here -- armin
 
     # general stuff
     def wrap(self, x):
