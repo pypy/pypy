@@ -2,7 +2,7 @@
 Plain Python definition of the builtin descriptors.
 """
 
-# Descriptor code, shamelessly stolen to Raymond Hettinger:
+# Descriptor code, shamelessly stolen from Raymond Hettinger:
 #    http://users.rcn.com/python/download/Descriptor.htm
 
 
