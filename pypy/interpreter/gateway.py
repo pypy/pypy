@@ -17,7 +17,6 @@ except ImportError:
     WeakKeyDictionary = dict   # XXX for PyPy
 from pypy.interpreter import eval, pycode
 from pypy.interpreter.baseobjspace import Wrappable, ObjSpace
-from pypy.interpreter.function import Function, Method
 
 
 class BuiltinCode(eval.Code):
@@ -189,6 +188,7 @@ class Gateway(object):
         if space in self.functioncache:
             fn = self.functioncache[space]
         else:
+            from pypy.interpreter.function import Function
             defs = self.getdefaults(space)  # needs to be implemented by subclass
             fn = Function(space, self.code, w_globals, defs, forcename = self.name)
             self.functioncache[space] = fn

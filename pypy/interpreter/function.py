@@ -6,8 +6,10 @@ objects; the difference lies in the code object found in their func_code
 attribute.
 """
 
-from error import OperationError
-from baseobjspace import Wrappable
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.typedef import attrproperty, attrproperty_w, TypeDef
+from pypy.interpreter.gateway import interp2app 
 
 class Function(Wrappable):
     """A function is a code object captured with some environment:
@@ -30,8 +32,6 @@ class Function(Wrappable):
                                             self.closure)
         frame.setfastscope(scope_w)
         return frame.run()
-
-    pypy_call = call
 
     def parse_args(self, w_args, w_kwds=None):
         """ parse args and kwargs to initialize the frame.
@@ -156,17 +156,8 @@ class Function(Wrappable):
                 self.name,
                 nkwds)
         raise OperationError(self.space.w_TypeError, self.space.wrap(msg))
-
-    def __get__(self, obj, cls=None):
-        wrap = self.space.wrap
-        if obj is not None:
-            if cls is None:
-                cls = obj.__class__
-            return Method(self.space, wrap(self), wrap(obj), wrap(cls))
-        else:
-            return Method(self.space, wrap(self), None, wrap(cls))
-
-    def pypy_get(self, w_obj, w_cls):
+   
+    def descr_function_get(self, w_obj, w_cls):
         space = self.space
         wrap = space.wrap
         if not space.is_true(space.is_(w_obj, space.w_None)):
@@ -176,33 +167,16 @@ class Function(Wrappable):
         else:
             return wrap(Method(space, wrap(self), None, w_cls))
 
-    def __call__(self, *args_w, **kwds_w):
-        wrap = self.space.wrap
-        w_args = self.space.newtuple(args_w)
-        w_kwds = self.space.newdict([(wrap(key), w_value)
-                                     for key, w_value in kwds_w.items()])
-        # go through the object space, don't call directly here
-        # (for FlowObjSpace)
-        return self.space.call(wrap(self), w_args, w_kwds)
-
-    def app_visible(self):  
-        space = self.space
-        def makedict(**kw):
-            return kw
-        #print "APPVISI", self.code, "INTO", space.wrap(self.code)
-        it = makedict(
-                func_defaults = self.defs_w and space.newtuple(self.defs_w) or space.w_None,
-                func_code = space.wrap(self.code),
-                func_dict = self.w_func_dict,
-                func_doc = space.wrap(self.doc),
-                func_name = space.wrap(self.name),
-                func_globals = self.w_func_globals,
-                func_closure = space.wrap(self.closure))
-        it['__name__'] = it['func_name']
-        it['__doc__'] = it['func_doc']
-        it['__dict__'] = it['func_dict']
-        it['__call__'] = space.wrap(self)
-        return it.items()
+    typedef = TypeDef("function", { 
+        '__call__' : interp2app(call),
+        '__get__' : interp2app(descr_function_get),
+        'func_code' : attrproperty('code'), 
+        'func_doc' : attrproperty('doc'), 
+        'func_name' : attrproperty('name'), 
+        'func_dict' : attrproperty_w('w_func_dict'), 
+        '__dict__' : attrproperty_w('w_func_dict'), 
+        # XXX getattribute/setattribute etc.pp 
+        })
 
 class Method(object):
     """A method is a function bound to a specific instance or class."""
@@ -231,11 +205,34 @@ class Method(object):
                                      self.space.wrap(msg))
         return self.space.call(self.w_function, w_args, w_kwds)
 
-    pypy_call = call
 
-    def __call__(self, *args_w, **kwds_w):
-        wrap = self.space.wrap
-        w_args = self.space.newtuple(args_w)
-        w_kwds = self.space.newdict([(wrap(key), w_value)
-                                     for key, w_value in kwds_w.items()])
-        return self.call(w_args, w_kwds)
+    typedef = TypeDef("method", { 
+        '__call__': interp2app(call),
+        'im_func' :  attrproperty_w('w_function'), 
+        'im_self' :  attrproperty_w('w_instance'), 
+        'im_class':  attrproperty_w('w_class'), 
+        # XXX getattribute/setattribute etc.pp 
+#        it['__name__'] = it['func_name']
+#        it['__doc__'] = it['func_doc']
+#        it['__dict__'] = it['func_dict']
+#        it['__call__'] = space.wrap(self)
+        })
+
+#    def app_visible(self):  
+#        space = self.space
+#        def makedict(**kw):
+#            return kw
+#        #print "APPVISI", self.code, "INTO", space.wrap(self.code)
+#        it = makedict(
+#                func_defaults = self.defs_w and space.newtuple(self.defs_w) or space.w_None,
+#                func_code = space.wrap(self.code),
+#                func_dict = self.w_func_dict,
+#                func_doc = space.wrap(self.doc),
+#                func_name = space.wrap(self.name),
+#                func_globals = self.w_func_globals,
+#                func_closure = space.wrap(self.closure))
+#        it['__name__'] = it['func_name']
+#        it['__doc__'] = it['func_doc']
+#        it['__dict__'] = it['func_dict']
+#        it['__call__'] = space.wrap(self)
+#        return it.items()

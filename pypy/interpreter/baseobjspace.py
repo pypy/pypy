@@ -9,31 +9,8 @@ __all__ = ['ObjSpace', 'OperationError', 'NoValue']
 class Wrappable(object):
     """A subclass of Wrappable is an internal, interpreter-level class
     that can nevertheless be exposed at application-level by space.wrap()."""
-
-    def get_wdict(self):
-        space = self.space
-        try:
-            return self.w_dict
-        except AttributeError:
-            w_dict = self.w_dict = space.newdict([])
-            for name,w_value in self.app_visible():
-                space.setitem(w_dict,space.wrap(name),w_value)
-            return w_dict
-
-    def app_visible(self):
-        """ returns [(name,w_value)...] for application-level visible attributes """ 
-        raise NotImplementedError
-
-    def pypy_getattr(self, w_name):
-        space = self.space 
-        w_dict = self.get_wdict()
-        try:
-            return space.getitem(w_dict,w_name)
-        except OperationError,e:
-            if not e.match(space,space.w_KeyError):
-                raise
-            raise OperationError(space.w_AttributeError,w_name)
-
+    def __wrap__(self, space):
+        return self
 
 class NoValue(Exception):
     """Raised to signal absence of value, e.g. in the iterator accessing
