@@ -9,7 +9,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin 
 from pypy.annotation.model import SomeCallable, SomeIterator
-from pypy.annotation.model import SomePrebuiltConstant
+from pypy.annotation.model import SomePBC
 from pypy.annotation.model import immutablevalue
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, getbookkeeper
@@ -193,7 +193,7 @@ class __extend__(SomeCallable):
     #    return unionof(*results)
 
 
-class __extend__(SomePrebuiltConstant):
+class __extend__(SomePBC):
 
     def getattr(pbc, s_attr):
         assert s_attr.is_constant()

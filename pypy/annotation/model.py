@@ -188,8 +188,6 @@ class SomePBC(SomeObject):
         self.prebuiltinstances = prebuiltinstances  
         self.knowntype = reduce(commonbase, 
                                 [x.__class__ for x in prebuiltinstances])
-SomePrebuiltConstant = SomePBC
-        
 
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
@@ -250,7 +248,7 @@ def immutablevalue(x):
     elif hasattr(x, '__class__') and x.__class__.__module__ != '__builtin__':
         if isinstance(x, Cache) and not x.frozen:
             x.freeze()
-        result = SomePrebuiltConstant({x: True}) # pre-built inst:
+        result = SomePBC({x: True}) # pre-built inst:
     elif x is None:
         result = SomeNone()
     else:

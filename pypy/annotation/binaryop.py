@@ -8,7 +8,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeCallable
 from pypy.annotation.model import SomeBuiltin, SomeIterator
-from pypy.annotation.model import SomePrebuiltConstant, immutablevalue
+from pypy.annotation.model import SomePBC, immutablevalue
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import generalize, isclassdef, getbookkeeper
 from pypy.objspace.flow.model import Constant
@@ -297,7 +297,7 @@ class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
         return obj1
 
 
-class __extend__(pairtype(SomePrebuiltConstant, SomePrebuiltConstant)):
+class __extend__(pairtype(SomePBC, SomePBC)):
     def union((pbc1, pbc2)):
-        return SomePrebuiltConstant(setunion(pbc1.prebuiltinstances,
-                                             pbc2.prebuiltinstances))
+        return SomePBC(setunion(pbc1.prebuiltinstances,
+                                pbc2.prebuiltinstances))
