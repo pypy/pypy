@@ -414,13 +414,15 @@ class __builtin__(ExtModule):
                 # XXX - Use of .__mro__ would be suggested, if the existance
                 #   of that attribute could be guarranted.
                 bases = klass.__bases__
-            except AttributeError: pass 
-            try:
-                #Note that since we are only interested in the keys,
-                #  the order we merge classes is unimportant
-                for base in bases:
-                    Dict.update(_classdir(base))
-            except TypeError: pass
+            except AttributeError: pass
+            else:
+                try:
+                    #Note that since we are only interested in the keys,
+                    #  the order we merge classes is unimportant
+                    for base in bases:
+                        Dict.update(_classdir(base))
+                except TypeError: pass
+            return Dict
         #End _classdir
 
         if len(args) > 1:
