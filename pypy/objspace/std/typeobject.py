@@ -1,4 +1,5 @@
 from pypy.interpreter import pycode
+from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.objspace import *
 
 

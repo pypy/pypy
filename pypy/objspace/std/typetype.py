@@ -1,6 +1,6 @@
 from pypy.objspace.std.objspace import *
+from pypy.objspace.std.register_all import register_all
 from typeobject import W_TypeObject, NewMultimethodCode
-
 
 class W_TypeType(W_TypeObject):
     """The single instance of this class is the object the user sees as

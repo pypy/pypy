@@ -6,6 +6,7 @@ for order comparisons.
 """
 
 from pypy.objspace.std.objspace import *
+from pypy.objspace.std.register_all import register_all
 from dicttype import W_DictType, _no_object
 from stringobject import W_StringObject
 from pypy.interpreter.extmodule import make_builtin_func

@@ -1,4 +1,5 @@
 from pypy.objspace.std.objspace import *
+from pypy.objspace.std.register_all import register_all
 from typeobject import W_TypeObject
 
 

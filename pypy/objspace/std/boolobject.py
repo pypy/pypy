@@ -7,6 +7,7 @@ __repr__  tested, OK
 """
 
 from pypy.objspace.std.objspace import *
+from pypy.objspace.std.register_all import register_all
 from booltype import W_BoolType
 import intobject
 

@@ -10,6 +10,7 @@ sufficient to ensure completeness and correctness of this module.
 """
 
 from pypy.objspace.std.objspace import *
+from pypy.objspace.std.register_all import register_all
 from stringobject import W_StringObject
 import sys, operator, types
 

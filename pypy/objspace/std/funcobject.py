@@ -1,5 +1,6 @@
 from __future__ import nested_scopes
 from pypy.objspace.std.objspace import *
+from pypy.objspace.std.register_all import register_all
 from functype import W_FuncType
 import pypy.interpreter.pyframe
 from pypy.objspace.std.instmethobject import W_InstMethObject
