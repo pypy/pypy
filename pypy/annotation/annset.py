@@ -119,6 +119,14 @@ class AnnotationSet:
             self.kill(predicate, subject)
             self.set(predicate, subject, newanswer)
 
+    def set_or_generalize(self, predicate, subject, otherpossibleanswer):
+        """This is a hack.  Do not use for SomeValues that could be merged."""
+        about = self._about(subject)
+        if predicate in about.annotations:
+            self.generalize(predicate, subject, otherpossibleanswer)
+        else:
+            self.set(predicate, subject, otherpossibleanswer)
+
     def merge(self, oldvalue, newvalue):
         """Update the heap to account for the merging of oldvalue and newvalue.
         Return the merged somevalue."""

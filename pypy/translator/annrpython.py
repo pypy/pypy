@@ -29,8 +29,6 @@ class RPythonAnnotator:
         self.annotated = {}      # set of blocks already seen
         self.translator = translator
 
-        self.classes = {} # map classes to attr-name -> SomaValue dicts
-
     #___ convenience high-level interface __________________
 
     def build_types(self, flowgraph, input_arg_types):
@@ -217,39 +215,24 @@ class RPythonAnnotator:
     def consider_op_setattr(self,obj,attr,newval):
         objtype = self.heap.get(ANN.type,obj)
         if isinstance(objtype,type):
-            attrdict = self.classes.setdefault(objtype,{})
             attr = self.heap.get(ANN.const,attr)
-            if attr is not mostgeneralvalue:
-                oldval = attrdict.get(attr,impossiblevalue)
-                newval = self.heap.merge(oldval,newval)
-                # XXX
-                # if newval is not oldval (using isshared)
-                # we should reflow the places that depend on this
-                # we really need to make the attrdict an annotation
-                # on the type as const
-                # or invent a fake annotation
-                # that we get on getattr and kill and reset on setattr
-                # to trigger that
-                attrdict[attr] = newval
-            else:
-                raise ValueError,"setattr op with non-const attrname not expected"
+            if isinstance(attr, str):
+                # update the annotation 'instanceattr' about the class 'cls'
+                cls = self.constant(objtype)
+                self.heap.set_or_generalize(ANN.instanceattr[attr], cls, newval)
         return SomeValue()
 
     def consider_op_getattr(self,obj,attr):
         result = SomeValue()
         objtype = self.heap.get(ANN.type,obj)
         if isinstance(objtype,type):
-            attrdict = self.classes.setdefault(objtype,{})
             attr = self.heap.get(ANN.const,attr)
-            if attr is not mostgeneralvalue:
+            if isinstance(attr, str):
                 if hasattr(objtype,attr): # XXX shortcut to keep methods working
                     return result
-                oldval = attrdict.get(attr,impossiblevalue)
-                if oldval is impossiblevalue:
-                    return impossiblevalue
-                return oldval
-            else:
-                raise ValueError,"getattr op with non-const attrname not expected"
+                # return the current annotation for the class 'cls'
+                cls = self.constant(objtype)
+                return self.heap.get(ANN.instanceattr[attr], cls)
         return result
         
 

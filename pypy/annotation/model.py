@@ -29,6 +29,7 @@ class ANN:
     const     = Predicate('const')
     type      = Predicate('type')
     immutable = Predicate('immutable')
+    instanceattr = PredicateFamily('instanceattr')
 
 
 def debugname(someval, prefix, _seen = {}):

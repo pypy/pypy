@@ -20,9 +20,9 @@ import autopath
 from pypy.translator.translator import *
 from pypy.translator.test import snippet as test
 
-from pypy.translator.tool import tracer
-tracer.trace(AnnotationSet)
-tracer.trace(RPythonAnnotator)
+#from pypy.translator.tool import tracer
+#tracer.trace(AnnotationSet)
+#tracer.trace(RPythonAnnotator)
 
 try:
     snippet_name = sys.argv[1]
@@ -40,8 +40,8 @@ a = t.annotate(argtypes)
 lines = []
 for key, value in a.bindings.items():
     lines.append('%r: %r' % (key, value))
-for cl, attrdict in a.classes.items():
-    lines.append('%s: %r' % (cl.__name__,attrdict))
+#for cl, attrdict in a.classes.items():
+#    lines.append('%s: %r' % (cl.__name__,attrdict))
 lines.sort()
 for line in lines:
     print line
