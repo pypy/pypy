@@ -25,16 +25,21 @@ from pypy.interpreter.main import run_string, run_file
 mydir = py.magic.autopath().dirpath()
 
 working_unittests = (
-'test_urlparse.py',
 'test_base64.py',
 'test_binop.py',
 'test_bisect.py',
 'test_call',
 'test_codeop.py',
 'test_compile.py',
-'test_operator.py',
 'test_heapq.py',
+'test_htmllib.py',
+'test_htmlparser.py',
+'test_operator.py',
+'test_pprint.py',
+'test_sgmllib.py',
 'test_sys.py',
+'test_textwrap.py',
+'test_urlparse.py',
 )
 
 working_outputtests = (
@@ -62,10 +67,14 @@ def make_module(space, dottedname, filepath):
 
 class Directory(py.test.collect.Directory): 
     def __iter__(self): 
+        all_tests = []
         for test in self.fspath.listdir('test_*.py'): 
             if test.basename not in working_outputtests and \
                test.basename not in working_unittests: 
                 continue 
+            all_tests.append(test)
+        all_tests.sort()
+        for test in all_tests:
             yield Module(test) 
 
 def app_list_testmethods(mod, testcaseclass): 
@@ -150,7 +159,7 @@ class UnittestModule(py.test.collect.Module):
 class AppTestCaseMethod(py.test.Item): 
     def __init__(self, fspath, space, w_name, w_method, w_setup, w_teardown): 
         self.space = space 
-        name = space.str_w(w_name) 
+        self.name = name = space.str_w(w_name) 
         extpy = py.path.extpy(fspath, name) 
         super(AppTestCaseMethod, self).__init__(extpy) 
         self.w_method = w_method 
