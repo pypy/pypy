@@ -13,7 +13,7 @@ class W_ModuleObject:
         self.w_dict = W_DictObject(items)
 
 
-def getattr_dict_any(space, w_module, w_attr):
+def getattr_module_any(space, w_module, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
         return w_module.w_dict
     else:
@@ -25,14 +25,14 @@ def getattr_dict_any(space, w_module, w_attr):
             else:
                 raise
 
-def setattr_dict_any_any(space, w_module, w_attr, w_value):
+def setattr_module_any_any(space, w_module, w_attr, w_value):
     if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
         raise OperationError(space.w_TypeError,
                              space.wrap("readonly attribute"))
     else:
         space.setitem(w_module.w_dict, w_attr, w_value)
 
-def delattr_dict_any(space, w_module, w_attr):
+def delattr_module_any(space, w_module, w_attr):
     if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
         raise OperationError(space.w_TypeError,
                              space.wrap("readonly attribute"))
@@ -45,6 +45,6 @@ def delattr_dict_any(space, w_module, w_attr):
             else:
                 raise
 
-StdObjSpace.getattr.register(getattr_dict_any, W_ModuleObject, W_ANY)
-StdObjSpace.setattr.register(setattr_dict_any_any, W_ModuleObject, W_ANY, W_ANY)
-StdObjSpace.delattr.register(delattr_dict_any, W_ModuleObject, W_ANY)
+StdObjSpace.getattr.register(getattr_module_any,     W_ModuleObject, W_ANY)
+StdObjSpace.setattr.register(setattr_module_any_any, W_ModuleObject, W_ANY,W_ANY)
+StdObjSpace.delattr.register(delattr_module_any,     W_ModuleObject, W_ANY)

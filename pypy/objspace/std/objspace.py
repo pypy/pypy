@@ -175,12 +175,12 @@ StdObjSpace.getattr.register(default_getattr, W_ANY, W_ANY)
 def default_setattr(space, w_obj, w_attr, w_value):
     raise OperationError(space.w_AttributeError, w_attr)
 
-StdObjSpace.setattr.register(default_getattr, W_ANY, W_ANY, W_ANY)
+StdObjSpace.setattr.register(default_setattr, W_ANY, W_ANY, W_ANY)
 
 def default_delattr(space, w_obj, w_attr, w_value):
     raise OperationError(space.w_AttributeError, w_attr)
 
-StdObjSpace.delattr.register(default_getattr, W_ANY, W_ANY)
+StdObjSpace.delattr.register(default_delattr, W_ANY, W_ANY)
 
 # add default implementations for in-place operators
 for _name, _symbol, _arity in ObjSpace.MethodTable:

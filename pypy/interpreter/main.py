@@ -22,6 +22,7 @@ def run_string(source, fname):
         frame = pyframe.PyFrame(space, space.unwrap(w_code),
                                 w_globals, w_globals)
     except baseobjspace.OperationError, operationerr:
+        operationerr.record_interpreter_traceback()
         raise baseobjspace.PyPyError(space, operationerr)
     else:
         ec.eval_frame(frame)
@@ -37,8 +38,6 @@ def main(argv=None):
     try:
         run_file(argv[1])
     except baseobjspace.PyPyError, pypyerr:
-        if pypyerr.space is None:
-            raise pypyerr.operationerr   # does anyone have a better idea?
         pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
 
 if __name__ == '__main__':

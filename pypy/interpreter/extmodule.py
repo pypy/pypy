@@ -49,13 +49,17 @@ class BuiltinModule:
     __appfile__ = None
     __helper_appfile__ = None
 
+    _helper = None
+
     def __init__(self, space):
         self.space = space
-        if self.__helper_appfile__ is not None:
-            self._helper = appfile.AppHelper(self.space,
-                                             self.__helper_appfile__)
             
     def wrap_me(self):
+        w_module = self.wrap_base()
+        self.wrap_appfile(w_module)
+        return w_module
+
+    def wrap_base(self):
         space = self.space
         modulename = self.__pythonname__
         w_module = space.newmodule(space.wrap(modulename))
@@ -67,12 +71,17 @@ class BuiltinModule:
             elif isinstance(value, appdata):
                 w_data = space.wrap(value.data)
                 space.setattr(w_module, space.wrap(key), w_data)
-        sappfile = self.__appfile__
-        if sappfile:
-            w_dict = space.getattr(w_module, space.wrap("__dict__"))
-            appfile.AppHelper(space, sappfile, w_dict)
         return w_module
 
+    def wrap_appfile(self, w_module):
+        sappfile = self.__appfile__
+        if sappfile:
+            space = self.space
+            w_dict = space.getattr(w_module, space.wrap("__dict__"))
+            appfile.AppHelper(space, sappfile, w_dict)
+
     def callhelp(functioname,argslist):
+        if self._helper is None:
+            self._helper = appfile.AppHelper(self.space,
+                                             self.__helper_appfile__)
         self._helper.call(functioname,argslist)
-        

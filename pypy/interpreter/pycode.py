@@ -41,7 +41,6 @@ class PyBaseCode:
         # application-level at all.
         co = self
         if (co.co_flags & (CO_VARARGS|CO_VARKEYWORDS) == 0 and
-            (w_defaults is None or not space.is_true(w_defaults)) and
             (w_kwargs   is None or not space.is_true(w_kwargs))   and
             (w_closure  is None or not space.is_true(w_closure))):
             # looks like a simple case, see if we got exactly the correct

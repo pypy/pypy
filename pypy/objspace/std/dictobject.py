@@ -84,3 +84,17 @@ def delitem_dict_any(space, w_dict, w_lookup):
     raise OperationError(space.w_KeyError, w_lookup)
     
 StdObjSpace.delitem.register(delitem_dict_any, W_DictObject, W_ANY)
+
+def len_dict(space, w_dict):
+    return space.wrap(len(w_dict.non_empties()))
+
+StdObjSpace.len.register(len_dict, W_DictObject)
+
+def contains_dict_any(space, w_dict, w_lookup):
+    data = w_dict.non_empties()
+    for w_key,cell in data:
+        if space.is_true(space.eq(w_lookup, w_key)):
+            return space.w_True
+    return space.w_False
+
+StdObjSpace.contains.register(contains_dict_any, W_DictObject, W_ANY)

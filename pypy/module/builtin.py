@@ -15,13 +15,15 @@ class Builtin(BuiltinModule):
 
     # we have None!
     None = appdata(_b.None)
+    dict = appdata(_b.dict)   # XXX temporary
+    tuple = appdata(_b.tuple) # XXX temporary
 
     # temporary hack, until we have a real tuple type for calling
-    def tuple(self, w_obj):
-        lis = self.space.unpackiterable(w_obj)
-        w_res = self.space.newtuple(lis)
-        return w_res
-    tuple = appmethod(tuple)
+    #def tuple(self, w_obj):
+    #    lis = self.space.unpackiterable(w_obj)
+    #    w_res = self.space.newtuple(lis)
+    #    return w_res
+    #tuple = appmethod(tuple)
 
     def __import__(self, w_modulename, w_locals, w_globals, w_fromlist):
         space = self.space
@@ -105,8 +107,8 @@ class Builtin(BuiltinModule):
     #It works only for new-style classes.
     #So we have to fix it, when we add support for
     #the old-style classes
-    def issubclass(self, w_val):
-        return self.space.issubtype(w_val)
+    def issubclass(self, w_cls1, w_cls2):
+        return self.space.issubtype(w_cls1, w_cls2)
     issubclass = appmethod(issubclass)
 
     #XXX the is also the second form of iter, we don't have implemented

@@ -17,15 +17,15 @@ class ObjSpace:
 
     def __init__(self):
         "Basic initialization of objects."
-        self.w_builtins = self.newdict([]) #temporary! changed by make_builtins()
         self.w_modules = self.newdict([])
         self.appfile_helpers = {}
         self.initialize()
 
     def make_builtins(self):
         self.builtin = pypy.module.builtin.Builtin(self)
-        self.w_builtin = self.builtin.wrap_me()
+        self.w_builtin = self.builtin.wrap_base()
         self.w_builtins = self.getattr(self.w_builtin, self.wrap("__dict__"))
+        self.builtin.wrap_appfile(self.w_builtin)
 
     def make_sys(self):
         import pypy.module.sysmodule

@@ -1,4 +1,7 @@
 # replacement for decode_frame_arguments
+# Attention ! All calls here must be "easy", i.e. not involve
+# default or keyword arguments !! For example, all range() calls
+# need three arguments.
 
 def decode_code_arguments(args, kws, defs, closure, codeobject):
     """
@@ -17,7 +20,7 @@ def decode_code_arguments(args, kws, defs, closure, codeobject):
     parameter_names = codeobject.co_varnames[:codeobject.co_argcount]
     
     # Normal arguments
-    for i in range(len(args)):
+    for i in range(0, len(args), 1):
         try:
             argdict[parameter_names[i]] = args[i]
         except IndexError:
@@ -35,7 +38,7 @@ def decode_code_arguments(args, kws, defs, closure, codeobject):
             for key in kws.keys():
                 for name in parameter_names:
                     if name == key:
-                        if argdict.has_key(key):
+                        if key in argdict:
                             raise TypeError, 'Setting parameter %s twice.' % name
                         else:
                             argdict[key] = kws[key]
@@ -47,9 +50,9 @@ def decode_code_arguments(args, kws, defs, closure, codeobject):
             # Only allow formal parameter keywords
             count = len(kws)
             for name in parameter_names:
-                if kws.has_key(name):
+                if name in kws:
                     count -= 1
-                    if argdict.has_key(name):
+                    if name in argdict:
                         raise TypeError, 'Setting parameter %s twice.' % name
                     else:
                         argdict[name] = kws[name]
@@ -62,13 +65,13 @@ def decode_code_arguments(args, kws, defs, closure, codeobject):
     if defs:
         argcount = codeobject.co_argcount
         defcount = len(defs)
-        for i in range(argcount - defcount, argcount):
-            if argdict.has_key(parameter_names[i]):
+        for i in range(argcount - defcount, argcount, 1):
+            if parameter_names[i] in argdict:
                 continue
             argdict[parameter_names[i]] = defs[i - (argcount - defcount)]
 
     if len(argdict) < codeobject.co_argcount:
-        raise TypeError, 'Too few paramteres to callable object'
+        raise TypeError, 'Too few parameters to callable object'
 
     namepos = codeobject.co_argcount
     if varargs:
