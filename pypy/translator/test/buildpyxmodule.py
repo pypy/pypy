@@ -4,6 +4,7 @@ from pypy.tool import test
 
 from vpath.local import Path
 import os, sys
+import stdoutcapture
 
 debug = 0
 
@@ -37,16 +38,25 @@ def make_module_from_c(pyxfile):
     try:
         modname = pyxfile.purebasename()
         if debug: print "modname", modname
-        setup(
-          name = "testmodules",
-          ext_modules=[ 
-                Extension(modname, [str(pyxfile)])
-          ],
-          cmdclass = {'build_ext': build_ext},
-          script_name = 'setup.py',
-          script_args = ['-q', 'build_ext', '--inplace']
-          #script_args = ['build_ext', '--inplace']
-        )
+        c = stdoutcapture.Capture(mixed_out_err = True)
+        try:
+            try:
+                setup(
+                  name = "testmodules",
+                  ext_modules=[ 
+                        Extension(modname, [str(pyxfile)])
+                  ],
+                  cmdclass = {'build_ext': build_ext},
+                  script_name = 'setup.py',
+                  script_args = ['-q', 'build_ext', '--inplace']
+                  #script_args = ['build_ext', '--inplace']
+                )
+            finally:
+                foutput, foutput = c.done()
+        except:
+            print foutput.read()
+            raise
+        # XXX do we need to do some check on fout/ferr?
         # XXX not a nice way to import a module
         if debug: print "inserting path to sys.path", dirpath
         sys.path.insert(0, '.')
