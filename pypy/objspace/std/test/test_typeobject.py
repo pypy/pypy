@@ -57,6 +57,15 @@ class TestTypeObject(test.AppTestCase):
     def setUp(self):
         self.space = test.objspace('std')
 
+    def test_bases(self):
+        self.assertEquals(int.__bases__, (object,))
+        class X: pass
+        self.assertEquals(X.__bases__,  (object,))
+        class Y(X): pass
+        self.assertEquals(Y.__bases__,  (X,))
+        class Z(Y,X): pass
+        self.assertEquals(Z.__bases__,  (Y, X))
+        
     def test_builtin_add(self):
         x = 5
         self.assertEquals(x.__add__(6), 11)
