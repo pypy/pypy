@@ -1,7 +1,6 @@
 import autopath
 from pypy.tool.udir import udir
-
-
+import py 
 import os
 
 def get_cl():
@@ -44,8 +43,7 @@ class TestGenCLTestCase:
 
     def setup_method(self,method):
         if not global_cl:
-            raise (testit.TestSkip,
-                   "Common Lisp neither configured nor detected.")
+            py.test.skip("Common Lisp neither configured nor detected.")
 
     def test_if(self):
         cl_if = make_cl_func(t.if_then_else)

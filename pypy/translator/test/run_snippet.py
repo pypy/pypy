@@ -6,7 +6,6 @@
 import autopath
 import traceback
 import sys
-from pypy.tool import testit
 from pypy.translator.translator import Translator
 
 from pypy.translator.test import snippet
