@@ -55,8 +55,8 @@ class PyNestedScopeFrame(PyInterpFrame):
         if closure is None:
             if nfreevars:
                 raise OperationError(space.w_TypeError,
-                                     "directly executed code object "
-                                     "may not contain free variables")
+                                     space.wrap("directly executed code object "
+                                                "may not contain free variables"))
             closure = []
         else:
             if len(closure) != nfreevars:
