@@ -62,14 +62,8 @@ class DescrOperation:
 
     def get_and_call_args(space, w_descr, w_obj, args):
         descr = space.unwrap_builtin(w_descr)
-        # some special cases to avoid infinite recursion
+        # a special case for performance and to avoid infinite recursion
         if isinstance(descr, Function):
-            if isinstance(descr.code, BuiltinCode):
-                # this sub-special case is ONLY for performance reasons
-                w_result = descr.code.performance_shortcut_call_meth(
-                    space, w_obj, args)
-                if w_result is not None:
-                    return w_result
             return descr.call_args(args.prepend(w_obj))
         else:
             w_impl = space.get(w_descr, w_obj)
@@ -83,11 +77,9 @@ class DescrOperation:
         return w_obj    # hook for hack by TrivialObjSpace
 
     def call_args(space, w_obj, args):
-        if type(w_obj) is Function and isinstance(w_obj.code, BuiltinCode):
-            # this special case is ONLY for performance reasons
-            w_result = w_obj.code.performance_shortcut_call(space, args)
-            if w_result is not None:
-                return w_result
+        # a special case for performance
+        if type(w_obj) is Function:
+            return w_obj.call_args(args)
         w_descr = space.lookup(w_obj, '__call__')
         if w_descr is None:
             raise OperationError(
