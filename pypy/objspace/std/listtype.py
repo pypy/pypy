@@ -14,7 +14,7 @@ class W_ListType(W_TypeObject):
     list_index  = MultiMethod('index',  4, defaults=(0,maxint))
     list_count  = MultiMethod('count',  2)
     list_reverse= MultiMethod('reverse',1)
-    list_sort   = MultiMethod('sort',   1)
+    list_sort   = MultiMethod('sort',   2, defaults=(None,))
 
 registerimplementation(W_ListType)
 

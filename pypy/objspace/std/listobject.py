@@ -491,9 +491,13 @@ def _quicksort(list, start, end, lt):
         _quicksort(list, start, split-1, lt)        # ... and sort both halves.
         _quicksort(list, split+1, end, lt)
 
-def list_sort__List(space, w_list):
-    def lt(a,b):
-        return space.is_true(space.lt(a,b))
+def list_sort__List_ANY(space, w_list, w_cmp):
+    if w_cmp is space.w_None:
+        def lt(a,b):
+            return space.is_true(space.lt(a,b))
+    else:
+        def lt(a,b):
+            return space.unwrap(space.call_function(w_cmp, a, b)) < 0
 
     # XXX Basic quicksort implementation
     # XXX this is not stable !!
