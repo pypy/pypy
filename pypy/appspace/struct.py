@@ -44,16 +44,16 @@ def unpack_int(data,index,size,le):
     bytes = [ord(b) for b in data[index:index+size]]
     if le == 'little':
         bytes.reverse()
-    number = 0
+    number = 0L
     for b in bytes:
         number = number << 8 | b
-    return number
+    return int(number)
 
 def unpack_signed_int(data,index,size,le):
     number = unpack_int(data,index,size,le)
     max = 2**(size*8) 
     if number > 2**(size*8 - 1) - 1:
-        number = -1*(max - number)
+        number = int(-1*(max - number))
     return number
     
 def unpack_float(data,index,size,le):
@@ -71,7 +71,7 @@ def unpack_float(data,index,size,le):
         exp = 11
         prec = 52
 #    print bytes,size,index,len(data),data
-    mantissa =  bytes[size-2] & (2**(15-exp)-1)
+    mantissa = long(bytes[size-2] & (2**(15-exp)-1))
 #    print mantissa
     for b in bytes[size-3::-1]:
         mantissa = mantissa << 8 | b
@@ -337,7 +337,7 @@ def unpack(fmt,data):
                 j += format['size']
                 i += 1
 
-    return result
+    return tuple(result)
 
 if __name__ == '__main__':
     print pack_float(1.23,4,'little')
