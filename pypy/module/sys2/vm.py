@@ -107,4 +107,5 @@ def setprofile(space, w_func):
 Set the profiling function.  It will be called on each function call
 and return.  See the profiler chapter in the library manual.
 """
+    space.getexecutioncontext().setprofile(w_func)
 

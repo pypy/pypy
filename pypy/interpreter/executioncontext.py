@@ -12,6 +12,7 @@ class ExecutionContext:
         self.framestack = Stack()
         self.stateDict = {}
         self.w_tracefunc = None
+        self.w_profilefunc = None
         self.is_tracing = 0
 
     def enter(self, frame):
@@ -22,12 +23,11 @@ class ExecutionContext:
         previous_ec = locals.executioncontext
         locals.executioncontext = self
 
+        frame.f_back = None
         for ff in self.framestack:
             if not frame.code.getapplevel():
                 frame.f_back = ff
                 break
-        else:
-            frame.f_back = None
 
         self.framestack.push(frame)
         return previous_ec
@@ -148,28 +148,58 @@ class ExecutionContext:
         else:
             self.w_tracefunc = w_func
 
+    def setprofile(self, w_func):
+        """Set the global trace function."""
+        if self.space.is_true(self.space.is_(w_func, self.space.w_None)):
+            self.w_profilefunc = None
+        else:
+            self.w_profilefunc = w_func
+
     def _trace(self, frame, event, w_arg):
         if frame.code.getapplevel():
             return
+
+        if self.is_tracing:
+            return
         
+        # Tracing
         if event == 'call':
             w_callback = self.w_tracefunc
         else:
             w_callback = frame.w_f_trace
-        if self.is_tracing or w_callback is None:
-            return
 
-        self.is_tracing += 1
-        try:
+        if w_callback is not None:
+
+            self.is_tracing += 1
             try:
-                w_result = self.space.call_function(w_callback, self.space.wrap(frame), self.space.wrap(event), w_arg)
-                if self.space.is_true(self.space.is_(w_result, self.space.w_None)):
+                try:
+                    w_result = self.space.call_function(w_callback, self.space.wrap(frame), self.space.wrap(event), w_arg)
+                    if self.space.is_true(self.space.is_(w_result, self.space.w_None)):
+                        frame.w_f_trace = None
+                    else:
+                        frame.w_f_trace = w_result
+                except:
+                    self.settrace(self.space.w_None)
                     frame.w_f_trace = None
-                else:
-                    frame.w_f_trace = w_result
-            except:
-                self.settrace(self.space.w_None)
-                frame.w_f_trace = None
-                raise
-        finally:
-            self.is_tracing -= 1
+                    raise
+            finally:
+                self.is_tracing -= 1
+
+        # Profile
+        if event != 'call' or event != 'return':
+            return
+        
+        if self.w_profilefunc is not None:
+            assert self.is_tracing == 0 
+            self.is_tracing += 1
+            try:
+                try:
+                    w_result = self.space.call_function(self.w_profilefunc,
+                                                        self.space.wrap(frame),
+                                                        self.space.wrap(event), w_arg)
+                except:
+                    #XXXframe.self.w_profilefunc = None
+                    raise
+            finally:
+                self.is_tracing -= 1
+
