@@ -675,6 +675,13 @@ def cls_delta(clsname, expl1, cls1, expl2, cls2):
             '__gt__' in d and '__ge__' in d):
             del d['__cmp__']
         names.update(d)
+
+    if cls2 is type:     # strange strange attributes we don't care about
+        del names['__basicsize__']
+        del names['__cmp__']
+        del names['__dictoffset__']
+        del names['__itemsize__']
+        del names['__weakrefoffset__']
     
     names = list(names)
     names.sort()
