@@ -55,6 +55,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
             from stringtype import str_typedef
             from typetype   import type_typedef
             from slicetype  import slice_typedef
+        import floatobject
+        import objectobject
+        import boolobject
+        import tupleobject
+        import listobject
+        import stringobject
+        import typeobject
+        import sliceobject
         return [value for key, value in result.__dict__.items()
                       if not key.startswith('_')]   # don't look
 
