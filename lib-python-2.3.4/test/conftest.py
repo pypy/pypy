@@ -31,6 +31,8 @@ working_unittests = (
 'test_builtin.py',
 'test_call',
 'test_codeop.py',
+'test_commands.py',
+'test_compare.py',
 'test_compile.py',
 'test_heapq.py',
 'test_htmllib.py',
