@@ -523,15 +523,14 @@ def main(do_selftest=False):
         if res.traceback is None:
             continue
         print 79 * '-'
+        # print a line with the qualified name of the bad callable
+        item = res.item
         if res.item.isfunction:
-            print "%s.%s: %s" % (res.item.module.__name__,
-                                 res.item.callable.__name__,
+            print "%s.%s: %s" % (item.module.__name__, item.callable.__name__,
                                  res.name.upper())
         else:
-            print "%s.%s.%s: %s" % (res.item.module.__name__,
-                                    res.item.cls.__name__,
-                                    res.item.callable.__name__,
-                                    res.name.upper())
+            print "%s.%s.%s: %s" % (item.module.__name__, item.cls.__name__,
+                                    item.callable.__name__, res.name.upper())
         print
         print res.formatted_traceback
     # emit a summary
