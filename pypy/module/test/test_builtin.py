@@ -16,6 +16,15 @@ class TestBuiltinApp(test.AppTestCase):
         self.assertRaises(ValueError, chr, -1)
         self.assertRaises(TypeError, chr, 'a')
 
+    def test_globals(self):
+        d = {"foo":"bar"}
+        exec "def f(): return globals()" in d
+        d2 = d["f"]()
+        self.assertEquals(d2.keys(),d.keys())
+        # repr() on recursive containers currently fails
+        #self.assertEquals(d2,d)
+        self.assertEquals(d==d2,1)
+
     def test_locals(self):
         def f():
             return locals()
