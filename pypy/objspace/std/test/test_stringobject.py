@@ -51,23 +51,44 @@ class TestW_StringObject(testsupport.TestCase):
         space = self.space
         w = space.wrap
         w_str = w('abc')
+
         w_slice = space.newslice(w(0), w(0), None)
         self.assertEqual_w(space.getitem(w_str, w_slice), w(''))
+
         w_slice = space.newslice(w(0), w(1), None)
         self.assertEqual_w(space.getitem(w_str, w_slice), w('a'))
+
         w_slice = space.newslice(w(0), w(10), None)
         self.assertEqual_w(space.getitem(w_str, w_slice), w('abc'))
+
         w_slice = space.newslice(space.w_None, space.w_None, None)
         self.assertEqual_w(space.getitem(w_str, w_slice), w('abc'))
+
         w_slice = space.newslice(space.w_None, w(-1), None)
         self.assertEqual_w(space.getitem(w_str, w_slice), w('ab'))
+
         w_slice = space.newslice(w(-1), space.w_None, None)
         self.assertEqual_w(space.getitem(w_str, w_slice), w('c'))
 
     def test_extended_slice(self):
         space = self.space
+        w_None = space.w_None
         w = space.wrap
-        w_str = w('abc')
+        w_str = w('hello')
+
+        w_slice = space.newslice(w_None, w_None, w(1))
+        self.assertEqual_w(space.getitem(w_str, w_slice), w('hello'))
+
+        w_slice = space.newslice(w_None, w_None, w(-1))
+        self.assertEqual_w(space.getitem(w_str, w_slice), w('olleh'))
+
+        w_slice = space.newslice(w_None, w_None, w(2))
+        self.assertEqual_w(space.getitem(w_str, w_slice), w('hlo'))
+
+        w_slice = space.newslice(w(1), w_None, w(2))
+        self.assertEqual_w(space.getitem(w_str, w_slice), w('el'))
+
+
 
 if __name__ == '__main__':
     testsupport.main()
