@@ -5,7 +5,7 @@
 # This is kinda a hack, but at the same time, I don't see why this was defined
 # in the object space module in the annotation object space.
 
-from pypy.translator.controlflow import Variable, Constant
+from pypy.translator.flowmodel import Variable, Constant
 
 class UnwrapException(Exception):
     pass

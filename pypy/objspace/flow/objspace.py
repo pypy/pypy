@@ -5,7 +5,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, NoValue
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.wrapper import *
-from pypy.translator.controlflow import *
+from pypy.translator.flowmodel import *
 from pypy.objspace.flow import flowcontext
 
 # ______________________________________________________________________

@@ -2,15 +2,13 @@
 import autopath
 from pypy.tool import test
 
-from vpath.local import Path, mkdtemp
+from vpath.local import Path
 import os, sys
 
-debug = 1
+debug = 0
 
-def make_module_from_pyxstring(string, num=[0]):
-    tmpdir = mkdtemp()
-    n = num[0] = num[0]+1
-    pyxfile = tmpdir.join('test%d.pyx' %n) 
+def make_module_from_pyxstring(name, dirpath, string):
+    pyxfile = dirpath.join('%s.pyx' % name) 
     pyxfile.write(string)
     if debug: print "made pyxfile", pyxfile
     make_c_from_pyxfile(pyxfile)
@@ -53,8 +51,8 @@ def make_module_from_c(pyxfile):
         sys.path.pop(0)
     finally:
         os.chdir(str(lastdir))
-        if not debug:
-            dirpath.rmtree()
+        #if not debug:
+        #dirpath.rmtree()
     return testmodule
 
 def make_c_from_pyxfile(pyxfile):

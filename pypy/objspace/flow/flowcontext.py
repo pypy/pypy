@@ -3,7 +3,7 @@ from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.pyframe \
      import ControlFlowException, ExitFrame, PyFrame
 from pypy.objspace.flow.wrapper import W_Variable, W_Constant, UnwrapException
-from pypy.translator.controlflow import *
+from pypy.translator.flowmodel import *
 
 class SpamBlock(BasicBlock):
     dead = False

@@ -4,8 +4,10 @@ from __future__ import generators
 """
 
 import autopath
-from pypy.translator.controlflow import *
+from pypy.translator.flowmodel import *
 import os
+
+debug = 0
 
 
 counters = {}
@@ -115,8 +117,12 @@ class DotGen:
         self.traverse(fun)
         l = []
         for node in self.nodes.values():
-            l.append(node.descr_node())
-            l.append(node.descr_edges())
+            if hasattr(node, 'source'):
+                l.insert(0, node.descr_node())
+                l.insert(0, node.descr_edges())
+            else:
+                l.append(node.descr_node())
+                l.append(node.descr_edges())
 
         content = "\n".join(l)
 
@@ -167,24 +173,30 @@ edge [fontname=Times];
                 if trynode:
                     node.addedge(trynode, name)
                 else:
-                    node.data.append("%s=%r" % (name, attr))
+                    if name == 'source' and type(attr) is str:
+                        attr = "\\l".join(attr.split('\n'))
+                        node.data.append('\\l%s' % attr.replace('"', '\\"'))
+                    else:
+                        node.data.append("%s=%s" % (name, repr(attr).replace('"', '\\"')))
                     #print "unknown attribute", name, item
             return node
-        else:
+        elif debug:
             print "unknown obj", obj
 
-def make_png(fun):
+def make_dot(fun, udir, target='ps'):
     dotgen = DotGen()
+
+    name = fun.functionname
    
     from vpath.local import Path
     from vpath.adapter.process import exec_cmd
-    dest = Path('/tmp/testgraph.dot')
-    #print dotgen.get_source(fun)
+    dest = udir.join('%s.dot' % name)
     dest.write(dotgen.get_source(fun))
-    psdest = dest.newsuffix('.ps')
-    out = exec_cmd('dot -Tps %s' % str(dest))
+    psdest = dest.newsuffix(target)
+    out = exec_cmd('dot -T%s %s' % (target, str(dest)))
     psdest.write(out)
     print "wrote", psdest
+    return psdest
 
 if __name__ == '__main__':
         i = Variable("i")

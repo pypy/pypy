@@ -1,8 +1,11 @@
+"""
+generate Pyrex files from the flowmodel. 
 
+"""
 import autopath
 from pypy.tool import test
 from pypy.interpreter.baseobjspace import ObjSpace
-from pypy.translator.controlflow import *
+from pypy.translator.flowmodel import *
 
 class GenPyrex:
     def __init__(self, functiongraph):
@@ -19,19 +22,19 @@ class GenPyrex:
         self.blockids = {}
         self.lines = []
         self.indent = 0
-        self.createCodeFromGraph()
+        self.gen_Graph()
         return "\n".join(self.lines)
 
     def putline(self, line):
         self.lines.append("  " * self.indent + line)
 
-    def createCodeFromGraph(self):
+    def gen_Graph(self):
         fun = self.functiongraph
         inputargnames = [ var.pseudoname for var in fun.startblock.input_args ]
         params = ", ".join(inputargnames)
         self.putline("def %s(%s):" % (fun.functionname, params))
         self.indent += 1 
-        self.createCodeFromBasicBlock(fun.startblock)
+        self.gen_BasicBlock(fun.startblock)
         self.indent -= 1
 
     def _str(self, obj):
@@ -42,13 +45,14 @@ class GenPyrex:
         else:
             raise ValueError("Unknow class: %s" % obj.__class__)
 
-    def createCodeFromBasicBlock(self, block):
+    def gen_BasicBlock(self, block):
         if self.blockids.has_key(block):
             self.putline('cinline "goto Label%s;"' % self.blockids[block])
             return 
 
         blockids = self.blockids
         blockids.setdefault(block, len(blockids))
+
         
         self.putline('cinline "Label%s:"' % blockids[block])
         for op in block.operations:
@@ -65,10 +69,10 @@ class GenPyrex:
         self.dispatchBranch(block.branch)
 
     def dispatchBranch(self, branch):
-        method = getattr(self, "createCodeFrom" + branch.__class__.__name__)
+        method = getattr(self, "gen_" + branch.__class__.__name__)
         method(branch)
 
-    def createCodeFromBranch(self, branch):
+    def gen_Branch(self, branch):
         _str = self._str
         block = branch.target
         sourceargs = [_str(arg) for arg in branch.args]       
@@ -77,13 +81,12 @@ class GenPyrex:
         if sourceargs and sourceargs != targetargs: 
             self.putline("%s = %s" % (", ".join(targetargs), ", ".join(sourceargs)))
 
-        self.createCodeFromBasicBlock(block)    
+        self.gen_BasicBlock(block)    
 
-    def createCodeFromEndBranch(self, branch):
+    def gen_EndBranch(self, branch):
         self.putline("return %s" % self._str(branch.returnvalue))
-   
  
-    def createCodeFromConditionalBranch(self, branch):
+    def gen_ConditionalBranch(self, branch):
         self.putline("if %s:" % self._str(branch.condition))
         self.indent += 1
         self.dispatchBranch(branch.ifbranch)

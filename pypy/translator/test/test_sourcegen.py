@@ -1,9 +1,10 @@
 
 import autopath
 from pypy.tool import test
+from pypy.tool.udir import udir
 
 from pypy.translator.genpyrex import GenPyrex
-from pypy.translator.controlflow import *
+from pypy.translator.flowmodel import *
 
 from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
 #from pypy.translator.test.make_dot import make_ps
@@ -24,7 +25,7 @@ class TestCase(test.IntTestCase):
                            endbranch)
         fun = FunctionGraph(block, "f")
         result = GenPyrex(fun).emitcode()
-        mod = make_module_from_pyxstring(result)
+        mod = make_module_from_pyxstring('test_source1', udir, result)
         self.assertEquals(mod.f(1), 2)
 
     def test_if(self):
@@ -51,7 +52,7 @@ class TestCase(test.IntTestCase):
                            conditionalbranch)
         fun = FunctionGraph(startblock, "f")
         result = GenPyrex(fun).emitcode()
-        mod = make_module_from_pyxstring(result)
+        mod = make_module_from_pyxstring('test_source2', udir, result)
         self.assertEquals(mod.f(-1, 42), 42)
         self.assertEquals(mod.f(3, 5), 3)
 
@@ -87,7 +88,7 @@ class TestCase(test.IntTestCase):
         #make_ps(fun)
         
         result = GenPyrex(fun).emitcode()
-        mod = make_module_from_pyxstring(result)
+        mod = make_module_from_pyxstring('test_source3', udir, result)
         self.assertEquals(mod.f(42), 0)
         self.assertEquals(mod.f(-3), -3)
 
@@ -128,7 +129,7 @@ class TestCase(test.IntTestCase):
 
         fun = FunctionGraph(startblock, "f")
         result = GenPyrex(fun).emitcode()
-        mod = make_module_from_pyxstring(result)
+        mod = make_module_from_pyxstring('test_source4', udir, result)
         self.assertEquals(mod.f(3), 6)
         self.assertEquals(mod.f(-3), 0)
 
