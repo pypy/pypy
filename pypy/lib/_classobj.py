@@ -79,6 +79,15 @@ def mro_lookup(v, name):
             return x.__dict__[name]
     return None
     
+def seqiter(func): # XXX may want to access and instatiate the internal
+                   # sequence-iterator type instead
+    i = 0
+    while 1:
+        try:
+            yield func(i)
+        except IndexError:
+            return
+        i += 1
 
 class classobj(object):
 
@@ -463,16 +472,9 @@ def __%(op)s__(self, other):
         func = instance_getattr1(self, '__getitem__')
         if not func:
             raise TypeError, "iteration over non-sequence"
-        def seqiter(): # XXX may want to access and instatiate the internal
-                       # sequence-iterator type instead
-            i = 0
-            while 1:
-                try:
-                    yield func(i)
-                except IndexError:
-                    return
-                i += 1
-        return seqiter()
+        # moved sequiter away from here:
+        # flow space cannot handle nested functions.
+        return seqiter(func)
 
     def next(self):
         func = instance_getattr1(self, '__next__', False)
