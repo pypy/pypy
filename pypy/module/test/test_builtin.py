@@ -23,6 +23,7 @@ class TestBuiltinApp(test.AppTestCase):
 
     def test_intern(self):
         self.assertRaises(TypeError, intern)
+        self.assertRaises(TypeError, intern, 1)
         s = "never interned before"
         s2 = intern(s)
         self.assertEquals(s, s2)
@@ -178,10 +179,6 @@ class TestBuiltinApp(test.AppTestCase):
     def test_divmod(self):
         self.assertEquals(divmod(15,10),(1,5))
 
-    def test_intern(self):
-        s = 'xxx'
-        self.assertEquals(intern(s), s)
-        self.assertRaises(TypeError, intern, 1)
         
 class TestInternal(test.IntTestCase):
 
