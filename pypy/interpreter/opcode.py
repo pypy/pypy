@@ -264,7 +264,8 @@ def RAISE_VARARGS(f, nbargs):
     else:
         raise pyframe.BytecodeCorruption, "bad RAISE_VARARGS oparg"
     w_type, w_value, w_traceback = f.space.unpacktuple(w_resulttuple)
-    raise OperationError(w_type, w_value, w_traceback)
+    # XXX the three-arguments 'raise' is not supported yet
+    raise OperationError(w_type, w_value)
 
 def LOAD_LOCALS(f):
     f.valuestack.push(f.w_locals)
@@ -291,13 +292,16 @@ def POP_BLOCK(f):
     block.cleanup(f)  # the block knows how to clean up the value stack
 
 def END_FINALLY(f):
-    # unlike CPython, the information on what to do at the end
-    # of a 'finally' is not stored in the value stack, but in
-    # the block stack, in a new dedicated block type which knows
-    # how to restore the environment (exception, break/continue...)
-    # at the beginning of the 'finally'.
-    block = f.blockstack.pop()
-    block.cleanup(f)
+    # unlike CPython, when we reach this opcode the value stack has
+    # always been set up as follows (topmost first):
+    #   [exception type  or None]
+    #   [exception value or None]
+    #   [wrapped stack unroller ]
+    f.valuestack.pop()   # ignore the exception type
+    f.valuestack.pop()   # ignore the exception value
+    unroller = f.space.unwrap(f.valuestack.pop())
+    if unroller is not None:
+        raise unroller   # re-raise the unroller, if any
 
 def BUILD_CLASS(f):
     w_methodsdict = f.valuestack.pop()

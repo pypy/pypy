@@ -67,11 +67,12 @@ def f(a):
     try:
         if a:
             raise Exception
+        a = -12
     finally:
-        return 2
+        return a
 '''
-        self.assertEquals(self.codetest(code, 'f', [0]), 2)
-        self.assertEquals(self.codetest(code, 'f', [1]), 2)
+        self.assertEquals(self.codetest(code, 'f', [0]), -12)
+        self.assertEquals(self.codetest(code, 'f', [1]), 1)
 
     def test_raise(self):
         x = self.codetest('''
@@ -79,6 +80,65 @@ def f():
     raise 1
 ''', 'f', [])
         self.assertEquals(x, '<<<TypeError: exceptions must be classes, instances, or strings (deprecated), not int>>>')
+
+    def test_except2(self):
+        x = self.codetest('''
+def f():
+    try:
+        z = 0
+        try:
+            "x"+1
+        except TypeError, e:
+            z = 5
+            raise e
+    except TypeError:
+        return z
+''', 'f', [])
+        self.assertEquals(x, 5)
+
+    def test_except3(self):
+        x = self.codetest('''
+def f():
+    z = 0
+    try:
+        "x"+1
+    except TypeError, e:
+        z = 5
+    return z
+''', 'f', [])
+        self.assertEquals(x, 5)
+
+    def test_break(self):
+        code = '''
+def f(n):
+    total = 0
+    for i in range(n):
+        try:
+            if i == 4:
+                break
+        finally:
+            total += i
+    return total
+'''
+        self.assertEquals(self.codetest(code, 'f', [4]), 1+2+3)
+        self.assertEquals(self.codetest(code, 'f', [9]), 1+2+3+4)
+
+    def test_continue(self):
+        code = '''
+def f(n):
+    total = 0
+    for i in range(n):
+        try:
+            if i == 4:
+                continue
+        finally:
+            total += 100
+        total += i
+    return total
+'''
+        self.assertEquals(self.codetest(code, 'f', [4]), 1+2+3+400)
+        self.assertEquals(self.codetest(code, 'f', [9]),
+                          1+2+3 + 5+6+7+8+900)
 
 
 if __name__ == '__main__':

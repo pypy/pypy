@@ -2,6 +2,7 @@
 """
 
 import opcode
+from executioncontext import OperationError, Stack
 import baseobjspace
 from appfile import AppFile
 
@@ -31,16 +32,16 @@ class PyFrame:
         self.load_builtins()
         self.valuestack = Stack()
         self.blockstack = Stack()
+        self.last_exception = None
         self.next_instr = 0
-        self.lasti = -1
 
     def eval(self, executioncontext):
         "Interpreter main loop!"
         try:
             while True:
                 try:
+                    last_instr = self.next_instr
                     try:
-                        self.lasti = self.next_instr
                         # fetch and dispatch the next opcode
                         op = self.nextop()
                         if opcode.has_arg(op):
@@ -49,14 +50,12 @@ class PyFrame:
                         else:
                             opcode.dispatch_noarg(self, op)
 
-                    except baseobjspace.OperationError, e:
+                    except OperationError, e:
+                        e.record_application_traceback(self, last_instr)
+                        self.last_exception = e
                         executioncontext.exception_trace(e)
                         # convert an OperationError into a reason to unroll
                         # the stack
-                        if e.w_traceback is None:
-                            e.w_traceback = []
-
-                        e.w_traceback.append((self, self.lasti))
                         raise SApplicationException(e)
                     # XXX some other exceptions could be caught here too,
                     #     like KeyboardInterrupt
@@ -67,7 +66,7 @@ class PyFrame:
             
         except ExitFrame, e:
             # leave that frame
-            w_exitvalue, = e.args
+            w_exitvalue = e.args[0]
             return w_exitvalue
 
     ### accessor functions ###
@@ -154,73 +153,109 @@ class PyFrame:
         w_attrname = self.space.wrap("__dict__")
         try:
             w_builtins = self.space.getattr(w_builtins, w_attrname)
-        except baseobjspace.OperationError, e:
+        except OperationError:
             pass # catch and ignore any error
         self.w_builtins = w_builtins
+
+    ### exception stack ###
+
+    def clean_exceptionstack(self):
+        # remove all exceptions that can no longer be re-raised
+        # because the current valuestack is no longer deep enough
+        # to hold the corresponding information
+        while self.exceptionstack:
+            unroller, valuestackdepth = self.exceptionstack.top()
+            if valuestackdepth <= self.valuestack.depth():
+                break
+            self.exceptionstack.pop()
 
 
 ### Frame Blocks ###
 
 class FrameBlock:
 
-    """Abstract base class for frame blocks from the blockstack."""
-    def cleanup(self, frame):
-        "Clean up a frame when we normally exit the block."
-
-    def unroll(self, frame, unroller):
-        "Clean up a frame when we abnormally exit the block."
-
-class SyntacticBlock(FrameBlock):
-    """Abstract subclass for blocks which are syntactic Python blocks
-    corresponding to the SETUP_XXX / POP_BLOCK opcodes."""
+    """Abstract base class for frame blocks from the blockstack,
+    used by the SETUP_XXX and POP_BLOCK opcodes."""
 
     def __init__(self, frame, handlerposition):
         self.handlerposition = handlerposition
         self.valuestackdepth = frame.valuestack.depth()
 
-    def cleanup(self, frame):
+    def cleanupstack(self, frame):
         for i in range(self.valuestackdepth, frame.valuestack.depth()):
             frame.valuestack.pop()
 
-    def unroll(self, frame, unroller):
-        self.cleanup(frame)   # same behavior except in FinallyBlock
+    def cleanup(self, frame):
+        "Clean up a frame when we normally exit the block."
+        self.cleanupstack(frame)
 
-class LoopBlock(SyntacticBlock):
+    def unroll(self, frame, unroller):
+        "Clean up a frame when we abnormally exit the block."
+        self.cleanupstack(frame)
+
+
+class LoopBlock(FrameBlock):
     """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
 
-class ExceptBlock(SyntacticBlock):
+    def unroll(self, frame, unroller):
+        if isinstance(unroller, SContinueLoop):
+            # re-push the loop block without cleaning up the value stack,
+            # and jump to the beginning of the loop, stored in the
+            # exception's argument
+            frame.blockstack.push(self)
+            jump_to = unroller.args[0]
+            frame.next_instr = jump_to
+            raise StopUnrolling
+        self.cleanupstack(frame)
+        if isinstance(unroller, SBreakLoop):
+            # jump to the end of the loop
+            frame.next_instr = self.handlerposition
+            raise StopUnrolling
+
+
+class ExceptBlock(FrameBlock):
     """An try:except: block.  Stores the position of the exception handler."""
 
-class FinallyBlock(SyntacticBlock):
+    def unroll(self, frame, unroller):
+        self.cleanupstack(frame)
+        if isinstance(unroller, SApplicationException):
+            # push the exception to the value stack for inspection by the
+            # exception handler (the code after the except:)
+            operationerr = unroller.args[0]
+            # the stack setup is slightly different than in CPython:
+            # instead of the traceback, we store the unroller object,
+            # wrapped.
+            frame.valuestack.push(frame.space.wrap(unroller))
+            frame.valuestack.push(operationerr.w_value)
+            frame.valuestack.push(operationerr.w_type)
+            frame.next_instr = self.handlerposition   # jump to the handler
+            raise StopUnrolling
+
+
+class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
 
     def cleanup(self, frame):
-        # upon normal entry into the finally: part, we push on the block stack
-        # a block that says that we entered the finally: with no exception set
-        SyntacticBlock.cleanup(self, frame)
-        frame.blockstack.push(NoExceptionInFinally())
+        # upon normal entry into the finally: part, the standard Python
+        # bytecode pushes a single None for END_FINALLY.  In our case we
+        # always push three values into the stack: the wrapped unroller,
+        # the exception value and the exception type (which are all None
+        # here).
+        self.cleanupstack(frame)
+        # one None already pushed by the bytecode
+        frame.valuestack.push(frame.space.w_None)
+        frame.valuestack.push(frame.space.w_None)
 
     def unroll(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
         # the block unrolling and the entering the finally: handler.
-        block = ExceptionInFinally(unroller)
-        frame.blockstack.push(block)
+        # see comments in cleanup().
+        self.cleanupstack(frame)
+        frame.valuestack.push(frame.space.wrap(unroller))
+        frame.valuestack.push(frame.space.w_None)
+        frame.valuestack.push(frame.space.w_None)
         frame.next_instr = self.handlerposition   # jump to the handler
         raise StopUnrolling
-
-class NoExceptionInFinally(FrameBlock):
-    """When we enter a finally: construct with no exception set."""
-
-class ExceptionInFinally(FrameBlock):
-    """When we enter a finally: construct with a Python exception set."""
-
-    def __init__(self, original_unroller):
-        self.original_unroller = original_unroller
-
-    def cleanup(self, frame):
-        # re-activate the block stack unroller when we normally reach the
-        # end of the finally: handler
-        raise self.original_unroller
 
 
 ### Block Stack unrollers ###
@@ -247,7 +282,6 @@ class StackUnroller(Exception):
             while not frame.blockstack.empty():
                 block = frame.blockstack.pop()
                 block.unroll(frame, self)
-                self.unrolledblock(frame, block)
             self.emptystack(frame)
         except StopUnrolling:
             pass
@@ -260,24 +294,6 @@ class StackUnroller(Exception):
 class SApplicationException(StackUnroller):
     """Unroll the stack because of an application-level exception
     (i.e. an OperationException)."""
-
-    def unrolledblock(self, frame, block):
-        if isinstance(block, ExceptBlock):
-            # push the exception to the value stack for inspection by the
-            # exception handler (the code after the except:)
-            operationerr = self.args[0]
-            frame.valuestack.push(operationerr.w_traceback)
-            frame.valuestack.push(operationerr.w_value)
-            frame.valuestack.push(operationerr.w_type)
-            frame.next_instr = block.handlerposition   # jump to the handler
-            
-            # XXX
-            # XXX this is broken because we don't always reach the END_FINALLY
-            # XXX
-            frame.blockstack.push(NoExceptionInFinally())
-            
-            raise StopUnrolling
-
     def emptystack(self, frame):
         # propagate the exception to the caller
         operationerr = self.args[0]
@@ -286,43 +302,23 @@ class SApplicationException(StackUnroller):
 class SBreakLoop(StackUnroller):
     """Signals a 'break' statement."""
 
-    def unrolledblock(self, frame, block):
-        if isinstance(block, LoopBlock):
-            # jump to the end of the loop
-            frame.next_instr = block.handlerposition
-            raise StopUnrolling
-
 class SContinueLoop(StackUnroller):
     """Signals a 'continue' statement.
     Argument is the bytecode position of the beginning of the loop."""
 
-    def unrolledblock(self, frame, block):
-        if isinstance(block, LoopBlock):
-            # re-push the loop block and jump to the beginning of the
-            # loop, stored in the exception's argument
-            frame.blockstack.push(block)
-            jump_to, = self.args
-            frame.next_instr = jump_to
-            raise StopUnrolling
-
 class SReturnValue(StackUnroller):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
-
-    def unrolledblock(self, frame, block):
-        pass
-
     def emptystack(self, frame):
         # XXX do something about generators, like throw a NoValue
-        w_returnvalue, = self.args
+        w_returnvalue = self.args[0]
         raise ExitFrame(w_returnvalue)
 
 class SYieldValue(StackUnroller):
     """Signals a 'yield' statement.
     Argument is the wrapped object to return."""
-
     def unrollstack(self, frame):
-        w_yieldedvalue, = self.args
+        w_yieldedvalue = self.args[0]
         raise ExitFrame(w_yieldedvalue)
 
 class StopUnrolling(Exception):
@@ -334,29 +330,3 @@ class ExitFrame(Exception):
 
 class BytecodeCorruption(ValueError):
     """Detected bytecode corruption.  Never caught; it's an error."""
-
-
-### Utilities ###
-
-class Stack:
-    """Utility class implementing a stack."""
-
-    def __init__(self):
-        self.items = []
-
-    def push(self, item):
-        self.items.append(item)
-
-    def pop(self):
-        return self.items.pop()
-
-    def top(self, position=0):
-        """'position' is 0 for the top of the stack, 1 for the item below,
-        and so on.  It must not be negative."""
-        return self.items[~position]
-
-    def depth(self):
-        return len(self.items)
-
-    def empty(self):
-        return not self.items

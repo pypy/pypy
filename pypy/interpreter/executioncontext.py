@@ -4,11 +4,11 @@ class ExecutionContext:
 
     def __init__(self, space):
         self.space = space
-        self.framestack = []
+        self.framestack = Stack()
 
     def eval_frame(self, frame):
         __executioncontext__ = self
-        self.framestack.append(frame)
+        self.framestack.push(frame)
         try:
             result = frame.eval(self)
         finally:
@@ -16,10 +16,10 @@ class ExecutionContext:
         return result
 
     def get_w_builtins(self):
-        if self.framestack:
-            return self.framestack[-1].w_builtins
-        else:
+        if self.framestack.empty():
             return self.space.w_builtins
+        else:
+            return self.framestack.top().w_builtins
 
     def make_standard_w_globals(self):
         "Create a new empty 'globals' dictionary."
@@ -33,20 +33,34 @@ class ExecutionContext:
         operationerr.record_interpreter_traceback()
         #operationerr.print_detailed_traceback(self.space)
 
+    def sys_exc_info(self):
+        """Implements sys.exc_info().
+        Return an OperationError instance or None."""
+        for i in range(self.framestack.depth()):
+            frame = self.framestack.top(i)
+            if frame.last_exception is not None:
+                return frame.last_exception
+        return None
+
 
 class OperationError(Exception):
     """Interpreter-level exception that signals an exception that should be
     sent to the application level.
 
     OperationError instances have three public attributes (and no .args),
-    w_type, w_value and w_traceback, which contain the wrapped type, value
-    and traceback describing the exception."""
+    w_type, w_value and application_traceback, which contain the wrapped
+    type and value describing the exception, and the unwrapped list of
+    (frame, instruction_position) making the application-level traceback.
+    """
 
-    def __init__(self, w_type, w_value, w_traceback=None):
+    def __init__(self, w_type, w_value):
         self.w_type = w_type
         self.w_value = w_value
-        self.w_traceback = w_traceback
+        self.application_traceback = []
         self.debug_tb = None
+
+    def record_application_traceback(self, frame, last_instruction):
+        self.application_traceback.append((frame, last_instruction))
 
     def match(self, space, w_check_class):
         "Check if this application-level exception matches 'w_check_class'."
@@ -62,6 +76,14 @@ class OperationError(Exception):
         exc_value = space.unwrap(self.w_value)
         return '%s: %s' % (exc_type.__name__, exc_value)
 
+    def getframe(self):
+        "The frame this exception was raised in, or None."
+        if self.application_traceback:
+            frame, last_instruction = self.application_traceback[0]
+            return frame
+        else:
+            return None
+
     def record_interpreter_traceback(self):
         """Records the current traceback inside the interpreter.
         This traceback is only useful to debug the interpreter, not the
@@ -76,10 +98,9 @@ class OperationError(Exception):
         print >> file, self.errorstr(space)
 
     def print_app_tb_only(self, file):
-        tb = self.w_traceback
+        tb = self.application_traceback[:]
         if tb:
             import linecache
-            tb = self.w_traceback[:]
             tb.reverse()
             print >> file, "Traceback (application-level):"
             for f, i in tb:
@@ -161,3 +182,26 @@ class LinePrefixer:
         self.file.write(data.replace('\n', '\n'+self.prefix))
         if self.linestart:
             self.file.write('\n')
+
+class Stack:
+    """Utility class implementing a stack."""
+
+    def __init__(self):
+        self.items = []
+
+    def push(self, item):
+        self.items.append(item)
+
+    def pop(self):
+        return self.items.pop()
+
+    def top(self, position=0):
+        """'position' is 0 for the top of the stack, 1 for the item below,
+        and so on.  It must not be negative."""
+        return self.items[~position]
+
+    def depth(self):
+        return len(self.items)
+
+    def empty(self):
+        return not self.items
