@@ -146,12 +146,20 @@ def transform_dead_op_vars_in_blocks(blocks):
     but not used in the target block. Input is a set of blocks"""
     read_vars = {}  # set of variables really used
     variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
-    
+
+    def canremove(op, block):
+        if op.opname not in CanRemove:
+            return False
+        if block.exitswitch != Constant(last_exception):
+            return True
+        # cannot remove the exc-raising operation
+        return op is not block.operations[-1]
+
     # compute variable_flow and an initial read_vars
     for block in blocks:
         # figure out which variables are ever read
         for op in block.operations:
-            if op.opname not in CanRemove:  # mark the inputs as really needed
+            if not canremove(op, block):   # mark the inputs as really needed
                 for arg in op.args:
                     read_vars[arg] = True
             else:
@@ -198,7 +206,7 @@ def transform_dead_op_vars_in_blocks(blocks):
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
             if op.result not in read_vars: 
-                if op.opname in CanRemove: 
+                if canremove(op, block):
                     del block.operations[i]
                 elif op.opname == 'simple_call': 
                     # XXX we want to have a more effective and safe 

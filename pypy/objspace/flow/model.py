@@ -379,6 +379,7 @@ def checkgraph(graph):
 
         except AssertionError, e:
             # hack for debug tools only
+            #graph.show()   <== ENABLE THIS TO SEE THE BROKEN GRAPH
             if this_block[0] and not hasattr(e, '__annotator_block'):
                 setattr(e, '__annotator_block', this_block[0])
             raise
