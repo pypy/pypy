@@ -2,15 +2,7 @@
 Plain Python definition of the 'complex' type.
 """
 
-# XXX this has been object before,
-# but we need something different, or
-# the __base__ will never become different from object.
-# note that this is real Python behavior :-)
-
-# XXX would be eventually try tospecial-case this
-# in typeobject to be handled as a base class?
-
-class complex(float):
+class complex(object):
     """complex(real[, imag]) -> complex number
 
     Create a complex number from a real part and an optional imaginary part.
@@ -21,14 +13,18 @@ class complex(float):
     # XXX this class is not well tested
 
     # provide __new__to prevend the default which has no parameters
-    def __new__(typ, *args, **kwds):
-        ret = float.__new__(typ)
+    def __new__(typ, real=0.0, imag=None):
+        ret = object.__new__(typ)
+        ret._init(real, imag)
         return ret
 
+    def __getnewargs__(self):
+        return (complex(self.real, self.imag),)
+    
     def __reduce__(self):
-        return self.__class__, (), self.__dict__
+        return self.__class__, (self.real, self.imag), self.__dict__
 
-    def __init__(self, real=0.0, imag=None):
+    def _init(self, real=0.0, imag=None):
         if isinstance(real, str): 
             if imag is not None:
                 msg = "complex() can't take second arg if first is a string"
