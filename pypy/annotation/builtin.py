@@ -2,6 +2,7 @@
 Built-in functions.
 """
 
+import types
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple
 from pypy.annotation.bookkeeper import getbookkeeper
@@ -125,6 +126,11 @@ def builtin_list(s_iterable):
 def builtin_apply(*stuff):
     print "XXX ignoring apply%r" % (stuff,)
     return SomeObject()
+
+def builtin_compile(*stuff):
+    s = SomeObject()
+    s.knowntype = types.CodeType
+    return s
 
 def exception_init(s_self, *args):
     s_self.setattr(immutablevalue('args'), SomeTuple(args))
