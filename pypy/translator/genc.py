@@ -11,7 +11,7 @@ from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.translator.simplify import remove_direct_loops
 from pypy.interpreter.pycode import CO_VARARGS
 from pypy.annotation import model as annmodel
-from types import FunctionType
+from types import FunctionType, CodeType
 
 from pypy.objspace.std.restricted_int import r_int, r_uint
 
@@ -354,6 +354,7 @@ class GenC:
         unicode:'&PyUnicode_Type',
         file:   '&PyFile_Type',
         type(None): 'Py_None->ob_type',
+        CodeType: '&PyCode_Type',
 
         r_int:  '&PyInt_Type',
         r_uint: '&PyInt_Type',
@@ -816,6 +817,9 @@ MODULE_INITFUNC(%(modname)s)
     def OP_SIMPLE_CALL(self, args, r, err):
         args.append('NULL')
         return 'OP_SIMPLE_CALL((%s), %s, %s)' % (', '.join(args), r, err)
+
+    def OP_CALL_ARGS(self, args, r, err):
+        return 'OP_CALL_ARGS((%s), %s, %s)' % (', '.join(args), r, err)
 
 # ____________________________________________________________
 

@@ -213,6 +213,8 @@ class Arguments:
             w_star = None
         return Arguments(space, args_w, kwds_w, w_star)
     fromshape = staticmethod(fromshape)
+    # XXX the "shape" tuple should be considered as a black box from
+    #     other code, but translator/genc.h examines it.
 
 
 #

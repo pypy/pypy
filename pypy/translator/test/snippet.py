@@ -534,6 +534,12 @@ def call_default_and_star_args(u):
     return (default_and_star_args(111, u),
             default_and_star_args(-1000, -2000, -3000, -4000, -5000))
 
+def call_with_star(z):
+    return default_args(-20, *z)
+
+def call_with_keyword(z):
+    return default_args(-20, z=z)
+
 def powerset(setsize=int):
     """Powerset
 

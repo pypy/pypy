@@ -140,6 +140,22 @@ class NoTypeCGenTestCase(testit.IntTestCase):
         self.assertEquals(call_default_and_star_args(42),
                           (111+42+3+0, -1000-2000-3000+2))
 
+    def test_call_with_star(self):
+        call_with_star = self.build_cfunc(snippet.call_with_star)
+        self.assertEquals(call_with_star(()), -15L)
+        self.assertEquals(call_with_star((4,)), -13L)
+        self.assertEquals(call_with_star((4,7)), -9L)
+        self.assertEquals(call_with_star([]), -15L)
+        self.assertEquals(call_with_star([4]), -13L)
+        self.assertEquals(call_with_star([4,7]), -9L)
+        self.assertRaises(TypeError, call_with_star, (4,7,12))
+        self.assertRaises(TypeError, call_with_star, [4,7,12,63])
+        self.assertRaises(TypeError, call_with_star, 521)
+
+    def XXX_test_call_with_keyword(self):
+        call_with_keyword = self.build_cfunc(snippet.call_with_keyword)
+        self.assertEquals(call_with_keyword(100), 82)
+
     def test_finallys(self):
         finallys = self.build_cfunc(snippet.finallys)
         self.assertEquals(finallys(['hello']), 8)

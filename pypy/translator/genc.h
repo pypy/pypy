@@ -144,7 +144,7 @@ static PyObject *this_module_globals;
 
 #define OP_SIMPLE_CALL(args,r,err) if (!(r=PyObject_CallFunctionObjArgs args)) \
 					FAIL(err)
-#define OP_CALL(x,y,z,r,err)      if (!(r=PyObject_Call(x,y,z)))     FAIL(err)
+#define OP_CALL_ARGS(args,r,err)   if (!(r=CallWithShape args))    FAIL(err)
 
 /* Needs to act like getattr(x, '__class__', type(x)) */
 #define OP_TYPE(x,r,err) { \
@@ -451,6 +451,73 @@ static PyObject* skipped(PyObject* self, PyObject* args)
 		     "calling the skipped function '%s'",
 		     (((PyCFunctionObject *)self) -> m_ml -> ml_name));
 	return NULL;
+}
+
+static PyObject* CallWithShape(PyObject* callable, PyObject* shape, ...)
+{
+	/* XXX the 'shape' argument is a tuple as specified by
+	   XXX pypy.interpreter.argument.fromshape().  This code should
+	   XXX we made independent on the format of the 'shape' later... */
+	PyObject* result = NULL;
+	PyObject* t = NULL;
+	PyObject* d = NULL;
+	PyObject* o;
+	PyObject* key;
+	PyObject* t2;
+	int i, nargs, nkwds, nvarargs, starflag;
+	va_list vargs;
+
+	if (!PyTuple_Check(shape) ||
+	    PyTuple_GET_SIZE(shape) != 3 ||
+	    !PyInt_Check(PyTuple_GET_ITEM(shape, 0)) ||
+	    !PyTuple_Check(PyTuple_GET_ITEM(shape, 1)) ||
+	    !PyInt_Check(PyTuple_GET_ITEM(shape, 2))) {
+		Py_FatalError("in genc.h: invalid 'shape' argument");
+	}
+	nargs = PyInt_AS_LONG(PyTuple_GET_ITEM(shape, 0));
+	nkwds = PyTuple_GET_SIZE(PyTuple_GET_ITEM(shape, 1));
+	starflag = PyInt_AS_LONG(PyTuple_GET_ITEM(shape, 2));
+
+	va_start(vargs, shape);
+	t = PyTuple_New(nargs);
+	if (t == NULL)
+		goto finally;
+	for (i = 0; i < nargs; i++) {
+		o = va_arg(vargs, PyObject *);
+		Py_INCREF(o);
+		PyTuple_SET_ITEM(t, i, o);
+	}
+	if (nkwds) {
+		d = PyDict_New();
+		if (d == NULL)
+			goto finally;
+		for (i = 0; i < nkwds; i++) {
+			o = va_arg(vargs, PyObject *);
+			key = PyTuple_GET_ITEM(PyTuple_GET_ITEM(shape, 1), i);
+			if (PyDict_SetItem(d, key, o) < 0)
+				goto finally;
+		}
+	}
+	if (starflag) {
+		o = va_arg(vargs, PyObject *);
+		o = PySequence_Tuple(o);
+		if (o == NULL)
+			goto finally;
+		t2 = PySequence_Concat(t, o);
+		Py_DECREF(o);
+		Py_DECREF(t);
+		t = t2;
+		if (t == NULL)
+			goto finally;
+	}
+	va_end(vargs);
+
+	result = PyObject_Call(callable, t, d);
+
+ finally:
+	Py_XDECREF(d);
+	Py_XDECREF(t);
+	return result;
 }
 
 
