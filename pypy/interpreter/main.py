@@ -24,11 +24,7 @@ def run_string(source, fname):
     except baseobjspace.OperationError, operationerr:
         raise baseobjspace.PyPyError(space, operationerr)
     else:
-        try:
-            ec.eval_frame(frame)
-        except baseobjspace.OperationError, operationerr:
-            operationerr.space = space
-            raise
+        ec.eval_frame(frame)
 
 def run_file(fname):
     istring = open(fname).read()
@@ -44,8 +40,6 @@ def main(argv=None):
         if pypyerr.space is None:
             raise pypyerr.operationerr   # does anyone have a better idea?
         pypyerr.operationerr.print_detailed_traceback(pypyerr.space)
-    except baseobjspace.OperationError, operationerr:
-        operationerr.print_detailed_traceback(operationerr.space)
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))

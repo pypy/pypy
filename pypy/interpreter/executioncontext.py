@@ -123,7 +123,7 @@ class OperationError(Exception):
                         l = l[:-1]
                     print >> file, l
 
-    def print_detailed_traceback(self, space, file=None):
+    def print_detailed_traceback(self, space=None, file=None):
         """Dump a nice detailed interpreter- and application-level traceback,
         useful to debug the interpreter."""
         if file is None: file = sys.stderr
@@ -133,9 +133,14 @@ class OperationError(Exception):
             interpr_file = LinePrefixer(file, '||')
             print >> interpr_file, "Traceback (interpreter-level):"
             traceback.print_tb(self.debug_tb, file=interpr_file)
-        exc_type  = space.unwrap(self.w_type)
-        exc_value = space.unwrap(self.w_value)
-        print >> file, '(application-level)', exc_type.__name__+':', exc_value
+        if space is None:
+            exc_typename = str(self.w_type)
+            exc_value    = self.w_value
+        else:
+            exc_typename = space.unwrap(self.w_type).__name__
+            exc_value    = space.unwrap(self.w_value)
+            print >> file, '(application-level)',
+        print >> file, exc_typename+':', exc_value
 
 
 class NoValue(Exception):
@@ -205,3 +210,14 @@ class Stack:
 
     def empty(self):
         return not self.items
+
+
+# installing the excepthook for OperationErrors
+def operr_excepthook(exctype, value, traceback):
+    if issubclass(exctype, OperationError):
+        value.debug_tb = traceback
+        value.print_detailed_traceback()
+    else:
+        old_excepthook(exctype, value, traceback)
+old_excepthook = sys.excepthook
+sys.excepthook = operr_excepthook
