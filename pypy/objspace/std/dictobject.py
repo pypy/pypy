@@ -240,8 +240,8 @@ def dict_get__Dict_ANY_ANY(space, w_dict, w_lookup, w_default):
 def app_str__Dict(d):
     items = []
     for k, v in d.iteritems():
-        items.append("%r: %r" % (k, v))
-    return "{%s}" % ', '.join(items)
+        items.append(repr(k) + ": " + repr(v))
+    return "{" +  ', '.join(items) + "}"
 
 repr__Dict = str__Dict = gateway.app2interp(app_str__Dict)
 from pypy.objspace.std import dicttype
