@@ -196,9 +196,34 @@ def b2a_base64(s):
 
 
 
-#print b2a_uu('1234567')
-#print b2a_uu('123456789012345678901234567890123456789012345')
-#print b2a_uu('1234567890123456789012345678901234567890123456')
-#print '"%s"' % a2b_uu(b2a_uu('1234567'))
-#print '"%s"' % a2b_uu(b2a_uu('123456789012345678901234567890123456789012345'))
+def a2b_qp(s):
+    pass
 
+def b2a_qp(s):
+    def f(c):
+        if '!' <= c <= '<' or '>' <= c <= '~':
+            return c
+        return '=' + str(hex(ord(c)))
+    return ''.join([ f(c) for c in s])
+
+hex_numbers = '0123456789ABCDEF'
+def hex(n):
+    if n == 0:
+        return '0'
+    
+    if n < 0:
+        n = -n
+        sign = '-'
+    else:
+        sign = ''
+    arr = []
+    for nibble in hexgen(n):
+        arr = [hex_numbers[nibble]] + arr
+    return sign + ''.join(arr)
+        
+def hexgen(n):
+    """ Yield a nibble at a time. """
+    while n:
+        remainder = n % 0x10
+        n = n / 0x10
+        yield remainder
