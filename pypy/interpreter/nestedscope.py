@@ -71,7 +71,11 @@ class PyNestedScopeFrame(PyInterpFrame):
 
     def fast2locals(self):
         PyInterpFrame.fast2locals(self)
-        freevarnames = self.code.co_cellvars + self.code.co_freevars
+        # cellvars are values exported to inner scopes
+        # freevars are values coming from outer scopes 
+        # for locals we only want the ones exported to inner-scopes 
+        # XXX check more exactly how CPython does it 
+        freevarnames = self.code.co_cellvars # + self.code.co_freevars
         for name, cell in zip(freevarnames, self.cells):
             try:
                 w_value = cell.get()

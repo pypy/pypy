@@ -1192,9 +1192,7 @@ class BuiltinTest(test.AppTestCase):
             import sys
             self.assertEqual(Set(vars(sys)), Set(dir(sys)))
             self.assertEqual(get_vars_f0(), {})
-            ''' XXX TODO: known bug: free-var 'get_vars_0' ``leaks``
             self.assertEqual(get_vars_f2(), {'a': 1, 'b': 2})
-            '''
             self.assertRaises(TypeError, vars, 42, 42)
             self.assertRaises(TypeError, vars, 42)
 
