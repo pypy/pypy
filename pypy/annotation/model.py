@@ -227,8 +227,8 @@ def immutablevalue(x):
         for key, value in x.items():
             items[key] = immutablevalue(value)
         result = SomeDict({}, items)
-    elif ishashable(x) and x in BUILTIN_FUNCTIONS:
-        result = SomeBuiltin(BUILTIN_FUNCTIONS[x])
+    elif ishashable(x) and x in BUILTIN_ANALYZERS:
+        result = SomeBuiltin(BUILTIN_ANALYZERS[x])
     elif callable(x) or isinstance(x, staticmethod): # XXX
         if hasattr(x, '__self__') and x.__self__ is not None:
             s_self = immutablevalue(x.__self__)
@@ -303,4 +303,4 @@ def missing_operation(cls, name):
 # this has the side-effect of registering the unary and binary operations
 from pypy.annotation.unaryop  import UNARY_OPERATIONS
 from pypy.annotation.binaryop import BINARY_OPERATIONS
-from pypy.annotation.builtin  import BUILTIN_FUNCTIONS
+from pypy.annotation.builtin  import BUILTIN_ANALYZERS

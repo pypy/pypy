@@ -282,4 +282,4 @@ class ClassDef:
             for factory in self.getallfactories():
                 bookkeeper.annotator.reflowfromposition(factory.position_key)
 
-from pypy.annotation.builtin  import BUILTIN_FUNCTIONS
+from pypy.annotation.builtin  import BUILTIN_ANALYZERS

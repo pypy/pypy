@@ -106,11 +106,11 @@ def builtin_list(s_iterable):
 
 # collect all functions
 import __builtin__
-BUILTIN_FUNCTIONS = {}
+BUILTIN_ANALYZERS = {}
 for name, value in globals().items():
     if name.startswith('builtin_'):
         original = getattr(__builtin__, name[8:])
-        BUILTIN_FUNCTIONS[original] = value
+        BUILTIN_ANALYZERS[original] = value
 
-BUILTIN_FUNCTIONS[pypy.objspace.std.restricted_int.r_int] = builtin_int
-BUILTIN_FUNCTIONS[pypy.objspace.std.restricted_int.r_uint] = restricted_uint
+BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_int] = builtin_int
+BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_uint] = restricted_uint
