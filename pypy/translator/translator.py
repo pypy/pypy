@@ -73,7 +73,7 @@ class Translator:
             space = FlowObjSpace()
             graph = space.build_flow(func)
             if self.simplifying:
-                graph = simplify_graph(graph)
+                simplify_graph(graph)
             self.flowgraphs[func] = graph
             self.functions.append(func)
             try:
@@ -115,7 +115,7 @@ class Translator:
                 self.simplify(func)
         else:
             graph = self.getflowgraph(func)
-            self.flowgraphs[func] = simplify_graph(graph)
+            simplify_graph(graph)
 
     def annotate(self, input_args_types, func=None):
         """annotate(self, input_arg_types[, func]) -> Annotator
