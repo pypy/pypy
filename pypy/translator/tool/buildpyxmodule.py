@@ -78,9 +78,10 @@ def make_c_from_pyxfile(pyxfile):
     try:
         options = CompilationOptions(show_version = 0, 
                                      use_listing_file = 0, 
+                                     c_only = 1,
                                      output_file = None)
         context = Context(options.include_path)
-        result = context.compile(str(pyxfile), options, c_only = 1)
+        result = context.compile(str(pyxfile), options)
         if result.num_errors > 0:
             raise ValueError, "failure %s" % result
     except PyrexError, e:
