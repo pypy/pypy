@@ -382,6 +382,7 @@ class GraphDisplay(Display):
             return
         node = self.viewer.node_at_position(pos)
         if node:
+            self.setstatusbar(shortlabel(node.label))
             self.sethighlight(obj=node)
             return
         edge = self.viewer.edge_at_position(pos)
