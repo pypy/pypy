@@ -9,7 +9,6 @@ def delegate__String(space, w_str):
     return W_UnicodeObject(space, unicode(space.str_w(w_str)))
 delegate__String.result_class = W_UnicodeObject
 delegate__String.priority = PRIORITY_CHANGE_TYPE
-delegate__String.can_fail = True
 
 def eq__Unicode_ANY(space, w_uni, w_other):
     try:
