@@ -1,49 +1,7 @@
+from executioncontext import ExecutionContext, OperationError, NoValue
+import pyframe
 
 __all__ = ['ObjSpace', 'OperationError', 'NoValue']
-
-class OperationError(Exception):
-    """Interpreter-level exception that signals an exception that should be
-    sent to the application level.
-
-    OperationError instances have three public attributes (and no .args),
-    w_type, w_value and w_traceback, which contain the wrapped type, value
-    and traceback describing the exception."""
-
-    def __init__(self, w_type, w_value, w_traceback=None):
-        self.w_type = w_type
-        self.w_value = w_value
-        self.w_traceback = w_traceback
-        ### DEBUG DUMP ###
-        #self.nicetraceback(None)
-    
-    def __str__(self):
-        "Convenience for tracebacks."
-        return '[%s: %s]' % (self.w_type, self.w_value)
-    def nicetraceback(self, space):
-        "Dump a nice custom traceback to sys.stderr."
-        import sys, traceback
-        tb = sys.exc_info()[2]
-        if space is not None:
-            exc = space.unwrap(self.w_type)
-            value = space.unwrap(self.w_value)
-            msg = traceback.format_exception_only(exc, value)
-        else:
-            msg = '%r: %r' % (self.w_type, self.w_value)
-        print >> sys.stderr, "*"*10, " OperationError ", "*"*10
-        traceback.print_tb(tb)
-##         if self.w_traceback:
-##             traceback.print_tb(space.unwrap(self.w_traceback))
-        print >> sys.stderr, "[Application-level]", ''.join(msg).strip()
-        print >> sys.stderr, "*"*10
-
-class NoValue(Exception):
-    """Raised to signal absence of value, e.g. in the iterator accessing
-    method 'iternext()' of object spaces."""
-
-
-##################################################################
-
-import executioncontext, pyframe
 
 
 class ObjSpace:
@@ -51,7 +9,7 @@ class ObjSpace:
     XXX describe here in more details what the object spaces are."""
 
     def __init__(self):
-        "Basic initialization of objects.  Override me."
+        "Basic initialization of objects."
         self.w_builtins = self.newdict([])
         self.w_modules  = self.newdict([])
         self.appfile_helpers = {}
@@ -73,7 +31,7 @@ class ObjSpace:
                 if result.space is self:
                     return result
             f = f.f_back
-        return executioncontext.ExecutionContext(self)
+        return ExecutionContext(self)
 
     def gethelper(self, applicationfile):
         try:
@@ -85,16 +43,29 @@ class ObjSpace:
         return helper
 
     # Following is a friendly interface to common object space operations
-    # that can be defined in term of more primitive ones
+    # that can be defined in term of more primitive ones.  Subclasses
+    # may also override specific functions for performance.
+
+    def is_(self, w_x, w_y):
+        "'x is y'."
+        w_id_x = self.id(w_x)
+        w_id_y = self.id(w_y)
+        return self.eq(w_id_x, w_id_y)
+
+    def newbool(self, b):
+        if b:
+            return self.w_True
+        else:
+            return self.w_False
 
     def unpackiterable(self, w_iterable, expected_length=None):
         """Unpack an iterable object into a real (interpreter-level) list.
         Raise a real ValueError if the length is wrong."""
-        w_iterator = self.getiter(w_iterable)
+        w_iterator = self.iter(w_iterable)
         items = []
         while True:
             try:
-                w_item = self.iternext(w_iterator)
+                w_item = self.next(w_iterator)
             except NoValue:
                 break  # done
             if expected_length is not None and len(items) == expected_length:
@@ -109,57 +80,88 @@ class ObjSpace:
             raise ValueError, "need more than %d value%s to unpack" % (i, plural)
         return items
 
+    def unpacktuple(self, w_tuple, expected_length=None):
+        """Same as unpackiterable(), but only for tuples.
+        Only use for bootstrapping or performance reasons."""
+        tuple_length = self.unwrap(self.len(w_tuple))
+        if expected_length is not None and tuple_length != expected_length:
+            raise ValueError, "got a tuple of length %d instead of %d" % (
+                tuple_length, expected_length)
+        items = []
+        for i in range(tuple_length):
+            w_i = self.wrap(i)
+            w_item = self.getitem(w_tuple, w_i)
+            items.append(w_item)
+        return items
+
+    def exception_match(self, w_exc_type, w_check_class):
+        """Checks if the given exception type matches 'w_check_class'."""
+        # XXX very limited version!
+        return self.is_(w_exc_type, w_check_class)
+
 
 ## Table describing the regular part of the interface of object spaces,
-## namely all methods which only take w_ arguments and return a w_ result.
+## namely all methods which only take w_ arguments and return a w_ result
+## (if any).  XXX Maybe we should say that these methods must be accessed
+## as 'space.op.xxx()' instead of directly 'space.xxx()'.
 
 ObjSpace.MethodTable = [
 # method name # symbol # number of arguments
-    ('type',            'type',     1),
-    ('checktype',       'type?',    2),
-    ('repr',            'repr',     1),
-    ('str',             'str',      1),
-    ('getattr',         'getattr',  2),
-    ('setattr',         'setattr',  3),
-    ('delattr',         'delattr',  2),
-    ('getitem',         'getitem',  2),
-    ('setitem',         'setitem',  3),
-    ('delitem',         'delitem',  2),
-    ('pos',             'unary+',   1),
-    ('neg',             'unary-',   1),
-    ('not_',            'not',      1),
-    ('abs' ,            'abs',      1),
-    ('invert',          '~',        1),
-    ('add',             '+',        2),
-    ('sub',             '-',        2),
-    ('mul',             '*',        2),
-    ('truediv',         '/',        2),
-    ('floordiv',        '//',       2),
-    ('div',             'div',      2),
-    ('mod',             '%',        2),
-    ('divmod',          'divmod',   2),
-    ('pow',             '**',       3),
-    ('lshift',          '<<',       2),
-    ('rshift',          '>>',       2),
-    ('and_',            '&',        2),
-    ('or_',             '|',        2),
-    ('xor',             '^',        2),
-    ('inplace_add',     '+=',       2),
-    ('inplace_sub',     '-=',       2),
-    ('inplace_mul',     '*=',       2),
-    ('inplace_truediv', '/=',       2),
-    ('inplace_floordiv','//=',      2),
-    ('inplace_div',     'div=',     2),
-    ('inplace_mod',     '%=',       2),
-    ('inplace_pow',     '**=',      2),
-    ('inplace_lshift',  '<<=',      2),
-    ('inplace_rshift',  '>>=',      2),
-    ('inplace_and',     '&=',       2),
-    ('inplace_or',      '|=',       2),
-    ('inplace_xor',     '^=',       2),
-    ('getiter',         'iter',     1),
-    ('iternext',        'next',     1),
-    ('call',            'call',     3),
+    ('id',              'id',        1),
+    ('type',            'type',      1),
+    ('issubtype',       'issubtype', 2),  # not for old-style classes
+    ('repr',            'repr',      1),
+    ('str',             'str',       1),
+    ('len',             'len',       1),
+    ('hash',            'hash',      1),
+    ('getattr',         'getattr',   2),
+    ('setattr',         'setattr',   3),
+    ('delattr',         'delattr',   2),
+    ('getitem',         'getitem',   2),
+    ('setitem',         'setitem',   3),
+    ('delitem',         'delitem',   2),
+    ('pos',             'pos',       1),
+    ('neg',             'neg',       1),
+    ('not_',            'not',       1),
+    ('abs' ,            'abs',       1),
+    ('invert',          '~',         1),
+    ('add',             '+',         2),
+    ('sub',             '-',         2),
+    ('mul',             '*',         2),
+    ('truediv',         '/',         2),
+    ('floordiv',        '//',        2),
+    ('div',             'div',       2),
+    ('mod',             '%',         2),
+    ('divmod',          'divmod',    2),
+    ('pow',             '**',        3),
+    ('lshift',          '<<',        2),
+    ('rshift',          '>>',        2),
+    ('and_',            '&',         2),
+    ('or_',             '|',         2),
+    ('xor',             '^',         2),
+    ('inplace_add',     '+=',        2),
+    ('inplace_sub',     '-=',        2),
+    ('inplace_mul',     '*=',        2),
+    ('inplace_truediv', '/=',        2),
+    ('inplace_floordiv','//=',       2),
+    ('inplace_div',     'div=',      2),
+    ('inplace_mod',     '%=',        2),
+    ('inplace_pow',     '**=',       2),
+    ('inplace_lshift',  '<<=',       2),
+    ('inplace_rshift',  '>>=',       2),
+    ('inplace_and',     '&=',        2),
+    ('inplace_or',      '|=',        2),
+    ('inplace_xor',     '^=',        2),
+    ('lt',              '<',         2),
+    ('le',              '<=',        2),
+    ('eq',              '==',        2),
+    ('ne',              '!=',        2),
+    ('gt',              '>',         2),
+    ('ge',              '>=',        2),
+    ('contains',        'contains',  2),
+    ('iter',            'iter',      1),
+    ('next',            'next',      1),  # iterator interface
+    ('call',            'call',      3),
     ]
 
 ## Irregular part of the interface:
@@ -167,10 +169,9 @@ ObjSpace.MethodTable = [
 #                        wrap(x) -> w_x
 #                    unwrap(w_x) -> x
 #                   is_true(w_x) -> True or False
-#                      hash(w_x) -> int
-#          compare(w_x, w_y, op) -> w_result
 #       newtuple([w_1, w_2,...]) -> w_tuple
 #        newlist([w_1, w_2,...]) -> w_list
+#      newstring([w_1, w_2,...]) -> w_string from ascii numbers (bytes)
 # newdict([(w_key,w_value),...]) -> w_dict
 # newslice(w_start,w_stop,w_end) -> w_slice     (w_end may be a real None)
 #               newfunction(...) -> w_function

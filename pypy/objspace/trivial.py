@@ -29,15 +29,18 @@ class TrivialObjSpace(ObjSpace):
         return w
 
     # from the built-ins
+    id        = id
     type      = type
-    #no used yet: checktype = isinstance  # no tuple of types is allowed in 'checktype'
+    issubtype = issubclass
     newtuple  = tuple
     newlist   = list
     newdict   = dict
     newslice  = slice  # maybe moved away to application-space at some time
     newmodule = new.module
-    getiter   = iter
+    iter      = iter
     repr      = repr
+    str       = str
+    len       = len
     pow       = pow
     hash      = hash
     setattr   = setattr
@@ -56,7 +59,8 @@ class TrivialObjSpace(ObjSpace):
     for _name in ('pos', 'neg', 'not_', 'pos', 'neg', 'not_', 'invert',
                  'mul', 'truediv', 'floordiv', 'div', 'mod',
                  'add', 'sub', 'lshift', 'rshift', 'and_', 'xor', 'or_',
-                 'getitem', 'setitem', 'delitem'):
+                 'getitem', 'setitem', 'delitem', 'contains',
+                  'lt', 'le', 'eq', 'ne', 'gt', 'ge'):
         exec """
 def %(_name)s(self, *args):
     try:
@@ -135,43 +139,3 @@ def %(_name)s(self, *args):
             return ec.eval_frame(frame)
         else:
             return apply(callable, args, kwds)
-
-    # comparisons
-    def in_(w1, w2):
-        return w1 in w2
-
-    def not_in(w1, w2):
-        return w1 not in w2
-
-    def is_(w1, w2):
-        return w1 is w2
-
-    def is_not(w1, w2):
-        return w1 is not w2
-
-    def exc_match(w1, w2):
-        try:
-            try:
-                raise w1
-            except w2:
-                return True
-        except:
-            return False
-
-    operation_by_name = {
-        '<':  operator.lt,
-        '<=': operator.le,
-        '==': operator.eq,
-        '!=': operator.ne,
-        '>':  operator.gt,
-        '>=': operator.ge,
-        'in': in_,
-        'not in': not_in,
-        'is': is_,
-        'is not': is_not,
-        'exc match': exc_match,
-        }
-
-    def compare(self, w1, w2, operation):
-        fn = self.operation_by_name[operation]
-        return fn(w1, w2)

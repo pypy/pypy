@@ -34,8 +34,14 @@ class binaryoperation:
 def LOAD_FAST(f, varindex):
     varname = f.getlocalvarname(varindex)
     w_varname = f.space.wrap(varname)
-    w_value = f.space.getitem(f.w_locals, w_varname)
-    # XXX catch KeyError and make it a NameError
+    try:
+        w_value = f.space.getitem(f.w_locals, w_varname)
+    except OperationError, e:
+        # catch KeyErrors and turn them into UnboundLocalErrors
+        if not e.match(f.space, f.space.w_KeyError):
+            raise
+        message = "local variable '%s' referenced before assignment" % varname
+        raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
     f.valuestack.push(w_value)
 
 def LOAD_CONST(f, constindex):
@@ -243,12 +249,12 @@ def RAISE_VARARGS(f, nbargs):
     elif nbargs == 1:
         w_type = f.valuestack.pop()
         w_resulttuple = f.space.gethelper(appfile).call(
-            "prepare_raise", [w_type, None, None])
+            "prepare_raise", [w_type, f.space.w_None, f.space.w_None])
     elif nbargs == 2:
         w_value = f.valuestack.pop()
         w_type  = f.valuestack.pop()
         w_resulttuple = f.space.gethelper(appfile).call(
-            "prepare_raise", [w_type, w_value, None])
+            "prepare_raise", [w_type, w_value, f.space.w_None])
     elif nbargs == 3:
         w_traceback = f.valuestack.pop()
         w_value     = f.valuestack.pop()
@@ -257,7 +263,7 @@ def RAISE_VARARGS(f, nbargs):
             "prepare_raise", [w_type, w_value, w_traceback])
     else:
         raise pyframe.BytecodeCorruption, "bad RAISE_VARARGS oparg"
-    w_type, w_value, w_traceback = f.space.unpackiterable(w_resulttuple)
+    w_type, w_value, w_traceback = f.space.unpacktuple(w_resulttuple)
     raise OperationError(w_type, w_value, w_traceback)
 
 def LOAD_LOCALS(f):
@@ -310,8 +316,14 @@ def STORE_NAME(f, varindex):
 def DELETE_NAME(f, varindex):
     varname = f.getname(varindex)
     w_varname = f.space.wrap(varname)
-    f.space.delitem(f.w_locals, w_varname)
-    # XXX catch KeyError and make it a NameError
+    try:
+        f.space.delitem(f.w_locals, w_varname)
+    except OperationError, e:
+        # catch KeyErrors and turn them into NameErrors
+        if not e.match(f.space, f.space.w_KeyError):
+            raise
+        message = "name '%s' is not defined" % varname
+        raise OperationError(f.space.w_NameError, f.space.wrap(message))
 
 def UNPACK_SEQUENCE(f, itemcount):
     w_iterable = f.valuestack.pop()
@@ -363,17 +375,14 @@ def LOAD_GLOBAL(f, nameindex):
         w_value = f.space.getitem(f.w_globals, w_varname)
     except OperationError, e:
         # catch KeyErrors
-        w_KeyError = f.space.w_KeyError
-        w_match = f.space.compare(e.w_type, w_KeyError, "exc match")
-        if not f.space.is_true(w_match):
+        if not e.match(f.space, f.space.w_KeyError):
             raise
         # we got a KeyError, now look in the built-ins
         try:
             w_value = f.space.getitem(f.w_builtins, w_varname)
         except OperationError, e:
             # catch KeyErrors again
-            w_match = f.space.compare(e.w_type, w_KeyError, "exc match")
-            if not f.space.is_true(w_match):
+            if not e.match(f.space, f.space.w_KeyError):
                 raise
             message = "global name '%s' is not defined" % varname
             w_exc_type = f.space.w_NameError
@@ -384,8 +393,14 @@ def LOAD_GLOBAL(f, nameindex):
 def DELETE_FAST(f, varindex):
     varname = f.getlocalvarname(varindex)
     w_varname = f.space.wrap(varname)
-    f.space.delitem(f.w_locals, w_varname)
-    # XXX catch KeyError and make it a NameError
+    try:
+        f.space.delitem(f.w_locals, w_varname)
+    except OperationError, e:
+        # catch KeyErrors and turn them into UnboundLocalErrors
+        if not e.match(f.space, f.space.w_KeyError):
+            raise
+        message = "local variable '%s' referenced before assignment" % varname
+        raise OperationError(f.space.w_UnboundLocalError, f.space.wrap(message))
 
 def LOAD_CLOSURE(f, varindex):
     # nested scopes: access the cell object
@@ -401,8 +416,20 @@ def LOAD_DEREF(f, varindex):
     # nested scopes: access a variable through its cell object
     varname = f.getfreevarname(varindex)
     w_varname = f.space.wrap(varname)
-    w_value = f.space.getitem(f.w_locals, w_varname)
-    # XXX catch KeyError and make it a NameError
+    try:
+        w_value = f.space.getitem(f.w_locals, w_varname)
+    except OperationError, e:
+        # catch KeyErrors
+        if not e.match(f.space, f.space.w_KeyError):
+            raise
+        if f.iscellvar(varindex):
+            message = "local variable '%s' referenced before assignment"
+            w_exc_type = f.space.w_UnboundLocalError
+        else:
+            message = ("free variable '%s' referenced before assignment"
+                       " in enclosing scope")
+            w_exc_type = f.space.w_NameError
+        raise OperationError(w_exc_type, f.space.wrap(message % varname))
     f.valuestack.push(w_value)
 
 def STORE_DEREF(f, varindex):
@@ -438,13 +465,45 @@ def LOAD_ATTR(f, nameindex):
     w_value = f.space.getattr(w_obj, w_attributename)
     f.valuestack.push(w_value)
 
-def COMPARE_OP(f, test):
-    testnames = ["<", "<=", "==", "!=", ">", ">=",
-                 "in", "not in", "is", "is not", "exc match"]
-    testname = testnames[test]
+def cmp_lt(f, w_1, w_2):  return f.space.lt(w_1, w_2)
+def cmp_le(f, w_1, w_2):  return f.space.le(w_1, w_2)
+def cmp_eq(f, w_1, w_2):  return f.space.eq(w_1, w_2)
+def cmp_ne(f, w_1, w_2):  return f.space.ne(w_1, w_2)
+def cmp_gt(f, w_1, w_2):  return f.space.gt(w_1, w_2)
+def cmp_ge(f, w_1, w_2):  return f.space.ge(w_1, w_2)
+
+def cmp_in(f, w_1, w_2):
+    return f.space.contains(w_2, w_1)
+def cmp_not_in(f, w_1, w_2):
+    return f.space.not_(f.space.contains(w_2, w_1))
+def cmp_is(f, w_1, w_2):
+    return f.space.is_(w_1, w_2)
+def cmp_is_not(f, w_1, w_2):
+    return f.space.not_(f.space.is_(w_1, w_2))
+def cmp_exc_match(f, w_1, w_2):
+    return f.space.exception_match(w_1, w_2)
+
+compare_dispatch_table = {
+    0: cmp_lt,   # "<"
+    1: cmp_le,   # "<="
+    2: cmp_eq,   # "=="
+    3: cmp_ne,   # "!="
+    4: cmp_gt,   # ">"
+    5: cmp_ge,   # ">="
+    6: cmp_in,
+    7: cmp_not_in,
+    8: cmp_is,
+    9: cmp_is_not,
+    10: cmp_exc_match,
+    }
+def COMPARE_OP(f, testnum):
     w_2 = f.valuestack.pop()
     w_1 = f.valuestack.pop()
-    w_result = f.space.compare(w_1, w_2, testname)
+    try:
+        testfn = compare_dispatch_table[testnum]
+    except KeyError:
+        raise pyframe.BytecodeCorruption, "bad COMPARE_OP oparg"
+    w_result = testfn(f, w_1, w_2)
     f.valuestack.push(w_result)
 
 def IMPORT_NAME(f, nameindex):
@@ -485,13 +544,13 @@ def JUMP_ABSOLUTE(f, jumpto):
 
 def GET_ITER(f):
     w_iterable = f.valuestack.pop()
-    w_iterator = f.space.getiter(w_iterable)
+    w_iterator = f.space.op.iter(w_iterable)
     f.valuestack.push(w_iterator)
 
 def FOR_ITER(f, jumpby):
     w_iterator = f.valuestack.top()
     try:
-        w_nextitem = f.space.iternext(w_iterator)
+        w_nextitem = f.space.op.next(w_iterator)
     except NoValue:
         # iterator exhausted
         f.valuestack.pop()

@@ -21,26 +21,42 @@ def str_unwrap(space, w_str):
 
 StdObjSpace.unwrap.register(str_unwrap, W_StringObject)
 
-def str_str_compare(space, w_str1, w_str2, op):
+def str_str_lt(space, w_str1, w_str2):
     i = w_str1.value
     j = w_str2.value
-    if   op == '<':  return space.newbool( i < j  )
-    elif op == '<=': return space.newbool( i <= j )
-    elif op == '==': return space.newbool( i == j )
-    elif op == '!=': return space.newbool( i != j )
-    elif op == '>':  return space.newbool( i > j  )
-    elif op == '>=': return space.newbool( i >= j )
-    #elif op == 'in':           # n.a.
-    #elif op == 'not in':       # n.a.
-    #elip op == 'is': is_,      # elsewhere
-    #elif op == 'is not':       # elsewhere
-    #elif op == 'exc match':    # exceptions
-    else:
-        msg = 'string comparison "%s" not implemented' % op
-        raise FailedToImplement(space.w_TypeError,
-                                space.wrap(msg))
+    return space.newbool( i < j )
+StdObjSpace.lt.register(str_str_lt, W_StringObject, W_StringObject)
 
-StdObjSpace.compare.register(str_str_compare, W_StringObject, W_StringObject)
+def str_str_le(space, w_str1, w_str2):
+    i = w_str1.value
+    j = w_str2.value
+    return space.newbool( i <= j )
+StdObjSpace.le.register(str_str_le, W_StringObject, W_StringObject)
+
+def str_str_eq(space, w_str1, w_str2):
+    i = w_str1.value
+    j = w_str2.value
+    return space.newbool( i == j )
+StdObjSpace.eq.register(str_str_eq, W_StringObject, W_StringObject)
+
+def str_str_ne(space, w_str1, w_str2):
+    i = w_str1.value
+    j = w_str2.value
+    return space.newbool( i != j )
+StdObjSpace.ne.register(str_str_ne, W_StringObject, W_StringObject)
+
+def str_str_gt(space, w_str1, w_str2):
+    i = w_str1.value
+    j = w_str2.value
+    return space.newbool( i > j )
+StdObjSpace.gt.register(str_str_gt, W_StringObject, W_StringObject)
+
+def str_str_ge(space, w_str1, w_str2):
+    i = w_str1.value
+    j = w_str2.value
+    return space.newbool( i >= j )
+StdObjSpace.ge.register(str_str_ge, W_StringObject, W_StringObject)
+
 
 def getitem_str_int(space, w_str, w_int):
     return W_StringObject(w_str.value[w_int.intval])

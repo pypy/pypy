@@ -1,9 +1,10 @@
 from pypy.interpreter import executioncontext
 from pypy.interpreter import pyframe
 from pypy.interpreter import baseobjspace
-from pypy.objspace import trivial
+import sys
 import code
 import linecache
+
 
 def offset2lineno(c, stopat):
     tab = c.co_lnotab
@@ -17,36 +18,51 @@ def offset2lineno(c, stopat):
     return line
 
 class PyPyConsole(code.InteractiveConsole):
-    def __init__(self):
+    def __init__(self, objspace):
         code.InteractiveConsole.__init__(self)
-        self.space = trivial.TrivialObjSpace()
+        self.space = objspace()
         self.ec = executioncontext.ExecutionContext(self.space)
-        self.locals['__builtins__'] = self.space.w_builtins
+        self.w_globals = self.ec.make_standard_w_globals()
+
+    def interact(self):
+        banner = "Python %s in pypy\n%s / %s" % (
+            sys.version, self.__class__.__name__, self.space.__class__.__name__)
+        code.InteractiveConsole.interact(self, banner)
 
     def runcode(self, code):
         # ah ha!
         frame = pyframe.PyFrame(self.space, code,
-                        self.locals, self.locals)
+                                self.w_globals, self.w_globals)
         try:
             self.ec.eval_frame(frame)
-        except baseobjspace.OperationError, e:
-            print "Traceback"
-            tb = e.w_traceback[:]
-            tb.reverse()
-            for f, i in tb:
-                co = f.bytecode
-                fname = co.co_filename
-                lineno = offset2lineno(co, i)
-                print "  File", `fname`+',',
-                print "line", lineno, "in", co.co_name
-                l = linecache.getline(fname, lineno)
-                if l:
-                    print l[:-1]
-            print e.w_type.__name__+':', e.w_value
-            import traceback
-            traceback.print_exc()
-        
-if __name__ == '__main__':
-    con = PyPyConsole()
-    con.interact()
+        except baseobjspace.OperationError, operationerr:
+            # XXX insert exception info into the application-level sys.last_xxx
+            operationerr.print_detailed_traceback(self.space)
+        else:
+            if sys.stdout.softspace:
+                print
 
+    def runsource(self, source, ignored_filename="<input>", symbol="single"):
+        hacked_filename = '<inline>\n'+source
+        try:
+            code = self.compile(source, hacked_filename, symbol)
+        except (OverflowError, SyntaxError, ValueError):
+            self.showsyntaxerror(self.filename)
+            return 0
+        if code is None:
+            return 1
+        self.runcode(code)
+        return 0
+
+if __name__ == '__main__':
+    # object space selection
+    if len(sys.argv) < 2:
+        choice = 'trivial'   # default
+    else:
+        choice = sys.argv[1]
+    classname = choice.capitalize() + 'ObjSpace'
+    module = __import__('pypy.objspace.%s' % choice,
+                        globals(), locals(), [classname])
+    ObjSpace = getattr(module, classname)
+    con = PyPyConsole(ObjSpace)
+    con.interact()

@@ -8,14 +8,15 @@ class TestInterpreter(unittest.TestCase):
         named by 'functionname' with arguments 'args'."""
         from pypy.interpreter import baseobjspace, executioncontext, appfile
 
-        bytecode = compile(code, '<test>', 'exec')
+        bytecode = executioncontext.inlinecompile(code)
         apphelper = appfile.AppHelper(self.space, bytecode)
 
         wrappedargs = [self.space.wrap(arg) for arg in args]
         try:
             w_output = apphelper.call(functionname, wrappedargs)
         except baseobjspace.OperationError, e:
-            print e.w_traceback
+            e.print_detailed_traceback(self.space)
+            return '<<<%s>>>' % e.errorstr(self.space)
         else:
             return self.space.unwrap(w_output)
 
@@ -77,7 +78,8 @@ def f(a):
 def f():
     raise 1
 ''', 'f', [])
-            
+        self.assertEquals(x, '<<<TypeError: exceptions must be classes, instances, or strings (deprecated), not int>>>')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,12 +1,11 @@
-from exceptions import TypeError
 
-"""
-Assumptions:
-args = sequence of the normal actual parameters
-kws = dictionary of keyword actual parameters
-defs = sequence of defaults
-"""
 def decode_frame_arguments(args, kws, defs, closure, codeobject):
+    """
+    Assumptions:
+    args = sequence of the normal actual parameters
+    kws = dictionary of keyword actual parameters
+    defs = sequence of defaults
+    """
     CO_VARARGS = 0x4
     CO_VARKEYWORDS = 0x8
     varargs = (codeobject.co_flags & CO_VARARGS) and 1

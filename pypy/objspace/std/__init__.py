@@ -1,1 +1,1 @@
-# empty
+from objspace import StdObjSpace

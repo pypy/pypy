@@ -50,17 +50,14 @@ class PyFrame:
                             opcode.dispatch_noarg(self, op)
 
                     except baseobjspace.OperationError, e:
-                        #executioncontext.exception_trace(e)
+                        executioncontext.exception_trace(e)
                         # convert an OperationError into a reason to unroll
                         # the stack
                         if e.w_traceback is None:
-                            w_traceback = []
-                        else:
-                            w_traceback = e.w_traceback
+                            e.w_traceback = []
 
-                        w_traceback.append((self, self.lasti))
-                        raise SApplicationException(
-                            e.w_type, e.w_value, w_traceback)
+                        e.w_traceback.append((self, self.lasti))
+                        raise SApplicationException(e)
                     # XXX some other exceptions could be caught here too,
                     #     like KeyboardInterrupt
 
@@ -98,6 +95,10 @@ class PyFrame:
         freevarnames = self.bytecode.co_cellvars + self.bytecode.co_freevars
         return freevarnames[index]
 
+    def iscellvar(self, index):
+        # is the variable given by index a cell or a free var?
+        return index < len(self.bytecode.co_cellvars)
+
     ### frame initialization ###
 
     def setargs(self, w_arguments, w_kwargs=None,
@@ -124,7 +125,7 @@ class PyFrame:
             # looks like a simple case, see if we got exactly the correct
             # number of arguments
             try:
-                args = self.space.unpackiterable(w_arguments, co.co_argcount)
+                args = self.space.unpacktuple(w_arguments, co.co_argcount)
             except ValueError:
                 pass  # no
             else:
@@ -139,7 +140,7 @@ class PyFrame:
                                        w_closure, w_bytecode])
         # we assume that decode_frame_arguments() gives us a tuple
         # of the correct length.
-        return self.space.unpackiterable(w_arguments)
+        return self.space.unpacktuple(w_arguments)
 
     def load_builtins(self):
         # initialize self.w_builtins.  This cannot be done in the '.app.py'
@@ -264,10 +265,10 @@ class SApplicationException(StackUnroller):
         if isinstance(block, ExceptBlock):
             # push the exception to the value stack for inspection by the
             # exception handler (the code after the except:)
-            w_exc_type, w_exc_value, w_exc_traceback = self.args
-            frame.valuestack.push(w_exc_traceback)
-            frame.valuestack.push(w_exc_value)
-            frame.valuestack.push(w_exc_type)
+            operationerr = self.args[0]
+            frame.valuestack.push(operationerr.w_traceback)
+            frame.valuestack.push(operationerr.w_value)
+            frame.valuestack.push(operationerr.w_type)
             frame.next_instr = block.handlerposition   # jump to the handler
             
             # XXX
@@ -279,7 +280,8 @@ class SApplicationException(StackUnroller):
 
     def emptystack(self, frame):
         # propagate the exception to the caller
-        raise baseobjspace.OperationError(*self.args)
+        operationerr = self.args[0]
+        raise operationerr
 
 class SBreakLoop(StackUnroller):
     """Signals a 'break' statement."""

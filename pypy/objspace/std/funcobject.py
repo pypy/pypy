@@ -16,11 +16,9 @@ def func_call(space, w_function, w_arguments, w_keywords):
     w_locals = space.newdict([])
     frame = pypy.interpreter.pyframe.PyFrame(space, bytecode,
                                              w_function.w_globals, w_locals)
-    import sys; print >> sys.stderr, '((((((((((((((((('
     frame.setargs(w_arguments, w_keywords,
                   w_defaults = w_function.w_defaultarguments,
                   w_closure = w_function.w_closure)
-    import sys; print >> sys.stderr, ')))))))))))))))))'
     w_result = ec.eval_frame(frame)
     return w_result
 

@@ -77,34 +77,51 @@ StdObjSpace.str.register(int_str, W_IntObject)
 ##
 ##StdObjSpace.cmp.register(int_int_cmp, W_IntObject, W_IntObject)
 
-def int_int_compare(space, w_int1, w_int2, op):
+def int_int_lt(space, w_int1, w_int2):
     i = w_int1.intval
     j = w_int2.intval
-    if   op == '<':  return space.newbool( i < j  )
-    elif op == '<=': return space.newbool( i <= j )
-    elif op == '==': return space.newbool( i == j )
-    elif op == '!=': return space.newbool( i != j )
-    elif op == '>':  return space.newbool( i > j  )
-    elif op == '>=': return space.newbool( i >= j )
-    #elif op == 'in':           # n.a.
-    #elif op == 'not in':       # n.a.
-    #elip op == 'is': is_,      # elsewhere
-    #elif op == 'is not':       # elsewhere
-    #elif op == 'exc match':    # exceptions
-    else:
-        msg = 'integer comparison "%s" not implemented' % op
-        raise FailedToImplement(space.w_TypeError,
-                                space.wrap(msg))
+    return space.newbool( i < j )
+StdObjSpace.lt.register(int_int_lt, W_IntObject, W_IntObject)
 
-StdObjSpace.compare.register(int_int_compare, W_IntObject, W_IntObject)
+def int_int_le(space, w_int1, w_int2):
+    i = w_int1.intval
+    j = w_int2.intval
+    return space.newbool( i <= j )
+StdObjSpace.le.register(int_int_le, W_IntObject, W_IntObject)
+
+def int_int_eq(space, w_int1, w_int2):
+    i = w_int1.intval
+    j = w_int2.intval
+    return space.newbool( i == j )
+StdObjSpace.eq.register(int_int_eq, W_IntObject, W_IntObject)
+
+def int_int_ne(space, w_int1, w_int2):
+    i = w_int1.intval
+    j = w_int2.intval
+    return space.newbool( i != j )
+StdObjSpace.ne.register(int_int_ne, W_IntObject, W_IntObject)
+
+def int_int_gt(space, w_int1, w_int2):
+    i = w_int1.intval
+    j = w_int2.intval
+    return space.newbool( i > j )
+StdObjSpace.gt.register(int_int_gt, W_IntObject, W_IntObject)
+
+def int_int_ge(space, w_int1, w_int2):
+    i = w_int1.intval
+    j = w_int2.intval
+    return space.newbool( i >= j )
+StdObjSpace.ge.register(int_int_ge, W_IntObject, W_IntObject)
 
 def int_hash(space, w_int1):
     #/* XXX If this is changed, you also need to change the way
     #   Python's long, float and complex types are hashed. */
-    x = w_int1.intval
-    if x == -1:
-        x = -2
-    return W_IntObject(x)
+##    x = w_int1.intval
+##    if x == -1:
+##        x = -2
+##    return W_IntObject(x)
+    # XXX unlike CPython we have no need to special-case the value -1
+    return w_int1
 
 StdObjSpace.hash.register(int_hash, W_IntObject)
 

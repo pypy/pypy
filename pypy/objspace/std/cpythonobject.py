@@ -18,3 +18,8 @@ def cpython_unwrap(space, w_obj):
     return w_obj.cpyobj
 
 StdObjSpace.unwrap.register(cpython_unwrap, W_CPythonObject)
+
+def cpython_id(space, w_obj):
+    return space.wrap(id(w_obj.cpyobj))
+
+StdObjSpace.id.register(cpython_id, W_CPythonObject)

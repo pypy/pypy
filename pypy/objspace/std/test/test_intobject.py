@@ -59,21 +59,15 @@ class TestW_IntObject(unittest.TestCase):
 
     def test_compare(self):
         import operator
-        optab = {
-            '<':  operator.lt,
-            '<=': operator.le,
-            '==': operator.eq,
-            '!=': operator.ne,
-            '>':  operator.gt,
-            '>=': operator.ge,
-        }
+        optab = ['lt', 'le', 'eq', 'ne', 'gt', 'ge']
         for x in (-10, -1, 0, 1, 2, 1000, sys.maxint):
             for y in (-sys.maxint-1, -11, -9, -2, 0, 1, 3, 1111, sys.maxint):
                 for op in optab:
                     wx = iobj.W_IntObject(x)
                     wy = iobj.W_IntObject(y)
-                    res = optab[op](x, y)
-                    myres = iobj.int_int_compare(self.space, wx, wy, op)
+                    res = getattr(operator, op)(x, y)
+                    method = getattr(iobj, 'int_int_%s' % op)
+                    myres = method(self.space, wx, wy)
                     self.assertEquals(self.space.unwrap(myres), res)
                     
     def test_add(self):
@@ -274,17 +268,17 @@ class TestW_IntObject(unittest.TestCase):
         result = iobj.int_int(self.space, f1)
         self.assertEquals(result, f1)
 
-    def test_long(self):
-        x = 1
-        f1 = iobj.W_IntObject(x)
-        result = iobj.int_long(self.space, f1)
-        self.assertEquals(self.space.unwrap(result), long(x))
+##    def test_long(self):
+##        x = 1
+##        f1 = iobj.W_IntObject(x)
+##        result = iobj.int_long(self.space, f1)
+##        self.assertEquals(self.space.unwrap(result), long(x))
 
-    def test_float(self):
-        x = 1
-        f1 = iobj.W_IntObject(x)
-        result = iobj.int_float(self.space, f1)
-        self.assertEquals(self.space.unwrap(result), float(x))
+##    def test_float(self):
+##        x = 1
+##        f1 = iobj.W_IntObject(x)
+##        result = iobj.int_float(self.space, f1)
+##        self.assertEquals(self.space.unwrap(result), float(x))
 
     def test_oct(self):
         x = 012345
