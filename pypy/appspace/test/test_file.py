@@ -1,10 +1,12 @@
+import os
 import autopath
 from pypy.appspace import _file
 import unittest
 
 class FileTestCase(unittest.TestCase):
     def setUp(self):
-        self.fd = _file.file_('test_file.py', 'r')
+        filename = os.path.join(autopath.this_dir, 'test_file.py')
+        self.fd = _file.file_(filename, 'r')
 
     def tearDown(self):
         self.fd.close()

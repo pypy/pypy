@@ -566,13 +566,13 @@ class DiskFile(object):
         except KeyError:
             raise ValueError, "mode should be 'r', 'r+', 'w', 'w+' or 'a+'"
 
-        if hasattr(os, "O_BINARY"):
-            flag |= os.O_BINARY
+        O_BINARY = getattr(os, "O_BINARY", 0)
+        flag |= O_BINARY
         try:
             self.fd = os.open(filename, flag)
         except OSError:
             # Opening in mode 'a' or 'a+' and file already exists
-            flag = flag & (os.O_RDWR | os.O_BINARY)
+            flag = flag & (os.O_RDWR | O_BINARY)
             self.fd = os.open(filename, flag)
         if mode[0] == 'a':
             os.lseek(self.fd, 0, 2) # Move to end of file
