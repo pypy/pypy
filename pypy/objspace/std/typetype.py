@@ -30,12 +30,15 @@ def descr__dict__(space, w_type):
         dictspec.append((space.wrap(key), w_value))
     return space.newdict(dictspec)
 
+def descr__bases(space, w_type):
+    return space.newtuple(w_type.bases_w)
+
 # ____________________________________________________________
 
 type_typedef = StdTypeDef("type", [object_typedef],
     __new__ = newmethod(descr__new__),
     __name__ = attrproperty('name'),
-    #__bases__ = XXX use newtuple
+    __bases__ = GetSetProperty(descr__bases),
     __dict__ = GetSetProperty(descr__dict__),
     __mro__ = GetSetProperty(descr_get__mro__),
     )
