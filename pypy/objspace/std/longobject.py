@@ -33,7 +33,11 @@ def delegate_Int2Long(w_intobj):
 
 # long-to-float delegation
 def delegate_Long2Float(w_longobj):
-    return W_FloatObject(w_longobj.space, float(w_longobj.longval))
+    try:
+        return W_FloatObject(w_longobj.space, float(w_longobj.longval))
+    except OverflowError:
+        raise OperationError(w_longobj.space.w_OverflowError,
+                             w_longobj.space.wrap("long int too large to convert to float"))
 
 
 # long__Long is supposed to do nothing, unless it has
