@@ -15,15 +15,15 @@ class W_AbstractTypeObject(W_Object):
     "Do not use. For W_TypeObject only."
 
 
-W_ANY = W_Object  # synonyms for use in .register()
 BoundMultiMethod.ASSERT_BASE_TYPE = W_Object
 MultiMethod.BASE_TYPE_OBJECT = W_AbstractTypeObject
 
 # delegation priorities
-PRIORITY_SAME_TYPE    = 3  # converting between several impls of the same type
-PRIORITY_PARENT_TYPE  = 2  # converting to a base type (e.g. bool -> int)
-PRIORITY_CHANGE_TYPE  = 1  # changing type altogether (e.g. int -> float)
-PRIORITY_PARENT_IMPL  = 0  # hard-wired in multimethod.py
+PRIORITY_SAME_TYPE    = 2  # converting between several impls of the same type
+PRIORITY_PARENT_TYPE  = 1  # converting to a base type (e.g. bool -> int)
+PRIORITY_PARENT_IMPL  = 0  # hard-wired in multimethod.py (W_IntObject->W_Object)
+PRIORITY_CHANGE_TYPE  = -1 # changing type altogether (e.g. int -> float)
+PRIORITY_ANY          = -999 # hard-wired in multimethod.py (... -> W_ANY)
 
 def registerimplementation(implcls):
     # this function should ultimately register the implementation class somewhere
@@ -140,6 +140,7 @@ class StdObjSpace(ObjSpace):
                         "None" : self.w_None,
                         "NotImplemented": self.w_NotImplemented,
                         "Ellipsis": self.w_Ellipsis,
+                        "long": self.wrap(long),  # XXX temporary
                         }
 
         # types

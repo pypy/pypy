@@ -93,7 +93,7 @@ def w(x):
 class TestMultiMethod(test.TestCase):
     def setUp(self):
         # only run when testing stdobjectspace 
-        test.objspace('std')
+        #XXX removed: test.objspace('std')
         self.space = FakeObjSpace()
 
     def test_non_delegate(self):

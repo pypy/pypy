@@ -68,7 +68,7 @@ class TestW_CPythonObject(test.TestCase):
         self.assertRaises(OperationError, self.space.hash, w1)
         try: self.space.hash(w1)
         except OperationError, e:
-            self.assertEquals(e.w_type.cpyobj, TypeError)            
+            self.assertEquals(e.w_type, self.space.w_TypeError)
 
     def test_hashable(self):
         uw = 3+4j

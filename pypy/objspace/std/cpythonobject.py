@@ -11,6 +11,7 @@ sufficient to ensure completeness and correctness of this module.
 
 from pypy.objspace.std.objspace import *
 from stringobject import W_StringObject
+from intobject import W_IntObject
 import sys, operator, types
 
 class W_CPythonObject(W_Object):
@@ -36,13 +37,25 @@ def cpython_unwrap(space, w_obj):
 
 StdObjSpace.unwrap.register(cpython_unwrap, W_CPythonObject)
 
+# XXX we hack a bit to delegate ints to longs here
+def hacky_delegate_to_long(space, w_intobj):
+    return space.wrap(long(w_intobj.intval))
+hacky_delegate_to_long.result_class = W_CPythonObject  # XXX
+hacky_delegate_to_long.priority = PRIORITY_CHANGE_TYPE + 0.1  # XXX too
+StdObjSpace.delegate.register(hacky_delegate_to_long, W_IntObject)
+
 
 # real-to-wrapped exceptions
 def wrap_exception(space):
     exc, value, tb = sys.exc_info()
     if exc is OperationError:
         raise exc, value, tb   # just re-raise it
-    raise OperationError, OperationError(space.wrap(exc), space.wrap(value)), tb
+    name = exc.__name__
+    if hasattr(space, 'w_' + name):
+        w_exc = getattr(space, 'w_' + name)
+    else:
+        w_exc = space.wrap(exc)
+    raise OperationError, OperationError(w_exc, space.wrap(value)), tb
 
 # in-place operators
 def inplace_pow(x1, x2):

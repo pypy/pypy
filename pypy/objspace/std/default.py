@@ -3,42 +3,21 @@
 from pypy.objspace.std.objspace import *
 
 
-# These are operations that must fall back to some default behavior,
-# but that should not appear explicitly at application-level.
-# There is no default object.__xxx__() method for these.
+# The following default implementations are used before delegation is tried.
+# 'id' is normally the address of the wrapper.
 
-
-# 'eq' falls back to 'is'
-
-def eq__ANY_ANY(space, w_a, w_b):
-    return space.is_(w_a, w_b)
-
-### 'ne' -> 'eq', 'le/gt/ge' -> 'lt'
-##
-##def ne__ANY_ANY(space, w_a, w_b):
-##    return space.not_(space.eq(w_a, w_b))
-##def le__ANY_ANY(space, w_a, w_b):
-##    return space.not_(space.lt(w_b, w_a))
-##def gt__ANY_ANY(space, w_a, w_b):
-##    return space.lt(w_b, w_a)
-##def ge__ANY_ANY(space, w_a, w_b):
-##    return space.not_(space.lt(w_a, w_b))
-
-# 'id' falls back to the address of the wrapper
-
-def id__ANY(space, w_obj):
+def id__Object(space, w_obj):
     import intobject
     return intobject.W_IntObject(space, id(w_obj))
 
 # this 'not' implementation should be fine for most cases
 
-def not__ANY(space, w_obj):
+def not__Object(space, w_obj):
     return space.newbool(not space.is_true(w_obj))
-
 
 # __nonzero__ falls back to __len__
 
-def is_true__ANY(space, w_obj):
+def is_true__Object(space, w_obj):
     try:
         w_len = space.len.perform_call((w_obj,))
     except FailedToImplement:
@@ -52,10 +31,173 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
         def default_inplace(space, w_1, w_2, baseop=_name[8:]):
             op = getattr(space, baseop)
             return op(w_1, w_2)
-        getattr(StdObjSpace, _name).register(default_inplace, W_ANY, W_ANY)
+        getattr(StdObjSpace, _name).register(default_inplace,
+                                             W_Object, W_ANY)
+
+# '__get__(descr, inst, cls)' returns 'descr' by default
+
+def get__Object_ANY_ANY(space, w_descr, w_inst, w_cls):
+    return w_descr
+
+def is_data_descr__Object(space, w_descr):
+    return 0
+
+# give objects some default attributes and a default way to complain
+# about missing attributes
+
+def getattr__Object_ANY(space, w_obj, w_attr):
+    # XXX build a nicer error message along these lines:
+    #w_type = space.type(w_obj)
+    #w_typename = space.getattr(w_type, space.wrap('__name__'))
+    #...
+
+    w_type = space.type(w_obj)
+    if space.is_true(space.eq(w_attr, space.wrap('__class__'))):
+        return w_type
+
+    # 1) look for descriptor
+    # 2) if data descriptor, call it
+    # 3) check __dict__
+    # 4) if present, return that
+    # 5) if descriptor found in 2), call that
+    # 6) raise AttrbuteError
+
+    w_descr = None
+
+    from typeobject import W_TypeObject
+    if isinstance(w_type, W_TypeObject):  # XXX must always be true at some point
+        try:
+            w_descr = w_type.lookup(w_attr)
+        except KeyError:
+            pass
+        else:
+            if space.is_data_descr(w_descr):
+                return space.get(w_descr, w_obj, w_type) # XXX 3rd arg is wrong
+    
+    try:
+        w_dict = space.getdict(w_obj)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError): # 'unsupported type for getdict'
+            raise
+    else:
+        if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
+            return w_dict
+        try:
+            w_value = space.getitem(w_dict, w_attr)
+        except OperationError, e:
+            if not e.match(space, space.w_KeyError):
+                raise
+        else:
+            return w_value  # got a value from 'obj.__dict__[attr]'
+
+    if w_descr is not None:
+        return space.get(w_descr, w_obj, w_type)
+        
+    raise OperationError(space.w_AttributeError, w_attr)
 
 
-# 'contains' falls back to iteration
+# set attributes, complaining about read-only ones --
+# a more declarative way to define attributes would be welcome
+
+def setattr__Object_ANY_ANY(space, w_obj, w_attr, w_value):
+
+    # 1) look for descriptor
+    # 2) if data descriptor, call it
+    # 3) try to set item in __dict__
+
+    w_type = space.type(w_obj)
+    if space.is_true(space.eq(w_attr, space.wrap('__class__'))):
+        raise OperationError(space.w_AttributeError,
+                             space.wrap("read-only attribute"))
+    if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
+        raise OperationError(space.w_AttributeError,
+                             space.wrap("read-only attribute"))
+
+    from typeobject import W_TypeObject
+    if isinstance(w_type, W_TypeObject):
+        try:
+            w_descr = w_type.lookup(w_attr)
+        except KeyError:
+            pass
+        else:
+            if space.is_data_descr(w_descr):
+                return space.set(w_descr, w_obj, w_value)
+    
+    try:
+        w_dict = space.getdict(w_obj)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError): # "unsupported type for getdict"
+            raise
+        raise OperationError(space.w_AttributeError, w_attr)
+    else:
+        space.setitem(w_dict, w_attr, w_value)
+            
+
+def delattr__Object_ANY(space, w_obj, w_attr):
+    w_type = space.type(w_obj)
+    if space.is_true(space.eq(w_attr, space.wrap('__class__'))):
+        raise OperationError(space.w_AttributeError,
+                             space.wrap("read-only attribute"))
+    if space.is_true(space.eq(w_attr, space.wrap('__dict__'))):
+        raise OperationError(space.w_AttributeError,
+                             space.wrap("read-only attribute"))
+
+    from typeobject import W_TypeObject
+    if isinstance(w_type, W_TypeObject):
+        try:
+            w_descr = w_type.lookup(w_attr)
+        except KeyError:
+            pass
+        else:
+            #space.type(w_descr).lookup(space.wrap('__delete__'))
+            if space.is_data_descr(w_descr):
+                return space.delete(w_descr, w_obj)
+    
+    try:
+        w_dict = space.getdict(w_obj)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError): # "unsupported type for getdict"
+            raise
+        raise OperationError(space.w_AttributeError, w_attr)
+    else:
+        try:
+            space.delitem(w_dict, w_attr)
+        except OperationError, e:
+            if not e.match(space, space.w_KeyError):
+                raise
+            raise OperationError(space.w_AttributeError, w_attr)
+
+# static types
+
+def type__Object(space, w_obj):
+    if w_obj.statictype is None:
+        # XXX remove me, temporary
+        return space.wrap(space.unwrap(w_obj).__class__)
+    else:
+        w_type = space.get_typeinstance(w_obj.statictype)
+        return w_type
+
+# repr(), str(), hash()
+
+def repr__Object(space, w_obj):
+    return space.wrap('<%s object at %s>'%(
+        space.type(w_obj).typename, space.unwrap(space.id(w_obj))))
+
+def str__Object(space, w_obj):
+    return space.repr(w_obj)
+
+def hash__Object(space, w_obj):
+    return space.id(w_obj)
+
+
+# The following operations are fall-backs if we really cannot find
+# anything else even with delegation.
+# 'eq' falls back to 'is'
+
+def eq__ANY_ANY(space, w_a, w_b):
+    return space.is_(w_a, w_b)
+
+# 'contains' falls back to iteration.
 
 def contains__ANY_ANY(space, w_iterable, w_lookfor):
     w_iter = space.iter(w_iterable)
@@ -67,17 +209,5 @@ def contains__ANY_ANY(space, w_iterable, w_lookfor):
         if space.is_true(space.eq(w_next, w_lookfor)):
             return space.w_True
 
-# '__get__(descr, inst, cls)' returns 'descr' by default
-
-def get__ANY_ANY_ANY(space, w_descr, w_inst, w_cls):
-    return w_descr
-
-def is_data_descr__ANY(space, w_descr):
-    return 0
-
-#def issubtype__ANY_ANY(space, w_one, w_two):
-#    # XXX -- mwh
-#    return space.newbool(0)
-#    # XXX why is it there ? -- Armin
 
 register_all(vars())

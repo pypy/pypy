@@ -13,7 +13,7 @@ def register_all(module_dict, alt_ns=None):
     If the name doesn't exist then the alternative namespace is tried
     for registration. 
     """
-    from pypy.objspace.std.objspace import StdObjSpace, W_ANY
+    from pypy.objspace.std.objspace import StdObjSpace, W_ANY, W_Object
     namespaces = [StdObjSpace]
     if alt_ns:
         namespaces.insert(0, alt_ns)
@@ -24,8 +24,10 @@ def register_all(module_dict, alt_ns=None):
         funcname, sig = name.split('__')
         l=[]
         for i in sig.split('_'):
-            if i == 'ANY':
+            if i == 'ANY':        # just in case W_ANY is not in module_dict
                 icls = W_ANY
+            elif i == 'Object':   # just in case W_Object is not in module_dict
+                icls = W_Object
             else:
                 icls = (module_dict.get('W_%s' % i) or
                         module_dict.get('W_%sObject' % i))

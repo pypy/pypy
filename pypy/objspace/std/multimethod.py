@@ -4,6 +4,10 @@ from pypy.interpreter.baseobjspace import OperationError
 class FailedToImplement(Exception):
     "Signals the dispatcher to try harder."
 
+class W_ANY:
+    "Catch-all in case multimethods don't find anything else."
+    statictype = None
+
 
 # This file defines three major classes:
 #
@@ -290,6 +294,7 @@ class DelegateMultiMethod(MultiMethod):
 
     def postprocessresult(self, allowedtypes, result):
         # add delegation from a class to the *first* immediate parent class
+        # and to W_ANY
         arg1types, = allowedtypes
         for t in arg1types:
             if t.__bases__:
@@ -301,6 +306,14 @@ class DelegateMultiMethod(MultiMethod):
                 delegate_to_parent_class.priority = 0
                 # hard-wire it at priority 0
                 result.append(((t,), delegate_to_parent_class))
+
+                def delegate_to_any(space, a):
+                    return a
+                delegate_to_any.trivial_delegation = True
+                delegate_to_any.result_class = W_ANY
+                delegate_to_any.priority = -999
+                # hard-wire it at priority -999
+                result.append(((t,), delegate_to_any))
 
         # sort the results in priority order, and insert None marks
         # between jumps in the priority values. Higher priority values
