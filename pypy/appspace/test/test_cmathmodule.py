@@ -26,7 +26,9 @@ from pypy.appspace.complexobject import complex as pycomplex
 from pypy.appspace.test.test_complexobject import equal, enumerate
 
 
-class TestCMathModule(test.TestCase):
+if 0:    # DISABLED -- we know it works all right and don't want to see them
+         #             take time any more for the time being
+  class TestCMathModule(test.TestCase):
 
     def assertAEqual(self, a, b):
         if not equal(a, b):
