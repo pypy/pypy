@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 
+"""
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Note that this test currently runs at cpython-level and not
+at any application level .... 
+
+"""
 #taken from CPython 2.3 (?)
 
 """
@@ -24,7 +32,7 @@ from pypy.appspace.complexobject import complex as pycomplex
 
 try:
     unicode
-    have_unicode = 1
+    have_unicode = 0 # pypy doesn't have unicode, we know it ...
 except NameError:
     have_unicode = 0
 
@@ -179,7 +187,7 @@ if 0:    # DISABLED -- we know it works all right and don't want to see them
             self.assertAEqual(+zc, +zp)
             self.assertAEqual(abs(zc), abs(zp))
             self.assertAEqual(zc, zp)
-            self.assertEqual(zc.conjugate(), zp.conjugate())
+            #self.assertEqual(zc.conjugate(), zp.conjugate()) XXX 
             self.assertEqual(str(zc), str(zp))
             self.assertEqual(hash(zc), hash(zp))
 
@@ -243,4 +251,4 @@ if 0:    # DISABLED -- we know it works all right and don't want to see them
                 self.assertAEqual(pc, pp)
 
 if __name__ == "__main__":
-    unittest.main()
+    testit.main()

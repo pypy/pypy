@@ -1,29 +1,21 @@
-import re
-import math
-import types
-import warnings
-
-
-PREC_REPR = 0 # 17
-PREC_STR = 0 # 12
-
-
 class complex(object):
     """complex(real[, imag]) -> complex number
 
     Create a complex number from a real part and an optional imaginary part.
     This is equivalent to (real + imag*1j) where imag defaults to 0."""
+    PREC_REPR = 0 # 17
+    PREC_STR = 0 # 12
     
     def __init__(self, real=0.0, imag=None):
-        if type(real) == types.StringType and imag is not None:
+        if isinstance(real, str) and imag is not None:
             msg = "complex() can't take second arg if first is a string"
             raise TypeError, msg
 
-        if type(imag) == types.StringType:
+        if isinstance(imag, str): 
             msg = "complex() second arg can't be a string"
             raise TypeError, msg
 
-        if type(real) in types.StringTypes:
+        if isinstance(real, str): 
             real, imag = self._makeComplexFromString(real)
             self.__dict__['real'] = real
             self.__dict__['imag'] = imag
@@ -38,10 +30,10 @@ class complex(object):
         if name in ('real', 'imag'):
             raise TypeError, "readonly attribute"
         else:
-            self.__dict__[name] = value
-
+            raise TypeError, "'complex' object has no attribute %s" % name 
 
     def _makeComplexFromString(self, string):
+        import re
         pat = re.compile(" *([\+\-]?\d*\.?\d*)([\+\-]?\d*\.?\d*)[jJ] *")
         m = pat.match(string)
         x, y = m.groups()
@@ -65,11 +57,11 @@ class complex(object):
 
 
     def __repr__(self):
-        return self.__description(PREC_REPR)
+        return self.__description(self.PREC_REPR)
 
 
     def __str__(self):
-        return self.__description(PREC_STR)
+        return self.__description(self.PREC_STR)
 
         
     def __hash__(self):
@@ -155,6 +147,7 @@ class complex(object):
         
 
     def __mod__(self, other):
+        import warnings, math 
         warnings.warn("complex divmod(), // and % are deprecated", DeprecationWarning)
 
         if other.real == 0. and other.imag == 0.:
@@ -171,6 +164,7 @@ class complex(object):
 
 
     def __divmod__(self, other):
+        import warnings, math
         warnings.warn("complex divmod(), // and % are deprecated", DeprecationWarning)
 
         if other.real == 0. and other.imag == 0.:
@@ -183,6 +177,7 @@ class complex(object):
 
 
     def __pow__(self, other):
+        import math
         if other.__class__ != complex:
             other = complex(other, 0)
                     
@@ -217,6 +212,7 @@ class complex(object):
 
 
     def __abs__(self):
+        import math
         result = math.hypot(self.real, self.imag)
         return float(result)
 
@@ -228,23 +224,22 @@ class complex(object):
     def __coerce__(self, other):
         typ = type(other)
         
-        if typ is types.IntType:
+        if typ is int: 
             return self, complex(float(other))
-        elif typ is types.LongType:
+        elif typ is long: 
             return self, complex(float(other))
-        elif typ is types.FloatType:
+        elif typ is float: 
             return self, complex(other)
         elif other.__class__ == complex:
             return self, other
-        elif typ is types.ComplexType: # cough
+        elif typ is complex: 
             return self, complex(other.real, other.imag)
             
-        raise TypeError, "number coercion failed"
+        raise TypeError, "number %r coercion failed" % typ
 
 
     def conjugate(self):
         return complex(self.real, -self.imag)
-
 
     def __eq__(self, other):
         self, other = self.__coerce__(other)
