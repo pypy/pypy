@@ -181,7 +181,7 @@ class Method(Wrappable):
             #if w_cls == space.w_None:
             #    w_cls = space.type(w_obj)
             if (w_cls is not None and
-                not space_is_w(w_cls, space.w_None) and
+                not space.is_w(w_cls, space.w_None) and
                 not space.is_true(space.abstract_issubclass(w_cls, self.w_class))):
                 return space.wrap(self)   # subclass test failed
             return space.get(self.w_function, w_obj, w_cls)
