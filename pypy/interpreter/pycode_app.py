@@ -1,7 +1,17 @@
 # replacement for decode_frame_arguments
-# ===== ATTENTION ===== ! All calls here must be "easy", i.e. not involve
-# default or keyword arguments !! For example, all range() calls
-# need three arguments.
+#
+# ===== ATTENTION =====
+#
+# This code is pretty fundamental to pypy and great care must be taken
+# to avoid infinite recursion.  In particular:
+#
+# - All calls here must be "easy", i.e. not involve default or keyword
+#   arguments.  For example, all range() calls need three arguments.
+#
+# - You cannot *catch* any exceptions (raising is fine).
+#
+# (I wonder if the pain of writing this at interpreter level might be
+# worth it...)
 
 def decode_code_arguments(args, kws, defs, closure, codeobject):
     """
@@ -21,9 +31,9 @@ def decode_code_arguments(args, kws, defs, closure, codeobject):
     
     # Normal arguments
     for i in range(0, len(args), 1):    # see comment above for ", 1"
-        try:
+        if 0 <= i < len(parameter_names): # try
             argdict[parameter_names[i]] = args[i]
-        except IndexError:
+        else: # except IndexError:
             # If varargs, put in tuple, else throw error
             if varargs:
                 varargs_tuple = args[i:]
