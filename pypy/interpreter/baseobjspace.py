@@ -116,28 +116,22 @@ class ObjSpace:
 
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
-        #Match identical items.
-        w_rv = self.is_(w_exc_type, w_check_class)
-        if self.is_true(w_rv):
-            return w_rv
-        #Match subclasses.
-        try:
-            w_rv = self.issubtype(w_exc_type, w_check_class)
-        except: pass
-        else:
-            if self.is_true(w_rv):
-                return w_rv
-        #Match tuples containing identical or parent classes
-        try:
-            exclst = self.unpackiterable(w_check_class)
-        except:
-            #w_check_class is not iterable
-            return self.w_False
-        #w_check_class is iterable
-        for w_item in exclst:
+        check_list = [w_check_class]
+        while check_list:
+            w_item = check_list.pop()
+            #Test within iterables (i.e. tuples)
+            try:
+                exclst = self.unpackiterable(w_item)
+                check_list.extend(exclst)
+            except:
+                #w_check_class is not iterable
+                pass
+            #w_item should now be an Exception (or string?)
+            #Match identical items.
             w_rv = self.is_(w_exc_type, w_item)
             if self.is_true(w_rv):
                 return w_rv
+            #Match subclasses.
             try:
                 w_rv = self.issubtype(w_exc_type, w_item)
             except: pass

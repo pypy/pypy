@@ -3,35 +3,37 @@
 New for PyPy - Could be incorporated into CPython regression tests.
 """
 import autopath
-
-import unittest
 from pypy.tool import test
 
-class TestExceptionComp(test.TestCase):
+class TestExceptionComp(test.AppTestCase):
 
-    def test_string(self):
-        string = "string"
-        try:
-            raise string
-        except string:
-            pass
-        except:
-            self.fail("Identical string exceptions do not match.") 
+    def setUp(self):
+        self.space = test.objspace()
 
-    def test_stringfail(self):
-        string1 = "string1"
-        string1_ = "string" + "1"
-        assert string1 is not string1_
-        try:
-            raise string1
-        except "string2":
-            self.fail("Different string exceptions match.") 
-        except string1_:
-            self.fail("Non Identical string exceptions match.")
-        except string1:
-            pass
-        except:
-            self.fail("Unknown value for variable raise.")
+### XXX - String exceptions depreciated?
+##    def test_string(self):
+##        string = "string"
+##        try:
+##            raise string
+##        except string:
+##            pass
+##        except:
+##            self.fail("Identical string exceptions do not match.") 
+##
+##    def test_stringfail(self):
+##        string1 = "string1"
+##        string1_ = "string" + "1"
+##        assert string1 is not string1_
+##        try:
+##            raise string1
+##        except "string2":
+##            self.fail("Different string exceptions match.") 
+##        except string1_:
+##            self.fail("Non Identical string exceptions match.")
+##        except string1:
+##            pass
+##        except:
+##            self.fail("Unknown value for variable raise.")
             
 
     def test_exception(self):
@@ -122,5 +124,15 @@ class TestExceptionComp(test.TestCase):
         except:
             self.fail("Exception does not match self in nested tuple.") 
 
+    def test_deeptuples(self):
+        try:
+            raise IOError
+        except (FloatingPointError,(OSError,
+                                    (SyntaxError,IOError,ZeroDivisionError)),
+                (MemoryError, NotImplementedError)):
+            pass
+        except:
+            self.fail("Exception does not match self in deeply nested tuple.")
+            
 if __name__ == "__main__":
     test.main()
