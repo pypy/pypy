@@ -121,12 +121,10 @@ def slicemultimethod(multimethod, typeclass, result):
             code = result[name]
             if code.bound_position < i:
                 continue
-        mmframeclass = multimethod.extras.get('mmframeclass')
-        if mmframeclass is None:
-            if len(multimethod.specialnames) > 1:
-                mmframeclass = SpecialMmFrame
-            else:
-                mmframeclass = MmFrame
+        if len(multimethod.specialnames) > 1:
+            mmframeclass = SpecialMmFrame
+        else:
+            mmframeclass = MmFrame
         code = MultimethodCode(multimethod, mmframeclass, typeclass, i)
         result[name] = code
 
