@@ -83,6 +83,18 @@ class TestStringObject(testit.AppTestCase):
         self.assertEquals('23', '%s' % 23)
         self.assertEquals('23', '%r' % 23)
 
+    def test_format_list(self):
+        self.assertEquals('<[1, 2]>', '<%s>' % [1,2])
+        self.assertEquals('<[1, 2]-[3, 4]>', '<%s-%s>' % ([1,2], [3,4]))
+
+    def test_format_tuple(self):
+        self.assertEquals('<(1, 2)>', '<%s>' % ((1,2),))
+        self.assertEquals('<(1, 2)-(3, 4)>', '<%s-%s>' % ((1,2), (3,4)))
+
+    def test_format_dict(self):
+        self.assertEquals('<{1: 2}>', '<%s>' % {1:2})
+        self.assertEquals('<{1: 2}-{3: 4}>', '<%s-%s>' % ({1:2}, {3:4}))
+
     def test_format_wrong_char(self):
         self.assertRaises(ValueError, 'a%Zb'.__mod__, ((23,),))
 
