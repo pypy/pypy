@@ -57,7 +57,8 @@ class Test_TraceObjSpace:
                 
     def test_trace_oneop(self):
         def app_f(): 
-            1 + 1
+            x = 1
+            x + 1
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
         uw = self.space.unwrap
