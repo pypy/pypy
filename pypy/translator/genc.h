@@ -251,7 +251,7 @@ static PyTypeObject PyGenCFunction_Type = {
 };
 
 #define MODULE_INITFUNC(modname) \
-	static PyMethodDef no_methods[] = { NULL, NULL }; \
+	static PyMethodDef no_methods[] = { (char *)NULL, (PyCFunction)NULL }; \
 	void init##modname(void)
 
 #define SETUP_MODULE(modname)					\
@@ -269,6 +269,162 @@ static PyTypeObject PyGenCFunction_Type = {
 #define OP_NEWDICT0(r,err)         if (!(r=PyDict_New())) FAIL(err)
 #define OP_NEWDICT(args,r,err)     if (!(r=PyDict_Pack args)) FAIL(err)
 #define OP_NEWTUPLE(args,r,err)    if (!(r=PyTuple_Pack args)) FAIL(err)
+
+static PyObject* PyList_Pack(int n, ...)
+{
+	int i;
+	PyObject *o;
+	PyObject *result;
+	va_list vargs;
+
+	va_start(vargs, n);
+	result = PyList_New(n);
+	if (result == NULL) {
+		return NULL;
+	}
+	for (i = 0; i < n; i++) {
+		o = va_arg(vargs, PyObject *);
+		Py_INCREF(o);
+		PyList_SET_ITEM(result, i, o);
+	}
+	va_end(vargs);
+	return result;
+}
+
+static PyObject* PyDict_Pack(int n, ...)
+{
+	int i;
+	PyObject *key, *val;
+	PyObject *result;
+	va_list vargs;
+
+	va_start(vargs, n);
+	result = PyDict_New();
+	if (result == NULL) {
+		return NULL;
+	}
+	for (i = 0; i < n; i++) {
+		key = va_arg(vargs, PyObject *);
+		val = va_arg(vargs, PyObject *);
+		if (PyDict_SetItem(result, key, val) < 0) {
+			Py_DECREF(result);
+			return NULL;
+		}
+	}
+	va_end(vargs);
+	return result;
+}
+
+#if PY_VERSION_HEX < 0x02040000   /* 2.4 */
+static PyObject* PyTuple_Pack(int n, ...)
+{
+	int i;
+	PyObject *o;
+	PyObject *result;
+	PyObject **items;
+	va_list vargs;
+
+	va_start(vargs, n);
+	result = PyTuple_New(n);
+	if (result == NULL) {
+		return NULL;
+	}
+	items = ((PyTupleObject *)result)->ob_item;
+	for (i = 0; i < n; i++) {
+		o = va_arg(vargs, PyObject *);
+		Py_INCREF(o);
+		items[i] = o;
+	}
+	va_end(vargs);
+	return result;
+}
+#endif
+
+#if PY_VERSION_HEX >= 0x02030000   /* 2.3 */
+# define PyObject_GetItem1  PyObject_GetItem
+# define PyObject_SetItem1  PyObject_SetItem
+#else
+/* for Python 2.2 only */
+static PyObject* PyObject_GetItem1(PyObject* obj, PyObject* index)
+{
+	int start, stop, step;
+	if (!PySlice_Check(index)) {
+		return PyObject_GetItem(obj, index);
+	}
+	if (((PySliceObject*) index)->start == Py_None) {
+		start = -INT_MAX-1;
+	} else {
+		start = PyInt_AsLong(((PySliceObject*) index)->start);
+		if (start == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
+	}
+	if (((PySliceObject*) index)->stop == Py_None) {
+		stop = INT_MAX;
+	} else {
+		stop = PyInt_AsLong(((PySliceObject*) index)->stop);
+		if (stop == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
+	}
+	if (((PySliceObject*) index)->step != Py_None) {
+		step = PyInt_AsLong(((PySliceObject*) index)->step);
+		if (step == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
+		if (step != 1) {
+			PyErr_SetString(PyExc_ValueError,
+					"obj[slice]: no step allowed");
+			return NULL;
+		}
+	}
+	return PySequence_GetSlice(obj, start, stop);
+}
+static PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
+{
+	int start, stop, step;
+	if (!PySlice_Check(index)) {
+		return PyObject_SetItem(obj, index, v);
+	}
+	if (((PySliceObject*) index)->start == Py_None) {
+		start = -INT_MAX-1;
+	} else {
+		start = PyInt_AsLong(((PySliceObject*) index)->start);
+		if (start == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
+	}
+	if (((PySliceObject*) index)->stop == Py_None) {
+		stop = INT_MAX;
+	} else {
+		stop = PyInt_AsLong(((PySliceObject*) index)->stop);
+		if (stop == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
+	}
+	if (((PySliceObject*) index)->step != Py_None) {
+		step = PyInt_AsLong(((PySliceObject*) index)->step);
+		if (step == -1 && PyErr_Occurred()) {
+			return NULL;
+		}
+		if (step != 1) {
+			PyErr_SetString(PyExc_ValueError,
+					"obj[slice]: no step allowed");
+			return NULL;
+		}
+	}
+	return PySequence_SetSlice(obj, start, stop, v);
+}
+#endif
+
+static PyObject* skipped(PyObject* self, PyObject* args)
+{
+	PyErr_Format(PyExc_AssertionError,
+		     "calling the skipped function '%s'",
+		     (((PyCFunctionObject *)self) -> m_ml -> ml_name));
+	return NULL;
+}
+
 
 #if defined(USE_CALL_TRACE)
 
@@ -539,158 +695,3 @@ static PyObject* PyList_CrazyStringPack(char *begin, ...)
 }
 
 #endif /* defined(USE_CALL_TRACE) */
-
-static PyObject* PyList_Pack(int n, ...)
-{
-	int i;
-	PyObject *o;
-	PyObject *result;
-	va_list vargs;
-
-	va_start(vargs, n);
-	result = PyList_New(n);
-	if (result == NULL) {
-		return NULL;
-	}
-	for (i = 0; i < n; i++) {
-		o = va_arg(vargs, PyObject *);
-		Py_INCREF(o);
-		PyList_SET_ITEM(result, i, o);
-	}
-	va_end(vargs);
-	return result;
-}
-
-static PyObject* PyDict_Pack(int n, ...)
-{
-	int i;
-	PyObject *key, *val;
-	PyObject *result;
-	va_list vargs;
-
-	va_start(vargs, n);
-	result = PyDict_New();
-	if (result == NULL) {
-		return NULL;
-	}
-	for (i = 0; i < n; i++) {
-		key = va_arg(vargs, PyObject *);
-		val = va_arg(vargs, PyObject *);
-		if (PyDict_SetItem(result, key, val) < 0) {
-			Py_DECREF(result);
-			return NULL;
-		}
-	}
-	va_end(vargs);
-	return result;
-}
-
-#if PY_VERSION_HEX < 0x02040000   /* 2.4 */
-static PyObject* PyTuple_Pack(int n, ...)
-{
-	int i;
-	PyObject *o;
-	PyObject *result;
-	PyObject **items;
-	va_list vargs;
-
-	va_start(vargs, n);
-	result = PyTuple_New(n);
-	if (result == NULL) {
-		return NULL;
-	}
-	items = ((PyTupleObject *)result)->ob_item;
-	for (i = 0; i < n; i++) {
-		o = va_arg(vargs, PyObject *);
-		Py_INCREF(o);
-		items[i] = o;
-	}
-	va_end(vargs);
-	return result;
-}
-#endif
-
-#if PY_VERSION_HEX >= 0x02030000   /* 2.3 */
-# define PyObject_GetItem1  PyObject_GetItem
-# define PyObject_SetItem1  PyObject_SetItem
-#else
-/* for Python 2.2 only */
-static PyObject* PyObject_GetItem1(PyObject* obj, PyObject* index)
-{
-	int start, stop, step;
-	if (!PySlice_Check(index)) {
-		return PyObject_GetItem(obj, index);
-	}
-	if (((PySliceObject*) index)->start == Py_None) {
-		start = -INT_MAX-1;
-	} else {
-		start = PyInt_AsLong(((PySliceObject*) index)->start);
-		if (start == -1 && PyErr_Occurred()) {
-			return NULL;
-		}
-	}
-	if (((PySliceObject*) index)->stop == Py_None) {
-		stop = INT_MAX;
-	} else {
-		stop = PyInt_AsLong(((PySliceObject*) index)->stop);
-		if (stop == -1 && PyErr_Occurred()) {
-			return NULL;
-		}
-	}
-	if (((PySliceObject*) index)->step != Py_None) {
-		step = PyInt_AsLong(((PySliceObject*) index)->step);
-		if (step == -1 && PyErr_Occurred()) {
-			return NULL;
-		}
-		if (step != 1) {
-			PyErr_SetString(PyExc_ValueError,
-					"obj[slice]: no step allowed");
-			return NULL;
-		}
-	}
-	return PySequence_GetSlice(obj, start, stop);
-}
-static PyObject* PyObject_SetItem1(PyObject* obj, PyObject* index, PyObject* v)
-{
-	int start, stop, step;
-	if (!PySlice_Check(index)) {
-		return PyObject_SetItem(obj, index, v);
-	}
-	if (((PySliceObject*) index)->start == Py_None) {
-		start = -INT_MAX-1;
-	} else {
-		start = PyInt_AsLong(((PySliceObject*) index)->start);
-		if (start == -1 && PyErr_Occurred()) {
-			return NULL;
-		}
-	}
-	if (((PySliceObject*) index)->stop == Py_None) {
-		stop = INT_MAX;
-	} else {
-		stop = PyInt_AsLong(((PySliceObject*) index)->stop);
-		if (stop == -1 && PyErr_Occurred()) {
-			return NULL;
-		}
-	}
-	if (((PySliceObject*) index)->step != Py_None) {
-		step = PyInt_AsLong(((PySliceObject*) index)->step);
-		if (step == -1 && PyErr_Occurred()) {
-			return NULL;
-		}
-		if (step != 1) {
-			PyErr_SetString(PyExc_ValueError,
-					"obj[slice]: no step allowed");
-			return NULL;
-		}
-	}
-	return PySequence_SetSlice(obj, start, stop, v);
-}
-#endif
-
-static PyObject* skipped(PyObject* self, PyObject* args)
-{
-	PyErr_Format(PyExc_AssertionError,
-		     "calling the skipped function '%s'",
-		     (((PyCFunctionObject *)self) -> m_ml -> ml_name));
-	return NULL;
-}
