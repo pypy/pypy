@@ -64,7 +64,7 @@ class TestItem:
         # removing trailing newline(s) but not the indentation
         self.source = ''.join(lines).rstrip()
 
-    def run(self, pretest=None, postest=None):
+    def run(self, pretest=None, posttest=None):
         """
         Run this TestItem and return a corresponding TestResult object.
 
@@ -202,18 +202,10 @@ class TestSuite:
                 else:
                     self.items.extend(items)
 
-    def testresults(self, results=None):
-        """
-        Return a generator to get the test result for each test item.
-
-        If not None, the argument results must be a list which will
-        receive the result objects for later usage.
-        """
+    def testresults(self):
+        """Return a generator to get the test result for each test item."""
         for item in self.items:
-            result = item.run()
-            if results is not None:
-                results.append(result)
-            yield result
+            yield item.run()
 
 
 if __name__ == '__main__':
