@@ -24,20 +24,21 @@ class PyFrame:
         self.bytecode = bytecode
         self.w_globals = w_globals
         self.w_locals = w_locals
-        self.load_builtins()
+        self.w_builtins = self.load_builtins()
         self.valuestack = Stack()
         self.blockstack = Stack()
         self.last_exception = None
         self.next_instr = 0
 
     def clone(self):
-        f = PyFrame(self.space, self.bytecode, self.w_globals, self.w_locals)
+        # Clone the locals (only the annotation space implements this)
+        w_locals = self.space.clone_locals(self.w_locals)
+        # XXX assume globals are constant
+        f = PyFrame(self.space, self.bytecode, self.w_globals, w_locals)
         f.valuestack = self.valuestack.clone()
         f.blockstack = self.blockstack.clone()
         f.last_exception = self.last_exception
         f.next_instr = self.next_instr
-        # Clone the locals (only the annotation space implements this)
-        f.w_locals = self.space.clone_locals(self.w_locals)
         return f
 
     def eval(self, executioncontext):
@@ -109,7 +110,7 @@ class PyFrame:
     ### frame initialization ###
 
     def load_builtins(self):
-        # initialize self.w_builtins.  This cannot be done in the '.app.py'
+        # compute w_builtins.  This cannot be done in the '.app.py'
         # file for bootstrapping reasons.
         w_builtinsname = self.space.wrap("__builtins__")
         try:
@@ -127,7 +128,7 @@ class PyFrame:
             w_builtins = self.space.getattr(w_builtins, w_attrname)
         except OperationError:
             pass # catch and ignore any error
-        self.w_builtins = w_builtins
+        return w_builtins
 
     ### exception stack ###
 
