@@ -41,6 +41,10 @@ class AppFloatTest(test.AppTestCase):
     def setUp(self):
         self.space = test.objspace('std')
 
+    def test_negatives(self):
+        self.assert_(-1.1 < 0)
+        self.assert_(-0.1 < 0)
+
     def test_float_callable(self):
         self.assertEquals(0.125, float(0.125))
 
