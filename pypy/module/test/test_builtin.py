@@ -16,6 +16,23 @@ class TestBuiltinApp(test.AppTestCase):
         self.assertRaises(ValueError, chr, -1)
         self.assertRaises(TypeError, chr, 'a')
 
+    def test_locals(self):
+        def f():
+            return locals()
+        def g(x=11):
+            return locals()
+        self.assertEquals(f(), {})
+        self.assertEquals(g(), {'x':11})
+        
+    def test_dir(self):
+        def f():
+            return dir()
+        self.assertEquals(f(), [])
+        def g(c=0, b=0, a=0):
+            return dir()
+        self.assertEquals(g(), ['a', 'b', 'c'])
+        
+        
     def test_getattr(self):
         class a: 
             i = 5

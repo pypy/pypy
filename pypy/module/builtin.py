@@ -45,8 +45,11 @@ class __builtin__(ExtModule):
     def globals(self):
         return self._actframe().w_globals
 
+    def caller_locals(self):
+        return self._actframe(-2).getdictscope()
+        
     def locals(self):
-        return self._actframe().w_locals
+        return self._actframe().getdictscope()
 
     def __import__(self, w_modulename, w_globals=None,
                    w_locals=None, w_fromlist=None):
@@ -597,7 +600,9 @@ class __builtin__(ExtModule):
             raise TypeError("dir expected at most 1 arguments, got %d"
                             % len(args))
         if len(args) == 0:
-            return self._getlocalkeys()
+            local_names = self.caller_locals().keys() # 2 stackframes away
+            local_names.sort()
+            return local_names
         
         obj = args[0]
         
@@ -632,10 +637,6 @@ class __builtin__(ExtModule):
                 except (AttributeError, TypeError): pass
                 
             return Dict.keys()
-
-    def _getlocalkeys(self):
-        """Return the local keys of the currenly executing frame."""
-        raise NotImplementedError
 
 # source code for the builtin xrange-class
 xrange_appsource = """if 1: 
