@@ -404,10 +404,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
 # add all regular multimethods to StdObjSpace
 for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
     if not hasattr(StdObjSpace.MM, _name):
-##         if isinstance(getattr(StdObjSpace, _name, None), MultiMethod):
-##             mm = getattr(StdObjSpace, _name)
-##         else:
-        mm = MultiMethod(_symbol, _arity, _specialnames)
+        if _name == 'pow':
+            mm = MultiMethod(_symbol, _arity, _specialnames, defaults=(None,))
+        else:
+            mm = MultiMethod(_symbol, _arity, _specialnames)
         setattr(StdObjSpace.MM, _name, mm)
     if not hasattr(StdObjSpace, _name):
         setattr(StdObjSpace, _name, getattr(StdObjSpace.MM, _name))

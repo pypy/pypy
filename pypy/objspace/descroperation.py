@@ -200,13 +200,18 @@ class DescrOperation:
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
         if w_left_impl is not None:
-            w_res = space.get_and_call_function(w_left_impl, w_obj1, w_obj2,
-                                                w_obj3)
+            if space.is_w(w_obj3, space.w_None):
+                w_res = space.get_and_call_function(w_left_impl, w_obj1, w_obj2)
+            else:
+                w_res = space.get_and_call_function(w_left_impl, w_obj1, w_obj2, w_obj3)
             if _check_notimplemented(space, w_res):
                 return w_res
         if w_right_impl is not None:
-           w_res = space.get_and_call_function(w_right_impl, w_obj2, w_obj1,
-                                                w_obj3)
+           if space.is_w(w_obj3, space.w_None):
+               w_res = space.get_and_call_function(w_right_impl, w_obj2, w_obj1)
+           else:
+               w_res = space.get_and_call_function(w_right_impl, w_obj2, w_obj1,
+                                                   w_obj3)               
            if _check_notimplemented(space, w_res):
                return w_res
 
