@@ -5,19 +5,16 @@ from pypy.interpreter.gateway import app2interp
 from pypy.tool import pydis
     
 class Test_TraceObjSpace(testit.IntTestCase):
-    tspace = None
-    
+
     def setUp(self):
-        # XXX hack so we only have one trace space
-        if Test_TraceObjSpace.tspace is None:
-            newspace = testit.objspace().__class__()
-            Test_TraceObjSpace.tspace = trace.create_trace_space(newspace)
+        self.space = testit.objspace()       
+        trace.create_trace_space(self.space)
         
     def tearDown(self):
-        pass
+        self.space.reset_trace()
 
     def perform_trace(self, app_func):
-        tspace = self.tspace
+        tspace = self.space
         func_gw = app2interp(app_func)
         func = func_gw.get_function(tspace)
         tspace.settrace()
@@ -26,7 +23,7 @@ class Test_TraceObjSpace(testit.IntTestCase):
         return res 
 
     def test_traceobjspace_basic(self):
-        tspace = self.tspace
+        tspace = self.space
         self.assert_(tspace.is_true(tspace.w_builtins))
         #for name, value in vars(self.space).items():
         #    if not name.startswith('_'):
@@ -65,7 +62,7 @@ class Test_TraceObjSpace(testit.IntTestCase):
             1 + 1
         res = self.perform_trace(app_f)
         disresult = pydis.pydis(app_f)
-        uw = self.tspace.unwrap
+        uw = self.space.unwrap
         ops = res.getoperations()
         op_start = self.get_operation(ops, trace.CallBegin, "add")
         args = [uw(x) for x in op_start.callinfo.args]

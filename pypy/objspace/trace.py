@@ -28,6 +28,14 @@ class LeaveFrame(object):
     def __init__(self, frame):
         self.frame = frame
 
+class CallInfo(object):
+    """ encapsulates a function call with its arguments. """
+    def __init__(self, name, func, args, kwargs):
+        self.name = name
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
 class CallBegin(object):
     def __init__(self, callinfo):
         self.callinfo = callinfo
@@ -105,19 +113,6 @@ class ExecutionContextTracer(object):
         """ called just before execution of a bytecode. """
         self.__result.append(ExecBytecode(frame))
 
-    #def exception_trace(self, operror):
-    #    "called if the current frame raises an operation error. "
-    #    print "exception trace", operror
-    #    return self.__ec.exception_trace(operror)
-
-class CallInfo(object):
-    """ encapsulates a function call with its arguments. """
-    def __init__(self, name, func, args, kwargs):
-        self.name = name
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
-
 class CallableTracer(object):
     def __init__(self, result, name, func):
         self.__result = result
@@ -164,7 +159,11 @@ def get_operations():
 
 def create_trace_space(space = None, operations = None):    
     """ Will create a trace object space if no space supplied.  Otherwise
-    the object."""
+    will turn the supplied into a tracable space by extending its class."""
+
+    # Don't trace an already tracable space
+    if hasattr(space, "__pypytrace___"):
+        return space
     
     if space is None:
         # make up a TrivialObjSpace by default
@@ -175,28 +174,41 @@ def create_trace_space(space = None, operations = None):
     if operations is None:
         operations = get_operations()
 
-    class TraceObjSpace(space.__class__):
+    class Trace(space.__class__):
+
         def __getattribute__(self, name):
-            obj = super(TraceObjSpace, self).__getattribute__(name)
-            if callable(obj) and name in operations:
-                return CallableTracer(self.__result, name, obj)
+            obj = super(Trace, self).__getattribute__(name)
+            if name in operations:
+                assert callable(obj)
+                obj = CallableTracer(self._result, name, obj)
             return obj
 
+        def __pypytrace___(self):
+            pass
+
         def settrace(self):
-            self.__result = TraceResult(self)
+            self._result = TraceResult(self)
 
         def getresult(self):
-            return self.__result
-
+            return self._result
+            
         def getexecutioncontext(self):
-            ec = super(TraceObjSpace, self).getexecutioncontext()
+            ec = super(Trace, self).getexecutioncontext()
             assert not isinstance(ec, ExecutionContextTracer)
-            return ExecutionContextTracer(self.__result, ec)
-    space.__class__ = TraceObjSpace
+            return ExecutionContextTracer(self._result, ec)
+        
+        def reset_trace(self):
+            """ Returns the class to it's original form. """
+            space.__class__ = space.__oldclass___
+            del space.__oldclass___
+
+            if hasattr(self, "_result"):
+                del self._result            
+
+    trace_clz = type("Trace" + space.__class__.__name__, (Trace,), {})
+    space.__oldclass___, space.__class__ = space.__class__, trace_clz
     space.settrace()
     return space
-
-TraceObjSpace = Space = create_trace_space
 
 # ______________________________________________________________________
 # End of trace.py

@@ -16,86 +16,195 @@ def getdisresult(obj, _cache={}):
         disresult = _cache[obj] = pydis.pydis(obj)
         return disresult
 
-def line_begin(indent):
-    if indent:
-        return ("  " * indent) + "|-"
-    else:
-        return ""
-    
-def print_result(space, traceres, operations_level = 1000):
-    # XXX Refactor this - make more configurable.
-    indentor = '    '
-    lastframe = None
-    frame_count = 0
-    indent = ""
-    skip_frame_count = None
-    stack_info = []
-    for event in traceres.getevents():
+class Stack(list):
+    push = list.append
+
+    def pop(self):
+        return super(Stack, self).pop(-1)
+
+    def top(self):
+        try:
+            return self[-1]
+        except IndexError:
+            return None
+
+class ResultPrinter:
+
+    def __init__(self,
+                 skip_all_below_op = True,
+                 operations_level = 2,
+                 indentor = '  ',
+                 skip_bytecodes = ["PRINT_EXPR", "PRINT_ITEM", "PRINT_NEWLINE"],
+                 ):
         
-        if isinstance(event, trace.EnterFrame):
-            if not skip_frame_count:
-                print line_begin(frame_count) + ("<<<<<enter %s @ %s>>>>>>>" % (event.frame.code.co_filename, event.frame.code.co_firstlineno))
+        # Configurable stuff
+        self.indentor = indentor
+        self.skip_bytecodes = skip_bytecodes
+        self.operations_level = operations_level
+        self.skip_all_below_op = skip_all_below_op
+        
+        self.reset()
 
-            lastframe = event.frame
-            frame_count += 1
+    def reset(self):
+        # State stuff
+        self.ops = Stack()
+        self.frames = Stack()
+        self.frame_count = 0
+        self.skip_frame_count = None
 
-        elif isinstance(event, trace.LeaveFrame):
-            frame_count -= 1
+    def print_line(self, line, additional_indent = 0):
+        if self.skip_frame_count is not None:
+            return
 
-            # No more bytecodes to skip at this level
-            if frame_count < skip_frame_count:
-                skip_frame_count = 0
+        if self.frame_count:
+            indent = self.frame_count + additional_indent - 1
+            assert (indent >= 0)
+            line = (self.indentor * indent) + "|-" + line 
 
-            if not skip_frame_count:
-                print line_begin(frame_count) + ("<<<<<leave %s >>>>>>>" % lastframe.code.co_filename)
-        elif isinstance(event, trace.ExecBytecode):
+        print line
 
-            if frame_count == skip_frame_count:
-                skip_frame_count = 0
+    def print_line_operations(self, line, additional_indent = 0):
+        # Don't allow operations to be exposed if operations level is up
+        # but do allow operations to be printed
+        if len(self.ops) > self.operations_level:
+            return
 
-            disresult = getdisresult(event.frame) 
-            bytecode = disresult.getbytecode(event.index)
+        self.print_line(line, additional_indent = additional_indent)
+        
+    def print_frame(self, print_type, frame):
 
-            if not skip_frame_count:
-                print line_begin(frame_count), "%2d" % event.index, "      ", bytecode
-            lastframe = event.frame
+        # Don't allow frames to be exposed if operations level is up
+        if len(self.ops) >= self.operations_level:
+            return
 
-            if bytecode.name in ["PRINT_EXPR", "PRINT_ITEM", "PRINT_NEWLINE"]:
-                print line_begin(frame_count + 1), "..."
-                skip_frame_count = frame_count           
+        code = getattr(frame, 'code', None)
+        filename = getattr(code, 'co_filename', "")
+        lineno = getattr(code, 'co_firstlineno', "")
 
-        elif isinstance(event, trace.CallBegin):
-            info = event.callinfo
-            if not skip_frame_count:
-                stack_info.append(info)
-                if len(stack_info) <= operations_level:
-                    print line_begin(frame_count), " " * 17 + ">> ", info.name, repr_args(space, lastframe, info.args)
-                frame_count += 1
+        s = "<<<<<%s %s @ %s>>>>>>>" % (print_type, filename, lineno)
+        self.print_line(s)        
+
+    def print_bytecode(self, index, bytecode):
+        # Don't allow bytecodes to be exposed if operations level is up
+        if len(self.ops) >= self.operations_level:
+            return
+
+        s = "%2d%s%s" % (index, (self.indentor * 2), bytecode)
+        self.print_line(s)
+
+
+    def print_op_enter(self, name, str_args):
+        s = " " * 17
+        s += ">> %s%s" % (name, str_args)
+        self.print_line_operations(s)
+
+
+    def print_op_leave(self, name, str_res):
+        s = " " * 20
+        s += "%s =: %s" % (name, str_res)
+        self.print_line_operations(s)
+
+
+    def print_op_exc(self, name, exc):
+        s = " " * 17
+        s += "x= %s %s" % (name, exc)
+        self.print_line_operations(s)
+
+       
+    def print_result(self, space, traceres):
+
+        self.reset()
+
+        for event in traceres.getevents():
+
+            if isinstance(event, trace.EnterFrame):
+                frame = event.frame
+                self.print_frame("enter", frame)
+
+                self.frames.push(frame)
+                self.frame_count += 1
+                
+            elif isinstance(event, trace.LeaveFrame):
+                lastframe = self.frames.pop()
+                self.frame_count -= 1
+                
+                # Reset skip frame count?
+                if self.frame_count < self.skip_frame_count:
+                    self.skip_frame_count = None
                     
-        elif isinstance(event, trace.CallFinished):
-            info = event.callinfo
-            if not skip_frame_count:
-                assert stack_info.pop(-1) == event.callinfo
-                frame_count -= 1
-                if len(stack_info) < operations_level:
-                    print line_begin(frame_count), " " * 20, info.name, "=: ", repr_value(space, event.res)
-        
-        elif isinstance(event, trace.CallException):
-            info = event.callinfo
-            if not skip_frame_count:
-                assert stack_info.pop(-1) == event.callinfo
-                frame_count -= 1
-                if len(stack_info) < operations_level:
-                    print line_begin(frame_count), " " * 17 + "x= ", info.name, event.ex
-        else:
-            pass
-    
+                self.print_frame("leave", lastframe)           
+                
+            elif isinstance(event, trace.ExecBytecode):
+
+                # Reset skip frame count?
+                if self.frame_count == self.skip_frame_count:
+                    self.skip_frame_count = None
+
+                frame = event.frame 
+                assert (frame == self.frames.top())
+                
+                # Get bytecode from frame
+                disresult = getdisresult(frame)
+                bytecode = disresult.getbytecode(event.index)
+                self.print_bytecode(event.index, bytecode)
+
+                # When operations_level > 1, some bytecodes produce high number of
+                # operations / bytecodes (usually because they have been written at app
+                # level) - this hack avoids them recursing on them selves
+                if bytecode.name in self.skip_bytecodes:
+                    self.print_line("...", 1)
+                    self.skip_frame_count = self.frame_count           
+
+            elif isinstance(event, trace.CallBegin):
+                info = event.callinfo
+
+                self.ops.push(info)
+                lastframe = self.frames.top()
+                self.print_op_enter(info.name, repr_args(space, lastframe, info.args))
+                self.frame_count += 1
+
+            elif isinstance(event, trace.CallFinished):
+                info = event.callinfo
+
+                self.frame_count -= 1
+                self.print_op_leave(info.name, repr_value(space, event.res))
+                
+                assert self.ops.pop() == event.callinfo
+                    
+            elif isinstance(event, trace.CallException):
+                info = event.callinfo
+                self.frame_count -= 1
+                
+                self.print_op_exc(info.name, event.ex)
+                
+                assert self.ops.pop() == event.callinfo
+
+            else:
+                pass
+
+print_result = ResultPrinter().print_result
+
 def repr_value(space, value):
-##     try:
-##         res = str(space.unwrap(value))
-##     except:
-##         res = str(value)
+    """ representations for debugging purposes """        
     res = str(value)
+    try:
+        # XXX Sure this won't go down well - didn't really want
+        # to clutter up the interpeter code 
+        from pypy.interpreter.argument import Arguments
+        from pypy.interpreter.function import Function, Method
+
+        if isinstance(value, Function):
+            res = "Function(%s, %s)" % (value.name, value.code)
+
+        if isinstance(value, Method):
+            res = "Method(%s, %s)" % (value.w_function.name, value.w_function.code)
+
+        if isinstance(value, Arguments):
+            res = "Argument(%s, %s)" % (value.args_w, value.kwds_w)
+
+    except Exception, exc:
+        pass
+    
     return res[:240]
 
 def repr_args(space, frame, args):
