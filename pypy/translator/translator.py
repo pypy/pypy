@@ -18,8 +18,11 @@ Example:
     a = t.annotate([int])              # pass the list of args types
     a.simplify()                       # simplification by annotator
 
+    t.call(arg)                        # call original function
+    t.dis()                            # bytecode disassemble
+
     f = t.compile()                    # pyrex compilation
-    assert f(arg) == func(arg)
+    assert f(arg) == t.call(arg)       # sanity check
 
 Some functions are provided for the benefit of interactive testing.
 Try dir(test) for list of current snippets.
@@ -83,7 +86,12 @@ class Translator:
         return self.py_source
 
     def pyrex(self, input_arg_types=None):
-        """Returns Pyrex translation."""
+        """pyrex(self, [input_arg_types]) -> Pyrex translation
+
+        Returns Pyrex translation. If input_arg_types is provided,
+        returns type annotated translation. Subsequent calls are
+        not affected by this.
+        """
         g = GenPyrex(self.flowgraph)
         if input_arg_types is not None:
             g.annotate(input_arg_types)
@@ -91,10 +99,17 @@ class Translator:
             g.setannotator(self.annotator)
         return g.emitcode()
 
-    def cl(self):
-        """Returns Common Lisp translation."""
+    def cl(self, input_arg_types=None):
+        """cl(self, [input_arg_types]) -> Common Lisp translation
+        
+        Returns Common Lisp translation. If input_arg_types is provided,
+        returns type annotated translation. Subsequent calls are
+        not affected by this.
+        """
         g = GenCL(self.flowgraph)
-        if self.annotator:
+        if input_arg_types is not None:
+            g.annotate(input_arg_types)
+        elif self.annotator:
             g.ann = self.annotator
         return g.emitcode()
 
@@ -108,6 +123,15 @@ class Translator:
         pyxcode = self.pyrex()
         mod = make_module_from_pyxstring(name, udir, pyxcode)
         return getattr(mod, name)
+
+    def call(self, *args):
+        """Calls underlying Python function."""
+        return self.entrypoint(*args)
+
+    def dis(self):
+        """Disassembles underlying Python function to bytecodes."""
+        from dis import dis
+        dis(self.entrypoint)
 
 
 if __name__ == '__main__':
