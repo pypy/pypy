@@ -6,7 +6,7 @@ from pypy.translator.flowmodel import *
 from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
 from pypy.translator.simplify import eliminate_empty_blocks
 
-make_dot = 1
+make_dot = 0
 
 if make_dot: 
     from pypy.translator.test.make_dot import make_dot

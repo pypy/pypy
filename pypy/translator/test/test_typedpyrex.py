@@ -6,14 +6,14 @@ from pypy.translator.genpyrex import GenPyrex
 from pypy.translator.flowmodel import *
 from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
 
-make_dot = 1
+make_dot = 0
 
 if make_dot: 
     from pypy.translator.test.make_dot import make_dot
 else:
     def make_dot(*args): pass
 
-class TestCase(test.IntTestCase):
+class TypedPyrexTestCase(test.IntTestCase):
     def setUp(self):
         self.space = test.objspace('flow')
 

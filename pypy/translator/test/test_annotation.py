@@ -6,7 +6,7 @@ from pypy.tool.udir import udir
 from pypy.translator.annotation import Annotator, set_type, get_type
 from pypy.translator.flowmodel import *
 
-class TestCase(test.IntTestCase):
+class AnnonateTestCase(test.IntTestCase):
     def setUp(self):
         self.space = test.objspace('flow')
 
@@ -127,7 +127,8 @@ class TestCase(test.IntTestCase):
         a = Annotator(fun)
         input_ann = []
         set_type(fun.get_args()[0], int, input_ann)
-        import sys; print >> sys.stderr, a.build_annotations(input_ann)
+        #import sys; print >> sys.stderr, a.build_annotations(input_ann)
+        a.build_annotations(input_ann)
         end_var, end_ann = a.end_annotations()
         self.assertEquals(get_type(end_var, end_ann), int)
 

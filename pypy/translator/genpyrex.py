@@ -54,7 +54,7 @@ class Op:
         return "\n".join(lines)
 
     def op_getitem(self):
-        return "%s = %s[%s]" % (self.resultname,) + self.argnames
+        return "%s = %s[%s]" % ((self.resultname,) + tuple(self.argnames))
 
     def op_newtuple(self):
         if self.argnames:
@@ -90,7 +90,6 @@ class Op:
         else: 
             return "%s = getattr(%s)" % (self.resultname, ", ".join(args))
 
-
 class GenPyrex:
     def __init__(self, functiongraph):
         self.functiongraph = functiongraph
@@ -117,8 +116,8 @@ class GenPyrex:
         return "\n".join(self.lines)
 
     def putline(self, line):
-        if line:
-            self.lines.append("  " * self.indent + line)
+        for l in line.split('\n'):
+            self.lines.append("  " * self.indent + l)
 
     def gen_Graph(self):
         fun = self.functiongraph

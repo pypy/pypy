@@ -1,4 +1,3 @@
-
 import autopath
 from pypy.tool import test
 from pypy.tool.udir import udir
@@ -6,14 +5,14 @@ from pypy.translator.genpyrex import GenPyrex
 from pypy.translator.flowmodel import *
 from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
 
-make_dot = 1
+make_dot = 0
 
 if make_dot: 
     from pypy.translator.test.make_dot import make_dot
 else:
     def make_dot(*args): pass
 
-class TestCase(test.IntTestCase):
+class PyrexGenTestCase(test.IntTestCase):
     def setUp(self):
         self.space = test.objspace('flow')
 
@@ -27,7 +26,7 @@ class TestCase(test.IntTestCase):
         name = func.func_name
         funcgraph = self.space.build_flow(func)
         from pypy.translator.simplify import eliminate_empty_blocks
-        eliminate_empty_blocks(funcgraph)
+        #eliminate_empty_blocks(funcgraph)
         funcgraph.source = inspect.getsource(func)
         result = GenPyrex(funcgraph).emitcode()
         make_dot(funcgraph, udir, 'ps')

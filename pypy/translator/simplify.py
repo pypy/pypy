@@ -2,8 +2,6 @@
 generate Pyrex files from the flowmodel. 
 
 """
-import autopath
-from pypy.tool import test
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.translator.flowmodel import *
 
@@ -56,6 +54,7 @@ def eliminate_empty_blocks(graph):
                     prevbranch.target = nextbranch.target
                 #print "eliminated", node, nextbranch
                 victims = True
+                # restart the elimination-for loop cleanly
                 break
     return graph
 

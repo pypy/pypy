@@ -9,7 +9,7 @@ from pypy.translator.flowmodel import *
 from pypy.translator.test.buildpyxmodule import make_module_from_pyxstring
 #from pypy.translator.test.make_dot import make_ps
 
-class TestCase(test.IntTestCase):
+class SourceGenTestCase(test.IntTestCase):
     def test_simple_func(self):
         """
         one test source:

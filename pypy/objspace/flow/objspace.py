@@ -8,6 +8,7 @@ from pypy.objspace.flow.wrapper import *
 from pypy.translator.flowmodel import *
 from pypy.objspace.flow import flowcontext
 
+debug = 0
 # ______________________________________________________________________
 class FlowObjSpace(ObjSpace):
     def initialize(self):
@@ -110,7 +111,7 @@ def make_op(name, symbol, arity, specialnames):
         elif name == 'id':
             op = id
         else:
-            print >> sys.stderr, "XXX missing operator:", name
+            if debug: print >> sys.stderr, "XXX missing operator:", name
 
     def generic_operator(self, *args_w):
         assert len(args_w) == arity, name+" got the wrong number of arguments"
