@@ -1,4 +1,5 @@
 import sio
+from array import array
 
 class file_(object):
     """An implementation of file objects in Python. it relies on Guido's
@@ -116,3 +117,14 @@ class file_(object):
         for line in seq:
             self.write(line)
         
+    def readinto(self, a=None):
+        'Obsolete method, do not use it.'
+        if self._closed:
+            raise ValueError('I/O operation on closed file')
+        if type(a) != array:
+            raise TypeError('Can only read into array objects')
+        i = 0
+        for char in self.read(len(a)):
+            a[i] = char
+            i += 1
+        return i
