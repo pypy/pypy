@@ -3,7 +3,8 @@ import inspect
 from pypy.translator.tool.pygame.drawgraph import GraphLayout
 from pypy.translator.tool.make_dot import DotGen
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
-from pypy.annotation import model, factory
+from pypy.annotation import model
+from pypy.annotation.classdef import ClassDef
 from pypy.tool.uid import uid
 
 
@@ -202,7 +203,7 @@ class TranslatorLayout(GraphLayout):
 
         # link the function names to the individual flow graphs
         for name, obj in self.object_by_name.iteritems():
-            if isinstance(obj, factory.ClassDef):
+            if isinstance(obj, ClassDef):
                 #data = '%s.%s' % (obj.cls.__module__, obj.cls.__name__)
                 data = repr(obj.cls)
             else:
@@ -228,7 +229,7 @@ class TranslatorLayout(GraphLayout):
 
     def followlink(self, name):
         obj = self.object_by_name[name]
-        if isinstance(obj, factory.ClassDef):
+        if isinstance(obj, ClassDef):
             return ClassDefLayout(self.translator, obj)
         else:
             return FlowGraphLayout(self.translator, [obj], self.name_by_object)
