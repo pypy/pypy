@@ -17,7 +17,7 @@ class W_BoolObject(W_Object):
         return (isinstance(w_other, W_BoolObject) and
                 w_self.boolval == w_other.boolval)
 
-    def __nonzero__(self):
+    def __nonzero__(w_self):
         raise Exception, "you cannot do that, you must use space.is_true()"
 
 

@@ -46,6 +46,13 @@ def _isalnum(ch):
     return (o>=97 and o<=122) \
         or (o>=65 and o<=90) \
         or (o>=48 and o<=57)
+def _isupper(ch):
+    o = ord(ch)
+    return (o>=65 and o<=90)
+
+def _islower(ch):   
+    o = ord(ch)
+    return (o>=97 and o<=122)
 
 
 def _is_generic(w_self, fun): 
@@ -81,6 +88,8 @@ def str_isupper(space, w_self):
 def str_islower(space, w_self):
     return _is_generic(w_self, _islower)
 
+def str_istitle(space, w_self):
+    pass
 
 def str_splitByWhitespace(space, w_self, w_none):
     res = []
@@ -126,7 +135,11 @@ W_StringType.str_split.register(str_splitByWhitespace,
 
 W_StringType.str_isspace.register(str_isspace, W_StringObject)
 W_StringType.str_isdigit.register(str_isdigit, W_StringObject)
-
+W_StringType.str_isalpha.register(str_isalpha, W_StringObject)
+W_StringType.str_isupper.register(str_isupper, W_StringObject)
+W_StringType.str_islower.register(str_islower, W_StringObject)
+W_StringType.str_istitle.register(str_istitle, W_StringObject)
+W_StringType.str_isalnum.register(str_isalnum, W_StringObject)
 
 def str_join(space, w_self, w_list):
     list = space.unpackiterable(w_list)
