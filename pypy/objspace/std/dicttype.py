@@ -24,6 +24,8 @@ class W_DictType(W_TypeObject):
     dict_iteritems  = MultiMethod('iteritems',  1)
     dict_iterkeys   = MultiMethod('iterkeys',   1)
     dict_itervalues = MultiMethod('itervalues', 1)
+    # This can return when multimethods have been fixed
+    #dict_str        = StdObjSpace.str
 
 registerimplementation(W_DictType)
 
@@ -78,6 +80,13 @@ def app_dict_iterkeys__ANY(d):
 def app_dict_itervalues__ANY(d):
     return iter(d.values())
 
-
+# This can return when multimethods have been fixed
+"""
+def app_dict_str__ANY(d):
+    items = []
+    for k, v in d.iteritems():
+        items.append("%r: %r" % (k, v))
+    return "{%s}" % ', '.join(items)
+"""
 gateway.importall(globals())
 register_all(vars(), W_DictType)

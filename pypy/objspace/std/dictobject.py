@@ -6,6 +6,7 @@ for order comparisons.
 """
 
 from pypy.objspace.std.objspace import *
+from pypy.interpreter import gateway
 from dicttype import W_DictType
 from stringobject import W_StringObject
 
@@ -215,4 +216,16 @@ def dict_get__Dict_ANY_ANY(space, w_self, w_lookup, w_default):
             return cell.get()
     return w_default
     
+# Now we only handle one implementation of dicts, this one.
+# The fix is to move this to dicttype.py, and do a
+# multimethod lookup mapping str to StdObjSpace.str
+# This cannot happen until multimethods are fixed. See dicttype.py
+def app_str__Dict(d):
+    items = []
+    for k, v in d.iteritems():
+        items.append("%r: %r" % (k, v))
+    return "{%s}" % ', '.join(items)
+
+repr__Dict = str__Dict = gateway.app2interp(app_str__Dict)
 register_all(vars(), W_DictType)
+
