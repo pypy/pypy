@@ -120,7 +120,6 @@ class TestSuite:
                     items = self._items_from_module(module)
                 except:
                     print "skipping testfile (failed loading it)", modpath
-                    raise
                 else:
                     self.items.extend(items)
 
