@@ -1,6 +1,8 @@
-"""
+"""\
+PyPy Translator Frontend
+
 Glue script putting together the various pieces of the translator.
-Can also be used for interactive testing of the translator, when run as:
+Can be used for interactive testing of the translator. Run as:
 
     python -i translator.py
 
