@@ -5,6 +5,8 @@ import repr
 import keyword
 import linecache
 
+assert sys.version_info >= (2,3), "sorry, can only run with python2.3 and greater"
+
 try:
     import readline
     import rlcompleter
@@ -162,7 +164,10 @@ def trace_interactive(objspace, banner = None):
         readline.set_completer(Completer(s).complete)
         readline.parse_and_bind("tab: complete")
         readline.set_history_length(25000)
-        readline.read_history_file()
+        try:
+            readline.read_history_file()
+        except IOError:
+            pass # guess it doesn't exit 
 
         import atexit
         atexit.register(readline.write_history_file)
