@@ -1,0 +1,206 @@
+From sabre at nondot.org  Fri Oct 29 02:19:53 2004
+From: sabre at nondot.org (Chris Lattner)
+Date: Fri Oct 29 02:01:46 2004
+Subject: [LLVMdev] Getting started with GC
+In-Reply-To: <20041028223528.GA31467@kwai.cs.uiuc.edu>
+Message-ID: <Pine.LNX.4.44.0410290120570.22336-100000@nondot.org>
+
+On Thu, 28 Oct 2004, Tom Brown wrote:
+
+> We have a few questions about the current state of GC.
+
+Ok. :)
+
+> We decided to start (and finish?) our work by finishing SemiSpace.
+
+Sounds good.
+
+> process_pointer is meant to move objects from CurSpace to OtherSpace.
+> How can it find pointers to a moved object?
+
+This is entirely up to you, as you're basically implementing the semispace
+collector in its entirety.  See below.
+
+> How does it know the size of each object?
+
+I'm a big fan of starting simple.  As such, I'd suggest using this scheme:
+
+When an object is allocated: add a size word on front of it.  This size of
+every object should be rounded up to a multiple of 4.  When it is being
+GC'd, replace the size with the forwarding pointer, but with the low bit
+set.  Because the low bit is set, you should be able to tell if an object
+is forwarded or not.  This allows you to do the simple, standard, in-place
+depth-first traversal of the heap when you are GC'ing from one space to
+the other.
+
+> Assuming we are writing a GC that will only work from llvm assembly our
+> best option seems to be forcing the assembly code to follow a convention
+> that identifies pointers.
+
+There are three issues:
+
+1. Object references from the stack
+2. Object references from globals
+3. Object references from the heap
+
+#1 is the hardest from the code generation standpoint, and it is what LLVM
+provides direct support for.  #2 is really a matter of convention, and
+having the GC export and interface that can be used by langugage front-end
+in question to register global pointers.  #3 requires object descriptors
+of some sort, produces by the front-end and consumed by the GC.  See
+below.
+
+> The SemiSpace code could keep a map from each allocated pointer to its
+> size, similar to how I think malloc works.
+
+For this, I would suggest just putting a header word on the object,
+containing the size.  This is not optimal, but will be a good place to
+start.  Later this can be improved.
+
+> http://llvm.cs.uiuc.edu/docs/GarbageCollection.html (Which seems to be
+> the inverse of out-of-date, whatever that is)
+> Says that there is strong dependency between the frontend and GC
+> implementations.
+
+Yes.  The GC needs information from the front-end, in particular how it
+lays out objects and where to find object references.
+
+> For example, it seems as though the frontend and GC need to agree on a
+> structure for the Meta data and they may call each other during
+> allocation and garbage collection.
+
+Yes.  They don't actually need to 'agree', but there needs to be an API
+provided by the language runtime and consumed by the GC, that is used to
+encode the information.  One way is to standardize maps, a more general
+way is to expose API's to access the maps that the front-end produces
+(allowing the front-end to produce them in any format it wants).
+
+> I imagine it would be good to decouple the frontend and GC as much as
+> possible or one may need to be reimplemented when the other is changed.
+> Do you have any intentions for the use of Meta in SemiSpace?
+
+I'm not sure what you mean by 'meta', but if you mean metadata, yes.
+
+> We could trample around and make something work but it seems as
+> though you have built most of the support structure for GC. We are
+> trying to follow that plan.
+
+Sounds good.  This is what I envision.  :)  The 'vision' encompases many
+langauges and different implementation strategies, but lets start with one
+that you are likely to be familiar with.  Anything you do here can be
+extended to the full vision, if and when you find yourself with tons of
+spare time at the end of your project. :)
+
+Lets imagine that you have a language like Java.  All GC'd objects in Java
+have vtables, and from this vtable a wealth of information about the
+object is accessible (e.g. it's size, whether it's an array, GC map
+information, etc).  The layout of objects in Java might look something
+something like this:
+
+
+obj ptr --\
+          |
+          v
+    [ vtable ptr ] ----> [ rtti info ]  ---->  ...
+    [ obj word 1 ]       [ gc info   ]  ----> [ obj size  ]
+    [ obj word 2 ]       [ vf ptr #1 ]        [ Flags     ]    -> is array, etc
+     ...                  ...                 [ gc map #1 ]
+    [ obj word N ]       [ vf ptr #N ]        [ gc map ...]
+
+In addition, there are some number of "globals" (really statics fields in
+Java) that can contain references.  Given this, it seems like your GC
+needs the front-end to provide the following:
+
+1. A way of identifying/iterating all of the global references.  It seems
+   reasonable for the GC to expose a function like "void gc_add_static_root(void**)"
+   which the front-end would emit calls to.  Java has 'class initializers'
+   which are called to initialize static members of classes (and other
+   stuff), so the language front-end could easily insert calls to this
+   function in the initializer.
+2. A way of getting the size of an object.  Initially you can use a header
+   word on the object, but eventually, it would be nice if the front-end
+   runtime library would provide a function, say
+   "unsigned gc_fe_get_object_size(void *object)", which could be called
+   by the GC implementation to get this information.  With the approach
+   above, if the object was a non-array, it would just get the object size
+   field from the GC info (using several pointer dereferences from
+   'object'.  If it's an array, the FE runtime would do something perhaps
+   more complex to get this info, but you wouldn't really care what it
+   was :).  VM's like Java often specialize a number of other cases (like
+   strings) as well, and obviously the GC doesn't want to know the details
+   of this hackery.
+3. A way of iterating over the (language specific) GC map information for
+   a heap object.  In particular, you need a way to identify the
+   offsets of all of the outgoing pointers from the start of a heap object.
+   I'm not sure what the best way to do this is (or the best way to
+   encode this) but I'm sure you can come up with something. :)  The most
+   naive and inefficient interface (always a good starting place) would be
+   to have the front-end provide a callback:
+     _Bool gc_fe_is_pointer(void *obj, unsigned offset)
+   that the GC can use to probe all of the words in the object to see if
+   they are pointers.  This can obviously be improved. :)
+
+In a naive implementation, the result of these callbacks will be
+extremely inefficient, as all of these functions are very small and will
+be extremely frequently called when a GC happens.  In practice, because
+this is LLVM, we can do things a little bit smarter. :)
+
+In particular, when a source language's runtime library is built, it will
+include two things: all of the GC hooks it is required to implement, and
+an actual GC implementation, chosen from runtime/GC directory.  When this
+is linked together, the link-time optimizer will link all of the little
+helper functions above into the GC, inlining and optimizing the result,
+resulting in a no overhead solution.
+
+
+As far as your class project, the following steps make sense to me:
+
+The first step is to get the alloc_loop testcase fully working, as it
+doesn't require any of the fancy extra interfaces.  This can be done
+directly by adding the object header (I believe), and finishing semispace
+as it stands today.  This should be simple and get you started with the GC
+interfaces.
+
+The next step in this is to flush out the interface between the GC and
+the language runtime.  The GC doesn't want to know anything about how the
+FE lays out vtables and GC info, and the front-end doesn't want to know
+anything about how the GC implements its algorithm.  The
+runtime/GC/GCInterface.h file is a start on this, but the callbacks
+described above will also need to be added.
+
+The next step is to extend alloc_loop to use these interfaces.  It might
+be useful to translate it to C code, to make it easier to deal with.
+>From there, you can add one feature at a time, iterating between adding
+features (like global pointers or pointers in heap objects) to the
+alloc_loop test, and adding features to the GC.  Eventually you will have
+the full set of features listed above.
+
+Note that (by hacking on alloc_loop and other testcases you write), you
+are basically writing a file that would be generated by a garbage
+collected language front-end.  Because of this, you get to write all of
+the vtables/GC info by hand, and can include the "language runtime"
+callbacks directly in the program.
+
+
+This is a somewhat big task, but can be done incrementally.  Let me
+emphasize this point: to do this successfully, it is pretty important that
+you try to add one little step to the testcase, and add the corresponding
+feature to the GC, working a step at a time.  As you find that you need to
+change the interfaces on either side, go ahead and do so.  If you work
+incrementally, you will always have something that *works*, and is better
+than the previous step.  If you add something that is completely horrible
+and you decide is a bad idea, you can always revert to something close by
+that is known good.  For your course project, you obviously want to get
+the most implemented possible (ideally all of the above), but if technical
+difficulties or other unforseen problems come up, at least you will have
+something working and some progress to show.
+
+If you have any questions, please feel free to ask here.  I'm pretty busy
+over these couple of weeks (so my answers may be a little slow), but I
+really want you guys to be successful!
+
+-Chris
+
+-- 
+http://llvm.org/
+http://nondot.org/sabre/

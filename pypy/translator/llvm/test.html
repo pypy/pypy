@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.3.7: http://docutils.sourceforge.net/" />
+<title>Description of the llvm backend</title>
+<link rel="stylesheet" href="default.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="description-of-the-llvm-backend">
+<h1 class="title">Description of the llvm backend</h1>
+<p>The llvm backend (&quot;genllvm&quot;) tries to generate llvm-assembly out of an
+annotated flowgraph. The annotation has to be complete for genllvm to
+work. The produced assembly can then be optimized and converted to native code
+by llvm. A simple Pyrex wrapper for the entry function is then generated to be
+able to use the llvm-compiled functions from Python.</p>
+<div class="section" id="how-to-use-genllvm">
+<h1><a name="how-to-use-genllvm">How to use genllvm</a></h1>
+<p>To try it out use the function 'llvmcompile' in the module
+pypy.translator.llvm.genllvm on an annotated flowgraph:</p>
+<pre class="literal-block">
+%pypy/translator/llvm&gt; python -i genllvm.py
+&gt;&gt;&gt; t = Translator(test.my_gcd) 
+&gt;&gt;&gt; a = t.annotate([int, int])
+&gt;&gt;&gt; f = llvmcompile(t)
+&gt;&gt;&gt; f(10, 2)
+2
+&gt;&gt;&gt; f(14, 7)
+7
+</pre>
+</div>
+<div class="section" id="structure">
+<h1><a name="structure">Structure</a></h1>
+<p>The llvm backend consists of several parts:</p>
+<blockquote>
+<ol class="arabic simple">
+<li></li>
+</ol>
+</blockquote>
+<div class="section" id="things-that-work">
+<h2><a name="things-that-work">Things that work:</a></h2>
+<blockquote>
+<ul class="simple">
+<li>ints, bools, function calls</li>
+</ul>
+</blockquote>
+</div>
+</div>
+</div>
+</body>
+</html>
