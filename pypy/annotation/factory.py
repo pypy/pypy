@@ -158,6 +158,7 @@ class CallableFactory:
                 s_self = immutablevalue(func.im_self)
                 args = [s_self] + list(args)
             func = func.im_func
+        assert isinstance(func, FunctionType), "expected function, got %r"%func
         return self.bookkeeper.annotator.recursivecall(func, self, *args)
 
         #if hasattr(func, 'specialize'):
