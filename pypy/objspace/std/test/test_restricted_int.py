@@ -2,6 +2,9 @@ import unittest
 import autopath
 from pypy.tool import testit
 from pypy.objspace.std.restricted_int import *
+import sys
+
+maxint_mask = (sys.maxint*2 + 1)
 
 class Test_r_int(testit.TestCase):
 
@@ -109,12 +112,12 @@ class Test_r_uint(testit.TestCase):
 
     def unary_test(self, f):
         for arg in (0, 3, 12345):
-            res = f(arg) & 0xffffffffl
+            res = f(arg) & maxint_mask 
             cmp = f(r_uint(arg))
             self.assertEquals(res, cmp)
         
     def binary_test(self, f, rargs = None):
-        mask = 0xffffffffl
+        mask = maxint_mask 
         if not rargs:
             rargs = (1, 3, 55)
         for larg in (0, 1, 2, 3, 1234):
