@@ -165,11 +165,8 @@ class GenCL:
         self.setannotator(ann)
     def setannotator(self, annotator):
         self.ann = annotator
-        self.bindings = annotator.bindings
-        self.transaction = annotator.transaction()
     def get_type(self, var):
-        cell = self.bindings.get(var)
-        return self.transaction.get_type(cell)
+        return self.ann.gettype(var)
     def str(self, obj):
         if isinstance(obj, Variable):
             return obj.name

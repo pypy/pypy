@@ -146,7 +146,7 @@ class GenPyrex:
             oparity[opname] = arity
         self.ops = ops  
         self.oparity = oparity
-        self.bindings = {}
+        self.annotator = None
 
     def annotate(self, input_arg_types):
         a = RPythonAnnotator()
@@ -154,8 +154,7 @@ class GenPyrex:
         self.setannotator(a)
 
     def setannotator(self, annotator):
-        self.bindings = annotator.bindings
-        self.transaction = annotator.transaction()
+        self.annotator = annotator
 
     def emitcode(self):
         self.blockids = {}
@@ -209,9 +208,8 @@ class GenPyrex:
     def get_type(self, var):
         if isinstance(var, Constant):
             return type(var.value)
-        elif var in self.bindings:
-            cell = self.bindings[var]
-            return self.transaction.get_type(cell)
+        elif self.annotator:
+            return self.annotator.gettype(var)
         else:
             return None
 

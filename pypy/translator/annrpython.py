@@ -44,6 +44,21 @@ class RPythonAnnotator:
         # recursively proceed until no more pending block is left
         self.complete()
 
+    def gettype(self, variable):
+        """Return the known type of a control flow graph variable, or None."""
+        if isinstance(variable, Constant):
+            return type(variable.value)
+        elif isinstance(variable, Variable):
+            cell = self.bindings.get(variable)
+            if cell:
+                cell = self.heap.get(ANN.type, cell)
+                if cell:
+                    return cell
+            return None
+        else:
+            raise TypeError, ("Variable or Constant instance expected, "
+                              "got %r" % (variable,))
+
 
     #___ medium-level interface ____________________________
 

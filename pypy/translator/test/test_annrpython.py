@@ -3,7 +3,7 @@ import autopath
 from pypy.tool import test
 from pypy.tool.udir import udir
 
-from pypy.translator.annrpython import RPythonAnnotator
+from pypy.translator.annrpython import RPythonAnnotator, ANN
 from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import *
 
@@ -45,8 +45,7 @@ class AnnonateTestCase(test.IntTestCase):
         block.closeblock(Link([result], fun.returnblock))
         a = RPythonAnnotator()
         a.build_types(fun, [int])
-        end_cell = a.binding(fun.getreturnvar())
-        self.assertEquals(a.transaction().get_type(end_cell), int)
+        self.assertEquals(a.gettype(fun.getreturnvar()), int)
 
     def test_while(self):
         """
@@ -73,8 +72,7 @@ class AnnonateTestCase(test.IntTestCase):
 
         a = RPythonAnnotator()
         a.build_types(fun, [int])
-        end_cell = a.binding(fun.getreturnvar())
-        self.assertEquals(a.transaction().get_type(end_cell), int)
+        self.assertEquals(a.gettype(fun.getreturnvar()), int)
 
     def test_while_sum(self):
         """
@@ -109,8 +107,7 @@ class AnnonateTestCase(test.IntTestCase):
 
         a = RPythonAnnotator()
         a.build_types(fun, [int])
-        end_cell = a.binding(fun.getreturnvar())
-        self.assertEquals(a.transaction().get_type(end_cell), int)
+        self.assertEquals(a.gettype(fun.getreturnvar()), int)
 
     #def test_simplify_calls(self):
     #    fun = self.make_fun(f_calls_g)
@@ -125,12 +122,11 @@ class AnnonateTestCase(test.IntTestCase):
         a = RPythonAnnotator()
         a.build_types(fun, [int])
         # result should be a list of integers
-        t = a.transaction()
+        self.assertEquals(a.gettype(fun.getreturnvar()), list)
         end_cell = a.binding(fun.getreturnvar())
-        self.assertEquals(t.get_type(end_cell), list)
-        item_cell = t.get('getitem', [end_cell, None])
-        self.failIf(item_cell is None)
-        self.assertEquals(t.get_type(item_cell), int)
+        item_cell = a.heap.get(ANN.listitems, end_cell)
+        self.assert_(item_cell)
+        self.assertEquals(a.heap.get(ANN.type, item_cell), int)
 
     def test_factorial(self):
         translator = Translator(snippet.factorial)
@@ -138,9 +134,7 @@ class AnnonateTestCase(test.IntTestCase):
         a = RPythonAnnotator(translator)
         a.build_types(graph, [int])
         # result should be an integer
-        t = a.transaction()
-        end_cell = a.binding(graph.getreturnvar())
-        self.assertEquals(t.get_type(end_cell), int)
+        self.assertEquals(a.gettype(graph.getreturnvar()), int)
 
 
 def g(n):

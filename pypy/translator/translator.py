@@ -35,7 +35,7 @@ from pypy.annotation.model import *
 from pypy.annotation.annset import *
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.translator.simplify import simplify_graph
-#from pypy.translator.genpyrex import GenPyrex
+from pypy.translator.genpyrex import GenPyrex
 #from pypy.translator.gencl import GenCL
 from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring
 from pypy.objspace.flow import FlowObjSpace
