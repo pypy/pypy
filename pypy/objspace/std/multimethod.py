@@ -26,6 +26,17 @@ class FailedToImplement(Exception):
 #   one may be automatically registered in the other one to keep
 #   them in sync.
 
+# for dispatching use the result of these functions instead of directly
+# using .__class__
+
+def dispatchtype(obj):
+    try:
+        return obj.dispatchtype
+    except AttributeError:
+        return obj.__class__
+
+def todispatchtype(cls):
+    return getattr(cls,'dispatchtype',cls)
 
 class AbstractMultiMethod(object):
     """Abstract base class for MultiMethod and UnboundMultiMethod
@@ -95,7 +106,7 @@ class MultiMethod(AbstractMultiMethod):
         self.unbound_versions = {}
 
     def __get__(self, space, cls=object):
-        if issubclass(cls, self.BASE_TYPE_OBJECT):
+        if issubclass(todispatchtype(cls), self.BASE_TYPE_OBJECT):
             return self.slice(cls).get(space)
         elif space is None:
             return self  # hack for "StdObjSpace.xyz" returning xyz
@@ -213,7 +224,7 @@ class BoundMultiMethod:
             if e.args:
                 raise OperationError(*e.args)
             else:
-                initialtypes = [a.__class__
+                initialtypes = [dispatchtype(a)
                                 for a in args[:self.multimethod.arity]]
                 if len(initialtypes) <= 1:
                     plural = ""
@@ -232,13 +243,13 @@ class BoundMultiMethod:
 
         if self.ASSERT_BASE_TYPE:
             for a in args[:arity]:
-                assert isinstance(a, self.ASSERT_BASE_TYPE), (
+                assert issubclass(dispatchtype(a), self.ASSERT_BASE_TYPE), (
                     "multimethod '%s' call with non wrapped argument: %r" %
                     (self.multimethod.operatorsymbol, a))
 
         # look for an exact match first
         firstfailure = None
-        types = tuple([(a.__class__,) for a in args])
+        types = tuple([(dispatchtype(a),) for a in args])
         choicelist = self.multimethod.buildchoices(types)
         for signature, function in choicelist:
             try:
@@ -276,7 +287,8 @@ class BoundMultiMethod:
                     else:
                         converted = function(self.space, curobjs[t])
                         if not isinstance(converted, list):
-                            converted = [(converted.__class__, converted)]
+                            converted = [(dispatchtype(converted),
+                                          converted)]
                         for t, a in converted:
                             if t not in curobjs:
                                 curtypes += (t,)
