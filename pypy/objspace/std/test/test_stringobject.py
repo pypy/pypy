@@ -121,7 +121,11 @@ class AppTestStringObject:
 
     def test_split(self):
         assert "".split() == []
+        assert " ".split() == []
         assert "a".split() == ['a']
+        assert "a".split("a", 1) == ['', '']
+        assert " ".split(" ", 1) == ['', '']
+        assert "aa".split("a", 2) == ['', '', '']
         assert " a ".split() == ['a']
         assert "a b c".split() == ['a','b','c']
         assert 'this is the split function'.split() == ['this', 'is', 'the', 'split', 'function']

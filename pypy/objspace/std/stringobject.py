@@ -306,8 +306,6 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
         #next = value.find(by, start)    #of course we cannot use 
                                          #the find method, 
         if next < 0:
-            res.append(value[start:])
-            start = len(value) + 1      
             break
         res.append(value[start:next])
         start = next + bylen
@@ -316,8 +314,7 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
         if maxsplit > -1:
             splitcount = splitcount - 1
 
-    if start < len(value):             
-        res.append(value[start:])
+    res.append(value[start:])
 
     for i in range(len(res)):
         res[i] = W_StringObject(w_self.space, res[i])
