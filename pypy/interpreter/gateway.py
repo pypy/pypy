@@ -22,6 +22,7 @@ from pypy.tool.getpy import py  # XXX from interpreter/ we get py.py
 NoneNotWrapped = object()
 
 class Signature:
+    "NOT_RPYTHON"
     def __init__(self, func=None, argnames=None, varargname=None,
                  kwargname=None, name = None):
         self.func = func
@@ -52,6 +53,7 @@ class Signature:
 
 
 class UnwrapSpecRecipe:
+    "NOT_RPYTHON"
 
     bases_order = [BaseWrappable, W_Root, ObjSpace, Arguments, object]
 
@@ -224,58 +226,87 @@ class BuiltinFrame(eval.Frame):
             self.space.wrap("cannot get fastscope of a BuiltinFrame"))
 
     def run(self):
+        try:
+            w_result = self._run()
+        except KeyboardInterrupt: 
+            raise OperationError(self.space.w_KeyboardInterrupt, self.space.w_None) 
+        except MemoryError: 
+            raise OperationError(self.space.w_MemoryError, self.space.w_None) 
+        except RuntimeError, e: 
+            raise OperationError(self.space.w_RuntimeError, 
+                                 self.space.wrap("internal error" + str(e))) 
+        if w_result is None:
+            w_result = self.space.w_None
+        return w_result
+
+    def _run(self):
         """Subclasses with behavior specific for an unwrap spec are generated"""
         raise TypeError, "abstract"
 
+class FuncBox(object):
+    pass
+
 class BuiltinCodeSignature(Signature):
+    "NOT_RPYTHON"
 
     def __init__(self,*args,**kwds):
+        self.unwrap_spec = kwds.get('unwrap_spec')
+        del kwds['unwrap_spec']
         Signature.__init__(self,*args,**kwds)
         self.setfastscope = []
         self.run_args = []
         self.through_scope_w = 0
         self.miniglobals = {}
 
-    def make_frame_class(self, func):
-        setfastscope = self.setfastscope
-        if not setfastscope:
-            setfastscope = ["pass"]
-        setfastscope = ["def setfastscope(self, scope_w):",
-                        #"print 'ENTER',self.code.func.__name__",
-                        #"print scope_w"
-                        ] + setfastscope
-        setfastscope = '\n  '.join(setfastscope)
-        # Python 2.2 SyntaxError without newline: Bug #501622
-        setfastscope += '\n'
-        d = {}
-        exec compile(setfastscope, '', 'exec') in self.miniglobals, d
+    def _make_unwrap_frame_class(self, cache={}):
+        try:
+            key = tuple(self.unwrap_spec)
+            frame_cls, box_cls,  run_args = cache[key]
+            assert run_args == self.run_args,"unexpected: same spec, different run_args"
+            return frame_cls, box_cls
+        except KeyError:
+            label = '_'.join([getattr(el, '__name__', el) for el in self.unwrap_spec])
+            print label
+            setfastscope = self.setfastscope
+            if not setfastscope:
+                setfastscope = ["pass"]
+            setfastscope = ["def setfastscope_UWS_%s(self, scope_w):" % label,
+                            #"print 'ENTER',self.code.func.__name__",
+                            #"print scope_w"
+                            ] + setfastscope
+            setfastscope = '\n  '.join(setfastscope)
+            # Python 2.2 SyntaxError without newline: Bug #501622
+            setfastscope += '\n'
+            d = {}
+            exec compile(setfastscope, '', 'exec') in self.miniglobals, d
+            d['setfastscope'] = d['setfastscope_UWS_%s' % label]
+            del d['setfastscope_UWS_%s' % label]
 
-        self.miniglobals['func'] = func
-        self.miniglobals['OperationError'] = OperationError
-        source = """if 1: 
-            def run(self):
-                try:
-                    w_result = func(%s)
-                except KeyboardInterrupt: 
-                    raise OperationError(self.space.w_KeyboardInterrupt, self.space.w_None) 
-                except MemoryError: 
-                    raise OperationError(self.space.w_MemoryError, self.space.w_None) 
-                except RuntimeError, e: 
-                    raise OperationError(self.space.w_RuntimeError, 
-                                         self.space.wrap("internal error" + str(e))) 
-                if w_result is None:
-                    w_result = self.space.w_None
-                return w_result
-            \n""" % ','.join(self.run_args) 
-        exec compile(source, '', 'exec') in self.miniglobals, d
+            self.miniglobals['OperationError'] = OperationError
+            source = """if 1: 
+                def _run_UWS_%s(self):
+                    return self.box.func(%s)
+                \n""" % (label, ','.join(self.run_args))
+            exec compile(source, '', 'exec') in self.miniglobals, d
+            d['_run'] = d['_run_UWS_%s' % label]
+            del d['_run_UWS_%s' % label]
+            frame_cls = type("BuiltinFrame_UWS_%s" % label, (BuiltinFrame,), d)
+            box_cls = type("FuncBox_UWS_%s" % label, (FuncBox,), {})
+            cache[key] = frame_cls, box_cls, self.run_args
+            return frame_cls, box_cls
+
+    def make_frame_class(self, func, cache={}):
+        frame_uw_cls, box_cls = self._make_unwrap_frame_class()
+        box = box_cls()
+        box.func = func
         return type("BuiltinFrame_for_%s" % self.name,
-                    (BuiltinFrame,),d)
+                    (frame_uw_cls,),{'box': box})
         
 def make_builtin_frame_class(func, orig_sig, unwrap_spec):
     "NOT_RPYTHON"
     name = (getattr(func, '__module__', None) or '')+'_'+func.__name__
     emit_sig = orig_sig.apply_unwrap_spec(unwrap_spec, UnwrapSpecRecipe().emit,
-                                              BuiltinCodeSignature(name=name))
+                                              BuiltinCodeSignature(name=name, unwrap_spec=unwrap_spec))
     cls = emit_sig.make_frame_class(func)
     return cls
 

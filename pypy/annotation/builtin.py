@@ -40,6 +40,9 @@ def builtin_chr(s_int):
 def builtin_ord(s_chr):
     return SomeInteger(nonneg=True)
 
+def builtin_id(o):
+    return SomeInteger()
+
 def builtin_unicode(s_obj): 
     return SomeString() 
 

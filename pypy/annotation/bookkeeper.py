@@ -246,7 +246,7 @@ class Bookkeeper:
         try:
             inputcells = args.match_signature(signature, defs_s)
         except ArgErr, e:
-            print 'IGNORED', e     # hopefully temporary hack
+            assert False, 'ABOUT TO IGNORE %r' % e     # hopefully temporary hack
             return SomeImpossibleValue()
 
         return self.annotator.recursivecall(func, self.position_key, inputcells)
