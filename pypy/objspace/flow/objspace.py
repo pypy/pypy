@@ -47,7 +47,7 @@ class FlowObjSpace(ObjSpace):
 
     def reraise(self):
         etype, evalue, etb = sys.exc_info()
-        print >> sys.stderr, '*** reraise', etype, evalue
+        #print >> sys.stderr, '*** reraise', etype, evalue
         raise OperationError, OperationError(self.wrap(etype), self.wrap(evalue)), etb
 
     def build_flow(self, func):

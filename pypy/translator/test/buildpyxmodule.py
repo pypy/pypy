@@ -71,4 +71,4 @@ def make_c_from_pyxfile(pyxfile):
             raise ValueError, "failure %s" % result
     except PyrexError, e:
         print >>sys.stderr, e
-    cfile = pyxfile.newsuffix('.c')
+    cfile = pyxfile.newext('.c')

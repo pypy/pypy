@@ -1,3 +1,5 @@
+Task: update pypy homepage
+
 Task: fix interpreter-level object introspection from app-level 
       (make dis.dis(dis.dis) goal work as a side effect)
 
@@ -6,7 +8,7 @@ Task: provide an importer that can include packages (we can't at the
 
 Task: complete builtins! (like e.g. 'dir')
 
-Task: slicing with assigments & more small things (finish review)
+Task: slicing with assigments & more small things (finish StdObjSpace review!)
 
       lst[::-2] = lst2
 
@@ -14,7 +16,8 @@ Task: try tests of CPython in PyPy
 
 Task: generate a nice dot-graph from the structure of PyPy
 
-Task: trash the standard unittest framework
+
+Task: trash the standard unittest framework/enhance it
 
 Task: complete the list of operations in type inference (annotation.py)
 
@@ -22,6 +25,5 @@ Task: (documentation) remove/retire all web-pages referencing e.g.
       AnnSpace or other deprecated stuff
 
 Task: (documentation) do more and enhance
-
 
 

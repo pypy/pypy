@@ -195,7 +195,7 @@ def make_dot(fun, udir, target='ps'):
     from vpath.adapter.process import exec_cmd
     dest = udir.join('%s.dot' % name)
     dest.write(dotgen.get_source(fun))
-    psdest = dest.newsuffix(target)
+    psdest = dest.newext(target)
     out = exec_cmd('dot -T%s %s' % (target, str(dest)))
     psdest.write(out)
     print "wrote", psdest
