@@ -597,8 +597,8 @@ class TextInputFilter(Stream):
             assert not self.atcr
             data = self.buf
             self.buf = ""
-            return data
-        data = self.do_read(n)
+        else:
+            data = self.do_read(n)
 
         # The following whole ugly mess is because we need to keep track of
         # exactly which line separators we have seen for self.newlines,
