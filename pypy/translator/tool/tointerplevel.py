@@ -20,9 +20,11 @@ def main():
 
     options, args = opt_parser.parse_args()
 
+    if len(args) < 1:
+        opt_parser.error("missing module-file")
     if len(args) < 2:
-        opt_parser.error("missing module-file and at least one obj-name")
-
+        print "no obj-name given. Using the module dict!"
+        
     modfile = os.path.abspath(args[0])
 
     name = os.path.splitext(os.path.basename(modfile))[0]
@@ -43,22 +45,17 @@ def main():
         try:
             objs.append(getattr(mod, objname))
         except AttributeError, e:
-            raise Exception,"module has no object '%s'" % name
+            raise Exception,"module has no object '%s'" % objname
 
-    if len(objs) == 1:
+    if len(objs) == 0:
+        entrypoint = mod.__dict__
+    elif len(objs) == 1:
         entrypoint = objs[0]
     else:
         entrypoint = tuple(objs)
 
     t = Translator(None, verbose=False, simplifying=True)
-    gen = GenRpy(t, entrypoint, modname)
-    def gen_trailer(info, indent):
-        print >>gen.f, indent + "return %s" % gen.nameof(entrypoint)
-        print >>gen.f
-
-    gen.use_fast_call = True
-    gen.moddict = mod.__dict__ # xxx control this
-    gen.gen_trailer = gen_trailer
+    gen = GenRpy(t, entrypoint, modname, mod.__dict__)
 
     output = options.output or modname + "interp.py"
 

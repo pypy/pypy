@@ -45,6 +45,9 @@ from pypy.interpreter.gateway import app2interp, interp2app
 
 from pypy.tool.sourcetools import render_docstr
 
+# change default
+FlowObjSpace.builtins_can_raise_exceptions = True
+
 # ____________________________________________________________
 
 def c_string(s):
@@ -113,14 +116,14 @@ def eval_helper(self, typename, expr):
     return name
 
 class GenRpy:
-    def __init__(self, translator, entrypoint=None, modname=None):
+    def __init__(self, translator, entrypoint=None, modname=None, moddict=None):
         self.translator = translator
         if entrypoint is None:
             entrypoint = translator.entrypoint
         self.entrypoint = entrypoint
         self.modname = self.trans_funcname(modname or
                         uniquemodulename(entrypoint))
-        self.moddict = None # the dict if we translate a module
+        self.moddict = moddict # the dict if we translate a module
         self.rpynames = {Constant(None).key:  'space.w_None',
                          Constant(False).key: 'space.w_False',
                          Constant(True).key:  'space.w_True',
@@ -145,7 +148,7 @@ class GenRpy:
 
         self.space = FlowObjSpace() # for introspection
 
-        self.use_fast_call = False
+        self.use_fast_call = True
 
         self._space_arities = None
         
@@ -547,7 +550,6 @@ class GenRpy:
     def nameof_builtin_function_or_method(self, func):
         if func.__self__ is None:
             # builtin function
-            
             # where does it come from? Python2.2 doesn't have func.__module__
             for modname, module in sys.modules.items():
                 if hasattr(module, '__file__'):
@@ -875,12 +877,17 @@ class GenRpy:
                 print >> f, indent + codeline
 
         self.gen_trailer(info, "    ")
-                         
-        f.close()
+        # do not close the file here!
 
     def gen_trailer(self, info, indent):
-        info['entrypointname'] = self.trans_funcname(self.entrypoint.__name__)
-        print >> self.f, self.RPY_INIT_FOOTER % info
+        if self.moddict:
+            # we are generating a module, no __main__ etc.
+            print >> self.f, indent + "return %s" % self.nameof(self.entrypoint)
+            print >> self.f
+        else:
+            # we should have an entrypoint function
+            info['entrypointname'] = self.trans_funcname(self.entrypoint.__name__)
+            print >> self.f, self.RPY_INIT_FOOTER % info
        
     def gen_global_declarations(self):
         g = self.globaldecl
@@ -1393,14 +1400,13 @@ entrypoints = (small_loop,
                 all_entries)
 entrypoint = entrypoints[-2]
 
-if __name__ == "__main__":
+if False and __name__ == "__main__":
     # XXX TODO:
     # extract certain stuff like a general module maker
     # and put this into tools/compile_exceptions, maybe???
     dic, entrypoint = exceptions_helper()
     t = Translator(None, verbose=False, simplifying=True)
     gen = GenRpy(t, entrypoint)
-    gen.use_fast_call = True
     gen.moddict = dic
     gen.gen_source('/tmp/look.py')
     
@@ -1439,3 +1445,60 @@ def crazy_test():
     t = Translator(test, verbose=False, simplifying=True)
     gen2 = GenRpy(t)
     gen2.gen_source("/tmp/look2.py")
+
+
+import py.code
+import cStringIO as StringIO
+
+def translate_as_module(sourcetext, modname="app2interpexec", tmpname=None):
+    """ compile sourcetext as a module, translatingto interp level.
+    The result is the init function that creates the wrapped module dict.
+    This init function needs a space as argument.
+    Example:
+
+    initfunc = translate_as_module(text)
+    from pypy.objspace.stdimport Space
+    space = Space()
+    dic = ini(space)
+    # and now use the members of the dict
+    """
+    # create something like a module
+    code = py.code.Source(sourcetext).compile()
+    dic = {'__name__': modname}
+    exec code in dic
+    del dic['__builtins__']
+    entrypoint = dic
+    t = Translator(None, verbose=False, simplifying=True)
+    gen = GenRpy(t, entrypoint, modname, dic)
+    if tmpname:
+        out = file(tmpname, 'w')
+        def readback():
+            out.close()
+            return file(tmpname, 'r').read()
+    else:
+        import cStringIO as StringIO
+        out = StringIO.StringIO()
+        def readback():
+            out.seek(0)
+            return out.read()
+    gen.f = out
+    gen.gen_source_temp()
+    newsrc = readback()
+    code = py.code.Source(newsrc).compile()
+    dic = {'__name__': modname}
+    exec code in dic
+    # now we just need to return the init function,
+    # which then needs to be called with the space to return the dict.
+    return dic['init%s' % modname]
+
+testcode = """
+def f(a, b):
+    return a + b
+
+def g():
+    return f(f(1, 2), f(4, 8))
+"""
+
+if __name__ == '__main__':
+    res = translate_as_module(testcode)#, tmpname='/tmp/look.py')
+    
