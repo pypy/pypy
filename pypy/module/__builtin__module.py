@@ -947,5 +947,5 @@ def reversed(iterable):
             yield local_iterable[index]
     return reversed_gen(seq)
 
-from _file import file_ as file
-open = file
+#from _file import file
+#open = file
