@@ -6,7 +6,7 @@ The PyPy codebase, documentation and web pages are controlled by subversion.
 If you already know how to use it here is the URL you need to interact
 with subversion:
 
-``http://codespeak.net/svn/pypy/trunk/``
+``http://codespeak.net/svn/pypy/dist``
 
 If you don't know what to do then Jens-Uwe Mager has prepared some 
 installation files which should help you to install subversion on
