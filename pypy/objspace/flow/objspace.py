@@ -379,7 +379,7 @@ class FlowObjSpace(ObjSpace):
                 # one specified by 'outcome', and not a subclass of it,
                 # unless 'outcome' is Exception.
                 if outcome is not Exception:
-                    w_exc_cls = Constant(outcome, last_exception=True)
+                    w_exc_cls = Constant(outcome)
                 raise OperationError(w_exc_cls, w_exc_value)
 
 # ______________________________________________________________________

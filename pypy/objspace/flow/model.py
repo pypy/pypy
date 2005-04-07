@@ -160,7 +160,7 @@ class Variable:
 
 
 class Constant:
-    def __init__(self, value, **flags):
+    def __init__(self, value):
         self.value = value     # a concrete value
         # try to be smart about constant mutable or immutable values
         key = type(self.value), self.value  # to avoid confusing e.g. 0 and 0.0
@@ -169,10 +169,6 @@ class Constant:
         except TypeError:
             key = id(self.value)
         self.key = key
-        if not flags:
-            self.flags = None
-        else:
-            self.flags = flags
             
     def __eq__(self, other):
         return self.__class__ is other.__class__ and self.key == other.key
@@ -183,9 +179,6 @@ class Constant:
     def __hash__(self):
         return hash(self.key)
 
-    def has_flag(self, flag_name):
-        return self.flags and flag_name in self.flags
-
     def __repr__(self):
         # try to limit the size of the repr to make it more readable
         r = repr(self.value)
@@ -194,12 +187,7 @@ class Constant:
             r = '%s %s' % (type(self.value).__name__, self.value.__name__)
         elif len(r) > 60 or (len(r) > 30 and type(self.value) is not str):
             r = r[:20] + '...' + r[-8:]
-        if self.flags:
-            flags = ' '.join([':'+f for f in self.flags.keys()])
-            flags = ' '+flags
-        else:
-            flags = ''
-        return '(%s%s)' % (r, flags)
+        return '(%s)' % (r,)
 
 class SpaceOperation:
     def __init__(self, opname, args, result):

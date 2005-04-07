@@ -378,31 +378,19 @@ class RPythonAnnotator:
                     last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
                 last_exc_value_vars = []
                 in_except_block = True
-                last_exception_unknown = True
-                last_exception_unused = True
-                
+
             cells = []
-            renaming = dict(zip(link.args,link.target.inputargs))
+            renaming = {}
+            for a,v in zip(link.args,link.target.inputargs):
+                renaming.setdefault(a, []).append(v)
             for a,v in zip(link.args,link.target.inputargs):
                 if a == Constant(last_exception):
                     assert in_except_block
-                    assert last_exception_unknown
                     cells.append(last_exception_object)
-                    last_exception_unused = False
                 elif a == Constant(last_exc_value):
                     assert in_except_block
                     cells.append(last_exc_value_object)
                     last_exc_value_vars.append(v)
-                elif isinstance(a, Constant) and a.has_flag('last_exception'):
-                    assert in_except_block
-                    assert last_exception_unused
-                    if last_exception_unknown:
-                        # this modeling should be good enough
-                        # the exc type is not seen by user code
-                        last_exception_object.const = a.value 
-                    cell = last_exception_object
-                    cells.append(cell)
-                    last_exception_unknown = False
                 else:
                     cell = self.binding(a)
                     if link.exitcase is True and knownvars is not None and a in knownvars \
@@ -411,9 +399,8 @@ class RPythonAnnotator:
                     if hasattr(cell,'is_type_of'):
                         renamed_is_type_of = []
                         for v in cell.is_type_of:
-                            new_v = renaming.get(v,None)
-                            if new_v is not None:
-                                renamed_is_type_of.append(new_v)
+                            new_vs = renaming.get(v,[])
+                            renamed_is_type_of += new_vs
                         cell = annmodel.SomeObject()
                         cell.is_type_of = renamed_is_type_of
                     cells.append(cell)

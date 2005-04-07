@@ -70,7 +70,7 @@ def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""
     return cls2 is object or issubclass(cls1, cls2)
 
-def builtin_isinstance(s_obj, s_type, variable=None):
+def builtin_isinstance(s_obj, s_type, variables=None):
     s = SomeBool() 
     if s_type.is_constant():
         typ = s_type.const
@@ -87,24 +87,25 @@ def builtin_isinstance(s_obj, s_type, variable=None):
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
         bk = getbookkeeper()
-        if variable is None:
+        if variables is None:
             fn, block, i = bk.position_key
             op = block.operations[i]
             assert op.opname == "simple_call" 
             assert len(op.args) == 3
             assert op.args[0] == Constant(isinstance)
-            variable = op.args[1]
-        assert bk.annotator.binding(variable) == s_obj
-        s.knowntypedata = ([variable], bk.valueoftype(typ))
+            variables = [op.args[1]]
+        for variable in variables:
+            assert bk.annotator.binding(variable) == s_obj
+        s.knowntypedata = (variables, bk.valueoftype(typ))
     return s 
 
 def builtin_issubclass(s_cls1, s_cls2):
     if s_cls1.is_constant() and s_cls2.is_constant():
         return immutablevalue(issubclass(s_cls1.const, s_cls2.const))
-    if hasattr(s_cls1, 'is_type_of') and len(s_cls1.is_type_of) == 1:
-        var = s_cls1.is_type_of[0]
+    if hasattr(s_cls1, 'is_type_of'):
+        vars = s_cls1.is_type_of
         annotator = getbookkeeper().annotator
-        return builtin_isinstance(annotator.binding(var), s_cls2, var)
+        return builtin_isinstance(annotator.binding(vars[0]), s_cls2, vars)
     return SomeBool()
 
 def builtin_getattr(s_obj, s_attr, s_default=None):
