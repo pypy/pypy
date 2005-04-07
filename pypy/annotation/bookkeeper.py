@@ -88,6 +88,8 @@ class Bookkeeper:
             result = SomeString()
         elif tp is tuple:
             result = SomeTuple(items = [self.immutablevalue(e) for e in x])
+        elif tp is float:
+            result = SomeFloat()
         elif tp is list:
             items_s = [self.immutablevalue(e) for e in x]
             result = SomeList({}, unionof(*items_s))

@@ -94,7 +94,13 @@ class SomeObject:
     del set_caused_by_merge
 
 
-class SomeInteger(SomeObject):
+class SomeFloat(SomeObject):
+    "Stands for a float or an integer."
+    knowntype = float   # if we don't know if it's a float or an int,
+                        # pretend it's a float.
+
+
+class SomeInteger(SomeFloat):
     "Stands for an object which is known to be an integer."
     knowntype = int
     def __init__(self, nonneg=False, unsigned=False):

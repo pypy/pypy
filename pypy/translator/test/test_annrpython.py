@@ -685,6 +685,11 @@ class TestAnnonateTestCase:
         assert isinstance(s, annmodel.SomeList)
         assert s.s_item == s
 
+    def test_harmonic(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.harmonic, [int])
+        assert s.knowntype == float
+
 def g(n):
     return [0,1,2,n]
 

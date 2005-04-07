@@ -7,7 +7,7 @@ from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
-from pypy.annotation.model import SomePBC, SomeSlice
+from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import generalize
 from pypy.annotation.bookkeeper import getbookkeeper
@@ -172,6 +172,14 @@ class __extend__(pairtype(SomeString, SomeObject)):
 
     def mod((str, args)):
         return SomeString()
+
+
+class __extend__(pairtype(SomeFloat, SomeFloat)):
+    
+    def union((flt1, flt2)):
+        return SomeFloat()
+
+    add = sub = mul = div = mod = union
 
 
 class __extend__(pairtype(SomeList, SomeList)):

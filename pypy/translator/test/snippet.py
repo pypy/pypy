@@ -601,6 +601,12 @@ def powerset(setsize=int):
         bitmask += 1
     return powerset
 
+def harmonic(n):
+    result = 0.0
+    for i in range(n, 0, -1):
+        result += 1.0 / n
+    return result
+
 # --------------------(Currently) Non runnable Functions ---------------------
 
 def _somebug1(n=int):
