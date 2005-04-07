@@ -14,6 +14,7 @@ from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, generalize, ListFactory
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
+from pypy.annotation.builtin import builtin_issubclass
 
 # convenience only!
 def immutablevalue(x):
@@ -21,7 +22,7 @@ def immutablevalue(x):
 
 UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr',
                         'simple_call', 'call_args',
-                        'iter', 'next', 'invert', 'type'])
+                        'iter', 'next', 'invert', 'type', 'issubtype'])
 
 for opname in UNARY_OPERATIONS:
     missing_operation(SomeObject, opname)
@@ -43,7 +44,10 @@ class __extend__(SomeObject):
         assert annotator.binding(op.args[0]) == obj
         r.is_type_of = [op.args[0]]
         return r
-    
+
+    def issubtype(obj, s_cls):
+        return builtin_issubclass(obj, s_cls)
+
     def len(obj):
         return SomeInteger(nonneg=True)
 

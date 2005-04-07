@@ -122,6 +122,69 @@ class OperationError(Exception):
             import debug
             debug.fire(self)
 
+    def normalize_exception(self, space):
+        """Normalize the OperationError.  In other words, fix w_type and/or
+        w_value to make sure that the __class__ of w_value is exactly w_type.
+        """
+        w_type  = self.w_type
+        w_value = self.w_value
+        if space.full_exceptions:
+            while space.is_true(space.isinstance(w_type, space.w_tuple)):
+                w_type = space.getitem(w_type, space.wrap(0))
+
+        if space.is_true(space.abstract_isclass(w_type)):
+            if space.is_w(w_value, space.w_None):
+                # raise Type: we assume we have to instantiate Type
+                w_value = space.call_function(w_type)
+                w_type = space.abstract_getclass(w_value)
+            else:
+                w_valuetype = space.abstract_getclass(w_value)
+                if space.is_true(space.abstract_issubclass(w_valuetype,
+                                                           w_type)):
+                    # raise Type, Instance: let etype be the exact type of value
+                    w_type = w_valuetype
+                else:
+                    if space.full_exceptions and space.is_true(
+                        space.isinstance(w_value, space.w_tuple)):
+                        # raise Type, tuple: assume the tuple contains the
+                        #                    constructor args
+                        w_value = space.call(w_type, w_value)
+                    else:
+                        # raise Type, X: assume X is the constructor argument
+                        w_value = space.call_function(w_type, w_value)
+                    w_type = space.abstract_getclass(w_value)
+
+        elif space.full_exceptions and space.is_w(space.type(w_type),
+                                                  space.w_str):
+            # XXX warn -- deprecated
+            pass
+        else:
+
+            # raise X: we assume that X is an already-built instance
+            if not space.is_w(w_value, space.w_None):
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("instance exception may not "
+                                                "have a separate value"))
+            w_value = w_type
+            w_type = space.abstract_getclass(w_value)
+            if space.full_exceptions:
+                # for the sake of language consistency we should not allow
+                # things like 'raise 1', but it is probably fine (i.e.
+                # not ambiguous) to allow them in the explicit form
+                # 'raise int, 1'
+                try:
+                    space.getattr(w_value, space.wrap('__dict__'))
+                except OperationError:
+                    try:
+                        space.getattr(w_value, space.wrap('__slots__'))
+                    except OperationError:
+                        raise OperationError(space.w_TypeError,
+                            space.wrap("raising built-in objects can "
+                                       "be ambiguous, "
+                                       "use 'raise type, value' instead"))
+        self.w_type  = w_type
+        self.w_value = w_value
+
 
 # Utilities
 from pypy.tool.ansi_print import ansi_print

@@ -606,17 +606,12 @@ class TestAnnonateTestCase:
         s = a.build_types(f, [object])
         assert s.knowntype is C
 
-    def test_implicit_exc(self):
-        def f(l):
-            try:
-                l[0]
-            except (KeyError, IndexError),e:
-                return e
-            return None
-
+    def test_ann_assert(self):
+        def assert_(x):
+            assert x,"XXX"
         a = RPythonAnnotator()
-        s = a.build_types(f, [list])
-        assert s.knowntype is LookupError
+        s = a.build_types(assert_, [])
+        assert s.const is None
 
     def test_overrides(self):
         import sys

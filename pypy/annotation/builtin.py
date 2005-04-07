@@ -70,7 +70,7 @@ def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""
     return cls2 is object or issubclass(cls1, cls2)
 
-def builtin_isinstance(s_obj, s_type):
+def builtin_isinstance(s_obj, s_type, variable=None):
     s = SomeBool() 
     if s_type.is_constant():
         typ = s_type.const
@@ -87,21 +87,25 @@ def builtin_isinstance(s_obj, s_type):
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
         bk = getbookkeeper()
-        fn, block, i = bk.position_key
-        annotator = bk.annotator
-        op = block.operations[i]
-        assert op.opname == "simple_call" 
-        assert len(op.args) == 3
-        assert op.args[0] == Constant(isinstance)
-        assert annotator.binding(op.args[1]) == s_obj
-        s.knowntypedata = ([op.args[1]], bk.valueoftype(typ))
+        if variable is None:
+            fn, block, i = bk.position_key
+            op = block.operations[i]
+            assert op.opname == "simple_call" 
+            assert len(op.args) == 3
+            assert op.args[0] == Constant(isinstance)
+            variable = op.args[1]
+        assert bk.annotator.binding(variable) == s_obj
+        s.knowntypedata = ([variable], bk.valueoftype(typ))
     return s 
 
 def builtin_issubclass(s_cls1, s_cls2):
     if s_cls1.is_constant() and s_cls2.is_constant():
         return immutablevalue(issubclass(s_cls1.const, s_cls2.const))
-    else:
-        return SomeBool()
+    if hasattr(s_cls1, 'is_type_of') and len(s_cls1.is_type_of) == 1:
+        var = s_cls1.is_type_of[0]
+        annotator = getbookkeeper().annotator
+        return builtin_isinstance(annotator.binding(var), s_cls2, var)
+    return SomeBool()
 
 def builtin_getattr(s_obj, s_attr, s_default=None):
     if not s_attr.is_constant() or not isinstance(s_attr.const, str):
@@ -222,6 +226,9 @@ for name, value in globals().items():
 BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_int] = builtin_int
 BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_uint] = restricted_uint
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
+# this one is needed otherwise when annotating assert in a test we may try to annotate 
+# py.test AssertionError.__init__ .
+BUILTIN_ANALYZERS[AssertionError.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[sys.getrefcount] = count
 BUILTIN_ANALYZERS[math.fmod] = math_fmod
 BUILTIN_ANALYZERS[math.floor] = math_floor

@@ -1121,8 +1121,7 @@ class GenRpy:
                 # which goes to the last err%d_%d label written above.
                 # Since we only have OperationError, we need to select:
                 yield "except %s, e:" % (self.nameof(OperationError),)
-                yield "    e.w_type, e.w_value, _ign = space.unpacktuple("
-                yield "        space.normalize_exception(e.w_type, e.w_value, space.w_None), 3)"
+                yield "    e.normalize_exception(space)"
                 q = "if"
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)

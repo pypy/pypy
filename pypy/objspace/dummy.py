@@ -77,6 +77,9 @@ class DummyObjSpace(ObjSpace):
         self.w_Ellpisis = W_Special(Ellipsis)
         self.w_False = self.wrap(0)
         self.w_True = self.wrap(1)
+        self.w_tuple = W_Special(tuple)
+        self.w_type = W_Special(type)
+        self.w_str = W_Special(str)
 
         for en in ObjSpace.ExceptionTable:
             setattr(self, 'w_'+en, self.wrap(en))

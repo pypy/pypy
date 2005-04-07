@@ -321,7 +321,10 @@ class Bookkeeper:
 def getbookkeeper():
     """Get the current Bookkeeper.
     Only works during the analysis of an operation."""
-    return getthreadlocals().bookkeeper
+    try:
+        return getthreadlocals().bookkeeper
+    except AttributeError:
+        return None
 
 def ishashable(x):
     try:

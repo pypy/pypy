@@ -166,9 +166,10 @@ class SomeIterator(SomeObject):
 
 class SomeInstance(SomeObject):
     "Stands for an instance of a (user-defined) class."
-    def __init__(self, classdef):
+    def __init__(self, classdef, can_be_None=False):
         self.classdef = classdef
         self.knowntype = classdef.cls
+        self.can_be_None = can_be_None
     def fmt_knowntype(self, kt):
         return None
     def fmt_classdef(self, cd):

@@ -33,6 +33,8 @@ General
 
 * review whatever you like 
 
+* sys.last_type/last_value are not normalized -- bug
+
 StdObjSpace
 ===========
 

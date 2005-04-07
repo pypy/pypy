@@ -214,10 +214,6 @@ class ObjSpace(object):
                 check_list.extend(exclst)
         return False
 
-    def normalize_exception(self, w_type, w_value, w_tb):
-        from pypy.interpreter import pyframe
-        return pyframe.normalize_exception(self, w_type,w_value, w_tb)
-
     def call(self, w_callable, w_args, w_kwds=None):
         args = Arguments.frompacked(self, w_args, w_kwds)
         return self.call_args(w_callable, args)
@@ -265,6 +261,19 @@ class ObjSpace(object):
                 return self.abstract_issubclass(w_objcls, w_cls)
             except OperationError:
                 return self.w_False
+
+    def abstract_isclass(self, w_obj):
+        if self.is_true(self.isinstance(w_obj, self.w_type)):
+            return self.w_True
+        try:
+            self.getattr(w_obj, self.wrap('__bases__'))
+        except OperationError:
+            return self.w_False
+        else:
+            return self.w_True
+
+    def abstract_getclass(self, w_obj):
+        return self.getattr(w_obj, self.wrap('__class__'))
 
 
     def eval(self, expression, w_globals, w_locals):

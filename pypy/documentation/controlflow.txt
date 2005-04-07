@@ -90,6 +90,9 @@ Constant
     A Constant can occasionally store a mutable Python object.  It represents a static, pre-initialized, read-only version of that object.  The flow graph should not attempt to actually mutate such Constants.
 
 
+XXX talk about implicit exceptions
+
+
 How the FlowObjSpace works
 --------------------------
 

@@ -312,31 +312,31 @@ class PyInterpFrame(pyframe.PyFrame):
         # we use the .app.py file to prepare the exception/value/traceback
         # but not to actually raise it, because we cannot use the 'raise'
         # statement to implement RAISE_VARARGS
+        space = f.space
         if nbargs == 0:
-            operror = f.space.getexecutioncontext().sys_exc_info()
+            operror = space.getexecutioncontext().sys_exc_info()
             if operror is None:
-                raise OperationError(f.space.w_TypeError,
-                    f.space.wrap("raise: no active exception to re-raise"))
+                raise OperationError(space.w_TypeError,
+                    space.wrap("raise: no active exception to re-raise"))
             # re-raise, no new traceback obj will be attached
             raise pyframe.SApplicationException(operror)
-        w_value = w_traceback = f.space.w_None
+        w_value = w_traceback = space.w_None
         if nbargs >= 3: w_traceback = f.valuestack.pop()
         if nbargs >= 2: w_value     = f.valuestack.pop()
         if 1:           w_type      = f.valuestack.pop()
-        w_resulttuple = f.space.normalize_exception(w_type, w_value,
-                                                    w_traceback)
-        w_type, w_value, w_traceback = f.space.unpacktuple(w_resulttuple, 3)
-        if w_traceback is not f.space.w_None:
-            tb = f.space.interpclass_w(w_traceback)
-            if not isinstance(tb,pytraceback.PyTraceback):
-                raise OperationError(f.space.w_TypeError,
-                      f.space.wrap("raise: arg 3 must be a traceback or None"))
-            operror = OperationError(w_type,w_value,tb)
+        operror = OperationError(w_type, w_value)
+        operror.normalize_exception(space)
+        if not space.full_exceptions or space.is_w(w_traceback, space.w_None):
+            # common case
+            raise operror
+        else:
+            tb = space.interpclass_w(w_traceback)
+            if not isinstance(tb, pytraceback.PyTraceback):
+                raise OperationError(space.w_TypeError,
+                      space.wrap("raise: arg 3 must be a traceback or None"))
+            operror.application_traceback = tb
             # re-raise, no new traceback obj will be attached
             raise pyframe.SApplicationException(operror) 
-        else:
-            # common-case
-            raise OperationError(w_type, w_value)
 
     def LOAD_LOCALS(f):
         f.valuestack.push(f.w_locals)

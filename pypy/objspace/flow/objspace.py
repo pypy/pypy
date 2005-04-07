@@ -45,8 +45,10 @@ class FlowObjSpace(ObjSpace):
         self.w_None     = Constant(None)
         self.w_False    = Constant(False)
         self.w_True     = Constant(True)
+        self.w_type     = Constant(type)
+        self.w_tuple    = Constant(tuple)
         for exc in [KeyError, ValueError, IndexError, StopIteration,
-                    AssertionError]:
+                    AssertionError, TypeError]:
             clsname = exc.__name__
             setattr(self, 'w_'+clsname, Constant(exc))
         # the following exceptions are the ones that should not show up
@@ -206,61 +208,17 @@ class FlowObjSpace(ObjSpace):
                 return ecls
         return None
 
-    def normalize_exception(space, w_arg1, w_arg2, w_tb):
-        """Special-case for 'raise' statements.  Case-by-case analysis:
+    def abstract_issubclass(self, w_obj, w_cls, failhard=False):
+        return self.issubtype(w_obj, w_cls)
 
-        * raise Class
-           - with a constant Class, it is easy to recognize.
-             But we don't normalize: the associated value is None.
+    def abstract_isinstance(self, w_obj, w_cls):
+        return self.isinstance(w_obj, w_cls)
 
-        * raise Class(...)
-           - when the class is instantiated in-place, we can figure that out
+    def abstract_isclass(self, w_obj):
+        return self.isinstance(w_obj, self.w_type)
 
-        * raise Instance
-           - assumes that it's not a class, and raises an exception whose class
-             is variable and whose value is Instance.
-
-        * raise Class, Arg
-           - assumes that Arg is the value you want for the exception, and
-             that Class is exactly the exception class.  No check or normalization.
-        """
-
-        # w_arg3 (the traceback) is ignored and replaced with None
-        # if it is a Variable, because pyopcode.py tries to unwrap it.
-        # It means that we ignore the 'tb' argument of 'raise' in most cases.
-        if not isinstance(w_tb, Constant):
-            w_tb = space.w_None
-
-        if w_arg2 != space.w_None:
-            # raise Class, Arg: no normalization
-            return (w_arg1, w_arg2, w_tb)
-
-        etype = space.getconstclass(w_arg1)
-        if etype is not None:
-            # raise Class
-            return (w_arg1, space.w_None, w_tb)
-
-        # raise Class(..)?  We need a hack to figure out of which class it is.
-        # Normally, Instance should have been created by the previous operation
-        # which should be a simple_call(<Class>, ...).
-        # Fetch the <Class> out of there.  (This doesn't work while replaying)
-        # XXX this case is likely not triggered anymore, because the instance creation op
-        # is walled off in a different block by the surrounding it with exception
-        # handling logic that is always put in place for calls.
-        # We may want to make this more clever!
-        operations = space.executioncontext.recorder.crnt_block.operations
-        if operations:
-            spaceop = operations[-1]
-            if (spaceop.opname == 'simple_call' and
-                spaceop.result is w_arg1):
-                w_type = spaceop.args[0]
-                return (w_type, w_arg1, w_tb)
-
-        # raise Instance.  Fall-back.
-        w_type = space.do_operation('type', w_arg1)
-        return (w_type, w_arg1, w_tb)
-        # this function returns a real tuple that can be handled
-        # by FlowObjSpace.unpacktuple()
+    def abstract_getclass(self, w_obj):
+        return self.type(w_obj)
 
 
     def build_flow(self, func, constargs={}):
@@ -289,13 +247,13 @@ class FlowObjSpace(ObjSpace):
         return ec.graph
 
     def unpacktuple(self, w_tuple, expected_length=None):
-        # special case to accept either Constant tuples
-        # or real tuples of Variables/Constants
-        if isinstance(w_tuple, tuple):
-            result = w_tuple
-        else:
-            unwrapped = self.unwrap(w_tuple)
-            result = tuple([Constant(x) for x in unwrapped])
+##        # special case to accept either Constant tuples
+##        # or real tuples of Variables/Constants
+##        if isinstance(w_tuple, tuple):
+##            result = w_tuple
+##        else:
+        unwrapped = self.unwrap(w_tuple)
+        result = tuple([Constant(x) for x in unwrapped])
         if expected_length is not None and len(result) != expected_length:
             raise ValueError, "got a tuple of length %d instead of %d" % (
                 len(result), expected_length)
@@ -469,6 +427,12 @@ def extract_cell_content(c):
     x_cell == c
     return x.other
 
+def type_or_something_similar(x):
+    t = type(x)
+    if t is types.ClassType:   # guess who's here?  exception classes...
+        t = type
+    return t
+
 def make_op(name, symbol, arity, specialnames):
     if hasattr(FlowObjSpace, name):
         return # Shouldn't do it
@@ -482,6 +446,8 @@ def make_op(name, symbol, arity, specialnames):
         #    op = apply
         if name == 'issubtype':
             op = issubclass
+        elif name == 'type':
+            op = type_or_something_similar
         elif name == 'is_':
             op = lambda x, y: x is y
         elif name == 'getattr':

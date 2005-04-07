@@ -24,7 +24,7 @@ BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
                          'getitem', 'setitem',
                          'inplace_add', 'inplace_sub',
                          'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_',
-                         'union', 'issubtype',
+                         'union',
                          'lshift',
                          ])
 
@@ -100,20 +100,26 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         if obj2.is_constant():
             if obj1.is_constant(): 
                 r.const = obj1.const is obj2.const
+            if obj2.const is None and not getattr(obj1, 'can_be_None', True):
+                r.const = False
+        elif obj1.is_constant():
+            if obj1.const is None and not getattr(obj2, 'can_be_None', True):
+                r.const = False
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
         bk = getbookkeeper()
-        if hasattr(obj1,'is_type_of') and obj2.is_constant():
-            r.knowntypedata = (obj1.is_type_of, bk.valueoftype(obj2.const))
-            return r
-        fn, block, i = bk.position_key
-        annotator = bk.annotator
-        op = block.operations[i]
-        assert op.opname == "is_" 
-        assert len(op.args) == 2
-        assert annotator.binding(op.args[0]) == obj1 
-        r.knowntypedata = ([op.args[0]], obj2)
+        if bk is not None: # for testing
+            if hasattr(obj1,'is_type_of') and obj2.is_constant():
+                r.knowntypedata = (obj1.is_type_of, bk.valueoftype(obj2.const))
+                return r
+            fn, block, i = bk.position_key
+            annotator = bk.annotator
+            op = block.operations[i]
+            assert op.opname == "is_" 
+            assert len(op.args) == 2
+            assert annotator.binding(op.args[0]) == obj1 
+            r.knowntypedata = ([op.args[0]], obj2)
         return r
 
 class __extend__(pairtype(SomeInteger, SomeInteger)):
@@ -270,7 +276,7 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
         if basedef is None:
             # print warning?
             return SomeObject()
-        return SomeInstance(basedef)
+        return SomeInstance(basedef, can_be_None=ins1.can_be_None or ins2.can_be_None)
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 
@@ -329,7 +335,7 @@ class __extend__(pairtype(SomeObject, SomeImpossibleValue)):
 class __extend__(pairtype(SomeInstance, SomePBC)):
     def union((ins, pbc)):
         if pbc.isNone():
-            return ins
+            return SomeInstance(classdef=ins.classdef, can_be_None = True)
         classdef = ins.classdef.superdef_containing(pbc.knowntype)
         if classdef is None:
             # print warning?
@@ -350,15 +356,3 @@ class __extend__(pairtype(SomeList, SomePBC)):
 class __extend__(pairtype(SomePBC, SomeList    )):
     def union((pbc, lst)):
         return pair(lst, pbc).union()
-
-
-class __extend__(pairtype(SomeObject, SomePBC)):
-    def issubtype((obj, pbc)):
-        s = SomeBool()
-        if obj.is_constant() and pbc.is_constant():
-            s.const = issubclass(obj.const, pbc.const)
-        if hasattr(obj,'is_type_of') and pbc.is_constant():
-            bk = getbookkeeper()
-            s.knowntypedata = (obj.is_type_of, bk.valueoftype(pbc.const))
-        return s
-

@@ -372,10 +372,7 @@ class RPythonAnnotator:
             if isinstance(link.exitcase, (types.ClassType, type)) \
                    and issubclass(link.exitcase, Exception):
                 last_exception_object = annmodel.SomeObject()
-                if link.exitcase is Exception:
-                    last_exc_value_object = annmodel.SomeObject()
-                else:
-                    last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
+                last_exc_value_object = annmodel.SomeObject()
                 last_exc_value_vars = []
                 in_except_block = True
                 last_exception_unknown = True

@@ -11,6 +11,29 @@ s5 = SomeList({}, SomeTuple([SomeInteger(nonneg=False), SomeString()]))
 s6 = SomeImpossibleValue()
 slist = [s1,s2,s3,s4,s5,s6]
 
+
+class C(object):
+    pass
+
+class DummyClassDef:
+    def __init__(self, cls=C):
+        self.cls = cls
+
+si0 = SomeInstance(DummyClassDef(), True)
+si1 = SomeInstance(DummyClassDef())
+sNone = SomePBC({None: True})
+sTrue = SomeBool()
+sTrue.const = True
+sFalse = SomeBool()
+sFalse.const = False
+
+def test_is_None():
+    assert pair(sNone, sNone).is_() == sTrue
+    assert pair(si1, sNone).is_() == sFalse
+    assert pair(si0, sNone).is_() != sTrue
+    assert pair(si0, sNone).is_() != sFalse
+    assert pair(si0, sNone).is_() == SomeBool()
+
 def test_equality():
     assert s1 != s2 != s3 != s4 != s5 != s6
     assert s1 == SomeObject()
