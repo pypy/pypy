@@ -416,9 +416,11 @@ class GenRpy:
         if not namestr:
             namestr = "_emptystr_"
         name = self.uniquename('gs_' + namestr[:32])
-        # self.initcode.append1('%s = space.newstring(%r)' % (name, value))
-        # ick! very unhandy
-        self.initcode.append1('%s = space.wrap(%r)' % (name, value))
+        if len(value) < 30 and "\n" not in value:
+            txt = '%s = space.wrap(%r)' % (name, value)
+        else:
+            txt = render_docstr(value, '%s = space.wrap(\n' % name, ')')
+        self.initcode.append(txt)
         return name
 
     def skipped_function(self, func):
@@ -426,7 +428,7 @@ class GenRpy:
         # that raises an exception when called.
         name = self.uniquename('gskippedfunc_' + func.__name__)
         self.globaldecl.append('# global decl %s' % (name, ))
-        self.initcode.append1('# build func %s' % name)
+        self.initcode.append('# build func %s' % name)
         return name
 
     def skipped_class(self, cls):
@@ -640,8 +642,12 @@ class GenRpy:
 
         if cls.__doc__ is not None:
             sdoc = self.nameof("__doc__")
-            docstr = render_docstr(cls, "_doc = space.wrap(", ")")
-            self.initcode.append1((docstr,)) # not splitted
+            docobj = cls.__dict__["__doc__"]
+            if type(docobj) in (str, unicode):
+                docstr = render_docstr(cls, "_doc = space.wrap(", ")")
+                self.initcode.append((docstr,)) # not splitted
+            else:
+                self.initcode.append("_doc = %s" % self.nameof(docobj) )
             self.initcode.append("space.setitem(_dic, %s, _doc)" % (
                 self.nameof("__doc__"),))
         self.initcode.append1('_bases = space.newtuple([%(bases)s])\n'
@@ -1491,11 +1497,6 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     # and now use the members of the dict
     """
     # create something like a module
-    # the following code will be removed when app_descriptor works
-    ##print 80*"T", sourcetext
-    if "class property" in sourcetext:
-        # debugging app_descriptor.py
-        tmpname = "/tmp/look.py"
     if filename is None: 
         code = py.code.Source(sourcetext).compile()
     else: 

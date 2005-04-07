@@ -1,5 +1,3 @@
-# NOT_RPYTHON  -- there is a problem with initialising a property's __doc__
-# XXX but it *should* work
 """
 Plain Python definition of the builtin descriptors.
 """
