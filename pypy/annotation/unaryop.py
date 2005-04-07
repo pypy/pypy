@@ -8,21 +8,23 @@ from pypy.annotation.pairtype import pair
 from pypy.annotation.model import SomeObject, SomeInteger, SomeBool
 from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
-from pypy.annotation.model import SomeInstance, SomeBuiltin 
+from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeFloat
 from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
 from pypy.annotation.model import unionof, set, setunion, missing_operation
 from pypy.annotation.factory import BlockedInference, generalize, ListFactory
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
-from pypy.annotation.builtin import builtin_issubclass
+from pypy.annotation import builtin
 
 # convenience only!
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
 UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr',
-                        'simple_call', 'call_args',
-                        'iter', 'next', 'invert', 'type', 'issubtype'])
+                        'simple_call', 'call_args', 'str', 'repr',
+                        'iter', 'next', 'invert', 'type', 'issubtype',
+                        'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
+                        'ord', 'int', 'float', 'long']) 
 
 for opname in UNARY_OPERATIONS:
     missing_operation(SomeObject, opname)
@@ -30,7 +32,7 @@ for opname in UNARY_OPERATIONS:
 
 class __extend__(SomeObject):
 
-    def type(obj):
+    def type(obj):  # XXX this should be unified with builtin_type
         if obj.is_constant():
             r = immutablevalue(obj.knowntype)
         else:
@@ -39,14 +41,14 @@ class __extend__(SomeObject):
         fn, block, i = bk.position_key
         annotator = bk.annotator
         op = block.operations[i]
-        assert op.opname == "type" 
+        assert op.opname == "type"
         assert len(op.args) == 1
         assert annotator.binding(op.args[0]) == obj
         r.is_type_of = [op.args[0]]
         return r
 
     def issubtype(obj, s_cls):
-        return builtin_issubclass(obj, s_cls)
+        return builtin.builtin_issubclass(obj, s_cls)
 
     def len(obj):
         return SomeInteger(nonneg=True)
@@ -60,6 +62,23 @@ class __extend__(SomeObject):
                 return immutablevalue(s_len.const > 0)
             else:
                 return SomeBool()
+
+    def nonzero(obj):
+        return obj.is_true()
+
+    def str(obj):
+        return SomeString()
+
+    repr = hex = oct = str
+
+    def int(obj):
+        return SomeInteger()
+
+    def float(obj):
+        return SomeFloat()
+
+    def long(obj):
+        return SomeObject()   # XXX
 
     def find_method(obj, name):
         "Look for a special-case implementation for the named method."
@@ -103,10 +122,33 @@ class __extend__(SomeInteger):
             return SomeInteger(unsigned=True)
         return SomeInteger()
 
+    def pos(self):
+        return self
+
+    int = pos
+
+    def neg(self):
+        return SomeInteger()
+
+    def abs(self):
+        return SomeInteger(nonneg=True)
+
 
 class __extend__(SomeBool):
     def is_true(self):
         return self
+
+
+class __extend__(SomeFloat):
+
+    def pos(flt):
+        return flt
+
+    def neg(flt):
+        return SomeFloat()
+
+    abs = neg
+
 
 class __extend__(SomeTuple):
 
@@ -172,6 +214,9 @@ class __extend__(SomeString):
 
     def iter(str):
         return SomeIterator(SomeChar())
+
+    def ord(str):
+        return SomeInteger(nonneg=True)
 
 
 class __extend__(SomeChar):

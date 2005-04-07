@@ -32,7 +32,7 @@ def builtin_pow(s_base, s_exponent, *args):
         return SomeObject()
 
 def builtin_int(s_obj):     # we can consider 'int' as a function
-    return SomeInteger()
+    return s_obj.int()
 
 def restricted_uint(s_obj):    # for r_uint
     return SomeInteger(nonneg=True, unsigned=True)
@@ -41,19 +41,13 @@ def builtin_chr(s_int):
     return SomeChar()
 
 def builtin_ord(s_chr):
-    return SomeInteger(nonneg=True)
+    return s_chr.ord()
 
 def builtin_id(o):
     return SomeInteger()
 
-def builtin_hex(o):
-    return SomeString()
-
-def builtin_oct(o):
-    return SomeString()
-
 def builtin_abs(o):
-    return o.__class__()
+    return o.abs()
 
 def builtin_divmod(o1, o2):
     return SomeTuple([SomeObject(), SomeObject()])    # XXX
@@ -62,10 +56,10 @@ def builtin_unicode(s_obj):
     return SomeString() 
 
 def builtin_float(s_obj): 
-    return SomeFloat()
+    return s_obj.float()
 
-def builtin_long(s_str): 
-    return SomeObject() 
+def builtin_long(s_obj): 
+    return s_obj.long()
 
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""
@@ -159,10 +153,16 @@ def builtin_type(s_obj, *moreargs):
     return r
 
 def builtin_str(s_obj):
-    return SomeString()
+    return s_obj.str()
 
 def builtin_repr(s_obj):
-    return SomeString()
+    return s_obj.repr()
+
+def builtin_hex(s_obj):
+    return s_obj.hex()
+
+def builtin_oct(s_obj):
+    return s_obj.oct()
 
 def builtin_list(s_iterable):
     factory = getbookkeeper().getfactory(ListFactory)
@@ -206,7 +206,7 @@ def exception_init(s_self, *args):
     s_self.setattr(immutablevalue('args'), SomeTuple(args))
 
 def builtin_bool(s_obj):
-    return SomeBool()
+    return s_obj.is_true()
 
 def count(s_obj):
     return SomeInteger()

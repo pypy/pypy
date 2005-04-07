@@ -20,12 +20,17 @@ def immutablevalue(x):
 
 # XXX unify this with ObjSpace.MethodTable
 BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
+                         'truediv', 'floordiv', 'divmod', 'pow',
                          'and_', 'or_', 'xor',
+                         'lshift', 'rshift',
                          'getitem', 'setitem',
-                         'inplace_add', 'inplace_sub',
-                         'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_',
-                         'union',
-                         'lshift', 'rshift'
+                         'inplace_add', 'inplace_sub', 'inplace_mul',
+                         'inplace_truediv', 'inplace_floordiv', 'inplace_div',
+                         'inplace_mod', 'inplace_pow',
+                         'inplace_lshift', 'inplace_rshift',
+                         'inplace_and', 'inplace_or', 'inplace_xor',
+                         'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_', 'cmp',
+                         'union', 'coerce',
                          ])
 
 for opname in BINARY_OPERATIONS:
@@ -50,11 +55,20 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             else:
                 return result
 
-    def inplace_add((obj1, obj2)):
-        return pair(obj1, obj2).add()   # default
-
-    def inplace_sub((obj1, obj2)):
-        return pair(obj1, obj2).sub()   # default
+    # inplace_xxx ---> xxx by default
+    def inplace_add((obj1, obj2)):      return pair(obj1, obj2).add()
+    def inplace_sub((obj1, obj2)):      return pair(obj1, obj2).sub()
+    def inplace_mul((obj1, obj2)):      return pair(obj1, obj2).mul()
+    def inplace_truediv((obj1, obj2)):  return pair(obj1, obj2).truediv()
+    def inplace_floordiv((obj1, obj2)): return pair(obj1, obj2).floordiv()
+    def inplace_div((obj1, obj2)):      return pair(obj1, obj2).div()
+    def inplace_mod((obj1, obj2)):      return pair(obj1, obj2).mod()
+    def inplace_pow((obj1, obj2), obj3):return pair(obj1, obj2).pow(obj3)
+    def inplace_lshift((obj1, obj2)):   return pair(obj1, obj2).lshift()
+    def inplace_rshift((obj1, obj2)):   return pair(obj1, obj2).rshift()
+    def inplace_and((obj1, obj2)):      return pair(obj1, obj2).and_()
+    def inplace_or((obj1, obj2)):       return pair(obj1, obj2).or_()
+    def inplace_xor((obj1, obj2)):      return pair(obj1, obj2).xor()
 
     def lt((obj1, obj2)):
         if obj1.is_constant() and obj2.is_constant():
@@ -92,6 +106,12 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         else:
             return SomeBool()
 
+    def cmp((obj1, obj2)):
+        if obj1.is_constant() and obj2.is_constant():
+            return immutablevalue(cmp(obj1.const, obj2.const))
+        else:
+            return SomeInteger()
+
     def is_((obj1, obj2)):
         # XXX assumption: for "X is Y" we for simplification 
         #     assume that X is possibly variable and Y constant 
@@ -122,6 +142,12 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             r.knowntypedata = ([op.args[0]], obj2)
         return r
 
+    def divmod((obj1, obj2)):
+        return SomeTuple([pair(obj1, obj2).div(), pair(obj1, obj2).mod()])
+
+    def coerce((obj1, obj2)):
+        return pair(obj1, obj2).union()   # reasonable enough
+
 class __extend__(pairtype(SomeInteger, SomeInteger)):
     # unsignedness is considered a rare and contagious disease
 
@@ -129,7 +155,10 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         return SomeInteger(nonneg = int1.nonneg and int2.nonneg,
                            unsigned = int1.unsigned or int2.unsigned)
 
-    add = mul = div = mod = or_ = xor = union
+    add = mul = div = floordiv = mod = or_ = xor = union
+
+    def truediv((int1, int2)):
+        return SomeFloat()
 
     def sub((int1, int2)):
         return SomeInteger(unsigned = int1.unsigned or int2.unsigned)
@@ -144,6 +173,9 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         return SomeInteger()
 
     rshift = lshift
+
+    def pow((int1, int2), obj3):
+        return SomeInteger()
 
 class __extend__(pairtype(SomeBool, SomeBool)):
 
@@ -179,7 +211,10 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
     def union((flt1, flt2)):
         return SomeFloat()
 
-    add = sub = mul = div = mod = union
+    add = sub = mul = div = truediv = floordiv = mod = union
+
+    def pow((flt1, flt2), obj3):
+        return SomeFloat()
 
 
 class __extend__(pairtype(SomeList, SomeList)):
@@ -196,6 +231,9 @@ class __extend__(pairtype(SomeList, SomeObject)):
     def inplace_add((lst1, obj2)):
         s_iter = obj2.iter()
         pair(lst1, SomeInteger()).setitem(s_iter.next())
+        return lst1
+
+    def inplace_mul((lst1, obj2)):
         return lst1
 
 
