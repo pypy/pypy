@@ -42,6 +42,9 @@ def builtin_chr(s_int):
 def builtin_ord(s_chr):
     return SomeInteger(nonneg=True)
 
+def builtin_float(s_obj):
+    return SomeFloat()
+
 def builtin_id(o):
     return SomeInteger()
 
