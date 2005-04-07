@@ -35,18 +35,19 @@ class FlowObjSpace(ObjSpace):
 
     def initialize(self):
         import __builtin__
-        self.concrete_mode = 0
+        self.concrete_mode = 1
+        self.w_None     = Constant(None)
         self.builtin    = Module(self, Constant('__builtin__'), Constant(__builtin__.__dict__))
         def pick_builtin(w_globals):
             return self.builtin
         self.builtin.pick_builtin = pick_builtin
         self.sys        = Module(self, Constant('sys'), Constant(sys.__dict__))
         self.sys.recursionlimit = 100
-        self.w_None     = Constant(None)
         self.w_False    = Constant(False)
         self.w_True     = Constant(True)
         self.w_type     = Constant(type)
         self.w_tuple    = Constant(tuple)
+        self.concrete_mode = 0
         for exc in [KeyError, ValueError, IndexError, StopIteration,
                     AssertionError, TypeError]:
             clsname = exc.__name__
@@ -320,6 +321,19 @@ class FlowObjSpace(ObjSpace):
         else:
             return w_item
 
+    def setitem(self, w_obj, w_key, w_val):
+        if self.concrete_mode:
+            try:
+                obj = self.unwrap_for_computation(w_obj)
+                key = self.unwrap_for_computation(w_key)
+                val = self.unwrap_for_computation(w_val)
+                operator.setitem(obj, key, val)
+                return self.w_None
+            except UnwrapException:
+                pass
+        return self.do_operation('setitem', w_obj, w_key, w_val)
+                
+
     def call_args(self, w_callable, args):
         try:
             fn = self.unwrap(w_callable)
@@ -387,6 +401,7 @@ class FlowObjSpace(ObjSpace):
 implicit_exceptions = {
     'getitem': [IndexError, KeyError],
     'delitem': [IndexError, KeyError],
+    # no implicit exceptions for setitem
     'getattr': [AttributeError],
     'delattr': [AttributeError],
     'iter'   : [TypeError],
@@ -437,23 +452,43 @@ def make_op(name, symbol, arity, specialnames):
     if hasattr(FlowObjSpace, name):
         return # Shouldn't do it
 
-    if name == 'pow':
-        op = pow
+    import __builtin__
+
+    op = None
+
+    if name.startswith('del') or name.startswith('set') or name.startswith('inplace_'):
+        # skip potential mutators
+        if debug: print "Skip", name
+        op = 0
+    elif name in ['id', 'hash', 'iter']: 
+        # skip potential runtime context dependecies
+        if debug: print "Skip", name
+        op = 0
+    elif name in ['repr', 'str']:
+        rep = getattr(__builtin__, name)
+        def op(obj):
+            s = rep(obj)
+            if s.find("at 0x") > -1:
+                print >>sys.stderr, "Warning: captured address may be awkward"
+            return s
+    elif name == 'issubtype':
+        op = issubclass
+    elif name == 'type':
+        op = type_or_something_similar
+    elif name == 'is_':
+        op = lambda x, y: x is y
+    elif name == 'nonzero':
+        op = bool
     else:
-        op = getattr(operator, name, None)
+        op = getattr(__builtin__, name, None)
+        if not op:
+            op = getattr(operator, name, None)
+
     if not op:
-        #if name == 'call':
-        #    op = apply
-        if name == 'issubtype':
-            op = issubclass
-        elif name == 'type':
-            op = type_or_something_similar
-        elif name == 'is_':
-            op = lambda x, y: x is y
-        elif name == 'getattr':
-            op = getattr
-        else:
+        if op != 0:
             if debug: print >> sys.stderr, "XXX missing operator:", name
+    else:
+        if debug: print "Can constant-fold operation: %s" % name
 
     exceptions = implicit_exceptions.get(name)
 
