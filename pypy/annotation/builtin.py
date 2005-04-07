@@ -7,6 +7,7 @@ import sys, math
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
+from pypy.annotation.model import SomeFloat
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.factory import ListFactory
 from pypy.objspace.flow.model import Constant
