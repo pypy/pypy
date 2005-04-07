@@ -56,6 +56,7 @@ def analyse(target):
     if not options['-no-a']:
         a = t.annotate(inputtypes, overrides=pypy_overrides)
         a.simplify()
+        a.specialize()
         t.frozen = True   # cannot freeze if we don't have annotations
         if not options['-no-mark-some-objects']:
             options['-no-mark-some-objects'] = True # Do not do this again

@@ -271,6 +271,12 @@ class RPythonAnnotator:
         for graph in self.translator.flowgraphs.values(): 
             simplify.eliminate_empty_blocks(graph) 
 
+    def specialize(self, specializer=None):
+        if specializer is None:
+            from pypy.translator.genc import ctyper
+            specializer = ctyper.GenCSpecializer
+        specializer(self).specialize()
+
 
     #___ flowing annotations in blocks _____________________
 
