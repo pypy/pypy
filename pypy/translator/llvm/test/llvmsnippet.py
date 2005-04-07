@@ -42,6 +42,12 @@ def calling2(m):
         return calling1(m - 1)
     return m
 
+#float snippets
+
+def float_f1(x):
+    return x + 1.0
+
+
 #array snippets
 
 def array_simple():

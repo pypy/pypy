@@ -126,12 +126,10 @@ class IntTypeRepr(TypeRepr):
         lblock.cast(l_tmp, l_val, l_type)
         return l_tmp
 
-
 class SimpleTypeRepr(TypeRepr):
     def get(obj, gen):
-        if obj.__class__ is annmodel.SomeInteger:
-            l_repr = SimpleTypeRepr("int", gen)
-            return l_repr
+        if obj.__class__ is annmodel.SomeFloat:
+            return SimpleTypeRepr("double", gen)
         elif obj.__class__ is annmodel.SomeBool:
             l_repr = SimpleTypeRepr("bool", gen)
             return l_repr

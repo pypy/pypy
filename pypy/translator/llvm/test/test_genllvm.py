@@ -116,6 +116,16 @@ class TestGenLLVM(object):
         f = compile_function(llvmsnippet.calling1, [int])
         assert f(10) == 1
 
+class TestFloat(object):
+    def setup_method(self, method):
+        if not llvm_found:
+            py.test.skip("llvm-as not found on path.")
+
+    def test_float_f1(self):
+        f = compile_function(llvmsnippet.float_f1, [float])
+        assert f(1.0) == 2.0
+    
+
 class TestLLVMArray(object):
     def setup_method(self, method):
         if not llvm_found:

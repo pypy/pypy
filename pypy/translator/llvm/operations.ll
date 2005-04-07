@@ -72,6 +72,109 @@ internal int %std.inplace_mod(int %a, int %b) {
 	ret int %r
 }
 
+;Basic operations for doubles
+internal double %std.add(double %a, double %b) {
+	%r = add double %a, %b
+	ret double %r
+}
+
+internal double %std.inplace_add(double %a, double %b) {
+	%r = add double %a, %b	
+	ret double %r
+}
+
+internal double %std.sub(double %a, double %b) {
+	%r = sub double %a, %b
+	ret double %r
+}
+
+internal double %std.inplace_sub(double %a, double %b) {
+	%r = sub double %a, %b
+	ret double %r
+}
+
+internal double %std.mul(double %a, double %b) {
+	%r = mul double %a, %b	
+	ret double %r
+}
+
+internal double %std.inplace_mul(double %a, double %b) {
+	%r = mul double %a, %b
+	ret double %r
+}
+
+internal double %std.div(double %a, double %b) {
+	%r = div double %a, %b
+	ret double %r
+}
+
+internal double %std.inplace_div(double %a, double %b) {
+	%r = div double %a, %b
+	ret double %r
+}
+
+internal double %std.floordiv(double %a, double %b) {
+	%r = div double %a, %b
+	ret double %r
+}
+
+internal double %std.inplace_floordiv(double %a, double %b) {
+	%r = div double %a, %b
+	ret double %r
+}
+
+internal double %std.mod(double %a, double %b) {
+	%r = rem double %a, %b	
+	ret double %r
+}
+
+internal double %std.inplace_mod(double %a, double %b) {
+	%r = rem double %a, %b	
+	ret double %r
+}
+
+;Basic comparisons for doubles
+
+internal bool %std.is(double %a, double %b) {
+	%r = seteq double %a, %b
+	ret bool %r
+}
+
+internal bool %std.is_true(double %a) {
+	%b = cast double %a to bool
+	ret bool %b
+}
+
+internal bool %std.eq(double %a, double %b) {
+	%r = seteq double %a, %b	
+	ret bool %r
+}
+
+internal bool %std.neq(double %a, double %b) {
+	%r = seteq double %a, %b	
+	%r1 = xor bool %r, true
+	ret bool %r1
+}
+
+internal bool %std.lt(double %a, double %b) {
+	%r = setlt double %a, %b	
+	ret bool %r
+}
+
+internal bool %std.gt(double %a, double %b) {
+	%r = setgt double %a, %b	
+	ret bool %r
+}
+
+internal bool %std.le(double %a, double %b) {
+	%r = setle double %a, %b	
+	ret bool %r
+}
+
+internal bool %std.ge(double %a, double %b) {
+	%r = setge double %a, %b	
+	ret bool %r
+}
 
 ;Basic comparisons for ints
 

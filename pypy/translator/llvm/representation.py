@@ -6,7 +6,8 @@ from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.annotation import model as annmodel
 
 LLVM_SIMPLE_TYPES = {annmodel.SomeChar: "sbyte",
-                     annmodel.SomeBool: "bool"}
+                     annmodel.SomeBool: "bool",
+                     annmodel.SomeFloat: "double"}
 
 debug = False
 

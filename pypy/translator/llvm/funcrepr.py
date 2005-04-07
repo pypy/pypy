@@ -28,7 +28,8 @@ INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is_", "is_true", "len",
 C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
                   annmodel.SomeString: "char*",
                   annmodel.SomeBool: "unsigned char",
-                  annmodel.SomeInteger: "int"}
+                  annmodel.SomeInteger: "int",
+                  annmodel.SomeFloat: "double"}
 
 
 class BuiltinFunctionRepr(LLVMRepr):
