@@ -166,6 +166,8 @@ class Bookkeeper:
             return SomeInteger()
         elif t is str:
             return SomeString()
+        elif t is float:
+            return SomeFloat()
         elif t is list:
             return SomeList(factories={})
         # can't do dict, tuple
