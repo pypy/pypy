@@ -25,7 +25,7 @@ BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
                          'inplace_add', 'inplace_sub',
                          'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_',
                          'union',
-                         'lshift',
+                         'lshift', 'rshift'
                          ])
 
 for opname in BINARY_OPERATIONS:
@@ -142,6 +142,8 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         if int1.unsigned:
             return SomeInteger(unsigned=True)
         return SomeInteger()
+
+    rshift = lshift
 
 class __extend__(pairtype(SomeBool, SomeBool)):
 
