@@ -3,6 +3,7 @@ import sets
 
 from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
+from pypy.translator import gensupp
 
 from pypy.translator.llvm.representation import debug, LLVMRepr
 from pypy.translator.llvm.typerepr import TypeRepr, IntTypeRepr
@@ -70,6 +71,49 @@ class ListTypeRepr(TypeRepr):
             l_target.type = l_method
         else:
             raise CompileError, "List method %s not supported." % args[1].value
+
+
+class TupleRepr(LLVMRepr):
+    def get(obj, gen):
+        if isinstance(obj, Constant):
+            type_ = gen.annotator.binding(obj)
+            if isinstance(type_, annmodel.SomeTuple):
+                return TupleRepr(obj, gen)
+        return None
+    get = staticmethod(get)
+
+    def __init__(self, obj, gen):
+        if debug:
+            print "TupleRepr", obj, obj.value
+        self.const = obj
+        self.tuple = obj.value
+        self.gen = gen
+        self.dependencies = sets.Set()
+
+    def setup(self):
+        self.l_tuple = [self.gen.get_repr(l) for l in list(self.tuple)]
+        self.glvar = self.gen.get_global_tmp(
+            repr(self.tuple).replace(" ", "").translate(gensupp.C_IDENTIFIER))
+        self.dependencies.update(self.l_tuple)
+        self.type = self.gen.get_repr(self.gen.annotator.binding(self.const))
+        self.dependencies.add(self.type)
+
+    def get_globals(self):
+        s = "%s = internal global " % self.glvar + " " + self.llvmtype()[:-1]
+        s += "{" + ", ".join([l.typed_name() for l in self.l_tuple]) + "}"
+        i = self.l_tuple[0]
+        return s
+
+    def llvmname(self):
+        return self.glvar
+
+    def __getattr__(self, name):
+        if name.startswith("op_"):
+            return getattr(self.type, "t_" + name, None)
+        else:
+            raise AttributeError, ("TupleRepr instance has no attribute %s"
+                                   % repr(name))
+
 
 class TupleTypeRepr(TypeRepr):
     def get(obj, gen):

@@ -250,6 +250,11 @@ class TestTuple(object):
         assert f(15) == 15
         assert f(30) == 30
 
+    def test_constant_tuple(self):
+        f = compile_function(llvmsnippet.constant_tuple, [int])
+        for i in range(3, 7):
+            assert f(i) == i + 3
+
 class TestException(object):
     def setup_method(self,method):
         if not llvm_found:

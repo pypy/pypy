@@ -267,6 +267,9 @@ def tuple_f3(i):
     j, s1, s2, l = tuple_f2(i)
     return j
 
+def constant_tuple(i):
+    return len((1, 2, "asdf")) + i
+
 
 #exception snippets:
 def simple_exception(n):
