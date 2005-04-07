@@ -455,15 +455,16 @@ def make_op(name, symbol, arity, specialnames):
     import __builtin__
 
     op = None
+    skip = False
 
     if name.startswith('del') or name.startswith('set') or name.startswith('inplace_'):
         # skip potential mutators
         if debug: print "Skip", name
-        op = 0
+        skip = True
     elif name in ['id', 'hash', 'iter']: 
         # skip potential runtime context dependecies
         if debug: print "Skip", name
-        op = 0
+        skip = True
     elif name in ['repr', 'str']:
         rep = getattr(__builtin__, name)
         def op(obj):
@@ -485,7 +486,7 @@ def make_op(name, symbol, arity, specialnames):
             op = getattr(operator, name, None)
 
     if not op:
-        if op != 0:
+        if not skip:
             if debug: print >> sys.stderr, "XXX missing operator:", name
     else:
         if debug: print "Can constant-fold operation: %s" % name
