@@ -265,7 +265,7 @@ class ExceptionTypeRepr(TypeRepr):
         return "%std.exception*"
 
     def llvmtype(self):
-        return "%std.class* "
+        return "%std.class*"
 
     def llvmname(self):
         return self.objectname
@@ -284,11 +284,8 @@ class ExceptionTypeRepr(TypeRepr):
                            (self.l_base.llvmname(), l_tmp.llvmname()))
 
     def op_simple_call(self, l_target, args, lblock, l_func):
-        print "$" * 80
-        print l_target.typed_name(),
         lblock.malloc(l_target)
         l_args0 = self.gen.get_repr(args[0])
-        print l_args0.typed_name()
         l_tmp = self.gen.get_local_tmp(PointerTypeRepr("%std.class*",
                                                        self.gen), l_func)
         l_func.dependencies.update([l_args0, l_tmp])
