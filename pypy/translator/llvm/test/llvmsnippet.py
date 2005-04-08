@@ -47,6 +47,8 @@ def calling2(m):
 def float_f1(x):
     return x + 1.0
 
+def float_int_bool(x):
+    return x * (2 + True)
 
 #array snippets
 
@@ -311,8 +313,10 @@ class MyException(Exception):
         self.n = n
 
 def raises(i):
-    if i:
-        raise MyException, 10
+    if i == 3:
+        raise MyException, 12
+    if i == 4:
+        raise IndexError
     return 1
 
 def catches(i):

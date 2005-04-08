@@ -134,7 +134,135 @@ def make_int_list():
     f.write(code)
     f.close()
 
+MAP_ARITHM_OPS = [("add",              ("add", None,     None)),
+                  ("inplace_add",      ("add", None,     None)),
+                  ("sub",              ("sub", None,     None)),
+                  ("inplace_sub",      ("sub", None,     None)),
+                  ("mul",              ("mul", None,     None)),
+                  ("inplace_mul",      ("mul", None,     None)),
+                  ("div",              ("div", None,     None)),
+                  ("inplace_div",      ("div", None,     None)),
+                  ("floordiv",         ("div", "int",    None)),
+                  ("inplace_floordiv", ("div", "int",    None)),
+                  ("truediv",          ("div", "double", "double")),
+                  ("inplace_truediv",  ("div", "double", "double")),
+                  ("mod",              ("rem", None,     None)),
+                  ("inplace_mod",      ("rem", None,     None))
+                  ]
+
+MAP_LOGICAL_OPS = [("and_",             ("and", None,     None)),
+                   ("inplace_and",      ("and", None,     None)),
+                   ("or_",              ("or",  None,     None)),
+                   ("inplace_or",       ("or",  None,     None)),
+                   ("xor",              ("xor", None,     None)),
+                   ("inplace_xor",      ("xor", None,     None))
+                   ]
+
+MAP_COMPAR_OPS = [("is_", "seteq"),
+                  ("eq", "seteq"),
+                  ("lt", "setlt"),
+                  ("le", "setle"),
+                  ("ge", "setge"),
+                  ("gt", "setgt")]
+
+types = ((0, "double"), (1, "uint"), (2, "int"), (3, "bool"))
+
+def make_binary_ops():
+    code = ["implementation\n"]
+    def normalize_type(t1, t, var):
+        if t1 != t:
+            code.append("\t%%%s = cast %s %%%s to %s\n" % (var, t1, var, t))
+    for type1 in types:
+        for type2 in types:
+            #Arithmetic operators
+            for op, (llvmop, calctype, rettype) in MAP_ARITHM_OPS:
+                if calctype is None:
+                    calctype = min(type1, type2)[1]
+                if rettype is None:
+                    rettype = min(type1, type2)[1]
+                if calctype == "bool":
+                    calctype = rettype = "int"
+                code.append("internal %s %%std.%s(%s %%a, %s %%b) {\n" %
+                            (rettype, op, type1[1], type2[1]))
+                normalize_type(type1[1], calctype, "a")
+                normalize_type(type2[1], calctype, "b")
+                code.append("\t%%r = %s %s %%a, %%b\n" %
+                            (llvmop, calctype))
+                normalize_type(calctype, rettype, "r")
+                code.append("\tret %s %%r\n}\n\n" % rettype)
+            calctype = min(type1, type2)[1]
+            #Comparison operators
+            for op, llvmop in MAP_COMPAR_OPS:
+                code.append("internal bool %%std.%s(%s %%a, %s %%b) {\n" %
+                            (op, type1[1], type2[1]))
+                normalize_type(type1[1], calctype, "a")
+                normalize_type(type2[1], calctype, "b")
+                code.append("\t%%r = %s %s %%a, %%b\n" %
+                            (llvmop, calctype))
+                code.append("\tret bool %r\n}\n\n")
+            code.append("internal bool %%std.neq(%s %%a, %s %%b) {\n" %
+                            (type1[1], type2[1]))
+            normalize_type(type1[1], calctype, "a")
+            normalize_type(type2[1], calctype, "b")
+            code.append("\t%%r = %s %s %%a, %%b\n" %
+                        (llvmop, calctype))
+            code.append("\t%r1 = xor bool %r, true\n\tret bool %r1\n}\n\n")
+    #Logical operators
+    for type1 in types[1:]:
+        for type2 in types[1:]:
+            for op, (llvmop, calctype, rettype) in MAP_LOGICAL_OPS:
+                if calctype is None:
+                    calctype = min(type1, type2)[1]
+                if rettype is None:
+                    rettype = min(type1, type2)[1]
+                code.append("internal %s %%std.%s(%s %%a, %s %%b) {\n" %
+                            (rettype, op, type1[1], type2[1]))
+                normalize_type(type1[1], calctype, "a")
+                normalize_type(type2[1], calctype, "b")
+                code.append("\t%%r = %s %s %%a, %%b\n" %
+                            (llvmop, calctype))
+                normalize_type(calctype, rettype, "r")
+                code.append("\tret %s %%r\n}\n\n" % rettype)
+    #Shift
+    for type1 in types[1:-1]:
+        for type2 in types[1:-1]:
+            for op, llvmop in (("lshift", "shl"), ("rshift", "shr")):
+                code.append("internal %s %%std.%s(%s %%a, %s %%b) {\n" %
+                            (type1[1], op, type1[1], type2[1]))
+                code.append("\t%%b = cast %s %%b to ubyte\n" % type2[1])
+                code.append("\t%%r = %s %s %%a, ubyte %%b\n" %
+                            (llvmop, type1[1]))
+                code.append("\tret %s %%r\n}\n\n" % type1[1])
+    return code
+
+def make_unary_ops():
+    code = []
+    def normalize_type(t1, t, var):
+        if t1 != t:
+            code.append("\t%%%s = cast %s %%%s to %s\n" % (var, t1, var, t))
+    for type1 in types:
+        #"casts" int, bool
+        for type2 in ("int", "bool"):
+            code.append("internal %s %%std.%s(%s %%a) {\n" %
+                        (type2, type2, type1[1]))
+            code.append("\t%%r = cast %s %%a to %s\n" % (type1[1], type2))
+            code.append("\tret %s %%r\n}\n\n" % type2)
+        #is_true
+        code.append("internal bool %%std.is_true(%s %%a) {\n" % type1[1])
+        code.append("\t%%r = cast %s %%a to bool\n" % type1[1])
+        code.append("\tret bool %r\n}\n\n")
+    return code
+            
+                
+def make_operations():
+    code = make_binary_ops()
+    code += make_unary_ops()
+    f = open(autopath.this_dir + "/operations.ll", "w")
+    f.write("".join(code))
+    f.close()
+
 if __name__ == '__main__':
+    make_operations()
     make_list_template()
     make_int_list()
 

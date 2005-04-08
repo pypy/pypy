@@ -1,3 +1,4 @@
+from __future__ import division
 import autopath
 import py
 
@@ -124,7 +125,10 @@ class TestFloat(object):
     def test_float_f1(self):
         f = compile_function(llvmsnippet.float_f1, [float])
         assert f(1.0) == 2.0
-    
+
+    def test_float_int_bool(self):
+        f = compile_function(llvmsnippet.float_int_bool, [float])
+        assert f(3.0) == 9.0
 
 class TestLLVMArray(object):
     def setup_method(self, method):
