@@ -12,7 +12,7 @@ while i == l and type(i) is int:
     i *= 2
     l *= 2
     machbits += 1
-print machbits
+#print machbits
 
 
 objspacename = 'std'
@@ -150,5 +150,65 @@ def test_intmask():
     assert intmask(sys.maxint+1) == minint
     assert intmask(minint-1) == sys.maxint
 
-    
 
+def test_ovfcheck():
+    one = 1
+    x = sys.maxint
+    minusx = -sys.maxint
+    n = -sys.maxint-1
+    y = sys.maxint-1
+    # sanity
+    raises(AssertionError, ovfcheck, r_uint(0))
+
+    
+    # not overflowing
+    try:
+        ovfcheck(y+one)
+    except OverflowError:
+        assert False
+    else:
+        pass
+    try:
+        ovfcheck(minusx-one)
+    except OverflowError:
+        assert False
+    else:
+        pass
+    try:
+        ovfcheck(x-x)
+    except OverflowError:
+        assert False
+    else:
+        pass        
+    try:
+        ovfcheck(n-n)
+    except OverflowError:
+        assert False
+    else:
+        pass    
+
+    # overflowing
+    try:
+        ovfcheck(x+one)
+    except OverflowError:
+        pass
+    else:
+        assert False        
+    try:
+        ovfcheck(x+x)
+    except OverflowError:
+        pass
+    else:
+        assert False
+    try:
+        ovfcheck(n-one)
+    except OverflowError:
+        pass
+    else:
+        assert False
+    try:
+        ovfcheck(n-y)
+    except OverflowError:
+        pass
+    else:
+        assert False    

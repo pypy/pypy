@@ -1,18 +1,23 @@
 """
-This file defines restricted integers.
+This file defines restricted arithmetic:
 
-Purpose:
-Have an integer implementation that emulates
-restricted Python for CPython.
+classes and operations to express integer arithmetic,
+such that before and after translation semantics are
+consistent
 
-r_int   an integer type which has overflow checking.
-        It doesn not automatically extend to long
-r_uint  an unsigned integer which has not overflow
-        checking. It is always positive and always
-        truncated to the internal machine word size.
+r_uint   an unsigned integer which has not overflow
+         checking. It is always positive and always
+         truncated to the internal machine word size.
+intmask  mask a possibly long value when running on CPython
+         back to a signed int value
+ovfcheck check on CPython whether the result of a signed
+         integer operation did overflow
 
-We try to keep the number of such internal types
-to a minimum.
+These are meant to be erased by translation, r_uint
+in the process should mark unsigned values, ovfcheck should
+mark where overflow checking is required.
+
+
 """
 
 class r_int(int):
@@ -158,6 +163,15 @@ def intmask(n):
     return int(n)
 
 del _bits, _itest, _Ltest
+
+def ovfcheck(r):
+    # to be used as ovfcheck(x <op> y)
+    # raise OverflowError if the operation did overflow
+    assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
+    if isinstance(r, long):
+        raise OverflowError, "signed integer expression did overflow"
+    return r
+    
 
 class r_uint(long):
     """ fake unsigned integer implementation """
