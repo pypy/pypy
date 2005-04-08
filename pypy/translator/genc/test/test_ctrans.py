@@ -360,3 +360,9 @@ class TestTypedTestCase(TestAnnotatedTestCase):
     def test_int_overflow(self):
         fn = self.getcompiled(snippet.simple_func)
         raises(OverflowError, fn, sys.maxint+1)
+
+
+    def test_inheritance2(self):      py.test.skip("missing: return tuple")
+    def test_call_unpack_56(self):    py.test.skip("missing: return tuple")
+    def test_tuple_repr(self):        py.test.skip("missing: return tuple")
+    def test_get_set_del_slice(self): py.test.skip("missing: return tuple")

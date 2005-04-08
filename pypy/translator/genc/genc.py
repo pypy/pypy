@@ -32,6 +32,7 @@ class GenC:
         self.funcdefs = {}
         self.allfuncdefs = []
         self.pyobjtype = translator.getconcretetype(CPyObjectType)
+        self.ctypes_alreadyseen = {}
         self.namespace = self.pyobjtype.namespace
 
         assert not hasattr(getthreadlocals(), 'genc')
@@ -130,8 +131,10 @@ class GenC:
         # collect more of the latercode between the functions,
         # and produce the corresponding global declarations
         for ct in self.translator.concretetypes.values():
-            if hasattr(ct, 'collect_globals'):
-                self.globaldecl += ct.collect_globals(self)
+            if ct not in self.ctypes_alreadyseen:
+                self.globaldecl += list(ct.init_globals(self))
+                self.ctypes_alreadyseen[ct] = True
+            self.globaldecl += list(ct.collect_globals(self))
         g = self.globaldecl
         if g:
             f = self.f

@@ -20,7 +20,7 @@ class CPyObjectType(CType):
     error_return  = 'NULL'
 
     def __init__(self, translator):
-        self.translator = translator
+        super(CPyObjectType, self).__init__(translator)
         self.namespace= NameManager()
         # keywords cannot be reused.  This is the C99 draft's list.
         self.namespace.make_reserved_names('''

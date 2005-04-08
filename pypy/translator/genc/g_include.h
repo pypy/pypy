@@ -12,6 +12,7 @@
 
 #include "g_operation.h"
 #include "g_simple.h"
+#include "g_struct.h"
 #include "g_trace.h"
 #include "g_support.h"
 #include "g_module.h"

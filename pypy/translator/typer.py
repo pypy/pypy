@@ -1,3 +1,4 @@
+from __future__ import generators
 import autopath
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import Block, Link, uniqueitems
@@ -76,7 +77,7 @@ class Specializer:
             if v.concretetype != self.defaultconcretetype:
                 v2 = Variable()
                 v2.concretetype = self.defaultconcretetype
-                newops = list(v.concretetype.convert_to_obj(v, v2))
+                newops = list(v.concretetype.convert_to_obj(self, v, v2))
                 v = v2
                 ops += newops
 
@@ -84,7 +85,7 @@ class Specializer:
             if concretetype != self.defaultconcretetype:
                 v2 = Variable()
                 v2.concretetype = concretetype
-                newops = list(concretetype.convert_from_obj(v, v2))
+                newops = list(concretetype.convert_from_obj(self, v, v2))
                 v = v2
                 ops += newops
 
@@ -96,7 +97,7 @@ class Specializer:
             self.setbesttype(a)
 
         # specialize all the operations, as far as possible
-        self.newops = []
+        newops = []
         for op in block.operations:
 
             args = list(op.args)
@@ -111,21 +112,22 @@ class Specializer:
 
             # make a specialized version of the current operation
             # (which may become several operations)
-            self.make_specialized_op(op, bindings)
+            flatten_ops(self.specialized_op(op, bindings), newops)
 
-        block.operations[:] = self.newops
+        block.operations[:] = newops
         self.insert_link_conversions(block)
 
 
-    def make_typed_op(self, op, argtypes, restype, newopname=None):
+    def typed_op(self, op, argtypes, restype, newopname=None):
         """Make a typed copy of the given SpaceOperation."""
+        result = []
         args = list(op.args)
         assert len(argtypes) == len(args)
 
         # type-convert the input arguments
         for i in range(len(args)):
             args[i], convops = self.convertvar(args[i], argtypes[i])
-            self.newops += convops
+            result += convops
 
         # store the result variable's type
         self.settype(op.result, restype)
@@ -133,7 +135,8 @@ class Specializer:
         # store the possibly modified SpaceOperation
         if newopname is not None or args != op.args:
             op = SpaceOperation(newopname or op.opname, args, op.result)
-        self.newops.append(op)
+        result.append(op)
+        return result
 
 
     def insert_link_conversions(self, block):
@@ -154,11 +157,11 @@ class Specializer:
                     # ...and do the conversions there.
                     self.insert_link_conversions(newblock)
                     break   # done with this link
-                block.operations += convops
+                flatten_ops(convops, block.operations)
                 link.args[i] = a1
 
 
-    def make_specialized_op(self, op, bindings):
+    def specialized_op(self, op, bindings):
         specializations = self.specializationdict.get(op.opname, ())
         for opname2, spectypes, restype in specializations:
             assert len(spectypes) == len(op.args) == len(bindings)
@@ -169,8 +172,17 @@ class Specializer:
                     break
             else:
                 # specialization found
-                self.make_typed_op(op, spectypes, restype, newopname=opname2)
+                yield self.typed_op(op, spectypes, restype, newopname=opname2)
                 return
         # specialization not found
         argtypes = [self.defaultconcretetype] * len(op.args)
-        self.make_typed_op(op, argtypes, self.defaultconcretetype)
+        yield self.typed_op(op, argtypes, self.defaultconcretetype)
+
+
+def flatten_ops(op, newops):
+    # Flatten lists and generators and record all SpaceOperations found
+    if isinstance(op, SpaceOperation):
+        newops.append(op)
+    else:
+        for op1 in op:
+            flatten_ops(op1, newops)

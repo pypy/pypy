@@ -10,10 +10,10 @@ class CType(object):
     def __init__(self, translator):
         self.translator = translator
 
-    def convert_to_obj(self, v1, v2):
+    def convert_to_obj(self, typer, v1, v2):
         return [SpaceOperation(self.opname_conv_to_obj, [v1], v2)]
 
-    def convert_from_obj(self, v1, v2):
+    def convert_from_obj(self, typer, v1, v2):
         return [SpaceOperation(self.opname_conv_from_obj, [v1], v2)]
 
     def debugname(self):
@@ -23,6 +23,12 @@ class CType(object):
         """A hack to get at the currently running GenC instance."""
         return getthreadlocals().genc
     genc = staticmethod(genc)
+
+    def init_globals(self, genc):
+        return []
+
+    def collect_globals(self, genc):
+        return []
 
 
 class CIntType(CType):

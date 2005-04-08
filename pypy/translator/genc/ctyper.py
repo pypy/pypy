@@ -9,6 +9,7 @@ from pypy.annotation.model import SomeInteger, SomePBC, SomeTuple
 from pypy.translator.genc.t_pyobj import CPyObjectType
 from pypy.translator.genc.t_simple import CIntType, CNoneType
 from pypy.translator.genc.t_func import CFuncPtrType
+from pypy.translator.genc.t_tuple import CTupleType
 import types
 from pypy.interpreter.pycode import CO_VARARGS
 
@@ -17,9 +18,9 @@ class GenCSpecializer(Specializer):
     def __init__(self, annotator):
         # instantiate the common concrete types
         t = annotator.translator
-        TInt      = t.getconcretetype(CIntType)
-        TNone     = t.getconcretetype(CNoneType)
-        TPyObject = t.getconcretetype(CPyObjectType)
+        self.TInt      = TInt      = t.getconcretetype(CIntType)
+        self.TNone     = TNone     = t.getconcretetype(CNoneType)
+        self.TPyObject = TPyObject = t.getconcretetype(CPyObjectType)
 
         # initialization
         Specializer.__init__(
@@ -57,14 +58,15 @@ class GenCSpecializer(Specializer):
                     besttype = self.annotator.translator.getconcretetype(
                         CFuncPtrType, tuple(args_ct), res_ct)
 
-##            elif isinstance(s_value, SomeTuple):
-##                key = tuple([self.annotation2concretetype(s_item)
-##                             for s_item in s_value.items])
-##                besttype = CType_Tuple[key]
+            elif isinstance(s_value, SomeTuple):
+                items_ct = [self.annotation2concretetype(s_item)
+                            for s_item in s_value.items]
+                besttype = self.annotator.translator.getconcretetype(
+                    CTupleType, tuple(items_ct))
 
         return besttype
 
-    def make_specialized_op(self, op, bindings):
+    def specialized_op(self, op, bindings):
         if op.opname == 'simple_call':
             s_callable = self.annotator.binding(op.args[0], True)
             if s_callable is not None:
@@ -72,41 +74,44 @@ class GenCSpecializer(Specializer):
                 if isinstance(ct, CFuncPtrType):
                     argtypes = [ct]
                     argtypes += ct.argtypes
-                    self.make_typed_op(op, argtypes, ct.returntype,
-                                       newopname='direct_call')
+                    yield self.typed_op(op, argtypes, ct.returntype,
+                                        newopname='direct_call')
                     return
 
-##        if op.opname == 'getitem':
-##            s_obj = self.annotator.binding(op.args[0], True)
-##            if s_obj is not None:
-##                ct = self.annotation2typecls(s_obj)
-##                if issubclass(ct, CType_Tuple):
-##                    if isinstance(op.args[1], Constant):
-##                        index = op.args[1].value
-##                        try:
-##                            ct1 = ct.items_typecls[index]
-##                        except IndexError:
-##                            print "*** getitem: IndexError in tuple access"
-##                        else:
-##                            self.make_typed_op(op, [ct, CType_Int], ct1,
-##                                               newopname='tuple_getitem')
-##                            return
+        if op.opname == 'newtuple':
+            s_tuple = self.annotator.binding(op.result, True)
+            if s_tuple is not None:
+                ctup = self.annotation2concretetype(s_tuple)
+                if isinstance(ctup, CTupleType):
+                    TInt  = self.TInt
+                    TNone = self.TNone
+                    v2 = op.result
+                    yield self.typed_op(SpaceOperation('tuple_new', [], v2),
+                                                                    [], ctup)
+                    for i in range(len(ctup.itemtypes)):
+                        vitem = op.args[i]
+                        ct = ctup.itemtypes[i]
+                        v0 = Variable()
+                        yield self.typed_op(SpaceOperation('tuple_setitem',
+                                   [v2,   Constant(i), vitem], v0),  # args, ret
+                                   [ctup, TInt,        ct   ], TNone) # a_t, r_t
+                    return
 
-##        if op.opname == 'newtuple':
-##            s_tuple = self.annotator.binding(op.result, True)
-##            if s_tuple is not None:
-##                ct = self.annotation2typecls(s_tuple)
-##                if issubclass(ct, CType_Tuple):
-##                    op1 = SpaceOperation('tuple_new', [], op.result)
-##                    self.make_typed_op(op1, [], ct)
-##                    for i in range(len(ct.items_typecls)):
-##                        op1 = SpaceOperation('tuple_inititem',
-##                                         [op.result, Constant(i), op.args[i]],
-##                                         Variable())
-##                        ct1 = ct.items_typecls[i]
-##                        self.make_typed_op(op1,
-##                                           [ct, CType_Int, ct1],
-##                                           CType_None)
-##                    return
+        if op.opname == 'getitem':
+            s_obj = self.annotator.binding(op.args[0], True)
+            if s_obj is not None:
+                ctup = self.annotation2concretetype(s_obj)
+                if isinstance(ctup, CTupleType):
+                    if isinstance(op.args[1], Constant):
+                        index = op.args[1].value
+                        try:
+                            ct = ctup.itemtypes[index]
+                        except IndexError:
+                            print "*** getitem: IndexError in tuple access"
+                        else:
+                            yield self.typed_op(op, [ctup, self.TInt], ct,
+                                                newopname='tuple_getitem')
+                            return
 
-        Specializer.make_specialized_op(self, op, bindings)
+        # fall-back
+        yield Specializer.specialized_op(self, op, bindings)
