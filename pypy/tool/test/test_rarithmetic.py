@@ -160,7 +160,6 @@ def test_ovfcheck():
     # sanity
     raises(AssertionError, ovfcheck, r_uint(0))
 
-    
     # not overflowing
     try:
         ovfcheck(y+one)
