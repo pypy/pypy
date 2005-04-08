@@ -295,6 +295,16 @@ class TestException(object):
         for i in range(10, 20):
             assert f(i) == 2
 
+    def test_catch_instance(self):
+        f = compile_function(llvmsnippet.catches, [int])
+        assert f(1) == 1
+        assert f(2) == 1
+        assert f(3) == 12
+        py.test.raises(RuntimeError, "f(4)")
+        assert f(5) == 1
+        assert f(6) == 6
+        assert f(13) == 13
+        
 
 class TestSnippet(object):
     def setup_method(self, method):

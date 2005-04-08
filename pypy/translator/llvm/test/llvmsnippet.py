@@ -306,8 +306,6 @@ def catch_base_exception(n):
         return 2
     return 4
 
-
-#doesn't work yet!
 class MyException(Exception):
     def __init__(self, n):
         self.n = n
@@ -317,6 +315,8 @@ def raises(i):
         raise MyException, 12
     if i == 4:
         raise IndexError
+    if i > 5:
+        raise MyException(i)
     return 1
 
 def catches(i):

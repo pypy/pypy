@@ -23,7 +23,7 @@ INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is_", "is_true", "len",
                  "inplace_mod", "inplace_pow", "inplace_lshift",
                  "inplace_rshift", "inplace_and", "inplace_or", "inplace_xor",
                  "contains", "newlist", "newtuple", "alloc_and_set",
-                 "issubtype"]
+                 "issubtype", "type"]
 
 C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
                   annmodel.SomeString: "char*",
@@ -304,12 +304,17 @@ class TryBlockRepr(BlockRepr):
         l_exitcases = [self.gen.get_repr(ex.exitcase)
                        for ex in self.pyblock.exits[1:]]
         self.l_func.dependencies.update(l_exitcases)
-        sw = [(str(abs(id(ex.exitcase))), "%" + l_l.toblock)
-              for ex, l_l in zip(self.pyblock.exits[1:], l_exits)]
-        lexcblock.switch(l_ui, "%" + self.lblock.label + ".unwind", sw)
-        lunwindblock = llvmbc.BasicBlock(self.lblock.label + ".unwind")
-        lunwindblock.unwind()
-        self.l_func.add_block(lunwindblock)
+        # XXX XXX XXX: For now we assume, that if there is only one exit
+        # and it's exitcase is Exception, this should match anything
+        if len(l_exits) == 1 and self.pyblock.exits[1].exitcase == Exception:
+            lexcblock.uncond_branch("%" + l_exits[0].toblock)
+        else:
+            sw = [(str(abs(id(ex.exitcase))), "%" + l_l.toblock)
+                  for ex, l_l in zip(self.pyblock.exits[1:], l_exits)]
+            lexcblock.switch(l_ui, "%" + self.lblock.label + ".unwind", sw)
+            lunwindblock = llvmbc.BasicBlock(self.lblock.label + ".unwind")
+            lunwindblock.unwind()
+            self.l_func.add_block(lunwindblock)
 
 class ExceptBlockRepr(BlockRepr):
     def create_space_ops(self):

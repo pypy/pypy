@@ -262,7 +262,7 @@ class ExceptionTypeRepr(TypeRepr):
             self.l_base = None
 
     def typename(self):
-        return "%std.exception* "
+        return "%std.exception*"
 
     def llvmtype(self):
         return "%std.class* "
@@ -284,13 +284,34 @@ class ExceptionTypeRepr(TypeRepr):
                            (self.l_base.llvmname(), l_tmp.llvmname()))
 
     def op_simple_call(self, l_target, args, lblock, l_func):
+        print "$" * 80
+        print l_target.typed_name(),
         lblock.malloc(l_target)
         l_args0 = self.gen.get_repr(args[0])
+        print l_args0.typed_name()
+        l_tmp = self.gen.get_local_tmp(PointerTypeRepr("%std.class*",
+                                                       self.gen), l_func)
+        l_func.dependencies.update([l_args0, l_tmp])
+        lblock.getelementptr(l_tmp, l_target, [0, 0])
+        lblock.store(l_args0, l_tmp)
+        if len(args) > 1:
+            l_args1 = self.gen.get_repr(args[1])
+        else:
+            l_args1 = self.gen.get_repr(Constant(None))
+        l_tmp1 = self.gen.get_local_tmp(PointerTypeRepr("%std.list.sbyte*",
+                                                        self.gen), l_func)
         l_cast = self.gen.get_local_tmp(PointerTypeRepr("%std.list.sbyte",
                                                         self.gen), l_func)
-        l_tmp = self.gen.get_local_tmp(PointerTypeRepr("%std.list.sbyte*",
-                                                       self.gen), l_func)
-        l_func.dependencies.update([l_args0, l_cast, l_tmp])
-        lblock.cast(l_cast, l_args0)
-        lblock.getelementptr(l_tmp, l_target, [0, 1])
-        lblock.store(l_cast, l_tmp)
+        l_func.dependencies.update([l_args1, l_tmp1])
+        lblock.getelementptr(l_tmp1, l_target, [0, 1])
+        lblock.cast(l_cast, l_args1)
+        lblock.store(l_cast, l_tmp1)
+
+    def t_op_type(self, l_target, args, lblock, l_func):
+        l_args0 = self.gen.get_repr(args[0])
+        l_func.dependencies.add(l_args0)
+        l_tmp = self.gen.get_local_tmp(
+            PointerTypeRepr("%std.class*", self.gen), l_func)
+        lblock.getelementptr(l_tmp, l_args0, [0, 0])
+        lblock.load(l_target, l_tmp)
+    
