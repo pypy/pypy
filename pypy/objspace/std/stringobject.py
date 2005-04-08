@@ -76,8 +76,8 @@ zfill             OK
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
+from pypy.tool.rarithmetic import intmask
 from pypy.objspace.std.intobject   import W_IntObject
-from pypy.objspace.std.restricted_int import intmask
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std import slicetype
 from pypy.objspace.std.listobject import W_ListObject

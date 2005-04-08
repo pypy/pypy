@@ -11,7 +11,7 @@ from pypy.annotation.model import SomeFloat
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.factory import ListFactory
 from pypy.objspace.flow.model import Constant
-import pypy.objspace.std.restricted_int
+import pypy.tool.rarithmetic
 
 # convenience only!
 def immutablevalue(x):
@@ -225,8 +225,8 @@ for name, value in globals().items():
         original = getattr(__builtin__, name[8:])
         BUILTIN_ANALYZERS[original] = value
 
-BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_int] = builtin_int
-BUILTIN_ANALYZERS[pypy.objspace.std.restricted_int.r_uint] = restricted_uint
+BUILTIN_ANALYZERS[pypy.tool.rarithmetic.r_int] = builtin_int
+BUILTIN_ANALYZERS[pypy.tool.rarithmetic.r_uint] = restricted_uint
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 # this one is needed otherwise when annotating assert in a test we may try to annotate 
 # py.test AssertionError.__init__ .

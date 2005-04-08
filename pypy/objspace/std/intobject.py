@@ -1,6 +1,6 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.restricted_int import r_int, LONG_BIT
+from pypy.tool.rarithmetic import r_int, LONG_BIT
 
 """
 The implementation of integers is a bit difficult,

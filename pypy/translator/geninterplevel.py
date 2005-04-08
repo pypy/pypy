@@ -28,7 +28,7 @@ from pypy.annotation import model as annmodel
 from types import FunctionType, CodeType, ModuleType
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
-from pypy.objspace.std.restricted_int import r_int, r_uint
+from pypy.tool.rarithmetic import r_int, r_uint
 
 from pypy.translator.translator import Translator
 from pypy.objspace.flow import FlowObjSpace

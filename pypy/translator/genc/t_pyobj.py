@@ -5,7 +5,7 @@ from pypy.translator.gensupp import builtin_base, NameManager
 from pypy.translator.genc.t_simple import CType
 from types import FunctionType, CodeType, InstanceType, ClassType
 
-from pypy.objspace.std.restricted_int import r_int, r_uint
+from pypy.tool.rarithmetic import r_int, r_uint
 
 
 class CPyObjectType(CType):

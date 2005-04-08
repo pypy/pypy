@@ -1,6 +1,6 @@
 import unittest
 import autopath
-from pypy.objspace.std.restricted_int import *
+from pypy.tool.rarithmetic import *
 import sys
 
 maxint_mask = (sys.maxint*2 + 1)
