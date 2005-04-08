@@ -3,7 +3,17 @@ import autopath
 from pypy.tool.rarithmetic import *
 import sys
 
+
 maxint_mask = (sys.maxint*2 + 1)
+machbits = 0
+i = 1
+l = 1L
+while i == l and type(i) is int:
+    i *= 2
+    l *= 2
+    machbits += 1
+print machbits
+
 
 objspacename = 'std'
 
@@ -126,3 +136,19 @@ class Test_r_uint:
                     else:
                         res = res & mask
                     assert res == cmp
+
+def test_intmask():
+    assert intmask(1) == 1
+    assert intmask(sys.maxint) == sys.maxint
+    minint = -sys.maxint-1
+    assert intmask(minint) == minint
+    assert intmask(2*sys.maxint+1) == -1
+    assert intmask(sys.maxint*2) == -2
+    assert intmask(sys.maxint*2+2) == 0
+    assert intmask(2*(sys.maxint*1+1)) == 0    
+    assert intmask(1 << (machbits-1)) == 1 << (machbits-1)
+    assert intmask(sys.maxint+1) == minint
+    assert intmask(minint-1) == sys.maxint
+
+    
+
