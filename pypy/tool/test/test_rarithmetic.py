@@ -115,6 +115,9 @@ class Test_r_uint:
         # pow is buggy, dowsn't allow our type
         #self.binary_test(lambda x, y: pow(x, y, 42), (2, 3, 5, 1000))
 
+    def test_back_to_int(self):
+        assert int(r_uint(-1)) == -1
+
     def unary_test(self, f):
         for arg in (0, 3, 12345):
             res = f(arg) & maxint_mask 
@@ -149,6 +152,7 @@ def test_intmask():
     assert intmask(1 << (machbits-1)) == 1 << (machbits-1)
     assert intmask(sys.maxint+1) == minint
     assert intmask(minint-1) == sys.maxint
+    assert intmask(r_uint(-1)) == -1
 
 
 def test_ovfcheck():

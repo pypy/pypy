@@ -157,6 +157,8 @@ LONG_TEST = _Ltest
 def intmask(n):
     if isinstance(n, int):
         return n
+    if isinstance(n, r_uint):
+        n = long(n)
     n &= LONG_MASK
     if n >= LONG_TEST:
         n -= 2*LONG_TEST
@@ -180,6 +182,12 @@ class r_uint(long):
 
     def __new__(klass, val):
         return long.__new__(klass, val & klass._mask)
+
+    def __int__(self):
+        if self < LONG_TEST:
+            return int(self)
+        else:
+            return intmask(self)
 
     def __add__(self, other):
         x = long(self)
