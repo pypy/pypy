@@ -1,14 +1,14 @@
 from pypy.objspace.flow.model import *
 
 def copyvar(translator, v):
-    """Make a copy of the Variable v, preserving annotations and type_cls."""
+    """Make a copy of the Variable v, preserving annotations and concretetype."""
     assert isinstance(v, Variable)
     newvar = Variable(v)
     annotator = translator.annotator
     if annotator is not None and v in annotator.bindings:
         annotator.bindings[newvar] = annotator.bindings[v]
-    if hasattr(v, 'type_cls'):
-        newvar.type_cls = v.type_cls
+    if hasattr(v, 'concretetype'):
+        newvar.concretetype = v.concretetype
     return newvar
 
 def insert_empty_block(translator, link):

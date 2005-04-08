@@ -1,13 +1,14 @@
 from __future__ import generators
 import autopath, os, sys, __builtin__, marshal, zlib
 from pypy.objspace.flow.model import Variable, Constant
-from pypy.translator.gensupp import builtin_base
+from pypy.translator.gensupp import builtin_base, NameManager
+from pypy.translator.genc.t_simple import CType
 from types import FunctionType, CodeType, InstanceType, ClassType
 
 from pypy.objspace.std.restricted_int import r_int, r_uint
 
 
-class CType_PyObject:
+class CPyObjectType(CType):
     """The PyObject* C type.
     This class contains all the nameof_xxx() methods that allow a wild variety
     of Python objects to be 'pickled' as Python source code that will
@@ -16,9 +17,24 @@ class CType_PyObject:
     ctypetemplate = 'PyObject *%s'
     cincref       = 'Py_INCREF(%s);'
     cdecref       = 'Py_DECREF(%s);'
+    error_return  = 'NULL'
 
-    def __init__(self, genc):
-        self.genc = genc
+    def __init__(self, translator):
+        self.translator = translator
+        self.namespace= NameManager()
+        # keywords cannot be reused.  This is the C99 draft's list.
+        self.namespace.make_reserved_names('''
+           auto      enum      restrict  unsigned
+           break     extern    return    void
+           case      float     short     volatile
+           char      for       signed    while
+           const     goto      sizeof    _Bool
+           continue  if        static    _Complex
+           default   inline    struct    _Imaginary
+           do        int       switch
+           double    long      typedef
+           else      register  union
+           ''')
         self.cnames = {Constant(None).key:  'Py_None',
                        Constant(False).key: 'Py_False',
                        Constant(True).key:  'Py_True',
@@ -30,6 +46,7 @@ class CType_PyObject:
             'Py_True  = True',
             ]
 
+        self.globaldecl = []
         self.latercode = []    # list of generators generating extra lines
                                #   for later in initxxx() -- for recursive
                                #   objects
@@ -66,9 +83,9 @@ class CType_PyObject:
             return name
 
     def uniquename(self, basename):
-        name = self.genc.namespace.uniquename(basename)
+        name = self.namespace.uniquename(basename)
         self.globalobjects.append(name)
-        self.genc.globaldecl.append('static PyObject *%s;' % (name,))
+        self.globaldecl.append('static PyObject *%s;' % (name,))
         return name
 
     def initcode_python(self, name, pyexpr):
@@ -136,7 +153,7 @@ class CType_PyObject:
     def skipped_function(self, func):
         # debugging only!  Generates a placeholder for missing functions
         # that raises an exception when called.
-        if self.genc.translator.frozen:
+        if self.translator.frozen:
             warning = 'NOT GENERATING'
         else:
             warning = 'skipped'
@@ -152,10 +169,10 @@ class CType_PyObject:
 
     def nameof_function(self, func, progress=['-\x08', '\\\x08',
                                               '|\x08', '/\x08']):
-        funcdef = self.genc.getfuncdef(func)
+        funcdef = self.genc().getfuncdef(func)
         if funcdef is None:
             return self.skipped_function(func)
-        if not self.genc.translator.frozen:
+        if not self.translator.frozen:
             p = progress.pop(0)
             sys.stderr.write(p)
             progress.append(p)
@@ -183,7 +200,7 @@ class CType_PyObject:
             return name
 
     def should_translate_attr(self, pbc, attr):
-        ann = self.genc.translator.annotator
+        ann = self.translator.annotator
         if ann is None:
             ignore = getattr(pbc.__class__, 'NOT_RPYTHON_ATTRIBUTES', [])
             if attr in ignore:
@@ -288,12 +305,12 @@ class CType_PyObject:
                         continue
                     # XXX some __NAMES__ are important... nicer solution sought
                     #raise Exception, "unexpected name %r in class %s"%(key, cls)
-                if isinstance(value, staticmethod) and value.__get__(1) not in self.genc.translator.flowgraphs and self.genc.translator.frozen:
+                if isinstance(value, staticmethod) and value.__get__(1) not in self.translator.flowgraphs and self.translator.frozen:
                     print value
                     continue
                 if isinstance(value, classmethod) and value.__get__(cls).__doc__.lstrip().startswith("NOT_RPYTHON"):
                     continue
-                if isinstance(value, FunctionType) and value not in self.genc.translator.flowgraphs and self.genc.translator.frozen:
+                if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
                     print value
                     continue
                     
@@ -408,26 +425,29 @@ class CType_PyObject:
     def later(self, gen):
         self.latercode.append((gen, self.debugstack))
 
-    def collect_globals(self):
+    def collect_globals(self, genc):
         while self.latercode:
             gen, self.debugstack = self.latercode.pop()
             #self.initcode.extend(gen) -- eats TypeError! bad CPython!
             for line in gen:
                 self.initcode.append(line)
             self.debugstack = ()
-        if self.genc.f2 is not None:
+        if genc.f2 is not None:
             for line in self.initcode:
-                print >> self.genc.f2, line
+                print >> genc.f2, line
             del self.initcode[:]
+        result = self.globaldecl
+        self.globaldecl = []
+        return result
 
-    def getfrozenbytecode(self):
-        if self.genc.f2 is not None:
-            self.genc.f2.seek(0)
-            self.initcode.insert(0, self.genc.f2.read())
+    def getfrozenbytecode(self, genc):
+        if genc.f2 is not None:
+            genc.f2.seek(0)
+            self.initcode.insert(0, genc.f2.read())
         self.initcode.append('')
         source = '\n'.join(self.initcode)
         del self.initcode[:]
-        co = compile(source, self.genc.modname, 'exec')
+        co = compile(source, genc.modname, 'exec')
         del source
         small = zlib.compress(marshal.dumps(co))
         source = """if 1:
@@ -435,10 +455,6 @@ class CType_PyObject:
             exec marshal.loads(zlib.decompress(%r))""" % small
         # Python 2.2 SyntaxError without newline: Bug #501622
         source += '\n'
-        co = compile(source, self.genc.modname, 'exec')
+        co = compile(source, genc.modname, 'exec')
         del source
         return marshal.dumps(co)
-
-
-def ctypeof(v):
-    return getattr(v, 'type_cls', CType_PyObject)

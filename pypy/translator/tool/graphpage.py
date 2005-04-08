@@ -127,9 +127,10 @@ class FlowGraphPage(GraphPage):
         def visit(node):
             if isinstance(node, Block):
                 for var in node.getvariables():
-                    if hasattr(var, 'type_cls'):
+                    if hasattr(var, 'concretetype'):
+                        typename = var.concretetype.debugname()
                         info = self.links.get(var.name, var.name)
-                        info = '(%s) %s' % (var.type_cls.__name__, info)
+                        info = '(%s) %s' % (typename, info)
                         self.links[var.name] = info
         for graph in graphs:
             traverse(visit, graph)

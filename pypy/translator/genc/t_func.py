@@ -1,19 +1,29 @@
-from pypy.translator.genc.parametric import parametrictype
+from pypy.translator.genc.t_simple import CType
 
 
-class CType_FuncPtr:
-    __metaclass__ = parametrictype
+class CFuncPtrType(CType):
+    error_return = 'NULL'
 
-    def __initsubclass__(cls, key):
-        cls.args_typecls = key[:-1]
-        cls.return_typecls = key[-1]
-        arglist = [tc.ctypetemplate % ('',) for tc in cls.args_typecls]
+    def __init__(self, translator, argtypes, returntype):
+        super(CFuncPtrType, self).__init__(translator)
+        self.argtypes = argtypes
+        self.returntype = returntype
+        # build a type declaration template matching the strange C syntax
+        # for function pointer types:
+        #    <returntype> (*<name_to_insert_here>) (<argument types>)
+        # which becomes funny when <returntype> itself is a complex type;
+        # in that case, the whole rest of the line, i.e. the "(*..)(...)",
+        # is what should be inserted into the returntype's "%s".
+        arglist = [ct.ctypetemplate % ('',) for ct in argtypes]
         argtemplate = ', '.join(arglist or ['void'])
         header = '(*%s)(' + argtemplate + ')'
-        cls.ctypetemplate = cls.return_typecls.ctypetemplate % (header,)
+        self.ctypetemplate = returntype.ctypetemplate % (header,)
 
-    def __init__(self, genc):
-        self.genc = genc
+    def debugname(self):
+        # a nice textual name for debugging...
+        argnames = [ct.debugname() for ct in self.argtypes]
+        returnname = self.returntype.debugname()
+        return 'fn (%s) -> %s' % (', '.join(argnames), returnname)
 
     def nameof(self, func, debug=None):
-        return self.genc.getfuncdef(func).fast_name
+        return self.genc().getfuncdef(func).fast_name

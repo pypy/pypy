@@ -2,36 +2,46 @@
 GenC-specific type specializer
 """
 
-from pypy.translator.typer import Specializer, TypeMatch
-from pypy.annotation.model import SomeInteger, SomePBC
-from pypy.translator.genc.t_pyobj import CType_PyObject
-from pypy.translator.genc.t_int import CType_Int, CType_None
-from pypy.translator.genc.t_func import CType_FuncPtr
+from __future__ import generators
+from pypy.translator.typer import Specializer
+from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
+from pypy.annotation.model import SomeInteger, SomePBC, SomeTuple
+from pypy.translator.genc.t_pyobj import CPyObjectType
+from pypy.translator.genc.t_simple import CIntType, CNoneType
+from pypy.translator.genc.t_func import CFuncPtrType
 import types
 from pypy.interpreter.pycode import CO_VARARGS
 
 class GenCSpecializer(Specializer):
 
-    TInt  = TypeMatch(SomeInteger(), CType_Int)
-    TNone = TypeMatch(SomePBC({None: True}), CType_None)
+    def __init__(self, annotator):
+        # instantiate the common concrete types
+        t = annotator.translator
+        TInt      = t.getconcretetype(CIntType)
+        TNone     = t.getconcretetype(CNoneType)
+        TPyObject = t.getconcretetype(CPyObjectType)
 
-    # in more-specific-first, more-general-last order
-    typematches = [TNone, TInt]
+        # initialization
+        Specializer.__init__(
+            self, annotator,
+            defaultconcretetype = TPyObject,
 
-    defaulttypecls = CType_PyObject
+            # in more-specific-first, more-general-last order
+            typematches = [TNone, TInt],
 
-    specializationtable = [
-        ## op         specialized op   arg types   concrete return type
-        ('add',         'int_add',     TInt, TInt,   CType_Int),
-        ('inplace_add', 'int_add',     TInt, TInt,   CType_Int),
-        ('sub',         'int_sub',     TInt, TInt,   CType_Int),
-        ('inplace_sub', 'int_sub',     TInt, TInt,   CType_Int),
-        ('is_true',     'int_is_true', TInt,         CType_Int),
-        ]
+            specializationtable = [
+                ## op         specialized op   arg types   concrete return type
+                ('add',         'int_add',     TInt, TInt,   TInt),
+                ('inplace_add', 'int_add',     TInt, TInt,   TInt),
+                ('sub',         'int_sub',     TInt, TInt,   TInt),
+                ('inplace_sub', 'int_sub',     TInt, TInt,   TInt),
+                ('is_true',     'int_is_true', TInt,         TInt),
+                ],
+            )
 
-    def annotation2typecls(self, s_value):
-        besttype = Specializer.annotation2typecls(self, s_value)
-        if besttype is None:
+    def annotation2concretetype(self, s_value):
+        besttype = Specializer.annotation2concretetype(self, s_value)
+        if besttype == self.defaultconcretetype:
 
             if isinstance(s_value, SomePBC):
                 # XXX! must be somehow unified with bookkeeper.pycall()!
@@ -44,19 +54,59 @@ class GenCSpecializer(Specializer):
                     graph = self.annotator.translator.flowgraphs[s_value.const]
                     args_ct = [self.setbesttype(a) for a in graph.getargs()]
                     res_ct = self.setbesttype(graph.getreturnvar())
-                    key = tuple(args_ct + [res_ct])
-                    besttype = CType_FuncPtr[key]
+                    besttype = self.annotator.translator.getconcretetype(
+                        CFuncPtrType, tuple(args_ct), res_ct)
+
+##            elif isinstance(s_value, SomeTuple):
+##                key = tuple([self.annotation2concretetype(s_item)
+##                             for s_item in s_value.items])
+##                besttype = CType_Tuple[key]
 
         return besttype
 
-    def getspecializedop(self, op, bindings):
+    def make_specialized_op(self, op, bindings):
         if op.opname == 'simple_call':
             s_callable = self.annotator.binding(op.args[0], True)
             if s_callable is not None:
-                ct = self.annotation2typecls(s_callable)
-                if ct is not None and issubclass(ct, CType_FuncPtr):
-                    args_typecls = [ct]
-                    args_typecls += ct.args_typecls
-                    return 'direct_call', args_typecls, ct.return_typecls
+                ct = self.annotation2concretetype(s_callable)
+                if isinstance(ct, CFuncPtrType):
+                    argtypes = [ct]
+                    argtypes += ct.argtypes
+                    self.make_typed_op(op, argtypes, ct.returntype,
+                                       newopname='direct_call')
+                    return
 
-        return Specializer.getspecializedop(self, op, bindings)
+##        if op.opname == 'getitem':
+##            s_obj = self.annotator.binding(op.args[0], True)
+##            if s_obj is not None:
+##                ct = self.annotation2typecls(s_obj)
+##                if issubclass(ct, CType_Tuple):
+##                    if isinstance(op.args[1], Constant):
+##                        index = op.args[1].value
+##                        try:
+##                            ct1 = ct.items_typecls[index]
+##                        except IndexError:
+##                            print "*** getitem: IndexError in tuple access"
+##                        else:
+##                            self.make_typed_op(op, [ct, CType_Int], ct1,
+##                                               newopname='tuple_getitem')
+##                            return
+
+##        if op.opname == 'newtuple':
+##            s_tuple = self.annotator.binding(op.result, True)
+##            if s_tuple is not None:
+##                ct = self.annotation2typecls(s_tuple)
+##                if issubclass(ct, CType_Tuple):
+##                    op1 = SpaceOperation('tuple_new', [], op.result)
+##                    self.make_typed_op(op1, [], ct)
+##                    for i in range(len(ct.items_typecls)):
+##                        op1 = SpaceOperation('tuple_inititem',
+##                                         [op.result, Constant(i), op.args[i]],
+##                                         Variable())
+##                        ct1 = ct.items_typecls[i]
+##                        self.make_typed_op(op1,
+##                                           [ct, CType_Int, ct1],
+##                                           CType_None)
+##                    return
+
+        Specializer.make_specialized_op(self, op, bindings)

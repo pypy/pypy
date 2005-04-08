@@ -5,11 +5,11 @@ Generate a C source file from the flowmodel.
 import autopath, os
 from pypy.objspace.flow.model import Variable, Constant
 
+from pypy.interpreter.miscutils import getthreadlocals
 from pypy.translator.gensupp import uniquemodulename
-from pypy.translator.gensupp import NameManager
 
 from pypy.translator.genc.funcdef import FunctionDef, USE_CALL_TRACE
-from pypy.translator.genc.t_pyobj import CType_PyObject, ctypeof
+from pypy.translator.genc.t_pyobj import CPyObjectType
 
 # ____________________________________________________________
 
@@ -27,42 +27,29 @@ class GenC:
         self.translator = translator
         self.modname = (modname or
                         uniquemodulename(translator.functions[0].__name__))
-        self.namespace= NameManager()
-        # keywords cannot be reused.  This is the C99 draft's list.
-        self.namespace.make_reserved_names('''
-           auto      enum      restrict  unsigned
-           break     extern    return    void
-           case      float     short     volatile
-           char      for       signed    while
-           const     goto      sizeof    _Bool
-           continue  if        static    _Complex
-           default   inline    struct    _Imaginary
-           do        int       switch
-           double    long      typedef
-           else      register  union
-           ''')
         self.globaldecl = []
         self.pendingfunctions = []
         self.funcdefs = {}
         self.allfuncdefs = []
-        self.ctyperepresenters = {}
-        self.pyobjrepr = self.getrepresenter(CType_PyObject)
-        self.gen_source()
+        self.pyobjtype = translator.getconcretetype(CPyObjectType)
+        self.namespace = self.pyobjtype.namespace
 
-    def getrepresenter(self, type_cls):
+        assert not hasattr(getthreadlocals(), 'genc')
+        getthreadlocals().genc = self
         try:
-            return self.ctyperepresenters[type_cls]
-        except KeyError:
-            crepr = self.ctyperepresenters[type_cls] = type_cls(self)
-            return crepr
+            self.gen_source()
+        finally:
+            del getthreadlocals().genc
 
     def nameofconst(self, c, debug=None):
-        crepr = self.getrepresenter(ctypeof(c))
-        return crepr.nameof(c.value, debug=debug)
+        try:
+            concretetype = c.concretetype
+        except AttributeError:
+            concretetype = self.pyobjtype
+        return concretetype.nameof(c.value, debug=debug)
 
-    def nameofvalue(self, value, type_cls):
-        crepr = self.getrepresenter(type_cls)
-        return crepr.nameof(value)
+    def nameofvalue(self, value, concretetype=None, debug=None):
+        return (concretetype or self.pyobjtype).nameof(value, debug=debug)
 
     def getfuncdef(self, func):
         if func not in self.funcdefs:
@@ -86,7 +73,7 @@ class GenC:
         info = {
             'modname': self.modname,
             'entrypointname': self.translator.functions[0].__name__,
-            'entrypoint': self.pyobjrepr.nameof(self.translator.functions[0]),
+            'entrypoint': self.pyobjtype.nameof(self.translator.functions[0]),
             }
         # header
         if USE_CALL_TRACE:
@@ -97,10 +84,6 @@ class GenC:
         while self.pendingfunctions:
             funcdef = self.pendingfunctions.pop()
             self.gen_cfunction(funcdef)
-            # collect more of the latercode after each function
-            for crepr in self.ctyperepresenters.values():
-                if hasattr(crepr, 'collect_globals'):
-                    crepr.collect_globals()
             self.gen_global_declarations()
 
         # after all the ff_xxx() functions we generate the pyff_xxx() wrappers
@@ -110,7 +93,7 @@ class GenC:
 
         # global object table
         print >> f, self.C_OBJECT_TABLE
-        for name in self.pyobjrepr.globalobjects:
+        for name in self.pyobjtype.globalobjects:
             if not name.startswith('gfunc_'):
                 print >> f, '\t{&%s, "%s"},' % (name, name)
         print >> f, self.C_TABLE_END
@@ -128,7 +111,7 @@ class GenC:
 
         # frozen init bytecode
         print >> f, self.C_FROZEN_BEGIN
-        bytecode = self.pyobjrepr.getfrozenbytecode()
+        bytecode = self.pyobjtype.getfrozenbytecode(self)
         def char_repr(c):
             if c in '\\"': return '\\' + c
             if ' ' <= c < '\x7F': return c
@@ -144,6 +127,11 @@ class GenC:
         print >> f, self.C_FOOTER % info
 
     def gen_global_declarations(self):
+        # collect more of the latercode between the functions,
+        # and produce the corresponding global declarations
+        for ct in self.translator.concretetypes.values():
+            if hasattr(ct, 'collect_globals'):
+                self.globaldecl += ct.collect_globals(self)
         g = self.globaldecl
         if g:
             f = self.f

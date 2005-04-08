@@ -63,6 +63,7 @@ class Translator:
         self.functions = []   # the keys of self.flowgraphs, in creation order
         self.callgraph = {}   # {opaque_tag: (caller, callee)}
         self.frozen = False   # when frozen, no more flowgraphs can be generated
+        self.concretetypes = {}  # see getconcretetype()
         if self.entrypoint:
             self.getflowgraph()
 
@@ -264,6 +265,17 @@ class Translator:
 ##            # typical case for the 1st call, because addpendingblock() did
 ##            # not actually start the analysis of the called function yet.
 ##            return impossiblevalue
+
+    def getconcretetype(self, cls, *args):
+        # Return a (cached) 'concrete type' object attached to this translator.
+        # Concrete types are what is put in the 'concretetype' attribute of
+        # the Variables and Constants of the flow graphs by typer.py to guide
+        # the code generators.
+        try:
+            return self.concretetypes[cls, args]
+        except KeyError:
+            result = self.concretetypes[cls, args] = cls(self, *args)
+            return result
 
 
 if __name__ == '__main__':

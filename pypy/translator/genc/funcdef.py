@@ -8,7 +8,6 @@ from pypy.interpreter.pycode import CO_VARARGS
 from types import FunctionType
 
 from pypy.translator.gensupp import c_string
-from pypy.translator.genc.t_pyobj import ctypeof
 
 # Set this if you want call trace frames to be built
 USE_CALL_TRACE = False
@@ -68,12 +67,12 @@ class FunctionDef:
             declare_fast_args.insert(0, 'TRACE_ARGS')
         declare_fast_args = ', '.join(declare_fast_args) or 'void'
         name_and_arguments = '%s(%s)' % (self.fast_name, declare_fast_args)
-        ctret = ctypeof(graph.getreturnvar())
+        ctret = self.ctypeof(graph.getreturnvar())
         fast_function_header = 'static ' + (
             ctret.ctypetemplate % (name_and_arguments,))
 
-        name_of_defaults = [self.genc.pyobjrepr.nameof(x, debug=('Default argument of',
-                                                       self))
+        name_of_defaults = [self.genc.nameofvalue(x, debug=(
+                                                   'Default argument of', self))
                             for x in (func.func_defaults or ())]
 
         # store misc. information
@@ -91,10 +90,16 @@ class FunctionDef:
         self.genc.globaldecl.append(fast_function_header + ';  /* forward */')
 
 
+    def ctypeof(self, var_or_const):
+        try:
+            return var_or_const.concretetype
+        except AttributeError:
+            return self.genc.pyobjtype
+
     def get_globalobject(self):
         if self.globalobject_name is None:
             self.wrapper_name = 'py' + self.fast_name
-            self.globalobject_name = self.genc.pyobjrepr.uniquename('gfunc_' +
+            self.globalobject_name = self.genc.pyobjtype.uniquename('gfunc_' +
                                                           self.base_name)
         return self.globalobject_name
 
@@ -105,7 +110,8 @@ class FunctionDef:
 
     def decl(self, v):
         assert isinstance(v, Variable)
-        return ctypeof(v).ctypetemplate % (self.localscope.localname(v.name),)
+        ct = self.ctypeof(v)
+        return ct.ctypetemplate % (self.localscope.localname(v.name),)
 
     def expr(self, v):
         if isinstance(v, Variable):
@@ -119,6 +125,8 @@ class FunctionDef:
     # ____________________________________________________________
 
     def gen_wrapper(self, f):
+        # XXX this is a huge mess.  Think about producing the wrapper by
+        #     generating its content as a flow graph...
         func             = self.func
         f_name           = self.wrapper_name
         name_of_defaults = self.name_of_defaults
@@ -151,13 +159,12 @@ class FunctionDef:
         conversions = []
         call_fast_args = []
         for a, numberedname in zip(graphargs, numberednames):
-            try:
-                convert_from_obj = a.type_cls.convert_from_obj
-            except AttributeError:
+            ct = self.ctypeof(a)
+            if ct == self.genc.pyobjtype:
                 call_fast_args.append(numberedname)
             else:
+                convert_from_obj = ct.opname_conv_from_obj  # simple conv only!
                 convertedname = numberedname.replace('o', 'a')
-                ct = ctypeof(a)
                 print >> f, '\t%s;' % (ct.ctypetemplate % (convertedname,))
                 conversions.append('\tOP_%s(%s, %s, type_error)' % (
                     convert_from_obj.upper(), numberedname, convertedname))
@@ -165,13 +172,13 @@ class FunctionDef:
                 # XXX even though they are not PyObjects
                 call_fast_args.append(convertedname)
         # return value conversion
-        try:
-            convert_to_obj = self.ctret.convert_to_obj
-        except AttributeError:
+        ct = self.ctret
+        if ct == self.genc.pyobjtype:
             putresultin = 'oret'
             footer = None
         else:
-            print >> f, '\t%s;' % (self.ctret.ctypetemplate % ('aret',))
+            convert_to_obj = ct.opname_conv_to_obj  # simple conv only for now!
+            print >> f, '\t%s;' % (ct.ctypetemplate % ('aret',))
             putresultin = 'aret'
             footer = 'OP_%s(aret, oret, type_error)' % convert_to_obj.upper()
         print >> f
@@ -254,7 +261,7 @@ class FunctionDef:
         
         # generate an incref for each input argument
         for a in self.graphargs:
-            cincref = getattr(ctypeof(a), 'cincref', None)
+            cincref = self.ctypeof(a).cincref
             if cincref:
                 print >> f, '\t' + cincref % (self.expr(a),)
 
@@ -297,15 +304,14 @@ class FunctionDef:
                 if a1 in has_ref:
                     del has_ref[a1]
                 else:
-                    ct1 = ctypeof(a1)
-                    ct2 = ctypeof(a2)
+                    ct1 = self.ctypeof(a1)
+                    ct2 = self.ctypeof(a2)
                     assert ct1 == ct2
-                    cincref = getattr(ct1, 'cincref', None)
-                    if cincref:
-                        line += '\t' + cincref % (self.expr(a2),)
+                    if ct1.cincref:
+                        line += '\t' + ct1.cincref % (self.expr(a2),)
                 yield line
             for v in has_ref:
-                cdecref = getattr(ctypeof(v), 'cdecref', None)
+                cdecref = self.ctypeof(v).cdecref
                 if cdecref:
                     yield cdecref % (linklocalvars[v],)
             yield 'goto block%d;' % blocknum[link.target]
@@ -370,7 +376,7 @@ class FunctionDef:
                 for link in block.exits[1:]:
                     assert issubclass(link.exitcase, Exception)
                     yield 'if (PyErr_ExceptionMatches(%s)) {' % (
-                        self.genc.pyobjrepr.nameof(link.exitcase),)
+                        self.genc.nameofvalue(link.exitcase),)
                     yield '\tPyObject *exc_cls, *exc_value, *exc_tb;'
                     yield '\tPyErr_Fetch(&exc_cls, &exc_value, &exc_tb);'
                     yield '\tif (exc_value == NULL) {'
@@ -386,7 +392,7 @@ class FunctionDef:
                 err_reachable = True
             else:
                 # block ending in a switch on a value
-                ct = ctypeof(block.exitswitch)
+                ct = self.ctypeof(block.exitswitch)
                 for link in block.exits[:-1]:
                     assert link.exitcase in (False, True)
                     yield 'if (%s == %s) {' % (self.expr(block.exitswitch),
@@ -405,12 +411,12 @@ class FunctionDef:
             while to_release:
                 v = to_release.pop()
                 if err_reachable:
-                    if not hasattr(v, 'type_cls'):
-                        yield 'ERR_DECREF(%s)' % self.expr(v)
+                    if not hasattr(v, 'concretetype'):
+                        cdecref = 'ERR_DECREF(%s)'
                     else:
-                        cdecref = getattr(ctypeof(v), 'cdecref', None)
-                        if cdecref:
-                            yield cdecref % (self.expr(v),)
+                        cdecref = v.concretetype.cdecref
+                    if cdecref:
+                        yield cdecref % (self.expr(v),)
                 yield 'err%d_%d:' % (blocknum[block], len(to_release))
                 err_reachable = True
             if err_reachable:
