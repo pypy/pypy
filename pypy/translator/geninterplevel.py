@@ -746,12 +746,15 @@ class GenRpy:
 
     def nameof_dict(self, dic):
         assert dic is not __builtins__
-        assert '__builtins__' not in dic, 'Seems to be the globals of %s' % (
-            dic.get('__name__', '?'),)
+        if dic is not self.entrypoint:
+            assert '__builtins__' not in dic, 'Seems to be the globals of %s' %(
+                dic.get('__name__', '?'),)
         name = self.uniquename('g%ddict' % len(dic))
         self.register_early(dic, name)
         self.initcode.append('%s = space.newdict([])' % (name,))
         for k in dic:
+            if k == '__builtins__':
+                continue
             self.initcode.append('space.setitem(%s, %s, %s)'%(
                 name, self.nameof(k), self.nameof(dic[k])))
         return name
@@ -1359,7 +1362,7 @@ def exceptions_helper():
     fpath = os.path.join(libdir, fname)
     dic = {"__name__": "exceptions"}
     execfile(fpath, dic)
-    del dic["__builtins__"]
+    #del dic["__builtins__"]
     def test_exceptions():
         """ enumerate all exceptions """
         return dic.keys()
@@ -1503,7 +1506,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         code = compile(sourcetext, filename, 'exec')
     dic = {'__name__': modname}
     exec code in dic
-    del dic['__builtins__']
+    #del dic['__builtins__']
     entrypoint = dic
     t = Translator(None, verbose=False, simplifying=True,
                    builtins_can_raise_exceptions=True,
