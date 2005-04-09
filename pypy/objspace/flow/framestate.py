@@ -1,5 +1,6 @@
 from pypy.interpreter.pyframe import PyFrame, ControlFlowException
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.typedef import instantiate
 from pypy.objspace.flow.model import *
 
 class FrameState:
@@ -192,6 +193,6 @@ def recursively_unflatten(space, lst):
             unrollerclass, argcount = UNPICKLE_TAGS[item]
             arguments = lst[i+1: i+1+argcount]
             del lst[i+1: i+1+argcount]
-            unroller = unrollerclass()
+            unroller = instantiate(unrollerclass)
             unroller.state_pack_variables(space, *arguments)
             lst[i] = Constant(unroller)

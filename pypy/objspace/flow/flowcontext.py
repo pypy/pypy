@@ -11,7 +11,9 @@ class StopFlowing(Exception):
     pass
 
 class MergeBlock(Exception):
-    pass
+    def __init__(self, block, currentstate):
+        self.block = block
+        self.currentstate = currentstate
 
 
 class SpamBlock(Block):
@@ -245,8 +247,7 @@ class FlowExecutionContext(ExecutionContext):
                 pass
 
             except MergeBlock, e:
-                block, currentstate = e.args
-                self.mergeblock(block, currentstate)
+                self.mergeblock(e.block, e.currentstate)
 
             else:
                 assert w_result is not None

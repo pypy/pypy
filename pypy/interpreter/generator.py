@@ -70,9 +70,12 @@ class GeneratorIterator(Wrappable):
 class SYieldValue(ControlFlowException):
     """Signals a 'yield' statement.
     Argument is the wrapped object to return."""
+
+    def __init__(self, w_yieldvalue):
+        self.w_yieldvalue = w_yieldvalue
+
     def action(self, frame, last_instr, executioncontext):
-        w_yieldvalue = self.args[0]
-        raise ExitFrame(w_yieldvalue)
+        raise ExitFrame(self.w_yieldvalue)
 
 class SGeneratorReturn(ControlFlowException):
     """Signals a 'return' statement inside a generator."""

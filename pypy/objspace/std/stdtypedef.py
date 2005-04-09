@@ -218,8 +218,8 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
                       try:
                           return %s
                       except FailedToImplement, e:
-                          if e.args:
-                              raise OperationError(e.args[0], e.args[1])
+                          if e.w_type is not None:
+                              raise OperationError(e.w_type, e.w_value)
                           else:
                               return space.w_NotImplemented
 """        % (prefix, wrapper_sig, renaming, expr)
@@ -230,8 +230,8 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
                       try:
                           w_res = %s
                       except FailedToImplement, e:
-                          if e.args:
-                              raise OperationError(e.args[0], e.args[1])
+                          if e.w_type is not None:
+                              raise OperationError(e.w_type, e.w_value)
                           else:
                               raise OperationError(space.w_TypeError,
                                   typeerrormsg(space, %r, [%s]))
@@ -292,78 +292,3 @@ def slicemultimethods(space, typedef):
     for multimethod in typedef.local_multimethods:
         slicemultimethod(space, multimethod, typedef, result, local=True)
     return result
-
-##class MultimethodCode(eval.Code):
-##    """A code object that invokes a multimethod."""
-    
-##    def __init__(self, multimethod, framecls, typeclass, bound_position=0):
-##        "NOT_RPYTHON: initialization-time only."
-##        eval.Code.__init__(self, multimethod.operatorsymbol)
-##        self.basemultimethod = multimethod
-##        self.typeclass = typeclass
-##        self.bound_position = bound_position
-##        self.framecls = framecls
-##        argnames = ['_%d'%(i+1) for i in range(multimethod.arity)]
-##        explicit_argnames = multimethod.extras.get('argnames', [])
-##        argnames[len(argnames)-len(explicit_argnames):] = explicit_argnames
-##        varargname = kwargname = None
-##        # XXX do something about __call__ and __init__ which still use
-##        # XXX packed arguments: w_args, w_kwds instead of *args_w, **kwds_w
-##        if multimethod.extras.get('varargs', False):
-##            varargname = 'args'
-##        if multimethod.extras.get('keywords', False):
-##            kwargname = 'keywords'
-##        self.sig = argnames, varargname, kwargname
-
-##    def computeslice(self, space):
-##        "NOT_RPYTHON: initialization-time only."
-##        self.mm = self.basemultimethod.__get__(space, slice=(
-##            self.typeclass, self.bound_position))
-##        return not self.mm.is_empty()
-
-##    def signature(self):
-##        return self.sig
-
-##    def getdefaults(self, space):
-##        return [space.wrap(x)
-##                for x in self.basemultimethod.extras.get('defaults', ())]
-
-##    def create_frame(self, space, w_globals, closure=None):
-##        return self.framecls(space, self)
-
-##mmtemplate = """
-##class %(name)s(eval.Frame):
-
-##    def setfastscope(self, scope_w):
-##        args = list(scope_w)
-##        args.insert(0, args.pop(self.code.bound_position))
-##%(self_args_assigning)s
-
-##    def getfastscope(self):
-##        raise OperationError(self.space.w_TypeError,
-##          self.space.wrap("cannot get fastscope of a MmFrame"))
-##"""
-
-##mmruntemplate = """
-##    def run(self):
-##        "Call the multimethod, raising a TypeError if not implemented."
-##        w_result = self.code.mm(%(self_args)s)
-##        # we accept a real None from operations with no return value
-##        if w_result is None:
-##            w_result = self.space.w_None
-##        return w_result
-##"""
-
-##specialmmruntemplate = """
-
-##    def run(self):
-##        "Call the multimethods, possibly returning a NotImplemented."
-##        try:
-##            return self.code.mm.perform_call(%(self_args)s)
-##        except FailedToImplement, e:
-##            if e.args:
-##                raise OperationError(e.args[0], e.args[1])
-##            else:
-##                return self.space.w_NotImplemented
-
-##"""

@@ -203,7 +203,7 @@ def builtin_slice(*args):
         
 
 def exception_init(s_self, *args):
-    s_self.setattr(immutablevalue('args'), SomeTuple(args))
+    pass   # XXX check correctness of args, maybe
 
 def builtin_bool(s_obj):
     return s_obj.is_true()

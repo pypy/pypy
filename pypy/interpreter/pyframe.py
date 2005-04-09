@@ -125,7 +125,7 @@ class PyFrame(eval.Frame):
             
         except ExitFrame, e:
             # leave that frame
-            w_exitvalue = e.args[0]
+            w_exitvalue = e.w_exitvalue
             executioncontext.return_trace(self, w_exitvalue)
             return w_exitvalue
         
@@ -375,8 +375,7 @@ class LoopBlock(FrameBlock):
             # and jump to the beginning of the loop, stored in the
             # exception's argument
             frame.blockstack.push(self)
-            jump_to = unroller.args[0]
-            frame.next_instr = jump_to
+            frame.next_instr = unroller.jump_to
             return True  # stop unrolling
         self.cleanupstack(frame)
         if isinstance(unroller, SBreakLoop):
@@ -394,7 +393,7 @@ class ExceptBlock(FrameBlock):
         if isinstance(unroller, SApplicationException):
             # push the exception to the value stack for inspection by the
             # exception handler (the code after the except:)
-            operationerr = unroller.args[0]
+            operationerr = unroller.operr
             if frame.space.full_exceptions:
                 operationerr.normalize_exception(frame.space)
             # the stack setup is slightly different than in CPython:
@@ -479,28 +478,22 @@ class SApplicationException(ControlFlowException):
     """Unroll the stack because of an application-level exception
     (i.e. an OperationException)."""
 
-    def action(self, frame, last_instr, executioncontext):
-        e = self.args[0]
-        frame.last_exception = e
+    def __init__(self, operr):
+        self.operr = operr
 
+    def action(self, frame, last_instr, executioncontext):
+        frame.last_exception = self.operr
         ControlFlowException.action(self, frame,
                                     last_instr, executioncontext)
 
     def emptystack(self, frame):
         # propagate the exception to the caller
-        if len(self.args) == 2:
-            operationerr, tb = self.args
-            raise operationerr.__class__, operationerr, tb
-        else:
-            operationerr = self.args[0]
-            raise operationerr
+        raise self.operr
 
     def state_unpack_variables(self, space):
-        e = self.args[0]
-        assert isinstance(e, OperationError)
-        return [e.w_type, e.w_value]
+        return [self.operr.w_type, self.operr.w_value]
     def state_pack_variables(self, space, w_type, w_value):
-        self.args = (OperationError(w_type, w_value),)
+        self.operr = OperationError(w_type, w_value)
 
 class SBreakLoop(ControlFlowException):
     """Signals a 'break' statement."""
@@ -509,28 +502,34 @@ class SContinueLoop(ControlFlowException):
     """Signals a 'continue' statement.
     Argument is the bytecode position of the beginning of the loop."""
 
+    def __init__(self, jump_to):
+        self.jump_to = jump_to
+
     def state_unpack_variables(self, space):
-        jump_to = self.args[0]
-        return [space.wrap(jump_to)]
+        return [space.wrap(self.jump_to)]
     def state_pack_variables(self, space, w_jump_to):
-        self.args = (space.int_w(w_jump_to),)
+        self.jump_to = space.int_w(w_jump_to)
 
 class SReturnValue(ControlFlowException):
     """Signals a 'return' statement.
     Argument is the wrapped object to return."""
+
+    def __init__(self, w_returnvalue):
+        self.w_returnvalue = w_returnvalue
+
     def emptystack(self, frame):
-        w_returnvalue = self.args[0]
-        raise ExitFrame(w_returnvalue)
+        raise ExitFrame(self.w_returnvalue)
 
     def state_unpack_variables(self, space):
-        w_returnvalue = self.args[0]
-        return [w_returnvalue]
+        return [self.w_returnvalue]
     def state_pack_variables(self, space, w_returnvalue):
-        self.args = (w_returnvalue,)
+        self.w_returnvalue = w_returnvalue
 
 class ExitFrame(Exception):
     """Signals the end of the frame execution.
     The argument is the returned or yielded value, already wrapped."""
+    def __init__(self, w_exitvalue):
+        self.w_exitvalue = w_exitvalue
 
 class BytecodeCorruption(ValueError):
     """Detected bytecode corruption.  Never caught; it's an error."""

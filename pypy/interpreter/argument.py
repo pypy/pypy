@@ -266,12 +266,17 @@ class ArgErr(Exception):
     pass
 
 class ArgErrCount(ArgErr):
+
+    def __init__(self, signature, defaults_w, too_many):
+        self.signature  = signature
+        self.defaults_w = defaults_w
+        self.too_many   = too_many
+
     def getmsg(self, args, fnname):
-        signature, defaults_w, too_many = self.args   # from self.__init__()
-        argnames, varargname, kwargname = signature
+        argnames, varargname, kwargname = self.signature
         args_w, kwds_w = args.unpack()
         nargs = len(args_w)
-        if kwargname is not None or (kwds_w and defaults_w):
+        if kwargname is not None or (kwds_w and self.defaults_w):
             msg2 = "non-keyword "
         else:
             msg2 = ""
@@ -283,10 +288,10 @@ class ArgErrCount(ArgErr):
                 msg2,
                 nargs)
         else:
-            defcount = len(defaults_w)
+            defcount = len(self.defaults_w)
             if defcount == 0 and varargname is None:
                 msg1 = "exactly"
-            elif too_many:
+            elif self.too_many:
                 msg1 = "at most"
             else:
                 msg1 = "at least"
@@ -307,16 +312,23 @@ class ArgErrCount(ArgErr):
         return msg
 
 class ArgErrMultipleValues(ArgErr):
+
+    def __init__(self, argname):
+        self.argname = argname
+
     def getmsg(self, args, fnname):
-        argname, = self.args   # from self.__init__()
         msg = "%s() got multiple values for keyword argument '%s'" % (
             fnname,
-            argname)
+            self.argname)
         return msg
 
 class ArgErrUnknownKwds(ArgErr):
+
+    def __init__(self, kwds_w):
+        self.kwds_w = kwds_w
+
     def getmsg(self, args, fnname):
-        kwds_w, = self.args    # from self.__init__()
+        kwds_w = self.kwds_w
         if len(kwds_w) == 1:
             msg = "%s() got an unexpected keyword argument '%s'" % (
                 fnname,

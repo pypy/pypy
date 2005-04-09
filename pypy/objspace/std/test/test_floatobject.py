@@ -12,7 +12,7 @@ class TestW_FloatObject:
             res = func(*args, **kwds)
             raise Exception, "should have failed but returned '%s'!" %repr(res)
         except FailedToImplement, arg:
-            return arg[0]
+            return arg.w_type
 
     def test_pow_fff(self):
         x = 10.0

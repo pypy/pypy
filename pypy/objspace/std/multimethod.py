@@ -2,7 +2,9 @@
 from pypy.tool.compile import compile2
 
 class FailedToImplement(Exception):
-    pass
+    def __init__(self, w_type=None, w_value=None):
+        self.w_type  = w_type
+        self.w_value = w_value
 
 
 def raiseFailedToImplement():
