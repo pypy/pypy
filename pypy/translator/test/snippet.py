@@ -331,6 +331,25 @@ def do_try_raise_choose():
         r.append(try_raise_choose(n))
     return r
 
+def raise_indexerror():
+    raise IndexError(-12)
+
+def raise_systemerror():
+    raise SystemError("hello")
+
+def Exception_init(n):
+    if n > 0:
+        try:
+            raise_indexerror()
+        except IndexError, e:
+            return (e.args[0], "duh")
+    else:
+        try:
+            raise_systemerror()
+        except SystemError, e:
+            return (42, e.args[0])
+    return (0, "")
+
 
 # INHERITANCE / CLASS TESTS  
 class C(object): pass

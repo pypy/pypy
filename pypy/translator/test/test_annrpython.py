@@ -697,6 +697,16 @@ class TestAnnonateTestCase:
         s = a.build_types(f, [int])
         assert s.knowntype == float
 
+    def test_Exception_init(self):
+        a = RPythonAnnotator()
+        s = a.build_types(snippet.Exception_init, [int])
+        a.translator.viewcg()
+        # result should be exactly:
+        assert s == annmodel.SomeTuple([
+                                annmodel.SomeInteger(),
+                                annmodel.SomeString()
+                                ])
+
 def g(n):
     return [0,1,2,n]
 

@@ -120,6 +120,12 @@ class Translator:
         from pypy.translator.tool.graphpage import FlowGraphPage
         FlowGraphPage(self).display()
 
+    def viewcg(self):
+        """Shows the whole call graph and the class hierarchy, based on
+        the computed annotations."""
+        from pypy.translator.tool.graphpage import TranslatorPage
+        TranslatorPage(self).display()
+
     def simplify(self, func=None):
         """Simplifies the control flow graph (default: for all functions)."""
         if func is None:
