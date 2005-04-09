@@ -700,7 +700,7 @@ class TestAnnonateTestCase:
     def test_Exception_init(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.Exception_init, [int])
-        a.translator.viewcg()
+        #a.translator.viewcg()
         # result should be exactly:
         assert s == annmodel.SomeTuple([
                                 annmodel.SomeInteger(),
