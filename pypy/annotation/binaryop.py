@@ -194,7 +194,7 @@ class __extend__(pairtype(SomeBool, SomeBool)):
 class __extend__(pairtype(SomeString, SomeString)):
 
     def union((str1, str2)):
-        return SomeString()
+        return SomeString(can_be_None=str1.can_be_None or str2.can_be_None)
 
     def add((str1, str2)):
         return SomeString()
@@ -404,3 +404,15 @@ class __extend__(pairtype(SomeList, SomePBC)):
 class __extend__(pairtype(SomePBC, SomeList    )):
     def union((pbc, lst)):
         return pair(lst, pbc).union()
+
+# mixing strings and None
+
+class __extend__(pairtype(SomeString, SomePBC)):
+    def union((s, pbc)):
+        if pbc.isNone():
+            return SomeString(can_be_None=True)
+        return SomeObject()
+
+class __extend__(pairtype(SomePBC, SomeString    )):
+    def union((pbc, s)):
+        return pair(s, pbc).union()

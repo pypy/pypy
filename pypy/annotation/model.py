@@ -120,6 +120,8 @@ class SomeBool(SomeInteger):
 class SomeString(SomeObject):
     "Stands for an object which is known to be a string."
     knowntype = str
+    def __init__(self, can_be_None=False):
+        self.can_be_None = can_be_None
 
 
 class SomeChar(SomeString):

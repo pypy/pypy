@@ -613,6 +613,25 @@ class TestAnnonateTestCase:
         s = a.build_types(assert_, [])
         assert s.const is None
 
+    def test_string_and_none(self):
+        def f(n):
+            if n:
+                return 'y'
+            else:
+                return 'n'
+        def g(n):
+            if n:
+                return 'y'
+            else:
+                return None
+        a = RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        assert s.knowntype == str
+        assert not s.can_be_None
+        s = a.build_types(g, [bool])
+        assert s.knowntype == str
+        assert s.can_be_None
+
     def test_implicit_exc(self):
         def f(l):
             try:
