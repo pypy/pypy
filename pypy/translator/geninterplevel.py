@@ -33,8 +33,6 @@ from pypy.tool.rarithmetic import r_int, r_uint
 from pypy.translator.translator import Translator
 from pypy.objspace.flow import FlowObjSpace
 
-from pypy.interpreter.gateway import app2interp, interp2app
-
 from pypy.tool.sourcetools import render_docstr
 
 from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
@@ -42,6 +40,8 @@ from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
 
 import pypy # __path__
 import py.path
+
+GI_VERSION = '1.0'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
@@ -1487,16 +1487,17 @@ class memfile(object):
 def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
                         do_imports=False, tmpname=None):
     """ compile sourcetext as a module, translating to interp level.
-    The result is the init function that creates the wrapped module dict.
+    The result is the init function that creates the wrapped module dict,
+    together with the generated source text.
     This init function needs a space as argument.
     tmpname can be passed for debugging purposes.
 
     Example:
 
-    initfunc = translate_as_module(text)
+    initfunc, newsrc = translate_as_module(text)
     from pypy.objspace.std import Space
     space = Space()
-    dic = ini(space)
+    dic = initfunc(space)
     # and now use the members of the dict
     """
     # create something like a module
@@ -1519,7 +1520,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         _file = file
     else:
         _file = memfile
-        tmpname = "nada"
+        tmpname = sourcetext
     out = _file(tmpname, 'w')
     gen.f = out
     gen.gen_source(tmpname, file=_file)
@@ -1530,7 +1531,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     exec code in dic
     # now we just need to return the init function,
     # which then needs to be called with the space to return the dict.
-    return dic['init%s' % modname]
+    return dic['init%s' % modname], newsrc
 
 #___________________________________________________________________
 

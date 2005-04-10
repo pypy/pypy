@@ -52,7 +52,8 @@ class TestGenRpyTestCase:
         exec cls.snippet_ad in snippet.__dict__
         src += cls.snippet_ad
         # just in case of trouble, we produce a tempfile
-        ini = translate_as_module(src, tmpname = str(udir.join("_geninterp_test.py")))
+        ini, newsrc = translate_as_module(src, tmpname = str(
+            udir.join("_geninterp_test.py")))
         cls.w_glob = ini(cls.space)
 
     def build_interpfunc(self, func, *morefuncs):

@@ -550,11 +550,72 @@ class ApplevelInterpClass(ApplevelClass):
 
     def _builddict(self, space):
         "NOT_RPYTHON"
-        from pypy.translator.geninterplevel import translate_as_module
-        initfunc = translate_as_module(self.source, self.filename,
-                                       self.modname, self.do_imports)
+        if not self._setup_done:
+            self._setup()
+        from pypy.translator.geninterplevel import translate_as_module, \
+             render_docstr
+        initfunc = self.known_source.get(self.source)
+        if not initfunc:
+            initfunc, newsrc = translate_as_module(
+                self.source, self.filename, self.modname, self.do_imports)
+            f = file(self.cache_filename, "a")
+            print >> f
+            print >> f, "#"+72*"_"
+            print >> f
+            print >> f, render_docstr(
+                self.source, "source = ")
+            print >> f
+            print >> f, newsrc
+            print >> f, "known_source[source] = %s" % initfunc.__name__
         w_glob = initfunc(space)
         return w_glob
+
+    _setup_done = False
+    
+    def _setup(cls):
+        import os
+        cls.cache_filename = os.path.join(os.path.dirname(__file__),
+                                      "_interplevel_cache.py")
+        try:
+            from pypy.interpreter._interplevel_cache import known_source, \
+                 GI_VERSION_RENDERED
+        except ImportError:
+            GI_VERSION_RENDERED = 0
+        from pypy.translator.geninterplevel import GI_VERSION
+        if GI_VERSION != GI_VERSION_RENDERED:        
+            file(cls.cache_filename, "w").write("""
+# This file acts as a cache for code snippets which have been
+# compiled by compile_as_module().
+# It will get a new entry for every piece of code that has
+# not been seen, yet.
+#
+# Caution! Only the code snippet is checked. If something
+# is imported, changes are not detected. Also, changes
+# to geninterplevel or gateway are also not checked.
+# Exception: There is a version number which is in checked!
+#
+# If in doubt, remove this file from time to time.
+
+known_source = {}
+
+GI_VERSION_RENDERED = %r
+
+# self-destruct on double-click:
+if __name__ == "__main__":
+    from pypy.interpreter import _interplevel_cache
+    import os
+    namestart = os.path.splitext(_interplevel_cache.__file__)[0]
+    for ending in ('.py', '.pyc', '.pyo'):
+        try:
+            os.unlink(namestart+ending)
+        except os.error:
+            pass
+
+""" % GI_VERSION)
+            known_source = {}
+        cls.known_source = known_source
+        cls._setup_done = True
+    _setup = classmethod(_setup)
 
 def applevel(source, filename = None,
                    modname = 'applevelinterp', do_imports=False):
