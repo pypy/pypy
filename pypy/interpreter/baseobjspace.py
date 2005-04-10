@@ -329,8 +329,7 @@ def buildappexecfunc(source, space):
 
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result
-## (if any).  XXX Maybe we should say that these methods must be accessed
-## as 'space.op.xxx()' instead of directly 'space.xxx()'.
+## (if any).  Note: keep in sync with pypy.objspace.flow.operation.Table.
 
 ObjSpace.MethodTable = [
 # method name # symbol # number of arguments # special method name(s)

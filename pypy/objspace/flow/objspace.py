@@ -6,6 +6,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import flowcontext
+from pypy.objspace.flow.operation import FunctionByName
 
 debug = 0
 
@@ -442,12 +443,6 @@ def extract_cell_content(c):
     x_cell == c
     return x.other
 
-def type_or_something_similar(x):
-    t = type(x)
-    if t is types.ClassType:   # guess who's here?  exception classes...
-        t = type
-    return t
-
 def make_op(name, symbol, arity, specialnames):
     if hasattr(FlowObjSpace, name):
         return # Shouldn't do it
@@ -461,7 +456,7 @@ def make_op(name, symbol, arity, specialnames):
         # skip potential mutators
         if debug: print "Skip", name
         skip = True
-    elif name in ['id', 'hash', 'iter']: 
+    elif name in ['id', 'hash', 'iter', 'userdel']: 
         # skip potential runtime context dependecies
         if debug: print "Skip", name
         skip = True
@@ -472,18 +467,8 @@ def make_op(name, symbol, arity, specialnames):
             if s.find("at 0x") > -1:
                 print >>sys.stderr, "Warning: captured address may be awkward"
             return s
-    elif name == 'issubtype':
-        op = issubclass
-    elif name == 'type':
-        op = type_or_something_similar
-    elif name == 'is_':
-        op = lambda x, y: x is y
-    elif name == 'nonzero':
-        op = bool
     else:
-        op = getattr(__builtin__, name, None)
-        if not op:
-            op = getattr(operator, name, None)
+        op = FunctionByName[name]
 
     if not op:
         if not skip:
