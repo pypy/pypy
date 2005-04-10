@@ -41,7 +41,7 @@ from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.0'  # bump this for substantial changes
+GI_VERSION = '1.0.1'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
