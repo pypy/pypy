@@ -577,12 +577,14 @@ class ApplevelInterpClass(ApplevelClass):
         cls.cache_filename = os.path.join(os.path.dirname(__file__),
                                       "_interplevel_cache.py")
         try:
+            if not os.path.exists(cls.cache_filename):
+                raise ImportError  # don't import if only a .pyc file left!!!
             from pypy.interpreter._interplevel_cache import known_source, \
                  GI_VERSION_RENDERED
         except ImportError:
             GI_VERSION_RENDERED = 0
         from pypy.translator.geninterplevel import GI_VERSION
-        if GI_VERSION != GI_VERSION_RENDERED:        
+        if GI_VERSION != GI_VERSION_RENDERED or GI_VERSION is None:
             file(cls.cache_filename, "w").write("""
 # This file acts as a cache for code snippets which have been
 # compiled by compile_as_module().
