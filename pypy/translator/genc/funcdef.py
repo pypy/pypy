@@ -1,16 +1,23 @@
 from __future__ import generators
-from pypy.objspace.flow.model import Variable, Constant
+from pypy.objspace.flow import FlowObjSpace
+from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
-from pypy.objspace.flow.model import Block, Link
+from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.objspace.flow.model import last_exception, last_exc_value
+from pypy.translator.simplify import simplify_graph
 from pypy.translator.unsimplify import remove_direct_loops
+from pypy.translator.genc.t_simple import CIntType, CNoneType
+from pypy.translator.genc.t_func import CFuncPtrType
+from pypy.translator.genc.t_pyobj import CBorrowedPyObjectType
 from pypy.interpreter.pycode import CO_VARARGS
+from pypy.tool.compile import compile2
 from types import FunctionType
 
 from pypy.translator.gensupp import c_string
 
 # Set this if you want call trace frames to be built
 USE_CALL_TRACE = False
+# XXX doesn't work any more because of the way gen_wrapper() works, sorry
 
 
 class FunctionDef:
@@ -32,21 +39,25 @@ class FunctionDef:
     variable named gfn_xxx.
     """
 
-    def __init__(self, func, genc):
+    def __init__(self, func, genc, graph=None, fast_name=None):
         self.func = func
         self.genc = genc
 
         # get the function name
         namespace = genc.namespace
-        self.fast_name = namespace.uniquename('fn_' + func.__name__) # fn_xxx
-        self.base_name = self.fast_name[3:]                          # xxx
+        if fast_name is None:
+            fast_name  = namespace.uniquename('fn_' + func.__name__) # fn_xxx
+        self.fast_name = fast_name
+        self.base_name = fast_name[3:]                               # xxx
         self.wrapper_name = None                                     # pyfn_xxx
         self.globalobject_name = None                                # gfunc_xxx
         self.localscope = namespace.localScope()
 
         # get the flow graph, and ensure that there is no direct loop in it
         # as we cannot generate valid code for this case.
-        self.graph = graph = genc.translator.getflowgraph(func)
+        if graph is None:
+            graph = genc.translator.getflowgraph(func)
+        self.graph = graph
         remove_direct_loops(genc.translator, graph)
         checkgraph(graph)
         graph_args = graph.getargs()
@@ -71,17 +82,13 @@ class FunctionDef:
         fast_function_header = 'static ' + (
             ctret.ctypetemplate % (name_and_arguments,))
 
-        name_of_defaults = [self.genc.nameofvalue(x, debug=(
-                                                   'Default argument of', self))
-                            for x in (func.func_defaults or ())]
-
         # store misc. information
         self.fast_function_header = fast_function_header
         self.graphargs = graph_args
         self.ctret = ctret
         self.vararg = bool(func.func_code.co_flags & CO_VARARGS)
         self.fast_args = fast_args
-        self.name_of_defaults = name_of_defaults
+        self.func_defaults = func.func_defaults or ()
         
         error_return = getattr(ctret, 'error_return', 'NULL')
         self.return_error = 'FUNCTION_RETURN(%s)' % error_return
@@ -124,7 +131,110 @@ class FunctionDef:
 
     # ____________________________________________________________
 
-    def gen_wrapper(self, f):
+    def gen_wrapper(self):
+        # the wrapper is the function that takes the CPython signature
+        #
+        #    PyObject *fn(PyObject *self, PyObject *args, PyObject *kwds)
+        #
+        # and decodes the arguments and calls the "real" C function.
+        # We generate the wrapper itself as a Python function which is
+        # turned into C.  This makes gen_wrapper() more or less clean.
+        #
+
+        TPyObject = self.genc.pyobjtype
+        TInt      = self.genc.translator.getconcretetype(CIntType)
+        TNone     = self.genc.translator.getconcretetype(CNoneType)
+        TBorrowed = self.genc.translator.getconcretetype(CBorrowedPyObjectType)
+        args_ct   = [self.ctypeof(a) for a in self.graphargs]
+        res_ct    = self.ctret
+        nb_positional_args = len(self.graphargs) - self.vararg
+
+        # "def wrapper(self, args, kwds)"
+        vself = Variable('self')
+        vargs = Variable('args')
+        vkwds = Variable('kwds')
+        block = Block([vself, vargs, vkwds])
+        vfname = Constant(self.base_name)
+
+        # avoid incref/decref on the arguments: 'self' and 'kwds' can be NULL
+        vself.concretetype = TBorrowed
+        vargs.concretetype = TBorrowed
+        vkwds.concretetype = TBorrowed
+
+        # "argument_i = decode_arg(fname, pos, name, vargs, vkwds)"  or
+        # "argument_i = decode_arg_def(fname, pos, name, vargs, vkwds, default)"
+        varguments = []
+        varnames = self.func.func_code.co_varnames
+        for i in range(nb_positional_args):
+            opargs = [vfname, Constant(i),
+                      Constant(varnames[i]), vargs, vkwds]
+            opargs[1].concretetype = TInt
+            try:
+                default_value = self.func_defaults[i - nb_positional_args]
+            except IndexError:
+                opname = 'decode_arg'
+            else:
+                opname = 'decode_arg_def'
+                opargs.append(Constant(default_value))
+            v = Variable('a%d' % i)
+            block.operations.append(SpaceOperation(opname, opargs, v))
+            varguments.append(v)
+
+        if self.vararg:
+            # "vararg = vargs[n:]"
+            vararg = Variable('vararg')
+            opargs = [vargs, Constant(nb_positional_args), Constant(None)]
+            block.operations.append(SpaceOperation('getslice', opargs, vararg))
+            varguments.append(vararg)
+        else:
+            # "check_no_more_arg(fname, n, vargs)"
+            vnone = Variable()
+            vnone.concretetype = TNone
+            opargs = [vfname, Constant(nb_positional_args), vargs]
+            opargs[1].concretetype = TInt
+            block.operations.append(SpaceOperation('check_no_more_arg',
+                                                   opargs, vnone))
+
+        if self.genc.translator.annotator is not None:
+            # "argument_i = type_conversion_operations(argument_i)"
+            from pypy.translator.genc.ctyper import GenCSpecializer
+            from pypy.translator.typer import flatten_ops
+            typer = GenCSpecializer(self.genc.translator.annotator)
+
+            assert len(varguments) == len(self.graphargs)
+            for i in range(len(varguments)):
+                varguments[i].concretetype = TPyObject
+                varguments[i], convops = typer.convertvar(varguments[i],
+                                                          args_ct[i])
+                flatten_ops(convops, block.operations)
+        else:
+            typer = None
+
+        # "result = direct_call(func, argument_0, argument_1, ..)"
+        opargs = [Constant(self.func)] + varguments
+        opargs[0].concretetype = self.genc.translator.getconcretetype(
+            CFuncPtrType, tuple(args_ct), res_ct)
+        vresult = Variable('result')
+        block.operations.append(SpaceOperation('direct_call', opargs, vresult))
+
+        if typer is not None:
+            # "result2 = type_conversion_operations(result)"
+            vresult.concretetype = res_ct
+            vresult, convops = typer.convertvar(vresult, TPyObject)
+            flatten_ops(convops, block.operations)
+
+        # "return result"
+        wgraph = FunctionGraph(self.wrapper_name, block)
+        block.closeblock(Link([vresult], wgraph.returnblock))
+        checkgraph(wgraph)
+
+        # generate the C source of this wrapper function
+        wfuncdef = FunctionDef(dummy_wrapper, self.genc,
+                               wgraph, self.wrapper_name)
+        self.genc.gen_cfunction(wfuncdef)
+
+
+    def DISABLED_OLD_gen_wrapper(self, f):
         # XXX this is a huge mess.  Think about producing the wrapper by
         #     generating its content as a flow graph...
         func             = self.func
@@ -495,3 +605,6 @@ class lazy:
         self.kwds = kwds
     def compute(self):
         return self.fn(*self.args, **self.kwds)
+
+def dummy_wrapper(self, args, kwds):
+    pass

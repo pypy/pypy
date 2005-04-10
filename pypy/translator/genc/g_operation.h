@@ -150,3 +150,12 @@
 #define OP_NEWDICT0(r,err)         if (!(r=PyDict_New())) FAIL(err)
 #define OP_NEWDICT(args,r,err)     if (!(r=PyDict_Pack args)) FAIL(err)
 #define OP_NEWTUPLE(args,r,err)    if (!(r=PyTuple_Pack args)) FAIL(err)
+
+/*** argument parsing ***/
+
+#define OP_DECODE_ARG(fname, pos, name, vargs, vkwds, r, err)	\
+	if (!(r=decode_arg(fname, pos, name, vargs, vkwds, NULL))) FAIL(err)
+#define OP_DECODE_ARG_DEF(fname, pos, name, vargs, vkwds, def, r, err)	\
+	if (!(r=decode_arg(fname, pos, name, vargs, vkwds, def))) FAIL(err)
+#define OP_CHECK_NO_MORE_ARG(fname, n, vargs, r, err)	\
+	if (check_no_more_arg(fname, n, vargs) < 0) FAIL(err)

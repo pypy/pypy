@@ -4,7 +4,6 @@ from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
 
 
 class CTupleType(CType):
-    #error_return = ?
 
     Counter = {}
 
@@ -16,6 +15,7 @@ class CTupleType(CType):
             CTupleType.Counter.setdefault(len(itemtypes), 0))
         CTupleType.Counter[len(itemtypes)] += 1
         self.ctypetemplate = self.structname + ' %s'
+        self.error_return = self.structname.replace(' ', '_err_')
         self.cnames = {}
         self.globaldecl = []
 
@@ -32,6 +32,8 @@ class CTupleType(CType):
         for ct, name in zip(self.itemtypes, self.fieldnames()):
             yield '\t' + ct.ctypetemplate % (name,) + ';'
         yield '};'
+        yield '%s %s;  /* uninitialized */' % (self.structname,
+                                               self.error_return)
 
     def collect_globals(self, genc):
         result = self.globaldecl

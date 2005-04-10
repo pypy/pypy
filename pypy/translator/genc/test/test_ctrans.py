@@ -362,7 +362,5 @@ class TestTypedTestCase(TestAnnotatedTestCase):
         raises(OverflowError, fn, sys.maxint+1)
 
 
-    def test_inheritance2(self):      py.test.skip("missing: return tuple")
-    def test_call_unpack_56(self):    py.test.skip("missing: return tuple")
-    def test_tuple_repr(self):        py.test.skip("missing: return tuple")
-    def test_get_set_del_slice(self): py.test.skip("missing: return tuple")
+    def test_get_set_del_slice(self):
+        py.test.skip("missing incref/decref in tuples")

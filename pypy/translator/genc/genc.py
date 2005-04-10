@@ -90,7 +90,7 @@ class GenC:
         # after all the ff_xxx() functions we generate the pyff_xxx() wrappers
         for funcdef in self.allfuncdefs:
             if funcdef.wrapper_name is not None:
-                funcdef.gen_wrapper(f)
+                funcdef.gen_wrapper()
 
         # global object table
         print >> f, self.C_OBJECT_TABLE
@@ -160,7 +160,10 @@ class GenC:
         # this is only to keep the RAM consumption under control
         funcdef.clear()
         if not self.translator.frozen:
-            del self.translator.flowgraphs[funcdef.func]
+            try:
+                del self.translator.flowgraphs[funcdef.func]
+            except KeyError:
+                pass
             Variable.instances.clear()
 
 # ____________________________________________________________

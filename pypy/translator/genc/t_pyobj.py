@@ -458,3 +458,8 @@ class CPyObjectType(CType):
         co = compile(source, genc.modname, 'exec')
         del source
         return marshal.dumps(co)
+
+
+class CBorrowedPyObjectType(CType):
+    ctypetemplate = 'PyObject *%s'
+    error_return  = 'NULL'

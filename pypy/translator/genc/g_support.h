@@ -289,3 +289,56 @@ static PyObject* CallWithShape(PyObject* callable, PyObject* shape, ...)
 	Py_XDECREF(t);
 	return result;
 }
+
+static PyObject* decode_arg(PyObject* fname, int position, PyObject* name,
+			    PyObject* vargs, PyObject* vkwds, PyObject* def)
+{
+	PyObject* result;
+	int size = PyTuple_Size(vargs);
+	if (size < 0)
+		return NULL;
+	if (vkwds != NULL) {
+		result = PyDict_GetItem(vkwds, name);
+		if (result != NULL) {
+			if (position < size) {
+				PyErr_Format(PyExc_TypeError,
+					     "%s() got duplicate value for "
+					     "its '%s' argument",
+					     PyString_AS_STRING(fname),
+					     PyString_AS_STRING(name));
+				return NULL;
+			}
+			Py_INCREF(result);
+			return result;
+		}
+	}
+	if (position < size) {
+		/* common case */
+		result = PyTuple_GET_ITEM(vargs, position);
+		Py_INCREF(result);
+		return result;
+	}
+	if (def != NULL) {
+		Py_INCREF(def);
+		return def;
+	}
+	PyErr_Format(PyExc_TypeError, "%s() got only %d argument(s)",
+		     PyString_AS_STRING(fname),
+		     position-1);
+	return NULL;
+}
+
+static int check_no_more_arg(PyObject* fname, int n, PyObject* vargs)
+{
+	int size = PyTuple_Size(vargs);
+	if (size < 0)
+		return -1;
+	if (size > n) {
+		PyErr_Format(PyExc_TypeError,
+			     "%s() got %d argument(s), expected %d",
+			     PyString_AS_STRING(fname),
+			     size, n);
+		return -1;
+	}
+	return 0;
+}
