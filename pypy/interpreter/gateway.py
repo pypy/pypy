@@ -592,7 +592,7 @@ class ApplevelInterpClass(ApplevelClass):
 # Caution! Only the code snippet is checked. If something
 # is imported, changes are not detected. Also, changes
 # to geninterplevel or gateway are also not checked.
-# Exception: There is a version number which is in checked!
+# Exception: There is a checked version number in geninterplevel.py
 #
 # If in doubt, remove this file from time to time.
 
