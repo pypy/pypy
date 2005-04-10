@@ -20,7 +20,7 @@ from pypy.annotation import builtin
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
-UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr',
+UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'hash',
                         'simple_call', 'call_args', 'str', 'repr',
                         'iter', 'next', 'invert', 'type', 'issubtype',
                         'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
@@ -32,7 +32,9 @@ for opname in UNARY_OPERATIONS:
 
 class __extend__(SomeObject):
 
-    def type(obj):  # XXX this should be unified with builtin_type
+    def type(obj, *moreargs):
+        if moreargs:
+            raise Exception, 'type() called with more than one argument'
         if obj.is_constant():
             r = immutablevalue(obj.knowntype)
         else:
@@ -48,7 +50,14 @@ class __extend__(SomeObject):
         return r
 
     def issubtype(obj, s_cls):
-        return builtin.builtin_issubclass(obj, s_cls)
+        if obj.is_constant() and s_cls.is_constant():
+            return immutablevalue(issubclass(obj.const, s_cls.const))
+        if hasattr(obj, 'is_type_of'):
+            vars = obj.is_type_of
+            annotator = getbookkeeper().annotator
+            return builtin.builtin_isinstance(annotator.binding(vars[0]),
+                                              s_cls, vars)
+        return SomeBool()
 
     def len(obj):
         return SomeInteger(nonneg=True)
@@ -65,6 +74,9 @@ class __extend__(SomeObject):
 
     def nonzero(obj):
         return obj.is_true()
+
+    def hash(obj):
+        return SomeInteger()
 
     def str(obj):
         return SomeString()
@@ -97,6 +109,9 @@ class __extend__(SomeObject):
             # if the SomeObject is itself a constant, allow reading its attrs
             if obj.is_constant() and hasattr(obj.const, attr):
                 return immutablevalue(getattr(obj.const, attr))
+        else:
+            getbookkeeper().warning('getattr(%r, %r) is not RPythonic enough' %
+                                    (obj, s_attr))
         return SomeObject()
 
     def bindcallables(obj, classdef):

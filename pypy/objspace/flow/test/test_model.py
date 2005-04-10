@@ -77,7 +77,7 @@ class TestModel:
 
     def test_loop(self):
         graph = self.getflow(self.loop)
-        assert all_operations(graph) == {'simple_call': 1,
+        assert all_operations(graph) == {'abs': 1,
                                          'is_true': 1,
                                          'sub': 1}
 

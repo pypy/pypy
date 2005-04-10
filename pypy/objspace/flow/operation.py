@@ -8,6 +8,7 @@ from pypy.tool.compile import compile2
 
 FunctionByName = {}   # dict {"operation_name": <built-in function>}
 OperationName  = {}   # dict {<built-in function>: "operation_name"}
+Arity          = {}   # dict {"operation name": number of arguments}
 
 # ____________________________________________________________
 
@@ -17,6 +18,15 @@ def new_style_type(x):
     if t is types.ClassType:   # guess who's here?  exception classes...
         t = type
     return t
+
+def do_int(x):
+    return x.__int__()
+
+def do_float(x):
+    return x.__float__()
+
+def do_long(x):
+    return x.__long__()
 
 def inplace_add(x, y):
     x += y
@@ -99,6 +109,7 @@ def userdel(x):
 Table = [
     ('id',              id),
     ('type',            new_style_type),
+    ('type',            type),
     ('issubtype',       issubclass),
     ('repr',            repr),
     ('str',             str),
@@ -116,9 +127,9 @@ Table = [
     ('ord',             ord),
     ('divmod',          divmod),
     ('pow',             pow),
-    ('int',             int),
-    ('float',           float),
-    ('long',            long),
+    ('int',             do_int),
+    ('float',           do_float),
+    ('long',            do_long),
     ('inplace_add',     inplace_add),
     ('inplace_sub',     inplace_sub),
     ('inplace_mul',     inplace_mul),
@@ -159,5 +170,6 @@ def setup():
     # check that the result is complete
     for line in ObjSpace.MethodTable:
         name = line[0]
+        Arity[name] = line[2]
         assert name in FunctionByName
 setup()

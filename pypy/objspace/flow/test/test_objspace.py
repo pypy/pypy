@@ -332,21 +332,24 @@ class TestFlowObjSpace:
 
     #__________________________________________________________
     
-    def specialcases():
+    def specialcases(x):
         import operator
-        operator.lt(2,3)
-        operator.le(2,3)
+        operator.lt(x,3)
+        operator.le(x,3)
+        operator.eq(x,3)
+        operator.ne(x,3)
+        operator.gt(x,3)
+        operator.ge(x,3)
+        is_operator(x,3)
+        operator.__lt__(x,3)
+        operator.__le__(x,3)
+        operator.__eq__(x,3)
+        operator.__ne__(x,3)
+        operator.__gt__(x,3)
+        operator.__ge__(x,3)
+        # the following ones are constant-folded
         operator.eq(2,3)
-        operator.ne(2,3)
-        operator.gt(2,3)
-        operator.ge(2,3)
-        is_operator(2,3)
-        operator.__lt__(2,3)
-        operator.__le__(2,3)
-        operator.__eq__(2,3)
-        operator.__ne__(2,3)
         operator.__gt__(2,3)
-        operator.__ge__(2,3)
     
     def test_specialcases(self):
         x = self.codetest(self.specialcases)
@@ -357,7 +360,6 @@ class TestFlowObjSpace:
             assert op.opname in ['lt', 'le', 'eq', 'ne',
                                        'gt', 'ge', 'is_']
             assert len(op.args) == 2
-            assert op.args[0].value == 2
             assert op.args[1].value == 3
 
     #__________________________________________________________
