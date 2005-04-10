@@ -371,9 +371,9 @@ class FunctionDef:
         
         # generate an incref for each input argument
         for a in self.graphargs:
-            cincref = self.ctypeof(a).cincref
-            if cincref:
-                print >> f, '\t' + cincref % (self.expr(a),)
+            line = self.ctypeof(a).cincref(self.expr(a))
+            if line:
+                print >> f, '\t' + line
 
         # print the body
         for line in body:
@@ -417,13 +417,14 @@ class FunctionDef:
                     ct1 = self.ctypeof(a1)
                     ct2 = self.ctypeof(a2)
                     assert ct1 == ct2
-                    if ct1.cincref:
-                        line += '\t' + ct1.cincref % (self.expr(a2),)
+                    line2 = ct1.cincref(self.expr(a2))
+                    if line2:
+                        line += '\t' + line2
                 yield line
             for v in has_ref:
-                cdecref = self.ctypeof(v).cdecref
-                if cdecref:
-                    yield cdecref % (linklocalvars[v],)
+                line = self.ctypeof(v).cdecref(linklocalvars[v])
+                if line:
+                    yield line
             yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks
@@ -521,12 +522,9 @@ class FunctionDef:
             while to_release:
                 v = to_release.pop()
                 if err_reachable:
-                    if not hasattr(v, 'concretetype'):
-                        cdecref = 'ERR_DECREF(%s)'
-                    else:
-                        cdecref = v.concretetype.cdecref
-                    if cdecref:
-                        yield cdecref % (self.expr(v),)
+                    line = self.ctypeof(v).cdecref(self.expr(v))
+                    if line:
+                        yield line
                 yield 'err%d_%d:' % (blocknum[block], len(to_release))
                 err_reachable = True
             if err_reachable:
@@ -595,6 +593,14 @@ class FunctionDef:
         args = [arg.compute() for arg in args]
         return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
             r, args[0], ', '.join(args[1:]), err)
+
+    def OP_INCREF(self, args, r, err):
+        v, = args[0].args
+        return self.ctypeof(v).cincref(args[0].compute())
+
+    def OP_DECREF(self, args, r, err):
+        v, = args[0].args
+        return self.ctypeof(v).cdecref(args[0].compute())
 
 # ____________________________________________________________
 

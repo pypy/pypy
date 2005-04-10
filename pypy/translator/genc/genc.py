@@ -130,10 +130,11 @@ class GenC:
     def gen_global_declarations(self):
         # collect more of the latercode between the functions,
         # and produce the corresponding global declarations
-        for ct in self.translator.concretetypes.values():
+        for ct in self.translator.ctlist:
             if ct not in self.ctypes_alreadyseen:
                 self.globaldecl += list(ct.init_globals(self))
                 self.ctypes_alreadyseen[ct] = True
+        for ct in self.translator.ctlist:
             self.globaldecl += list(ct.collect_globals(self))
         g = self.globaldecl
         if g:

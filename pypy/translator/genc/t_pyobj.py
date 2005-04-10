@@ -15,8 +15,6 @@ class CPyObjectType(CType):
     reconstruct them.
     """
     ctypetemplate = 'PyObject *%s'
-    cincref       = 'Py_INCREF(%s);'
-    cdecref       = 'Py_DECREF(%s);'
     error_return  = 'NULL'
 
     def __init__(self, translator):
@@ -52,6 +50,12 @@ class CPyObjectType(CType):
                                #   objects
         self.globalobjects = []
         self.debugstack = ()  # linked list of nested nameof()
+
+    def cincref(self, expr):
+        return 'Py_INCREF(%s);' % expr
+
+    def cdecref(self, expr):
+        return 'Py_DECREF(%s);' % expr
 
     def nameof(self, obj, debug=None):
         key = Constant(obj).key

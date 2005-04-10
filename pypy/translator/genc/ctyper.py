@@ -95,6 +95,7 @@ class GenCSpecializer(Specializer):
                         yield self.typed_op(SpaceOperation('tuple_setitem',
                                    [v2,   Constant(i), vitem], v0),  # args, ret
                                    [ctup, TInt,        ct   ], TNone) # a_t, r_t
+                        yield self.incref_op(vitem)
                     return
 
         if op.opname == 'getitem':
@@ -111,7 +112,19 @@ class GenCSpecializer(Specializer):
                         else:
                             yield self.typed_op(op, [ctup, self.TInt], ct,
                                                 newopname='tuple_getitem')
+                            yield self.incref_op(op.result)
                             return
 
         # fall-back
         yield Specializer.specialized_op(self, op, bindings)
+
+
+    def incref_op(self, v):
+        vnone = Variable()
+        vnone.concretetype = self.TNone
+        return SpaceOperation('incref', [v], vnone)
+
+    def deref_op(self, v):
+        vnone = Variable()
+        vnone.concretetype = self.TNone
+        return SpaceOperation('decref', [v], vnone)

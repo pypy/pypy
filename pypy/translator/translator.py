@@ -64,6 +64,7 @@ class Translator:
         self.callgraph = {}   # {opaque_tag: (caller, callee)}
         self.frozen = False   # when frozen, no more flowgraphs can be generated
         self.concretetypes = {}  # see getconcretetype()
+        self.ctlist = []         #  "
         if self.entrypoint:
             self.getflowgraph()
 
@@ -281,6 +282,7 @@ class Translator:
             return self.concretetypes[cls, args]
         except KeyError:
             result = self.concretetypes[cls, args] = cls(self, *args)
+            self.ctlist.append(result)
             return result
 
 

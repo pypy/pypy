@@ -360,7 +360,3 @@ class TestTypedTestCase(TestAnnotatedTestCase):
     def test_int_overflow(self):
         fn = self.getcompiled(snippet.simple_func)
         raises(OverflowError, fn, sys.maxint+1)
-
-
-    def test_get_set_del_slice(self):
-        py.test.skip("missing incref/decref in tuples")

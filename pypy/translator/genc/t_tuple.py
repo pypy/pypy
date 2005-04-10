@@ -22,7 +22,7 @@ class CTupleType(CType):
     def debugname(self):
         # a nice textual name for debugging...
         itemnames = [ct.debugname() for ct in self.itemtypes]
-        return 'tuple (%s)' % (', '.join(itemnames),)
+        return 'tuple(%s)' % (', '.join(itemnames),)
 
     def fieldnames(self):
         return ['f%d' % i for i in range(len(self.itemtypes))]
@@ -32,13 +32,30 @@ class CTupleType(CType):
         for ct, name in zip(self.itemtypes, self.fieldnames()):
             yield '\t' + ct.ctypetemplate % (name,) + ';'
         yield '};'
-        yield '%s %s;  /* uninitialized */' % (self.structname,
-                                               self.error_return)
+        self.globaldecl.append(
+            '%s %s;  /* uninitialized */' % (self.structname,
+                                             self.error_return))
 
     def collect_globals(self, genc):
         result = self.globaldecl
         self.globaldecl = []
         return result
+
+    def cincref(self, expr):
+        result = []
+        for i in range(len(self.itemtypes)):
+            line = self.itemtypes[i].cincref('%s.f%d' % (expr, i))
+            if line:
+                result.append(line)
+        return ' '.join(result)
+
+    def cdecref(self, expr):
+        result = []
+        for i in range(len(self.itemtypes)):
+            line = self.itemtypes[i].cdecref('%s.f%d' % (expr, i))
+            if line:
+                result.append(line)
+        return '\t'.join(result)
 
     def nameof(self, tup, debug=None):
         genc = self.genc()
@@ -66,6 +83,7 @@ class CTupleType(CType):
             yield typer.typed_op(SpaceOperation('tuple_getitem',
                                    [v1,   Constant(i)], vitem),  # args, retval
                                    [self, TInt       ], ct    )  # arg_t, ret_t
+            yield typer.incref_op(vitem)
             pyobjitems_v.append(vitem)
         # create a new PyTupleObject with these values
         # note that typed_op() will insert the conversion of vitem if needed
@@ -85,9 +103,11 @@ class CTupleType(CType):
             yield typer.typed_op(SpaceOperation('pytuple_getitem',
                                    [v1,     Constant(i)], vitem), # args, retval
                                    [TPyObj, TInt       ], TPyObj) # arg_t, ret_t
+            yield typer.incref_op(vitem)
             # store it into the "struct" tuple
             # note that typed_op() will insert the conversion of vitem if needed
             v0 = Variable()
             yield typer.typed_op(SpaceOperation('tuple_setitem',
                                    [v2,   Constant(i), vitem], v0),  # args, ret
                                    [self, TInt,        ct   ], TNone) # a_t, r_t
+            yield typer.incref_op(vitem)

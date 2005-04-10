@@ -4,8 +4,6 @@ from pypy.interpreter.miscutils import getthreadlocals
 
 
 class CType(object):
-    cincref = None
-    cdecref = None
 
     def __init__(self, translator):
         self.translator = translator
@@ -29,6 +27,12 @@ class CType(object):
 
     def collect_globals(self, genc):
         return []
+
+    def cincref(self, expr):
+        return ''
+
+    def cdecref(self, expr):
+        return ''
 
 
 class CIntType(CType):

@@ -23,7 +23,7 @@ class CFuncPtrType(CType):
         # a nice textual name for debugging...
         argnames = [ct.debugname() for ct in self.argtypes]
         returnname = self.returntype.debugname()
-        return 'fn (%s) -> %s' % (', '.join(argnames), returnname)
+        return 'fn(%s) -> %s' % (', '.join(argnames), returnname)
 
     def nameof(self, func, debug=None):
         return self.genc().getfuncdef(func).fast_name
