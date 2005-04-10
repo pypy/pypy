@@ -6,6 +6,7 @@ from pypy.tool.udir import udir
 from pypy.translator.annrpython import RPythonAnnotator, annmodel
 from pypy.translator.translator import Translator
 from pypy.objspace.flow.model import *
+from pypy.tool.rarithmetic import r_uint
 
 from pypy.translator.test import snippet
 
@@ -716,6 +717,13 @@ class TestAnnonateTestCase:
         s = a.build_types(f, [int])
         assert s.knowntype == float
 
+    def test_r_uint(self):
+        def f(n):
+            return n + constant_unsigned_five
+        a = RPythonAnnotator()
+        s = a.build_types(f, [r_uint])
+        assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
+
 
 def g(n):
     return [0,1,2,n]
@@ -728,3 +736,5 @@ def f_calls_g(n):
         total += i
         i += 1
     return total
+
+constant_unsigned_five = r_uint(5)

@@ -12,6 +12,7 @@ from pypy.tool.hack import func_with_new_name
 from pypy.interpreter.pycode import CO_VARARGS
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import ArgErr
+from pypy.tool.rarithmetic import r_uint
 
 import inspect, new
 
@@ -84,6 +85,8 @@ class Bookkeeper:
             result = SomeBool()
         elif tp is int:
             result = SomeInteger(nonneg = x>=0)
+        elif tp is r_uint:
+            result = SomeInteger(nonneg = True, unsigned = True)
         elif tp is str:
             result = SomeString()
         elif tp is tuple:
@@ -164,6 +167,8 @@ class Bookkeeper:
             return SomeBool()
         elif t is int:
             return SomeInteger()
+        elif t is r_uint:
+            return SomeInteger(nonneg = True, unsigned = True)
         elif t is str:
             return SomeString()
         elif t is float:
