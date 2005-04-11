@@ -724,6 +724,51 @@ class TestAnnonateTestCase:
         s = a.build_types(f, [r_uint])
         assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
 
+    def test_pbc_getattr(self):
+        class C:
+            def __init__(self, v1, v2):
+                self.v2 = v2
+                self.v1 = v1
+
+            def _freeze_(self):
+                return True
+
+        c1 = C(1,'a')
+        c2 = C(2,'b')
+        c3 = C(3,'c')
+
+        def f1(l, c):
+            l.append(c.v1)
+        def f2(l, c):
+            l.append(c.v2)
+
+        def g():
+            l1 = []
+            l2 = []
+            f1(l1, c1)
+            f1(l1, c2)
+            f2(l2, c2)
+            f2(l2, c3)
+            return l1,l2
+
+        a = RPythonAnnotator()
+        s = a.build_types(g,[])
+        l1, l2 = s.items
+        assert l1.s_item.knowntype == int
+        assert l2.s_item.knowntype == str
+
+        ign, rep1,acc1 = a.bookkeeper.pbc_maximal_access_sets.find(c1)
+        ign, rep2,acc2 = a.bookkeeper.pbc_maximal_access_sets.find(c2)
+        ing, rep3,acc3 = a.bookkeeper.pbc_maximal_access_sets.find(c3)
+
+        assert rep1 is rep2 is rep3
+        assert acc1 is acc2 is acc3
+
+        assert len(acc1.objects) == 3
+        assert acc1.attrs == {'v1': True, 'v2': True}
+        
+        
+
 
 def g(n):
     return [0,1,2,n]

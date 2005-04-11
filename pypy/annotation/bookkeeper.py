@@ -13,8 +13,21 @@ from pypy.interpreter.pycode import CO_VARARGS
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import ArgErr
 from pypy.tool.rarithmetic import r_uint
+from pypy.tool.unionfind import UnionFind
 
 import inspect, new
+
+class PBCAccessSet:
+    def __init__(self, obj):
+        self.objects = { obj: True }
+        self.read_locations = {}
+        self.attrs = {}
+
+    def update(self, other):
+        self.objects.update(other.objects)
+        self.read_locations.update(other.read_locations)        
+        self.attrs.update(other.attrs)
+
 
 class Bookkeeper:
     """The log of choices that have been made while analysing the operations.
@@ -33,6 +46,9 @@ class Bookkeeper:
         self.pbccache = {}
         self.pbctypes = {}
         self.seen_mutable = {}
+
+        self.pbc_maximal_access_sets = UnionFind(PBCAccessSet)
+        
         # import ordering hack
         global BUILTIN_ANALYZERS
         from pypy.annotation.builtin import BUILTIN_ANALYZERS
@@ -183,6 +199,34 @@ class Bookkeeper:
             o = SomeObject()
             o.knowntype = t
             return o
+
+    def pbc_getattr(self, pbc, s_attr):
+        assert s_attr.is_constant()
+        attr = s_attr.const
+
+        access_sets = self.pbc_maximal_access_sets
+        objects = pbc.prebuiltinstances.keys()
+
+        change, rep, access = access_sets.find(objects[0])
+        for obj in objects:
+            change1, rep, access = access_sets.union(rep, obj)
+            change = change or change1
+
+        access.attrs[attr] = True
+        position = self.position_key
+        access.read_locations[position] = True
+
+        actuals = []
+
+        for c in access.objects:
+            if hasattr(c, attr):
+                actuals.append(self.immutablevalue(getattr(c, attr)))
+
+        if change:
+            for position in access.read_locations:
+                self.annotator.reflowfromposition(position)
+                
+        return unionof(*actuals)        
 
     def pycall(self, func, args):
         if func is None:   # consider None as a NULL function pointer

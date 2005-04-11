@@ -298,17 +298,19 @@ class __extend__(SomePBC):
 
     def getattr(pbc, s_attr):
         bookkeeper = getbookkeeper()
-        assert s_attr.is_constant()
-        attr = s_attr.const
-        actuals = []
-        for c in pbc.prebuiltinstances:
-            if hasattr(c, attr):
-                # force the attribute to be considered on the class
-                ##classdef = bookkeeper.getclassdef(new_or_old_class(c))
-                ##classdef.find_attribute(attr).getvalue()
-                # but only return the more precise result getattr(c, attr)
-                actuals.append(immutablevalue(getattr(c, attr)))
-        return unionof(*actuals)
+        return bookkeeper.pbc_getattr(pbc, s_attr)
+        
+##         assert s_attr.is_constant()
+##         attr = s_attr.const
+##         actuals = []
+##         for c in pbc.prebuiltinstances:
+##             if hasattr(c, attr):
+##                 # force the attribute to be considered on the class
+##                 ##classdef = bookkeeper.getclassdef(new_or_old_class(c))
+##                 ##classdef.find_attribute(attr).getvalue()
+##                 # but only return the more precise result getattr(c, attr)
+##                 actuals.append(immutablevalue(getattr(c, attr)))
+##         return unionof(*actuals)
 
     def setattr(pbc, s_attr, s_value):
         getbookkeeper().warning("setattr not wanted on %r" % (pbc,))
