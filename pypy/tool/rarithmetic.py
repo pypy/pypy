@@ -12,6 +12,9 @@ intmask  mask a possibly long value when running on CPython
          back to a signed int value
 ovfcheck check on CPython whether the result of a signed
          integer operation did overflow
+ovfcheck_lshift
+         << with oveflow checking
+         catering to 2.3/2.4 differences about <<
 
 These are meant to be erased by translation, r_uint
 in the process should mark unsigned values, ovfcheck should
@@ -173,7 +176,9 @@ def ovfcheck(r):
     if isinstance(r, long):
         raise OverflowError, "signed integer expression did overflow"
     return r
-    
+
+def ovfcheck_lshift(a, b):
+    return ovfcheck(int(long(a) << b))
 
 class r_uint(long):
     """ fake unsigned integer implementation """

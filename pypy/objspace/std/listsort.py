@@ -1,3 +1,5 @@
+from pypy.tool.rarithmetic import ovfcheck, ovfcheck_lshift
+
 
 ## ------------------------------------------------------------------------
 ## Lots of code for an adaptive, stable, natural mergesort.  There are many
@@ -133,7 +135,8 @@ class TimSort:
                 if lower(a.list[p + ofs], key):
                     lastofs = ofs
                     try:
-                        ofs = (ofs << 1) + 1
+                        ofs = ovfcheck_lshift(ofs, 1)
+                        ofs = ovfcheck(ofs + 1)
                     except OverflowError:
                         ofs = maxofs
                 else:  # key <= a[hint + ofs]
@@ -156,7 +159,8 @@ class TimSort:
                     # key <= a[hint - ofs]
                     lastofs = ofs
                     try:
-                        ofs = (ofs << 1) + 1
+                        ofs = ovfcheck_lshift(ofs, 1)
+                        ofs = ovfcheck(ofs + 1)                        
                     except OverflowError:
                         ofs = maxofs
             if ofs > maxofs:

@@ -1,20 +1,12 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.tool.rarithmetic import r_int, LONG_BIT
+from pypy.tool.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT
 
 """
-The implementation of integers is a bit difficult,
-since integers are currently undergoing the change to turn
-themselves into longs under overflow circumstances.
-The restricted Python does not overflow or throws
-exceptions.
-The definitions in this file are fine, given that
-restricted Python integers behave that way.
-But for testing, the resticted stuff must be run
-by CPython which has different behavior.
-For that reason, I defined an r_int extension class
-for native integers, which tries to behave as in
-RPython, just for test purposes.
+In order to have the same behavior running
+on CPython, and after RPython translation we use ovfcheck
+from rarithmetic to explicitly check for overflows,
+something CPython does not do anymore.
 """
 
 class W_IntObject(W_Object):
@@ -22,7 +14,7 @@ class W_IntObject(W_Object):
     
     def __init__(w_self, space, intval):
         W_Object.__init__(w_self, space)
-        w_self.intval = r_int(intval)
+        w_self.intval = intval
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -134,7 +126,7 @@ def add__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
-        z = x + y
+        z = ovfcheck(x + y)
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer addition"))
@@ -144,7 +136,7 @@ def sub__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
-        z = x - y
+        z = ovfcheck(x - y)
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer substraction"))
@@ -154,7 +146,7 @@ def mul__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
-        z = x * y
+        z = ovfcheck(x * y)
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer multiplication"))
@@ -164,7 +156,7 @@ def _floordiv(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
-        z = x // y
+        z = ovfcheck(x // y)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer division by zero"))
@@ -177,8 +169,8 @@ def _truediv(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
-        z = x // y
-        t = x % y
+        z = ovfcheck(x // y)
+        t = ovfcheck(x % y)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer division by zero"))
@@ -192,7 +184,7 @@ def mod__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
-        z = x % y
+        z = ovfcheck(x % y)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer modulo by zero"))
@@ -205,7 +197,7 @@ def divmod__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
     y = w_int2.intval
     try:
-        z = x // y
+        z = ovfcheck(x // y)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer divmod by zero"))
@@ -249,11 +241,11 @@ def _impl_int_int_pow(space, iv, iw, iz=None):
     try:
         while iw > 0:
             if iw & 1:
-                ix = ix*temp
+                ix = ovfcheck(ix*temp)
             iw >>= 1   #/* Shift exponent down by 1 bit */
             if iw==0:
                 break
-            temp *= temp   #/* Square the value of temp */
+            temp = ovfcheck(temp*temp) #/* Square the value of temp */
             if iz:
                 #/* If we did a multiplication, perform a modulo */
                 ix = ix % iz;
@@ -288,7 +280,7 @@ def pow__Int_Int_None(space, w_int1, w_int2, w_int3):
 def neg__Int(space, w_int1):
     a = w_int1.intval
     try:
-        x = -a
+        x = ovfcheck(-a)
     except OverflowError:
         raise FailedToImplement(space.w_OverflowError,
                                 space.wrap("integer negation"))
@@ -334,7 +326,7 @@ def lshift__Int_Int(space, w_int1, w_int2):
     ## XXX also note that Python 2.3 returns a long and never raises
     ##     OverflowError.
     try:
-        c = a << b
+        c = ovfcheck_lshift(a, b)
         ## the test in C code is
         ## if (a != Py_ARITHMETIC_RIGHT_SHIFT(long, c, b)) {
         ##     if (PyErr_Warn(PyExc_FutureWarning,
