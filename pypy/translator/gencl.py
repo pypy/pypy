@@ -150,7 +150,15 @@ class Op:
         s = self.str
         result, (seq, start, end) = self.result, self.args
         print "(setq", s(result), "(python-slice", s(seq), s(start), s(end), "))"
-
+    def op_pow(self):
+        s = self.str
+        result, (x,y,z) = self.result, self.args
+        print "(setq", s(result)
+        table = {
+            (int, int, type(None)): (lambda args: args[:2], "(expt %s %s)"),
+        }
+        self.gen.emit_typecase(table, x, y, z)
+        print ")"
 
 class GenCL:
     def __init__(self, fun, input_arg_types=[]):
@@ -314,6 +322,9 @@ class GenCL:
         argtypes = tuple(map(self.get_type, args))
         if argtypes in table:
             trans = table[argtypes]
+            if isinstance(trans, tuple): # (manip-args, code-template)
+                manip, trans = trans
+                argreprs = manip(argreprs)                
             print trans % argreprs
         else:
             print "(cond"
