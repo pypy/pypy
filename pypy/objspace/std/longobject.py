@@ -11,6 +11,10 @@ import math
 SHORT_BIT = int(LONG_BIT // 2)
 SHORT_MASK = int(LONG_MASK >> SHORT_BIT)
 
+SIGN_BIT = LONG_BIT-1
+SIGN_MASK = r_uint(1) << SIGN_BIT
+NONSIGN_MASK = ~SIGN_MASK
+
 class W_LongObject(W_Object):
     """This is a reimplementation of longs using a list of r_uints."""
     #All functions that still rely on the underlying Python's longs are marked
@@ -106,11 +110,12 @@ def long__Int(space, w_intobj):
     return W_LongObject(space, [r_uint(abs(w_intobj.intval))], sign)
 
 def int__Long(space, w_value):
-    if (len(w_value.digits) == 1 and
-        w_value.digits[0] & (r_uint(1) << LONG_BIT) == 0):
-        return space.newint(int(w_value.digits[0]) * w_value.sign)
-    else:
-        return w_value   # 9999999999999L.__int__() == 9999999999999L
+    if len(w_value.digits) == 1:
+        if w_value.digits[0] & SIGN_MASK == 0:
+            return space.newint(int(w_value.digits[0]) * w_value.sign)
+        elif w_value.sign == -1 and w_value.digits[0] & NONSIGN_MASK == 0:
+            return space.newint(intmask(w_value.digits[0]))
+    return w_value   # 9999999999999L.__int__() == 9999999999999L
 
 def float__Long(space, w_longobj): #YYYYYY
     try:
@@ -123,12 +128,13 @@ def long__Float(space, w_floatobj): #YYYYYY
     return W_LongObject(space, *args_from_long(long(w_floatobj.floatval)))
 
 def int_w__Long(space, w_value):
-    if (len(w_value.digits) == 1 and
-        w_value.digits[0] & (r_uint(1) << LONG_BIT) == 0):
-        return int(w_value.digits[0]) * w_value.sign
-    else:
-        raise OperationError(space.w_OverflowError,
-                             space.wrap("long int too large to convert to int"))        
+    if len(w_value.digits) == 1:
+        if  w_value.digits[0] & SIGN_MASK == 0:
+            return int(w_value.digits[0]) * w_value.sign
+        elif w_value.sign == -1 and w_value.digits[0] & NONSIGN_MASK == 0:
+            return intmask(w_value.digits[0])
+    raise OperationError(space.w_OverflowError,
+                         space.wrap("long int too large to convert to int"))        
 
 def repr__Long(space, w_long): #YYYYYY
     return space.wrap(repr(w_long.longval()))
