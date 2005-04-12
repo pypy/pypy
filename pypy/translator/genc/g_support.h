@@ -3,9 +3,13 @@
  /***  C header subsection: support functions              ***/
 
 
+/*** misc ***/
+
 #if !defined(MIN)
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #endif /* MIN */
+
+#define MOVE(x, y)             y = x;
 
 
 /* we need a subclass of 'builtin_function_or_method' which can be used

@@ -2,7 +2,7 @@ from __future__ import generators
 import autopath, os, sys, __builtin__, marshal, zlib
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.translator.gensupp import builtin_base, NameManager
-from pypy.translator.genc.t_simple import CType
+from pypy.translator.genc.basetype import CType
 from types import FunctionType, CodeType, InstanceType, ClassType
 
 from pypy.tool.rarithmetic import r_int, r_uint
@@ -14,7 +14,7 @@ class CPyObjectType(CType):
     of Python objects to be 'pickled' as Python source code that will
     reconstruct them.
     """
-    ctypetemplate = 'PyObject *%s'
+    typename      = 'pyobj'
     error_return  = 'NULL'
 
     def __init__(self, translator):
@@ -50,12 +50,6 @@ class CPyObjectType(CType):
                                #   objects
         self.globalobjects = []
         self.debugstack = ()  # linked list of nested nameof()
-
-    def cincref(self, expr):
-        return 'Py_INCREF(%s);' % expr
-
-    def cdecref(self, expr):
-        return 'Py_DECREF(%s);' % expr
 
     def nameof(self, obj, debug=None):
         key = Constant(obj).key
@@ -429,6 +423,9 @@ class CPyObjectType(CType):
     def later(self, gen):
         self.latercode.append((gen, self.debugstack))
 
+    def init_globals(self, genc):
+        yield 'typedef PyObject* pyobj;'
+
     def collect_globals(self, genc):
         while self.latercode:
             gen, self.debugstack = self.latercode.pop()
@@ -463,13 +460,10 @@ class CPyObjectType(CType):
         del source
         return marshal.dumps(co)
 
-    def fn_conv_to_obj(self):
-        return "PyObject_SameObject"
-
-    def fn_conv_from_obj(self):
-        return "PyObject_SameObject"
-
 
 class CBorrowedPyObjectType(CType):
-    ctypetemplate = 'PyObject *%s'
+    typename      = 'borrowedpyobj'
     error_return  = 'NULL'
+
+    def init_globals(self, genc):
+        yield 'typedef PyObject* borrowedpyobj;'

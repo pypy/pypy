@@ -6,10 +6,11 @@ from __future__ import generators
 from pypy.translator.typer import Specializer
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.annotation.model import SomeInteger, SomePBC, SomeTuple
-from pypy.translator.genc.t_pyobj import CPyObjectType
-from pypy.translator.genc.t_simple import CIntType, CNoneType
-from pypy.translator.genc.t_func import CFuncPtrType
-from pypy.translator.genc.t_tuple import CTupleType
+from pypy.translator.genc.pyobjtype import CPyObjectType
+from pypy.translator.genc.inttype import CIntType
+from pypy.translator.genc.nonetype import CNoneType
+from pypy.translator.genc.functype import CFuncPtrType
+from pypy.translator.genc.tupletype import CTupleType
 import types
 from pypy.interpreter.pycode import CO_VARARGS
 

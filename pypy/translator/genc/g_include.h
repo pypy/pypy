@@ -10,9 +10,11 @@
 #include "marshal.h"
 #include "eval.h"
 
-#include "g_operation.h"
-#include "g_simple.h"
-#include "g_struct.h"
 #include "g_trace.h"
 #include "g_support.h"
 #include "g_module.h"
+
+#include "int_include.h"
+#include "none_include.h"
+#include "pyobj_include.h"
+#include "tuple_include.h"

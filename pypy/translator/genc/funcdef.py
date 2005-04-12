@@ -6,9 +6,10 @@ from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.unsimplify import remove_direct_loops
-from pypy.translator.genc.t_simple import CIntType, CNoneType
-from pypy.translator.genc.t_func import CFuncPtrType
-from pypy.translator.genc.t_pyobj import CBorrowedPyObjectType
+from pypy.translator.genc.inttype import CIntType
+from pypy.translator.genc.nonetype import CNoneType
+from pypy.translator.genc.functype import CFuncPtrType
+from pypy.translator.genc.pyobjtype import CBorrowedPyObjectType
 from pypy.interpreter.pycode import CO_VARARGS
 from pypy.tool.compile import compile2
 from types import FunctionType
@@ -77,10 +78,9 @@ class FunctionDef:
         if USE_CALL_TRACE:
             declare_fast_args.insert(0, 'TRACE_ARGS')
         declare_fast_args = ', '.join(declare_fast_args) or 'void'
-        name_and_arguments = '%s(%s)' % (self.fast_name, declare_fast_args)
         ctret = self.ctypeof(graph.getreturnvar())
-        fast_function_header = 'static ' + (
-            ctret.ctypetemplate % (name_and_arguments,))
+        fast_function_header = 'static %s %s(%s)' % (
+            ctret.typename, self.fast_name, declare_fast_args)
 
         # store misc. information
         self.fast_function_header = fast_function_header
@@ -118,7 +118,7 @@ class FunctionDef:
     def decl(self, v):
         assert isinstance(v, Variable)
         ct = self.ctypeof(v)
-        return ct.ctypetemplate % (self.localscope.localname(v.name),)
+        return '%s %s' % (ct.typename, self.localscope.localname(v.name))
 
     def expr(self, v):
         if isinstance(v, Variable):
@@ -275,7 +275,7 @@ class FunctionDef:
             else:
                 convert_from_obj = ct.opname_conv_from_obj  # simple conv only!
                 convertedname = numberedname.replace('o', 'a')
-                print >> f, '\t%s;' % (ct.ctypetemplate % (convertedname,))
+                print >> f, '\t%s %s;' % (ct.typename, convertedname)
                 conversions.append('\tOP_%s(%s, %s, type_error)' % (
                     convert_from_obj.upper(), numberedname, convertedname))
                 # XXX successfully converted objects may need to be decrefed
@@ -288,7 +288,7 @@ class FunctionDef:
             footer = None
         else:
             convert_to_obj = ct.opname_conv_to_obj  # simple conv only for now!
-            print >> f, '\t%s;' % (ct.ctypetemplate % ('aret',))
+            print >> f, '\t%s aret;' % (ct.typename,)
             putresultin = 'aret'
             footer = 'OP_%s(aret, oret, type_error)' % convert_to_obj.upper()
         print >> f
@@ -371,9 +371,7 @@ class FunctionDef:
         
         # generate an incref for each input argument
         for a in self.graphargs:
-            line = self.ctypeof(a).cincref(self.expr(a))
-            if line:
-                print >> f, '\t' + line
+            print >> f, '\t' + self.cincref(a)
 
         # print the body
         for line in body:
@@ -417,14 +415,10 @@ class FunctionDef:
                     ct1 = self.ctypeof(a1)
                     ct2 = self.ctypeof(a2)
                     assert ct1 == ct2
-                    line2 = ct1.cincref(self.expr(a2))
-                    if line2:
-                        line += '\t' + line2
+                    line += '\t' + self.cincref(a2)
                 yield line
             for v in has_ref:
-                line = self.ctypeof(v).cdecref(linklocalvars[v])
-                if line:
-                    yield line
+                yield self.cdecref(v, linklocalvars[v])
             yield 'goto block%d;' % blocknum[link.target]
 
         # collect all blocks
@@ -522,9 +516,7 @@ class FunctionDef:
             while to_release:
                 v = to_release.pop()
                 if err_reachable:
-                    line = self.ctypeof(v).cdecref(self.expr(v))
-                    if line:
-                        yield line
+                    yield self.cdecref(v)
                 yield 'err%d_%d:' % (blocknum[block], len(to_release))
                 err_reachable = True
             if err_reachable:
@@ -577,25 +569,29 @@ class FunctionDef:
         return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
             r, args[0], ', '.join(args[1:]), err)
 
-    def OP_INCREF(self, op, err):
-        v = op.args[0]
-        return self.ctypeof(v).cincref(self.expr(v))
-
-    def OP_DECREF(self, op, err):
-        v = op.args[0]
-        return self.ctypeof(v).cdecref(self.expr(v))
-
     def OP_CONV_TO_OBJ(self, op, err):
         v = op.args[0]
-        convfnname = self.ctypeof(v).fn_conv_to_obj()
-        return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
-            self.expr(op.result), convfnname, self.expr(v), err)
+        return '%s = CONV_TO_OBJ_%s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
+            self.expr(op.result), self.ctypeof(v).typename, self.expr(v), err)
 
     def OP_CONV_FROM_OBJ(self, op, err):
         v = op.args[0]
-        convfnname = self.ctypeof(op.result).fn_conv_from_obj()
-        return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
-            self.expr(op.result), convfnname, self.expr(v), err)
+        return '%s = CONV_FROM_OBJ_%s(%s); if (PyErr_Occurred()) FAIL(%s)' %(
+            self.expr(op.result), self.ctypeof(op.result).typename,
+            self.expr(v), err)
+
+    def OP_INCREF(self, op, err):
+        return self.cincref(op.args[0])
+
+    def OP_DECREF(self, op, err):
+        return self.cdecref(op.args[0])
+
+    def cincref(self, v):
+        return 'OP_INCREF_%s(%s)' % (self.ctypeof(v).typename, self.expr(v))
+
+    def cdecref(self, v, expr=None):
+        return 'OP_DECREF_%s(%s)' % (self.ctypeof(v).typename,
+                                     expr or self.expr(v))
 
 # ____________________________________________________________
 

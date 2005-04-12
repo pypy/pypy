@@ -9,7 +9,7 @@ from pypy.interpreter.miscutils import getthreadlocals
 from pypy.translator.gensupp import uniquemodulename
 
 from pypy.translator.genc.funcdef import FunctionDef, USE_CALL_TRACE
-from pypy.translator.genc.t_pyobj import CPyObjectType
+from pypy.translator.genc.pyobjtype import CPyObjectType
 
 # ____________________________________________________________
 
@@ -130,10 +130,12 @@ class GenC:
     def gen_global_declarations(self):
         # collect more of the latercode between the functions,
         # and produce the corresponding global declarations
+        insert_first = []
         for ct in self.translator.ctlist:
             if ct not in self.ctypes_alreadyseen:
-                self.globaldecl += list(ct.init_globals(self))
+                insert_first += list(ct.init_globals(self))
                 self.ctypes_alreadyseen[ct] = True
+        self.globaldecl[:0] = insert_first
         for ct in self.translator.ctlist:
             self.globaldecl += list(ct.collect_globals(self))
         g = self.globaldecl
@@ -166,6 +168,14 @@ class GenC:
             except KeyError:
                 pass
             Variable.instances.clear()
+
+    def loadincludefile(basename):
+        filename = os.path.join(autopath.this_dir, basename)
+        f = open(filename, 'r')
+        content = f.read()
+        f.close()
+        return content
+    loadincludefile = staticmethod(loadincludefile)
 
 # ____________________________________________________________
 

@@ -139,10 +139,6 @@
 		op_bool(r,err,PyClass_IsSubclass(x, y))
 
 
-/*** misc ***/
-
-#define MOVE(x, y)             y = x;
-
 /*** operations with a variable number of arguments ***/
 
 #define OP_NEWLIST0(r,err)         if (!(r=PyList_New(0))) FAIL(err)
@@ -159,3 +155,13 @@
 	if (!(r=decode_arg(fname, pos, name, vargs, vkwds, def))) FAIL(err)
 #define OP_CHECK_NO_MORE_ARG(fname, n, vargs, r, err)	\
 	if (check_no_more_arg(fname, n, vargs) < 0) FAIL(err)
+
+/*** conversions, reference counting ***/
+
+#define OP_INCREF_pyobj(o)          Py_INCREF(o);
+#define OP_DECREF_pyobj(o)          Py_DECREF(o);
+#define CONV_TO_OBJ_pyobj(o)        ((void)Py_INCREF(o), o)
+#define CONV_FROM_OBJ_pyobj(o)      ((void)Py_INCREF(o), o)
+
+#define OP_INCREF_borrowedpyobj(o)  /* nothing */
+#define OP_DECREF_borrowedpyobj(o)  /* nothing */
