@@ -35,6 +35,7 @@ class CTupleType(CType):
         self.generate_xxxref('DEC')
         self.generate_conv_to_obj()
         self.generate_conv_from_obj()
+        self.generate_new_tuple()
 
     def collect_globals(self, genc):
         result = self.globaldecl
@@ -127,3 +128,35 @@ class CTupleType(CType):
             "\treturn %s;" % self.error_return,
             "}",
             ]
+
+    def generate_new_tuple(self):
+        macroargs = ', '.join(['x%d' % i for i in range(len(self.itemtypes))]
+                              + ['res', 'err'])
+        self.globaldecl += [
+            "#define OP_NEW_%s(%s) \\" % (self.typename.upper(), macroargs),
+            ]
+        for i, ct in zip(range(len(self.itemtypes)), self.itemtypes):
+            self.globaldecl += [
+                "\tres.f%d = x%d; OP_INCREF_%s(res.f%d) \\" %
+                    (i, i, ct.typename, i),
+                ]
+        self.globaldecl.append('\t/* end */')
+
+    # ____________________________________________________________
+
+    def spec_newtuple(self, typer, op):
+        yield typer.typed_op(op, self.itemtypes, self,
+                             newopname = 'new_%s' % self.typename)
+
+    def spec_getitem(self, typer, op):
+        if not isinstance(op.args[1], Constant):
+            raise NotImplementedError
+        index = op.args[1].value
+        try:
+            ct = self.itemtypes[index]
+        except IndexError:
+            print "*** getitem: IndexError in tuple access"
+            raise NotImplementedError
+        yield typer.typed_op(op, [self, typer.TInt], ct,
+                             newopname='tuple_getitem')
+        yield typer.incref_op(op.result)

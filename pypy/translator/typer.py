@@ -36,7 +36,8 @@ class Specializer:
     def settype(self, a, concretetype):
         """Set the concretetype of a Variable or Constant."""
         if hasattr(a, 'concretetype') and a.concretetype != concretetype:
-            raise TyperError, "inconsitent type for %r" % (a,)
+            raise TyperError, "inconsitent type for %r: %r != %r" % (
+                a, a.concretetype, concretetype)
         a.concretetype = concretetype
 
     def setbesttype(self, a):

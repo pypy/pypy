@@ -15,6 +15,7 @@
 #include "g_module.h"
 
 #include "int_include.h"
+#include "list_include.h"
 #include "none_include.h"
 #include "pyobj_include.h"
 #include "tuple_include.h"

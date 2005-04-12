@@ -5,12 +5,13 @@ GenC-specific type specializer
 from __future__ import generators
 from pypy.translator.typer import Specializer
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
-from pypy.annotation.model import SomeInteger, SomePBC, SomeTuple
+from pypy.annotation.model import SomeInteger, SomePBC, SomeTuple, SomeList
 from pypy.translator.genc.pyobjtype import CPyObjectType
 from pypy.translator.genc.inttype import CIntType
 from pypy.translator.genc.nonetype import CNoneType
 from pypy.translator.genc.functype import CFuncPtrType
 from pypy.translator.genc.tupletype import CTupleType
+from pypy.translator.genc.listtype import CListType
 import types
 from pypy.interpreter.pycode import CO_VARARGS
 
@@ -65,59 +66,34 @@ class GenCSpecializer(Specializer):
                 besttype = self.annotator.translator.getconcretetype(
                     CTupleType, tuple(items_ct))
 
+            # -- DISABLED while it's incomplete
+            #elif isinstance(s_value, SomeList):
+            #    item_ct = self.annotation2concretetype(s_value.s_item)
+            #    besttype = self.annotator.translator.getconcretetype(
+            #        CListType, item_ct)
+
         return besttype
 
     def specialized_op(self, op, bindings):
-        if op.opname == 'simple_call':
-            s_callable = self.annotator.binding(op.args[0], True)
-            if s_callable is not None:
-                ct = self.annotation2concretetype(s_callable)
-                if isinstance(ct, CFuncPtrType):
-                    argtypes = [ct]
-                    argtypes += ct.argtypes
-                    yield self.typed_op(op, argtypes, ct.returntype,
-                                        newopname='direct_call')
-                    return
+        if op.opname in ('newtuple', 'newlist'):
+            # operations that are controlled by their return type
+            s_binding = self.annotator.binding(op.result, True)
+        elif bindings:
+            # operations are by default controlled by their 1st arg
+            s_binding = bindings[0]
+        else:
+            s_binding = None
 
-        if op.opname == 'newtuple':
-            s_tuple = self.annotator.binding(op.result, True)
-            if s_tuple is not None:
-                ctup = self.annotation2concretetype(s_tuple)
-                if isinstance(ctup, CTupleType):
-                    TInt  = self.TInt
-                    TNone = self.TNone
-                    v2 = op.result
-                    yield self.typed_op(SpaceOperation('tuple_new', [], v2),
-                                                                    [], ctup)
-                    for i in range(len(ctup.itemtypes)):
-                        vitem = op.args[i]
-                        ct = ctup.itemtypes[i]
-                        v0 = Variable()
-                        yield self.typed_op(SpaceOperation('tuple_setitem',
-                                   [v2,   Constant(i), vitem], v0),  # args, ret
-                                   [ctup, TInt,        ct   ], TNone) # a_t, r_t
-                        yield self.incref_op(vitem)
-                    return
-
-        if op.opname == 'getitem':
-            s_obj = self.annotator.binding(op.args[0], True)
-            if s_obj is not None:
-                ctup = self.annotation2concretetype(s_obj)
-                if isinstance(ctup, CTupleType):
-                    if isinstance(op.args[1], Constant):
-                        index = op.args[1].value
-                        try:
-                            ct = ctup.itemtypes[index]
-                        except IndexError:
-                            print "*** getitem: IndexError in tuple access"
-                        else:
-                            yield self.typed_op(op, [ctup, self.TInt], ct,
-                                                newopname='tuple_getitem')
-                            yield self.incref_op(op.result)
-                            return
-
+        if s_binding is not None:
+            ct = self.annotation2concretetype(s_binding)
+            meth = getattr(ct, 'spec_' + op.opname, None)
+            if meth:
+                try:
+                    return meth(self, op)
+                except NotImplementedError:
+                    pass
         # fall-back
-        yield Specializer.specialized_op(self, op, bindings)
+        return Specializer.specialized_op(self, op, bindings)
 
 
     def incref_op(self, v):

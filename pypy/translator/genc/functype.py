@@ -35,3 +35,9 @@ class CFuncPtrType(CType):
         yield genc.loadincludefile('func_template.h') % {
             'typename': self.typename,
             }
+
+    def spec_simple_call(self, typer, op):
+        argtypes = [self]
+        argtypes += self.argtypes
+        yield typer.typed_op(op, argtypes, self.returntype,
+                             newopname='direct_call')
