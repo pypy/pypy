@@ -95,6 +95,7 @@ class TestW_LongObject:
             space.raises_w(space.w_OverflowError, lobj.int_w__Long, space, w_lv)
             assert space.is_true(space.isinstance(lobj.int__Long(space, w_lv), space.w_long))
 
+
     def test_pow_lll(self):
         x = 10L
         y = 2L
@@ -123,6 +124,13 @@ class TestW_LongObject:
         v = lobj.pow__Long_Long_None(self.space, f1, f2, self.space.w_None)
         assert v.longval() == x ** y
 
+    def test_normalize(self):
+        f1 = lobj.W_LongObject(self.space, [lobj.r_uint(1), lobj.r_uint(0)], 1)
+        f1._normalize()
+        assert len(f1.digits) == 1
+        f0 = lobj.W_LongObject(self.space, [lobj.r_uint(0)], 0)
+        assert self.space.is_true(
+            self.space.eq(lobj.sub__Long_Long(self.space, f1, f1), f0))
 
 class AppTestLong:
     def test_add(self):
@@ -136,4 +144,12 @@ class AppTestLong:
     def test_mul(self):
         assert 363L * 2 ** 40 == 363L << 40
 
-    
+    def test_conversion(self):
+        class long2(long):
+            pass
+        x = long2(1L<<100)
+        y = int(x)
+        assert type(y) == long
+
+    def test_pow(self):
+        assert pow(0L, 0L, 1L) == 0L

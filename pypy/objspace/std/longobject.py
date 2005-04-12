@@ -44,6 +44,8 @@ class W_LongObject(W_Object):
         while i != 0 and self.digits[i] == 0:
             self.digits.pop(-1)
             i -= 1
+        if len(self.digits) == 1 and self.digits[0] == 0:
+            self.sign = 0
 
     def _getshort(self, index):
         a = self.digits[index // 2]
@@ -115,7 +117,8 @@ def int__Long(space, w_value):
             return space.newint(int(w_value.digits[0]) * w_value.sign)
         elif w_value.sign == -1 and w_value.digits[0] & NONSIGN_MASK == 0:
             return space.newint(intmask(w_value.digits[0]))
-    return w_value   # 9999999999999L.__int__() == 9999999999999L
+    #subtypes of long are converted to long!
+    return long__Long(space, w_value)
 
 def float__Long(space, w_longobj): #YYYYYY
     try:
@@ -134,7 +137,7 @@ def int_w__Long(space, w_value):
         elif w_value.sign == -1 and w_value.digits[0] & NONSIGN_MASK == 0:
             return intmask(w_value.digits[0])
     raise OperationError(space.w_OverflowError,
-                         space.wrap("long int too large to convert to int"))        
+                         space.wrap("long int too large to convert to int"))           
 
 def repr__Long(space, w_long): #YYYYYY
     return space.wrap(repr(w_long.longval()))
@@ -162,9 +165,15 @@ def lt__Long_Long(space, w_long1, w_long2): #YYYYYY
     ld1 = len(w_long1.digits)
     ld2 = len(w_long2.digits)
     if ld1 > ld2:
-        return space.newbool(False)
+        if w_long2.sign > 0:
+            return space.newbool(False)
+        else:
+            return space.newbool(True)
     elif ld1 < ld2:
-        return space.newbool(True)
+        if w_long2.sign > 0:
+            return space.newbool(True)
+        else:
+            return space.newbool(False)
     i = ld1 - 1
     while i >= 0:
         d1 = w_long1.digits[i]
@@ -285,6 +294,8 @@ def _impl_long_long_pow(space, lv, lw, lz=None):
                                     space.wrap("pow() 3rd argument cannot be 0"))
     result = W_LongObject(space, [r_uint(1)], 1)
     if lw.sign == 0:
+        if lz is not None:
+            result = mod__Long_Long(space, result, lz)
         return result
     if lz is not None:
         temp = mod__Long_Long(space, lv, lz)
