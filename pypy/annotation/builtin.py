@@ -111,7 +111,7 @@ def builtin_zip(s_iterable1, s_iterable2):
     return factory.create()
 
 def builtin_apply(*stuff):
-    getbookkeeper.warning("ignoring apply%r" % (stuff,))
+    getbookkeeper().warning("ignoring apply%r" % (stuff,))
     return SomeObject()
 
 def builtin_compile(*stuff):
