@@ -58,10 +58,10 @@ class CTupleType(CType):
         return '\t'.join(result)
 
     def nameof(self, tup, debug=None):
-        genc = self.genc()
         try:
             return self.cnames[tup]
         except KeyError:
+            genc = self.genc()
             name = genc.namespace.uniquename('gtup')
             self.globaldecl.append('%s %s = {' % (self.structname, name))
             lines = []
