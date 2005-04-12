@@ -105,16 +105,16 @@ def make_module_from_c(cfile, include_dirs=None):
                     fdump = open("%s.errors" % modname, "w")
                     fdump.write(data)
                     fdump.close()
+            # XXX do we need to do some check on fout/ferr?
+            # XXX not a nice way to import a module
+            if debug: print "inserting path to sys.path", dirpath
+            sys.path.insert(0, '.')
+            if debug: print "import %(modname)s as testmodule" % locals()
+            exec "import %(modname)s as testmodule" % locals()
+            sys.path.pop(0)
         except:
             print data
             raise
-        # XXX do we need to do some check on fout/ferr?
-        # XXX not a nice way to import a module
-        if debug: print "inserting path to sys.path", dirpath
-        sys.path.insert(0, '.')
-        if debug: print "import %(modname)s as testmodule" % locals()
-        exec "import %(modname)s as testmodule" % locals()
-        sys.path.pop(0)
     finally:
         os.chdir(str(lastdir))
         #if not debug:
