@@ -117,6 +117,7 @@ class Test_r_uint:
 
     def test_back_to_int(self):
         assert int(r_uint(-1)) == -1
+        assert int(r_uint(1)) == 1
 
     def unary_test(self, f):
         for arg in (0, 3, 12345):

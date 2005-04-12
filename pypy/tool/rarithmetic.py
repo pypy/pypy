@@ -190,7 +190,7 @@ class r_uint(long):
 
     def __int__(self):
         if self < LONG_TEST:
-            return int(self)
+            return long.__int__(self)
         else:
             return intmask(self)
 
