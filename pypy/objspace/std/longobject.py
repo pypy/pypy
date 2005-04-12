@@ -310,7 +310,7 @@ def _impl_long_long_pow(space, lv, lw, lz=None):
             break
         m = m >> 1
         j -= 1
-#    assert highest_set_bit != LONG_BIT, "long not normalized"
+    assert highest_set_bit != LONG_BIT, "long not normalized"
     j = 0
     m = r_uint(1)
     while j <= highest_set_bit:
@@ -537,13 +537,13 @@ def _x_mul(a, b, space):
         j = 0
         while j < size_b:
             carry += z._getshort(i + j) + b._getshort(j) * f
-            z._setshort(i + j, r_uint(carry & SHORT_MASK))
+            z._setshort(i + j, carry & SHORT_MASK)
             carry = carry >> SHORT_BIT
             j += 1
         while carry != 0:
             assert i + j < size_a + size_b
             carry += z._getshort(i + j)
-            z._setshort(i + j, r_uint(carry & SHORT_MASK))
+            z._setshort(i + j, carry & SHORT_MASK)
             carry = carry >> SHORT_BIT
             j += 1
         i += 1
