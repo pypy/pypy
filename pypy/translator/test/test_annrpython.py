@@ -767,6 +767,16 @@ class TestAnnonateTestCase:
         assert len(acc1.objects) == 3
         assert acc1.attrs == {'v1': True, 'v2': True}
         
+    def test_isinstance_usigned(self):
+        from pypy.tool.rarithmetic import r_uint
+        def f(x):
+            return isinstance(x, r_uint)
+        def g():
+            v = r_uint(1)
+            return f(v)
+        a = RPythonAnnotator()
+        s = a.build_types(g, [])
+        assert s.const == True
         
 
 

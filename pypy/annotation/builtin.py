@@ -45,18 +45,27 @@ def our_issubclass(cls1, cls2):
     return cls2 is object or issubclass(cls1, cls2)
 
 def builtin_isinstance(s_obj, s_type, variables=None):
-    s = SomeBool() 
+    r = SomeBool() 
     if s_type.is_constant():
         typ = s_type.const
-        # XXX bit of a hack:
-        if issubclass(typ, (int, long)):
-            typ = int
-        if s_obj.is_constant():
-            s.const = isinstance(s_obj.const, typ)
-        elif our_issubclass(s_obj.knowntype, typ):
-            s.const = True 
-        elif not our_issubclass(typ, s_obj.knowntype): 
-            s.const = False 
+        if typ == pypy.tool.rarithmetic.r_uint:
+            if s_obj.is_constant():
+                r.const = isinstance(s_obj.const, typ)
+            else:
+                if s_obj.knowntype == int:
+                    r.const = s_obj.unsigned
+        else:
+            if typ == long:
+                getbookkeeper().warning("isinstance(., long) is not RPython")
+                typ = int # XXX as we did before
+            assert not issubclass(typ, (int,long)) or typ == int, (
+                "for integers only isinstance(.,int|r_uint) are supported")
+            if s_obj.is_constant():
+                r.const = isinstance(s_obj.const, typ)
+            elif our_issubclass(s_obj.knowntype, typ):
+                r.const = True 
+            elif not our_issubclass(typ, s_obj.knowntype): 
+                r.const = False 
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
         # XXX HACK HACK HACK
@@ -70,8 +79,8 @@ def builtin_isinstance(s_obj, s_type, variables=None):
             variables = [op.args[1]]
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
-        s.knowntypedata = (variables, bk.valueoftype(typ))
-    return s 
+        r.knowntypedata = (variables, bk.valueoftype(typ))
+    return r
 
 def builtin_hasattr(s_obj, s_attr):
     if not s_attr.is_constant() or not isinstance(s_attr.const, str):
@@ -137,6 +146,17 @@ def math_fmod(x, y):
 def math_floor(x):
     return SomeObject()
 
+def rarith_ovfcheck(s_obj):
+    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
+        getbookkeeper().warning("ovfcheck on unsigned")
+    return s_obj
+
+def rarith_ovfcheck_lshift(s_obj1, s_obj2):
+    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
+        getbookkeeper().warning("ovfcheck_lshift with unsigned")
+    return SomeInteger()
+
+
 # collect all functions
 import __builtin__
 BUILTIN_ANALYZERS = {}
@@ -145,8 +165,9 @@ for name, value in globals().items():
         original = getattr(__builtin__, name[8:])
         BUILTIN_ANALYZERS[original] = value
 
-BUILTIN_ANALYZERS[pypy.tool.rarithmetic.r_int] = builtin_int
 BUILTIN_ANALYZERS[pypy.tool.rarithmetic.r_uint] = restricted_uint
+BUILTIN_ANALYZERS[pypy.tool.rarithmetic.ovfcheck] = rarith_ovfcheck
+BUILTIN_ANALYZERS[pypy.tool.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 # this one is needed otherwise when annotating assert in a test we may try to annotate 
 # py.test AssertionError.__init__ .
