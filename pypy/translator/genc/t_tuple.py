@@ -85,7 +85,7 @@ class CTupleType(CType):
                 "{",
                 "\tPyObject* o;",
                 "\tPyObject* result = PyTuple_New(%d);" % len(self.itemtypes),
-                "\tif (result == NULL) goto err;",
+                "\tif (result == NULL) return NULL;",
                 ]
             for i, ct in zip(range(len(self.itemtypes)), self.itemtypes):
                 self.globaldecl += [
@@ -96,7 +96,7 @@ class CTupleType(CType):
             self.globaldecl += [
                 "\treturn result;",
                 "   err:",
-                "\tPy_XDECREF(result);",
+                "\tPy_DECREF(result);",
                 "\treturn NULL;",
                 "}",
                 ]
