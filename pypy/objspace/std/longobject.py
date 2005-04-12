@@ -8,8 +8,8 @@ from pypy.tool.rarithmetic import LONG_BIT
 
 import math
 
-SHORT_BIT = LONG_BIT // 2
-SHORT_MASK = LONG_MASK >> SHORT_BIT
+SHORT_BIT = int(LONG_BIT // 2)
+SHORT_MASK = int(LONG_MASK >> SHORT_BIT)
 
 class W_LongObject(W_Object):
     """This is a reimplementation of longs using a list of r_uints."""
@@ -17,16 +17,12 @@ class W_LongObject(W_Object):
     #with YYYYYY
     from pypy.objspace.std.longtype import long_typedef as typedef
     
-    def __init__(w_self, space, digits=None, sign=0):
+    def __init__(w_self, space, digits, sign=0):
         W_Object.__init__(w_self, space)
         if isinstance(digits, long):  #YYYYYY
             digits, sign = args_from_long(digits)
-        if digits is None:
-            w_self.digits = [r_uint(0)]
-            w_self.sign = 0
-        else:
-            w_self.digits = digits
-            w_self.sign = sign
+        w_self.digits = digits
+        w_self.sign = sign
         assert len(w_self.digits) != 0 or w_self.sign == 0
 
     def longval(self): #YYYYYY
@@ -54,6 +50,7 @@ class W_LongObject(W_Object):
 
     def _setshort(self, index, short):
         a = self.digits[index // 2]
+        assert isinstance(short, r_uint)
         if index % 2 == 0:
             self.digits[index // 2] = ((a >> SHORT_BIT) << SHORT_BIT) + short
         else:
@@ -313,7 +310,7 @@ def _impl_long_long_pow(space, lv, lw, lz=None):
             break
         m = m >> 1
         j -= 1
-    assert highest_set_bit != LONG_BIT, "long not normalized"
+#    assert highest_set_bit != LONG_BIT, "long not normalized"
     j = 0
     m = r_uint(1)
     while j <= highest_set_bit:
@@ -456,7 +453,7 @@ def args_from_long(l): #YYYYYY
         digits.append(r_uint(l & LONG_MASK))
         l = l >> LONG_BIT
     if sign == 0:
-        digits = [0]
+        digits = [r_uint(0)]
     return digits, sign
 
 
@@ -532,7 +529,7 @@ def _x_sub(a, b, space):
 def _x_mul(a, b, space):
     size_a = len(a.digits) * 2
     size_b = len(b.digits) * 2
-    z = W_LongObject(space, [0] * ((size_a + size_b) // 2), 1)
+    z = W_LongObject(space, [r_uint(0)] * ((size_a + size_b) // 2), 1)
     i = 0
     while i < size_a:
         carry = r_uint(0)
@@ -540,13 +537,13 @@ def _x_mul(a, b, space):
         j = 0
         while j < size_b:
             carry += z._getshort(i + j) + b._getshort(j) * f
-            z._setshort(i + j, carry & SHORT_MASK)
+            z._setshort(i + j, r_uint(carry & SHORT_MASK))
             carry = carry >> SHORT_BIT
             j += 1
         while carry != 0:
             assert i + j < size_a + size_b
             carry += z._getshort(i + j)
-            z._setshort(i + j, carry & SHORT_MASK)
+            z._setshort(i + j, r_uint(carry & SHORT_MASK))
             carry = carry >> SHORT_BIT
             j += 1
         i += 1
