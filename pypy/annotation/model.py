@@ -104,7 +104,7 @@ class SomeInteger(SomeFloat):
     "Stands for an object which is known to be an integer."
     knowntype = int
     def __init__(self, nonneg=False, unsigned=False):
-        self.nonneg = nonneg
+        self.nonneg = unsigned or nonneg
         self.unsigned = unsigned  # pypy.tool.rarithmetic.r_uint
 
 

@@ -143,9 +143,13 @@ class __extend__(SomeInteger):
     int = pos
 
     def neg(self):
+        if self.unsigned:
+            return SomeInteger(unsigned=True)
         return SomeInteger()
 
     def abs(self):
+        if self.unsigned:
+            return self
         return SomeInteger(nonneg=True)
 
 

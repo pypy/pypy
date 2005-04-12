@@ -152,8 +152,10 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     # unsignedness is considered a rare and contagious disease
 
     def union((int1, int2)):
-        return SomeInteger(nonneg = int1.nonneg and int2.nonneg,
-                           unsigned = int1.unsigned or int2.unsigned)
+        unsigned = int1.unsigned or int2.unsigned
+        return SomeInteger(nonneg = unsigned or (int1.nonneg and int2.nonneg),
+                           unsigned=unsigned)
+                           
 
     add = mul = div = floordiv = mod = or_ = xor = union
 
@@ -164,8 +166,9 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         return SomeInteger(unsigned = int1.unsigned or int2.unsigned)
 
     def and_((int1, int2)):
-        return SomeInteger(nonneg = int1.nonneg or int1.nonneg,
-                           unsigned = int1.unsigned or int2.unsigned)
+        unsigned = int1.unsigned or int2.unsigned
+        return SomeInteger(nonneg = unsigned or int1.nonneg or int1.nonneg,
+                           unsigned = unsigned)
 
     def lshift((int1, int2)):
         if int1.unsigned:
@@ -175,6 +178,8 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     rshift = lshift
 
     def pow((int1, int2), obj3):
+        if int1.unsigned or int2.unsigned or getattr(obj3, 'unsigned', False):
+            return SomeInteger(unsigned=True)
         return SomeInteger()
 
 class __extend__(pairtype(SomeBool, SomeBool)):
