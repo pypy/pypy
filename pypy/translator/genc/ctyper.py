@@ -89,7 +89,7 @@ class GenCSpecializer(Specializer):
             meth = getattr(ct, 'spec_' + op.opname, None)
             if meth:
                 try:
-                    return meth(self, op)
+                    return list(meth(self, op))
                 except NotImplementedError:
                     pass
         # fall-back
