@@ -5,11 +5,11 @@ from pypy.objspace.std.inttype import int_typedef
 from pypy.interpreter.gateway import NoneNotWrapped
 
 def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
-    from pypy.objspace.std.longobject import W_LongObject
+    from pypy.objspace.std.longobject import W_LongObject, args_from_long
     if w_base is None:
         # check for easy cases
         if isinstance(w_value, W_LongObject):
-            value = w_value.longval
+            value = w_value.longval()
         elif space.is_true(space.isinstance(w_value, space.w_str)):
             try:
                 # XXX value can be unwrapped long
@@ -48,14 +48,14 @@ def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
         except ValueError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.args[0]))
-
+#XXX
     w_obj = space.allocate_instance(W_LongObject, w_longtype)
-    w_obj.__init__(space, value)
+    w_obj.__init__(space, *args_from_long(value))
     return w_obj
 
 def descr__getnewargs__(space, w_obj):
     from pypy.objspace.std.longobject import W_LongObject
-    return space.newtuple([W_LongObject(space, w_obj.longval)])
+    return space.newtuple([W_LongObject(space, w_obj.digits, w_obj.sign)])
 
 # ____________________________________________________________
 

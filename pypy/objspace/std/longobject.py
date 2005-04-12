@@ -3,38 +3,82 @@ from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.tool.rarithmetic import intmask, r_uint, LONG_MASK
+from pypy.tool.rarithmetic import LONG_BIT
+
+import math
+
+SHORT_BIT = LONG_BIT // 2
+SHORT_MASK = LONG_MASK >> SHORT_BIT
 
 class W_LongObject(W_Object):
-    """This is a non-reimplementation of longs.
-    It uses real CPython longs.
-    XXX we must really choose another representation (e.g. list of ints)
-    XXX and implement it in detail.
-    """
+    """This is a reimplementation of longs using a list of r_uints."""
+    #All functions that still rely on the underlying Python's longs are marked
+    #with YYYYYY
     from pypy.objspace.std.longtype import long_typedef as typedef
     
-    def __init__(w_self, space, longval=0L):
+    def __init__(w_self, space, digits=None, sign=0):
         W_Object.__init__(w_self, space)
-        assert isinstance(longval, long)
-        w_self.longval = longval
+        if isinstance(digits, long):  #YYYYYY
+            digits, sign = args_from_long(digits)
+        if digits is None:
+            w_self.digits = [r_uint(0)]
+            w_self.sign = 0
+        else:
+            w_self.digits = digits
+            w_self.sign = sign
+        assert len(w_self.digits) != 0 or w_self.sign == 0
 
-    def unwrap(w_self):
-        return w_self.longval
+    def longval(self): #YYYYYY
+        l = 0
+        for d in self.digits[::-1]:
+            l = l << LONG_BIT
+            l += long(d)
+        return l * self.sign
+
+    def unwrap(w_self): #YYYYYY
+        return w_self.longval()
+
+    def _normalize(self):
+        i = len(self.digits) - 1
+        while i != 0 and self.digits[i] == 0:
+            self.digits.pop(-1)
+            i -= 1
+
+    def _getshort(self, index):
+        a = self.digits[index // 2]
+        if index % 2 == 0:
+            return a & SHORT_MASK
+        else:
+            return a >> SHORT_BIT
+
+    def _setshort(self, index, short):
+        a = self.digits[index // 2]
+        if index % 2 == 0:
+            self.digits[index // 2] = ((a >> SHORT_BIT) << SHORT_BIT) + short
+        else:
+            self.digits[index // 2] = (a & SHORT_MASK) + (short << SHORT_BIT)
+
+
+
 
 registerimplementation(W_LongObject)
 
-
 # bool-to-long
 def delegate_Bool2Long(w_bool):
-    return W_LongObject(w_bool.space, long(w_bool.boolval))
+    return W_LongObject(w_bool.space, [r_uint(w_bool.boolval)],
+                        int(w_bool.boolval))
 
 # int-to-long delegation
 def delegate_Int2Long(w_intobj):
-    return W_LongObject(w_intobj.space, long(w_intobj.intval))
+    sign = cmp(w_intobj.intval, 0)
+    return W_LongObject(w_intobj.space,
+                        *args_from_long(long(w_intobj.intval)))
 
 # long-to-float delegation
-def delegate_Long2Float(w_longobj):
+def delegate_Long2Float(w_longobj): #YYYYYY
     try:
-        return W_FloatObject(w_longobj.space, float(w_longobj.longval))
+        return W_FloatObject(w_longobj.space, float(w_longobj.longval()))
     except OverflowError:
         raise OperationError(w_longobj.space.w_OverflowError,
                              w_longobj.space.wrap("long int too large to convert to float"))
@@ -46,56 +90,59 @@ def delegate_Long2Float(w_longobj):
 def long__Long(space, w_long1):
     if space.is_true(space.is_(space.type(w_long1), space.w_long)):
         return w_long1
-    a = w_long1.longval
-    return W_LongObject(space, a)
+    digits = w_long1.digits
+    sign = w_long1.sign
+    return W_LongObject(space, digits, sign)
 
 def long__Int(space, w_intobj):
-    return W_LongObject(space, long(w_intobj.intval))
+    sign = cmp(w_intobj.intval, 0)
+    return W_LongObject(space, [r_uint(w_intobj.intval)], sign)
 
-def int__Long(space, w_value):
-    if -sys.maxint-1 <= w_value.longval <= sys.maxint:
-        return space.newint(int(w_value.longval))
+def int__Long(space, w_value): #YYYYYY
+    longval = w_value.longval()
+    if -sys.maxint-1 <= longval <= sys.maxint:
+        return space.newint(int(longval))
     else:
         return w_value   # 9999999999999L.__int__() == 9999999999999L
 
-def float__Long(space, w_longobj):
+def float__Long(space, w_longobj): #YYYYYY
     try:
-        return space.newfloat(float(w_longobj.longval))
+        return space.newfloat(float(w_longobj.longval()))
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("long int too large to convert to float"))
 
-def long__Float(space, w_floatobj):
-    # XXX cheating
-    return W_LongObject(space, long(w_floatobj.floatval))
+def long__Float(space, w_floatobj): #YYYYYY
+    return W_LongObject(space, *args_from_long(long(w_floatobj.floatval)))
 
-def int_w__Long(space, w_value):
-    if -sys.maxint-1 <= w_value.longval <= sys.maxint:
-        return int(w_value.longval)
+def int_w__Long(space, w_value): #YYYYYY
+    longval = w_value.longval()
+    if -sys.maxint-1 <= longval <= sys.maxint:
+        return int(longval)
     else:
         raise OperationError(space.w_OverflowError,
                              space.wrap("long int too large to convert to int"))        
 
-def repr__Long(space, w_long):
-    return space.wrap(repr(w_long.longval))
+def repr__Long(space, w_long): #YYYYYY
+    return space.wrap(repr(w_long.longval()))
 
-def str__Long(space, w_long):
-    return space.wrap(str(w_long.longval))
+def str__Long(space, w_long): #YYYYYY
+    return space.wrap(str(w_long.longval()))
 
-def eq__Long_Long(space, w_long1, w_long2):
-    i = w_long1.longval
-    j = w_long2.longval
+def eq__Long_Long(space, w_long1, w_long2): #YYYYYY
+    i = w_long1.longval()
+    j = w_long2.longval()
     return space.newbool( i == j )
 
-def lt__Long_Long(space, w_long1, w_long2):
-    i = w_long1.longval
-    j = w_long2.longval
+def lt__Long_Long(space, w_long1, w_long2): #YYYYYY
+    i = w_long1.longval()
+    j = w_long2.longval()
     return space.newbool( i < j )
 
-def hash__Long(space,w_value):
+def hash__Long(space,w_value): #YYYYYY
     ## %reimplement%
     # real Implementation should be taken from _Py_HashDouble in object.c
-    return space.wrap(hash(w_value.longval))
+    return space.wrap(hash(w_value.longval()))
 
 # coerce
 def coerce__Long_Long(space, w_long1, w_long2):
@@ -103,76 +150,95 @@ def coerce__Long_Long(space, w_long1, w_long2):
 
 
 def add__Long_Long(space, w_long1, w_long2):
-    x = w_long1.longval
-    y = w_long2.longval
-    z = x + y
-    return W_LongObject(space, z)
+    if w_long1.sign < 0:
+        if w_long2.sign < 0:
+            result = _x_add(w_long1, w_long2, space)
+            if result.sign != 0:
+                result.sign = -result.sign
+        else:
+            result = _x_sub(w_long2, w_long1, space)
+    else:
+        if w_long2.sign < 0:
+            result = _x_sub(w_long1, w_long2, space)
+        else:
+            result = _x_add(w_long1, w_long2, space)
+    result._normalize()
+    return result
 
 def sub__Long_Long(space, w_long1, w_long2):
-    x = w_long1.longval
-    y = w_long2.longval
-    z = x - y
-    return W_LongObject(space, z)
+    if w_long1.sign < 0:
+        if w_long2.sign < 0:
+            result = _x_sub(w_long1, w_long2, space)
+        else:
+            result = _x_add(w_long1, w_long2, space)
+        result.sign = -result.sign
+    else:
+        if w_long2.sign < 0:
+            result = _x_add(w_long1, w_long2, space)
+        else:
+            result = _x_sub(w_long1, w_long2, space)
+    result._normalize()
+    return result
 
 def mul__Long_Long(space, w_long1, w_long2):
-    x = w_long1.longval
-    y = w_long2.longval
-    z = x * y
-    return W_LongObject(space, z)
+    result = _x_mul(w_long1, w_long2, space)
+    result.sign = w_long1.sign * w_long2.sign
+    return result
 
-def div__Long_Long(space, w_long1, w_long2):
-    x = w_long1.longval
-    y = w_long2.longval
+def div__Long_Long(space, w_long1, w_long2): #YYYYYY
+    x = w_long1.longval()
+    y = w_long2.longval()
     if not y:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("long division"))
     z = x / y
-    return W_LongObject(space, z)
+    return W_LongObject(space, *args_from_long(z))
 
-truediv__Long_Long = div__Long_Long
+truediv__Long_Long = div__Long_Long #YYYYYY
 
 def floordiv__Long_Long(space, w_long1, w_long2):
-    x = w_long1.longval
-    y = w_long2.longval
+    x = w_long1.longval()
+    y = w_long2.longval()
     if not y:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("long division"))
     z = x // y
-    return W_LongObject(space, z)
+    return W_LongObject(space, *args_from_long(z))
 
-def mod__Long_Long(space, w_long1, w_long2):
-    x = w_long1.longval
-    y = w_long2.longval
+def mod__Long_Long(space, w_long1, w_long2): #YYYYYY
+    x = w_long1.longval()
+    y = w_long2.longval()
     if not y:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("long modulo"))
     z = x % y
-    return W_LongObject(space, z)
+    return W_LongObject(space, *args_from_long(z))
 
-def divmod__Long_Long(space, w_long1, w_long2):
-    x = w_long1.longval
-    y = w_long2.longval
+def divmod__Long_Long(space, w_long1, w_long2): #YYYYYY
+    x = w_long1.longval()
+    y = w_long2.longval()
     if not y:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("long modulo"))
     z1, z2 = divmod(x, y)
-    return space.newtuple([W_LongObject(space, z1),
-                           W_LongObject(space, z2)])
+    w_result1 = W_LongObject(space, *args_from_long(z1))
+    w_result2 = W_LongObject(space, *args_from_long(z2))
+    return space.newtuple([w_result1, w_result2])
 
-def pow__Long_Long_None(space, w_long1, w_long2, w_none3):
-    x = w_long1.longval
-    y = w_long2.longval
+def pow__Long_Long_None(space, w_long1, w_long2, w_none3): #YYYYYY
+    x = w_long1.longval()
+    y = w_long2.longval()
     if y < 0:
         return space.pow(space.float(w_long1),
                          space.float(w_long2),
                          space.w_None)        
     z = x ** y
-    return W_LongObject(space, z)
+    return W_LongObject(space, *args_from_long(z))
 
-def pow__Long_Long_Long(space, w_long1, w_long2, w_long3):
-    x = w_long1.longval
-    y = w_long2.longval
-    z = w_long3.longval
+def pow__Long_Long_Long(space, w_long1, w_long2, w_long3): #YYYYYY
+    x = w_long1.longval()
+    y = w_long2.longval()
+    z = w_long3.longval()
     try:
         t = pow(x, y, z)
     except TypeError, e:
@@ -181,26 +247,27 @@ def pow__Long_Long_Long(space, w_long1, w_long2, w_long3):
     except ValueError, e:
         raise OperationError(space.w_ValueError,
                              space.wrap(e.args[0]))
-    return W_LongObject(space, t)
+    return W_LongObject(space, *args_from_long(t))
 
 def neg__Long(space, w_long1):
-    return W_LongObject(space, -w_long1.longval)
+    return W_LongObject(space, w_long1.digits[:], -w_long1.sign)
 
 def pos__Long(space, w_long):
     return long__Long(space, w_long)
 
 def abs__Long(space, w_long):
-    return W_LongObject(space, abs(w_long.longval))
+    return W_LongObject(space, w_long.digits[:], abs(w_long.sign))
 
 def nonzero__Long(space, w_long):
-    return space.newbool(w_long.longval != 0L)
+    return space.newbool(w_long.sign != 0)
 
-def invert__Long(space, w_long):
-    return W_LongObject(space, ~w_long.longval)
+def invert__Long(space, w_long): #YYYYYY
+    z = ~w_long.longval()
+    return W_LongObject(space, *args_from_long(z))
 
-def lshift__Long_Long(space, w_long1, w_long2):
-    a = w_long1.longval
-    b = w_long2.longval
+def lshift__Long_Long(space, w_long1, w_long2): #YYYYYY
+    a = w_long1.longval()
+    b = w_long2.longval()
     if b < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
@@ -209,41 +276,41 @@ def lshift__Long_Long(space, w_long1, w_long2):
     except OverflowError:   # b too big
         raise OperationError(space.w_OverflowError,
                              space.wrap("shift count too large"))
-    return W_LongObject(space, res)
+    return W_LongObject(space, *args_from_long(res))
 
-def rshift__Long_Long(space, w_long1, w_long2):
-    a = w_long1.longval
-    b = w_long2.longval
+def rshift__Long_Long(space, w_long1, w_long2): #YYYYYY
+    a = w_long1.longval()
+    b = w_long2.longval()
     if b < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
     res = a >> b
-    return W_LongObject(space, res)
+    return W_LongObject(space, *args_from_long(res))
 
-def and__Long_Long(space, w_long1, w_long2):
-    a = w_long1.longval
-    b = w_long2.longval
+def and__Long_Long(space, w_long1, w_long2): #YYYYYY
+    a = w_long1.longval()
+    b = w_long2.longval()
     res = a & b
-    return W_LongObject(space, res)
+    return W_LongObject(space, *args_from_long(res))
 
-def xor__Long_Long(space, w_long1, w_long2):
-    a = w_long1.longval
-    b = w_long2.longval
+def xor__Long_Long(space, w_long1, w_long2): #YYYYYY
+    a = w_long1.longval()
+    b = w_long2.longval()
     res = a ^ b
-    return W_LongObject(space, res)
+    return W_LongObject(space, *args_from_long(res))
 
-def or__Long_Long(space, w_long1, w_long2):
-    a = w_long1.longval
-    b = w_long2.longval
+def or__Long_Long(space, w_long1, w_long2): #YYYYYY
+    a = w_long1.longval()
+    b = w_long2.longval()
     res = a | b
-    return W_LongObject(space, res)
+    return W_LongObject(space, *args_from_long(res))
 
-def oct__Long(space, w_long1):
-    x = w_long1.longval
+def oct__Long(space, w_long1): #YYYYYY
+    x = w_long1.longval()
     return space.wrap(oct(x))
 
-def hex__Long(space, w_long1):
-    x = w_long1.longval
+def hex__Long(space, w_long1): #YYYYYY
+    x = w_long1.longval()
     return space.wrap(hex(x))
 
 
@@ -285,3 +352,121 @@ def pow_ovr__Int_Int_Long(space, w_int1, w_int2, w_long3):
 
 StdObjSpace.MM.pow.register(pow_ovr__Int_Int_None, W_IntObject, W_IntObject, W_NoneObject, order=1)
 StdObjSpace.MM.pow.register(pow_ovr__Int_Int_Long, W_IntObject, W_IntObject, W_LongObject, order=1)
+
+
+#Helper Functions
+def args_from_long(l): #YYYYYY
+    if l < 0:
+        sign = -1
+    elif l == 0:
+        sign = 0
+    else:
+        sign = 1
+    l *= sign
+    digits = []
+    i = 0
+    while l:
+        digits.append(r_uint(l & LONG_MASK))
+        l = l >> LONG_BIT
+    return digits, sign
+
+
+#Add the absolute values of two longs
+def _x_add(a, b, space):
+    size_a = len(a.digits)
+    size_b = len(b.digits)
+    if size_a < size_b:
+        a, b = b, a
+        size_a, size_b = size_b, size_a
+    z = W_LongObject(space, [r_uint(0)] * (len(a.digits) + 1), 1)
+    i = 0
+    carry = r_uint(0)
+    while i < size_b:
+        ad = a.digits[i]
+        s = ad + b.digits[i]
+        res = s + carry
+        carry = r_uint(res < s) + r_uint(s < ad)
+        z.digits[i] = res
+        i += 1
+    while i < size_a:
+        s = a.digits[i]
+        carry = s + carry
+        z.digits[i] = carry
+        carry = r_uint(s > carry)
+        i += 1
+    z.digits[i] = carry
+    return z
+
+
+#Substract the absolute values of two longs
+def _x_sub(a, b, space):
+    size_a = len(a.digits)
+    size_b = len(b.digits)
+    sign = 1
+    i = 0
+    if size_a < size_b:
+        sign = -1
+        a, b = b, a
+        size_a, size_b = size_b, size_a
+    elif size_a == size_b:
+        i = size_a - 1;
+        while i > 0 and a.digits[i] == b.digits[i]:
+            i -= 1
+        if (i == -1):
+            return W_LongObject(space)
+        if a.digits[i] < b.digits[i]:
+            sign = -1
+            a, b = b, a
+        size_a = size_b = i + 1
+    z = W_LongObject(space, [r_uint(0)] * len(a.digits), 1)
+    i = 0
+    borrow = r_uint(0)
+    while i < size_b:
+        ad = a.digits[i]
+        s = ad - b.digits[i]
+        res = s - borrow
+        z.digits[i] = res
+        borrow = r_uint(res > s) + r_uint(s > ad)
+        i += 1
+    while i < size_a:
+        ad = a.digits[i]
+        res = ad - borrow
+        borrow = r_uint(res > ad)
+        z.digits[i] = res
+        i += 1
+    assert borrow == 0
+    z.sign = sign
+    return z
+
+
+#Multiply the absolute values of two longs
+def _x_mul(a, b, space):
+    size_a = len(a.digits) * 2
+    size_b = len(b.digits) * 2
+    z = W_LongObject(space, [0] * ((size_a + size_b) // 2), 1)
+    i = 0
+    while i < size_a:
+        carry = r_uint(0)
+        f = a._getshort(i)
+        j = 0
+        while j < size_b:
+            carry += z._getshort(i + j) + b._getshort(j) * f
+            z._setshort(i + j, carry & SHORT_MASK)
+            carry = carry >> SHORT_BIT
+            j += 1
+        while carry != 0:
+            assert i + j < size_a + size_b
+            carry += z._getshort(i + j)
+            z._setshort(i + j, carry & SHORT_MASK)
+            carry = carry >> SHORT_BIT
+            j += 1
+        i += 1
+    z._normalize()
+    return z
+
+def _inplace_divrem1(pout, pin, n):
+    rem = r_uint(0, space)
+    assert n > 0 and n <= SHORT_MASK
+    size = len(pin.digits) * 2 - 1
+    while size >= 0:
+        rem = (rem << SHORT_BIT) + pin._getshort(size)
