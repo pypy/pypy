@@ -46,6 +46,10 @@ class Bookkeeper:
         self.pbccache = {}
         self.pbctypes = {}
         self.seen_mutable = {}
+        
+        # mapping position -> most general result, for call sites calling
+        # argtypes specialized functions
+        self.argtypes_spec_callsite_results = {}
 
         self.pbc_maximal_access_sets = UnionFind(PBCAccessSet)
         
@@ -234,13 +238,13 @@ class Bookkeeper:
         if isinstance(func, (type, ClassType)) and \
             func.__module__ != '__builtin__':
             cls = func
-            x = getattr(cls, "_specialize_", False)
-            if x:
-                if x == "location":
+            specialize = getattr(cls, "_specialize_", False)
+            if specialize:
+                if specialize == "location":
                     cls = self.specialize_by_key(cls, self.position_key)
                 else:
                     raise Exception, \
-                          "unsupported specialization type '%s'"%(x,)
+                          "unsupported specialization type '%s'"%(specialize,)
 
             classdef = self.getclassdef(cls)
             s_instance = SomeInstance(classdef)
@@ -279,19 +283,18 @@ class Bookkeeper:
             func = func.im_func
         assert isinstance(func, FunctionType), "[%s] expected function, got %r" % (self.whereami(), func)
         # do we need to specialize this function in several versions?
-        x = getattr(func, '_specialize_', False)
-        #if not x: 
-        #    x = 'argtypes'
-        if x:
-            if x == 'argtypes':
+        specialize = getattr(func, '_specialize_', False)
+
+        if specialize:
+            if specialize == 'argtypes':
                 key = short_type_name(args)
                 func = self.specialize_by_key(func, key,
                                               func.__name__+'__'+key)
-            elif x == "location":
+            elif specialize == "location":
                 # fully specialize: create one version per call position
                 func = self.specialize_by_key(func, self.position_key)
             else:
-                raise Exception, "unsupported specialization type '%s'"%(x,)
+                raise Exception, "unsupported specialization type '%s'"%(specialize,)
 
         elif func.func_code.co_flags & CO_VARARGS:
             # calls to *arg functions: create one version per number of args
@@ -318,7 +321,20 @@ class Bookkeeper:
             assert False, 'ABOUT TO IGNORE %r' % e     # we should take care that we don't end up here anymore
             return SomeImpossibleValue()
 
-        return self.annotator.recursivecall(func, self.position_key, inputcells)
+        r = self.annotator.recursivecall(func, self.position_key, inputcells)
+
+        # in the case of argtypes specialisation we may have been calling a
+        # different function for the site which could also be just partially analysed,
+        # we need to force unifying all past and present results for the site
+        # in order to guarantee the more general results invariant.
+        if specialize == 'argtypes':
+            prev_r = self.argtypes_spec_callsite_results.get(self.position_key)
+            if prev_r is not None:
+                r = unionof(prev_r, r)
+            self.argtypes_spec_callsite_results[self.position_key] = r
+        return r
+        
+        
 
     def whereami(self):
         return self.annotator.whereami(self.position_key)
