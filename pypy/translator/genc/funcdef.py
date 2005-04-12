@@ -440,15 +440,15 @@ class FunctionDef:
             yield 'block%d:' % blocknum[block]
             to_release = list(block.inputargs)
             for op in block.operations:
-                args  = [lazy(self.expr, v) for v in op.args]
-                res   = self.expr(op.result)
                 err   = 'err%d_%d' % (blocknum[block], len(to_release))
                 macro = 'OP_%s' % op.opname.upper()
                 meth  = getattr(self, macro, None)
                 if meth:
-                    yield meth(args, res, err)
+                    yield meth(op, err)
                 else:
-                    lst = [arg.compute() for arg in args] + [res, err]
+                    lst = [self.expr(v) for v in op.args]
+                    lst.append(self.expr(op.result))
+                    lst.append(err)
                     yield '%s(%s)' % (macro, ', '.join(lst))
                 to_release.append(op.result)
 
@@ -535,16 +535,18 @@ class FunctionDef:
     # the C preprocessor cannot handle operations taking a variable number
     # of arguments, so here are Python methods that do it
     
-    def OP_NEWLIST(self, args, r, err):
-        args = [arg.compute() for arg in args]
+    def OP_NEWLIST(self, op, err):
+        args = [self.expr(v) for v in op.args]
+        r = self.expr(op.result)
         if len(args) == 0:
             return 'OP_NEWLIST0(%s, %s)' % (r, err)
         else:
             args.insert(0, '%d' % len(args))
             return 'OP_NEWLIST((%s), %s, %s)' % (', '.join(args), r, err)
 
-    def OP_NEWDICT(self, args, r, err):
-        args = [arg.compute() for arg in args]
+    def OP_NEWDICT(self, op, err):
+        args = [self.expr(v) for v in op.args]
+        r = self.expr(op.result)
         if len(args) == 0:
             return 'OP_NEWDICT0(%s, %s)' % (r, err)
         else:
@@ -552,65 +554,50 @@ class FunctionDef:
             args.insert(0, '%d' % (len(args)//2))
             return 'OP_NEWDICT((%s), %s, %s)' % (', '.join(args), r, err)
 
-    def OP_NEWTUPLE(self, args, r, err):
-        args = [arg.compute() for arg in args]
+    def OP_NEWTUPLE(self, op, err):
+        args = [self.expr(v) for v in op.args]
+        r = self.expr(op.result)
         args.insert(0, '%d' % len(args))
         return 'OP_NEWTUPLE((%s), %s, %s)' % (', '.join(args), r, err)
 
-##    def fast_simple_call(self, args, r, err):
-##        # try to generate a SIMPLE_CALL using a shortcut:
-##        # a direct call to the ff_xxx() function, using its C signature.
-##        if USE_CALL_TRACE:
-##            return None
-##        target = args[0].args[0]
-##        args = [arg.compute() for arg in args[1:]]
-##        if not isinstance(target, Constant):
-##            return None
-##        if not isinstance(target.value, FunctionType):
-##            return None
-##        funcdef = self.genc.getfuncdef(target.value)
-##        if funcdef is None:
-##            return None
-##        if len(funcdef.graphargs) != len(args) or funcdef.vararg:
-##            return None
-##        return 'if (!(%s=%s(%s))) FAIL(%s);' % (
-##            r, funcdef.fast_name, ', '.join(args), err)
-
-    def OP_SIMPLE_CALL(self, args, r, err):
-##        result = self.fast_simple_call(args, r, err)
-##        if result is not None:
-##            return result
-##        # fall-back
-        args = [arg.compute() for arg in args]
+    def OP_SIMPLE_CALL(self, op, err):
+        args = [self.expr(v) for v in op.args]
+        r = self.expr(op.result)
         args.append('NULL')
         return 'OP_SIMPLE_CALL((%s), %s, %s)' % (', '.join(args), r, err)
 
-    def OP_CALL_ARGS(self, args, r, err):
-        args = [arg.compute() for arg in args]
+    def OP_CALL_ARGS(self, op, err):
+        args = [self.expr(v) for v in op.args]
+        r = self.expr(op.result)
         return 'OP_CALL_ARGS((%s), %s, %s)' % (', '.join(args), r, err)
 
-    def OP_DIRECT_CALL(self, args, r, err):
-        args = [arg.compute() for arg in args]
+    def OP_DIRECT_CALL(self, op, err):
+        args = [self.expr(v) for v in op.args]
+        r = self.expr(op.result)
         return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
             r, args[0], ', '.join(args[1:]), err)
 
-    def OP_INCREF(self, args, r, err):
-        v, = args[0].args
-        return self.ctypeof(v).cincref(args[0].compute())
+    def OP_INCREF(self, op, err):
+        v = op.args[0]
+        return self.ctypeof(v).cincref(self.expr(v))
 
-    def OP_DECREF(self, args, r, err):
-        v, = args[0].args
-        return self.ctypeof(v).cdecref(args[0].compute())
+    def OP_DECREF(self, op, err):
+        v = op.args[0]
+        return self.ctypeof(v).cdecref(self.expr(v))
+
+    def OP_CONV_TO_OBJ(self, op, err):
+        v = op.args[0]
+        convfnname = self.ctypeof(v).fn_conv_to_obj()
+        return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
+            self.expr(op.result), convfnname, self.expr(v), err)
+
+    def OP_CONV_FROM_OBJ(self, op, err):
+        v = op.args[0]
+        convfnname = self.ctypeof(op.result).fn_conv_from_obj()
+        return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
+            self.expr(op.result), convfnname, self.expr(v), err)
 
 # ____________________________________________________________
-
-class lazy:
-    def __init__(self, fn, *args, **kwds):
-        self.fn = fn
-        self.args = args
-        self.kwds = kwds
-    def compute(self):
-        return self.fn(*self.args, **self.kwds)
 
 def dummy_wrapper(self, args, kwds):
     pass

@@ -9,10 +9,10 @@ class CType(object):
         self.translator = translator
 
     def convert_to_obj(self, typer, v1, v2):
-        return [SpaceOperation(self.opname_conv_to_obj, [v1], v2)]
+        return [SpaceOperation("conv_to_obj", [v1], v2)]
 
     def convert_from_obj(self, typer, v1, v2):
-        return [SpaceOperation(self.opname_conv_from_obj, [v1], v2)]
+        return [SpaceOperation("conv_from_obj", [v1], v2)]
 
     def debugname(self):
         return self.__class__.__name__
@@ -39,20 +39,28 @@ class CIntType(CType):
     error_return  = '-1'
     ctypetemplate = 'int %s'
     s_annotation  = SomeInteger()
-    opname_conv_to_obj   = 'int2obj'
-    opname_conv_from_obj = 'obj2int'
 
     def nameof(self, v, debug=None):
         return '%d' % (v,)
+
+    def fn_conv_to_obj(self):
+        return 'PyInt_FromLong'
+
+    def fn_conv_from_obj(self):
+        return 'PyInt_AsLong'
 
 
 class CNoneType(CType):
     error_return  = '-1'
     ctypetemplate = 'int %s'
     s_annotation  = SomePBC({None: True})
-    opname_conv_to_obj   = 'none2obj'
-    opname_conv_from_obj = 'obj2none'
 
     def nameof(self, v, debug=None):
         assert v is None
         return '0'
+
+    def fn_conv_to_obj(self):
+        return 'PyNone_FromInt'
+
+    def fn_conv_from_obj(self):
+        return 'PyNone_AsInt'

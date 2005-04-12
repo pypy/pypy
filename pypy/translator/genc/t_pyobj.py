@@ -463,6 +463,12 @@ class CPyObjectType(CType):
         del source
         return marshal.dumps(co)
 
+    def fn_conv_to_obj(self):
+        return "PyObject_SameObject"
+
+    def fn_conv_from_obj(self):
+        return "PyObject_SameObject"
+
 
 class CBorrowedPyObjectType(CType):
     ctypetemplate = 'PyObject *%s'
