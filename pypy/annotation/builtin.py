@@ -152,7 +152,7 @@ def rarith_ovfcheck(s_obj):
     return s_obj
 
 def rarith_ovfcheck_lshift(s_obj1, s_obj2):
-    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
+    if isinstance(s_obj1, SomeInteger) and s_obj1.unsigned:
         getbookkeeper().warning("ovfcheck_lshift with unsigned")
     return SomeInteger()
 
