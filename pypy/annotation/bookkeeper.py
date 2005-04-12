@@ -286,6 +286,7 @@ class Bookkeeper:
         specialize = getattr(func, '_specialize_', False)
 
         if specialize:
+            base_func = func
             if specialize == 'argtypes':
                 key = short_type_name(args)
                 func = self.specialize_by_key(func, key,
@@ -328,10 +329,11 @@ class Bookkeeper:
         # we need to force unifying all past and present results for the site
         # in order to guarantee the more general results invariant.
         if specialize == 'argtypes':
-            prev_r = self.argtypes_spec_callsite_results.get(self.position_key)
+            key = (base_func, self.position_key)
+            prev_r = self.argtypes_spec_callsite_results.get(key)
             if prev_r is not None:
                 r = unionof(prev_r, r)
-            self.argtypes_spec_callsite_results[self.position_key] = r
+            self.argtypes_spec_callsite_results[key] = r
         return r
         
         
