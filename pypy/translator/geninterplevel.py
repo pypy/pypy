@@ -746,12 +746,17 @@ class GenRpy:
         name = self.uniquename('g%dlist' % len(lis))
         # note that self.latercode led to too late initialization.
         self.register_early(lis, name)
-        self.initcode.append('%s = space.newlist([space.w_None])' % (name,))
+        if lis and min(lis) is max(lis) and min(lis) not in lis:
+            default = min(lis)
+        else:
+            default = None
+        self.initcode.append('%s = space.newlist([%s])' % (name, self.nameof(default)))
         self.initcode.append('%s = space.mul(%s, %s)' % (name, name, self.nameof(len(lis))))
         for i in range(len(lis)):
-            item = self.nameof(lis[i])
-            self.initcode.append('space.setitem(%s, %s, %s);' % (
-                name, self.nameof(i), item))
+            if lis[i] is not default:
+                item = self.nameof(lis[i])
+                self.initcode.append('space.setitem(%s, %s, %s);' % (
+                    name, self.nameof(i), item))
         return name
 
     def nameof_dict(self, dic):
