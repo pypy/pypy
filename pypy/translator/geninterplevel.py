@@ -79,6 +79,17 @@ def long_helper(self, name, value):
     self.initcode.append1('%s = %s(%r)' % (
         name, unique, hex(value)[2:-1] ) )
 
+def bltinmod_helper(self, mod):    
+    name = self.uniquename("mod_%s" % mod.__name__)
+    unique = self.uniquenameofprebuilt("bltinmod_helper", bltinmod_helper)
+    self.initcode.append1(
+        'def %s(name):\n'
+        '    dic = space.newdict([])\n'
+        '    space.exec_("import %%s" %% name, dic, dic)\n'
+        '    return space.eval("%%s" %% name, dic, dic)' % (unique, ))
+    self.initcode.append1('%s = %s(%r)' % (name, unique, mod.__name__))
+    return name
+
 class GenRpy:
     def __init__(self, translator, entrypoint=None, modname=None, moddict=None):
         self.translator = translator
@@ -354,12 +365,11 @@ class GenRpy:
         return name
 
     def nameof_module(self, value):
-        #assert value is os or not hasattr(value, "__file__") or \
-        #       not (value.__file__.endswith('.pyc') or
-        #            value.__file__.endswith('.py') or
-        #            value.__file__.endswith('.pyo')), \
-        #       "%r is not a builtin module (probably :)"%value
-        # assume that we get a faked module
+        if value is os or not hasattr(value, "__file__") or \
+               not (value.__file__.endswith('.pyc') or
+                    value.__file__.endswith('.py') or
+                    value.__file__.endswith('.pyo')) :
+            return bltinmod_helper(self, value)
         name = self.uniquename('mod_%s' % value.__name__)
         self.initcode.append1('import %s as _tmp' % value.__name__)
         self.initcode.append1('%s = space.wrap(_tmp)' % (name))
@@ -775,11 +785,11 @@ class GenRpy:
 
     def nameof_file(self, fil):
         if fil is sys.stdin:
-            return 'PySys_GetObject("stdin")'
+            return 'space.sys.get("stdin")'
         if fil is sys.stdout:
-            return 'PySys_GetObject("stdout")'
+            return 'space.sys.get("stdout")'
         if fil is sys.stderr:
-            return 'PySys_GetObject("stderr")'
+            return 'space.sys.get("stderr")'
         raise Exception, 'Cannot translate an already-open file: %r' % (fil,)
 
     def gen_source(self, fname, ftmpname=None, file=file):
