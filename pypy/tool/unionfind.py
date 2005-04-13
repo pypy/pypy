@@ -9,6 +9,15 @@ class UnionFind(object):
         self.info_factory = info_factory
         self.root_info = {}
 
+    # mapping-like [] access
+    def __getitem__(self, obj):
+        if obj not in self.link_to_parent:
+            raise KeyError, obj
+
+        ignore, rep, access = self.find(obj)
+
+        return access
+
     def find(self, obj):  # -> new_root, obj, info
         if obj not in self.link_to_parent:
             info = self.root_info[obj] = self.info_factory(obj)

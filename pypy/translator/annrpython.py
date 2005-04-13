@@ -117,6 +117,10 @@ class RPythonAnnotator:
             self.bindings[v] = s_value
             yield v
 
+    def getpbcaccesssets(self):
+        """Return mapping const obj -> PBCAccessSet"""
+        return self.bookkeeper.pbc_maximal_access_sets
+
     #___ medium-level interface ____________________________
 
     def addpendingblock(self, fn, block, cells, called_from=None):

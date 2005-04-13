@@ -757,15 +757,20 @@ class TestAnnonateTestCase:
         assert l1.s_item.knowntype == int
         assert l2.s_item.knowntype == str
 
-        ign, rep1,acc1 = a.bookkeeper.pbc_maximal_access_sets.find(c1)
-        ign, rep2,acc2 = a.bookkeeper.pbc_maximal_access_sets.find(c2)
-        ing, rep3,acc3 = a.bookkeeper.pbc_maximal_access_sets.find(c3)
+        access_sets = a.getpbcaccesssets()
+
+        ign, rep1,acc1 = access_sets.find(c1)
+        ign, rep2,acc2 = access_sets.find(c2)
+        ing, rep3,acc3 = access_sets.find(c3)
 
         assert rep1 is rep2 is rep3
         assert acc1 is acc2 is acc3
 
         assert len(acc1.objects) == 3
         assert acc1.attrs == {'v1': True, 'v2': True}
+
+        assert access_sets[c1] is acc1
+        raises(KeyError, "access_sets[object()]")
         
     def test_isinstance_usigned(self):
         from pypy.tool.rarithmetic import r_uint
