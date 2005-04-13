@@ -431,6 +431,17 @@ class RPythonAnnotator:
         argcells = [self.binding(a) for a in op.args]
         consider_meth = getattr(self,'consider_op_'+op.opname,
                                 self.default_consider_op)
+        # because benign SomeImpossibleValues are meant to propagate without leaving
+        # dangling blocked blocks around, and because of the None case below,
+        # let's be careful about avoiding propagated SomeImpossibleValues
+        # to enter an op; the latter can result in violations of the
+        # more general results invariant: e.g. if SomeImpossibleValue enters is_
+        #  is_(SomeImpossibleValue, None) -> SomeBool
+        #  is_(SomeInstance(not None), None) -> SomeBool(const=False) ...
+        # boom
+        for arg in argcells:
+            if isinstance(arg, annmodel.SomeImpossibleValue):
+                raise BlockedInference(info=op)
         resultcell = consider_meth(*argcells)
         if resultcell is None:
             resultcell = annmodel.SomeImpossibleValue()  # no return value
