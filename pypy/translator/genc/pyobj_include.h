@@ -35,6 +35,7 @@
 #define OP_NEG(x,r,err)           if (!(r=PyNumber_Negative(x)))     FAIL(err)
 #define OP_POS(x,r,err)           if (!(r=PyNumber_Positive(x)))     FAIL(err)
 #define OP_INVERT(x,r,err)        if (!(r=PyNumber_Invert(x)))       FAIL(err)
+#define OP_ABS(x,r,err)           if (!(r=PyNumber_Absolute(x)))     FAIL(err)
 
 #define OP_ADD(x,y,r,err)         if (!(r=PyNumber_Add(x,y)))        FAIL(err)
 #define OP_SUB(x,y,r,err)         if (!(r=PyNumber_Subtract(x,y)))   FAIL(err)
