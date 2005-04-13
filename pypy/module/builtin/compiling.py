@@ -58,15 +58,26 @@ def eval(space, w_source, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
         raise OperationError(space.w_TypeError,
               w('eval() arg 1 must be a string or code object'))
 
+    try:
+        caller = space.getexecutioncontext().framestack.top()
+    except IndexError:
+        caller = None
+
     if w_globals is None:
-        try:
-            caller = space.getexecutioncontext().framestack.top()
-        except IndexError:
+        if caller is None:
             w_globals = w_locals = space.newdict([])
         else:
             w_globals = caller.w_globals
             w_locals = caller.getdictscope()
     elif w_locals is None:
         w_locals = w_globals
+
+    try:
+        space.getitem(w_globals, space.wrap('__builtins__'))
+    except OperationError, e:
+        if not e.match(space, space.w_KeyError):
+            raise
+        if caller is not None:
+            space.setitem(w_globals, space.wrap('__builtins__'), caller.builtin)
 
     return space.interpclass_w(w_codeobj).exec_code(space, w_globals, w_locals)
