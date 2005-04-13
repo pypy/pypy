@@ -746,8 +746,9 @@ class GenRpy:
         name = self.uniquename('g%dlist' % len(lis))
         # note that self.latercode led to too late initialization.
         self.register_early(lis, name)
-        if lis and min(lis) is max(lis) and min(lis) not in lis:
-            default = min(lis)
+        # try to save at least one assignment.
+        if lis and lis[0] not in lis:
+            default = lis[0]
         else:
             default = None
         self.initcode.append('%s = space.newlist([%s])' % (name, self.nameof(default)))
