@@ -747,7 +747,7 @@ class GenRpy:
         # note that self.latercode led to too late initialization.
         self.register_early(lis, name)
         # try to save at least one assignment.
-        if lis and lis[0] not in lis:
+        if lis and lis[0] is not lis:
             default = lis[0]
         else:
             default = None

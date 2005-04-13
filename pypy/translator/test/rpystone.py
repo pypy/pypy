@@ -259,13 +259,15 @@ def Func3(EnumParIn):
     if EnumLoc == Ident3: return TRUE
     return FALSE
 
-if __name__ == '__main__':
-    def error(msg):
-        #print >>sys.stderr, msg,
-        sys.stderr.write(msg+" ")
-        #print >>sys.stderr, "usage: %s [number_of_loops]" % sys.argv[0]
-        sys.stderr.write("usage: %s [number_of_loops]\n" % sys.argv[0])
-        sys.exit(100)
+def error(msg):
+    #print >>sys.stderr, msg,
+    sys.stderr.write(msg+" ")
+    #print >>sys.stderr, "usage: %s [number_of_loops]" % sys.argv[0]
+    sys.stderr.write("usage: %s [number_of_loops]\n" % sys.argv[0])
+    sys.exit(100)
+
+def entrypoint():
+    loops = LOOPS  # initialize early, for slow space
     nargs = len(sys.argv) - 1
     if nargs > 1:
         error("%d arguments are too many;" % nargs)
@@ -276,7 +278,9 @@ if __name__ == '__main__':
     else:
         if hasattr(sys, 'pypy_objspaceclass'):
             loops = LOOPS / 2000 # XXX rough estimate, adjust
-        else:
-            loops = LOOPS
+        #else:
+        #    loops = LOOPS
     main(loops)
 
+if __name__ == '__main__':
+    entrypoint()
