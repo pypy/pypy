@@ -12,8 +12,14 @@ def buildcache(space):
     print "*sys*"
     w_dic = space.sys.w_dict
     #print space.unwrap(space.call_method(w_dic,"keys"))
-    space.delitem(w_dic,space.wrap("pypy_getudir"))
-    print " * removed pypy_getudir"
+
+    # others
+    w_modules = space.sys.get('modules')
+    def getmodule(name):
+        return space.getitem(w_modules, space.wrap(name))
+
+    getmodule('parser').getdict()
+    print "*parser*"
 
     for typedef in interptypes:
         w_typ = space.gettypeobject(typedef)

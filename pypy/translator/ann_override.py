@@ -5,6 +5,7 @@ from pypy.annotation import model as annmodel
 from pypy.interpreter import error
 from pypy.interpreter import pyframe
 from pypy.objspace.std import fake
+from pypy.module.sys2 import state as sys_state
 
 def hole(*args):
     return annmodel.SomeImpossibleValue(benign=True)
@@ -22,4 +23,5 @@ def install(tgt, override):
 
 install(pyframe.cpython_tb, ignore)
 install(error.OperationError.record_interpreter_traceback, ignore)
+install(sys_state.pypy_getudir, ignore)
 install(fake.wrap_exception, hole)
