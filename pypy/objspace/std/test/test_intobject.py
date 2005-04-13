@@ -2,6 +2,7 @@ import sys
 import autopath
 from pypy.objspace.std import intobject as iobj
 from pypy.objspace.std.objspace import FailedToImplement
+from pypy.tool.rarithmetic import r_uint
 
 objspacename = 'std'
 
@@ -29,6 +30,12 @@ class TestW_IntObject:
     def test_int_w(self):
         assert self.space.int_w(self.space.wrap(42)) == 42
 
+    def test_uint_w(self):
+        space = self.space
+        assert space.uint_w(space.wrap(42)) == 42
+        assert isinstance(space.uint_w(space.wrap(42)), r_uint)
+        space.raises_w(space.w_ValueError, space.uint_w, space.wrap(-1))
+        
     def test_repr(self):
         x = 1
         f1 = iobj.W_IntObject(self.space, x)

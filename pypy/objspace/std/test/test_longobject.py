@@ -3,6 +3,7 @@ import sys
 from random import random, randint
 from pypy.objspace.std import longobject as lobj
 from pypy.objspace.std.objspace import FailedToImplement
+from pypy.tool.rarithmetic import r_uint
 
 objspacename = 'std'
 
@@ -73,6 +74,10 @@ class TestW_LongObject:
         assert lobj.long__Int(self.space, self.space.wrap(42)).longval() == 42
         assert lobj.long__Int(self.space, self.space.wrap(-42)).longval() == -42
 
+        u = lobj.uint_w__Long(self.space, f2)
+        assert u == 12332
+        assert isinstance(u, r_uint)
+
     def test_conversions(self):
         space = self.space
         for v in (0,1,-1,sys.maxint,-sys.maxint-1):
@@ -84,6 +89,13 @@ class TestW_LongObject:
                 assert space.is_true(space.isinstance(lobj.int__Long(space, w_lv), space.w_int))            
                 assert space.eq_w(lobj.int__Long(space, w_lv), w_v)
 
+                if v>=0:
+                    u = lobj.uint_w__Long(space, w_lv)
+                    assert u == v
+                    assert isinstance(u, r_uint)
+                else:
+                    space.raises_w(space.w_ValueError, lobj.uint_w__Long, space, w_lv)
+
         w_toobig_lv1 = lobj.W_LongObject(space, *lobj.args_from_long(sys.maxint+1))
         assert w_toobig_lv1.longval() == sys.maxint+1
         w_toobig_lv2 = lobj.W_LongObject(space, *lobj.args_from_long(sys.maxint+2))
@@ -94,6 +106,17 @@ class TestW_LongObject:
         for w_lv in (w_toobig_lv1, w_toobig_lv2, w_toobig_lv3):            
             space.raises_w(space.w_OverflowError, lobj.int_w__Long, space, w_lv)
             assert space.is_true(space.isinstance(lobj.int__Long(space, w_lv), space.w_long))
+
+        w_lmaxuint = lobj.W_LongObject(space, *lobj.args_from_long(2*sys.maxint+1))
+        w_toobig_lv4 = lobj.W_LongObject(space, *lobj.args_from_long(2*sys.maxint+2))        
+
+        u = lobj.uint_w__Long(space, w_lmaxuint)
+        assert u == 2*sys.maxint+1
+        assert isinstance(u, r_uint)
+        
+        space.raises_w(space.w_ValueError, lobj.uint_w__Long, space, w_toobig_lv3)       
+        space.raises_w(space.w_OverflowError, lobj.uint_w__Long, space, w_toobig_lv4)
+
 
 
     def test_pow_lll(self):

@@ -300,6 +300,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         int_w   = MultiMethod('int_w', 1, [])     # returns an unwrapped int
         str_w   = MultiMethod('str_w', 1, [])     # returns an unwrapped string
         float_w = MultiMethod('float_w', 1, [])   # returns an unwrapped float
+        uint_w  = MultiMethod('uint_w', 1, [])    # returns an unwrapped unsigned int (r_uint)
 
         # add all regular multimethods here
         for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:

@@ -1,6 +1,6 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.tool.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT
+from pypy.tool.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT, r_uint
 
 """
 In order to have the same behavior running
@@ -37,6 +37,14 @@ print
 
 def int_w__Int(space, w_int1):
     return int(w_int1.intval)
+
+def uint_w__Int(space, w_int1):
+    intval = w_int1.intval
+    if intval < 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("cannot convert negative integer to unsigned"))
+    else:
+        return r_uint(intval)
 
 def repr__Int(space, w_int1):
     a = w_int1.intval

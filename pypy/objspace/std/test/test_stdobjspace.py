@@ -19,6 +19,11 @@ class TestW_StdObjSpace:
         raises(OperationError,self.space.int_w,self.space.wrap(None))
         raises(OperationError,self.space.int_w,self.space.wrap(""))        
 
+    def test_uint_w_non_int(self):
+        raises(OperationError,self.space.uint_w,self.space.wrap(None))
+        raises(OperationError,self.space.uint_w,self.space.wrap(""))        
+
+
     def hopeful_test_exceptions(self):
         self.apptest("self.failUnless(issubclass(ArithmeticError, Exception))")
         self.apptest("self.failIf(issubclass(ArithmeticError, KeyError))")

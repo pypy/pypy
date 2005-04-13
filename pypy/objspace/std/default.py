@@ -233,5 +233,8 @@ def float_w__ANY(space,w_obj):
     raise OperationError(space.w_TypeError,
                          typed_unwrap_error_msg(space, "float", w_obj))
 
+def uint_w__ANY(space,w_obj):
+    raise OperationError(space.w_TypeError,
+                         typed_unwrap_error_msg(space, "integer", w_obj))
 
 register_all(vars())

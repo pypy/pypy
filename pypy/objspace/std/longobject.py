@@ -137,7 +137,16 @@ def int_w__Long(space, w_value):
         elif w_value.sign == -1 and w_value.digits[0] & NONSIGN_MASK == 0:
             return intmask(w_value.digits[0])
     raise OperationError(space.w_OverflowError,
-                         space.wrap("long int too large to convert to int"))           
+                         space.wrap("long int too large to convert to int"))
+
+def uint_w__Long(space, w_value):
+    if w_value.sign == -1:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("cannot convert negative integer to unsigned"))
+    if len(w_value.digits) == 1:
+        return w_value.digits[0]
+    raise OperationError(space.w_OverflowError,
+                         space.wrap("long int too large to convert to unsigned int"))    
 
 def repr__Long(space, w_long): #YYYYYY
     return space.wrap(repr(w_long.longval()))
