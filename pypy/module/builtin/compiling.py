@@ -78,6 +78,7 @@ def eval(space, w_source, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
         if not e.match(space, space.w_KeyError):
             raise
         if caller is not None:
-            space.setitem(w_globals, space.wrap('__builtins__'), caller.builtin)
+            w_builtin = space.builtin.pick_builtin(caller.w_globals)
+            space.setitem(w_globals, space.wrap('__builtins__'), w_builtin)
 
     return space.interpclass_w(w_codeobj).exec_code(space, w_globals, w_locals)
