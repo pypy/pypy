@@ -368,13 +368,13 @@ class FlowObjSpace(ObjSpace):
         exceptions = [Exception]   # *any* exception by default
         if isinstance(w_callable, Constant):
             c = w_callable.value
-            if isinstance(c, (types.BuiltinFunctionType,
-                              types.BuiltinMethodType)):
-                if not self.builtins_can_raise_exceptions:
+            if not self.builtins_can_raise_exceptions:
+                if isinstance(c, (types.BuiltinFunctionType,
+                                  types.BuiltinMethodType)):
                     exceptions = None
-            elif (isinstance(c, (type, types.ClassType)) and
-                  c.__module__ in ['__builtin__', 'exceptions']):
-                exceptions = None
+                elif (isinstance(c, (type, types.ClassType)) and
+                      c.__module__ in ['__builtin__', 'exceptions']):
+                    exceptions = None
         self.handle_implicit_exceptions(exceptions)
         return w_res
 
