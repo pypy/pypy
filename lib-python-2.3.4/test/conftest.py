@@ -45,6 +45,7 @@ working_unittests = (
 'test_htmllib.py',
 'test_htmlparser.py',
 'test_isinstance.py',
+'test_long.py', #Works but takes several hours to finish
 'test_operator.py',
 'test_parser.py',
 'test_pprint.py',
