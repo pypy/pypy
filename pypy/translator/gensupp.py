@@ -35,7 +35,7 @@ def ordered_blocks(graph):
     return [block for ofs, txt, block in allblocks]
 
 # a unique list, similar to a list.
-# append1 appends an object only if it is not there,already.
+# append1 appends an object only if it is not there, already.
 
 class UniqueList(list):
     def __init__(self, *args, **kwds):
@@ -149,10 +149,14 @@ class _LocalScope(object):
             basename = ('v', 'w_') [wrapped]
         elif scorepos >= 0 and name[scorepos+1:].isdigit():
             basename = name[:scorepos]
-            if wrapped:
-                basename = "w_" + basename
-            else:
-                basename = "l_" + basename
+            # for wrapped named things, prepend a w_
+            # for other named things, prepend a l_.
+            # XXX The latter is needed because tcc has a nasty parser bug that
+            # produces errors if names co-incide with global typedefs,
+            # if the type prefix is itself a typedef reference!
+            # XXX report this bug to the tcc maintainer(s)
+            # YYY drop this comment afterwards, but keep the code, it's better.
+            basename = ("l_", "w_")[wrapped] + basename
         else:
             basename = name
         ret = self.uniquename(basename)
