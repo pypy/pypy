@@ -140,6 +140,7 @@ def _validateChildren (dfa, children):
     classify = lambda sym, name : DFAParser.classify(pygrammar, sym, name)
     symbol_no, symbol_name, initial, states, first = dfa
     crnt_state = states[initial]
+    child = ['<no children>'] # have a defined state, also for flow
     for child in children:
         ((child_symbol, child_text, child_line_no), grandchildren) = child
         ilabel = classify(child_symbol, child_text)
