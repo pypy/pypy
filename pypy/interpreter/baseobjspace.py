@@ -86,7 +86,7 @@ class ObjSpace(object):
         #     make this the default _sre module
         #self.setbuiltinmodule("_sre", "_sre_pypy") 
 
-        self.setbuiltinmodule('parser')
+        # XXX disabled: self.setbuiltinmodule('parser')
 
         # initialize with "bootstrap types" from objspace  (e.g. w_None)
         for name, value in self.__dict__.items():

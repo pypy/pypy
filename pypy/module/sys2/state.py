@@ -28,7 +28,7 @@ for fn in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
            'math', '_codecs', 'array', 'select',
            '_random', '_sre', 'time', '_socket', 'errno',
            'binascii', 'unicodedata',
-           #'parser'
+           'parser'
            ]: 
     if fn not in builtin_modules:
         try:
