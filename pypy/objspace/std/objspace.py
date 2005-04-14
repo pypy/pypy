@@ -200,12 +200,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = self.wrap_exception_cls(x)
             if w_result is not None:
                 return w_result
-        from fake import fake_type
-        if isinstance(x, type):
-            ft = fake_type(x)
-            return self.gettypeobject(ft.typedef)
-        ft = fake_type(type(x))
-        return ft(self, x)
+        from fake import fake_object
+        return fake_object(self, x)
+
     wrap._specialize_ = "argtypes"
 
     def wrap_exception_cls(self, x):

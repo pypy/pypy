@@ -11,6 +11,15 @@ from pypy.tool.cache import Cache
 # types that we do not yet implement in the standard object space
 # (files being the biggy)
 
+
+def fake_object(space, x):
+    if isinstance(x, type):
+        ft = fake_type(x)
+        return space.gettypeobject(ft.typedef)
+    ft = fake_type(type(x))
+    return ft(space, x)
+
+
 import sys
 
 _fake_type_cache = Cache()

@@ -25,6 +25,10 @@ def wrap_exception_cls(space, x):
     clsdef = getbookkeeper().getclassdef(typeobject.W_TypeObject)
     return annmodel.SomeInstance(clsdef, can_be_None=True)
 
+def fake_object(space, x):
+    clsdef = getbookkeeper().getclassdef(itypedef.W_Root)
+    return annmodel.SomeInstance(clsdef)    
+
 pypy_overrides = {}
 
 def install(tgt, override):
@@ -36,5 +40,6 @@ install(pyframe.cpython_tb, ignore)
 install(error.OperationError.record_interpreter_traceback, ignore)
 install(sys_state.pypy_getudir, ignore)
 install(fake.wrap_exception, hole)
+install(fake.fake_object, fake_object)
 install(itypedef.instantiate, instantiate)
 install(StdObjSpace.wrap_exception_cls, wrap_exception_cls)
