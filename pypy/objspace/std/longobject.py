@@ -27,7 +27,7 @@ class W_LongObject(W_Object):
             digits, sign = args_from_long(digits)
         w_self.digits = digits
         w_self.sign = sign
-        assert len(w_self.digits) != 0 or w_self.sign == 0
+        assert len(w_self.digits)
 
     def longval(self): #YYYYYY
         l = 0
@@ -42,6 +42,7 @@ class W_LongObject(W_Object):
     def _normalize(self):
         if len(self.digits) == 0:
             self.sign = 0
+            self.digits = [r_uint(0)]
             return
         i = len(self.digits) - 1
         while i != 0 and self.digits[i] == 0:
@@ -528,7 +529,7 @@ def _x_sub(a, b, space):
         while i > 0 and a.digits[i] == b.digits[i]:
             i -= 1
         if (i == -1):
-            return W_LongObject(space, [])
+            return W_LongObject(space, [r_uint(0)])
         if a.digits[i] < b.digits[i]:
             sign = -1
             a, b = b, a

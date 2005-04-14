@@ -30,7 +30,7 @@ class TestW_LongObject:
                 assert result.longval() == x * i - y * j
 
     def test_subzz(self):
-        w_l0 = lobj.W_LongObject(self.space, [])
+        w_l0 = lobj.W_LongObject(self.space, [r_uint(0)])
         assert self.space.sub(w_l0, w_l0).longval() == 0
 
     def test_mul(self):
