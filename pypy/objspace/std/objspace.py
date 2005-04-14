@@ -208,7 +208,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return ft(self, x)
     wrap._specialize_ = "argtypes"
 
-    def wrap_exception_cls(x):
+    def wrap_exception_cls(self, x):
         """NOT_RPYTHON"""
         if hasattr(self, 'w_' + x.__name__):
             w_result = getattr(self, 'w_' + x.__name__)            
