@@ -8,7 +8,7 @@ class CType(object):
         self.translator = translator
 
     def debugname(self):
-        return self.__class__.__name__
+        return self.typename
 
     def genc():
         """A hack to get at the currently running GenC instance."""

@@ -12,6 +12,8 @@ from pypy.translator.genc.nonetype import CNoneType
 from pypy.translator.genc.functype import CFuncPtrType
 from pypy.translator.genc.tupletype import CTupleType
 from pypy.translator.genc.listtype import CListType
+from pypy.translator.genc.classtype import CClassPtrType
+from pypy.translator.genc.instancetype import CInstanceType
 import types
 from pypy.interpreter.pycode import CO_VARARGS
 
@@ -60,6 +62,13 @@ class GenCSpecializer(Specializer):
                     besttype = self.annotator.translator.getconcretetype(
                         CFuncPtrType, tuple(args_ct), res_ct)
 
+## -- DISABLED while it's under development
+##                elif (s_value.is_constant() and
+##                      isinstance(s_value.const, (type, types.ClassType))):
+##                    classdef = self.annotator.getuserclasses()[s_value.const]
+##                    besttype = self.annotator.translator.getconcretetype(
+##                        CClassPtrType, classdef, self.getinstancetype(classdef))
+
             elif isinstance(s_value, SomeTuple):
                 items_ct = [self.annotation2concretetype(s_item)
                             for s_item in s_value.items]
@@ -105,3 +114,15 @@ class GenCSpecializer(Specializer):
         vnone = Variable()
         vnone.concretetype = self.TNone
         return SpaceOperation('decref', [v], vnone)
+
+    # ____________________________________________________________
+
+    def getinstancetype(self, classdef):
+        attritems = classdef.attrs.items()
+        attritems.sort()
+        fieldnames = [name for name, attrdef in attritems]
+        fieldtypes = [self.annotation2concretetype(attrdef.getvalue())
+                      for name, attrdef in attritems]
+        return self.annotator.translator.getconcretetype(
+            CInstanceType, tuple(fieldnames), tuple(fieldtypes),
+            classdef.cls.__name__)

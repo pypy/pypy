@@ -14,6 +14,7 @@
 #include "g_support.h"
 #include "g_module.h"
 
+#include "heapobject_include.h"
 #include "int_include.h"
 #include "list_include.h"
 #include "none_include.h"

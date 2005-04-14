@@ -569,6 +569,20 @@ class FunctionDef:
         return '%s = %s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
             r, args[0], ', '.join(args[1:]), err)
 
+    def OP_INST_GETATTR(self, op, err):
+        return '%s = INST_ATTR_%s__%s(%s);' % (
+            self.expr(op.result),
+            op.args[0].concretetype.typename,
+            op.args[1].value,
+            self.expr(op.args[0]))
+
+    def OP_INST_SETATTR(self, op, err):
+        return 'INST_ATTR_%s__%s(%s) = %s;' % (
+            op.args[0].concretetype.typename,
+            op.args[1].value,
+            self.expr(op.args[0]),
+            self.expr(op.args[2]))
+
     def OP_CONV_TO_OBJ(self, op, err):
         v = op.args[0]
         return '%s = CONV_TO_OBJ_%s(%s); if (PyErr_Occurred()) FAIL(%s)' % (
