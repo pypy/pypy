@@ -353,7 +353,7 @@ loopexit:
 	ret %std.list.%(name)s* %tmp.0
 }
 
-internal void %std.inplace_add(%std.list.%(name)s* %a, %std.list.%(name)s* %b) {
+internal %std.list.%(name)s* %std.inplace_add(%std.list.%(name)s* %a, %std.list.%(name)s* %b) {
 entry:
 	%tmp.2 = getelementptr %std.list.%(name)s* %a, int 0, uint 0
 	%tmp.3 = load uint* %tmp.2
@@ -397,7 +397,7 @@ copy.entry9:
 	store uint %tmp.7, uint* %tmp.2
 	free %(item)s* %tmp.12
 	store %(item)s* %tmp.0, %(item)s** %tmp.11
-	ret void
+	ret %std.list.%(name)s* %a
 }
 
 internal void %std.append(%std.list.%(name)s* %a, %(item)s %value) {

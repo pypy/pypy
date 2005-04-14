@@ -11,6 +11,58 @@ from pypy.translator.llvm.typerepr import PointerTypeRepr
 from pypy.translator.llvm.funcrepr import BoundMethodRepr
 
 
+debug = False
+
+class ListRepr(LLVMRepr):
+    def get(obj, gen):
+        if obj.__class__ == list:
+            return ListRepr(obj, gen)
+        return None
+    get = staticmethod(get)
+
+    def __init__(self, l, gen):
+        self.list = l
+        self.gen = gen
+        self.type = self.gen.get_repr(
+            gen.annotator.bookkeeper.immutablevalue(l))
+        self.dependencies = sets.Set([self.type])
+        self.name = self.gen.get_global_tmp("std.list.inst")
+        self.definition = self.name
+        self.definition += " = internal global %s {uint %i, %s* null}" % \
+                           (self.type.typename()[:-1], len(self.list),
+                            self.type.l_itemtype.typename())
+
+    def setup(self):
+        self.l_items = [self.gen.get_repr(item) for item in self.list]
+        self.dependencies.update(self.l_items)
+
+    def get_globals(self):
+        return self.definition
+
+    def collect_init_code(self, lblock, l_func):
+        l_itemtype = self.type.l_itemtype
+        gen = self.gen
+        l_tmp = self.gen.get_local_tmp(PointerTypeRepr(
+            "[%d x %s]" % (len(self.list), l_itemtype.typename()), gen),
+                                  l_func)
+        self.dependencies.add(l_tmp)
+        lblock.malloc(l_tmp)
+        for i, l_item in enumerate(self.l_items):
+            l_ptr = self.gen.get_local_tmp(
+                PointerTypeRepr(l_itemtype.typename(), gen), l_func)
+            self.dependencies.add(l_ptr)
+            lblock.getelementptr(l_ptr, l_tmp, [0, i])
+            lblock.store(l_item, l_ptr)
+        l_from = self.gen.get_local_tmp(
+            PointerTypeRepr("%s" % l_itemtype.typename(), gen), l_func)
+        l_to = self.gen.get_local_tmp(
+            PointerTypeRepr("%s*" % l_itemtype.typename(), gen), l_func)
+        self.dependencies.update([l_from, l_to])
+        lblock.getelementptr(l_from, l_tmp, [0, 0])
+        lblock.getelementptr(l_to, self, [0, 1])
+        lblock.store(l_from, l_to)
+            
+
 class ListTypeRepr(TypeRepr):
     l_listtypes = {}
     def get(obj, gen):
@@ -79,6 +131,8 @@ class TupleRepr(LLVMRepr):
             type_ = gen.annotator.binding(obj)
             if isinstance(type_, annmodel.SomeTuple):
                 return TupleRepr(obj, gen)
+        elif obj.__class__ == tuple:
+            return TupleRepr(Constant(obj), gen)
         return None
     get = staticmethod(get)
 
@@ -116,9 +170,17 @@ class TupleRepr(LLVMRepr):
 
 
 class TupleTypeRepr(TypeRepr):
+    l_tuple_types = {}
     def get(obj, gen):
         if isinstance(obj, annmodel.SomeTuple):
-            return TupleTypeRepr(obj, gen)
+            l_tt = TupleTypeRepr(obj, gen)
+            #XXXXXXXX: Ugly as hell but neccessary: It prevents that two
+            #different tuples with same "signature" get different TupleTypeRepr
+            #also slightly unsafe, but well...
+            if (l_tt.typename(), gen) in TupleTypeRepr.l_tuple_types:
+                return TupleTypeRepr.l_tuple_types[(l_tt.typename(), gen)]
+            TupleTypeRepr.l_tuple_types[(l_tt.typename(), gen)] = l_tt
+            return l_tt
         return None
     get = staticmethod(get)
 

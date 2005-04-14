@@ -7,6 +7,7 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.objspace.flow.model import traverse, checkgraph
 from pypy.annotation import model as annmodel
+from pypy.annotation.builtin import BUILTIN_ANALYZERS
 from pypy.translator.llvm import llvmbc
 from pypy.translator.unsimplify import remove_double_links
 
@@ -23,7 +24,7 @@ INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is_", "is_true", "len",
                  "inplace_mod", "inplace_pow", "inplace_lshift",
                  "inplace_rshift", "inplace_and", "inplace_or", "inplace_xor",
                  "contains", "newlist", "newtuple", "alloc_and_set",
-                 "issubtype", "type"]
+                 "issubtype", "type", "ord"]
 
 C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
                   annmodel.SomeString: "char*",
@@ -34,8 +35,11 @@ C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
 
 class BuiltinFunctionRepr(LLVMRepr):
     def get(obj, gen):
-        if isinstance(obj, Constant) and \
-           isinstance(gen.annotator.binding(obj), annmodel.SomeBuiltin):
+        if isinstance(obj, Constant):
+            print "BuiltinFunctionRepr", obj.value
+        if (isinstance(obj, Constant) and
+            (obj in BUILTIN_ANALYZERS or
+             isinstance(gen.annotator.binding(obj), annmodel.SomeBuiltin))):
             return BuiltinFunctionRepr(obj.value.__name__, gen)
         elif isinstance(obj, annmodel.SomeBuiltin):
             name = obj.analyser.__name__.replace("method_", "")

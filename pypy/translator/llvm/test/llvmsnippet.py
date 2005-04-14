@@ -45,7 +45,7 @@ def calling2(m):
 #float snippets
 
 def float_f1(x):
-    return x + 1.0
+    return x + 1.2
 
 def float_int_bool(x):
     return x * (2 + True)
@@ -177,6 +177,22 @@ def id_int(i):
     d = D(1, i + 1)
     d.set_range()
     return d.a[i]
+
+class GGG(object):
+    pass
+
+ggg = GGG()
+ggg.a = 36
+ggg.b = (1, 2, 3)
+ggg.c = [1, 2, 3]
+
+def global_instance(x):
+    previous = ggg.a
+    previous1 = ggg.c[-1]
+    ggg.c.append(x)
+    d = ggg.b[1]
+    ggg.a = x
+    return previous + d + previous1
 
 #simple inheritance snippets
 class AAA(object):

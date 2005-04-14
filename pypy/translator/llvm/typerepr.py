@@ -85,6 +85,11 @@ class StringTypeRepr(TypeRepr):
         l_func.dependencies.update(l_args)
         lblock.spaceop(l_target, "add", l_args)
 
+    def t_op_inplace_mul(self, l_target, args, lblock, l_func):
+        l_args = [self.gen.get_repr(arg) for arg in args]
+        l_func.dependencies.update(l_args)
+        lblock.spaceop(l_target, "mul", l_args)
+
 
 class IntTypeRepr(TypeRepr):
     def get(obj, gen):
@@ -165,6 +170,8 @@ class PointerTypeRepr(TypeRepr):
     def typename(self):
         return self.type + "*"
 
+
+#This should only be used as the return value for "void" functions
 class ImpossibleValueRepr(TypeRepr):
     def get(obj, gen):
         if obj.__class__ is annmodel.SomeImpossibleValue:

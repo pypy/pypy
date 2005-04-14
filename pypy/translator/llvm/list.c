@@ -157,13 +157,14 @@ struct list* mul(struct list* a, int times) {
     return nlist;
 }
 
-void inplace_add(struct list* a, struct list* b) {
+struct list* inplace_add(struct list* a, struct list* b) {
     struct item** newdata = malloc(sizeof(struct item*) * (a->length + b->length));
     copy(a->data, newdata, a->length);
     copy(b->data, newdata + a->length, b->length);
     a->length +=  b->length;
     free(a->data);
     a->data = newdata;
+    return a;
 }
 
 void append(struct list* a, struct item* value) {
@@ -223,4 +224,4 @@ void reverse(struct list* a) {
 	hi -= 1;
     }
 }
- 
+

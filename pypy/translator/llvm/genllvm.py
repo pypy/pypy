@@ -37,6 +37,8 @@ def get_key(obj):
         return obj.value
     if isinstance(obj, annmodel.SomeInstance):
         return obj.classdef.cls
+    if isinstance(obj, list):
+        return id(obj)
     return obj
 
 class LLVMGenerator(object):
@@ -106,7 +108,6 @@ class LLVMGenerator(object):
                 print "->exists already:", self.llvm_reprs[get_key(obj)]
             return self.llvm_reprs[get_key(obj)]
         for cl in self.repr_classes:
-            #XXXXXX: Got
             try:
                 obj.__class__
             except AttributeError:
@@ -175,3 +176,9 @@ def traverse_dependencies(l_repr, seen_reprs):
             yield l_dep1
     yield l_repr
 
+
+## from pypy.translator.test.rpystone import *
+## t = Translator(Proc0)
+## a = t.annotate([int])
+## t.view()
+## f = llvmcompile(t)

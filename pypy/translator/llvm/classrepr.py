@@ -9,6 +9,7 @@ from pypy.annotation.classdef import ClassDef
 from pypy.translator.llvm import llvmbc
 
 from pypy.translator.llvm.representation import debug, LLVMRepr
+from pypy.translator.llvm.representation import TmpVariableRepr
 from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
 from pypy.translator.llvm.funcrepr import FunctionRepr, BoundMethodRepr
 from pypy.translator.llvm.funcrepr import VirtualMethodRepr
@@ -83,6 +84,9 @@ class ClassRepr(TypeRepr):
         for key, attr in self.classdef.attrs.items():
             if debug:
                 print key, attr, attr.sources, attr.s_value,
+            if isinstance(attr.s_value, annmodel.SomeImpossibleValue):
+                print "--> removed"
+                continue
             if len(attr.sources) != 0:
                 func = self.classdef.cls.__dict__[attr.name]
                 meth.append((key, func))
@@ -139,7 +143,7 @@ class ClassRepr(TypeRepr):
             PointerTypeRepr("%std.class*", self.gen), l_func)
         lblock.getelementptr(l_tmp, l_target, [0, 0])
         lblock.instruction("store %%std.class* %s, %s" %
-                           (self.objectname, l_tmp.typed_name()))
+                           (self.objectname, l_tmp.typed_name()))        
         init = None
         for cls in self.classdef.getmro():
             if "__init__" in cls.attrs:
@@ -193,9 +197,15 @@ class ClassRepr(TypeRepr):
         if not isinstance(args[1], Constant):
             raise CompileError,"setattr called with non-constant: %s" % args[1]
         if args[1].value in self.attr_num:
+            l_type = self.l_attrs_types[self.attr_num[args[1].value] - 1]
             l_args0 = self.gen.get_repr(args[0])
             l_value = self.gen.get_repr(args[2])
             self.dependencies.update([l_args0, l_value])
+            if l_value.llvmtype() != l_type.typename():
+                l_cast = self.gen.get_local_tmp(l_type, l_func)
+                self.dependencies.add(l_cast)
+                lblock.cast(l_cast, l_value)
+                l_value = l_cast
             l_pter = self.gen.get_local_tmp(
                 PointerTypeRepr(l_value.llvmtype(), self.gen), l_func)
             lblock.getelementptr(l_pter, l_args0,
@@ -312,3 +322,47 @@ class ExceptionTypeRepr(TypeRepr):
         lblock.getelementptr(l_tmp, l_args0, [0, 0])
         lblock.load(l_target, l_tmp)
     
+
+class InstanceRepr(LLVMRepr):
+    def get(obj, gen):
+        if isinstance(obj, Constant):
+            ann = gen.annotator.binding(obj)
+            print "InstanceRepr.get: ", obj, ann, ann.__class__
+            if isinstance(ann, annmodel.SomeInstance):
+                return InstanceRepr(obj, ann.classdef, gen)
+    get = staticmethod(get)
+
+    def __init__(self, obj, classdef, gen):
+        if debug:
+            print "InstanceRepr: ", obj, classdef
+        self.obj = obj
+        self.gen = gen
+        self.type = gen.get_repr(classdef)
+        self.dependencies = sets.Set([self.type])
+        self.name = gen.get_global_tmp(obj.value.__class__.__name__ + ".inst")
+
+    def setup(self):
+        self.l_attrib_values = []
+        for attr in self.type.attributes:
+            s_a = self.gen.get_repr(getattr(self.obj.value, attr.name))
+            self.l_attrib_values.append(s_a)
+        self.dependencies.update(self.l_attrib_values)
+        self.definition = self.name + " = internal global %s {%s" % \
+                          (self.llvmtype()[:-1], self.type.typed_name())
+        if len(self.l_attrib_values) == 0:
+            self.definition += "}"
+        else:
+            attrs = ", ".join([at.typename() + " " + av.llvmname()
+                               for at, av in zip(self.type.l_attrs_types,
+                                                 self.l_attrib_values)])
+            self.definition += ", " + attrs + "}"
+
+    def get_globals(self):
+        return self.definition
+
+    def __getattr__(self, name):
+        if name.startswith("op_"):
+            return getattr(self.type, "t_" + name, None)
+        else:
+            raise AttributeError, ("InstanceRepr instance has no attribute %s"
+                                   % repr(name))

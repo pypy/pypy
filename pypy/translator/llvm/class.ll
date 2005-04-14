@@ -53,3 +53,22 @@ internal sbyte %std.unwind() {
 entry:
 	unwind
 }
+
+;simple builtin functions
+internal sbyte %std.chr(int %a) {
+        %r = cast int %a to sbyte
+        ret sbyte %r
+}
+
+internal int %std.ord(sbyte %c) {
+        %r = cast sbyte %c to int
+        ret int %r
+}
+
+;XXXX
+internal int %std.ord(%std.list.sbyte* %c) {
+	%c = call sbyte %std.getitem(%std.list.sbyte* %c, int 0)
+        %r = cast sbyte %c to int
+        ret int %r
+}
+

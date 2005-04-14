@@ -190,7 +190,7 @@ class StringRepr(LLVMRepr):
 
     def __init__(self, obj, gen):
         if debug:
-            print "StringRepr: %s" % obj
+            print "StringRepr: %s, %s length: %i" % (obj, repr(obj), len(obj))
         self.s = obj
         self.gen = gen
         self.glvar1 = gen.get_global_tmp("StringRepr")
@@ -203,7 +203,8 @@ class StringRepr(LLVMRepr):
 
     def get_globals(self):
         d = {"len": len(self.s), "gv1": self.glvar1, "gv2": self.glvar2,
-             "type": self.type.typename_wo_pointer(), "string": self.s}
+             "type": self.type.typename_wo_pointer(),
+             "string": str(repr(self.s)[1:-1].replace("\\x", "\\"))}
         s = """%(gv1)s = internal global [%(len)i x sbyte] c"%(string)s"
 %(gv2)s = internal global %(type)s {uint %(len)i,\
 sbyte* getelementptr ([%(len)i x sbyte]* %(gv1)s, uint 0, uint 0)}"""

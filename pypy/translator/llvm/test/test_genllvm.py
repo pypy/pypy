@@ -124,7 +124,7 @@ class TestFloat(object):
 
     def test_float_f1(self):
         f = compile_function(llvmsnippet.float_f1, [float])
-        assert f(1.0) == 2.0
+        assert f(1.0) == 2.2
 
     def test_float_int_bool(self):
         f = compile_function(llvmsnippet.float_int_bool, [float])
@@ -238,6 +238,12 @@ class TestClass(object):
         f = compile_function(llvmsnippet.merge_classes, [bool])
         assert f(True) == 1
         assert f(False) == 2
+
+    def test_global_instance(self):
+        f = compile_function(llvmsnippet.global_instance, [int])
+        assert f(-1) == 41
+        for i in range(20):
+            assert f(i) == 2 * i
     
 class TestString(object):
     def setup_method(self, method):
