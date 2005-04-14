@@ -3,11 +3,11 @@ Built-in functions.
 """
 
 import types
-import sys, math
+import sys, math, os
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
-from pypy.annotation.model import SomeFloat
+from pypy.annotation.model import SomeFloat, unionof
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.factory import ListFactory
 from pypy.objspace.flow.model import Constant
@@ -112,6 +112,15 @@ def builtin_zip(s_iterable1, s_iterable2):
     factory.generalize(s_tup)
     return factory.create()
 
+def builtin_min(*s_values):
+    if len(s_values) == 1: # xxx do we support this?
+        s_iter = s_values[0].iter()
+        return s_iter.next()
+    else:
+        return unionof(*s_values)
+
+builtin_max = builtin_min
+
 def builtin_apply(*stuff):
     getbookkeeper().warning("ignoring apply%r" % (stuff,))
     return SomeObject()
@@ -164,6 +173,12 @@ def rarith_ovfcheck_lshift(s_obj1, s_obj2):
 def unicodedata_decimal(s_uchr):
     return SomeInteger()
 
+def test(*args):
+    return SomeBool()
+
+def pathpart(*args):
+    return SomeString()
+
 # collect all functions
 import __builtin__
 BUILTIN_ANALYZERS = {}
@@ -187,3 +202,9 @@ BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
 import unicodedata
 BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
 
+# os.path stuff
+BUILTIN_ANALYZERS[os.path.dirname] = pathpart
+BUILTIN_ANALYZERS[os.path.normpath] = pathpart
+BUILTIN_ANALYZERS[os.path.join] = pathpart
+BUILTIN_ANALYZERS[os.path.exists] = test
+BUILTIN_ANALYZERS[os.path.isdir] = test
