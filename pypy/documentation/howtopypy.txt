@@ -322,9 +322,9 @@ You should start looking at the part that attracts you most:
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
 
-*  `dist-pypy/pypy/objspace`_ contains a few other object the "thunk" one
-   the trace_ one, the flow_ one.  The latter is a relatively short piece of 
-   code that builds the control flow graphs when the interpreter runs in it.
+*  `dist-pypy/pypy/objspace`_ contains a few other object spaces: the thunk_
+   one, the trace_ one, the flow_ one.  The latter is a relatively short piece
+   of  code that builds the control flow graphs when the interpreter runs in it.
 
 *  `dist-pypy/pypy/translator`_ contains the code analysis and generation stuff.
    Start reading from translator.py_, from which it should be easy to follow
@@ -366,6 +366,7 @@ To learn more
 .. _Standard object space:  http://codespeak.net/pypy/index.cgi?doc/stdobjspace.html
 .. _objspace.py:            http://codespeak.net/svn/pypy/dist/pypy/objspace/std/objspace.py
 .. _dist-pypy/pypy/objspace:      http://codespeak.net/svn/pypy/dist/pypy/objspace/
+.. _thunk:                  http://codespeak.net/svn/pypy/dist/pypy/objspace/thunk.py
 .. _trace:                  http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
 .. _flow:                   http://codespeak.net/svn/pypy/dist/pypy/objspace/flow/
 .. _dist-pypy/pypy/translator:    http://codespeak.net/svn/pypy/dist/pypy/translator/

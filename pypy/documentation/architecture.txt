@@ -82,8 +82,8 @@ stack and between namespaces.  The (plain) interpreter is completly
 ignorant of how to access, modify or construct objects and their
 structure and thus delegates such operations to a so called "Object Space". 
 
-XXX mention Parser and compiler (we have one available since the Berlin
-sprint but it is not integrated)
+XXX mention Parser and compiler (we have a parser module from the PyCon 2005
+sprint, but it's not used by the rest of the core)
 
 The Interpreter
 ===============
@@ -118,7 +118,7 @@ interpreter-level value.  This is necessary to implement, for example,
 if-statements (or rather, to be pedantic, to implement the
 conditional-branching bytecodes into which if-statements get compiled). 
 
-We currently have three working object spaces which can be plugged into
+We currently have four working object spaces which can be plugged into
 the interpreter:
 
 - The Standard Object Space, which is an almost complete implementation 
@@ -133,7 +133,12 @@ the interpreter:
 
 - the Trace Object Space, which wraps e.g. the standard 
   object space in order to trace the execution of bytecodes, 
-  frames and object space operations. 
+  frames and object space operations.
+
+- the Thunk Object Space, which wraps another object space (e.g. the standard
+  one) and adds two capabilities: lazily computed objects (computed only when
+  an operation is performed on them), and "become", which completely and
+  globally replaces an object with another.
 
 The Standard Object Space
 =========================
