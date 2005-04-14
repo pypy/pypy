@@ -573,6 +573,7 @@ class ApplevelInterpClass(ApplevelClass):
     _setup_done = False
     
     def _setup(cls):
+        """NOT_RPYTHON"""
         import os
         cls.cache_filename = os.path.join(os.path.dirname(__file__),
                                       "_interplevel_cache.py")

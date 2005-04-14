@@ -306,8 +306,10 @@ class CPyObjectType(CType):
                 if isinstance(value, staticmethod) and value.__get__(1) not in self.translator.flowgraphs and self.translator.frozen:
                     print value
                     continue
-                if isinstance(value, classmethod) and value.__get__(cls).__doc__.lstrip().startswith("NOT_RPYTHON"):
-                    continue
+                if isinstance(value, classmethod):
+                    doc = value.__get__(cls).__doc__
+                    if doc and doc.lstrip().startswith("NOT_RPYTHON"):
+                        continue
                 if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
                     print value
                     continue
