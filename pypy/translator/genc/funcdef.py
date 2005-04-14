@@ -125,7 +125,7 @@ class FunctionDef:
             return self.localscope.localname(v.name)
         elif isinstance(v, Constant):
             return self.genc.nameofconst(v,
-                                    debug=('Constant in the graph of', self))
+                               debug=('Constant in the graph of', self.func))
         else:
             raise TypeError, "expr(%r)" % (v,)
 
