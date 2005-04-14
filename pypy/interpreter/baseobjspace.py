@@ -353,7 +353,6 @@ ObjSpace.MethodTable = [
     ('abs' ,            'abs',       1, ['__abs__']),
     ('hex',             'hex',       1, ['__hex__']),
     ('oct',             'oct',       1, ['__oct__']),
-    ('round',           'round',     2, []),
     ('ord',             'ord',       1, []),
     ('invert',          '~',         1, ['__invert__']),
     ('add',             '+',         2, ['__add__', '__radd__']),
@@ -480,6 +479,7 @@ ObjSpace.IrregularOpTable = [
     'is_true',
     'newtuple',
     'newlist',
+    'newstring',
     'newdict',
     'newslice',
     'call_args'

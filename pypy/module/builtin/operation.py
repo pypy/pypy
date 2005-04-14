@@ -3,6 +3,7 @@ Interp-level implementation of the basic space operations.
 """
 
 from pypy.interpreter import gateway
+from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.error import OperationError 
 NoneNotWrapped = gateway.NoneNotWrapped
 
@@ -43,9 +44,6 @@ def oct(space, w_val):
 def hex(space, w_val):
     return space.hex(w_val)
 
-def round(space, w_val, w_n=0):
-    return space.round(w_val, w_n)
-
 def id(space, w_object):
     return space.id(w_object)
 
@@ -68,6 +66,45 @@ def divmod(space, w_x, w_y):
 def _issubtype(space, w_cls1, w_cls2):
     return space.issubtype(w_cls1, w_cls2)
 
+# ____________________________________________________________
+
+def _floor(f):
+    return f - (f % 1.0)
+
+def _ceil(f):
+    if f - (f % 1.0) == f:
+        return f
+    return f + 1.0 - (f % 1.0)
+
+def round(space, number, ndigits=0):
+    """round(number[, ndigits]) -> floating point number
+
+    Round a number to a given precision in decimal digits (default 0 digits).
+    This always returns a floating point number.  Precision may be negative."""
+    # Algortithm copied directly from CPython
+    f = 1.0
+    if ndigits < 0:
+        i = -ndigits
+    else:
+        i = ndigits
+    while i > 0:
+        f = f*10.0
+        i -= 1
+    if ndigits < 0:
+        number /= f
+    else:
+        number *= f
+    if number >= 0.0:
+        number = _floor(number + 0.5)
+    else:
+        number = _ceil(number - 0.5)
+    if ndigits < 0:
+        number *= f
+    else:
+        number /= f
+    return space.wrap(number)
+#
+round.unwrap_spec = [ObjSpace, float, int]
 
 # ____________________________________________________________
 

@@ -123,7 +123,6 @@ Table = [
     ('abs' ,            abs),
     ('hex',             hex),
     ('oct',             oct),
-    ('round',           round),
     ('ord',             ord),
     ('divmod',          divmod),
     ('pow',             pow),

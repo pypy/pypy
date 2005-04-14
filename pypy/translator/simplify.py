@@ -117,7 +117,7 @@ CanRemove = {}
 for _op in '''
         newtuple newlist newdict newslice is_true
         is_ id type issubtype repr str len hash getattr getitem
-        pos neg nonzero abs hex oct round ord invert add sub mul
+        pos neg nonzero abs hex oct ord invert add sub mul
         truediv floordiv div mod divmod pow lshift rshift and_ or_
         xor int float long lt le eq ne gt ge cmp coerce contains
         iter get '''.split():
