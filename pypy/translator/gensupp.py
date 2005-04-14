@@ -151,6 +151,8 @@ class _LocalScope(object):
             basename = name[:scorepos]
             if wrapped:
                 basename = "w_" + basename
+            else:
+                basename = "l_" + basename
         else:
             basename = name
         ret = self.uniquename(basename)
