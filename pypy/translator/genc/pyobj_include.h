@@ -51,6 +51,20 @@
 #define OP_OR_(x,y,r,err)         if (!(r=PyNumber_Or(x,y)))         FAIL(err)
 #define OP_XOR(x,y,r,err)         if (!(r=PyNumber_Xor(x,y)))        FAIL(err)
 
+#define OP_STR(x,r,err)           if (!(r=PyObject_Str(x)))          FAIL(err)
+#define OP_ORD(s,r,err) { \
+        char *__c = PyString_AsString(s); \
+        int __len; \
+        if ( !__c && (__len = PyString_GET_SIZE(s)) != 1) { \
+            PyErr_Format(PyExc_TypeError, \
+                  "ord() expected a character, but string of length %d found", \
+                  __len); \
+            FAIL(err) \
+        } \
+        if (!__c || !(r = PyInt_FromLong((unsigned char)(__c[0])))) \
+            FAIL(err) \
+    }
+
 #define OP_INPLACE_ADD(x,y,r,err) if (!(r=PyNumber_InPlaceAdd(x,y)))           \
 								     FAIL(err)
 #define OP_INPLACE_SUB(x,y,r,err) if (!(r=PyNumber_InPlaceSubtract(x,y)))      \
