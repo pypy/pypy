@@ -15,8 +15,9 @@ basically two types of unit tests:
 
 Both types of tests need an objectspace they can run with (the interpreter
 dispatches operations on objects to an objectspace).  If you run a test you
-can usually give the '-o' switch to select an object space.  E.g. '-o trivial' 
-will select the trivial object space. The default is the "Standard Object Space". 
+can usually give the '-o' switch to select an object space.  E.g. '-o thunk' 
+will select the thunk object space. The default is the "Standard Object Space" 
+which aims to implement unmodified Python semantics. 
 
 .. _`py.test`: http://codespeak.net/py/current/doc/test.html 
 
@@ -32,13 +33,4 @@ You can run almost all of PyPy's tests by invoking::
 
   python test_all.py
 
-which will run all tests against the Standard Object Space. If you want
-to test against the TrivialObjectSpace then issue::
-
-  python test_all.py -o trivial 
-
-For more switches invoke "python test_all.py -h".
-
-This used to be reversed -- the TrivialObjectSpace was the default, and
-you had to specify the StandardObjectSpace.  You may find some documentation
-that has not been changed to reflect the new reality.
+For switches to modify test execution invoke "python test_all.py -h".

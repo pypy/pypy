@@ -118,13 +118,8 @@ interpreter-level value.  This is necessary to implement, for example,
 if-statements (or rather, to be pedantic, to implement the
 conditional-branching bytecodes into which if-statements get compiled). 
 
-We currently have four working object spaces which can be plugged into
+We currently have three working object spaces which can be plugged into
 the interpreter:
-
-- The Trivial Object Space, which basically delegates almost all
-  operations to the underlying CPython interpreter. It was, and still
-  is, used to test our interpreter. Alhough it is not essential, it
-  remains useful for testing, and thus it is here to stay.
 
 - The Standard Object Space, which is an almost complete implementation 
   of the various Python objects. This is the main focus of this
@@ -136,9 +131,9 @@ the interpreter:
   transformation task through "abstract interpretation", which we will
   explain later in this document.
 
-- the Trace Object Space, which wraps either the trivial or the standard
-  object space in order to trace the execution of bytecodes, frames and
-  object space operations. 
+- the Trace Object Space, which wraps e.g. the standard 
+  object space in order to trace the execution of bytecodes, 
+  frames and object space operations. 
 
 The Standard Object Space
 =========================
@@ -332,8 +327,8 @@ though type annotation is not complete.
 Trace Object Space 
 ==================
 
-A recent addition is the Trace Object space, which wraps a standard or
-trivial object space in order to trace all object space operations,
+A recent addition is the Trace Object space, which wraps a standard  
+object space in order to trace all object space operations,
 frame creation, deletion and bytecode execution.  The ease with which
 the Trace Object Space was implemented at the Amsterdam Sprint
 underlines the power of the Object Space abstraction.  (Of course, the

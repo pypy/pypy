@@ -38,7 +38,6 @@ Object Spaces
 
 - objectspace classes are always spelled "ObjSpace". e.g.
 
-  - TrivialObjSpace
   - StdObjSpace
   - FlowObjSpace
 

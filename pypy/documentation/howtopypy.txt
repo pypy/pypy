@@ -322,10 +322,9 @@ You should start looking at the part that attracts you most:
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
 
-*  `dist-pypy/pypy/objspace`_ contains a few other object spaces: the trivial one
-   (but let's forget about it), the trace_ one, the flow_ one.  The latter
-   is a relatively short piece of code that builds the control flow graphs
-   when the interpreter runs in it.
+*  `dist-pypy/pypy/objspace`_ contains a few other object the "thunk" one
+   the trace_ one, the flow_ one.  The latter is a relatively short piece of 
+   code that builds the control flow graphs when the interpreter runs in it.
 
 *  `dist-pypy/pypy/translator`_ contains the code analysis and generation stuff.
    Start reading from translator.py_, from which it should be easy to follow

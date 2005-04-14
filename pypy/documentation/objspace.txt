@@ -15,9 +15,8 @@ The main loop generally assumes little about the semantics of the objects: they 
 
 In PyPy, the three parts are clearly separated and can be replaced independently. I will discuss below the reasons I think it is very useful to have, in particular, the object library be replaced. We call object space such an object library. The standard object space is the object space that works just like Python's, that is, the object space whose black boxes are real Python objects that work as expected. We will call wrapped objects the black boxes of an object space. 
 
-Here are four examples of object spaces:
+Here are three examples of object spaces:
 
-- TrivialObjectSpace_
 - StandardObjectSpace_
 - AbstractObjectSpace_
 - AnnotateObjectSpace_
@@ -33,7 +32,6 @@ I believe that the above examples should give a hint at why we might really want
 ------------
 
 .. _ObjectSpaceInterface: objspaceinterface.html
-.. _TrivialObjectSpace: trivialobjspace.html
 .. _StandardObjectSpace: stdobjspace.html
 .. _AbstractObjectSpace: abstractobjspace.html
 .. _AnnotateObjectSpace: annotateobjspace.html
