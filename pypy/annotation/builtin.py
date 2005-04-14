@@ -22,6 +22,8 @@ def builtin_range(*args):
     factory.generalize(SomeInteger())  # XXX nonneg=...
     return factory.create()
 
+builtin_xrange = builtin_range # xxx for now allow it
+
 def builtin_int(s_obj):
     return SomeInteger()
 
