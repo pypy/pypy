@@ -40,6 +40,9 @@ class W_LongObject(W_Object):
         return w_self.longval()
 
     def _normalize(self):
+        if len(self.digits) == 0:
+            self.sign = 0
+            return
         i = len(self.digits) - 1
         while i != 0 and self.digits[i] == 0:
             self.digits.pop(-1)
@@ -525,7 +528,7 @@ def _x_sub(a, b, space):
         while i > 0 and a.digits[i] == b.digits[i]:
             i -= 1
         if (i == -1):
-            return W_LongObject(space)
+            return W_LongObject(space, [])
         if a.digits[i] < b.digits[i]:
             sign = -1
             a, b = b, a
