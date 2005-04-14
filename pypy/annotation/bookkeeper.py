@@ -7,7 +7,7 @@ from types import BuiltinMethodType
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef
-from pypy.interpreter.miscutils import getthreadlocals
+from pypy.tool.tls import tlsobject
 from pypy.tool.hack import func_with_new_name
 from pypy.interpreter.pycode import CO_VARARGS
 from pypy.interpreter.pycode import cpython_code_signature
@@ -27,6 +27,9 @@ class PBCAccessSet:
         self.objects.update(other.objects)
         self.read_locations.update(other.read_locations)        
         self.attrs.update(other.attrs)
+
+
+TLS = tlsobject()
 
 
 class Bookkeeper:
@@ -61,11 +64,11 @@ class Bookkeeper:
         """Start of an operation.
         The operation is uniquely identified by the given key."""
         self.position_key = position_key
-        getthreadlocals().bookkeeper = self
+        TLS.bookkeeper = self
 
     def leave(self):
         """End of an operation."""
-        del getthreadlocals().bookkeeper
+        del TLS.bookkeeper
         del self.position_key
 
     def getfactory(self, factorycls):
@@ -393,7 +396,7 @@ def getbookkeeper():
     """Get the current Bookkeeper.
     Only works during the analysis of an operation."""
     try:
-        return getthreadlocals().bookkeeper
+        return TLS.bookkeeper
     except AttributeError:
         return None
 

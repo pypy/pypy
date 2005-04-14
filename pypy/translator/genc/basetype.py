@@ -1,6 +1,5 @@
 import os
 from pypy.objspace.flow.model import SpaceOperation
-from pypy.interpreter.miscutils import getthreadlocals
 
 
 class CType(object):
@@ -13,7 +12,8 @@ class CType(object):
 
     def genc():
         """A hack to get at the currently running GenC instance."""
-        return getthreadlocals().genc
+        from pypy.translator.genc.genc import TLS
+        return TLS.genc
     genc = staticmethod(genc)
 
     def init_globals(self, genc):

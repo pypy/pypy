@@ -5,7 +5,7 @@ Generate a C source file from the flowmodel.
 import autopath, os
 from pypy.objspace.flow.model import Variable, Constant
 
-from pypy.interpreter.miscutils import getthreadlocals
+from pypy.tool.tls import tlsobject
 from pypy.translator.gensupp import uniquemodulename
 
 from pypy.translator.genc.funcdef import FunctionDef, USE_CALL_TRACE
@@ -13,10 +13,8 @@ from pypy.translator.genc.pyobjtype import CPyObjectType
 
 # ____________________________________________________________
 
-#def go_figure_out_this_name(source):
-#    # ahem
-#    return 'PyRun_String("%s", Py_eval_input, PyEval_GetGlobals(), NULL)' % (
-#        source, )
+TLS = tlsobject()   # to store the genc instance temporarily
+
 
 class GenC:
     MODNAMES = {}
@@ -35,12 +33,12 @@ class GenC:
         self.ctypes_alreadyseen = {}
         self.namespace = self.pyobjtype.namespace
 
-        assert not hasattr(getthreadlocals(), 'genc')
-        getthreadlocals().genc = self
+        assert not hasattr(TLS, 'genc')
+        TLS.genc = self
         try:
             self.gen_source()
         finally:
-            del getthreadlocals().genc
+            del TLS.genc
 
     def nameofconst(self, c, debug=None):
         try:
