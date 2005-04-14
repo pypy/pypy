@@ -24,6 +24,7 @@
 #define OP_IS_(x,y,r,err) op_bool(r,err,(x == y))
 
 #define OP_IS_TRUE(x,r,err) op_bool(r,err,PyObject_IsTrue(x))
+#define OP_NONZERO(x,r,err) op_bool(r,err,PyObject_IsTrue(x))
 
 #define OP_LEN(x,r,err) { \
 		int _retval = PyObject_Size(x); \
@@ -44,6 +45,7 @@
 #define OP_FLOORDIV(x,y,r,err)    if (!(r=PyNumber_FloorDivide(x,y)))FAIL(err)
 #define OP_DIV(x,y,r,err)         if (!(r=PyNumber_Divide(x,y)))     FAIL(err)
 #define OP_MOD(x,y,r,err)         if (!(r=PyNumber_Remainder(x,y)))  FAIL(err)
+#define OP_DIVMOD(x,y,r,err)      if (!(r=PyNumber_Divmod(x,y)))     FAIL(err)
 #define OP_POW(x,y,z,r,err)       if (!(r=PyNumber_Power(x,y,z)))    FAIL(err)
 #define OP_LSHIFT(x,y,r,err)      if (!(r=PyNumber_Lshift(x,y)))     FAIL(err)
 #define OP_RSHIFT(x,y,r,err)      if (!(r=PyNumber_Rshift(x,y)))     FAIL(err)
@@ -121,6 +123,7 @@
 	}
 
 #define OP_STR(x,r,err)           if (!(r=PyObject_Str(x)))          FAIL(err)
+#define OP_REPR(x,r,err)          if (!(r=PyObject_Repr(x)))         FAIL(err)
 #define OP_ORD(s,r,err) { \
 	char *__c = PyString_AsString(s); \
 	int __len; \
@@ -134,6 +137,51 @@
 	if (!(r = PyInt_FromLong((unsigned char)(__c[0])))) \
 	    FAIL(err) \
     }
+#define OP_ID(x,r,err)    if (!(r=PyLong_FromVoidPtr(x))) FAIL(err)
+#define OP_HASH(x,r,err)  { \
+	long __hash = PyObject_Hash(x); \
+	if (__hash == -1 && PyErr_Occurred()) FAIL(err) \
+	if (!(r = PyInt_FromLong(__hash))) FAIL(err) \
+    }
+
+#define OP_HEX(x,r,err)   { \
+	PyNumberMethods *__nb; \
+	if ((__nb = x->ob_type->tp_as_number) == NULL || \
+	    __nb->nb_hex == NULL) { \
+		PyErr_SetString(PyExc_TypeError, \
+			   "hex() argument can't be converted to hex"); \
+		FAIL(err) \
+	} \
+	if (!(r = (*__nb->nb_hex)(x))) FAIL(err) \
+    }
+#define OP_OCT(x,r,err)   { \
+	PyNumberMethods *__nb; \
+	if ((__nb = x->ob_type->tp_as_number) == NULL || \
+	    __nb->nb_oct == NULL) { \
+		PyErr_SetString(PyExc_TypeError, \
+			   "oct() argument can't be converted to oct"); \
+		FAIL(err) \
+	} \
+	if (!(r = (*__nb->nb_oct)(x))) FAIL(err) \
+    }
+
+#define OP_INT(x,r,err)   { \
+	long __val = PyInt_AsLong(x); \
+	if (__val == -1 && PyErr_Occurred()) FAIL(err) \
+	if (!(r = PyInt_FromLong(__val))) FAIL (err) \
+    }
+#define OP_FLOAT(x,r,err)   { \
+	double __val = PyFloat_AsDouble(x); \
+	if (PyErr_Occurred()) FAIL(err) \
+	if (!(r = PyFloat_FromDouble(__val))) FAIL (err) \
+    }
+
+#define OP_CMP(x,y,r,err)   { \
+	int __val = PyObject_Compare(x, y); \
+	if (PyErr_Occurred()) FAIL(err) \
+	if (!(r = PyInt_FromLong(__val))) FAIL (err) \
+    }
+
 
 #define OP_SIMPLE_CALL(args,r,err) if (!(r=PyObject_CallFunctionObjArgs args)) \
 					FAIL(err)
@@ -152,7 +200,7 @@
 
 /* Needs to act like instance(x,y) */
 #define OP_ISSUBTYPE(x,y,r,err)  \
-		op_bool(r,err,PyClass_IsSubclass(x, y))
+		op_bool(r,err,PyObject_IsSubclass(x, y))
 
 
 /*** operations with a variable number of arguments ***/
