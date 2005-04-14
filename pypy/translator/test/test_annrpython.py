@@ -782,7 +782,30 @@ class TestAnnonateTestCase:
         a = RPythonAnnotator()
         s = a.build_types(g, [])
         assert s.const == True
-        
+
+    def test_alloc_like(self):
+        class C1(object):
+            pass
+        class C2(object):
+            pass
+
+        def inst(cls):
+            return cls()
+
+        def alloc(cls):
+            i = inst(cls)
+            assert isinstance(i, cls)
+            return i
+        alloc._specialize_ = "location"
+
+        def f():
+            c1 = alloc(C1)
+            c2 = alloc(C2)
+            return c1,c2
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.items[0].knowntype == C1
+        assert s.items[1].knowntype == C2
 
 
 def g(n):

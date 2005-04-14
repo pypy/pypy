@@ -197,9 +197,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return w_result
         # anything below this line is implicitly XXX'ed
         if isinstance(x, type(Exception)) and issubclass(x, Exception):
-            if hasattr(self, 'w_' + x.__name__):
-                w_result = getattr(self, 'w_' + x.__name__)
-                assert isinstance(w_result, W_TypeObject)
+            w_result = self.wrap_exception_cls(x)
+            if w_result is not None:
                 return w_result
         from fake import fake_type
         if isinstance(x, type):
@@ -209,6 +208,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return ft(self, x)
     wrap._specialize_ = "argtypes"
 
+    def wrap_exception_cls(x):
+        """NOT_RPYTHON"""
+        if hasattr(self, 'w_' + x.__name__):
+            w_result = getattr(self, 'w_' + x.__name__)            
+            return w_result
+        return None
+        
     def unwrap(self, w_obj):
         if isinstance(w_obj, BaseWrappable):
             return w_obj
@@ -262,13 +268,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
         user-defined type, without actually __init__ializing the instance."""
         w_type = self.gettypeobject(cls.typedef)
         if self.is_true(self.is_(w_type, w_subtype)):
-            return instantiate(cls)
+            instance =  instantiate(cls)
         else:
             w_type.check_user_subclass(w_subtype)
             subcls = get_unique_interplevel_subclass(cls, w_subtype.hasdict, w_subtype.nslots != 0)
             instance = instantiate(subcls)
             instance.user_setup(self, w_subtype, w_subtype.nslots)
-            return instance
+        assert isinstance(instance, cls)
+        return instance
+    allocate_instance._specialize_ = "location"
+            
 
     def unpacktuple(self, w_tuple, expected_length=None):
         assert isinstance(w_tuple, W_TupleObject)
