@@ -161,6 +161,8 @@ def rarith_ovfcheck_lshift(s_obj1, s_obj2):
         getbookkeeper().warning("ovfcheck_lshift with unsigned")
     return SomeInteger()
 
+def unicodedata_decimal(s_uchr):
+    return SomeInteger()
 
 # collect all functions
 import __builtin__
@@ -182,4 +184,6 @@ BUILTIN_ANALYZERS[math.floor] = math_floor
 
 BUILTIN_ANALYZERS[sys.getrefcount] = count
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf
+import unicodedata
+BUILTIN_ANALYZERS[unicodedata.decimal] = unicodedata_decimal # xxx
 
