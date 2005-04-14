@@ -20,8 +20,8 @@ def instantiate(cls):
     clsdef = getbookkeeper().getclassdef(itypedef.W_Root)
     return annmodel.SomeInstance(clsdef)
 
-def wrap_exception_cls(x):
-    import pypy.std.objspace.std.typeobject as typeobject
+def wrap_exception_cls(space, x):
+    import pypy.objspace.std.typeobject as typeobject
     clsdef = getbookkeeper().getclassdef(typeobject.W_TypeObject)
     return annmodel.SomeInstance(clsdef, can_be_None=True)
 

@@ -22,7 +22,7 @@ class Module(Wrappable):
 
     def descr_module__new__(space, w_subtype, __args__):
         module = space.allocate_instance(Module, w_subtype)
-        module.__init__(space, space.wrap('?'))
+        Module.__init__(module, space, space.wrap('?'))
         return space.wrap(module)
 
     def descr_module__init__(self, w_name, w_doc=None):

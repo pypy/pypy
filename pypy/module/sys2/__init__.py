@@ -3,7 +3,8 @@ from pypy.interpreter.error import OperationError
 
 class Module(LazyModule):
     """Sys Builtin Module. """
-    def __init__(self, space, w_name): 
+    def __init__(self, space, w_name):
+        """NOT_RPYTHON""" # because parent __init__ isn't
         super(Module, self).__init__(space, w_name) 
         self.checkinterval = 100
         self.recursionlimit = 100
