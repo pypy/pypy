@@ -147,6 +147,20 @@ def _is_generic(w_self, fun):
                 return space.w_False
         return space.w_True
 
+def _upper(ch):
+    if _islower(ch):
+        o = ord(ch) - 32
+        return chr(o)
+    else:
+        return ch
+    
+def _lower(ch):
+    if _isupper(ch):
+        o = ord(ch) + 32
+        return chr(o)
+    else:
+        return ch
+
 def str_isspace__String(space, w_self):
     return _is_generic(w_self, _isspace)
 
@@ -171,9 +185,9 @@ def str_istitle__String(space, w_self):
 
     for pos in range(0, len(input)):
         ch = input[pos]
-        if ch.isalpha():
-            if (prev_letter.isalpha() and ch.isupper()) or \
-               (not prev_letter.isalpha() and  ch.islower()):
+        if _isalpha(ch):
+            if (_isalpha(prev_letter) and _isupper(ch)) or \
+               (not _isalpha(prev_letter) and  _islower(ch)):
                     return space.w_False
         prev_letter = ch
 
@@ -184,11 +198,7 @@ def str_upper__String(space, w_self):
     res = [' '] * len(self)
     for i in range(len(self)):
         ch = self[i]
-        if _islower(ch):
-            o = ord(ch) - 32
-            res[i] = chr(o)
-        else:
-            res[i] = ch
+        res[i] = _upper(ch)
 
     return space.wrap("".join(res))
 
@@ -197,11 +207,7 @@ def str_lower__String(space, w_self):
     res = [' '] * len(self)
     for i in range(len(self)):
         ch = self[i]
-        if _isupper(ch):
-            o = ord(ch) + 32
-            res[i] = chr(o)
-        else:
-            res[i] = ch
+        res[i] = _lower(ch)
 
     return space.wrap("".join(res))
 
@@ -250,10 +256,10 @@ def str_title__String(space, w_self):
 
     for pos in range(0, len(input)):
         ch = input[pos]
-        if not prev_letter.isalpha():
-            buffer[pos] = ch.upper()
+        if not _isalpha(prev_letter):
+            buffer[pos] = _upper(ch)
         else:
-             buffer[pos] = ch.lower()
+            buffer[pos] = _lower(ch)
 
         prev_letter = buffer[pos]
 
@@ -267,7 +273,7 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     pos = 0
 
     for ch in value:
-        if ch.isspace():
+        if _isspace(ch):
             if inword:
                 inword = 0
         else:
@@ -566,11 +572,11 @@ def _strip_none(space, w_self, left, right):
     
     if left:
         #print "while %d < %d and -%s- in -%s-:"%(lpos, rpos, u_self[lpos],w_chars)
-        while lpos < rpos and u_self[lpos].isspace():
+        while lpos < rpos and _isspace(u_self[lpos]):
            lpos += 1
        
     if right:
-        while rpos > lpos and u_self[rpos - 1].isspace():
+        while rpos > lpos and _isspace(u_self[rpos - 1]):
            rpos -= 1
        
     return space.wrap(u_self[lpos:rpos])
