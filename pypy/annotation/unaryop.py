@@ -225,7 +225,6 @@ class __extend__(SomeDict):
         return factory.create()
         
 
-        
 class __extend__(SomeString):
 
     def method_join(str, s_list):
@@ -236,6 +235,11 @@ class __extend__(SomeString):
 
     def ord(str):
         return SomeInteger(nonneg=True)
+
+    def method_split(str, patt): # XXX
+        factory = getbookkeeper().getfactory(ListFactory)
+        factory.generalize(SomeString())
+        return factory.create()    
 
 
 class __extend__(SomeChar):
