@@ -130,10 +130,8 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         bk = getbookkeeper()
         if bk is not None: # for testing
             if hasattr(obj1,'is_type_of') and obj2.is_constant():
-                if obj2.const != list: # in  list case we are most likely bound to lose info
-                                       # we would also generate a factory-less list, not good either
-                    r.knowntypedata = (obj1.is_type_of, bk.valueoftype(obj2.const))
-                    return r
+                r.knowntypedata = (obj1.is_type_of, bk.valueoftype(obj2.const))
+                return r
             fn, block, i = bk.position_key
             annotator = bk.annotator
             op = block.operations[i]
@@ -226,8 +224,7 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
 class __extend__(pairtype(SomeList, SomeList)):
 
     def union((lst1, lst2)):
-        lst1.listdef.merge(lst2.listdef)
-        return lst1
+        return SomeList(lst1.listdef.union(lst2.listdef))
 
     add = union
 
@@ -259,8 +256,7 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 class __extend__(pairtype(SomeDict, SomeDict)):
 
     def union((dic1, dic2)):
-        dic1.dictdef.merge(dic2.dictdef)
-        return dic1
+        return SomeDict(dic1.dictdef.union(dic2.dictdef))
 
 
 class __extend__(pairtype(SomeDict, SomeObject)):

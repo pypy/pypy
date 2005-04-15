@@ -1,7 +1,7 @@
 
 import autopath
 from pypy.annotation.model import *
-from pypy.annotation.listdef import ListDef
+from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 
 
 listdef1 = ListDef(None, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
@@ -90,6 +90,16 @@ def test_list_union():
     assert s1 != s2
     s3 = unionof(s1, s2)
     assert s1 == s2 == s3
+
+def test_list_contains():
+    listdef1 = ListDef(None, SomeInteger(nonneg=True))
+    s1 = SomeList(listdef1)
+    s2 = SomeList(MOST_GENERAL_LISTDEF)
+    assert s1 != s2
+    assert s2.contains(s1)
+    assert s1 != s2
+    assert not s1.contains(s2)
+    assert s1 != s2
 
 if __name__ == '__main__':
     for name, value in globals().items():

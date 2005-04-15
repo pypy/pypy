@@ -51,9 +51,14 @@ class DictDef:
         return (self.dictkey is other.dictkey and
                 self.dictvalue is other.dictvalue)
 
-    def merge(self, other):
-        self.dictkey.merge(other.dictkey)
-        self.dictvalue.merge(other.dictvalue)
+    def union(self, other):
+        if (self.same_as(MOST_GENERAL_DICTDEF) or
+            other.same_as(MOST_GENERAL_DICTDEF)):
+            return MOST_GENERAL_DICTDEF   # without merging
+        else:
+            self.dictkey.merge(other.dictkey)
+            self.dictvalue.merge(other.dictvalue)
+            return self
 
     def generalize_key(self, s_key):
         self.dictkey.generalize(s_key)

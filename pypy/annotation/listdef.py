@@ -52,8 +52,13 @@ class ListDef:
     def same_as(self, other):
         return self.listitem is other.listitem
 
-    def merge(self, other):
-        self.listitem.merge(other.listitem)
+    def union(self, other):
+        if (self.same_as(MOST_GENERAL_LISTDEF) or
+            other.same_as(MOST_GENERAL_LISTDEF)):
+            return MOST_GENERAL_LISTDEF   # without merging
+        else:
+            self.listitem.merge(other.listitem)
+            return self
 
     def generalize(self, s_value):
         self.listitem.generalize(s_value)

@@ -204,7 +204,7 @@ class RPythonAnnotator:
             self.binding_caused_by[arg] = called_from
 
 
-    #___ interface for annotator.factory _______
+    #___ interface for annotator.bookkeeper _______
 
     def recursivecall(self, func, position_key, inputcells):
         override = self.overrides.get(func, None)

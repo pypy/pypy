@@ -84,9 +84,7 @@ def builtin_isinstance(s_obj, s_type, variables=None):
             variables = [op.args[1]]
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
-        if typ != list: # in the list case we are most likely bound to lose info,
-                        # we would also generate a factory-less list, not good either
-            r.knowntypedata = (variables, bk.valueoftype(typ))
+        r.knowntypedata = (variables, bk.valueoftype(typ))
     return r
 
 def builtin_hasattr(s_obj, s_attr):
