@@ -11,7 +11,7 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeFloat
 from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.factory import BlockedInference, generalize, ListFactory
+from pypy.annotation.factory import generalize
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
 from pypy.annotation import builtin
@@ -194,10 +194,10 @@ class __extend__(SomeList):
         pair(lst, SomeInteger()).setitem(s_value)
         
     def method_pop(lst, s_index=None):
-        return lst.s_item
+        return lst.listdef.read_item()
 
     def iter(lst):
-        return SomeIterator(lst.s_item)
+        return SomeIterator(lst.listdef.read_item())
 
 class __extend__(SomeDict):
     def iter(dct):
@@ -210,19 +210,13 @@ class __extend__(SomeDict):
         generalize(dct1.factories, dct2.s_key, dct2.s_value)
 
     def method_keys(dct):
-        factory = getbookkeeper().getfactory(ListFactory)
-        factory.generalize(dct.s_key)
-        return factory.create()
+        return getbookkeeper().newlist(dct.s_key)
 
     def method_values(dct):
-        factory = getbookkeeper().getfactory(ListFactory)
-        factory.generalize(dct.s_value)
-        return factory.create()
+        return getbookkeeper().newlist(dct.s_value)
 
     def method_items(dct):
-        factory = getbookkeeper().getfactory(ListFactory)
-        factory.generalize(SomeTuple((dct.s_key, dct.s_value)))
-        return factory.create()
+        return getbookkeeper().newlist(SomeTuple((dct.s_key, dct.s_value)))
         
 
 class __extend__(SomeString):
@@ -237,9 +231,7 @@ class __extend__(SomeString):
         return SomeInteger(nonneg=True)
 
     def method_split(str, patt): # XXX
-        factory = getbookkeeper().getfactory(ListFactory)
-        factory.generalize(SomeString())
-        return factory.create()    
+        return getbookkeeper().newlist(SomeString())
 
 
 class __extend__(SomeChar):

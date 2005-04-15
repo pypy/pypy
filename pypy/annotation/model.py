@@ -131,9 +131,12 @@ class SomeChar(SomeString):
 class SomeList(SomeObject):
     "Stands for a homogenous list of any length."
     knowntype = list
-    def __init__(self, factories, s_item=SomeObject()):
-        self.factories = factories
-        self.s_item = s_item     # general enough for any element
+    def __init__(self, listdef):
+        assert hasattr(listdef, 'listitem')   # XXX remove me
+        self.listdef = listdef
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self.listdef.same_as(other.listdef))
 
 
 class SomeSlice(SomeObject):

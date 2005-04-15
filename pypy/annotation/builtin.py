@@ -9,7 +9,6 @@ from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeFloat, unionof
 from pypy.annotation.bookkeeper import getbookkeeper
-from pypy.annotation.factory import ListFactory
 from pypy.objspace.flow.model import Constant
 import pypy.tool.rarithmetic
 
@@ -18,9 +17,7 @@ def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
 
 def builtin_range(*args):
-    factory = getbookkeeper().getfactory(ListFactory)
-    factory.generalize(SomeInteger())  # XXX nonneg=...
-    return factory.create()
+    return getbookkeeper().newlist(SomeInteger())  # XXX nonneg=...
 
 builtin_xrange = builtin_range # xxx for now allow it
 
@@ -107,18 +104,14 @@ def builtin_tuple(s_iterable):
     return SomeObject()
 
 def builtin_list(s_iterable):
-    factory = getbookkeeper().getfactory(ListFactory)
     s_iter = s_iterable.iter()
-    factory.generalize(s_iter.next())
-    return factory.create()
+    return getbookkeeper().newlist(s_iter.next())
 
 def builtin_zip(s_iterable1, s_iterable2):
-    factory = getbookkeeper().getfactory(ListFactory)
     s_iter1 = s_iterable1.iter()
     s_iter2 = s_iterable2.iter()
     s_tup = SomeTuple((s_iter1.next(),s_iter2.next()))
-    factory.generalize(s_tup)
-    return factory.create()
+    return getbookkeeper().newlist(s_tup)
 
 def builtin_min(*s_values):
     if len(s_values) == 1: # xxx do we support this?

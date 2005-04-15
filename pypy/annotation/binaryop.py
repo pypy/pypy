@@ -227,8 +227,8 @@ class __extend__(pairtype(SomeFloat, SomeFloat)):
 class __extend__(pairtype(SomeList, SomeList)):
 
     def union((lst1, lst2)):
-        return SomeList(setunion(lst1.factories, lst2.factories),
-                        s_item = unionof(lst1.s_item, lst2.s_item))
+        lst1.listdef.merge(lst2.listdef)
+        return lst1
 
     add = union
 
@@ -300,16 +300,16 @@ class __extend__(pairtype(SomeList, SomeInteger)):
         return lst1
 
     def getitem((lst1, int2)):
-        return lst1.s_item
+        return lst1.listdef.read_item()
 
     def setitem((lst1, int2), s_value):
-        generalize(lst1.factories, s_value)
+        lst1.listdef.generalize(s_value)
 
 
 class __extend__(pairtype(SomeList, SomeSlice)):
 
     def getitem((lst, slic)):
-        return SomeList(lst.factories, lst.s_item)
+        return lst
 
 
 class __extend__(pairtype(SomeString, SomeSlice)):

@@ -11,47 +11,23 @@ from pypy.annotation.model import SomeImpossibleValue, unionof
 from pypy.annotation.bookkeeper import getbookkeeper
 
 
-class BlockedInference(Exception):
-    """This exception signals the type inference engine that the situation
-    is currently blocked, and that it should try to progress elsewhere."""
-
-    def __init__(self, info=None):
-        try:
-            self.annotator = getbookkeeper().annotator
-            self.break_at = getbookkeeper().position_key
-        except AttributeError:
-            self.break_at = None
-        self.info = info
-
-    def __repr__(self):
-        if self.info:
-            info = "[%s]" % self.info
-        else:
-            info = ""
-        if not self.break_at:
-            break_at = "?"
-        else:
-            break_at = self.annotator.whereami(self.break_at)
-        return "<BlockedInference break_at %s %s>" %(break_at, info)
-
-    __str__ = __repr__
 
 
-class ListFactory:
-    s_item = SomeImpossibleValue()
+##class ListFactory:
+##    s_item = SomeImpossibleValue()
 
-    def __repr__(self):
-        return '%s(s_item=%r)' % (self.__class__.__name__, self.s_item)
+##    def __repr__(self):
+##        return '%s(s_item=%r)' % (self.__class__.__name__, self.s_item)
 
-    def create(self):
-        return SomeList(factories = {self: True}, s_item = self.s_item)
+##    def create(self):
+##        return SomeList(factories = {self: True}, s_item = self.s_item)
 
-    def generalize(self, s_new_item):
-        if not self.s_item.contains(s_new_item):
-            self.s_item = unionof(self.s_item, s_new_item)
-            return True
-        else:
-            return False
+##    def generalize(self, s_new_item):
+##        if not self.s_item.contains(s_new_item):
+##            self.s_item = unionof(self.s_item, s_new_item)
+##            return True
+##        else:
+##            return False
 
 
 class DictFactory:
@@ -85,4 +61,4 @@ def generalize(factories, *args):
     if modified:
         for factory in modified:
             factory.bookkeeper.annotator.reflowfromposition(factory.position_key)
-        raise BlockedInference   # reflow now
+        ##raise BlockedInference   # reflow now

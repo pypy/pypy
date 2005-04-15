@@ -5,10 +5,19 @@ from pypy.tool.udir import udir
 
 from pypy.translator.annrpython import RPythonAnnotator, annmodel
 from pypy.translator.translator import Translator
+from pypy.annotation.listdef import ListDef
 from pypy.objspace.flow.model import *
 from pypy.tool.rarithmetic import r_uint
 
 from pypy.translator.test import snippet
+
+def listitem(s_list):
+    assert isinstance(s_list, annmodel.SomeList)
+    return s_list.listdef.listitem.s_value
+
+def somelist(s_type=annmodel.SomeObject()):
+    return annmodel.SomeList(ListDef(None, s_type))
+
 
 class TestAnnonateTestCase:
     objspacename = 'flow'
@@ -119,8 +128,7 @@ class TestAnnonateTestCase:
         a = RPythonAnnotator()
         end_cell = a.build_types(snippet.poor_man_rev_range, [int])
         # result should be a list of integers
-        assert end_cell.knowntype == list
-        assert end_cell.s_item.knowntype == int
+        assert listitem(end_cell).knowntype == int
 
     def test_factorial(self):
         a = RPythonAnnotator()
@@ -174,8 +182,7 @@ class TestAnnonateTestCase:
         a = RPythonAnnotator()
         s = a.build_types(snippet.poor_man_range, [int])
         # result should be a list of integers
-        assert s.knowntype == list
-        assert s.s_item.knowntype == int
+        assert listitem(s).knowntype == int
 
     def test_methodcall1(self):
         a = RPythonAnnotator()
@@ -247,15 +254,13 @@ class TestAnnonateTestCase:
         a = RPythonAnnotator()
         s = a.build_types(snippet.call_five, [])
         # returns should be a list of constants (= 5)
-        assert isinstance(s, annmodel.SomeList)
-        assert s.s_item == a.bookkeeper.immutablevalue(5)
+        assert listitem(s) == a.bookkeeper.immutablevalue(5)
 
     def test_call_five_six(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.call_five_six, [])
         # returns should be a list of positive integers
-        assert isinstance(s, annmodel.SomeList)
-        assert s.s_item == annmodel.SomeInteger(nonneg=True)
+        assert listitem(s) == annmodel.SomeInteger(nonneg=True)
 
     def test_constant_result(self):
         a = RPythonAnnotator()
@@ -370,11 +375,11 @@ class TestAnnonateTestCase:
         # the annotator (it doesn't check that they operate property, though)
         for example, methname, s_example in [
             ('', 'join',    annmodel.SomeString()),
-            ([], 'append',  annmodel.SomeList({})), 
-            ([], 'extend',  annmodel.SomeList({})),           
-            ([], 'reverse', annmodel.SomeList({})),
-            ([], 'insert',  annmodel.SomeList({})),
-            ([], 'pop',     annmodel.SomeList({})),
+            ([], 'append',  somelist()), 
+            ([], 'extend',  somelist()),           
+            ([], 'reverse', somelist()),
+            ([], 'insert',  somelist()),
+            ([], 'pop',     somelist()),
             ]:
             constmeth = getattr(example, methname)
             s_constmeth = iv(constmeth)
@@ -411,13 +416,13 @@ class TestAnnonateTestCase:
 
     def test_simple_zip(self):
         a = RPythonAnnotator()
-        x = annmodel.SomeList({}, annmodel.SomeInteger())
-        y = annmodel.SomeList({}, annmodel.SomeString())
+        x = somelist(annmodel.SomeInteger())
+        y = somelist(annmodel.SomeString())
         s = a.build_types(snippet.simple_zip, [x,y])
         assert s.knowntype == list
-        assert s.s_item.knowntype == tuple
-        assert s.s_item.items[0].knowntype == int
-        assert s.s_item.items[1].knowntype == str
+        assert listitem(s).knowntype == tuple
+        assert listitem(s).items[0].knowntype == int
+        assert listitem(s).items[1].knowntype == str
         
     def test_dict_copy(self):
         a = RPythonAnnotator()
@@ -443,33 +448,28 @@ class TestAnnonateTestCase:
     def test_dict_keys(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.dict_keys, [])
-        assert isinstance(s, annmodel.SomeList)
-        assert isinstance(s.s_item, annmodel.SomeString)
+        assert isinstance(listitem(s), annmodel.SomeString)
 
     def test_dict_keys2(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.dict_keys2, [])
-        assert isinstance(s, annmodel.SomeList)
-        assert not isinstance(s.s_item, annmodel.SomeString)
+        assert not isinstance(listitem(s), annmodel.SomeString)
 
     def test_dict_values(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.dict_values, [])
-        assert isinstance(s, annmodel.SomeList)
-        assert isinstance(s.s_item, annmodel.SomeString)
+        assert isinstance(listitem(s), annmodel.SomeString)
     
     def test_dict_values2(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.dict_values2, [])
-        assert isinstance(s, annmodel.SomeList)
-        assert not isinstance(s.s_item, annmodel.SomeString)
+        assert not isinstance(listitem(s), annmodel.SomeString)
 
     def test_dict_items(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.dict_items, [])
-        assert isinstance(s, annmodel.SomeList)
-        assert isinstance(s.s_item, annmodel.SomeTuple)
-        s_key, s_value = s.s_item.items
+        assert isinstance(listitem(s), annmodel.SomeTuple)
+        s_key, s_value = listitem(s).items
         assert isinstance(s_key, annmodel.SomeString)
         assert isinstance(s_value, annmodel.SomeInteger)
 
@@ -549,10 +549,10 @@ class TestAnnonateTestCase:
         assert s.knowntype == snippet.B
         Even_def = a.getuserclasses()[snippet.Even]
         Odd_def = a.getuserclasses()[snippet.Odd]
-        assert Even_def.attrs['x'].s_value.s_item.knowntype == snippet.Odd
-        assert Even_def.attrs['y'].s_value.s_item.knowntype == snippet.Even
-        assert Odd_def.attrs['x'].s_value.s_item.knowntype == snippet.Even
-        assert Odd_def.attrs['y'].s_value.s_item.knowntype == snippet.Odd        
+        assert listitem(Even_def.attrs['x'].s_value).knowntype == snippet.Odd
+        assert listitem(Even_def.attrs['y'].s_value).knowntype == snippet.Even
+        assert listitem(Odd_def.attrs['x'].s_value).knowntype == snippet.Even
+        assert listitem(Odd_def.attrs['y'].s_value).knowntype == snippet.Odd        
 
     def test_flow_rev_numbers(self):
         a = RPythonAnnotator()
@@ -702,8 +702,7 @@ class TestAnnonateTestCase:
             return lst
         a = RPythonAnnotator()
         s = a.build_types(f, [int])
-        assert isinstance(s, annmodel.SomeList)
-        assert s.s_item == s
+        assert listitem(s) == s
 
     def test_harmonic(self):
         a = RPythonAnnotator()
@@ -761,8 +760,8 @@ class TestAnnonateTestCase:
         a = RPythonAnnotator()
         s = a.build_types(g,[])
         l1, l2 = s.items
-        assert l1.s_item.knowntype == int
-        assert l2.s_item.knowntype == str
+        assert listitem(l1).knowntype == int
+        assert listitem(l2).knowntype == str
 
         access_sets = a.getpbcaccesssets()
 
@@ -825,8 +824,7 @@ class TestAnnonateTestCase:
             return g(l)
         a = RPythonAnnotator()
         s = a.build_types(f, [])
-        assert s.knowntype == list
-        assert s.s_item.knowntype == T
+        assert listitem(s).knowntype == T
           
     def test_assert_type_is_list_doesnt_lose_info(self):
         class T(object):
@@ -839,8 +837,7 @@ class TestAnnonateTestCase:
             return g(l)
         a = RPythonAnnotator()
         s = a.build_types(f, [])
-        assert s.knowntype == list
-        assert s.s_item.knowntype == T
+        assert listitem(s).knowntype == T
 
     def test_int_str_mul(self):
         def f(x,a,b):

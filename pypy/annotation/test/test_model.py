@@ -1,15 +1,19 @@
 
 import autopath
 from pypy.annotation.model import *
+from pypy.annotation.listdef import ListDef
 
+
+listdef1 = ListDef(None, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
+listdef2 = ListDef(None, SomeTuple([SomeInteger(nonneg=False), SomeString()]))
 
 s1 = SomeObject()
 s2 = SomeInteger(nonneg=True)
 s3 = SomeInteger(nonneg=False)
-s4 = SomeList({}, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
-s5 = SomeList({}, SomeTuple([SomeInteger(nonneg=False), SomeString()]))
+s4 = SomeList(listdef1)
+s5 = SomeList(listdef2)
 s6 = SomeImpossibleValue()
-slist = [s1,s2,s3,s4,s5,s6]
+slist = [s1,s2,s3,s4,s6]  # not s5 -- unionof(s4,s5) modifies s4 and s5
 
 
 class C(object):
@@ -39,27 +43,25 @@ def test_equality():
     assert s1 == SomeObject()
     assert s2 == SomeInteger(nonneg=True)
     assert s3 == SomeInteger(nonneg=False)
-    assert s4 == SomeList({}, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
-    assert s5 == SomeList({}, SomeTuple([SomeInteger(nonneg=False), SomeString()]))
+    assert s4 == SomeList(listdef1)
+    assert s5 == SomeList(listdef2)
     assert s6 == SomeImpossibleValue()
 
 def test_contains():
     assert ([(s,t) for s in slist for t in slist if s.contains(t)] ==
-            [(s1,s1), (s1,s2), (s1,s3), (s1,s4), (s1,s5), (s1,s6),
-                      (s2,s2),                            (s2,s6),
-                      (s3,s2), (s3,s3),                   (s3,s6),
-                                        (s4,s4),          (s4,s6),
-                                        (s5,s4), (s5,s5), (s5,s6),
-                                                          (s6,s6)])
+            [(s1,s1), (s1,s2), (s1,s3), (s1,s4), (s1,s6),
+                      (s2,s2),                   (s2,s6),
+                      (s3,s2), (s3,s3),          (s3,s6),
+                                        (s4,s4), (s4,s6),
+                                                 (s6,s6)])
 
 def test_union():
     assert ([unionof(s,t) for s in slist for t in slist] ==
-            [s1, s1, s1, s1, s1, s1,
-             s1, s2, s3, s1, s1, s2,
-             s1, s3, s3, s1, s1, s3,
-             s1, s1, s1, s4, s5, s4,
-             s1, s1, s1, s5, s5, s5,
-             s1, s2, s3, s4, s5, s6])
+            [s1, s1, s1, s1, s1,
+             s1, s2, s3, s1, s2,
+             s1, s3, s3, s1, s3,
+             s1, s1, s1, s4, s4,
+             s1, s2, s3, s4, s6])
 
 def test_commonbase_simple():
     class A0: 
@@ -78,7 +80,16 @@ def test_commonbase_simple():
     assert commonbase(A1,A0) is A0
     assert commonbase(A1,A1) is A1
     assert commonbase(A2,B2) is object 
-    assert commonbase(A2,B3) is A0 
+    assert commonbase(A2,B3) is A0
+
+def test_list_union():
+    listdef1 = ListDef(None, SomeInteger(nonneg=True))
+    listdef2 = ListDef(None, SomeInteger(nonneg=False))
+    s1 = SomeList(listdef1)
+    s2 = SomeList(listdef2)
+    assert s1 != s2
+    s3 = unionof(s1, s2)
+    assert s1 == s2 == s3
 
 if __name__ == '__main__':
     for name, value in globals().items():

@@ -4,7 +4,7 @@ from types import FunctionType, ClassType
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import pair
-from pypy.annotation.factory import ListFactory, DictFactory, BlockedInference
+from pypy.annotation.factory import DictFactory
 from pypy.annotation.bookkeeper import Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant, undefined_value
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
@@ -441,12 +441,12 @@ class RPythonAnnotator:
         # boom
         for arg in argcells:
             if isinstance(arg, annmodel.SomeImpossibleValue):
-                raise BlockedInference(info=op)
+                raise BlockedInference(self, info=op)
         resultcell = consider_meth(*argcells)
         if resultcell is None:
             resultcell = annmodel.SomeImpossibleValue()  # no return value
         elif resultcell == annmodel.SomeImpossibleValue():
-            raise BlockedInference(info=op)  # the operation cannot succeed
+            raise BlockedInference(self, info=op) # the operation cannot succeed
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
         self.setbinding(op.result, resultcell)  # bind resultcell to op.result
@@ -479,10 +479,7 @@ def consider_op_%s(self, arg1, arg2, *args):
         return annmodel.SomeTuple(items = args)
 
     def consider_op_newlist(self, *args):
-        factory = self.bookkeeper.getfactory(ListFactory)
-        for a in args:
-            factory.generalize(a)
-        return factory.create()
+        return self.bookkeeper.newlist(*args)
 
     def consider_op_newdict(self, *args):
         assert not args, "XXX only supports newdict([])"
@@ -495,3 +492,29 @@ def consider_op_%s(self, arg1, arg2, *args):
 
 class CannotSimplify(Exception):
     pass
+
+
+class BlockedInference(Exception):
+    """This exception signals the type inference engine that the situation
+    is currently blocked, and that it should try to progress elsewhere."""
+
+    def __init__(self, annotator, info=None):
+        self.annotator = annotator
+        try:
+            self.break_at = annotator.bookkeeper.position_key
+        except AttributeError:
+            self.break_at = None
+        self.info = info
+
+    def __repr__(self):
+        if self.info:
+            info = "[%s]" % self.info
+        else:
+            info = ""
+        if not self.break_at:
+            break_at = "?"
+        else:
+            break_at = self.annotator.whereami(self.break_at)
+        return "<BlockedInference break_at %s %s>" %(break_at, info)
+
+    __str__ = __repr__

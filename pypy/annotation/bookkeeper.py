@@ -7,6 +7,7 @@ from types import BuiltinMethodType
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef
+from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.tool.tls import tlsobject
 from pypy.tool.hack import func_with_new_name
 from pypy.interpreter.pycode import CO_VARARGS
@@ -49,6 +50,7 @@ class Bookkeeper:
         self.pbccache = {}
         self.pbctypes = {}
         self.seen_mutable = {}
+        self.listdefs = {}       # map position_keys to ListDefs
         
         # mapping position -> most general result, for call sites calling
         # argtypes specialized functions
@@ -99,6 +101,22 @@ class Bookkeeper:
             self.userclasseslist.append(cdef)
             return self.userclasses[cls]
 
+    def getlistdef(self):
+        """Get the ListDef associated with the current position."""
+        try:
+            listdef = self.listdefs[self.position_key]
+        except KeyError:
+            listdef = self.listdefs[self.position_key] = ListDef(self)
+        return listdef
+
+    def newlist(self, *s_values):
+        """Make a SomeList associated with the current position, general
+        enough to contain the s_values as items."""
+        listdef = self.getlistdef()
+        for s_value in s_values:
+            listdef.generalize(s_value)
+        return SomeList(listdef)
+
 
     def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
@@ -118,7 +136,7 @@ class Bookkeeper:
             result = SomeFloat()
         elif tp is list:
             items_s = [self.immutablevalue(e) for e in x]
-            result = SomeList({}, unionof(*items_s))
+            result = SomeList(ListDef(self, unionof(*items_s)))
         elif tp is dict:   # exactly a dict
             keys_s   = [self.immutablevalue(e) for e in x.keys()]
             values_s = [self.immutablevalue(e) for e in x.values()]
@@ -197,7 +215,7 @@ class Bookkeeper:
         elif t is float:
             return SomeFloat()
         elif t is list:
-            return SomeList(factories={})
+            return SomeList(MOST_GENERAL_LISTDEF)
         # can't do dict, tuple
         elif t.__module__ != '__builtin__':
             classdef = self.getclassdef(t)
