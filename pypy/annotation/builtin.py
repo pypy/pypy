@@ -168,6 +168,9 @@ def math_fmod(x, y):
 def math_floor(x):
     return SomeFloat()
 
+def rarith_intmask(s_obj):
+    return SomeInteger()
+
 def rarith_ovfcheck(s_obj):
     if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
         getbookkeeper().warning("ovfcheck on unsigned")
@@ -198,6 +201,8 @@ for name, value in globals().items():
 BUILTIN_ANALYZERS[pypy.tool.rarithmetic.r_uint] = restricted_uint
 BUILTIN_ANALYZERS[pypy.tool.rarithmetic.ovfcheck] = rarith_ovfcheck
 BUILTIN_ANALYZERS[pypy.tool.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
+BUILTIN_ANALYZERS[pypy.tool.rarithmetic.intmask] = rarith_intmask
+
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 # this one is needed otherwise when annotating assert in a test we may try to annotate 
 # py.test AssertionError.__init__ .
