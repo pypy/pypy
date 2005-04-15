@@ -228,9 +228,9 @@ floordiv__Int_Int = _floordiv
 truediv__Int_Int = _truediv
 
 # helper for pow()
-def _impl_int_int_pow(space, iv, iw, iz=None):
+def _impl_int_int_pow(space, iv, iw, iz=0):
     if iw < 0:
-        if iz is not None:
+        if iz != 0:
             raise OperationError(space.w_TypeError,
                              space.wrap("pow() 2nd argument "
                  "cannot be negative when 3rd argument specified"))
@@ -240,10 +240,6 @@ def _impl_int_int_pow(space, iv, iw, iz=None):
         ## bounce it, since it always returns float
         raise FailedToImplement(space.w_ValueError,
                                 space.wrap("integer exponentiation"))
-    if iz is not None:
-        if iz == 0:
-            raise OperationError(space.w_ValueError,
-                                    space.wrap("pow() 3rd argument cannot be 0"))
     temp = iv
     ix = 1
     try:
@@ -278,6 +274,9 @@ def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
     y = w_int2.intval
     z = w_int3.intval
+    if z == 0:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("pow() 3rd argument cannot be 0"))
     return _impl_int_int_pow(space, x, y, z)
 
 def pow__Int_Int_None(space, w_int1, w_int2, w_int3):
