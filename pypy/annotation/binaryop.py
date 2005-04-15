@@ -317,6 +317,13 @@ class __extend__(pairtype(SomeString, SomeInteger)):
     def getitem((str1, int2)):
         return SomeChar()
 
+    def mul((str1, int2)): # xxx do we want to support this
+        return SomeString()
+
+class __extend__(pairtype(SomeInteger, SomeString)):
+    
+    def mul((int1, str2)): # xxx do we want to support this
+        return SomeString()
 
 class __extend__(pairtype(SomeInteger, SomeList)):
     

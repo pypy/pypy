@@ -841,7 +841,13 @@ class TestAnnonateTestCase:
         s = a.build_types(f, [])
         assert s.knowntype == list
         assert s.s_item.knowntype == T
-          
+
+    def test_int_str_mul(self):
+        def f(x,a,b):
+            return a*x+x*b
+        a = RPythonAnnotator()
+        s = a.build_types(f, [str,int,int])
+        assert s.knowntype == str
 
 
 def g(n):
