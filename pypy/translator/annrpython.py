@@ -4,7 +4,6 @@ from types import FunctionType, ClassType
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import pair
-from pypy.annotation.factory import DictFactory
 from pypy.annotation.bookkeeper import Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant, undefined_value
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
@@ -482,9 +481,11 @@ def consider_op_%s(self, arg1, arg2, *args):
         return self.bookkeeper.newlist(*args)
 
     def consider_op_newdict(self, *args):
-        assert not args, "XXX only supports newdict([])"
-        factory = self.bookkeeper.getfactory(DictFactory)
-        return factory.create()
+        assert len(args) % 2 == 0
+        items_s = []
+        for i in range(0, len(args), 2):
+            items_s.append((args[i], args[i+1]))
+        return self.bookkeeper.newdict(*items_s)
 
     def consider_op_newslice(self, start, stop, step):
         return annmodel.SomeSlice(start, stop, step)

@@ -10,22 +10,23 @@ class ListItem:
         self.read_locations = {}
 
     def merge(self, other):
-        if self is other:
-            return
-        self.itemof.update(other.itemof)
-        self.read_locations.update(other.read_locations)
+        if self is not other:
+            self.itemof.update(other.itemof)
+            self.read_locations.update(other.read_locations)
+            self.patch()    # which should patch all refs to 'other'
+            self.generalize(other.s_value)
+
+    def patch(self):
         for listdef in self.itemof:
-            listdef.listitem = self   # which should patch all refs to 'other'
-        self.generalize(other.s_value)
+            listdef.listitem = self
 
     def generalize(self, s_other_value):
         s_new_value = unionof(self.s_value, s_other_value)
-        if s_new_value == self.s_value:
-            return
-        self.s_value = s_new_value
-        # reflow from all reading points
-        for position_key in self.read_locations:
-            self.bookkeeper.annotator.reflowfromposition(position_key)
+        if s_new_value != self.s_value:
+            self.s_value = s_new_value
+            # reflow from all reading points
+            for position_key in self.read_locations:
+                self.bookkeeper.annotator.reflowfromposition(position_key)
 
 
 class ListDef:

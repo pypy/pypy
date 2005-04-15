@@ -6,6 +6,7 @@ from pypy.tool.udir import udir
 from pypy.translator.annrpython import RPythonAnnotator, annmodel
 from pypy.translator.translator import Translator
 from pypy.annotation.listdef import ListDef
+from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
 from pypy.tool.rarithmetic import r_uint
 
@@ -17,6 +18,17 @@ def listitem(s_list):
 
 def somelist(s_type=annmodel.SomeObject()):
     return annmodel.SomeList(ListDef(None, s_type))
+
+def dictkey(s_dict):
+    assert isinstance(s_dict, annmodel.SomeDict)
+    return s_dict.dictdef.dictkey.s_value
+
+def dictvalue(s_dict):
+    assert isinstance(s_dict, annmodel.SomeDict)
+    return s_dict.dictdef.dictvalue.s_value
+
+def somedict(s_key=annmodel.SomeObject(), s_value=annmodel.SomeObject()):
+    return annmodel.SomeDict(DictDef(None, s_key, s_value))
 
 
 class TestAnnonateTestCase:
@@ -410,7 +422,7 @@ class TestAnnonateTestCase:
         
     def test_simple_iter_dict(self):
         a = RPythonAnnotator()
-        t = annmodel.SomeDict({}, annmodel.SomeInteger(), annmodel.SomeInteger())
+        t = somedict(annmodel.SomeInteger(), annmodel.SomeInteger())
         s = a.build_types(snippet.simple_iter, [t])
         assert isinstance(s, annmodel.SomeIterator)
 
@@ -426,24 +438,21 @@ class TestAnnonateTestCase:
         
     def test_dict_copy(self):
         a = RPythonAnnotator()
-        t = annmodel.SomeDict({}, annmodel.SomeInteger(), annmodel.SomeInteger())
+        t = somedict(annmodel.SomeInteger(), annmodel.SomeInteger())
         s = a.build_types(snippet.dict_copy, [t])
-        assert isinstance(s, annmodel.SomeDict)
-        assert isinstance(s.s_key, annmodel.SomeInteger)
-        assert isinstance(s.s_value, annmodel.SomeInteger)
+        assert isinstance(dictkey(s), annmodel.SomeInteger)
+        assert isinstance(dictvalue(s), annmodel.SomeInteger)
 
     def test_dict_update(self):
         a = RPythonAnnotator()
         s = a.build_types(snippet.dict_update, [int])
-        assert isinstance(s, annmodel.SomeDict)
-        assert isinstance(s.s_key, annmodel.SomeInteger)
-        assert isinstance(s.s_value, annmodel.SomeInteger)
+        assert isinstance(dictkey(s), annmodel.SomeInteger)
+        assert isinstance(dictvalue(s), annmodel.SomeInteger)
 
         a = RPythonAnnotator()
         s = a.build_types(snippet.dict_update, [str])
-        assert isinstance(s, annmodel.SomeDict)
-        assert not isinstance(s.s_key, annmodel.SomeString)
-        assert not isinstance(s.s_value, annmodel.SomeString)
+        assert not isinstance(dictkey(s), annmodel.SomeString)
+        assert not isinstance(dictvalue(s), annmodel.SomeString)
 
     def test_dict_keys(self):
         a = RPythonAnnotator()

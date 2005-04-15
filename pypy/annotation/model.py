@@ -132,7 +132,6 @@ class SomeList(SomeObject):
     "Stands for a homogenous list of any length."
     knowntype = list
     def __init__(self, listdef):
-        assert hasattr(listdef, 'listitem')   # XXX remove me
         self.listdef = listdef
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
@@ -162,10 +161,11 @@ class SomeTuple(SomeObject):
 class SomeDict(SomeObject):
     "Stands for a dict."
     knowntype = dict
-    def __init__(self, factories, s_key, s_value):
-        self.factories = factories
-        self.s_key = s_key
-        self.s_value = s_value
+    def __init__(self, dictdef):
+        self.dictdef = dictdef
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self.dictdef.same_as(other.dictdef))
 
 
 class SomeIterator(SomeObject):

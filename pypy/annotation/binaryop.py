@@ -9,7 +9,6 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.factory import generalize
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
 from pypy.objspace.flow.model import Constant
@@ -260,18 +259,18 @@ class __extend__(pairtype(SomeTuple, SomeTuple)):
 class __extend__(pairtype(SomeDict, SomeDict)):
 
     def union((dic1, dic2)):
-        return SomeDict(setunion(dic1.factories, dic2.factories),
-                        unionof(dic1.s_key, dic2.s_key),
-                        unionof(dic1.s_value, dic2.s_value))
+        dic1.dictdef.merge(dic2.dictdef)
+        return dic1
 
 
 class __extend__(pairtype(SomeDict, SomeObject)):
 
     def getitem((dic1, obj2)):
-        return dic1.s_value
+        return dic1.dictdef.read_value()
 
     def setitem((dic1, obj2), s_value):
-        generalize(dic1.factories, obj2, s_value)
+        dic1.dictdef.generalize_key(obj2)
+        dic1.dictdef.generalize_value(s_value)
 
 
 class __extend__(pairtype(SomeSlice, SomeSlice)):

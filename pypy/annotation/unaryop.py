@@ -11,7 +11,6 @@ from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeFloat
 from pypy.annotation.model import SomeIterator, SomePBC, new_or_old_class
 from pypy.annotation.model import unionof, set, setunion, missing_operation
-from pypy.annotation.factory import generalize
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
 from pypy.annotation import builtin
@@ -201,22 +200,24 @@ class __extend__(SomeList):
 
 class __extend__(SomeDict):
     def iter(dct):
-        return SomeIterator(dct.s_key)
+        return SomeIterator(dct.dictdef.read_key())
 
     def method_copy(dct):
-        return SomeDict(dct.factories, dct.s_key, dct.s_value)
+        return dct
 
     def method_update(dct1, dct2):
-        generalize(dct1.factories, dct2.s_key, dct2.s_value)
+        dct1.dictdef.generalize_key(dct2.dictdef.read_key())
+        dct1.dictdef.generalize_value(dct2.dictdef.read_value())
 
     def method_keys(dct):
-        return getbookkeeper().newlist(dct.s_key)
+        return getbookkeeper().newlist(dct.dictdef.read_key())
 
     def method_values(dct):
-        return getbookkeeper().newlist(dct.s_value)
+        return getbookkeeper().newlist(dct.dictdef.read_value())
 
     def method_items(dct):
-        return getbookkeeper().newlist(SomeTuple((dct.s_key, dct.s_value)))
+        return getbookkeeper().newlist(SomeTuple((dct.dictdef.read_key(),
+                                                  dct.dictdef.read_value())))
         
 
 class __extend__(SomeString):

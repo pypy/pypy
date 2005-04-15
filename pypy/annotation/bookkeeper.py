@@ -8,6 +8,7 @@ from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
+from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
 from pypy.tool.tls import tlsobject
 from pypy.tool.hack import func_with_new_name
 from pypy.interpreter.pycode import CO_VARARGS
@@ -43,7 +44,6 @@ class Bookkeeper:
 
     def __init__(self, annotator):
         self.annotator = annotator
-        self.creationpoints = {} # map position-in-a-block to its Factory
         self.userclasses = {}    # map classes to ClassDefs
         self.userclasseslist = []# userclasses.keys() in creation order
         self.cachespecializations = {}
@@ -51,6 +51,7 @@ class Bookkeeper:
         self.pbctypes = {}
         self.seen_mutable = {}
         self.listdefs = {}       # map position_keys to ListDefs
+        self.dictdefs = {}       # map position_keys to DictDefs
         
         # mapping position -> most general result, for call sites calling
         # argtypes specialized functions
@@ -72,19 +73,6 @@ class Bookkeeper:
         """End of an operation."""
         del TLS.bookkeeper
         del self.position_key
-
-    def getfactory(self, factorycls):
-        """Get the Factory associated with the current position,
-        or build it if it doesn't exist yet."""
-        try:
-            factory = self.creationpoints[self.position_key]
-        except KeyError:
-            factory = factorycls()
-            factory.bookkeeper = self
-            factory.position_key = self.position_key
-            self.creationpoints[self.position_key] = factory
-        assert isinstance(factory, factorycls)
-        return factory
 
     def getclassdef(self, cls):
         """Get the ClassDef associated with the given user cls."""
@@ -117,6 +105,23 @@ class Bookkeeper:
             listdef.generalize(s_value)
         return SomeList(listdef)
 
+    def getdictdef(self):
+        """Get the DictDef associated with the current position."""
+        try:
+            dictdef = self.dictdefs[self.position_key]
+        except KeyError:
+            dictdef = self.dictdefs[self.position_key] = DictDef(self)
+        return dictdef
+
+    def newdict(self, *items_s):
+        """Make a SomeDict associated with the current position, general
+        enough to contain the given (s_key, s_value) as items."""
+        dictdef = self.getdictdef()
+        for s_key, s_value in items_s:
+            dictdef.generalize_key(s_key)
+            dictdef.generalize_value(s_value)
+        return SomeDict(dictdef)
+
 
     def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
@@ -140,7 +145,8 @@ class Bookkeeper:
         elif tp is dict:   # exactly a dict
             keys_s   = [self.immutablevalue(e) for e in x.keys()]
             values_s = [self.immutablevalue(e) for e in x.values()]
-            result = SomeDict({}, unionof(*keys_s), unionof(*values_s))
+            result = SomeDict(DictDef(self, unionof(*keys_s),
+                                            unionof(*values_s)))
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             result = SomeBuiltin(BUILTIN_ANALYZERS[x])
         elif callable(x) or isinstance(x, staticmethod): # XXX
@@ -216,6 +222,8 @@ class Bookkeeper:
             return SomeFloat()
         elif t is list:
             return SomeList(MOST_GENERAL_LISTDEF)
+        elif t is dict:
+            return SomeDict(MOST_GENERAL_DICTDEF)
         # can't do dict, tuple
         elif t.__module__ != '__builtin__':
             classdef = self.getclassdef(t)
