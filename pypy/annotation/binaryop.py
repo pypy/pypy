@@ -312,6 +312,11 @@ class __extend__(pairtype(SomeList, SomeSlice)):
         return SomeList(lst.factories, lst.s_item)
 
 
+class __extend__(pairtype(SomeString, SomeSlice)):
+
+    def getitem((str1, slic)):
+        return SomeString()
+
 class __extend__(pairtype(SomeString, SomeInteger)):
 
     def getitem((str1, int2)):
