@@ -855,6 +855,26 @@ class TestAnnonateTestCase:
         s = a.build_types(f, [str,int,int])
         assert s.knowntype == str
 
+    def test_list_tuple(self):
+        def g0(x):
+            return list(x)
+        def g1(x):
+            return list(x)
+        def f(n):
+            l1 = g0(())
+            l2 = g1((1,))
+            if n:
+                t = (1,)
+            else:
+                t = (2,)
+            l3 = g1(t)
+            return l1, l2, l3
+        a = RPythonAnnotator()
+        s = a.build_types(f, [bool])
+        assert listitem(s.items[0]) == annmodel.SomeImpossibleValue()
+        assert listitem(s.items[1]).knowntype == int
+        assert listitem(s.items[2]).knowntype == int
+        
 
 def g(n):
     return [0,1,2,n]
