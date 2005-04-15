@@ -163,10 +163,10 @@ def conf():
     return SomeString()
 
 def math_fmod(x, y):
-    return SomeObject()
+    return SomeFloat()
 
 def math_floor(x):
-    return SomeObject()
+    return SomeFloat()
 
 def rarith_ovfcheck(s_obj):
     if isinstance(s_obj, SomeInteger) and s_obj.unsigned:

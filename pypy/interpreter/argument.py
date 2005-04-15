@@ -89,8 +89,8 @@ class Arguments:
         return args
 
     def has_keywords(self):
-        return self.kwds_w or (self.w_starstararg is not None and
-                               self.space.is_true(self.w_starstararg))
+        return bool(self.kwds_w) or (self.w_starstararg is not None and
+                                     self.space.is_true(self.w_starstararg))
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,
