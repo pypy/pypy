@@ -283,12 +283,14 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
                 inword = 1
         pos = pos + 1
 
+    res_w = [None] * len(res)
     for i in range(len(res)):
-        res[i] = W_StringObject(space, res[i])
-    return W_ListObject(space, res)
+        res_w[i] = W_StringObject(space, res[i])
+
+    return W_ListObject(space, res_w)
 
 def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
-    res = []
+    res_w = []
     start = 0
     value = w_self._value
     by = w_by._value
@@ -308,18 +310,16 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
                                          #the find method, 
         if next < 0:
             break
-        res.append(value[start:next])
+        res_w.append(W_StringObject(space, value[start:next]))
         start = next + bylen
         #decrese the counter only then, when
         #we don't have default maxsplit
         if maxsplit > -1:
             splitcount = splitcount - 1
 
-    res.append(value[start:])
+    res_w.append(W_StringObject(space, value[start:]))
 
-    for i in range(len(res)):
-        res[i] = W_StringObject(w_self.space, res[i])
-    return W_ListObject(w_self.space, res)
+    return W_ListObject(w_self.space, res_w)
 
 def str_join__String_ANY(space, w_self, w_list):
     list = space.unpackiterable(w_list)
