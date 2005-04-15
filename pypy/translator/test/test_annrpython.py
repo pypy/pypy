@@ -807,6 +807,35 @@ class TestAnnonateTestCase:
         assert s.items[0].knowntype == C1
         assert s.items[1].knowntype == C2
 
+    def test_assert_list_doesnt_lose_info(self):
+        class T(object):
+            pass
+        def g(l):
+            assert isinstance(l, list)
+            return l
+        def f():
+            l = [T()]
+            return g(l)
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.knowntype == list
+        assert s.s_item.knowntype == T
+          
+    def test_assert_type_is_list_doesnt_lose_info(self):
+        class T(object):
+            pass
+        def g(l):
+            assert type(l) is list
+            return l
+        def f():
+            l = [T()]
+            return g(l)
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.knowntype == list
+        assert s.s_item.knowntype == T
+          
+
 
 def g(n):
     return [0,1,2,n]
