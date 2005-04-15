@@ -710,6 +710,13 @@ class TestAnnonateTestCase:
         s = a.build_types(snippet.harmonic, [int])
         assert s.knowntype == float
 
+    def test_bool(self):
+        def f(a,b):
+            return bool(a) or bool(b)
+        a = RPythonAnnotator()
+        s = a.build_types(f, [int,list])
+        assert s.knowntype == bool
+
     def test_float(self):
         def f(n):
             return float(n)

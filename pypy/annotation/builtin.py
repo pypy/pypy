@@ -24,6 +24,12 @@ def builtin_range(*args):
 
 builtin_xrange = builtin_range # xxx for now allow it
 
+def builtin_bool(s_obj):
+    r = SomeBool()
+    if s_obj.is_constant():
+        r.const = bool(s_obj.const)
+    return r
+
 def builtin_int(s_obj):
     return SomeInteger()
 
