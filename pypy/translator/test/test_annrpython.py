@@ -703,7 +703,7 @@ class TestAnnonateTestCase:
         s = a.build_types(f, [])
         assert s.knowntype == C
 
-    def DONT_YET_test_circular_list_type(self):
+    def test_circular_list_type(self):
         def f(n):
             lst = []
             for i in range(n):
