@@ -63,5 +63,8 @@ class ListDef:
     def generalize(self, s_value):
         self.listitem.generalize(s_value)
 
+    def __repr__(self):
+        return '<%r>' % (self.listitem.s_value,)
+
 
 MOST_GENERAL_LISTDEF = ListDef(None, SomeObject())

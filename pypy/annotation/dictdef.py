@@ -66,5 +66,8 @@ class DictDef:
     def generalize_value(self, s_value):
         self.dictvalue.generalize(s_value)
 
+    def __repr__(self):
+        return '<%r: %r>' % (self.dictkey.s_value, self.dictvalue.s_value)
+
 
 MOST_GENERAL_DICTDEF = DictDef(None, SomeObject(), SomeObject())
