@@ -23,7 +23,7 @@ UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'hash',
                         'simple_call', 'call_args', 'str', 'repr',
                         'iter', 'next', 'invert', 'type', 'issubtype',
                         'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
-                        'ord', 'int', 'float', 'long']) 
+                        'ord', 'int', 'float', 'long', 'id']) 
 
 for opname in UNARY_OPERATIONS:
     missing_operation(SomeObject, opname)
@@ -81,6 +81,9 @@ class __extend__(SomeObject):
         return SomeString()
 
     repr = hex = oct = str
+
+    def id(obj): # xxx
+        return SomeInteger()
 
     def int(obj):
         return SomeInteger()
