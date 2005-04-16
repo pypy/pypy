@@ -155,10 +155,7 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
         for key, w_value in kwds_w.items():
             space.setitem(w_locals, space.wrap(key), w_value)
         try:
-            space.call_function(space.builtin.get('eval'),
-                                space.wrap(str(source)),
-                                frame.w_globals,
-                                w_locals)
+            space.exec_(str(source), frame.w_globals, w_locals)
         except OperationError, e:
             if e.match(space, w_ExpectedException):
                 return space.sys.call('exc_info')
