@@ -62,7 +62,7 @@ to know you.
 
 .. _`documentation start page`: http://codespeak.net/pypy/index.cgi?doc/index.html 
 .. _`coding-style document`: http://codespeak.net/pypy/index.cgi?doc/coding-style.html 
-.. _`py.test`: /py/current/doc/test.html 
+.. _`py.test`: http://codespeak.net/py/current/doc/test.html 
 
 
 PyPy Documentation
@@ -160,8 +160,8 @@ Here are some sample reST textfiles to see what it looks like:
 + ObjectSpaceInterface_
 
 .. _this: http://docutils.sourceforge.net/docs/rst/quickref.html
-.. _ObjectSpace: objspace/objspace.html 
-.. _ObjectSpaceInterface: objspace/objspaceinterface.html
+.. _ObjectSpace: objspace.html 
+.. _ObjectSpaceInterface: objspaceinterface.html
 
 
 .. _`detailed version`: 
