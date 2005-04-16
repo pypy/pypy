@@ -19,14 +19,14 @@ def make_cpy_module(dottedname, filepath, force=False):
 
 libtest = py.path.local(pypy.__file__).dirpath()
 libtest = libtest.dirpath('lib-python-2.3.4', 'test')
-conftest = libtest.join('conftest.py').pyimport()
+#conftest = libtest.join('conftest.py').pyimport()
 
 def Module(fspath, parent=None): 
     if option.allpypy: 
         return conftest.Module(fspath, parent=parent) 
     return UnittestModuleOnCPython(fspath, parent=parent) 
 
-class Directory(conftest.Directory): 
+class Directory(py.test.collect.Directory): 
     def run(self): 
         return []
 
