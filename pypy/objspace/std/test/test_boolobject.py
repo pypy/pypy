@@ -31,3 +31,12 @@ class AppTestAppBoolTest:
         assert "False" == str(False)
         assert "True" == repr(True)
         assert "False" == repr(False)
+
+    def test_bool_ops(self):
+        assert True + True == 2
+        assert False | False is False
+        assert True | False is True
+        assert True & True is True
+        assert True ^ True is False
+        assert False ^ False is False
+        assert True ^ False is True

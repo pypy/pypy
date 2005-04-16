@@ -36,6 +36,15 @@ def repr__Bool(space, w_bool):
     else:
         return space.wrap('False')
 
+def and__Bool_Bool(space, w_bool1, w_bool2):
+    return space.newbool(w_bool1.boolval & w_bool2.boolval)
+
+def or__Bool_Bool(space, w_bool1, w_bool2):
+    return space.newbool(w_bool1.boolval | w_bool2.boolval)
+
+def xor__Bool_Bool(space, w_bool1, w_bool2):
+    return space.newbool(w_bool1.boolval ^ w_bool2.boolval)
+
 str__Bool = repr__Bool
 
 register_all(vars())
