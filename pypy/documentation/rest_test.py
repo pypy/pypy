@@ -8,6 +8,8 @@ rest = pydir.join('bin', 'py.rest').getpymodule()
 
 docdir = py.path.svnwc(pypy.__file__).dirpath('documentation')
 
+checkremote = False 
+
 def restcheck(path):
     try:
         import docutils
@@ -32,8 +34,14 @@ def check_htmllinks(path):
                 continue
             tryfn = l[1].strip() 
             if tryfn.startswith('http:'): 
-                # XXX try retrieve? 
-                pass 
+                if not checkremote: 
+                    continue
+                try: 
+                    print "trying remote", tryfn
+                    py.std.urllib2.urlopen(tryfn)
+                except py.std.urllib2.HTTPError: 
+                    py.test.fail("remote reference error %r in %s:%d" %(
+                                  tryfn, path.basename, lineno+1))
             elif tryfn.endswith('.html'): 
                 # assume it should be a file 
                 fn = ddir.join(tryfn) 

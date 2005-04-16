@@ -49,7 +49,7 @@ People using Debian *stable* first need to add the following line to ``/etc/apt/
 
   deb http://fs.cs.fhm.edu/mirror/backports.org/debian stable subversion
 
-Note that you can always go look at the files online_ with your browser, located at: http://codespeak.net/svn/pypy/trunk
+Note that you can always go look at the files online_ with your browser, located at: http://codespeak.net/svn/pypy/dist
 But, you'll want to check out your own local copies to work on.
 
 Check out and Check in
@@ -96,7 +96,7 @@ or::
  Transmitting file data .
  Committed revision 631.
 
-Check online on the check-in archives_ and you'll see your revision. Feel free to add a documentation file on any major changes you've made! See the readme_ on documentation for more info.
+Check online on the check-in archives_ and you'll see your revision. Feel free to add a documentation file on any major changes you've made!  
 
 Some other useful subversion tricks:
 --------------------------------------
@@ -165,8 +165,7 @@ and add a line for .py files.
 
 .. _guide: http://svnbook.red-bean.com/book.html#svn-ch-1
 .. _archives: http://codespeak.net/pipermail/pypy-svn/
-.. _online: http://codespeak.net/svn/pypy/trunk/
-.. _coding-style: http://codespeak.net/pypy/doc/coding-style.html
-.. _readme: http://codespeak.net/pypy/doc/readme.html
+.. _online: http://codespeak.net/svn/pypy/dist/
+.. _coding-style: coding-style.html 
 .. _HowToInstallServer: http://codespeak.net/moin/pypy/moin.cgi/HowToInstallServer
 .. _backports: http://www.backports.org
