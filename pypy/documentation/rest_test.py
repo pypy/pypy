@@ -2,9 +2,9 @@ from __future__ import generators
 
 import py
 import pypy
+from py.__impl__.misc import rest 
 
 pydir = py.magic.autopath(vars(py)).dirpath()
-rest = pydir.join('bin', 'py.rest').getpymodule()
 
 docdir = py.path.svnwc(pypy.__file__).dirpath('documentation')
 
