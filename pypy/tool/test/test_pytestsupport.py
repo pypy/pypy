@@ -61,6 +61,7 @@ def test_appexecinfo(space):
     else: 
         py.test.fail("did not raise!") 
     assert appex.exconly().find('ValueError') != -1 
+    assert appex.exconly(tryshort=True).find('ValueError') != -1 
     assert appex.errisinstance(ValueError) 
     assert not appex.errisinstance(RuntimeError) 
     class A: 

@@ -43,7 +43,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
         self.operr = operr
         self.traceback = AppTraceback(self.operr.application_traceback)
 
-    def exconly(self): 
+    def exconly(self, tryshort=True): 
         return '(application-level) ' + self.operr.errorstr(self.space)
 
     def errisinstance(self, exc): 
