@@ -12,7 +12,7 @@ try:
     tmpdir = sys.pypy_getudir()
 except AttributeError:
     import py 
-    tmpdir = str(py.test.config.tmpdir)
+    tmpdir = str(py.test.ensuretemp('support_tests_tempdir'))
 TESTFN = os.path.join(tmpdir, '@test')
 
 class Error(Exception):

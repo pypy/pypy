@@ -1,73 +1,26 @@
 import py
 import sys
-from pypy.interpreter.gateway import app2interp_temp 
+from pypy.interpreter.gateway import ApplevelClass 
 from pypy.interpreter.error import OperationError
 from pypy.tool import pytestsupport
-from pypy.conftest import gettestobjspace, options
 from pypy.interpreter.module import Module as PyPyModule 
 from pypy.interpreter.main import run_string, run_file
 
+# the following adds command line options as a side effect! 
+from pypy.conftest import gettestobjspace, option
 from test.regrtest import reportdiff
-
-#
-# PyPy's command line extra options (these are added 
-# to py.test's standard options) 
-#
-#Option = py.test.Option
-#options = ('pypy options', [
-#        Option('-o', '--objspace', action="store", default=None, 
-#               type="string", dest="objspacename", 
-#               help="object space to run tests on."), 
-##])
 
 # 
 # Interfacing/Integrating with py.test's collection process 
 #
 
+# XXX no nice way to implement a --listpassing py.test option?! 
+#option = py.test.addoptions("compliance testing options", 
+#    py.test.Option('-L', '--listpassing', action="store", default=None, 
+#                   type="string", dest="listpassing", 
+#                   help="display only the list of expected-to-pass tests.")
+
 mydir = py.magic.autopath().dirpath()
-
-working_unittests = (
-'test_base64.py',
-'test_binop.py',
-'test_bisect.py',
-'test_builtin.py',
-'test_call.py',
-'test_cmath.py',
-'test_codeop.py', # Commented out due to strange iteraction with py.test
-'test_commands.py',
-'test_compare.py',
-'test_compile.py',
-'test_datetime.py', # it takes loong time
-'test_dis.py',
-'test_hash.py',
-'test_heapq.py',
-'test_hexoct.py',
-'test_htmllib.py',
-'test_htmlparser.py',
-'test_isinstance.py',
-'test_long.py', #Works but takes several hours to finish
-'test_operator.py',
-'test_parser.py',
-'test_pprint.py',
-'test_profilehooks.py',
-'test_sgmllib.py',
-'test_string.py',
-'test_sys.py',
-'test_textwrap.py',
-'test_trace.py',
-'test_urlparse.py',
-)
-
-working_outputtests = (
-    'test_cgi.py',
-)
-
-# sanity check for when the above lists become long
-assert len(dict.fromkeys(working_unittests)) == len(working_unittests), (
-    "duplicate entry in working_unittests")
-assert len(dict.fromkeys(working_outputtests)) == len(working_outputtests), (
-    "duplicate entry in working_outputtests")
-
 
 def make_module(space, dottedname, filepath): 
     #print "making module", dottedname, "from", filepath 
@@ -82,87 +35,98 @@ def make_module(space, dottedname, filepath):
     space.setitem(w_modules, w_dottedname, w_mod) 
     return w_mod 
 
-class Directory(py.test.collect.Directory): 
-    def __iter__(self): 
-        all_tests = []
-        for test in self.fspath.listdir('test_*.py'): 
-            if test.basename not in working_outputtests and \
-               test.basename not in working_unittests: 
-                continue 
-            all_tests.append(test)
-        all_tests.sort()
-        for test in all_tests:
-            yield Module(test) 
+def callex(space, func, *args, **kwargs): 
+    try: 
+        return func(*args, **kwargs) 
+    except OperationError, e: 
+        if e.match(space, space.w_KeyboardInterrupt): 
+            raise KeyboardInterrupt 
+        raise
+    
+class RegrDirectory(py.test.collect.Directory): 
+    def run(self): 
+        l = []
+        for (name, (enabled, typ)) in testmap.items(): 
+            if enabled: 
+                l.append(name) 
+        return l 
+
+    def join(self, name): 
+        if name not in testmap: 
+            raise NameError(name) 
+        enabled, typ = testmap[name]
+        return typ(name, parent=self) 
+
+Directory = RegrDirectory
 
 w_testlist = None 
+
+def hack_test_support(space): 
+    global w_testlist  
+    w_testlist = space.newlist([]) 
+    space.appexec([w_testlist], """
+        (testlist): 
+            def hack_run_unittest(*classes): 
+                testlist.extend(list(classes))
+            from test import test_support  # humpf
+            test_support.run_unittest = hack_run_unittest 
+    """) 
 
 def getmyspace(): 
     space = gettestobjspace('std') 
     # we once and for all want to patch run_unittest 
     # to get us the list of intended unittest-TestClasses
     # from each regression test 
-    global w_testlist  
     if w_testlist is None: 
-        w_testlist = space.newlist([]) 
-        space.appexec([w_testlist], """
-            (testlist): 
-                def hack_run_unittest(*classes): 
-                    testlist.extend(list(classes))
-                from test import test_support  # humpf
-                test_support.run_unittest = hack_run_unittest 
-        """) 
+        callex(space, hack_test_support, space) 
     return space 
-    
-def app_list_testmethods(mod, testcaseclass, classlist): 
-    """ return [(instance.setUp, instance.tearDown, 
-                 [instance.testmethod1, ...]), 
-                ...]
-    """ 
-    #print "entering list_testmethods"
-    if callable(getattr(mod, 'test_main', None)): 
-        classlist[:] = []
-        mod.test_main() 
-        assert classlist, ("found %s.test_main() but it returned no " 
-                           "test classes" % mod.__name__) 
-    else: 
-        # we try to find out fitting tests ourselves
-        raise Exception, mod.__dict__.items()
-        for clsname, cls in mod.__dict__.items(): 
-            if hasattr(cls, '__bases__') and \
-               issubclass(cls, testcaseclass): 
-                classlist.append(cls) 
-    l = [] 
-    for cls in classlist: 
+
+app = ApplevelClass('''
+    #NOT_RPYTHON  
+
+    def list_testmethods(cls): 
+        """ return [(instance.setUp, instance.tearDown, 
+                     [instance.testmethod1, ...]), ...]
+        """ 
         clsname = cls.__name__
         instance = cls() 
         #print "checking", instance 
         methods = []
         for methodname in dir(cls): 
-            if methodname.startswith('test_'): 
+            if methodname.startswith('test'): 
                 name = clsname + '.' + methodname 
                 methods.append((name, getattr(instance, methodname)))
-        l.append((instance.setUp, instance.tearDown, methods))
-    return l 
-list_testmethods = app2interp_temp(app_list_testmethods) 
+        return instance.setUp, instance.tearDown, methods 
+''') 
 
-def Module(fspath): 
-    output = fspath.dirpath('output', fspath.purebasename)
-    if output.check(file=1):
-        # ok this is an output test 
-        return OutputTestItem(fspath, output) 
-    content = fspath.read() 
-    # XXX not exactly clean: 
-    if content.find('unittest') != -1: 
-        # we can try to run ...  
-        return AppUnittestModule(fspath) 
-   
+list_testmethods = app.interphook('list_testmethods')
+
+class OpErrorModule(py.test.collect.Module): 
+    # wraps some methods around a py.test Module in order
+    # to get clean KeyboardInterrupt behaviour (pypy often 
+    # throws wrapped ones) 
+    def tryiter(self, stopitems=()): 
+        try: 
+            for x in super(OpErrorModule, self).tryiter(stopitems): 
+                yield x 
+        except OperationError, e: 
+            space = getattr(self, 'space', None) 
+            if space and e.match(space, space.w_KeyboardInterrupt): 
+                raise Keyboardinterrupt 
+            raise 
+
+class OutputTestModule(OpErrorModule): 
+    def run(self): 
+        return [self.fspath.purebasename]
+    def join(self, name): 
+        if name == self.fspath.purebasename: 
+            return OutputTestItem(name, parent=self) 
+
 class OutputTestItem(py.test.Item): 
-    def __init__(self, fspath, output): 
-        self.fspath = fspath 
-        self.outputpath = output 
-        self.extpy = py.path.extpy(fspath) 
-
-    def run(self, driver): 
+    def run(self): 
+        outputpath = self.fspath.dirpath('output', self.name) 
+        if not outputpath.check(): 
+            py.test.fail("expected outputfile at %s" %(outputpath,))
         space = getmyspace() 
         try: 
             oldsysout = sys.stdout 
@@ -178,60 +142,96 @@ class OutputTestItem(py.test.Item):
         else: 
             # we want to compare outputs 
             result = capturesysout.getvalue() 
-            expected = self.outputpath.read(mode='r') 
+            expected = outputpath.read(mode='r') 
             if result != expected: 
                 reportdiff(expected, result) 
-                assert 0, "expected and real output of running test differ" 
+                py.test.fail("output check failed: %s" % (self.fspath.basename,))
+
+
+class UnknownTestModule(py.test.collect.Module): 
+    def run(self): 
+        py.test.skip("missing test type for: %s" %(self.fspath.basename))
        
-class AppUnittestModule(py.test.collect.Module): 
-    def __init__(self, fspath): 
-        super(AppUnittestModule, self).__init__(fspath) 
-    
+class UTModuleMainTest(OpErrorModule): 
     def _prepare(self): 
         if hasattr(self, 'space'): 
             return
         self.space = space = getmyspace() 
-        w_mod = make_module(space, 'unittest', mydir.join('pypy_unittest.py')) 
-        self.w_TestCase = space.getattr(w_mod, space.wrap('TestCase'))
-        
-    def __iter__(self): 
+        def f(): 
+            w_mod = make_module(space, 'unittest', mydir.join('pypy_unittest.py')) 
+            self.w_TestCase = space.getattr(w_mod, space.wrap('TestCase'))
+            self._testcases = self.get_testcases() 
+        callex(space, f) 
+       
+    def run(self): 
         self._prepare() 
-        try: 
-            iterable = self._cache 
-        except AttributeError: 
-            iterable = self._cache = list(self._iterapplevel())
-        for x in iterable: 
-            yield x
+        return [x[0] for x in self._testcases]
 
-    def _iterapplevel(self): 
+    def get_testcases(self): 
         name = self.fspath.purebasename 
         space = self.space 
         w_mod = make_module(space, name, self.fspath) 
-        w_tlist = list_testmethods(space, w_mod, self.w_TestCase, w_testlist)
-        tlist_w = space.unpackiterable(w_tlist) 
-        for item_w in tlist_w: 
-            w_setup, w_teardown, w_methods = space.unpacktuple(item_w) 
+
+        # hack out testcases 
+        space.appexec([w_mod, w_testlist], """ 
+            (mod, classlist): 
+                classlist[:] = []
+                mod.test_main() 
+            """) 
+        res = []
+        #print w_testlist
+        for w_class in space.unpackiterable(w_testlist): 
+            w_name = space.getattr(w_class, space.wrap('__name__'))
+            res.append((space.str_w(w_name), w_class ))
+        res.sort()
+        return res 
+
+    def join(self, name): 
+        for x,w_cls in self._testcases: 
+            if x == name: 
+                return UTAppTestCase(name, parent=self, w_cls=w_cls) 
+
+
+class UTAppTestCase(py.test.collect.Class): 
+    def __init__(self, name, parent, w_cls): 
+        super(UTAppTestCase, self).__init__(name, parent) 
+        self.w_cls = w_cls 
+
+    def _prepare(self): 
+        if not hasattr(self, 'space'): 
+            self.space = space = self.parent.space
+            w_item = list_testmethods(space, self.w_cls)
+            w_setup, w_teardown, w_methods = space.unpackiterable(w_item) 
             methoditems_w = space.unpackiterable(w_methods)
+            self.methods_w = methods_w = []
             for w_methoditem in methoditems_w: 
                 w_name, w_method = space.unpacktuple(w_methoditem) 
-                yield AppTestCaseMethod(self.fspath, space, w_name, w_method, 
-                                        w_setup, w_teardown) 
+                name = space.str_w(w_name) 
+                methods_w.append((name, w_method, w_setup, w_teardown))
+            methods_w.sort() 
+            
+    def run(self): 
+        callex(self.parent.space, self._prepare,) 
+        return [x[0] for x in self.methods_w]
+
+    def join(self, name): 
+        for x in self.methods_w: 
+            if x[0] == name: 
+                args = x[1:]
+                return AppTestCaseMethod(name, self, *args) 
 
 class AppTestCaseMethod(py.test.Item): 
-    def __init__(self, fspath, space, w_name, w_method, w_setup, w_teardown): 
-        self.space = space 
-        self.name = name = space.str_w(w_name)
-        self.modulepath = fspath
-        extpy = py.path.extpy(fspath, name) 
-        super(AppTestCaseMethod, self).__init__(extpy) 
+    def __init__(self, name, parent, w_method, w_setup, w_teardown): 
+        super(AppTestCaseMethod, self).__init__(name, parent) 
+        self.space = parent.space 
         self.w_method = w_method 
         self.w_setup = w_setup 
         self.w_teardown = w_teardown 
 
-    def run(self, driver):      
+    def run(self):      
         space = self.space
         try:
-            filename = str(self.modulepath)
+            filename = str(self.fspath) 
             w_argv = space.sys.get('argv')
             space.setitem(w_argv, space.newslice(None, None, None),
                           space.newlist([space.wrap(filename)]))
@@ -246,8 +246,273 @@ class AppTestCaseMethod(py.test.Item):
             finally: 
                 self.space.call_function(self.w_teardown) 
         except OperationError, e: 
-            raise self.Failed(
-                excinfo=pytestsupport.AppExceptionInfo(self.space, e))
+            ilevel_excinfo = py.code.ExceptionInfo() 
+            excinfo=pytestsupport.AppExceptionInfo(self.space, e) 
+            if excinfo.traceback: 
+                raise self.Failed(excinfo=excinfo) 
+            raise self.Failed(excinfo=ilevel_excinfo) 
 
     def execute(self): 
         self.space.call_function(self.w_method)
+
+testmap = {
+    'test_MimeWriter.py'     : (False, OutputTestModule),
+    'test_StringIO.py'       : (False, UTModuleMainTest),
+    'test___all__.py'        : (False, UTModuleMainTest),
+    'test___future__.py'     : (False, UnknownTestModule),
+    'test_aepack.py'         : (False, UTModuleMainTest),
+    'test_al.py'             : (False, UnknownTestModule),
+    'test_anydbm.py'         : (False, UTModuleMainTest),
+    'test_array.py'          : (False, UTModuleMainTest),
+    'test_asynchat.py'       : (False, OutputTestModule),
+    'test_atexit.py'         : (False, UnknownTestModule),
+    'test_audioop.py'        : (False, UnknownTestModule),
+    'test_augassign.py'      : (False, OutputTestModule),
+    'test_base64.py'         : (True,  UTModuleMainTest),
+    'test_bastion.py'        : (False, UnknownTestModule),
+    'test_binascii.py'       : (False, UTModuleMainTest),
+    'test_binhex.py'         : (False, UTModuleMainTest),
+    'test_binop.py'          : (True,  UTModuleMainTest),
+    'test_bisect.py'         : (True,  UTModuleMainTest),
+    'test_bool.py'           : (False, UTModuleMainTest),
+    'test_bsddb.py'          : (False, UTModuleMainTest),
+    'test_bsddb185.py'       : (False, UTModuleMainTest),
+    'test_bsddb3.py'         : (False, UTModuleMainTest),
+    'test_bufio.py'          : (False, UnknownTestModule),
+    'test_builtin.py'        : (True,  UTModuleMainTest),
+    'test_bz2.py'            : (False, UTModuleMainTest),
+    'test_calendar.py'       : (False, UTModuleMainTest),
+    'test_call.py'           : (True,  UTModuleMainTest),
+    'test_capi.py'           : (False, UnknownTestModule),
+    'test_cd.py'             : (False, UnknownTestModule),
+    'test_cfgparser.py'      : (False, UTModuleMainTest),
+    'test_cgi.py'            : (False, OutputTestModule),
+    'test_charmapcodec.py'   : (False, UTModuleMainTest),
+    'test_cl.py'             : (False, UnknownTestModule),
+    'test_class.py'          : (False, OutputTestModule),
+    'test_cmath.py'          : (True,  UnknownTestModule),
+    'test_codeccallbacks.py' : (False, UTModuleMainTest),
+    'test_codecs.py'         : (False, UTModuleMainTest),
+    'test_codeop.py'         : (True,  UTModuleMainTest),
+    'test_coercion.py'       : (False, OutputTestModule),
+    'test_commands.py'       : (True,  UTModuleMainTest),
+    'test_compare.py'        : (True,  OutputTestModule),
+    'test_compile.py'        : (True,  UTModuleMainTest),
+    'test_complex.py'        : (False, UTModuleMainTest),
+    'test_contains.py'       : (False, UnknownTestModule),
+    'test_cookie.py'         : (False, OutputTestModule),
+    'test_copy.py'           : (False, UTModuleMainTest),
+    'test_copy_reg.py'       : (False, UTModuleMainTest),
+    'test_cpickle.py'        : (False, UTModuleMainTest),
+    'test_crypt.py'          : (False, UnknownTestModule),
+    'test_csv.py'            : (False, UTModuleMainTest),
+    'test_curses.py'         : (False, UnknownTestModule),
+    'test_datetime.py'       : (True,  UTModuleMainTest),
+    'test_dbm.py'            : (False, UnknownTestModule),
+    'test_descr.py'          : (False, UTModuleMainTest),
+    'test_descrtut.py'       : (False, UTModuleMainTest),
+    'test_difflib.py'        : (False, UnknownTestModule),
+    'test_dircache.py'       : (False, UTModuleMainTest),
+    'test_dis.py'            : (True,  UTModuleMainTest),
+    'test_dl.py'             : (False, UnknownTestModule),
+    'test_doctest.py'        : (False, UnknownTestModule),
+    'test_doctest2.py'       : (False, UTModuleMainTest),
+    'test_dumbdbm.py'        : (False, UTModuleMainTest),
+    'test_dummy_thread.py'   : (False, UTModuleMainTest),
+    'test_dummy_threading.py': (False, UTModuleMainTest),
+    'test_email.py'          : (False, UTModuleMainTest),
+    'test_email_codecs.py'   : (False, UnknownTestModule),
+    'test_enumerate.py'      : (False, UTModuleMainTest),
+    'test_eof.py'            : (False, UTModuleMainTest),
+    'test_errno.py'          : (False, UnknownTestModule),
+    'test_exceptions.py'     : (False, OutputTestModule),
+    'test_extcall.py'        : (False, OutputTestModule),
+    'test_fcntl.py'          : (False, UnknownTestModule),
+    'test_file.py'           : (False, UnknownTestModule),
+    'test_filecmp.py'        : (False, UTModuleMainTest),
+    'test_fileinput.py'      : (False, UnknownTestModule),
+    'test_fnmatch.py'        : (False, UTModuleMainTest),
+    'test_fork1.py'          : (False, UnknownTestModule),
+    'test_format.py'         : (False, UnknownTestModule),
+    'test_fpformat.py'       : (False, UTModuleMainTest),
+    'test_frozen.py'         : (False, OutputTestModule),
+    'test_funcattrs.py'      : (False, UnknownTestModule),
+    'test_future.py'         : (False, OutputTestModule),
+    'test_future1.py'        : (False, UnknownTestModule),
+    'test_future2.py'        : (False, UnknownTestModule),
+    'test_future3.py'        : (False, UTModuleMainTest),
+    'test_gc.py'             : (False, UnknownTestModule),
+    'test_gdbm.py'           : (False, UnknownTestModule),
+    'test_generators.py'     : (False, UTModuleMainTest),
+    'test_getargs.py'        : (False, UnknownTestModule),
+    'test_getargs2.py'       : (False, UTModuleMainTest),
+    'test_getopt.py'         : (False, UnknownTestModule),
+    'test_gettext.py'        : (False, UTModuleMainTest),
+    'test_gl.py'             : (False, UnknownTestModule),
+    'test_glob.py'           : (False, UTModuleMainTest),
+    'test_global.py'         : (False, OutputTestModule),
+    'test_grammar.py'        : (False, OutputTestModule),
+    'test_grp.py'            : (False, UTModuleMainTest),
+    'test_gzip.py'           : (False, UnknownTestModule),
+    'test_hash.py'           : (True,  UTModuleMainTest),
+    'test_heapq.py'          : (True,  UTModuleMainTest),
+    'test_hexoct.py'         : (True,  UTModuleMainTest),
+    'test_hmac.py'           : (False, UTModuleMainTest),
+    'test_hotshot.py'        : (False, UTModuleMainTest),
+    'test_htmllib.py'        : (True,  UTModuleMainTest),
+    'test_htmlparser.py'     : (True,  UTModuleMainTest),
+    'test_httplib.py'        : (False, OutputTestModule),
+    'test_imageop.py'        : (False, UnknownTestModule),
+    'test_imaplib.py'        : (False, UnknownTestModule),
+    'test_imgfile.py'        : (False, UnknownTestModule),
+    'test_imp.py'            : (False, UTModuleMainTest),
+    'test_import.py'         : (False, UnknownTestModule),
+    'test_importhooks.py'    : (False, UTModuleMainTest),
+    'test_inspect.py'        : (False, UnknownTestModule),
+    'test_ioctl.py'          : (False, UTModuleMainTest),
+    'test_isinstance.py'     : (True,  UTModuleMainTest),
+    'test_iter.py'           : (False, UTModuleMainTest),
+    'test_itertools.py'      : (False, UTModuleMainTest),
+    'test_largefile.py'      : (False, UnknownTestModule),
+    'test_linuxaudiodev.py'  : (False, OutputTestModule),
+    'test_locale.py'         : (False, UnknownTestModule),
+    'test_logging.py'        : (False, UTModuleMainTest),
+    'test_long.py'           : (True,  UnknownTestModule), # takes hours 
+    'test_long_future.py'    : (False, UnknownTestModule),
+    'test_longexp.py'        : (False, OutputTestModule),
+    'test_macfs.py'          : (False, UTModuleMainTest),
+    'test_macostools.py'     : (False, UTModuleMainTest),
+    'test_macpath.py'        : (False, UTModuleMainTest),
+    'test_mailbox.py'        : (False, UTModuleMainTest),
+    'test_marshal.py'        : (False, UnknownTestModule),
+    'test_math.py'           : (False, OutputTestModule),
+    'test_md5.py'            : (False, OutputTestModule),
+    'test_mhlib.py'          : (False, UTModuleMainTest),
+    'test_mimetools.py'      : (False, UTModuleMainTest),
+    'test_mimetypes.py'      : (False, UTModuleMainTest),
+    'test_minidom.py'        : (False, UnknownTestModule),
+    'test_mmap.py'           : (False, OutputTestModule),
+    'test_module.py'         : (False, UnknownTestModule),
+    'test_mpz.py'            : (False, UnknownTestModule),
+    'test_multifile.py'      : (False, UTModuleMainTest),
+    'test_mutants.py'        : (False, UnknownTestModule),
+    'test_netrc.py'          : (False, UTModuleMainTest),
+    'test_new.py'            : (False, OutputTestModule),
+    'test_nis.py'            : (False, OutputTestModule),
+    'test_normalization.py'  : (False, UTModuleMainTest),
+    'test_ntpath.py'         : (False, UnknownTestModule),
+    'test_opcodes.py'        : (False, OutputTestModule),
+    'test_openpty.py'        : (False, OutputTestModule),
+    'test_operations.py'     : (False, OutputTestModule),
+    'test_operator.py'       : (True,  UTModuleMainTest),
+    'test_optparse.py'       : (False, UTModuleMainTest),
+    'test_os.py'             : (False, UTModuleMainTest),
+    'test_ossaudiodev.py'    : (False, OutputTestModule),
+    'test_parser.py'         : (True,  UTModuleMainTest),
+    'test_pep247.py'         : (False, UnknownTestModule),
+    'test_pep263.py'         : (False, UnknownTestModule),
+    'test_pep277.py'         : (False, UTModuleMainTest),
+    'test_pickle.py'         : (False, UTModuleMainTest),
+    'test_pickletools.py'    : (False, UnknownTestModule),
+    'test_pkg.py'            : (False, OutputTestModule),
+    'test_pkgimport.py'      : (False, UTModuleMainTest),
+    'test_plistlib.py'       : (False, UTModuleMainTest),
+    'test_poll.py'           : (False, OutputTestModule),
+    'test_popen.py'          : (False, OutputTestModule),
+    'test_popen2.py'         : (False, OutputTestModule),
+    'test_posix.py'          : (False, UTModuleMainTest),
+    'test_posixpath.py'      : (False, UTModuleMainTest),
+    'test_pow.py'            : (False, UTModuleMainTest),
+    'test_pprint.py'         : (True,  UTModuleMainTest),
+    'test_profile.py'        : (False, UTModuleMainTest),
+    'test_profilehooks.py'   : (True,  UTModuleMainTest),
+    'test_pty.py'            : (False, OutputTestModule),
+    'test_pwd.py'            : (False, UTModuleMainTest),
+    'test_pyclbr.py'         : (False, UTModuleMainTest),
+    'test_pyexpat.py'        : (False, OutputTestModule),
+    'test_queue.py'          : (False, UnknownTestModule),
+    'test_quopri.py'         : (False, UTModuleMainTest),
+    'test_random.py'         : (False, UTModuleMainTest),
+    'test_re.py'             : (False, UTModuleMainTest),
+    'test_regex.py'          : (False, OutputTestModule),
+    'test_repr.py'           : (False, UTModuleMainTest),
+    'test_resource.py'       : (False, OutputTestModule),
+    'test_rfc822.py'         : (False, UTModuleMainTest),
+    'test_rgbimg.py'         : (False, OutputTestModule),
+    'test_richcmp.py'        : (False, UTModuleMainTest),
+    'test_robotparser.py'    : (False, UTModuleMainTest),
+    'test_rotor.py'          : (False, OutputTestModule),
+    'test_sax.py'            : (False, UnknownTestModule),
+    'test_scope.py'          : (False, OutputTestModule),
+    'test_scriptpackages.py' : (False, UTModuleMainTest),
+    'test_select.py'         : (False, UnknownTestModule),
+    'test_sets.py'           : (False, UTModuleMainTest),
+    'test_sgmllib.py'        : (True,  UTModuleMainTest),
+    'test_sha.py'            : (False, UTModuleMainTest),
+    'test_shelve.py'         : (False, UTModuleMainTest),
+    'test_shlex.py'          : (False, UTModuleMainTest),
+    'test_shutil.py'         : (False, UTModuleMainTest),
+    'test_signal.py'         : (False, OutputTestModule),
+    'test_slice.py'          : (False, UnknownTestModule),
+    'test_socket.py'         : (False, UTModuleMainTest),
+    'test_socket_ssl.py'     : (False, UTModuleMainTest),
+    'test_socketserver.py'   : (False, UTModuleMainTest),
+    'test_softspace.py'      : (False, UnknownTestModule),
+    'test_sort.py'           : (False, UnknownTestModule),
+    'test_str.py'            : (False, UTModuleMainTest),
+    'test_strftime.py'       : (False, UnknownTestModule),
+    'test_string.py'         : (True,  UTModuleMainTest),
+    'test_stringprep.py'     : (False, UnknownTestModule),
+    'test_strop.py'          : (False, UTModuleMainTest),
+    'test_strptime.py'       : (False, UTModuleMainTest),
+    'test_struct.py'         : (False, UnknownTestModule),
+    'test_structseq.py'      : (False, UnknownTestModule),
+    'test_sunaudiodev.py'    : (False, UnknownTestModule),
+    'test_sundry.py'         : (False, UnknownTestModule),
+    'test_support.py'        : (False, UnknownTestModule),
+    'test_symtable.py'       : (False, UnknownTestModule),
+    'test_syntax.py'         : (False, UTModuleMainTest),
+    'test_sys.py'            : (True,  UTModuleMainTest),
+    'test_tarfile.py'        : (False, UTModuleMainTest),
+    'test_tempfile.py'       : (False, UTModuleMainTest),
+    'test_textwrap.py'       : (True,  UTModuleMainTest),
+    'test_thread.py'         : (False, OutputTestModule),
+    'test_threaded_import.py': (False, UTModuleMainTest),
+    'test_threadedtempfile.py': (False, UTModuleMainTest),
+    'test_threading.py'      : (False, UnknownTestModule),
+    'test_time.py'           : (False, UTModuleMainTest),
+    'test_timeout.py'        : (False, UTModuleMainTest),
+    'test_timing.py'         : (False, UnknownTestModule),
+    'test_tokenize.py'       : (False, OutputTestModule),
+    'test_trace.py'          : (True,  UTModuleMainTest),
+    'test_traceback.py'      : (False, UTModuleMainTest),
+    'test_types.py'          : (False, OutputTestModule),
+    'test_ucn.py'            : (False, UTModuleMainTest),
+    'test_unary.py'          : (False, UTModuleMainTest),
+    'test_unicode.py'        : (False, UTModuleMainTest),
+    'test_unicode_file.py'   : (False, OutputTestModule),
+    'test_unicodedata.py'    : (False, UTModuleMainTest),
+    'test_univnewlines.py'   : (False, UTModuleMainTest),
+    'test_unpack.py'         : (False, UnknownTestModule),
+    'test_urllib.py'         : (False, UTModuleMainTest),
+    'test_urllib2.py'        : (False, UnknownTestModule),
+    'test_urllibnet.py'      : (False, UTModuleMainTest),
+    'test_urlparse.py'       : (True,  UTModuleMainTest),
+    'test_userdict.py'       : (False, UTModuleMainTest),
+    'test_userlist.py'       : (False, UTModuleMainTest),
+    'test_userstring.py'     : (False, UTModuleMainTest),
+    'test_uu.py'             : (False, UTModuleMainTest),
+    'test_warnings.py'       : (False, UTModuleMainTest),
+    'test_wave.py'           : (False, UnknownTestModule),
+    'test_weakref.py'        : (False, UTModuleMainTest),
+    'test_whichdb.py'        : (False, UTModuleMainTest),
+    'test_winreg.py'         : (False, OutputTestModule),
+    'test_winsound.py'       : (False, UTModuleMainTest),
+    'test_xmllib.py'         : (False, UTModuleMainTest),
+    'test_xmlrpc.py'         : (False, UTModuleMainTest),
+    'test_xpickle.py'        : (False, UTModuleMainTest),
+    'test_xreadline.py'      : (False, OutputTestModule),
+    'test_zipfile.py'        : (False, UnknownTestModule),
+    'test_zipimport.py'      : (False, UTModuleMainTest),
+    'test_zlib.py'           : (False, UTModuleMainTest),
+}

@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyframe import PyFrame
-from pypy.tool.pytestsupport import AppFrame, build_pytest_assertion
+from pypy.tool.pytestsupport import AppFrame, build_pytest_assertion, AppExceptionInfo
 
 
 def somefunc(x):
@@ -52,5 +52,19 @@ def app_test_exception_with_message():
     except AssertionError, e:
         assert e.msg == "Failed"
 
+
+def test_appexecinfo(space): 
+    try: 
+        space.appexec([], "(): raise ValueError") 
+    except OperationError, e: 
+        appex = AppExceptionInfo(space, e)
+    else: 
+        py.test.fail("did not raise!") 
+    assert appex.exconly().find('ValueError') != -1 
+    assert appex.errisinstance(ValueError) 
+    assert not appex.errisinstance(RuntimeError) 
+    class A: 
+        pass
+    assert not appex.errisinstance(A) 
 
     

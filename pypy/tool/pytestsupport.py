@@ -43,6 +43,21 @@ class AppExceptionInfo(py.code.ExceptionInfo):
         self.operr = operr
         self.traceback = AppTraceback(self.operr.application_traceback)
 
+    def exconly(self): 
+        return '(application-level) ' + self.operr.errorstr(self.space)
+
+    def errisinstance(self, exc): 
+        clsname = exc.__name__ 
+        try: 
+            w_exc = getattr(self.space, 'w_' + clsname) 
+        except KeyboardInterrupt: 
+            raise 
+        except: 
+            pass 
+        else: 
+            return self.operr.match(self.space, w_exc) 
+        return False 
+
     def __str__(self):
         return '(application-level) ' + self.operr.errorstr(self.space)
 
@@ -99,7 +114,8 @@ def build_pytest_assertion(space):
                 source = str(source).strip()
             except py.error.ENOENT: 
                 source = None
-            if source and not py.test.config.option.nomagic:
+            from pypy import conftest
+            if source and not conftest.option.nomagic: 
                 msg = exprinfo.interpret(source, runner, should_fail=True)
                 space.setattr(w_self, space.wrap('args'),
                             space.newtuple([space.wrap(msg)]))

@@ -7,6 +7,9 @@ from pypy.translator.tool.buildpyxmodule import build_cfunc
 from pypy.translator.tool.buildpyxmodule import skip_missing_compiler
 from pypy.translator.translator import Translator
 
+from pypy import conftest 
+#from pypy.conftest import option
+
 from pypy.translator.test import snippet 
 
 # XXX this tries to make compiling faster for full-scale testing
@@ -21,7 +24,7 @@ class TestNoTypePyrexGenTestCase:
         try: func = func.im_func
         except AttributeError: pass
 
-        dot = py.test.config.option.verbose >0 and 1 or 0
+        dot = conftest.option.verbose > 0 and 1 or 0 
         options = {
             'simplify' : 1,
             'dot' : dot,
