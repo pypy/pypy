@@ -30,10 +30,18 @@ def llvmcompile(transl, optimize=False):
     return gen.compile(optimize)
 
 def get_key(obj):
+    #XXX Get rid of this:
+    #LLVMGenerator should only cache gen_repr requestes,
+    #the Repr classes should be responsible for deciding which queries
+    #should result in the same representation
     if isinstance(obj, Constant):
         #To avoid getting "bool true" as representation for int 1
         if obj.value is True or obj.value is False:
             return obj
+        try:
+            hash(obj.value)
+        except TypeError:
+            return id(obj.value)
         return obj.value
     if isinstance(obj, annmodel.SomeInstance):
         return obj.classdef.cls
@@ -176,9 +184,3 @@ def traverse_dependencies(l_repr, seen_reprs):
             yield l_dep1
     yield l_repr
 
-
-## from pypy.translator.test.rpystone import *
-## t = Translator(Proc0)
-## a = t.annotate([int])
-## t.view()
-## f = llvmcompile(t)

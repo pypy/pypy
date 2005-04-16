@@ -152,12 +152,14 @@ class ClassRepr(TypeRepr):
         if init is not None:
             l_init = self.gen.get_repr(init)
             l_func.dependencies.add(l_init)
-            l_args = [self.gen.get_repr(arg) for arg in args[1:]]
-            self.dependencies.update(l_args)
-            # XXX
+            l_tmp = self.gen.get_local_tmp(PointerTypeRepr("sbyte", self.gen),
+                                           l_func)
+            self.dependencies.add(l_tmp)
+            #XXX VirtualMethodRepr should recognize __init__ methods
             if isinstance(l_init, VirtualMethodRepr):
                 l_init = l_init.l_funcs[l_init.l_classes.index(self)]
-            lblock.call_void(l_init, [l_target] + l_args)
+            l_init.op_simple_call(l_tmp, [l_init, l_target] + args[1:],
+                                  lblock, l_func)
 
     def t_op_getattr(self, l_target, args, lblock, l_func):
         if debug:

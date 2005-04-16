@@ -117,6 +117,16 @@ class TestGenLLVM(object):
         f = compile_function(llvmsnippet.calling1, [int])
         assert f(10) == 1
 
+    def test_call_default_arguments(self):
+        f = compile_function(llvmsnippet.call_default_arguments, [int, int])
+        for i in range(3):
+            assert f(i + 3, i) == llvmsnippet.call_default_arguments(i + 3, i)
+
+    def test_call_list_default_argument(self):
+        f = compile_function(llvmsnippet.call_list_default_argument, [int])
+        for i in range(20):
+            assert f(i) == llvmsnippet.call_list_default_argument(i)
+
 class TestFloat(object):
     def setup_method(self, method):
         if not llvm_found:
@@ -190,11 +200,21 @@ class TestLLVMArray(object):
         for i in range(10):
             assert f(i) == i
 
-    def test_array_pop(i):
+    def test_array_pop(self):
         f = compile_function(llvmsnippet.array_pop, [int])
         assert f(0) == 5
         assert f(1) == 6
         assert f(2) == 7
+
+    def test_access_global_array(self):
+        f = compile_function(llvmsnippet.access_global_array, [int, int, int])
+        for i in range(5):
+            for j in range(5):
+                assert f(i, j, i + j) == i
+        for i in range(5):
+            for j in range(5):
+                assert f(i, j, 0) == i + j
+        
 
 class TestClass(object):
     def setup_method(self, method):
@@ -236,6 +256,11 @@ class TestClass(object):
 
     def test_merge_class(self):
         f = compile_function(llvmsnippet.merge_classes, [bool])
+        assert f(True) == 1
+        assert f(False) == 2
+
+    def test_attribute_instance(self):
+        f = compile_function(llvmsnippet.attribute_instance, [bool])
         assert f(True) == 1
         assert f(False) == 2
 
@@ -377,6 +402,11 @@ class TestSnippet(object):
     def test_set_attr(self):
         set_attr = compile_function(test.set_attr, [])
         assert set_attr() == 2
+
+    def test_try_raise_choose(self):
+        try_raise_choose = compile_function(test.try_raise_choose, [int])
+        for i in [-1, 0, 1, 2]:
+            assert try_raise_choose(i) == i
 
     def test_merge_setattr(self):
         merge_setattr = compile_function(test.merge_setattr, [bool])

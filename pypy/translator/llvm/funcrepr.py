@@ -115,6 +115,7 @@ class FunctionRepr(LLVMRepr):
         self.dependencies.update(self.l_args)
         self.retvalue = self.gen.get_repr(self.graph.returnblock.inputargs[0])
         self.dependencies.add(self.retvalue)
+        self.l_default_args = None
         self.build_bbs()
 
     def get_returntype():
@@ -163,6 +164,15 @@ class FunctionRepr(LLVMRepr):
 
     def op_simple_call(self, l_target, args, lblock, l_func):
         l_args = [self.gen.get_repr(arg) for arg in args]
+        if len(l_args) - 1 < len(self.l_args):
+            assert self.func.func_defaults is not None
+            if self.l_default_args is None:
+                self.l_default_args = [self.gen.get_repr(Constant(de))
+                                       for de in self.func.func_defaults]
+                self.dependencies.update(self.l_default_args)
+            offset = len(self.l_args) - len(self.l_default_args)
+            for i in range(len(l_args) - 1, len(self.l_args)):
+                l_args.append(self.l_default_args[i - offset])
         for i, (l_a1, l_a2) in enumerate(zip(l_args[1:], self.l_args)):
             if l_a1.llvmtype() != l_a2.llvmtype():
                 l_tmp = self.gen.get_local_tmp(l_a2.type, l_func)

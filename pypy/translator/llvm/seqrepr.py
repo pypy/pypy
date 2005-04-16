@@ -15,6 +15,8 @@ debug = False
 
 class ListRepr(LLVMRepr):
     def get(obj, gen):
+        if isinstance(obj, Constant):
+            obj = obj.value
         if obj.__class__ == list:
             return ListRepr(obj, gen)
         return None
@@ -61,7 +63,15 @@ class ListRepr(LLVMRepr):
         lblock.getelementptr(l_from, l_tmp, [0, 0])
         lblock.getelementptr(l_to, self, [0, 1])
         lblock.store(l_from, l_to)
-            
+
+    def __getattr__(self, name):
+        if name.startswith("op_"):
+            return getattr(self.type, "t_" + name, None)
+        else:
+            raise AttributeError, ("ListRepr instance has no attribute %s"
+                                   % repr(name))
+
+           
 
 class ListTypeRepr(TypeRepr):
     l_listtypes = {}

@@ -42,6 +42,23 @@ def calling2(m):
         return calling1(m - 1)
     return m
 
+def default_arguments(i1, i2=2, s1="asdf"):
+    return i1 + i2 + len(s1)
+
+def call_default_arguments(i, j):
+    if j == 0:
+        return default_arguments(i)
+    elif j == 1:
+        return default_arguments(i, 42)
+    return default_arguments(i, j, "qwertyuiop")
+
+def list_default_argument(i1, l1=[0]):
+    l1.append(i1)
+    return len(l1) + l1[-2]
+
+def call_list_default_argument(i1):
+    return list_default_argument(i1)
+
 #float snippets
 
 def float_f1(x):
@@ -125,6 +142,13 @@ def rangetest(i):
 def array_pop(i):
     a = [0, 1, 2, 3]
     return a.pop() + len(a) + a[i]
+
+glob_array = [[i] * 5 for i in range(5)]
+
+def access_global_array(x, y, z):
+    result = glob_array[x][y]
+    glob_array[x][y] = z
+    return result
 
 
 #class snippets
@@ -265,6 +289,17 @@ def merge_classes(flag):
     else:
         a = CLB()
     return a.a
+
+class CLC(object):
+    def __init__(self, a):
+        self.a = a
+
+def attribute_instance(x):
+    if x:
+        a = CLC(CLA())
+    else:
+        a = CLC(CLB())
+    return a.a.a
 
 
 #string snippets
