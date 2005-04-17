@@ -31,6 +31,8 @@ Here are the steps we follow to translate a given program:
 
 4. One of the Code Generators (XXX not documented yet) turns the optionally annotated flow graphs and produces a source file in a lower-level language: C_, LLVM_, `Common Lisp`_, Pyrex_, Java_, or `Python again`_ (this is used in PyPy to turn sufficiently RPythonic app-level code into interp-level code).
 
+5. This lower-level source file is compiled to produce an executable.
+
 .. _`translator.py`: http://codespeak.net/svn/pypy/dist/pypy/translator/translator.py
 .. _`play around`: getting_started.html#trying-out-the-translator
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
