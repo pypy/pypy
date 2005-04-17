@@ -15,7 +15,10 @@
     'checking_ReST.html'    : 'coding-style.html#pypy-documentation', 
     'optionaltools.html'    : 'coding-style.html#optionaltool', 
 
-    'newrepolayout.html'    : 'future.html#newrepolayout', 
-    'goals.html'            : 'future.html#goals', 
+    'newrepolayout.html'    : 'misc.html#newrepolayout', 
+    'goals.html'            : 'misc.html#goals', 
+
+    'developers.html'       : 'misc.html#developers', 
+    'cmodules.html'         : 'misc.html#cmodules', 
 }
 

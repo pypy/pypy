@@ -5,9 +5,11 @@ getting_started.txt
     optionaltool.txt
     checking_ReST.txt
 
-revreport
+misc 
     cmodules.txt # move to revreport somehow? 
     developers.txt
+    newrepolayout.txt
+    goals.txt
 
 index.txt
     # references all the major chapters 
@@ -20,9 +22,6 @@ interpreter.txt
     modules 
     functions 
 
-future.txt 
-    newrepolayout.txt
-    goals.txt
 
 coding-style.txt 
     restrictedpy.txt
