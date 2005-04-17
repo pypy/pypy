@@ -29,6 +29,7 @@ def make_module(space, dottedname, filepath):
     w_globals = mod.w_dict 
     w_filename = space.wrap(str(filepath)) 
     w_execfile = space.builtin.get('execfile') 
+    print "calling execfile", w_filename
     space.call_function(w_execfile, w_filename, w_globals, w_globals)
     w_mod = space.wrap(mod) 
     w_modules = space.sys.get('modules') 
@@ -46,7 +47,9 @@ def callex(space, func, *args, **kwargs):
 class RegrDirectory(py.test.collect.Directory): 
     def run(self): 
         l = []
-        for (name, (enabled, typ)) in testmap.items(): 
+        items = testmap.items() 
+        items.sort()
+        for (name, (enabled, typ)) in items: 
             if enabled: 
                 l.append(name) 
         return l 
@@ -55,7 +58,7 @@ class RegrDirectory(py.test.collect.Directory):
         if name not in testmap: 
             raise NameError(name) 
         enabled, typ = testmap[name]
-        return typ(name, parent=self) 
+        return typ(mydir.join(name), parent=self) 
 
 Directory = RegrDirectory
 
@@ -154,7 +157,7 @@ class UnknownTestModule(py.test.collect.Module):
        
 class UTModuleMainTest(OpErrorModule): 
     def _prepare(self): 
-        if hasattr(self, 'space'): 
+        if hasattr(self, '_testcases'): 
             return
         self.space = space = getmyspace() 
         def f(): 
