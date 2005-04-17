@@ -1,3 +1,101 @@
+============
+Future plans 
+============
+
+.. contents::
+.. sectnum::
+
+This document contains a loose collection of future plans. 
+
+.. _newrepolayout: 
+
+Improving Repo layout 
+===================== 
+
+Motivation
+----------
+
+We want to move our subversion tree to the following structure: 
+
+- `dist`_: source code + documentation (for developer needs) 
+
+- `extradoc`_: talks, papers, newsletters and EU-related information
+  that are useful for not-only-developers 
+
+- `eu-tracking`: eu-tracking details that involve internal 
+  budget/cost/audit preparations and documentations (not 
+  available to anonymous checkouts) 
+
+.. _`extradoc`: http://codespeak.net/svn/pypy/extradoc 
+.. _`dist`: http://codespeak.net/svn/pypy/dist  
+
+More detailed layout (work in progress) 
+---------------------------------------
+
+(starting at /svn/pypy):: 
+
+    branch                  # holds branches 
+    tag                     # holds tagged dist-versions
+
+    dist                    # holds current development 
+        pypy                # current dist/pypy 
+            documentation   # developer documentation (inside pypy!) 
+        py                  # and other 'externals' 
+        setup.py            # should be there at some point 
+        README.txt          # tell how to run PyPy, the translator, tests 
+        LICENSE.txt         # copyright notices for tree parts including pypy 
+
+    extradoc                # non-dist documentations (papers etc.pp.) 
+        talk                # various pypy-talks 
+        paper               # various pypy-related papers (including our own)
+        sprint              # sprint related information (reports etc.pp.)
+        irclog              # IRC logs (snipped appropriately) 
+        eu-info             # legal guidelines/rules partcipation
+        eu-forms            # Accession forms (empty) 
+        proposal            # several versions 
+        newsletter          # ...
+        press               # ...
+            
+    eu-tracking             # strong focus on eu-internal details 
+        timesheets          # monthly timesheets 
+        monthly-reports 
+        deliverables        # deliverable/documents
+        minutes             # meeting protocols 
+        budget.sxc          
+        calendar.sxc 
+        ... 
+    www                     # website-related stuff (needs its own reconsideration) 
+
+
+The idea is that developers can use a simple url::
+    
+    svn co https://codespeak.net/svn/pypy/dist dist-pypy 
+
+in order to get everything neccessary for sourcecode, documentation
+and test development.  Obviously, if you care about the EU-funding 
+or web site application/contents you can do an appropriate checkout
+as well.  The extradoc contains information interesting to 
+developers and other open source projects (seeking funding or not). 
+
+Note, that having documentation inside the source tree will help
+with keeping a closer eye on documentation - especially when we 
+have special ref-integrity tests for the documentation (which itself
+should reference real source-code/functions at some point). For 
+example, the refactoring of unitest.py-style tests to `py.test`_ based ones
+"forgot" to modify our test-documentation in the too-far-away doc-folder. 
+We should move to a scheme where such an omission will raise real 
+test errors. 
+
+.. _`py.test`: http://codespeak.net/py/current/doc/test.html 
+
+.. _goals: 
+
+Brainstorming of goals 
+========================= 
+
+This is a loose collection of goals we brainstormed at 
+some earlier point.   
+
 **Infrastructure and tools**
 
 Supporting the PyPy project by producing and enhancing the tools. 
@@ -374,3 +472,4 @@ if we get funding.
   computing devices.
 
 .. _cmodules: http://codespeak.net/pypy/index.cgi?doc/cmodules.html
+

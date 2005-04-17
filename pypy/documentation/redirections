@@ -14,5 +14,8 @@
     'howtosvn.html'         : 'getting_started.html#howtosvn',
     'checking_ReST.html'    : 'coding-style.html#pypy-documentation', 
     'optionaltools.html'    : 'coding-style.html#optionaltool', 
+
+    'newrepolayout.html'    : 'future.html#newrepolayout', 
+    'goals.html'            : 'future.html#goals', 
 }
 
