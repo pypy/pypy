@@ -62,4 +62,4 @@ two-arguments-dispatching one`_ used internally by the annotator_.
 .. _`quite general one`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/multimethod.py
 .. _StdObjSpace: objspace.html#the-standard-object-space
 .. _`short two-arguments-dispatching one`: http://codespeak.net/svn/pypy/dist/pypy/annotation/pairtype.py
-.. _annotator: annotation.html
+.. _annotator: translation.html#annotator

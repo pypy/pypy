@@ -2,7 +2,8 @@
     'getting_started.html', 
     'architecture.html', 
     'coding-style.html', 
-    'objspace.html', 
+    'objspace.html',
+    'translation.html',
     'misc.html', 
     'theory.html', 
 ]

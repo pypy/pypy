@@ -1,3 +1,51 @@
+=====================
+    Translation
+=====================
+
+.. contents::
+.. sectnum::
+
+This document describes the tool chain that we developed to analyze and
+"compile" RPython_ programs (like PyPy itself) to various lower-level
+languages.
+
+.. _RPython: coding-style.html#restricted-python
+
+
+Overview
+========
+
+XXX very preliminary documentation!
+
+The module `translator.py`_ is the common entry point to the various parts
+of the translation process.  It is available as an interactive utility to
+`play around`_.
+
+Here are the steps we follow to translate a given program:
+
+1. The complete program is imported.  If needed, extra initialization is performed.  Once this is done, the program must be present in memory is a form that is "static enough" in the sense of RPython_.
+
+2. The `Flow Object Space`_ processes the input program, turning each function independently into a `control flow graph`_ data structure recording sequences of basic operations in "single-style assignment".
+
+3. Optionally, the Annotator_ performs global type inference on the control flow graphs.  Each variable gets annotated with an inferred type.
+
+4. One of the Code Generators (XXX not documented yet) turns the optionally annotated flow graphs and produces a source file in a lower-level language: C_, LLVM_, `Common Lisp`_, Pyrex_, Java_, or `Python again`_ (this is used in PyPy to turn sufficiently RPythonic app-level code into interp-level code).
+
+.. _`translator.py`: http://codespeak.net/svn/pypy/dist/pypy/translator/translator.py
+.. _`play around`: getting_started.html#trying-out-the-translator
+.. _`Flow Object Space`: objspace.html#the-flow-object-space
+.. _`control flow graph`: objspace.html#the-flow-model
+.. _C: http://codespeak.net/svn/pypy/dist/pypy/translator/genc/
+.. _LLVM: http://codespeak.net/svn/pypy/dist/pypy/translator/llvm/
+.. _`Common Lisp`: http://codespeak.net/svn/pypy/dist/pypy/translator/gencl.py
+.. _Pyrex: http://codespeak.net/svn/pypy/dist/pypy/translator/genpyrex.py
+.. _Java: http://codespeak.net/svn/pypy/dist/pypy/translator/java/
+.. _`Python again`: http://codespeak.net/svn/pypy/dist/pypy/translator/geninterplevel.py
+
+
+
+.. _Annotator:
+
 The annotation pass
 ===================
 
@@ -10,9 +58,8 @@ FlowObjSpace, but before these graphs are translated into low-level code
 (e.g. C/Lisp/Pyrex).
 
 
------
 Model
------
+------------------------
 
 The major goal of the annotator is to "annotate" each variable that 
 appears in a flow graph.  An "annotation" describes all the possible 
@@ -57,9 +104,8 @@ what a Variable can contain, it does so by updating this dictionary, not
 the ``SomeXxx`` instance.
 
 
----------
 Annotator
----------
+--------------------------
 
 The annotator itself (``pypy.translator.annrpython``) works by 
 propagating the annotations forward in the flow graphs, starting at some 
@@ -158,9 +204,8 @@ Variables will possibly contain Python objects outside the set defined
 by the annotation, and the annotator doesn't know it yet.
 
 
-----------------------------------
 Description of the available types
-----------------------------------
+-----------------------------------------------
 
 The reference and the details for the annotation model is found in the 
 module ``pypy.annotation.model``.  We describe below the issues related 

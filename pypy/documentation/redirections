@@ -19,6 +19,9 @@
     'goals.html'            : 'misc.html#goals', 
 
     'developers.html'       : 'misc.html#developers', 
-    'cmodules.html'         : 'misc.html#cmodules', 
+    'cmodules.html'         : 'misc.html#cmodules',
+
+    'annotation.html'       : 'translation.html#annotator',
+    'basicblock.asc'        : 'objspace.html#the-flow-model',
 }
 

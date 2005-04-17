@@ -15,4 +15,6 @@ def test_redirections():
         yield checkexist, redir.dirpath(newname) 
 
 def test_navlist(): 
-    assert eval(redir.dirpath('navlist').read())
+    navlist = eval(redir.dirpath('navlist').read())
+    for entry in navlist:
+        yield checkexist, redir.dirpath(entry)
