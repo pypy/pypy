@@ -156,19 +156,21 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
         w_mod = space.sys.getmodule(modulename) 
         if w_mod is not None:
             return w_mod
-        for path in space.unpackiterable(w_path):
-            dir = os.path.join(space.str_w(path), partname)
-            if os.path.isdir(dir):
-                f = os.path.join(dir,'__init__.py')
+        
+        if w_path is not None:
+            for path in space.unpackiterable(w_path):
+                dir = os.path.join(space.str_w(path), partname)
+                if os.path.isdir(dir):
+                    f = os.path.join(dir,'__init__.py')
+                    w_mod = try_import_mod(space, w_modulename, f, w_parent,
+                                           w(partname), pkgdir=dir)
+                    if w_mod is not None:
+                        return w_mod
+                f = os.path.join(space.str_w(path), partname + '.py')
                 w_mod = try_import_mod(space, w_modulename, f, w_parent,
-                                       w(partname), pkgdir=dir)
+                                       w(partname))
                 if w_mod is not None:
                     return w_mod
-            f = os.path.join(space.str_w(path), partname + '.py')
-            w_mod = try_import_mod(space, w_modulename, f, w_parent,
-                                   w(partname))
-            if w_mod is not None:
-                return w_mod
 
     if tentative:
         return None

@@ -144,3 +144,11 @@ class AppTestImport:
     def test_substituting_import(self):
         from pkg_substituting import mod
         assert mod.__name__ =='pkg_substituting.mod'
+
+    def test_proper_failure_on_killed__path__(self):
+        import pkg.pkg2.a
+        del pkg.pkg2.__path__
+        def imp_b():
+            import pkg.pkg2.b
+        raises(ImportError,imp_b)
+        
