@@ -32,7 +32,6 @@ coding-style.txt
 objspace.txt
     objspaceinterface.txt
     wrapping.txt
-    abstractobjspace.txt
     controlflow.txt
         annotateobjspace.txt
     stdobjspace.txt
@@ -46,3 +45,8 @@ translation.txt
             typer 
         llvm 
 
+theory.txt 
+    Abstract Interpretation 
+    XXX Annotation 
+    XXX translation aspects 
+    XXX multimethods 
