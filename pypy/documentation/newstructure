@@ -1,0 +1,48 @@
+
+getting_started.txt 
+    howtopypy.txt
+    howtosvn.txt
+    optionaltool.txt
+    checking_ReST.txt
+
+revreport
+    cmodules.txt # move to revreport somehow? 
+    developers.txt
+
+index.txt
+    # references all the major chapters 
+
+architecture.txt
+
+interpreter.txt 
+    the execution loop
+    exceptions 
+    modules 
+    functions 
+
+future.txt 
+    newrepolayout.txt
+    goals.txt
+
+coding-style.txt 
+    restrictedpy.txt
+    coding-style.txt
+    testdesign.txt
+
+objspace.txt
+    objspaceinterface.txt
+    wrapping.txt
+    abstractobjspace.txt
+    controlflow.txt
+        annotateobjspace.txt
+    stdobjspace.txt
+        multimethod.txt
+
+translation.txt 
+    annotation.txt
+    basicblock.asc
+    backends 
+        genc 
+            typer 
+        llvm 
+
