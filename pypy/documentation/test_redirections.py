@@ -13,3 +13,6 @@ def test_redirections():
     d = test_eval() 
     for newname in d.values(): 
         yield checkexist, redir.dirpath(newname) 
+
+def test_navlist(): 
+    assert eval(redir.dirpath('navlist').read())
