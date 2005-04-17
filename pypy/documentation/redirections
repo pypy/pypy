@@ -9,5 +9,10 @@
     'wrapping.html'         : 'objspace.html#wrapping-rules',
     'abstractobjspace.html' : 'theory.html#abstract-interpretation',
     'multimethod.html'      : 'theory.html#multimethods',
+
+    'howtopypy.html'        : 'getting_started.html#howtopypy',
+    'howtosvn.html'         : 'getting_started.html#howtosvn',
+    'checking_ReST.html'    : 'coding-style.html#pypy-documentation', 
+    'optionaltools.html'    : 'coding-style.html#optionaltool', 
 }
 
