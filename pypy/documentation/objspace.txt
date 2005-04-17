@@ -5,16 +5,17 @@ PyPy Object Spaces
 .. contents::
 .. sectnum::
 
-This document is an overview of the implementation of PyPy's `Object Spaces`_.
 
 .. _`Object Spaces`: architecture.html#the-object-space
 
 
+Introduction 
+============
+
+This document describes aspects of the implementation of PyPy's `Object Spaces`_.
+
 Wrapping rules
 ==============
-
-Introduction
-------------
 
 PyPy is made of Python source code at two levels: there is on the one hand *application-level code* that looks like normal Python code, and that implements some functionalities as one would expect from Python code (e.g. one can give a pure Python implementation of some built-in functions like ``zip()``).  There is also *interpreter-level code* for the functionalities that must more directly manipulate interpreter data and objects (e.g. the main loop of the interpreter, and the various object spaces).
 
