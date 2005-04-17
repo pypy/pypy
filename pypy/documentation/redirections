@@ -1,6 +1,13 @@
 # please make sure this is evaluatable 
 {
     'restrictedpy.html': 'coding-style.html#restricted-python', 
-    'testdesign.html'  : 'coding-style.html#test-design', 
+    'testdesign.html'  : 'coding-style.html#test-design',
+
+    'stdobjspace.html'      : 'objspace.html#the-standard-object-space',
+    'objspaceinterface.html': 'objspace.html#object-space-interface',
+    'annotateobjspace.html' : 'objspace.html#the-flow-object-space',
+    'wrapping.html'         : 'objspace.html#wrapping-rules',
+    'abstractobjspace.html' : 'theory.html#abstract-interpretation',
+    'multimethod.html'      : 'theory.html#multimethods',
 }
 

@@ -1,37 +1,416 @@
-=====================
-PyPython ObjectSpace
-=====================
+==================
+PyPy Object Spaces
+==================
 
-See ObjectSpaceInterface_ for a draft version of the interface specification to ObjectSpace objects.
-------------------------------------------------------------------------------------------------------
+.. contents::
+.. sectnum::
 
-In a Python-like language, a running interpreter has three main parts:
+This document is an overview of the implementation of PyPy's `Object Spaces`_.
 
-+ the compiler, which represents the static optimization of the source code into an intermediate format, the bytecode;
-+ the object library, implementing the various types of objects and their semantics;
-+ the main loop, which shuffles data around and calls the operations defined in the object library according to the bytecode.
+.. _`Object Spaces`: architecture.html#the-object-space
 
-The main loop generally assumes little about the semantics of the objects: they are essentially black boxes (PyObject pointers). The interpreter stack and the variables only contain such black boxes. Every operation is done via calls to the object library, like PyNumber_Add().
 
-In PyPy, the three parts are clearly separated and can be replaced independently. I will discuss below the reasons I think it is very useful to have, in particular, the object library be replaced. We call object space such an object library. The standard object space is the object space that works just like Python's, that is, the object space whose black boxes are real Python objects that work as expected. We will call wrapped objects the black boxes of an object space. 
+Wrapping rules
+==============
 
-Here are three examples of object spaces:
-
-- StandardObjectSpace_
-- AbstractObjectSpace_
-- AnnotateObjectSpace_
-
-(We should also talk about turning the compiler and the main loop into explicit concepts, as Rocco discussed in pypy-dev.)
-
-I believe that the above examples should give a hint at why we might really want object spaces that behave differently: this is called abstract interpretation in the literature. But there are also more funny ways to use object spaces, for example:
-
-+ running with several object spaces at once, to clearly separate the data into domains
-+ proxy object spaces, which forward all requests over a network to a "Python object server"
-+ and more... there have been numerous ideas in pypy-dev.
-
+Introduction
 ------------
 
-.. _ObjectSpaceInterface: objspaceinterface.html
-.. _StandardObjectSpace: stdobjspace.html
-.. _AbstractObjectSpace: abstractobjspace.html
-.. _AnnotateObjectSpace: annotateobjspace.html
+PyPy is made of Python source code at two levels: there is on the one hand *application-level code* that looks like normal Python code, and that implements some functionalities as one would expect from Python code (e.g. one can give a pure Python implementation of some built-in functions like ``zip()``).  There is also *interpreter-level code* for the functionalities that must more directly manipulate interpreter data and objects (e.g. the main loop of the interpreter, and the various object spaces).
+
+Application-level code doesn't see object spaces explicitely: it runs using an object space to support the objects it manipulates, but this is implicit.  There is no need for particular conventions for application-level code.  The sequel is only about interpreter-level code.  (Ideally, no application-level variable should be called ``space`` or ``w_xxx`` to avoid confusion.)
+
+
+Naming conventions
+------------------
+
+* ``space``: the object space is only visible at interpreter-level, where it is by convention in a variable called ``space``.
+
+* ``w_xxx``: any object seen by application-level code is an object explicitely managed by the object space.  From the interpreter-level point of view, this is called a *wrapped* object.  The ``w_`` prefix is used for any type of application-level object.
+
+* ``xxx_w``: an interpreter-level container for wrapped objects, for example a list or a dict containing wrapped objects.  Not to be confused with a wrapped object that would be a list or a dict: these are normal wrapped objects, so they use the ``w_`` prefix.
+
+
+Operations on ``w_xxx``
+-----------------------
+
+The core interpreter considers wrapped objects as black boxes.  It is not allowed to inspect them directly.  The allowed operations are all dependent on the object space: they are called ``space.xxx()``, where ``xxx`` is a standard operation name (``add``, ``getattr``, ``call``, ``eq``...).  The list of standard operations is found in the large table near the end of ``pypy.interpreter.baseobjspace``.  These operations take wrapped arguments and return a wrapped result (or sometimes just None).
+
+Also note some helpers:
+
+* ``space.call_function(w_callable, ...)``: collects the given (already-wrapped) arguments, builds a wrapped tuple for them, and uses ``space.call()`` to perform the call.
+
+* ``space.call_method(w_object, 'method', ...)``: uses ``space.getattr()`` to get the method object, and then ``space.call_function()`` to invoke it.
+
+
+Building ``w_xxx`` objects
+--------------------------
+
+From the core interpreter, wrapped objects are usually built as the result of an object space operation.  The ways to directly create a wrapped object are:
+
+* ``space.wrap(x)``: returns a wrapped object containing the value ``x``.  Only works if ``x`` is either a simple value (integer, float, string) or an instance of an internal interpreter class (Function, Code, Frame...).
+
+* ``space.newlist([w_x, w_y, w_z...])``: returns a wrapped list from a list of already-wrapped objects.
+
+* ``space.newtuple([w_x, w_y, w_z...])``: returns a wrapped tuple from a list of already-wrapped objects.
+
+* ``space.newdict([])``: returns a new, empty wrapped dictionary.  (The argument list can contain tuples ``(w_key, w_value)`` but it seems that such a use is not common.)
+
+* ``space.newbool(x)``: returns ``space.w_False`` or ``space.w_True`` depending on the truth value of ``x``.
+
+There are a few less common constructors, described in the comments at the end of ``pypy.interpreter.baseobjspace``.
+
+
+Constant ``w_xxx`` objects
+--------------------------
+
+The object space holds a number of predefined wrapped objects.  The most common ones are ``space.w_None`` and ``space.w_XxxError`` for each exception class ``XxxError`` (e.g. ``space.w_KeyError``, ``space.w_IndexError``, etc.).
+
+
+Inspecting ``w_xxx`` objects
+----------------------------
+
+The most delicate operation is for the interpreter to inspect a wrapped object, which must be done via the object space.
+
+* ``space.is_true(w_x)``: checks if the given wrapped object is considered to be ``True`` or ``False``.  You must never use the truth-value of ``w_x`` directly; doing so (e.g. writing ``if w_x:``) will give you an error reminding you of the problem.
+
+* ``w_x == w_y`` or ``w_x is w_y``: DON'T DO THAT.  The only half-official exception is to check if ``w_x`` contains a wrapped ``None``: you can write ``w_x == space.w_None``.  Follow this rule; the case of ``None`` is easy to fix globally later if we find out that we need to.  The rationale for this rule is that there is no reason that two wrappers are related in any way even if they contain what looks like the same object at application-level.  To check for equality, use ``space.is_true(space.eq(w_x, w_y))``.  To check for identity, use ``space.is_true(space.is_(w_x, w_y))``.
+
+* ``space.unpackiterable(w_x)``: this helper iterates ``w_x`` (using ``space.iter()`` and ``space.next()``) and collects the resulting wrapped objects in a list.  Of course, in cases where iterating directly is better than collecting the elements in a list first, you should use ``space.iter()`` and ``space.next()`` directly.
+
+* ``space.unwrap(w_x)``: inverse of ``space.wrap()``.  Attention!  Using ``space.unwrap()`` must be avoided whenever possible, i.e. only use this when you are well aware that you are cheating, in unit tests or bootstrapping code.
+
+* ``space.interpclass_w(w_x)``: If w_x is a wrapped instance of an interpreter class -- for example Function, Frame, Cell, etc. -- return it unwrapped.  Otherwise return None.
+
+* ``space.int_w(w_x)``: If w_x is an application-level integer or long which can be converted without overflow to an integer, return an interpreter-level integer.  Otherwise raise TypeError or OverflowError.
+
+* ``space.str_w(w_x)``: If w_x is an application-level string, return an interpreter-level string.  Otherwise raise TypeError.
+
+* ``space.float_w(w_x)``: If w_x is an application-level float, integer or long, return interpreter-level float.  Otherwise raise TypeError or OverflowError in case of very large longs.
+
+Remember that you can usually obtain the information you want by invoking operations or methods on the wrapped objects; e.g. ``space.call_method(w_dict, 'iterkeys')`` returns a wrapped iterable that you can decode with ``space.unpackiterable()``.
+
+
+Application-level exceptions
+----------------------------
+
+Interpreter-level code can use exceptions freely.  However, all application-level exceptions are represented as an ``OperationError`` at interpreter-level.  In other words, all exceptions that are potentially visible at application-level are internally an ``OperationError``.  This is the case of all errors reported by the object space operations (``space.add()`` etc.).
+
+To raise an application-level exception::
+
+    raise OperationError(space.w_XxxError, space.wrap("message"))
+
+To catch a specific application-level exception::
+
+    try:
+        ...
+    except OperationError, e:
+        if not e.match(space, space.w_XxxError):
+            raise
+        ...
+
+This construct catches all application-level exceptions, so we have to match it against the particular ``w_XxxError`` we are interested in and re-raise other exceptions.  The exception instance ``e`` holds two attributes that you can inspect: ``e.w_type`` and ``e.w_value``.  Do not use ``e.w_type`` to match an exception, as this will miss exceptions that are instances of subclasses.
+
+We are thinking about replacing ``OperationError`` with a family of common exception classes (e.g. ``AppKeyError``, ``AppIndexError``...) so that we can more easily catch them.  The generic ``AppError`` would stand for all other application-level classes.
+
+
+Object Space Interface
+======================
+
+This is a draft version of the Object Space interface. It is still evolving, although the public interface is not evolving as much as the internal interface that subclasses need to know about. This document now generally refers to the public interface; for subclassing you need to poke at the code in detail anyway.
+
+
+Administrative Functions
+----------------------------
+
+**initialize():**
+  Function which initializes w_builtins and the other w_constants.
+
+**getexecutioncontext():**
+  Return current active execution context.
+
+Operations on Objects in ObjSpace
+-----------------------------------------
+
+These functions both take and return "wrapped" objects.
+
+*The following functions implement the same operations as those in CPython:*
+
+``id, type, issubtype, iter, repr, str, len, hash,``
+
+``getattr, setattr, delattr, getitem, setitem, delitem,``
+
+``pos, neg, not_, abs, invert, add, sub, mul, truediv, floordiv, div, mod, divmod, pow, lshift, rshift, and_, or_, xor,``
+
+``hex, oct, int, float, ord,``
+
+``lt, le, eq, ne, gt, ge, contains,``
+
+``inplace_add, inplace_sub, inplace_mul, inplace_truediv, inplace_floordiv, inplace_div, inplace_mod, inplace_pow, inplace_lshift, inplace_rshift, inplace_and, inplace_or, inplace_xor,``
+
+``get, set, delete``
+
+**next(w):**
+  Call the next function for iterator w, or raises a real NoValue.
+
+**call(w_callable, w_args, w_kwds):**
+  Call a function with the given args and keywords.
+
+**call_function(w_callable, *args_w, **kw_w):**
+  Convenience function that collects the arguments in a wrapped tuple and dict and invokes 'call()'.
+
+**is_(w_x, w_y):**
+  Implements 'w_x is w_y'. (Returns a wrapped result too!)
+
+**isinstance(w_obj, w_type):**
+  Implements 'issubtype(type(w_obj), w_type)'. (Returns a wrapped result too!)
+
+**exception_match(w_exc_type, w_check_class):**
+  Checks if the given exception type matches 'w_check_class'. Used in matching the actual exception raised with the list of those to catch in an except clause. (Returns a wrapped result too!)
+
+Creation of Application Level objects
+---------------------------------------
+
+**wrap(x):**
+  Returns a wrapped object that is a reference to the interpreter-level object x. This can be used either on simple immutable objects (integers, strings...) to create a new wrapped object, or on complex mutable objects to obtain an application-level-visible reference to them (e.g. instances of internal interpreter classes).
+
+**newbool(b):**
+  Creates a Bool Object from an interpreter level object.
+
+**newtuple([..]):**
+  Take an interpreter level list of wrapped objects.
+
+**newlist([..]):**
+  Takes an interpreter level list of wrapped objects.
+
+**newdict([..]):**
+  Takes an interpreter level list of interpreter level pairs of wrapped key:wrapped value entries (and NOT an interpreter level dictionary!).
+
+**newslice(w_start, w_end, w_step):**
+  Makes a new slice object.
+
+**newstring(asciilist):**
+  Creates a string from a list of wrapped integers.
+
+Conversions from Application Level to Interpreter Level
+----------------------------------------------------------
+
+**unwrap(w_x):**
+  Return Interpreter Level equivalent of w_x
+
+**interpclass_w(w_x):**
+  If w_x is a wrapped instance of an interpreter class -- for example Function, Frame, Cell, etc. -- return it unwrapped.  Otherwise return None.
+
+**int_w(w_x):**
+  If w_x is an application-level integer or long which can be converted without overflow to an integer, return an interpreter-level integer.  Otherwise raise TypeError or OverflowError.
+
+**str_w(w_x):**
+  If w_x is an application-level string, return an interpreter-level string.  Otherwise raise TypeError.
+
+**float_w(w_x):**
+  If w_x is an application-level float, integer or long, return interpreter-level float.  Otherwise raise TypeError or OverflowError in case of very large longs.
+
+**is_true(w_x):**
+  Return a interpreter level bool (True or False).
+
+**unpackiterable(w_iterable, expected_length=None):**
+  Unpack an iterable object into a real (interpreter level) list. Raise a real ValueError if the expected_length is wrong.
+
+**unpacktuple(w_tuple, expected_length=None):**
+  Same as unpackiterable(), but only for tuples.
+
+
+Data Members
+-----------------
+
++ self.builtin
++ self.sys
++ self.w_None: The ObjSpace's None
++ self.w_True: The ObjSpace's True
++ self.w_False: The ObjSpace's False
++ self.w_Ellipsis: The ObjSpace's Ellipsis
++ self.w_NotImplemented: The ObjSpace's NotImplemented
+
++ ObjSpace.MethodTable:
+   List of tuples (method name, symbol, number of arguments, list of special names) for the regular part of the interface. (Tuples are interpreter level.)
+
++ ObjSpace.BuiltinModuleTable:
+   List of names of built-in modules.
+
++ ObjSpace.ConstantTable:
+   List of names of the constants that the object space should define
+
++ ObjSpace.ExceptionTable:
+   List of names of exception classes.
+
+
+The Standard Object Space
+=========================
+
+The Standard Object Space (StdObjSpace_) is the direct equivalent of CPython's object library (the "Objects/" subdirectory in the distribution). It is an implementation of the common Python types in a lower-level language.
+
+The Standard Object Space defines an abstract parent class, W_Object, and a bunch of subclasses like W_IntObject, W_ListObject, and so on. A wrapped object (a "black box" for the interpreter main loop) is thus an instance of one of these classes. When the main loop invokes an operation, say the addition, between two wrapped objects w1 and w2, the Standard Object Space does some internal dispatching (similar to "Object/abstract.c" in CPython) and invokes a method of the proper W_XyzObject class that can do the operation. The operation itself is done with the primitives allowed by RestrictedPython. The result is constructed as a wrapped object again. For example, compare the following implementation of integer addition with the function "int_add()" in "Object/intobject.c": ::
+
+    def int_int_add(space, w_int1, w_int2):
+        x = w_int1.intval
+        y = w_int2.intval
+        try:
+            z = x + y
+        except OverflowError:
+            raise FailedToImplement(space.w_OverflowError,
+                                    space.wrap("integer addition"))
+        return W_IntObject(z)
+
+Why such a burden just for integer objects? Why did we have to wrap them into W_IntObject instances? For them it seems it would have been sufficient just to use plain Python integers. But this argumentation fails just like it fails for more complex kind of objects. Wrapping them just like everything else is the cleanest solution. You could introduce case testing wherever you use a wrapped object, to know if it is a plain integer or an instance of (a subclass of) W_Object. But that makes the whole program more complicated. The equivalent in CPython would be to use PyObject* pointers all around except when the object is an integer (after all, integers are directly available in C too). You could represent small integers as odd-valuated pointers. But it puts extra burden on the whole C code, so the CPython team avoided it.
+
+In our case it is a later optimization that we could make. We just don't want to make it now (and certainly not hard-coded at this level -- it could be introduced by the C translators that we will eventually write). So in summary: wrapping integers as instances is the simple path, while using plain integers instead is the complex path, not the other way around.
+
+Note that the Standard Object Space implementation uses MultiMethod dispatch instead of the complex rules of "Object/abstract.c". I think that this can be translated to a different low-level dispatch implementation that would be binary compatible with CPython's (basically the PyTypeObject structure and its function pointers). If compatibility is not required it will be more straightforwardly converted into some efficient multimethod code.
+
+---------------------------------------------------------------------------
+
+.. _StdObjSpace: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/
+
+
+The Trace Object Space
+======================
+
+XXX see `this overview`_.
+
+.. _`this overview`: architecture.html#trace-object-space
+
+
+The Thunk Object Space
+======================
+
+This small object space, meant as a nice example, wraps another object space (e.g. the standard one) and adds two capabilities: lazily computed objects (computed only when an operation is performed on them), and "become", which completely and globally replaces an object with another.
+
+Example usage::
+
+    $ python interpreter/py.py -o thunk
+    >>> def f():
+    ...     print 'computing...'
+    ...     return 6*7
+    ...
+    >>> x = thunk(f)
+    >>> x
+    computing...
+    42
+    >>> x
+    42
+    >>> y = thunk(f)
+    >>> type(y)
+    computing...
+    <pypy type 'int'>
+
+
+The Flow Object Space
+=====================
+
+Introduction
+------------
+
+The task of the FlowObjSpace_ is to generate a control-flow graph from a function.  This graph will also contain a trace of the individual operations, so that it is actually just an alternate representation for the function.
+
+The FlowObjSpace is an object space, which means that it exports the standard object space interface and it is driven by the interpreter.
+
+The basic idea is that if the interpreter is given a function, e.g.::
+
+  def f(n):
+    return 3*n+2
+
+it will do whatever bytecode dispatching and stack-shuffling needed, during which it issues a sequence of calls to the object space.  The FlowObjSpace merely records these calls (corresponding to "operations") in a structure called a basic block.  To track which value goes where, the FlowObjSpace invents placeholder "wrapped objects" and give them to the interpreter, so that they appear in some next operation.  This technique is an example of `Abstract Interpretation`_.
+
+.. _`Abstract Interpretation`: theory.html#abstract-interpretation
+
+For example, if the placeholder ``v1`` is given as the argument to the above function, the interpreter will call ``v2 = space.mul(space.wrap(3), v1)`` and then ``v3 = space.add(v2, space.wrap(2))`` and return ``v3`` as the result.  During these calls the FlowObjSpace will record a basic block::
+
+  Block(v1):     # input argument
+    v2 = mul(Constant(3), v1)
+    v3 = add(v2, Constant(2))
+
+
+.. _FlowObjSpace: http://codespeak.net/svn/pypy/dist/pypy/objspace/flow/
+
+
+The Flow model
+--------------
+
+``pypy.objspace.flow.model`` defines the data model used by the flow graphs, as created by the FlowObjSpace, manipulated by ``pypy.translator.simplify`` and ``pypy.translator.transform``, and in general read by almost all the modules in ``pypy.translator``.
+
+It is recommended to play with ``python translator.py`` on a few examples to get an idea of the structure of flow graphs.  Here is a short summary of the non-obvious parts.
+
+
+FunctionGraph
+    A container for one graph (corresponding to one function).
+
+    :startblock:   the first block.  It is where the control goes when the function is called.  The input arguments of the startblock are the function's arguments.  If the function takes a ``*args`` argument, the ``args`` tuple is given as the last input argument of the startblock.
+    :returnblock:  the (unique) block that performs a function return.  It is empty, not actually containing any ``return`` operation; the return is implicit.  The returned value is the unique input variable of the returnblock.
+    :exceptblock:  the (unique) block that raises an exception out of the function.  The two input variables are the exception class and the exception value, respectively.  (No other block will actually link to the exceptblock if the function does not explicitely raise exceptions.)
+
+
+Block
+    A basic block, containing a list of operations and ending in jumps to other basic blocks.  All the values that are "live" during the execution of the block are stored in Variables.  Each basic block uses its own distinct Variables.
+
+    :inputargs:   list of fresh, distinct Variables that represent all the values that can enter this block from any of the previous blocks.
+    :operations:  list of SpaceOperations.
+    :exitswitch:  see below
+    :exits:       list of Links representing possible jumps from the end of this basic block to the beginning of other basic blocks.
+
+    Each Block ends in one of the following ways:
+
+    * unconditional jump: exitswitch is None, exits contains a single Link.
+    * conditional jump: exitswitch is one of the Variables that appear in the Block, and exits contains one or more Links (usually 2).  Each Link's exitcase gives a concrete value.  This is the equivalent of a "switch": the control follows the Link whose exitcase matches the run-time value of the exitswitch Variable.  It is a run-time error if the Variable doesn't match any exitcase.  (Currently only used with 2 Links whose exitcase are False and True, respectively.)
+    * exception catching: exitswitch is ``Constant(last_exception)``.  The first Link has exitcase set to None and represents the non-exceptional path.  The next Links have exitcase set to a subclass of Exception, and are taken when the *last* operation of the basic block raises a matching exception.  (Thus the basic block must not be empty, and only the last operation is protected by the handler.)
+    * return or except: the returnblock and the exceptblock have operations set to an empty tuple, exitswitch to None, and exits empty.
+
+
+Link
+    A link from one basic block to another.
+
+    :prevblock:  the Block that this Link is an exit of.
+    :target:     the target Block to which this Link points to.
+    :args:       a list of Variables and Constants, of the same size as the target Block's inputargs, which gives all the values passed into the next block.  (Note that each Variable used in the prevblock may appear zero, one or more times in the ``args`` list.)
+    :exitcase:   see above.
+
+    Note that ``args`` uses Variables from the prevblock, which are matched to the target block's ``inputargs`` by position, as in a tuple assignment or function call would do.
+
+
+SpaceOperation
+    A recorded (or otherwise generated) basic operation.
+
+    :opname:  the name of the operation.  Generally one from the list in ``pypy.interpreter.baseobjspace``.
+    :args:    list of arguments.  Each one is a Constant or a Variable seen previously in the basic block.
+    :result:  a *new* Variable into which the result is to be stored.
+
+    Note that operations usually cannot implicitely raise exceptions at run-time; so for example, code generators can assume that a ``getitem`` operation on a list is safe and can be performed without bound checking.  The exceptions to this rule are: (1) if the operation is the last in the block, which ends with ``exitswitch == Constant(last_exception)``, then the implicit exceptions must be checked for, generated, and caught appropriately; (2) calls to other functions, as per ``simple_call`` or ``call_args``, can always raise whatever the called function can raise --- and such exceptions must be passed through to the parent unless they are caught as above.
+
+
+Variable
+    A placeholder for a run-time value.  There is mostly debugging stuff here.
+
+    :name:  it is good style to use the Variable object itself instead of its ``name`` attribute to reference a value, although the ``name`` is guaranteed unique.
+
+
+Constant
+    A constant value used as argument to a SpaceOperation, or as value to pass across a Link to initialize an input Variable in the target Block.
+
+    :value:  the concrete value represented by this Constant.
+    :key:    a hashable object representing the value.
+
+    A Constant can occasionally store a mutable Python object.  It represents a static, pre-initialized, read-only version of that object.  The flow graph should not attempt to actually mutate such Constants.
+
+
+XXX talk about implicit exceptions
+
+
+How the FlowObjSpace works
+--------------------------
+
+The FlowObjSpace works by recording all operations issued by the interpreter into basic blocks.  A basic block ends in one of two cases: when the interpreters calls ``is_true()``, or when a joinpoint is reached.
+
+* A joinpoint occurs when the next operation is about to be recorded into the current block, but there is already another block that records an operation for the same bytecode position.  This means that the interpreter has closed a loop and is interpreting already-seen code again.  In this situation, we interrupt the interpreter and we make a link from the end of the current block back to the previous block, thus closing the loop in the flow graph as well.  (Note that this occurs only when an operation is about to be recorded, which allows some amount of constant-folding.)
+
+* If the interpreter calls ``is_true()``, the FlowObjSpace doesn't generally know if the answer should be True or False, so it puts a conditional jump and generates two successor blocks for the current basic block.  There is some trickery involved so that the interpreter is fooled into thinking that ``is_true()`` first returns False (and the subsequent operations are recorded in the first successor block), and later the *same* call to ``is_true()`` also returns True (and the subsequent operations go this time to the other successor block).
+
+(This section to be extended...)

@@ -161,7 +161,7 @@ Here are some sample reST textfiles to see what it looks like:
 
 .. _this: http://docutils.sourceforge.net/docs/rst/quickref.html
 .. _ObjectSpace: objspace.html 
-.. _ObjectSpaceInterface: objspaceinterface.html
+.. _ObjectSpaceInterface: objspace.html#object-space-interface
 
 
 .. _`detailed version`: 
