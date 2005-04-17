@@ -7,34 +7,33 @@ PyPy - a Python_ implementation written in Python
 
 Here are some good entry points into PyPy's world: 
 
- * PyPy's current architecture_  
+ * architecture_ gives a complete view of PyPy's basic design. 
 
- * howtopypy_ provides some hands-on instructions for getting started, 
+ * `getting started`_ provides hands-on instructions 
    including a two-liner to run PyPy on your computer. 
 
- * the current `revision report`_ shows status information 
-   about ongoing pypy development
+ * objspace_ and coding-style_ provide more in-depth 
+   implementation level information. 
 
- * go to recently-modified_ for an overview on which documentation 
-   changed recently 
+ * recently-modified_ shows a list of recently modified 
+   documentation while `revision report`_ shows status 
+   information about ongoing pypy development
 
+.. _`objspace`: objspace.html 
+.. _`coding-style`: coding-style.html 
+.. _`architecture`: architecture.html 
 .. _`revision report`: http://codespeak.net/pypy/rev/current 
+.. _`getting started`: getting_started.html 
+.. _`theory`: theory.html
 
 Before doing pypy coding, you might also take a look at these 
 developer-specific instructions: 
-
- * coding-style_ covers pypy coding conventions
-
- * optionaltool_ describes some optional tools used in pypy development
-
- * wrapping_ is a description of the crucial distinction between 
-   application-level and interpreter-level objects (without understanding 
-   this you might have difficulties understanding PyPy's source code). 
 
  * oscon2003-paper_ is a paper we presented at Oscon 2003 describing 
    what the pypy project is about and why you should care
 
  * testdesign_ describes a bit of PyPy's testing approaches 
+
 
 Further reading / related projects 
 ----------------------------------
@@ -62,12 +61,7 @@ Further reading / related projects
 * A comparison of Python and Pliant_ , an OS written in a python-like language. 
 
 
-.. _architecture: http://codespeak.net/pypy/index.cgi?doc/architecture.html
-.. _oscon2003-paper: http://codespeak.net/pypy/index.cgi?doc/oscon2003-paper.html
-.. _howtopypy: http://codespeak.net/pypy/index.cgi?doc/howtopypy.html
-.. _readme: http://codespeak.net/pypy/index.cgi?doc/readme.html
-.. _wrapping: http://codespeak.net/pypy/index.cgi?doc/wrapping.html
-.. _coding-style: http://codespeak.net/pypy/index.cgi?doc/coding-style.html
+.. _oscon2003-paper: http://codespeak.net/pypy/index.cgi?extradoc/talk/oscon2003-paper.html
 .. _howtosvn: http://codespeak.net/pypy/index.cgi?doc/howtosvn.html
 .. _optionaltool: http://codespeak.net/pypy/index.cgi?doc/optionaltool.html
 .. _testdesign: http://codespeak.net/pypy/index.cgi?doc/testdesign.html
