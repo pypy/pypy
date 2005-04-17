@@ -293,7 +293,6 @@ The goal of the above module layout is to cleanly separate the Python type objec
 .. _`tupletype.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/tupletype.py
 .. _`tupleobject.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/tupleobject.py
 
----------------------------------------------------------------------------
 
 
 The Trace Object Space
