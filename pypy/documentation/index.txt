@@ -15,11 +15,15 @@ Here are some good entry points into PyPy's world:
  * objspace_ and coding-style_ provide more in-depth 
    implementation level information. 
 
+ * translation_ offers the beginnings of documentation 
+   about our low level code generator backends. 
+
  * recently-modified_ shows a list of recently modified 
    documentation while `revision report`_ shows status 
    information about ongoing pypy development
 
 .. _`objspace`: objspace.html 
+.. _`translation`: translation.html 
 .. _`coding-style`: coding-style.html 
 .. _`architecture`: architecture.html 
 .. _`revision report`: http://codespeak.net/pypy/rev/current 
