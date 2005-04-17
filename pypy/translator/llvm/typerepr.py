@@ -6,6 +6,7 @@ from types import ClassType
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.annotation import model as annmodel
+from pypy.annotation.listdef import ListDef
 
 from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError
 from pypy.translator.llvm.representation import LLVM_SIMPLE_TYPES
@@ -71,7 +72,7 @@ class StringTypeRepr(TypeRepr):
 
     def setup(self):
         self.l_charlist = self.gen.get_repr(
-            annmodel.SomeList(None, annmodel.SomeChar()))
+            annmodel.SomeList(ListDef(None, annmodel.SomeChar())))
         self.dependencies.add(self.l_charlist)
         self.name = self.l_charlist.typename_wo_pointer()
 

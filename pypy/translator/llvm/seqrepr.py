@@ -77,19 +77,19 @@ class ListTypeRepr(TypeRepr):
     l_listtypes = {}
     def get(obj, gen):
         if obj.__class__ is annmodel.SomeList:
-            if (obj.s_item.__class__, gen) in ListTypeRepr.l_listtypes:
-                return ListTypeRepr.l_listtypes[(obj.s_item.__class__, gen)]
+            if (listitem(obj).__class__, gen) in ListTypeRepr.l_listtypes:
+                return ListTypeRepr.l_listtypes[(listitem(obj).__class__, gen)]
             l_repr = ListTypeRepr(obj, gen)
-            ListTypeRepr.l_listtypes[(obj.s_item.__class__, gen)] = l_repr
+            ListTypeRepr.l_listtypes[(listitem(obj).__class__, gen)] = l_repr
             return l_repr
         return None
     get = staticmethod(get)
 
     def __init__(self, obj, gen):
         if debug:
-            print "ListTypeRepr: %s, %s" % (obj, obj.s_item)
+            print "ListTypeRepr: %s, %s" % (obj, listitem(obj))
         self.gen = gen
-        self.l_itemtype = gen.get_repr(obj.s_item)
+        self.l_itemtype = gen.get_repr(listitem(obj))
         self.dependencies = sets.Set([self.l_itemtype])
         itemtype = self.l_itemtype.typename()
         self.name = "%%std.list.%s" % itemtype.strip("%").replace("*", "")
@@ -231,3 +231,8 @@ class TupleTypeRepr(TypeRepr):
             raise CompileError, "Invalid arguments to getitem"
         lblock.getelementptr(l_tmp, l_args[0], [0, l_unsigned])
         lblock.load(l_target, l_tmp)
+
+
+def listitem(s_list):
+    assert isinstance(s_list, annmodel.SomeList)
+    return s_list.listdef.listitem.s_value
