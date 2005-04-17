@@ -1,6 +1,6 @@
 # please make sure this is evaluatable 
 {
-    'restrictedpy.html': 'coding-style.html', 
-    'testdesign.html'  : 'coding-style.html', 
+    'restrictedpy.html': 'coding-style.html#restricted-python', 
+    'testdesign.html'  : 'coding-style.html#test-design', 
 }
 
