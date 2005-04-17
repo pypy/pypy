@@ -247,6 +247,9 @@ Data Members
 The Standard Object Space
 =========================
 
+Introduction
+------------
+
 The Standard Object Space (StdObjSpace_) is the direct equivalent of CPython's object library (the "Objects/" subdirectory in the distribution). It is an implementation of the common Python types in a lower-level language.
 
 The Standard Object Space defines an abstract parent class, W_Object, and a bunch of subclasses like W_IntObject, W_ListObject, and so on. A wrapped object (a "black box" for the interpreter main loop) is thus an instance of one of these classes. When the main loop invokes an operation, say the addition, between two wrapped objects w1 and w2, the Standard Object Space does some internal dispatching (similar to "Object/abstract.c" in CPython) and invokes a method of the proper W_XyzObject class that can do the operation. The operation itself is done with the primitives allowed by RestrictedPython. The result is constructed as a wrapped object again. For example, compare the following implementation of integer addition with the function "int_add()" in "Object/intobject.c": ::
@@ -267,10 +270,30 @@ In our case it is a later optimization that we could make. We just don't want to
 
 Note that the Standard Object Space implementation uses MultiMethod_ dispatch instead of the complex rules of "Object/abstract.c". I think that this can be translated to a different low-level dispatch implementation that would be binary compatible with CPython's (basically the PyTypeObject structure and its function pointers). If compatibility is not required it will be more straightforwardly converted into some efficient multimethod code.
 
----------------------------------------------------------------------------
-
 .. _StdObjSpace: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/
 .. _MultiMethod: theory.html#multimethods
+
+
+Object types
+------------
+
+The larger part of the `StdObjSpace`_ package defines and implements the library of Python's standard built-in object types.  Each type (int, float, list, tuple, str, type, etc.) is typically implemented by two modules:
+
+* the *type specification* module, which for a type ``xxx`` is called ``xxxtype.py``;
+
+* the *implementation* module, called ``xxxobject.py``.
+
+The ``xxxtype.py`` module basically defines the type object itself.  For example, `listtype.py`_ contains the specification of the object you get when you type ``list`` in a PyPy prompt.  `listtype.py`_ enumerates the methods specific to lists, like ``append()``.
+
+A particular method implemented by all types is the ``__new__()`` special method, which in Python's new-style-classes world is responsible for creating an instance of the type.  In PyPy, ``__new__()`` locates and imports the module implementing *instances* of the type, and creates such an instance based on the arguments the user supplied to the constructor.  For example, `tupletype.py`_ defines ``__new__()`` to import the class ``W_TupleObject`` from `tupleobject.py`_ and instantiate it.  The `tupleobject.py`_ then contains a "real" implementation of tuples: the way the data is stored in the ``W_TupleObject`` class, how the operations work, etc.
+
+The goal of the above module layout is to cleanly separate the Python type object, visible to the user, and the actual implementation of its instances.  It is possible (though not done so far) to provide *several* implementations of the instances of the same Python type.  The ``__new__()`` method could decide to create one or the other.  From the user's point of view, they are still all instances of exactly the same type; the possibly multiple internal ``W_XxxObject`` classes are not visible.  PyPy knows that (e.g.) the application-level type of its interpreter-level ``W_TupleObject`` instances is "tuple" because there is a ``typedef`` class attribute in ``W_TupleObject`` which points back to the tuple type specification from `tupletype.py`_.
+
+.. _`listtype.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/listtype.py
+.. _`tupletype.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/tupletype.py
+.. _`tupleobject.py`: http://codespeak.net/svn/pypy/dist/pypy/objspace/std/tupleobject.py
+
+---------------------------------------------------------------------------
 
 
 The Trace Object Space
