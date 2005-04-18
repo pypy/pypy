@@ -257,7 +257,7 @@ def truediv__Long_Long(space, w_long1, w_long2): #YYYYYY
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("long division"))
     z = x / y
-    return space.newfloat(z)
+    return space.newfloat(float(z))
 
 def floordiv__Long_Long(space, w_long1, w_long2): #YYYYYY
     x = w_long1.longval()
