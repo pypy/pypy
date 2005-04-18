@@ -13,3 +13,8 @@ class AppTest_Descroperation:
         sq = Sq()
 
         assert sq[1:3] == (1,3)
+
+    def test_ipow(self):
+        x = 2
+        x **= 5
+        assert x == 32

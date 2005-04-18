@@ -253,6 +253,14 @@ class DescrOperation:
         raise OperationError(space.w_TypeError,
                 space.wrap("operands do not support **"))
 
+    def inplace_pow(space, w_lhs, w_rhs):
+        w_impl = space.lookup(w_lhs, '__ipow__')
+        if w_impl is not None:
+            w_res = space.get_and_call_function(w_impl, w_lhs, w_rhs)
+            if _check_notimplemented(space, w_res):
+                return w_res
+        return space.pow(w_lhs, w_rhs, space.w_None)
+
     def contains(space, w_container, w_item):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
