@@ -128,9 +128,9 @@ class RPythonAnnotator:
         for a in cells:
             assert isinstance(a, annmodel.SomeObject)
         if block not in self.annotated:
-            self.bindinputargs(block, cells, called_from)
+            self.bindinputargs(fn, block, cells, called_from)
         else:
-            self.mergeinputargs(block, cells, called_from)
+            self.mergeinputargs(fn, block, cells, called_from)
         if not self.annotated[block]:
             self.pendingblocks[block] = fn
 
@@ -320,21 +320,21 @@ class RPythonAnnotator:
         assert block in self.annotated
         self.annotated[block] = False  # must re-flow
 
-    def bindinputargs(self, block, inputcells, called_from=None):
+    def bindinputargs(self, fn, block, inputcells, called_from=None):
         # Create the initial bindings for the input args of a block.
         assert len(block.inputargs) == len(inputcells)
         for a, cell in zip(block.inputargs, inputcells):
             self.setbinding(a, cell, called_from)
         self.annotated[block] = False  # must flowin.
 
-    def mergeinputargs(self, block, inputcells, called_from=None):
+    def mergeinputargs(self, fn, block, inputcells, called_from=None):
         # Merge the new 'cells' with each of the block's existing input
         # variables.
         oldcells = [self.binding(a) for a in block.inputargs]
-        unions = [annmodel.unionof(c1,c2) for c1, c2 in zip(oldcells,inputcells)]
+        unions = [annmodel.tracking_unionof((fn, block), c1,c2) for c1, c2 in zip(oldcells,inputcells)]
         # if the merged cells changed, we must redo the analysis
         if unions != oldcells:
-            self.bindinputargs(block, unions, called_from)
+            self.bindinputargs(fn, block, unions, called_from)
 
     def whereami(self, position_key):
         fn, block, i = position_key

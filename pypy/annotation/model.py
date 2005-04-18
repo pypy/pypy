@@ -267,6 +267,10 @@ def unionof(*somevalues):
         s1.caused_by_merge = somevalues
     return s1
 
+def tracking_unionof(ctxt, *somevalues):
+    return unionof(*somevalues)
+    
+
 # ____________________________________________________________
 # internal
 

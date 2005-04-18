@@ -1,4 +1,4 @@
-from pypy.annotation.model import SomeObject, SomeImpossibleValue, unionof
+from pypy.annotation.model import SomeObject, SomeImpossibleValue
 from pypy.annotation.listdef import ListItem
 
 

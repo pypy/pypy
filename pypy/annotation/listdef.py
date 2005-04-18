@@ -1,4 +1,4 @@
-from pypy.annotation.model import SomeObject, SomeImpossibleValue, unionof
+from pypy.annotation.model import SomeObject, SomeImpossibleValue, tracking_unionof
 
 
 class ListItem:
@@ -21,7 +21,7 @@ class ListItem:
             listdef.listitem = self
 
     def generalize(self, s_other_value):
-        s_new_value = unionof(self.s_value, s_other_value)
+        s_new_value = tracking_unionof(self.__class__.__name__, self.s_value, s_other_value)
         if s_new_value != self.s_value:
             self.s_value = s_new_value
             # reflow from all reading points

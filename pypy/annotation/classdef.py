@@ -4,7 +4,7 @@ Type inference for user-defined classes.
 
 from __future__ import generators
 from types import FunctionType
-from pypy.annotation.model import SomeImpossibleValue, SomePBC, unionof
+from pypy.annotation.model import SomeImpossibleValue, SomePBC, tracking_unionof
 
 
 class Attribute:
@@ -28,13 +28,13 @@ class Attribute:
                 source.__dict__[self.name])
             if classdef:
                 s_value = s_value.bindcallables(classdef)
-            self.s_value = unionof(self.s_value, s_value)
+            self.s_value = tracking_unionof(self, self.s_value, s_value)
         return self.s_value
 
     def merge(self, other):
         assert self.name == other.name
         self.sources.update(other.sources)
-        self.s_value = unionof(self.s_value, other.s_value)
+        self.s_value = tracking_unionof(self, self.s_value, other.s_value)
         self.readonly = self.readonly and other.readonly
         self.read_locations.update(other.read_locations)
 
