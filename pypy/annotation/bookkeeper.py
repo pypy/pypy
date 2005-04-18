@@ -133,7 +133,7 @@ class Bookkeeper:
             result = SomeInteger(nonneg = x>=0)
         elif tp is r_uint:
             result = SomeInteger(nonneg = True, unsigned = True)
-        elif tp is str:
+        elif issubclass(tp, str): # py.lib uses annotated str subclasses
             result = SomeString()
         elif tp is tuple:
             result = SomeTuple(items = [self.immutablevalue(e) for e in x])
@@ -216,7 +216,7 @@ class Bookkeeper:
             return SomeInteger()
         elif t is r_uint:
             return SomeInteger(nonneg = True, unsigned = True)
-        elif t is str:
+        elif issubclass(t, str): # py.lib uses annotated str subclasses
             return SomeString()
         elif t is float:
             return SomeFloat()
