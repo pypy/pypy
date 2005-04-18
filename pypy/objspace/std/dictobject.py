@@ -273,7 +273,7 @@ def str__Dict(space, w_dict):
     try:
         w_currently_in_repr = statedict['Py_Repr']
     except KeyError:
-        w_currently_in_repr = statedict['Py_Repr'] = space.newdict(())
+        w_currently_in_repr = statedict['Py_Repr'] = space.newdict([])
 
     return dictstr(space, w_currently_in_repr, w_dict)
 

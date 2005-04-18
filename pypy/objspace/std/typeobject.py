@@ -146,13 +146,14 @@ class W_TypeObject(W_Object):
         try:
             return w_self.dict_w[attr]
         except KeyError:
-            if w_self.lazyloaders and attr in w_self.lazyloaders:
-                loader = w_self.lazyloaders[attr]
-                del w_self.lazyloaders[attr]
-                w_value = loader()
-                if w_value is not None:   # None means no such attribute
-                    w_self.dict_w[attr] = w_value
-                return w_value
+            if w_self.lazyloaders:
+                if attr in w_self.lazyloaders:
+                    loader = w_self.lazyloaders[attr]
+                    del w_self.lazyloaders[attr]
+                    w_value = loader()
+                    if w_value is not None:   # None means no such attribute
+                        w_self.dict_w[attr] = w_value
+                        return w_value
             return None
 
     def lookup(w_self, key):
