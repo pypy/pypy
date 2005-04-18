@@ -60,6 +60,10 @@ class Object:
 class DescrOperation:
     _mixin_ = True
 
+    def setup_ec(space, ec):
+        ec._compare_nesting = 0
+        ec._cmp_state = {}
+
     def getdict(space, w_obj):
         return w_obj.getdict()
 
@@ -296,10 +300,10 @@ class DescrOperation:
         token = None
         _inprogress_dict = None
 
-        # um 
-        statedict = space.get_ec_state_dict() 
-        _compare_nesting = statedict.get('_compare_nesting', 0) + 1
-        statedict['_compare_nesting'] = _compare_nesting 
+        ec = space.getexecutioncontext()
+        ec._compare_nesting += 1
+        _compare_nesting = ec._compare_nesting
+
         try:
             # Try to do some magic to compare cyclic constructs.
             if (_compare_nesting > space._NESTING_LIMIT and
@@ -313,7 +317,7 @@ class DescrOperation:
                         t = (iv, iw, -1)
                     else:
                         t = (iw, iv, -1)
-                    _inprogress_dict = statedict.setdefault('cmp_state', {})
+                    _inprogress_dict = ec._cmp_state
                     if t in _inprogress_dict:
                         # If we are allready trying to compare the arguments
                         # presume they are equal
@@ -343,7 +347,7 @@ class DescrOperation:
                     except:
                         pass
         finally:
-            statedict['_compare_nesting'] -= 1
+            ec._compare_nesting -= 1
 
     def coerce(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
@@ -480,10 +484,9 @@ def _make_comparison_impl(symbol, specialnames):
         token = None
         _inprogress_dict = None
 
-        # um 
-        statedict = space.get_ec_state_dict() 
-        _compare_nesting = statedict.get('_compare_nesting', 0) + 1
-        statedict['_compare_nesting'] = _compare_nesting 
+        ec = space.getexecutioncontext()
+        ec._compare_nesting += 1
+        _compare_nesting = ec._compare_nesting
         try:
             # Try to do some magic to compare cyclic constructs.
             if (_compare_nesting > space._NESTING_LIMIT and
@@ -529,7 +532,7 @@ def _make_comparison_impl(symbol, specialnames):
             res = space.int_w(w_res)
             return space.wrap(op(res, 0))
         finally:
-            statedict['_compare_nesting'] -= 1 
+            ec._compare_nesting -= 1 
             if token is not None:
                 try:
                     del _inprogress_dict[token]

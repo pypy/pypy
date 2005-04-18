@@ -149,6 +149,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         from pypy.interpreter.module import Module
         return Module(self, self.wrap("exceptions"), w_dic)
 
+    def createexecutioncontext(self):
+        # add space specific fields to execution context
+        ec = ObjSpace.createexecutioncontext(self)
+        DescrOperation.setup_ec(self, ec)
+        ec._py_repr = self.newdict([])
+        return ec
+
     def gettypeobject(self, typedef):
         # types_w maps each StdTypeDef instance to its
         # unique-for-this-space W_TypeObject instance
@@ -276,10 +283,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
     allocate_instance._specialize_ = "location"
             
 
-    def unpacktuple(self, w_tuple, expected_length=None):
+    def unpacktuple(self, w_tuple, expected_length=-1):
         assert isinstance(w_tuple, W_TupleObject)
         t = w_tuple.wrappeditems
-        if expected_length is not None and expected_length != len(t):
+        if expected_length != -1 and expected_length != len(t):
             raise ValueError, "got a tuple of length %d instead of %d" % (
                 len(t), expected_length)
         return t

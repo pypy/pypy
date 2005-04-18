@@ -179,11 +179,11 @@ class ObjSpace(object):
             raise ValueError, "need more than %d value%s to unpack" % (i, plural)
         return items
 
-    def unpacktuple(self, w_tuple, expected_length=None):
+    def unpacktuple(self, w_tuple, expected_length=-1):
         """Same as unpackiterable(), but only for tuples.
         Only use for bootstrapping or performance reasons."""
         tuple_length = self.int_w(self.len(w_tuple))
-        if expected_length is not None and tuple_length != expected_length:
+        if expected_length != -1 and tuple_length != expected_length:
             raise ValueError, "got a tuple of length %d instead of %d" % (
                 tuple_length, expected_length)
         items = [

@@ -58,9 +58,9 @@ def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
             raise OperationError(space.w_OverflowError,
                                  space.wrap(
                 "long int too large to convert to int"))          
-        from pypy.objspace.std.longobject import W_LongObject
+        from pypy.objspace.std.longobject import W_LongObject, args_from_long
         w_obj = space.allocate_instance(W_LongObject, space.w_long)
-        w_obj.__init__(space, value)
+        w_obj.__init__(space, *args_from_long(value))
         return w_obj
     else:
         w_obj = space.allocate_instance(W_IntObject, w_inttype)

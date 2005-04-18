@@ -270,11 +270,7 @@ def str__Dict(space, w_dict):
     if w_dict.used == 0:
         return space.wrap('{}')
     statedict = space.get_ec_state_dict()
-    try:
-        w_currently_in_repr = statedict['Py_Repr']
-    except KeyError:
-        w_currently_in_repr = statedict['Py_Repr'] = space.newdict([])
-
+    w_currently_in_repr = space.getexecutioncontext()._py_repr
     return dictstr(space, w_currently_in_repr, w_dict)
 
 repr__Dict = str__Dict
