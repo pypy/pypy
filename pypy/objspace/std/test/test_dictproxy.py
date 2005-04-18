@@ -18,3 +18,16 @@ class AppTestUserObject:
             pass
         else:
             raise AssertionError, 'this should not have been writable'
+
+    def test_dictproxyeq(self):
+        class a(object):
+            pass
+        class b(object):
+            stuff = 42
+        class c(object):
+            stuff = 42
+        assert a.__dict__ == a.__dict__
+        assert a.__dict__ != b.__dict__
+        assert a.__dict__ != {'123': '456'}
+        assert {'123': '456'} != a.__dict__
+        assert b.__dict__ == c.__dict__

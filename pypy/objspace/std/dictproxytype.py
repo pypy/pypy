@@ -13,6 +13,15 @@ def _proxymethod(name):
         return space.getattr(w_obj.w_dict, space.wrap(name))
     return GetSetProperty(fget)
 
+def _compareproxymethod(opname):
+    def compare(space, w_obj1, w_obj2):
+        from pypy.objspace.std.dictproxyobject import W_DictProxyObject
+        if not isinstance(w_obj1, W_DictProxyObject):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("expected dictproxy"))
+        return getattr(space, opname)(w_obj1.w_dict, w_obj2)
+    return gateway.interp2app(compare)
+
 # ____________________________________________________________
 
 dictproxy_typedef = StdTypeDef("dictproxy",
@@ -32,11 +41,11 @@ dictproxy_typedef = StdTypeDef("dictproxy",
     __iter__ = _proxymethod('__iter__'),
     #__cmp__ = _proxymethod('__cmp__'),
     # you cannot have it here if it is not in dict
-    __lt__ = _proxymethod('__lt__'),
-    __le__ = _proxymethod('__le__'),
-    __eq__ = _proxymethod('__eq__'),
-    __ne__ = _proxymethod('__ne__'),
-    __gt__ = _proxymethod('__gt__'),
-    __ge__ = _proxymethod('__ge__'),
+    __lt__ = _compareproxymethod('lt'),
+    __le__ = _compareproxymethod('le'),
+    __eq__ = _compareproxymethod('eq'),
+    __ne__ = _compareproxymethod('ne'),
+    __gt__ = _compareproxymethod('gt'),
+    __ge__ = _compareproxymethod('ge'),
 )
 dictproxy_typedef.registermethods(globals())
