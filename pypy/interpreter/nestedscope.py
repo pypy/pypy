@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyopcode import PyInterpFrame
-from pypy.interpreter import function, pycode
+from pypy.interpreter import function, pycode, pyframe
 from pypy.interpreter.baseobjspace import Wrappable
 
 class Cell(Wrappable):
@@ -167,7 +167,12 @@ class PyNestedScopeFrame(PyInterpFrame):
         codeobj = f.space.interpclass_w(w_codeobj)
         assert isinstance(codeobj, pycode.PyCode)
         nfreevars = len(codeobj.co_freevars)
-        freevars = [f.space.interpclass_w(f.valuestack.pop()) for i in range(nfreevars)]
+        freevars = []
+        for i in range(nfreevars):
+            cell = f.space.interpclass_w(f.valuestack.pop())
+            if not isinstance(cell, Cell):
+                raise pyframe.BytecodeCorruption
+            freevars.append(cell)
         freevars.reverse()
         defaultarguments = [f.valuestack.pop() for i in range(numdefaults)]
         defaultarguments.reverse()
