@@ -90,10 +90,8 @@ class PyPyConsole(code.InteractiveConsole):
         code.InteractiveConsole.__init__(self)
         self.space = objspace
         self.verbose = verbose
-        self.ec = executioncontext.ExecutionContext(self.space)
-        # Need a way for the object space to get the execution context
-        setattr(self.space, "createexecutioncontext", self.get_ec)
-        
+        self.ec = self.space.createexecutioncontext()
+         
         space=self.space
 
         mainmodule = main.ensure__main__(space)
