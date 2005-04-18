@@ -90,9 +90,8 @@ class PyPyConsole(code.InteractiveConsole):
         code.InteractiveConsole.__init__(self)
         self.space = objspace
         self.verbose = verbose
-        self.ec = self.space.createexecutioncontext()
-         
-        space=self.space
+        space = self.space
+        self.ec = space.createexecutioncontext()
 
         mainmodule = main.ensure__main__(space)
         self.w_globals = mainmodule.w_dict
