@@ -190,7 +190,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             wrappeditems = [self.wrap(item) for item in x]
             return W_ListObject(self, wrappeditems)
         if isinstance(x, long):
-            return W_LongObject(self, x)
+            from pypy.objspace.std.longobject import args_from_long
+            return W_LongObject(self, *args_from_long(x))
         if isinstance(x, complex):
             # XXX is this right?   YYY no, this is wrong right now  (CT)
             # ZZZ hum, seems necessary for complex literals in co_consts (AR)
