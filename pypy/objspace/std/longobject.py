@@ -170,7 +170,7 @@ def eq__Long_Long(space, w_long1, w_long2):
         i += 1
     return space.newbool(True)
 
-def lt__Long_Long(space, w_long1, w_long2): #YYYYYY
+def lt__Long_Long(space, w_long1, w_long2):
     if w_long1.sign > w_long2.sign:
         return space.newbool(False)
     if w_long1.sign < w_long2.sign:
@@ -257,7 +257,7 @@ def truediv__Long_Long(space, w_long1, w_long2): #YYYYYY
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("long division"))
     z = x / y
-    return space.newfloat(float(z))
+    return space.newfloat(z)
 
 def floordiv__Long_Long(space, w_long1, w_long2): #YYYYYY
     x = w_long1.longval()
@@ -375,31 +375,83 @@ def abs__Long(space, w_long):
 def nonzero__Long(space, w_long):
     return space.newbool(w_long.sign != 0)
 
-def invert__Long(space, w_long): #YYYYYY
-    z = ~w_long.longval()
-    return W_LongObject(space, *args_from_long(z))
+def invert__Long(space, w_long): #Implement ~x as -(x + 1)
+    w_lpp = add__Long_Long(space, w_long, W_LongObject(space, [r_uint(1)], 1))
+    return neg__Long(space, w_lpp)
 
-def lshift__Long_Long(space, w_long1, w_long2): #YYYYYY
-    a = w_long1.longval()
-    b = w_long2.longval()
-    if b < 0:
+def lshift__Long_Long(space, w_long1, w_long2):
+    if w_long2.sign < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
+    elif w_long2.sign == 0:
+        return w_long1
     try:
-        res = a << b
+        b = int_w__Long(space, w_long2)
     except OverflowError:   # b too big
         raise OperationError(space.w_OverflowError,
                              space.wrap("shift count too large"))
-    return W_LongObject(space, *args_from_long(res))
+    wordshift = b // LONG_BIT
+    remshift = r_uint(b) % LONG_BIT
+    oldsize = len(w_long1.digits)
+    newsize = oldsize + wordshift
+    if remshift != 0:
+        newsize += 1
+    w_result = W_LongObject(space, [r_uint(0)] * newsize, w_long1.sign)
+    rightshift = LONG_BIT - remshift
+    LOWER_MASK = (r_uint(1) << r_uint(rightshift)) - 1
+    UPPER_MASK = ~LOWER_MASK
+    accum = r_uint(0)
+    i = wordshift
+    j = 0
+    while j < oldsize:
+        digit = w_long1.digits[j]
+        w_result.digits[i] = (accum | (digit << remshift))
+        accum = (digit & UPPER_MASK) >> rightshift
+        i += 1
+        j += 1
+    if remshift:
+        w_result.digits[i] = accum
+    else:
+        assert not accum
+    w_result._normalize()
+    return w_result
 
 def rshift__Long_Long(space, w_long1, w_long2): #YYYYYY
-    a = w_long1.longval()
-    b = w_long2.longval()
-    if b < 0:
+    if w_long2.sign < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("negative shift count"))
-    res = a >> b
-    return W_LongObject(space, *args_from_long(res))
+    elif w_long2.sign == 0:
+        return w_long1
+    if w_long1.sign == -1:
+        w_a1 = invert__Long(space, w_long1)
+        w_a2 = rshift__Long_Long(space, w_a1, w_long2)
+        return invert__Long(space, w_a2)
+    try:
+        b = int_w__Long(space, w_long2)
+    except OverflowError:   # b too big # XXX maybe just return 0L instead?
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("shift count too large"))
+    wordshift = b // LONG_BIT
+    remshift = r_uint(b) % LONG_BIT
+    oldsize = len(w_long1.digits)
+    newsize = oldsize - wordshift
+    if newsize <= 0:
+        return W_LongObject(space, [r_uint(0)], 0)
+    w_result = W_LongObject(space, [r_uint(0)] * newsize, 1)
+    leftshift = LONG_BIT - remshift
+    LOWER_MASK = (r_uint(1) << r_uint(remshift)) - 1
+    UPPER_MASK = ~LOWER_MASK
+    accum = r_uint(0)
+    i = newsize - 1
+    j = oldsize - 1
+    while j >= 0:
+        digit = w_long1.digits[j]
+        w_result.digits[i] = (accum | (digit >> remshift))
+        accum = (digit & LOWER_MASK) << leftshift
+        i -= 1
+        j -= 1
+    w_result._normalize()
+    return w_result
 
 def and__Long_Long(space, w_long1, w_long2): #YYYYYY
     a = w_long1.longval()

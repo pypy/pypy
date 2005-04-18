@@ -7,6 +7,15 @@ from pypy.tool.rarithmetic import r_uint
 
 objspacename = 'std'
 
+def gen_signs(l):
+    for s in l:
+        if s == 0:
+            yield s
+        else:
+            yield s
+            yield -s
+
+
 class TestW_LongObject:
 
     def test_add(self):
@@ -54,13 +63,6 @@ class TestW_LongObject:
         assert not self.space.is_true(lobj.eq__Long_Long(self.space, f1, f3))
 
     def test_lt(self):
-        def gen_signs(l):
-            for s in l:
-                if s == 0:
-                    yield s
-                else:
-                    yield s
-                    yield -s
         val = [0, 0x111111111111, 0x111111111112, 0x111111111112FFFF]
         for x in gen_signs(val):
             for y in gen_signs(val):
@@ -159,6 +161,39 @@ class TestW_LongObject:
         assert self.space.is_true(
             self.space.eq(lobj.sub__Long_Long(self.space, f1, f1), f0))
 
+    def test_invert(self):
+        x = 3 ** 40
+        f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+        f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(-x))
+        r1 = lobj.invert__Long(self.space, f1)
+        r2 = lobj.invert__Long(self.space, f2)
+        assert r1.longval() == -(x + 1)
+        assert r2.longval() == -(-x + 1)
+
+    def test_shift(self):
+        negative = lobj.W_LongObject(self.space, *lobj.args_from_long(-23))
+        big = lobj.W_LongObject(self.space, *lobj.args_from_long(2L ** 100L))
+        for x in gen_signs([3L ** 30L, 5L ** 20L, 7 ** 300, 0L, 1L]):
+            f1 = lobj.W_LongObject(self.space, *lobj.args_from_long(x))
+            self.space.raises_w(self.space.w_ValueError,
+                                lobj.lshift__Long_Long, self.space, f1,
+                                negative)
+            self.space.raises_w(self.space.w_ValueError,
+                                lobj.rshift__Long_Long, self.space, f1,
+                                negative)                                
+            self.space.raises_w(self.space.w_OverflowError,
+                                lobj.lshift__Long_Long, self.space, f1,
+                                big)
+            self.space.raises_w(self.space.w_OverflowError,
+                                lobj.rshift__Long_Long, self.space, f1,
+                                big)                                
+            for y in [0L, 1L, 2304L, 11233L, 3 ** 9]:
+                f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y))
+                res1 = lobj.lshift__Long_Long(self.space, f1, f2).longval()
+                res2 = lobj.rshift__Long_Long(self.space, f1, f2).longval()
+                assert res1 == x << y
+                assert res2 == x >> y
+
 class AppTestLong:
     def test_add(self):
         assert int(123L + 12443L) == 123 + 12443
@@ -180,3 +215,4 @@ class AppTestLong:
 
     def test_pow(self):
         assert pow(0L, 0L, 1L) == 0L
+
