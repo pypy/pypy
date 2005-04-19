@@ -198,6 +198,9 @@ class __extend__(SomeList):
     def method_pop(lst, s_index=None):
         return lst.listdef.read_item()
 
+    def method_index(lst, el):
+        return SomeInteger(nonneg=True)
+
     def len(lst):
         s_item = lst.listdef.read_item()
         if isinstance(s_item, SomeImpossibleValue):
@@ -242,6 +245,12 @@ class __extend__(SomeDict):
         
 
 class __extend__(SomeString):
+
+    def method_startswith(str, frag):
+        return SomeBool()
+
+    def method_endswith(str, frag):
+        return SomeBool()
 
     def method_join(str, s_list):
         return SomeString()
