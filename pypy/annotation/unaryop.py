@@ -198,10 +198,28 @@ class __extend__(SomeList):
     def method_pop(lst, s_index=None):
         return lst.listdef.read_item()
 
+    def len(lst):
+        s_item = lst.listdef.read_item()
+        if isinstance(s_item, SomeImpossibleValue):
+            r = SomeInteger(nonneg=True)
+            r.const = 0
+            return r
+        return SomeObject.len(lst)
+
     def iter(lst):
         return SomeIterator(lst.listdef.read_item())
 
 class __extend__(SomeDict):
+
+    def len(dct):
+        s_key = dct.dictdef.read_key()
+        s_value = dct.dictdef.read_value()
+        if isinstance(s_key, SomeImpossibleValue) and isinstance(s_value, SomeImpossibleValue):
+            r = SomeInteger(nonneg=True)
+            r.const = 0
+            return r
+        return SomeObject.len(dct)
+    
     def iter(dct):
         return SomeIterator(dct.dictdef.read_key())
 

@@ -874,6 +874,47 @@ class TestAnnonateTestCase:
         assert listitem(s.items[0]) == annmodel.SomeImpossibleValue()
         assert listitem(s.items[1]).knowntype == int
         assert listitem(s.items[2]).knowntype == int
+
+    def test_empty_list(self):
+        def f():
+            l = []
+            return bool(l)
+        def g():
+            l = []
+            x = bool(l)
+            l.append(1)
+            return x, bool(l)
+        
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == False
+
+        a = RPythonAnnotator()
+        s = a.build_types(g, [])
+
+        assert s.items[0].knowntype == bool and not s.items[0].is_constant()
+        assert s.items[1].knowntype == bool and not s.items[1].is_constant()
+        
+    def test_empty_dict(self):
+        def f():
+            d = {}
+            return bool(d)
+        def g():
+            d = {}
+            x = bool(d)
+            d['a'] = 1
+            return x, bool(d)
+        
+        a = RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == False
+
+        a = RPythonAnnotator()
+        s = a.build_types(g, [])
+
+        assert s.items[0].knowntype == bool and not s.items[0].is_constant()
+        assert s.items[1].knowntype == bool and not s.items[1].is_constant()
+                
         
 
 def g(n):
