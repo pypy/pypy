@@ -1,5 +1,5 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.strutil import string_to_int
+from pypy.objspace.std.strutil import string_to_int, ParseStringError
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 
@@ -13,9 +13,9 @@ def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
             try:
                 # XXX can produce unwrapped long
                 value = string_to_int(space.str_w(w_value))
-            except ValueError, e:
+            except ParseStringError, e:
                 raise OperationError(space.w_ValueError,
-                                     space.wrap(e.args[0]))
+                                     space.wrap(e.msg))
         else:
             # otherwise, use the __int__() method
             w_obj = space.int(w_value)
@@ -49,9 +49,9 @@ def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
             # XXX can produce unwrapped long, need real long impl to know
             # what to do
             value = string_to_int(s, base)
-        except ValueError, e:
+        except ParseStringError, e:
             raise OperationError(space.w_ValueError,
-                                 space.wrap(e.args[0]))
+                                 space.wrap(e.msg))
 
     if isinstance(value, long):
         if not space.is_true(space.is_(w_inttype, space.w_int)):

@@ -1,7 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.fake import fake_type, wrap_exception
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.strutil import string_to_int, string_to_long
+from pypy.objspace.std.strutil import string_to_int, string_to_long, ParseStringError
 
 W_UnicodeObject = fake_type(unicode)
 
@@ -84,12 +84,16 @@ def float__Unicode(space, w_uni):
 def int__Unicode(space, w_uni):
     try:
         return space.wrap(string_to_int(unicode_to_decimal_w(space, w_uni)))
+    except ParseStringError, e:
+        raise OperationError(space.w_ValueError, space.wrap(e.msg))
     except:
         wrap_exception(space)
 
 def long__Unicode(space, w_uni):
     try:
         return space.wrap(string_to_long(unicode_to_decimal_w(space, w_uni)))
+    except ParseStringError, e:
+        raise OperationError(space.w_ValueError, space.wrap(e.msg))    
     except:
         wrap_exception(space)
 

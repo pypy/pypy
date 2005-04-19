@@ -18,6 +18,11 @@ def strip_spaces(s):
 class InvalidLiteral(Exception):
     pass
 
+class ParseStringError(ValueError):
+    def __init__(self, msg):
+        self.args = (msg,)
+        self.msg = msg
+
 def _parse_string(s, literal, base, fname):
     # internal utility for string_to_int() and string_to_long().
     sign = 1
@@ -34,7 +39,7 @@ def _parse_string(s, literal, base, fname):
         else:
             base = 10
     elif base < 2 or base > 36:
-        raise ValueError, "%s() base must be >= 2 and <= 36" % (fname,)
+        raise ParseStringError, "%s() base must be >= 2 and <= 36" % (fname,)
     try:
         if not s:
             raise InvalidLiteral
@@ -58,14 +63,14 @@ def _parse_string(s, literal, base, fname):
         return result * sign
     except InvalidLiteral:
         if literal:
-            raise ValueError, 'invalid literal for %s(): %s' % (fname, literal)
+            raise ParseStringError, 'invalid literal for %s(): %s' % (fname, literal)
         else:
-            raise ValueError, 'empty literal for %s()' % (fname,)
+            raise ParseStringError, 'empty literal for %s()' % (fname,)
 
 def string_to_int(s, base=10):
     """Utility to converts a string to an integer (or possibly a long).
     If base is 0, the proper base is guessed based on the leading
-    characters of 's'.  Raises ValueError in case of error.
+    characters of 's'.  Raises ParseStringError (a subclass of ValueError) in case of error.
     """
     s = literal = strip_spaces(s)
     return _parse_string(s, literal, base, 'int')
