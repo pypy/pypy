@@ -196,10 +196,10 @@ class PyCode(eval.Code):
         return space.newtuple([space.wrap(name) for name in self.co_varnames])
 
     def fget_co_cellvars(space, self):
-        return space.newtuple([space.wrap(name) for name in self.co_freevars])
+        return space.newtuple([space.wrap(name) for name in self.co_cellvars])
 
     def fget_co_freevars(space, self):
-        return space.newtuple([space.wrap(name) for name in self.co_cellvars])    
+        return space.newtuple([space.wrap(name) for name in self.co_freevars])    
 
     def descr_code__eq__(self, w_other):
         space = self.space
