@@ -189,6 +189,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, list):
             wrappeditems = [self.wrap(item) for item in x]
             return W_ListObject(self, wrappeditems)
+        if isinstance(x, BaseWrappable):
+            w_result = x.__spacebind__(self)
+            #print 'wrapping', x, '->', w_result
+            return w_result
         if isinstance(x, long):
             from pypy.objspace.std.longobject import args_from_long
             return W_LongObject(self, *args_from_long(x))
@@ -199,10 +203,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.call_function(c,
                                       self.wrap(x.real), 
                                       self.wrap(x.imag))
-        if isinstance(x, BaseWrappable):
-            w_result = x.__spacebind__(self)
-            #print 'wrapping', x, '->', w_result
-            return w_result
         # anything below this line is implicitly XXX'ed
         if isinstance(x, type(Exception)) and issubclass(x, Exception):
             w_result = self.wrap_exception_cls(x)
