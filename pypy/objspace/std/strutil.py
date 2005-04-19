@@ -18,9 +18,8 @@ def strip_spaces(s):
 class InvalidLiteral(Exception):
     pass
 
-class ParseStringError(ValueError):
+class ParseStringError(Exception):
     def __init__(self, msg):
-        self.args = (msg,)
         self.msg = msg
 
 def _parse_string(s, literal, base, fname):
@@ -70,7 +69,7 @@ def _parse_string(s, literal, base, fname):
 def string_to_int(s, base=10):
     """Utility to converts a string to an integer (or possibly a long).
     If base is 0, the proper base is guessed based on the leading
-    characters of 's'.  Raises ParseStringError (a subclass of ValueError) in case of error.
+    characters of 's'.  Raises ParseStringError in case of error.
     """
     s = literal = strip_spaces(s)
     return _parse_string(s, literal, base, 'int')

@@ -76,11 +76,11 @@ class TestStrUtil:
                  '@',
                  ]
         for s in cases:
-            raises(ValueError, string_to_int, s)
-            raises(ValueError, string_to_int, '  '+s)
-            raises(ValueError, string_to_int, s+'  ')
-            raises(ValueError, string_to_int, '+'+s)
-            raises(ValueError, string_to_int, '-'+s)
+            raises(ParseStringError, string_to_int, s)
+            raises(ParseStringError, string_to_int, '  '+s)
+            raises(ParseStringError, string_to_int, s+'  ')
+            raises(ParseStringError, string_to_int, '+'+s)
+            raises(ParseStringError, string_to_int, '-'+s)
 
     def test_string_to_int_base_error(self):
         cases = [('1', 1),
@@ -98,17 +98,17 @@ class TestStrUtil:
                  ('12.3', 16),
                  ]
         for s, base in cases:
-            raises(ValueError, string_to_int, s, base)
-            raises(ValueError, string_to_int, '  '+s, base)
-            raises(ValueError, string_to_int, s+'  ', base)
-            raises(ValueError, string_to_int, '+'+s, base)
-            raises(ValueError, string_to_int, '-'+s, base)
+            raises(ParseStringError, string_to_int, s, base)
+            raises(ParseStringError, string_to_int, '  '+s, base)
+            raises(ParseStringError, string_to_int, s+'  ', base)
+            raises(ParseStringError, string_to_int, '+'+s, base)
+            raises(ParseStringError, string_to_int, '-'+s, base)
 
     def test_string_to_long(self):
         assert string_to_long('123L') == 123
         assert string_to_long('123L  ') == 123
-        raises(ValueError, string_to_long, 'L')
-        raises(ValueError, string_to_long, 'L  ')
+        raises(ParseStringError, string_to_long, 'L')
+        raises(ParseStringError, string_to_long, 'L  ')
         assert string_to_long('123L', 4) == 27
         assert string_to_long('123L', 30) == 27000 + 1800 + 90 + 21
         assert string_to_long('123L', 22) == 10648 + 968 + 66 + 21
