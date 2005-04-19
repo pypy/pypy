@@ -62,7 +62,13 @@ def builtin_isinstance(s_obj, s_type, variables=None):
         else:
             if typ == long:
                 getbookkeeper().warning("isinstance(., long) is not RPython")
-                typ = int # XXX as we did before
+                if s_obj.is_constant():
+                    r.const = isinstance(s_obj.const, long)
+                else:
+                    if type(s_obj) is not SomeObject: # only SomeObjects could be longs
+                        r.const = False
+                return r
+                
             assert not issubclass(typ, (int,long)) or typ in (bool, int), (
                 "for integers only isinstance(.,int|r_uint) are supported")
             if s_obj.is_constant():
