@@ -16,7 +16,7 @@ def unpack_str_tuple(space,w_str_tuple):
     els = []
     for w_el in space.unpackiterable(w_str_tuple):
         els.append(space.str_w(w_el))
-    return tuple(els)
+    return els
 
 
 # code object contants, for co_flags below
@@ -88,9 +88,9 @@ class PyCode(eval.Code):
         self.co_code = None          # string: instruction opcodes
         self.co_consts_w = []        # list of constants used (wrapped!)
         self.co_names = []           # list of strings: names (for attrs..)
-        self.co_varnames = []        # tuple of strings: local variable names
-        self.co_freevars = []        # tuple of strings: free variable names
-        self.co_cellvars = []        # tuple of strings: cell variable names
+        self.co_varnames = []        # list of strings: local variable names
+        self.co_freevars = []        # list of strings: free variable names
+        self.co_cellvars = []        # list of strings: cell variable names
         # The rest doesn't count for hash/cmp
         self.co_filename = ""        # string: where it was loaded from
         #self.co_name (in base class)# string: name, for reference
