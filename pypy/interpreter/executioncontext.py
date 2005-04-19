@@ -108,12 +108,13 @@ class ExecutionContext:
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()
-        exc_info = self.sys_exc_info()
-        self._trace(frame, 'exception',
-                    exc_info)
+        space = self.space
+        w_exc_info = space.newtuple([operationerr.w_type, operationerr.w_value,
+                                     space.wrap(operationerr.application_traceback)])
+        self._trace(frame, 'exception', w_exc_info)
         #operationerr.print_detailed_traceback(self.space)
 
-    def sys_exc_info(self):
+    def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
         """Implements sys.exc_info().
         Return an OperationError instance or None."""
         for i in range(self.framestack.depth()):

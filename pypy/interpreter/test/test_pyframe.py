@@ -51,3 +51,23 @@ class AppTestPyFrame:
                 print g_frame.f_back.f_code.co_name, f_frame.f_code.co_name 
             sys.settrace(trace)
             f()
+
+    def test_trace_exc(self):
+        import sys
+        l = []
+        def ltrace(a,b,c): 
+            if b == 'exception':
+                l.append(c)
+            return ltrace
+        def trace(a,b,c): return ltrace
+        def f():
+            try:
+                raise Exception
+            except:
+                pass
+        sys.settrace(trace)
+        f()
+        sys.settrace(None)
+        assert len(l) == 1
+        assert isinstance(l[0][1], Exception)
+
