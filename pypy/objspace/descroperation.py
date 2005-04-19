@@ -507,7 +507,7 @@ def _make_comparison_impl(symbol, specialnames):
                     t = (i1, i2, left)
                 else:
                     t = (i2, i1, right)
-                _inprogress_dict = space.get_ec_state_dict().setdefault('cmp_state', {})
+                _inprogress_dict = ec._cmp_state
                 if t in _inprogress_dict:
                     # If we are allready trying to compare the arguments
                     # presume they are equal
