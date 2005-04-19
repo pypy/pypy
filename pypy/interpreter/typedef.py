@@ -84,7 +84,12 @@ def _buildusercls((cls, hasdict, wants_slots), ignored):
     body = dict([(key, value)
                  for key, value in User_InsertNameHere.__dict__.items()
                  if not key.startswith('_') or key == '__del__'])
-    subcls = type(name, (cls,), body)
+    if not hasdict and not wants_slots:
+        subcls = type(name, (cls,), body)
+    else:
+        basesubcls = get_unique_interplevel_subclass(cls, False, False)
+        subcls = type(name, (basesubcls,), body)
+
     return subcls
 
 def instantiate(cls):

@@ -16,8 +16,14 @@ def ignore(*args):
     bk = getbookkeeper()
     return bk.immutablevalue(None)
 
-def instantiate(cls):
-    clsdef = getbookkeeper().getclassdef(itypedef.W_Root)
+def instantiate(clspbc):
+    assert isinstance(clspbc, annmodel.SomePBC)
+    clsdef = None
+    for cls, v in clspbc.prebuiltinstances.items():
+        if not clsdef:
+            clsdef = getbookkeeper().getclassdef(cls)
+        else:
+            clsdef = clsdef.commonbase(getbookkeeper().getclassdef(cls))
     return annmodel.SomeInstance(clsdef)
 
 def wrap_exception_cls(space, x):
