@@ -18,9 +18,17 @@ def make_cpy_module(dottedname, filepath, force=True):
         sys.modules[dottedname] = mod
         return mod    
 
-libtest = py.path.local(pypy.__file__).dirpath()
-libtest = libtest.dirpath('lib-python-2.3.4', 'test')
-libconftest = libtest.join('conftest.py').getpymodule()  # read())
+pypydir = py.path.local(pypy.__file__).dirpath()
+
+# hack out pypy/lib -> XXX we need to restructure our test2 situation 
+pypylibdir = pypydir.join('lib')
+if str(pypylibdir) in sys.path: 
+    print "warning, %s on sys.path at cpython level, removing it" % pypylibdir 
+    sys.path.remove(str(pypylibdir))
+assert str(pypylibdir) not in sys.path 
+
+libtestdir = pypydir.dirpath('lib-python-2.3.4', 'test')
+libconftest = libtestdir.join('conftest.py').getpymodule()  # read())
 
 testlist = None 
 doctestmodulelist = None
@@ -30,7 +38,7 @@ def hack_test_support_cpython():
     if testlist is None: 
         testlist = []
         doctestmodulelist = []
-        mod = make_cpy_module('unittest', libtest.join('pypy_unittest.py', force=True))
+        mod = make_cpy_module('unittest', libtestdir.join('pypy_unittest.py', force=True))
         mod.raises = py.test.raises 
 
         def hack_run_unittest(*classes): 
