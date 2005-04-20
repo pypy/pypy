@@ -47,10 +47,11 @@ We want to move our subversion tree to the following structure:
 - `extradoc`_: talks, papers, newsletters and EU-related information
   that are useful for not-only-developers 
 
-- `eu-tracking`: eu-tracking details that involve internal 
-  budget/cost/audit preparations and documentations (not 
-  available to anonymous checkouts) 
+- `eu-tracking`_ (password protected): tracking EU project details 
+  that involve internal budget/cost/audit preparations and 
+  documentations. This is not available to anonymous checkouts. 
 
+.. _`eu-tracking`: http://codespeak.net/svn/pypy/eu-tracking
 .. _`extradoc`: http://codespeak.net/svn/pypy/extradoc 
 .. _`dist`: http://codespeak.net/svn/pypy/dist  
 
