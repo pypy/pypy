@@ -369,3 +369,6 @@ class AppTestInt:
         class b: 
             pass 
         raises((AttributeError,TypeError), long, b()) 
+
+    def test_getnewargs(self):
+        assert  0 .__getnewargs__() == (0,)

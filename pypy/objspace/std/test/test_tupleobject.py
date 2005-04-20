@@ -242,3 +242,6 @@ class AppTestW_TupleObject:
         assert hash(()) & 0x7fffffff == 0x35d373
         assert hash((12,)) & 0x7fffffff == 0x1cca0557
         assert hash((12,34)) & 0x7fffffff == 0x153e2a41
+
+    def test_getnewargs(self):
+        assert  () .__getnewargs__() == ((),)

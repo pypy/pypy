@@ -91,3 +91,6 @@ class AppTestAppFloatTest:
         class b: 
             pass 
         raises((AttributeError, TypeError), float, b()) 
+
+    def test_getnewargs(self):
+        assert  0.0 .__getnewargs__() == (0.0,)

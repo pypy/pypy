@@ -537,3 +537,6 @@ class AppTestStringObject:
         assert hash('') == 0
         assert hash('hello') & 0x7fffffff == 0x347697fd
         assert hash('hello world!') & 0x7fffffff == 0x2f0bb411
+
+    def test_getnewargs(self):
+        assert  "foo".__getnewargs__() == ("foo",)

@@ -12,3 +12,7 @@ class AppTestObject:
     def test_hash_list(self):
         l = range(5)
         raises(TypeError, hash, l)
+
+    def test_no_getnewargs(self):
+        o = object()
+        assert not hasattr(o, '__getnewargs__')
