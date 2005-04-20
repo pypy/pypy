@@ -44,24 +44,6 @@ def callex(space, func, *args, **kwargs):
             raise KeyboardInterrupt 
         raise
     
-class RegrDirectory(py.test.collect.Directory): 
-    def run(self): 
-        l = []
-        items = testmap.items() 
-        items.sort(lambda x,y: cmp(x[0].lower(), y[0].lower()))
-        for name, testdecl in items: 
-            if testdecl.enabled: 
-                l.append(name) 
-        return l 
-
-    def join(self, name): 
-        if name not in testmap: 
-            raise NameError(name) 
-        testdecl = testmap[name]
-        return testdecl.testclass(mydir.join(name), parent=self) 
-
-Directory = RegrDirectory
-
 w_testlist = None 
 
 def hack_test_support(space): 
@@ -625,3 +607,23 @@ testmap = {
     'test_zlib.py'           : TestDecl(False, UTModuleMainTest),
         #ImportError: zlib
 }
+
+class RegrDirectory(py.test.collect.Directory): 
+    testmap = testmap
+    def run(self): 
+        l = []
+        items = self.testmap.items() 
+        items.sort(lambda x,y: cmp(x[0].lower(), y[0].lower()))
+        for name, testdecl in items: 
+            if testdecl.enabled: 
+                l.append(name) 
+        return l 
+
+    def join(self, name): 
+        if name not in self.testmap: 
+            raise NameError(name) 
+        testdecl = self.testmap[name]
+        return testdecl.testclass(self.fspath.join(name), parent=self) 
+
+Directory = RegrDirectory
+

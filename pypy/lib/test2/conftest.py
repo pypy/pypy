@@ -6,7 +6,7 @@ from pypy.conftest import gettestobjspace, option
 
 ModuleType = type(sys)
 
-def make_cpy_module(dottedname, filepath, force=False): 
+def make_cpy_module(dottedname, filepath, force=True): 
     try:
         if force: 
             raise KeyError 
@@ -14,62 +14,87 @@ def make_cpy_module(dottedname, filepath, force=False):
     except KeyError: 
         mod = ModuleType(dottedname)
         execfile(str(filepath), mod.__dict__)
+        #print "setting sys.modules[%s] = %s" % (dottedname, mod)
         sys.modules[dottedname] = mod
         return mod    
 
 libtest = py.path.local(pypy.__file__).dirpath()
 libtest = libtest.dirpath('lib-python-2.3.4', 'test')
-#conftest = libtest.join('conftest.py').pyimport()
+libconftest = libtest.join('conftest.py').getpymodule()  # read())
 
-def Module(fspath, parent=None): 
-    if option.allpypy: 
-        return conftest.Module(fspath, parent=parent) 
-    return UnittestModuleOnCPython(fspath, parent=parent) 
+testlist = None 
+doctestmodulelist = None
 
-class Directory(py.test.collect.Directory): 
-    def run(self): 
-        return []
-
-class UnittestModuleOnCPython(py.test.collect.Module): 
-    def _prepare(self): 
-        mod = make_cpy_module('unittest', libtest.join('pypy_unittest.py'), force=True) 
-        sys.modules['unittest'] = mod 
+def hack_test_support_cpython(): 
+    global testlist, doctestmodulelist 
+    if testlist is None: 
+        testlist = []
+        doctestmodulelist = []
+        mod = make_cpy_module('unittest', libtest.join('pypy_unittest.py', force=True))
         mod.raises = py.test.raises 
-        self.TestCase = mod.TestCase 
+
+        def hack_run_unittest(*classes): 
+            testlist.extend(list(classes))
+        def hack_run_doctest(name, verbose=None): 
+            doctestmodulelist.append(name) 
+            
+        from test import test_support 
+        test_support.run_unittest = hack_run_unittest 
+        test_support.run_doctest = hack_run_doctest  
+    return sys.modules['unittest']
+
+class UTModuleOnCPython(py.test.collect.Module): 
+    def __init__(self, fspath, parent): 
+        super(UTModuleOnCPython, self).__init__(fspath, parent) 
+        mod = hack_test_support_cpython() 
+        self.TestCaseClass = getattr(mod, 'TestCase') 
+        
+        name = self.fspath.purebasename 
+        mod = self._obj = make_cpy_module(name, self.fspath, force=True) 
+
+        # hack out the test case classes for this module 
+        testlist[:] = []
+        mod.test_main() 
+        
+        self._testcases = [(cls.__name__, cls) for cls in testlist]
+        self._testcases.sort() 
        
     def run(self): 
-        self._prepare() 
+        return [x[0] for x in self._testcases]
+
+    def join(self, name): 
+        for x,cls in self._testcases: 
+            if x == name: 
+                return UTTestCase(name, parent=self, cls=cls) 
+
+class UTTestCaseMethod(py.test.Function): 
+    def run(self): 
+        method = self.obj
+        setup = method.im_self.setUp 
+        teardown = method.im_self.tearDown
+        setup() 
         try: 
-            iterable = self._cache 
-        except AttributeError: 
-            iterable = self._cache = list(self._iter())
-        return list(iterable) 
-
-    def _iter(self): 
-        name = self.fspath.purebasename 
-        mod = make_cpy_module(name, self.fspath) 
-        print mod
-        tlist = conftest.app_list_testmethods(mod, self.TestCase, [])
-        for (setup, teardown, methods) in tlist: 
-            for name, method in methods: 
-                yield CpyTestCaseMethod(self.fspath, name, method, 
-                                        setup, teardown) 
-
-class CpyTestCaseMethod(py.test.Item): 
-    def __init__(self, fspath, name, method, setup, teardown): 
-        self.name = name  
-        extpy = py.path.extpy(fspath, name) 
-        super(CpyTestCaseMethod, self).__init__(extpy) 
-        self.method = method 
-        self.setup = setup 
-        self.teardown = teardown 
-
-    def run(self, driver):      
-        self.setup() 
-        try: 
-            self.execute() 
+            method() 
         finally: 
-            self.teardown() 
+            teardown()
 
-    def execute(self): 
-        return self.method() 
+class UTTestCaseInstance(py.test.collect.Instance): 
+    Function = UTTestCaseMethod 
+
+class UTTestCase(py.test.collect.Class): 
+    Instance = UTTestCaseInstance 
+
+    def __init__(self, name, parent, cls): 
+        super(UTTestCase, self).__init__(name, parent) 
+        self._obj = cls 
+
+TestDecl = libconftest.TestDecl 
+
+testmap = {
+    'test_itertools.py' : TestDecl(True, UTModuleOnCPython), 
+    'test_sha.py'        : TestDecl(True, UTModuleOnCPython), 
+}
+
+class Directory(libconftest.Directory): 
+    testmap = testmap 
+
