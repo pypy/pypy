@@ -58,6 +58,3 @@ def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
 long_typedef = StdTypeDef("long",
     __new__ = newmethod(descr__new__),
     )
-# hack to allow automatic int to long conversion: the int.__xyz__ methods
-# will fall back to their long.__xyz__ counterparts if they fail
-long_typedef.could_also_match = int_typedef
