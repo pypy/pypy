@@ -19,13 +19,8 @@ def descr__new__(space, w_floattype, w_value=0.0):
     w_obj.__init__(space, value)
     return w_obj
 
-def descr__getnewargs__(space, w_obj):
-    from pypy.objspace.std.floatobject import W_FloatObject
-    return space.newtuple([W_FloatObject(space, w_obj.floatval)])
-
 # ____________________________________________________________
 
 float_typedef = StdTypeDef("float",
     __new__ = newmethod(descr__new__),
-    __getnewargs__ = newmethod(descr__getnewargs__),
     )

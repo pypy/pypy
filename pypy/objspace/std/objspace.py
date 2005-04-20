@@ -310,6 +310,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         "Container for multimethods."
         call    = MultiMethod('call', 1, ['__call__'], general__args__=True)
         init    = MultiMethod('__init__', 1, general__args__=True)
+        getnewargs = MultiMethod('__getnewargs__', 1)
         # special visible multimethods
         int_w   = MultiMethod('int_w', 1, [])     # returns an unwrapped int
         str_w   = MultiMethod('str_w', 1, [])     # returns an unwrapped string

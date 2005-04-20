@@ -442,4 +442,8 @@ def hex__Int(space, w_int1):
     ret = "0x%lx" % x
     return space.wrap(ret)
 
+def getnewargs__Int(space, w_int1):
+    return space.newtuple([W_IntObject(space, w_int1.intval)])
+
+
 register_all(vars())

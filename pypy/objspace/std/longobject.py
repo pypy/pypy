@@ -479,6 +479,9 @@ def hex__Long(space, w_long1): #YYYYYY
     x = w_long1.longval()
     return space.wrap(hex(x))
 
+def getnewargs__Long(space, w_long1):
+    return space.newtuple([W_LongObject(space, w_long1.digits, w_long1.sign)])
+
 
 register_all(vars())
 

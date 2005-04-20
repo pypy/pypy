@@ -245,4 +245,7 @@ def float_coerce(space, w_float):
 StdObjSpace.coerce.register(float_coerce, W_FloatObject)
 """
 
+def getnewargs__Float(space, w_float):
+    return space.newtuple([W_FloatObject(space, w_float.floatval)])
+
 register_all(vars())

@@ -969,6 +969,10 @@ def ord__String(space, w_str):
             space.wrap("ord() expected a character, but string "
                        "of length %d found"%(len(w_str._value),)))
     return space.wrap(ord(u_str))
+
+def getnewargs__String(space, w_str):
+    return space.newtuple([W_StringObject(space, w_str._value)])
+
    
 app = gateway.applevel(r'''
     import codecs

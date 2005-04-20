@@ -218,3 +218,4 @@ class AppTestLong:
 
     def test_getnewargs(self):
         assert  0L .__getnewargs__() == (0L,)
+        assert  (-1L) .__getnewargs__() == (-1L,)

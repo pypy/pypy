@@ -135,4 +135,8 @@ def hash__Tuple(space, w_tuple):
     x += 97531
     return space.wrap(intmask(x))
 
+def getnewargs__Tuple(space, w_tuple):
+    return space.newtuple([W_TupleObject(space, w_tuple.wrappeditems)])
+
+
 register_all(vars())
