@@ -740,17 +740,22 @@ class PyInterpFrame(pyframe.PyFrame):
 # class above.
 
 app = gateway.applevel(r'''
-    # NOT_RPYTHON   (but should be, soon)
-
-    import sys
-
-    def sys_stdout(): 
+    """ applevel implementation of certain system properties, imports
+    and other helpers"""
+    # import sys
+    # note that sys must be imported inside of
+    # the functions, or attributes will be
+    # bound too early by flow space!
+    
+    def sys_stdout():
+        import sys
         try: 
             return sys.stdout
         except AttributeError:
             raise RuntimeError("lost sys.stdout")
 
     def print_expr(obj):
+        import sys
         try:
             displayhook = sys.displayhook
         except AttributeError:

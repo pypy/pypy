@@ -9,7 +9,8 @@ def render_docstr(func, indent_str='', closing_str=''):
         Note that we don't use a sequence, since we want
         the docstring to line up left, regardless of
         indentation. The shorter triple quotes are
-        choosen automatically."""
+        choosen automatically.
+        The result is returned as a 1-tuple."""
     if type(func) is not str:
         doc = func.__doc__
     else:

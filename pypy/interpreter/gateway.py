@@ -586,7 +586,7 @@ class ApplevelInterpClass(ApplevelClass):
             GI_VERSION_RENDERED = 0
         from pypy.translator.geninterplevel import GI_VERSION
         if GI_VERSION != GI_VERSION_RENDERED or GI_VERSION is None:
-            file(cls.cache_filename, "w").write("""
+            file(cls.cache_filename, "w").write("""\
 # This file acts as a cache for code snippets which have been
 # compiled by compile_as_module().
 # It will get a new entry for every piece of code that has

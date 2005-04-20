@@ -41,7 +41,7 @@ from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.0.1'  # bump this for substantial changes
+GI_VERSION = '1.0.3'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
@@ -384,7 +384,7 @@ class GenRpy:
             # the prefixbefore the initial '_' for easy postprocessing
             name = 'gi_minus_%d' % abs(value)
         name = self.uniquename(name)
-        self.initcode.append1('%s = space.newint(%d)' % (name, value))
+        self.initcode.append1('%s = space.wrap(%d)' % (name, value))
         return name
 
     def nameof_long(self, value):
@@ -413,7 +413,7 @@ class GenRpy:
         name = (name.replace('-', 'minus')
                     .replace('.', 'dot'))
         name = self.uniquename(name)
-        self.initcode.append1('%s = space.newfloat(%r)' % (name, value))
+        self.initcode.append1('%s = space.wrap(%r)' % (name, value))
         return name
     
     def nameof_str(self, value):
@@ -430,6 +430,7 @@ class GenRpy:
             txt = '%s = space.wrap(%r)' % (name, value)
         else:
             txt = render_docstr(value, '%s = space.wrap(\n' % name, ')')
+            txt = txt,  # not splitted
         self.initcode.append(txt)
         return name
 
@@ -526,7 +527,11 @@ class GenRpy:
             base_class = None
             base = cls
         def initinstance():
-            content = instance.__dict__.items()
+            try:
+                content = instance.__dict__.items()
+            except:
+                import pdb
+                pdb.set_trace()
             content.sort()
             for key, value in content:
                 if self.should_translate_attr(instance, key):
@@ -658,8 +663,7 @@ class GenRpy:
                 self.initcode.append((docstr,)) # not splitted
             else:
                 self.initcode.append("_doc = %s" % self.nameof(docobj) )
-            self.initcode.append("space.setitem(_dic, %s, _doc)" % (
-                self.nameof("__doc__"),))
+            self.initcode.append("space.setitem(_dic, %s, _doc)" % (sdoc,))
         self.initcode.append1('_bases = space.newtuple([%(bases)s])\n'
                              '_args = space.newtuple([%(name)s, _bases, _dic])\n'
                              '%(klass)s = space.call(%(meta)s, _args)'
@@ -851,28 +855,33 @@ class GenRpy:
         
     def gen_source_temp(self):
         f = self.f
-        info = {
-            'modname': self.modname,
-             # the side-effects of this is kick-start the process
-            'entrypoint': self.nameof(self.entrypoint),
-            }
+
         # header
         print >> f, self.RPY_HEADER
         print >> f
 
-        # doc
-        if self.moddict and self.moddict.get("__doc__"):
-            doc = self.moddict["__doc__"]
-            print >> f, render_docstr(doc)
-            print >> f
-            # make sure it is not rendered again
-            key = Constant(doc).key
-            self.rpynames[key] = "__doc__"
-            self.initcode.append("__doc__ = space.wrap('__doc__')")
-
+        info = {
+            'modname': self.modname,
+             # the side-effects of this is kick-start the process
+            'entrypoint': None # self.nameof(self.entrypoint),
+            }
         # header """def initmodule(space):"""
         print >> f, self.RPY_INIT_HEADER % info
 
+        # doc
+        if self.moddict and self.moddict.get("__doc__"):
+            doc = self.moddict["__doc__"]
+            print >> f, render_docstr(doc, "  __doc__ = \\\n")
+            print >> f
+            # make sure it is not rendered again
+            key = Constant(doc).key
+            self.rpynames[key] = "w__doc__"
+            self.initcode.append("w__doc__ = space.wrap(__doc__)")
+
+        # info.entrypoint must be done *after* __doc__ is handled,
+        # because nameof(entrypoint) might touch __doc__ early.
+        info["entrypoint"] = self.nameof(self.entrypoint)
+        
         # function implementations
         while self.pendingfunctions or self.latercode:
             if self.pendingfunctions:
