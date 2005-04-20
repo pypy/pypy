@@ -274,6 +274,8 @@ testmap = {
     'test_al.py'             : TestDecl(False, UnknownTestModule),
     'test_anydbm.py'         : TestDecl(False, UTModuleMainTest),
     'test_array.py'          : TestDecl(False, UTModuleMainTest),
+        #Uncaught interp-level exception: Same place as test_cfgparser
+
     'test_asynchat.py'       : TestDecl(False, OutputTestModule),
     'test_atexit.py'         : TestDecl(False, UnknownTestModule),
     'test_audioop.py'        : TestDecl(False, UnknownTestModule),
@@ -281,10 +283,16 @@ testmap = {
     'test_base64.py'         : TestDecl(True,  UTModuleMainTest),
     'test_bastion.py'        : TestDecl(False, UnknownTestModule),
     'test_binascii.py'       : TestDecl(False, UTModuleMainTest),
+        #2 of 8 tests fail
+
     'test_binhex.py'         : TestDecl(False, UTModuleMainTest),
+        #1 of 1 test fails
+
     'test_binop.py'          : TestDecl(True,  UTModuleMainTest),
     'test_bisect.py'         : TestDecl(True,  UTModuleMainTest),
     'test_bool.py'           : TestDecl(False, UTModuleMainTest),
+        #Infinite recursion in DescrOperation.is_true
+
     'test_bsddb.py'          : TestDecl(False, UTModuleMainTest),
     'test_bsddb185.py'       : TestDecl(False, UTModuleMainTest),
     'test_bsddb3.py'         : TestDecl(False, UTModuleMainTest),
@@ -296,19 +304,30 @@ testmap = {
     'test_capi.py'           : TestDecl(False, UnknownTestModule),
     'test_cd.py'             : TestDecl(False, UnknownTestModule),
     'test_cfgparser.py'      : TestDecl(False, UTModuleMainTest),
+        #Uncaught interp-level exception:
+        #File "pypy/objspace/std/fake.py", line 133, in setfastscope
+        #raise UnwrapError('calling %s: %s' % (self.code.cpy_callable, e))
+        #pypy.objspace.std.model.UnwrapError: calling <built-in function backslashreplace_errors>: cannot unwrap <UserW_ObjectObject() instance of <W_TypeObject(UnicodeError)>>
+
     'test_cgi.py'            : TestDecl(False, OutputTestModule),
     'test_charmapcodec.py'   : TestDecl(True, UTModuleMainTest),
     'test_cl.py'             : TestDecl(False, UnknownTestModule),
     'test_class.py'          : TestDecl(False, OutputTestModule),
     'test_cmath.py'          : TestDecl(True,  UnknownTestModule),
     'test_codeccallbacks.py' : TestDecl(False, UTModuleMainTest),
+        #Uncaught interp-level exception: Same place as test_cfgparser
+
     'test_codecs.py'         : TestDecl(False, UTModuleMainTest),
+        #Uncaught interp-level exception: Same place as test_cfgparser
+
     'test_codeop.py'         : TestDecl(True,  UTModuleMainTest),
     'test_coercion.py'       : TestDecl(False, OutputTestModule),
     'test_commands.py'       : TestDecl(True,  UTModuleMainTest),
     'test_compare.py'        : TestDecl(True,  OutputTestModule),
     'test_compile.py'        : TestDecl(True,  UTModuleMainTest),
     'test_complex.py'        : TestDecl(False, UTModuleMainTest),
+        #at least one test fails, after several hours I gave up waiting for the rest
+
     'test_contains.py'       : TestDecl(False, UnknownTestModule),
     'test_cookie.py'         : TestDecl(False, OutputTestModule),
     'test_copy.py'           : TestDecl(True, UTModuleMainTest),
@@ -316,11 +335,15 @@ testmap = {
     'test_cpickle.py'        : TestDecl(False, UTModuleMainTest),
     'test_crypt.py'          : TestDecl(False, UnknownTestModule),
     'test_csv.py'            : TestDecl(False, UTModuleMainTest),
+        #ImportError: _csv
+
     'test_curses.py'         : TestDecl(False, UnknownTestModule),
     'test_datetime.py'       : TestDecl(True,  UTModuleMainTest),
     'test_dbm.py'            : TestDecl(False, UnknownTestModule),
     'test_descr.py'          : TestDecl(False, UTModuleMainTest),
     'test_descrtut.py'       : TestDecl(False, UTModuleMainTest),
+        #19 of 96 tests fail
+
     'test_difflib.py'        : TestDecl(False, UnknownTestModule),
     'test_dircache.py'       : TestDecl(True, UTModuleMainTest),
     'test_dis.py'            : TestDecl(True,  UTModuleMainTest),
@@ -328,12 +351,20 @@ testmap = {
     'test_doctest.py'        : TestDecl(False, UnknownTestModule),
     'test_doctest2.py'       : TestDecl(True, UTModuleMainTest),
     'test_dumbdbm.py'        : TestDecl(False, UTModuleMainTest),
+        #5 of 7 tests fail
+
     'test_dummy_thread.py'   : TestDecl(True, UTModuleMainTest),
     'test_dummy_threading.py': TestDecl(False, UnknownTestModule),
     'test_email.py'          : TestDecl(False, UTModuleMainTest),
+        #Uncaught interp-level exception
+
     'test_email_codecs.py'   : TestDecl(False, UnknownTestModule),
     'test_enumerate.py'      : TestDecl(False, UTModuleMainTest),
+        #fails because enumerate is a type in CPy: the test tries to subclass it
+
     'test_eof.py'            : TestDecl(False, UTModuleMainTest),
+        #some error strings differ slightly XXX
+
     'test_errno.py'          : TestDecl(False, UnknownTestModule),
     'test_exceptions.py'     : TestDecl(False, OutputTestModule),
     'test_extcall.py'        : TestDecl(False, OutputTestModule),
@@ -354,21 +385,31 @@ testmap = {
     'test_gc.py'             : TestDecl(False, UnknownTestModule),
     'test_gdbm.py'           : TestDecl(False, UnknownTestModule),
     'test_generators.py'     : TestDecl(False, UTModuleMainTest),
+        #30 of 152 tests fail
+
     'test_getargs.py'        : TestDecl(False, UnknownTestModule),
     'test_getargs2.py'       : TestDecl(False, UTModuleMainTest),
+        #ImportError: _testcapi
+
     'test_getopt.py'         : TestDecl(False, UnknownTestModule),
     'test_gettext.py'        : TestDecl(False, UTModuleMainTest),
+        #28 of 28 tests fail
+
     'test_gl.py'             : TestDecl(False, UnknownTestModule),
     'test_glob.py'           : TestDecl(True, UTModuleMainTest),
     'test_global.py'         : TestDecl(False, OutputTestModule),
     'test_grammar.py'        : TestDecl(False, OutputTestModule),
     'test_grp.py'            : TestDecl(False, UTModuleMainTest),
+        #ImportError: grp
+
     'test_gzip.py'           : TestDecl(False, UnknownTestModule),
     'test_hash.py'           : TestDecl(True,  UTModuleMainTest),
     'test_heapq.py'          : TestDecl(True,  UTModuleMainTest),
     'test_hexoct.py'         : TestDecl(True,  UTModuleMainTest),
     'test_hmac.py'           : TestDecl(True, UTModuleMainTest),
     'test_hotshot.py'        : TestDecl(False, UTModuleMainTest),
+        #ImportError: _hotshot
+
     'test_htmllib.py'        : TestDecl(True,  UTModuleMainTest),
     'test_htmlparser.py'     : TestDecl(True,  UTModuleMainTest),
     'test_httplib.py'        : TestDecl(False, OutputTestModule),
@@ -382,11 +423,15 @@ testmap = {
     'test_ioctl.py'          : TestDecl(False, UTModuleMainTest),
     'test_isinstance.py'     : TestDecl(True,  UTModuleMainTest),
     'test_iter.py'           : TestDecl(False, UTModuleMainTest),
+        #Uncaught interp-level exception: Same place as test_cfgparser
+
     'test_itertools.py'      : TestDecl(False, UTModuleMainTest),
+        #Alternate version in test2
+
     'test_largefile.py'      : TestDecl(False, UnknownTestModule),
     'test_linuxaudiodev.py'  : TestDecl(False, OutputTestModule),
     'test_locale.py'         : TestDecl(False, UnknownTestModule),
-    'test_logging.py'        : TestDecl(False, UTModuleMainTest),
+    'test_logging.py'        : TestDecl(False, OutputTestModule),
     'test_long.py'           : TestDecl(True,  UnknownTestModule), # takes hours 
     'test_long_future.py'    : TestDecl(False, UnknownTestModule),
     'test_longexp.py'        : TestDecl(False, OutputTestModule),
@@ -419,6 +464,8 @@ testmap = {
     'test_os.py'             : TestDecl(True, UTModuleMainTest),
     'test_ossaudiodev.py'    : TestDecl(False, OutputTestModule),
     'test_parser.py'         : TestDecl(True,  UTModuleMainTest),
+        #18 of 18 tests fail
+
     'test_pep247.py'         : TestDecl(False, UnknownTestModule),
     'test_pep263.py'         : TestDecl(False, UnknownTestModule),
     'test_pep277.py'         : TestDecl(False, UTModuleMainTest),
@@ -434,22 +481,37 @@ testmap = {
     'test_posixpath.py'      : TestDecl(True, UTModuleMainTest),
     'test_pow.py'            : TestDecl(True, UTModuleMainTest),
     'test_pprint.py'         : TestDecl(True,  UTModuleMainTest),
-    'test_profile.py'        : TestDecl(True, UTModuleMainTest),
+    'test_profile.py'        : TestDecl(True, OutputTestModule),
     'test_profilehooks.py'   : TestDecl(True,  UTModuleMainTest),
     'test_pty.py'            : TestDecl(False, OutputTestModule),
     'test_pwd.py'            : TestDecl(False, UTModuleMainTest),
+        #ImportError: pwd
+
     'test_pyclbr.py'         : TestDecl(False, UTModuleMainTest),
     'test_pyexpat.py'        : TestDecl(False, OutputTestModule),
     'test_queue.py'          : TestDecl(False, UnknownTestModule),
     'test_quopri.py'         : TestDecl(False, UTModuleMainTest),
     'test_random.py'         : TestDecl(False, UTModuleMainTest),
+        #Uncaught app-level exception:
+        #class WichmannHill_TestBasicOps(TestBasicOps):
+        #File "test_random.py", line 125 in WichmannHill_TestBasicOps
+        #gen = random.WichmannHill()
+        #AttributeError: 'module' object has no attribute 'WichmannHill'
+
     'test_re.py'             : TestDecl(False, UTModuleMainTest),
+        #7 of 47 tests fail
+
     'test_regex.py'          : TestDecl(False, OutputTestModule),
     'test_repr.py'           : TestDecl(False, UTModuleMainTest),
+        #6 of 12 tests fail. Always minor stuff like
+        #'<function object at 0x40db3e0c>' != '<built-in function hash>'
+
     'test_resource.py'       : TestDecl(False, OutputTestModule),
     'test_rfc822.py'         : TestDecl(True, UTModuleMainTest),
     'test_rgbimg.py'         : TestDecl(False, OutputTestModule),
     'test_richcmp.py'        : TestDecl(False, UTModuleMainTest),
+        #1 of 11 test fails. The failing one had an infinite recursion.
+
     'test_robotparser.py'    : TestDecl(True, UTModuleMainTest),
     'test_rotor.py'          : TestDecl(False, OutputTestModule),
     'test_sax.py'            : TestDecl(False, UnknownTestModule),
@@ -465,16 +527,26 @@ testmap = {
     'test_signal.py'         : TestDecl(False, OutputTestModule),
     'test_slice.py'          : TestDecl(False, UnknownTestModule),
     'test_socket.py'         : TestDecl(False, UTModuleMainTest),
+        #ImportError: thread
+
     'test_socket_ssl.py'     : TestDecl(False, UTModuleMainTest),
     'test_socketserver.py'   : TestDecl(False, UTModuleMainTest),
+        #ImportError: thread
+
     'test_softspace.py'      : TestDecl(False, UnknownTestModule),
     'test_sort.py'           : TestDecl(False, UnknownTestModule),
     'test_str.py'            : TestDecl(False, UTModuleMainTest),
+        #at least two tests fail, after several hours I gave up waiting for the rest
+
     'test_strftime.py'       : TestDecl(False, UnknownTestModule),
     'test_string.py'         : TestDecl(True,  UTModuleMainTest),
     'test_stringprep.py'     : TestDecl(False, UnknownTestModule),
     'test_strop.py'          : TestDecl(False, UTModuleMainTest),
+        #ImportError: strop
+
     'test_strptime.py'       : TestDecl(False, UTModuleMainTest),
+        #1 of 42 test fails: seems to be some regex problem
+
     'test_struct.py'         : TestDecl(False, UnknownTestModule),
     'test_structseq.py'      : TestDecl(False, UnknownTestModule),
     'test_sunaudiodev.py'    : TestDecl(False, UnknownTestModule),
@@ -484,18 +556,30 @@ testmap = {
     'test_syntax.py'         : TestDecl(True, UTModuleMainTest),
     'test_sys.py'            : TestDecl(True,  UTModuleMainTest),
     'test_tarfile.py'        : TestDecl(False, UTModuleMainTest),
+        #13 of 13 test fail
+
     'test_tempfile.py'       : TestDecl(False, UTModuleMainTest),
+        #Uncaught interp-level exception: Same place as test_cfgparser
+
     'test_textwrap.py'       : TestDecl(True,  UTModuleMainTest),
     'test_thread.py'         : TestDecl(False, OutputTestModule),
     'test_threaded_import.py': TestDecl(False, UTModuleMainTest),
-    'test_threadedtempfile.py': TestDecl(False, UTModuleMainTest),
+    'test_threadedtempfile.py': TestDecl(False, OutputTestModule),
+        #ImportError: thread
+
     'test_threading.py'      : TestDecl(False, UnknownTestModule),
+        #ImportError: thread
+
     'test_time.py'           : TestDecl(True, UTModuleMainTest),
     'test_timeout.py'        : TestDecl(False, UTModuleMainTest),
+        #Uncaught interp-level exception: Same place as test_cfgparser
+
     'test_timing.py'         : TestDecl(False, UnknownTestModule),
     'test_tokenize.py'       : TestDecl(False, OutputTestModule),
     'test_trace.py'          : TestDecl(True,  UTModuleMainTest),
     'test_traceback.py'      : TestDecl(False, UTModuleMainTest),
+        #2 of 2 tests fail
+
     'test_types.py'          : TestDecl(False, OutputTestModule),
     'test_ucn.py'            : TestDecl(False, UTModuleMainTest),
     'test_unary.py'          : TestDecl(True, UTModuleMainTest),
@@ -505,24 +589,39 @@ testmap = {
     'test_univnewlines.py'   : TestDecl(True, UTModuleMainTest),
     'test_unpack.py'         : TestDecl(False, UnknownTestModule),
     'test_urllib.py'         : TestDecl(True, UTModuleMainTest),
+        #10 of 10 tests fail
+
     'test_urllib2.py'        : TestDecl(False, UnknownTestModule),
     'test_urllibnet.py'      : TestDecl(False, UTModuleMainTest),
     'test_urlparse.py'       : TestDecl(True,  UTModuleMainTest),
     'test_userdict.py'       : TestDecl(True, UTModuleMainTest),
+        #5 of 25 tests fail
+
     'test_userlist.py'       : TestDecl(False, UTModuleMainTest),
+        #at least two tests fail, after several hours I gave up waiting for the rest
+
     'test_userstring.py'     : TestDecl(False, UTModuleMainTest),
     'test_uu.py'             : TestDecl(False, UTModuleMainTest),
+        #1 of 9 test fails
+
     'test_warnings.py'       : TestDecl(True, UTModuleMainTest),
     'test_wave.py'           : TestDecl(False, UnknownTestModule),
     'test_weakref.py'        : TestDecl(False, UTModuleMainTest),
+        #ImportError: _weakref
+
     'test_whichdb.py'        : TestDecl(False, UTModuleMainTest),
     'test_winreg.py'         : TestDecl(False, OutputTestModule),
     'test_winsound.py'       : TestDecl(False, UTModuleMainTest),
     'test_xmllib.py'         : TestDecl(False, UTModuleMainTest),
     'test_xmlrpc.py'         : TestDecl(False, UTModuleMainTest),
+        #2 of 5 tests fail
+
     'test_xpickle.py'        : TestDecl(False, UTModuleMainTest),
     'test_xreadline.py'      : TestDecl(False, OutputTestModule),
     'test_zipfile.py'        : TestDecl(False, UnknownTestModule),
     'test_zipimport.py'      : TestDecl(False, UTModuleMainTest),
+        #ImportError: zlib
+
     'test_zlib.py'           : TestDecl(False, UTModuleMainTest),
+        #ImportError: zlib
 }
