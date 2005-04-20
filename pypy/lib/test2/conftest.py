@@ -4,6 +4,8 @@ import py
 import pypy
 from pypy.conftest import gettestobjspace, option
 
+# XXX do something for running doctests from regrtests! 
+
 ModuleType = type(sys)
 
 def make_cpy_module(dottedname, filepath, force=True): 
@@ -49,11 +51,13 @@ def hack_test_support_cpython():
         from test import test_support 
         test_support.run_unittest = hack_run_unittest 
         test_support.run_doctest = hack_run_doctest  
+
     return sys.modules['unittest']
 
 class UTModuleOnCPython(py.test.collect.Module): 
-    def __init__(self, fspath, parent): 
+    def __init__(self, fspath, parent, testdecl): 
         super(UTModuleOnCPython, self).__init__(fspath, parent) 
+        self.testdecl = testdecl
         mod = hack_test_support_cpython() 
         self.TestCaseClass = getattr(mod, 'TestCase') 
         

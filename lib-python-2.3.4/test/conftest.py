@@ -1,5 +1,6 @@
 import py
 import sys
+import pypy
 from pypy.interpreter.gateway import ApplevelClass 
 from pypy.interpreter.error import OperationError
 from pypy.tool import pytestsupport
@@ -21,6 +22,7 @@ from test.regrtest import reportdiff
 #                   help="just display the list of expected-to-pass tests.")
 
 mydir = py.magic.autopath().dirpath()
+pypydir = py.path.local(pypy.__file__).dirpath()
 
 def make_module(space, dottedname, filepath): 
     #print "making module", dottedname, "from", filepath 
@@ -91,6 +93,11 @@ class OpErrorModule(py.test.collect.Module):
     # to get clean KeyboardInterrupt behaviour (while 
     # running pypy we often get a wrapped 
     # space.w_KeyboardInterrupt)
+    #
+    def __init__(self, fspath, parent, testdecl): 
+        super(py.test.collect.Module, self).__init__(fspath, parent) 
+        self.testdecl = testdecl 
+    
     def tryiter(self, stopitems=()): 
         try: 
             for x in super(OpErrorModule, self).tryiter(stopitems): 
@@ -113,13 +120,17 @@ class OutputTestItem(py.test.Item):
         outputpath = self.fspath.dirpath('output', self.name) 
         if not outputpath.check(): 
             py.test.fail("expected outputfile at %s" %(outputpath,))
+        if self.parent.testdecl.modified: 
+            fspath = pypydir.join('lib', 'test2', self.fspath.basename) 
+        else: 
+            fspath = self.fspath # unmodified regrtest
         space = getmyspace() 
         try: 
             oldsysout = sys.stdout 
             sys.stdout = capturesysout = py.std.cStringIO.StringIO() 
             try: 
                 print self.fspath.purebasename 
-                run_file(str(self.fspath), space=space) 
+                run_file(str(fspath), space=space) 
             finally: 
                 sys.stdout = oldsysout 
         except OperationError, e: 
@@ -156,7 +167,11 @@ class UTModuleMainTest(OpErrorModule):
     def get_testcases(self): 
         name = self.fspath.purebasename 
         space = self.space 
-        w_mod = make_module(space, name, self.fspath) 
+        if self.testdecl.modified: 
+            fspath = pypydir.join('lib', 'test2', self.fspath.basename) 
+        else: 
+            fspath = self.fspath 
+        w_mod = make_module(space, name, fspath) 
 
         # hack out testcases 
         space.appexec([w_mod, w_testlist], """ 
@@ -243,9 +258,10 @@ class AppTestCaseMethod(py.test.Item):
 
 class TestDecl: 
     """ Test Declaration. """ 
-    def __init__(self, enabled, testclass): 
+    def __init__(self, enabled, testclass, modified=False): 
         self.enabled = enabled 
         self.testclass = testclass 
+        self.modified = modified 
 
 testmap = {
     'test_MimeWriter.py'     : TestDecl(False, OutputTestModule),
@@ -502,7 +518,8 @@ testmap = {
     'test_select.py'         : TestDecl(False, UnknownTestModule),
     'test_sets.py'           : TestDecl(True, UTModuleMainTest),
     'test_sgmllib.py'        : TestDecl(True,  UTModuleMainTest),
-    'test_sha.py'            : TestDecl(False, UTModuleMainTest),
+    'test_sha.py'            : TestDecl(True, UTModuleMainTest, modified=True),
+        # one test is taken out (too_slow_test_case_3), rest passses 
     'test_shelve.py'         : TestDecl(True, UTModuleMainTest),
     'test_shlex.py'          : TestDecl(True, UTModuleMainTest),
     'test_shutil.py'         : TestDecl(True, UTModuleMainTest),
@@ -562,7 +579,12 @@ testmap = {
     'test_traceback.py'      : TestDecl(False, UTModuleMainTest),
         #rev 10840: 2 of 2 tests fail
 
-    'test_types.py'          : TestDecl(False, OutputTestModule),
+    'test_types.py'          : TestDecl(False, OutputTestModule, modified=True),
+        #rev 10920: fails with: 
+        #   E       vereq(a[::], a)
+        #   >       (application-level) TypeError: an integer is required
+        #   [/home/hpk/pypy-dist/pypy/lib/test2/test_types.py:217]
+        
     'test_ucn.py'            : TestDecl(False, UTModuleMainTest),
     'test_unary.py'          : TestDecl(True, UTModuleMainTest),
     'test_unicode.py'        : TestDecl(False, UTModuleMainTest),
@@ -620,10 +642,12 @@ class RegrDirectory(py.test.collect.Directory):
         return l 
 
     def join(self, name): 
-        if name not in self.testmap: 
-            raise NameError(name) 
-        testdecl = self.testmap[name]
-        return testdecl.testclass(self.fspath.join(name), parent=self) 
+        if name in self.testmap: 
+            testdecl = self.testmap[name]
+            fspath = self.fspath.join(name) 
+            return testdecl.testclass(fspath, parent=self, testdecl=testdecl) 
+        else: 
+            raise ValueError("no test type specified for %s" %(name,))
 
 Directory = RegrDirectory
 
