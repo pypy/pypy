@@ -26,21 +26,21 @@ class FunctionGraph:
     def getreturnvar(self):
         return self.returnblock.inputargs[0]
 
-    def hasonlyexceptionreturns(self):
-        try:
-            return self._onlyex
-        except AttributeError: 
-            def visit(link):
-                if isinstance(link, Link):
-                    if link.target == self.returnblock: 
-                        raise ValueError(link) 
-            try:
-                traverse(visit, self)
-            except ValueError:
-                self._onlyex = False 
-            else:
-                self._onlyex = True
-            return self._onlyex 
+##    def hasonlyexceptionreturns(self):
+##        try:
+##            return self._onlyex
+##        except AttributeError: 
+##            def visit(link):
+##                if isinstance(link, Link):
+##                    if link.target == self.returnblock: 
+##                        raise ValueError(link) 
+##            try:
+##                traverse(visit, self)
+##            except ValueError:
+##                self._onlyex = False 
+##            else:
+##                self._onlyex = True
+##            return self._onlyex 
 
     def show(self):
         from pypy.translator.tool.graphpage import SingleGraphPage
@@ -332,6 +332,10 @@ def checkgraph(graph):
                         assert isinstance(v, (Constant, Variable))
                         if isinstance(v, Variable):
                             assert v in vars
+                        else:
+                            assert v.value != last_exception
+                            assert v.value != last_exc_value
+                exc_links = {}
                 if block.exitswitch is None:
                     assert len(block.exits) <= 1
                     if block.exits:
@@ -342,16 +346,24 @@ def checkgraph(graph):
                     assert block.exits[0].exitcase is None
                     for link in block.exits[1:]:
                         assert issubclass(link.exitcase, Exception)
+                        exc_links[link] = True
                 else:
                     assert isinstance(block.exitswitch, Variable)
                     assert block.exitswitch in vars
                 for link in block.exits:
                     assert len(link.args) == len(link.target.inputargs)
                     assert link.prevblock is block
+                    exc_link = link in exc_links
                     for v in link.args:
                         assert isinstance(v, (Constant, Variable))
                         if isinstance(v, Variable):
                             assert v in vars
+                            if exc_link:
+                                assert v != block.operations[-1].result
+                        else:
+                            if not exc_link:
+                                assert v.value != last_exception
+                                assert v.value != last_exc_value
                 vars_previous_blocks.update(vars)
 
         try:

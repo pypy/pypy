@@ -253,13 +253,11 @@ class SomeBuiltin(SomeObject):
 class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""
-    def __init__(self, benign=False):
-        self.benign = benign
 
 
 def unionof(*somevalues):
     "The most precise SomeValue instance that contains all the values."
-    s1 = SomeImpossibleValue(benign=len(somevalues)>0)
+    s1 = SomeImpossibleValue()
     for s2 in somevalues:
         if s1 != s2:
             s1 = pair(s1, s2).union()

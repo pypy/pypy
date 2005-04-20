@@ -382,10 +382,6 @@ class __extend__(pairtype(SomePBC, SomePBC)):
         result =  SomePBC(d)
         return result
 
-class __extend__(pairtype(SomeImpossibleValue, SomeImpossibleValue)):
-    def union((imp1, imp2)):
-        return SomeImpossibleValue(benign=imp1.benign and imp2.benign)
-
 class __extend__(pairtype(SomeImpossibleValue, SomeObject)):
     def union((imp1, obj2)):
         return obj2

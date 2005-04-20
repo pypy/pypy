@@ -10,6 +10,7 @@ from __future__ import generators
 import types
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
+from pypy.objspace.flow.model import last_exception
 from pypy.translator.annrpython import CannotSimplify
 from pypy.annotation import model as annmodel
 
@@ -262,9 +263,50 @@ def transform_dead_code(self):
                 lst = list(block.exits)
                 lst.remove(link)
                 block.exits = tuple(lst)
-                if len(block.exits) == 1:
-                    block.exitswitch = None
-                    block.exits[0].exitcase = None
+                if not block.exits:
+                    # oups! cannot reach the end of this block
+                    cutoff_alwaysraising_block(self, block)
+                elif block.exitswitch != Constant(last_exception):
+                    # non-exceptional exit
+                    if len(block.exits) == 1:
+                        block.exitswitch = None
+                        block.exits[0].exitcase = None
+                else:
+                    # exceptional exit
+                    if block.exits[0].exitcase is not None:
+                        # killed the non-exceptional path!
+                        cutoff_alwaysraising_block(self, block)
+
+def cutoff_alwaysraising_block(self, block):
+    "Fix a block whose end can never be reached at run-time."
+    # search the operation that cannot succeed
+    can_succeed    = [op for op in block.operations
+                         if op.result in self.bindings]
+    cannot_succeed = [op for op in block.operations
+                         if op.result not in self.bindings]
+    n = len(can_succeed)
+    # check consistency
+    assert can_succeed == block.operations[:n]
+    assert cannot_succeed == block.operations[n:]
+    assert 0 <= n < len(block.operations)
+    # chop off the unreachable end of the block
+    del block.operations[n+1:]
+    s_impossible = annmodel.SomeImpossibleValue()
+    self.bindings[block.operations[n].result] = s_impossible
+    # insert the equivalent of 'raise SystemError'
+    # XXX no sane way to get the graph from the block!
+    fn = self.annotated[block]
+    assert fn in self.translator.flowgraphs, (
+        "Cannot find the graph that this block belong to! "
+        "fn=%r" % (fn,))
+    graph = self.translator.flowgraphs[fn]
+    c1 = Constant(SystemError)
+    c2 = Constant(SystemError(
+        "Call to %r should have raised an exception" % (fn,)))
+    errlink = Link([c1, c2], graph.exceptblock)
+    block.recloseblock(errlink)
+    # XXX do something about the annotation of the
+    #     exceptblock.inputargs
 
 
 def transform_graph(ann):

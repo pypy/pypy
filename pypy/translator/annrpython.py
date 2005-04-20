@@ -226,13 +226,10 @@ class RPythonAnnotator:
         try:
             return self.bindings[v]
         except KeyError: 
-            # let's see if the graph only has exception returns 
-            if graph.hasonlyexceptionreturns(): 
-                # XXX for functions with exceptions what to 
-                #     do anyway? 
-                #return self.bookkeeper.immutablevalue(None)
-                return annmodel.SomeImpossibleValue(benign=True)
-            return annmodel.SomeImpossibleValue()
+            # the function didn't reach any return statement so far.
+            # (some functions actually never do, they always raise exceptions)
+            # interrupt the annotation of the caller in a 'soft' way.
+            raise CanOnlyRaise
 
     def reflowfromposition(self, position_key):
         fn, block, index = position_key
@@ -309,6 +306,8 @@ class RPythonAnnotator:
             if annmodel.DEBUG:
                 import sys
                 self.why_not_annotated[block] = sys.exc_info()
+        except CanOnlyRaise:
+            pass   # end of the block not annotated, but it's not an error
         except Exception, e:
             # hack for debug tools only
             if not hasattr(e, '__annotator_block'):
@@ -359,19 +358,32 @@ class RPythonAnnotator:
 
     def flowin(self, fn, block):
         #print 'Flowing', block, [self.binding(a) for a in block.inputargs]
-        for i in range(len(block.operations)):
-            try:
-                self.bookkeeper.enter((fn, block, i))
-                self.consider_op(block.operations[i])
-            finally:
-                self.bookkeeper.leave()
-        # dead code removal: don't follow all exits if the exitswitch is known
-        exits = block.exits
-        if isinstance(block.exitswitch, Variable):
-            s_exitswitch = self.bindings[block.exitswitch]
-            if s_exitswitch.is_constant():
-                exits = [link for link in exits
-                              if link.exitcase == s_exitswitch.const]
+        i = -1
+        try:
+            for i in range(len(block.operations)):
+                try:
+                    self.bookkeeper.enter((fn, block, i))
+                    self.consider_op(block.operations[i])
+                finally:
+                    self.bookkeeper.leave()
+        except (BlockedInference, CanOnlyRaise):
+            if (i != len(block.operations)-1 or
+                block.exitswitch != Constant(last_exception)):
+                raise
+            # this is the case where the last operation of the block can
+            # only raise an exception, which is caught by an exception
+            # handler.  we only follow the exceptional branches.
+            exits = [link for link in block.exits
+                     if link.exitcase is not None]
+        else:
+            # dead code removal: don't follow all exits if the exitswitch
+            # is known
+            exits = block.exits
+            if isinstance(block.exitswitch, Variable):
+                s_exitswitch = self.bindings[block.exitswitch]
+                if s_exitswitch.is_constant():
+                    exits = [link for link in exits
+                                  if link.exitcase == s_exitswitch.const]
         knownvars, knownvarvalue = getattr(self.bindings.get(block.exitswitch),
                                           "knowntypedata", (None, None))
         for link in exits:
@@ -430,14 +442,12 @@ class RPythonAnnotator:
         argcells = [self.binding(a) for a in op.args]
         consider_meth = getattr(self,'consider_op_'+op.opname,
                                 self.default_consider_op)
-        # because benign SomeImpossibleValues are meant to propagate without leaving
-        # dangling blocked blocks around, and because of the None case below,
         # let's be careful about avoiding propagated SomeImpossibleValues
         # to enter an op; the latter can result in violations of the
         # more general results invariant: e.g. if SomeImpossibleValue enters is_
         #  is_(SomeImpossibleValue, None) -> SomeBool
         #  is_(SomeInstance(not None), None) -> SomeBool(const=False) ...
-        # boom
+        # boom -- in the assert of setbinding()
         for arg in argcells:
             if isinstance(arg, annmodel.SomeImpossibleValue):
                 raise BlockedInference(self, info=op)
@@ -519,3 +529,10 @@ class BlockedInference(Exception):
         return "<BlockedInference break_at %s %s>" %(break_at, info)
 
     __str__ = __repr__
+
+
+class CanOnlyRaise(Exception):
+    """A soft version of BlockedInference: the inference should not continue
+    in the current block, but this not necessarily an error: if the current
+    block never progresses past this point, then it means that the current
+    operation will always raise an exception at run-time."""

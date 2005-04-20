@@ -10,7 +10,7 @@ import pypy.interpreter.typedef as itypedef
 from pypy.objspace.std.objspace import StdObjSpace
 
 def hole(*args):
-    return annmodel.SomeImpossibleValue(benign=True)
+    pass   # no result (similar to setattr and setitem)
 
 def ignore(*args):
     bk = getbookkeeper()
