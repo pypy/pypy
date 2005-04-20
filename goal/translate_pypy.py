@@ -13,6 +13,7 @@ Command-line options for translate_pypy:
               defaults to targetpypy
    -text      Don't start the Pygame viewer
    -no-a      Don't infer annotations, just translate everything
+   -no-s      Don't specialize the graph operations with the C typer
    -no-c      Don't generate the C code
    -c         Generate the C code, but don't compile it
    -o         Generate and compile the C code, but don't run it
@@ -56,7 +57,8 @@ def analyse(target):
     if not options['-no-a']:
         a = t.annotate(inputtypes, overrides=pypy_overrides)
         a.simplify()
-        a.specialize()
+        if not options['-no-s']:
+            a.specialize()
         t.frozen = True   # cannot freeze if we don't have annotations
         if not options['-no-mark-some-objects']:
             options['-no-mark-some-objects'] = True # Do not do this again
@@ -164,6 +166,7 @@ if __name__ == '__main__':
                '-o':    False,
                '-no-mark-some-objects': False,
                '-no-a': False,
+               '-no-s': False,
                '-tcc':  False,
                '-no-d': False,
                }
