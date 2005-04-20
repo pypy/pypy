@@ -109,9 +109,7 @@ class ExecutionContext:
         "Trace function called upon OperationError."
         operationerr.record_interpreter_traceback()
         space = self.space
-        w_exc_info = space.newtuple([operationerr.w_type, operationerr.w_value,
-                                     space.wrap(operationerr.application_traceback)])
-        self._trace(frame, 'exception', w_exc_info)
+        self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
     def sys_exc_info(self): # attn: the result is not the wrapped sys.exc_info() !!!
@@ -151,9 +149,11 @@ class ExecutionContext:
         finally:
             self.is_tracing = is_tracing
 
-    def _trace(self, frame, event, w_arg):
+    def _trace(self, frame, event, w_arg, operr=None):
         if self.is_tracing or frame.code.hidden_applevel:
             return
+
+        space = self.space
         
         # Tracing cases
         if event == 'call':
@@ -162,17 +162,20 @@ class ExecutionContext:
             w_callback = frame.w_f_trace
 
         if w_callback is not None and event != "leaveframe":
+            if operr is not None:
+                w_arg =  space.newtuple([operr.w_type, operr.w_value,
+                                     space.wrap(operr.application_traceback)])
 
             self.is_tracing += 1
             try:
                 try:
-                    w_result = self.space.call_function(w_callback, self.space.wrap(frame), self.space.wrap(event), w_arg)
-                    if self.space.is_true(self.space.is_(w_result, self.space.w_None)):
+                    w_result = space.call_function(w_callback, space.wrap(frame), space.wrap(event), w_arg)
+                    if space.is_true(space.is_(w_result, space.w_None)):
                         frame.w_f_trace = None
                     else:
                         frame.w_f_trace = w_result
                 except:
-                    self.settrace(self.space.w_None)
+                    self.settrace(space.w_None)
                     frame.w_f_trace = None
                     raise
             finally:
@@ -192,9 +195,9 @@ class ExecutionContext:
             self.is_tracing += 1
             try:
                 try:
-                    w_result = self.space.call_function(self.w_profilefunc,
-                                                        self.space.wrap(frame),
-                                                        self.space.wrap(event), w_arg)
+                    w_result = space.call_function(self.w_profilefunc,
+                                                        space.wrap(frame),
+                                                        space.wrap(event), w_arg)
                 except:
                     self.w_profilefunc = None
                     raise
