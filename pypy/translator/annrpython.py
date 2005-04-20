@@ -228,8 +228,7 @@ class RPythonAnnotator:
         except KeyError: 
             # the function didn't reach any return statement so far.
             # (some functions actually never do, they always raise exceptions)
-            # interrupt the annotation of the caller in a 'soft' way.
-            raise CanOnlyRaise
+            return annmodel.SomeImpossibleValue()
 
     def reflowfromposition(self, position_key):
         fn, block, index = position_key
@@ -303,11 +302,6 @@ class RPythonAnnotator:
             #import traceback, sys
             #traceback.print_tb(sys.exc_info()[2])
             self.annotated[block] = False   # failed, hopefully temporarily
-            if annmodel.DEBUG:
-                import sys
-                self.why_not_annotated[block] = sys.exc_info()
-        except CanOnlyRaise:
-            pass   # end of the block not annotated, but it's not an error
         except Exception, e:
             # hack for debug tools only
             if not hasattr(e, '__annotator_block'):
@@ -358,7 +352,6 @@ class RPythonAnnotator:
 
     def flowin(self, fn, block):
         #print 'Flowing', block, [self.binding(a) for a in block.inputargs]
-        i = -1
         try:
             for i in range(len(block.operations)):
                 try:
@@ -366,15 +359,33 @@ class RPythonAnnotator:
                     self.consider_op(block.operations[i])
                 finally:
                     self.bookkeeper.leave()
-        except (BlockedInference, CanOnlyRaise):
-            if (i != len(block.operations)-1 or
-                block.exitswitch != Constant(last_exception)):
+
+        except BlockedInference, e:
+            if annmodel.DEBUG:
+                import sys
+                self.why_not_annotated[block] = sys.exc_info()
+
+            if (e.op is block.operations[-1] and
+                block.exitswitch == Constant(last_exception)):
+                # this is the case where the last operation of the block will
+                # always raise an exception which is immediately caught by
+                # an exception handler.  We then only follow the exceptional
+                # branches.
+                exits = [link for link in block.exits
+                              if link.exitcase is not None]
+
+            elif e.op.opname in ('simple_call', 'call_args'):
+                # XXX warning, keep the name of the call operations in sync
+                # with the flow object space.  These are the operations for
+                # which it is fine to always raise an exception.  We then
+                # swallow the BlockedInference and that's it.
+                return
+
+            else:
+                # other cases are problematic (but will hopefully be solved
+                # later by reflowing).  Throw the BlockedInference up to
+                # processblock().
                 raise
-            # this is the case where the last operation of the block can
-            # only raise an exception, which is caught by an exception
-            # handler.  we only follow the exceptional branches.
-            exits = [link for link in block.exits
-                     if link.exitcase is not None]
         else:
             # dead code removal: don't follow all exits if the exitswitch
             # is known
@@ -450,12 +461,12 @@ class RPythonAnnotator:
         # boom -- in the assert of setbinding()
         for arg in argcells:
             if isinstance(arg, annmodel.SomeImpossibleValue):
-                raise BlockedInference(self, info=op)
+                raise BlockedInference(self, op)
         resultcell = consider_meth(*argcells)
         if resultcell is None:
             resultcell = annmodel.SomeImpossibleValue()  # no return value
         elif resultcell == annmodel.SomeImpossibleValue():
-            raise BlockedInference(self, info=op) # the operation cannot succeed
+            raise BlockedInference(self, op) # the operation cannot succeed
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
         self.setbinding(op.result, resultcell)  # bind resultcell to op.result
@@ -509,30 +520,19 @@ class BlockedInference(Exception):
     """This exception signals the type inference engine that the situation
     is currently blocked, and that it should try to progress elsewhere."""
 
-    def __init__(self, annotator, info=None):
+    def __init__(self, annotator, op):
         self.annotator = annotator
         try:
             self.break_at = annotator.bookkeeper.position_key
         except AttributeError:
             self.break_at = None
-        self.info = info
+        self.op = op
 
     def __repr__(self):
-        if self.info:
-            info = "[%s]" % self.info
-        else:
-            info = ""
         if not self.break_at:
             break_at = "?"
         else:
             break_at = self.annotator.whereami(self.break_at)
-        return "<BlockedInference break_at %s %s>" %(break_at, info)
+        return "<BlockedInference break_at %s [%s]>" %(break_at, self.op)
 
     __str__ = __repr__
-
-
-class CanOnlyRaise(Exception):
-    """A soft version of BlockedInference: the inference should not continue
-    in the current block, but this not necessarily an error: if the current
-    block never progresses past this point, then it means that the current
-    operation will always raise an exception at run-time."""

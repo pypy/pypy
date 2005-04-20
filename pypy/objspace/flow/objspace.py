@@ -348,6 +348,7 @@ class FlowObjSpace(ObjSpace):
             args_w, kwds_w = args.unpack()
         except UnwrapException:
             args_w, kwds_w = '?', '?'
+        # NOTE: annrpython needs to know about the following two operations!
         if not kwds_w:
             # simple case
             w_res = self.do_operation('simple_call', w_callable, *args_w)
