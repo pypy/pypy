@@ -48,7 +48,7 @@ class RegrDirectory(py.test.collect.Directory):
     def run(self): 
         l = []
         items = testmap.items() 
-        items.sort()
+        items.sort(lambda x,y: cmp(x[0].lower(), y[0].lower()))
         for (name, (enabled, typ)) in items: 
             if enabled: 
                 l.append(name) 
