@@ -82,10 +82,10 @@ More detailed layout (work in progress)
         press               # ...
             
     eu-tracking             # strong focus on eu-internal details 
-        timesheets          # monthly timesheets 
-        monthly-reports 
-        deliverables        # deliverable/documents
-        minutes             # meeting protocols 
+        timesheet           # monthly timesheets 
+        accession           # formal accession related information/decisions
+        deliverable         # deliverable/documents
+        minute              # minutes of meetings 
         budget.sxc          
         calendar.sxc 
         ... 
