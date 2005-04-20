@@ -927,8 +927,13 @@ class TestAnnonateTestCase:
 
         assert s.items[0].knowntype == bool and not s.items[0].is_constant()
         assert s.items[1].knowntype == bool and not s.items[1].is_constant()
-                
-        
+
+    def test_call_two_funcs_but_one_can_only_raise(self):
+        a = self.RPythonAnnotator()
+        s = a.build_types(snippet.call_two_funcs_but_one_can_only_raise,
+                          [int])
+        assert s == a.bookkeeper.immutablevalue(None)
+
 
 def g(n):
     return [0,1,2,n]

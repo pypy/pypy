@@ -762,6 +762,9 @@ def exception_deduction():
     return Exc()
 
 
+def always_raising(x):
+    raise ValueError
+
 def witness(x):
     pass
 
@@ -874,6 +877,12 @@ def exc_deduction_our_exc_plus_others():
 
 def exc_deduction_our_excs_plus_others():
     return mod3.p()
+
+
+
+def call_two_funcs_but_one_can_only_raise(n):
+    fn = [witness, always_raising][n]
+    return fn(n)
 
 
 class BltinCode:
