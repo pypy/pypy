@@ -7,7 +7,7 @@ Gateway between app-level and interpreter-level:
 
 """
 
-import types, sys
+import types, sys, md5
 
 from pypy.tool import hack
 from pypy.interpreter.error import OperationError 
@@ -536,7 +536,7 @@ class ApplevelClass:
     def _freeze_(self):
         return True  # hint for the annotator: applevel instances are constants
 
-class ApplevelInterpClass(ApplevelClass):
+class old_ApplevelInterpClass(ApplevelClass):
     """ similar to applevel, but using translation to interp-level.
     """
     NOT_RPYTHON_ATTRIBUTES = []
@@ -617,6 +617,119 @@ if __name__ == "__main__":
 """ % GI_VERSION)
             known_source = {}
         cls.known_source = known_source
+        cls._setup_done = True
+    _setup = classmethod(_setup)
+
+class ApplevelInterpClass(ApplevelClass):
+    """ similar to applevel, but using translation to interp-level.
+        This version maintains a cache folder with single files.
+    """
+    NOT_RPYTHON_ATTRIBUTES = []
+
+    def __init__(self, source, filename = None, modname = 'applevelinterp', do_imports=False):
+        "NOT_RPYTHON"
+        self.filename = filename
+        self.source = source
+        self.modname = modname
+        self.do_imports = do_imports
+
+    def _builddict(self, space):
+        "NOT_RPYTHON"
+        if not self._setup_done:
+            self._setup()
+        from pypy.translator.geninterplevel import translate_as_module
+        scramble = md5.new(self.seed)
+        scramble.update(self.source)
+        key = scramble.digest()
+        initfunc = self.known_source.get(key)
+        if not initfunc:
+            # try to get it from file
+            name = scramble.hexdigest()
+            try:
+                __import__("pypy._cache."+name)
+            except ImportError, x:
+                # print x
+                pass
+            else:
+                initfunc = self.known_source[key]
+        if not initfunc:
+            # build it and put it into a file
+            initfunc, newsrc = translate_as_module(
+                self.source, self.filename, self.modname, self.do_imports)
+            name = scramble.hexdigest()
+            fname = self.cache_path.join(name+".py").strpath
+            f = file(fname, "w")
+            print >> f, """\
+# self-destruct on double-click:
+if __name__ == "__main__":
+    from pypy import _cache
+    import os
+    namestart = os.path.join(os.path.split(_cache.__file__)[0], '%s')
+    for ending in ('.py', '.pyc', '.pyo'):
+        try:
+            os.unlink(namestart+ending)
+        except os.error:
+            pass""" % name
+            print >> f
+            print >> f, newsrc
+            print >> f, "from pypy._cache import known_source"
+            print >> f, "known_source[%r] = %s" % (key, initfunc.__name__)
+        w_glob = initfunc(space)
+        return w_glob
+
+    _setup_done = False
+    
+    def _setup(cls):
+        """NOT_RPYTHON"""
+        from pypy.tool.getpy import py
+        lp = py.path.local
+        import pypy, os
+        p = lp(pypy.__file__).new(basename='_cache').ensure(dir=1)
+        cls.cache_path = p
+        ini = p.join('__init__.py')
+        try:
+            if not ini.check():
+                raise ImportError  # don't import if only a .pyc file left!!!
+            from pypy._cache import known_source, \
+                 GI_VERSION_RENDERED
+        except ImportError:
+            GI_VERSION_RENDERED = 0
+        from pypy.translator.geninterplevel import GI_VERSION
+        cls.seed = md5.new(str(GI_VERSION)).digest()
+        if GI_VERSION != GI_VERSION_RENDERED or GI_VERSION is None:
+            for pth in p.listdir():
+                try:
+                    pth.remove()
+                except: pass
+            file(str(ini), "w").write("""\
+# This folder acts as a cache for code snippets which have been
+# compiled by compile_as_module().
+# It will get a new entry for every piece of code that has
+# not been seen, yet.
+#
+# Caution! Only the code snippet is checked. If something
+# is imported, changes are not detected. Also, changes
+# to geninterplevel or gateway are also not checked.
+# Exception: There is a checked version number in geninterplevel.py
+#
+# If in doubt, remove this file from time to time.
+
+GI_VERSION_RENDERED = %r
+
+known_source = {}
+
+# self-destruct on double-click:
+if __name__ == "__main__":
+    import pypy._cache as _c
+    from pypy.tool.getpy import py
+    lp = py.path.local
+    for pth in lp(_c.__file__).dirpath().listdir():
+        try:
+            pth.remove()
+        except: pass
+""" % GI_VERSION)
+        import pypy._cache
+        cls.known_source = pypy._cache.known_source
         cls._setup_done = True
     _setup = classmethod(_setup)
 

@@ -38,7 +38,9 @@ LOOPS = 50000
 class G:pass
 g = G()
 
-import sys
+# import sys
+# we cannot import sys here
+# because flow space must produce a late lookup
 
 from time import clock
 
@@ -64,13 +66,15 @@ TRUE = 1
 FALSE = 0
 
 def main(loops=LOOPS):
-    benchtime, stones = pystones(loops)
+    benchtime, stones = pystones(abs(loops))
     #print "Pystone(%s) time for %d passes = %g" % \
     #      (__version__, loops, benchtime)
-    sys.stdout.write("Pystone(%s) time for %d passes = %g\n" % \
-          (__version__, loops, benchtime) )
-    #print "This machine benchmarks at %g pystones/second" % stones
-    sys.stdout.write("This machine benchmarks at %g pystones/second\n" % stones)
+    if loops >= 0:
+        import sys
+        sys.stdout.write("Pystone(%s) time for %d passes = %g\n" % \
+              (__version__, loops, benchtime) )
+        #print "This machine benchmarks at %g pystones/second" % stones
+        sys.stdout.write("This machine benchmarks at %g pystones/second\n" % stones)
 
 
 def pystones(loops=LOOPS):
@@ -296,6 +300,7 @@ if __name__ == '__main__':
     # for now, we use main in the test.
     
     def error(msg):
+        import sys
         #print >>sys.stderr, msg,
         sys.stderr.write(msg+" ")
         #print >>sys.stderr, "usage: %s [number_of_loops]" % sys.argv[0]

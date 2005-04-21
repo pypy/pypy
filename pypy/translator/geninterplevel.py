@@ -527,11 +527,7 @@ class GenRpy:
             base_class = None
             base = cls
         def initinstance():
-            try:
-                content = instance.__dict__.items()
-            except:
-                import pdb
-                pdb.set_trace()
+            content = instance.__dict__.items()
             content.sort()
             for key, value in content:
                 if self.should_translate_attr(instance, key):
@@ -1538,17 +1534,18 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
                    builtins_can_raise_exceptions=True,
                    do_imports_immediately=do_imports)
     hold = sys.path
-    sys.path.insert(0, os.path.join(pypy.__path__[0], "lib"))
+    libdir = os.path.join(pypy.__path__[0], "lib")
     gen = GenRpy(t, entrypoint, modname, dic)
-    sys.path = hold
     if tmpname:
         _file = file
     else:
         _file = memfile
-        tmpname = sourcetext
+        tmpname = 'nada'
     out = _file(tmpname, 'w')
     gen.f = out
+    sys.path.insert(0, libdir)
     gen.gen_source(tmpname, file=_file)
+    sys.path.remove(libdir)
     out.close()
     newsrc = _file(tmpname).read()
     code = py.code.Source(newsrc).compile()

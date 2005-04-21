@@ -48,7 +48,7 @@ class NiceCompile(object):
             # missing source, what to do?
             self.srctext = None
 
-    def __call__(self, src, args):
+    def __call__(self, src, args={}):
         """ instance NiceCompile (src, args) -- formats src with args
             and returns a code object ready for exec. Instead of <string>,
             the code object has correct co_filename and line numbers.
@@ -90,7 +90,7 @@ def getsource(object):
         return src % name.__sourceargs__
     return src
 
-## the following is stolen frompy.code.source.py for now.
+## the following is stolen from py.code.source.py for now.
 ## XXX discuss whether and how to put this functionality
 ## into py.code.source.
 #
