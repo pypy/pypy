@@ -319,7 +319,7 @@ app = gateway.applevel("""
                 del currently_in_repr[list_id]
             except:
                 pass
-""") 
+""", filename=__file__) 
 
 listrepr = app.interphook("listrepr")
 

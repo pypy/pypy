@@ -71,7 +71,7 @@ app = gateway.applevel('''
 
     def itervalues(d):
         return iter(d.values())
-''')
+''', filename=__file__)
 #XXX what about dict.fromkeys()?
 
 dict_update__ANY_ANY         = app.interphook("update")

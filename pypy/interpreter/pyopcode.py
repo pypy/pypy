@@ -862,7 +862,7 @@ app = gateway.applevel(r'''
         else: # prog is a string
             co = compile(prog,'<string>','exec', compile_flags, 1)
             return (co, globals, locals)
-''')
+''', filename=__file__)
 
 sys_stdout      = app.interphook('sys_stdout')
 print_expr      = app.interphook('print_expr')

@@ -118,7 +118,7 @@ app = gateway.applevel("""
             return "(" + repr(t[0]) + ",)"
         else:
             return "(" + ", ".join([repr(x) for x in t]) + ')'
-""") 
+""", filename=__file__) 
 
 repr__Tuple = app.interphook('repr__Tuple') 
 

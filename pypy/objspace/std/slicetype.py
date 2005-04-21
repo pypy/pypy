@@ -64,7 +64,7 @@ app = gateway.applevel("""
             slicelength = 0
 
         return start, stop, step, slicelength
-""")
+""", filename=__file__)
 
 slice_indices__ANY_ANY = app.interphook("indices")
 slice_indices3         = slice_indices__ANY_ANY

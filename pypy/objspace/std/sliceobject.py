@@ -27,7 +27,7 @@ registerimplementation(W_SliceObject)
 repr__Slice = gateway.applevel("""
     def repr__Slice(aslice):
         return 'slice(%r, %r, %r)' % (aslice.start, aslice.stop, aslice.step)
-""").interphook("repr__Slice")
+""", filename=__file__).interphook("repr__Slice")
 
 def eq__Slice_Slice(space, w_slice1, w_slice2):
     # We need this because CPython considers that slice1 == slice1

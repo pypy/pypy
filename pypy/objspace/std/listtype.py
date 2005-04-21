@@ -22,7 +22,7 @@ list_reversed__ANY = gateway.applevel('''
         for index in range(len(lst)-1, -1, -1):
             yield lst[index]
 
-''').interphook('reversed')
+''', filename=__file__).interphook('reversed')
 
 register_all(vars(), globals())
 

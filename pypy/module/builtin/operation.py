@@ -124,7 +124,7 @@ iter_sentinel = gateway.applevel('''
             raise TypeError, 'iter(v, w): v must be callable'
         return iter_generator(callable_, sentinel)
 
-''').interphook("iter_sentinel")
+''', filename=__file__).interphook("iter_sentinel")
 
 def iter(space, w_collection_or_callable, w_sentinel=NoneNotWrapped):
     if w_sentinel is None:

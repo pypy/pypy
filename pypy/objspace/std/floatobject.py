@@ -72,7 +72,7 @@ app = gateway.applevel('''
                 return r
         else:
             return r + '.0'    
-''') 
+''', filename=__file__) 
 repr__Float = app.interphook('repr__Float') 
 str__Float = app.interphook('str__Float') 
 

@@ -116,7 +116,7 @@ app = applevel("""
     def modcompile(compileAST): 
         gen = compiler.pycodegen.ModuleCodeGenerator(compileAST)
         return gen.getCode() 
-""") 
+""", filename=__file__) 
 
 mycompile = app.interphook("mycompile") 
 exprcompile = app.interphook("exprcompile") 

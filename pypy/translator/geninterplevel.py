@@ -33,7 +33,7 @@ from pypy.tool.rarithmetic import r_int, r_uint
 from pypy.translator.translator import Translator
 from pypy.objspace.flow import FlowObjSpace
 
-from pypy.tool.sourcetools import render_docstr
+from pypy.tool.sourcetools import render_docstr, NiceCompile
 
 from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
      c_string, uniquemodulename, C_IDENTIFIER, NameManager
@@ -1525,7 +1525,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     if filename is None: 
         code = py.code.Source(sourcetext).compile()
     else: 
-        code = compile(sourcetext, filename, 'exec')
+        code = NiceCompile(filename)(sourcetext)
     dic = {'__name__': modname}
     exec code in dic
     #del dic['__builtins__']

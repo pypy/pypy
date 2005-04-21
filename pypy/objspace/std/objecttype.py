@@ -127,7 +127,7 @@ def slotnames(cls):
     if not isinstance(slotnames, list) and slotnames is not None:
         raise TypeError, "copy_reg._slotnames didn't return a list or None"
     return slotnames
-''')
+''', filename=__file__)
 
 reduce_1 = app.interphook('reduce_1') 
 reduce_2 = app.interphook('reduce_2')

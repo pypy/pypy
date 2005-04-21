@@ -1017,7 +1017,7 @@ app = gateway.applevel(r'''
             return codecs.getdecoder(encoding)(str)[0]
         else:
             return codecs.getdecoder(encoding)(str, errors)[0]
-''') 
+''', filename=__file__) 
 
 # this one should do the import of _formatting:
 app2 = gateway.applevel('''
@@ -1031,7 +1031,7 @@ app2 = gateway.applevel('''
                 return _formatting.format(format, (values,), values)
             else:
                 return _formatting.format(format, (values,), None)
-''', do_imports=True)
+''', filename=__file__, do_imports=True)
 
 str_translate__String_ANY_ANY = app.interphook('str_translate__String_ANY_ANY') 
 str_decode__String_ANY_ANY = app.interphook('str_decode__String_ANY_ANY') 

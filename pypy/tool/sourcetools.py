@@ -32,8 +32,11 @@ class NiceCompile(object):
         are happy. We provide correct line numbers and a real
         __file__ attribute.
     """
-    def __init__(self, namespace):
-        srcname = namespace.get('__file__')
+    def __init__(self, namespace_or_filename):
+        if type(namespace_or_filename) is str:
+            srcname = namespace_or_filename
+        else:
+            srcname = namespace_or_filename.get('__file__')
         if not srcname:
             # assume the module was executed from the
             # command line.
@@ -48,7 +51,7 @@ class NiceCompile(object):
             # missing source, what to do?
             self.srctext = None
 
-    def __call__(self, src, args={}):
+    def __call__(self, src, args=None):
         """ instance NiceCompile (src, args) -- formats src with args
             and returns a code object ready for exec. Instead of <string>,
             the code object has correct co_filename and line numbers.
@@ -69,13 +72,17 @@ class NiceCompile(object):
             # fake a block
             prelines -= 1
             src = 'if 1:\n' + src
-        src = '\n' * prelines + src % args
+        if args is not None:
+            src = '\n' * prelines + src % args
+        else:
+            src = '\n' * prelines + src
         c = compile(src, self.srcname, "exec")
         # preserve the arguments of the code in an attribute
         # of the code's co_filename
         if self.srcname:
             srcname = MyStr(self.srcname)
-            srcname.__sourceargs__ = args
+            if args is not None:
+                srcname.__sourceargs__ = args
             c = newcode_withfilename(c, srcname)
         return c
 

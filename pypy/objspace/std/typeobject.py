@@ -290,7 +290,7 @@ abstract_mro = gateway.applevel("""
                 fill_mro(base)
         fill_mro(klass)
         return mro
-""").interphook("abstract_mro")
+""", filename=__file__).interphook("abstract_mro")
 
 def get_mro(space, klass):
     if isinstance(klass, W_TypeObject):

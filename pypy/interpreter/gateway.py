@@ -7,7 +7,7 @@ Gateway between app-level and interpreter-level:
 
 """
 
-import types, sys, md5
+import types, sys, md5, os
 
 from pypy.tool import hack
 from pypy.interpreter.error import OperationError 
@@ -16,7 +16,9 @@ from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import W_Root,ObjSpace, BaseWrappable, Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.tool.cache import Cache 
-from pypy.tool.compile import compile2 
+from pypy.tool.compile import compile2
+from pypy.tool.sourcetools import NiceCompile
+
 # internal non-translatable parts: 
 from pypy.tool.getpy import py  # XXX from interpreter/ we get py.py 
 
@@ -492,8 +494,8 @@ class ApplevelClass:
         "NOT_RPYTHON"
         if filename is None: 
             self.code = py.code.Source(source).compile()
-        else: 
-            self.code = compile(source, filename, 'exec') 
+        else:
+            self.code = NiceCompile(filename)(source)
         
     def getwdict(self, space):
         return space.loadfromcache(self, self.__class__._builddict,
@@ -640,11 +642,14 @@ class ApplevelInterpClass(ApplevelClass):
         from pypy.translator.geninterplevel import translate_as_module
         scramble = md5.new(self.seed)
         scramble.update(self.source)
-        key = scramble.digest()
+        key = scramble.hexdigest()
         initfunc = self.known_source.get(key)
         if not initfunc:
             # try to get it from file
-            name = scramble.hexdigest()
+            name = '_' + key
+            if self.filename:
+                prename = os.path.splitext(os.path.basename(self.filename))[0]
+                name = prename + name
             try:
                 __import__("pypy._cache."+name)
             except ImportError, x:
@@ -656,7 +661,6 @@ class ApplevelInterpClass(ApplevelClass):
             # build it and put it into a file
             initfunc, newsrc = translate_as_module(
                 self.source, self.filename, self.modname, self.do_imports)
-            name = scramble.hexdigest()
             fname = self.cache_path.join(name+".py").strpath
             f = file(fname, "w")
             print >> f, """\

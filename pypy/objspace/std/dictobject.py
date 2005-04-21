@@ -262,7 +262,7 @@ app = gateway.applevel('''
                     del currently_in_repr[dict_id]
                 except:
                     pass
-''')
+''', filename=__file__)
 
 dictstr = app.interphook("dictstr")
 
