@@ -355,6 +355,10 @@ class islice:
     def __init__(self, iterable, *args):
         s = slice(*args)
         self.start, self.stop, self.step = s.start or 0, s.stop, s.step
+        if not isinstance(self.start, (int, long)):
+           raise ValueError("Start argument must be an integer")
+        if self.stop is not None and not isinstance(self.stop, (int,long)):
+           raise ValueError("Stop argument must be an integer or None")
         if self.step is None:
             self.step = 1
         if self.start<0 or (self.stop is not None and self.stop<0

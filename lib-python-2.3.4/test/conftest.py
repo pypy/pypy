@@ -423,8 +423,8 @@ testmap = {
     'test_iter.py'           : TestDecl(False, UTModuleMainTest),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
-    'test_itertools.py'      : TestDecl(False, UTModuleMainTest),
-        #rev 10840: Alternate version in test2
+    'test_itertools.py'      : TestDecl(True, UTModuleMainTest, modified=True),
+        # modified version in pypy/lib/test2
 
     'test_largefile.py'      : TestDecl(False, UnknownTestModule),
     'test_linuxaudiodev.py'  : TestDecl(False, OutputTestModule),
