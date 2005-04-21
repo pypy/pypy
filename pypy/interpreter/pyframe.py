@@ -131,7 +131,7 @@ class PyFrame(eval.Frame):
         
     ### line numbers ###
 
-    # for fget_f_* unwrapping through unwrap_spec in typedef.py
+    # for f*_f_* unwrapping through unwrap_spec in typedef.py
 
     def fget_f_lineno(space, self): 
         "Returns the line number of the instruction currently being executed."

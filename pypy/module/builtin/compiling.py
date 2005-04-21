@@ -43,18 +43,18 @@ def compile(space, w_str_, filename, startstr,
 compile.unwrap_spec = [ObjSpace,W_Root,str,str,int,int]
 
 
-def eval(space, w_source, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
+def eval(space, w_code, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
     w = space.wrap
 
-    if (space.is_true(space.isinstance(w_source, space.w_str)) or
-        space.is_true(space.isinstance(w_source, space.w_unicode))):
-        w_codeobj = compile(space,
-                            space.call_method(w_source, 'lstrip',
-                                              space.wrap(' \t')),
-                            "<string>", "eval")
-    elif isinstance(space.interpclass_w(w_source), PyCode):
-        w_codeobj = w_source
-    else:
+    if (space.is_true(space.isinstance(w_code, space.w_str)) or
+        space.is_true(space.isinstance(w_code, space.w_unicode))):
+        w_code = compile(space,
+                           space.call_method(w_code, 'lstrip',
+                                             space.wrap(' \t')),
+                           "<string>", "eval")
+
+    codeobj = space.interpclass_w(w_code)
+    if not isinstance(codeobj, PyCode):
         raise OperationError(space.w_TypeError,
               w('eval() arg 1 must be a string or code object'))
 
@@ -81,4 +81,4 @@ def eval(space, w_source, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
             w_builtin = space.builtin.pick_builtin(caller.w_globals)
             space.setitem(w_globals, space.wrap('__builtins__'), w_builtin)
 
-    return space.interpclass_w(w_codeobj).exec_code(space, w_globals, w_locals)
+    return codeobj.exec_code(space, w_globals, w_locals)
