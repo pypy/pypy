@@ -279,25 +279,21 @@ def generic_ne(space, w_obj1, w_obj2):
 descr_generic_ne = interp2app(generic_ne)
 
 # co_xxx interface emulation for built-in code objects
-def fget_co_varnames(space, w_code):
-    code = space.interpclass_w(w_code)
+def fget_co_varnames(space, code): # unwrapping through unwrap_spec
     return space.newtuple([space.wrap(name) for name in code.getvarnames()])
 
-def fget_co_argcount(space, w_code):
-    code = space.interpclass_w(w_code)
+def fget_co_argcount(space, code): # unwrapping through unwrap_spec
     argnames, varargname, kwargname = code.signature()
     return space.wrap(len(argnames))
 
-def fget_co_flags(space, w_code):
-    code = space.interpclass_w(w_code)
+def fget_co_flags(space, code): # unwrapping through unwrap_spec
     argnames, varargname, kwargname = code.signature()
     flags = 0
     if varargname is not None: flags |= CO_VARARGS
     if kwargname  is not None: flags |= CO_VARKEYWORDS
     return space.wrap(flags)
 
-def fget_co_consts(space, w_code):
-    code = space.interpclass_w(w_code)
+def fget_co_consts(space, code): # unwrapping through unwrap_spec
     w_docstring = space.wrap(code.getdocstring())
     return space.newtuple([w_docstring])
 
