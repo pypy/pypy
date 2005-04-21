@@ -50,7 +50,8 @@ def __dirinfo(part):
         if fullorig.startswith(pypy_root):
             if os.path.exists(os.path.join(fullorig, '__init__.py')):
                 sys.path.remove(orig)
-    sys.path.insert(0, head)
+    if head not in sys.path:
+        sys.path.insert(0, head)
 
     munged = {}
     for name, mod in sys.modules.items():
