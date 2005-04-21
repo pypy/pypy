@@ -131,15 +131,16 @@ class PyFrame(eval.Frame):
         
     ### line numbers ###
 
-    def fget_f_lineno(space, w_self):
+    # for fget_f_* unwrapping through unwrap_spec in typedef.py
+
+    def fget_f_lineno(space, self): 
         "Returns the line number of the instruction currently being executed."
-        self = space.interpclass_w(w_self)
         if self.w_f_trace is None:
             return space.wrap(self.get_last_lineno())
         else:
             return space.wrap(self.f_lineno)
 
-    def fset_f_lineno(space, w_self, w_new_lineno):
+    def fset_f_lineno(space, self, w_new_lineno):
         "Returns the line number of the instruction currently being executed."
         try:
             new_lineno = space.int_w(w_new_lineno)
@@ -147,7 +148,6 @@ class PyFrame(eval.Frame):
             raise OperationError(space.w_ValueError,
                                  space.wrap("lineno must be an integer"))
             
-        self = space.interpclass_w(w_self)
         if self.w_f_trace is None:
             raise OperationError(space.w_ValueError,
                   space.wrap("f_lineo can only be set by a trace function."))
@@ -272,32 +272,26 @@ class PyFrame(eval.Frame):
         "Returns the line number of the next instruction to execute."
         return pytraceback.offset2lineno(self.code, self.next_instr)
 
-    def fget_f_builtins(space, w_self):
-        self = space.interpclass_w(w_self)
+    def fget_f_builtins(space, self):
         return self.builtin.getdict()
 
-    def fget_f_back(space, w_self):
-        self = space.interpclass_w(w_self)
+    def fget_f_back(space, self):
         return self.space.wrap(self.f_back)
 
-    def fget_f_lasti(space, w_self):
-        self = space.interpclass_w(w_self)
+    def fget_f_lasti(space, self):
         return self.space.wrap(self.last_instr)
 
-    def fget_f_trace(space, w_self):
-        self = space.interpclass_w(w_self)
+    def fget_f_trace(space, self):
         return self.w_f_trace
 
-    def fset_f_trace(space, w_self, w_trace):
-        self = space.interpclass_w(w_self)
+    def fset_f_trace(space, self, w_trace):
         if space.is_true(space.is_(w_trace, space.w_None)):
             self.w_f_trace = None
         else:
             self.w_f_trace = w_trace
             self.f_lineno = self.get_last_lineno()
 
-    def fget_f_exc_type(space, w_self):
-        self = space.interpclass_w(w_self)
+    def fget_f_exc_type(space, self):
         if self.last_exception is not None:
             f = self.f_back
             while f is not None and f.last_exception is None:
@@ -306,8 +300,7 @@ class PyFrame(eval.Frame):
                 return f.last_exception.w_type
         return space.w_None
          
-    def fget_f_exc_value(space, w_self):
-        self = space.interpclass_w(w_self)
+    def fget_f_exc_value(space, self):
         if self.last_exception is not None:
             f = self.f_back
             while f is not None and f.last_exception is None:
@@ -316,8 +309,7 @@ class PyFrame(eval.Frame):
                 return f.last_exception.w_value
         return space.w_None
 
-    def fget_f_exc_traceback(space, w_self):
-        self = space.interpclass_w(w_self)
+    def fget_f_exc_traceback(space, self):
         if self.last_exception is not None:
             f = self.f_back
             while f is not None and f.last_exception is None:
@@ -326,8 +318,7 @@ class PyFrame(eval.Frame):
                 return space.wrap(f.last_exception.application_traceback)
         return space.w_None
          
-    def fget_f_restricted(space, w_self):
-        self = space.interpclass_w(w_self)
+    def fget_f_restricted(space, self):
         return space.wrap(self.builtin is not space.builtin)
 
 ### Frame Blocks ###
