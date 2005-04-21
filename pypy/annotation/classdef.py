@@ -53,10 +53,12 @@ class ClassDef:
         sources = {}
         baselist = list(cls.__bases__)
         baselist.reverse()
+        self.also_Exception_subclass = False
         if Exception in baselist and len(baselist)>1: # special-case
             baselist.remove(Exception)
             mixeddict['__init__'] = Exception.__init__.im_func
-        
+            self.also_Exception_subclass = True
+
         for b1 in baselist:
             if b1 is object:
                 continue
@@ -106,8 +108,13 @@ class ClassDef:
         return "<ClassDef '%s.%s'>" % (self.cls.__module__, self.cls.__name__)
 
     def commonbase(self, other):
+        other1 = other
         while other is not None and not issubclass(self.cls, other.cls):
             other = other.basedef
+        # special case for MI with Exception
+        if not other:
+            if issubclass(self.cls, Exception) and issubclass(other1.cls, Exception):
+                return self.bookkeeper.getclassdef(Exception)
         return other
 
     def superdef_containing(self, cls):
