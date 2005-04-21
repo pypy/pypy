@@ -67,13 +67,10 @@ FALSE = 0
 
 def main(loops=LOOPS):
     benchtime, stones = pystones(abs(loops))
-    #print "Pystone(%s) time for %d passes = %g" % \
-    #      (__version__, loops, benchtime)
     if loops >= 0:
         import sys
         sys.stdout.write("Pystone(%s) time for %d passes = %g\n" % \
               (__version__, loops, benchtime) )
-        #print "This machine benchmarks at %g pystones/second" % stones
         sys.stdout.write("This machine benchmarks at %g pystones/second\n" % stones)
 
 
@@ -263,60 +260,27 @@ def Func3(EnumParIn):
     if EnumLoc == Ident3: return TRUE
     return FALSE
 
-# XXX the following creates bad code
-# sys.argv is seen as a constant.
-# also, in entrypoint(), the try..except is
-# removed, which is a bug.
-# XXX repair this, write a test
-
-"""
 def error(msg):
-    #print >>sys.stderr, msg,
+    import sys
     sys.stderr.write(msg+" ")
-    #print >>sys.stderr, "usage: %s [number_of_loops]" % sys.argv[0]
     sys.stderr.write("usage: %s [number_of_loops]\n" % sys.argv[0])
     sys.exit(100)
 
-def entrypoint():
-    loops = LOOPS  # initialize early, for slow space
-    nargs = len(sys.argv) - 1
-    if nargs > 1:
-        error("%d arguments are too many;" % nargs)
-    elif nargs == 1:
-        try: loops = int(sys.argv[1])
-        except ValueError:
-            error("Invalid argument %r;" % sys.argv[1])
-    else:
-        if hasattr(sys, 'pypy_objspaceclass'):
-            loops = LOOPS / 2000 # XXX rough estimate, adjust
-        #else:
-        #    loops = LOOPS
+def entrypoint(loops=None):
+    import sys
+    if loops is None:
+        loops = LOOPS  # initialize early, for slow space
+        nargs = len(sys.argv) - 1
+        if nargs > 1:
+            error("%d arguments are too many;" % nargs)
+        elif nargs == 1:
+            try: loops = int(sys.argv[1])
+            except ValueError:
+                error("Invalid argument %r;" % sys.argv[1])
+        else:
+            if hasattr(sys, 'pypy_objspaceclass'):
+                loops = LOOPS / 2000 # XXX rough estimate, adjust
     main(loops)
-"""
 
 if __name__ == '__main__':
-    # the following should be replaced by
-    # entrypoint()
-    # for now, we use main in the test.
-    
-    def error(msg):
-        import sys
-        #print >>sys.stderr, msg,
-        sys.stderr.write(msg+" ")
-        #print >>sys.stderr, "usage: %s [number_of_loops]" % sys.argv[0]
-        sys.stderr.write("usage: %s [number_of_loops]\n" % sys.argv[0])
-        sys.exit(100)
-    nargs = len(sys.argv) - 1
-    if nargs > 1:
-        error("%d arguments are too many;" % nargs)
-    elif nargs == 1:
-        try: loops = int(sys.argv[1])
-        except ValueError:
-            error("Invalid argument %r;" % sys.argv[1])
-    else:
-        if hasattr(sys, 'pypy_objspaceclass'):
-            loops = LOOPS / 2000 # XXX rough estimate, adjust
-        else:
-            loops = LOOPS
-    main(loops)
-
+    entrypoint()
