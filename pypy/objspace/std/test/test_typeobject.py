@@ -237,6 +237,30 @@ class AppTestTypeObject:
         raises(TypeError,type.__dict__['__name__'].__get__,1)
         raises(TypeError,type.__dict__['__mro__'].__get__,1)
 
-
+    def test_slots_simple(self):
+        class A(object):
+            __slots__ = ('x',)
+        a = A()
+        raises(AttributeError, getattr, a, 'x')
+        a.x = 1
+        assert a.x == 1
+        assert A.__dict__['x'].__get__(a) == 1
+        del a.x
+        raises(AttributeError, getattr, a, 'x')
+        class B(A):
+            pass
+        b = B()
+        raises(AttributeError, getattr, b, 'x')
+        b.x = 1
+        assert b.x == 1
+        assert A.__dict__['x'].__get__(b) == 1
+        del b.x
+        raises(AttributeError, getattr, b, 'x')
+        class Z(object):
+            pass
+        z = Z()
+        raises(TypeError, A.__dict__['x'].__get__, z)
+        raises(TypeError, A.__dict__['x'].__set__, z, 1)
+        raises(TypeError, A.__dict__['x'].__delete__, z)
         
         

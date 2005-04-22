@@ -110,7 +110,7 @@ class W_TypeObject(W_Object):
                         wantdict = True
                     else:
                         # create member
-                        w_self.dict_w[slot_name] = space.wrap(Member(nslots, slot_name))
+                        w_self.dict_w[slot_name] = space.wrap(Member(nslots, slot_name, w_self))
                         nslots += 1
 
             w_self.nslots = nslots

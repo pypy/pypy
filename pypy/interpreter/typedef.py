@@ -213,15 +213,23 @@ def interp_attrproperty_w(name, cls):
 
 class Member(Wrappable):
     """For slots."""
-    def __init__(self, index, name):  # XXX ,cls later
+    def __init__(self, index, name, w_cls):
         self.index = index
         self.name = name
+        self.w_cls = w_cls
 
-    def descr_member_get(space, member, w_obj, w_cls=None):
+    def typecheck(self, space, w_obj):
+        if not space.is_true(space.isinstance(w_obj, self.w_cls)):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("descriptor '%s' for '%s' objects doesn't apply to '%s' object" %
+                                            (self.name, self.w_cls.name, space.type(w_obj).name)))
+
+    def descr_member_get(space, member, w_obj, w_w_cls=None):
         if space.is_w(w_obj, space.w_None):
             return space.wrap(member)
         else:
             self = member
+            self.typecheck(space, w_obj)
             w_result = w_obj.slots_w[self.index]
             if w_result is None:
                 raise OperationError(space.w_AttributeError,
@@ -230,11 +238,13 @@ class Member(Wrappable):
 
     def descr_member_set(space, member, w_obj, w_value):
         self = member
-        w_obj.slots_w[self.index] = w_value # xxx typecheck
+        self.typecheck(space, w_obj)
+        w_obj.slots_w[self.index] = w_value
 
     def descr_member_del(space, member, w_obj):
         self = member
-        w_obj.slots_w[self.index] = None # xxx typecheck
+        self.typecheck(space, w_obj)
+        w_obj.slots_w[self.index] = None
 
 Member.typedef = TypeDef(
     "Member",
