@@ -61,8 +61,10 @@ class UnwrapSpecRecipe:
     bases_order = [BaseWrappable, W_Root, ObjSpace, Arguments, object]
 
     def dispatch(self, meth_family, el, orig_sig, new_sig):
-        if isinstance(el,str):
+        if isinstance(el, str):
             getattr(self, "%s_%s" % (meth_family, el))(el, orig_sig, new_sig)
+        elif isinstance(el, tuple):
+            getattr(self, "%s_%s" % (meth_family, 'function'))(el, orig_sig, new_sig)
         else:
             for typ in self.bases_order:
                 if issubclass(el, typ):
@@ -81,6 +83,9 @@ class UnwrapSpecRecipe:
     # checks for checking interp2app func argument names wrt unwrap_spec
     # and synthetizing an app-level signature
 
+    def check_function(self, (func, cls), orig_sig, app_sig):
+        self.check(cls, orig_sig, app_sig)
+        
     def check__BaseWrappable(self, el, orig_sig, app_sig):
         name = el.__name__
         argname = orig_sig.next_arg()
@@ -145,6 +150,17 @@ class UnwrapSpecRecipe:
         app_sig.append(argname)        
 
     # collect code to emit for interp2app builtin frames based on unwrap_spec
+
+    def emit_function(self, (func, cls), orig_sig, emit_sig):
+        name = func.__name__
+        cur = emit_sig.through_scope_w
+        emit_sig.setfastscope.append(
+            "obj = %s(scope_w[%d])" % (name, cur))
+        emit_sig.miniglobals[name] = func
+        emit_sig.setfastscope.append(
+            "self.%s_arg%d = obj" % (name,cur))
+        emit_sig.through_scope_w += 1
+        emit_sig.run_args.append("self.%s_arg%d" % (name,cur))
 
     def emit__BaseWrappable(self, el, orig_sig, emit_sig):
         name = el.__name__
@@ -268,7 +284,13 @@ class BuiltinCodeSignature(Signature):
             assert run_args == self.run_args,"unexpected: same spec, different run_args"
             return frame_cls, box_cls
         except KeyError:
-            label = '_'.join([getattr(el, '__name__', el) for el in self.unwrap_spec])
+            parts = []          
+            for el in self.unwrap_spec:
+                if isinstance(el, tuple):
+                    parts.append(''.join([getattr(subel, '__name__', subel) for subel in el]))
+                else:
+                    parts.append(getattr(el, '__name__', el))
+            label = '_'.join(parts)
             #print label
             setfastscope = self.setfastscope
             if not setfastscope:
@@ -338,6 +360,7 @@ class BuiltinCode(eval.Code):
         # 'args_w' for unpacktuple applied to rest arguments
         # 'w_args' for rest arguments passed as wrapped tuple
         # str,int,float: unwrap argument as such type
+        # (function, cls) use function to check/unwrap argument of type cls
         
         # First extract the signature from the (CPython-level) code object
         from pypy.interpreter import pycode
