@@ -20,13 +20,13 @@ def compile(space, w_str_, filename, startstr,
     supplied_flags |= 4096 
     if not dont_inherit:
         try:
-            frame = space.sys.call('_getframe') 
-        except OperationError, e: 
-            if not e.match(space, space.w_ValueError): 
-                raise 
-            pass
+            caller = space.getexecutioncontext().framestack.top()
+        except IndexError:
+            caller = None
         else:
-            supplied_flags |= frame.get_compile_flags()
+            from pypy.interpreter import pyframe
+            if isinstance(caller, pyframe.PyFrame): 
+                supplied_flags |= caller.get_compile_flags()
     try:
         c = cpy_builtin.compile(str_, filename, startstr, supplied_flags, 1)
     # It would be nice to propagate all exceptions to app level,
