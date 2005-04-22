@@ -49,7 +49,7 @@ class W_TypeObject(W_Object):
             # find the most specific typedef
             instancetypedef = object_typedef
             for w_base in bases_w:
-                if not space.is_true(space.isinstance(w_base, space.w_type)):
+                if not isinstance(w_base, W_TypeObject):
                     continue
                 if issubtypedef(w_base.instancetypedef, instancetypedef):
                     if instancetypedef is not w_base.instancetypedef:
@@ -69,7 +69,7 @@ class W_TypeObject(W_Object):
             hasoldstylebase = False
             w_most_derived_base_with_slots = None
             for w_base in bases_w:
-                if not space.is_true(space.isinstance(w_base, space.w_type)):
+                if not isinstance(w_base, W_TypeObject):
                     hasoldstylebase = True
                     continue
                 if w_base.nslots != 0:
@@ -177,7 +177,7 @@ class W_TypeObject(W_Object):
 
     def check_user_subclass(w_self, w_subtype):
         space = w_self.space
-        if not space.is_true(space.isinstance(w_subtype, space.w_type)):
+        if not isinstance(w_subtype, W_TypeObject):
             raise OperationError(space.w_TypeError,
                 space.wrap("X is not a type object (%s)" % (
                     space.type(w_subtype).name)))
@@ -189,6 +189,7 @@ class W_TypeObject(W_Object):
             raise OperationError(space.w_TypeError,
                 space.wrap("%s.__new__(%s) is not safe, use %s.__new__()" % (
                     w_self.name, w_subtype.name, w_subtype.name)))
+        return w_subtype
 
     def getdict(w_self):
         # XXX should return a <dictproxy object>

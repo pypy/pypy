@@ -7,7 +7,10 @@ from copy_reg import _HEAPTYPE
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
     "This is used to create user-defined classes only."
     from pypy.objspace.std.typeobject import W_TypeObject
-    # XXX check types 
+    # XXX check types
+
+    w_typetype = _precheck_for_new(space, w_typetype)
+    
     bases_w = space.unpackiterable(w_bases)
 
     w_winner = w_typetype
@@ -41,6 +44,13 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
         dict_w[key] = space.getitem(w_dict, w_key)
     w_type = space.allocate_instance(W_TypeObject, w_typetype)
     w_type.__init__(space, name, bases_w or [space.w_object], dict_w)
+    return w_type
+
+def _precheck_for_new(space, w_type):
+    from pypy.objspace.std.typeobject import W_TypeObject
+    if not isinstance(w_type, W_TypeObject):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("X is not a type object (%s)" % (space.type(w_type).name)))
     return w_type
 
 def _check(space, w_type, msg=None):
@@ -90,6 +100,7 @@ def descr__doc(space, w_type):
         return space.get(w_result, space.w_None, w_type)
 
 def descr__flags(space, w_type):
+    w_type = _check(space, w_type)    
     return space.wrap(w_type.__flags__)
 
 def defunct_descr_get__module(space, w_type):
@@ -105,12 +116,14 @@ def defunct_descr_get__module(space, w_type):
 # therefore, we use the module attribute whenever it exists.
 
 def descr_get__module(space, w_type):
+    w_type = _check(space, w_type)    
     if '__module__' in w_type.dict_w:
         return w_type.dict_w['__module__']
     else:
         return space.wrap('__builtin__')
 
 def descr_set__module(space, w_type, w_value):
+    w_type = _check(space, w_type)    
     if not (w_type.__flags__ & _HEAPTYPE):
         raise OperationError(space.w_TypeError, 
                              space.wrap("can't set %s.__module__" %

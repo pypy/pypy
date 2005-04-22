@@ -275,7 +275,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if self.is_true(self.is_(w_type, w_subtype)):
             instance =  instantiate(cls)
         else:
-            w_type.check_user_subclass(w_subtype)
+            w_subtype = w_type.check_user_subclass(w_subtype)
             subcls = get_unique_interplevel_subclass(cls, w_subtype.hasdict, w_subtype.nslots != 0)
             instance = instantiate(subcls)
             instance.user_setup(self, w_subtype, w_subtype.nslots)

@@ -21,8 +21,10 @@ def descr__class__(space, w_obj):
 
 def descr__new__(space, w_type, __args__):
     from pypy.objspace.std.objectobject import W_ObjectObject
+    from pypy.objspace.std.typetype import _precheck_for_new
     # don't allow arguments if the default object.__init__() is about
     # to be called
+    w_type = _precheck_for_new(space, w_type)
     w_parentinit, w_ignored = w_type.lookup_where('__init__')
     if w_parentinit is space.w_object:
         try:
