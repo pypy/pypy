@@ -310,7 +310,7 @@ def compute_C3_mro(space, cls):
             if mro_blockinglist(candidate, orderlists) is GOODCANDIDATE:
                 break    # good candidate
         else:
-            return mro_error(orderlists)  # no candidate found
+            return mro_error(space, orderlists)  # no candidate found
         assert candidate not in order
         order.append(candidate)
         for i in range(len(orderlists)-1, -1, -1):
@@ -331,10 +331,9 @@ def mro_blockinglist(candidate, orderlists):
 def _getname(space, w_cls):
     return space.getattr(w_cls, space.wrap('__name__'))
 
-def mro_error(orderlists):
+def mro_error(space, orderlists):
     cycle = []
     candidate = orderlists[-1][0]
-    space = candidate.space
     if candidate in orderlists[-1][1:]:
         # explicit error message for this specific case
         raise OperationError(space.w_TypeError,
