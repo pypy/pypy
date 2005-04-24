@@ -11,10 +11,12 @@ from pypy.translator.llvm import llvmbc
 from pypy.translator.llvm.representation import debug, LLVMRepr
 from pypy.translator.llvm.representation import TmpVariableRepr
 from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
+from pypy.translator.llvm.typerepr import SimpleTypeRepr
 from pypy.translator.llvm.funcrepr import FunctionRepr, BoundMethodRepr
 from pypy.translator.llvm.funcrepr import VirtualMethodRepr
+from pypy.translator.llvm.memorylayout import MemoryLayout
 
-debug = True
+debug = False
 
 class ClassRepr(TypeRepr):
     l_classes = {}
@@ -47,11 +49,9 @@ class ClassRepr(TypeRepr):
                                              self.classdef.cls.__name__)
         if debug:
             print self.name
-        if ".Exception.object" in self.objectname:
-            1/0
+        assert ".Exception.object" not in self.objectname
         self.dependencies = sets.Set()
         self.setup_done = False
-        self.attr_num = {}
 
     def setup(self):
         if self.setup_done:
@@ -65,18 +65,17 @@ class ClassRepr(TypeRepr):
             #XXX if the base class is a builtin Exception we want the
             #ExceptionTypeRepr, not the ClassRepr
             if self.classdef.basedef.cls.__module__ == "exceptions":
-                self.l_base = gen.get_repr(self.classdef.basedef.cls)
                 #XXX we want something more complicated here:
                 #if the class has no __init__ function we need to insert the
                 #'args' attribute the builtin exceptions have
-                attribs = []
+                self.l_base = gen.get_repr(self.classdef.basedef.cls)
             else:
                 self.l_base = gen.get_repr(self.classdef.basedef)
-                attribs = self.l_base.attributes
+            assert self not in self.l_base.get_dependencies()
             self.dependencies.add(self.l_base)
         else:
             self.l_base = None
-            attribs = []
+        attribs = []
         meth = []
         if debug:
             print "attributes", self.classdef.attrs
@@ -85,7 +84,8 @@ class ClassRepr(TypeRepr):
             if debug:
                 print key, attr, attr.sources, attr.s_value,
             if isinstance(attr.s_value, annmodel.SomeImpossibleValue):
-                print "--> removed"
+                if debug:
+                    print "--> removed"
                 continue
             if len(attr.sources) != 0:
                 func = self.classdef.cls.__dict__[attr.name]
@@ -102,18 +102,17 @@ class ClassRepr(TypeRepr):
                 attribs.append(attr)
                 if debug:
                     print "--> value"
-        self.l_attrs_types = [gen.get_repr(attr.s_value) for attr in attribs]
-        self.dependencies = sets.Set(self.l_attrs_types)
-        attributes = ", ".join([at.typename() for at in self.l_attrs_types])
-        if attributes != "":
-            self.definition = "%s = type {%%std.class*, %s}" % (self.name,
-                                                                attributes)
+        l_att_types = [gen.get_repr(attr.s_value) for attr in attribs]
+        attribs = [attr.name for attr in attribs]
+        self.dependencies.update(l_att_types)
+        if self.l_base is not None:
+            self.memlayout = self.l_base.memlayout.extend_layout(attribs,
+                                                                 l_att_types)
         else:
-            self.definition = "%s = type {%%std.class*}" % self.name
-        self.attributes = attribs
-        self.attr_num = {}
-        for i, attr in enumerate(attribs):
-            self.attr_num[attr.name] = i + 1
+            attribs = ["__class__"] + attribs
+            l_att_types = [SimpleTypeRepr("%std.class*", gen)] + l_att_types
+            self.memlayout = MemoryLayout(attribs, l_att_types, self.gen)
+        self.definition = "%s = %s" % (self.name, self.memlayout.definition())
         self.methods = dict(meth)
 
     def get_globals(self):
@@ -139,11 +138,7 @@ class ClassRepr(TypeRepr):
 
     def op_simple_call(self, l_target, args, lblock, l_func):
         lblock.malloc(l_target, self)
-        l_tmp = self.gen.get_local_tmp(
-            PointerTypeRepr("%std.class*", self.gen), l_func)
-        lblock.getelementptr(l_tmp, l_target, [0, 0])
-        lblock.instruction("store %%std.class* %s, %s" %
-                           (self.objectname, l_tmp.typed_name()))        
+        self.memlayout.set(l_target, "__class__", self, lblock, l_func)
         init = None
         for cls in self.classdef.getmro():
             if "__init__" in cls.attrs:
@@ -154,7 +149,7 @@ class ClassRepr(TypeRepr):
             l_func.dependencies.add(l_init)
             l_tmp = self.gen.get_local_tmp(PointerTypeRepr("sbyte", self.gen),
                                            l_func)
-            self.dependencies.add(l_tmp)
+            l_func.dependencies.add(l_tmp)
             #XXX VirtualMethodRepr should recognize __init__ methods
             if isinstance(l_init, VirtualMethodRepr):
                 l_init = l_init.l_funcs[l_init.l_classes.index(self)]
@@ -166,27 +161,25 @@ class ClassRepr(TypeRepr):
             print "t_op_getattr of ClassRepr called", l_target, args, self.name
         if not isinstance(args[1], Constant):
             raise CompileError,"getattr called with non-constant: %s" % args[1]
-        if args[1].value in self.attr_num:
+        if args[1].value in self.memlayout.attrs:
             l_args0 = self.gen.get_repr(args[0])
             l_func.dependencies.add(l_args0)
-            l_pter = self.gen.get_local_tmp(
-                PointerTypeRepr(l_target.llvmtype(), self.gen), l_func)
-            lblock.getelementptr(l_pter, l_args0,
-                                 [0, self.attr_num[args[1].value]])
-            lblock.load(l_target, l_pter)
+            self.memlayout.get(l_target, l_args0, args[1].value, lblock,
+                               l_func)
             return
         else:
             if debug:
                 print list(self.classdef.getmro())
             for cls in self.classdef.getmro():
                 l_cls = self.gen.get_repr(cls)
-                self.dependencies.add(l_cls)
+                if l_cls != self:
+                    self.dependencies.add(l_cls)
                 if args[1].value in l_cls.methods:
                     if debug:
                         print "class %s, %s matches" % (cls, l_cls)
                     l_args0 = self.gen.get_repr(args[0])
                     l_func.dependencies.add(l_args0)
-                    l_method = BoundMethodRepr(l_target.type, l_args0, l_cls,
+                    l_method = BoundMethodRepr(l_target.type, l_args0,
                                                self.gen)
                     l_func.dependencies.add(l_method)
                     l_method.setup()
@@ -198,33 +191,18 @@ class ClassRepr(TypeRepr):
     def t_op_setattr(self, l_target, args, lblock, l_func):
         if not isinstance(args[1], Constant):
             raise CompileError,"setattr called with non-constant: %s" % args[1]
-        if args[1].value in self.attr_num:
-            l_type = self.l_attrs_types[self.attr_num[args[1].value] - 1]
-            l_args0 = self.gen.get_repr(args[0])
-            l_value = self.gen.get_repr(args[2])
-            self.dependencies.update([l_args0, l_value])
-            if l_value.llvmtype() != l_type.typename():
-                l_cast = self.gen.get_local_tmp(l_type, l_func)
-                self.dependencies.add(l_cast)
-                lblock.cast(l_cast, l_value)
-                l_value = l_cast
-            l_pter = self.gen.get_local_tmp(
-                PointerTypeRepr(l_value.llvmtype(), self.gen), l_func)
-            lblock.getelementptr(l_pter, l_args0,
-                                 [0, self.attr_num[args[1].value]])
-            lblock.store(l_value, l_pter)
-        else:
+        if args[1].value not in self.memlayout.attr_num:
             raise CompileError, ("setattr called with unknown attribute %s" % \
                                  args[1].value)
+        l_args0 = self.gen.get_repr(args[0])
+        l_value = self.gen.get_repr(args[2])
+        l_func.dependencies.update([l_args0, l_value])
+        self.memlayout.set(l_args0, args[1].value, l_value, lblock, l_func)
 
     def t_op_type(self, l_target, args, lblock, l_func):
         l_args0 = self.gen.get_repr(args[0])
         l_func.dependencies.add(l_args0)
-        l_tmp = self.gen.get_local_tmp(
-            PointerTypeRepr("%std.class*", self.gen), l_func)
-        lblock.getelementptr(l_tmp, l_args0, [0, 0])
-        lblock.load(l_target, l_tmp)
-        
+        self.memlayout.get(l_target, l_args0, "__class__", lblock, l_func)
 
     def iter_subclasses(self):
         for cls, classdef in self.classdef.subdefs.iteritems():
@@ -272,6 +250,10 @@ class ExceptionTypeRepr(TypeRepr):
             self.dependencies.add(self.l_base)
         else:
             self.l_base = None
+        attribs = ["__class__", "args"]
+        l_att_types = [SimpleTypeRepr("%std.class*", self.gen),
+                       self.gen.get_repr(annmodel.SomeString())]
+        self.memlayout = MemoryLayout(attribs, l_att_types, self.gen)
 
     def typename(self):
         return "%std.exception*"
@@ -329,7 +311,6 @@ class InstanceRepr(LLVMRepr):
     def get(obj, gen):
         if isinstance(obj, Constant):
             ann = gen.annotator.binding(obj)
-            print "InstanceRepr.get: ", obj, ann, ann.__class__
             if isinstance(ann, annmodel.SomeInstance):
                 return InstanceRepr(obj, ann.classdef, gen)
     get = staticmethod(get)
@@ -344,20 +325,14 @@ class InstanceRepr(LLVMRepr):
         self.name = gen.get_global_tmp(obj.value.__class__.__name__ + ".inst")
 
     def setup(self):
-        self.l_attrib_values = []
-        for attr in self.type.attributes:
-            s_a = self.gen.get_repr(getattr(self.obj.value, attr.name))
+        self.l_attrib_values = [self.type]
+        for attr in self.type.memlayout.attrs[1:]:
+            s_a = self.gen.get_repr(getattr(self.obj.value, attr))
             self.l_attrib_values.append(s_a)
         self.dependencies.update(self.l_attrib_values)
-        self.definition = self.name + " = internal global %s {%s" % \
-                          (self.llvmtype()[:-1], self.type.typed_name())
-        if len(self.l_attrib_values) == 0:
-            self.definition += "}"
-        else:
-            attrs = ", ".join([at.typename() + " " + av.llvmname()
-                               for at, av in zip(self.type.l_attrs_types,
-                                                 self.l_attrib_values)])
-            self.definition += ", " + attrs + "}"
+        self.definition = self.name + \
+                          " = internal global %s" % self.llvmtype()[:-1] + \
+                          self.type.memlayout.constant(self.l_attrib_values)
 
     def get_globals(self):
         return self.definition

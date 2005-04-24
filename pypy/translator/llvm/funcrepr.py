@@ -35,8 +35,6 @@ C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
 
 class BuiltinFunctionRepr(LLVMRepr):
     def get(obj, gen):
-        if isinstance(obj, Constant):
-            print "BuiltinFunctionRepr", obj.value
         if (isinstance(obj, Constant) and
             (obj in BUILTIN_ANALYZERS or
              isinstance(gen.annotator.binding(obj), annmodel.SomeBuiltin))):
@@ -69,8 +67,9 @@ class FunctionRepr(LLVMRepr):
     l_functions = {}
     def get(obj, gen):
         name = None
-        if isinstance(obj, annmodel.SomePBC) and \
-                 len(obj.prebuiltinstances) == 1:
+        if (isinstance(obj, annmodel.SomePBC) and
+            len(obj.prebuiltinstances) == 1 and
+            isinstance(obj.prebuiltinstances.keys()[0], FunctionType)):
             obj = obj.prebuiltinstances.keys()[0]
         elif isinstance(obj, Constant):
             obj = obj.value
@@ -637,14 +636,26 @@ class VirtualMethodRepr(LLVMRepr):
         return self.retvalue.llvmtype()
 
 class BoundMethodRepr(LLVMRepr):
-    def __init__(self, l_func, l_self, l_class, gen):
+    def get(obj, gen):
+        if isinstance(obj, annmodel.SomePBC) and \
+                 len(obj.prebuiltinstances) == 1 and \
+                 isinstance(obj.prebuiltinstances.keys()[0], MethodType):
+            meth = obj.prebuiltinstances.keys()[0]
+            l_self = gen.get_repr(Constant(meth.im_self))
+            l_func = gen.get_repr(Constant(meth.im_func))
+            return BoundMethodRepr(l_func, l_self, gen)
+        return None
+    get = staticmethod(get)
+
+    def __init__(self, l_func, l_self, gen):
         self.gen = gen
         self.l_func = l_func
         self.l_self = l_self
-        self.l_class = l_class
-        self.dependencies = sets.Set([l_self, l_class, l_func])
+        self.dependencies = sets.Set([l_self, l_func])
 
     def t_op_simple_call(self, l_target, args, lblock, l_func):
         self.l_func.op_simple_call(l_target,
                                    [self.l_func, self.l_self] + args[1:],
                                    lblock, l_func)
+
+    op_simple_call = t_op_simple_call

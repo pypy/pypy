@@ -49,7 +49,7 @@ class LLVMRepr(object):
         try:
             return self.dependencies
         except AttributeError:
-            return []
+            return sets.Set()
 
 
 class SimpleRepr(LLVMRepr):

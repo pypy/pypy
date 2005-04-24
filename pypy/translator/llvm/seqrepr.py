@@ -128,7 +128,7 @@ class ListTypeRepr(TypeRepr):
                args[1].value in ["append", "reverse", "pop"]:
             l_args0 = self.gen.get_repr(args[0])
             l_func.dependencies.add(l_args0)
-            l_method = BoundMethodRepr(l_target.type, l_args0, self, self.gen)
+            l_method = BoundMethodRepr(l_target.type, l_args0, self.gen)
             l_method.setup()
             l_target.type = l_method
         else:

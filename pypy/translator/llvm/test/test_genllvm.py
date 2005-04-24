@@ -336,6 +336,24 @@ class TestException(object):
         assert f(6) == 6
         assert f(13) == 13
         
+class TestPBC(object):
+    def setup_method(self, method):
+        if not llvm_found:
+            py.test.skip("llvm-as not found on path.")
+
+    def test_pbc_function1(self):
+        f = compile_function(llvmsnippet.pbc_function1, [int])
+        assert f(0) == 2
+        assert f(1) == 4
+        assert f(2) == 6
+        assert f(3) == 8
+
+    def DONOT_test_pbc_function2(self):
+        f = compile_function(llvmsnippet.pbc_function2, [int])
+        assert f(0) == 13
+        assert f(1) == 15
+        assert f(2) == 17
+        assert f(3) == 19
 
 class TestSnippet(object):
     def setup_method(self, method):
@@ -424,3 +442,4 @@ class TestSnippet(object):
         with_more_init = compile_function(test.with_more_init, [int, bool])
         assert with_more_init(42, True) == 42
         assert with_more_init(42, False) == -42
+

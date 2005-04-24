@@ -16,13 +16,13 @@ from pypy.translator.llvm.test import llvmsnippet as test2
 
 
 from pypy.translator.llvm import representation, funcrepr, typerepr, seqrepr
-from pypy.translator.llvm import classrepr
+from pypy.translator.llvm import classrepr, pbcrepr
 
 from pypy.translator.llvm.representation import LLVMRepr, TmpVariableRepr
 from pypy.translator.llvm.representation import CompileError
 from pypy.translator.llvm.funcrepr import EntryFunctionRepr
 
-debug = False
+debug = True
 
 
 def llvmcompile(transl, optimize=False):
@@ -56,7 +56,8 @@ class LLVMGenerator(object):
         self.global_counts = {}
         self.local_counts = {}
         self.repr_classes = []
-        for mod in [representation, funcrepr, typerepr, seqrepr, classrepr]:
+        for mod in [representation, funcrepr, typerepr, seqrepr, classrepr,
+                    pbcrepr]:
             self.repr_classes += [getattr(mod, s)
                                   for s in dir(mod) if "Repr" in s]
         self.repr_classes = [c for c in self.repr_classes if hasattr(c, "get")]
@@ -140,6 +141,8 @@ class LLVMGenerator(object):
     def write(self, f):
         init_block = self.l_entrypoint.init_block
         seen_reprs = sets.Set()
+        remove_loops(self.l_entrypoint, seen_reprs)
+        seen_reprs = sets.Set()
         for l_repr in traverse_dependencies(self.l_entrypoint, seen_reprs):
             l_repr.collect_init_code(init_block, self.l_entrypoint)
         include_files = ["operations.ll", "class.ll"]
@@ -174,13 +177,35 @@ class LLVMGenerator(object):
         self.write(f)
         return f.getvalue()
 
+#traverse dependency-tree starting from the leafes upward
+#this is only safe if there are no direct loops
 def traverse_dependencies(l_repr, seen_reprs):
-    seen_reprs.add(l_repr)
-    for l_dep in l_repr.get_dependencies():
-        if l_dep in seen_reprs:
-            continue
-        seen_reprs.add(l_dep)
-        for l_dep1 in traverse_dependencies(l_dep, seen_reprs):
-            yield l_dep1
-    yield l_repr
+    while 1:
+        length = len(seen_reprs)
+        if (len(l_repr.get_dependencies() - seen_reprs) == 0 and
+            l_repr not in seen_reprs):
+            seen_reprs.add(l_repr)
+            yield l_repr
+            break
+        for l_dep in l_repr.get_dependencies():
+            if l_dep in seen_reprs:
+                continue
+            for l_dep1 in traverse_dependencies(l_dep, seen_reprs):
+                yield l_dep1
+        if len(seen_reprs) == length:
+            break
+
+def remove_loops(l_repr, seen_repr):
+    deps = l_repr.get_dependencies()
+    if l_repr in deps:
+        print "removed direct loop from %s to itself" % l_repr
+        deps.remove(l_repr)
+    remove = sets.Set()
+    for l_dep in deps:
+        if l_dep in seen_repr:
+            print "removed loop from %s to %s" % (l_repr, l_dep)
+            remove.add(l_dep)
+        else:
+            remove_loops(l_dep, seen_repr.union(sets.Set([l_repr])))
+    deps.difference_update(remove)
 

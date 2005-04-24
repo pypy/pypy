@@ -375,3 +375,46 @@ def catches(i):
         return raises(i)
     except MyException, e:
         return e.n
+
+#PBC snippets
+
+class PBCClass(object):
+    def __init__(self, a):
+        self.a = a
+        self.b = 12
+
+    def _freeze_(self):
+        return True
+
+    def get(self, i):
+        return self.a[i]
+
+pbc = PBCClass([1, 2, 3, 4])
+
+def pbc_passing(pbc, i):
+    return pbc.a[i] + pbc.get(i)
+
+def pbc_function1(i):
+    return pbc_passing(pbc, i)
+
+
+class CIRCULAR1(object):
+    def __init__(self):
+        self.a = [1, 2, 3, 4]
+        self.pbc = pbc1
+
+    def get(self, i):
+        return self.a[i] + self.pbc.a.a[i] + self.pbc.b
+
+class CIRCULAR2(CIRCULAR1):
+    def __init__(self):
+        pass
+
+pbc1 = PBCClass(CIRCULAR2())
+pbc1.a.pbc = pbc1
+pbc1.a.a = range(4)
+
+def pbc_function2(i): #Circular dependencies: doesn't work at the moment
+    a = CIRCULAR1()
+    b = CIRCULAR2()
+    return a.get(i)

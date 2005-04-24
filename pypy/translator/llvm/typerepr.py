@@ -142,9 +142,9 @@ class SimpleTypeRepr(TypeRepr):
         elif obj.__class__ is annmodel.SomeChar:
             l_repr = SimpleTypeRepr("sbyte", gen)
             return l_repr
-        elif obj.__class__ is annmodel.SomePBC:
-            if obj.knowntype == object or obj.knowntype == ClassType:
-                return SimpleTypeRepr("%std.class*", gen)
+##         elif obj.__class__ is annmodel.SomePBC:
+##             if obj.knowntype == object or obj.knowntype == ClassType:
+##                 return SimpleTypeRepr("%std.class*", gen)
         elif obj.__class__ is annmodel.SomeObject and \
              hasattr(obj, "is_type_of"):
             return SimpleTypeRepr("%std.class*", gen)
