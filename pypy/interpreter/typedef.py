@@ -14,7 +14,9 @@ class TypeDef:
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
         self.base = __base
-        self.hasdict = '__dict__' in rawdict or (__base and __base.hasdict)
+        self.hasdict = '__dict__' in rawdict
+        if __base is not None:
+            self.hasdict |= __base.hasdict
         self.rawdict = rawdict
         self.acceptable_as_base_class = True
 

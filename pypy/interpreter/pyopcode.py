@@ -692,7 +692,7 @@ class PyInterpFrame(pyframe.PyFrame):
             raise pyframe.BytecodeCorruption            
         fn(f, oparg)
 
-    def MISSING_OPCODE(f, oparg=None):
+    def MISSING_OPCODE(f, oparg=-1):
         raise pyframe.BytecodeCorruption, "unknown opcode"
 
     ### dispatch_table ###
