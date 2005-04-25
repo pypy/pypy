@@ -565,7 +565,7 @@ class ApplevelInterpClass(ApplevelClass):
     """ similar to applevel, but using translation to interp-level.
         This version maintains a cache folder with single files.
     """
-    NOT_RPYTHON_ATTRIBUTES = []
+    NOT_RPYTHON_ATTRIBUTES = ['cache_path', 'known_source']
 
     def __init__(self, source, filename = None, modname = 'applevelinterp', do_imports=False):
         "NOT_RPYTHON"
@@ -664,7 +664,7 @@ GI_VERSION_RENDERED = %r
 known_source = {}
 
 # self-destruct on double-click:
-if __name__ == "__main__":
+def harakiri():
     import pypy._cache as _c
     from pypy.tool.getpy import py
     lp = py.path.local
@@ -672,6 +672,11 @@ if __name__ == "__main__":
         try:
             pth.remove()
         except: pass
+
+if __name__ == "__main__":
+    harakiri()
+
+del harakiri
 """ % GI_VERSION)
         import pypy._cache
         cls.known_source = pypy._cache.known_source

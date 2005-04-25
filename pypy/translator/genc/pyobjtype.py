@@ -296,6 +296,7 @@ class CPyObjectType(CType):
         def initclassobj():
             content = cls.__dict__.items()
             content.sort()
+            ignore = getattr(cls, 'NOT_RPYTHON_ATTRIBUTES', [])
             for key, value in content:
                 if key.startswith('__'):
                     if key in ['__module__', '__doc__', '__dict__',
@@ -312,6 +313,8 @@ class CPyObjectType(CType):
                         continue
                 if isinstance(value, FunctionType) and value not in self.translator.flowgraphs and self.translator.frozen:
                     print value
+                    continue
+                if key in ignore:
                     continue
                     
                 yield '%s.%s = %s' % (name, key, self.nameof(value))
