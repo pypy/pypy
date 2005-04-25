@@ -1,0 +1,1 @@
+a is not None
