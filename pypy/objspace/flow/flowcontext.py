@@ -7,6 +7,9 @@ from pypy.objspace.flow.framestate import FrameState
 class OperationThatShouldNotBePropagatedError(OperationError):
     pass
 
+class ImplicitOperationError(OperationError):
+    pass
+
 class StopFlowing(Exception):
     pass
 
@@ -239,6 +242,17 @@ class FlowExecutionContext(ExecutionContext):
                         self.space.unwrap(e.w_type).__name__,
                         self.space.unwrap(e.w_value)))
 
+            except ImplicitOperationError, e:
+                if isinstance(e.w_type, Constant):
+                    exc_cls = e.w_type.value
+                else:
+                    exc_cls = Exception
+                msg = "implicit %s shouldn't occur" % exc_cls.__name__
+                w_type = Constant(AssertionError)
+                w_value = Constant(AssertionError(msg))
+                link = Link([w_type, w_value], self.graph.exceptblock)
+                self.recorder.crnt_block.closeblock(link)
+
             except OperationError, e:
                 link = Link([e.w_type, e.w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
@@ -320,3 +334,10 @@ class FlowExecutionContext(ExecutionContext):
                 block.recloseblock(Link(outputargs, newblock))
             candidates.insert(0, newblock)
             self.pendingblocks.append(newblock)
+
+    def sys_exc_info(self):
+        operr = ExecutionContext.sys_exc_info(self)
+        if isinstance(operr, ImplicitOperationError):
+            # re-raising an implicit operation makes it an explicit one
+            operr = OperationError(operr.w_type, operr.w_value)
+        return operr

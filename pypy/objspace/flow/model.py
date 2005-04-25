@@ -342,7 +342,7 @@ def checkgraph(graph):
                         assert block.exits[0].exitcase is None
                 elif block.exitswitch == Constant(last_exception):
                     assert len(block.operations) >= 1
-                    assert len(block.exits) >= 1
+                    assert len(block.exits) >= 2
                     assert block.exits[0].exitcase is None
                     for link in block.exits[1:]:
                         assert issubclass(link.exitcase, Exception)

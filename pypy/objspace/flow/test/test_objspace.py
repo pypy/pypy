@@ -222,7 +222,52 @@ class TestFlowObjSpace:
 
     def test_implicitIndexError(self):
         x = self.codetest(self.implicitIndexError)
+        simplify_graph(x)
         self.show(x)
+        def cannot_reach_exceptblock(link):
+            if isinstance(link, Link):
+                assert link.target is not x.exceptblock
+        traverse(cannot_reach_exceptblock, x)
+
+    #__________________________________________________________
+    def reraiseKeyError(dic):
+        try:
+            x = dic[5]
+        except KeyError:
+            raise
+
+    def test_reraiseKeyError(self):
+        x = self.codetest(self.reraiseKeyError)
+        simplify_graph(x)
+        self.show(x)
+        found_KeyError = []
+        def only_raise_KeyError(link):
+            if isinstance(link, Link):
+                if link.target is x.exceptblock:
+                    assert link.args[0] == Constant(KeyError)
+                    found_KeyError.append(link)
+        traverse(only_raise_KeyError, x)
+        assert found_KeyError
+
+    #__________________________________________________________
+    def reraiseAnything(dic):
+        try:
+            dic[5]
+        except:
+            raise
+
+    def test_reraiseAnything(self):
+        x = self.codetest(self.reraiseAnything)
+        simplify_graph(x)
+        self.show(x)
+        found = {}
+        def find_exceptions(link):
+            if isinstance(link, Link):
+                if link.target is x.exceptblock:
+                    assert isinstance(link.args[0], Constant)
+                    found[link.args[0].value] = True
+        traverse(find_exceptions, x)
+        assert found == {KeyError: True, IndexError: True}
 
     #__________________________________________________________
     def freevar(self, x):

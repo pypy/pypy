@@ -383,11 +383,9 @@ class FlowObjSpace(ObjSpace):
         if exceptions:
             # catch possible exceptions implicitly.  If the OperationError
             # below is not caught in the same function, it will produce an
-            # exception-raising return block in the flow graph.  The special
-            # value 'wrap(last_exception)' is used as a marker for this kind
-            # of implicit exceptions, and simplify.py will remove it as per
-            # the RPython definition: implicit exceptions not explicitly
-            # caught in the same function are assumed not to occur.
+            # exception-raising return block in the flow graph.  Note that
+            # even if the interpreter re-raises the exception, it will not
+            # be the same ImplicitOperationError instance internally.
             context = self.getexecutioncontext()
             outcome, w_exc_cls, w_exc_value = context.guessexception(*exceptions)
             if outcome is not None:
@@ -396,7 +394,8 @@ class FlowObjSpace(ObjSpace):
                 # unless 'outcome' is Exception.
                 if outcome is not Exception:
                     w_exc_cls = Constant(outcome)
-                raise OperationError(w_exc_cls, w_exc_value)
+                raise flowcontext.ImplicitOperationError(w_exc_cls,
+                                                         w_exc_value)
 
 # ______________________________________________________________________
 

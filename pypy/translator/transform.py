@@ -266,16 +266,14 @@ def transform_dead_code(self):
                 if not block.exits:
                     # oups! cannot reach the end of this block
                     cutoff_alwaysraising_block(self, block)
-                elif block.exitswitch != Constant(last_exception):
-                    # non-exceptional exit
-                    if len(block.exits) == 1:
-                        block.exitswitch = None
-                        block.exits[0].exitcase = None
-                else:
+                elif block.exitswitch == Constant(last_exception):
                     # exceptional exit
                     if block.exits[0].exitcase is not None:
                         # killed the non-exceptional path!
                         cutoff_alwaysraising_block(self, block)
+                if len(block.exits) == 1:
+                    block.exitswitch = None
+                    block.exits[0].exitcase = None
 
 def cutoff_alwaysraising_block(self, block):
     "Fix a block whose end can never be reached at run-time."
@@ -293,18 +291,18 @@ def cutoff_alwaysraising_block(self, block):
     del block.operations[n+1:]
     s_impossible = annmodel.SomeImpossibleValue()
     self.bindings[block.operations[n].result] = s_impossible
-    # insert the equivalent of 'raise SystemError'
+    # insert the equivalent of 'raise AssertionError'
     # XXX no sane way to get the graph from the block!
     fn = self.annotated[block]
     assert fn in self.translator.flowgraphs, (
         "Cannot find the graph that this block belong to! "
         "fn=%r" % (fn,))
     graph = self.translator.flowgraphs[fn]
-    c1 = Constant(SystemError)
-    c2 = Constant(SystemError(
-        "Call to %r should have raised an exception" % (fn,)))
+    msg = "Call to %r should have raised an exception" % (fn,)
+    c1 = Constant(AssertionError)
+    c2 = Constant(AssertionError(msg))
     errlink = Link([c1, c2], graph.exceptblock)
-    block.recloseblock(errlink)
+    block.recloseblock(errlink, *block.exits)
     # XXX do something about the annotation of the
     #     exceptblock.inputargs
 

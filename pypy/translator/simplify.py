@@ -11,7 +11,7 @@ def simplify_graph(graph):
     """inplace-apply all the existing optimisations to the graph."""
     checkgraph(graph)
     eliminate_empty_blocks(graph)
-    remove_implicit_exceptions(graph)
+    remove_assertion_errors(graph)
     join_blocks(graph)
     transform_dead_op_vars(graph)
     remove_identical_vars(graph)
@@ -76,29 +76,33 @@ def join_blocks(graph):
                     visit(exit)
     traverse(visit, graph)
 
-def remove_implicit_exceptions(graph):
-    """An exception raised implicitely has a particular value of
-    space.wrap(last_exception) -- see pypy.objspace.flow.objspace.make_op --
-    which shows up in the flow graph if the exception is not caught.  This
-    function removes such exceptions entierely.  This gets rid for example
-    of possible IndexErrors by 'getitem', assuming they cannot happen unless
-    there is an exception handler in the same function."""
-    def visit(link):
-        if isinstance(link, Link) and link in link.prevblock.exits:
-            if (link.target is graph.exceptblock and
-                link.prevblock.exitswitch == Constant(last_exception) and
-                isinstance(link.exitcase, type(Exception)) and
-                issubclass(link.exitcase, Exception) and
-                len(link.args) == 2 and
-                link.args[1] == Constant(last_exc_value) and
-                link.args[0] in [Constant(last_exception),
-                                 Constant(link.exitcase)]):
-                # remove the link
-                lst = list(link.prevblock.exits)
-                lst.remove(link)
-                link.prevblock.exits = tuple(lst)
-                if len(lst) <= 1:
-                    link.prevblock.exitswitch = None
+def remove_assertion_errors(graph):
+    """Remove branches that go directly to raising an AssertionError,
+    assuming that AssertionError shouldn't occur at run-time.  Note that
+    this is how implicit exceptions are removed (see _implicit_ in
+    flowcontext.py).
+    """
+    def visit(block):
+        if isinstance(block, Block):
+            for i in range(len(block.exits)-1, -1, -1):
+                exit = block.exits[i]
+                if not (exit.target is graph.exceptblock and
+                        exit.args[0] == Constant(AssertionError)):
+                    continue
+                # can we remove this exit without breaking the graph?
+                if len(block.exits) < 2:
+                    break
+                if block.exitswitch == Constant(last_exception):
+                    if exit.exitcase is None:
+                        break
+                    if len(block.exits) == 2:
+                        # removing the last non-exceptional exit
+                        block.exitswitch = None
+                        exit.exitcase = None
+                # remove this exit
+                lst = list(block.exits)
+                del lst[i]
+                block.exits = tuple(lst)
     traverse(visit, graph)
 
 def transform_dead_op_vars(graph):
