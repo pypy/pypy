@@ -25,6 +25,12 @@ class TokenSource(object):
         source has been found
         """
 
+    def offset(self, ctx=None):
+        """Returns the position we're at so far in the source
+        optionnally provide a context and you'll get the offset
+        of the context"""
+        return -1
+
     def current_line(self):
         """Returns the current line number"""
         return 0
@@ -113,9 +119,26 @@ class GrammarElement(object):
         /!\ If the sets of element didn't match the current grammar
         element, then the <source> is restored as it was before the
         call to the match() method
+
+        returns None if no match or an object build by builder
         """
         return None
     
+    def parse(self, source):
+        """Returns a simplified grammar if the rule matched at the source
+        current context or None"""
+        # **NOT USED** **NOT IMPLEMENTED**
+        # To consider if we need to improve speed in parsing
+        pass
+
+    def first_set(self):
+        """Returns a list of possible tokens that can start this rule
+        None means the rule can be empty
+        """
+        # **NOT USED** **NOT IMPLEMENTED**
+        # To consider if we need to improve speed in parsing
+        pass
+
     def __str__(self):
         return self.display(0)
 
@@ -150,6 +173,9 @@ class Alternative(GrammarElement):
         """
         if DEBUG>1:
             print "try alt:", self.display()
+        # Here we stop at the first match we should
+        # try instead to get the longest alternative
+        # to see if this solve our problems with infinite recursion
         for rule in self.args:
             m = rule.match( source, builder )
             if m:

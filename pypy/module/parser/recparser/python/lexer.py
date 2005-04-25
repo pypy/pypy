@@ -92,6 +92,13 @@ class PythonSource(TokenSource):
     def restore(self, ctx):
         self.stack_pos = ctx
 
+    def offset(self, ctx=None):
+        if ctx is None:
+            return self.stack_pos
+        else:
+            assert type(ctx)==int
+            return ctx
+
     def _next(self):
         """returns the next token from source"""
         inp = self.input

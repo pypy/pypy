@@ -25,6 +25,13 @@ class GrammarSource(TokenSource):
     def context(self):
         return self.pos
 
+    def offset(self, ctx=None):
+        if ctx is None:
+            return self.pos
+        else:
+            assert type(ctx)==int
+            return ctx
+
     def restore(self, ctx ):
         self.pos = ctx
 
