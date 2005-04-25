@@ -351,3 +351,61 @@ Others
 ++++++
 
 (to be completed)
+
+
+
+
+The C Back-End
+==============
+
+
+Overview
+--------
+
+The task of GenC is to convert a flow graph into C code.  By itself, GenC does not use the annotations in the graph.  It can actually convert unannotated graphs to C.  However, to make use of the annotations if they are present, an extra pass is needed: the C typer, whose task is to modify the flow graph according to the annotations, replacing operations with lower-level C-ish equivalents.
+
+The C typer first replaces all Variables that have constant annotations with real Constants in the flow graph.
+
+For the time being, we assume that each SomeXxx annotation has a canonical C-level representation.  For example, all variables annotated with SomeInteger() will correspond to the C ``int`` type.  This allows an attribute ``concretetype`` to be attached to each Variable.  Constants also get such an attribute ``concretetype``, but they are computed based on the usage that is made of the particular Constant; for example, a Constant(5) will be a C ``int`` when used in an integer addition but a C ``PyObject*`` when inserted into a CPython list.
+
+The C typer considers each operation in turn and, based on its annotations, replaces it by C-level operations if possible.
+
+
+Integer operations
+------------------
+
+Integer operations are the easiest.  Assume a graph containing the following operation::
+
+    v3 = add(v1, v2)
+
+annotated::
+
+    v1 -> SomeInteger()
+    v2 -> SomeInteger()
+    v3 -> SomeInteger()
+
+then obviously we want to type it and replace it with::
+
+    int v1, v2, v3;
+    v3 = int_add(v1, v2)
+
+The typing notation in C syntax means that the Variables (which might actually be Constants) are given the ``concretetype`` corresponding to the C ``int``.
+
+
+Memory model
+------------
+
+For more complicated examples we need to choose a memory model.  We will assume the following model: Variables store primitive values only (integers, pointers); more complex structures are always stored in the heap.
+
+We support this model using the following new graph operations (the result Variable is omitted when meaningless)::
+
+    v2 = malloc(v1)
+    incref(v3)
+    decref(v3)
+
+v2=malloc(v1) allocates v1 bytes of heap memory and returns a pointer to it.  For now, there is always a reference counter in a hidden header.
+
+incref() and decref() allow each primitive value to be tracked: GenC inserts an operation decref(v3) whenever the value in v3 is about to be forgotten (it isn't passed to the next basic block), or incref(v3) when it is about to be duplicated (it is passed several times to the next basic block).  The exact operations performed by incref(v3) and decref(v3) depend on the type of v3, but they typically only have an effect for pointer types, for which they increase and decrease the reference counter of the memory they point to and call the appropriate destructor when it falls to zero.  The destructor of complex data structures will in turn call decref() on its members.
+
+
+XXX work in progress.
