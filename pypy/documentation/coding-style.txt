@@ -183,37 +183,65 @@ We are using
 This layout makes the number of types to take care about quite limited.
 
 
-Example: Integer Types
+Integer Types
 -------------------------
 
-While implementing the integer type, I (Chris) stumbled over the problem, that 
-integers are quite in flux in CPython right now. Depending on the version, 
-integers either raise an overflow exception or mutate into longs on overflow. 
-Also, shifting right now truncates (up to 2.3) but is going to extend to longs 
-as well. In order to enable us to run the restricted Python stuff in CPython, I 
-needed to use a derived class r_int(int), which always behaves the same: Never 
-leaving its domain, but always staying an integer.
+While implementing the integer type, we stumbled over the problem, that 
+integers are quite in flux in CPython right now. Starting on Python 2.2,
+integers mutate into longs on overflow.  However, shifting to the left truncates
+up to 2.3 but extends to longs as well in 2.4.  By contrast, we need a way to
+perform wrap-around machine-sized arithmetic by default, while still being
+able to check for overflow when we need it explicitely.  Moreover, we need a
+consistent behavior before and after translation.
 
-The r_int type is implemented in a pervasive way: Every operation that involves 
-an r_int creates an r_int as the result. Therefore, the implementation is not 
-cluttered with special type casts. Just the initial value of an emulated 
-integer's intval field is initialized by obj.intval = r_int(val) . This way, the 
-r_int type propagates itself through all operations without extra effort of the 
-programmer.
+We use normal integers for signed arithmetic.  It means that before
+translation we get longs in case of overflow, and after translation we get a
+silent wrap-around.  Whenever we need more control, we use the following
+helpers:
 
-This concept looks promising, and since we will need unsigned integers which do 
-not overflow as well, I also created r_uint. It is always a word-sized unsigned 
-integer and never overflows. This will be a building block for things like 
-computing hash values, where wrap-around effects are intended and should be 
-easily coded without lots of explicit mask shuffling. 
+**ovfcheck()**
 
-Now I think to extend this even more and build a full set of primitive types, 
-which are intended to
+  This special function should only be used with a single arithmetic operation
+  as its argument, e.g. ``z = ovfcheck(x+y)``.  Its intended meaning is to
+  perform the given operation in overflow-checking mode.
+  
+  At run-time, in Python, the ovfcheck() function itself checks the result
+  and raises OverflowError if it is a ``long``.  But the code generators use
+  ovfcheck() as a hint: they replace the whole ``ovfcheck(x+y)`` expression
+  with a single overflow-checking addition in C.
 
-+ define the semantics of the primitive type
-+ give a working implementation for unrestricted Python
+**ovfcheck_lshift()**
 
-These primitive types can later easily be augmented with methods to emit C code instead of executing. I guess this would be implemented in an extra ObjectSpace.
+  ovfcheck_lshift(x, y) is a workaround for ovfcheck(x<<y), because the
+  latter doesn't quite work in Python prior to 2.4, where the expression
+  ``x<<y`` will never return a long if the input arguments are ints.  There is
+  a specific function ovfcheck_lshift() to use instead of some convoluted
+  expression like ``x*2**y`` so that code generators can still recognize it as
+  a single simple operation.
+
+**intmask()**
+
+  This function is used for wrap-around arithmetic.  It returns the lower bits
+  of its argument, masking away anything that doesn't fit in a C "signed long int".
+  Its purpose is, in Python, to convert from a Python ``long`` that resulted from a 
+  previous operation back to a Python ``int``.  The code generators ignore
+  intmask() entierely, as they are doing wrap-around signed arithmetic all the time
+  by default anyway.  (We have no equivalent of the "int" versus "long int"
+  distinction of C at the moment and assume "long ints" everywhere.)
+
+**r_uint**
+
+  In a few cases (e.g. hash table manipulation), we need machine-sized unsigned
+  arithmetic.  For these cases there is the r_uint class, which is a pure
+  Python implementation of word-sized unsigned integers that silently wrap
+  around.  The purpose of this class (as opposed to helper functions as above)
+  is consistent typing: both Python and the annotator will propagate r_uint
+  instances in the program and interpret all the operations between them as
+  unsigned.  Instances of r_uint are special-cased by the code generators to
+  use the appropriate low-level type and operations.
+  Mixing of (signed) integers and r_uint in operations produces r_uint that
+  means unsigned results.  To convert back from r_uint to signed integers, use
+  intmask().
 
 
 Exception rules
@@ -223,20 +251,43 @@ Exceptions are by default not generated for simple cases.::
 
     #!/usr/bin/python
 
-        x = 5
-        x = x + 1    # this code is not checked for overflow
+        lst = [1,2,3,4,5]
+        item = lst[i]    # this code is not checked for out-of-bound access
 
         try:
-            x = x + y
-        except OverflowError:
-            # implement using longs
+            item = lst[i]
+        except IndexError:
+            # complain
 
+Code with no exception handlers does not raise exceptions (after it has been
+translated, that is.  When you run it on top of CPython, it always may raise
+exceptions, of course). By supplying an exception handler, you ask for error
+checking. Without, you assure the system that the operation cannot fail.
+This rule does not apply to *function calls*: any called function is
+assumed to be allowed to raise any exception.
 
-Code with no exception handlers does not raise exceptions. By supplying an 
-exception handler, you ask for error checking. Without, you assure the system 
-that the operation cannot overflow.
+For example::
 
-Exceptions explicitly raised will always be generated.
+    x = 5.1
+    x = x + 1.2       # not checked for float overflow
+    try:
+        x = x + 1.2
+    except OverflowError:
+        # float result too big
+
+But::
+
+    z = some_function(x, y)    # can raise any exception
+    try:
+        z = some_other_function(x, y)
+    except IndexError:
+        # only catches explicitely-raised IndexErrors in some_other_function()
+        # other exceptions can be raised, too, and will not be caught here.
+
+The ovfcheck() function described above follows the same rule: in case of
+overflow, it explicitely raise OverflowError, which can be caught anywhere.
+
+Exceptions explicitly raised or re-raised will always be generated.
 
 PyPy is debuggable on top of CPython 
 ------------------------------------ 
