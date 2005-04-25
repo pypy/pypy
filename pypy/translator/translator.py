@@ -288,6 +288,10 @@ class Translator:
 
 if __name__ == '__main__':
     from pypy.translator.test import snippet as test
+    import sys
+    if (os.getcwd() not in sys.path and
+        os.path.curdir not in sys.path):
+        sys.path.insert(0, os.getcwd())
     print __doc__
 
     # 2.3 specific -- sanxiyn
