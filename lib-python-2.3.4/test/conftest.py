@@ -311,7 +311,7 @@ testmap = {
     'test_charmapcodec.py'   : TestDecl(True, UTModuleMainTest),
     'test_cl.py'             : TestDecl(False, UnknownTestModule),
     'test_class.py'          : TestDecl(False, OutputTestModule),
-    'test_cmath.py'          : TestDecl(True,  UnknownTestModule),
+    'test_cmath.py'          : TestDecl(False,  UnknownTestModule),
     'test_codeccallbacks.py' : TestDecl(False, UTModuleMainTest),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
