@@ -309,7 +309,8 @@ Naming
 
 - never use plural names in directory and file names
 
-- ``__init__.py`` is always empty except for ``"pypy/objspace/*"``
+- ``__init__.py`` is always empty except for ``pypy/objspace/*``
+  and ``pypy/module/*``. 
 
 - functions/methods are lowercase and ``'_'-separated`` (if
   you need to separate at all)
