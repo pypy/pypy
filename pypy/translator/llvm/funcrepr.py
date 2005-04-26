@@ -14,7 +14,7 @@ from pypy.translator.unsimplify import remove_double_links
 from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError
 from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
 
-debug = True
+debug = False
 
 INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is_", "is_true", "len",
                  "neg", "pos", "invert", "add", "sub", "mul", "truediv",
@@ -23,8 +23,7 @@ INTRINSIC_OPS = ["lt", "le", "eq", "ne", "gt", "ge", "is_", "is_true", "len",
                  "inplace_truediv", "inplace_floordiv", "inplace_div",
                  "inplace_mod", "inplace_pow", "inplace_lshift",
                  "inplace_rshift", "inplace_and", "inplace_or", "inplace_xor",
-                 "contains", "newlist", "newtuple", "alloc_and_set",
-                 "issubtype", "type", "ord"]
+                 "contains", "alloc_and_set", "issubtype", "type", "ord"]
 
 C_SIMPLE_TYPES = {annmodel.SomeChar: "char",
                   annmodel.SomeString: "char*",
@@ -232,15 +231,20 @@ class BlockRepr(object):
 
     def create_op(self, opnumber, op):
         l_target = self.gen.get_repr(op.result)
+        self.l_func.dependencies.add(l_target)
+        if op.opname == "newtuple":
+            l_target.type.t_op_newtuple(l_target, op.args,
+                                        self.lblock, self.l_func)
+            return
+        if op.opname == "newlist":
+            l_target.type.t_op_newlist(l_target, op.args,
+                                       self.lblock, self.l_func)
+            return
         l_arg0 = self.gen.get_repr(op.args[0])
-        self.l_func.dependencies.update([l_arg0, l_target])
+        self.l_func.dependencies.add(l_arg0)
         l_op = getattr(l_arg0, "op_" + op.opname, None)
         if l_op is not None:
             l_op(l_target, op.args, self.lblock, self.l_func)
-        #XXX need to find more elegant solution for this special case
-        elif op.opname == "newtuple":
-            l_target.type.t_op_newtuple(l_target, op.args,
-                                        self.lblock, self.l_func)
         elif op.opname in INTRINSIC_OPS:
             l_args = [self.gen.get_repr(arg) for arg in op.args[1:]]
             self.l_func.dependencies.update(l_args)
@@ -477,7 +481,16 @@ class EntryFunctionRepr(LLVMRepr):
     def cfuncdef(self):
         a = self.l_function.translator.annotator
         retv = self.l_function.graph.returnblock.inputargs[0]
-        rettype_c = C_SIMPLE_TYPES[a.binding(retv).__class__]
+        try:
+            rettype_c = C_SIMPLE_TYPES[a.binding(retv).__class__]
+            self.void = False
+        except KeyError:
+            l_retv = self.l_function.l_retvalue
+            if l_retv.llvmtype() == "%std.void*":
+                rettype_c = "void"
+                self.void = True
+            else:
+                raise CompileError, "Return value can't be converted to Python"
         args = self.l_function.graph.startblock.inputargs
         argtypes_c = [C_SIMPLE_TYPES[a.binding(v).__class__] for v in args]
         fd = "%s %s(%s)" % (rettype_c, self.name[1:],
@@ -501,14 +514,18 @@ class EntryFunctionRepr(LLVMRepr):
         for i, a in enumerate(args):
             t += ["%s" % a]
         t = ", ".join(t)
-        s = """
-    result = %s(%s)
+        if not self.void:
+            s = "    result = %s(%s)" % (name, t)
+        else:
+            s = "    %s(%s)\n    result = None"  % (name, t)
+
+        s += """
     global pypy__uncaught_exception
     if pypy__uncaught_exception != 0:
         pypy__uncaught_exception = 0
         raise RuntimeError('An uncaught exception occured in the LLVM code.')
     else:
-        return result""" % (name, t)
+        return result"""
         self.pyrex_source.append(t + "):\n" + s)
         self.pyrex_source = "".join(self.pyrex_source)
         return self.pyrex_source

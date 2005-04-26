@@ -36,7 +36,7 @@ class MetaLazyRepr(type):
             cls.setup = setup
             c__init__ = cls.__init__
             def __init__(self, *args, **kwds):
-                ret = c__init__(self, *args, **kwds)
+                c__init__(self, *args, **kwds)
                 self.gen.lazy_objects.add(self)
                 self.__setup_called__ = False
             cls.__init__ = __init__

@@ -59,6 +59,9 @@ def list_default_argument(i1, l1=[0]):
 def call_list_default_argument(i1):
     return list_default_argument(i1)
 
+def return_none():
+    pass
+
 #float snippets
 
 def float_f1(x):
@@ -143,12 +146,28 @@ def array_pop(i):
     a = [0, 1, 2, 3]
     return a.pop() + len(a) + a[i]
 
+def newlist_zero_arg(i):
+    a = []
+    a.append(i)
+    return len(a) + a[0]
+
+def big_array(i):
+    return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17][i]
+
 glob_array = [[i] * 5 for i in range(5)]
 
 def access_global_array(x, y, z):
     result = glob_array[x][y]
     glob_array[x][y] = z
     return result
+
+def circular_list(n):
+    lst = []
+    i = 0
+    while i < n:
+        i += 1
+        lst = [lst]
+    return len(lst)
 
 
 #class snippets
@@ -217,6 +236,27 @@ def global_instance(x):
     d = ggg.b[1]
     ggg.a = x
     return previous + d + previous1
+
+def degrading_func(obj):
+    if isinstance(obj, C):
+        return obj.a + obj.b
+    elif isinstance(obj, B):
+        return obj.a
+    return -90
+
+def call_degrading_func(flag):
+    if flag:
+        return degrading_func(C(-37))
+    else:
+        return degrading_func(B())
+
+circular_instance = GGG()
+circular_instance.x = circular_instance
+circular_instance.b = 10
+
+def circular_classdef():
+    return circular_instance.x.x.x.x.x.x.x.b
+
 
 #simple inheritance snippets
 class AAA(object):

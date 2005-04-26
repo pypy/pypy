@@ -19,21 +19,21 @@ return:
 	ret void
 }
 
-internal int %std.len(%std.list.%(name)s* %l) {
+internal int %std.len(%(name)s* %l) {
 entry:
-	%tmp.1 = getelementptr %std.list.%(name)s* %l, int 0, uint 0
+	%tmp.1 = getelementptr %(name)s* %l, int 0, uint 0
 	%tmp.2 = load uint* %tmp.1
 	%tmp.3 = cast uint %tmp.2 to int
 	ret int %tmp.3
 }
 
-internal int %std.valid_index(int %i, %std.list.%(name)s* %l) {
+internal int %std.valid_index(int %i, %(name)s* %l) {
 entry:
 	%tmp.1 = setlt int %i, 0
 	br bool %tmp.1, label %UnifiedReturnBlock, label %endif.0
 
 endif.0:
-	%tmp.1.i = getelementptr %std.list.%(name)s* %l, int 0, uint 0
+	%tmp.1.i = getelementptr %(name)s* %l, int 0, uint 0
 	%tmp.2.i = load uint* %tmp.1.i
 	%tmp.3.i = cast uint %tmp.2.i to int
 	%not.tmp.6 = setgt int %tmp.3.i, %i
@@ -44,86 +44,23 @@ UnifiedReturnBlock:
 	ret int 0
 }
 
-internal %std.list.%(name)s* %std.newlist() {
+internal %(name)s* %std.newlist() {
 entry:
-	%tmp.0 = malloc %std.list.%(name)s
-	%tmp.3 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 0
+	%tmp.0 = malloc %(name)s
+	%tmp.3 = getelementptr %(name)s* %tmp.0, int 0, uint 0
 	store uint 0, uint* %tmp.3
-	%tmp.5 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 1
+	%tmp.5 = getelementptr %(name)s* %tmp.0, int 0, uint 1
 	store %(item)s* null, %(item)s** %tmp.5
-	ret %std.list.%(name)s* %tmp.0
+	ret %(name)s* %tmp.0
 }
 
-internal %std.list.%(name)s* %std.newlist(%(item)s %value) {
+internal %(name)s* %std.alloc_and_set(int %length, %(item)s %init) {
 entry:
-	%tmp.0 = malloc %std.list.%(name)s
-	%tmp.3 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 0
-	store uint 1, uint* %tmp.3
-	%tmp.5 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 1
-	%tmp.6 = malloc %(item)s
-	store %(item)s* %tmp.6, %(item)s** %tmp.5
-	store %(item)s %value, %(item)s* %tmp.6
-	ret %std.list.%(name)s* %tmp.0
-}
-
-internal %std.list.%(name)s* %std.newlist(%(item)s %v1, %(item)s %v2) {
-entry:
-	%tmp.0 = malloc %std.list.%(name)s
-	%tmp.3 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 0
-	store uint 2, uint* %tmp.3
-	%tmp.5 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 1
-	%tmp.6 = malloc [2 x %(item)s]
-	%tmp.6.sub = getelementptr [2 x %(item)s]* %tmp.6, int 0, int 0
-	store %(item)s* %tmp.6.sub, %(item)s** %tmp.5
-	store %(item)s %v1, %(item)s* %tmp.6.sub
-	%tmp.16 = getelementptr [2 x %(item)s]* %tmp.6, int 0, int 1
-	store %(item)s %v2, %(item)s* %tmp.16
-	ret %std.list.%(name)s* %tmp.0
-}
-
-internal %std.list.%(name)s* %std.newlist(%(item)s %v1, %(item)s %v2, %(item)s %v3) {
-entry:
-	%tmp.0 = malloc %std.list.%(name)s
-	%tmp.3 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 0
-	store uint 3, uint* %tmp.3
-	%tmp.5 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 1
-	%tmp.6 = malloc [3 x %(item)s]
-	%tmp.6.sub = getelementptr [3 x %(item)s]* %tmp.6, int 0, int 0
-	store %(item)s* %tmp.6.sub, %(item)s** %tmp.5
-	store %(item)s %v1, %(item)s* %tmp.6.sub
-	%tmp.16 = getelementptr [3 x %(item)s]* %tmp.6, int 0, int 1
-	store %(item)s %v2, %(item)s* %tmp.16
-	%tmp.21 = getelementptr [3 x %(item)s]* %tmp.6, int 0, int 2
-	store %(item)s %v3, %(item)s* %tmp.21
-	ret %std.list.%(name)s* %tmp.0
-}
-
-internal %std.list.%(name)s* %std.newlist(%(item)s %v1, %(item)s %v2, %(item)s %v3, %(item)s %v4) {
-entry:
-	%tmp.0 = malloc %std.list.%(name)s
-	%tmp.3 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 0
-	store uint 4, uint* %tmp.3
-	%tmp.5 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 1
-	%tmp.6 = malloc [4 x %(item)s]
-	%tmp.6.sub = getelementptr [4 x %(item)s]* %tmp.6, int 0, int 0
-	store %(item)s* %tmp.6.sub, %(item)s** %tmp.5
-	store %(item)s %v1, %(item)s* %tmp.6.sub
-	%tmp.16 = getelementptr [4 x %(item)s]* %tmp.6, int 0, int 1
-	store %(item)s %v2, %(item)s* %tmp.16
-	%tmp.21 = getelementptr [4 x %(item)s]* %tmp.6, int 0, int 2
-	store %(item)s %v3, %(item)s* %tmp.21
-	%tmp.26 = getelementptr [4 x %(item)s]* %tmp.6, int 0, int 3
-	store %(item)s %v4, %(item)s* %tmp.26
-	ret %std.list.%(name)s* %tmp.0
-}
-
-internal %std.list.%(name)s* %std.alloc_and_set(int %length, %(item)s %init) {
-entry:
-	%tmp.0 = malloc %std.list.%(name)s
-	%tmp.3 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 0
+	%tmp.0 = malloc %(name)s
+	%tmp.3 = getelementptr %(name)s* %tmp.0, int 0, uint 0
 	%tmp.5 = cast int %length to uint
 	store uint %tmp.5, uint* %tmp.3
-	%tmp.7 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 1
+	%tmp.7 = getelementptr %(name)s* %tmp.0, int 0, uint 1
 	%tmp.8 = malloc %(item)s, uint %tmp.5
 	store %(item)s* %tmp.8, %(item)s** %tmp.7
 	%tmp.165 = seteq int %length, 0
@@ -139,17 +76,17 @@ no_exit:
 	br bool %tmp.16, label %no_exit, label %loopexit
 
 loopexit:
-	ret %std.list.%(name)s* %tmp.0
+	ret %(name)s* %tmp.0
 }
 
-internal %(item)s %std.getitem(%std.list.%(name)s* %l, int %index.1) {
+internal %(item)s %std.getitem(%(name)s* %l, int %index.1) {
 entry:
 	%tmp.1 = setlt int %index.1, 0
-	%tmp.11 = getelementptr %std.list.%(name)s* %l, int 0, uint 1
+	%tmp.11 = getelementptr %(name)s* %l, int 0, uint 1
 	br bool %tmp.1, label %then, label %endif
 
 then:
-	%tmp.4 = getelementptr %std.list.%(name)s* %l, int 0, uint 0
+	%tmp.4 = getelementptr %(name)s* %l, int 0, uint 0
 	%tmp.5 = load uint* %tmp.4
 	%tmp.5 = cast uint %tmp.5 to int
 	%tmp.9 = add int %tmp.5, %index.1
@@ -165,13 +102,13 @@ endif:
 	ret %(item)s %tmp.15
 }
 
-internal %(item)s %std.getitem.exc(%std.list.%(name)s* %l, int %index.1) {
+internal %(item)s %std.getitem.exc(%(name)s* %l, int %index.1) {
 entry:
 	%tmp.1 = setlt int %index.1, 0
 	br bool %tmp.1, label %then.0, label %endif.0.i
 
 then.0:
-	%tmp.4 = getelementptr %std.list.%(name)s* %l, int 0, uint 0
+	%tmp.4 = getelementptr %(name)s* %l, int 0, uint 0
 	%tmp.5 = load uint* %tmp.4
 	%tmp.5 = cast uint %tmp.5 to int
 	%tmp.9 = add int %tmp.5, %index.1
@@ -180,7 +117,7 @@ then.0:
 
 endif.0.i:
 	%index_addr.0.0 = phi int [ %tmp.9, %then.0 ], [ %index.1, %entry ]
-	%tmp.1.i.i = getelementptr %std.list.%(name)s* %l, int 0, uint 0
+	%tmp.1.i.i = getelementptr %(name)s* %l, int 0, uint 0
 	%tmp.2.i.i = load uint* %tmp.1.i.i
 	%tmp.3.i.i = cast uint %tmp.2.i.i to int
 	%tmp.6.i = setgt int %tmp.3.i.i, %index_addr.0.0
@@ -190,7 +127,7 @@ then.1:
 	store %std.class* %glb.class.IndexError.object, %std.class** %std.last_exception.type
 	unwind
 endif.1:
-	%tmp.19 = getelementptr %std.list.%(name)s* %l, int 0, uint 1
+	%tmp.19 = getelementptr %(name)s* %l, int 0, uint 1
 	%tmp.20 = load %(item)s** %tmp.19
 	%tmp.22 = getelementptr %(item)s* %tmp.20, int %index_addr.0.0
 	%tmp.23 = load %(item)s* %tmp.22
@@ -198,14 +135,14 @@ endif.1:
 }
 
 
-internal void %std.setitem(%std.list.%(name)s* %l, int %index.1, %(item)s %value) {
+internal void %std.setitem(%(name)s* %l, int %index.1, %(item)s %value) {
 entry:
 	%tmp.1 = setlt int %index.1, 0
-	%tmp.11 = getelementptr %std.list.%(name)s* %l, int 0, uint 1
+	%tmp.11 = getelementptr %(name)s* %l, int 0, uint 1
 	br bool %tmp.1, label %then, label %endif
 
 then:
-	%tmp.4 = getelementptr %std.list.%(name)s* %l, int 0, uint 0
+	%tmp.4 = getelementptr %(name)s* %l, int 0, uint 0
 	%tmp.5 = load uint* %tmp.4
 	%tmp.5 = cast uint %tmp.5 to int
 	%tmp.9 = add int %tmp.5, %index.1
@@ -221,13 +158,13 @@ endif:
 	ret void
 }
 
-internal void %std.setitem.exc(%std.list.%(name)s* %l, int %index.1, %(item)s %value) {
+internal void %std.setitem.exc(%(name)s* %l, int %index.1, %(item)s %value) {
 entry:
 	%tmp.1 = setlt int %index.1, 0
 	br bool %tmp.1, label %then.0, label %endif.0.i
 
 then.0:
-	%tmp.4 = getelementptr %std.list.%(name)s* %l, int 0, uint 0
+	%tmp.4 = getelementptr %(name)s* %l, int 0, uint 0
 	%tmp.5 = load uint* %tmp.4
 	%tmp.5 = cast uint %tmp.5 to int
 	%tmp.9 = add int %tmp.5, %index.1
@@ -236,7 +173,7 @@ then.0:
 
 endif.0.i:
 	%index_addr.0.0 = phi int [ %tmp.9, %then.0 ], [ %index.1, %entry ]
-	%tmp.1.i.i = getelementptr %std.list.%(name)s* %l, int 0, uint 0
+	%tmp.1.i.i = getelementptr %(name)s* %l, int 0, uint 0
 	%tmp.2.i.i = load uint* %tmp.1.i.i
 	%tmp.3.i.i = cast uint %tmp.2.i.i to int
 	%tmp.6.i = setgt int %tmp.3.i.i, %index_addr.0.0
@@ -246,27 +183,27 @@ then.1:
 	store %std.class* %glb.class.IndexError.object, %std.class** %std.last_exception.type
 	unwind
 endif.1:
-	%tmp.17 = getelementptr %std.list.%(name)s* %l, int 0, uint 1
+	%tmp.17 = getelementptr %(name)s* %l, int 0, uint 1
 	%tmp.18 = load %(item)s** %tmp.17
 	%tmp.20 = getelementptr %(item)s* %tmp.18, int %index_addr.0.0
 	store %(item)s %value, %(item)s* %tmp.20
 	ret void
 }
 
-internal %std.list.%(name)s* %std.add(%std.list.%(name)s* %a, %std.list.%(name)s* %b) {
+internal %(name)s* %std.add(%(name)s* %a, %(name)s* %b) {
 entry:
-	%tmp.0 = malloc %std.list.%(name)s
-	%tmp.3 = getelementptr %std.list.%(name)s* %a, int 0, uint 0
+	%tmp.0 = malloc %(name)s
+	%tmp.3 = getelementptr %(name)s* %a, int 0, uint 0
 	%tmp.4 = load uint* %tmp.3
-	%tmp.6 = getelementptr %std.list.%(name)s* %b, int 0, uint 0
+	%tmp.6 = getelementptr %(name)s* %b, int 0, uint 0
 	%tmp.7 = load uint* %tmp.6
 	%tmp.8 = add uint %tmp.7, %tmp.4
-	%tmp.10 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 0
+	%tmp.10 = getelementptr %(name)s* %tmp.0, int 0, uint 0
 	store uint %tmp.8, uint* %tmp.10
-	%tmp.13 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 1
+	%tmp.13 = getelementptr %(name)s* %tmp.0, int 0, uint 1
 	%tmp.14 = malloc %(item)s, uint %tmp.8
 	store %(item)s* %tmp.14, %(item)s** %tmp.13
-	%tmp.19 = getelementptr %std.list.%(name)s* %a, int 0, uint 1
+	%tmp.19 = getelementptr %(name)s* %a, int 0, uint 1
 	%tmp.20 = load %(item)s** %tmp.19
 	%tmp.2.i14 = seteq uint %tmp.4, 0
 	br bool %tmp.2.i14, label %copy.entry, label %no_exit.i
@@ -282,7 +219,7 @@ no_exit.i:
 	br bool %tmp.2.i, label %no_exit.i, label %copy.entry
 
 copy.entry:
-	%tmp.28 = getelementptr %std.list.%(name)s* %b, int 0, uint 1
+	%tmp.28 = getelementptr %(name)s* %b, int 0, uint 1
 	%tmp.29 = load %(item)s** %tmp.28
 	%tmp.42 = sub uint %tmp.8, %tmp.4
 	%tmp.2.i319 = seteq uint %tmp.8, %tmp.4
@@ -300,26 +237,26 @@ no_exit.i4:
 	br bool %tmp.2.i3, label %no_exit.i4, label %copy.entry9
 
 copy.entry9:
-	ret %std.list.%(name)s* %tmp.0
+	ret %(name)s* %tmp.0
 }
 
-internal %std.list.%(name)s* %std.mul(%std.list.%(name)s* %a, int %times) {
+internal %(name)s* %std.mul(%(name)s* %a, int %times) {
 entry:
-	%tmp.0 = malloc %std.list.%(name)s
-	%tmp.3 = getelementptr %std.list.%(name)s* %a, int 0, uint 0
+	%tmp.0 = malloc %(name)s
+	%tmp.3 = getelementptr %(name)s* %a, int 0, uint 0
 	%tmp.4 = load uint* %tmp.3
 	%tmp.6 = cast int %times to uint
 	%tmp.7 = mul uint %tmp.4, %tmp.6
-	%tmp.9 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 0
+	%tmp.9 = getelementptr %(name)s* %tmp.0, int 0, uint 0
 	store uint %tmp.7, uint* %tmp.9
-	%tmp.12 = getelementptr %std.list.%(name)s* %tmp.0, int 0, uint 1
+	%tmp.12 = getelementptr %(name)s* %tmp.0, int 0, uint 1
 	%tmp.13 = malloc %(item)s, uint %tmp.7
 	store %(item)s* %tmp.13, %(item)s** %tmp.12
 	%tmp.194 = setgt int %times, 0
 	br bool %tmp.194, label %no_exit.preheader, label %loopexit
 
 no_exit.preheader:
-	%tmp.22 = getelementptr %std.list.%(name)s* %a, int 0, uint 1
+	%tmp.22 = getelementptr %(name)s* %a, int 0, uint 1
 	br label %no_exit
 
 no_exit:
@@ -350,18 +287,18 @@ copy.entry:
 	br bool %tmp.19, label %no_exit, label %loopexit
 
 loopexit:
-	ret %std.list.%(name)s* %tmp.0
+	ret %(name)s* %tmp.0
 }
 
-internal %std.list.%(name)s* %std.inplace_add(%std.list.%(name)s* %a, %std.list.%(name)s* %b) {
+internal %(name)s* %std.inplace_add(%(name)s* %a, %(name)s* %b) {
 entry:
-	%tmp.2 = getelementptr %std.list.%(name)s* %a, int 0, uint 0
+	%tmp.2 = getelementptr %(name)s* %a, int 0, uint 0
 	%tmp.3 = load uint* %tmp.2
-	%tmp.5 = getelementptr %std.list.%(name)s* %b, int 0, uint 0
+	%tmp.5 = getelementptr %(name)s* %b, int 0, uint 0
 	%tmp.6 = load uint* %tmp.5
 	%tmp.7 = add uint %tmp.6, %tmp.3
 	%tmp.0 = malloc %(item)s, uint %tmp.7
-	%tmp.11 = getelementptr %std.list.%(name)s* %a, int 0, uint 1
+	%tmp.11 = getelementptr %(name)s* %a, int 0, uint 1
 	%tmp.12 = load %(item)s** %tmp.11
 	%tmp.2.i14 = seteq uint %tmp.3, 0
 	br bool %tmp.2.i14, label %copy.entry, label %no_exit.i
@@ -377,7 +314,7 @@ no_exit.i:
 	br bool %tmp.2.i, label %no_exit.i, label %copy.entry
 
 copy.entry:
-	%tmp.18 = getelementptr %std.list.%(name)s* %b, int 0, uint 1
+	%tmp.18 = getelementptr %(name)s* %b, int 0, uint 1
 	%tmp.19 = load %(item)s** %tmp.18
 	%tmp.2.i319 = seteq uint %tmp.6, 0
 	br bool %tmp.2.i319, label %copy.entry9, label %no_exit.i4
@@ -397,18 +334,18 @@ copy.entry9:
 	store uint %tmp.7, uint* %tmp.2
 	free %(item)s* %tmp.12
 	store %(item)s* %tmp.0, %(item)s** %tmp.11
-	ret %std.list.%(name)s* %a
+	ret %(name)s* %a
 }
 
-internal void %std.append(%std.list.%(name)s* %a, %(item)s %value) {
+internal void %std.append(%(name)s* %a, %(item)s %value) {
 entry:
-	%tmp.2 = getelementptr %std.list.%(name)s* %a, int 0, uint 0
+	%tmp.2 = getelementptr %(name)s* %a, int 0, uint 0
 	%tmp.3 = load uint* %tmp.2
 	%tmp.3-off = add uint %tmp.3, 1
 	%tmp.0 = malloc %(item)s, uint %tmp.3-off
 	%tmp.12 = getelementptr %(item)s* %tmp.0, uint %tmp.3
 	store %(item)s %value, %(item)s* %tmp.12
-	%tmp.15 = getelementptr %std.list.%(name)s* %a, int 0, uint 1
+	%tmp.15 = getelementptr %(name)s* %a, int 0, uint 1
 	%tmp.16 = load %(item)s** %tmp.15
 	%tmp.2.i5 = seteq uint %tmp.3, 0
 	br bool %tmp.2.i5, label %copy.entry, label %no_exit.i
@@ -430,13 +367,13 @@ copy.entry:
 	ret void
 }
 
-internal %(item)s %std.pop(%std.list.%(name)s* %a, int %index.1) {
+internal %(item)s %std.pop(%(name)s* %a, int %index.1) {
 entry:
 	%tmp.1 = setlt int %index.1, 0
 	br bool %tmp.1, label %then, label %endif
 
 then:
-	%tmp.4 = getelementptr %std.list.%(name)s* %a, int 0, uint 0
+	%tmp.4 = getelementptr %(name)s* %a, int 0, uint 0
 	%tmp.5 = load uint* %tmp.4
 	%tmp.5 = cast uint %tmp.5 to int
 	%tmp.9 = add int %tmp.5, %index.1
@@ -444,11 +381,11 @@ then:
 
 endif:
 	%index_addr.0 = phi int [ %tmp.9, %then ], [ %index.1, %entry ]
-	%tmp.11 = getelementptr %std.list.%(name)s* %a, int 0, uint 1
+	%tmp.11 = getelementptr %(name)s* %a, int 0, uint 1
 	%tmp.12 = load %(item)s** %tmp.11
 	%tmp.14 = getelementptr %(item)s* %tmp.12, int %index_addr.0
 	%tmp.15 = load %(item)s* %tmp.14
-	%tmp.18 = getelementptr %std.list.%(name)s* %a, int 0, uint 0
+	%tmp.18 = getelementptr %(name)s* %a, int 0, uint 0
 	%tmp.19 = load uint* %tmp.18
 	%tmp.19-off = add uint %tmp.19, 1073741823
 	%tmp.16 = malloc %(item)s, uint %tmp.19-off
@@ -493,13 +430,13 @@ copy.entry9:
 	ret %(item)s %tmp.15
 }
 
-internal %(item)s %std.pop.exc(%std.list.%(name)s* %a, int %index.1) {
+internal %(item)s %std.pop.exc(%(name)s* %a, int %index.1) {
 entry:
 	%tmp.1 = setlt int %index.1, 0
 	br bool %tmp.1, label %then.0, label %endif.0.i
 
 then.0:
-	%tmp.4 = getelementptr %std.list.%(name)s* %a, int 0, uint 0
+	%tmp.4 = getelementptr %(name)s* %a, int 0, uint 0
 	%tmp.5 = load uint* %tmp.4
 	%tmp.5 = cast uint %tmp.5 to int
 	%tmp.9 = add int %tmp.5, %index.1
@@ -508,7 +445,7 @@ then.0:
 
 endif.0.i:
 	%index_addr.0.0 = phi int [ %tmp.9, %then.0 ], [ %index.1, %entry ]
-	%tmp.1.i.i = getelementptr %std.list.%(name)s* %a, int 0, uint 0
+	%tmp.1.i.i = getelementptr %(name)s* %a, int 0, uint 0
 	%tmp.2.i.i = load uint* %tmp.1.i.i
 	%tmp.3.i.i = cast uint %tmp.2.i.i to int
 	%tmp.6.i = setgt int %tmp.3.i.i, %index_addr.0.0
@@ -518,7 +455,7 @@ then.1:
 	store %std.class* %glb.class.IndexError.object, %std.class** %std.last_exception.type
 	unwind
 endif.1:
-	%tmp.19 = getelementptr %std.list.%(name)s* %a, int 0, uint 1
+	%tmp.19 = getelementptr %(name)s* %a, int 0, uint 1
 	%tmp.20 = load %(item)s** %tmp.19
 	%tmp.22 = getelementptr %(item)s* %tmp.20, int %index_addr.0.0
 	%tmp.23 = load %(item)s* %tmp.22
@@ -565,25 +502,25 @@ copy.entry:
 	ret %(item)s %tmp.23
 }
 
-internal %(item)s %std.pop(%std.list.%(name)s* %a) {
+internal %(item)s %std.pop(%(name)s* %a) {
 entry:
-	%tmp.3 = getelementptr %std.list.%(name)s* %a, int 0, uint 0
+	%tmp.3 = getelementptr %(name)s* %a, int 0, uint 0
 	%tmp.4 = load uint* %tmp.3
 	%tmp.4 = cast uint %tmp.4 to int
 	%tmp.6 = add int %tmp.4, -1
-	%tmp.0 = call %(item)s %std.pop( %std.list.%(name)s* %a, int %tmp.6 )
+	%tmp.0 = call %(item)s %std.pop( %(name)s* %a, int %tmp.6 )
 	ret %(item)s %tmp.0
 }
 
-internal void %std.reverse(%std.list.%(name)s* %a) {
+internal void %std.reverse(%(name)s* %a) {
 entry:
-	%tmp.1 = getelementptr %std.list.%(name)s* %a, int 0, uint 0
+	%tmp.1 = getelementptr %(name)s* %a, int 0, uint 0
 	%tmp.2 = load uint* %tmp.1
 	%tmp.610 = seteq uint %tmp.2, 1
 	br bool %tmp.610, label %return, label %no_exit.preheader
 
 no_exit.preheader:
-	%tmp.9 = getelementptr %std.list.%(name)s* %a, int 0, uint 1
+	%tmp.9 = getelementptr %(name)s* %a, int 0, uint 1
 	br label %no_exit
 
 no_exit:

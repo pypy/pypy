@@ -118,7 +118,7 @@ def cleanup_code(code):
 def make_list_template():
     code = get_llvm_code("list.c")
     code = cleanup_code(code)
-    code = code.replace("%struct.list", "%std.list.%(name)s")
+    code = code.replace("%struct.list", "%(name)s")
     code = code.replace("%struct.item*", "%(item)s")
     f = open(autopath.this_dir + "/list_template.ll", "w")
     print (autopath.this_dir + "/list_template.ll")

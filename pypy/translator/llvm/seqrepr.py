@@ -7,7 +7,7 @@ from pypy.translator import gensupp
 
 from pypy.translator.llvm.representation import debug, LLVMRepr
 from pypy.translator.llvm.typerepr import TypeRepr, IntTypeRepr
-from pypy.translator.llvm.typerepr import PointerTypeRepr
+from pypy.translator.llvm.typerepr import SimpleTypeRepr, PointerTypeRepr
 from pypy.translator.llvm.funcrepr import BoundMethodRepr
 
 
@@ -89,13 +89,20 @@ class ListTypeRepr(TypeRepr):
 
     def __init__(self, obj, gen):
         if debug:
-            print "ListTypeRepr: %s, %s" % (obj, listitem(obj))
+            print "ListTypeRepr:"
+        self.obj = obj
         self.gen = gen
-        self.l_itemtype = gen.get_repr(listitem(obj))
-        self.dependencies = sets.Set([self.l_itemtype])
+        self.dependencies = sets.Set()
+        self.name = self.gen.get_global_tmp("list")
+
+
+    lazy_attributes = ['definition', 'l_itemtype']
+
+    def setup(self):
+        self.l_itemtype = self.gen.get_repr(listitem(self.obj))
+        self.dependencies.add(self.l_itemtype)
         itemtype = self.l_itemtype.typename()
-        self.name = "%%std.list.%s" % itemtype.strip("%").replace("*", "")
-        self.definition = self.name + " = type {uint, %s*}" % itemtype
+        self.definition = self.name + " = type {uint, %s*}" % itemtype        
 
     def get_functions(self):
         f = file(autopath.this_dir + "/list_template.ll", "r")
@@ -103,7 +110,7 @@ class ListTypeRepr(TypeRepr):
         f.close()
         itemtype = self.l_itemtype.typename()
         s = s.replace("%(item)s", self.l_itemtype.typename())
-        s = s.replace("%(name)s", itemtype.strip("%").replace("*", ""))
+        s = s.replace("%(name)s", self.name)
         if isinstance(self.l_itemtype, IntTypeRepr):
             f1 = file(autopath.this_dir + "/int_list.ll", "r")
             s += f1.read()
@@ -135,6 +142,39 @@ class ListTypeRepr(TypeRepr):
             l_target.type = l_method
         else:
             raise CompileError, "List method %s not supported." % args[1].value
+
+    def t_op_newlist(self, l_target, args, lblock, l_func):
+        l_args = [self.gen.get_repr(arg) for arg in args]
+        l_func.dependencies.update(l_args)
+        lblock.malloc(l_target)
+        l_ptrarray = self.gen.get_local_tmp(PointerTypeRepr(
+            self.l_itemtype.typename() + "*", self.gen), l_func)
+        l_ptrlength = self.gen.get_local_tmp(PointerTypeRepr("uint", self.gen),
+                                             l_func)
+        l_func.dependencies.update([l_ptrlength, l_ptrarray])
+        lblock.getelementptr(l_ptrlength, l_target, [0, 0])
+        lblock.instruction("store uint %d, uint* %s" %
+                           (len(args), l_ptrlength.llvmname()))
+        lblock.getelementptr(l_ptrarray, l_target, [0, 1])
+        if len(args) == 0:
+            lblock.instruction("store %s null, %s" %
+                               (l_ptrarray.llvmtype()[:-1],
+                                l_ptrarray.typed_name()))
+            return
+        l_arraytype = SimpleTypeRepr(
+            "[%d x %s]*" % (len(args), self.l_itemtype.typename()), self.gen)
+        l_array = self.gen.get_local_tmp(l_arraytype, l_func)
+        l_func.dependencies.update([l_arraytype, l_array])
+        lblock.malloc(l_array)
+        l_ptrs = [self.gen.get_local_tmp(
+            PointerTypeRepr(self.l_itemtype.typename(), self.gen), l_func)
+                  for a in args]
+        l_func.dependencies.update(l_ptrs)
+        for i, l_a in enumerate(l_args):         
+            lblock.getelementptr(l_ptrs[i], l_array, [0, i])
+            if i == 0:
+                lblock.store(l_ptrs[i], l_ptrarray)
+            lblock.store(l_a, l_ptrs[i])
 
 
 class TupleRepr(LLVMRepr):

@@ -16,7 +16,7 @@ from pypy.translator.llvm.funcrepr import FunctionRepr, BoundMethodRepr
 from pypy.translator.llvm.funcrepr import VirtualMethodRepr
 from pypy.translator.llvm.memorylayout import MemoryLayout
 
-debug = True
+debug = False
 
 class PBCTypeRepr(TypeRepr):
     def get(obj, gen):

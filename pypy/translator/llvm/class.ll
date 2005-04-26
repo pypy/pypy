@@ -4,6 +4,7 @@
 %std.object = type {%std.class*}
 
 %std.list.sbyte = type {uint, sbyte*}
+%std.list.int = type {uint, int*}
 %std.exception = type {%std.class*, %std.list.sbyte*}
 %std.last_exception.type = internal global %std.class* null
 %std.last_exception.value = internal global %std.exception* null

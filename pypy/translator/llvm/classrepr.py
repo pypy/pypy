@@ -16,7 +16,8 @@ from pypy.translator.llvm.funcrepr import FunctionRepr, BoundMethodRepr
 from pypy.translator.llvm.funcrepr import VirtualMethodRepr
 from pypy.translator.llvm.memorylayout import MemoryLayout
 
-debug = False
+debug = True
+lazy_debug = True
 
 class ClassRepr(TypeRepr):
     l_classes = {}
@@ -106,6 +107,7 @@ class ClassRepr(TypeRepr):
         if self.l_base is not None:
             self.memlayout = self.l_base.memlayout.extend_layout(attribs,
                                                                  l_att_types)
+            self.dependencies.update(self.l_base.memlayout.l_types)
         else:
             attribs = ["__class__"] + attribs
             l_att_types = [SimpleTypeRepr("%std.class*", gen)] + l_att_types

@@ -48,47 +48,6 @@ struct list* newlist() {
     return nlist;
 }
 
-//XXX implement a real newlist with an arbitrary number of args
-struct list* newlist_ALTERNATIVE1(struct item* value) {
-    struct list* nlist = malloc(sizeof(struct list));
-    nlist->length = 1;
-    nlist->data = malloc(sizeof(struct item*));
-    nlist->data[0] = value;
-    return nlist;
-}
-
-struct list* newlist_ALTERNATIVE2(struct item* v1, struct item* v2) {
-    struct list* nlist = malloc(sizeof(struct list));
-    nlist->length = 2;
-    nlist->data = malloc(sizeof(struct item*) * 2);
-    nlist->data[0] = v1;
-    nlist->data[1] = v2;
-    return nlist;
-}
-struct list* newlist_ALTERNATIVE3(struct item* v1, struct item* v2,
-				  struct item* v3) {
-    struct list* nlist = malloc(sizeof(struct list));
-    nlist->length = 3;
-    nlist->data = malloc(sizeof(struct item*) * 3);
-    nlist->data[0] = v1;
-    nlist->data[1] = v2;
-    nlist->data[2] = v3;
-    return nlist;
-}
-
-struct list* newlist_ALTERNATIVE4(struct item* v1, struct item* v2,
-				  struct item* v3, struct item* v4) {
-    struct list* nlist = malloc(sizeof(struct list));
-    nlist->length = 4;
-    nlist->data = malloc(sizeof(struct item*) * 4);
-    nlist->data[0] = v1;
-    nlist->data[1] = v2;
-    nlist->data[2] = v3;
-    nlist->data[3] = v4;
-    return nlist;
-}
-
-
 struct list* alloc_and_set(int length, struct item* init) {
     unsigned int i = 0;
     struct list* nlist = malloc(sizeof(struct list));
