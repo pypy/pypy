@@ -2,5 +2,5 @@
 
 if __name__ == '__main__': 
     import tool.autopath
-    from py.__.test.cmdline import main
-    main() 
+    import py 
+    py.test.cmdline.main() 
