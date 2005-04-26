@@ -409,3 +409,107 @@ incref() and decref() allow each primitive value to be tracked: GenC inserts an 
 
 
 XXX work in progress.
+
+
+
+
+The LLVM Back-End
+=================
+
+Overview
+--------
+
+XXX preliminary notes only
+
+The task of GenLLVM is to convert a flow graph into `LLVM code`_, which can
+then be optimized and compiled by LLVM. GenLLVM depends heavily on the
+annotations, functions without annotations cannot be translated. The flowgraph
+is not changed by GenLLVM in contrast to GenC. After the generation and
+compilation of the LLVM code a wrapper is generated (at the moment with the
+help of Pyrex) wich wraps the arguments and return value of the entry
+function. Thus it is possible to call the entry function from Python.
+
+GenLLVM does not depend on the CPython runtime which has the drawback that most
+functions with SomeObject annotations cannot be compiled properly -- the only
+operations that are allowed on variables with SomeObject annotations are
+isinstance and type.
+
+GenLLVM creates for every object in the flow graph (e.g. constants, variables,
+blocks...) an LLVM 'representation'. This representation knows how to
+represent the corresponding object in LLVM and knows what code to generate for
+space operations on the object, what global definitions the object needs etc.
+
+Some examples to make this cleare: A `ClassRepr`_ object represents a class, a
+`FuncRepr`_ object represent a function (or method). The following happens if
+the space operation ``simple_call`` is performed in a flow grap: An
+appropriate ``FuncRepr`` object is constructed which generates LLVM code for
+the function it represents. Then the ``FuncRepr`` inserts the appropriate LLVM
+instructions into the LLVM code of the function it is called from (sometime
+this is more than just a call: the arguments have to be casted,
+etc). Something similar happens if a class is instantiated: A ``ClassRepr`` is
+created which generates LLVM that allocates enough memory for an instance of
+the class and then (if the class or a subclass has an ``__init__`` method)
+tells the ``FuncRepr`` of the appropriate ``__init__`` method to generate the
+code for the call to it.
+
+Every representation object has a some other representations it depends on: A
+``ListRepr`` of lists instances of a class depends on the ``ClassRepr`` of
+that class. This is to ensure that the typedef for that is written after the
+typedef of the class. To ensure this the dependency tree of representations
+traversed depth first when the LLVM code is written to a file.
+
+.. _`LLVM code`: http://www.llvm.org
+.. _`ClassRepr`: http://codespeak.net/svn/pypy/dist/pypy/translator/llvm/classrepr.py
+.. _`FuncRepr`: http://codespeak.net/svn/pypy/dist/pypy/translator/llvm/funcrepr.py
+
+
+Details about the representations
+---------------------------------
+
+Simple representations
+++++++++++++++++++++++
+
+There are some objects that have direct counterparts in LLVM: ints, floats,
+chars (strings of length 1). Most space operations involving those are
+implemented as `tiny function`_ (LLVM doesn't support macros since LLVM's .ll
+files correspond directly to its bytecode format so that round trip
+conversions are nearly lossless).
+
+
+Function representation
++++++++++++++++++++++++
+
+The representation of function in LLVM code is relatively easy since LLVM as
+well as flow graph use SSA form. Furthermore LLVM supports exactly the kind of
+control structures that the flow graphs feature: A function consists of basic
+blocks that end with links to other blocks, data flows along these links. The
+data flow is handled in LLVM by phi nodes: at the beginning of every block phi
+nodes may be inserted. It determines the value of a variable depending on
+which block branched to the currect block. Example::
+
+    block1:
+        %b = phi int [1, %block0], [2, %block2]
+
+Here %b is 1 if control came from block0 and 2 if control came from block2.
+
+
+List representation
++++++++++++++++++++
+
+Lists are represented as arrays. The code for the basic operation on lists
+(``getitem``, ``setitem``, ``add``, ``mul``, ``append``, ``pop``...) is
+`written in C`_. This C code is then compiled to LLVM code with the help of
+the LLVM C-front-end. The resulting LLVM code is then transformed (with search
+and replace) to fit in with the rest of GenLLVM. To support lists with
+different types of items the C code implements lists as arrays of pointers to
+``item``, where ``item`` is a dummy struct that is replaced with whatever type
+is wanted.
+
+
+XXX More to come.
+
+
+
+.. _`tiny function`: http://codespeak.net/svn/pypy/dist/pypy/translator/llvm/operations.ll
+.. _`written in C`: http://codespeak.net/svn/pypy/dist/pypy/translator/llvm/list.c
+
