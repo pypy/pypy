@@ -5,7 +5,7 @@ Generate a llvm .ll file from an annotated flowgraph.
 import autopath
 import sets, StringIO
 
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant, last_exception, last_exc_value
 from pypy.annotation import model as annmodel
 from pypy.translator import transform
 from pypy.translator.translator import Translator
@@ -14,7 +14,6 @@ from pypy.translator.llvm import build_llvm_module
 from pypy.translator.test import snippet as test
 from pypy.translator.llvm.test import llvmsnippet as test2
 
-
 from pypy.translator.llvm import representation, funcrepr, typerepr, seqrepr
 from pypy.translator.llvm import classrepr, pbcrepr
 
@@ -22,7 +21,7 @@ from pypy.translator.llvm.representation import LLVMRepr, TmpVariableRepr
 from pypy.translator.llvm.representation import CompileError
 from pypy.translator.llvm.funcrepr import EntryFunctionRepr
 
-debug = True
+debug = False
 
 
 def llvmcompile(transl, optimize=False):
@@ -64,6 +63,7 @@ class LLVMGenerator(object):
         self.llvm_reprs = {}
         self.depth = 0
         self.entryname = self.translator.functions[0].__name__
+        self.lazy_objects = sets.Set()
         self.l_entrypoint = EntryFunctionRepr("%__entry__" + self.entryname,
                                               self.translator.functions[0],
                                               self)
@@ -89,6 +89,7 @@ class LLVMGenerator(object):
 
     def get_global_tmp(self, used_by=None):
         used_by = (used_by or "unknown")
+        assert "%" not in used_by
         if used_by in self.global_counts:
             self.global_counts[used_by] += 1
             return "%%glb.%s.%i" % (used_by, self.global_counts[used_by])
@@ -103,7 +104,6 @@ class LLVMGenerator(object):
 
     def get_repr(self, obj):
         self.depth += 1
-        flag = False
         if debug:
             print "  " * self.depth,
             print "looking for object", obj, type(obj).__name__,
@@ -118,31 +118,27 @@ class LLVMGenerator(object):
             return self.llvm_reprs[get_key(obj)]
         for cl in self.repr_classes:
             try:
-                obj.__class__
+                g = cl.get(obj, self)
             except AttributeError:
-                obj.__class__ = None
-                flag = True
-            g = cl.get(obj, self)
+                continue
             if g is not None:
                 self.llvm_reprs[get_key(obj)] = g
                 self.local_counts[g] = 0
-                if debug:
-                    print "  " * self.depth,
-                    print "calling setup of %s, repr of %s" % (g, obj)
-                g.setup()
+##                 if not hasattr(g.__class__, "lazy_attributes"):
+##                     if debug:
+##                         print "  " * self.depth,
+##                         print "calling setup of %s, repr of %s" % (g, obj)
+##                     g.setup()
                 self.depth -= 1
-                if flag:
-                    del obj.__class__
                 return g
-        if flag:
-            del obj.__class__
         raise CompileError, "Can't get repr of %s, %s" % (obj, obj.__class__)
 
     def write(self, f):
-        init_block = self.l_entrypoint.init_block
+        self.unlazyify()
         seen_reprs = sets.Set()
         remove_loops(self.l_entrypoint, seen_reprs)
         seen_reprs = sets.Set()
+        init_block = self.l_entrypoint.init_block
         for l_repr in traverse_dependencies(self.l_entrypoint, seen_reprs):
             l_repr.collect_init_code(init_block, self.l_entrypoint)
         include_files = ["operations.ll", "class.ll"]
@@ -171,6 +167,16 @@ class LLVMGenerator(object):
             s = l_repr.get_functions()
             if s != "":
                 f.write(s + "\n")
+
+    def unlazyify(self):
+        if debug:
+            print 
+            print "$$$$$$$$$$$$$$ unlazyify"
+        while len(self.lazy_objects):
+            obj = self.lazy_objects.pop()
+            if debug:
+                print obj
+            obj.setup()
 
     def __str__(self):
         f = StringIO.StringIO()

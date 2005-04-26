@@ -414,7 +414,6 @@ pbc1 = PBCClass(CIRCULAR2())
 pbc1.a.pbc = pbc1
 pbc1.a.a = range(4)
 
-def pbc_function2(i): #Circular dependencies: doesn't work at the moment
+def pbc_function2(i):
     a = CIRCULAR1()
-    b = CIRCULAR2()
     return a.get(i)

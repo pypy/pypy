@@ -51,14 +51,12 @@ class ClassRepr(TypeRepr):
             print self.name
         assert ".Exception.object" not in self.objectname
         self.dependencies = sets.Set()
-        self.setup_done = False
+
+    lazy_attributes = ['l_base', 'memlayout', 'definition', 'methods']
 
     def setup(self):
-        if self.setup_done:
-            return
-        self.setup_done = True
         if debug:
-            print "ClassRepr.setup()", id(self), hex(id(self)), self.setup_done
+            print "ClassRepr.setup()", id(self), hex(id(self))
             print len(ClassRepr.l_classes)
         gen = self.gen
         if self.classdef.basedef is not None: #get attributes from base classes
@@ -140,9 +138,10 @@ class ClassRepr(TypeRepr):
         lblock.malloc(l_target, self)
         self.memlayout.set(l_target, "__class__", self, lblock, l_func)
         init = None
-        for cls in self.classdef.getmro():
-            if "__init__" in cls.attrs:
-                init = cls.attrs["__init__"].getvalue()
+        for clsd in self.classdef.getmro():
+            if ("__init__" in clsd.cls.__dict__ and
+                clsd.cls.__module__ != "exceptions"):
+                init = clsd.cls.__dict__["__init__"]
                 break
         if init is not None:
             l_init = self.gen.get_repr(init)
@@ -244,6 +243,8 @@ class ExceptionTypeRepr(TypeRepr):
         self.definition = s % (self.objectname, abs(id(exception)))
         self.dependencies = sets.Set()
 
+    lazy_attributes = ['l_base', 'memlayout']
+
     def setup(self):
         if len(self.exception.__bases__) != 0:
             self.l_base = self.gen.get_repr(self.exception.__bases__[0])
@@ -323,6 +324,8 @@ class InstanceRepr(LLVMRepr):
         self.type = gen.get_repr(classdef)
         self.dependencies = sets.Set([self.type])
         self.name = gen.get_global_tmp(obj.value.__class__.__name__ + ".inst")
+
+    lazy_attributes = ['l_attrib_values', 'definition']
 
     def setup(self):
         self.l_attrib_values = [self.type]

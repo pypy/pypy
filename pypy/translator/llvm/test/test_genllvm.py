@@ -202,9 +202,9 @@ class TestLLVMArray(object):
 
     def test_array_pop(self):
         f = compile_function(llvmsnippet.array_pop, [int])
-        assert f(0) == 5
-        assert f(1) == 6
-        assert f(2) == 7
+        assert f(0) == 6
+        assert f(1) == 7
+        assert f(2) == 8
 
     def test_access_global_array(self):
         f = compile_function(llvmsnippet.access_global_array, [int, int, int])
@@ -348,7 +348,7 @@ class TestPBC(object):
         assert f(2) == 6
         assert f(3) == 8
 
-    def DONOT_test_pbc_function2(self):
+    def test_pbc_function2(self):
         f = compile_function(llvmsnippet.pbc_function2, [int])
         assert f(0) == 13
         assert f(1) == 15

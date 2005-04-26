@@ -38,6 +38,8 @@ class PBCTypeRepr(TypeRepr):
             "pbc.%s" % obj.prebuiltinstances.keys()[0].__class__.__name__)
         self.objectname = self.name + ".object"
 
+    lazy_attributes = ['methods', 'memlayout', 'definition']
+
     def setup(self):
         bk = self.gen.annotator.bookkeeper
         access_sets = bk.pbc_maximal_access_sets
@@ -67,20 +69,18 @@ class PBCTypeRepr(TypeRepr):
                s_value.knowntype in (FunctionType, MethodType):
                 if debug:
                     print "--> method"
-                func = objects[0].__class__.__dict__[attr]
-                self.methods[attr] = func
+                if attr in objects[0].__class__.__dict__:
+                    func = objects[0].__class__.__dict__[attr]
+                    self.methods[attr] = func
             else:
                 if debug:
                     print "--> value"
                 attribs.append(attr)
                 l_types.append(self.gen.get_repr(s_value))
         self.memlayout = MemoryLayout(attribs, l_types, self.gen)
-
-    def get_globals(self):
         self.definition = "%s = %s" % (self.name, self.memlayout.definition())
         s = "\n%s = internal global %%std.class {%%std.class* null, uint %i}"
-        s = s % (self.objectname, abs(id(self)))
-        return self.definition + s
+        self.definition += s % (self.objectname, abs(id(self)))
 
     def llvmtype(self):
         return "%std.class*"
@@ -100,7 +100,8 @@ class PBCTypeRepr(TypeRepr):
                                l_func)
             return
         elif args[1].value in self.methods:
-            print l_target, l_target.llvmname()
+            if debug:
+                print l_target, l_target.llvmname()
             if not isinstance(l_target.type, BoundMethodRepr):
                 l_args0 = self.gen.get_repr(args[0])
                 l_func.dependencies.add(l_args0)
@@ -132,12 +133,13 @@ class PBCRepr(LLVMRepr):
             print "PBCRepr: ", obj
         self.obj = obj
         self.gen = gen
-        self.dependencies = sets.Set()
+        self.type = self.gen.get_repr(self.gen.annotator.binding(self.obj))
+        self.dependencies = sets.Set([self.type])
         self.name = gen.get_global_tmp(obj.value.__class__.__name__ + ".inst")
 
+    lazy_attributes = ['l_attrib_values', 'definition']
+
     def setup(self):
-        self.type = self.gen.get_repr(self.gen.annotator.binding(self.obj))
-        self.dependencies.add(self.type)
         self.l_attrib_values = [self.type]
         for attr in self.type.memlayout.attrs[1:]:
             s_a = self.gen.get_repr(Constant(getattr(self.obj.value, attr)))
@@ -156,4 +158,3 @@ class PBCRepr(LLVMRepr):
         else:
             raise AttributeError, ("PBCRepr instance has no attribute %s"
                                    % repr(name))
-

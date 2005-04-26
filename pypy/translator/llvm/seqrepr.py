@@ -34,6 +34,8 @@ class ListRepr(LLVMRepr):
                            (self.type.typename()[:-1], len(self.list),
                             self.type.l_itemtype.typename())
 
+    lazy_attributes = ['l_items']
+
     def setup(self):
         self.l_items = [self.gen.get_repr(item) for item in self.list]
         self.dependencies.update(self.l_items)
@@ -153,11 +155,13 @@ class TupleRepr(LLVMRepr):
         self.tuple = obj.value
         self.gen = gen
         self.dependencies = sets.Set()
+        self.glvar = self.gen.get_global_tmp(
+            repr(self.tuple).replace(" ", "").translate(gensupp.C_IDENTIFIER))
+
+    lazy_attributes = ['l_tuple', 'type']
 
     def setup(self):
         self.l_tuple = [self.gen.get_repr(l) for l in list(self.tuple)]
-        self.glvar = self.gen.get_global_tmp(
-            repr(self.tuple).replace(" ", "").translate(gensupp.C_IDENTIFIER))
         self.dependencies.update(self.l_tuple)
         self.type = self.gen.get_repr(self.gen.annotator.binding(self.const))
         self.dependencies.add(self.type)

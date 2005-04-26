@@ -6,7 +6,7 @@ from types import FunctionType
 from pypy.translator.llvm.representation import debug, LLVMRepr
 from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
 
-debug = True
+debug = False
 
 class MemoryLayout(object):
     def __init__(self, attrs, l_types, gen):

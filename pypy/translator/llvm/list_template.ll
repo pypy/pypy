@@ -113,7 +113,7 @@ entry:
 	%tmp.21 = getelementptr [4 x %(item)s]* %tmp.6, int 0, int 2
 	store %(item)s %v3, %(item)s* %tmp.21
 	%tmp.26 = getelementptr [4 x %(item)s]* %tmp.6, int 0, int 3
-	store %(item)s %v3, %(item)s* %tmp.26
+	store %(item)s %v4, %(item)s* %tmp.26
 	ret %std.list.%(name)s* %tmp.0
 }
 

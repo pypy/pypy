@@ -84,7 +84,7 @@ struct list* newlist_ALTERNATIVE4(struct item* v1, struct item* v2,
     nlist->data[0] = v1;
     nlist->data[1] = v2;
     nlist->data[2] = v3;
-    nlist->data[3] = v3;
+    nlist->data[3] = v4;
     return nlist;
 }
 

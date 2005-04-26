@@ -4,7 +4,7 @@ import sets
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.annotation import model as annmodel
-
+from pypy.translator.llvm.lazyattribute import MetaLazyRepr
 LLVM_SIMPLE_TYPES = {annmodel.SomeChar: "sbyte",
                      annmodel.SomeBool: "bool",
                      annmodel.SomeFloat: "double"}
@@ -17,6 +17,8 @@ class CompileError(Exception):
 
 
 class LLVMRepr(object):
+    __metaclass__ = MetaLazyRepr
+
     def get(obj, gen):
         return None
     get = staticmethod(get)
@@ -57,16 +59,19 @@ class SimpleRepr(LLVMRepr):
 bool, char (string of length 1), last_exception, last_exc_value"""
 
     def get(obj, gen):
+        if obj is last_exception or (isinstance(obj, Constant) and
+                                     obj.value is last_exception):
+            return SimpleRepr("%std.class**",
+                              "%std.last_exception.type", gen)
+        if obj is last_exc_value or (isinstance(obj, Constant) and
+                                     obj.value is last_exc_value):
+            return SimpleRepr("%std.exception**",
+                              "%std.last_exception.value", gen)
         if isinstance(obj, Constant):
             type_ = gen.annotator.binding(obj)
             if type_.__class__ in LLVM_SIMPLE_TYPES:
                 llvmtype = LLVM_SIMPLE_TYPES[type_.__class__]
                 return SimpleRepr(llvmtype, repr(obj.value), gen)
-        if obj == last_exception:
-            return SimpleRepr("%std.class**", "%std.last_exception.type", gen)
-        if obj == last_exc_value:
-            return SimpleRepr("%std.exception**", "%std.last_exception.value",
-                              gen)
         return None
     get = staticmethod(get)
     
@@ -93,7 +98,10 @@ class IntRepr(LLVMRepr):
             return IntRepr(type_, obj, gen)
         if not isinstance(obj, Constant):
             return None
-        type_ = gen.annotator.binding(obj)
+        try:
+            type_ = gen.annotator.binding(obj)
+        except AssertionError:
+            return None
         if type_.__class__ == annmodel.SomeInteger:
             return IntRepr(type_, obj.value, gen)
     get = staticmethod(get)
