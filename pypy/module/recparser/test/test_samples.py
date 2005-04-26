@@ -1,6 +1,7 @@
 """test module for CPython / PyPy nested tuples comparison"""
 import os, os.path as osp
-from pypy.module.recparser.pythonutil import python_parse, pypy_parse
+from pypy.module.recparser.pythonutil import python_parse
+from pypy.module.recparser.pythonparse import pypy_parse
 from pprint import pprint
 from pypy.module.recparser import grammar
 grammar.DEBUG = False

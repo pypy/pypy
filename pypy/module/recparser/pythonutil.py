@@ -1,7 +1,5 @@
-__all__ = [ "parse_file_input", "parse_single_input", "parse_eval_input",
-            "python_grammar", "PYTHON_GRAMMAR" ]
+__all__ = ["python_grammar", "PYTHON_GRAMMAR" ]
 
-from pythonparse import parse_file_input, parse_single_input, parse_eval_input
 import os
 import sys
 
@@ -35,26 +33,3 @@ def python_parse(filename):
     import parser
     tp2 = parser.suite(pyf.read())
     return tp2.totuple()
-
-
-def _get_encoding(builder):
-    if hasattr(builder, '_source_encoding'):
-        return builder._source_encoding
-    return None
-
-def pypy_parse(filename):
-    """parse <filename> using PyPy's parser module and return nested tuples
-    """
-    pyf = file(filename)
-    builder = parse_file_input(pyf, python_grammar())
-    pyf.close()
-    if builder.stack:
-        # print builder.stack[-1]
-        root_node = builder.stack[-1]
-        nested_tuples = root_node.totuple()
-        source_encoding = _get_encoding(builder)
-        if source_encoding is None:
-            return nested_tuples
-        else:
-            return (323, nested_tuples, source_encoding)
-    return None # XXX raise an exception instead

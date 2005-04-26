@@ -5,7 +5,6 @@ from ebnfparse import parse_grammar
 import sys
 import pythonutil
 
-
 def parse_python_source( textsrc, gram, goal ):
     """Parse a python source according to goal"""
     target = gram.rules[goal]
@@ -33,6 +32,22 @@ def parse_eval_input(textsrc, gram):
     """Parse a python file"""
     return parse_python_source( textsrc, gram, "eval_input" )
 
+def pypy_parse(filename):
+    """parse <filename> using PyPy's parser module and return nested tuples
+    """
+    pyf = file(filename)
+    builder = parse_file_input(pyf, pythonutil.python_grammar())
+    pyf.close()
+    if builder.stack:
+        # print builder.stack[-1]
+        root_node = builder.stack[-1]
+        nested_tuples = root_node.totuple()
+        if hasattr(builder, '_source_encoding'):
+            return (323, nested_tuples, builder._source_encoding)
+        else:
+            return nested_tuples
+    return None # XXX raise an exception instead
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print "python parse.py [-d N] test_file.py"
@@ -44,6 +59,6 @@ if __name__ == "__main__":
         test_file = sys.argv[1]
     print "-"*20
     print
-    print "pyparse \n", pythonutil.pypy_parse(test_file)
+    print "pyparse \n", pypy_parse(test_file)
     print "parser  \n", pythonutil.python_parse(test_file)
 
