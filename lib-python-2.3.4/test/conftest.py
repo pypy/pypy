@@ -146,13 +146,21 @@ class OutputTestItem(py.test.Item):
 
 class RunningModule(OpErrorModule): 
     def run(self): 
-        return []
-        #return [self.fspath.purebasename]
+        return ['apprun']
     
-    #def join(self, name): 
-    #    name = self.fspath.purebasename 
-    #    space = getmyspace() 
-    #    run_file(str(self.fspath.join(name)), space=space) 
+    def join(self, name): 
+        if name == 'apprun': 
+            return RunAppFileItem(name, parent=self, fspath=self.fspath) 
+
+class RunAppFileItem(py.test.Item): 
+    def __init__(self, name, parent, fspath): 
+        super(RunAppFileItem, self).__init__(name, parent) 
+        self.fspath = fspath 
+
+    def run(self): 
+        fspath = self.fspath 
+        space = getmyspace() 
+        run_file(str(fspath), space) 
 
 class UnknownTestModule(OpErrorModule): 
     def run(self): 
@@ -320,7 +328,7 @@ testmap = {
     'test_charmapcodec.py'   : TestDecl(True, UTModuleMainTest),
     'test_cl.py'             : TestDecl(False, UnknownTestModule),
     'test_class.py'          : TestDecl(False, OutputTestModule),
-    'test_cmath.py'          : TestDecl(False,  RunningModule), 
+    'test_cmath.py'          : TestDecl(True,  RunningModule), 
     'test_codeccallbacks.py' : TestDecl(False, UTModuleMainTest),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
