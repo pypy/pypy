@@ -392,3 +392,16 @@ class PythonSource(TokenSource):
 ##             return punct, None
 ##         raise SyntaxError("Unrecognized token '%s'" % inp[pos:pos+20] )
 
+
+
+def tokenize_file(filename):
+    f = file(filename).read()
+    src = PythonSource(f)
+    token = src.next()
+    while token!=("ENDMARKER",None) and token!=(None,None):
+        print token
+        token = src.next()
+
+if __name__ == '__main__':
+    import sys
+    tokenize_file(sys.argv[1])
