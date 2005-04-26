@@ -1,3 +1,3 @@
 
-from py.__impl__.documentation.conftest import * 
+from py.__.documentation.conftest import * 
 

@@ -4,7 +4,7 @@ import autopath
 import py
 from pypy.documentation.revreport import delta 
 from pypy.tool.pypyrev import pypyrev 
-from py.__impl__.test.tool.outerrcapture import SimpleOutErrCapture 
+from py.__.test.tool.outerrcapture import SimpleOutErrCapture 
 
 BASE = py.path.local(delta.__file__).dirpath() 
 DEST = BASE.join('revdata') 

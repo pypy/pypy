@@ -1,7 +1,7 @@
 from __future__ import generators 
 import autopath
 import py
-from py.__impl__.magic import exprinfo
+from py.__.magic import exprinfo
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 
