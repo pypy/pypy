@@ -6,11 +6,11 @@ import os
 import sys
 
 _ver = ".".join([str(i) for i in sys.version_info[:2]])
-PYTHON_GRAMMAR = os.path.join( os.path.dirname(__file__), "Grammar" + _ver )
+PYTHON_GRAMMAR = os.path.join( os.path.dirname(__file__), "data", "Grammar" + _ver )
 
 def python_grammar():
     """returns a """
-    from ebnf import parse_grammar
+    from ebnfparse import parse_grammar
     level = get_debug()
     set_debug( 0 )
     gram = parse_grammar( file(PYTHON_GRAMMAR) )

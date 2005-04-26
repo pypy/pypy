@@ -1,5 +1,5 @@
-from python.lexer import PythonSource, py_number, g_symdef, g_string, py_name, \
-     py_punct
+from pypy.module.recparser.pythonlexer import PythonSource, py_number, \
+     g_symdef, g_string, py_name, py_punct
 
 def parse_source(source):
     """returns list of parsed tokens"""
@@ -76,5 +76,4 @@ class TestSuite:
         for pstr in self.PUNCTS:
             tokens = parse_source(pstr)
             assert tokens[0][0] == pstr
-
 

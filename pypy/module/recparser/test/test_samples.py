@@ -2,10 +2,9 @@
 
 import os, os.path as osp
 import sys
-from ebnf import parse_grammar
-from python import python_parse, pypy_parse, set_debug
+from pypy.module.recparser.pythonutil import python_parse, pypy_parse, set_debug
 from pprint import pprint
-import grammar
+from pypy.module.recparser import grammar
 grammar.DEBUG = False
 from symbol import sym_name
 
