@@ -8,7 +8,7 @@ from pypy.interpreter.module import Module as PyPyModule
 from pypy.interpreter.main import run_string, run_file
 
 # the following adds command line options as a side effect! 
-from pypy.conftest import gettestobjspace, option
+from pypy.conftest import gettestobjspace, option as pypy_option 
 from test.regrtest import reportdiff
 
 # 
@@ -164,12 +164,13 @@ class RunAppFileItem(py.test.Item, TestDeclMixin):
 
     def run_file(self, fspath): 
         space = self.space 
-        if self.testdecl.oldstyle: 
+        if self.testdecl.oldstyle or pypy_option.oldstyle: 
             space.enable_old_style_classes_as_default_metaclass() 
         try: 
             run_file(str(fspath), space) 
         finally: 
-            space.enable_new_style_classes_as_default_metaclass() 
+            if not pypy_option.oldstyle: 
+                space.enable_new_style_classes_as_default_metaclass() 
 
     def run(self): 
         fspath = self.getfspath() 
@@ -236,12 +237,13 @@ class UTTestMainModule(OpErrorModule):
         else: 
             fspath = self.fspath 
 
-        if self.testdecl.oldstyle: 
+        if self.testdecl.oldstyle or pypy_option.oldstyle: 
             space.enable_old_style_classes_as_default_metaclass() 
         try:  
             w_mod = make_module(space, name, fspath) 
         finally: 
-            space.enable_new_style_classes_as_default_metaclass() 
+            if not pypy_option.oldstyle: 
+                space.enable_new_style_classes_as_default_metaclass() 
 
         # hack out testcases 
         space.appexec([w_mod, w_testlist], """ 
