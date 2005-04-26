@@ -144,8 +144,17 @@ class OutputTestItem(py.test.Item):
                 reportdiff(expected, result) 
                 py.test.fail("output check failed: %s" % (self.fspath.basename,))
 
+class RunningModule(OpErrorModule): 
+    def run(self): 
+        return []
+        #return [self.fspath.purebasename]
+    
+    #def join(self, name): 
+    #    name = self.fspath.purebasename 
+    #    space = getmyspace() 
+    #    run_file(str(self.fspath.join(name)), space=space) 
 
-class UnknownTestModule(py.test.collect.Module): 
+class UnknownTestModule(OpErrorModule): 
     def run(self): 
         py.test.skip("missing test type for: %s" %(self.fspath.basename))
        
@@ -311,7 +320,7 @@ testmap = {
     'test_charmapcodec.py'   : TestDecl(True, UTModuleMainTest),
     'test_cl.py'             : TestDecl(False, UnknownTestModule),
     'test_class.py'          : TestDecl(False, OutputTestModule),
-    'test_cmath.py'          : TestDecl(False,  UnknownTestModule),
+    'test_cmath.py'          : TestDecl(False,  RunningModule), 
     'test_codeccallbacks.py' : TestDecl(False, UTModuleMainTest),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
