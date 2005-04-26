@@ -170,7 +170,7 @@ class OutputTestItem(RunAppFileItem):
         to the expected output in the output/ directory. 
     """ 
     def run(self): 
-        outputpath = self.fspath.dirpath('output', self.name) 
+        outputpath = self.fspath.dirpath('output', self.fspath.purebasename) 
         if not outputpath.check(): 
             py.test.fail("expected outputfile at %s" %(outputpath,))
 
