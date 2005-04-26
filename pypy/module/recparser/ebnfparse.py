@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from grammar import BaseGrammarBuilder, Alternative, Sequence, Token, \
      KleenStar, GrammarElement
-from lexer import GrammarSource
+from ebnflexer import GrammarSource
 
 import re
 py_name = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*", re.M)

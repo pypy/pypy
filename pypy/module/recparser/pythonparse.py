@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 from grammar import BaseGrammarBuilder
-from lexer import PythonSource
-from ebnf import parse_grammar
-from pprint import pprint
+from pythonlexer import PythonSource
+from ebnfparse import parse_grammar
 import sys
-import python
+import pythonutil
 
 
 def parse_python_source( textsrc, gram, goal ):
@@ -45,6 +44,6 @@ if __name__ == "__main__":
         test_file = sys.argv[1]
     print "-"*20
     print
-    print "pyparse \n", python.pypy_parse(test_file)
-    print "parser  \n", python.python_parse(test_file)
+    print "pyparse \n", pythonutil.pypy_parse(test_file)
+    print "parser  \n", pythonutil.python_parse(test_file)
 

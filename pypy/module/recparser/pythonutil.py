@@ -1,7 +1,7 @@
 __all__ = [ "parse_file_input", "parse_single_input", "parse_eval_input",
             "python_grammar", "PYTHON_GRAMMAR" ]
 
-from parse import parse_file_input, parse_single_input, parse_eval_input
+from pythonparse import parse_file_input, parse_single_input, parse_eval_input
 import os
 import sys
 
