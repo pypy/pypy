@@ -32,10 +32,12 @@ from types import BuiltinFunctionType, MethodType
 import pypy
 from pypy.annotation.pairtype import pair, extendabletype
 from pypy.objspace.flow.model import Constant
+from pypy.tool.tls import tlsobject
 import inspect
 
 
 DEBUG = True    # set to False to disable recording of debugging information
+TLS = tlsobject()
 
 
 class SomeObject:
@@ -49,15 +51,26 @@ class SomeObject:
     def __ne__(self, other):
         return not (self == other)
     def __repr__(self):
-        items = self.__dict__.items()
-        items.sort()
-        args = []
-        for k, v in items:
-            m = getattr(self, 'fmt_' + k, repr)
-            r = m(v)
-            if r is not None:
-                args.append('%s=%s'%(k, r))
-        kwds = ', '.join(args)
+        try:
+            reprdict = TLS.reprdict
+        except AttributeError:
+            reprdict = TLS.reprdict = {}
+        if self in reprdict:
+            kwds = '...'
+        else:
+            reprdict[self] = True
+            try:
+                items = self.__dict__.items()
+                items.sort()
+                args = []
+                for k, v in items:
+                    m = getattr(self, 'fmt_' + k, repr)
+                    r = m(v)
+                    if r is not None:
+                        args.append('%s=%s'%(k, r))
+                kwds = ', '.join(args)
+            finally:
+                del reprdict[self]
         return '%s(%s)' % (self.__class__.__name__, kwds)
 
     def fmt_knowntype(self, t):

@@ -9,7 +9,6 @@ from pypy.annotation.model import *
 from pypy.annotation.classdef import ClassDef
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 from pypy.annotation.dictdef import DictDef, MOST_GENERAL_DICTDEF
-from pypy.tool.tls import tlsobject
 from pypy.tool.hack import func_with_new_name
 from pypy.interpreter.pycode import CO_VARARGS
 from pypy.interpreter.pycode import cpython_code_signature
@@ -29,9 +28,6 @@ class PBCAccessSet:
         self.objects.update(other.objects)
         self.read_locations.update(other.read_locations)        
         self.attrs.update(other.attrs)
-
-
-TLS = tlsobject()
 
 
 class Bookkeeper:
