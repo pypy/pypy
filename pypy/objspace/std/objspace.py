@@ -98,6 +98,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def enable_old_style_classes_as_default_metaclass(self):
         self.setitem(self.builtin.w_dict, self.wrap('__metaclass__'), self.w_classobj)
 
+    def enable_new_style_classes_as_default_metaclass(self):
+        space = self
+        try: 
+            self.delitem(self.builtin.w_dict, self.wrap('__metaclass__')) 
+        except OperationError, e: 
+            if not e.match(space, space.w_KeyError): 
+                raise 
+
     def setup_old_style_classes(self):
         """NOT_RPYTHON"""
         from pypy.module import classobjinterp

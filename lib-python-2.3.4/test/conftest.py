@@ -137,7 +137,16 @@ class SimpleRunModule(OpErrorModule):
         if name == 'apprun': 
             return RunAppFileItem(name, parent=self, fspath=self.fspath) 
 
-class RunAppFileItem(py.test.Item): 
+class TestDeclMixin(object): 
+    def testdecl(self): 
+        current = self.parent 
+        while current is not None: 
+            if hasattr(current, 'testdecl'): 
+                return current.testdecl 
+            current = self.sparent 
+    testdecl = property(testdecl) 
+
+class RunAppFileItem(py.test.Item, TestDeclMixin): 
     """ simple run a module file at app level, fail the test 
         if running the appfile results in an OperationError. 
     """
@@ -146,16 +155,26 @@ class RunAppFileItem(py.test.Item):
         self.fspath = fspath 
         self.space = getmyspace()
 
+
     def getfspath(self): 
         if self.parent.testdecl.modified: 
             return pypydir.join('lib', 'test2', self.fspath.basename) 
         else: 
             return self.fspath # unmodified regrtest
 
+    def run_file(self, fspath): 
+        space = self.space 
+        if self.testdecl.oldstyle: 
+            space.enable_old_style_classes_as_default_metaclass() 
+        try: 
+            run_file(str(fspath), space) 
+        finally: 
+            space.enable_new_style_classes_as_default_metaclass() 
+
     def run(self): 
         fspath = self.getfspath() 
         try: 
-            run_file(str(fspath), self.space) 
+            self.run_file(fspath) 
         except OperationError, e: 
             space = self.space 
             if space and e.match(space, space.w_KeyboardInterrupt): 
@@ -216,7 +235,13 @@ class UTTestMainModule(OpErrorModule):
             fspath = pypydir.join('lib', 'test2', self.fspath.basename) 
         else: 
             fspath = self.fspath 
-        w_mod = make_module(space, name, fspath) 
+
+        if self.testdecl.oldstyle: 
+            space.enable_old_style_classes_as_default_metaclass() 
+        try:  
+            w_mod = make_module(space, name, fspath) 
+        finally: 
+            space.enable_new_style_classes_as_default_metaclass() 
 
         # hack out testcases 
         space.appexec([w_mod, w_testlist], """ 
@@ -308,7 +333,7 @@ class AppTestCaseMethod(py.test.Item):
 
 class TestDecl: 
     """ Test Declaration.""" 
-    def __init__(self, enabled, testclass, modified=False): 
+    def __init__(self, enabled, testclass, modified=False, oldstyle=False): 
         """ if modified is True, the actual test item 
             needs to be taken from the pypy/lib/test2 
             hierarchy.  
@@ -316,6 +341,7 @@ class TestDecl:
         self.enabled = enabled 
         self.testclass = testclass 
         self.modified = modified 
+        self.oldstyle = True 
 
 testmap = {
     'test_MimeWriter.py'     : TestDecl(False, OutputTestModule),
@@ -375,7 +401,7 @@ testmap = {
     'test_codeop.py'         : TestDecl(True,  UTTestMainModule),
     'test_coercion.py'       : TestDecl(False, OutputTestModule),
     'test_commands.py'       : TestDecl(True,  UTTestMainModule),
-    'test_compare.py'        : TestDecl(True,  OutputTestModule),
+    'test_compare.py'        : TestDecl(True,  OutputTestModule, oldstyle=True),
     'test_compile.py'        : TestDecl(True,  UTTestMainModule),
     'test_complex.py'        : TestDecl(False, UTTestMainModule),
         #rev 10840: at least one test fails, after several hours I gave up waiting for the rest
