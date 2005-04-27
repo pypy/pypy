@@ -2,6 +2,7 @@
 import autopath
 from pypy.interpreter import gateway
 import py
+import sys
 
 class TestBuiltinCode: 
     def test_signature(self):
@@ -184,7 +185,7 @@ class TestGateway:
         w_app_g3_i = space.wrap(app_g3_i)
         assert space.eq_w(space.call_function(w_app_g3_i,w(1)),w(1))
         assert space.eq_w(space.call_function(w_app_g3_i,w(1L)),w(1))        
-        raises(gateway.OperationError,space.call_function,w_app_g3_i,w(2**32))
+        raises(gateway.OperationError,space.call_function,w_app_g3_i,w(sys.maxint*2))
         raises(gateway.OperationError,space.call_function,w_app_g3_i,w(None))
         raises(gateway.OperationError,space.call_function,w_app_g3_i,w("foo"))
         raises(gateway.OperationError,space.call_function,w_app_g3_i,w(1.0))
