@@ -6,3 +6,8 @@ import ebnf # works
 This should change once we figure out how to integrate properly with
 pypy and add an option to switch between the two parsers
 
+
+to enable the module in py.py change :
+baseobjspace.py:89
+pypy/interpreter/baseobjspace.py:89
+setbuiltinmodule( "parser", "recparser" )
