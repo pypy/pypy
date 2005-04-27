@@ -811,6 +811,13 @@ class ReallyRunFileExternal(RunAppFileItem):
         cmd = "%s %s %d %s %s %s" %(python, alarm_script, TIMEOUT, pypy_script, sopt, fspath)
         resultfilename = mydir.join('result', fspath.new(ext='.txt').basename)
         resultfile = resultfilename.open('w')
+        if issubclass(self.testdecl.testclass, OutputTestModule):
+            outputfilename = resultfilename.new(ext='.out')
+            outputfile = outputfilename.open('w')
+            print >> outputfile, self.fspath.purebasename
+            outputfile.close()
+        else:
+            outputfilename = None
 
         try:
             username = getpass.getuser()
@@ -822,12 +829,19 @@ class ReallyRunFileExternal(RunAppFileItem):
         print >> resultfile, "sys.version_info:", sys.version_info 
         print >> resultfile, "startdate:", time.ctime()
         print >> resultfile, 'pypy-revision:', getrev(pypydir)
+        if outputfilename:
+            print >> resultfile, "OUTPUT TEST"
+            print >> resultfile, "see output in:", str(outputfilename)
         print >> resultfile, '='*60
         print "executing", cmd 
         starttime = time.time()
         resultfile.close()
 
-        status = os.system("%s >>%s 2>&1" %(cmd, resultfilename) )
+        if outputfilename:
+            status = os.system("%s >>%s 2>>%s" %(cmd, outputfilename,
+                                                 resultfilename) )
+        else:
+            status = os.system("%s >>%s 2>&1" %(cmd, resultfilename) )
         if os.WIFEXITED(status):
             status = os.WEXITSTATUS(status)
         else:
@@ -842,3 +856,11 @@ class ReallyRunFileExternal(RunAppFileItem):
             time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
         #print output 
         assert status == 0, "exitstatus is %d" %(status,)
+
+        if outputfilename:
+            expectedfilename = mydir.join('output', self.fspath.purebasename)
+            expected = expectedfilename.read(mode='r')
+            result = outputfilename.read(mode='r')
+            if result != expected: 
+                reportdiff(expected, result) 
+                py.test.fail("output check failed: %s" % (self.fspath.basename,))
