@@ -1,5 +1,5 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.strutil import string_to_long, ParseStringError
+from pypy.objspace.std.strutil import string_to_w_long, ParseStringError
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.inttype import int_typedef
 from pypy.interpreter.gateway import NoneNotWrapped
@@ -9,11 +9,10 @@ def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
     if w_base is None:
         # check for easy cases
         if isinstance(w_value, W_LongObject):
-            value = w_value.longval()
+            pass
         elif space.is_true(space.isinstance(w_value, space.w_str)):
             try:
-                # XXX value can be unwrapped long
-                value = string_to_long(space.str_w(w_value))
+                w_value = string_to_w_long(space, space.str_w(w_value))
             except ParseStringError, e:
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
@@ -23,12 +22,21 @@ def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
             # 'long(x)' should return whatever x.__long__() returned
             if space.is_true(space.is_(w_longtype, space.w_long)):
                 return w_obj
-            value = space.unwrap(w_obj) # XXX value can be unwrapped long
-            if isinstance(value, int):    # XXX typechecking in unwrap!
-                value = long(value)
-            if not isinstance(value, long):
+            if space.is_true(space.isinstance(w_obj, w_long)):
+                w_value = w_obj
+            elif space.is_true(space.isinstance(w_obj, w_int)):
+                intval = space.int_w(w_obj)
+                # xxx this logic needs to be put in 1 place                
+                if intval < 0:
+                    sign = -1
+                elif intval > 0:
+                    sign = 1
+                else:
+                    sign = 0
+                w_value = W_LongObject(space, [r_uint(abs(intval))], sign) 
+            else:
                 raise OperationError(space.w_ValueError,
-                                 space.wrap("value can't be converted to long"))
+                                    space.wrap("value can't be converted to long"))
     else:
         base = space.int_w(w_base)
 
@@ -43,14 +51,13 @@ def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
                                      space.wrap("long() can't convert non-string "
                                                 "with explicit base"))
         try:
-            # XXX value can be unwrapped long
-            value = string_to_long(s, base)
+            w_value = string_to_w_long(space, s, base)
         except ParseStringError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
-#XXX
+
     w_obj = space.allocate_instance(W_LongObject, w_longtype)
-    w_obj.__init__(space, *args_from_long(value))
+    w_obj.__init__(space, w_value.digits, w_value.sign)
     return w_obj
 
 # ____________________________________________________________

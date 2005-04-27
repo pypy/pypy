@@ -1,7 +1,7 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.fake import fake_type, wrap_exception
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.strutil import string_to_int, string_to_long, ParseStringError
+from pypy.objspace.std.strutil import string_to_w_long, ParseStringError
 
 W_UnicodeObject = fake_type(unicode)
 
@@ -75,23 +75,25 @@ def ord__Unicode(space, w_uni):
     except:
         wrap_exception(space)
 
+# xxx unicode.__float__ should not exist. For now this approach avoids to deal with unicode in more places
 def float__Unicode(space, w_uni):
     try:
         return space.wrap(float(unicode_to_decimal_w(space, w_uni)))
     except:
         wrap_exception(space)
-
+        
+# xxx unicode.__int__ should not exist
 def int__Unicode(space, w_uni):
     try:
-        return space.wrap(string_to_int(unicode_to_decimal_w(space, w_uni)))
-    except ParseStringError, e:
-        raise OperationError(space.w_ValueError, space.wrap(e.msg))
+        s = unicode_to_decimal_w(space, w_uni)
     except:
         wrap_exception(space)
+    return space.call_function(space.w_int, space.wrap(s))
 
+# xxx unicode.__long__ should not exist
 def long__Unicode(space, w_uni):
     try:
-        return space.wrap(string_to_long(unicode_to_decimal_w(space, w_uni)))
+        return string_to_w_long(space, unicode_to_decimal_w(space, w_uni))
     except ParseStringError, e:
         raise OperationError(space.w_ValueError, space.wrap(e.msg))    
     except:

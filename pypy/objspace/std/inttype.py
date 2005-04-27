@@ -1,21 +1,24 @@
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.strutil import string_to_int, ParseStringError
+from pypy.objspace.std.strutil import string_to_int, string_to_w_long, ParseStringError, ParseStringOverflowError
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 
 def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
     from pypy.objspace.std.intobject import W_IntObject
+    w_longval = None
     if w_base is None:
         # check for easy cases
         if isinstance(w_value, W_IntObject):
             value = w_value.intval
         elif space.is_true(space.isinstance(w_value, space.w_str)):
             try:
-                # XXX can produce unwrapped long
-                value = string_to_int(space.str_w(w_value))
+                value = string_to_int(space, space.str_w(w_value))
             except ParseStringError, e:
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
+            except ParseStringOverflowError, e:
+                e.parser.rewind()                
+                w_longval = string_to_w_long(space, None, base=0, parser=e.parser)                
         else:
             # otherwise, use the __int__() method
             w_obj = space.int(w_value)
@@ -46,22 +49,20 @@ def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
                                      space.wrap("int() can't convert non-string "
                                                 "with explicit base"))
         try:
-            # XXX can produce unwrapped long, need real long impl to know
-            # what to do
-            value = string_to_int(s, base)
+            value = string_to_int(space, s, base)
         except ParseStringError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
+        except ParseStringOverflowError, e:
+            e.parser.rewind()
+            w_longval = string_to_w_long(space, None, base, parser=e.parser)                        
 
-    if isinstance(value, long):
+    if w_longval is not None:
         if not space.is_true(space.is_(w_inttype, space.w_int)):
             raise OperationError(space.w_OverflowError,
                                  space.wrap(
                 "long int too large to convert to int"))          
-        from pypy.objspace.std.longobject import W_LongObject, args_from_long
-        w_obj = space.allocate_instance(W_LongObject, space.w_long)
-        w_obj.__init__(space, *args_from_long(value))
-        return w_obj
+        return w_longval
     else:
         w_obj = space.allocate_instance(W_IntObject, w_inttype)
         w_obj.__init__(space, value)

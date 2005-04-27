@@ -6,6 +6,7 @@ objspacename = 'std'
 class TestStrUtil:
 
     def test_string_to_int(self):
+        space = self.space
         cases = [('0', 0),
                  ('1', 1),
                  ('9', 9),
@@ -13,7 +14,6 @@ class TestStrUtil:
                  ('09', 9),
                  ('0000101', 101),    # not octal unless base 0 or 8
                  ('5123', 5123),
-                 ('1891234174197319', 1891234174197319),
                  (' 0', 0),
                  ('0  ', 0),
                  (' \t \n   32313  \f  \v   \r  \n\r    ', 32313),
@@ -24,10 +24,11 @@ class TestStrUtil:
                  ('  -123456789 ', -123456789),
                  ]
         for s, expected in cases:
-            assert string_to_int(s) == expected
-            assert string_to_long(s) == expected
+            assert string_to_int(space, s) == expected
+            assert string_to_w_long(space, s).longval() == expected
 
     def test_string_to_int_base(self):
+        space = self.space        
         cases = [('111', 2, 7),
                  ('010', 2, 2),
                  ('102', 3, 11),
@@ -53,14 +54,15 @@ class TestStrUtil:
                  ('0X',  16, 0),    #     "           "
                  ]
         for s, base, expected in cases:
-            assert string_to_int(s, base) == expected
-            assert string_to_int('+'+s, base) == expected
-            assert string_to_int('-'+s, base) == -expected
-            assert string_to_int(s+'\n', base) == expected
-            assert string_to_int('  +'+s, base) == expected
-            assert string_to_int('-'+s+'  ', base) == -expected
+            assert string_to_int(space, s, base) == expected
+            assert string_to_int(space, '+'+s, base) == expected
+            assert string_to_int(space, '-'+s, base) == -expected
+            assert string_to_int(space, s+'\n', base) == expected
+            assert string_to_int(space, '  +'+s, base) == expected
+            assert string_to_int(space, '-'+s+'  ', base) == -expected
 
     def test_string_to_int_error(self):
+        space = self.space
         cases = ['0x123',    # must use base 0 or 16
                  ' 0X12 ',
                  '',
@@ -76,13 +78,18 @@ class TestStrUtil:
                  '@',
                  ]
         for s in cases:
-            raises(ParseStringError, string_to_int, s)
-            raises(ParseStringError, string_to_int, '  '+s)
-            raises(ParseStringError, string_to_int, s+'  ')
-            raises(ParseStringError, string_to_int, '+'+s)
-            raises(ParseStringError, string_to_int, '-'+s)
+            raises(ParseStringError, string_to_int, space, s)
+            raises(ParseStringError, string_to_int, space, '  '+s)
+            raises(ParseStringError, string_to_int, space, s+'  ')
+            raises(ParseStringError, string_to_int, space, '+'+s)
+            raises(ParseStringError, string_to_int, space, '-'+s)
+
+    def test_string_to_int_overflow(self):
+        space = self.space
+        raises(ParseStringOverflowError, string_to_int, space,'1891234174197319')
 
     def test_string_to_int_base_error(self):
+        space = self.space        
         cases = [('1', 1),
                  ('1', 37),
                  ('a', 0),
@@ -98,18 +105,20 @@ class TestStrUtil:
                  ('12.3', 16),
                  ]
         for s, base in cases:
-            raises(ParseStringError, string_to_int, s, base)
-            raises(ParseStringError, string_to_int, '  '+s, base)
-            raises(ParseStringError, string_to_int, s+'  ', base)
-            raises(ParseStringError, string_to_int, '+'+s, base)
-            raises(ParseStringError, string_to_int, '-'+s, base)
+            raises(ParseStringError, string_to_int, space, s, base)
+            raises(ParseStringError, string_to_int, space, '  '+s, base)
+            raises(ParseStringError, string_to_int, space, s+'  ', base)
+            raises(ParseStringError, string_to_int, space, '+'+s, base)
+            raises(ParseStringError, string_to_int, space, '-'+s, base)
 
-    def test_string_to_long(self):
-        assert string_to_long('123L') == 123
-        assert string_to_long('123L  ') == 123
-        raises(ParseStringError, string_to_long, 'L')
-        raises(ParseStringError, string_to_long, 'L  ')
-        assert string_to_long('123L', 4) == 27
-        assert string_to_long('123L', 30) == 27000 + 1800 + 90 + 21
-        assert string_to_long('123L', 22) == 10648 + 968 + 66 + 21
-        assert string_to_long('123L', 21) == 441 + 42 + 3
+    def test_string_to_w_long(self):
+        space = self.space
+        assert string_to_w_long(space, '123L').longval() == 123
+        assert string_to_w_long(space, '123L  ').longval() == 123
+        raises(ParseStringError, string_to_w_long, space, 'L')
+        raises(ParseStringError, string_to_w_long, space, 'L  ')
+        assert string_to_w_long(space, '123L', 4).longval() == 27
+        assert string_to_w_long(space, '123L', 30).longval() == 27000 + 1800 + 90 + 21
+        assert string_to_w_long(space, '123L', 22).longval() == 10648 + 968 + 66 + 21
+        assert string_to_w_long(space, '123L', 21).longval() == 441 + 42 + 3
+        assert string_to_w_long(space, '1891234174197319').longval() == 1891234174197319
