@@ -68,7 +68,8 @@ class Result:
         assert match
         self.execution_time = float(match.group(2))
         self.exit_status = match.group(3)
-        if self.exit_status == '0':
+        if (self.exit_status == '0' and
+            not match.group(1).lower().startswith('fail')):
             self.pts = 'Ok'
         elif not self.timeout:
             self.finalline = match.group(1)
