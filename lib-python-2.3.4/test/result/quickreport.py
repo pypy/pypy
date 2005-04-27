@@ -29,6 +29,9 @@ IGNORE_MODULES = """
     _csv           linuxaudiodev  pyexpat      struct
     _curses_panel  _locale        _random      syslog
     _curses        math           readline     termios
+
+    thread
+
 """.split()
 
 
@@ -84,7 +87,7 @@ print
 
 
 files = mydir.listdir("*.txt")
-files.sort(key=lambda x: str(x).lower())
+files.sort(lambda x,y: cmp(str(x).lower(), str(y).lower()))
 for fn in files:
     result = Result()
     try:
