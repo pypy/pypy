@@ -52,20 +52,38 @@ def callex(space, func, *args, **kwargs):
     except OperationError, e: 
         if e.match(space, space.w_KeyboardInterrupt): 
             raise KeyboardInterrupt 
-        raise py.test.Item.Failed(
-                excinfo=pytestsupport.AppExceptionInfo(space, e))
+        appexcinfo=pytestsupport.AppExceptionInfo(space, e) 
+        if appexcinfo.traceback: 
+            print "appexcinfo.traceback:"
+            py.std.pprint.pprint(appexcinfo.traceback)
+            raise py.test.Item.Failed(excinfo=appexcinfo) 
+        raise 
     
-w_testlist = None 
+w_utestlist = None 
+w_doctestmodules = None 
 
 def hack_test_support(space): 
-    global w_testlist  
-    w_testlist = space.newlist([]) 
-    space.appexec([w_testlist], """
-        (testlist): 
+    global w_utestlist, w_doctestmodules
+    w_utestlist = space.newlist([]) 
+    w_doctestmodules = space.newlist([]) 
+    w_mod = make_module(space, 'unittest', mydir.join('pypy_unittest.py')) 
+    #self.w_TestCase = space.getattr(w_mod, space.wrap('TestCase'))
+    space.appexec([w_utestlist, w_doctestmodules], """
+        (testlist, doctestmodules): 
+            from test import test_support  # humpf
+
             def hack_run_unittest(*classes): 
                 testlist.extend(list(classes))
-            from test import test_support  # humpf
             test_support.run_unittest = hack_run_unittest 
+
+            def hack_run_doctest(module, verbose=None): 
+                doctestmodules.append(module) 
+            test_support.run_doctest = hack_run_doctest 
+
+            def hack_run_suite(suite, testclass=None): 
+                pass  # XXX 
+            test_support.run_suite = hack_run_doctest 
+
     """) 
 
 def getmyspace(): 
@@ -73,7 +91,7 @@ def getmyspace():
     # we once and for all want to patch run_unittest 
     # to get us the list of intended unittest-TestClasses
     # from each regression test 
-    if w_testlist is None: 
+    if w_utestlist is None: 
         callex(space, hack_test_support, space) 
     return space 
 
@@ -219,11 +237,7 @@ class UTTestMainModule(OpErrorModule):
         if hasattr(self, '_testcases'): 
             return
         space = self.space
-        def f(): 
-            w_mod = make_module(space, 'unittest', mydir.join('pypy_unittest.py')) 
-            self.w_TestCase = space.getattr(w_mod, space.wrap('TestCase'))
-            self._testcases = self.get_testcases() 
-        callex(space, f) 
+        self._testcases = callex(self.space, self.get_testcases) 
        
     def run(self): 
         self._prepare() 
@@ -246,14 +260,14 @@ class UTTestMainModule(OpErrorModule):
                 space.enable_new_style_classes_as_default_metaclass() 
 
         # hack out testcases 
-        space.appexec([w_mod, w_testlist], """ 
+        space.appexec([w_mod, w_utestlist], """ 
             (mod, classlist): 
                 classlist[:] = []
                 mod.test_main() 
             """) 
         res = []
-        #print w_testlist
-        for w_class in space.unpackiterable(w_testlist): 
+        #print w_utestlist
+        for w_class in space.unpackiterable(w_utestlist): 
             w_name = space.getattr(w_class, space.wrap('__name__'))
             res.append((space.str_w(w_name), w_class ))
         res.sort()
