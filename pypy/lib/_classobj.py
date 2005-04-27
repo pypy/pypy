@@ -347,25 +347,34 @@ class instance(object):
             raise TypeError("__len__() should return an int")
 
     def __getitem__(self, key):
-        if isinstance(key, slice) and key.step is None:
-            func = instance_getattr1(self, '__getslice__', False)
-            if func:
-                return func(key.start, key.stop)
         return instance_getattr1(self, '__getitem__')(key)
 
     def __setitem__(self, key, value):
-        if isinstance(key, slice) and key.step is None:
-            func = instance_getattr1(self, '__setslice__', False)
-            if func:
-                func(key.start, key.stop, value)
         instance_getattr1(self, '__setitem__')(key, value)
 
     def __delitem__(self, key):
-        if isinstance(key, slice) and key.step is None:
-            func = instance_getattr1(self, '__delslice__', False)
-            if func:
-                func(key.start, key.stop)
         instance_getattr1(self, '__delitem__')(key)
+
+    def __getslice__(self, i, j):
+        func = instance_getattr1(self, '__getslice__', False)
+        if func:
+            return func(i, j)
+        else:
+            return self[i:j:]
+
+    def __setslice__(self, i, j, sequence):
+        func = instance_getattr1(self, '__setslice__', False)
+        if func:
+            func(i, j, sequence)
+        else:
+            self[i:j:] = sequence
+
+    def __delslice__(self, i, j):
+        func = instance_getattr1(self, '__delslice__', False)
+        if func:
+            func(i, j)
+        else:
+            del self[i:j:]
 
     def __contains__(self, obj):
         func = instance_getattr1(self, '__contains__', False)
