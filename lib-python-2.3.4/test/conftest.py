@@ -366,7 +366,7 @@ class TestDecl:
         self.enabled = enabled 
         self.testclass = testclass 
         self.modified = modified 
-        self.oldstyle = True 
+        self.oldstyle = oldstyle 
 
 testmap = {
     'test_MimeWriter.py'     : TestDecl(False, OutputTestModule),
