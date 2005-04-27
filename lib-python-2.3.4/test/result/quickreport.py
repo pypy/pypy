@@ -30,7 +30,7 @@ $""")
 r_timeout = re.compile(r"""==========================timeout==========================
 """)
 
-r_importerror = re.compile(r"ImportError: (\w+)")
+r_importerror = re.compile(r"ImportError: (.+)")
 
 # Linux list below.  May need to add a few ones for Windows...
 IGNORE_MODULES = """
@@ -42,15 +42,18 @@ IGNORE_MODULES = """
     cmath          grp            ossaudiodev  sha       _weakref
     cPickle        _hotshot       parser       _socket   xreadlines
     crypt          imageop        pcre         _ssl      zlib
-    cStringIO      itertools      pwd          strop
-    _csv           linuxaudiodev  pyexpat      struct
-    _curses_panel  _locale        _random      syslog
-    _curses        math           readline     termios
+    cStringIO      itertools      pwd          strop     _winreg
+    _csv           linuxaudiodev  pyexpat      struct    winsound
+    _curses_panel  _locale        _random      syslog    aetools
+    _curses        math           readline     termios   sunaudiodev
 
     thread
+    signal
 
 """.split()
 
+IGNORE_MODULES.append("no XML parsers available")
+IGNORE_MODULES.append("test_support must be imported from the test package")
 
 class Result:
     pts = '?'
@@ -80,6 +83,8 @@ class Result:
                 if module in IGNORE_MODULES:
                     self.pts = ''   # doesn't count in our total
             elif self.finalline.startswith('TestSkipped: '):
+                self.pts = ''
+            elif self.finalline == 'skipping curses':
                 self.pts = ''
         else:
             self.finalline = 'TIME OUT'
