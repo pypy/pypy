@@ -84,7 +84,7 @@ print
 
 
 files = mydir.listdir("*.txt")
-files.sort()
+files.sort(key=lambda x: str(x).lower())
 for fn in files:
     result = Result()
     try:
