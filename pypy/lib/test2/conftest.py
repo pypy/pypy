@@ -31,6 +31,7 @@ pypydir = py.path.local(pypy.__file__).dirpath()
 
 libtestdir = pypydir.dirpath('lib-python-2.3.4', 'test')
 libconftest = libtestdir.join('conftest.py').getpymodule()  # read())
+libconftest.option.extracttests = True
 
 testlist = None 
 doctestmodulelist = None
