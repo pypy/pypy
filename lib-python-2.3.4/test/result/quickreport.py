@@ -47,12 +47,16 @@ IGNORE_MODULES = """
     _curses_panel  _locale        _random      syslog    aetools
     _curses        math           readline     termios   sunaudiodev
 
+    bsddb185
+
     thread
     signal
 
 """.split()
 
+IGNORE_MODULES.extend("aepack".split())   # Mac ext stuff
 IGNORE_MODULES.extend("al cd cl".split()) # old SGI IRIX extensions
+
 
 IGNORE_MODULES.append("no XML parsers available")
 IGNORE_MODULES.append("test_support must be imported from the test package")
