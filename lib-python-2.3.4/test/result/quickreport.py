@@ -52,6 +52,8 @@ IGNORE_MODULES = """
 
 """.split()
 
+IGNORE_MODULES.extend("al cd cl".split()) # old SGI IRIX extensions
+
 IGNORE_MODULES.append("no XML parsers available")
 IGNORE_MODULES.append("test_support must be imported from the test package")
 
