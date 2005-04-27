@@ -26,7 +26,13 @@ option = py.test.Config.addoptions("compliance testing options",
     Option('-D', '--withdisabled', action="store_true", 
            default=False, dest="withdisabled", 
            help="include all disabled tests in the test run."), 
-)
+    Option('-E', '--extracttests', action="store_true", 
+           default=False, dest="extracttests", 
+           help="try to extract single tests and run them via py.test/PyPy"), 
+    Option('-T', '--timeout', action="store", type="int", 
+           default=15*60, dest="timeout", 
+           help="timeout running of a test module (default 15*60 seconds)"), 
+    ) 
 
 
 mydir = py.magic.autopath().dirpath()
@@ -91,7 +97,7 @@ def getmyspace():
     # we once and for all want to patch run_unittest 
     # to get us the list of intended unittest-TestClasses
     # from each regression test 
-    if w_utestlist is None: 
+    if w_utestlist is None and option.extracttests: 
         callex(space, hack_test_support, space) 
     return space 
 
@@ -176,6 +182,9 @@ class RunAppFileItem(py.test.Item, TestDeclMixin):
 
     def getfspath(self): 
         if self.parent.testdecl.modified: 
+            # we have to use a modified test ... (this could probably
+            # be done by just looking for the according test file 
+            # but i found this more explicit) 
             return pypydir.join('lib', 'test2', self.fspath.basename) 
         else: 
             return self.fspath # unmodified regrtest
@@ -727,8 +736,8 @@ testmap = {
 }
 
 class RegrDirectory(py.test.collect.Directory): 
-    """ A special collector for the compliance tests 
-        of CPython.  Basically we work off the above 'testmap' 
+    """ The central hub for gathering CPython's compliance tests
+        Basically we work off the above 'testmap' 
         which describes for all test modules their specific 
         type.  XXX If you find errors in the classification 
         please correct them! 
@@ -747,7 +756,82 @@ class RegrDirectory(py.test.collect.Directory):
         if name in self.testmap: 
             testdecl = self.testmap[name]
             fspath = self.fspath.join(name) 
-            return testdecl.testclass(fspath, parent=self, testdecl=testdecl) 
+            if option.extracttests:  
+                return testdecl.testclass(fspath, parent=self, testdecl=testdecl) 
+            else: 
+                return RunFileExternal(fspath, parent=self, testdecl=testdecl) 
 
 Directory = RegrDirectory
 
+
+def getrev(path): 
+    try: 
+        return py.path.svnwc(mydir).info().rev
+    except: 
+        return 'unknown'  # on windows people not always have 'svn' in their path
+
+class RunFileExternal(OpErrorModule): 
+    # a Module shows more nicely with the session reporting 
+    # (i know this needs to become nicer) 
+    def tryiter(self, stopitems=()): 
+        return []
+    def run(self): 
+        return ['pypy-ext']
+    def join(self, name): 
+        if name == 'pypy-ext': 
+            return ReallyRunFileExternal(name, parent=self, fspath=self.fspath) 
+
+class ReallyRunFileExternal(RunAppFileItem): 
+
+    def run(self): 
+        """ invoke a subprocess running the test file via PyPy. 
+            record its output into the 'result' subdirectory. 
+            (we might want to create subdirectories for 
+            each user, because we will probably all produce 
+            such result runs and they will not be the same
+            i am afraid. 
+        """ 
+        import os
+        import time
+        import socket
+        import getpass
+        fspath = self.getfspath() 
+        python = sys.executable 
+        pypy_dir = py.path.local(pypy.__file__).dirpath()
+        pypy_script = pypy_dir.join('interpreter', 'py.py')
+        alarm_script = pypy_dir.join('tool', 'alarm.py')
+        TIMEOUT = option.timeout 
+        cmd = "%s %s %d %s %s" %(python, alarm_script, TIMEOUT, pypy_script, fspath)
+        resultfilename = mydir.join('result', fspath.new(ext='.txt').basename)
+        resultfile = resultfilename.open('w')
+
+        try:
+            username = getpass.getuser()
+        except:
+            username = 'unknown' 
+        print >> resultfile, "command:", cmd
+        print >> resultfile, "run by: %s@%s" % (username, socket.gethostname())
+        print >> resultfile, "sys.platform:", sys.platform 
+        print >> resultfile, "sys.version_info:", sys.version_info 
+        print >> resultfile, "startdate:", time.ctime()
+        print >> resultfile, 'pypy-revision:', getrev(pypydir)
+        print >> resultfile, '='*60
+        print "executing", cmd 
+        starttime = time.time()
+        resultfile.close()
+
+        status = os.system("%s >>%s 2>&1" %(cmd, resultfilename) )
+        if os.WIFEXITED(status):
+            status = os.WEXITSTATUS(status)
+        else:
+            status = 'abnormal termination 0x%x' % status
+
+        resultfile = resultfilename.open('a')
+        print >> resultfile, '='*26, 'closed', '='*26
+        print >> resultfile, 'execution time:', time.time() - starttime, 'seconds'
+        print >> resultfile, 'exit status:', status
+        resultfile.close()
+        if status != 0:
+            time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
+        #print output 
+        assert status == 0, "exitstatus is %d" %(status,)
