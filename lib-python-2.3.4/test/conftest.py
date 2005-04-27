@@ -572,6 +572,9 @@ testmap = {
     'test_pep247.py'         : TestDecl(False, SimpleRunModule),
     'test_pep263.py'         : TestDecl(False, SimpleRunModule),
     'test_pep277.py'         : TestDecl(False, UTTestMainModule),
+        # XXX this test is _also_ an output test, damn it 
+        #     seems to be the only one that invokes run_unittest 
+        #     and is an unittest 
     'test_pickle.py'         : TestDecl(False, UTTestMainModule),
     'test_pickletools.py'    : TestDecl(False, SimpleRunModule),
     'test_pkg.py'            : TestDecl(False, OutputTestModule),
@@ -800,8 +803,12 @@ class ReallyRunFileExternal(RunAppFileItem):
         pypy_dir = py.path.local(pypy.__file__).dirpath()
         pypy_script = pypy_dir.join('interpreter', 'py.py')
         alarm_script = pypy_dir.join('tool', 'alarm.py')
+        pypy_options = []
+        if self.testdecl.oldstyle: 
+            pypy_options.append('--oldstyle') 
+        sopt = " ".join(pypy_options) 
         TIMEOUT = option.timeout 
-        cmd = "%s %s %d %s %s" %(python, alarm_script, TIMEOUT, pypy_script, fspath)
+        cmd = "%s %s %d %s %s %s" %(python, alarm_script, TIMEOUT, pypy_script, sopt, fspath)
         resultfilename = mydir.join('result', fspath.new(ext='.txt').basename)
         resultfile = resultfilename.open('w')
 
