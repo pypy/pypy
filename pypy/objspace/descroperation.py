@@ -1,4 +1,4 @@
-import operator
+import operator, sys
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root, BaseWrappable
 from pypy.interpreter.function import Function
@@ -180,14 +180,23 @@ class DescrOperation:
                    space.wrap("iterator has no next() method"))
         return space.get_and_call_function(w_descr, w_obj)
 
+    def _oldstyle_slice_range(space, w_key):
+        w_start = space.getattr(w_key, space.wrap('start'))
+        w_stop  = space.getattr(w_key, space.wrap('stop'))
+        if space.is_w(w_start, space.w_None):
+            w_start = space.wrap(0)
+        if space.is_w(w_stop, space.w_None):
+            w_stop = space.wrap(sys.maxint)
+        return w_start, w_stop
+
     def getitem(space, w_obj, w_key):
         if space.is_true(space.isinstance(w_key, space.w_slice)):
             if space.is_w(space.getattr(w_key, space.wrap('step')), space.w_None):
                 w_descr = space.lookup(w_obj, '__getslice__')
                 if w_descr is not None:
+                    w_start, w_stop = space._oldstyle_slice_range(w_key)
                     return space.get_and_call_function(w_descr, w_obj,
-                                                       space.getattr(w_key, space.wrap('start')),
-                                                       space.getattr(w_key, space.wrap('stop')))
+                                                       w_start, w_stop)
         w_descr = space.lookup(w_obj, '__getitem__')
         if w_descr is None:
             raise OperationError(space.w_TypeError,
@@ -199,9 +208,9 @@ class DescrOperation:
             if space.is_w(space.getattr(w_key, space.wrap('step')), space.w_None):
                 w_descr = space.lookup(w_obj, '__setslice__')
                 if w_descr is not None:
+                    w_start, w_stop = space._oldstyle_slice_range(w_key)
                     return space.get_and_call_function(w_descr, w_obj,
-                                                       space.getattr(w_key, space.wrap('start')),
-                                                       space.getattr(w_key, space.wrap('stop')),
+                                                       w_start, w_stop,
                                                        w_val)                    
         w_descr = space.lookup(w_obj, '__setitem__')
         if w_descr is None:
@@ -214,9 +223,9 @@ class DescrOperation:
             if space.is_w(space.getattr(w_key, space.wrap('step')), space.w_None):
                 w_descr = space.lookup(w_obj, '__delslice__')
                 if w_descr is not None:
+                    w_start, w_stop = space._oldstyle_slice_range(w_key)
                     return space.get_and_call_function(w_descr, w_obj,
-                                                       space.getattr(w_key, space.wrap('start')),
-                                                       space.getattr(w_key, space.wrap('stop')))
+                                                       w_start, w_stop)
         w_descr = space.lookup(w_obj, '__delitem__')
         if w_descr is None:
             raise OperationError(space.w_TypeError,

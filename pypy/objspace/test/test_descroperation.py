@@ -13,6 +13,56 @@ class AppTest_Descroperation:
         sq = Sq()
 
         assert sq[1:3] == (1,3)
+        import sys
+        assert sq[1:] == (1, sys.maxint)
+        assert sq[:3] == (0, 3)
+        assert sq[:] == (0, sys.maxint)
+
+    def test_setslice(self):
+        class Sq(object):
+            def __setslice__(self, start, stop, sequence):
+                ops.append((start, stop, sequence))
+
+            def __setitem__(self, key, value):
+                raise AssertionError, key
+
+        sq = Sq()
+        ops = []
+        sq[-5:3] = 'hello'
+        sq[12:] = 'world'
+        sq[:-1] = 'spam'
+        sq[:] = 'egg'
+
+        import sys
+        assert ops == [
+            (-5, 3,          'hello'),
+            (12, sys.maxint, 'world'),
+            (0,  -1,         'spam'),
+            (0,  sys.maxint, 'egg'),
+            ]
+
+    def test_delslice(self):
+        class Sq(object):
+            def __delslice__(self, start, stop):
+                ops.append((start, stop))
+
+            def __delitem__(self, key):
+                raise AssertionError, key
+
+        sq = Sq()
+        ops = []
+        del sq[5:-3]
+        del sq[-12:]
+        del sq[:1]
+        del sq[:]
+
+        import sys
+        assert ops == [
+            (5,   -3),
+            (-12, sys.maxint),
+            (0,   1),
+            (0,   sys.maxint),
+            ]
 
     def test_ipow(self):
         x = 2
