@@ -397,6 +397,32 @@ class RPythonAnnotator:
                                   if link.exitcase == s_exitswitch.const]
         knownvars, knownvarvalue = getattr(self.bindings.get(block.exitswitch),
                                           "knowntypedata", (None, None))
+        
+        if block.exitswitch == Constant(last_exception):
+            op = block.operations[-1]
+            if op.opname in annmodel.BINARY_OPERATIONS:
+                arg1 = self.binding(op.args[0])
+                arg2 = self.binding(op.args[1])
+                binop = getattr(pair(arg1, arg2), op.opname, None)
+                can_only_throw = getattr(binop, "can_only_throw", None)
+            elif op.opname in annmodel.UNARY_OPERATIONS:
+                arg1 = self.binding(op.args[0])
+                unop = getattr(arg1, op.opname, None)
+                can_only_throw = getattr(unop, "can_only_throw", None)
+            else:
+                can_only_throw = None
+            if can_only_throw is not None:
+                exits = [link
+                         for link in exits
+                         if link.exitcase is None
+                         or link.exitcase in can_only_throw ]
+                print can_only_throw
+                print exits
+                print len(exits)
+                for link in exits:
+                    print link, link.exitcase
+                print 100*"*"
+
         for link in exits:
             self.links_followed[link] = True
             import types

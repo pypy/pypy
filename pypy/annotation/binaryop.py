@@ -147,6 +147,14 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def coerce((obj1, obj2)):
         return pair(obj1, obj2).union()   # reasonable enough
 
+# cloning a function with identical code, for the can_only_throw attribute
+def _clone(f, can_only_throw = None):
+    newfunc = type(f)(f.func_code, f.func_globals, f.func_name,
+                      f.func_defaults, f.func_closure)
+    if can_only_throw is not None:
+        newfunc.can_only_throw = can_only_throw
+    return newfunc
+
 class __extend__(pairtype(SomeInteger, SomeInteger)):
     # unsignedness is considered a rare and contagious disease
 
@@ -156,30 +164,35 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
                            unsigned=unsigned)
                            
 
-    add = mul = div = floordiv = mod = or_ = xor = union
+    add = mul = or_ = xor = _clone(union, [])
+    div = floordiv = mod = _clone(union, [ZeroDivisionError])
 
     def truediv((int1, int2)):
         return SomeFloat()
+    truediv.can_only_throw = [ZeroDivisionError]
 
     def sub((int1, int2)):
         return SomeInteger(unsigned = int1.unsigned or int2.unsigned)
+    sub.can_only_throw = []
 
     def and_((int1, int2)):
         unsigned = int1.unsigned or int2.unsigned
         return SomeInteger(nonneg = unsigned or int1.nonneg or int2.nonneg,
                            unsigned = unsigned)
+    and_.can_only_throw = []
 
     def lshift((int1, int2)):
         if int1.unsigned:
             return SomeInteger(unsigned=True)
         return SomeInteger()
-
+    lshift.can_only_throw = []
     rshift = lshift
 
     def pow((int1, int2), obj3):
         if int1.unsigned or int2.unsigned or getattr(obj3, 'unsigned', False):
             return SomeInteger(unsigned=True)
         return SomeInteger()
+    pow.can_only_throw = [ZeroDivisionError]
 
 class __extend__(pairtype(SomeBool, SomeBool)):
 
