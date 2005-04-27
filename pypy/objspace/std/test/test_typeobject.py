@@ -155,6 +155,15 @@ class AppTestTypeObject:
         assert getattr(B_mro, 'a', None) == None
         assert getattr(B_mro(), 'a', None) == None
 
+    def test_abstract_mro(self):
+        class A1:
+            __metaclass__ = _classobj
+        class A2(A1):
+            pass
+        class A3(A2, object):
+            __metaclass__ = type
+        assert A3.__mro__ == (A3, A2, A1, object)
+
     def test_nodoc(self):
         class NoDoc(object):
             pass
