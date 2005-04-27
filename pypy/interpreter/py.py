@@ -55,6 +55,9 @@ def main_(argv=None):
     from pypy.tool import tb_server
     args = option.process_options(get_main_options(), Options, argv[1:])
     space = None
+    exit_status = 1   # until proven otherwise
+                      # XXX should review what CPython's policy is for
+                      # the exit status code
     try:
         space = option.objspace()
         space._starttime = starttime
@@ -77,6 +80,7 @@ def main_(argv=None):
                 space.call_method(space.sys.get('argv'), 'append', space.wrap(''))
                 go_interactive = 1
                 banner = None
+            exit_status = 0
         except error.OperationError, operationerr:
             if Options.verbose:
                 operationerr.print_detailed_traceback(space)
@@ -100,8 +104,10 @@ def main_(argv=None):
         else:
             sys.excepthook(exc_type, value, tb)
         tb_server.wait_until_interrupt()
+        exit_status = 1
             
     tb_server.stop()
+    return exit_status
 
 if __name__ == '__main__':
     try:
@@ -111,4 +117,4 @@ if __name__ == '__main__':
     if hasattr(sys, 'setrecursionlimit'):
         # for running "python -i py.py -Si -- py.py -Si" 
         sys.setrecursionlimit(3000)
-    main_(sys.argv)
+    sys.exit(main_(sys.argv))
