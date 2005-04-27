@@ -827,6 +827,7 @@ class ReallyRunFileExternal(RunAppFileItem):
         print >> resultfile, "run by: %s@%s" % (username, socket.gethostname())
         print >> resultfile, "sys.platform:", sys.platform 
         print >> resultfile, "sys.version_info:", sys.version_info 
+        print >> resultfile, "oldstyle:", self.testdecl.oldstyle and 'yes' or 'no'
         print >> resultfile, "startdate:", time.ctime()
         print >> resultfile, 'pypy-revision:', getrev(pypydir)
         if outputfilename:
