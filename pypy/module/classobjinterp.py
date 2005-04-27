@@ -30,6 +30,7 @@ def initclassobj(space):
                 w_1 = w_0
                 goto = 5
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_2, w_3 = e.w_type, e.w_value
                     goto = 2
@@ -134,7 +135,7 @@ def initclassobj(space):
     while True:
 
         if goto == 1:
-            w_0 = space.call_function(space.w_type, w_v)
+            w_0 = space.type(w_v)
             w_1 = space.getattr(w_0, gs___name__)
             w_2 = space.newtuple([w_arg, w_expected, w_1])
             w_3 = space.mod(gs_argument__s_must_be__s__not__s, w_2)
@@ -174,24 +175,28 @@ def initclassobj(space):
             v0 = space.is_true(w_0)
             if v0 == True:
                 w_cls_1, w_name_1 = w_cls, w_name
-                goto = 2
+                goto = 3
             else:
                 assert v0 == False
-                (w_etype, w_evalue) = (space.w_TypeError,
-                 gs___name___must_be_a_string_object)
-                goto = 3
+                goto = 2
 
         if goto == 2:
-            w_1 = space.getattr(gdescriptor_classobj__name, gs___set__)
-            w_2 = space.call_function(w_1, w_cls_1, w_name_1)
-            w_3 = space.w_None
+            w_1 = space.call_function(space.w_TypeError, gs___name___must_be_a_string_object)
+            w_2 = space.type(w_1)
+            w_etype, w_evalue = w_2, w_1
             goto = 4
 
         if goto == 3:
-            raise gOperationError(w_etype, w_evalue)
+            w_3 = space.getattr(gdescriptor_classobj__name, gs___set__)
+            w_4 = space.call_function(w_3, w_cls_1, w_name_1)
+            w_5 = space.w_None
+            goto = 5
 
         if goto == 4:
-            return w_3
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 5:
+            return w_5
 
   fastf_set_name = set_name
 
@@ -225,53 +230,62 @@ def initclassobj(space):
             v0 = space.is_true(w_0)
             if v0 == True:
                 w_cls_1, w_bases_1 = w_cls, w_bases
-                goto = 2
+                goto = 3
             else:
                 assert v0 == False
-                (w_etype, w_evalue) = (space.w_TypeError,
-                 gs___bases___must_be_a_tuple_object)
-                goto = 6
+                goto = 2
 
         if goto == 2:
-            w_1 = space.iter(w_bases_1)
-            w_cls_2, w_bases_2, w_2 = w_cls_1, w_bases_1, w_1
-            goto = 3
+            w_1 = space.call_function(space.w_TypeError, gs___bases___must_be_a_tuple_object)
+            w_2 = space.type(w_1)
+            w_etype, w_evalue = w_2, w_1
+            goto = 8
 
         if goto == 3:
-            try:
-                w_3 = space.next(w_2)
-                w_cls_3, w_bases_3, w_4, w_5 = w_cls_2, w_bases_2, w_2, w_3
-                goto = 4
-            except gOperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_StopIteration)):
-                    w_cls_4, w_bases_4 = w_cls_2, w_bases_2
-                    goto = 5
-                else:raise # unhandled case, should not happen
+            w_3 = space.iter(w_bases_1)
+            w_cls_2, w_bases_2, w_4 = w_cls_1, w_bases_1, w_3
+            goto = 4
 
         if goto == 4:
-            w_6 = space.isinstance(w_5, gcls_classobj)
-            v1 = space.is_true(w_6)
+            try:
+                w_5 = space.next(w_4)
+                w_cls_3, w_bases_3, w_6, w_7 = w_cls_2, w_bases_2, w_4, w_5
+                goto = 5
+            except gOperationError, e:
+                e.normalize_exception(space)
+                if space.is_true(space.issubtype(e.w_type, space.w_StopIteration)):
+                    w_cls_4, w_bases_4 = w_cls_2, w_bases_2
+                    goto = 7
+                else:raise # unhandled case, should not happen
+
+        if goto == 5:
+            w_8 = space.isinstance(w_7, gcls_classobj)
+            v1 = space.is_true(w_8)
             if v1 == True:
-                w_cls_2, w_bases_2, w_2 = w_cls_3, w_bases_3, w_4
-                goto = 3
+                w_cls_2, w_bases_2, w_4 = w_cls_3, w_bases_3, w_6
+                goto = 4
                 continue
             else:
                 assert v1 == False
-                (w_etype, w_evalue) = (space.w_TypeError,
-                 gs___bases___items_must_be_classes)
                 goto = 6
 
-        if goto == 5:
-            w_7 = space.getattr(gdescriptor_classobj__bases, gs___set__)
-            w_8 = space.call_function(w_7, w_cls_4, w_bases_4)
-            w_9 = space.w_None
-            goto = 7
-
         if goto == 6:
-            raise gOperationError(w_etype, w_evalue)
+            w_9 = space.call_function(space.w_TypeError, gs___bases___items_must_be_classes)
+            w_10 = space.type(w_9)
+            w_etype, w_evalue = w_10, w_9
+            goto = 8
 
         if goto == 7:
-            return w_9
+            w_11 = space.getattr(gdescriptor_classobj__bases, gs___set__)
+            w_12 = space.call_function(w_11, w_cls_4, w_bases_4)
+            w_13 = space.w_None
+            goto = 9
+
+        if goto == 8:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 9:
+            return w_13
 
   fastf_set_bases = set_bases
 
@@ -302,23 +316,27 @@ def initclassobj(space):
             v0 = space.is_true(w_0)
             if v0 == True:
                 w_1, w_2 = w_cls, w_dic
-                goto = 2
+                goto = 3
             else:
                 assert v0 == False
-                (w_etype, w_evalue) = (space.w_TypeError,
-                 gs___dict___must_be_a_dictionary_ob)
-                goto = 3
+                goto = 2
 
         if goto == 2:
-            w_3 = space.call_function(gdescriptor_object___setattr__, w_1, gs___dict__, w_2)
-            w_4 = space.w_None
+            w_3 = space.call_function(space.w_TypeError, gs___dict___must_be_a_dictionary_ob)
+            w_4 = space.type(w_3)
+            w_etype, w_evalue = w_4, w_3
             goto = 4
 
         if goto == 3:
-            raise gOperationError(w_etype, w_evalue)
+            w_5 = space.call_function(gdescriptor_object___setattr__, w_1, gs___dict__, w_2)
+            w_6 = space.w_None
+            goto = 5
 
         if goto == 4:
-            return w_4
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 5:
+            return w_6
 
   fastf_set_dict = set_dict
 
@@ -349,17 +367,53 @@ def initclassobj(space):
             try:
                 w_1 = space.getitem(w_0, w_attr)
                 w_2 = w_1
-                goto = 3
+                goto = 7
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_KeyError)):
-                    w_etype, w_evalue = space.w_AttributeError, w_attr
-                    goto = 2
+                    w_3 = w_attr
+                    goto = 3
                 else:raise # unhandled case, should not happen
 
         if goto == 2:
-            raise gOperationError(w_etype, w_evalue)
+            w_4 = space.call_function(space.w_AttributeError, )
+            w_5 = space.type(w_4)
+            w_etype, w_evalue = w_5, w_4
+            goto = 6
 
         if goto == 3:
+            w_6 = space.is_(w_3, space.w_None)
+            v0 = space.is_true(w_6)
+            if v0 == True:
+                goto = 2
+                continue
+            else:
+                assert v0 == False
+                w_7 = w_3
+                goto = 4
+
+        if goto == 4:
+            w_8 = space.type(w_7)
+            w_9 = space.issubtype(w_8, space.w_AttributeError)
+            v1 = space.is_true(w_9)
+            if v1 == True:
+                w_etype, w_evalue = w_8, w_7
+                goto = 6
+            else:
+                assert v1 == False
+                w_10 = w_7
+                goto = 5
+
+        if goto == 5:
+            w_11 = space.call_function(space.w_AttributeError, w_10)
+            w_12 = space.type(w_11)
+            w_etype, w_evalue = w_12, w_11
+            goto = 6
+
+        if goto == 6:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 7:
             return w_2
 
   fastf_retrieve = retrieve
@@ -391,6 +445,7 @@ def initclassobj(space):
                 w_1, w_2 = w_0, w_cls
                 goto = 2
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_cls_1, w_attr_1, w_3, w_4 = w_cls, w_attr, e.w_type, e.w_value
                     goto = 3
@@ -436,6 +491,7 @@ def initclassobj(space):
                 w_attr_5, w_16, w_17 = w_attr_4, w_14, w_15
                 goto = 7
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_StopIteration)):
                     w_6 = g2tuple_1
                     goto = 11
@@ -509,6 +565,7 @@ def initclassobj(space):
                 w_mod = w_0
                 goto = 3
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_1, w_2 = e.w_type, e.w_value
                     goto = 2
@@ -578,54 +635,92 @@ def initclassobj(space):
     while True:
 
         if goto == 1:
-            w_0 = space.call_function(space.w_type, w_v)
             try:
-                w_1 = space.getattr(w_0, gs___mro__)
-                w_name_1, w_2 = w_name, w_1
+                w_0 = space.type(w_v)
+                w_name_1, w_1 = w_name, w_0
                 goto = 2
             except gOperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_AttributeError)):
-                    w_3 = space.w_None
-                    goto = 6
+                e.normalize_exception(space)
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    w_2, w_3 = e.w_type, e.w_value
+                    goto = 3
                 else:raise # unhandled case, should not happen
 
         if goto == 2:
-            w_4 = space.iter(w_2)
-            w_name_2, w_5 = w_name_1, w_4
-            goto = 3
-
-        if goto == 3:
             try:
-                w_6 = space.next(w_5)
-                w_name_3, w_x, w_7 = w_name_2, w_6, w_5
-                goto = 4
+                w_4 = space.getattr(w_1, gs___mro__)
+                w_name_2, w_5 = w_name_1, w_4
+                goto = 5
             except gOperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_StopIteration)):
-                    w_3 = space.w_None
-                    goto = 6
+                e.normalize_exception(space)
+                if space.is_true(space.issubtype(e.w_type, space.w_AttributeError)):
+                    w_6 = space.w_None
+                    goto = 10
                 else:raise # unhandled case, should not happen
 
-        if goto == 4:
-            w_8 = space.getattr(w_x, gs___dict__)
-            w_9 = space.contains(w_8, w_name_3)
-            v0 = space.is_true(w_9)
+        if goto == 3:
+            w_7 = space.is_(w_2, space.w_AttributeError)
+            v0 = space.is_true(w_7)
             if v0 == True:
-                w_name_4, w_10 = w_name_3, w_x
-                goto = 5
+                w_6 = space.w_None
+                goto = 10
             else:
                 assert v0 == False
-                w_name_2, w_5 = w_name_3, w_7
-                goto = 3
-                continue
+                w_8, w_9 = w_2, w_3
+                goto = 4
+
+        if goto == 4:
+            w_10 = space.issubtype(w_8, space.w_AttributeError)
+            v1 = space.is_true(w_10)
+            if v1 == True:
+                w_6 = space.w_None
+                goto = 10
+            else:
+                assert v1 == False
+                w_etype, w_evalue = w_8, w_9
+                goto = 9
 
         if goto == 5:
-            w_11 = space.getattr(w_10, gs___dict__)
-            w_12 = space.getitem(w_11, w_name_4)
-            w_3 = w_12
+            w_11 = space.iter(w_5)
+            w_name_3, w_12 = w_name_2, w_11
             goto = 6
 
         if goto == 6:
-            return w_3
+            try:
+                w_13 = space.next(w_12)
+                w_name_4, w_x, w_14 = w_name_3, w_13, w_12
+                goto = 7
+            except gOperationError, e:
+                e.normalize_exception(space)
+                if space.is_true(space.issubtype(e.w_type, space.w_StopIteration)):
+                    w_6 = space.w_None
+                    goto = 10
+                else:raise # unhandled case, should not happen
+
+        if goto == 7:
+            w_15 = space.getattr(w_x, gs___dict__)
+            w_16 = space.contains(w_15, w_name_4)
+            v2 = space.is_true(w_16)
+            if v2 == True:
+                w_name_5, w_17 = w_name_4, w_x
+                goto = 8
+            else:
+                assert v2 == False
+                w_name_3, w_12 = w_name_4, w_14
+                goto = 6
+                continue
+
+        if goto == 8:
+            w_18 = space.getattr(w_17, gs___dict__)
+            w_19 = space.getitem(w_18, w_name_5)
+            w_6 = w_19
+            goto = 10
+
+        if goto == 9:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 10:
+            return w_6
 
   fastf_mro_lookup = mro_lookup
 
@@ -678,238 +773,302 @@ def initclassobj(space):
         if goto == 2:
             w_2 = fastf_type_err(space, gs_name, gs_string, w_1)
             w_3 = space.type(w_2)
-            w_etype, w_evalue = w_3, w_2
-            goto = 25
-
-        if goto == 3:
-            w_4 = space.is_(w_bases_1, space.w_None)
+            w_4 = space.issubtype(w_3, space.w_type)
             v1 = space.is_true(w_4)
             if v1 == True:
+                w_5 = w_2
+                goto = 6
+            else:
+                assert v1 == False
+                w_6 = w_2
+                goto = 5
+
+        if goto == 3:
+            w_7 = space.is_(w_bases_1, space.w_None)
+            v2 = space.is_true(w_7)
+            if v2 == True:
                 w_name_2, w_bases_2, w_dic_2 = w_name_1, g0tuple, w_dic_1
                 goto = 4
             else:
-                assert v1 == False
+                assert v2 == False
                 w_name_2, w_bases_2, w_dic_2 = w_name_1, w_bases_1, w_dic_1
                 goto = 4
 
         if goto == 4:
-            w_5 = space.isinstance(w_bases_2, space.w_tuple)
-            v2 = space.is_true(w_5)
-            if v2 == True:
-                w_name_3, w_bases_3, w_dic_3 = w_name_2, w_bases_2, w_dic_2
-                goto = 6
-            else:
-                assert v2 == False
-                w_6 = w_bases_2
-                goto = 5
-
-        if goto == 5:
-            w_7 = fastf_type_err(space, gs_bases, gs_tuple, w_6)
-            w_8 = space.type(w_7)
-            w_etype, w_evalue = w_8, w_7
-            goto = 25
-
-        if goto == 6:
-            w_9 = space.isinstance(w_dic_3, space.w_dict)
-            v3 = space.is_true(w_9)
+            w_8 = space.isinstance(w_bases_2, space.w_tuple)
+            v3 = space.is_true(w_8)
             if v3 == True:
-                w_name_4, w_bases_4, w_dic_4 = w_name_3, w_bases_3, w_dic_3
+                w_name_3, w_bases_3, w_dic_3 = w_name_2, w_bases_2, w_dic_2
                 goto = 8
             else:
                 assert v3 == False
-                w_10 = w_dic_3
+                w_9 = w_bases_2
                 goto = 7
 
-        if goto == 7:
-            w_11 = fastf_type_err(space, gs_dict, gs_dict, w_10)
+        if goto == 5:
+            w_10 = space.type(w_6)
+            w_etype, w_evalue = w_10, w_6
+            goto = 32
+
+        if goto == 6:
+            w_11 = space.call_function(w_5, )
             w_12 = space.type(w_11)
             w_etype, w_evalue = w_12, w_11
-            goto = 25
+            goto = 32
+
+        if goto == 7:
+            w_13 = fastf_type_err(space, gs_bases, gs_tuple, w_9)
+            w_14 = space.type(w_13)
+            w_15 = space.issubtype(w_14, space.w_type)
+            v4 = space.is_true(w_15)
+            if v4 == True:
+                w_16 = w_13
+                goto = 10
+            else:
+                assert v4 == False
+                w_17 = w_13
+                goto = 9
 
         if goto == 8:
-            try:
-                w_13 = space.getitem(w_dic_4, gs___doc__)
-                w_name_5, w_bases_5, w_dic_5 = w_name_4, w_bases_4, w_dic_4
-                goto = 10
-            except gOperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_KeyError)):
-                    w_name_6, w_bases_6, w_dic_6 = w_name_4, w_bases_4, w_dic_4
-                    goto = 9
-                else:raise # unhandled case, should not happen
+            w_18 = space.isinstance(w_dic_3, space.w_dict)
+            v5 = space.is_true(w_18)
+            if v5 == True:
+                w_name_4, w_bases_4, w_dic_4 = w_name_3, w_bases_3, w_dic_3
+                goto = 12
+            else:
+                assert v5 == False
+                w_19 = w_dic_3
+                goto = 11
 
         if goto == 9:
-            w_14 = space.setitem(w_dic_6, gs___doc__, space.w_None)
-            w_name_5, w_bases_5, w_dic_5 = w_name_6, w_bases_6, w_dic_6
-            goto = 10
+            w_20 = space.type(w_17)
+            w_etype, w_evalue = w_20, w_17
+            goto = 32
 
         if goto == 10:
-            try:
-                w_15 = space.getitem(w_dic_5, gs___module__)
-                w_name_7, w_bases_7, w_dic_7 = w_name_5, w_bases_5, w_dic_5
-                goto = 19
-            except gOperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_KeyError)):
-                    (w_name_8, w_bases_8, w_dic_8, w_i) = (w_name_5, w_bases_5,
-                     w_dic_5, gi_0)
-                    goto = 11
-                else:raise # unhandled case, should not happen
+            w_21 = space.call_function(w_16, )
+            w_22 = space.type(w_21)
+            w_etype, w_evalue = w_22, w_21
+            goto = 32
 
         if goto == 11:
-            try:
-                w_16 = space.call_function((space.sys.get(space.str_w(gs__getframe))), w_i)
-                (w_name_9, w_bases_9, w_dic_9, w_i_1, w_17) = (w_name_8,
-                 w_bases_8, w_dic_8, w_i, w_16)
-                goto = 12
-            except gOperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    (w_name_10, w_bases_10, w_dic_10, w_18, w_19) = (w_name_8,
-                     w_bases_8, w_dic_8, e.w_type, e.w_value)
-                    goto = 15
-                else:raise # unhandled case, should not happen
+            w_23 = fastf_type_err(space, gs_dict, gs_dict, w_19)
+            w_24 = space.type(w_23)
+            w_25 = space.issubtype(w_24, space.w_type)
+            v6 = space.is_true(w_25)
+            if v6 == True:
+                w_26 = w_23
+                goto = 16
+            else:
+                assert v6 == False
+                w_27 = w_23
+                goto = 15
 
         if goto == 12:
-            w_20 = space.getattr(w_17, gs_f_globals)
-            w_21 = space.getattr(w_20, gs_get)
             try:
-                w_22 = space.call_function(w_21, gs_OLD_STYLE_CLASSES_IMPL, space.w_None)
-                (w_name_11, w_bases_11, w_dic_11, w_g, w_i_2, w_23) = (w_name_9,
-                 w_bases_9, w_dic_9, w_20, w_i_1, w_22)
-                goto = 13
+                w_28 = space.getitem(w_dic_4, gs___doc__)
+                w_name_5, w_bases_5, w_dic_5 = w_name_4, w_bases_4, w_dic_4
+                goto = 14
             except gOperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
-                    (w_name_10, w_bases_10, w_dic_10, w_18, w_19) = (w_name_9,
-                     w_bases_9, w_dic_9, e.w_type, e.w_value)
-                    goto = 15
+                e.normalize_exception(space)
+                if space.is_true(space.issubtype(e.w_type, space.w_KeyError)):
+                    w_name_6, w_bases_6, w_dic_6 = w_name_4, w_bases_4, w_dic_4
+                    goto = 13
                 else:raise # unhandled case, should not happen
 
         if goto == 13:
-            w_24 = space.is_(w_23, g_object)
-            v4 = space.is_true(w_24)
-            if v4 == True:
-                (w_name_12, w_bases_12, w_dic_12, w_25) = (w_name_11, w_bases_11,
-                 w_dic_11, w_i_2)
-                goto = 14
-            else:
-                assert v4 == False
-                (w_name_13, w_bases_13, w_dic_13, w_26) = (w_name_11, w_bases_11,
-                 w_dic_11, w_g)
-                goto = 17
+            w_29 = space.setitem(w_dic_6, gs___doc__, space.w_None)
+            w_name_5, w_bases_5, w_dic_5 = w_name_6, w_bases_6, w_dic_6
+            goto = 14
 
         if goto == 14:
-            w_27 = space.inplace_add(w_25, gi_1)
-            (w_name_8, w_bases_8, w_dic_8, w_i) = (w_name_12, w_bases_12,
-             w_dic_12, w_27)
-            goto = 11
-            continue
-
-        if goto == 15:
-            w_28 = space.is_(w_18, space.w_ValueError)
-            v5 = space.is_true(w_28)
-            if v5 == True:
-                w_name_7, w_bases_7, w_dic_7 = w_name_10, w_bases_10, w_dic_10
-                goto = 19
-            else:
-                assert v5 == False
-                (w_name_14, w_bases_14, w_dic_14, w_29, w_30) = (w_name_10,
-                 w_bases_10, w_dic_10, w_18, w_19)
-                goto = 16
-
-        if goto == 16:
-            w_31 = space.issubtype(w_29, space.w_ValueError)
-            v6 = space.is_true(w_31)
-            if v6 == True:
-                w_name_7, w_bases_7, w_dic_7 = w_name_14, w_bases_14, w_dic_14
-                goto = 19
-            else:
-                assert v6 == False
-                w_etype, w_evalue = w_29, w_30
-                goto = 25
-
-        if goto == 17:
-            w_32 = space.getattr(w_26, gs_get)
-            w_33 = space.call_function(w_32, gs___name__, space.w_None)
-            w_34 = space.is_(w_33, space.w_None)
-            v7 = space.is_true(w_34)
-            if v7 == True:
-                w_name_7, w_bases_7, w_dic_7 = w_name_13, w_bases_13, w_dic_13
-                goto = 19
-            else:
-                assert v7 == False
-                (w_name_15, w_bases_15, w_dic_15, w_35) = (w_name_13, w_bases_13,
-                 w_dic_13, w_33)
-                goto = 18
-
-        if goto == 18:
-            w_36 = space.setitem(w_dic_15, gs___module__, w_35)
-            w_name_7, w_bases_7, w_dic_7 = w_name_15, w_bases_15, w_dic_15
-            goto = 19
-
-        if goto == 19:
-            w_37 = space.iter(w_bases_7)
-            (w_name_16, w_bases_16, w_dic_16, w_38) = (w_name_7, w_bases_7,
-             w_dic_7, w_37)
-            goto = 20
-
-        if goto == 20:
             try:
-                w_39 = space.next(w_38)
-                (w_name_17, w_bases_17, w_dic_17, w_b, w_40) = (w_name_16,
-                 w_bases_16, w_dic_16, w_39, w_38)
-                goto = 21
+                w_30 = space.getitem(w_dic_5, gs___module__)
+                w_name_7, w_bases_7, w_dic_7 = w_name_5, w_bases_5, w_dic_5
+                goto = 25
             except gOperationError, e:
-                if space.is_true(space.issubtype(e.w_type, space.w_StopIteration)):
-                    w_name_18, w_bases_18, w_dic_18 = w_name_16, w_bases_16, w_dic_16
-                    goto = 24
+                e.normalize_exception(space)
+                if space.is_true(space.issubtype(e.w_type, space.w_KeyError)):
+                    (w_name_8, w_bases_8, w_dic_8, w_i) = (w_name_5, w_bases_5,
+                     w_dic_5, gi_0)
+                    goto = 17
                 else:raise # unhandled case, should not happen
 
-        if goto == 21:
-            w_41 = space.isinstance(w_b, gcls_classobj)
-            v8 = space.is_true(w_41)
-            if v8 == True:
-                (w_name_16, w_bases_16, w_dic_16, w_38) = (w_name_17, w_bases_17,
-                 w_dic_17, w_40)
+        if goto == 15:
+            w_31 = space.type(w_27)
+            w_etype, w_evalue = w_31, w_27
+            goto = 32
+
+        if goto == 16:
+            w_32 = space.call_function(w_26, )
+            w_33 = space.type(w_32)
+            w_etype, w_evalue = w_33, w_32
+            goto = 32
+
+        if goto == 17:
+            try:
+                w_34 = space.call_function((space.sys.get(space.str_w(gs__getframe))), w_i)
+                (w_name_9, w_bases_9, w_dic_9, w_i_1, w_35) = (w_name_8,
+                 w_bases_8, w_dic_8, w_i, w_34)
+                goto = 18
+            except gOperationError, e:
+                e.normalize_exception(space)
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    (w_name_10, w_bases_10, w_dic_10, w_36, w_37) = (w_name_8,
+                     w_bases_8, w_dic_8, e.w_type, e.w_value)
+                    goto = 21
+                else:raise # unhandled case, should not happen
+
+        if goto == 18:
+            w_38 = space.getattr(w_35, gs_f_globals)
+            w_39 = space.getattr(w_38, gs_get)
+            try:
+                w_40 = space.call_function(w_39, gs_OLD_STYLE_CLASSES_IMPL, space.w_None)
+                (w_name_11, w_bases_11, w_dic_11, w_g, w_i_2, w_41) = (w_name_9,
+                 w_bases_9, w_dic_9, w_38, w_i_1, w_40)
+                goto = 19
+            except gOperationError, e:
+                e.normalize_exception(space)
+                if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
+                    (w_name_10, w_bases_10, w_dic_10, w_36, w_37) = (w_name_9,
+                     w_bases_9, w_dic_9, e.w_type, e.w_value)
+                    goto = 21
+                else:raise # unhandled case, should not happen
+
+        if goto == 19:
+            w_42 = space.is_(w_41, g_object)
+            v7 = space.is_true(w_42)
+            if v7 == True:
+                (w_name_12, w_bases_12, w_dic_12, w_43) = (w_name_11, w_bases_11,
+                 w_dic_11, w_i_2)
                 goto = 20
-                continue
+            else:
+                assert v7 == False
+                (w_name_13, w_bases_13, w_dic_13, w_44) = (w_name_11, w_bases_11,
+                 w_dic_11, w_g)
+                goto = 23
+
+        if goto == 20:
+            w_45 = space.inplace_add(w_43, gi_1)
+            (w_name_8, w_bases_8, w_dic_8, w_i) = (w_name_12, w_bases_12,
+             w_dic_12, w_45)
+            goto = 17
+            continue
+
+        if goto == 21:
+            w_46 = space.is_(w_36, space.w_ValueError)
+            v8 = space.is_true(w_46)
+            if v8 == True:
+                w_name_7, w_bases_7, w_dic_7 = w_name_10, w_bases_10, w_dic_10
+                goto = 25
             else:
                 assert v8 == False
-                (w_name_19, w_bases_19, w_dic_19, w_b_1) = (w_name_17, w_bases_17,
-                 w_dic_17, w_b)
+                (w_name_14, w_bases_14, w_dic_14, w_47, w_48) = (w_name_10,
+                 w_bases_10, w_dic_10, w_36, w_37)
                 goto = 22
 
         if goto == 22:
-            w_42 = space.call_function(space.w_type, w_b_1)
-            w_43 = space.call_function((space.builtin.get(space.str_w(gs_callable))), w_42)
-            v9 = space.is_true(w_43)
+            w_49 = space.issubtype(w_47, space.w_ValueError)
+            v9 = space.is_true(w_49)
             if v9 == True:
-                (w_name_20, w_bases_20, w_dic_20, w_44) = (w_name_19, w_bases_19,
-                 w_dic_19, w_b_1)
-                goto = 23
+                w_name_7, w_bases_7, w_dic_7 = w_name_14, w_bases_14, w_dic_14
+                goto = 25
             else:
                 assert v9 == False
-                w_etype, w_evalue = space.w_TypeError, gs_base_must_be_class
-                goto = 25
+                w_etype, w_evalue = w_47, w_48
+                goto = 32
 
         if goto == 23:
-            w_45 = space.call_function(space.w_type, w_44)
-            w_46 = space.call_function(w_45, w_name_20, w_bases_20, w_dic_20)
-            w_47 = w_46
-            goto = 26
+            w_50 = space.getattr(w_44, gs_get)
+            w_51 = space.call_function(w_50, gs___name__, space.w_None)
+            w_52 = space.is_(w_51, space.w_None)
+            v10 = space.is_true(w_52)
+            if v10 == True:
+                w_name_7, w_bases_7, w_dic_7 = w_name_13, w_bases_13, w_dic_13
+                goto = 25
+            else:
+                assert v10 == False
+                (w_name_15, w_bases_15, w_dic_15, w_53) = (w_name_13, w_bases_13,
+                 w_dic_13, w_51)
+                goto = 24
 
         if goto == 24:
-            w_48 = space.call_function(gbltinmethod___new__, gcls_classobj)
-            w_49 = space.call_function(gdescriptor_object___setattr__, w_48, gs___dict__, w_dic_18)
-            w_50 = space.getattr(gdescriptor_classobj__name, gs___set__)
-            w_51 = space.call_function(w_50, w_48, w_name_18)
-            w_52 = space.getattr(gdescriptor_classobj__bases, gs___set__)
-            w_53 = space.call_function(w_52, w_48, w_bases_18)
-            w_47 = w_48
-            goto = 26
+            w_54 = space.setitem(w_dic_15, gs___module__, w_53)
+            w_name_7, w_bases_7, w_dic_7 = w_name_15, w_bases_15, w_dic_15
+            goto = 25
 
         if goto == 25:
-            raise gOperationError(w_etype, w_evalue)
+            w_55 = space.iter(w_bases_7)
+            (w_name_16, w_bases_16, w_dic_16, w_56) = (w_name_7, w_bases_7,
+             w_dic_7, w_55)
+            goto = 26
 
         if goto == 26:
-            return w_47
+            try:
+                w_57 = space.next(w_56)
+                (w_name_17, w_bases_17, w_dic_17, w_b, w_58) = (w_name_16,
+                 w_bases_16, w_dic_16, w_57, w_56)
+                goto = 27
+            except gOperationError, e:
+                e.normalize_exception(space)
+                if space.is_true(space.issubtype(e.w_type, space.w_StopIteration)):
+                    w_name_18, w_bases_18, w_dic_18 = w_name_16, w_bases_16, w_dic_16
+                    goto = 31
+                else:raise # unhandled case, should not happen
+
+        if goto == 27:
+            w_59 = space.isinstance(w_b, gcls_classobj)
+            v11 = space.is_true(w_59)
+            if v11 == True:
+                (w_name_16, w_bases_16, w_dic_16, w_56) = (w_name_17, w_bases_17,
+                 w_dic_17, w_58)
+                goto = 26
+                continue
+            else:
+                assert v11 == False
+                (w_name_19, w_bases_19, w_dic_19, w_b_1) = (w_name_17, w_bases_17,
+                 w_dic_17, w_b)
+                goto = 28
+
+        if goto == 28:
+            w_60 = space.type(w_b_1)
+            w_61 = space.call_function((space.builtin.get(space.str_w(gs_callable))), w_60)
+            v12 = space.is_true(w_61)
+            if v12 == True:
+                (w_name_20, w_bases_20, w_dic_20, w_62) = (w_name_19, w_bases_19,
+                 w_dic_19, w_b_1)
+                goto = 29
+            else:
+                assert v12 == False
+                goto = 30
+
+        if goto == 29:
+            w_63 = space.type(w_62)
+            w_64 = space.call_function(w_63, w_name_20, w_bases_20, w_dic_20)
+            w_65 = w_64
+            goto = 33
+
+        if goto == 30:
+            w_66 = space.call_function(space.w_TypeError, gs_base_must_be_class)
+            w_67 = space.type(w_66)
+            w_etype, w_evalue = w_67, w_66
+            goto = 32
+
+        if goto == 31:
+            w_68 = space.call_function(gbltinmethod___new__, gcls_classobj)
+            w_69 = space.call_function(gdescriptor_object___setattr__, w_68, gs___dict__, w_dic_18)
+            w_70 = space.getattr(gdescriptor_classobj__name, gs___set__)
+            w_71 = space.call_function(w_70, w_68, w_name_18)
+            w_72 = space.getattr(gdescriptor_classobj__bases, gs___set__)
+            w_73 = space.call_function(w_72, w_68, w_bases_18)
+            w_65 = w_68
+            goto = 33
+
+        if goto == 32:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 33:
+            return w_65
 
   fastf___new__ = __new__
 
@@ -1084,7 +1243,7 @@ def initclassobj(space):
         if goto == 2:
             w_2 = space.call_function(gdescriptor_object___getattribute__, w_1, gs___dict__)
             w_3 = w_2
-            goto = 13
+            goto = 16
 
         if goto == 3:
             w_4 = space.eq(w_attr_1, gs___name__)
@@ -1101,7 +1260,7 @@ def initclassobj(space):
             w_5 = space.getattr(gdescriptor_classobj__name, gs___get__)
             w_6 = space.call_function(w_5, w_self_2)
             w_3 = w_6
-            goto = 13
+            goto = 16
 
         if goto == 5:
             w_7 = space.eq(w_attr_2, gs___bases__)
@@ -1118,7 +1277,7 @@ def initclassobj(space):
             w_8 = space.getattr(gdescriptor_classobj__bases, gs___get__)
             w_9 = space.call_function(w_8, w_self_4)
             w_3 = w_9
-            goto = 13
+            goto = 16
 
         if goto == 7:
             w_10 = space.getitem(w_11, gi_0)
@@ -1144,36 +1303,66 @@ def initclassobj(space):
             else:
                 assert v4 == False
                 w_etype, w_evalue = space.w_ValueError, space.w_None
-                goto = 12
+                goto = 15
 
         if goto == 9:
             w_17 = space.getattr(w_13, gs___name__)
             w_18 = space.newtuple([w_17, w_attr_5])
             w_19 = space.mod(gs_class__s_has_no_attribute__s, w_18)
-            w_etype, w_evalue = space.w_AttributeError, w_19
-            goto = 12
-
-        if goto == 10:
-            w_20 = fastf_mro_lookup(space, w_v, gs___get__)
-            w_21 = space.is_(w_20, space.w_None)
-            v5 = space.is_true(w_21)
+            w_20 = space.is_(w_19, space.w_None)
+            v5 = space.is_true(w_20)
             if v5 == True:
-                w_3 = w_v
-                goto = 13
+                goto = 11
             else:
                 assert v5 == False
-                w_22, w_23, w_24 = w_20, w_v, w_self_7
-                goto = 11
+                w_21 = w_19
+                goto = 13
+
+        if goto == 10:
+            w_22 = fastf_mro_lookup(space, w_v, gs___get__)
+            w_23 = space.is_(w_22, space.w_None)
+            v6 = space.is_true(w_23)
+            if v6 == True:
+                w_3 = w_v
+                goto = 16
+            else:
+                assert v6 == False
+                w_24, w_25, w_26 = w_22, w_v, w_self_7
+                goto = 12
 
         if goto == 11:
-            w_25 = space.call_function(w_22, w_23, space.w_None, w_24)
-            w_3 = w_25
-            goto = 13
+            w_27 = space.call_function(space.w_AttributeError, )
+            w_28 = space.type(w_27)
+            w_etype, w_evalue = w_28, w_27
+            goto = 15
 
         if goto == 12:
-            raise gOperationError(w_etype, w_evalue)
+            w_29 = space.call_function(w_24, w_25, space.w_None, w_26)
+            w_3 = w_29
+            goto = 16
 
         if goto == 13:
+            w_30 = space.type(w_21)
+            w_31 = space.issubtype(w_30, space.w_AttributeError)
+            v7 = space.is_true(w_31)
+            if v7 == True:
+                w_etype, w_evalue = w_30, w_21
+                goto = 15
+            else:
+                assert v7 == False
+                w_32 = w_21
+                goto = 14
+
+        if goto == 14:
+            w_33 = space.call_function(space.w_AttributeError, w_32)
+            w_34 = space.type(w_33)
+            w_etype, w_evalue = w_34, w_33
+            goto = 15
+
+        if goto == 15:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 16:
             return w_3
 
   fastf_classobj___getattribute__ = __getattribute__
@@ -1304,7 +1493,7 @@ def initclassobj(space):
             else:
                 assert v0 == False
                 w_7 = w_0
-                goto = 5
+                goto = 7
 
         if goto == 2:
             _args = gateway.Arguments.fromshape(space, (0, (), True, True), [w_5, w_6])
@@ -1313,20 +1502,39 @@ def initclassobj(space):
             v1 = space.is_true(w_9)
             if v1 == True:
                 w_7 = w_inst
-                goto = 5
+                goto = 7
             else:
                 assert v1 == False
                 goto = 3
 
         if goto == 3:
             w_10 = space.call_function(space.w_TypeError, gs___init_____should_return_None)
-            w_etype, w_evalue = space.w_TypeError, w_10
-            goto = 4
+            w_11 = space.type(w_10)
+            w_12 = space.issubtype(w_11, space.w_type)
+            v2 = space.is_true(w_12)
+            if v2 == True:
+                w_13 = w_10
+                goto = 5
+            else:
+                assert v2 == False
+                w_14 = w_10
+                goto = 4
 
         if goto == 4:
-            raise gOperationError(w_etype, w_evalue)
+            w_15 = space.type(w_14)
+            w_etype, w_evalue = w_15, w_14
+            goto = 6
 
         if goto == 5:
+            w_16 = space.call_function(w_13, )
+            w_17 = space.type(w_16)
+            w_etype, w_evalue = w_17, w_16
+            goto = 6
+
+        if goto == 6:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 7:
             return w_7
 
   fastf_classobj___call__ = __call__
@@ -1367,7 +1575,7 @@ def initclassobj(space):
         if goto == 2:
             w_3 = space.call_function(gdescriptor_object___getattribute__, w_1, w_2)
             w_4 = w_3
-            goto = 15
+            goto = 18
 
         if goto == 3:
             w_5 = space.eq(w_name_1, gs___class__)
@@ -1384,7 +1592,7 @@ def initclassobj(space):
             w_6 = space.getattr(gdescriptor_instance__class, gs___get__)
             w_7 = space.call_function(w_6, w_inst_2)
             w_4 = w_7
-            goto = 15
+            goto = 18
 
         if goto == 5:
             w_8 = space.issubtype(w_9, space.w_AttributeError)
@@ -1395,14 +1603,15 @@ def initclassobj(space):
             else:
                 assert v2 == False
                 w_etype, w_evalue = w_9, w_10
-                goto = 14
+                goto = 17
 
         if goto == 6:
             try:
                 w_11 = fastf_retrieve(space, w_inst_3, w_name_2)
                 w_4 = w_11
-                goto = 15
+                goto = 18
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     (w_inst_6, w_name_5, w_exc_5, w_12, w_13) = (w_inst_3, w_name_2,
                      w_exc_2, e.w_type, e.w_value)
@@ -1436,7 +1645,7 @@ def initclassobj(space):
             else:
                 assert v4 == False
                 w_etype, w_evalue = space.w_ValueError, space.w_None
-                goto = 14
+                goto = 17
 
         if goto == 9:
             w_21 = space.getitem(w_20, gi_0)
@@ -1444,7 +1653,7 @@ def initclassobj(space):
             v5 = space.is_true(w_22)
             if v5 == True:
                 w_inst_8, w_v, w_cls_1 = w_inst_7, w_21, w_cls
-                goto = 12
+                goto = 15
             else:
                 assert v5 == False
                 w_name_7, w_cls_2, w_23 = w_name_6, w_cls, w_exc_6
@@ -1458,36 +1667,66 @@ def initclassobj(space):
             else:
                 assert v6 == False
                 w_4 = space.w_None
-                goto = 15
+                goto = 18
 
         if goto == 11:
             w_25 = space.getattr(w_24, gs___name__)
             w_26 = space.newtuple([w_25, w_name_8])
             w_27 = space.mod(gs__s_instance_has_no_attribute__s, w_26)
-            w_etype, w_evalue = space.w_AttributeError, w_27
-            goto = 14
-
-        if goto == 12:
-            w_28 = fastf_mro_lookup(space, w_v, gs___get__)
-            w_29 = space.is_(w_28, space.w_None)
-            v7 = space.is_true(w_29)
+            w_28 = space.is_(w_27, space.w_None)
+            v7 = space.is_true(w_28)
             if v7 == True:
-                w_4 = w_v
-                goto = 15
+                goto = 12
             else:
                 assert v7 == False
-                w_30, w_31, w_32, w_33 = w_28, w_v, w_inst_8, w_cls_1
+                w_29 = w_27
                 goto = 13
 
+        if goto == 12:
+            w_30 = space.call_function(space.w_AttributeError, )
+            w_31 = space.type(w_30)
+            w_etype, w_evalue = w_31, w_30
+            goto = 17
+
         if goto == 13:
-            w_34 = space.call_function(w_30, w_31, w_32, w_33)
-            w_4 = w_34
-            goto = 15
+            w_32 = space.type(w_29)
+            w_33 = space.issubtype(w_32, space.w_AttributeError)
+            v8 = space.is_true(w_33)
+            if v8 == True:
+                w_etype, w_evalue = w_32, w_29
+                goto = 17
+            else:
+                assert v8 == False
+                w_34 = w_29
+                goto = 14
 
         if goto == 14:
-            raise gOperationError(w_etype, w_evalue)
+            w_35 = space.call_function(space.w_AttributeError, w_34)
+            w_36 = space.type(w_35)
+            w_etype, w_evalue = w_36, w_35
+            goto = 17
 
         if goto == 15:
+            w_37 = fastf_mro_lookup(space, w_v, gs___get__)
+            w_38 = space.is_(w_37, space.w_None)
+            v9 = space.is_true(w_38)
+            if v9 == True:
+                w_4 = w_v
+                goto = 18
+            else:
+                assert v9 == False
+                w_39, w_40, w_41, w_42 = w_37, w_v, w_inst_8, w_cls_1
+                goto = 16
+
+        if goto == 16:
+            w_43 = space.call_function(w_39, w_40, w_41, w_42)
+            w_4 = w_43
+            goto = 18
+
+        if goto == 17:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 18:
             return w_4
 
   fastf_instance_getattr1 = instance_getattr1
@@ -1519,6 +1758,7 @@ def initclassobj(space):
                 w_1 = w_0
                 goto = 7
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     (w_self_1, w_name_1, w_2, w_3) = (w_self, w_name, e.w_type,
                      e.w_value)
@@ -1607,53 +1847,91 @@ def initclassobj(space):
 
         if goto == 2:
             w_1 = space.call_function(space.w_TypeError, gs_instance___first_arg_must_be_cla)
-            w_etype, w_evalue = space.w_TypeError, w_1
-            goto = 8
+            w_2 = space.type(w_1)
+            w_3 = space.issubtype(w_2, space.w_type)
+            v1 = space.is_true(w_3)
+            if v1 == True:
+                w_4 = w_1
+                goto = 6
+            else:
+                assert v1 == False
+                w_5 = w_1
+                goto = 5
 
         if goto == 3:
-            w_2 = space.is_(w_dic_1, space.w_None)
-            v1 = space.is_true(w_2)
-            if v1 == True:
+            w_6 = space.is_(w_dic_1, space.w_None)
+            v2 = space.is_true(w_6)
+            if v2 == True:
                 w_klass_2 = w_klass_1
                 goto = 4
             else:
-                assert v1 == False
+                assert v2 == False
                 w_klass_3, w_dic_2 = w_klass_1, w_dic_1
-                goto = 5
+                goto = 7
 
         if goto == 4:
-            w_3 = space.newdict([])
-            w_klass_4, w_dic_3 = w_klass_2, w_3
-            goto = 7
-
-        if goto == 5:
-            w_4 = space.isinstance(w_dic_2, space.w_dict)
-            v2 = space.is_true(w_4)
-            if v2 == True:
-                w_klass_4, w_dic_3 = w_klass_3, w_dic_2
-                goto = 7
-            else:
-                assert v2 == False
-                goto = 6
-
-        if goto == 6:
-            w_5 = space.call_function(space.w_TypeError, gs_instance___second_arg_must_be_di)
-            w_etype, w_evalue = space.w_TypeError, w_5
-            goto = 8
-
-        if goto == 7:
-            w_6 = space.call_function(gbltinmethod___new__, gcls_instance)
-            w_7 = space.getattr(gdescriptor_instance__class, gs___set__)
-            w_8 = space.call_function(w_7, w_6, w_klass_4)
-            w_9 = space.call_function(gdescriptor_object___setattr__, w_6, gs___dict__, w_dic_3)
-            w_10 = w_6
+            w_7 = space.newdict([])
+            w_klass_4, w_dic_3 = w_klass_2, w_7
             goto = 9
 
+        if goto == 5:
+            w_8 = space.type(w_5)
+            w_etype, w_evalue = w_8, w_5
+            goto = 12
+
+        if goto == 6:
+            w_9 = space.call_function(w_4, )
+            w_10 = space.type(w_9)
+            w_etype, w_evalue = w_10, w_9
+            goto = 12
+
+        if goto == 7:
+            w_11 = space.isinstance(w_dic_2, space.w_dict)
+            v3 = space.is_true(w_11)
+            if v3 == True:
+                w_klass_4, w_dic_3 = w_klass_3, w_dic_2
+                goto = 9
+            else:
+                assert v3 == False
+                goto = 8
+
         if goto == 8:
-            raise gOperationError(w_etype, w_evalue)
+            w_12 = space.call_function(space.w_TypeError, gs_instance___second_arg_must_be_di)
+            w_13 = space.type(w_12)
+            w_14 = space.issubtype(w_13, space.w_type)
+            v4 = space.is_true(w_14)
+            if v4 == True:
+                w_15 = w_12
+                goto = 11
+            else:
+                assert v4 == False
+                w_16 = w_12
+                goto = 10
 
         if goto == 9:
-            return w_10
+            w_17 = space.call_function(gbltinmethod___new__, gcls_instance)
+            w_18 = space.getattr(gdescriptor_instance__class, gs___set__)
+            w_19 = space.call_function(w_18, w_17, w_klass_4)
+            w_20 = space.call_function(gdescriptor_object___setattr__, w_17, gs___dict__, w_dic_3)
+            w_21 = w_17
+            goto = 13
+
+        if goto == 10:
+            w_22 = space.type(w_16)
+            w_etype, w_evalue = w_22, w_16
+            goto = 12
+
+        if goto == 11:
+            w_23 = space.call_function(w_15, )
+            w_24 = space.type(w_23)
+            w_etype, w_evalue = w_24, w_23
+            goto = 12
+
+        if goto == 12:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 13:
+            return w_21
 
   fastf___new___1 = __new__
 
@@ -1702,75 +1980,113 @@ def initclassobj(space):
 
         if goto == 3:
             w_4 = space.call_function(space.w_TypeError, gs___dict___must_be_set_to_a_dictio)
-            w_etype, w_evalue = space.w_TypeError, w_4
-            goto = 12
+            w_5 = space.type(w_4)
+            w_6 = space.issubtype(w_5, space.w_type)
+            v2 = space.is_true(w_6)
+            if v2 == True:
+                w_7 = w_4
+                goto = 10
+            else:
+                assert v2 == False
+                w_8 = w_4
+                goto = 9
 
         if goto == 4:
-            w_5 = space.call_function(gdescriptor_object___setattr__, w_2, gs___dict__, w_3)
-            w_6 = space.w_None
-            goto = 13
+            w_9 = space.call_function(gdescriptor_object___setattr__, w_2, gs___dict__, w_3)
+            w_10 = space.w_None
+            goto = 17
 
         if goto == 5:
-            w_7 = space.eq(w_name_1, gs___class__)
-            v2 = space.is_true(w_7)
-            if v2 == True:
+            w_11 = space.eq(w_name_1, gs___class__)
+            v3 = space.is_true(w_11)
+            if v3 == True:
                 w_self_3, w_value_3 = w_self_2, w_value_2
                 goto = 6
             else:
-                assert v2 == False
+                assert v3 == False
                 w_self_4, w_name_2, w_value_4 = w_self_2, w_name_1, w_value_2
-                goto = 9
+                goto = 13
 
         if goto == 6:
-            w_8 = space.isinstance(w_value_3, gcls_classobj)
-            v3 = space.is_true(w_8)
-            if v3 == True:
+            w_12 = space.isinstance(w_value_3, gcls_classobj)
+            v4 = space.is_true(w_12)
+            if v4 == True:
                 w_self_5, w_value_5 = w_self_3, w_value_3
                 goto = 8
             else:
-                assert v3 == False
+                assert v4 == False
                 goto = 7
 
         if goto == 7:
-            w_9 = space.call_function(space.w_TypeError, gs___class___must_be_set_to_a_class)
-            w_etype, w_evalue = space.w_TypeError, w_9
-            goto = 12
+            w_13 = space.call_function(space.w_TypeError, gs___class___must_be_set_to_a_class)
+            w_14 = space.type(w_13)
+            w_15 = space.issubtype(w_14, space.w_type)
+            v5 = space.is_true(w_15)
+            if v5 == True:
+                w_16 = w_13
+                goto = 12
+            else:
+                assert v5 == False
+                w_17 = w_13
+                goto = 11
 
         if goto == 8:
-            w_10 = space.getattr(gdescriptor_instance__class, gs___set__)
-            w_11 = space.call_function(w_10, w_self_5, w_value_5)
-            w_6 = space.w_None
-            goto = 13
+            w_18 = space.getattr(gdescriptor_instance__class, gs___set__)
+            w_19 = space.call_function(w_18, w_self_5, w_value_5)
+            w_10 = space.w_None
+            goto = 17
 
         if goto == 9:
-            _args = gateway.Arguments.fromshape(space, (2, ('exc',), False, False), [w_self_4, gs___setattr__, space.w_False])
-            w_12 = space.call_args(gfunc_instance_getattr1, _args)
-            w_13 = space.is_(w_12, space.w_None)
-            v4 = space.is_true(w_13)
-            if v4 == True:
-                w_name_3, w_14, w_15 = w_name_2, w_value_4, w_self_4
-                goto = 11
-            else:
-                assert v4 == False
-                w_16, w_17, w_18 = w_12, w_name_2, w_value_4
-                goto = 10
+            w_20 = space.type(w_8)
+            w_etype, w_evalue = w_20, w_8
+            goto = 16
 
         if goto == 10:
-            w_19 = space.call_function(w_16, w_17, w_18)
-            w_6 = space.w_None
-            goto = 13
+            w_21 = space.call_function(w_7, )
+            w_22 = space.type(w_21)
+            w_etype, w_evalue = w_22, w_21
+            goto = 16
 
         if goto == 11:
-            w_20 = space.getattr(w_15, gs___dict__)
-            w_21 = space.setitem(w_20, w_name_3, w_14)
-            w_6 = space.w_None
-            goto = 13
+            w_23 = space.type(w_17)
+            w_etype, w_evalue = w_23, w_17
+            goto = 16
 
         if goto == 12:
-            raise gOperationError(w_etype, w_evalue)
+            w_24 = space.call_function(w_16, )
+            w_25 = space.type(w_24)
+            w_etype, w_evalue = w_25, w_24
+            goto = 16
 
         if goto == 13:
-            return w_6
+            _args = gateway.Arguments.fromshape(space, (2, ('exc',), False, False), [w_self_4, gs___setattr__, space.w_False])
+            w_26 = space.call_args(gfunc_instance_getattr1, _args)
+            w_27 = space.is_(w_26, space.w_None)
+            v6 = space.is_true(w_27)
+            if v6 == True:
+                w_name_3, w_28, w_29 = w_name_2, w_value_4, w_self_4
+                goto = 15
+            else:
+                assert v6 == False
+                w_30, w_31, w_32 = w_26, w_name_2, w_value_4
+                goto = 14
+
+        if goto == 14:
+            w_33 = space.call_function(w_30, w_31, w_32)
+            w_10 = space.w_None
+            goto = 17
+
+        if goto == 15:
+            w_34 = space.getattr(w_29, gs___dict__)
+            w_35 = space.setitem(w_34, w_name_3, w_28)
+            w_10 = space.w_None
+            goto = 17
+
+        if goto == 16:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 17:
+            return w_10
 
   fastf_instance___setattr__ = __setattr__
 
@@ -1810,7 +2126,7 @@ def initclassobj(space):
         if goto == 2:
             w_3 = fastf_instance___setattr__(space, w_1, w_2, space.w_None)
             w_4 = space.w_None
-            goto = 8
+            goto = 10
 
         if goto == 3:
             _args = gateway.Arguments.fromshape(space, (2, ('exc',), False, False), [w_self_1, gs___delattr__, space.w_False])
@@ -1828,15 +2144,16 @@ def initclassobj(space):
         if goto == 4:
             w_9 = space.call_function(w_7, w_8)
             w_4 = space.w_None
-            goto = 8
+            goto = 10
 
         if goto == 5:
             w_10 = space.getattr(w_self_2, gs___dict__)
             try:
                 w_11 = space.delitem(w_10, w_name_2)
                 w_4 = space.w_None
-                goto = 8
+                goto = 10
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_KeyError)):
                     w_name_3, w_12 = w_name_2, w_self_2
                     goto = 6
@@ -1848,13 +2165,32 @@ def initclassobj(space):
             w_15 = space.newtuple([w_14, w_name_3])
             w_16 = space.mod(gs__s_instance_has_no_attribute___s, w_15)
             w_17 = space.call_function(space.w_AttributeError, w_16)
-            w_etype, w_evalue = space.w_AttributeError, w_17
-            goto = 7
+            w_18 = space.type(w_17)
+            w_19 = space.issubtype(w_18, space.w_type)
+            v2 = space.is_true(w_19)
+            if v2 == True:
+                w_20 = w_17
+                goto = 8
+            else:
+                assert v2 == False
+                w_21 = w_17
+                goto = 7
 
         if goto == 7:
-            raise gOperationError(w_etype, w_evalue)
+            w_22 = space.type(w_21)
+            w_etype, w_evalue = w_22, w_21
+            goto = 9
 
         if goto == 8:
+            w_23 = space.call_function(w_20, )
+            w_24 = space.type(w_23)
+            w_etype, w_evalue = w_24, w_23
+            goto = 9
+
+        if goto == 9:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 10:
             return w_4
 
   fastf_instance___delattr__ = __delattr__
@@ -1886,6 +2222,7 @@ def initclassobj(space):
                 w_1 = w_0
                 goto = 4
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_self_1, w_2, w_3 = w_self, e.w_type, e.w_value
                     goto = 2
@@ -1961,6 +2298,7 @@ def initclassobj(space):
                 w_1 = w_0
                 goto = 4
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_self_1, w_2, w_3 = w_self, e.w_type, e.w_value
                     goto = 2
@@ -2035,82 +2373,111 @@ def initclassobj(space):
             w_2 = space.call_function(gfunc_instance_getattr1, w_self, gs___hash__, space.w_False)
             v0 = space.is_true(w_0)
             if v0 == True:
-                w_self_1, w__hash, w_3 = w_self, w_2, w_0
-                goto = 2
+                w_self_1, w__hash = w_self, w_2
+                goto = 3
             else:
                 assert v0 == False
-                w_self_1, w__hash, w_3 = w_self, w_2, w_1
+                w_self_2, w__hash_1, w_3 = w_self, w_2, w_1
                 goto = 2
 
         if goto == 2:
             v1 = space.is_true(w_3)
             if v1 == True:
-                w_self_2, w__hash_1 = w_self_1, w__hash
+                w_self_1, w__hash = w_self_2, w__hash_1
                 goto = 3
             else:
                 assert v1 == False
-                w_self_3, w__hash_2, w_4 = w_self_1, w__hash, w_3
-                goto = 4
+                w_self_3, w__hash_2 = w_self_2, w__hash_1
+                goto = 5
 
         if goto == 3:
-            v2 = space.is_true(w__hash_1)
+            v2 = space.is_true(w__hash)
             if v2 == True:
-                w_self_4, w__hash_3 = w_self_2, w__hash_1
-                goto = 6
+                w_self_3, w__hash_2 = w_self_1, w__hash
+                goto = 5
             else:
                 assert v2 == False
-                goto = 5
+                goto = 4
 
         if goto == 4:
-            v3 = space.is_true(w_4)
+            w_4 = space.call_function(space.w_TypeError, gs_unhashable_instance)
+            w_5 = space.type(w_4)
+            w_6 = space.issubtype(w_5, space.w_type)
+            v3 = space.is_true(w_6)
             if v3 == True:
-                goto = 5
+                w_7 = w_4
+                goto = 8
             else:
                 assert v3 == False
-                w_self_4, w__hash_3 = w_self_3, w__hash_2
-                goto = 6
+                w_8 = w_4
+                goto = 7
 
         if goto == 5:
-            w_5 = space.call_function(space.w_TypeError, gs_unhashable_instance)
-            w_etype, w_evalue = space.w_TypeError, w_5
-            goto = 10
-
-        if goto == 6:
-            v4 = space.is_true(w__hash_3)
+            v4 = space.is_true(w__hash_2)
             if v4 == True:
-                w_6 = w__hash_3
-                goto = 7
+                w_9 = w__hash_2
+                goto = 6
             else:
                 assert v4 == False
-                w_7 = w_self_4
+                w_10 = w_self_3
+                goto = 12
+
+        if goto == 6:
+            w_11 = space.call_function(w_9, )
+            w_12 = space.isinstance(w_11, space.w_int)
+            v5 = space.is_true(w_12)
+            if v5 == True:
+                w_13 = w_11
+                goto = 14
+            else:
+                assert v5 == False
                 goto = 9
 
         if goto == 7:
-            w_8 = space.call_function(w_6, )
-            w_9 = space.isinstance(w_8, space.w_int)
-            v5 = space.is_true(w_9)
-            if v5 == True:
-                w_10 = w_8
-                goto = 11
-            else:
-                assert v5 == False
-                goto = 8
+            w_14 = space.type(w_8)
+            w_etype, w_evalue = w_14, w_8
+            goto = 13
 
         if goto == 8:
-            w_11 = space.call_function(space.w_TypeError, gs___hash_____should_return_an_int)
-            w_etype, w_evalue = space.w_TypeError, w_11
-            goto = 10
+            w_15 = space.call_function(w_7, )
+            w_16 = space.type(w_15)
+            w_etype, w_evalue = w_16, w_15
+            goto = 13
 
         if goto == 9:
-            w_12 = space.id(w_7)
-            w_10 = w_12
-            goto = 11
+            w_17 = space.call_function(space.w_TypeError, gs___hash_____should_return_an_int)
+            w_18 = space.type(w_17)
+            w_19 = space.issubtype(w_18, space.w_type)
+            v6 = space.is_true(w_19)
+            if v6 == True:
+                w_20 = w_17
+                goto = 11
+            else:
+                assert v6 == False
+                w_21 = w_17
+                goto = 10
 
         if goto == 10:
-            raise gOperationError(w_etype, w_evalue)
+            w_22 = space.type(w_21)
+            w_etype, w_evalue = w_22, w_21
+            goto = 13
 
         if goto == 11:
-            return w_10
+            w_23 = space.call_function(w_20, )
+            w_24 = space.type(w_23)
+            w_etype, w_evalue = w_24, w_23
+            goto = 13
+
+        if goto == 12:
+            w_25 = space.id(w_10)
+            w_13 = w_25
+            goto = 14
+
+        if goto == 13:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 14:
+            return w_13
 
   fastf_instance___hash__ = __hash__
 
@@ -2146,7 +2513,7 @@ def initclassobj(space):
                 goto = 2
             else:
                 assert v0 == False
-                goto = 4
+                goto = 8
 
         if goto == 2:
             w_3 = space.lt(w_ret, gi_0)
@@ -2156,22 +2523,62 @@ def initclassobj(space):
             else:
                 assert v1 == False
                 w_4 = w_ret
-                goto = 6
+                goto = 10
 
         if goto == 3:
             w_5 = space.call_function(space.w_ValueError, gs___len_____should_return____0)
-            w_etype, w_evalue = space.w_ValueError, w_5
-            goto = 5
+            w_6 = space.type(w_5)
+            w_7 = space.issubtype(w_6, space.w_type)
+            v2 = space.is_true(w_7)
+            if v2 == True:
+                w_8 = w_5
+                goto = 7
+            else:
+                assert v2 == False
+                w_9 = w_5
+                goto = 6
 
         if goto == 4:
-            w_6 = space.call_function(space.w_TypeError, gs___len_____should_return_an_int)
-            w_etype, w_evalue = space.w_TypeError, w_6
-            goto = 5
+            w_10 = space.type(w_11)
+            w_etype, w_evalue = w_10, w_11
+            goto = 9
 
         if goto == 5:
-            raise gOperationError(w_etype, w_evalue)
+            w_13 = space.call_function(w_12, )
+            w_14 = space.type(w_13)
+            w_etype, w_evalue = w_14, w_13
+            goto = 9
 
         if goto == 6:
+            w_15 = space.type(w_9)
+            w_etype, w_evalue = w_15, w_9
+            goto = 9
+
+        if goto == 7:
+            w_16 = space.call_function(w_8, )
+            w_17 = space.type(w_16)
+            w_etype, w_evalue = w_17, w_16
+            goto = 9
+
+        if goto == 8:
+            w_18 = space.call_function(space.w_TypeError, gs___len_____should_return_an_int)
+            w_19 = space.type(w_18)
+            w_20 = space.issubtype(w_19, space.w_type)
+            v3 = space.is_true(w_20)
+            if v3 == True:
+                w_12 = w_18
+                goto = 5
+                continue
+            else:
+                assert v3 == False
+                w_11 = w_18
+                goto = 4
+                continue
+
+        if goto == 9:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 10:
             return w_4
 
   fastf_instance___len__ = __len__
@@ -2205,51 +2612,47 @@ def initclassobj(space):
                 goto = 2
             else:
                 assert v0 == False
-                w_self_2, w_key_2, w_1 = w_self, w_key, w_0
-                goto = 3
+                w_key_2, w_1 = w_key, w_self
+                goto = 5
 
         if goto == 2:
             w_2 = space.getattr(w_key_1, gs_step)
             w_3 = space.is_(w_2, space.w_None)
-            w_self_2, w_key_2, w_1 = w_self_1, w_key_1, w_3
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_1)
+            v1 = space.is_true(w_3)
             if v1 == True:
-                w_self_3, w_key_3 = w_self_2, w_key_2
-                goto = 4
+                w_self_2, w_key_3 = w_self_1, w_key_1
+                goto = 3
             else:
                 assert v1 == False
-                w_key_4, w_4 = w_key_2, w_self_2
-                goto = 6
-
-        if goto == 4:
-            w_5 = space.call_function(gfunc_instance_getattr1, w_self_3, gs___getslice__, space.w_False)
-            v2 = space.is_true(w_5)
-            if v2 == True:
-                w_key_5, w_6 = w_key_3, w_5
+                w_key_2, w_1 = w_key_1, w_self_1
                 goto = 5
+
+        if goto == 3:
+            w_4 = space.call_function(gfunc_instance_getattr1, w_self_2, gs___getslice__, space.w_False)
+            v2 = space.is_true(w_4)
+            if v2 == True:
+                w_key_4, w_5 = w_key_3, w_4
+                goto = 4
             else:
                 assert v2 == False
-                w_key_4, w_4 = w_key_3, w_self_3
-                goto = 6
+                w_key_2, w_1 = w_key_3, w_self_2
+                goto = 5
+
+        if goto == 4:
+            w_6 = space.getattr(w_key_4, gs_start)
+            w_7 = space.getattr(w_key_4, gs_stop)
+            w_8 = space.call_function(w_5, w_6, w_7)
+            w_9 = w_8
+            goto = 6
 
         if goto == 5:
-            w_7 = space.getattr(w_key_5, gs_start)
-            w_8 = space.getattr(w_key_5, gs_stop)
-            w_9 = space.call_function(w_6, w_7, w_8)
-            w_10 = w_9
-            goto = 7
+            w_10 = space.call_function(gfunc_instance_getattr1, w_1, gs___getitem__)
+            w_11 = space.call_function(w_10, w_key_2)
+            w_9 = w_11
+            goto = 6
 
         if goto == 6:
-            w_11 = space.call_function(gfunc_instance_getattr1, w_4, gs___getitem__)
-            w_12 = space.call_function(w_11, w_key_4)
-            w_10 = w_12
-            goto = 7
-
-        if goto == 7:
-            return w_10
+            return w_9
 
   fastf_instance___getitem__ = __getitem__
 
@@ -2285,53 +2688,48 @@ def initclassobj(space):
                 goto = 2
             else:
                 assert v0 == False
-                w_self_2, w_key_2, w_value_2, w_1 = w_self, w_key, w_value, w_0
-                goto = 3
+                w_key_2, w_value_2, w_1 = w_key, w_value, w_self
+                goto = 5
 
         if goto == 2:
             w_2 = space.getattr(w_key_1, gs_step)
             w_3 = space.is_(w_2, space.w_None)
-            (w_self_2, w_key_2, w_value_2, w_1) = (w_self_1, w_key_1,
-             w_value_1, w_3)
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_1)
+            v1 = space.is_true(w_3)
             if v1 == True:
-                w_self_3, w_key_3, w_value_3 = w_self_2, w_key_2, w_value_2
-                goto = 4
+                w_self_2, w_key_3, w_value_3 = w_self_1, w_key_1, w_value_1
+                goto = 3
             else:
                 assert v1 == False
-                w_key_4, w_value_4, w_4 = w_key_2, w_value_2, w_self_2
-                goto = 6
-
-        if goto == 4:
-            w_5 = space.call_function(gfunc_instance_getattr1, w_self_3, gs___setslice__, space.w_False)
-            v2 = space.is_true(w_5)
-            if v2 == True:
-                (w_self_4, w_key_5, w_value_5, w_6) = (w_self_3, w_key_3,
-                 w_value_3, w_5)
+                w_key_2, w_value_2, w_1 = w_key_1, w_value_1, w_self_1
                 goto = 5
+
+        if goto == 3:
+            w_4 = space.call_function(gfunc_instance_getattr1, w_self_2, gs___setslice__, space.w_False)
+            v2 = space.is_true(w_4)
+            if v2 == True:
+                (w_self_3, w_key_4, w_value_4, w_5) = (w_self_2, w_key_3,
+                 w_value_3, w_4)
+                goto = 4
             else:
                 assert v2 == False
-                w_key_4, w_value_4, w_4 = w_key_3, w_value_3, w_self_3
-                goto = 6
+                w_key_2, w_value_2, w_1 = w_key_3, w_value_3, w_self_2
+                goto = 5
+
+        if goto == 4:
+            w_6 = space.getattr(w_key_4, gs_start)
+            w_7 = space.getattr(w_key_4, gs_stop)
+            w_8 = space.call_function(w_5, w_6, w_7, w_value_4)
+            w_key_2, w_value_2, w_1 = w_key_4, w_value_4, w_self_3
+            goto = 5
 
         if goto == 5:
-            w_7 = space.getattr(w_key_5, gs_start)
-            w_8 = space.getattr(w_key_5, gs_stop)
-            w_9 = space.call_function(w_6, w_7, w_8, w_value_5)
-            w_key_4, w_value_4, w_4 = w_key_5, w_value_5, w_self_4
+            w_9 = space.call_function(gfunc_instance_getattr1, w_1, gs___setitem__)
+            w_10 = space.call_function(w_9, w_key_2, w_value_2)
+            w_11 = space.w_None
             goto = 6
 
         if goto == 6:
-            w_10 = space.call_function(gfunc_instance_getattr1, w_4, gs___setitem__)
-            w_11 = space.call_function(w_10, w_key_4, w_value_4)
-            w_12 = space.w_None
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_11
 
   fastf_instance___setitem__ = __setitem__
 
@@ -2364,51 +2762,47 @@ def initclassobj(space):
                 goto = 2
             else:
                 assert v0 == False
-                w_self_2, w_key_2, w_1 = w_self, w_key, w_0
-                goto = 3
+                w_key_2, w_1 = w_key, w_self
+                goto = 5
 
         if goto == 2:
             w_2 = space.getattr(w_key_1, gs_step)
             w_3 = space.is_(w_2, space.w_None)
-            w_self_2, w_key_2, w_1 = w_self_1, w_key_1, w_3
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_1)
+            v1 = space.is_true(w_3)
             if v1 == True:
-                w_self_3, w_key_3 = w_self_2, w_key_2
-                goto = 4
+                w_self_2, w_key_3 = w_self_1, w_key_1
+                goto = 3
             else:
                 assert v1 == False
-                w_key_4, w_4 = w_key_2, w_self_2
-                goto = 6
-
-        if goto == 4:
-            w_5 = space.call_function(gfunc_instance_getattr1, w_self_3, gs___delslice__, space.w_False)
-            v2 = space.is_true(w_5)
-            if v2 == True:
-                w_self_4, w_key_5, w_6 = w_self_3, w_key_3, w_5
+                w_key_2, w_1 = w_key_1, w_self_1
                 goto = 5
+
+        if goto == 3:
+            w_4 = space.call_function(gfunc_instance_getattr1, w_self_2, gs___delslice__, space.w_False)
+            v2 = space.is_true(w_4)
+            if v2 == True:
+                w_self_3, w_key_4, w_5 = w_self_2, w_key_3, w_4
+                goto = 4
             else:
                 assert v2 == False
-                w_key_4, w_4 = w_key_3, w_self_3
-                goto = 6
+                w_key_2, w_1 = w_key_3, w_self_2
+                goto = 5
+
+        if goto == 4:
+            w_6 = space.getattr(w_key_4, gs_start)
+            w_7 = space.getattr(w_key_4, gs_stop)
+            w_8 = space.call_function(w_5, w_6, w_7)
+            w_key_2, w_1 = w_key_4, w_self_3
+            goto = 5
 
         if goto == 5:
-            w_7 = space.getattr(w_key_5, gs_start)
-            w_8 = space.getattr(w_key_5, gs_stop)
-            w_9 = space.call_function(w_6, w_7, w_8)
-            w_key_4, w_4 = w_key_5, w_self_4
+            w_9 = space.call_function(gfunc_instance_getattr1, w_1, gs___delitem__)
+            w_10 = space.call_function(w_9, w_key_2)
+            w_11 = space.w_None
             goto = 6
 
         if goto == 6:
-            w_10 = space.call_function(gfunc_instance_getattr1, w_4, gs___delitem__)
-            w_11 = space.call_function(w_10, w_key_4)
-            w_12 = space.w_None
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_11
 
   fastf_instance___delitem__ = __delitem__
 
@@ -2443,7 +2837,7 @@ def initclassobj(space):
 
         if goto == 2:
             w_4 = space.call_function(w_1, w_2)
-            w_5 = space.call_function(space.w_bool, w_4)
+            w_5 = space.nonzero(w_4)
             w_6 = w_5
             goto = 6
 
@@ -2458,6 +2852,7 @@ def initclassobj(space):
                 w_obj_3, w_10, w_11 = w_obj_2, w_8, w_9
                 goto = 5
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_StopIteration)):
                     w_6 = space.w_False
                     goto = 6
@@ -2803,52 +3198,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___add__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___add__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.add(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.add(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___add__ = __add__
 
@@ -2875,52 +3268,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___and__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___and__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.and_(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.and_(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___and__ = __and__
 
@@ -2947,52 +3338,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___div__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___div__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.div(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.div(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___div__ = __div__
 
@@ -3019,52 +3408,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___divmod__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___divmod__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.divmod(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.divmod(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___divmod__ = __divmod__
 
@@ -3091,52 +3478,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___floordiv__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___floordiv__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.floordiv(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.floordiv(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___floordiv__ = __floordiv__
 
@@ -3163,52 +3548,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___lshift__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___lshift__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.lshift(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.lshift(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___lshift__ = __lshift__
 
@@ -3235,52 +3618,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___mod__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___mod__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.mod(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.mod(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___mod__ = __mod__
 
@@ -3307,52 +3688,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___mul__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___mul__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.mul(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.mul(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___mul__ = __mul__
 
@@ -3379,52 +3758,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___or__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___or__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.or_(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.or_(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___or__ = __or__
 
@@ -3451,52 +3828,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rshift__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rshift__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.rshift(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.rshift(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rshift__ = __rshift__
 
@@ -3523,52 +3898,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___sub__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___sub__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.sub(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.sub(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___sub__ = __sub__
 
@@ -3595,52 +3968,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___truediv__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___truediv__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.truediv(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.truediv(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___truediv__ = __truediv__
 
@@ -3670,52 +4041,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_self_1, w_other_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___xor__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___xor__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_0)
+            w_11 = space.getitem(w_coerced_1, gi_1)
+            w_12 = space.xor(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.xor(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___xor__ = __xor__
 
@@ -3742,52 +4111,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___radd__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___radd__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.add(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.add(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___radd__ = __radd__
 
@@ -3814,52 +4181,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rand__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rand__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.and_(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.and_(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rand__ = __rand__
 
@@ -3886,52 +4251,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rdiv__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rdiv__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.div(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.div(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rdiv__ = __rdiv__
 
@@ -3958,52 +4321,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rdivmod__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rdivmod__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.divmod(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.divmod(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rdivmod__ = __rdivmod__
 
@@ -4030,52 +4391,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rfloordiv__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rfloordiv__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.floordiv(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.floordiv(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rfloordiv__ = __rfloordiv__
 
@@ -4102,52 +4461,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rlshift__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rlshift__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.lshift(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.lshift(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rlshift__ = __rlshift__
 
@@ -4174,52 +4531,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rmod__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rmod__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.mod(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.mod(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rmod__ = __rmod__
 
@@ -4246,52 +4601,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rmul__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rmul__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.mul(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.mul(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rmul__ = __rmul__
 
@@ -4318,52 +4671,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___ror__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___ror__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.or_(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.or_(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___ror__ = __ror__
 
@@ -4390,52 +4741,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rrshift__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rrshift__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.rshift(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.rshift(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rrshift__ = __rrshift__
 
@@ -4462,52 +4811,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rsub__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rsub__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.sub(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.sub(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rsub__ = __rsub__
 
@@ -4534,52 +4881,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rtruediv__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rtruediv__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.truediv(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.truediv(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rtruediv__ = __rtruediv__
 
@@ -4606,52 +4951,50 @@ def initclassobj(space):
             w_1 = space.is_(w_0, space.w_None)
             v0 = space.is_true(w_1)
             if v0 == True:
-                w_self_1, w_other_1, w_2 = w_self, w_other, w_1
+                w_other_1, w_2 = w_other, w_self
                 goto = 3
             else:
                 assert v0 == False
-                w_self_2, w_other_2, w_3 = w_self, w_other, w_0
+                w_self_1, w_other_2, w_coerced = w_self, w_other, w_0
                 goto = 2
 
         if goto == 2:
-            w_4 = space.getitem(w_3, gi_0)
-            w_5 = space.is_(w_4, w_self_2)
-            w_self_1, w_other_1, w_2 = w_self_2, w_other_2, w_5
-            goto = 3
-
-        if goto == 3:
-            v1 = space.is_true(w_2)
+            w_3 = space.getitem(w_coerced, gi_0)
+            w_4 = space.is_(w_3, w_self_1)
+            v1 = space.is_true(w_4)
             if v1 == True:
-                w_other_3, w_6 = w_other_1, w_self_1
-                goto = 4
+                w_other_1, w_2 = w_other_2, w_self_1
+                goto = 3
             else:
                 assert v1 == False
-                w_7, w_8 = w_other_1, w_self_1
+                w_coerced_1 = w_coerced
+                goto = 5
+
+        if goto == 3:
+            w_5 = space.call_function(gfunc_instance_getattr1, w_2, gs___rxor__, space.w_False)
+            v2 = space.is_true(w_5)
+            if v2 == True:
+                w_6, w_7 = w_5, w_other_1
+                goto = 4
+            else:
+                assert v2 == False
+                w_8 = space.w_NotImplemented
                 goto = 6
 
         if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_6, gs___rxor__, space.w_False)
-            v2 = space.is_true(w_9)
-            if v2 == True:
-                w_10, w_11 = w_9, w_other_3
-                goto = 5
-            else:
-                assert v2 == False
-                w_12 = space.w_NotImplemented
-                goto = 7
+            w_9 = space.call_function(w_6, w_7)
+            w_8 = w_9
+            goto = 6
 
         if goto == 5:
-            w_13 = space.call_function(w_10, w_11)
-            w_12 = w_13
-            goto = 7
+            w_10 = space.getitem(w_coerced_1, gi_1)
+            w_11 = space.getitem(w_coerced_1, gi_0)
+            w_12 = space.xor(w_10, w_11)
+            w_8 = w_12
+            goto = 6
 
         if goto == 6:
-            w_14 = space.xor(w_7, w_8)
-            w_12 = w_14
-            goto = 7
-
-        if goto == 7:
-            return w_12
+            return w_8
 
   fastf_instance___rxor__ = __rxor__
 
@@ -5189,75 +5532,73 @@ def initclassobj(space):
             else:
                 assert v0 == False
                 w_other_2, w_modulo_1, w_1 = w_other, w_modulo, w_self
-                goto = 8
+                goto = 7
 
         if goto == 2:
             w_2 = fastf__coerce(space, w_self_1, w_other_1)
             w_3 = space.is_(w_2, space.w_None)
             v1 = space.is_true(w_3)
             if v1 == True:
-                w_self_2, w_other_3, w_4 = w_self_1, w_other_1, w_3
+                w_other_3, w_4 = w_other_1, w_self_1
                 goto = 4
             else:
                 assert v1 == False
-                w_self_3, w_other_4, w_5 = w_self_1, w_other_1, w_2
+                w_self_2, w_other_4, w_coerced = w_self_1, w_other_1, w_2
                 goto = 3
 
         if goto == 3:
-            w_6 = space.getitem(w_5, gi_0)
-            w_7 = space.is_(w_6, w_self_3)
-            w_self_2, w_other_3, w_4 = w_self_3, w_other_4, w_7
-            goto = 4
-
-        if goto == 4:
-            v2 = space.is_true(w_4)
+            w_5 = space.getitem(w_coerced, gi_0)
+            w_6 = space.is_(w_5, w_self_2)
+            v2 = space.is_true(w_6)
             if v2 == True:
-                w_other_5, w_8 = w_other_3, w_self_2
-                goto = 5
+                w_other_3, w_4 = w_other_4, w_self_2
+                goto = 4
             else:
                 assert v2 == False
-                w_9, w_10 = w_self_2, w_other_3
-                goto = 7
-
-        if goto == 5:
-            w_11 = space.call_function(gfunc_instance_getattr1, w_8, gs___pow__, space.w_False)
-            v3 = space.is_true(w_11)
-            if v3 == True:
-                w_12, w_13 = w_11, w_other_5
+                w_coerced_1 = w_coerced
                 goto = 6
+
+        if goto == 4:
+            w_7 = space.call_function(gfunc_instance_getattr1, w_4, gs___pow__, space.w_False)
+            v3 = space.is_true(w_7)
+            if v3 == True:
+                w_8, w_9 = w_7, w_other_3
+                goto = 5
             else:
                 assert v3 == False
-                w_14 = space.w_NotImplemented
-                goto = 10
+                w_10 = space.w_NotImplemented
+                goto = 9
+
+        if goto == 5:
+            w_11 = space.call_function(w_8, w_9)
+            w_10 = w_11
+            goto = 9
 
         if goto == 6:
-            w_15 = space.call_function(w_12, w_13)
-            w_14 = w_15
-            goto = 10
+            w_12 = space.getitem(w_coerced_1, gi_0)
+            w_13 = space.getitem(w_coerced_1, gi_1)
+            w_14 = space.pow(w_12, w_13, space.w_None)
+            w_10 = w_14
+            goto = 9
 
         if goto == 7:
-            w_16 = space.pow(w_9, w_10, space.w_None)
-            w_14 = w_16
-            goto = 10
-
-        if goto == 8:
-            w_17 = space.call_function(gfunc_instance_getattr1, w_1, gs___pow__, space.w_False)
-            v4 = space.is_true(w_17)
+            w_15 = space.call_function(gfunc_instance_getattr1, w_1, gs___pow__, space.w_False)
+            v4 = space.is_true(w_15)
             if v4 == True:
-                w_18, w_19, w_20 = w_17, w_other_2, w_modulo_1
-                goto = 9
+                w_16, w_17, w_18 = w_15, w_other_2, w_modulo_1
+                goto = 8
             else:
                 assert v4 == False
-                w_14 = space.w_NotImplemented
-                goto = 10
+                w_10 = space.w_NotImplemented
+                goto = 9
+
+        if goto == 8:
+            w_19 = space.call_function(w_16, w_17, w_18)
+            w_10 = w_19
+            goto = 9
 
         if goto == 9:
-            w_21 = space.call_function(w_18, w_19, w_20)
-            w_14 = w_21
-            goto = 10
-
-        if goto == 10:
-            return w_14
+            return w_10
 
   fastf_instance___pow__ = __pow__
 
@@ -5288,75 +5629,73 @@ def initclassobj(space):
             else:
                 assert v0 == False
                 w_other_2, w_modulo_1, w_1 = w_other, w_modulo, w_self
-                goto = 8
+                goto = 7
 
         if goto == 2:
             w_2 = fastf__coerce(space, w_self_1, w_other_1)
             w_3 = space.is_(w_2, space.w_None)
             v1 = space.is_true(w_3)
             if v1 == True:
-                w_self_2, w_other_3, w_4 = w_self_1, w_other_1, w_3
+                w_other_3, w_4 = w_other_1, w_self_1
                 goto = 4
             else:
                 assert v1 == False
-                w_self_3, w_other_4, w_5 = w_self_1, w_other_1, w_2
+                w_self_2, w_other_4, w_coerced = w_self_1, w_other_1, w_2
                 goto = 3
 
         if goto == 3:
-            w_6 = space.getitem(w_5, gi_0)
-            w_7 = space.is_(w_6, w_self_3)
-            w_self_2, w_other_3, w_4 = w_self_3, w_other_4, w_7
-            goto = 4
-
-        if goto == 4:
-            v2 = space.is_true(w_4)
+            w_5 = space.getitem(w_coerced, gi_0)
+            w_6 = space.is_(w_5, w_self_2)
+            v2 = space.is_true(w_6)
             if v2 == True:
-                w_other_5, w_8 = w_other_3, w_self_2
-                goto = 5
+                w_other_3, w_4 = w_other_4, w_self_2
+                goto = 4
             else:
                 assert v2 == False
-                w_9, w_10 = w_other_3, w_self_2
-                goto = 7
-
-        if goto == 5:
-            w_11 = space.call_function(gfunc_instance_getattr1, w_8, gs___rpow__, space.w_False)
-            v3 = space.is_true(w_11)
-            if v3 == True:
-                w_12, w_13 = w_11, w_other_5
+                w_coerced_1 = w_coerced
                 goto = 6
+
+        if goto == 4:
+            w_7 = space.call_function(gfunc_instance_getattr1, w_4, gs___rpow__, space.w_False)
+            v3 = space.is_true(w_7)
+            if v3 == True:
+                w_8, w_9 = w_7, w_other_3
+                goto = 5
             else:
                 assert v3 == False
-                w_14 = space.w_NotImplemented
-                goto = 10
+                w_10 = space.w_NotImplemented
+                goto = 9
+
+        if goto == 5:
+            w_11 = space.call_function(w_8, w_9)
+            w_10 = w_11
+            goto = 9
 
         if goto == 6:
-            w_15 = space.call_function(w_12, w_13)
-            w_14 = w_15
-            goto = 10
+            w_12 = space.getitem(w_coerced_1, gi_1)
+            w_13 = space.getitem(w_coerced_1, gi_0)
+            w_14 = space.pow(w_12, w_13, space.w_None)
+            w_10 = w_14
+            goto = 9
 
         if goto == 7:
-            w_16 = space.pow(w_9, w_10, space.w_None)
-            w_14 = w_16
-            goto = 10
-
-        if goto == 8:
-            w_17 = space.call_function(gfunc_instance_getattr1, w_1, gs___rpow__, space.w_False)
-            v4 = space.is_true(w_17)
+            w_15 = space.call_function(gfunc_instance_getattr1, w_1, gs___rpow__, space.w_False)
+            v4 = space.is_true(w_15)
             if v4 == True:
-                w_18, w_19, w_20 = w_17, w_other_2, w_modulo_1
-                goto = 9
+                w_16, w_17, w_18 = w_15, w_other_2, w_modulo_1
+                goto = 8
             else:
                 assert v4 == False
-                w_14 = space.w_NotImplemented
-                goto = 10
+                w_10 = space.w_NotImplemented
+                goto = 9
+
+        if goto == 8:
+            w_19 = space.call_function(w_16, w_17, w_18)
+            w_10 = w_19
+            goto = 9
 
         if goto == 9:
-            w_21 = space.call_function(w_18, w_19, w_20)
-            w_14 = w_21
-            goto = 10
-
-        if goto == 10:
-            return w_14
+            return w_10
 
   fastf_instance___rpow__ = __rpow__
 
@@ -5402,7 +5741,7 @@ def initclassobj(space):
             else:
                 assert v1 == False
                 w_4 = space.w_True
-                goto = 9
+                goto = 13
 
         if goto == 3:
             w_5 = space.call_function(w_1, )
@@ -5413,7 +5752,7 @@ def initclassobj(space):
                 goto = 4
             else:
                 assert v2 == False
-                goto = 7
+                goto = 11
 
         if goto == 4:
             w_7 = space.lt(w_ret, gi_0)
@@ -5423,27 +5762,67 @@ def initclassobj(space):
             else:
                 assert v3 == False
                 w_8 = w_ret
-                goto = 6
+                goto = 10
 
         if goto == 5:
             w_9 = space.call_function(space.w_ValueError, gs___nonzero_____should_return____0)
-            w_etype, w_evalue = space.w_ValueError, w_9
-            goto = 8
+            w_10 = space.type(w_9)
+            w_11 = space.issubtype(w_10, space.w_type)
+            v4 = space.is_true(w_11)
+            if v4 == True:
+                w_12 = w_9
+                goto = 9
+            else:
+                assert v4 == False
+                w_13 = w_9
+                goto = 8
 
         if goto == 6:
-            w_10 = space.gt(w_8, gi_0)
-            w_4 = w_10
-            goto = 9
+            w_14 = space.type(w_15)
+            w_etype, w_evalue = w_14, w_15
+            goto = 12
 
         if goto == 7:
-            w_11 = space.call_function(space.w_TypeError, gs___nonzero_____should_return_an_i)
-            w_etype, w_evalue = space.w_TypeError, w_11
-            goto = 8
+            w_17 = space.call_function(w_16, )
+            w_18 = space.type(w_17)
+            w_etype, w_evalue = w_18, w_17
+            goto = 12
 
         if goto == 8:
-            raise gOperationError(w_etype, w_evalue)
+            w_19 = space.type(w_13)
+            w_etype, w_evalue = w_19, w_13
+            goto = 12
 
         if goto == 9:
+            w_20 = space.call_function(w_12, )
+            w_21 = space.type(w_20)
+            w_etype, w_evalue = w_21, w_20
+            goto = 12
+
+        if goto == 10:
+            w_22 = space.gt(w_8, gi_0)
+            w_4 = w_22
+            goto = 13
+
+        if goto == 11:
+            w_23 = space.call_function(space.w_TypeError, gs___nonzero_____should_return_an_i)
+            w_24 = space.type(w_23)
+            w_25 = space.issubtype(w_24, space.w_type)
+            v5 = space.is_true(w_25)
+            if v5 == True:
+                w_16 = w_23
+                goto = 7
+                continue
+            else:
+                assert v5 == False
+                w_15 = w_23
+                goto = 6
+                continue
+
+        if goto == 12:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 13:
             return w_4
 
   fastf_instance___nonzero__ = __nonzero__
@@ -5474,7 +5853,7 @@ def initclassobj(space):
             v0 = space.is_true(w_0)
             if v0 == True:
                 w_1, w_2, w_3 = w_0, w_args, w_kwds
-                goto = 3
+                goto = 6
             else:
                 assert v0 == False
                 w_4 = w_self
@@ -5484,20 +5863,50 @@ def initclassobj(space):
             w_5 = space.getattr(w_4, gs___class__)
             w_6 = space.getattr(w_5, gs___name__)
             w_7 = space.mod(gs__s_instance_has_no___call___meth, w_6)
-            w_etype, w_evalue = space.w_AttributeError, w_7
-            goto = 4
+            w_8 = space.is_(w_7, space.w_None)
+            v1 = space.is_true(w_8)
+            if v1 == True:
+                goto = 3
+            else:
+                assert v1 == False
+                w_9 = w_7
+                goto = 4
 
         if goto == 3:
-            _args = gateway.Arguments.fromshape(space, (0, (), True, True), [w_2, w_3])
-            w_8 = space.call_args(w_1, _args)
-            w_9 = w_8
-            goto = 5
+            w_10 = space.call_function(space.w_AttributeError, )
+            w_11 = space.type(w_10)
+            w_etype, w_evalue = w_11, w_10
+            goto = 7
 
         if goto == 4:
-            raise gOperationError(w_etype, w_evalue)
+            w_12 = space.type(w_9)
+            w_13 = space.issubtype(w_12, space.w_AttributeError)
+            v2 = space.is_true(w_13)
+            if v2 == True:
+                w_etype, w_evalue = w_12, w_9
+                goto = 7
+            else:
+                assert v2 == False
+                w_14 = w_9
+                goto = 5
 
         if goto == 5:
-            return w_9
+            w_15 = space.call_function(space.w_AttributeError, w_14)
+            w_16 = space.type(w_15)
+            w_etype, w_evalue = w_16, w_15
+            goto = 7
+
+        if goto == 6:
+            _args = gateway.Arguments.fromshape(space, (0, (), True, True), [w_2, w_3])
+            w_17 = space.call_args(w_1, _args)
+            w_18 = w_17
+            goto = 8
+
+        if goto == 7:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 8:
+            return w_18
 
   fastf_instance___call__ = __call__
 
@@ -5525,6 +5934,7 @@ def initclassobj(space):
                 w_1, w_2 = w_0, w_other
                 goto = 2
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5536,6 +5946,7 @@ def initclassobj(space):
                 w_6 = w_5
                 goto = 6
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5595,6 +6006,7 @@ def initclassobj(space):
                 w_1, w_2 = w_0, w_other
                 goto = 2
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5606,6 +6018,7 @@ def initclassobj(space):
                 w_6 = w_5
                 goto = 6
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5665,6 +6078,7 @@ def initclassobj(space):
                 w_1, w_2 = w_0, w_other
                 goto = 2
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5676,6 +6090,7 @@ def initclassobj(space):
                 w_6 = w_5
                 goto = 6
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5735,6 +6150,7 @@ def initclassobj(space):
                 w_1, w_2 = w_0, w_other
                 goto = 2
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5746,6 +6162,7 @@ def initclassobj(space):
                 w_6 = w_5
                 goto = 6
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5805,6 +6222,7 @@ def initclassobj(space):
                 w_1, w_2 = w_0, w_other
                 goto = 2
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5816,6 +6234,7 @@ def initclassobj(space):
                 w_6 = w_5
                 goto = 6
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5875,6 +6294,7 @@ def initclassobj(space):
                 w_1, w_2 = w_0, w_other
                 goto = 2
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5886,6 +6306,7 @@ def initclassobj(space):
                 w_6 = w_5
                 goto = 6
             except gOperationError, e:
+                e.normalize_exception(space)
                 if space.is_true(space.issubtype(e.w_type, space.w_Exception)):
                     w_3, w_4 = e.w_type, e.w_value
                     goto = 3
@@ -5952,7 +6373,7 @@ def initclassobj(space):
             else:
                 assert v0 == False
                 w_self_1 = w_self
-                goto = 4
+                goto = 7
 
         if goto == 2:
             w_2 = space.call_function(w_1, )
@@ -5960,40 +6381,74 @@ def initclassobj(space):
             v1 = space.is_true(w_3)
             if v1 == True:
                 w_4 = w_2
-                goto = 7
+                goto = 11
             else:
                 assert v1 == False
                 w_5 = w_2
                 goto = 3
 
         if goto == 3:
-            w_6 = space.call_function(space.w_type, w_5)
+            w_6 = space.type(w_5)
             w_7 = space.getattr(w_6, gs___name__)
             w_8 = space.mod(gs___iter___returned_non_iterator_o, w_7)
-            w_etype, w_evalue = space.w_TypeError, w_8
-            goto = 6
-
-        if goto == 4:
-            w_9 = space.call_function(gfunc_instance_getattr1, w_self_1, gs___getitem__, space.w_False)
+            w_9 = space.is_(w_8, space.w_None)
             v2 = space.is_true(w_9)
             if v2 == True:
-                w_10 = w_self_1
-                goto = 5
+                goto = 4
             else:
                 assert v2 == False
-                (w_etype, w_evalue) = (space.w_TypeError,
-                 gs_iteration_over_non_sequence)
-                goto = 6
+                w_10 = w_8
+                goto = 5
+
+        if goto == 4:
+            w_11 = space.call_function(space.w_TypeError, )
+            w_12 = space.type(w_11)
+            w_etype, w_evalue = w_12, w_11
+            goto = 10
 
         if goto == 5:
-            w_11 = space.call_function(space.builtin.get('_seqiter'), w_10)
-            w_4 = w_11
-            goto = 7
+            w_13 = space.type(w_10)
+            w_14 = space.issubtype(w_13, space.w_TypeError)
+            v3 = space.is_true(w_14)
+            if v3 == True:
+                w_etype, w_evalue = w_13, w_10
+                goto = 10
+            else:
+                assert v3 == False
+                w_15 = w_10
+                goto = 6
 
         if goto == 6:
-            raise gOperationError(w_etype, w_evalue)
+            w_16 = space.call_function(space.w_TypeError, w_15)
+            w_17 = space.type(w_16)
+            w_etype, w_evalue = w_17, w_16
+            goto = 10
 
         if goto == 7:
+            w_18 = space.call_function(gfunc_instance_getattr1, w_self_1, gs___getitem__, space.w_False)
+            v4 = space.is_true(w_18)
+            if v4 == True:
+                w_19 = w_self_1
+                goto = 9
+            else:
+                assert v4 == False
+                goto = 8
+
+        if goto == 8:
+            w_20 = space.call_function(space.w_TypeError, gs_iteration_over_non_sequence)
+            w_21 = space.type(w_20)
+            w_etype, w_evalue = w_21, w_20
+            goto = 10
+
+        if goto == 9:
+            w_22 = space.call_function(space.builtin.get('_seqiter'), w_19)
+            w_4 = w_22
+            goto = 11
+
+        if goto == 10:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 11:
             return w_4
 
   fastf_instance___iter__ = __iter__
@@ -6024,23 +6479,27 @@ def initclassobj(space):
             v0 = space.is_true(w_0)
             if v0 == True:
                 w_1 = w_0
-                goto = 2
+                goto = 3
             else:
                 assert v0 == False
-                (w_etype, w_evalue) = (space.w_TypeError,
-                 gs_instance_has_no_next___method)
-                goto = 3
+                goto = 2
 
         if goto == 2:
-            w_2 = space.call_function(w_1, )
-            w_3 = w_2
+            w_2 = space.call_function(space.w_TypeError, gs_instance_has_no_next___method)
+            w_3 = space.type(w_2)
+            w_etype, w_evalue = w_3, w_2
             goto = 4
 
         if goto == 3:
-            raise gOperationError(w_etype, w_evalue)
+            w_4 = space.call_function(w_1, )
+            w_5 = w_4
+            goto = 5
 
         if goto == 4:
-            return w_3
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 5:
+            return w_5
 
   fastf_instance_next = next
 
@@ -6050,8 +6509,8 @@ def initclassobj(space):
 ## firstlineno 537
 ##SECTION##
 # global declarations
-# global object gs___cmp___must_return_int
 # global object gi_minus_1
+# global object gs___cmp___must_return_int
 
   def __cmp__(space, __args__):
     funcname = "__cmp__"
@@ -6105,7 +6564,7 @@ def initclassobj(space):
         if goto == 4:
             w_8 = space.cmp(w_6, w_7)
             w_9 = w_8
-            goto = 16
+            goto = 18
 
         if goto == 5:
             w_10 = space.isinstance(w_v, gcls_instance)
@@ -6115,114 +6574,124 @@ def initclassobj(space):
                 goto = 6
             else:
                 assert v3 == False
-                w_v_3, w_11 = w_v, w_w
-                goto = 10
+                w_w_3, w_v_3 = w_w, w_v
+                goto = 11
 
         if goto == 6:
-            w_12 = space.call_function(gfunc_instance_getattr1, w_v_2, gs___cmp__, space.w_False)
-            v4 = space.is_true(w_12)
+            w_11 = space.call_function(gfunc_instance_getattr1, w_v_2, gs___cmp__, space.w_False)
+            v4 = space.is_true(w_11)
             if v4 == True:
-                w_13, w_14 = w_12, w_w_2
+                w_12, w_13 = w_11, w_w_2
                 goto = 7
             else:
                 assert v4 == False
-                w_v_3, w_11 = w_v_2, w_w_2
-                goto = 10
+                w_w_3, w_v_3 = w_w_2, w_v_2
+                goto = 11
 
         if goto == 7:
-            w_15 = space.call_function(w_13, w_14)
-            w_16 = space.isinstance(w_15, space.w_int)
-            v5 = space.is_true(w_16)
+            w_14 = space.call_function(w_12, w_13)
+            w_15 = space.isinstance(w_14, space.w_int)
+            v5 = space.is_true(w_15)
             if v5 == True:
-                w_res = w_15
+                w_res = w_14
                 goto = 8
             else:
                 assert v5 == False
-                w_etype, w_evalue = space.w_TypeError, gs___cmp___must_return_int
-                goto = 15
+                goto = 10
 
         if goto == 8:
-            w_17 = space.gt(w_res, gi_0)
-            v6 = space.is_true(w_17)
+            w_16 = space.gt(w_res, gi_0)
+            v6 = space.is_true(w_16)
             if v6 == True:
                 w_9 = gi_1
-                goto = 16
+                goto = 18
             else:
                 assert v6 == False
-                w_18 = w_res
+                w_17 = w_res
                 goto = 9
 
         if goto == 9:
-            w_19 = space.lt(w_18, gi_0)
-            v7 = space.is_true(w_19)
+            w_18 = space.lt(w_17, gi_0)
+            v7 = space.is_true(w_18)
             if v7 == True:
                 w_9 = gi_minus_1
-                goto = 16
+                goto = 18
             else:
                 assert v7 == False
                 w_9 = gi_0
-                goto = 16
+                goto = 18
 
         if goto == 10:
-            w_20 = space.isinstance(w_11, gcls_instance)
-            v8 = space.is_true(w_20)
+            w_19 = space.call_function(space.w_TypeError, gs___cmp___must_return_int)
+            w_20 = space.type(w_19)
+            w_etype, w_evalue = w_20, w_19
+            goto = 17
+
+        if goto == 11:
+            w_21 = space.isinstance(w_w_3, gcls_instance)
+            v8 = space.is_true(w_21)
             if v8 == True:
-                w_v_4 = w_v_3
-                goto = 11
+                w_v_4, w_22 = w_v_3, w_w_3
+                goto = 12
             else:
                 assert v8 == False
                 w_9 = space.w_NotImplemented
-                goto = 16
+                goto = 18
 
-        if goto == 11:
-            w_21 = space.call_function(gfunc_instance_getattr1, w_v_4, gs___cmp__, space.w_False)
-            v9 = space.is_true(w_21)
+        if goto == 12:
+            w_23 = space.call_function(gfunc_instance_getattr1, w_22, gs___cmp__, space.w_False)
+            v9 = space.is_true(w_23)
             if v9 == True:
-                w_22, w_23 = w_21, w_v_4
-                goto = 12
+                w_24, w_25 = w_23, w_v_4
+                goto = 13
             else:
                 assert v9 == False
                 w_9 = space.w_NotImplemented
-                goto = 16
-
-        if goto == 12:
-            w_24 = space.call_function(w_22, w_23)
-            w_25 = space.isinstance(w_24, space.w_int)
-            v10 = space.is_true(w_25)
-            if v10 == True:
-                w_res_1 = w_24
-                goto = 13
-            else:
-                assert v10 == False
-                w_etype, w_evalue = space.w_TypeError, gs___cmp___must_return_int
-                goto = 15
+                goto = 18
 
         if goto == 13:
-            w_26 = space.gt(w_res_1, gi_0)
-            v11 = space.is_true(w_26)
-            if v11 == True:
-                w_9 = gi_1
-                goto = 16
-            else:
-                assert v11 == False
-                w_27 = w_res_1
+            w_26 = space.call_function(w_24, w_25)
+            w_27 = space.isinstance(w_26, space.w_int)
+            v10 = space.is_true(w_27)
+            if v10 == True:
+                w_res_1 = w_26
                 goto = 14
+            else:
+                assert v10 == False
+                goto = 16
 
         if goto == 14:
-            w_28 = space.lt(w_27, gi_0)
-            v12 = space.is_true(w_28)
+            w_28 = space.gt(w_res_1, gi_0)
+            v11 = space.is_true(w_28)
+            if v11 == True:
+                w_9 = gi_1
+                goto = 18
+            else:
+                assert v11 == False
+                w_29 = w_res_1
+                goto = 15
+
+        if goto == 15:
+            w_30 = space.lt(w_29, gi_0)
+            v12 = space.is_true(w_30)
             if v12 == True:
                 w_9 = gi_minus_1
-                goto = 16
+                goto = 18
             else:
                 assert v12 == False
                 w_9 = gi_0
-                goto = 16
-
-        if goto == 15:
-            raise gOperationError(w_etype, w_evalue)
+                goto = 18
 
         if goto == 16:
+            w_31 = space.call_function(space.w_TypeError, gs___cmp___must_return_int)
+            w_32 = space.type(w_31)
+            w_etype, w_evalue = w_32, w_31
+            goto = 17
+
+        if goto == 17:
+            raise gOperationError(w_etype, w_evalue)
+
+        if goto == 18:
             return w_9
 
   fastf_instance___cmp__ = __cmp__
@@ -6712,20 +7181,24 @@ def initclassobj(space):
   gfunc_set_bases = space.wrap(gateway.interp2app(f_set_bases, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
   gfunc_set_dict = space.wrap(gateway.interp2app(f_set_dict, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
   gdescriptor_object___setattr__ = space.getattr(space.w_object, gs___setattr__)
-  gs___dict___must_be_a_dictionary_ob = space.wrap('__dict__ must be a dictionary object')
-  gs___bases___must_be_a_tuple_object = space.wrap('__bases__ must be a tuple object')
-  gs___bases___items_must_be_classes = space.wrap('__bases__ items must be classes')
+  gs___dict___must_be_a_dictionary_ob = space.wrap(
+"""__dict__ must be a dictionary object""")
+  gs___bases___must_be_a_tuple_object = space.wrap(
+"""__bases__ must be a tuple object""")
+  gs___bases___items_must_be_classes = space.wrap(
+"""__bases__ items must be classes""")
   gdescriptor_classobj__bases = space.getattr(gcls_classobj, gs__bases)
   gs___set__ = space.wrap('__set__')
-  gs___name___must_be_a_string_object = space.wrap('__name__ must be a string object')
+  gs___name___must_be_a_string_object = space.wrap(
+"""__name__ must be a string object""")
   gdescriptor_classobj__name = space.getattr(gcls_classobj, gs__name)
   gfunc_uid = space.wrap(gateway.interp2app(f_uid, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
   gs__class__s__s_at_0x_x_ = space.wrap('<class %s.%s at 0x%x>')
-  gi_0 = space.newint(0)
+  gi_0 = space.wrap(0)
   glong_0x7fffffffL = space.wrap(0x7fffffffL) # XXX implement long!
-  gi_2 = space.newint(2)
+  gi_2 = space.wrap(2)
   gs___get__ = space.wrap('__get__')
-  gi_1 = space.newint(1)
+  gi_1 = space.wrap(1)
   gfunc_lookup = space.wrap(gateway.interp2app(f_lookup, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
   gs_class__s_has_no_attribute__s = space.wrap('class %s has no attribute %s')
   gfunc_mro_lookup = space.wrap(gateway.interp2app(f_mro_lookup, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
@@ -6739,34 +7212,46 @@ def initclassobj(space):
   gs___init__ = space.wrap('__init__')
   gs___init_____should_return_None = space.wrap('__init__() should return None')
   gs___class__ = space.wrap('__class__')
-  gs__s_instance_has_no_attribute__s = space.wrap('%s instance has no attribute %s')
+  gs__s_instance_has_no_attribute__s = space.wrap(
+"""%s instance has no attribute %s""")
   gs_instance_has_no_next___method = space.wrap('instance has no next() method')
   gfunc__coerce = space.wrap(gateway.interp2app(f__coerce, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
   gs_step = space.wrap('step')
   gs___setslice__ = space.wrap('__setslice__')
   gs_start = space.wrap('start')
   gs_stop = space.wrap('stop')
-  gs___dict___must_be_set_to_a_dictio = space.wrap('__dict__ must be set to a dictionary')
-  gs___class___must_be_set_to_a_class = space.wrap('__class__ must be set to a class')
+  gs___dict___must_be_set_to_a_dictio = space.wrap(
+"""__dict__ must be set to a dictionary""")
+  gs___class___must_be_set_to_a_class = space.wrap(
+"""__class__ must be set to a class""")
   gs___s__s_instance_at_0x_x_ = space.wrap('<%s.%s instance at 0x%x>')
-  gs___nonzero_____should_return____0 = space.wrap('__nonzero__() should return >= 0')
-  gs___nonzero_____should_return_an_i = space.wrap('__nonzero__() should return an int')
+  gs___nonzero_____should_return____0 = space.wrap(
+"""__nonzero__() should return >= 0""")
+  gs___nonzero_____should_return_an_i = space.wrap(
+"""__nonzero__() should return an int""")
   gs___len_____should_return____0 = space.wrap('__len__() should return >= 0')
-  gs___len_____should_return_an_int = space.wrap('__len__() should return an int')
-  gs___iter___returned_non_iterator_o = space.wrap('__iter__ returned non-iterator of type %s')
+  gs___len_____should_return_an_int = space.wrap(
+"""__len__() should return an int""")
+  gs___iter___returned_non_iterator_o = space.wrap(
+"""__iter__ returned non-iterator of type %s""")
   gs_iteration_over_non_sequence = space.wrap('iteration over non-sequence')
   gs_unhashable_instance = space.wrap('unhashable instance')
-  gs___hash_____should_return_an_int = space.wrap('__hash__() should return an int')
+  gs___hash_____should_return_an_int = space.wrap(
+"""__hash__() should return an int""")
   gs___getslice__ = space.wrap('__getslice__')
   gs___getattr__ = space.wrap('__getattr__')
   gs___delslice__ = space.wrap('__delslice__')
   g2tuple_2 = space.newtuple([gs___dict__, gs___class__])
-  gs__s_instance_has_no_attribute___s = space.wrap("%s instance has no attribute '%s'")
+  gs__s_instance_has_no_attribute___s = space.wrap(
+"""%s instance has no attribute '%s'""")
+  gi_minus_1 = space.wrap(-1)
   gs___cmp___must_return_int = space.wrap('__cmp__ must return int')
-  gi_minus_1 = space.newint(-1)
-  gs__s_instance_has_no___call___meth = space.wrap('%s instance has no __call__ method')
-  gs_instance___first_arg_must_be_cla = space.wrap('instance() first arg must be class')
-  gs_instance___second_arg_must_be_di = space.wrap('instance() second arg must be dictionary or None')
+  gs__s_instance_has_no___call___meth = space.wrap(
+"""%s instance has no __call__ method""")
+  gs_instance___first_arg_must_be_cla = space.wrap(
+"""instance() first arg must be class""")
+  gs_instance___second_arg_must_be_di = space.wrap(
+"""instance() second arg must be dictionary or None""")
   gfunc_type_err = space.wrap(gateway.interp2app(f_type_err, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
   gs_name = space.wrap('name')
   gs_string = space.wrap('string')
@@ -6783,6 +7268,7 @@ def initclassobj(space):
   g_object = space.call(space.w_object, _tup)
   gs_callable = space.wrap('callable')
   gs_base_must_be_class = space.wrap('base must be class')
-  gs_argument__s_must_be__s__not__s = space.wrap('argument %s must be %s, not %s')
+  gs_argument__s_must_be__s__not__s = space.wrap(
+"""argument %s must be %s, not %s""")
   return g3tuple
 

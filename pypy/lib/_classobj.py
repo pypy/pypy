@@ -412,7 +412,7 @@ class instance(object):
                 return func(other)
             return NotImplemented
         else:
-            return %(opref)s(self, other)
+            return %(opref)s(coerced[0], coerced[1])
 
     def __r%(op)s__(self, other):
         coerced = _coerce(self, other)
@@ -422,7 +422,7 @@ class instance(object):
                 return func(other)
             return NotImplemented
         else:
-            return %(opref)s(other, self)
+            return %(opref)s(coerced[1], coerced[0])
 
 """, {"op": op, "opref": opref})
     del op, opref
@@ -451,7 +451,7 @@ class instance(object):
                     return func(other)
                 return NotImplemented
             else:
-                return operator.pow(self, other, None)
+                return operator.pow(coerced[0], coerced[1], None)
         else:
             # CPython also doesn't try coercion in this case
             func = instance_getattr1(self, '__pow__', False)
@@ -469,7 +469,7 @@ class instance(object):
                     return func(other)
                 return NotImplemented
             else:
-                return operator.pow(other, self, None)
+                return operator.pow(coerced[1], coerced[0], None)
         else:
             # CPython also doesn't try coercion in this case
             func = instance_getattr1(self, '__rpow__', False)
@@ -556,7 +556,7 @@ class instance(object):
                     return 0
                 raise TypeError,"__cmp__ must return int"
         if isinstance(w, instance):
-            func = instance_getattr1(v, '__cmp__', False)
+            func = instance_getattr1(w, '__cmp__', False)
             if func:
                 res = func(v)
                 if isinstance(res, int):
