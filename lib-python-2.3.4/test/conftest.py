@@ -201,7 +201,7 @@ class OutputTestItem(RunAppFileItem):
         finally: 
             sys.stdout = oldsysout 
         # we want to compare outputs 
-        result = self.fspath.purebasename+"\n"+capturesysout.getvalue() # regrtest itself had the test_name at the top of captured output
+        result = self.fspath.purebasename+"\n"+capturesysout.getvalue() # regrtest itself prepends the test_name to the captured output
         expected = outputpath.read(mode='r') 
         if result != expected: 
             reportdiff(expected, result) 
