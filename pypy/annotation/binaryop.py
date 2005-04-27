@@ -166,7 +166,7 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 
     def and_((int1, int2)):
         unsigned = int1.unsigned or int2.unsigned
-        return SomeInteger(nonneg = unsigned or int1.nonneg or int1.nonneg,
+        return SomeInteger(nonneg = unsigned or int1.nonneg or int2.nonneg,
                            unsigned = unsigned)
 
     def lshift((int1, int2)):
