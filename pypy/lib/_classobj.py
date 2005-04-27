@@ -490,7 +490,7 @@ class instance(object):
     def __nonzero__(self):
         func = instance_getattr1(self, '__nonzero__', False)
         if not func:
-            func = instance_getattr1(self, '__nonzero__', False)
+            func = instance_getattr1(self, '__len__', False)
             if not func: # default to true
                 return True
         ret = func()
