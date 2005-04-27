@@ -4,22 +4,17 @@ objspacename = 'std'
 
 class TestW_SliceObject:
 
-    def equal_indices(self, got, expected):
-        assert len(got) == len(expected)
-        for g, e in zip(got, expected):
-            assert g == e
-
     def test_indices(self):
         from pypy.objspace.std import slicetype
         space = self.space
         w = space.wrap
         w_None = space.w_None
         w_slice = space.newslice(w_None, w_None, w_None)
-        self.equal_indices(slicetype.indices3(space, w_slice, 6), (0, 6, 1))
+        assert slicetype.indices3(space, w_slice, 6) == (0, 6, 1)
         w_slice = space.newslice(w(0), w(6), w(1))
-        self.equal_indices(slicetype.indices3(space, w_slice, 6), (0, 6, 1))
+        assert slicetype.indices3(space, w_slice, 6) == (0, 6, 1)
         w_slice = space.newslice(w_None, w_None, w(-1))
-        self.equal_indices(slicetype.indices3(space, w_slice, 6), (5, -1, -1))
+        assert slicetype.indices3(space, w_slice, 6) == (5, -1, -1)
 
     def test_indices_fail(self):
         from pypy.objspace.std import slicetype

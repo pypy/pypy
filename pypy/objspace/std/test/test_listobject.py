@@ -388,6 +388,9 @@ class AppTestW_ListObject:
         l = range(6)
         l[1:3] = 'abc'
         assert l == [0, 'a', 'b', 'c', 3, 4, 5]
+        l = []
+        l[:-3] = []
+        assert l == []
 
     def test_recursive_repr(self):
         l = []

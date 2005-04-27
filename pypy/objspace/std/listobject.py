@@ -279,7 +279,7 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
         newsize = oldsize + delta
         _list_resize(w_list, newsize)
         w_list.ob_size = newsize
-        r = range(stop+delta, newsize)
+        r = range(start+len2, newsize)
         if delta > 0:
             r.reverse()
         items = w_list.ob_item
