@@ -1,5 +1,22 @@
 #! /usr/bin/env python
 
+"""
+A quick reporting tool, showing the exit status and last line of each test.
+
+In the first column, quickreport attempts to categorize the test result:
+
+    Ok    passed.
+    ERR   failed.
+          (blank) ImportError, one of the known-missing modules listed below.
+    ?     parse error, maybe the test is currently running.
+    T/O   time out.
+
+When called with arguments, quickreport prints the name of the tests that
+match them.  The first argument is the category (ok, err, t/o) and the
+optional following arguments are searched for in the last column of the
+table.
+"""
+
 import sys; sys.path.insert(0, '../../..')
 import py, re
 
@@ -75,25 +92,42 @@ class Result:
             str(self.execution_time)[:5],
             self.finalline)
 
-header = Result()
-header.pts = 'res'
-header.name = 'name'
-header.exit_status = 'err'
-header.execution_time = 'time'
-header.finalline = '  last output line'
-print
-print header
-print
+
+def allresults():
+    files = mydir.listdir("*.txt")
+    files.sort(lambda x,y: cmp(str(x).lower(), str(y).lower()))
+    for fn in files:
+        result = Result()
+        try:
+            result.read(fn)
+        except AssertionError:
+            pass
+        yield result
 
 
-files = mydir.listdir("*.txt")
-files.sort(lambda x,y: cmp(str(x).lower(), str(y).lower()))
-for fn in files:
-    result = Result()
-    try:
-        result.read(fn)
-    except AssertionError:
-        pass
-    print result
+def report_table():
+    header = Result()
+    header.pts = 'res'
+    header.name = 'name'
+    header.exit_status = 'err'
+    header.execution_time = 'time'
+    header.finalline = '  last output line'
+    print
+    print header
+    print
+    for result in allresults():
+        print result
+    print
 
-print
+
+if __name__ == '__main__':
+    if len(sys.argv) <= 1:
+        report_table()
+    else:
+        match_pts = sys.argv[1].upper()
+        match_finalline = '\s+'.join([re.escape(s) for s in sys.argv[2:]])
+        r_match_finalline = re.compile(match_finalline)
+        for result in allresults():
+            if result.pts.upper() == match_pts:
+                if r_match_finalline.search(result.finalline):
+                    print result.name
