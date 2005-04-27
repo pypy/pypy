@@ -1363,11 +1363,6 @@ def test_exc(a=5):
     except ZeroDivisionError:
         return 42
 
-def test_strutil():
-    from pypy.objspace.std import strutil
-    return (strutil.string_to_int("42"),
-            strutil.string_to_long("12345678901234567890"))
-
 def test_struct():
     from pypy.appspace import struct
     import struct as stru
@@ -1423,7 +1418,6 @@ entrypoints = (small_loop,
                 test_iter,
                 test_loop,
                 test_exc,
-                test_strutil,
                 test_struct,
                 exceptions_helper,
                 make_class_instance_helper,
