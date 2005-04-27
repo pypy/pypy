@@ -847,20 +847,25 @@ class ReallyRunFileExternal(RunAppFileItem):
         else:
             status = 'abnormal termination 0x%x' % status
 
+        failure = None
         resultfile = resultfilename.open('a')
-        print >> resultfile, '='*26, 'closed', '='*26
-        print >> resultfile, 'execution time:', time.time() - starttime, 'seconds'
-        print >> resultfile, 'exit status:', status
-        resultfile.close()
-        if status != 0:
-            time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
-        #print output 
-        assert status == 0, "exitstatus is %d" %(status,)
-
         if outputfilename:
             expectedfilename = mydir.join('output', self.fspath.purebasename)
             expected = expectedfilename.read(mode='r')
             result = outputfilename.read(mode='r')
             if result != expected: 
                 reportdiff(expected, result) 
-                py.test.fail("output check failed: %s" % (self.fspath.basename,))
+                failure = "output check failed: %s" % (self.fspath.basename,)
+                print >> resultfile, 'FAILED: test output differs'
+            else:
+                print >> resultfile, 'OK'
+        print >> resultfile, '='*26, 'closed', '='*26
+        print >> resultfile, 'execution time:', time.time() - starttime, 'seconds'
+        print >> resultfile, 'exit status:', status
+        resultfile.close()
+        if status != 0:
+            failure = "exitstatus is %d" %(status,)
+        #print output 
+        if failure:
+             time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
+             py.test.fail(failure)
