@@ -10,6 +10,7 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.descroperation import DescrOperation
 from pypy.objspace.std import stdtypedef
 import types
+import sys
 
 
 def registerimplementation(implcls):
@@ -260,9 +261,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_DictObject(self, list_pairs_w)
 
     def newslice(self, w_start, w_end, w_step):
-        # w_step may be a real None
-        if w_step is None:
-            w_step = self.w_None
         return W_SliceObject(self, w_start, w_end, w_step)
 
     def newstring(self, chars_w):
@@ -320,6 +318,32 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             return DescrOperation.is_true(self, w_obj)
 
+    # support for the deprecated __getslice__, __setslice__, __delslice__
+
+    def getslice(self, w_obj, w_start, w_stop):
+        w_descr = self.lookup(w_obj, '__getslice__')
+        if w_descr is not None:
+            w_start, w_stop = old_slice_range(self, w_obj, w_start, w_stop)
+            return self.get_and_call_function(w_descr, w_obj, w_start, w_stop)
+        else:
+            return ObjSpace.getslice(self, w_obj, w_start, w_stop)
+
+    def setslice(self, w_obj, w_start, w_stop, w_sequence):
+        w_descr = self.lookup(w_obj, '__setslice__')
+        if w_descr is not None:
+            w_start, w_stop = old_slice_range(self, w_obj, w_start, w_stop)
+            self.get_and_call_function(w_descr, w_obj, w_start, w_stop,
+                                       w_sequence)
+        else:
+            ObjSpace.setslice(self, w_obj, w_start, w_stop, w_sequence)
+
+    def delslice(self, w_obj, w_start, w_stop):
+        w_descr = self.lookup(w_obj, '__delslice__')
+        if w_descr is not None:
+            w_start, w_stop = old_slice_range(self, w_obj, w_start, w_stop)
+            self.get_and_call_function(w_descr, w_obj, w_start, w_stop)
+        else:
+            ObjSpace.delslice(self, w_obj, w_start, w_stop)
 
     class MM:
         "Container for multimethods."
@@ -340,3 +364,20 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 del mm
 
         pow.extras['defaults'] = (None,)
+
+
+
+def old_slice_range(space, w_obj, w_start, w_stop):
+    """Only for backward compatibility for __getslice__()&co methods."""
+    if space.is_w(w_start, space.w_None):
+        w_start = space.wrap(0)
+    elif space.is_true(space.lt(w_start, space.wrap(0))):
+        w_start = space.add(w_start, space.len(w_obj))
+        # NB. the language ref is inconsistent with the new-style class
+        # behavior when w_obj doesn't implement __len__(), so we just
+        # ignore this case.
+    if space.is_w(w_stop, space.w_None):
+        w_stop = space.wrap(sys.maxint)
+    elif space.is_true(space.lt(w_stop, space.wrap(0))):
+        w_stop = space.add(w_stop, space.len(w_obj))
+    return w_start, w_stop

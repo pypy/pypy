@@ -14,6 +14,9 @@ class W_SliceObject(W_Object):
     
     def __init__(w_self, space, w_start, w_stop, w_step):
         W_Object.__init__(w_self, space)
+        assert w_start is not None
+        assert w_stop is not None
+        assert w_step is not None
         w_self.w_start = w_start
         w_self.w_stop = w_stop
         w_self.w_step = w_step

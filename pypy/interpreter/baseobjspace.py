@@ -146,6 +146,17 @@ class ObjSpace(object):
         else:
             return self.w_False
 
+    # support for the deprecated __getslice__, __setslice__, __delslice__
+    def getslice(self, w_obj, w_start, w_stop):
+        w_slice = self.newslice(w_start, w_stop, self.w_None)
+        return self.getitem(w_obj, w_slice)
+    def setslice(self, w_obj, w_start, w_stop, w_sequence):
+        w_slice = self.newslice(w_start, w_stop, self.w_None)
+        self.setitem(w_obj, w_slice, w_sequence)
+    def delslice(self, w_obj, w_start, w_stop):
+        w_slice = self.newslice(w_start, w_stop, self.w_None)
+        self.delitem(w_obj, w_slice)
+
     def interpclass_w(space, w_obj):
         """
          If w_obj is a wrapped internal interpreter class instance unwrap to it,
@@ -465,7 +476,7 @@ ObjSpace.ExceptionTable = [
 #                   newlist([w_1, w_2,...]) -> w_list
 #                 newstring([w_1, w_2,...]) -> w_string from ascii numbers (bytes)
 #            newdict([(w_key,w_value),...]) -> w_dict
-#           newslice(w_start,w_stop,w_step) -> w_slice (any argument may be a real None)
+#           newslice(w_start,w_stop,w_step) -> w_slice
 #              call_args(w_obj,Arguments()) -> w_result
 
 ObjSpace.IrregularOpTable = [

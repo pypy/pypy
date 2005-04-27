@@ -22,6 +22,8 @@ class AppTest_Descroperation:
         assert sq[-1:3] == (99, 3)
         assert sq[1:-3] == (1, 97)
         assert sq[-1:-3] == (99, 97)
+        # extended slice syntax always uses __getitem__()
+        assert sq[::] == "booh"
 
     def test_setslice(self):
         class Sq(object):

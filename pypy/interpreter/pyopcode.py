@@ -201,21 +201,20 @@ class PyInterpFrame(pyframe.PyFrame):
     INPLACE_OR  = binaryoperation("inplace_or")
 
     def slice(f, w_start, w_end):
-        w_slice = f.space.newslice(w_start, w_end, None)
         w_obj = f.valuestack.pop()
-        w_result = f.space.getitem(w_obj, w_slice)
+        w_result = f.space.getslice(w_obj, w_start, w_end)
         f.valuestack.push(w_result)
 
     def SLICE_0(f):
-        f.slice(None, None)
+        f.slice(f.space.w_None, f.space.w_None)
 
     def SLICE_1(f):
         w_start = f.valuestack.pop()
-        f.slice(w_start, None)
+        f.slice(w_start, f.space.w_None)
 
     def SLICE_2(f):
         w_end = f.valuestack.pop()
-        f.slice(None, w_end)
+        f.slice(f.space.w_None, w_end)
 
     def SLICE_3(f):
         w_end = f.valuestack.pop()
@@ -223,21 +222,20 @@ class PyInterpFrame(pyframe.PyFrame):
         f.slice(w_start, w_end)
 
     def storeslice(f, w_start, w_end):
-        w_slice = f.space.newslice(w_start, w_end, None)
         w_obj = f.valuestack.pop()
         w_newvalue = f.valuestack.pop()
-        f.space.setitem(w_obj, w_slice, w_newvalue)
+        f.space.setslice(w_obj, w_start, w_end, w_newvalue)
 
     def STORE_SLICE_0(f):
-        f.storeslice(None, None)
+        f.storeslice(f.space.w_None, f.space.w_None)
 
     def STORE_SLICE_1(f):
         w_start = f.valuestack.pop()
-        f.storeslice(w_start, None)
+        f.storeslice(w_start, f.space.w_None)
 
     def STORE_SLICE_2(f):
         w_end = f.valuestack.pop()
-        f.storeslice(None, w_end)
+        f.storeslice(f.space.w_None, w_end)
 
     def STORE_SLICE_3(f):
         w_end = f.valuestack.pop()
@@ -245,20 +243,19 @@ class PyInterpFrame(pyframe.PyFrame):
         f.storeslice(w_start, w_end)
 
     def deleteslice(f, w_start, w_end):
-        w_slice = f.space.newslice(w_start, w_end, None)
         w_obj = f.valuestack.pop()
-        f.space.delitem(w_obj, w_slice)
+        f.space.delslice(w_obj, w_start, w_end)
 
     def DELETE_SLICE_0(f):
-        f.deleteslice(None, None)
+        f.deleteslice(f.space.w_None, f.space.w_None)
 
     def DELETE_SLICE_1(f):
         w_start = f.valuestack.pop()
-        f.deleteslice(w_start, None)
+        f.deleteslice(w_start, f.space.w_None)
 
     def DELETE_SLICE_2(f):
         w_end = f.valuestack.pop()
-        f.deleteslice(None, w_end)
+        f.deleteslice(f.space.w_None, w_end)
 
     def DELETE_SLICE_3(f):
         w_end = f.valuestack.pop()
@@ -668,7 +665,7 @@ class PyInterpFrame(pyframe.PyFrame):
         if numargs == 3:
             w_step = f.valuestack.pop()
         elif numargs == 2:
-            w_step = None
+            w_step = f.space.w_None
         else:
             raise pyframe.BytecodeCorruption
         w_end   = f.valuestack.pop()

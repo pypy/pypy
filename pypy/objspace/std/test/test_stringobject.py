@@ -75,22 +75,22 @@ class TestW_StringObject:
         w = space.wrap
         w_str = w('abc')
 
-        w_slice = space.newslice(w(0), w(0), None)
+        w_slice = space.newslice(w(0), w(0), space.w_None)
         assert self.space.eq_w(space.getitem(w_str, w_slice), w(''))
 
-        w_slice = space.newslice(w(0), w(1), None)
+        w_slice = space.newslice(w(0), w(1), space.w_None)
         assert self.space.eq_w(space.getitem(w_str, w_slice), w('a'))
 
-        w_slice = space.newslice(w(0), w(10), None)
+        w_slice = space.newslice(w(0), w(10), space.w_None)
         assert self.space.eq_w(space.getitem(w_str, w_slice), w('abc'))
 
-        w_slice = space.newslice(space.w_None, space.w_None, None)
+        w_slice = space.newslice(space.w_None, space.w_None, space.w_None)
         assert self.space.eq_w(space.getitem(w_str, w_slice), w('abc'))
 
-        w_slice = space.newslice(space.w_None, w(-1), None)
+        w_slice = space.newslice(space.w_None, w(-1), space.w_None)
         assert self.space.eq_w(space.getitem(w_str, w_slice), w('ab'))
 
-        w_slice = space.newslice(w(-1), space.w_None, None)
+        w_slice = space.newslice(w(-1), space.w_None, space.w_None)
         assert self.space.eq_w(space.getitem(w_str, w_slice), w('c'))
 
     def test_extended_slice(self):

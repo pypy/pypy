@@ -103,10 +103,7 @@ class FlowObjSpace(ObjSpace):
             return Constant(content)
         return self.do_operation('newlist', *args_w)
 
-    def newslice(self, w_start=None, w_stop=None, w_step=None):
-        if w_start is None: w_start = self.w_None
-        if w_stop  is None: w_stop  = self.w_None
-        if w_step  is None: w_step  = self.w_None
+    def newslice(self, w_start, w_stop, w_step):
         if self.concrete_mode:
             return Constant(slice(self.unwrap(w_start),
                                   self.unwrap(w_stop),
