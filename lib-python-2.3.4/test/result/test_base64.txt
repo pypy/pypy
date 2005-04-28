@@ -6,8 +6,8 @@ sys.version_info: (2, 3, 5, 'final', 0)
 cpu model: AMD Athlon(tm) Processor
 cpu mhz: 2134.402
 oldstyle: no
-pypy-revision: 11604
-startdate: Thu Apr 28 19:51:14 2005
+pypy-revision: 11605
+startdate: Thu Apr 28 20:05:26 2005
 
 ============================================================
 faking <type 'unicode'>
@@ -19,9 +19,9 @@ test_decodestring (__main__.Base64TestCase) ... ok
 test_encodestring (__main__.Base64TestCase) ... ok
 
 ----------------------------------------------------------------------
-Ran 2 tests in 1.330s
+Ran 2 tests in 1.291s
 
 OK
 ========================== closed ==========================
-execution time: 9.35255098343 seconds
+execution time: 12.391712904 seconds
 exit status: 0

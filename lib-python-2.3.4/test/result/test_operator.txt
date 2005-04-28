@@ -1,33 +1,20 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_operator.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_operator.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 11:31:21 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 21:38:11 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
 faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
-Traceback (application-level):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_operator.py", line 235 in ?
-    test_main()
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_operator.py", line 231 in test_main
-    test_support.run_unittest(OperatorTestCase)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
-    run_suite(suite, testclass)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
-        raise TestFailed(err)
-TestFailed: Traceback (most recent call last):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_operator.py", line 116, in test_isCallable
-    check(self, C(), 0)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_operator.py", line 112, in check
-    self.assert_(operator.isCallable(o) == callable(o) == v)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 278, in failUnless
-    if not expr: raise self.failureException, msg
-AssertionError
-
 test_abs (__main__.OperatorTestCase) ... ok
 test_add (__main__.OperatorTestCase) ... ok
 test_bitwise_and (__main__.OperatorTestCase) ... ok
@@ -48,7 +35,7 @@ test_gt (__main__.OperatorTestCase) ... ok
 test_indexOf (__main__.OperatorTestCase) ... ok
 test_invert (__main__.OperatorTestCase) ... ok
 test_is (__main__.OperatorTestCase) ... ok
-test_isCallable (__main__.OperatorTestCase) ... FAIL
+test_isCallable (__main__.OperatorTestCase) ... ok
 test_isMappingType (__main__.OperatorTestCase) ... ok
 test_isNumberType (__main__.OperatorTestCase) ... ok
 test_isSequenceType (__main__.OperatorTestCase) ... ok
@@ -70,22 +57,10 @@ test_sub (__main__.OperatorTestCase) ... ok
 test_truediv (__main__.OperatorTestCase) ... ok
 test_truth (__main__.OperatorTestCase) ... ok
 
-======================================================================
-FAIL: test_isCallable (__main__.OperatorTestCase)
 ----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_operator.py", line 116, in test_isCallable
-    check(self, C(), 0)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_operator.py", line 112, in check
-    self.assert_(operator.isCallable(o) == callable(o) == v)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 278, in failUnless
-    if not expr: raise self.failureException, msg
-AssertionError
+Ran 41 tests in 15.735s
 
-----------------------------------------------------------------------
-Ran 41 tests in 10.831s
-
-FAILED (failures=1)
+OK
 ========================== closed ==========================
-execution time: 17.710351944 seconds
-exit status: 1
+execution time: 24.1210589409 seconds
+exit status: 0

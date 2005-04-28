@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_mailbox.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_mailbox.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 02:07:58 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 21:25:02 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -16,9 +21,9 @@ test_nonempty_maildir_cur (__main__.MaildirTestCase) ... ok
 test_nonempty_maildir_new (__main__.MaildirTestCase) ... ok
 
 ----------------------------------------------------------------------
-Ran 4 tests in 9.863s
+Ran 4 tests in 3.131s
 
 OK
 ========================== closed ==========================
-execution time: 16.7193570137 seconds
+execution time: 19.8124909401 seconds
 exit status: 0

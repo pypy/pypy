@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_hmac.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_hmac.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 01:07:35 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 20:53:11 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -11,20 +16,20 @@ faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 Traceback (application-level):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_hmac.py", line 167 in ?
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_hmac.py", line 167 in ?
     test_main()
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_hmac.py", line 163 in test_main
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_hmac.py", line 163 in test_main
         CopyTestCase
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
     run_suite(suite, testclass)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
         raise TestFailed(err)
 TestFailed: Traceback (most recent call last):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_hmac.py", line 17, in test_md5_vectors
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_hmac.py", line 17, in test_md5_vectors
     "9294727A3638BB1C13F48EF8158BFC9D")
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_hmac.py", line 13, in md5test
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_hmac.py", line 13, in md5test
     self.assertEqual(h.hexdigest().upper(), digest.upper())
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
     raise self.failureException, \
 AssertionError: '000000000000000000000000E71DFA9D' != '9294727A3638BB1C13F48EF8158BFC9D'
 
@@ -43,18 +48,18 @@ test_realcopy (__main__.CopyTestCase) ... ok
 FAIL: test_md5_vectors (__main__.TestVectorsTestCase)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_hmac.py", line 17, in test_md5_vectors
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_hmac.py", line 17, in test_md5_vectors
     "9294727A3638BB1C13F48EF8158BFC9D")
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_hmac.py", line 13, in md5test
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_hmac.py", line 13, in md5test
     self.assertEqual(h.hexdigest().upper(), digest.upper())
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
     raise self.failureException, \
 AssertionError: '000000000000000000000000E71DFA9D' != '9294727A3638BB1C13F48EF8158BFC9D'
 
 ----------------------------------------------------------------------
-Ran 10 tests in 130.733s
+Ran 10 tests in 167.282s
 
 FAILED (failures=1)
 ========================== closed ==========================
-execution time: 141.457495928 seconds
+execution time: 182.006867886 seconds
 exit status: 1

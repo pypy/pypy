@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pkgimport.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_pkgimport.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 11:57:07 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 21:39:44 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -11,18 +16,18 @@ faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 Traceback (application-level):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pkgimport.py", line 83 in ?
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_pkgimport.py", line 83 in ?
     test_main()
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pkgimport.py", line 79 in test_main
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_pkgimport.py", line 79 in test_main
     run_unittest(TestImport)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
     run_suite(suite, testclass)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
         raise TestFailed(err)
 TestFailed: Traceback (most recent call last):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pkgimport.py", line 55, in test_package_import__semantics
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_pkgimport.py", line 55, in test_package_import__semantics
     self.assert_(not sys.modules.has_key(self.module_name) and
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 278, in failUnless
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/unittest.py", line 278, in failUnless
     if not expr: raise self.failureException, msg
 AssertionError
 
@@ -32,16 +37,16 @@ test_package_import__semantics (__main__.TestImport) ... FAIL
 FAIL: test_package_import__semantics (__main__.TestImport)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pkgimport.py", line 55, in test_package_import__semantics
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_pkgimport.py", line 55, in test_package_import__semantics
     self.assert_(not sys.modules.has_key(self.module_name) and
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 278, in failUnless
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/unittest.py", line 278, in failUnless
     if not expr: raise self.failureException, msg
 AssertionError
 
 ----------------------------------------------------------------------
-Ran 1 test in 2.738s
+Ran 1 test in 2.262s
 
 FAILED (failures=1)
 ========================== closed ==========================
-execution time: 9.64418315887 seconds
+execution time: 10.8054561615 seconds
 exit status: 1

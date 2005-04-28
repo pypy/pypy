@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_cmath.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_cmath.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 22:25:40 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 20:19:19 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -29,5 +34,5 @@ Calling tan(1.000000) = 1.557407
 PI =  3.14159265358
 E =  2.71828182845
 ========================== closed ==========================
-execution time: 13.1306848526 seconds
+execution time: 19.7615480423 seconds
 exit status: 0

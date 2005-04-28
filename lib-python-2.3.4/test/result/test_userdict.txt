@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_userdict.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_userdict.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 15:51:51 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 22:24:28 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -20,9 +25,9 @@ test_read (__main__.UserDictMixinTest) ... ok
 test_write (__main__.UserDictMixinTest) ... ok
 
 ----------------------------------------------------------------------
-Ran 8 tests in 51.954s
+Ran 8 tests in 11.563s
 
 OK
 ========================== closed ==========================
-execution time: 63.4154179096 seconds
+execution time: 24.07132411 seconds
 exit status: 0

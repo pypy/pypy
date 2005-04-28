@@ -1,10 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py  /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_builtin.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_builtin.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
 oldstyle: no
-startdate: Thu Apr 28 18:08:12 2005
-pypy-revision: 11595
+pypy-revision: 11605
+startdate: Thu Apr 28 20:09:32 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -13,9 +17,9 @@ faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 faking <type '_sre.SRE_Pattern'>
 faking <type 'function'>
-/u/pedronis/PyPy/dist/pypy/objspace/std/intobject.py:442: FutureWarning: %u/%o/%x/%X of negative int will return a signed string in Python 2.4 and up
+/home/hpk/pypy-dist/pypy/objspace/std/intobject.py:442: FutureWarning: %u/%o/%x/%X of negative int will return a signed string in Python 2.4 and up
   ret = "0x%lx" % x
-/u/pedronis/PyPy/dist/pypy/objspace/std/intobject.py:430: FutureWarning: %u/%o/%x/%X of negative int will return a signed string in Python 2.4 and up
+/home/hpk/pypy-dist/pypy/objspace/std/intobject.py:430: FutureWarning: %u/%o/%x/%X of negative int will return a signed string in Python 2.4 and up
   ret = "0%lo" % x
 test_abs (__main__.BuiltinTest) ... ok
 test_apply (__main__.BuiltinTest) ... ok
@@ -69,9 +73,9 @@ test_vars (__main__.BuiltinTest) ... ok
 test_zip (__main__.BuiltinTest) ... ok
 
 ----------------------------------------------------------------------
-Ran 50 tests in 293.296s
+Ran 50 tests in 480.231s
 
 OK
 ========================== closed ==========================
-execution time: 303.068670034 seconds
+execution time: 497.741446972 seconds
 exit status: 0

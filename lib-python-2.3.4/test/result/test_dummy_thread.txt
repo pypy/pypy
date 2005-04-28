@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_dummy_thread.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_dummy_thread.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 00:12:20 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 20:41:18 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -11,7 +16,7 @@ faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 
-*** Using <module object at 0x40de60cc> as _thread module ***
+*** Using <module object at 0xb6ccef0c> as _thread module ***
 test_cond_acquire_fail (__main__.LockTests) ... ok
 test_cond_acquire_success (__main__.LockTests) ... ok
 test_improper_release (__main__.LockTests) ... ok
@@ -35,9 +40,9 @@ done
 ok
 
 ----------------------------------------------------------------------
-Ran 15 tests in 5.786s
+Ran 15 tests in 6.778s
 
 OK
 ========================== closed ==========================
-execution time: 20.2266039848 seconds
+execution time: 18.1124308109 seconds
 exit status: 0

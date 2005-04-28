@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_datetime.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_datetime.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 23:16:55 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 20:24:09 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -18,28 +23,22 @@ faking <type 'time.struct_time'>
 faking <type 'classobj'>
 ==========================timeout==========================
 Traceback (application-level):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_datetime.py", line 3113 in ?
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_datetime.py", line 3113 in ?
     test_main()
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_datetime.py", line 3096 in test_main
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_datetime.py", line 3096 in test_main
         test_support.run_suite(thesuite)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
     result = runner.run(suite)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 658 in run
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/unittest.py", line 658 in run
         test(result)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 389 in __call__
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/unittest.py", line 389 in __call__
             test(result)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 389 in __call__
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/unittest.py", line 389 in __call__
             test(result)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 229 in __call__
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/unittest.py", line 229 in __call__
                 testMethod()
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_datetime.py", line 570 in test_ordinal_conversions
-                self.assertEqual(d, d2)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 301 in failUnlessEqual
-        if not first == second:
-  File "/u/pedronis/PyPy/dist/pypy/lib/datetime.py", line 1634 in __eq__
-            return self.__cmp(other) == 0
-  File "/u/pedronis/PyPy/dist/pypy/lib/datetime.py", line 1681 in __cmp
-        assert isinstance(other, datetime)
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_datetime.py", line 565 in test_ordinal_conversions
+            self.assertEqual(d, d2)
 KeyboardInterrupt
 test_constants (__main__.TestModule) ... ok
 test_non_abstractness (__main__.TestTZInfo) ... ok
@@ -120,5 +119,5 @@ test_more_pickling (__main__.TestDateTime) ... ok
 test_more_strftime (__main__.TestDateTime) ... ok
 test_more_timetuple (__main__.TestDateTime) ... ok
 test_ordinal_conversions (__main__.TestDateTime) ... ========================== closed ==========================
-execution time: 900.033421993 seconds
+execution time: 904.02614212 seconds
 exit status: 1

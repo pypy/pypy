@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_future3.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_future3.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 00:38:07 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 20:45:34 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -15,9 +20,9 @@ test_nested_scopes (__main__.TestFuture) ... ok
 test_true_div_as_default (__main__.TestFuture) ... ok
 
 ----------------------------------------------------------------------
-Ran 3 tests in 0.685s
+Ran 3 tests in 1.301s
 
 OK
 ========================== closed ==========================
-execution time: 6.43897008896 seconds
+execution time: 14.6286120415 seconds
 exit status: 0

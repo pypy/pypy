@@ -1,16 +1,21 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_compare.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py --oldstyle /home/hpk/pypy-dist/lib-python-2.3.4/test/test_compare.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 22:37:39 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: yes
+pypy-revision: 11605
+startdate: Thu Apr 28 20:20:10 2005
+
 OUTPUT TEST
-see output in: /u/pedronis/PyPy/dist/lib-python-2.3.4/test/result/test_compare.out
+see output in: /home/hpk/pypy-dist/lib-python-2.3.4/test/result/test_compare.out
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
 faking <type 'file'>
 OK
 ========================== closed ==========================
-execution time: 80.4267160892 seconds
+execution time: 129.927108049 seconds
 exit status: 0

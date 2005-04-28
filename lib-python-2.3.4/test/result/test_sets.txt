@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_sets.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_sets.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 13:02:22 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 21:56:06 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -242,10 +247,10 @@ test_exclusion (__main__.TestIdentities) ... ok
 test_summations (__main__.TestIdentities) ... ok
 
 ----------------------------------------------------------------------
-Ran 225 tests in 142.568s
+Ran 225 tests in 115.187s
 
 OK
 doctest (test.test_sets) ... 14 tests with zero failures
 ========================== closed ==========================
-execution time: 582.504189968 seconds
+execution time: 394.171689987 seconds
 exit status: 0

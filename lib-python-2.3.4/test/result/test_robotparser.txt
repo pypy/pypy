@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_robotparser.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_robotparser.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 12:45:54 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 21:55:27 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -49,9 +54,9 @@ RobotTest(6, bad, /%7Ejoe/index.html) ... ok
 RobotTest(7, good, /foo.html) ... ok
 
 ----------------------------------------------------------------------
-Ran 34 tests in 15.824s
+Ran 34 tests in 14.374s
 
 OK
 ========================== closed ==========================
-execution time: 43.0967400074 seconds
+execution time: 39.267277956 seconds
 exit status: 0

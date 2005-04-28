@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_mimetypes.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_mimetypes.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 02:30:27 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 21:37:24 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -24,9 +29,9 @@ test_guess_all_types (__main__.MimeTypesTestCase) ... ok
 test_non_standard_types (__main__.MimeTypesTestCase) ... ok
 
 ----------------------------------------------------------------------
-Ran 5 tests in 31.935s
+Ran 5 tests in 14.173s
 
 OK
 ========================== closed ==========================
-execution time: 42.8693101406 seconds
+execution time: 28.6301989555 seconds
 exit status: 0

@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_posix.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_posix.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 11:58:18 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 21:39:55 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -12,9 +17,9 @@ faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 faking <type '_sre.SRE_Pattern'>
 faking <type 'function'>
-/u/pedronis/PyPy/dist/pypy/objspace/std/fake.py:141: RuntimeWarning: tmpnam is a potential security risk to your program
+/home/hpk/pypy-dist/pypy/objspace/std/fake.py:141: RuntimeWarning: tmpnam is a potential security risk to your program
   result = apply(fn, self.unwrappedargs, self.unwrappedkwds)
-/u/pedronis/PyPy/dist/pypy/objspace/std/fake.py:141: RuntimeWarning: tempnam is a potential security risk to your program
+/home/hpk/pypy-dist/pypy/objspace/std/fake.py:141: RuntimeWarning: tempnam is a potential security risk to your program
   result = apply(fn, self.unwrappedargs, self.unwrappedkwds)
 testNoArgFunctions (__main__.PosixTester) ... ok
 test_access (__main__.PosixTester) ... ok
@@ -36,9 +41,9 @@ test_umask (__main__.PosixTester) ... ok
 test_utime (__main__.PosixTester) ... ok
 
 ----------------------------------------------------------------------
-Ran 18 tests in 5.236s
+Ran 18 tests in 6.943s
 
 OK
 ========================== closed ==========================
-execution time: 19.8876509666 seconds
+execution time: 17.5544378757 seconds
 exit status: 0

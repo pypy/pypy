@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/pypy/lib/test2/test_sha.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/pypy/lib/test2/test_sha.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 13:18:14 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 22:04:06 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -14,9 +19,9 @@ test_case_1 (__main__.SHATestCase) ... ok
 test_case_2 (__main__.SHATestCase) ... ok
 
 ----------------------------------------------------------------------
-Ran 2 tests in 9.152s
+Ran 2 tests in 11.396s
 
 OK
 ========================== closed ==========================
-execution time: 15.4205079079 seconds
+execution time: 19.0084838867 seconds
 exit status: 0

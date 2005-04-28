@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_bisect.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_bisect.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 21:58:28 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 20:06:09 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -22,10 +27,10 @@ test_backcompatibility (__main__.TestInsort) ... ok
 test_vsListSort (__main__.TestInsort) ... ok
 
 ----------------------------------------------------------------------
-Ran 6 tests in 107.855s
+Ran 6 tests in 104.054s
 
 OK
 doctest (test.test_bisect) ... 14 tests with zero failures
 ========================== closed ==========================
-execution time: 404.654814959 seconds
+execution time: 203.219065189 seconds
 exit status: 0

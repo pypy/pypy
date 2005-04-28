@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_hexoct.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_hexoct.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 01:07:19 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 20:52:54 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -30,9 +35,9 @@ test_oct_baseline (__main__.TextHexOct) ... ok
 test_oct_unsigned (__main__.TextHexOct) ... ok
 
 ----------------------------------------------------------------------
-Ran 4 tests in 0.954s
+Ran 4 tests in 1.857s
 
 OK
 ========================== closed ==========================
-execution time: 15.7908778191 seconds
+execution time: 16.4112038612 seconds
 exit status: 0

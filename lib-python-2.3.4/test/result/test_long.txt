@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_long.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_long.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 01:52:20 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 21:09:59 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -12,14 +17,14 @@ faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 ==========================timeout==========================
 Traceback (application-level):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_long.py", line 436 in ?
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_long.py", line 436 in ?
 test_division()
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_long.py", line 100 in test_division
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_long.py", line 100 in test_division
             y = getran(leny) or 1L
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_long.py", line 59 in getran
-        r = int(random() * (SHIFT * 2))
+  File "/home/hpk/pypy-dist/lib-python-2.3.4/test/test_long.py", line 50 in getran
+    r = int(random() * (SHIFT * 2)) | 1  # force 1 bits to start
 KeyboardInterrupt
 long / * % divmod
 ========================== closed ==========================
-execution time: 900.978562117 seconds
+execution time: 902.377927065 seconds
 exit status: 1

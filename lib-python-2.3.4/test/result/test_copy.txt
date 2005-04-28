@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_copy.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_copy.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 23:00:49 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 20:23:06 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -66,9 +71,9 @@ test_reduce_4tuple (__main__.TestCopy) ... ok
 test_reduce_5tuple (__main__.TestCopy) ... ok
 
 ----------------------------------------------------------------------
-Ran 54 tests in 25.612s
+Ran 54 tests in 28.907s
 
 OK
 ========================== closed ==========================
-execution time: 32.3190760612 seconds
+execution time: 38.0915360451 seconds
 exit status: 0

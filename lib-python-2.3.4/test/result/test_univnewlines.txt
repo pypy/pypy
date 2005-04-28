@@ -1,9 +1,14 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_univnewlines.py
-run by: pedronis@ratthing-b246
+testreport-version: 1.0
+command: /usr/bin/python /home/hpk/pypy-dist/pypy/tool/alarm.py 900 /home/hpk/pypy-dist/pypy/interpreter/py.py  /home/hpk/pypy-dist/lib-python-2.3.4/test/test_univnewlines.py
+run by: hpk@central.merlinux.de
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 15:39:50 2005
-pypy-revision: 11549
+cpu model: AMD Athlon(tm) Processor
+cpu mhz: 2134.402
+oldstyle: no
+pypy-revision: 11605
+startdate: Thu Apr 28 22:20:18 2005
+
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -37,9 +42,9 @@ test_readlines (__main__.TestMixedNewlines) ... ok
 test_seek (__main__.TestMixedNewlines) ... ok
 
 ----------------------------------------------------------------------
-Ran 25 tests in 7.485s
+Ran 25 tests in 9.770s
 
 OK
 ========================== closed ==========================
-execution time: 20.885365963 seconds
+execution time: 27.8694770336 seconds
 exit status: 0
