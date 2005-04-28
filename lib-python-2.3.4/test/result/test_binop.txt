@@ -1,0 +1,29 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_binop.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 05:09:16 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+test_add (__main__.RatTestCase) ... ok
+test_constructor (__main__.RatTestCase) ... ok
+test_div (__main__.RatTestCase) ... ok
+test_eq (__main__.RatTestCase) ... ok
+test_floordiv (__main__.RatTestCase) ... ok
+test_future_div (__main__.RatTestCase) ... ok
+test_gcd (__main__.RatTestCase) ... ok
+test_mul (__main__.RatTestCase) ... ok
+test_sub (__main__.RatTestCase) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 18.806s
+
+OK
+========================== closed ==========================
+execution time: 26.5153589249 seconds
+exit status: 0

@@ -1,0 +1,20 @@
+test_global
+should have raised SyntaxError: 
+def wrong1():
+    a = 1
+    b = 2
+    global a
+    global b
+
+should have raised SyntaxError: 
+def wrong2():
+    print x
+    global x
+
+should have raised SyntaxError: 
+def wrong3():
+    print x
+    x = 2
+    global x
+
+as expected, no SyntaxError

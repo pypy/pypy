@@ -1,0 +1,121 @@
+test_pkg
+running test t1
+mkdir /tmp/tmpDnJyrz/t1
+write /tmp/tmpDnJyrz/t1/__init__.py
+sys.path = ['/tmp/tmpDnJyrz', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+rmdir /tmp/tmpDnJyrz/t1
+rmdir /tmp/tmpDnJyrz
+running test t2
+mkdir /tmp/tmpfJHwsP/t2
+write /tmp/tmpfJHwsP/t2/__init__.py
+mkdir /tmp/tmpfJHwsP/t2/sub
+write /tmp/tmpfJHwsP/t2/sub/__init__.py
+mkdir /tmp/tmpfJHwsP/t2/sub/subsub
+write /tmp/tmpfJHwsP/t2/sub/subsub/__init__.py
+sys.path = ['/tmp/tmpfJHwsP', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+t2 loading
+doc for t2
+t2.sub.subsub loading
+t2 t2.sub t2.sub.subsub
+['sub', 't2']
+t2.sub t2.sub.subsub
+t2.sub.subsub
+['spam', 'sub', 'subsub', 't2']
+t2 t2.sub t2.sub.subsub
+['spam', 'sub', 'subsub', 't2']
+rmdir /tmp/tmpfJHwsP/t2/sub/subsub
+rmdir /tmp/tmpfJHwsP/t2/sub
+rmdir /tmp/tmpfJHwsP/t2
+rmdir /tmp/tmpfJHwsP
+running test t3
+mkdir /tmp/tmpmQuS2a/t3
+write /tmp/tmpmQuS2a/t3/__init__.py
+mkdir /tmp/tmpmQuS2a/t3/sub
+write /tmp/tmpmQuS2a/t3/sub/__init__.py
+mkdir /tmp/tmpmQuS2a/t3/sub/subsub
+write /tmp/tmpmQuS2a/t3/sub/subsub/__init__.py
+sys.path = ['/tmp/tmpmQuS2a', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+t3 loading
+t3.sub.subsub loading
+t3 t3.sub t3.sub.subsub
+t3 loading
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pkg.py", line 66, in runtest
+    execfile(fname, globals(), {})
+  File "/tmp/tmpfIwI2Q", line 5, in ?
+    reload(t3.sub)
+AttributeError: 'module' object has no attribute 'sub'
+rmdir /tmp/tmpmQuS2a/t3/sub/subsub
+rmdir /tmp/tmpmQuS2a/t3/sub
+rmdir /tmp/tmpmQuS2a/t3
+rmdir /tmp/tmpmQuS2a
+running test t4
+write /tmp/tmp3Xr2kH/t4.py
+mkdir /tmp/tmp3Xr2kH/t4
+write /tmp/tmp3Xr2kH/t4/__init__.py
+write /tmp/tmp3Xr2kH/t4/sub.py
+mkdir /tmp/tmp3Xr2kH/t4/sub
+write /tmp/tmp3Xr2kH/t4/sub/__init__.py
+write /tmp/tmp3Xr2kH/t4/sub/subsub.py
+mkdir /tmp/tmp3Xr2kH/t4/sub/subsub
+write /tmp/tmp3Xr2kH/t4/sub/subsub/__init__.py
+sys.path = ['/tmp/tmp3Xr2kH', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+t4 loading
+t4.sub.subsub loading
+t4.sub.subsub.spam = 1
+rmdir /tmp/tmp3Xr2kH/t4/sub/subsub
+rmdir /tmp/tmp3Xr2kH/t4/sub
+rmdir /tmp/tmp3Xr2kH/t4
+rmdir /tmp/tmp3Xr2kH
+running test t5
+mkdir /tmp/tmpYd-t_I/t5
+write /tmp/tmpYd-t_I/t5/__init__.py
+write /tmp/tmpYd-t_I/t5/string.py
+write /tmp/tmpYd-t_I/t5/foo.py
+sys.path = ['/tmp/tmpYd-t_I', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+t5.foo loading
+t5.string loading
+1
+['foo', 'string', 't5']
+['__file__', '__name__', '__path__', 'foo', 'string', 't5']
+['__file__', '__name__', 'string']
+['__file__', '__name__', 'spam']
+rmdir /tmp/tmpYd-t_I/t5
+rmdir /tmp/tmpYd-t_I
+running test t6
+mkdir /tmp/tmp3AU8j0/t6
+write /tmp/tmp3AU8j0/t6/__init__.py
+write /tmp/tmp3AU8j0/t6/spam.py
+write /tmp/tmp3AU8j0/t6/ham.py
+write /tmp/tmp3AU8j0/t6/eggs.py
+sys.path = ['/tmp/tmp3AU8j0', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+['__all__', '__file__', '__name__', '__path__']
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pkg.py", line 66, in runtest
+    execfile(fname, globals(), {})
+  File "/tmp/tmpaiL3Dr", line 4, in ?
+    from t6 import *
+AttributeError: 'module' object has no attribute 'spam'
+rmdir /tmp/tmp3AU8j0/t6
+rmdir /tmp/tmp3AU8j0
+running test t7
+write /tmp/tmpGteEWu/t7.py
+mkdir /tmp/tmpGteEWu/t7
+write /tmp/tmpGteEWu/t7/__init__.py
+write /tmp/tmpGteEWu/t7/sub.py
+mkdir /tmp/tmpGteEWu/t7/sub
+write /tmp/tmpGteEWu/t7/sub/__init__.py
+write /tmp/tmpGteEWu/t7/sub/subsub.py
+mkdir /tmp/tmpGteEWu/t7/sub/subsub
+write /tmp/tmpGteEWu/t7/sub/subsub/__init__.py
+sys.path = ['/tmp/tmpGteEWu', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+t7 loading
+['__file__', '__name__', '__path__']
+['__file__', '__name__', '__path__']
+t7.sub.subsub loading
+['__file__', '__name__', '__path__', 'spam']
+t7.sub.subsub.spam = 1
+rmdir /tmp/tmpGteEWu/t7/sub/subsub
+rmdir /tmp/tmpGteEWu/t7/sub
+rmdir /tmp/tmpGteEWu/t7
+rmdir /tmp/tmpGteEWu

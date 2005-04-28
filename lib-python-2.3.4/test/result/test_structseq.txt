@@ -1,0 +1,22 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_structseq.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 19:15:48 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type 'time.struct_time'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_structseq.py", line 14 in ?
+        vereq(t[i:j], astuple[i:j])
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 194 in vereq
+        raise TestFailed, "%r == %r" % (a, b)
+TestFailed: () == (2005,)
+========================== closed ==========================
+execution time: 6.03355097771 seconds
+exit status: 1

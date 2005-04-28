@@ -1,0 +1,243 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_sort.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 19:47:51 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+Testing size 0
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 1
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 2
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 3
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 3
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 4
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 5
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 7
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+        complaining at Complains(0) Complains(2)
+    checking exception during sort left some permutation
+    checking stability
+Testing size 8
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 9
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 15
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 16
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 17
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane co==========================timeout==========================
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_sort.py", line 113 in ?
+    s = [Stable(random.randrange(10), i) for i in xrange(n)]
+KeyboardInterrupt
+mparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 31
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 32
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 33
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 63
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 64
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 65
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 127
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 128
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+        complaining at Complains(97) Complains(94)
+    checking exception during sort left some permutation
+    checking stability
+Testing size 129
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+    checking stability
+Testing size 255
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+        complaining at Complains(21) Complains(15)
+    checking exception during sort left some permutation
+    checking stability
+Testing size 256
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+        complaining at Complains(137) Complains(149)
+    checking exception during sort left some permutation
+========================== closed ==========================
+execution time: 901.763422966 seconds
+exit status: 1

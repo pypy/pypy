@@ -1,0 +1,25 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_random.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 21:39:06 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+faking <type 'instancemethod'>
+faking <type '_sre.SRE_Match'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_random.py", line 124 in ?
+class WichmannHill_TestBasicOps(TestBasicOps):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_random.py", line 125 in WichmannHill_TestBasicOps
+    gen = random.WichmannHill()
+AttributeError: 'module' object has no attribute 'WichmannHill'
+========================== closed ==========================
+execution time: 18.3785350323 seconds
+exit status: 1

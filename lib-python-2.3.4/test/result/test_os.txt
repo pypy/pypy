@@ -1,0 +1,34 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_os.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 22:55:24 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+/home/arigo/pypysrc/pypy/objspace/std/fake.py:141: RuntimeWarning: tempnam is a potential security risk to your program
+  result = apply(fn, self.unwrappedargs, self.unwrappedkwds)
+/home/arigo/pypysrc/pypy/objspace/std/fake.py:141: RuntimeWarning: tmpnam is a potential security risk to your program
+  result = apply(fn, self.unwrappedargs, self.unwrappedkwds)
+test_tempnam (__main__.TemporaryFileTests) ... ok
+test_tmpfile (__main__.TemporaryFileTests) ... ok
+test_tmpnam (__main__.TemporaryFileTests) ... ok
+test_stat_attributes (__main__.StatAttributeTests) ... ok
+test_statvfs_attributes (__main__.StatAttributeTests) ... ok
+test_read (__main__.EnvironTests) ... ok
+test_write (__main__.EnvironTests) ... ok
+test_traversal (__main__.WalkTests) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 17.968s
+
+OK
+========================== closed ==========================
+execution time: 40.9059519768 seconds
+exit status: 0

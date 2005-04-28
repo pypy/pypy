@@ -1,0 +1,47 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_call.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 04:29:15 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+test_oldargs0_0 (__main__.CFunctionCalls) ... ok
+test_oldargs0_0_ext (__main__.CFunctionCalls) ... ok
+test_oldargs0_0_kw (__main__.CFunctionCalls) ... ok
+test_oldargs0_1 (__main__.CFunctionCalls) ... ok
+test_oldargs0_1_ext (__main__.CFunctionCalls) ... ok
+test_oldargs0_1_kw (__main__.CFunctionCalls) ... ok
+test_oldargs0_2 (__main__.CFunctionCalls) ... ok
+test_oldargs0_2_ext (__main__.CFunctionCalls) ... ok
+test_oldargs0_2_kw (__main__.CFunctionCalls) ... ok
+test_oldargs1_0 (__main__.CFunctionCalls) ... ok
+test_oldargs1_0_ext (__main__.CFunctionCalls) ... ok
+test_oldargs1_0_kw (__main__.CFunctionCalls) ... ok
+test_oldargs1_1 (__main__.CFunctionCalls) ... ok
+test_oldargs1_1_ext (__main__.CFunctionCalls) ... ok
+test_oldargs1_1_kw (__main__.CFunctionCalls) ... ok
+test_oldargs1_2 (__main__.CFunctionCalls) ... ok
+test_oldargs1_2_ext (__main__.CFunctionCalls) ... ok
+test_oldargs1_2_kw (__main__.CFunctionCalls) ... ok
+test_varargs0 (__main__.CFunctionCalls) ... ok
+test_varargs0_ext (__main__.CFunctionCalls) ... ok
+test_varargs0_kw (__main__.CFunctionCalls) ... ok
+test_varargs1 (__main__.CFunctionCalls) ... ok
+test_varargs1_ext (__main__.CFunctionCalls) ... ok
+test_varargs1_kw (__main__.CFunctionCalls) ... ok
+test_varargs2 (__main__.CFunctionCalls) ... ok
+test_varargs2_ext (__main__.CFunctionCalls) ... ok
+test_varargs2_kw (__main__.CFunctionCalls) ... ok
+
+----------------------------------------------------------------------
+Ran 27 tests in 17.272s
+
+OK
+========================== closed ==========================
+execution time: 30.9581329823 seconds
+exit status: 0

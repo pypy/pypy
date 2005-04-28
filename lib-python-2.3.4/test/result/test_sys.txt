@@ -1,0 +1,34 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_sys.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 19:07:53 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+test_attributes (__main__.SysModuleTest) ... ok
+test_custom_displayhook (__main__.SysModuleTest) ... ok
+test_dlopenflags (__main__.SysModuleTest) ... ok
+test_exc_clear (__main__.SysModuleTest) ... ok
+test_exit (__main__.SysModuleTest) ... ok
+test_getdefaultencoding (__main__.SysModuleTest) ... ok
+test_getframe (__main__.SysModuleTest) ... ok
+test_getwindowsversion (__main__.SysModuleTest) ... ok
+test_lost_displayhook (__main__.SysModuleTest) ... ok
+test_original_displayhook (__main__.SysModuleTest) ... ok
+test_original_excepthook (__main__.SysModuleTest) ... ok
+test_recursionlimit (__main__.SysModuleTest) ... ok
+test_refcount (__main__.SysModuleTest) ... ok
+test_setcheckinterval (__main__.SysModuleTest) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 7.300s
+
+OK
+========================== closed ==========================
+execution time: 15.5937919617 seconds
+exit status: 0

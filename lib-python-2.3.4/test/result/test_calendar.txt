@@ -1,0 +1,26 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_calendar.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 04:29:46 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type 'time.struct_time'>
+test_days (__main__.CalendarTestCase) ... ok
+test_enumerateweekdays (__main__.CalendarTestCase) ... ok
+test_isleap (__main__.CalendarTestCase) ... ok
+test_months (__main__.CalendarTestCase) ... ok
+test_setfirstweekday (__main__.CalendarTestCase) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 82.565s
+
+OK
+========================== closed ==========================
+execution time: 100.287414074 seconds
+exit status: 0

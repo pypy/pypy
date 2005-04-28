@@ -1,0 +1,74 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_copy.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 03:31:27 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+test_copy_atomic (__main__.TestCopy) ... ok
+test_copy_basic (__main__.TestCopy) ... ok
+test_copy_cant (__main__.TestCopy) ... ok
+test_copy_copy (__main__.TestCopy) ... ok
+test_copy_dict (__main__.TestCopy) ... ok
+test_copy_inst_copy (__main__.TestCopy) ... ok
+test_copy_inst_getinitargs (__main__.TestCopy) ... ok
+test_copy_inst_getstate (__main__.TestCopy) ... ok
+test_copy_inst_getstate_setstate (__main__.TestCopy) ... ok
+test_copy_inst_setstate (__main__.TestCopy) ... ok
+test_copy_inst_vanilla (__main__.TestCopy) ... ok
+test_copy_list (__main__.TestCopy) ... ok
+test_copy_list_subclass (__main__.TestCopy) ... ok
+test_copy_reduce (__main__.TestCopy) ... ok
+test_copy_reduce_ex (__main__.TestCopy) ... ok
+test_copy_registry (__main__.TestCopy) ... ok
+test_copy_slots (__main__.TestCopy) ... ok
+test_copy_tuple (__main__.TestCopy) ... ok
+test_copy_tuple_subclass (__main__.TestCopy) ... ok
+test_deepcopy_atomic (__main__.TestCopy) ... ok
+test_deepcopy_basic (__main__.TestCopy) ... ok
+test_deepcopy_cant (__main__.TestCopy) ... ok
+test_deepcopy_deepcopy (__main__.TestCopy) ... ok
+test_deepcopy_dict (__main__.TestCopy) ... ok
+test_deepcopy_inst_deepcopy (__main__.TestCopy) ... ok
+test_deepcopy_inst_getinitargs (__main__.TestCopy) ... ok
+test_deepcopy_inst_getstate (__main__.TestCopy) ... ok
+test_deepcopy_inst_getstate_setstate (__main__.TestCopy) ... ok
+test_deepcopy_inst_setstate (__main__.TestCopy) ... ok
+test_deepcopy_inst_vanilla (__main__.TestCopy) ... ok
+test_deepcopy_issubclass (__main__.TestCopy) ... ok
+test_deepcopy_keepalive (__main__.TestCopy) ... ok
+test_deepcopy_list (__main__.TestCopy) ... ok
+test_deepcopy_list_subclass (__main__.TestCopy) ... ok
+test_deepcopy_memo (__main__.TestCopy) ... ok
+test_deepcopy_reduce (__main__.TestCopy) ... ok
+test_deepcopy_reduce_ex (__main__.TestCopy) ... ok
+test_deepcopy_reflexive_dict (__main__.TestCopy) ... ok
+test_deepcopy_reflexive_inst (__main__.TestCopy) ... ok
+test_deepcopy_reflexive_list (__main__.TestCopy) ... ok
+test_deepcopy_reflexive_tuple (__main__.TestCopy) ... ok
+test_deepcopy_registry (__main__.TestCopy) ... ok
+test_deepcopy_slots (__main__.TestCopy) ... ok
+test_deepcopy_tuple (__main__.TestCopy) ... ok
+test_deepcopy_tuple_subclass (__main__.TestCopy) ... ok
+test_exceptions (__main__.TestCopy) ... ok
+test_getstate_exc (__main__.TestCopy) ... ok
+test_reconstruct_nostate (__main__.TestCopy) ... ok
+test_reconstruct_reflexive (__main__.TestCopy) ... ok
+test_reconstruct_state (__main__.TestCopy) ... ok
+test_reconstruct_state_setstate (__main__.TestCopy) ... ok
+test_reconstruct_string (__main__.TestCopy) ... ok
+test_reduce_4tuple (__main__.TestCopy) ... ok
+test_reduce_5tuple (__main__.TestCopy) ... ok
+
+----------------------------------------------------------------------
+Ran 54 tests in 35.532s
+
+OK
+========================== closed ==========================
+execution time: 44.4596099854 seconds
+exit status: 0

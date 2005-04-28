@@ -1,0 +1,23 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_rotor.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 21:04:53 2005
+pypy-revision: 11518
+OUTPUT TEST
+see output in: /home/arigo/pypysrc/lib-python-2.3.4/test/result/test_rotor.out
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_rotor.py", line 7 in ?
+import rotor
+ImportError: rotor
+========================== closed ==========================
+execution time: 34.4399428368 seconds
+exit status: 1

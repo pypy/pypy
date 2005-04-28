@@ -1,0 +1,44 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_urllib2.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 20:52:51 2005
+pypy-revision: 11535
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_socket.socket'>
+faking <type 'classobj'>
+faking <type 'PyCObject'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+faking <type 'instancemethod'>
+faking <type '_sre.SRE_Match'>
+faking <type 'time.struct_time'>
+==========================timeout==========================
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_urllib2.py", line 28 in ?
+f = urllib2.urlopen(file_url)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/urllib2.py", line 129 in urlopen
+    return _opener.open(url, data)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/urllib2.py", line 326 in open
+                                  '_open', req)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/urllib2.py", line 306 in _call_chain
+            result = func(*args)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/urllib2.py", line 980 in file_open
+            return self.open_local_file(req)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/urllib2.py", line 998 in open_local_file
+        mtype = mimetypes.guess_type(file)[0]
+  File "/home/arigo/pypysrc/lib-python-2.3.4/mimetypes.py", line 236 in guess_type
+    init()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/mimetypes.py", line 292 in init
+    db = MimeTypes()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/mimetypes.py", line 61 in __init__
+            self.add_type(type, ext, True)
+KeyboardInterrupt
+========================== closed ==========================
+execution time: 900.621522903 seconds
+exit status: 1

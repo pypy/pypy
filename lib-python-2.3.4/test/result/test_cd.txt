@@ -1,0 +1,16 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_cd.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 04:28:58 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_cd.py", line 5 in ?
+import cd
+ImportError: cd
+========================== closed ==========================
+execution time: 2.56447100639 seconds
+exit status: 1

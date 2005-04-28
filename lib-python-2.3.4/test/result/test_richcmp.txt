@@ -1,0 +1,245 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 21:07:43 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+test_mixed (__main__.VectorTest) ... ok
+test_basic (__main__.NumberTest) ... ok
+test_values (__main__.NumberTest) ... ok
+test_misbehavin (__main__.MiscTest) ... ok
+test_not (__main__.MiscTest) ... ok
+test_recursion (__main__.MiscTest) ... ok
+test_recursion2 (__main__.MiscTest) ... ERROR
+test_dicts (__main__.DictTest) ... ok
+test_badentry (__main__.ListTest) ... ERROR
+test_coverage (__main__.ListTest) ... ok
+test_goodentry (__main__.ListTest) ... ok
+
+======================================================================
+ERROR: test_recursion2 (__main__.MiscTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 273, in test_recursion2
+    self.assert_(Weird() == Weird())
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 358 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 355 in test_main
+    test_support.run_unittest(VectorTest, NumberTest, MiscTest, DictTest, ListTest)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+            raise TestFailed(msg)
+TestFailed: errors occurred; run in verbose mode for details
+2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 265, in __eq__
+    return self != other
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 267, in __ne__
+    return self == other
+RuntimeError: maximum recursion depth exceeded
+
+======================================================================
+ERROR: test_badentry (__main__.ListTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 339, in test_badentry
+    self.assertRaises(Exc, op, x, y)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 289, in failUnlessRaises
+    callableObj(*args, **kwargs)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_richcmp.py", line 91, in <lambda>
+    "eq": (lambda a,b: a==b, operator.eq, operator.__eq__),
+TypeError: unsupported operand types for issubtype (classobj, type)
+
+----------------------------------------------------------------------
+Ran 11 tests in 374.388s
+
+FAILED (errors=2)
+========================== closed ==========================
+execution time: 407.159274817 seconds
+exit status: 1

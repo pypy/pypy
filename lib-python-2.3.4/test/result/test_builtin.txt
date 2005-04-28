@@ -1,0 +1,102 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_builtin.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 04:31:35 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+/home/arigo/pypysrc/pypy/objspace/std/intobject.py:442: FutureWarning: %u/%o/%x/%X of negative int will return a signed string in Python 2.4 and up
+  ret = "0x%lx" % x
+/home/arigo/pypysrc/pypy/objspace/std/intobject.py:430: FutureWarning: %u/%o/%x/%X of negative int will return a signed string in Python 2.4 and up
+  ret = "0%lo" % x
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_builtin.py", line 1161 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_builtin.py", line 1158 in test_main
+    test.test_support.run_unittest(BuiltinTest)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
+        raise TestFailed(err)
+TestFailed: Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_builtin.py", line 151, in test_callable
+    self.assert_(not callable(x))
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 278, in failUnless
+    if not expr: raise self.failureException, msg
+AssertionError
+
+test_abs (__main__.BuiltinTest) ... ok
+test_apply (__main__.BuiltinTest) ... ok
+test_callable (__main__.BuiltinTest) ... FAIL
+test_chr (__main__.BuiltinTest) ... ok
+test_cmp (__main__.BuiltinTest) ... ok
+test_coerce (__main__.BuiltinTest) ... ok
+test_compile (__main__.BuiltinTest) ... ok
+test_delattr (__main__.BuiltinTest) ... ok
+test_dir (__main__.BuiltinTest) ... ok
+test_divmod (__main__.BuiltinTest) ... ok
+test_eval (__main__.BuiltinTest) ... ok
+test_execfile (__main__.BuiltinTest) ... ok
+test_filter (__main__.BuiltinTest) ... ok
+test_filter_subclasses (__main__.BuiltinTest) ... ok
+test_float (__main__.BuiltinTest) ... ok
+test_getattr (__main__.BuiltinTest) ... ok
+test_hasattr (__main__.BuiltinTest) ... ok
+test_hash (__main__.BuiltinTest) ... ok
+test_hex (__main__.BuiltinTest) ... ok
+test_id (__main__.BuiltinTest) ... ok
+test_import (__main__.BuiltinTest) ... ok
+test_input_and_raw_input (__main__.BuiltinTest) ... ok
+test_int (__main__.BuiltinTest) ... ok
+test_intern (__main__.BuiltinTest) ... ok
+test_isinstance (__main__.BuiltinTest) ... ok
+test_issubclass (__main__.BuiltinTest) ... ok
+test_iter (__main__.BuiltinTest) ... ok
+test_len (__main__.BuiltinTest) ... ok
+test_list (__main__.BuiltinTest) ... ok
+test_long (__main__.BuiltinTest) ... ok
+test_map (__main__.BuiltinTest) ... ok
+test_max (__main__.BuiltinTest) ... ok
+test_min (__main__.BuiltinTest) ... ok
+test_oct (__main__.BuiltinTest) ... ok
+test_open (__main__.BuiltinTest) ... ok
+test_ord (__main__.BuiltinTest) ... ok
+test_pow (__main__.BuiltinTest) ... ok
+test_range (__main__.BuiltinTest) ... ok
+test_reduce (__main__.BuiltinTest) ... ok
+test_reload (__main__.BuiltinTest) ... ok
+test_repr (__main__.BuiltinTest) ... ok
+test_round (__main__.BuiltinTest) ... ok
+test_setattr (__main__.BuiltinTest) ... ok
+test_str (__main__.BuiltinTest) ... ok
+test_sum (__main__.BuiltinTest) ... ok
+test_tuple (__main__.BuiltinTest) ... ok
+test_type (__main__.BuiltinTest) ... ok
+test_unichr (__main__.BuiltinTest) ... ok
+test_vars (__main__.BuiltinTest) ... ok
+test_zip (__main__.BuiltinTest) ... ok
+
+======================================================================
+FAIL: test_callable (__main__.BuiltinTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_builtin.py", line 151, in test_callable
+    self.assert_(not callable(x))
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 278, in failUnless
+    if not expr: raise self.failureException, msg
+AssertionError
+
+----------------------------------------------------------------------
+Ran 50 tests in 749.880s
+
+FAILED (failures=1)
+========================== closed ==========================
+execution time: 806.528295994 seconds
+exit status: 1

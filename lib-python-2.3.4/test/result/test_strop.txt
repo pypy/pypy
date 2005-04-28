@@ -1,0 +1,21 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_strop.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 19:31:05 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_strop.py", line 5 in ?
+import strop
+ImportError: strop
+========================== closed ==========================
+execution time: 23.3075590134 seconds
+exit status: 1

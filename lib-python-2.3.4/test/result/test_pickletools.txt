@@ -1,0 +1,713 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_pickletools.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 22:27:38 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type 'instancemethod'>
+faking <type '_sre.SRE_Match'>
+Running pickletools.__doc__
+0 of 0 examples failed in pickletools.__doc__
+Running pickletools.ArgumentDescriptor.__doc__
+0 of 0 examples failed in pickletools.ArgumentDescriptor.__doc__
+Running pickletools.ArgumentDescriptor.__init__.__doc__
+0 of 0 examples failed in pickletools.ArgumentDescriptor.__init__.__doc__
+Running pickletools.OpcodeInfo.__doc__
+0 of 0 examples failed in pickletools.OpcodeInfo.__doc__
+Running pickletools.OpcodeInfo.__init__.__doc__
+0 of 0 examples failed in pickletools.OpcodeInfo.__init__.__doc__
+Running pickletools.StackObject.__doc__
+0 of 0 examples failed in pickletools.StackObject.__doc__
+Running pickletools.StackObject.__init__.__doc__
+0 of 0 examples failed in pickletools.StackObject.__init__.__doc__
+Running pickletools.StackObject.__repr__.__doc__
+0 of 0 examples failed in pickletools.StackObject.__repr__.__doc__
+Running pickletools._test.__doc__
+0 of 0 examples failed in pickletools._test.__doc__
+Running pickletools.dis.__doc__
+0 of 0 examples failed in pickletools.dis.__doc__
+Running pickletools.genops.__doc__
+0 of 0 examples failed in pickletools.genops.__doc__
+Running pickletools.read_decimalnl_long.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_decimalnl_long(StringIO.StringIO("1234\n56"))
+Expecting:
+Traceback (most recent call last):
+...
+ValueError: trailing 'L' required in '1234'
+ok
+Trying: read_decimalnl_long(StringIO.StringIO("1234L\n56"))
+Expecting: 1234L
+ok
+Trying:
+read_decimalnl_long(StringIO.StringIO("123456789012345678901234L\n6"))
+Expecting: 123456789012345678901234L
+ok
+0 of 4 examples failed in pickletools.read_decimalnl_long.__doc__
+Running pickletools.read_decimalnl_short.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_decimalnl_short(StringIO.StringIO("1234\n56"))
+Expecting: 1234
+ok
+Trying: read_decimalnl_short(StringIO.StringIO("1234L\n56"))
+Expecting:
+Traceback (most recent call last):
+...
+ValueError: trailing 'L' not allowed in '1234L'
+ok
+0 of 3 examples failed in pickletools.read_decimalnl_short.__doc__
+Running pickletools.read_float8.__doc__
+Trying: import StringIO, struct
+Expecting: nothing
+ok
+Trying: raw = struct.pack(">d", -1.25)
+Expecting: nothing
+ok
+Trying: raw
+Expecting: '\xbf\xf4\x00\x00\x00\x00\x00\x00'
+*****************************************************************
+Failure in example: raw
+from line #3 of pickletools.read_float8
+Expected: '\xbf\xf4\x00\x00\x00\x00\x00\x00'
+Got: '\xc0\x00\x00\x00\x00\x00\x00\x00'
+Trying: read_float8(StringIO.StringIO(raw + "\n"))
+Expecting: -1.25
+*****************************************************************
+Failure in example: read_float8(StringIO.StringIO(raw + "\n"))
+from line #5 of pickletools.read_float8
+Expected: -1.25
+Got: -2.0
+2 of 4 examples failed in pickletools.read_float8.__doc__
+Running pickletools.read_floatnl.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_floatnl(StringIO.StringIO("-1.25\n6"))
+Expecting: -1.25
+ok
+0 of 2 examples failed in pickletools.read_floatnl.__doc__
+Running pickletools.read_int4.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_int4(StringIO.StringIO('\xff\x00\x00\x00'))
+Expecting: 255
+ok
+Trying: read_int4(StringIO.StringIO('\x00\x00\x00\x80')) == -(2**31)
+Expecting: True
+ok
+0 of 3 examples failed in pickletools.read_int4.__doc__
+Running pickletools.read_long1.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_long1(StringIO.StringIO("\x00"))
+Expecting: 0L
+ok
+Trying: read_long1(StringIO.StringIO("\x02\xff\x00"))
+Expecting: 255L
+ok
+Trying: read_long1(StringIO.StringIO("\x02\xff\x7f"))
+Expecting: 32767L
+ok
+Trying: read_long1(StringIO.StringIO("\x02\x00\xff"))
+Expecting: -256L
+ok
+Trying: read_long1(StringIO.StringIO("\x02\x00\x80"))
+Expecting: -32768L
+ok
+0 of 6 examples failed in pickletools.read_long1.__doc__
+Running pickletools.read_long4.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_long4(StringIO.StringIO("\x02\x00\x00\x00\xff\x00"))
+Expecting: 255L
+ok
+Trying: read_long4(StringIO.StringIO("\x02\x00\x00\x00\xff\x7f"))
+Expecting: 32767L
+ok
+Trying: read_long4(StringIO.StringIOfaking <type 'classobj'>
+("\x02\x00\x00\x00\x00\xff"))
+Expecting: -256L
+ok
+Trying: read_long4(StringIO.StringIO("\x02\x00\x00\x00\x00\x80"))
+Expecting: -32768L
+ok
+Trying: read_long1(StringIO.StringIO("\x00\x00\x00\x00"))
+Expecting: 0L
+ok
+0 of 6 examples failed in pickletools.read_long4.__doc__
+Running pickletools.read_string1.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_string1(StringIO.StringIO("\x00"))
+Expecting: ''
+ok
+Trying: read_string1(StringIO.StringIO("\x03abcdef"))
+Expecting: 'abc'
+ok
+0 of 3 examples failed in pickletools.read_string1.__doc__
+Running pickletools.read_string4.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_string4(StringIO.StringIO("\x00\x00\x00\x00abc"))
+Expecting: ''
+ok
+Trying: read_string4(StringIO.StringIO("\x03\x00\x00\x00abcdef"))
+Expecting: 'abc'
+ok
+Trying: read_string4(StringIO.StringIO("\x00\x00\x00\x03abcdef"))
+Expecting:
+Traceback (most recent call last):
+...
+ValueError: expected 50331648 bytes in a string4, but only 6 remain
+ok
+0 of 4 examples failed in pickletools.read_string4.__doc__
+Running pickletools.read_stringnl.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_stringnl(StringIO.StringIO("'abcd'\nefg\n"))
+Expecting: 'abcd'
+ok
+Trying: read_stringnl(StringIO.StringIO("\n"))
+Expecting:
+Traceback (most recent call last):
+...
+ValueError: no string quotes around ''
+ok
+Trying: read_stringnl(StringIO.StringIO("\n"), stripquotes=False)
+Expecting: ''
+ok
+Trying: read_stringnl(StringIO.StringIO("''\n"))
+Expecting: ''
+ok
+Trying: read_stringnl(StringIO.StringIO('"abcd"'))
+Expecting:
+Traceback (most recent call last):
+...
+ValueError: no newline found when trying to read stringnl
+ok
+Trying: read_stringnl(StringIO.StringIO(r"'a\n\\b\x00c\td'" + "\n'e'"))
+Expecting: 'a\n\\b\x00c\td'
+ok
+0 of 7 examples failed in pickletools.read_stringnl.__doc__
+Running pickletools.read_stringnl_noescape.__doc__
+0 of 0 examples failed in pickletools.read_stringnl_noescape.__doc__
+Running pickletools.read_stringnl_noescape_pair.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_stringnl_noescape_pair(StringIO.StringIO("Queue\nEmpty\njunk"))
+Expecting: 'Queue Empty'
+ok
+0 of 2 examples failed in pickletools.read_stringnl_noescape_pair.__doc__
+Running pickletools.read_uint1.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_uint1(StringIO.StringIO('\xff'))
+Expecting: 255
+ok
+0 of 2 examples failed in pickletools.read_uint1.__doc__
+Running pickletools.read_uint2.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_uint2(StringIO.StringIO('\xff\x00'))
+Expecting: 255
+ok
+Trying: read_uint2(StringIO.StringIO('\xff\xff'))
+Expecting: 65535
+ok
+0 of 3 examples failed in pickletools.read_uint2.__doc__
+Running pickletools.read_unicodestring4.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: s = u'abcd\uabcd'
+Expecting: nothing
+ok
+Trying: enc = s.encode('utf-8')
+Expecting: nothing
+ok
+Trying: enc
+Expecting: 'abcd\xea\xaf\x8d'
+ok
+Trying: n = chr(len(enc)) + chr(0) * 3  # little-endian 4-byte length
+Expecting: nothing
+ok
+Trying: t = read_unicodestring4(StringIO.StringIO(n + enc + 'junk'))
+Expecting: nothing
+ok
+Trying: s == t
+Expecting: True
+ok
+Trying: read_unicodestring4(StringIO.StringIO(n + enc[:-1]))
+Expecting:
+Traceback (most recent call last):
+...
+ValueError: expected 7 bytes in a unicodestring4, but only 6 remain
+ok
+0 of 8 examples failed in pickletools.read_unicodestring4.__doc__
+Running pickletools.read_unicodestringnl.__doc__
+Trying: import StringIO
+Expecting: nothing
+ok
+Trying: read_unicodestringnl(StringIO.StringIO("abc\uabcd\njunk"))
+Expecting: u'abc\uabcd'
+ok
+0 of 2 examples failed in pickletools.read_unicodestringnl.__doc__
+Running string pickletools.__test__.disassembler_memo_test
+Trying: import pickle
+Expecting: nothing
+ok
+Trying: from StringIO import StringIO
+Expecting: nothing
+ok
+Trying: f = StringIO()
+Expecting: nothing
+ok
+Trying: p = pickle.Pickler(f, 2)
+Expecting: nothing
+ok
+Trying: x = [1, 2, 3]
+Expecting: nothing
+ok
+Trying: p.dump(x)
+Expecting: nothing
+ok
+Trying: p.dump(x)
+Expecting: nothing
+ok
+Trying: f.seek(0)
+Expecting: nothing
+ok
+Trying: memo = {}
+Expecting: nothing
+ok
+Trying: dis(f, memo=memo)
+Expecting:
+    0: \x80 PROTO      2
+    2: ]    EMPTY_LIST
+    3: q    BINPUT     0
+    5: (    MARK
+    6: K        BININT1    1
+    8: K        BININT1    2
+   10: K        BININT1    3
+   12: e        APPENDS    (MARK at 5)
+   13: .    STOP
+highest protocol among opcodes = 2
+ok
+Trying: dis(f, memo=memo)
+Expecting:
+   14: \x80 PROTO      2
+   16: h    BINGET     0
+   18: .    STOP
+highest protocol among opcodes = 2
+ok
+0 of 11 examples failed in string pickletools.__test__.disassembler_memo_test
+Running string pickletools.__test__.disassembler_test
+Trying: import pickle
+Expecting: nothing
+ok
+Trying: x = [1, 2, (3, 4), {'abc': u"def"}]
+Expecting: nothing
+ok
+Trying: pkl = pickle.dumps(x, 0)
+Expecting: nothing
+ok
+Trying: dis(pkl)
+Expecting:
+    0: (    MARK
+    1: l        LIST       (MARK at 0)
+    2: p    PUT        0
+    5: I    INT        1
+    8: a    APPEND
+    9: I    INT        2
+   12: a    APPEND
+   13: (    MARK
+   14: I        INT        3
+   17: I        INT        4
+   20: t        TUPLE      (MARK at 13)
+   21: p    PUT        1
+   24: a    APPEND
+   25: (    MARK
+   26: d        DICT       (MARK at 25)
+   27: p    PUT        2
+   30: S    STRING     'abc'
+   37: p    PUT        3
+   40: V    UNICODE    u'def'
+   45: p    PUT        4
+   48: s    SETITEM
+   49: a    APPEND
+   50: .    STOP
+highest protocol among opcodes = 0
+ok
+Trying: pkl = pickle.dumps(x, 1)
+Expecting: nothing
+ok
+Trying: dis(pkl)
+Expecting:
+    0: ]    EMPTY_LIST
+    1: q    BINPUT     0
+    3: (    MARK
+    4: K        BININT1    1
+    6: K        BININT1    2
+    8: (        MARK
+    9: K            BININT1    3
+   11: K            BININT1    4
+   13: t            TUPLE      (MARK at 8)
+   14: q        BINPUT     1
+   16: }        EMPTY_DICT
+   17: q        BINPUT     2
+   19: U        SHORT_BINSTRING 'abc'
+   24: q        BINPUT     3
+   26: X        BINUNICODE u'def'
+   34: q        BINPUT     4
+   36: s        SETITEM
+   37: e        APPENDS    (MARK at 3)
+   38: .    STOP
+highest protocol among opcodes = 1
+ok
+Trying: import random
+Expecting: nothing
+ok
+Trying: dis(pickle.dumps(random.random, 0))
+Expecting:
+    0: c    GLOBAL     'random random'
+   15: p    PUT        0
+   18: .    STOP
+highest protocol among opcodes = 0
+*****************************************************************
+Failure in example: dis(pickle.dumps(random.random, 0))
+from line #58 of pickletools.__test__.disassembler_test
+Exception raised:
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+    compileflags, 1) in globs
+  File "<string>", line 1, in ?
+  File "/home/arigo/pypysrc/lib-python-2.3.4/pickle.py", line 1386, in dumps
+    Pickler(file, protocol, bin).dump(obj)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/pickle.py", line 231, in dump
+    self.save(obj)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/pickle.py", line 313, in save
+    rv = reduce(self.proto)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/copy_reg.py", line 69, in _reduce_ex
+    raise TypeError, "can't pickle %s objects" % base.__name__
+TypeError: can't pickle method objects
+Trying: x = [pickle.PicklingError()] * 2
+Expecting: nothing
+ok
+Trying: dis(pickle.dumps(x, 0))
+Expecting:
+    0: (    MARK
+    1: l        LIST       (MARK at 0)
+    2: p    PUT        0
+    5: (    MARK
+    6: i        INST       'pickle PicklingError' (MARK at 5)
+   28: p    PUT        1
+   31: (    MARK
+   32: d        DICT       (MARK at 31)
+   33: p    PUT        2
+   36: S    STRING     'args'
+   44: p    PUT        3
+   47: (    MARK
+   48: t        TUPLE      (MARK at 47)
+   49: s    SETITEM
+   50: b    BUILD
+   51: a    APPEND
+   52: g    GET        1
+   55: a    APPEND
+   56: .    STOP
+highest protocol among opcodes = 0
+*****************************************************************
+Failure in example: dis(pickle.dumps(x, 0))
+from line #65 of pickletools.__test__.disassembler_test
+Expected:
+    0: (    MARK
+    1: l        LIST       (MARK at 0)
+    2: p    PUT        0
+    5: (    MARK
+    6: i        INST       'pickle PicklingError' (MARK at 5)
+   28: p    PUT        1
+   31: (    MARK
+   32: d        DICT       (MARK at 31)
+   33: p    PUT        2
+   36: S    STRING     'args'
+   44: p    PUT        3
+   47: (    MARK
+   48: t        TUPLE      (MARK at 47)
+   49: s    SETITEM
+   50: b    BUILD
+   51: a    APPEND
+   52: g    GET        1
+   55: a    APPEND
+   56: .    STOP
+highest protocol among opcodes = 0
+Got:
+    0: (    MARK
+    1: l        LIST       (MARK at 0)
+    2: p    PUT        0
+    5: c    GLOBAL     'copy_reg _reconstructor'
+   30: p    PUT        1
+   33: (    MARK
+   34: c        GLOBAL     'pickle PicklingError'
+   56: p        PUT        2
+   59: c        GLOBAL     '__builtin__ object'
+   79: p        PUT        3
+   82: N        NONE
+   83: t        TUPLE      (MARK at 33)
+   84: p    PUT        4
+   87: R    REDUCE
+   88: p    PUT        5
+   91: (    MARK
+   92: d        DICT       (MARK at 91)
+   93: p    PUT        6
+   96: S    STRING     'args'
+  104: p    PUT        7
+  107: (    MARK
+  108: t        TUPLE      (MARK at 107)
+  109: s    SETITEM
+  110: b    BUILD
+  111: a    APPEND
+  112: g    GET        5
+  115: a    APPEND
+  116: .    STOP
+highest protocol among opcodes = 0
+Trying: dis(pickle.dumps(x, 1))
+Expecting:
+    0: ]    EMPTY_LIST
+    1: q    BINPUT     0
+    3: (    MARK
+    4: (        MARK
+    5: c            GLOBAL     'pickle PicklingError'
+   27: q            BINPUT     1
+   29: o            OBJ        (MARK at 4)
+   30: q        BINPUT     2
+   32: }        EMPTY_DICT
+   33: q        BINPUT     3
+   35: U        SHORT_BINSTRING 'args'
+   41: q        BINPUT     4
+   43: )        EMPTY_TUPLE
+   44: s        SETITEM
+   45: b        BUILD
+   46: h        BINGET     2
+   48: e        APPENDS    (MARK at 3)
+   49: .    STOP
+highest protocol among opcodes = 1
+*****************************************************************
+Failure in example: dis(pickle.dumps(x, 1))
+from line #87 of pickletools.__test__.disassembler_test
+Expected:
+    0: ]    EMPTY_LIST
+    1: q    BINPUT     0
+    3: (    MARK
+    4: (        MARK
+    5: c            GLOBAL     'pickle PicklingError'
+   27: q            BINPUT     1
+   29: o            OBJ        (MARK at 4)
+   30: q        BINPUT     2
+   32: }        EMPTY_DICT
+   33: q        BINPUT     3
+   35: U        SHORT_BINSTRING 'args'
+   41: q        BINPUT     4
+   43: )        EMPTY_TUPLE
+   44: s        SETITEM
+   45: b        BUILD
+   46: h        BINGET     2
+   48: e        APPENDS    (MARK at 3)
+   49: .    STOP
+highest protocol among opcodes = 1
+Got:
+    0: ]    EMPTY_LIST
+    1: q    BINPUT     0
+    3: (    MARK
+    4: c        GLOBAL     'copy_reg _reconstructor'
+   29: q        BINPUT     1
+   31: (        MARK
+   32: c            GLOBAL     'pickle PicklingError'
+   54: q            BINPUT     2
+   56: c            GLOBAL     '__builtin__ object'
+   76: q            BINPUT     3
+   78: N            NONE
+   79: t            TUPLE      (MARK at 31)
+   80: q        BINPUT     4
+   82: R        REDUCE
+   83: q        BINPUT     5
+   85: }        EMPTY_DICT
+   86: q        BINPUT     6
+   88: U        SHORT_BINSTRING 'args'
+   94: q        BINPUT     7
+   96: )        EMPTY_TUPLE
+   97: s        SETITEM
+   98: b        BUILD
+   99: h        BINGET     5
+  101: e        APPENDS    (MARK at 3)
+  102: .    STOP
+highest protocol among opcodes = 1
+Trying: L = []
+Expecting: nothing
+ok
+Trying: T = L,
+Expecting: nothing
+ok
+Trying: L.append(T)
+Expecting: nothing
+ok
+Trying: L[0] is T
+Expecting: True
+ok
+Trying: T[0] is L
+Expecting: True
+ok
+Trying: L[0][0] is L
+Expecting: True
+ok
+Trying: T[0][0] is T
+Expecting: True
+ok
+Trying: dis(pickle.dumps(L, 0))
+Expecting:
+    0: (    MARK
+    1: l        LIST       (MARK at 0)
+    2: p    PUT        0
+    5: (    MARK
+    6: g        GET        0
+    9: t        TUPLE      (MARK at 5)
+   10: p    PUT        1
+   13: a    APPEND
+   14: .    STOP
+highest protocol among opcodes = 0
+ok
+Trying: dis(pickle.dumps(L, 1))
+Expecting:
+    0: ]    EMPTY_LIST
+    1: q    BINPUT    Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pickletools.py", line 3 in ?
+test_support.run_doctest(pickletools)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 290 in run_doctest
+            raise TestFailed("%d of %d doctests failed" % (f, t))
+TestFailed: 5 of 94 doctests failed
+ 0
+    3: (    MARK
+    4: h        BINGET     0
+    6: t        TUPLE      (MARK at 3)
+    7: q    BINPUT     1
+    9: a    APPEND
+   10: .    STOP
+highest protocol among opcodes = 1
+ok
+Trying: dis(pickle.dumps(T, 0))
+Expecting:
+    0: (    MARK
+    1: (        MARK
+    2: l            LIST       (MARK at 1)
+    3: p        PUT        0
+    6: (        MARK
+    7: g            GET        0
+   10: t            TUPLE      (MARK at 6)
+   11: p        PUT        1
+   14: a        APPEND
+   15: 0        POP
+   16: 0        POP        (MARK at 0)
+   17: g    GET        1
+   20: .    STOP
+highest protocol among opcodes = 0
+ok
+Trying: dis(pickle.dumps(T, 1))
+Expecting:
+    0: (    MARK
+    1: ]        EMPTY_LIST
+    2: q        BINPUT     0
+    4: (        MARK
+    5: h            BINGET     0
+    7: t            TUPLE      (MARK at 4)
+    8: q        BINPUT     1
+   10: a        APPEND
+   11: 1        POP_MARK   (MARK at 0)
+   12: h    BINGET     1
+   14: .    STOP
+highest protocol among opcodes = 1
+ok
+Trying: dis(pickle.dumps(L, 2))
+Expecting:
+    0: \x80 PROTO      2
+    2: ]    EMPTY_LIST
+    3: q    BINPUT     0
+    5: h    BINGET     0
+    7: \x85 TUPLE1
+    8: q    BINPUT     1
+   10: a    APPEND
+   11: .    STOP
+highest protocol among opcodes = 2
+ok
+Trying: dis(pickle.dumps(T, 2))
+Expecting:
+    0: \x80 PROTO      2
+    2: ]    EMPTY_LIST
+    3: q    BINPUT     0
+    5: h    BINGET     0
+    7: \x85 TUPLE1
+    8: q    BINPUT     1
+   10: a    APPEND
+   11: 0    POP
+   12: h    BINGET     1
+   14: .    STOP
+highest protocol among opcodes = 2
+ok
+3 of 24 examples failed in string pickletools.__test__.disassembler_test
+12 items had no tests:
+    pickletools
+    pickletools.ArgumentDescriptor
+    pickletools.ArgumentDescriptor.__init__
+    pickletools.OpcodeInfo
+    pickletools.OpcodeInfo.__init__
+    pickletools.StackObject
+    pickletools.StackObject.__init__
+    pickletools.StackObject.__repr__
+    pickletools._test
+    pickletools.dis
+    pickletools.genops
+    pickletools.read_stringnl_noescape
+15 items passed all tests:
+  11 tests in pickletools.__test__.disassembler_memo_test
+   4 tests in pickletools.read_decimalnl_long
+   3 tests in pickletools.read_decimalnl_short
+   2 tests in pickletools.read_floatnl
+   3 tests in pickletools.read_int4
+   6 tests in pickletools.read_long1
+   6 tests in pickletools.read_long4
+   3 tests in pickletools.read_string1
+   4 tests in pickletools.read_string4
+   7 tests in pickletools.read_stringnl
+   2 tests in pickletools.read_stringnl_noescape_pair
+   2 tests in pickletools.read_uint1
+   3 tests in pickletools.read_uint2
+   8 tests in pickletools.read_unicodestring4
+   2 tests in pickletools.read_unicodestringnl
+*****************************************************************
+2 items had failures:
+   3 of  24 in pickletools.__test__.disassembler_test
+   2 of   4 in pickletools.read_float8
+94 tests in 29 items.
+89 passed and 5 failed.
+***Test Failed*** 5 failures.
+========================== closed ==========================
+execution time: 705.901865959 seconds
+exit status: 1

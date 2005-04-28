@@ -1,0 +1,43 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_dummy_thread.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 02:14:24 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+
+*** Using <module object at 0x408b0f2c> as _thread module ***
+test_cond_acquire_fail (__main__.LockTests) ... ok
+test_cond_acquire_success (__main__.LockTests) ... ok
+test_improper_release (__main__.LockTests) ... ok
+test_initlock (__main__.LockTests) ... ok
+test_release (__main__.LockTests) ... ok
+test_uncond_acquire_blocking (__main__.LockTests) ... 
+*** Waiting for thread to release the lock (approx. 0 sec.) ***
+done
+ok
+test_uncond_acquire_return_val (__main__.LockTests) ... ok
+test_uncond_acquire_success (__main__.LockTests) ... ok
+test_LockType (__main__.MiscTests) ... ok
+test_exit (__main__.MiscTests) ... ok
+test_ident (__main__.MiscTests) ... ok
+test_interrupt_in_main (__main__.MiscTests) ... ok
+test_interrupt_main (__main__.MiscTests) ... ok
+test_arg_passing (__main__.ThreadTests) ... ok
+test_multi_creation (__main__.ThreadTests) ... 
+*** Testing multiple thread creation (will take approx. 0 to 5 sec.) ***
+done
+ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 7.949s
+
+OK
+========================== closed ==========================
+execution time: 19.5353479385 seconds
+exit status: 0

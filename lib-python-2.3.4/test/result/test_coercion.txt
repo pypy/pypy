@@ -1,0 +1,39 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_coercion.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 03:59:33 2005
+pypy-revision: 11518
+OUTPUT TEST
+see output in: /home/arigo/pypysrc/lib-python-2.3.4/test/result/test_coercion.out
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+faking <type 'instancemethod'>
+faking <type '_sre.SRE_Match'>
+/home/arigo/pypysrc/lib-python-2.3.4/test/test_coercion.py:0: DeprecationWarning: complex divmod(), // and % are deprecated
+/home/arigo/pypysrc/lib-python-2.3.4/test/test_coercion.py:1: DeprecationWarning: complex divmod(), // and % are deprecated
+  import copy
+/home/arigo/pypysrc/lib-python-2.3.4/test/test_coercion.py:63: DeprecationWarning: complex divmod(), // and % are deprecated
+  return other % self.arg
+/home/arigo/pypysrc/lib-python-2.3.4/test/test_coercion.py:60: DeprecationWarning: complex divmod(), // and % are deprecated
+  return self.arg % other
+==========================timeout==========================
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_coercion.py", line 117 in ?
+do_infix_binops()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_coercion.py", line 88 in do_infix_binops
+                    z = copy.copy(a)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/copy.py", line 75 in copy
+        return copier(x)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/copy.py", line 140 in _copy_inst
+    if hasattr(x, '__copy__'):
+KeyboardInterrupt
+========================== closed ==========================
+execution time: 900.308280945 seconds
+exit status: 1

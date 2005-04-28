@@ -1,0 +1,88 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_re.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 21:24:06 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+faking <type 'instancemethod'>
+faking <type '_sre.SRE_Match'>
+faking <type 'array.array'>
+faking <type 'callable-iterator'>
+==========================timeout==========================
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_re.py", line 629 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_re.py", line 625 in test_main
+    run_unittest(ReTests)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
+    result = runner.run(suite)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 658 in run
+        test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 229 in __call__
+                testMethod()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_re.py", line 195 in test_re_groupref
+        self.assertEqual(re.match(r'^(?:(a)|c)(\1)$', 'aa').groups(),
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre.py", line 132 in match
+    return _compile(pattern, flags).match(string)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre.py", line 228 in _compile
+        p = sre_compile.compile(pattern, flags)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_compile.py", line 471 in compile
+    code = _code(p, flags)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_compile.py", line 455 in _code
+    _compile(code, p.data, flags)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_compile.py", line 88 in _compile
+            _compile(code, av[1], flags)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_compile.py", line 27 in _compile
+    for op, av in pattern:
+KeyboardInterrupt
+test_anyall (__main__.ReTests) ... ok
+test_basic_re_sub (__main__.ReTests) ... ERROR
+test_bigcharset (__main__.ReTests) ... ok
+test_bug_113254 (__main__.ReTests) ... ok
+test_bug_114660 (__main__.ReTests) ... ok
+test_bug_117612 (__main__.ReTests) ... ok
+test_bug_418626 (__main__.ReTests) ... ok
+test_bug_448951 (__main__.ReTests) ... ok
+test_bug_449000 (__main__.ReTests) ... ok
+test_bug_449964 (__main__.ReTests) ... ok
+test_bug_462270 (__main__.ReTests) ... ok
+test_bug_527371 (__main__.ReTests) ... ERROR
+test_bug_545855 (__main__.ReTests) ... ok
+test_bug_612074 (__main__.ReTests) ... ok
+test_bug_725106 (__main__.ReTests) ... ok
+test_bug_725149 (__main__.ReTests) ... ok
+test_bug_764548 (__main__.ReTests) ... ok
+test_bug_926075 (__main__.ReTests) ... ok
+test_category (__main__.ReTests) ... ok
+test_constants (__main__.ReTests) ... ok
+test_expand (__main__.ReTests) ... ok
+test_finditer (__main__.ReTests) ... ok
+test_flags (__main__.ReTests) ... ok
+test_getattr (__main__.ReTests) ... ERROR
+test_getlower (__main__.ReTests) ... ok
+test_groupdict (__main__.ReTests) ... ok
+test_ignore_case (__main__.ReTests) ... ERROR
+test_non_consuming (__main__.ReTests) ... ERROR
+test_not_literal (__main__.ReTests) ... ok
+test_pickling (__main__.ReTests) ... ERROR
+test_qualified_re_split (__main__.ReTests) ... ok
+test_qualified_re_sub (__main__.ReTests) ... ok
+test_re_escape (__main__.ReTests) ... ok
+test_re_findall (__main__.ReTests) ... ok
+test_re_groupref (__main__.ReTests) ... ========================== closed ==========================
+execution time: 900.177868843 seconds
+exit status: 1

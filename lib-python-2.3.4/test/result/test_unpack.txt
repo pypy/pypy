@@ -1,0 +1,28 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_unpack.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 18:14:01 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+unpack tuple
+unpack list
+unpack implied tuple
+unpack string
+unpack sequence
+unpack single tuple/list
+unpack non-sequence
+unpack tuple wrong size
+unpack list wrong size
+unpack sequence too short
+unpack sequence too long
+unpack sequence too long, wrong error
+unpack sequence too short, wrong error
+========================== closed ==========================
+execution time: 7.14024806023 seconds
+exit status: 0

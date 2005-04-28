@@ -1,0 +1,57 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_dummy_threading.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 02:14:08 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+task <thread 0> will run for 0 sec
+1 tasks are running
+task <thread 0> done
+<thread 0> is finished. 0 tasks are running
+task <thread 1> will run for 0 sec
+1 tasks are running
+task <thread 1> done
+<thread 1> is finished. 0 tasks are running
+task <thread 2> will run for 0 sec
+1 tasks are running
+task <thread 2> done
+<thread 2> is finished. 0 tasks are running
+task <thread 3> will run for 0 sec
+1 tasks are running
+task <thread 3> done
+<thread 3> is finished. 0 tasks are running
+task <thread 4> will run for 0 sec
+1 tasks are running
+task <thread 4> done
+<thread 4> is finished. 0 tasks are running
+task <thread 5> will run for 0 sec
+1 tasks are running
+task <thread 5> done
+<thread 5> is finished. 0 tasks are running
+task <thread 6> will run for 0 sec
+1 tasks are running
+task <thread 6> done
+<thread 6> is finished. 0 tasks are running
+task <thread 7> will run for 0 sec
+1 tasks are running
+task <thread 7> done
+<thread 7> is finished. 0 tasks are running
+task <thread 8> will run for 0 sec
+1 tasks are running
+task <thread 8> done
+<thread 8> is finished. 0 tasks are running
+task <thread 9> will run for 0 sec
+1 tasks are running
+task <thread 9> done
+<thread 9> is finished. 0 tasks are running
+waiting for all tasks to complete
+all tasks done
+========================== closed ==========================
+execution time: 15.1704230309 seconds
+exit status: 0

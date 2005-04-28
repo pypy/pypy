@@ -1,0 +1,194 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_codeccallbacks.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 04:15:34 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+test_backslashescape (__main__.CodecCallbackTest) ... ok
+test_badandgoodbackslashreplaceexceptions (__main__.CodecCallbackTest) ... Traceback (most recent call last):
+  File "/home/arigo/pypysrc/pypy/interpreter/py.py", line 78, in main_
+    main.run_file(args[0], space)
+  File "/home/arigo/svn/pypy/dist/pypy/interpreter/main.py", line 59, in run_file
+  File "/home/arigo/svn/pypy/dist/pypy/interpreter/main.py", line 50, in run_string
+  File "/home/arigo/svn/pypy/dist/pypy/interpreter/main.py", line 39, in _run_eval_string
+  File "/home/arigo/pypysrc/pypy/interpreter/eval.py", line 24, in exec_code
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/eval.py", line 70, in resume
+    result = self.eval(executioncontext)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyframe.py", line 97, in eval
+    self.dispatch()
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 54, in dispatch
+    fn(self, oparg)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 639, in CALL_FUNCTION
+    w_result = f.space.call_args(w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 92, in call_args
+    return w_obj.call_args(args)
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/eval.py", line 70, in resume
+    result = self.eval(executioncontext)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyframe.py", line 97, in eval
+    self.dispatch()
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 54, in dispatch
+    fn(self, oparg)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 639, in CALL_FUNCTION
+    w_result = f.space.call_args(w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 92, in call_args
+    return w_obj.call_args(args)
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/eval.py", line 70, in resume
+    result = self.eval(executioncontext)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyframe.py", line 97, in eval
+    self.dispatch()
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 54, in dispatch
+    fn(self, oparg)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 639, in CALL_FUNCTION
+    w_result = f.space.call_args(w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 92, in call_args
+    return w_obj.call_args(args)
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/eval.py", line 70, in resume
+    result = self.eval(executioncontext)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyframe.py", line 97, in eval
+    self.dispatch()
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 54, in dispatch
+    fn(self, oparg)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 639, in CALL_FUNCTION
+    w_result = f.space.call_args(w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 99, in call_args
+    return space.get_and_call_args(w_descr, w_obj, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 80, in get_and_call_args
+    return descr.call_args(args.prepend(w_obj))
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/gateway.py", line 249, in run
+    w_result = self._run()
+  File "</home/arigo/pypysrc/py/code/source.py:213>", line 3, in _run_UWS_Method_Arguments
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 180, in descr_method_call
+    return self.call_args(__args__)
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 163, in call_args
+    return self.space.call_args(self.w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 92, in call_args
+    return w_obj.call_args(args)
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/eval.py", line 70, in resume
+    result = self.eval(executioncontext)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyframe.py", line 97, in eval
+    self.dispatch()
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 54, in dispatch
+    fn(self, oparg)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 639, in CALL_FUNCTION
+    w_result = f.space.call_args(w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 99, in call_args
+    return space.get_and_call_args(w_descr, w_obj, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 80, in get_and_call_args
+    return descr.call_args(args.prepend(w_obj))
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/eval.py", line 70, in resume
+    result = self.eval(executioncontext)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyframe.py", line 97, in eval
+    self.dispatch()
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 54, in dispatch
+    fn(self, oparg)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 639, in CALL_FUNCTION
+    w_result = f.space.call_args(w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 99, in call_args
+    return space.get_and_call_args(w_descr, w_obj, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 80, in get_and_call_args
+    return descr.call_args(args.prepend(w_obj))
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/eval.py", line 70, in resume
+    result = self.eval(executioncontext)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyframe.py", line 97, in eval
+    self.dispatch()
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 54, in dispatch
+    fn(self, oparg)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 639, in CALL_FUNCTION
+    w_result = f.space.call_args(w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 99, in call_args
+    return space.get_and_call_args(w_descr, w_obj, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 80, in get_and_call_args
+    return descr.call_args(args.prepend(w_obj))
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/eval.py", line 70, in resume
+    result = self.eval(executioncontext)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyframe.py", line 97, in eval
+    self.dispatch()
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 54, in dispatch
+    fn(self, oparg)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 639, in CALL_FUNCTION
+    w_result = f.space.call_args(w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 99, in call_args
+    return space.get_and_call_args(w_descr, w_obj, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 80, in get_and_call_args
+    return descr.call_args(args.prepend(w_obj))
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/gateway.py", line 249, in run
+    w_result = self._run()
+  File "</home/arigo/pypysrc/py/code/source.py:213>", line 3, in _run_UWS_Method_Arguments
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 180, in descr_method_call
+    return self.call_args(__args__)
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 163, in call_args
+    return self.space.call_args(self.w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 92, in call_args
+    return w_obj.call_args(args)
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/eval.py", line 70, in resume
+    result = self.eval(executioncontext)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyframe.py", line 97, in eval
+    self.dispatch()
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 54, in dispatch
+    fn(self, oparg)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 639, in CALL_FUNCTION
+    w_result = f.space.call_args(w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 99, in call_args
+    return space.get_and_call_args(w_descr, w_obj, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 80, in get_and_call_args
+    return descr.call_args(args.prepend(w_obj))
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/gateway.py", line 249, in run
+    w_result = self._run()
+  File "</home/arigo/pypysrc/py/code/source.py:213>", line 3, in _run_UWS_Method_Arguments
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 180, in descr_method_call
+    return self.call_args(__args__)
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 163, in call_args
+    return self.space.call_args(self.w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 92, in call_args
+    return w_obj.call_args(args)
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 40, in call_args
+    return frame.run()
+  File "/home/arigo/pypysrc/pypy/interpreter/eval.py", line 70, in resume
+    result = self.eval(executioncontext)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyframe.py", line 97, in eval
+    self.dispatch()
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 54, in dispatch
+    fn(self, oparg)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 653, in CALL_FUNCTION_VAR_KW
+    f.CALL_FUNCTION(oparg, w_varargs, w_varkw)
+  File "/home/arigo/pypysrc/pypy/interpreter/pyopcode.py", line 639, in CALL_FUNCTION
+    w_result = f.space.call_args(w_function, args)
+  File "/home/arigo/pypysrc/pypy/objspace/descroperation.py", line 92, in call_args
+    return w_obj.call_args(args)
+  File "/home/arigo/pypysrc/pypy/interpreter/function.py", line 39, in call_args
+    frame.setfastscope(scope_w)
+  File "/home/arigo/pypysrc/pypy/objspace/std/fake.py", line 133, in setfastscope
+    raise UnwrapError('calling %s: %s' % (self.code.cpy_callable, e))
+pypy.objspace.std.model.UnwrapError: calling <built-in function backslashreplace_errors>: cannot unwrap <UserW_ObjectObject() instance of <W_TypeObject(UnicodeError)>>
+========================== closed ==========================
+execution time: 61.0466151237 seconds
+exit status: 1

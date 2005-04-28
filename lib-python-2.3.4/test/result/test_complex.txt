@@ -1,0 +1,45 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_complex.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 03:41:11 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+==========================timeout==========================
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_complex.py", line 316 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_complex.py", line 313 in test_main
+    test_support.run_unittest(ComplexTest)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
+    result = runner.run(suite)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 658 in run
+        test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 229 in __call__
+                testMethod()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_complex.py", line 75 in test_div
+                self.check_div(x, y)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_complex.py", line 58 in check_div
+            q = z.__div__(x)
+KeyboardInterrupt
+test_abs (__main__.ComplexTest) ... ok
+test_boolcontext (__main__.ComplexTest) ... ok
+test_coerce (__main__.ComplexTest) ... ok
+test_conjugate (__main__.ComplexTest) ... ok
+test_constructor (__main__.ComplexTest) ... ERROR
+test_div (__main__.ComplexTest) ... ========================== closed ==========================
+execution time: 900.152910948 seconds
+exit status: 1

@@ -1,0 +1,24 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_socket_ssl.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 20:03:36 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_socket.socket'>
+faking <type 'classobj'>
+faking <type 'PyCObject'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_socket_ssl.py", line 68 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_socket_ssl.py", line 63 in test_main
+        raise test_support.TestSkipped("socket module has no ssl support")
+TestSkipped: socket module has no ssl support
+========================== closed ==========================
+execution time: 13.0907242298 seconds
+exit status: 1

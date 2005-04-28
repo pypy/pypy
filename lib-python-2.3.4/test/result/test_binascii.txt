@@ -1,0 +1,56 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_binascii.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 05:09:56 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type 'classobj'>
+faking <type 'instance'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_binascii.py", line 155 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_binascii.py", line 152 in test_main
+    test_support.run_unittest(BinASCIITest)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+            raise TestFailed(msg)
+TestFailed: errors occurred in __main__.BinASCIITest
+test_base64invalid (__main__.BinASCIITest) ... ok
+test_base64valid (__main__.BinASCIITest) ... ok
+test_crc32 (__main__.BinASCIITest) ... ok
+test_exceptions (__main__.BinASCIITest) ... ERROR
+test_functions (__main__.BinASCIITest) ... ok
+test_hex (__main__.BinASCIITest) ... ok
+test_qp (__main__.BinASCIITest) ... ok
+test_uu (__main__.BinASCIITest) ... ERROR
+
+======================================================================
+ERROR: test_exceptions (__main__.BinASCIITest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_binascii.py", line 17, in test_exceptions
+    self.assert_(issubclass(binascii.Error, Exception))
+TypeError: arg 1 must be a class or type
+
+======================================================================
+ERROR: test_uu (__main__.BinASCIITest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_binascii.py", line 102, in test_uu
+    self.assertRaises(binascii.Error, binascii.a2b_uu, "\xff\x00")
+TypeError: instance exception may not have a separate value
+
+----------------------------------------------------------------------
+Ran 8 tests in 50.609s
+
+FAILED (errors=2)
+========================== closed ==========================
+execution time: 60.0292649269 seconds
+exit status: 1

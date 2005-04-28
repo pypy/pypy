@@ -1,0 +1,106 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_datetime.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 03:00:43 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type 'instancemethod'>
+faking <type '_sre.SRE_Match'>
+faking <type 'time.struct_time'>
+faking <type 'classobj'>
+==========================timeout==========================
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_datetime.py", line 3113 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_datetime.py", line 3096 in test_main
+        test_support.run_suite(thesuite)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
+    result = runner.run(suite)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 658 in run
+        test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 229 in __call__
+                testMethod()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_datetime.py", line 1385 in test_extract
+        self.assertEqual(dt.time(), time(18, 45, 3, 1234))
+  File "/home/arigo/pypysrc/pypy/lib/datetime.py", line 1479 in time
+        return time(self.hour, self.minute, self.second, self.microsecond)
+  File "/home/arigo/pypysrc/pypy/lib/datetime.py", line 1099 in __new__
+        if isinstance(hour, str):
+KeyboardInterrupt
+test_constants (__main__.TestModule) ... ok
+test_non_abstractness (__main__.TestTZInfo) ... ok
+test_normal (__main__.TestTZInfo) ... ok
+test_pickling_base (__main__.TestTZInfo) ... ok
+test_pickling_subclass (__main__.TestTZInfo) ... ok
+test_subclass_must_override (__main__.TestTZInfo) ... ok
+test_basic_attributes (__main__.TestTimeDelta) ... ok
+test_bool (__main__.TestTimeDelta) ... ok
+test_carries (__main__.TestTimeDelta) ... ok
+test_compare (__main__.TestTimeDelta) ... ok
+test_computations (__main__.TestTimeDelta) ... ok
+test_constructor (__main__.TestTimeDelta) ... ok
+test_disallowed_computations (__main__.TestTimeDelta) ... ok
+test_harmful_mixed_comparison (__main__.TestTimeDelta) ... ok
+test_harmless_mixed_comparison (__main__.TestTimeDelta) ... ok
+test_hash_equality (__main__.TestTimeDelta) ... ok
+test_massive_normalization (__main__.TestTimeDelta) ... ok
+test_microsecond_rounding (__main__.TestTimeDelta) ... ok
+test_overflow (__main__.TestTimeDelta) ... ok
+test_pickling (__main__.TestTimeDelta) ... ok
+test_resolution_info (__main__.TestTimeDelta) ... ok
+test_roundtrip (__main__.TestTimeDelta) ... ok
+test_str (__main__.TestTimeDelta) ... ok
+test_subclass_timedelta (__main__.TestTimeDelta) ... ok
+test_delta_non_days_ignored (__main__.TestDateOnly) ... ok
+test_bad_constructor_arguments (__main__.TestDate) ... ok
+test_basic_attributes (__main__.TestDate) ... ok
+test_bool (__main__.TestDate) ... ok
+test_compare (__main__.TestDate) ... ok
+test_computations (__main__.TestDate) ... ok
+test_ctime (__main__.TestDate) ... ok
+test_extreme_ordinals (__main__.TestDate) ... ok
+test_extreme_timedelta (__main__.TestDate) ... ok
+test_fromtimestamp (__main__.TestDate) ... ok
+test_harmful_mixed_comparison (__main__.TestDate) ... ok
+test_harmless_mixed_comparison (__main__.TestDate) ... ok
+test_hash_equality (__main__.TestDate) ... ok
+test_iso_long_years (__main__.TestDate) ... ok
+test_isocalendar (__main__.TestDate) ... ok
+test_isoformat (__main__.TestDate) ... ok
+test_mixed_compare (__main__.TestDate) ... ok
+test_ordinal_conversions (__main__.TestDate) ... ok
+test_overflow (__main__.TestDate) ... ok
+test_pickling (__main__.TestDate) ... ok
+test_replace (__main__.TestDate) ... ok
+test_resolution_info (__main__.TestDate) ... ok
+test_roundtrip (__main__.TestDate) ... ok
+test_srftime_out_of_range (__main__.TestDate) ... ok
+test_strftime (__main__.TestDate) ... ok
+test_subclass_date (__main__.TestDate) ... ok
+test_timetuple (__main__.TestDate) ... ok
+test_today (__main__.TestDate) ... ok
+test_weekday (__main__.TestDate) ... ok
+test_astimezone (__main__.TestDateTime) ... ok
+test_bad_constructor_arguments (__main__.TestDateTime) ... ok
+test_basic_attributes (__main__.TestDateTime) ... ok
+test_basic_attributes_nonzero (__main__.TestDateTime) ... ok
+test_bool (__main__.TestDateTime) ... ok
+test_combine (__main__.TestDateTime) ... ok
+test_compare (__main__.TestDateTime) ... ok
+test_computations (__main__.TestDateTime) ... ok
+test_ctime (__main__.TestDateTime) ... ok
+test_extract (__main__.TestDateTime) ... ========================== closed ==========================
+execution time: 900.215548992 seconds
+exit status: 1

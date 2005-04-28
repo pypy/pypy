@@ -1,0 +1,27 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_syntax.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 19:08:08 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type 'instancemethod'>
+faking <type '_sre.SRE_Match'>
+test_assign_call (__main__.SyntaxTestCase) ... ok
+test_assign_del (__main__.SyntaxTestCase) ... ok
+test_global_err_then_warn (__main__.SyntaxTestCase) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 14.529s
+
+OK
+========================== closed ==========================
+execution time: 24.5019910336 seconds
+exit status: 0

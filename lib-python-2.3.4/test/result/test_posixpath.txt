@@ -1,0 +1,46 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_posixpath.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 22:24:29 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+faking <type 'instancemethod'>
+faking <type '_sre.SRE_Match'>
+test_abspath (__main__.PosixPathTest) ... ok
+test_basename (__main__.PosixPathTest) ... ok
+test_commonprefix (__main__.PosixPathTest) ... ok
+test_dirname (__main__.PosixPathTest) ... ok
+test_exists (__main__.PosixPathTest) ... ok
+test_expanduser (__main__.PosixPathTest) ... ok
+test_expandvars (__main__.PosixPathTest) ... ok
+test_getsize (__main__.PosixPathTest) ... ok
+test_isabs (__main__.PosixPathTest) ... ok
+test_isdir (__main__.PosixPathTest) ... ok
+test_isfile (__main__.PosixPathTest) ... ok
+test_islink (__main__.PosixPathTest) ... ok
+test_ismount (__main__.PosixPathTest) ... ok
+test_join (__main__.PosixPathTest) ... ok
+test_normcase (__main__.PosixPathTest) ... ok
+test_normpath (__main__.PosixPathTest) ... ok
+test_realpath (__main__.PosixPathTest) ... ok
+test_samestat (__main__.PosixPathTest) ... ok
+test_split (__main__.PosixPathTest) ... ok
+test_splitdrive (__main__.PosixPathTest) ... ok
+test_splitext (__main__.PosixPathTest) ... ok
+test_time (__main__.PosixPathTest) ... ok
+
+----------------------------------------------------------------------
+Ran 22 tests in 23.981s
+
+OK
+========================== closed ==========================
+execution time: 32.4078001976 seconds
+exit status: 0

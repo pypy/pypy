@@ -1,0 +1,52 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_traceback.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 18:45:14 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_traceback.py", line 49 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_traceback.py", line 45 in test_main
+    run_unittest(TracebackCases)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+            raise TestFailed(msg)
+TestFailed: errors occurred in __main__.TracebackCases
+test_caret (__main__.TracebackCases) ... FAIL
+test_nocaret (__main__.TracebackCases) ... FAIL
+
+======================================================================
+FAIL: test_caret (__main__.TracebackCases)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_traceback.py", line 30, in test_caret
+    self.assert_(len(err) == 4)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 278, in failUnless
+    if not expr: raise self.failureException, msg
+AssertionError
+
+======================================================================
+FAIL: test_nocaret (__main__.TracebackCases)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_traceback.py", line 40, in test_nocaret
+    self.assert_(len(err) == 3)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 278, in failUnless
+    if not expr: raise self.failureException, msg
+AssertionError
+
+----------------------------------------------------------------------
+Ran 2 tests in 2.912s
+
+FAILED (failures=2)
+========================== closed ==========================
+execution time: 12.1203560829 seconds
+exit status: 1

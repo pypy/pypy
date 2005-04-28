@@ -1,0 +1,30 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_grammar.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 01:16:31 2005
+pypy-revision: 11518
+OUTPUT TEST
+see output in: /home/arigo/pypysrc/lib-python-2.3.4/test/result/test_grammar.out
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+/home/arigo/pypysrc/lib-python-2.3.4/test/test_grammar.py:42: FutureWarning: hex/oct constants > sys.maxint will return positive values in Python 2.4 and up
+  if -2147483647-1 != 020000000000: raise TestFailed, 'max negative int'
+/home/arigo/pypysrc/lib-python-2.3.4/test/test_grammar.py:44: FutureWarning: hex/oct constants > sys.maxint will return positive values in Python 2.4 and up
+  if 037777777777 != -1: raise TestFailed, 'oct -1'
+/home/arigo/pypysrc/lib-python-2.3.4/test/test_grammar.py:45: FutureWarning: hex/oct constants > sys.maxint will return positive values in Python 2.4 and up
+  if 0xffffffff != -1: raise TestFailed, 'hex -1'
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_grammar.py", line 453 in ?
+f()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_grammar.py", line 446 in f
+        exec r"""if 1:
+  File "<string>", line 2 in ?
+TypeError: exec: arg 1 must be a string, file, or code object
+========================== closed ==========================
+execution time: 9.57444095612 seconds
+exit status: 1

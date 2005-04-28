@@ -1,0 +1,30 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_marshal.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 23:37:18 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+==========================timeout==========================
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_marshal.py", line 44 in ?
+marshal.dumps([128] * 1000)
+  File "/home/arigo/pypysrc/pypy/lib/marshal.py", line 338 in dumps
+    dump(x, f)
+  File "/home/arigo/pypysrc/pypy/lib/marshal.py", line 331 in dump
+    Marshaller(f).dump(x)
+  File "/home/arigo/pypysrc/pypy/lib/marshal.py", line 41 in dump
+        self.dispatch[type(x)](self, x)
+  File "/home/arigo/pypysrc/pypy/lib/marshal.py", line 142 in dump_list
+            self.dump(item)
+  File "/home/arigo/pypysrc/pypy/lib/marshal.py", line 41 in dump
+        self.dispatch[type(x)](self, x)
+KeyboardInterrupt
+========================== closed ==========================
+execution time: 900.541698933 seconds
+exit status: 1

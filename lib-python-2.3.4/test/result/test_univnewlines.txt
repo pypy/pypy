@@ -1,0 +1,45 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_univnewlines.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 18:14:08 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+test_execfile (__main__.TestNativeNewlines) ... ok
+test_read (__main__.TestNativeNewlines) ... ok
+test_readline (__main__.TestNativeNewlines) ... ok
+test_readlines (__main__.TestNativeNewlines) ... ok
+test_seek (__main__.TestNativeNewlines) ... ok
+test_execfile (__main__.TestCRNewlines) ... ok
+test_read (__main__.TestCRNewlines) ... ok
+test_readline (__main__.TestCRNewlines) ... ok
+test_readlines (__main__.TestCRNewlines) ... ok
+test_seek (__main__.TestCRNewlines) ... ok
+test_execfile (__main__.TestLFNewlines) ... ok
+test_read (__main__.TestLFNewlines) ... ok
+test_readline (__main__.TestLFNewlines) ... ok
+test_readlines (__main__.TestLFNewlines) ... ok
+test_seek (__main__.TestLFNewlines) ... ok
+test_execfile (__main__.TestCRLFNewlines) ... ok
+test_read (__main__.TestCRLFNewlines) ... ok
+test_readline (__main__.TestCRLFNewlines) ... ok
+test_readlines (__main__.TestCRLFNewlines) ... ok
+test_seek (__main__.TestCRLFNewlines) ... ok
+test_execfile (__main__.TestMixedNewlines) ... ok
+test_read (__main__.TestMixedNewlines) ... ok
+test_readline (__main__.TestMixedNewlines) ... ok
+test_readlines (__main__.TestMixedNewlines) ... ok
+test_seek (__main__.TestMixedNewlines) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 9.215s
+
+OK
+========================== closed ==========================
+execution time: 27.4151549339 seconds
+exit status: 0

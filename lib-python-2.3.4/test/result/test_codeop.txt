@@ -1,0 +1,24 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_codeop.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 04:14:34 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+test_filename (__main__.CodeopTests) ... ok
+test_incomplete (__main__.CodeopTests) ... ok
+test_invalid (__main__.CodeopTests) ... ok
+test_valid (__main__.CodeopTests) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 9.212s
+
+OK
+========================== closed ==========================
+execution time: 27.4823389053 seconds
+exit status: 0

@@ -1,0 +1,35 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_compile.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 03:56:12 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+<string>:0: FutureWarning: hex/oct constants > sys.maxint will return positive values in Python 2.4 and up
+<string>:0: FutureWarning: hex/oct constants > sys.maxint will return positive values in Python 2.4 and up
+test_argument_handling (__main__.TestSpecifics) ... ok
+test_argument_order (__main__.TestSpecifics) ... ok
+test_complex_args (__main__.TestSpecifics) ... ok
+test_debug_assignment (__main__.TestSpecifics) ... ok
+test_duplicate_global_local (__main__.TestSpecifics) ... ok
+test_float_literals (__main__.TestSpecifics) ... ok
+test_indentation (__main__.TestSpecifics) ... ok
+test_literals_with_leading_zeroes (__main__.TestSpecifics) ... ok
+test_sequence_unpacking_error (__main__.TestSpecifics) ... ok
+test_syntax_error (__main__.TestSpecifics) ... ok
+test_unary_minus (__main__.TestSpecifics) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 17.815s
+
+OK
+========================== closed ==========================
+execution time: 25.7041759491 seconds
+exit status: 0

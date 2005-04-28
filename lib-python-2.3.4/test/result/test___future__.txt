@@ -1,0 +1,18 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test___future__.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 05:13:45 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+Checking __future__  nested_scopes value _Feature((2, 1, 0, 'beta', 1), (2, 2, 0, 'alpha', 0), 16)
+Checking __future__  generators value _Feature((2, 2, 0, 'alpha', 1), (2, 3, 0, 'final', 0), 4096)
+Checking __future__  division value _Feature((2, 2, 0, 'alpha', 2), (3, 0, 0, 'alpha', 0), 8192)
+========================== closed ==========================
+execution time: 7.98354697227 seconds
+exit status: 0

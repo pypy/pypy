@@ -1,0 +1,402 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 01:17:46 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+faking <type 'instancemethod'>
+faking <type '_sre.SRE_Match'>
+test_double_quotes (__main__.GettextTestCase1) ... ERROR
+test_multiline_strings (__main__.GettextTestCase1) ... ERROR
+test_some_translations (__main__.GettextTestCase1) ... ERROR
+test_the_alternative_interface (__main__.GettextTestCase1) ... ERROR
+test_triple_double_quotes (__main__.GettextTestCase1) ... ERROR
+test_triple_single_quotes (__main__.GettextTestCase1) ... ERROR
+test_bindtextdomain (__main__.GettextTestCase2) ... ERROR
+test_double_quotes (__main__.GettextTestCase2) ... ERROR
+test_multiline_strings (__main__.GettextTestCase2) ... ERROR
+test_some_translations (__main__.GettextTestCase2) ... ERROR
+test_textdomain (__main__.GettextTestCase2) ... ERROR
+test_triple_double_quotes (__main__.GettextTestCase2) ... ERROR
+test_triple_single_quotes (__main__.GettextTestCase2) ... ERROR
+test_de (__main__.PluralFormsTestCase) ... ERROR
+test_fr (__main__.PluralFormsTestCase) ... ERROR
+test_gd (__main__.PluralFormsTestCase) ... ERROR
+test_gd2 (__main__.PluralFormsTestCase) ... ERROR
+test_hu (__main__.PluralFormsTestCase) ... ERROR
+test_lt (__main__.PluralFormsTestCase) ... ERROR
+test_pl (__main__.PluralFormsTestCase) ... ERROR
+test_plural_forms1 (__main__.PluralFormsTestCase) ... ERROR
+test_plural_forms2 (__main__.PluralFormsTestCase) ... ERROR
+test_ru (__main__.PluralFormsTestCase) ... ERROR
+test_security (__main__.PluralFormsTestCase) ... ERROR
+test_sl (__main__.PluralFormsTestCase) ... ERROR
+test_unicode_msgid (__main__.UnicodeTranslationsTest) ... ERROR
+test_unicode_msgstr (__main__.UnicodeTranslationsTest) ... ERROR
+test_weird_metadata (__main__.WeirdMetadataTest) ... ERROR
+
+======================================================================
+ERROR: test_double_quotes (__main__.GettextTestCase1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 91, in setUp
+    gettext.install('gettext', self.localedir)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/gettext.py", line 428, in install
+    translation(domain, localedir, fallback=True).install(unicode)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/gettext.py", line 416, in translation
+    t = _translations.setdefault(key, class_(open(mofile, 'rb')))
+  File "/home/arigo/pypysrc/lib-python-2.3.4/gettext.py", line 176, in __init__
+    self._parse(fp)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/gettext.py", line 282, in _parse
+    self.plural = c2py(plural)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/gettext.py", line 121, in c2py
+    plural = expr.sub(repl, stack.pop())
+TypeError: len() of unsized object
+
+======================================================================
+ERROR: test_multiline_strings (__main__.GettextTestCase1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 88, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_some_translations (__main__.GettextTestCase1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 88, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_the_alternative_interface (__main__.GettextTestCase1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 88, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_triple_double_quotes (__main__.GettextTestCase1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 88, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_triple_single_quotes (__main__.GettextTestCase1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 88, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_bindtextdomain (__main__.GettextTestCase2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 151, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_double_quotes (__main__.GettextTestCase2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 151, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_multiline_strings (__main__.GettextTestCase2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 151, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_some_translations (__main__.GettextTestCase2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 151, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_textdomain (__main__.GettextTestCase2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 151, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_triple_double_quotes (__main__.GettextTestCase2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 151, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_triple_single_quotes (__main__.GettextTestCase2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 151, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_de (__main__.PluralFormsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_fr (__main__.PluralFormsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_gd (__main__.PluralFormsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_gd2 (__main__.PluralFormsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_hu (__main__.PluralFormsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_lt (__main__.PluralFormsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_pl (__main__.PluralFormsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_plural_forms1 (__main__.PluralFormsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_plural_forms2 (__main__.PluralFormsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_ru (__main__.PluralFormsTestCase)
+----------------Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 345 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 341 in test_main
+    run_suite(suite())
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+            raise TestFailed(msg)
+TestFailed: errors occurred; run in verbose mode for details
+------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_security (__main__.PluralFormsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_sl (__main__.PluralFormsTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 210, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_unicode_msgid (__main__.UnicodeTranslationsTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 293, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_unicode_msgstr (__main__.UnicodeTranslationsTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 293, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+======================================================================
+ERROR: test_weird_metadata (__main__.WeirdMetadataTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 313, in setUp
+    GettextBaseTest.setUp(self)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_gettext.py", line 69, in setUp
+    os.makedirs(LOCALEDIR)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/os.py", line 154, in makedirs
+    mkdir(name, mode)
+OSError: errno=17 args=(17, 'File exists') strerror=File exists filename=xx/LC_MESSAGES
+
+----------------------------------------------------------------------
+Ran 28 tests in 396.780s
+
+FAILED (errors=28)
+========================== closed ==========================
+execution time: 429.322220087 seconds
+exit status: 1

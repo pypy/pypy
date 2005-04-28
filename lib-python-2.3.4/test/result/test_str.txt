@@ -1,0 +1,46 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_str.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 20:20:37 2005
+pypy-revision: 11535
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+==========================timeout==========================
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_str.py", line 25 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_str.py", line 22 in test_main
+    test_support.run_unittest(StrTest)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
+    result = runner.run(suite)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 658 in run
+        test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 229 in __call__
+                testMethod()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/string_tests.py", line 586 in test_floatformatting
+                    self.checkcall(format, "__mod__", value)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/string_tests.py", line 81 in checkcall
+        getattr(object, methodname)(*args)
+KeyboardInterrupt
+test___contains__ (__main__.StrTest) ... ok
+test_capitalize (__main__.StrTest) ... ok
+test_center (__main__.StrTest) ... ok
+test_count (__main__.StrTest) ... ok
+test_encoding_decoding (__main__.StrTest) ... ERROR
+test_endswith (__main__.StrTest) ... ERROR
+test_expandtabs (__main__.StrTest) ... ok
+test_find (__main__.StrTest) ... ok
+test_floatformatting (__main__.StrTest) ... ========================== closed ==========================
+execution time: 901.193814039 seconds
+exit status: 1

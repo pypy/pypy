@@ -1,0 +1,48 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_userstring.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 21:07:52 2005
+pypy-revision: 11535
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+==========================timeout==========================
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_userstring.py", line 50 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_userstring.py", line 47 in test_main
+    test_support.run_unittest(UserStringTest)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
+    result = runner.run(suite)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 658 in run
+        test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 229 in __call__
+                testMethod()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/string_tests.py", line 586 in test_floatformatting
+                    self.checkcall(format, "__mod__", value)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_userstring.py", line 44 in checkcall
+        getattr(object, methodname)(*args)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/UserString.py", line 59 in __mod__
+        return self.__class__(self.data % args)
+KeyboardInterrupt
+test___contains__ (__main__.UserStringTest) ... ok
+test_capitalize (__main__.UserStringTest) ... ok
+test_center (__main__.UserStringTest) ... ok
+test_count (__main__.UserStringTest) ... ok
+test_encoding_decoding (__main__.UserStringTest) ... ERROR
+test_endswith (__main__.UserStringTest) ... ERROR
+test_expandtabs (__main__.UserStringTest) ... ok
+test_find (__main__.UserStringTest) ... ok
+test_floatformatting (__main__.UserStringTest) ... ========================== closed ==========================
+execution time: 900.393742085 seconds
+exit status: 1

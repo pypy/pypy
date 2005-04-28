@@ -1,0 +1,239 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 22:54:38 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type 'parser.st'>
+faking <type 'classobj'>
+faking <type 'instance'>
+test_assert (__main__.RoundtripLegalSyntaxTestCase) ... ERROR
+test_basic_import_statement (__main__.RoundtripLegalSyntaxTestCase) ... ERROR
+test_expressions (__main__.RoundtripLegalSyntaxTestCase) ... ERROR
+test_function_defs (__main__.RoundtripLegalSyntaxTestCase) ... ERROR
+test_import_from_statement (__main__.RoundtripLegalSyntaxTestCase) ... ERROR
+test_pep263 (__main__.RoundtripLegalSyntaxTestCase) ... ERROR
+test_print (__main__.RoundtripLegalSyntaxTestCase) ... ERROR
+test_simple_assignments (__main__.RoundtripLegalSyntaxTestCase) ... ERROR
+test_simple_augmented_assignments (__main__.RoundtripLegalSyntaxTestCase) ... ERROR
+test_simple_expression (__main__.RoundtripLegalSyntaxTestCase) ... ERROR
+test_yield_statement (__main__.RoundtripLegalSyntaxTestCase) ... ERROR
+test_a_comma_comma_c (__main__.IllegalSyntaxTestCase) ... ERROR
+test_illegal_operator (__main__.IllegalSyntaxTestCase) ... ERROR
+test_illegal_yield_1 (__main__.IllegalSyntaxTestCase) ... ERROR
+test_illegal_yield_2 (__main__.IllegalSyntaxTestCase) ... ERROR
+test_junk (__main__.IllegalSyntaxTestCase) ... ERROR
+test_malformed_global (__main__.IllegalSyntaxTestCase) ... ERROR
+test_print_chevron_comma (__main__.IllegalSyntaxTestCase) ... ERROR
+
+======================================================================
+ERROR: test_assert (__main__.RoundtripLegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 142, in test_assert
+    self.check_suite("assert alo < ahi and blo < bhi\n")
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 28, in check_suite
+    self.roundtrip(parser.suite, s)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 15, in roundtrip
+    t = st1.totuple()
+AttributeError: 'st' object has no attribute 'totuple'
+
+======================================================================
+ERROR: test_basic_import_statement (__main__.RoundtripLegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 131, in test_basic_import_statement
+    self.check_suite("import sys")
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 28, in check_suite
+    self.roundtrip(parser.suite, s)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 15, in roundtrip
+    t = st1.totuple()
+AttributeError: 'st' object has no attribute 'totuple'
+
+======================================================================
+ERROR: test_expressions (__main__.RoundtripLegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 39, in test_expressions
+    self.check_expr("foo(1)")
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 25, in check_expr
+    self.roundtrip(parser.expr, s)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 15, in roundtrip
+    t = st1.totuple()
+AttributeError: 'st' object has no attribute 'totuple'
+
+======================================================================
+ERROR: test_function_defs (__main__.RoundtripLegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 102, in test_function_defs
+    self.check_suite("def f(): pass")
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 28, in check_suite
+    self.roundtrip(parser.suite, s)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 15, in roundtrip
+    t = st1.totuple()
+AttributeError: 'st' object has no attribute 'totuple'
+
+======================================================================
+ERROR: test_import_from_statement (__main__.RoundtripLegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 121, in test_import_from_statement
+    self.check_suite("from sys.path import *")
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 28, in check_suite
+    self.roundtrip(parser.suite, s)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 15, in roundtrip
+    t = st1.totuple()
+AttributeError: 'st' object has no attribute 'totuple'
+
+======================================================================
+ERROR: test_pep263 (__main__.RoundtripLegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 138, in test_pep263
+    self.check_suite("# -*- coding: iso-8859-1 -*-\n"
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 28, in check_suite
+    self.roundtrip(parser.suite, s)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 15, in roundtrip
+    t = st1.totuple()
+AttributeError: 'st' object has no attribute 'totuple'
+
+======================================================================
+ERROR: test_print (__main__.RoundtripLegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 72, in test_print
+    self.check_suite("print")
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 28, in check_suite
+    self.roundtrip(parser.suite, s)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 15, in roundtrip
+    t = st1.totuple()
+AttributeError: 'st' object has no attribute 'totuple'
+
+======================================================================
+ERROR: test_simple_assignments (__main__.RoundtripLegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 84, in test_simple_assignments
+    self.check_suite("a = b")
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 28, in check_suite
+    self.roundtrip(parser.suite, s)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 15, in roundtrip
+    t = st1.totuple()
+AttributeError: 'st' object has no attribute 'totuple'
+
+======================================================================
+ERROR: test_simple_augmented_assignments (__main__.RoundtripLegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 88, in test_simple_augmented_assignments
+    self.check_suite("a += b")
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 28, in check_suite
+    self.roundtrip(parser.suite, s)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 15, in roundtrip
+    t = st1.totuple()
+AttributeError: 'st' object has no attribute 'totuple'
+
+======================================================================
+ERROR: test_simple_expression (__main__.RoundtripLegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 81, in test_simple_expression
+    self.check_suite("a")
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 28, in check_suite
+    self.roundtrip(parser.suite, s)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 15, in roundtrip
+    t = st1.totuple()
+AttributeError: 'st' object has no attribute 'totuple'
+
+======================================================================
+ERROR: test_yield_statement (__main__.RoundtripLegalSyntaxTestCase)
+------------------------------------------------------------------Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 384 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 379 in test_main
+        IllegalSyntaxTestCase
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+            raise TestFailed(msg)
+TestFailed: errors occurred; run in verbose mode for details
+----
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 31, in test_yield_statement
+    self.check_suite("def f(): yield 1")
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 28, in check_suite
+    self.roundtrip(parser.suite, s)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 15, in roundtrip
+    t = st1.totuple()
+AttributeError: 'st' object has no attribute 'totuple'
+
+======================================================================
+ERROR: test_a_comma_comma_c (__main__.IllegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 330, in test_a_comma_comma_c
+    self.check_bad_tree(tree, "a,,c")
+TypeError: instance exception may not have a separate value
+
+======================================================================
+ERROR: test_illegal_operator (__main__.IllegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 363, in test_illegal_operator
+    self.check_bad_tree(tree, "a $= b")
+TypeError: instance exception may not have a separate value
+
+======================================================================
+ERROR: test_illegal_yield_1 (__main__.IllegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 216, in test_illegal_yield_1
+    self.check_bad_tree(tree, "def f():\n  return 1\n  yield 1")
+TypeError: instance exception may not have a separate value
+
+======================================================================
+ERROR: test_illegal_yield_2 (__main__.IllegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 280, in test_illegal_yield_2
+    self.check_bad_tree(tree, "def f():\n  return 1\n  yield 1")
+TypeError: instance exception may not have a separate value
+
+======================================================================
+ERROR: test_junk (__main__.IllegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 161, in test_junk
+    self.check_bad_tree((1, 2, 3), "<junk>")
+TypeError: instance exception may not have a separate value
+
+======================================================================
+ERROR: test_malformed_global (__main__.IllegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 374, in test_malformed_global
+    self.check_bad_tree(tree, "malformed global ast")
+TypeError: instance exception may not have a separate value
+
+======================================================================
+ERROR: test_print_chevron_comma (__main__.IllegalSyntaxTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_parser.py", line 303, in test_print_chevron_comma
+    self.check_bad_tree(tree, "print >>fp,")
+TypeError: instance exception may not have a separate value
+
+----------------------------------------------------------------------
+Ran 18 tests in 21.775s
+
+FAILED (errors=18)
+========================== closed ==========================
+execution time: 39.7464900017 seconds
+exit status: 1

@@ -1,0 +1,26 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_mimetools.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 23:24:57 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_socket.socket'>
+faking <type 'classobj'>
+faking <type 'PyCObject'>
+test_boundary (__main__.MimeToolsTest) ... ok
+test_decodeencode (__main__.MimeToolsTest) ... ok
+test_message (__main__.MimeToolsTest) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 76.316s
+
+OK
+========================== closed ==========================
+execution time: 89.063904047 seconds
+exit status: 0

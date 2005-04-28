@@ -1,0 +1,323 @@
+test_cookie
+<SimpleCookie: chips='ahoy' vienna='finger'>
+Set-Cookie: chips=ahoy;
+Set-Cookie: vienna=finger;
+  chips 'ahoy' 'ahoy'
+Set-Cookie: chips=ahoy;
+  vienna 'finger' 'finger'
+Set-Cookie: vienna=finger;
+<SimpleCookie: keebler='E=mc2; L="Loves"; fudge=\n;'>
+Set-Cookie: keebler="E=mc2; L=\"Loves\"; fudge=\012;";
+  keebler 'E=mc2; L="Loves"; fudge=\n;' 'E=mc2; L="Loves"; fudge=\n;'
+Set-Cookie: keebler="E=mc2; L=\"Loves\"; fudge=\012;";
+<SimpleCookie: keebler='E=mc2'>
+Set-Cookie: keebler=E=mc2;
+  keebler 'E=mc2' 'E=mc2'
+Set-Cookie: keebler=E=mc2;
+Set-Cookie: Customer="WILE_E_COYOTE"; Path=/acme;
+
+        <SCRIPT LANGUAGE="JavaScript">
+        <!-- begin hiding
+        document.cookie = "Customer="WILE_E_COYOTE"; Path=/acme; Version=1;"
+        // end hiding -->
+        </script>
+        
+
+        <SCRIPT LANGUAGE="JavaScript">
+        <!-- begin hiding
+        document.cookie = "Customer="WILE_E_COYOTE"; Path=/acme;"
+        // end hiding -->
+        </script>
+        
+If anything blows up after this line, it's from Cookie's doctest.
+Running Cookie.__doc__
+Trying: import Cookie
+Expecting: nothing
+ok
+Trying: C = Cookie.SimpleCookie()
+Expecting: nothing
+ok
+Trying: C = Cookie.SerialCookie()
+Expecting: nothing
+ok
+Trying: C = Cookie.SmartCookie()
+Expecting: nothing
+ok
+Trying: C = Cookie.SmartCookie()
+Expecting: nothing
+ok
+Trying: C["fig"] = "newton"
+Expecting: nothing
+ok
+Trying: C["sugar"] = "wafer"
+Expecting: nothing
+ok
+Trying: print C
+Expecting:
+Set-Cookie: fig=newton;
+Set-Cookie: sugar=wafer;
+ok
+Trying: C = Cookie.SmartCookie()
+Expecting: nothing
+ok
+Trying: C["rocky"] = "road"
+Expecting: nothing
+ok
+Trying: C["rocky"]["path"] = "/cookie"
+Expecting: nothing
+ok
+Trying: print C.output(header="Cookie:")
+Expecting: Cookie: rocky=road; Path=/cookie;
+ok
+Trying: print C.output(attrs=[], header="Cookie:")
+Expecting: Cookie: rocky=road;
+ok
+Trying: C = Cookie.SmartCookie()
+Expecting: nothing
+ok
+Trying: C.load("chips=ahoy; vienna=finger")
+Expecting: nothing
+ok
+Trying: print C
+Expecting:
+Set-Cookie: chips=ahoy;
+Set-Cookie: vienna=finger;
+ok
+Trying: C = Cookie.SmartCookie()
+Expecting: nothing
+ok
+Trying: C.load('keebler="E=everybody; L=\\"Loves\\"; fudge=\\012;";')
+Expecting: nothing
+ok
+Trying: print C
+Expecting: Set-Cookie: keebler="E=everybody; L=\"Loves\"; fudge=\012;";
+ok
+Trying: C = Cookie.SmartCookie()
+Expecting: nothing
+ok
+Trying: C["oreo"] = "doublestuff"
+Expecting: nothing
+ok
+Trying: C["oreo"]["path"] = "/"
+Expecting: nothing
+ok
+Trying: print C
+Expecting: Set-Cookie: oreo=doublestuff; Path=/;
+ok
+Trying: C = Cookie.SmartCookie()
+Expecting: nothing
+ok
+Trying: C["twix"] = "none for you"
+Expecting: nothing
+ok
+Trying: C["twix"].value
+Expecting: 'none for you'
+ok
+Trying: C = Cookie.SimpleCookie()
+Expecting: nothing
+ok
+Trying: C["number"] = 7
+Expecting: nothing
+ok
+Trying: C["string"] = "seven"
+Expecting: nothing
+ok
+Trying: C["number"].value
+Expecting: '7'
+ok
+Trying: C["string"].value
+Expecting: 'seven'
+ok
+Trying: print C
+Expecting:
+Set-Cookie: number=7;
+Set-Cookie: string=seven;
+ok
+Trying: C = Cookie.SerialCookie()
+Expecting: nothing
+ok
+Trying: C["number"] = 7
+Expecting: nothing
+ok
+Trying: C["string"] = "seven"
+Expecting: nothing
+ok
+Trying: C["number"].value
+Expecting: 7
+ok
+Trying: C["string"].value
+Expecting: 'seven'
+ok
+Trying: print C
+Expecting:
+Set-Cookie: number="I7\012.";
+Set-Cookie: string="S'seven'\012p1\012.";
+*****************************************************************
+Failure in example: print C
+from line #126 of Cookie
+Expected:
+Set-Cookie: number="I7\012.";
+Set-Cookie: string="S'seven'\012p1\012.";
+Got:
+Set-Cookie: number="I7\012.";
+Set-Cookie: string="S'seven'\012p0\012.";
+Trying: C = Cookie.SmartCookie()
+Expecting: nothing
+ok
+Trying: C["number"] = 7
+Expecting: nothing
+ok
+Trying: C["string"] = "seven"
+Expecting: nothing
+ok
+Trying: C["number"].value
+Expecting: 7
+ok
+Trying: C["string"].value
+Expecting: 'seven'
+ok
+Trying: print C
+Expecting:
+Set-Cookie: number="I7\012.";
+Set-Cookie: string=seven;
+ok
+Trying: C = Cookie.Cookie()
+Expecting: nothing
+ok
+Trying: print C.__class__.__name__
+Expecting: SmartCookie
+ok
+1 of 46 examples failed in Cookie.__doc__
+Running Cookie.BaseCookie.__doc__
+0 of 0 examples failed in Cookie.BaseCookie.__doc__
+Running Cookie.BaseCookie._BaseCookie__ParseString.__doc__
+0 of 0 examples failed in Cookie.BaseCookie._BaseCookie__ParseString.__doc__
+Running Cookie.BaseCookie._BaseCookie__set.__doc__
+0 of 0 examples failed in Cookie.BaseCookie._BaseCookie__set.__doc__
+Running Cookie.BaseCookie.__init__.__doc__
+0 of 0 examples failed in Cookie.BaseCookie.__init__.__doc__
+Running Cookie.BaseCookie.__repr__.__doc__
+0 of 0 examples failed in Cookie.BaseCookie.__repr__.__doc__
+Running Cookie.BaseCookie.__setitem__.__doc__
+0 of 0 examples failed in Cookie.BaseCookie.__setitem__.__doc__
+Running Cookie.BaseCookie.__str__.__doc__
+0 of 0 examples failed in Cookie.BaseCookie.__str__.__doc__
+Running Cookie.BaseCookie.js_output.__doc__
+0 of 0 examples failed in Cookie.BaseCookie.js_output.__doc__
+Running Cookie.BaseCookie.load.__doc__
+0 of 0 examples failed in Cookie.BaseCookie.load.__doc__
+Running Cookie.BaseCookie.output.__doc__
+0 of 0 examples failed in Cookie.BaseCookie.output.__doc__
+Running Cookie.BaseCookie.value_decode.__doc__
+0 of 0 examples failed in Cookie.BaseCookie.value_decode.__doc__
+Running Cookie.BaseCookie.value_encode.__doc__
+0 of 0 examples failed in Cookie.BaseCookie.value_encode.__doc__
+Running Cookie.Cookie.__doc__
+0 of 0 examples failed in Cookie.Cookie.__doc__
+Running Cookie.Cookie.__init__.__doc__
+0 of 0 examples failed in Cookie.Cookie.__init__.__doc__
+Running Cookie.Cookie.value_decode.__doc__
+0 of 0 examples failed in Cookie.Cookie.value_decode.__doc__
+Running Cookie.Cookie.value_encode.__doc__
+0 of 0 examples failed in Cookie.Cookie.value_encode.__doc__
+Running Cookie.CookieError.__doc__
+0 of 0 examples failed in Cookie.CookieError.__doc__
+Running Cookie.Morsel.__doc__
+0 of 0 examples failed in Cookie.Morsel.__doc__
+Running Cookie.Morsel.OutputString.__doc__
+0 of 0 examples failed in Cookie.Morsel.OutputString.__doc__
+Running Cookie.Morsel.__init__.__doc__
+0 of 0 examples failed in Cookie.Morsel.__init__.__doc__
+Running Cookie.Morsel.__repr__.__doc__
+0 of 0 examples failed in Cookie.Morsel.__repr__.__doc__
+Running Cookie.Morsel.__setitem__.__doc__
+0 of 0 examples failed in Cookie.Morsel.__setitem__.__doc__
+Running Cookie.Morsel.__str__.__doc__
+0 of 0 examples failed in Cookie.Morsel.__str__.__doc__
+Running Cookie.Morsel.isReservedKey.__doc__
+0 of 0 examples failed in Cookie.Morsel.isReservedKey.__doc__
+Running Cookie.Morsel.js_output.__doc__
+0 of 0 examples failed in Cookie.Morsel.js_output.__doc__
+Running Cookie.Morsel.output.__doc__
+0 of 0 examples failed in Cookie.Morsel.output.__doc__
+Running Cookie.Morsel.set.__doc__
+0 of 0 examples failed in Cookie.Morsel.set.__doc__
+Running Cookie.SerialCookie.__doc__
+0 of 0 examples failed in Cookie.SerialCookie.__doc__
+Running Cookie.SerialCookie.__init__.__doc__
+0 of 0 examples failed in Cookie.SerialCookie.__init__.__doc__
+Running Cookie.SerialCookie.value_decode.__doc__
+0 of 0 examples failed in Cookie.SerialCookie.value_decode.__doc__
+Running Cookie.SerialCookie.value_encode.__doc__
+0 of 0 examples failed in Cookie.SerialCookie.value_encode.__doc__
+Running Cookie.SimpleCookie.__doc__
+0 of 0 examples failed in Cookie.SimpleCookie.__doc__
+Running Cookie.SimpleCookie.value_decode.__doc__
+0 of 0 examples failed in Cookie.SimpleCookie.value_decode.__doc__
+Running Cookie.SimpleCookie.value_encode.__doc__
+0 of 0 examples failed in Cookie.SimpleCookie.value_encode.__doc__
+Running Cookie.SmartCookie.__doc__
+0 of 0 examples failed in Cookie.SmartCookie.__doc__
+Running Cookie.SmartCookie.__init__.__doc__
+0 of 0 examples failed in Cookie.SmartCookie.__init__.__doc__
+Running Cookie.SmartCookie.value_decode.__doc__
+0 of 0 examples failed in Cookie.SmartCookie.value_decode.__doc__
+Running Cookie.SmartCookie.value_encode.__doc__
+0 of 0 examples failed in Cookie.SmartCookie.value_encode.__doc__
+Running Cookie._getdate.__doc__
+0 of 0 examples failed in Cookie._getdate.__doc__
+Running Cookie._quote.__doc__
+0 of 0 examples failed in Cookie._quote.__doc__
+Running Cookie._test.__doc__
+0 of 0 examples failed in Cookie._test.__doc__
+Running Cookie._unquote.__doc__
+0 of 0 examples failed in Cookie._unquote.__doc__
+42 items had no tests:
+    Cookie.BaseCookie
+    Cookie.BaseCookie._BaseCookie__ParseString
+    Cookie.BaseCookie._BaseCookie__set
+    Cookie.BaseCookie.__init__
+    Cookie.BaseCookie.__repr__
+    Cookie.BaseCookie.__setitem__
+    Cookie.BaseCookie.__str__
+    Cookie.BaseCookie.js_output
+    Cookie.BaseCookie.load
+    Cookie.BaseCookie.output
+    Cookie.BaseCookie.value_decode
+    Cookie.BaseCookie.value_encode
+    Cookie.Cookie
+    Cookie.Cookie.__init__
+    Cookie.Cookie.value_decode
+    Cookie.Cookie.value_encode
+    Cookie.CookieError
+    Cookie.Morsel
+    Cookie.Morsel.OutputString
+    Cookie.Morsel.__init__
+    Cookie.Morsel.__repr__
+    Cookie.Morsel.__setitem__
+    Cookie.Morsel.__str__
+    Cookie.Morsel.isReservedKey
+    Cookie.Morsel.js_output
+    Cookie.Morsel.output
+    Cookie.Morsel.set
+    Cookie.SerialCookie
+    Cookie.SerialCookie.__init__
+    Cookie.SerialCookie.value_decode
+    Cookie.SerialCookie.value_encode
+    Cookie.SimpleCookie
+    Cookie.SimpleCookie.value_decode
+    Cookie.SimpleCookie.value_encode
+    Cookie.SmartCookie
+    Cookie.SmartCookie.__init__
+    Cookie.SmartCookie.value_decode
+    Cookie.SmartCookie.value_encode
+    Cookie._getdate
+    Cookie._quote
+    Cookie._test
+    Cookie._unquote
+*****************************************************************
+1 items had failures:
+   1 of  46 in Cookie
+46 tests in 43 items.
+45 passed and 1 failed.
+***Test Failed*** 1 failures.

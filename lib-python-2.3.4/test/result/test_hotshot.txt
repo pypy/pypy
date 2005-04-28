@@ -1,0 +1,19 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_hotshot.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 01:04:07 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_hotshot.py", line 1 in ?
+import hotshot
+  File "/home/arigo/pypysrc/lib-python-2.3.4/hotshot/__init__.py", line 3 in ?
+import _hotshot
+ImportError: _hotshot
+========================== closed ==========================
+execution time: 0.968793869019 seconds
+exit status: 1

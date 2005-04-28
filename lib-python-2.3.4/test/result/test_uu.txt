@@ -1,0 +1,55 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_uu.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 17:56:30 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_uu.py", line 172 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_uu.py", line 169 in test_main
+    test_support.run_unittest(UUTest, UUStdIOTest, UUFileTest)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
+        raise TestFailed(err)
+TestFailed: Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_uu.py", line 148, in test_decode
+    self.assertEqual(s, plaintext)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
+    raise self.failureException, \
+AssertionError: '' != 'The smooth-scaled python crept over the sleeping dog\n'
+
+test_decode (__main__.UUTest) ... ok
+test_encode (__main__.UUTest) ... ok
+test_missingbegin (__main__.UUTest) ... ok
+test_truncatedinput (__main__.UUTest) ... ok
+test_decode (__main__.UUStdIOTest) ... ok
+test_encode (__main__.UUStdIOTest) ... ok
+test_decode (__main__.UUFileTest) ... FAIL
+test_decodetwice (__main__.UUFileTest) ... ok
+test_encode (__main__.UUFileTest) ... ok
+
+======================================================================
+FAIL: test_decode (__main__.UUFileTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_uu.py", line 148, in test_decode
+    self.assertEqual(s, plaintext)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
+    raise self.failureException, \
+AssertionError: '' != 'The smooth-scaled python crept over the sleeping dog\n'
+
+----------------------------------------------------------------------
+Ran 9 tests in 21.829s
+
+FAILED (failures=1)
+========================== closed ==========================
+execution time: 33.5003721714 seconds
+exit status: 1

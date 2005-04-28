@@ -1,0 +1,76 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_bool.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 04:59:20 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+faking <type 'instancemethod'>
+faking <type '_sre.SRE_Match'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_bool.py", line 348 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_bool.py", line 345 in test_main
+    test_support.run_unittest(BoolTest)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
+        raise TestFailed(err)
+TestFailed: Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_bool.py", line 331, in test_convert_to_bool
+    check(Foo())
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_bool.py", line 327, in <lambda>
+    check = lambda o: self.assertRaises(TypeError, bool, o)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 289, in failUnlessRaises
+    callableObj(*args, **kwargs)
+RuntimeError: internal errormaximum recursion depth exceeded
+
+test_boolean (__main__.BoolTest) ... ok
+test_callable (__main__.BoolTest) ... ok
+test_convert (__main__.BoolTest) ... ok
+test_convert_to_bool (__main__.BoolTest) ... ERROR
+test_cpickle (__main__.BoolTest) ... ok
+test_fileclosed (__main__.BoolTest) ... ok
+test_hasattr (__main__.BoolTest) ... ok
+test_haskey (__main__.BoolTest) ... ok
+test_int (__main__.BoolTest) ... ok
+test_isinstance (__main__.BoolTest) ... ok
+test_issubclass (__main__.BoolTest) ... ok
+test_marshal (__main__.BoolTest) ... ok
+test_math (__main__.BoolTest) ... ok
+test_mixedpickle (__main__.BoolTest) ... ok
+test_operator (__main__.BoolTest) ... ok
+test_pickle (__main__.BoolTest) ... ok
+test_picklevalues (__main__.BoolTest) ... ok
+test_print (__main__.BoolTest) ... ok
+test_repr (__main__.BoolTest) ... ok
+test_str (__main__.BoolTest) ... ok
+test_string (__main__.BoolTest) ... ok
+test_subclass (__main__.BoolTest) ... ok
+
+======================================================================
+ERROR: test_convert_to_bool (__main__.BoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_bool.py", line 331, in test_convert_to_bool
+    check(Foo())
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_bool.py", line 327, in <lambda>
+    check = lambda o: self.assertRaises(TypeError, bool, o)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 289, in failUnlessRaises
+    callableObj(*args, **kwargs)
+RuntimeError: internal errormaximum recursion depth exceeded
+
+----------------------------------------------------------------------
+Ran 22 tests in 60.683s
+
+FAILED (errors=1)
+========================== closed ==========================
+execution time: 69.3459248543 seconds
+exit status: 1

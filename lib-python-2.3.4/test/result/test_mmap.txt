@@ -1,0 +1,21 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_mmap.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 23:23:14 2005
+pypy-revision: 11518
+OUTPUT TEST
+see output in: /home/arigo/pypysrc/lib-python-2.3.4/test/result/test_mmap.out
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_mmap.py", line 2 in ?
+import mmap
+ImportError: mmap
+========================== closed ==========================
+execution time: 5.55223202705 seconds
+exit status: 1

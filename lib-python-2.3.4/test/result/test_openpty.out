@@ -1,0 +1,4 @@
+test_openpty
+Calling os.openpty()
+(master, slave) = (5, 6)
+Ping!

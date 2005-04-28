@@ -1,0 +1,66 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_importhooks.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Thu Apr 28 00:42:42 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_importhooks.py", line 206 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_importhooks.py", line 203 in test_main
+    test_support.run_unittest(ImportHooksTestCase)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+            raise TestFailed(msg)
+TestFailed: errors occurred in __main__.ImportHooksTestCase
+testBlocker (__main__.ImportHooksTestCase) ... ERROR
+testImpWrapper (__main__.ImportHooksTestCase) ... ERROR
+testMetaPath (__main__.ImportHooksTestCase) ... ERROR
+testPathHook (__main__.ImportHooksTestCase) ... ERROR
+
+======================================================================
+ERROR: testBlocker (__main__.ImportHooksTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_importhooks.py", line 129, in setUp
+    self.meta_path = sys.meta_path[:]
+AttributeError: 'module' object has no attribute 'meta_path'
+
+======================================================================
+ERROR: testImpWrapper (__main__.ImportHooksTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_importhooks.py", line 129, in setUp
+    self.meta_path = sys.meta_path[:]
+AttributeError: 'module' object has no attribute 'meta_path'
+
+======================================================================
+ERROR: testMetaPath (__main__.ImportHooksTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_importhooks.py", line 129, in setUp
+    self.meta_path = sys.meta_path[:]
+AttributeError: 'module' object has no attribute 'meta_path'
+
+======================================================================
+ERROR: testPathHook (__main__.ImportHooksTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_importhooks.py", line 129, in setUp
+    self.meta_path = sys.meta_path[:]
+AttributeError: 'module' object has no attribute 'meta_path'
+
+----------------------------------------------------------------------
+Ran 4 tests in 3.283s
+
+FAILED (errors=4)
+========================== closed ==========================
+execution time: 14.5766859055 seconds
+exit status: 1

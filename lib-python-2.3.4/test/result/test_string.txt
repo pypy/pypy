@@ -1,0 +1,46 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_string.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 20:35:39 2005
+pypy-revision: 11535
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+test_capitalize (__main__.StringTest) ... ok
+test_center (__main__.StringTest) ... ok
+test_count (__main__.StringTest) ... ok
+test_expandtabs (__main__.StringTest) ... ok
+test_find (__main__.StringTest) ... ok
+test_index (__main__.StringTest) ... ok
+test_join (__main__.StringTest) ... ok
+test_ljust (__main__.StringTest) ... ok
+test_lower (__main__.StringTest) ... ok
+test_maketrans (__main__.StringTest) ... ok
+test_replace (__main__.StringTest) ... ok
+test_rfind (__main__.StringTest) ... ok
+test_rindex (__main__.StringTest) ... ok
+test_rjust (__main__.StringTest) ... ok
+test_split (__main__.StringTest) ... ok
+test_strip (__main__.StringTest) ... ok
+test_swapcase (__main__.StringTest) ... ok
+test_translate (__main__.StringTest) ... ok
+test_upper (__main__.StringTest) ... ok
+test_zfill (__main__.StringTest) ... ok
+test_atof (__main__.ModuleTest) ... ok
+test_atoi (__main__.ModuleTest) ... ok
+test_atol (__main__.ModuleTest) ... ok
+test_attrs (__main__.ModuleTest) ... ok
+test_capwords (__main__.ModuleTest) ... ok
+test_maketrans (__main__.ModuleTest) ... ok
+
+----------------------------------------------------------------------
+Ran 26 tests in 85.198s
+
+OK
+========================== closed ==========================
+execution time: 130.104860067 seconds
+exit status: 0

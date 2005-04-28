@@ -1,0 +1,98 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_strptime.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 19:16:04 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+faking <type '_sre.SRE_Pattern'>
+faking <type 'function'>
+faking <type 'time.struct_time'>
+faking <type 'instancemethod'>
+faking <type '_sre.SRE_Match'>
+==========================timeout==========================
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_strptime.py", line 506 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_strptime.py", line 501 in test_main
+        CacheTests
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
+    result = runner.run(suite)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 658 in run
+        test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 229 in __call__
+                testMethod()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_strptime.py", line 434 in test_gregorian_calculation
+                                    format_string)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/_strptime.py", line 420 in strptime
+        format_regex = _locale_cache.compile(format)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/_strptime.py", line 398 in compile
+        return re_compile(self.pattern(format), IGNORECASE)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre.py", line 179 in compile
+    return _compile(pattern, flags)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre.py", line 228 in _compile
+        p = sre_compile.compile(pattern, flags)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_compile.py", line 467 in compile
+        p = sre_parse.parse(p, flags)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_parse.py", line 624 in parse
+    p = _parse_sub(source, pattern, 0)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_parse.py", line 317 in _parse_sub
+        items.append(_parse(source, state))
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_parse.py", line 584 in _parse
+                p = _parse_sub(source, state)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_parse.py", line 317 in _parse_sub
+        items.append(_parse(source, state))
+  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_parse.py", line 374 in _parse
+        if source.next in ("|", ")"):
+KeyboardInterrupt
+test_basic (__main__.getlang_Tests) ... ok
+test_am_pm (__main__.LocaleTime_Tests) ... ok
+test_by_hand_input (__main__.LocaleTime_Tests) ... ok
+test_date_time (__main__.LocaleTime_Tests) ... ok
+test_lang (__main__.LocaleTime_Tests) ... ok
+test_month (__main__.LocaleTime_Tests) ... ok
+test_timezone (__main__.LocaleTime_Tests) ... ok
+test_unknowntimezone (__main__.LocaleTime_Tests) ... ok
+test_weekday (__main__.LocaleTime_Tests) ... ok
+test_blankpattern (__main__.TimeRETests) ... ok
+test_compile (__main__.TimeRETests) ... ERROR
+test_getitem (__main__.TimeRETests) ... ok
+test_matching_with_escapes (__main__.TimeRETests) ... ok
+test_pattern (__main__.TimeRETests) ... ok
+test_pattern_escaping (__main__.TimeRETests) ... ok
+test_TypeError (__main__.StrptimeTests) ... ok
+test_bad_timezone (__main__.StrptimeTests) ... ERROR
+test_caseinsensitive (__main__.StrptimeTests) ... ok
+test_date (__main__.StrptimeTests) ... ok
+test_date_time (__main__.StrptimeTests) ... ok
+test_day (__main__.StrptimeTests) ... ok
+test_defaults (__main__.StrptimeTests) ... ok
+test_escaping (__main__.StrptimeTests) ... ok
+test_hour (__main__.StrptimeTests) ... ok
+test_julian (__main__.StrptimeTests) ... ok
+test_minute (__main__.StrptimeTests) ... ok
+test_month (__main__.StrptimeTests) ... ok
+test_percent (__main__.StrptimeTests) ... ok
+test_second (__main__.StrptimeTests) ... ok
+test_time (__main__.StrptimeTests) ... ok
+test_timezone (__main__.StrptimeTests) ... ok
+test_unconverteddata (__main__.StrptimeTests) ... ok
+test_weekday (__main__.StrptimeTests) ... ok
+test_year (__main__.StrptimeTests) ... ok
+test_twelve_noon_midnight (__main__.Strptime12AMPMTests) ... ok
+test_all_julian_days (__main__.JulianTests) ... ok
+test_day_of_week_calculation (__main__.CalculationTests) ... ok
+test_gregorian_calculation (__main__.CalculationTests) ... ========================== closed ==========================
+execution time: 900.189292908 seconds
+exit status: 1

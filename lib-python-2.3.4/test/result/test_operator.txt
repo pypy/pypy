@@ -1,0 +1,91 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_operator.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 22:56:52 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+Traceback (application-level):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_operator.py", line 235 in ?
+    test_main()
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_operator.py", line 231 in test_main
+    test_support.run_unittest(OperatorTestCase)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+    run_suite(suite, testclass)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
+        raise TestFailed(err)
+TestFailed: Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_operator.py", line 116, in test_isCallable
+    check(self, C(), 0)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_operator.py", line 112, in check
+    self.assert_(operator.isCallable(o) == callable(o) == v)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 278, in failUnless
+    if not expr: raise self.failureException, msg
+AssertionError
+
+test_abs (__main__.OperatorTestCase) ... ok
+test_add (__main__.OperatorTestCase) ... ok
+test_bitwise_and (__main__.OperatorTestCase) ... ok
+test_bitwise_or (__main__.OperatorTestCase) ... ok
+test_bitwise_xor (__main__.OperatorTestCase) ... ok
+test_concat (__main__.OperatorTestCase) ... ok
+test_contains (__main__.OperatorTestCase) ... ok
+test_countOf (__main__.OperatorTestCase) ... ok
+test_delitem (__main__.OperatorTestCase) ... ok
+test_delslice (__main__.OperatorTestCase) ... ok
+test_div (__main__.OperatorTestCase) ... ok
+test_eq (__main__.OperatorTestCase) ... ok
+test_floordiv (__main__.OperatorTestCase) ... ok
+test_ge (__main__.OperatorTestCase) ... ok
+test_getitem (__main__.OperatorTestCase) ... ok
+test_getslice (__main__.OperatorTestCase) ... ok
+test_gt (__main__.OperatorTestCase) ... ok
+test_indexOf (__main__.OperatorTestCase) ... ok
+test_invert (__main__.OperatorTestCase) ... ok
+test_is (__main__.OperatorTestCase) ... ok
+test_isCallable (__main__.OperatorTestCase) ... FAIL
+test_isMappingType (__main__.OperatorTestCase) ... ok
+test_isNumberType (__main__.OperatorTestCase) ... ok
+test_isSequenceType (__main__.OperatorTestCase) ... ok
+test_is_not (__main__.OperatorTestCase) ... ok
+test_le (__main__.OperatorTestCase) ... ok
+test_lshift (__main__.OperatorTestCase) ... ok
+test_lt (__main__.OperatorTestCase) ... ok
+test_mod (__main__.OperatorTestCase) ... ok
+test_mul (__main__.OperatorTestCase) ... ok
+test_ne (__main__.OperatorTestCase) ... ok
+test_neg (__main__.OperatorTestCase) ... ok
+test_pos (__main__.OperatorTestCase) ... ok
+test_pow (__main__.OperatorTestCase) ... ok
+test_repeat (__main__.OperatorTestCase) ... ok
+test_rshift (__main__.OperatorTestCase) ... ok
+test_setitem (__main__.OperatorTestCase) ... ok
+test_setslice (__main__.OperatorTestCase) ... ok
+test_sub (__main__.OperatorTestCase) ... ok
+test_truediv (__main__.OperatorTestCase) ... ok
+test_truth (__main__.OperatorTestCase) ... ok
+
+======================================================================
+FAIL: test_isCallable (__main__.OperatorTestCase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_operator.py", line 116, in test_isCallable
+    check(self, C(), 0)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_operator.py", line 112, in check
+    self.assert_(operator.isCallable(o) == callable(o) == v)
+  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 278, in failUnless
+    if not expr: raise self.failureException, msg
+AssertionError
+
+----------------------------------------------------------------------
+Ran 41 tests in 14.734s
+
+FAILED (failures=1)
+========================== closed ==========================
+execution time: 23.8398969173 seconds
+exit status: 1

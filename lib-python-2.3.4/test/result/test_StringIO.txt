@@ -1,0 +1,46 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_StringIO.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 19:31:37 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+test_closed_flag (__main__.TestStringIO) ... ok
+test_iterator (__main__.TestStringIO) ... ok
+test_reads (__main__.TestStringIO) ... ok
+test_truncate (__main__.TestStringIO) ... ok
+test_unicode (__main__.TestStringIO) ... ok
+test_writelines (__main__.TestStringIO) ... ok
+test_writes (__main__.TestStringIO) ... ok
+test_closed_flag (__main__.TestcStringIO) ... ok
+test_iterator (__main__.TestcStringIO) ... ok
+test_reads (__main__.TestcStringIO) ... ok
+test_truncate (__main__.TestcStringIO) ... ok
+test_writelines (__main__.TestcStringIO) ... ok
+test_writes (__main__.TestcStringIO) ... ok
+test_closed_flag (__main__.TestBufferStringIO) ... ok
+test_iterator (__main__.TestBufferStringIO) ... ok
+test_reads (__main__.TestBufferStringIO) ... ok
+test_truncate (__main__.TestBufferStringIO) ... ok
+test_unicode (__main__.TestBufferStringIO) ... ok
+test_writelines (__main__.TestBufferStringIO) ... ok
+test_writes (__main__.TestBufferStringIO) ... ok
+test_closed_flag (__main__.TestBuffercStringIO) ... ok
+test_iterator (__main__.TestBuffercStringIO) ... ok
+test_reads (__main__.TestBuffercStringIO) ... ok
+test_truncate (__main__.TestBuffercStringIO) ... ok
+test_writelines (__main__.TestBuffercStringIO) ... ok
+test_writes (__main__.TestBuffercStringIO) ... ok
+
+----------------------------------------------------------------------
+Ran 26 tests in 41.869s
+
+OK
+========================== closed ==========================
+execution time: 59.4854989052 seconds
+exit status: 0

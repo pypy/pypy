@@ -1,0 +1,32 @@
+command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_rfc822.py
+run by: arigo@tismerysoft.de
+sys.platform: linux2
+sys.version_info: (2, 3, 5, 'final', 0)
+startdate: Wed Apr 27 21:14:33 2005
+pypy-revision: 11518
+============================================================
+faking <type 'unicode'>
+faking <type 'module'>
+faking <type 'file'>
+faking <type 'posix.stat_result'>
+faking <type 'posix.statvfs_result'>
+test_2getaddrlist (__main__.MessageTestCase) ... ok
+test_addr_ipquad (__main__.MessageTestCase) ... ok
+test_basic (__main__.MessageTestCase) ... ok
+test_bogus_to_header (__main__.MessageTestCase) ... ok
+test_commas_in_full_name (__main__.MessageTestCase) ... ok
+test_get (__main__.MessageTestCase) ... ok
+test_parseaddr (__main__.MessageTestCase) ... ok
+test_quote_unquote (__main__.MessageTestCase) ... ok
+test_quoted_name (__main__.MessageTestCase) ... ok
+test_rfc2822_phrases (__main__.MessageTestCase) ... ok
+test_setdefault (__main__.MessageTestCase) ... ok
+test_twisted (__main__.MessageTestCase) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 462.430s
+
+OK
+========================== closed ==========================
+execution time: 481.675994158 seconds
+exit status: 0
