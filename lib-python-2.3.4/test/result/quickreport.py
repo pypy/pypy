@@ -54,10 +54,12 @@ IGNORE_MODULES = """
 
 """.split()
 
-IGNORE_MODULES.extend("aepack".split())   # Mac ext stuff
-IGNORE_MODULES.extend("al cd cl".split()) # old SGI IRIX extensions
+
+IGNORE_MODULES.extend("aepack macfs macostools plistlib".split())   # Mac ext stuff
+IGNORE_MODULES.extend("al cd cl gl imgfile".split()) # old SGI IRIX extensions
 
 IGNORE_MODULES.append("no XML parsers available")
+IGNORE_MODULES.append("test locale en_US not supported")
 IGNORE_MODULES.append("test_support must be imported from the test package")
 
 class Result:
@@ -80,7 +82,7 @@ class Result:
             not match.group(1).lower().startswith('fail')):
             self.pts = 'Ok'
         elif not self.timeout:
-            self.finalline = match.group(1)
+            self.finalline = match.group(1)               
             self.pts = 'ERR'
             match1 = r_importerror.match(self.finalline)
             if match1:
