@@ -56,6 +56,7 @@ def callex(space, func, *args, **kwargs):
     try: 
         return func(*args, **kwargs) 
     except OperationError, e: 
+        ilevelinfo = py.code.ExceptionInfo()
         if e.match(space, space.w_KeyboardInterrupt): 
             raise KeyboardInterrupt 
         appexcinfo=pytestsupport.AppExceptionInfo(space, e) 
@@ -63,63 +64,78 @@ def callex(space, func, *args, **kwargs):
             print "appexcinfo.traceback:"
             py.std.pprint.pprint(appexcinfo.traceback)
             raise py.test.Item.Failed(excinfo=appexcinfo) 
-        raise 
-    
-w_utestlist = None 
-w_doctestmodules = None 
+        raise py.test.Item.Failed(excinfo=ilevelinfo) 
 
-def hack_test_support(space): 
-    global w_utestlist, w_doctestmodules
-    w_utestlist = space.newlist([]) 
-    w_doctestmodules = space.newlist([]) 
-    w_mod = make_module(space, 'unittest', mydir.join('pypy_unittest.py')) 
-    #self.w_TestCase = space.getattr(w_mod, space.wrap('TestCase'))
-    space.appexec([w_utestlist, w_doctestmodules], """
-        (testlist, doctestmodules): 
-            from test import test_support  # humpf
-
-            def hack_run_unittest(*classes): 
-                testlist.extend(list(classes))
-            test_support.run_unittest = hack_run_unittest 
-
-            def hack_run_doctest(module, verbose=None): 
-                doctestmodules.append(module) 
-            test_support.run_doctest = hack_run_doctest 
-
-            def hack_run_suite(suite, testclass=None): 
-                pass  # XXX 
-            test_support.run_suite = hack_run_doctest 
-
-    """) 
-
-def getmyspace(): 
-    space = gettestobjspace('std') 
-    # we once and for all want to patch run_unittest 
-    # to get us the list of intended unittest-TestClasses
-    # from each regression test 
-    if w_utestlist is None and option.extracttests: 
-        callex(space, hack_test_support, space) 
-    return space 
+#
+# compliance modules where we invoke test_main() usually call into 
+# test_support.(run_suite|run_doctests) 
+# we intercept those calls and use the provided information 
+# for our collection process.  This allows us to run all the 
+# tests one by one. 
+#
 
 app = ApplevelClass('''
     #NOT_RPYTHON  
 
-    def list_testmethods(cls): 
-        """ return [(instance.setUp, instance.tearDown, 
-                     [instance.testmethod1, ...]), ...]
-        """ 
-        clsname = cls.__name__
-        instance = cls() 
-        #print "checking", instance 
-        methods = []
-        for methodname in dir(cls): 
-            if methodname.startswith('test'): 
-                name = clsname + '.' + methodname 
-                methods.append((name, getattr(instance, methodname)))
-        return instance.setUp, instance.tearDown, methods 
+    import unittest 
+    from test import test_support   
+
+    def getmethods(suite_or_class): 
+        """ flatten out suites down to TestCase instances/methods. """ 
+        if isinstance(suite_or_class, unittest.TestCase): 
+            res = [suite_or_class]
+        elif isinstance(suite_or_class, unittest.TestSuite): 
+            res = []
+            for x in suite_or_class._tests: 
+                res.extend(getmethods(x))
+        elif isinstance(suite_or_class, list): 
+            res = []
+            for x in suite_or_class: 
+                res.extend(getmethods(x))
+        else: 
+            raise TypeError, "expected TestSuite or TestClass, got %r"  %(suite_or_class) 
+        return res 
+
+    def intercept_test_support(suites=[], doctestmodules=[]): 
+        """ intercept calls to test_support.run_doctest and run_suite. 
+            Return doctestmodules, suites which will hold collected
+            items from these test_support invocations. 
+        """
+        def hack_run_doctest(module, verbose=None): 
+            doctestmodules.append(module) 
+        test_support.run_doctest = hack_run_doctest 
+
+        def hack_run_suite(suite, testclass=None): 
+            suites.append(suite) 
+        test_support.run_suite = hack_run_suite 
+        return suites, doctestmodules 
+
+    #
+    # exported API 
+    #
+    def collect_test_main(mod): 
+        suites, doctestmodules = intercept_test_support()
+        mod.test_main() 
+        namemethodlist = []
+        for method in getmethods(suites): 
+            name = (method.__class__.__name__ + '.' + 
+                    method._TestCase__testMethodName)
+            namemethodlist.append((name, method))
+        doctestlist = []
+        for mod in doctestmodules: 
+            doctestlist.append((mod.__name__, mod))
+        return namemethodlist, doctestlist 
+
+    def run_testcase_method(method): 
+        method.setUp()
+        try: 
+            method()
+        finally: 
+            method.tearDown()
 ''') 
 
-list_testmethods = app.interphook('list_testmethods')
+collect_test_main = app.interphook('collect_test_main')
+run_testcase_method = app.interphook('run_testcase_method')
 
 class OpErrorModule(py.test.collect.Module): 
     # wraps some methods around a py.test Module in order
@@ -131,7 +147,7 @@ class OpErrorModule(py.test.collect.Module):
         super(py.test.collect.Module, self).__init__(fspath, parent) 
         self.testdecl = testdecl 
 
-    space = property(lambda x: getmyspace()) 
+    space = property(lambda x: gettestobjspace()) 
     
     def tryiter(self, stopitems=()): 
         try: 
@@ -177,8 +193,7 @@ class RunAppFileItem(py.test.Item, TestDeclMixin):
     def __init__(self, name, parent, fspath): 
         super(RunAppFileItem, self).__init__(name, parent) 
         self.fspath = fspath 
-        self.space = getmyspace()
-
+        self.space = gettestobjspace()
 
     def getfspath(self): 
         if self.parent.testdecl.modified: 
@@ -239,20 +254,15 @@ class OutputTestItem(RunAppFileItem):
 #
 class UTTestMainModule(OpErrorModule): 
     """ special handling for tests with a proper 'def test_main(): '
-        definition invoking test_support.run_unittest (XXX and
-        test_support.run_doctest). 
+        definition invoking test_support.run_suite or run_unittest 
+        (XXX add support for test_support.run_doctest). 
     """ 
     def _prepare(self): 
-        if hasattr(self, '_testcases'): 
+        if hasattr(self, 'name2w_method'): 
             return
         space = self.space
-        self._testcases = callex(self.space, self.get_testcases) 
-       
-    def run(self): 
-        self._prepare() 
-        return [x[0] for x in self._testcases]
 
-    def get_testcases(self): 
+        # load module at app-level 
         name = self.fspath.purebasename 
         space = self.space 
         if self.testdecl.modified: 
@@ -263,93 +273,63 @@ class UTTestMainModule(OpErrorModule):
         if self.testdecl.oldstyle or pypy_option.oldstyle: 
             space.enable_old_style_classes_as_default_metaclass() 
         try:  
-            w_mod = make_module(space, name, fspath) 
+            self.w_mod = make_module(space, name, fspath) 
         finally: 
             if not pypy_option.oldstyle: 
                 space.enable_new_style_classes_as_default_metaclass() 
+        w_result = callex(space, collect_test_main, space, self.w_mod)
+        w_namemethods, w_doctestlist = space.unpacktuple(w_result) 
 
-        # hack out testcases 
-        space.appexec([w_mod, w_utestlist], """ 
-            (mod, classlist): 
-                classlist[:] = []
-                mod.test_main() 
-            """) 
-        res = []
-        #print w_utestlist
-        for w_class in space.unpackiterable(w_utestlist): 
-            w_name = space.getattr(w_class, space.wrap('__name__'))
-            res.append((space.str_w(w_name), w_class ))
-        res.sort()
-        return res 
+        # setup {name -> wrapped testcase method}
+        self.name2w_method = {}
+        for w_item in space.unpackiterable(w_namemethods): 
+            w_name, w_method = space.unpacktuple(w_item) 
+            name = space.str_w(w_name) 
+            self.name2w_method[name] = w_method 
 
-    def join(self, name): 
-        for x,w_cls in self._testcases: 
-            if x == name: 
-                return UTAppTestCase(name, parent=self, w_cls=w_cls) 
-
-
-class UTAppTestCase(py.test.collect.Class): 
-    def __init__(self, name, parent, w_cls): 
-        super(UTAppTestCase, self).__init__(name, parent) 
-        self.w_cls = w_cls 
-
-    def _prepare(self): 
-        if not hasattr(self, 'space'): 
-            self.space = space = self.parent.space
-            w_item = list_testmethods(space, self.w_cls)
-            w_setup, w_teardown, w_methods = space.unpackiterable(w_item) 
-            methoditems_w = space.unpackiterable(w_methods)
-            self.methods_w = methods_w = []
-            for w_methoditem in methoditems_w: 
-                w_name, w_method = space.unpacktuple(w_methoditem) 
-                name = space.str_w(w_name) 
-                methods_w.append((name, w_method, w_setup, w_teardown))
-            methods_w.sort() 
-            
+        # setup {name -> wrapped doctest module}
+        self.name2w_doctestmodule = {}
+        for w_item in space.unpackiterable(w_doctestlist): 
+            w_name, w_module = space.unpacktuple(w_item) 
+            name = space.str_w(w_name) 
+            self.name2w_doctestmodule[name] = w_module 
+       
     def run(self): 
-        callex(self.parent.space, self._prepare,) 
-        return [x[0] for x in self.methods_w]
+        self._prepare() 
+        keys = self.name2w_method.keys() 
+        keys.extend(self.name2w_doctestmodule.keys())
+        return keys 
 
     def join(self, name): 
-        for x in self.methods_w: 
-            if x[0] == name: 
-                args = x[1:]
-                return AppTestCaseMethod(name, self, *args) 
+        self._prepare() 
+        if name in self.name2w_method: 
+            w_method = self.name2w_method[name]
+            return AppTestCaseMethod(name, parent=self, w_method=w_method) 
+        if name in self.name2w_doctestmodule: 
+            w_module = self.name2w_doctestmodule[name]
+            return AppDocTestModule(name, parent=self, w_module=w_module)
 
+class AppDocTestModule(py.test.Item): 
+    def __init__(self, name, parent, w_module): 
+        super(AppDocTestModule, self).__init__(name, parent) 
+        self.w_module = w_module 
+
+    def run(self): 
+        py.test.skip("application level doctest modules not supported yet.")
+    
 class AppTestCaseMethod(py.test.Item): 
-    def __init__(self, name, parent, w_method, w_setup, w_teardown): 
+    def __init__(self, name, parent, w_method): 
         super(AppTestCaseMethod, self).__init__(name, parent) 
         self.space = parent.space 
         self.w_method = w_method 
-        self.w_setup = w_setup 
-        self.w_teardown = w_teardown 
 
     def run(self):      
         space = self.space
-        try:
-            filename = str(self.fspath) 
-            w_argv = space.sys.get('argv')
-            space.setitem(w_argv, space.newslice(None, None, None),
-                          space.newlist([space.wrap(filename)]))
-            space.call_function(self.w_setup) 
-            try: 
-                try: 
-                    self.execute() 
-                except OperationError, e:
-                    if e.match(space, space.w_KeyboardInterrupt):
-                        raise KeyboardInterrupt
-                    raise  
-            finally: 
-                self.space.call_function(self.w_teardown) 
-        except OperationError, e: 
-            ilevel_excinfo = py.code.ExceptionInfo() 
-            excinfo=pytestsupport.AppExceptionInfo(self.space, e) 
-            if excinfo.traceback: 
-                raise self.Failed(excinfo=excinfo) 
-            raise self.Failed(excinfo=ilevel_excinfo) 
-
-    def execute(self): 
-        self.space.call_function(self.w_method)
+        filename = str(self.fspath) 
+        w_argv = space.sys.get('argv')
+        space.setitem(w_argv, space.newslice(None, None, None),
+                      space.newlist([space.wrap(filename)]))
+        callex(space, run_testcase_method, space, self.w_method) 
 
 # ________________________________________________________________________
 #
