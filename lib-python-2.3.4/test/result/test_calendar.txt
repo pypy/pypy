@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_calendar.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_calendar.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 04:29:46 2005
-pypy-revision: 11518
+startdate: Wed Apr 27 22:20:47 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -18,9 +18,9 @@ test_months (__main__.CalendarTestCase) ... ok
 test_setfirstweekday (__main__.CalendarTestCase) ... ok
 
 ----------------------------------------------------------------------
-Ran 5 tests in 82.565s
+Ran 5 tests in 28.342s
 
 OK
 ========================== closed ==========================
-execution time: 100.287414074 seconds
+execution time: 35.5092589855 seconds
 exit status: 0

@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_anydbm.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_anydbm.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 05:12:49 2005
-pypy-revision: 11518
+startdate: Wed Apr 27 21:54:52 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -20,9 +20,9 @@ test_anydbm_modification (__main__.AnyDBMTestCase) ... ok
 test_anydbm_read (__main__.AnyDBMTestCase) ... ok
 
 ----------------------------------------------------------------------
-Ran 4 tests in 34.893s
+Ran 4 tests in 29.785s
 
 OK
 ========================== closed ==========================
-execution time: 48.8308150768 seconds
+execution time: 40.3560171127 seconds
 exit status: 0

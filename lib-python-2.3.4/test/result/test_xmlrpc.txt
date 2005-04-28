@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_xmlrpc.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_xmlrpc.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 17:50:34 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 16:12:14 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -13,16 +13,16 @@ faking <type 'posix.statvfs_result'>
 faking <type '_sre.SRE_Pattern'>
 faking <type 'function'>
 faking <type 'instancemethod'>
-/home/arigo/pypysrc/lib-python-2.3.4/xmllib.py:9: DeprecationWarning: The xmllib module is obsolete.  Use xml.sax instead.
+/u/pedronis/PyPy/dist/lib-python-2.3.4/xmllib.py:9: DeprecationWarning: The xmllib module is obsolete.  Use xml.sax instead.
   warnings.warn("The xmllib module is obsolete.  Use xml.sax instead.", DeprecationWarning)
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_xmlrpc.py", line 45 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_xmlrpc.py", line 45 in ?
     test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_xmlrpc.py", line 41 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_xmlrpc.py", line 41 in test_main
     test_support.run_unittest(XMLRPCTestCase)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
     run_suite(suite, testclass)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
             raise TestFailed(msg)
 TestFailed: errors occurred in __main__.XMLRPCTestCase
 test_dump_bad_dict (__main__.XMLRPCTestCase) ... ok
@@ -35,15 +35,15 @@ test_dump_none (__main__.XMLRPCTestCase) ... ERROR
 ERROR: test_dump_load (__main__.XMLRPCTestCase)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_xmlrpc.py", line 19, in test_dump_load
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_xmlrpc.py", line 19, in test_dump_load
     xmlrpclib.loads(xmlrpclib.dumps((alist,)))[0][0])
-  File "/home/arigo/pypysrc/lib-python-2.3.4/xmlrpclib.py", line 1011, in loads
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/xmlrpclib.py", line 1011, in loads
     p, u = getparser()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/xmlrpclib.py", line 906, in getparser
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/xmlrpclib.py", line 906, in getparser
     parser = SlowParser(target)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/xmlrpclib.py", line 539, in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/xmlrpclib.py", line 539, in __init__
     import xmllib # lazy subclassing (!)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/xmllib.py", line 39, in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/xmllib.py", line 39, in ?
     starttagmatch = re.compile('<(?P<tagname>'+_Name+')'
 AttributeError: 'SRE_Pattern' object has no attribute 'pattern'
 
@@ -51,20 +51,20 @@ AttributeError: 'SRE_Pattern' object has no attribute 'pattern'
 ERROR: test_dump_none (__main__.XMLRPCTestCase)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_xmlrpc.py", line 37, in test_dump_none
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_xmlrpc.py", line 37, in test_dump_none
     xmlrpclib.loads(strg)[0][0])
-  File "/home/arigo/pypysrc/lib-python-2.3.4/xmlrpclib.py", line 1011, in loads
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/xmlrpclib.py", line 1011, in loads
     p, u = getparser()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/xmlrpclib.py", line 906, in getparser
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/xmlrpclib.py", line 906, in getparser
     parser = SlowParser(target)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/xmlrpclib.py", line 540, in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/xmlrpclib.py", line 540, in __init__
     if xmllib.XMLParser not in SlowParser.__bases__:
 AttributeError: 'module' object has no attribute 'XMLParser'
 
 ----------------------------------------------------------------------
-Ran 5 tests in 132.970s
+Ran 5 tests in 103.095s
 
 FAILED (errors=2)
 ========================== closed ==========================
-execution time: 148.402704954 seconds
+execution time: 114.541185141 seconds
 exit status: 1

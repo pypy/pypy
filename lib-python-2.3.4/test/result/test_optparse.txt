@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_optparse.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_optparse.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 22:56:05 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 11:31:39 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -13,19 +13,19 @@ faking <type 'posix.statvfs_result'>
 faking <type '_sre.SRE_Pattern'>
 faking <type 'function'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_optparse.py", line 1219 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_optparse.py", line 1219 in ?
     unittest.main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 720 in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 720 in __init__
         self.parseArgs(argv)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 741 in parseArgs
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 741 in parseArgs
                 self.test = self.testLoader.loadTestsFromModule(self.module)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 465 in loadTestsFromModule
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 465 in loadTestsFromModule
                 tests.append(self.loadTestsFromTestCase(obj))
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 456 in loadTestsFromTestCase
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 456 in loadTestsFromTestCase
                                    self.getTestCaseNames(testCaseClass)))
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 532 in getTestCaseNames
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 532 in getTestCaseNames
             testFnNames.sort(self.sortTestMethodsUsing)
 TypeError: cmp() takes exactly 2 arguments (3 given)
 ========================== closed ==========================
-execution time: 46.2194261551 seconds
+execution time: 37.1863081455 seconds
 exit status: 1

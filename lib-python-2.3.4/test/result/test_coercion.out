@@ -900,3 +900,155 @@ None %= <CoerceNumber 2> ... <pypy type 'TypeError'>
 <CoerceNumber 2> % 2 = 0
 <CoerceNumber 2> %= 2 => 0
 <CoerceNumber 2> + (2+0j) = (4+0j)
+<CoerceNumber 2> += (2+0j) => (4+0j)
+<CoerceNumber 2> - (2+0j) = 0j
+<CoerceNumber 2> -= (2+0j) => 0j
+<CoerceNumber 2> * (2+0j) = (4+0j)
+<CoerceNumber 2> *= (2+0j) => (4+0j)
+<CoerceNumber 2> / (2+0j) = (1+0j)
+<CoerceNumber 2> /= (2+0j) => (1+0j)
+<CoerceNumber 2> ** (2+0j) = (4+0j)
+<CoerceNumber 2> **= (2+0j) => (4+0j)
+<CoerceNumber 2> % (2+0j) = 0j
+<CoerceNumber 2> %= (2+0j) => 0j
+<CoerceNumber 2> + [1] ... <pypy type 'TypeError'>
+<CoerceNumber 2> += [1] ... <pypy type 'TypeError'>
+<CoerceNumber 2> - [1] ... <pypy type 'TypeError'>
+<CoerceNumber 2> -= [1] ... <pypy type 'TypeError'>
+<CoerceNumber 2> * [1] = [1, 1]
+<CoerceNumber 2> *= [1] => [1, 1]
+<CoerceNumber 2> / [1] ... <pypy type 'TypeError'>
+<CoerceNumber 2> /= [1] ... <pypy type 'TypeError'>
+<CoerceNumber 2> ** [1] ... <pypy type 'TypeError'>
+<CoerceNumber 2> **= [1] ... <pypy type 'TypeError'>
+<CoerceNumber 2> % [1] ... <pypy type 'TypeError'>
+<CoerceNumber 2> %= [1] ... <pypy type 'TypeError'>
+<CoerceNumber 2> + (2,) ... <pypy type 'TypeError'>
+<CoerceNumber 2> += (2,) ... <pypy type 'TypeError'>
+<CoerceNumber 2> - (2,) ... <pypy type 'TypeError'>
+<CoerceNumber 2> -= (2,) ... <pypy type 'TypeError'>
+<CoerceNumber 2> * (2,) = (2, 2)
+<CoerceNumber 2> *= (2,) => (2, 2)
+<CoerceNumber 2> / (2,) ... <pypy type 'TypeError'>
+<CoerceNumber 2> /= (2,) ... <pypy type 'TypeError'>
+<CoerceNumber 2> ** (2,) ... <pypy type 'TypeError'>
+<CoerceNumber 2> **= (2,) ... <pypy type 'TypeError'>
+<CoerceNumber 2> % (2,) ... <pypy type 'TypeError'>
+<CoerceNumber 2> %= (2,) ... <pypy type 'TypeError'>
+<CoerceNumber 2> + None ... <pypy type 'TypeError'>
+<CoerceNumber 2> += None ... <pypy type 'TypeError'>
+<CoerceNumber 2> - None ... <pypy type 'TypeError'>
+<CoerceNumber 2> -= None ... <pypy type 'TypeError'>
+<CoerceNumber 2> * None ... <pypy type 'TypeError'>
+<CoerceNumber 2> *= None ... <pypy type 'TypeError'>
+<CoerceNumber 2> / None ... <pypy type 'TypeError'>
+<CoerceNumber 2> /= None ... <pypy type 'TypeError'>
+<CoerceNumber 2> ** None ... <pypy type 'TypeError'>
+<CoerceNumber 2> **= None ... <pypy type 'TypeError'>
+<CoerceNumber 2> % None ... <pypy type 'TypeError'>
+<CoerceNumber 2> %= None ... <pypy type 'TypeError'>
+<CoerceNumber 2> + <MethodNumber 1> = 3
+<CoerceNumber 2> += <MethodNumber 1> => 3
+<CoerceNumber 2> - <MethodNumber 1> = 1
+<CoerceNumber 2> -= <MethodNumber 1> => 1
+<CoerceNumber 2> * <MethodNumber 1> = 2
+<CoerceNumber 2> *= <MethodNumber 1> => 2
+<CoerceNumber 2> / <MethodNumber 1> = 2
+<CoerceNumber 2> /= <MethodNumber 1> => 2
+<CoerceNumber 2> ** <MethodNumber 1> = 2
+<CoerceNumber 2> **= <MethodNumber 1> => 2
+<CoerceNumber 2> % <MethodNumber 1> = 0
+<CoerceNumber 2> %= <MethodNumber 1> => 0
+<CoerceNumber 2> + <CoerceNumber 2> = 4
+<CoerceNumber 2> += <CoerceNumber 2> => 4
+<CoerceNumber 2> - <CoerceNumber 2> = 0
+<CoerceNumber 2> -= <CoerceNumber 2> => 0
+<CoerceNumber 2> * <CoerceNumber 2> = 4
+<CoerceNumber 2> *= <CoerceNumber 2> => 4
+<CoerceNumber 2> / <CoerceNumber 2> = 1
+<CoerceNumber 2> /= <CoerceNumber 2> => 1
+<CoerceNumber 2> ** <CoerceNumber 2> = 4
+<CoerceNumber 2> **= <CoerceNumber 2> => 4
+<CoerceNumber 2> % <CoerceNumber 2> = 0
+<CoerceNumber 2> %= <CoerceNumber 2> => 0
+divmod(2, 2) = (1, 0)
+divmod(2, 4.0) = (0.0, 2.0)
+divmod(2, 2) = (1L, 0L)
+divmod(2, (2+0j)) = ((1+0j), 0j)
+divmod(2, [1]) ... <pypy type 'TypeError'>
+divmod(2, (2,)) ... <pypy type 'TypeError'>
+divmod(2, None) ... <pypy type 'TypeError'>
+divmod(2, <MethodNumber 1>) ... <pypy type 'TypeError'>
+divmod(2, <CoerceNumber 2>) = (1, 0)
+divmod(4.0, 2) = (2.0, 0.0)
+divmod(4.0, 4.0) = (1.0, 0.0)
+divmod(4.0, 2) = (2.0, 0.0)
+divmod(4.0, (2+0j)) = ((2+0j), 0j)
+divmod(4.0, [1]) ... <pypy type 'TypeError'>
+divmod(4.0, (2,)) ... <pypy type 'TypeError'>
+divmod(4.0, None) ... <pypy type 'TypeError'>
+divmod(4.0, <MethodNumber 1>) ... <pypy type 'TypeError'>
+divmod(4.0, <CoerceNumber 2>) = (2.0, 0.0)
+divmod(2, 2) = (1L, 0L)
+divmod(2, 4.0) = (0.0, 2.0)
+divmod(2, 2) = (1L, 0L)
+divmod(2, (2+0j)) = ((1+0j), 0j)
+divmod(2, [1]) ... <pypy type 'TypeError'>
+divmod(2, (2,)) ... <pypy type 'TypeError'>
+divmod(2, None) ... <pypy type 'TypeError'>
+divmod(2, <MethodNumber 1>) ... <pypy type 'TypeError'>
+divmod(2, <CoerceNumber 2>) = (1L, 0L)
+divmod((2+0j), 2) = ((1+0j), 0j)
+divmod((2+0j), 4.0) = (0j, (2+0j))
+divmod((2+0j), 2) = ((1+0j), 0j)
+divmod((2+0j), (2+0j)) = ((1+0j), 0j)
+divmod((2+0j), [1]) ... <pypy type 'TypeError'>
+divmod((2+0j), (2,)) ... <pypy type 'TypeError'>
+divmod((2+0j), None) ... <pypy type 'TypeError'>
+divmod((2+0j), <MethodNumber 1>) ... <pypy type 'TypeError'>
+divmod((2+0j), <CoerceNumber 2>) = ((1+0j), 0j)
+divmod([1], 2) ... <pypy type 'TypeError'>
+divmod([1], 4.0) ... <pypy type 'TypeError'>
+divmod([1], 2) ... <pypy type 'TypeError'>
+divmod([1], (2+0j)) ... <pypy type 'TypeError'>
+divmod([1], [1]) ... <pypy type 'TypeError'>
+divmod([1], (2,)) ... <pypy type 'TypeError'>
+divmod([1], None) ... <pypy type 'TypeError'>
+divmod([1], <MethodNumber 1>) ... <pypy type 'TypeError'>
+divmod([1], <CoerceNumber 2>) ... <pypy type 'TypeError'>
+divmod((2,), 2) ... <pypy type 'TypeError'>
+divmod((2,), 4.0) ... <pypy type 'TypeError'>
+divmod((2,), 2) ... <pypy type 'TypeError'>
+divmod((2,), (2+0j)) ... <pypy type 'TypeError'>
+divmod((2,), [1]) ... <pypy type 'TypeError'>
+divmod((2,), (2,)) ... <pypy type 'TypeError'>
+divmod((2,), None) ... <pypy type 'TypeError'>
+divmod((2,), <MethodNumber 1>) ... <pypy type 'TypeError'>
+divmod((2,), <CoerceNumber 2>) ... <pypy type 'TypeError'>
+divmod(None, 2) ... <pypy type 'TypeError'>
+divmod(None, 4.0) ... <pypy type 'TypeError'>
+divmod(None, 2) ... <pypy type 'TypeError'>
+divmod(None, (2+0j)) ... <pypy type 'TypeError'>
+divmod(None, [1]) ... <pypy type 'TypeError'>
+divmod(None, (2,)) ... <pypy type 'TypeError'>
+divmod(None, None) ... <pypy type 'TypeError'>
+divmod(None, <MethodNumber 1>) ... <pypy type 'TypeError'>
+divmod(None, <CoerceNumber 2>) ... <pypy type 'TypeError'>
+divmod(<MethodNumber 1>, 2) ... <pypy type 'TypeError'>
+divmod(<MethodNumber 1>, 4.0) ... <pypy type 'TypeError'>
+divmod(<MethodNumber 1>, 2) ... <pypy type 'TypeError'>
+divmod(<MethodNumber 1>, (2+0j)) ... <pypy type 'TypeError'>
+divmod(<MethodNumber 1>, [1]) ... <pypy type 'TypeError'>
+divmod(<MethodNumber 1>, (2,)) ... <pypy type 'TypeError'>
+divmod(<MethodNumber 1>, None) ... <pypy type 'TypeError'>
+divmod(<MethodNumber 1>, <MethodNumber 1>) ... <pypy type 'TypeError'>
+divmod(<MethodNumber 1>, <CoerceNumber 2>) ... <pypy type 'TypeError'>
+divmod(<CoerceNumber 2>, 2) = (1, 0)
+divmod(<CoerceNumber 2>, 4.0) = (0.0, 2.0)
+divmod(<CoerceNumber 2>, 2) = (1L, 0L)
+divmod(<CoerceNumber 2>, (2+0j)) = ((1+0j), 0j)
+divmod(<CoerceNumber 2>, [1]) ... <pypy type 'TypeError'>
+divmod(<CoerceNumber 2>, (2,)) ... <pypy type 'TypeError'>
+divmod(<CoerceNumber 2>, None) ... <pypy type 'TypeError'>
+divmod(<CoerceNumber 2>, <MethodNumber 1>) ... <pypy type 'TypeError'>
+divmod(<CoerceNumber 2>, <CoerceNumber 2>) = (1, 0)

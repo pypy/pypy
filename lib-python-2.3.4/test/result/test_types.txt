@@ -1,22 +1,18 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/pypy/lib/test2/test_types.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/pypy/lib/test2/test_types.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 18:45:07 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 14:54:18 2005
+pypy-revision: 11549
 OUTPUT TEST
-see output in: /home/arigo/pypysrc/lib-python-2.3.4/test/result/test_types.out
+see output in: /u/pedronis/PyPy/dist/lib-python-2.3.4/test/result/test_types.out
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
 faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
-Traceback (application-level):
-  File "/home/arigo/pypysrc/pypy/lib/test2/test_types.py", line 217 in ?
-    vereq(a[::], a)
-TypeError: an integer is required
+FAILED: test output differs
 ========================== closed ==========================
-execution time: 6.94264411926 seconds
-exit status: 1
-<arigo> WORKING ON IT
+execution time: 10.963078022 seconds
+exit status: 0

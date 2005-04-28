@@ -1,11 +1,11 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_cgi.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_cgi.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 04:18:55 2005
-pypy-revision: 11518
+startdate: Wed Apr 27 22:23:39 2005
+pypy-revision: 11549
 OUTPUT TEST
-see output in: /home/arigo/pypysrc/lib-python-2.3.4/test/result/test_cgi.out
+see output in: /u/pedronis/PyPy/dist/lib-python-2.3.4/test/result/test_cgi.out
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -15,6 +15,7 @@ faking <type 'posix.statvfs_result'>
 faking <type '_socket.socket'>
 faking <type 'classobj'>
 faking <type 'PyCObject'>
+OK
 ========================== closed ==========================
-execution time: 301.199226141 seconds
+execution time: 92.329431057 seconds
 exit status: 0

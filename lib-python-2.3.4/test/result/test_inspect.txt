@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_inspect.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_inspect.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 00:31:48 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 01:30:01 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -13,9 +13,9 @@ faking <type 'posix.statvfs_result'>
 faking <type '_sre.SRE_Pattern'>
 faking <type 'function'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_inspect.py", line 80 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_inspect.py", line 80 in ?
 mod = imp.load_source('testmod', TESTFN)
 AttributeError: 'module' object has no attribute 'load_source'
 ========================== closed ==========================
-execution time: 652.909941912 seconds
+execution time: 255.218666077 seconds
 exit status: 1

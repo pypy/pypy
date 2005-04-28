@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_imaplib.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_imaplib.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 00:43:18 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 01:27:53 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -17,5 +17,5 @@ faking <type 'classobj'>
 faking <type 'PyCObject'>
 faking <type 'time.struct_time'>
 ========================== closed ==========================
-execution time: 132.257404089 seconds
+execution time: 97.3515319824 seconds
 exit status: 0

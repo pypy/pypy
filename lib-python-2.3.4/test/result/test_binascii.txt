@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_binascii.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_binascii.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 05:09:56 2005
-pypy-revision: 11518
+startdate: Wed Apr 27 21:57:10 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -13,13 +13,13 @@ faking <type 'posix.statvfs_result'>
 faking <type 'classobj'>
 faking <type 'instance'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_binascii.py", line 155 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_binascii.py", line 155 in ?
     test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_binascii.py", line 152 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_binascii.py", line 152 in test_main
     test_support.run_unittest(BinASCIITest)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
     run_suite(suite, testclass)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
             raise TestFailed(msg)
 TestFailed: errors occurred in __main__.BinASCIITest
 test_base64invalid (__main__.BinASCIITest) ... ok
@@ -35,7 +35,7 @@ test_uu (__main__.BinASCIITest) ... ERROR
 ERROR: test_exceptions (__main__.BinASCIITest)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_binascii.py", line 17, in test_exceptions
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_binascii.py", line 17, in test_exceptions
     self.assert_(issubclass(binascii.Error, Exception))
 TypeError: arg 1 must be a class or type
 
@@ -43,14 +43,14 @@ TypeError: arg 1 must be a class or type
 ERROR: test_uu (__main__.BinASCIITest)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_binascii.py", line 102, in test_uu
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_binascii.py", line 102, in test_uu
     self.assertRaises(binascii.Error, binascii.a2b_uu, "\xff\x00")
 TypeError: instance exception may not have a separate value
 
 ----------------------------------------------------------------------
-Ran 8 tests in 50.609s
+Ran 8 tests in 39.460s
 
 FAILED (errors=2)
 ========================== closed ==========================
-execution time: 60.0292649269 seconds
+execution time: 47.0662410259 seconds
 exit status: 1

@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_copy.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_copy.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 03:31:27 2005
-pypy-revision: 11518
+startdate: Wed Apr 27 23:00:49 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -66,9 +66,9 @@ test_reduce_4tuple (__main__.TestCopy) ... ok
 test_reduce_5tuple (__main__.TestCopy) ... ok
 
 ----------------------------------------------------------------------
-Ran 54 tests in 35.532s
+Ran 54 tests in 25.612s
 
 OK
 ========================== closed ==========================
-execution time: 44.4596099854 seconds
+execution time: 32.3190760612 seconds
 exit status: 0

@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_eof.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_eof.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 02:13:36 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 00:13:12 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -11,13 +11,13 @@ faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_eof.py", line 32 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_eof.py", line 32 in ?
     test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_eof.py", line 29 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_eof.py", line 29 in test_main
     test_support.run_unittest(EOFTestCase)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
     run_suite(suite, testclass)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
             raise TestFailed(msg)
 TestFailed: errors occurred in __main__.EOFTestCase
 test_EOFC (__main__.EOFTestCase) ... FAIL
@@ -27,9 +27,9 @@ test_EOFS (__main__.EOFTestCase) ... FAIL
 FAIL: test_EOFC (__main__.EOFTestCase)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_eof.py", line 15, in test_EOFC
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_eof.py", line 15, in test_EOFC
     "EOL while scanning single-quoted string (line 1)")
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
     raise self.failureException, \
 AssertionError: "args=('EOL while scanning single-quoted string (<string>, line 1)',)" != 'EOL while scanning single-quoted string (line 1)'
 
@@ -37,16 +37,16 @@ AssertionError: "args=('EOL while scanning single-quoted string (<string>, line 
 FAIL: test_EOFS (__main__.EOFTestCase)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_eof.py", line 24, in test_EOFS
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_eof.py", line 24, in test_EOFS
     "EOF while scanning triple-quoted string (line 1)")
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
     raise self.failureException, \
 AssertionError: "args=('EOF while scanning triple-quoted string (<string>, line 1)',)" != 'EOF while scanning triple-quoted string (line 1)'
 
 ----------------------------------------------------------------------
-Ran 2 tests in 3.038s
+Ran 2 tests in 2.223s
 
 FAILED (failures=2)
 ========================== closed ==========================
-execution time: 11.7555420399 seconds
+execution time: 9.08724808693 seconds
 exit status: 1

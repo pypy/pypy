@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/pypy/lib/test2/test_sha.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/pypy/lib/test2/test_sha.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 20:31:46 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 13:18:14 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -14,9 +14,9 @@ test_case_1 (__main__.SHATestCase) ... ok
 test_case_2 (__main__.SHATestCase) ... ok
 
 ----------------------------------------------------------------------
-Ran 2 tests in 51.765s
+Ran 2 tests in 9.152s
 
 OK
 ========================== closed ==========================
-execution time: 85.2664539814 seconds
+execution time: 15.4205079079 seconds
 exit status: 0

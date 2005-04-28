@@ -1,58 +1,28 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_userdict.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_userdict.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 17:58:08 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 15:51:51 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
 faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
-Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_userdict.py", line 401 in ?
-    test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_userdict.py", line 397 in test_main
-        UserDictMixinTest
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
-    run_suite(suite, testclass)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
-            raise TestFailed(msg)
-TestFailed: errors occurred; run in verbose mode for details
 test_read (__main__.TestMappingProtocol) ... ok
 test_write (__main__.TestMappingProtocol) ... ok
 test_all (__main__.UserDictTest) ... ok
-test_read (__main__.UserDictTest) ... FAIL
+test_read (__main__.UserDictTest) ... ok
 test_write (__main__.UserDictTest) ... ok
 test_all (__main__.UserDictMixinTest) ... ok
-test_read (__main__.UserDictMixinTest) ... FAIL
+test_read (__main__.UserDictMixinTest) ... ok
 test_write (__main__.UserDictMixinTest) ... ok
 
-======================================================================
-FAIL: test_read (__main__.UserDictTest)
 ----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_userdict.py", line 65, in test_read
-    if p: self.fail("Empty mapping must compare to False")
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 270, in fail
-    raise self.failureException, msg
-AssertionError: Empty mapping must compare to False
+Ran 8 tests in 51.954s
 
-======================================================================
-FAIL: test_read (__main__.UserDictMixinTest)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_userdict.py", line 65, in test_read
-    if p: self.fail("Empty mapping must compare to False")
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 270, in fail
-    raise self.failureException, msg
-AssertionError: Empty mapping must compare to False
-
-----------------------------------------------------------------------
-Ran 8 tests in 71.928s
-
-FAILED (failures=2)
+OK
 ========================== closed ==========================
-execution time: 86.7255451679 seconds
-exit status: 1
+execution time: 63.4154179096 seconds
+exit status: 0

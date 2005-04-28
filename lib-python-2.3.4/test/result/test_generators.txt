@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_generators.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_generators.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 01:31:42 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 00:38:23 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -44,7 +44,7 @@ Failure in example: gen = random.WichmannHill(42)
 from line #146 of test.test_generators.__test__.email
 Exception raised:
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
     compileflags, 1) in globs
   File "<string>", line 1, in ?
 AttributeError: 'module' object has no attribute 'WichmannHill'
@@ -65,7 +65,7 @@ while 1:
 from line #147 of test.test_generators.__test__.email
 Exception raised:
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
     compileflags, 1) in globs
   File "<string>", line 6, in ?
 NameError: global name 'gen' is not defined
@@ -200,10 +200,10 @@ Failure in example: import weakref
 from line #2 of test.test_generators.__test__.weakref
 Exception raised:
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
     compileflags, 1) in globs
   File "<string>", line 1, in ?
-  File "/home/arigo/pypysrc/lib-python-2.3.4/weakref.py", line 14, in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/weakref.py", line 14, in ?
     from _weakref import \
 ImportError: _weakref
 *****************************************************************
@@ -211,7 +211,7 @@ Failure in example: wr = weakref.ref(gen)
 from line #6 of test.test_generators.__test__.weakref
 Exception raised:
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
     compileflags, 1) in globs
   File "<string>", line 1, in ?
 NameError: global name 'weakref' is not defined
@@ -220,24 +220,24 @@ Failure in example: wr() is gen
 from line #7 of test.test_generators.__test__.weakref
 Exception raised:
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
     compileflags, 1) in globs
   File "<string>", line 1, in ?
 NameError: global name 'wr' is not defined
-*****************************************************************
-FailTraceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_generators.py", line 1412 in ?
+**********************************************************Traceback (application-level):
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_generators.py", line 1412 in ?
     test_main(1)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_generators.py", line 1408 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_generators.py", line 1408 in test_main
         test_support.run_doctest(test_generators, verbose)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 290 in run_doctest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 290 in run_doctest
             raise TestFailed("%d of %d doctests failed" % (f, t))
 TestFailed: 30 of 152 doctests failed
-ure in example: p = weakref.proxy(gen)
+*******
+Failure in example: p = weakref.proxy(gen)
 from line #9 of test.test_generators.__test__.weakref
 Exception raised:
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
     compileflags, 1) in globs
   File "<string>", line 1, in ?
 NameError: global name 'weakref' is not defined
@@ -246,7 +246,7 @@ Failure in example: wr = weakref.ref(gi)
 from line #14 of test.test_generators.__test__.weakref
 Exception raised:
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
     compileflags, 1) in globs
   File "<string>", line 1, in ?
 NameError: global name 'weakref' is not defined
@@ -255,7 +255,7 @@ Failure in example: wr() is gi
 from line #15 of test.test_generators.__test__.weakref
 Exception raised:
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
     compileflags, 1) in globs
   File "<string>", line 1, in ?
 NameError: global name 'wr' is not defined
@@ -264,7 +264,7 @@ Failure in example: p = weakref.proxy(gi)
 from line #17 of test.test_generators.__test__.weakref
 Exception raised:
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
     compileflags, 1) in globs
   File "<string>", line 1, in ?
 NameError: global name 'weakref' is not defined
@@ -273,7 +273,7 @@ Failure in example: list(p)
 from line #18 of test.test_generators.__test__.weakref
 Exception raised:
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
     compileflags, 1) in globs
   File "<string>", line 1, in ?
 NameError: global name 'p' is not defined
@@ -285,5 +285,5 @@ NameError: global name 'p' is not defined
    8 of  10 in test.test_generators.__test__.weakref
 ***Test Failed*** 30 failures.
 ========================== closed ==========================
-execution time: 865.736933947 seconds
+execution time: 629.011167049 seconds
 exit status: 1

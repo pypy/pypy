@@ -1,10 +1,10 @@
 test_new
 new.module()
-<module object at 0x40bba06c>
+<module object at 0x413ba24c>
 new.classobj()
 __main__.Spam
 new.instance()
-<__main__.Spam instance at 0x40bcc98c>
+<__main__.Spam instance at 0x413c234c>
 new.instancemethod()
-<method object at 0x40bd56ec>
+<method object at 0x413d564c>
 new.function()

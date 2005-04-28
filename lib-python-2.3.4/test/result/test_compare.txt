@@ -1,15 +1,16 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_compare.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_compare.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 03:56:38 2005
-pypy-revision: 11518
+startdate: Wed Apr 27 22:37:39 2005
+pypy-revision: 11549
 OUTPUT TEST
-see output in: /home/arigo/pypysrc/lib-python-2.3.4/test/result/test_compare.out
+see output in: /u/pedronis/PyPy/dist/lib-python-2.3.4/test/result/test_compare.out
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
 faking <type 'file'>
+OK
 ========================== closed ==========================
-execution time: 110.46966815 seconds
+execution time: 80.4267160892 seconds
 exit status: 0

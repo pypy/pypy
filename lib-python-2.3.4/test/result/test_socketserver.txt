@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_socketserver.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_socketserver.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 20:03:16 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 13:32:26 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -14,11 +14,11 @@ faking <type '_socket.socket'>
 faking <type 'classobj'>
 faking <type 'PyCObject'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_socketserver.py", line 11 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_socketserver.py", line 11 in ?
 import threading
-  File "/home/arigo/pypysrc/lib-python-2.3.4/threading.py", line 6 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/threading.py", line 6 in ?
     import thread
 ImportError: thread
 ========================== closed ==========================
-execution time: 18.9364500046 seconds
+execution time: 9.97106981277 seconds
 exit status: 1

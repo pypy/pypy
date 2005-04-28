@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_pyclbr.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pyclbr.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 21:40:01 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 12:09:07 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -16,47 +16,33 @@ faking <type 'instancemethod'>
 faking <type '_sre.SRE_Match'>
 ==========================timeout==========================
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pyclbr.py", line 162 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pyclbr.py", line 162 in ?
     test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pyclbr.py", line 158 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pyclbr.py", line 158 in test_main
     run_unittest(PyclbrTest)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
     run_suite(suite, testclass)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
-        raise TestFailed(err)
-TestFailed: Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pyclbr.py", line 140, in test_others
-    cm('random', ignore=('Random',))  # from _random import Random as CoreGenerator
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pyclbr.py", line 80, in checkModule
-    self.assertHasattr(module, name, ignore)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pyclbr.py", line 37, in assertHasattr
-    'expected hasattr(%r, %r)' % (obj, attr))
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 278, in failUnless
-    if not expr: raise self.failureException, msg
-AssertionError: expected hasattr(<module object at 0x4106f82c>, '_verify')
-
-test_easy (__main__.PyclbrTest) ... ok
-test_others (__main__.PyclbrTest) ... ??? _verify
-FAIL
-
-======================================================================
-FAIL: test_others (__main__.PyclbrTest)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pyclbr.py", line 140, in test_others
-    cm('random', ignore=('Random',))  # from _random import Random as CoreGenerator
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pyclbr.py", line 80, in checkModule
-    self.assertHasattr(module, name, ignore)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pyclbr.py", line 37, in assertHasattr
-    'expected hasattr(%r, %r)' % (obj, attr))
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 278, in failUnless
-    if not expr: raise self.failureException, msg
-AssertionError: expected hasattr(<module object at 0x4106f82c>, '_verify')
-
-----------------------------------------------------------------------
-Ran 2 tests in 1434.815s
-
-FAILED (failures=1)
-========================== closed ==========================
-execution time: 1800.88183284 seconds
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
+    result = runner.run(suite)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 658 in run
+        test(result)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 389 in __call__
+            test(result)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 229 in __call__
+                testMethod()
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pyclbr.py", line 132 in test_easy
+        self.checkModule('doctest')
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pyclbr.py", line 64 in checkModule
+        dict = pyclbr.readmodule_ex(moduleName)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/pyclbr.py", line 106 in readmodule_ex
+    return _readmodule(module, path)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/pyclbr.py", line 158 in _readmodule
+        for tokentype, token, start, end, line in g:
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tokenize.py", line 241 in generate_tokens
+                token, initial = line[start:end], line[start]
+KeyboardInterrupt
+test_easy (__main__.PyclbrTest) ... ========================== closed ==========================
+execution time: 899.995666981 seconds
 exit status: 1

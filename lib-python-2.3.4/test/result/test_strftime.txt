@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_strftime.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_strftime.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 19:32:43 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 14:02:44 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -17,26 +17,30 @@ faking <type 'instancemethod'>
 faking <type '_sre.SRE_Match'>
 ==========================timeout==========================
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_strftime.py", line 158 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_strftime.py", line 158 in ?
 main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_strftime.py", line 29 in main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_strftime.py", line 29 in main
             strftest(now + (i + j*100)*23*3603)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_strftime.py", line 125 in strftest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_strftime.py", line 125 in strftest
         if re.match(escapestr(e[1], ampm), result): continue
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre.py", line 132 in match
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre.py", line 132 in match
     return _compile(pattern, flags).match(string)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre.py", line 228 in _compile
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre.py", line 228 in _compile
         p = sre_compile.compile(pattern, flags)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_compile.py", line 467 in compile
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre_compile.py", line 467 in compile
         p = sre_parse.parse(p, flags)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_parse.py", line 617 in parse
-    source = Tokenizer(str)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_parse.py", line 186 in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre_parse.py", line 624 in parse
+    p = _parse_sub(source, pattern, 0)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre_parse.py", line 317 in _parse_sub
+        items.append(_parse(source, state))
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre_parse.py", line 376 in _parse
+        this = source.get()
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre_parse.py", line 208 in get
         self.__next()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_parse.py", line 198 in __next
-        self.index = self.index + len(char)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre_parse.py", line 189 in __next
+            self.next = None
 KeyboardInterrupt
-strftime test for Wed Apr 27 19:32:54 2005
+strftime test for Thu Apr 28 14:02:52 2005
 Strftime test, platform: linux2, Python version: 2.3.4
 Supports nonstandard '%c' format (near-asctime() format)
 Supports nonstandard '%x' format (%m/%d/%y %H:%M:%S)
@@ -53,5 +57,5 @@ Supports nonstandard '%t' format (tab character)
 Supports nonstandard '%T' format (%H:%M:%S)
 Supports nonstandard '%3y' format (year without century rendered using fieldwidth)
 ========================== closed ==========================
-execution time: 900.157372952 seconds
+execution time: 899.976232052 seconds
 exit status: 1

@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_univnewlines.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_univnewlines.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 18:14:08 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 15:39:50 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -37,9 +37,9 @@ test_readlines (__main__.TestMixedNewlines) ... ok
 test_seek (__main__.TestMixedNewlines) ... ok
 
 ----------------------------------------------------------------------
-Ran 25 tests in 9.215s
+Ran 25 tests in 7.485s
 
 OK
 ========================== closed ==========================
-execution time: 27.4151549339 seconds
+execution time: 20.885365963 seconds
 exit status: 0

@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_re.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_re.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 21:24:06 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 12:24:47 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -16,38 +16,39 @@ faking <type 'instancemethod'>
 faking <type '_sre.SRE_Match'>
 faking <type 'array.array'>
 faking <type 'callable-iterator'>
+faking <type '_sre.SRE_Scanner'>
 ==========================timeout==========================
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_re.py", line 629 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_re.py", line 629 in ?
     test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_re.py", line 625 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_re.py", line 625 in test_main
     run_unittest(ReTests)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
     run_suite(suite, testclass)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
     result = runner.run(suite)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 658 in run
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 658 in run
         test(result)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 389 in __call__
             test(result)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 389 in __call__
             test(result)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 229 in __call__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 229 in __call__
                 testMethod()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_re.py", line 195 in test_re_groupref
-        self.assertEqual(re.match(r'^(?:(a)|c)(\1)$', 'aa').groups(),
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre.py", line 132 in match
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_re.py", line 378 in test_sre_character_literals
+            self.assertNotEqual(re.match(r"\x%02x0" % i, chr(i)+"0"), None)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre.py", line 132 in match
     return _compile(pattern, flags).match(string)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre.py", line 228 in _compile
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre.py", line 228 in _compile
         p = sre_compile.compile(pattern, flags)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_compile.py", line 471 in compile
-    code = _code(p, flags)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_compile.py", line 455 in _code
-    _compile(code, p.data, flags)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_compile.py", line 88 in _compile
-            _compile(code, av[1], flags)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/sre_compile.py", line 27 in _compile
-    for op, av in pattern:
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre_compile.py", line 467 in compile
+        p = sre_parse.parse(p, flags)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre_parse.py", line 617 in parse
+    source = Tokenizer(str)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre_parse.py", line 186 in __init__
+        self.__next()
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/sre_parse.py", line 198 in __next
+        self.index = self.index + len(char)
 KeyboardInterrupt
 test_anyall (__main__.ReTests) ... ok
 test_basic_re_sub (__main__.ReTests) ... ERROR
@@ -75,14 +76,24 @@ test_flags (__main__.ReTests) ... ok
 test_getattr (__main__.ReTests) ... ERROR
 test_getlower (__main__.ReTests) ... ok
 test_groupdict (__main__.ReTests) ... ok
-test_ignore_case (__main__.ReTests) ... ERROR
-test_non_consuming (__main__.ReTests) ... ERROR
+test_ignore_case (__main__.ReTests) ... ok
+test_non_consuming (__main__.ReTests) ... ok
 test_not_literal (__main__.ReTests) ... ok
 test_pickling (__main__.ReTests) ... ERROR
 test_qualified_re_split (__main__.ReTests) ... ok
 test_qualified_re_sub (__main__.ReTests) ... ok
 test_re_escape (__main__.ReTests) ... ok
 test_re_findall (__main__.ReTests) ... ok
-test_re_groupref (__main__.ReTests) ... ========================== closed ==========================
-execution time: 900.177868843 seconds
+test_re_groupref (__main__.ReTests) ... ok
+test_re_groupref_exists (__main__.ReTests) ... ok
+test_re_match (__main__.ReTests) ... ok
+test_re_split (__main__.ReTests) ... ok
+test_re_subn (__main__.ReTests) ... ok
+test_repeat_minmax (__main__.ReTests) ... ok
+test_scanner (__main__.ReTests) ... ERROR
+test_search_coverage (__main__.ReTests) ... ok
+test_search_star_plus (__main__.ReTests) ... ok
+test_special_escapes (__main__.ReTests) ... ok
+test_sre_character_literals (__main__.ReTests) ... ========================== closed ==========================
+execution time: 899.978173971 seconds
 exit status: 1

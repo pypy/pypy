@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_datetime.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_datetime.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 03:00:43 2005
-pypy-revision: 11518
+startdate: Wed Apr 27 23:16:55 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -18,26 +18,28 @@ faking <type 'time.struct_time'>
 faking <type 'classobj'>
 ==========================timeout==========================
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_datetime.py", line 3113 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_datetime.py", line 3113 in ?
     test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_datetime.py", line 3096 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_datetime.py", line 3096 in test_main
         test_support.run_suite(thesuite)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
     result = runner.run(suite)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 658 in run
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 658 in run
         test(result)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 389 in __call__
             test(result)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 389 in __call__
             test(result)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 229 in __call__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 229 in __call__
                 testMethod()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_datetime.py", line 1385 in test_extract
-        self.assertEqual(dt.time(), time(18, 45, 3, 1234))
-  File "/home/arigo/pypysrc/pypy/lib/datetime.py", line 1479 in time
-        return time(self.hour, self.minute, self.second, self.microsecond)
-  File "/home/arigo/pypysrc/pypy/lib/datetime.py", line 1099 in __new__
-        if isinstance(hour, str):
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_datetime.py", line 570 in test_ordinal_conversions
+                self.assertEqual(d, d2)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 301 in failUnlessEqual
+        if not first == second:
+  File "/u/pedronis/PyPy/dist/pypy/lib/datetime.py", line 1634 in __eq__
+            return self.__cmp(other) == 0
+  File "/u/pedronis/PyPy/dist/pypy/lib/datetime.py", line 1681 in __cmp
+        assert isinstance(other, datetime)
 KeyboardInterrupt
 test_constants (__main__.TestModule) ... ok
 test_non_abstractness (__main__.TestTZInfo) ... ok
@@ -101,6 +103,22 @@ test_combine (__main__.TestDateTime) ... ok
 test_compare (__main__.TestDateTime) ... ok
 test_computations (__main__.TestDateTime) ... ok
 test_ctime (__main__.TestDateTime) ... ok
-test_extract (__main__.TestDateTime) ... ========================== closed ==========================
-execution time: 900.215548992 seconds
+test_extract (__main__.TestDateTime) ... ok
+test_extreme_ordinals (__main__.TestDateTime) ... ok
+test_extreme_timedelta (__main__.TestDateTime) ... ok
+test_fromtimestamp (__main__.TestDateTime) ... ok
+test_harmful_mixed_comparison (__main__.TestDateTime) ... ok
+test_harmless_mixed_comparison (__main__.TestDateTime) ... ok
+test_hash_equality (__main__.TestDateTime) ... ok
+test_iso_long_years (__main__.TestDateTime) ... ok
+test_isocalendar (__main__.TestDateTime) ... ok
+test_isoformat (__main__.TestDateTime) ... ok
+test_mixed_compare (__main__.TestDateTime) ... ok
+test_more_compare (__main__.TestDateTime) ... ok
+test_more_ctime (__main__.TestDateTime) ... ok
+test_more_pickling (__main__.TestDateTime) ... ok
+test_more_strftime (__main__.TestDateTime) ... ok
+test_more_timetuple (__main__.TestDateTime) ... ok
+test_ordinal_conversions (__main__.TestDateTime) ... ========================== closed ==========================
+execution time: 900.033421993 seconds
 exit status: 1

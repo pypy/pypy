@@ -1,18 +1,19 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_threadedtempfile.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_threadedtempfile.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 18:57:30 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 14:45:21 2005
+pypy-revision: 11549
 OUTPUT TEST
-see output in: /home/arigo/pypysrc/lib-python-2.3.4/test/result/test_threadedtempfile.out
+see output in: /u/pedronis/PyPy/dist/lib-python-2.3.4/test/result/test_threadedtempfile.out
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_threadedtempfile.py", line 23 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_threadedtempfile.py", line 23 in ?
 import thread # If this fails, we can't test this module
 ImportError: thread
+FAILED: test output differs
 ========================== closed ==========================
-execution time: 0.890268802643 seconds
+execution time: 1.09182906151 seconds
 exit status: 1

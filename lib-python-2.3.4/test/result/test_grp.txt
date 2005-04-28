@@ -1,16 +1,16 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_grp.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_grp.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 01:16:29 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 01:00:36 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_grp.py", line 3 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_grp.py", line 3 in ?
 import grp
 ImportError: grp
 ========================== closed ==========================
-execution time: 0.856007099152 seconds
+execution time: 1.79234695435 seconds
 exit status: 1

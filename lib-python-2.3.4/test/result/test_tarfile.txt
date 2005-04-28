@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 19:06:42 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 14:37:48 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -28,15 +28,15 @@ test_posix (__main__.WriteStreamTest) ... ERROR
 ERROR: Test member extraction.
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
     self.tar = tarfile.open(tarname(self.comp), mode)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 875, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 875, in open
     return func(name, filemode, fileobj)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 912, in taropen
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 912, in taropen
     return cls(name, mode, fileobj)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 810, in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 810, in __init__
     self.firstmember = self.next()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 1578, in next
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 1578, in next
     raise ReadError,"empty, unreadable or compressed file"
 ReadError: empty, unreadable or compressed file
 
@@ -44,15 +44,15 @@ ReadError: empty, unreadable or compressed file
 ERROR: Test readlines() method of _FileObject.
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
     self.tar = tarfile.open(tarname(self.comp), mode)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 875, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 875, in open
     return func(name, filemode, fileobj)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 912, in taropen
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 912, in taropen
     return cls(name, mode, fileobj)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 810, in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 810, in __init__
     self.firstmember = self.next()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 1578, in next
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 1578, in next
     raise ReadError,"empty, unreadable or compressed file"
 ReadError: empty, unreadable or compressed file
 
@@ -60,15 +60,15 @@ ReadError: empty, unreadable or compressed file
 ERROR: Test seek() method of _FileObject, incl. random reading.
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
     self.tar = tarfile.open(tarname(self.comp), mode)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 875, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 875, in open
     return func(name, filemode, fileobj)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 912, in taropen
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 912, in taropen
     return cls(name, mode, fileobj)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 810, in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 810, in __init__
     self.firstmember = self.next()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 1578, in next
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 1578, in next
     raise ReadError,"empty, unreadable or compressed file"
 ReadError: empty, unreadable or compressed file
 
@@ -76,15 +76,15 @@ ReadError: empty, unreadable or compressed file
 ERROR: Test sparse member extraction.
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
     self.tar = tarfile.open(tarname(self.comp), mode)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 875, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 875, in open
     return func(name, filemode, fileobj)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 912, in taropen
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 912, in taropen
     return cls(name, mode, fileobj)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 810, in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 810, in __init__
     self.firstmember = self.next()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 1578, in next
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 1578, in next
     raise ReadError,"empty, unreadable or compressed file"
 ReadError: empty, unreadable or compressed file
 
@@ -92,13 +92,13 @@ ReadError: empty, unreadable or compressed file
 ERROR: Test member extraction, and for StreamError when
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
     self.tar = tarfile.open(tarname(self.comp), mode)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 886, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 886, in open
     _Stream(name, filemode, comptype, fileobj, bufsize))
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 810, in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 810, in __init__
     self.firstmember = self.next()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 1578, in next
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 1578, in next
     raise ReadError,"empty, unreadable or compressed file"
 ReadError: empty, unreadable or compressed file
 
@@ -106,13 +106,13 @@ ReadError: empty, unreadable or compressed file
 ERROR: Test readlines() method of _FileObject.
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
     self.tar = tarfile.open(tarname(self.comp), mode)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 886, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 886, in open
     _Stream(name, filemode, comptype, fileobj, bufsize))
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 810, in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 810, in __init__
     self.firstmember = self.next()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 1578, in next
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 1578, in next
     raise ReadError,"empty, unreadable or compressed file"
 ReadError: empty, unreadable or compressed file
 
@@ -120,13 +120,13 @@ ReadError: empty, unreadable or compressed file
 ERROR: Test seek() method of _FileObject, incl. random reading.
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
     self.tar = tarfile.open(tarname(self.comp), mode)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 886, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 886, in open
     _Stream(name, filemode, comptype, fileobj, bufsize))
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 810, in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 810, in __init__
     self.firstmember = self.next()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 1578, in next
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 1578, in next
     raise ReadError,"empty, unreadable or compressed file"
 ReadError: empty, unreadable or compressed file
 
@@ -134,13 +134,13 @@ ReadError: empty, unreadable or compressed file
 ERROR: Test sparse member extraction.
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
     self.tar = tarfile.open(tarname(self.comp), mode)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 886, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 886, in open
     _Stream(name, filemode, comptype, fileobj, bufsize))
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 810, in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 810, in __init__
     self.firstmember = self.next()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 1578, in next
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 1578, in next
     raise ReadError,"empty, unreadable or compressed file"
 ReadError: empty, unreadable or compressed file
 
@@ -148,33 +148,33 @@ ReadError: empty, unreadable or compressed file
 ERROR: Compare the normal tar and the stream tar.
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 51, in setUp
     self.tar = tarfile.open(tarname(self.comp), mode)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 886, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 886, in open
     _Stream(name, filemode, comptype, fileobj, bufsize))
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 810, in __init__
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 810, in __init__
     self.firstmember = self.next()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 1578, in next
-    raise ReadError,"empty, unreadable or compressed file"
-ReadError: Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 275 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 1578Traceback (application-level):
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 275 in ?
     test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 263 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 263 in test_main
         test_support.run_unittest(*tests)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
     run_suite(suite, testclass)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
             raise TestFailed(msg)
 TestFailed: errors occurred; run in verbose mode for details
-empty, unreadable or compressed file
+, in next
+    raise ReadError,"empty, unreadable or compressed file"
+ReadError: empty, unreadable or compressed file
 
 ======================================================================
 ERROR: test_nonposix (__main__.WriteTest)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 179, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 179, in setUp
     self.src = tarfile.open(tarname(self.comp), 'r')
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 898, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 898, in open
     raise ReadError, "file could not be opened successfully"
 ReadError: file could not be opened successfully
 
@@ -182,9 +182,9 @@ ReadError: file could not be opened successfully
 ERROR: test_posix (__main__.WriteTest)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 179, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 179, in setUp
     self.src = tarfile.open(tarname(self.comp), 'r')
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 898, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 898, in open
     raise ReadError, "file could not be opened successfully"
 ReadError: file could not be opened successfully
 
@@ -192,9 +192,9 @@ ReadError: file could not be opened successfully
 ERROR: test_nonposix (__main__.WriteStreamTest)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 179, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 179, in setUp
     self.src = tarfile.open(tarname(self.comp), 'r')
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 898, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 898, in open
     raise ReadError, "file could not be opened successfully"
 ReadError: file could not be opened successfully
 
@@ -202,16 +202,16 @@ ReadError: file could not be opened successfully
 ERROR: test_posix (__main__.WriteStreamTest)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_tarfile.py", line 179, in setUp
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_tarfile.py", line 179, in setUp
     self.src = tarfile.open(tarname(self.comp), 'r')
-  File "/home/arigo/pypysrc/lib-python-2.3.4/tarfile.py", line 898, in open
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/tarfile.py", line 898, in open
     raise ReadError, "file could not be opened successfully"
 ReadError: file could not be opened successfully
 
 ----------------------------------------------------------------------
-Ran 13 tests in 44.343s
+Ran 13 tests in 32.838s
 
 FAILED (errors=13)
 ========================== closed ==========================
-execution time: 69.8276779652 seconds
+execution time: 50.853992939 seconds
 exit status: 1

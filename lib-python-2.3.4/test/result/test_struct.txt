@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_struct.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_struct.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 19:15:55 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 14:31:46 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -11,10 +11,10 @@ faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_struct.py", line 80 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_struct.py", line 80 in ?
             raise TestFailed, "unpack/pack not transitive (%s, %s)" % (
 TestFailed: unpack/pack not transitive (xcbhilfd, ('a', 1, 255, 65535, 65536, 3.1414999961853028, 4.0))
 trying: xcbhilfd
 ========================== closed ==========================
-execution time: 9.13393902779 seconds
+execution time: 6.83288693428 seconds
 exit status: 1

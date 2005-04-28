@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_charmapcodec.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_charmapcodec.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 04:18:22 2005
-pypy-revision: 11518
+startdate: Wed Apr 27 22:25:12 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -11,13 +11,13 @@ faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_charmapcodec.py", line 45 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_charmapcodec.py", line 45 in ?
     test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_charmapcodec.py", line 42 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_charmapcodec.py", line 42 in test_main
     test.test_support.run_unittest(CharmapCodecTest)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
     run_suite(suite, testclass)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
             raise TestFailed(msg)
 TestFailed: errors occurred in __main__.CharmapCodecTest
 test_constructorx (__main__.CharmapCodecTest) ... ERROR
@@ -29,7 +29,7 @@ test_maptoundefined (__main__.CharmapCodecTest) ... ERROR
 ERROR: test_constructorx (__main__.CharmapCodecTest)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_charmapcodec.py", line 19, in test_constructorx
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_charmapcodec.py", line 19, in test_constructorx
     self.assertEquals(unicode('abc', codecname), u'abc')
 LookupError: unknown encoding: test.testcodec
 
@@ -37,7 +37,7 @@ LookupError: unknown encoding: test.testcodec
 ERROR: test_constructory (__main__.CharmapCodecTest)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_charmapcodec.py", line 33, in test_constructory
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_charmapcodec.py", line 33, in test_constructory
     self.assertEquals(unicode('ydef', codecname), u'def')
 LookupError: unknown encoding: test.testcodec
 
@@ -45,7 +45,7 @@ LookupError: unknown encoding: test.testcodec
 ERROR: test_encodex (__main__.CharmapCodecTest)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_charmapcodec.py", line 26, in test_encodex
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_charmapcodec.py", line 26, in test_encodex
     self.assertEquals(u'abc'.encode(codecname), 'abc')
 LookupError: unknown encoding: test.testcodec
 
@@ -53,16 +53,16 @@ LookupError: unknown encoding: test.testcodec
 ERROR: test_maptoundefined (__main__.CharmapCodecTest)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_charmapcodec.py", line 39, in test_maptoundefined
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_charmapcodec.py", line 39, in test_maptoundefined
     self.assertRaises(UnicodeError, unicode, 'abc\001', codecname)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 289, in failUnlessRaises
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 289, in failUnlessRaises
     callableObj(*args, **kwargs)
 LookupError: unknown encoding: test.testcodec
 
 ----------------------------------------------------------------------
-Ran 4 tests in 8.493s
+Ran 4 tests in 2.636s
 
 FAILED (errors=4)
 ========================== closed ==========================
-execution time: 32.0733180046 seconds
+execution time: 9.98971414566 seconds
 exit status: 1

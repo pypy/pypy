@@ -1,18 +1,18 @@
 test_pkg
 running test t1
-mkdir /tmp/tmpDnJyrz/t1
-write /tmp/tmpDnJyrz/t1/__init__.py
-sys.path = ['/tmp/tmpDnJyrz', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
-rmdir /tmp/tmpDnJyrz/t1
-rmdir /tmp/tmpDnJyrz
+mkdir /tmp/tmpyjFK1y/t1
+write /tmp/tmpyjFK1y/t1/__init__.py
+sys.path = ['/tmp/tmpyjFK1y', '', '/u/pedronis/PyPy/dist/pypy/lib', '/u/pedronis/PyPy/dist/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages/Numeric', '/usr/lib/python2.3/site-packages/PIL', '/usr/lib/site-python']
+rmdir /tmp/tmpyjFK1y/t1
+rmdir /tmp/tmpyjFK1y
 running test t2
-mkdir /tmp/tmpfJHwsP/t2
-write /tmp/tmpfJHwsP/t2/__init__.py
-mkdir /tmp/tmpfJHwsP/t2/sub
-write /tmp/tmpfJHwsP/t2/sub/__init__.py
-mkdir /tmp/tmpfJHwsP/t2/sub/subsub
-write /tmp/tmpfJHwsP/t2/sub/subsub/__init__.py
-sys.path = ['/tmp/tmpfJHwsP', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+mkdir /tmp/tmpO81fq5/t2
+write /tmp/tmpO81fq5/t2/__init__.py
+mkdir /tmp/tmpO81fq5/t2/sub
+write /tmp/tmpO81fq5/t2/sub/__init__.py
+mkdir /tmp/tmpO81fq5/t2/sub/subsub
+write /tmp/tmpO81fq5/t2/sub/subsub/__init__.py
+sys.path = ['/tmp/tmpO81fq5', '', '/u/pedronis/PyPy/dist/pypy/lib', '/u/pedronis/PyPy/dist/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages/Numeric', '/usr/lib/python2.3/site-packages/PIL', '/usr/lib/site-python']
 t2 loading
 doc for t2
 t2.sub.subsub loading
@@ -23,56 +23,56 @@ t2.sub.subsub
 ['spam', 'sub', 'subsub', 't2']
 t2 t2.sub t2.sub.subsub
 ['spam', 'sub', 'subsub', 't2']
-rmdir /tmp/tmpfJHwsP/t2/sub/subsub
-rmdir /tmp/tmpfJHwsP/t2/sub
-rmdir /tmp/tmpfJHwsP/t2
-rmdir /tmp/tmpfJHwsP
+rmdir /tmp/tmpO81fq5/t2/sub/subsub
+rmdir /tmp/tmpO81fq5/t2/sub
+rmdir /tmp/tmpO81fq5/t2
+rmdir /tmp/tmpO81fq5
 running test t3
-mkdir /tmp/tmpmQuS2a/t3
-write /tmp/tmpmQuS2a/t3/__init__.py
-mkdir /tmp/tmpmQuS2a/t3/sub
-write /tmp/tmpmQuS2a/t3/sub/__init__.py
-mkdir /tmp/tmpmQuS2a/t3/sub/subsub
-write /tmp/tmpmQuS2a/t3/sub/subsub/__init__.py
-sys.path = ['/tmp/tmpmQuS2a', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+mkdir /tmp/tmpZAAbFD/t3
+write /tmp/tmpZAAbFD/t3/__init__.py
+mkdir /tmp/tmpZAAbFD/t3/sub
+write /tmp/tmpZAAbFD/t3/sub/__init__.py
+mkdir /tmp/tmpZAAbFD/t3/sub/subsub
+write /tmp/tmpZAAbFD/t3/sub/subsub/__init__.py
+sys.path = ['/tmp/tmpZAAbFD', '', '/u/pedronis/PyPy/dist/pypy/lib', '/u/pedronis/PyPy/dist/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages/Numeric', '/usr/lib/python2.3/site-packages/PIL', '/usr/lib/site-python']
 t3 loading
 t3.sub.subsub loading
 t3 t3.sub t3.sub.subsub
 t3 loading
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pkg.py", line 66, in runtest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pkg.py", line 66, in runtest
     execfile(fname, globals(), {})
-  File "/tmp/tmpfIwI2Q", line 5, in ?
+  File "/tmp/tmpZLWDPt", line 5, in ?
     reload(t3.sub)
 AttributeError: 'module' object has no attribute 'sub'
-rmdir /tmp/tmpmQuS2a/t3/sub/subsub
-rmdir /tmp/tmpmQuS2a/t3/sub
-rmdir /tmp/tmpmQuS2a/t3
-rmdir /tmp/tmpmQuS2a
+rmdir /tmp/tmpZAAbFD/t3/sub/subsub
+rmdir /tmp/tmpZAAbFD/t3/sub
+rmdir /tmp/tmpZAAbFD/t3
+rmdir /tmp/tmpZAAbFD
 running test t4
-write /tmp/tmp3Xr2kH/t4.py
-mkdir /tmp/tmp3Xr2kH/t4
-write /tmp/tmp3Xr2kH/t4/__init__.py
-write /tmp/tmp3Xr2kH/t4/sub.py
-mkdir /tmp/tmp3Xr2kH/t4/sub
-write /tmp/tmp3Xr2kH/t4/sub/__init__.py
-write /tmp/tmp3Xr2kH/t4/sub/subsub.py
-mkdir /tmp/tmp3Xr2kH/t4/sub/subsub
-write /tmp/tmp3Xr2kH/t4/sub/subsub/__init__.py
-sys.path = ['/tmp/tmp3Xr2kH', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+write /tmp/tmpkf50O2/t4.py
+mkdir /tmp/tmpkf50O2/t4
+write /tmp/tmpkf50O2/t4/__init__.py
+write /tmp/tmpkf50O2/t4/sub.py
+mkdir /tmp/tmpkf50O2/t4/sub
+write /tmp/tmpkf50O2/t4/sub/__init__.py
+write /tmp/tmpkf50O2/t4/sub/subsub.py
+mkdir /tmp/tmpkf50O2/t4/sub/subsub
+write /tmp/tmpkf50O2/t4/sub/subsub/__init__.py
+sys.path = ['/tmp/tmpkf50O2', '', '/u/pedronis/PyPy/dist/pypy/lib', '/u/pedronis/PyPy/dist/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages/Numeric', '/usr/lib/python2.3/site-packages/PIL', '/usr/lib/site-python']
 t4 loading
 t4.sub.subsub loading
 t4.sub.subsub.spam = 1
-rmdir /tmp/tmp3Xr2kH/t4/sub/subsub
-rmdir /tmp/tmp3Xr2kH/t4/sub
-rmdir /tmp/tmp3Xr2kH/t4
-rmdir /tmp/tmp3Xr2kH
+rmdir /tmp/tmpkf50O2/t4/sub/subsub
+rmdir /tmp/tmpkf50O2/t4/sub
+rmdir /tmp/tmpkf50O2/t4
+rmdir /tmp/tmpkf50O2
 running test t5
-mkdir /tmp/tmpYd-t_I/t5
-write /tmp/tmpYd-t_I/t5/__init__.py
-write /tmp/tmpYd-t_I/t5/string.py
-write /tmp/tmpYd-t_I/t5/foo.py
-sys.path = ['/tmp/tmpYd-t_I', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+mkdir /tmp/tmpB4z795/t5
+write /tmp/tmpB4z795/t5/__init__.py
+write /tmp/tmpB4z795/t5/string.py
+write /tmp/tmpB4z795/t5/foo.py
+sys.path = ['/tmp/tmpB4z795', '', '/u/pedronis/PyPy/dist/pypy/lib', '/u/pedronis/PyPy/dist/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages/Numeric', '/usr/lib/python2.3/site-packages/PIL', '/usr/lib/site-python']
 t5.foo loading
 t5.string loading
 1
@@ -80,42 +80,42 @@ t5.string loading
 ['__file__', '__name__', '__path__', 'foo', 'string', 't5']
 ['__file__', '__name__', 'string']
 ['__file__', '__name__', 'spam']
-rmdir /tmp/tmpYd-t_I/t5
-rmdir /tmp/tmpYd-t_I
+rmdir /tmp/tmpB4z795/t5
+rmdir /tmp/tmpB4z795
 running test t6
-mkdir /tmp/tmp3AU8j0/t6
-write /tmp/tmp3AU8j0/t6/__init__.py
-write /tmp/tmp3AU8j0/t6/spam.py
-write /tmp/tmp3AU8j0/t6/ham.py
-write /tmp/tmp3AU8j0/t6/eggs.py
-sys.path = ['/tmp/tmp3AU8j0', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+mkdir /tmp/tmpKIkd4b/t6
+write /tmp/tmpKIkd4b/t6/__init__.py
+write /tmp/tmpKIkd4b/t6/spam.py
+write /tmp/tmpKIkd4b/t6/ham.py
+write /tmp/tmpKIkd4b/t6/eggs.py
+sys.path = ['/tmp/tmpKIkd4b', '', '/u/pedronis/PyPy/dist/pypy/lib', '/u/pedronis/PyPy/dist/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages/Numeric', '/usr/lib/python2.3/site-packages/PIL', '/usr/lib/site-python']
 ['__all__', '__file__', '__name__', '__path__']
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pkg.py", line 66, in runtest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pkg.py", line 66, in runtest
     execfile(fname, globals(), {})
-  File "/tmp/tmpaiL3Dr", line 4, in ?
+  File "/tmp/tmpL8EK10", line 4, in ?
     from t6 import *
 AttributeError: 'module' object has no attribute 'spam'
-rmdir /tmp/tmp3AU8j0/t6
-rmdir /tmp/tmp3AU8j0
+rmdir /tmp/tmpKIkd4b/t6
+rmdir /tmp/tmpKIkd4b
 running test t7
-write /tmp/tmpGteEWu/t7.py
-mkdir /tmp/tmpGteEWu/t7
-write /tmp/tmpGteEWu/t7/__init__.py
-write /tmp/tmpGteEWu/t7/sub.py
-mkdir /tmp/tmpGteEWu/t7/sub
-write /tmp/tmpGteEWu/t7/sub/__init__.py
-write /tmp/tmpGteEWu/t7/sub/subsub.py
-mkdir /tmp/tmpGteEWu/t7/sub/subsub
-write /tmp/tmpGteEWu/t7/sub/subsub/__init__.py
-sys.path = ['/tmp/tmpGteEWu', '', '/home/arigo/pypysrc/pypy/lib', '/home/arigo/pypysrc/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages']
+write /tmp/tmpZfUKRE/t7.py
+mkdir /tmp/tmpZfUKRE/t7
+write /tmp/tmpZfUKRE/t7/__init__.py
+write /tmp/tmpZfUKRE/t7/sub.py
+mkdir /tmp/tmpZfUKRE/t7/sub
+write /tmp/tmpZfUKRE/t7/sub/__init__.py
+write /tmp/tmpZfUKRE/t7/sub/subsub.py
+mkdir /tmp/tmpZfUKRE/t7/sub/subsub
+write /tmp/tmpZfUKRE/t7/sub/subsub/__init__.py
+sys.path = ['/tmp/tmpZfUKRE', '', '/u/pedronis/PyPy/dist/pypy/lib', '/u/pedronis/PyPy/dist/lib-python-2.3.4', '/usr/lib/python23.zip', '/usr/lib/python2.3', '/usr/lib/python2.3/plat-linux2', '/usr/lib/python2.3/lib-tk', '/usr/lib/python2.3/lib-dynload', '/usr/local/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages', '/usr/lib/python2.3/site-packages/Numeric', '/usr/lib/python2.3/site-packages/PIL', '/usr/lib/site-python']
 t7 loading
 ['__file__', '__name__', '__path__']
 ['__file__', '__name__', '__path__']
 t7.sub.subsub loading
 ['__file__', '__name__', '__path__', 'spam']
 t7.sub.subsub.spam = 1
-rmdir /tmp/tmpGteEWu/t7/sub/subsub
-rmdir /tmp/tmpGteEWu/t7/sub
-rmdir /tmp/tmpGteEWu/t7
-rmdir /tmp/tmpGteEWu
+rmdir /tmp/tmpZfUKRE/t7/sub/subsub
+rmdir /tmp/tmpZfUKRE/t7/sub
+rmdir /tmp/tmpZfUKRE/t7
+rmdir /tmp/tmpZfUKRE

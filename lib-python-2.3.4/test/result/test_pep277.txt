@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_pep277.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pep277.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 22:54:25 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 11:33:31 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -11,9 +11,9 @@ faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pep277.py", line 6 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pep277.py", line 6 in ?
     raise test_support.TestSkipped, "test works only on NT+"
 TestSkipped: test works only on NT+
 ========================== closed ==========================
-execution time: 5.53592705727 seconds
+execution time: 4.25580000877 seconds
 exit status: 1

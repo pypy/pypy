@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_isinstance.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_isinstance.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 00:29:58 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 01:34:26 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -11,13 +11,13 @@ faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_isinstance.py", line 278 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_isinstance.py", line 278 in ?
     test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_isinstance.py", line 273 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_isinstance.py", line 273 in test_main
         TestIsInstanceIsSubclass
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
     run_suite(suite, testclass)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 246 in run_suite
             raise TestFailed(msg)
 TestFailed: errors occurred; run in verbose mode for details
 test_bases_raises_other_than_attribute_error (__main__.TestIsInstanceExceptions) ... ok
@@ -40,9 +40,9 @@ test_subclass_tuple (__main__.TestIsInstanceIsSubclass) ... ok
 FAIL: test_isinstance_recursion_limit (__main__.TestIsInstanceIsSubclass)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_isinstance.py", line 256, in test_isinstance_recursion_limit
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_isinstance.py", line 256, in test_isinstance_recursion_limit
     self.assertRaises(RuntimeError, blowstack, isinstance, '', str)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 295, in failUnlessRaises
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 295, in failUnlessRaises
     raise self.failureException, excName
 AssertionError: RuntimeError
 
@@ -50,16 +50,16 @@ AssertionError: RuntimeError
 FAIL: test_subclass_recursion_limit (__main__.TestIsInstanceIsSubclass)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_isinstance.py", line 251, in test_subclass_recursion_limit
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_isinstance.py", line 251, in test_subclass_recursion_limit
     self.assertRaises(RuntimeError, blowstack, issubclass, str, str)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 295, in failUnlessRaises
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 295, in failUnlessRaises
     raise self.failureException, excName
 AssertionError: RuntimeError
 
 ----------------------------------------------------------------------
-Ran 15 tests in 48.323s
+Ran 15 tests in 12.244s
 
 FAILED (failures=2)
 ========================== closed ==========================
-execution time: 84.0605962276 seconds
+execution time: 21.7371780872 seconds
 exit status: 1

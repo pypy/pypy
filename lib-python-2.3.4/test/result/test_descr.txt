@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_descr.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_descr.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 03:00:08 2005
-pypy-revision: 11518
+startdate: Wed Apr 27 23:32:00 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -13,16 +13,16 @@ faking <type 'posix.statvfs_result'>
 faking <type '_sre.SRE_Pattern'>
 faking <type 'function'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_descr.py", line 4050 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_descr.py", line 4050 in ?
     test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_descr.py", line 3956 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_descr.py", line 3956 in test_main
     weakref_segfault() # Must be first, somehow
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_descr.py", line 3924 in weakref_segfault
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_descr.py", line 3924 in weakref_segfault
     import weakref
-  File "/home/arigo/pypysrc/lib-python-2.3.4/weakref.py", line 14 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/weakref.py", line 14 in ?
 from _weakref import \
 ImportError: _weakref
 Testing weakref segfault...
 ========================== closed ==========================
-execution time: 28.1001598835 seconds
+execution time: 20.6545219421 seconds
 exit status: 1

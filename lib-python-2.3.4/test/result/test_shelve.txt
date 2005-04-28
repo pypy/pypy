@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_shelve.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_shelve.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 20:16:45 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 13:18:30 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -15,41 +15,28 @@ faking <type 'function'>
 faking <type 'instancemethod'>
 faking <type '_sre.SRE_Match'>
 faking <type 'classobj'>
-==========================timeout==========================
-Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_shelve.py", line 135 in ?
-    test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_shelve.py", line 131 in test_main
-        TestCase
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
-    run_suite(suite, testclass)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 234 in run_suite
-    result = runner.run(suite)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 658 in run
-        test(result)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
-            test(result)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 389 in __call__
-            test(result)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 229 in __call__
-                testMethod()
-  File "test_userdict.py", line 62 in test_read
-        self.assertEqual(cmp(p,d), -1)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/UserDict.py", line 161 in __cmp__
-            other = dict(other.iteritems())
-  File "/home/arigo/pypysrc/lib-python-2.3.4/UserDict.py", line 99 in iteritems
-            yield (k, self[k])
-  File "/home/arigo/pypysrc/lib-python-2.3.4/shelve.py", line 118 in __getitem__
-            f = StringIO(self.dict[key])
-KeyboardInterrupt
-test_read (__main__.TestAsciiFileShelve) ... FAIL
+test_read (__main__.TestAsciiFileShelve) ... ok
 test_write (__main__.TestAsciiFileShelve) ... ok
-test_read (__main__.TestBinaryFileShelve) ... FAIL
+test_read (__main__.TestBinaryFileShelve) ... ok
 test_write (__main__.TestBinaryFileShelve) ... ok
-test_read (__main__.TestProto2FileShelve) ... FAIL
+test_read (__main__.TestProto2FileShelve) ... ok
 test_write (__main__.TestProto2FileShelve) ... ok
-test_read (__main__.TestAsciiMemShelve) ... FAIL
+test_read (__main__.TestAsciiMemShelve) ... ok
 test_write (__main__.TestAsciiMemShelve) ... ok
-test_read (__main__.TestBinaryMemShelve) ... ========================== closed ==========================
-execution time: 900.696385145 seconds
-exit status: 1
+test_read (__main__.TestBinaryMemShelve) ... ok
+test_write (__main__.TestBinaryMemShelve) ... ok
+test_read (__main__.TestProto2MemShelve) ... ok
+test_write (__main__.TestProto2MemShelve) ... ok
+test_ascii_file_shelf (__main__.TestCase) ... ok
+test_binary_file_shelf (__main__.TestCase) ... ok
+test_in_memory_shelf (__main__.TestCase) ... ok
+test_mutable_entry (__main__.TestCase) ... ok
+test_proto2_file_shelf (__main__.TestCase) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 331.441s
+
+OK
+========================== closed ==========================
+execution time: 362.125012159 seconds
+exit status: 0

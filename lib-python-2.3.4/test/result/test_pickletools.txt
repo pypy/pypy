@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_pickletools.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pickletools.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 22:27:38 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 11:48:36 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -399,16 +399,16 @@ Failure in example: dis(pickle.dumps(random.random, 0))
 from line #58 of pickletools.__test__.disassembler_test
 Exception raised:
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/doctest.py", line 442, in _run_examples_inner
     compileflags, 1) in globs
   File "<string>", line 1, in ?
-  File "/home/arigo/pypysrc/lib-python-2.3.4/pickle.py", line 1386, in dumps
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/pickle.py", line 1386, in dumps
     Pickler(file, protocol, bin).dump(obj)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/pickle.py", line 231, in dump
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/pickle.py", line 231, in dump
     self.save(obj)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/pickle.py", line 313, in save
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/pickle.py", line 313, in save
     rv = reduce(self.proto)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/copy_reg.py", line 69, in _reduce_ex
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/copy_reg.py", line 69, in _reduce_ex
     raise TypeError, "can't pickle %s objects" % base.__name__
 TypeError: can't pickle method objects
 Trying: x = [pickle.PicklingError()] * 2
@@ -598,13 +598,13 @@ ok
 Trying: dis(pickle.dumps(L, 1))
 Expecting:
     0: ]    EMPTY_LIST
-    1: q    BINPUT    Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_pickletools.py", line 3 in ?
+    1: q    Traceback (application-level):
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_pickletools.py", line 3 in ?
 test_support.run_doctest(pickletools)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 290 in run_doctest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 290 in run_doctest
             raise TestFailed("%d of %d doctests failed" % (f, t))
 TestFailed: 5 of 94 doctests failed
- 0
+BINPUT     0
     3: (    MARK
     4: h        BINGET     0
     6: t        TUPLE      (MARK at 3)
@@ -709,5 +709,5 @@ ok
 89 passed and 5 failed.
 ***Test Failed*** 5 failures.
 ========================== closed ==========================
-execution time: 705.901865959 seconds
+execution time: 487.773357153 seconds
 exit status: 1

@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_quopri.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_quopri.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 21:39:25 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 12:24:10 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -20,9 +20,9 @@ test_encodestring (__main__.QuopriTestCase) ... ok
 test_idempotent_string (__main__.QuopriTestCase) ... ok
 
 ----------------------------------------------------------------------
-Ran 8 tests in 24.326s
+Ran 8 tests in 16.695s
 
 OK
 ========================== closed ==========================
-execution time: 32.6021831036 seconds
+execution time: 22.6545300484 seconds
 exit status: 0

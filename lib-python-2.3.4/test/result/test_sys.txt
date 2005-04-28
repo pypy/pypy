@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_sys.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_sys.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 19:07:53 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 14:37:37 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -26,9 +26,9 @@ test_refcount (__main__.SysModuleTest) ... ok
 test_setcheckinterval (__main__.SysModuleTest) ... ok
 
 ----------------------------------------------------------------------
-Ran 14 tests in 7.300s
+Ran 14 tests in 5.058s
 
 OK
 ========================== closed ==========================
-execution time: 15.5937919617 seconds
+execution time: 11.6134719849 seconds
 exit status: 0

@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_uu.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_uu.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 17:56:30 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 16:09:18 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -11,18 +11,18 @@ faking <type 'file'>
 faking <type 'posix.stat_result'>
 faking <type 'posix.statvfs_result'>
 Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_uu.py", line 172 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_uu.py", line 172 in ?
     test_main()
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_uu.py", line 169 in test_main
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_uu.py", line 169 in test_main
     test_support.run_unittest(UUTest, UUStdIOTest, UUFileTest)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
     run_suite(suite, testclass)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
         raise TestFailed(err)
 TestFailed: Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_uu.py", line 148, in test_decode
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_uu.py", line 148, in test_decode
     self.assertEqual(s, plaintext)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
     raise self.failureException, \
 AssertionError: '' != 'The smooth-scaled python crept over the sleeping dog\n'
 
@@ -40,16 +40,16 @@ test_encode (__main__.UUFileTest) ... ok
 FAIL: test_decode (__main__.UUFileTest)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_uu.py", line 148, in test_decode
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_uu.py", line 148, in test_decode
     self.assertEqual(s, plaintext)
-  File "/home/arigo/pypysrc/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 302, in failUnlessEqual
     raise self.failureException, \
 AssertionError: '' != 'The smooth-scaled python crept over the sleeping dog\n'
 
 ----------------------------------------------------------------------
-Ran 9 tests in 21.829s
+Ran 9 tests in 15.087s
 
 FAILED (failures=1)
 ========================== closed ==========================
-execution time: 33.5003721714 seconds
+execution time: 23.3923621178 seconds
 exit status: 1

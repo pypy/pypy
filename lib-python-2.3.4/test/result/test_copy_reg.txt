@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_copy_reg.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_copy_reg.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 03:30:59 2005
-pypy-revision: 11518
+startdate: Wed Apr 27 23:01:21 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -21,9 +21,9 @@ test_noncallable_constructor (__main__.CopyRegTestCase) ... ok
 test_noncallable_reduce (__main__.CopyRegTestCase) ... ok
 
 ----------------------------------------------------------------------
-Ran 5 tests in 4.166s
+Ran 5 tests in 3.032s
 
 OK
 ========================== closed ==========================
-execution time: 27.7843389511 seconds
+execution time: 20.5545630455 seconds
 exit status: 0

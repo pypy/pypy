@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_sort.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_sort.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 19:47:51 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 13:32:43 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -81,8 +81,6 @@ Testing size 7
     Checking against an insane comparison function.
         If the implementation isn't careful, this may segfault.
     checking an insane function left some permutation
-        complaining at Complains(0) Complains(2)
-    checking exception during sort left some permutation
     checking stability
 Testing size 8
     checking identity
@@ -125,12 +123,7 @@ Testing size 17
     checking reversed
     checking random permutation
     checking reversed via function
-    Checking against an insane co==========================timeout==========================
-Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_sort.py", line 113 in ?
-    s = [Stable(random.randrange(10), i) for i in xrange(n)]
-KeyboardInterrupt
-mparison function.
+    Checking against an insane comparison function.
         If the implementation isn't careful, this may segfault.
     checking an insane function left some permutation
     checking stability
@@ -178,6 +171,8 @@ Testing size 64
     Checking against an insane comparison function.
         If the implementation isn't careful, this may segfault.
     checking an insane function left some permutation
+        complaining at Complains(59) Complains(58)
+    checking exception during sort left some permutation
     checking stability
 Testing size 65
     checking identity
@@ -196,6 +191,8 @@ Testing size 127
     Checking against an insane comparison function.
         If the implementation isn't careful, this may segfault.
     checking an insane function left some permutation
+        complaining at Complains(25) Complains(38)
+    checking exception during sort left some permutation
     checking stability
 Testing size 128
     checking identity
@@ -205,7 +202,7 @@ Testing size 128
     Checking against an insane comparison function.
         If the implementation isn't careful, this may segfault.
     checking an insane function left some permutation
-        complaining at Complains(97) Complains(94)
+        complaining at Complains(60) Complains(77)
     checking exception during sort left some permutation
     checking stability
 Testing size 129
@@ -225,7 +222,7 @@ Testing size 255
     Checking against an insane comparison function.
         If the implementation isn't careful, this may segfault.
     checking an insane function left some permutation
-        complaining at Complains(21) Complains(15)
+        complaining at Complains(61) Complains(113)
     checking exception during sort left some permutation
     checking stability
 Testing size 256
@@ -236,8 +233,36 @@ Testing size 256
     Checking against an insane comparison function.
         If the implementation isn't careful, this may segfault.
     checking an insane function left some permutation
-        complaining at Complains(137) Complains(149)
+        complaining at Complains(209) Complains(205)
+    checking exception during sort left some permutati==========================timeout==========================
+Traceback (application-level):
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_sort.py", line 97 in ?
+    s.sort(lambda a, b:  int(random.random() * 3) - 1)
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_sort.py", line 97 in <lambda>
+    s.sort(lambda a, b:  int(random.random() * 3) - 1)
+  File "/u/pedronis/PyPy/dist/pypy/lib/random.py", line 192 in random
+        self._seed = x, y, z
+KeyboardInterrupt
+on
+    checking stability
+Testing size 257
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
+    checking an insane function left some permutation
+        complaining at Complains(86) Complains(84)
     checking exception during sort left some permutation
+    checking stability
+Testing size 511
+    checking identity
+    checking reversed
+    checking random permutation
+    checking reversed via function
+    Checking against an insane comparison function.
+        If the implementation isn't careful, this may segfault.
 ========================== closed ==========================
-execution time: 901.763422966 seconds
+execution time: 899.97881794 seconds
 exit status: 1

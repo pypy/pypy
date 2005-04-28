@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_robotparser.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_robotparser.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 21:05:28 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 12:45:54 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -49,9 +49,9 @@ RobotTest(6, bad, /%7Ejoe/index.html) ... ok
 RobotTest(7, good, /foo.html) ... ok
 
 ----------------------------------------------------------------------
-Ran 34 tests in 49.482s
+Ran 34 tests in 15.824s
 
 OK
 ========================== closed ==========================
-execution time: 134.892240047 seconds
+execution time: 43.0967400074 seconds
 exit status: 0

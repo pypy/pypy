@@ -1,9 +1,9 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_format.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_format.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Thu Apr 28 01:50:24 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 00:33:17 2005
+pypy-revision: 11549
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -223,7 +223,7 @@ u'%#X' % 1 =? '0X1' ... yes
 '%#X' % 1L =? '0X1' ... yes
 u'%#X' % 1L =? '0X1' ... yes
 '%Traceback (application-level):
-  File "/home/arigo/pypysrc/lib-python-2.3.4/test/test_format.py", line 236 in ?
+  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_format.py", line 236 in ?
         "%*d"%(sys.maxint, -127)
 OverflowError: repeated string is too long: 1 2147483643
 #o' % 1 =? '01' ... yes
@@ -272,5 +272,5 @@ u'abc %\u3000' % 1 works? ... yes
 u'no format' % '1' works? ... yes
 u'no format' % u'1' works? ... yes
 ========================== closed ==========================
-execution time: 143.244663 seconds
+execution time: 106.728466034 seconds
 exit status: 1

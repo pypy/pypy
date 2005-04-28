@@ -1,11 +1,11 @@
-command: /usr/bin/python /home/arigo/pypysrc/pypy/tool/alarm.py 900 /home/arigo/pypysrc/pypy/interpreter/py.py --oldstyle /home/arigo/pypysrc/lib-python-2.3.4/test/test_popen.py
-run by: arigo@tismerysoft.de
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_popen.py
+run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 22:26:31 2005
-pypy-revision: 11518
+startdate: Thu Apr 28 11:57:27 2005
+pypy-revision: 11549
 OUTPUT TEST
-see output in: /home/arigo/pypysrc/lib-python-2.3.4/test/result/test_popen.out
+see output in: /u/pedronis/PyPy/dist/lib-python-2.3.4/test/result/test_popen.out
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -21,6 +21,7 @@ faking <type 'file'>
 faking <type 'unicode'>
 faking <type 'module'>
 faking <type 'file'>
+OK
 ========================== closed ==========================
-execution time: 9.3032078743 seconds
+execution time: 7.19031000137 seconds
 exit status: 0
