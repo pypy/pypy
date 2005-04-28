@@ -57,9 +57,9 @@ IGNORE_MODULES = """
 
     thread
     signal
+    _symtable
 
-""".split()
-
+""".split() # _symtable as it is is an impl detail of CPython compiler
 
 IGNORE_MODULES.extend("aepack macfs macostools plistlib".split())   # Mac ext stuff
 IGNORE_MODULES.extend("al cd cl gl imgfile".split()) # old SGI IRIX extensions
