@@ -289,10 +289,16 @@ class AppTestBuiltinApp:
         class Call:
             def __call__(self, a):
                 return a+2
-        assert not not callable(Call()), (
+        assert callable(Call()), (
                     "Builtin function 'callable' misreads callable object")
         assert callable(int), (
                     "Builtin function 'callable' misreads int")
+        class Call:
+            __metaclass__ = _classobj
+            def __call__(self, a):
+                return a+2
+        assert callable(Call())
+
 
     def test_uncallable(self):
         # XXX TODO: I made the NoCall class explicitly newstyle to try and
@@ -307,6 +313,9 @@ class AppTestBuiltinApp:
         a.__call__ = lambda: "foo"
         assert not callable(a), (
                     "Builtin function 'callable' tricked by instance-__call__")
+        class NoCall:
+            __metaclass__ = _classobj
+        assert not callable(NoCall())
 
     def test_hash(self):
         assert hash(23) == hash(23)

@@ -74,8 +74,11 @@ def hasattr(ob, attr):
         return False
 
 def callable(ob):
+    import __builtin__
     for c in type(ob).__mro__:
         if '__call__' in c.__dict__:
+            if isinstance(ob, __builtin__._instance): # old style instance!
+                return getattr(ob, '__call__', None) is not None
             return True
     else:
         return False
