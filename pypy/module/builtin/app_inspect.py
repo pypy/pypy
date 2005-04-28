@@ -22,10 +22,12 @@ def _recursive_issubclass(cls, klass_or_tuple):
             return True
     return False
 
-def _issubclass(cls, klass_or_tuple, check_cls):
+def _issubclass(cls, klass_or_tuple, check_cls, depth):
+    if depth == 0:
+        raise RuntimeError,"maximum recursion depth excedeed"
     if _issubtype(type(klass_or_tuple), tuple):
         for klass in klass_or_tuple:
-            if issubclass(cls, klass):
+            if _issubclass(cls, klass, True, depth-1):
                 return True
         return False
     try:
@@ -38,7 +40,8 @@ def _issubclass(cls, klass_or_tuple, check_cls):
         return _recursive_issubclass(cls, klass_or_tuple)
 
 def issubclass(cls, klass_or_tuple):
-    return _issubclass(cls, klass_or_tuple, True)
+    import sys
+    return _issubclass(cls, klass_or_tuple, True, sys.getrecursionlimit())
 
 def isinstance(obj, klass_or_tuple):
     if issubclass(type(obj), klass_or_tuple):
@@ -48,8 +51,9 @@ def isinstance(obj, klass_or_tuple):
     except AttributeError:
         return False
     else:
+        import sys
         return (objcls is not type(obj) and
-                _issubclass(objcls, klass_or_tuple, False))
+                _issubclass(objcls, klass_or_tuple, False, sys.getrecursionlimit()))
 
 
 def vars(*obj):
