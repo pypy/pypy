@@ -638,7 +638,7 @@ testmap = {
     'test_structseq.py'      : TestDecl(False, SimpleRunModule),
     'test_sunaudiodev.py'    : TestDecl(False, SimpleRunModule),
     'test_sundry.py'         : TestDecl(False, SimpleRunModule),
-    'test_support.py'        : TestDecl(False, SimpleRunModule),
+    # test_support is not a test
     'test_symtable.py'       : TestDecl(False, SimpleRunModule),
     'test_syntax.py'         : TestDecl(True, UTTestMainModule),
     'test_sys.py'            : TestDecl(True,  UTTestMainModule),
