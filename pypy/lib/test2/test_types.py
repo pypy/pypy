@@ -1,5 +1,4 @@
 # Python test set -- part 6, built-in types
-# Slightly edited version for PyPy.
 
 from test.test_support import *
 
@@ -33,7 +32,7 @@ if not x: raise TestFailed, 'x is false instead of true'
 print '6.2 Boolean operations'
 if 0 or 0: raise TestFailed, '0 or 0 is true instead of false'
 if 1 and 1: pass
-else: raise TestFailed, '1 and 1 is false instead of false'
+else: raise TestFailed, '1 and 1 is false instead of true'
 if not 1: raise TestFailed, 'not 1 is true instead of false'
 
 print '6.3 Comparisons'
@@ -50,8 +49,6 @@ else: raise TestFailed, 'membership test failed'
 if None is None and [] is not []: pass
 else: raise TestFailed, 'identity test failed'
 
-
-print '6.3.1 Conversion errors'
 try: float('')
 except ValueError: pass
 else: raise TestFailed, "float('') didn't raise ValueError"
@@ -60,7 +57,6 @@ try: float('5\0')
 except ValueError: pass
 else: raise TestFailed, "float('5\0') didn't raise ValueError"
 
-print '6.3.2 Division errors'
 try: 5.0 / 0.0
 except ZeroDivisionError: pass
 else: raise TestFailed, "5.0 / 0.0 didn't raise ZeroDivisionError"
@@ -72,10 +68,6 @@ else: raise TestFailed, "5.0 // 0.0 didn't raise ZeroDivisionError"
 try: 5.0 % 0.0
 except ZeroDivisionError: pass
 else: raise TestFailed, "5.0 % 0.0 didn't raise ZeroDivisionError"
-
-try: 5L / 0
-except ZeroDivisionError: pass
-else: raise TestFailed, "5L / 0 didn't raise ZeroDivisionError"
 
 try: 5 / 0L
 except ZeroDivisionError: pass
@@ -264,9 +256,8 @@ def f():
         yield i
 vereq(list(tuple(f())), range(1000))
 
-# Verify that __getitem__ overrides are not recognized by __iter__
-# XXX TODO: this fails with PyPy because overriding __getitem__ will
-#           really override what the sequence iterator returns
+# xxx PyPy behaves differently on this detail
+## Verify that __getitem__ overrides are not recognized by __iter__
 #class T(tuple):
 #    def __getitem__(self, key):
 #        return str(key) + '!!!'
@@ -361,7 +352,6 @@ del a[0L]
 if a != [4]: raise TestFailed, 'list item deletion [0]'
 del a[-1L]
 if a != []: raise TestFailed, 'list item deletion [-1]'
-a=[]
 a.append(0)
 a.append(1)
 a.append(2)
@@ -425,14 +415,13 @@ try: z.sort(2)
 except TypeError: pass
 else: raise TestFailed, 'list sort compare function is not callable'
 
-''' XXX TODO: add detection of list modification during sort
 def selfmodifyingComparison(x,y):
     z.append(1)
     return cmp(x, y)
 try: z.sort(selfmodifyingComparison)
 except ValueError: pass
 else: raise TestFailed, 'modifying list during sort'
-'''
+
 
 try: z.sort(lambda x, y: 's')
 except TypeError: pass
@@ -444,6 +433,7 @@ if a[ -pow(2,128L): 3 ] != [0,1,2]:
     raise TestFailed, "list slicing with too-small long integer"
 if a[ 3: pow(2,145L) ] != [3,4]:
     raise TestFailed, "list slicing with too-large long integer"
+
 
 # extended slicing
 
@@ -494,8 +484,8 @@ a = range(10)
 a[::2] = tuple(range(5))
 vereq(a, [0, 1, 1, 3, 2, 5, 3, 7, 4, 9])
 
-# Verify that __getitem__ overrides are not recognized by __iter__
-# XXX TODO same as class T(tuple) above
+# xxx PyPy behaves differently on this detail
+## Verify that __getitem__ overrides are not recognized by __iter__
 #class L(list):
 #    def __getitem__(self, key):
 #        return str(key) + '!!!'
@@ -528,7 +518,6 @@ d['a'] = 4
 if d['c'] != 3 or d['a'] != 4: raise TestFailed, 'dict item assignment'
 del d['b']
 if d != {'a': 4, 'c': 3}: raise TestFailed, 'dict item deletion'
-print '6.6.1 dict methods'
 # dict.clear()
 d = {1:1, 2:2, 3:3}
 d.clear()
@@ -542,7 +531,6 @@ d.clear()
 try: d.update(None)
 except AttributeError: pass
 else: raise TestFailed, 'dict.update(None), AttributeError expected'
-print '6.6.2 user-dict methods'
 class SimpleUserDict:
     def __init__(self):
         self.d = {1:1, 2:2, 3:3}
@@ -605,7 +593,6 @@ class FailingUserDict:
 try: d.update(FailingUserDict())
 except ValueError: pass
 else: raise TestFailed, 'dict.update(), __getitem__ expected ValueError'
-print '6.6.3 dict.fromkeys'
 # dict.fromkeys()
 if dict.fromkeys('abc') != {'a':None, 'b':None, 'c':None}:
     raise TestFailed, 'dict.fromkeys did not work as a class method'
@@ -634,7 +621,6 @@ if type(dictlike.fromkeys('a')) is not dictlike:
     raise TestFailed, 'dictsubclass.fromkeys created wrong type'
 if type(dictlike().fromkeys('a')) is not dictlike:
     raise TestFailed, 'dictsubclass.fromkeys created wrong type'
-
 from UserDict import UserDict
 class mydict(dict):
     def __new__(cls):
@@ -642,9 +628,6 @@ class mydict(dict):
 ud = mydict.fromkeys('ab')
 if ud != {'a':None, 'b':None} or not isinstance(ud,UserDict):
     raise TestFailed, 'fromkeys did not instantiate using  __new__'
-
-print '6.6.4 dict copy, get, setdefault'
-
 # dict.copy()
 d = {1:1, 2:2, 3:3}
 if d.copy() != {1:1, 2:2, 3:3}: raise TestFailed, 'dict copy'
@@ -670,14 +653,11 @@ if d['key'][0] != 3:
 d.setdefault('key', []).append(4)
 if len(d['key']) != 2:
     raise TestFailed, 'present {} setdefault, w/ 2nd arg'
-
-print '6.6.5 dict popitem'
-
 # dict.popitem()
 for copymode in -1, +1:
     # -1: b has same structure as a
     # +1: b is a.copy()
-    for log2size in range(4):#(12):
+    for log2size in range(12):
         size = 2**log2size
         a = {}
         b = {}
@@ -702,8 +682,6 @@ d.clear()
 try: d.popitem()
 except KeyError: pass
 else: raise TestFailed, "{}.popitem doesn't raise KeyError"
-
-print '6.6.6 dict pop'
 
 # Tests for pop with specified key
 d.clear()
@@ -732,18 +710,17 @@ if d.pop(k, v) != v: raise TestFailed, "{}.pop(k, v) doesn't return default valu
 d[k] = v
 if d.pop(k, 1) != v: raise TestFailed, "{}.pop(k, v) doesn't find known key/value pair"
 
-''' TODO: doesn't raise correctly
-d[1] = 1
-try:
-    for i in d:
-        d[i+1] = 1
-except RuntimeError:
-    pass
-else:
-    raise TestFailed, "changing dict size during iteration doesn't raise Error"
-'''
 
-print '6.7 type'
+# xxx PyPy: what do to about this? we iterate over the keys as they were at iter creation time
+#
+#d[1] = 1
+#try:
+#    for i in d:
+#        d[i+1] = 1
+#except RuntimeError:
+#    pass
+#else:
+#    raise TestFailed, "changing dict size during iteration doesn't raise Error"
 
 try: type(1, 2)
 except TypeError: pass
@@ -753,9 +730,7 @@ try: type(1, 2, 3, 4)
 except TypeError: pass
 else: raise TestFailed, 'type(), w/4 args expected TypeError'
 
-''' TODO: No buffer support yet XXX
-print '6.8 buffer'
-
+print 'Buffers'
 try: buffer('asdf', -1)
 except ValueError: pass
 else: raise TestFailed, "buffer('asdf', -1) should raise ValueError"
@@ -783,5 +758,3 @@ else: raise TestFailed, "buffer assignment should raise TypeError"
 try: a[0:1] = 'g'
 except TypeError: pass
 else: raise TestFailed, "buffer slice assignment should raise TypeError"
-'''
-print '6.99999999...   All tests ran to completion'

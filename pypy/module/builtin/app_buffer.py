@@ -17,6 +17,9 @@ extend to the end of the target object (or with the specified size).
         else:
             # XXX check for more types
             raise TypeError, "buffer object expected"
+        if offset < 0:
+            raise ValueError, "offset must be zero or positive"
+            
         if size is None:
             self.buf = object[offset:]
         else:
