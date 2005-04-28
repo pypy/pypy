@@ -667,11 +667,10 @@ testmap = {
     'test_traceback.py'      : TestDecl(False, UTTestMainModule),
         #rev 10840: 2 of 2 tests fail
 
-    'test_types.py'          : TestDecl(False, OutputTestModule, modified=True),
-        #rev 10920: fails with: 
-        #   E       vereq(a[::], a)
-        #   >       (application-level) TypeError: an integer is required
-        #   [/home/hpk/pypy-dist/pypy/lib/test2/test_types.py:217]
+    'test_types.py'          : TestDecl(True, OutputTestModule, modified=True),
+        #rev 11598: one of the mod related to dict iterators is questionable
+        # and questions whether how we implment them is meanigful in the
+        # long run
         
     'test_ucn.py'            : TestDecl(False, UTTestMainModule),
     'test_unary.py'          : TestDecl(True, UTTestMainModule),
