@@ -27,6 +27,12 @@ execution time: (.+) seconds
 exit status: (.+)
 $""")
 
+r_endout = re.compile(r"""(.+)\s*FAILED: test output differs
+========================== closed ==========================
+execution time: (.+) seconds
+exit status: (.+)
+$""")
+
 r_timeout = re.compile(r"""==========================timeout==========================
 """)
 
@@ -82,7 +88,13 @@ class Result:
             not match.group(1).lower().startswith('fail')):
             self.pts = 'Ok'
         elif not self.timeout:
-            self.finalline = match.group(1)               
+            self.finalline = match.group(1)
+            output_test = False
+            if self.finalline == "FAILED: test output differs":
+                output_test = True
+                match = r_endout.search(data)
+                assert match
+                self.finalline = match.group(1)
             self.pts = 'ERR'
             match1 = r_importerror.match(self.finalline)
             if match1:
@@ -93,6 +105,8 @@ class Result:
                 self.pts = ''
             elif self.finalline == 'skipping curses':
                 self.pts = ''
+            if output_test:
+                self.finalline+=" [OUTPUT TEST]"
         else:
             self.finalline = 'TIME OUT'
             self.pts = 'T/O'
