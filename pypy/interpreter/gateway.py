@@ -13,7 +13,7 @@ from pypy.tool import hack
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method
-from pypy.interpreter.baseobjspace import W_Root,ObjSpace, BaseWrappable, Wrappable
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, BaseWrappable, Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.tool.cache import Cache 
 from pypy.tool.compile import compile2
@@ -548,6 +548,8 @@ class ApplevelClass:
     def interphook(self, name):
         "NOT_RPYTHON"
         def appcaller(space, *args_w):
+            if not isinstance(space, ObjSpace): 
+                raise TypeError("first argument must be a space instance.")
             args = Arguments(space, list(args_w))
             w_func = self.wget(space, name) 
             return space.call_args(w_func, args)
