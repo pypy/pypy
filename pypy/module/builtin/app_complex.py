@@ -15,8 +15,10 @@ class complex(object):
 
     # XXX this class is not well tested
 
-    # provide __new__to prevend the default which has no parameters
+    # provide __new__to prevent the default which has no parameters
     def __new__(typ, real=0.0, imag=None):
+        if real.__class__ == complex and imag is None:
+            return real
         ret = object.__new__(typ)
         ret._init(real, imag)
         return ret
@@ -29,7 +31,7 @@ class complex(object):
                 getattr(self, '__dict__', None))
 
     def _init(self, real=0.0, imag=None):
-        if isinstance(real, str): 
+        if isinstance(real, (str, unicode)): 
             if imag is not None:
                 msg = "complex() can't take second arg if first is a string"
                 raise TypeError, msg
@@ -38,31 +40,69 @@ class complex(object):
             re = real.real
             im = real.imag
         else:
-            re = float(real)
-            im = 0.0
+            if hasattr(real, "__complex__"):
+                co = real.__complex__()
+                if not isinstance(co, complex):
+                    raise TypeError, "complex() argument must be a string or a number"
+                re = co.real
+                im = co.imag
+            else:
+                try:
+                    re = float(real)
+                except ValueError:
+                    raise ValueError, "complex() argument must be a string or a number"
+                im = 0.0
 
-        if isinstance(imag, str): 
+        if isinstance(imag, (str, unicode)): 
             msg = "complex() second arg can't be a string"
             raise TypeError, msg
         elif isinstance(imag, complex):
             re -= imag.imag
             im += imag.real
         elif imag is not None:
-            im += float(imag)
+            try:
+                im += float(imag)
+            except ValueError:
+                raise ValueError, "complex() argument must be a string or a number"
 
         real_slot.__set__(self, re)
         imag_slot.__set__(self, im)
 
-    def _makeComplexFromString(self, string):
+    def _makeComplexFromString(self, string_):
         import re
-        pat = re.compile(" *([\+\-]?\d*\.?\d*)([\+\-]?\d*\.?\d*)[jJ] *")
-        m = pat.match(string)
+        string_ = string_.strip().lower()
+        pat = re.compile("([\+\-]?\d*\.?\d*)?([\+\-]?\d*\.?\d*j)?")
+        m = pat.match(string_)
         x, y = m.groups()
-        if len(y) == 1 and y in '+-':
-            y = y + '1.0'
-        x, y = map(float, [x, y])
-        return x, y
-
+        if x is None:
+            x = ""
+        if y is None:
+            y = ""
+        if len(string_) - (len(x) + len(y)) != 0:
+            raise ValueError, "complex() arg is a malformed string"
+        if x == "":
+            if y == "":
+                raise ValueError, "complex() arg is an empty string"
+            if y[-1] != "j":
+                raise ValueError, "complex() arg is a malformed string"
+            assert y[-1] == "j"
+            y = y[:-1]
+            if len(y) <= 1:
+                y += "1"
+            return 0, float(y)
+        if y == "":
+            return float(x), 0
+        if y[-1] != "j":
+            raise ValueError, "complex() arg is a malformed string"
+        assert y[-1] == "j"
+        y = y[:-1]
+        if y == "":
+            if x in "+-":
+                x += "1.0"
+            return 0, float(x)
+        if y in "+-":
+            y += "1.0"
+        return float(x), float(y)
 
     def __description(self, precision):
         if self.real != 0.:
@@ -230,6 +270,8 @@ class complex(object):
             real = 1.
             imag = 0.
         elif a.real == 0. and a.imag == 0.:
+            if b.imag != 0. or b.real < 0.:
+                raise ZeroDivisionError, "0.0 to a negative or complex power"
             real = 0.
             imag = 0.
         else:
@@ -299,19 +341,12 @@ class complex(object):
     # unsupported operations
     
     def __lt__(self, other):
+        result = self.__coerce__(other)
+        if result is NotImplemented:
+            return result
         raise TypeError, "cannot compare complex numbers using <, <=, >, >="
 
-        
-    def __le__(self, other):
-        raise TypeError, "cannot compare complex numbers using <, <=, >, >="
-
-        
-    def __gt__(self, other):
-        raise TypeError, "cannot compare complex numbers using <, <=, >, >="
-
-        
-    def __ge__(self, other):
-        raise TypeError, "cannot compare complex numbers using <, <=, >, >="
+    __le__ = __gt__ = __ge__ = __lt__
 
 
     def __int__(self):
