@@ -79,6 +79,7 @@ app = ApplevelClass('''
 
     import unittest 
     from test import test_support   
+    import sys
 
     def getmethods(suite_or_class): 
         """ flatten out suites down to TestCase instances/methods. """ 
@@ -132,10 +133,14 @@ app = ApplevelClass('''
             method()
         finally: 
             method.tearDown()
+
+    def set_argv(filename): 
+        sys.argv[:] = ['python', filename]
 ''') 
 
 collect_test_main = app.interphook('collect_test_main')
 run_testcase_method = app.interphook('run_testcase_method')
+set_argv = app.interphook('set_argv')
 
 class OpErrorModule(py.test.collect.Module): 
     # wraps some methods around a py.test Module in order
@@ -204,28 +209,18 @@ class RunAppFileItem(py.test.Item, TestDeclMixin):
         else: 
             return self.fspath # unmodified regrtest
 
-    def run_file(self, fspath): 
+    def run_file(self): 
         space = self.space 
         if self.testdecl.oldstyle or pypy_option.oldstyle: 
             space.enable_old_style_classes_as_default_metaclass() 
         try: 
-            run_file(str(fspath), space) 
+            callex(space, run_file(str(self.getfspath()), space))
         finally: 
             if not pypy_option.oldstyle: 
                 space.enable_new_style_classes_as_default_metaclass() 
 
     def run(self): 
-        fspath = self.getfspath() 
-        try: 
-            self.run_file(fspath) 
-        except OperationError, e: 
-            space = self.space 
-            if space and e.match(space, space.w_KeyboardInterrupt): 
-                raise Keyboardinterrupt 
-            appexcinfo = pytestsupport.AppExceptionInfo(space, e) 
-            if appexcinfo.traceback: 
-                raise self.Failed(excinfo=appexcinfo) 
-            raise 
+        self.run_file() 
 
 class OutputTestItem(RunAppFileItem): 
     """ Run a module file and compare its output 
@@ -326,9 +321,7 @@ class AppTestCaseMethod(py.test.Item):
     def run(self):      
         space = self.space
         filename = str(self.fspath) 
-        w_argv = space.sys.get('argv')
-        space.setitem(w_argv, space.newslice(None, None, None),
-                      space.newlist([space.wrap(filename)]))
+        callex(space, set_argv, space, space.wrap(filename))
         callex(space, run_testcase_method, space, self.w_method) 
 
 # ________________________________________________________________________
@@ -802,13 +795,21 @@ class ReallyRunFileExternal(RunAppFileItem):
             username = getpass.getuser()
         except:
             username = 'unknown' 
+        print >> resultfile, "testreport-version: 1.0"
         print >> resultfile, "command:", cmd
         print >> resultfile, "run by: %s@%s" % (username, socket.gethostname())
         print >> resultfile, "sys.platform:", sys.platform 
         print >> resultfile, "sys.version_info:", sys.version_info 
+        info = try_getcpuinfo() 
+        if info is not None:
+            print >>resultfile, "cpu model:", info['model name']
+            print >>resultfile, "cpu mhz:", info['cpu mhz']
+
         print >> resultfile, "oldstyle:", self.testdecl.oldstyle and 'yes' or 'no'
-        print >> resultfile, "startdate:", time.ctime()
         print >> resultfile, 'pypy-revision:', getrev(pypydir)
+        print >> resultfile, "startdate:", time.ctime()
+            
+        print >> resultfile
         if outputfilename:
             print >> resultfile, "OUTPUT TEST"
             print >> resultfile, "see output in:", str(outputfilename)
@@ -849,3 +850,18 @@ class ReallyRunFileExternal(RunAppFileItem):
         if failure:
              time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
              py.test.fail(failure)
+
+
+#
+#
+#
+def try_getcpuinfo(): 
+    if sys.platform.startswith('linux'): 
+        cpuinfopath = py.path.local('/proc/cpuinfo')
+        d = {}
+        for line in cpuinfopath.readlines(): 
+            if line.strip(): 
+               name, value = line.split(':', 1)
+               name = name.strip().lower()
+               d[name] = value.strip()
+        return d 
