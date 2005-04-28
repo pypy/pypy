@@ -669,7 +669,7 @@ testmap = {
 
     'test_types.py'          : TestDecl(True, OutputTestModule, modified=True),
         #rev 11598: one of the mod related to dict iterators is questionable
-        # and questions whether how we implment them is meanigful in the
+        # and questions whether how we implement them is meaningful in the
         # long run
         
     'test_ucn.py'            : TestDecl(False, UTTestMainModule),
