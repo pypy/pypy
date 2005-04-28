@@ -1,9 +1,10 @@
-command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py --oldstyle /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_builtin.py
+command: /usr/bin/python /u/pedronis/PyPy/dist/pypy/tool/alarm.py 900 /u/pedronis/PyPy/dist/pypy/interpreter/py.py  /u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_builtin.py
 run by: pedronis@ratthing-b246
 sys.platform: linux2
 sys.version_info: (2, 3, 5, 'final', 0)
-startdate: Wed Apr 27 22:15:25 2005
-pypy-revision: 11549
+oldstyle: no
+startdate: Thu Apr 28 18:08:12 2005
+pypy-revision: 11595
 ============================================================
 faking <type 'unicode'>
 faking <type 'module'>
@@ -16,25 +17,9 @@ faking <type 'function'>
   ret = "0x%lx" % x
 /u/pedronis/PyPy/dist/pypy/objspace/std/intobject.py:430: FutureWarning: %u/%o/%x/%X of negative int will return a signed string in Python 2.4 and up
   ret = "0%lo" % x
-Traceback (application-level):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_builtin.py", line 1161 in ?
-    test_main()
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_builtin.py", line 1158 in test_main
-    test.test_support.run_unittest(BuiltinTest)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 262 in run_unittest
-    run_suite(suite, testclass)
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_support.py", line 247 in run_suite
-        raise TestFailed(err)
-TestFailed: Traceback (most recent call last):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_builtin.py", line 151, in test_callable
-    self.assert_(not callable(x))
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 278, in failUnless
-    if not expr: raise self.failureException, msg
-AssertionError
-
 test_abs (__main__.BuiltinTest) ... ok
 test_apply (__main__.BuiltinTest) ... ok
-test_callable (__main__.BuiltinTest) ... FAIL
+test_callable (__main__.BuiltinTest) ... ok
 test_chr (__main__.BuiltinTest) ... ok
 test_cmp (__main__.BuiltinTest) ... ok
 test_coerce (__main__.BuiltinTest) ... ok
@@ -83,20 +68,10 @@ test_unichr (__main__.BuiltinTest) ... ok
 test_vars (__main__.BuiltinTest) ... ok
 test_zip (__main__.BuiltinTest) ... ok
 
-======================================================================
-FAIL: test_callable (__main__.BuiltinTest)
 ----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/test/test_builtin.py", line 151, in test_callable
-    self.assert_(not callable(x))
-  File "/u/pedronis/PyPy/dist/lib-python-2.3.4/unittest.py", line 278, in failUnless
-    if not expr: raise self.failureException, msg
-AssertionError
+Ran 50 tests in 293.296s
 
-----------------------------------------------------------------------
-Ran 50 tests in 293.222s
-
-FAILED (failures=1)
+OK
 ========================== closed ==========================
-execution time: 316.236166 seconds
-exit status: 1
+execution time: 303.068670034 seconds
+exit status: 0
