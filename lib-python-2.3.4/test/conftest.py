@@ -711,6 +711,7 @@ class RunFileExternal(py.test.collect.Module):
     def __init__(self, name, parent, regrtest): 
         super(RunFileExternal, self).__init__(name, parent) 
         self.regrtest = regrtest 
+        self.fspath = regrtest.getfspath()
 
     def tryiter(self, stopitems=()): 
         # shortcut pre-counting of items 
