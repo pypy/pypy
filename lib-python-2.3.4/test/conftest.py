@@ -750,7 +750,7 @@ class ReallyRunFileExternal(RunAppFileItem):
 
     def run(self): 
         """ invoke a subprocess running the test file via PyPy. 
-            record its output into the 'result' subdirectory. 
+            record its output into the 'result/user@host' subdirectory. 
             (we might want to create subdirectories for 
             each user, because we will probably all produce 
             such result runs and they will not be the same
@@ -771,7 +771,16 @@ class ReallyRunFileExternal(RunAppFileItem):
         sopt = " ".join(pypy_options) 
         TIMEOUT = option.timeout 
         cmd = "%s %s %d %s %s %s" %(python, alarm_script, TIMEOUT, pypy_script, sopt, fspath)
-        resultfilename = mydir.join('result', fspath.new(ext='.txt').basename)
+
+        try:
+            username = getpass.getuser()
+        except:
+            username = 'unknown'
+        userhost = '%s@%s' % (username, socket.gethostname())
+
+        resultdir = mydir.join('result', userhost)
+        resultdir.ensure(dir=1)
+        resultfilename = resultdir.join(fspath.new(ext='.txt').basename)
         resultfile = resultfilename.open('w')
         if issubclass(self.testdecl.testclass, OutputTestModule):
             outputfilename = resultfilename.new(ext='.out')
@@ -781,13 +790,9 @@ class ReallyRunFileExternal(RunAppFileItem):
         else:
             outputfilename = None
 
-        try:
-            username = getpass.getuser()
-        except:
-            username = 'unknown' 
         print >> resultfile, "testreport-version: 1.0"
         print >> resultfile, "command:", cmd
-        print >> resultfile, "run by: %s@%s" % (username, socket.gethostname())
+        print >> resultfile, "run by: %s" % userhost
         print >> resultfile, "sys.platform:", sys.platform 
         print >> resultfile, "sys.version_info:", sys.version_info 
         info = try_getcpuinfo() 

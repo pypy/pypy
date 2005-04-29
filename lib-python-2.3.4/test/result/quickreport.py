@@ -17,10 +17,20 @@ optional following arguments are searched for in the last column of the
 table.
 """
 
-import sys; sys.path.insert(0, '../../..')
+import sys, os
+try:
+    __file__
+except NameError:
+    __file__ = sys.argv[0]
+dir = os.path.abspath(__file__)
+dir = os.path.dirname(dir)    # result/
+dir = os.path.dirname(dir)    # test/
+dir = os.path.dirname(dir)    # lib-python-2.3.4/
+dir = os.path.dirname(dir)    # dist/
+sys.path.insert(0, dir)
 import py, re
 
-mydir = py.magic.autopath().dirpath()
+mydir = py.path.local()
 
 r_end = re.compile(r"""(.+)\s*========================== closed ==========================
 execution time: (.+) seconds
@@ -142,10 +152,15 @@ def report_table():
     print
     print header
     print
+    count = 0
     for result in allresults():
         print result
+        count += 1
     print
-
+    if count == 0:
+        print >> sys.stderr, """No result found. Try to run it as:
+        cd user@host; python ../quickreport.py
+        """
 
 if __name__ == '__main__':
     if len(sys.argv) <= 1:
