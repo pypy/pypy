@@ -1,4 +1,0 @@
-test_openpty
-Calling os.openpty()
-(master, slave) = (3, 4)
-Ping!
