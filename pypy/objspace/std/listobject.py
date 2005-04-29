@@ -130,7 +130,13 @@ def inplace_add__List_ANY(space, w_list1, w_iterable2):
     list_extend__List_ANY(space, w_list1, w_iterable2)
     return w_list1
 
-def mul_list_times(space, w_list, times):
+def mul_list_times(space, w_list, w_times):
+    try:
+        times = space.int_w(w_times)
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            raise FailedToImplement
+        raise
     w_res = W_ListObject(space, [])
     size = w_list.ob_size
     newlen = size * times  # XXX check overflow
@@ -146,13 +152,18 @@ def mul_list_times(space, w_list, times):
     return w_res
 
 def mul__List_ANY(space, w_list, w_times):
-    return mul_list_times(space, w_list, space.int_w(w_times))
+    return mul_list_times(space, w_list, w_times)
 
 def mul__ANY_List(space, w_times, w_list):
-    return mul_list_times(space, w_list, space.int_w(w_times))
+    return mul_list_times(space, w_list, w_times)
 
 def inplace_mul__List_ANY(space, w_list, w_times):
-    times = space.int_w(w_times)
+    try:
+        times = space.int_w(w_times)
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            raise FailedToImplement
+        raise
     if times <= 0:
         w_list.clear()
         return w_list

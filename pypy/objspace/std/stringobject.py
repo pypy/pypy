@@ -915,7 +915,13 @@ def getitem__String_Slice(space, w_str, w_slice):
     w_empty = space.newstring([])
     return str_join__String_ANY(space, w_empty, w_r)
 
-def mul_string_times(space, w_str, mul):
+def mul_string_times(space, w_str, w_times):
+    try:
+        mul = space.int_w(w_times)
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            raise FailedToImplement
+        raise    
     input = w_str._value
     if mul < 0:
         return space.wrap("")
@@ -934,10 +940,10 @@ def mul_string_times(space, w_str, mul):
     return space.wrap("".join(buffer))
 
 def mul__String_ANY(space, w_str, w_times):
-    return mul_string_times(space, w_str, space.int_w(w_times))
+    return mul_string_times(space, w_str, w_times)
 
 def mul__ANY_String(space, w_times, w_str):
-    return mul_string_times(space, w_str, space.int_w(w_times))
+    return mul_string_times(space, w_str, w_times)
 
 def add__String_String(space, w_left, w_right):
     right = w_right._value

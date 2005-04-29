@@ -65,15 +65,21 @@ def add__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items2 = w_tuple2.wrappeditems
     return W_TupleObject(space, items1 + items2)
 
-def mul_tuple_times(space, w_tuple, times):
+def mul_tuple_times(space, w_tuple, w_times):
+    try:
+        times = space.int_w(w_times)
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            raise FailedToImplement
+        raise    
     items = w_tuple.wrappeditems
     return W_TupleObject(space, items * times)    
 
 def mul__Tuple_ANY(space, w_tuple, w_times):
-    return mul_tuple_times(space, w_tuple, space.int_w(w_times))
+    return mul_tuple_times(space, w_tuple, w_times)
 
 def mul__ANY_Tuple(space, w_times, w_tuple):
-    return mul_tuple_times(space, w_tuple, space.int_w(w_times))
+    return mul_tuple_times(space, w_tuple, w_times)
 
 def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems

@@ -211,7 +211,8 @@ def make_perform_trampoline(prefix, exprargs, expr, miniglobals,  multimethod, s
             dest.append(expr_arg)
     renaming = ', '.join(dest) +" = "+', '.join(src)
 
-    if allow_NotImplemented_results and len(multimethod.specialnames) > 1:
+    if allow_NotImplemented_results and (len(multimethod.specialnames) > 1 or
+                                         multimethod.name.startswith('inplace_')):
         # turn FailedToImplement into NotImplemented
         code = """def %s_perform_call(space, %s):
                       %s

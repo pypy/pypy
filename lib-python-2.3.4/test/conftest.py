@@ -353,7 +353,8 @@ testmap = [
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
     RegrTest('test_codeop.py', enabled=True),
-    RegrTest('test_coercion.py', enabled=False),
+    RegrTest('test_coercion.py', enabled=False, oldstyle=True),
+        # needed changes because our exceptions are new-style and so have a different str(.) behavior
     RegrTest('test_commands.py', enabled=True),
     RegrTest('test_compare.py', enabled=True, oldstyle=True),
     RegrTest('test_compile.py', enabled=True),
