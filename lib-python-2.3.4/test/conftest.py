@@ -154,7 +154,8 @@ class SimpleRunItem(py.test.Item):
     """ Run a module file and compare its output 
         to the expected output in the output/ directory. 
     """ 
-    def call_capture(self, func, *args): 
+    def call_capture(self, space, func, *args): 
+        regrtest = self.parent.regrtest 
         oldsysout = sys.stdout 
         sys.stdout = capturesysout = py.std.cStringIO.StringIO() 
         try: 
@@ -175,7 +176,7 @@ class SimpleRunItem(py.test.Item):
         #     their representations 
         regrtest = self.parent.regrtest 
         space = gettestobjspace()
-        res, output = call_capture(regrtest.run_file, space)
+        res, output = self.call_capture(space, regrtest.run_file, space)
 
         outputpath = regrtest.getoutputpath() 
         if outputpath: 
@@ -198,6 +199,7 @@ class InterceptedRunModule(py.test.collect.Module):
     def __init__(self, name, parent, regrtest): 
         super(InterceptedRunModule, self).__init__(name, parent)
         self.regrtest = regrtest
+        self.fspath = regrtest.getfspath()
 
     def _prepare(self): 
         if hasattr(self, 'name2item'): 
