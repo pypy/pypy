@@ -778,6 +778,11 @@ class ReallyRunFileExternal(RunAppFileItem):
             username = 'unknown'
         userhost = '%s@%s' % (username, socket.gethostname())
 
+        if not mydir.join('result').check(dir=1):
+            py.test.skip("""'result' subdirectory not found.
+            To run tests in reporting mode (without -E), you first have to
+            check it out as follows into the current directory:
+            svn co http://codespeak.net/svn/pypy/testresult""")
         resultdir = mydir.join('result', userhost)
         resultdir.ensure(dir=1)
         resultfilename = resultdir.join(fspath.new(ext='.txt').basename)
