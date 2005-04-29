@@ -77,7 +77,6 @@ def makeExceptionsTemplate(f=None):
                 print >> f, "    # please implement %s.%s (%r)" % (name, attname, meth)
             else:
                 try:
-                    print >> f, "    # auto-generated code, please check carefully!"
                     for line in func(exc):
                         print >> f, "    " + line
                 except ValueError, e:
@@ -106,6 +105,7 @@ def tryGenerate__getitem__(exc):
     except: x = 42
     use_default = x is None
     # looks fine so far.
+    yield "# auto-generated code, please check carefully!"
     yield "def __getitem__(self, idx):"
     if use_default:
         yield "    if not hasattr(self, 'args'):"
@@ -260,6 +260,7 @@ def tryGenerate__init__(exc, maxprobe=20):
         groupassign[key].append( (order, assignment) )
     cases = groupassign.items()
     cases.sort()
+    yield "# auto-generated code, please check carefully!"
     yield "def __init__(self, *args):"
     if len(cases) > 1 or len(cases[0][0]) != maxprobe:
         yield "    argc = len(args)"
@@ -285,6 +286,13 @@ def tryGenerate__init__(exc, maxprobe=20):
             yield indent * "    " + line
 
 def tryGenerate__str__(exc, maxprobe=20):
+    if exc in known__str__:
+        import inspect
+        src = inspect.getsource(known__str__[exc])
+        for line in src.split("\n"):
+            yield line
+        return
+    
     minargs, maxargs, working = findAllArgs(exc, maxprobe)
     # checking the default case (well, there are two)
     simple = False
@@ -304,6 +312,7 @@ def tryGenerate__str__(exc, maxprobe=20):
             break
     else:
         simple = arg1_methods and min(arg1_methods) == max(arg1_methods)
+    yield "# auto-generated code, please check carefully!"
     if simple:
         yield "def __str__(self):"
         yield "    args = self.args"
@@ -328,6 +337,28 @@ def tryGenerate__str__(exc, maxprobe=20):
         yield "       '%s=' + str(getattr(self, '%s', None))," % (key, key)
     yield "    ])"
     yield "    return res"
+
+known__str__ = {}
+
+# SyntaxError
+def __str__(self):
+    if type(self.msg) is not str:
+        return self.msg
+
+    have_filename = type(self.filename) is str
+    have_lineno = type(self.lineno) is int
+    if have_filename or have_lineno:
+        import os
+        fname = os.path.basename(self.filename or "???")
+        if have_filename and have_lineno:
+            buffer = "%s (%s, line %ld)" % (self.msg, fname, self.lineno)
+        elif have_filename:
+            buffer ="%s (%s)" % (self.msg, fname)
+        elif have_lineno:
+            buffer = "%s (line %ld)" % (self.msg, self.lineno)
+    return buffer
+
+known__str__[SyntaxError] = __str__
 
 if __name__ == "__main__":
     import pypy, os
