@@ -127,172 +127,103 @@ collect_intercepted = app.interphook('collect_intercepted')
 run_testcase_method = app.interphook('run_testcase_method')
 set_argv = app.interphook('set_argv')
 
-def intercepted_run_file(space, fspath): 
+def start_intercept(space): 
     w_suites, w_doctestmodules = space.unpacktuple(intercept_test_support(space))
-    callex(space, run_file, str(fspath), space)
+    return w_suites, w_doctestmodules 
+
+def collect_intercept(space, w_suites, w_doctestmodules): 
     w_result = callex(space, collect_intercepted, space, w_suites, w_doctestmodules)
     w_namemethods, w_doctestlist = space.unpacktuple(w_result) 
     return w_namemethods, w_doctestlist 
 
-class OpErrorModule(py.test.collect.Module): 
-    # wraps some methods around a py.test Module in order
-    # to get clean KeyboardInterrupt behaviour (while 
-    # running pypy we often get a wrapped 
-    # space.w_KeyboardInterrupt)
-    #
-    def __init__(self, fspath, parent, testdecl): 
-        super(py.test.collect.Module, self).__init__(fspath, parent) 
-        self.testdecl = testdecl 
-
-    space = property(lambda x: gettestobjspace()) 
-    
-    def tryiter(self, stopitems=()): 
-        try: 
-            for x in super(OpErrorModule, self).tryiter(stopitems): 
-                yield x 
-        except OperationError, e: 
-            space = self.space 
-            if space and e.match(space, space.w_KeyboardInterrupt): 
-                raise Keyboardinterrupt 
-            appexcinfo = pytestsupport.AppExceptionInfo(space, e) 
-            if appexcinfo.traceback: 
-                raise self.Failed(excinfo=appexcinfo) 
-            raise 
-
-class OutputTestModule(OpErrorModule): 
-    def run(self): 
-        return ['apprunoutput']
-    def join(self, name): 
-        if name == 'apprunoutput': 
-            return OutputTestItem(name, parent=self, fspath=self.fspath) 
-
-class SimpleRunModule(OpErrorModule): 
-    def run(self): 
-        return ['apprun']
-    
-    def join(self, name): 
-        if name == 'apprun': 
-            return RunAppFileItem(name, parent=self, fspath=self.fspath) 
-
-class TestDeclMixin(object): 
-    def testdecl(self): 
-        current = self.parent 
-        while current is not None: 
-            if hasattr(current, 'testdecl'): 
-                return current.testdecl 
-            current = self.sparent 
-    testdecl = property(testdecl) 
-
-class RunAppFileItem(py.test.Item, TestDeclMixin): 
-    """ simple run a module file at app level, fail the test 
-        if running the appfile results in an OperationError. 
-    """
-    def __init__(self, name, parent, fspath): 
-        super(RunAppFileItem, self).__init__(name, parent) 
-        self.fspath = fspath 
-        self.space = gettestobjspace()
-
-    def getfspath(self): 
-        if self.parent.testdecl.modified: 
-            # we have to use a modified test ... (this could probably
-            # be done by just looking for the according test file 
-            # but i found this more explicit) 
-            return pypydir.join('lib', 'test2', self.fspath.basename) 
-        else: 
-            return self.fspath # unmodified regrtest
-
-    def run_file(self): 
-        space = self.space 
-        if self.testdecl.oldstyle or pypy_option.oldstyle: 
-            space.enable_old_style_classes_as_default_metaclass() 
-        try: 
-            callex(space, run_file(str(self.getfspath()), space))
-        finally: 
-            if not pypy_option.oldstyle: 
-                space.enable_new_style_classes_as_default_metaclass() 
-
-    def run(self): 
-        self.run_file() 
-
-class OutputTestItem(RunAppFileItem): 
+class SimpleRunItem(py.test.Item): 
     """ Run a module file and compare its output 
         to the expected output in the output/ directory. 
     """ 
-    def run(self): 
-        outputpath = self.fspath.dirpath('output', self.fspath.purebasename) 
-        if not outputpath.check(): 
-            py.test.fail("expected outputfile at %s" %(outputpath,))
-
+    def call_capture(self, func, *args): 
         oldsysout = sys.stdout 
         sys.stdout = capturesysout = py.std.cStringIO.StringIO() 
         try: 
-            super(OutputTestItem, self).run() 
+            try: 
+                res = regrtest.run_file(space) 
+            except: 
+                print capturesysout.getvalue()
+                raise 
+            else: 
+                return res, capturesysout.getvalue()
         finally: 
             sys.stdout = oldsysout 
-        # we want to compare outputs 
-        result = self.fspath.purebasename+"\n"+capturesysout.getvalue() # regrtest itself prepends the test_name to the captured output
-        expected = outputpath.read(mode='r') 
-        if result != expected: 
-            reportdiff(expected, result) 
-            py.test.fail("output check failed: %s" % (self.fspath.basename,))
-        else: 
-            print result 
+        
+    def run(self): 
+        # XXX integrate this into InterceptedRunModule
+        #     but we want a py.test refactoring towards
+        #     more autonomy of colitems regarding 
+        #     their representations 
+        regrtest = self.parent.regrtest 
+        space = gettestobjspace()
+        res, output = call_capture(regrtest.run_file, space)
+
+        outputpath = regrtest.getoutputpath() 
+        if outputpath: 
+            # we want to compare outputs 
+            # regrtest itself prepends the test_name to the captured output
+            result = outputpath.purebasename + "\n" + output 
+            expected = outputpath.read(mode='r') 
+            if result != expected: 
+                reportdiff(expected, result) 
+                py.test.fail("output check failed: %s" % (self.fspath.basename,))
+        if output: 
+            print output, 
 
 #
-class UTTestMainModule(OpErrorModule): 
+class InterceptedRunModule(py.test.collect.Module): 
     """ special handling for tests with a proper 'def test_main(): '
         definition invoking test_support.run_suite or run_unittest 
         (XXX add support for test_support.run_doctest). 
     """ 
+    def __init__(self, name, parent, regrtest): 
+        super(InterceptedRunModule, self).__init__(name, parent)
+        self.regrtest = regrtest
+
     def _prepare(self): 
-        if hasattr(self, 'name2w_method'): 
+        if hasattr(self, 'name2item'): 
             return
-        space = self.space
+        self.name2item = {}
+        space = gettestobjspace() 
+        if self.regrtest.dumbtest or self.regrtest.getoutputpath(): 
+            self.name2item['output'] = SimpleRunItem('output', self) 
+            return 
 
-        # load module at app-level 
-        name = self.fspath.purebasename 
-        space = self.space 
-        if self.testdecl.modified: 
-            fspath = pypydir.join('lib', 'test2', self.fspath.basename) 
-        else: 
-            fspath = self.fspath 
-
-        if self.testdecl.oldstyle or pypy_option.oldstyle: 
-            space.enable_old_style_classes_as_default_metaclass() 
-        try:  
-            w_namemethods, w_doctestlist = intercepted_run_file(space, fspath)
-        finally: 
-            if not pypy_option.oldstyle: 
-                space.enable_new_style_classes_as_default_metaclass() 
+        tup = start_intercept(space) 
+        self.regrtest.run_file(space)
+        w_namemethods, w_doctestlist = collect_intercept(space, *tup) 
 
         # setup {name -> wrapped testcase method}
-        self.name2w_method = {}
         for w_item in space.unpackiterable(w_namemethods): 
             w_name, w_method = space.unpacktuple(w_item) 
             name = space.str_w(w_name) 
-            self.name2w_method[name] = w_method 
+            testitem = AppTestCaseMethod(name, parent=self, w_method=w_method) 
+            self.name2item[name] = testitem
 
         # setup {name -> wrapped doctest module}
-        self.name2w_doctestmodule = {}
         for w_item in space.unpackiterable(w_doctestlist): 
             w_name, w_module = space.unpacktuple(w_item) 
             name = space.str_w(w_name) 
-            self.name2w_doctestmodule[name] = w_module 
+            testitem = AppDocTestModule(name, parent=self, w_module=w_module)
+            self.name2item[name] = testitem 
        
     def run(self): 
         self._prepare() 
-        keys = self.name2w_method.keys() 
-        keys.extend(self.name2w_doctestmodule.keys())
+        keys = self.name2item.keys()
+        keys.sort(lambda x,y: cmp(x.lower(), y.lower()))
         return keys 
 
     def join(self, name): 
         self._prepare() 
-        if name in self.name2w_method: 
-            w_method = self.name2w_method[name]
-            return AppTestCaseMethod(name, parent=self, w_method=w_method) 
-        if name in self.name2w_doctestmodule: 
-            w_module = self.name2w_doctestmodule[name]
-            return AppDocTestModule(name, parent=self, w_module=w_module)
+        try: 
+            return self.name2item[name]
+        except KeyError: 
+            pass
 
 class AppDocTestModule(py.test.Item): 
     def __init__(self, name, parent, w_module): 
@@ -305,7 +236,7 @@ class AppDocTestModule(py.test.Item):
 class AppTestCaseMethod(py.test.Item): 
     def __init__(self, name, parent, w_method): 
         super(AppTestCaseMethod, self).__init__(name, parent) 
-        self.space = parent.space 
+        self.space = gettestobjspace() 
         self.w_method = w_method 
 
     def run(self):      
@@ -319,386 +250,409 @@ class AppTestCaseMethod(py.test.Item):
 # classification of all tests files (this is ongoing work) 
 #
 
-class TestDecl: 
-    """ Test Declaration.""" 
-    def __init__(self, enabled, testclass, modified=False, oldstyle=False): 
-        """ if modified is True, the actual test item 
-            needs to be taken from the pypy/lib/test2 
-            hierarchy.  
-        """ 
+class RegrTest: 
+    """ Regression Test Declaration.""" 
+    modifiedtestdir = pypydir.join('lib', 'test2') 
+    def __init__(self, basename, enabled=False, dumbtest=False, oldstyle=False): 
+        self.basename = basename 
         self.enabled = enabled 
-        self.testclass = testclass 
-        self.modified = modified 
+        self.dumbtest = dumbtest 
         self.oldstyle = oldstyle 
 
-testmap = {
-    'test_MimeWriter.py'     : TestDecl(False, OutputTestModule),
-    'test_StringIO.py'       : TestDecl(True, UTTestMainModule),
-    'test___all__.py'        : TestDecl(False, UTTestMainModule),
-    'test___future__.py'     : TestDecl(False, SimpleRunModule), 
-    'test_aepack.py'         : TestDecl(False, UTTestMainModule),
-    'test_al.py'             : TestDecl(False, SimpleRunModule), 
-    'test_anydbm.py'         : TestDecl(False, UTTestMainModule),
-    'test_array.py'          : TestDecl(False, UTTestMainModule),
+    def ismodified(self): 
+        return self.modifiedtestdir.join(self.basename).check() 
+
+    def getfspath(self): 
+        fn = self.modifiedtestdir.join(self.basename)
+        if fn.check(): 
+            return fn 
+        fn = mydir.join(self.basename)
+        return fn 
+
+    def getoutputpath(self): 
+        p = mydir.join('output', self.basename).new(ext='')
+        if p.check(file=1): 
+            return p 
+
+    def run_file(self, space): 
+        fspath = self.getfspath()
+        assert fspath.check()
+        if self.oldstyle or pypy_option.oldstyle: 
+            space.enable_old_style_classes_as_default_metaclass() 
+        try: 
+            callex(space, run_file, str(fspath), space)
+        finally: 
+            if not pypy_option.oldstyle: 
+                space.enable_new_style_classes_as_default_metaclass() 
+
+testmap = [
+    RegrTest('test___all__.py', enabled=False),
+    RegrTest('test___future__.py', enabled=False, dumbtest=1),
+    RegrTest('test_aepack.py', enabled=False),
+    RegrTest('test_al.py', enabled=False, dumbtest=1),
+    RegrTest('test_anydbm.py', enabled=False),
+    RegrTest('test_array.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
-    'test_asynchat.py'       : TestDecl(False, OutputTestModule),
-    'test_atexit.py'         : TestDecl(False, SimpleRunModule),
-    'test_audioop.py'        : TestDecl(False, SimpleRunModule),
-    'test_augassign.py'      : TestDecl(False, OutputTestModule),
-    'test_base64.py'         : TestDecl(True,  UTTestMainModule),
-    'test_bastion.py'        : TestDecl(False, SimpleRunModule),
-    'test_binascii.py'       : TestDecl(False, UTTestMainModule),
+    RegrTest('test_asynchat.py', enabled=False),
+    RegrTest('test_atexit.py', enabled=False, dumbtest=1),
+    RegrTest('test_audioop.py', enabled=False, dumbtest=1),
+    RegrTest('test_augassign.py', enabled=False),
+    RegrTest('test_base64.py', enabled=True),
+    RegrTest('test_bastion.py', enabled=False, dumbtest=1),
+    RegrTest('test_binascii.py', enabled=False),
         #rev 10840: 2 of 8 tests fail
 
-    'test_binhex.py'         : TestDecl(False, UTTestMainModule),
+    RegrTest('test_binhex.py', enabled=False),
         #rev 10840: 1 of 1 test fails
 
-    'test_binop.py'          : TestDecl(True,  UTTestMainModule),
-    'test_bisect.py'         : TestDecl(True,  UTTestMainModule),
-    'test_bool.py'           : TestDecl(False, UTTestMainModule),
+    RegrTest('test_binop.py', enabled=True),
+    RegrTest('test_bisect.py', enabled=True),
+    RegrTest('test_bool.py', enabled=False),
         #rev 10840: Infinite recursion in DescrOperation.is_true
 
-    'test_bsddb.py'          : TestDecl(False, UTTestMainModule),
-    'test_bsddb185.py'       : TestDecl(False, UTTestMainModule),
-    'test_bsddb3.py'         : TestDecl(False, UTTestMainModule),
-    'test_bufio.py'          : TestDecl(False, SimpleRunModule),
-    'test_builtin.py'        : TestDecl(True,  UTTestMainModule),
-    'test_bz2.py'            : TestDecl(False, UTTestMainModule),
-    'test_calendar.py'       : TestDecl(True, UTTestMainModule),
-    'test_call.py'           : TestDecl(True,  UTTestMainModule),
-    'test_capi.py'           : TestDecl(False, SimpleRunModule),
-    'test_cd.py'             : TestDecl(False, SimpleRunModule),
-    'test_cfgparser.py'      : TestDecl(False, UTTestMainModule),
+    RegrTest('test_bsddb.py', enabled=False),
+    RegrTest('test_bsddb185.py', enabled=False),
+    RegrTest('test_bsddb3.py', enabled=False),
+    RegrTest('test_bufio.py', enabled=False, dumbtest=1),
+    RegrTest('test_builtin.py', enabled=True),
+    RegrTest('test_bz2.py', enabled=False),
+    RegrTest('test_calendar.py', enabled=True),
+    RegrTest('test_call.py', enabled=True),
+    RegrTest('test_capi.py', enabled=False, dumbtest=1),
+    RegrTest('test_cd.py', enabled=False, dumbtest=1),
+    RegrTest('test_cfgparser.py', enabled=False),
         #rev 10840: Uncaught interp-level exception:
         #File "pypy/objspace/std/fake.py", line 133, in setfastscope
         #raise UnwrapError('calling %s: %s' % (self.code.cpy_callable, e))
         #pypy.objspace.std.model.UnwrapError: calling <built-in function backslashreplace_errors>: cannot unwrap <UserW_ObjectObject() instance of <W_TypeObject(UnicodeError)>>
 
-    'test_cgi.py'            : TestDecl(False, OutputTestModule),
-    'test_charmapcodec.py'   : TestDecl(True, UTTestMainModule),
-    'test_cl.py'             : TestDecl(False, SimpleRunModule),
-    'test_class.py'          : TestDecl(False, OutputTestModule),
-    'test_cmath.py'          : TestDecl(True,  SimpleRunModule), 
-    'test_codeccallbacks.py' : TestDecl(False, UTTestMainModule),
+    RegrTest('test_cgi.py', enabled=False),
+    RegrTest('test_charmapcodec.py', enabled=True),
+    RegrTest('test_cl.py', enabled=False, dumbtest=1),
+    RegrTest('test_class.py', enabled=False),
+    RegrTest('test_cmath.py', enabled=True, dumbtest=1),
+    RegrTest('test_codeccallbacks.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
-    'test_codecs.py'         : TestDecl(False, UTTestMainModule),
+    RegrTest('test_codecs.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
-    'test_codeop.py'         : TestDecl(True,  UTTestMainModule),
-    'test_coercion.py'       : TestDecl(False, OutputTestModule),
-    'test_commands.py'       : TestDecl(True,  UTTestMainModule),
-    'test_compare.py'        : TestDecl(True,  OutputTestModule, oldstyle=True),
-    'test_compile.py'        : TestDecl(True,  UTTestMainModule),
-    'test_complex.py'        : TestDecl(False, UTTestMainModule),
+    RegrTest('test_codeop.py', enabled=True),
+    RegrTest('test_coercion.py', enabled=False),
+    RegrTest('test_commands.py', enabled=True),
+    RegrTest('test_compare.py', enabled=True, oldstyle=True),
+    RegrTest('test_compile.py', enabled=True),
+    RegrTest('test_complex.py', enabled=False),
         #rev 10840: at least one test fails, after several hours I gave up waiting for the rest
 
-    'test_contains.py'       : TestDecl(False, SimpleRunModule),
-    'test_cookie.py'         : TestDecl(False, OutputTestModule),
-    'test_copy.py'           : TestDecl(True, UTTestMainModule),
-    'test_copy_reg.py'       : TestDecl(True, UTTestMainModule),
-    'test_cpickle.py'        : TestDecl(False, UTTestMainModule),
-    'test_crypt.py'          : TestDecl(False, SimpleRunModule),
-    'test_csv.py'            : TestDecl(False, UTTestMainModule),
+    RegrTest('test_contains.py', enabled=False, dumbtest=1),
+    RegrTest('test_cookie.py', enabled=False),
+    RegrTest('test_copy.py', enabled=True),
+    RegrTest('test_copy_reg.py', enabled=True),
+    RegrTest('test_cpickle.py', enabled=False),
+    RegrTest('test_crypt.py', enabled=False, dumbtest=1),
+    RegrTest('test_csv.py', enabled=False),
         #rev 10840: ImportError: _csv
 
-    'test_curses.py'         : TestDecl(False, SimpleRunModule),
-    'test_datetime.py'       : TestDecl(True,  UTTestMainModule),
-    'test_dbm.py'            : TestDecl(False, SimpleRunModule),
-    'test_descr.py'          : TestDecl(False, UTTestMainModule),
-    'test_descrtut.py'       : TestDecl(False, UTTestMainModule),
+    RegrTest('test_curses.py', enabled=False, dumbtest=1),
+    RegrTest('test_datetime.py', enabled=True),
+    RegrTest('test_dbm.py', enabled=False, dumbtest=1),
+    RegrTest('test_descr.py', enabled=False),
+    RegrTest('test_descrtut.py', enabled=False),
         #rev 10840: 19 of 96 tests fail
 
-    'test_difflib.py'        : TestDecl(False, SimpleRunModule),
-    'test_dircache.py'       : TestDecl(True, UTTestMainModule),
-    'test_dis.py'            : TestDecl(True,  UTTestMainModule),
-    'test_dl.py'             : TestDecl(False, SimpleRunModule),
-    'test_doctest.py'        : TestDecl(True, UTTestMainModule), 
-    'test_doctest2.py'       : TestDecl(True, UTTestMainModule),
-    'test_dumbdbm.py'        : TestDecl(False, UTTestMainModule),
+    RegrTest('test_difflib.py', enabled=False, dumbtest=1),
+    RegrTest('test_dircache.py', enabled=True),
+    RegrTest('test_dis.py', enabled=True),
+    RegrTest('test_dl.py', enabled=False, dumbtest=1),
+    RegrTest('test_doctest.py', enabled=True),
+    RegrTest('test_doctest2.py', enabled=True),
+    RegrTest('test_dumbdbm.py', enabled=False),
         #rev 10840: 5 of 7 tests fail
 
-    'test_dummy_thread.py'   : TestDecl(True, UTTestMainModule),
-    'test_dummy_threading.py': TestDecl(False, SimpleRunModule),
-    'test_email.py'          : TestDecl(False, UTTestMainModule),
+    RegrTest('test_dummy_thread.py', enabled=True),
+    RegrTest('test_dummy_threading.py', enabled=False, dumbtest=1),
+    RegrTest('test_email.py', enabled=False),
         #rev 10840: Uncaught interp-level exception
 
-    'test_email_codecs.py'   : TestDecl(False, SimpleRunModule),
-    'test_enumerate.py'      : TestDecl(False, UTTestMainModule),
+    RegrTest('test_email_codecs.py', enabled=False, dumbtest=1),
+    RegrTest('test_enumerate.py', enabled=False),
         #rev 10840: fails because enumerate is a type in CPy: the test tries to subclass it
 
-    'test_eof.py'            : TestDecl(False, UTTestMainModule),
+    RegrTest('test_eof.py', enabled=False),
         #rev 10840: some error strings differ slightly XXX
 
-    'test_errno.py'          : TestDecl(False, SimpleRunModule),
-    'test_exceptions.py'     : TestDecl(False, OutputTestModule),
-    'test_extcall.py'        : TestDecl(False, OutputTestModule),
-    'test_fcntl.py'          : TestDecl(False, SimpleRunModule),
-    'test_file.py'           : TestDecl(False, SimpleRunModule),
-    'test_filecmp.py'        : TestDecl(False, UTTestMainModule),
-    'test_fileinput.py'      : TestDecl(False, SimpleRunModule),
-    'test_fnmatch.py'        : TestDecl(True, UTTestMainModule),
-    'test_fork1.py'          : TestDecl(False, SimpleRunModule),
-    'test_format.py'         : TestDecl(False, SimpleRunModule),
-    'test_fpformat.py'       : TestDecl(True, UTTestMainModule),
-    'test_frozen.py'         : TestDecl(False, OutputTestModule),
-    'test_funcattrs.py'      : TestDecl(False, SimpleRunModule),
-    'test_future.py'         : TestDecl(False, OutputTestModule),
-    'test_future1.py'        : TestDecl(False, SimpleRunModule),
-    'test_future2.py'        : TestDecl(False, SimpleRunModule),
-    'test_future3.py'        : TestDecl(True, UTTestMainModule),
-    'test_gc.py'             : TestDecl(False, SimpleRunModule),
-    'test_gdbm.py'           : TestDecl(False, SimpleRunModule),
-    'test_generators.py'     : TestDecl(False, UTTestMainModule),
+    RegrTest('test_errno.py', enabled=False, dumbtest=1),
+    RegrTest('test_exceptions.py', enabled=False),
+    RegrTest('test_extcall.py', enabled=False),
+    RegrTest('test_fcntl.py', enabled=False, dumbtest=1),
+    RegrTest('test_file.py', enabled=False, dumbtest=1),
+    RegrTest('test_filecmp.py', enabled=False),
+    RegrTest('test_fileinput.py', enabled=False, dumbtest=1),
+    RegrTest('test_fnmatch.py', enabled=True),
+    RegrTest('test_fork1.py', enabled=False, dumbtest=1),
+    RegrTest('test_format.py', enabled=False, dumbtest=1),
+    RegrTest('test_fpformat.py', enabled=True),
+    RegrTest('test_frozen.py', enabled=False),
+    RegrTest('test_funcattrs.py', enabled=False, dumbtest=1),
+    RegrTest('test_future.py', enabled=False),
+    RegrTest('test_future1.py', enabled=False, dumbtest=1),
+    RegrTest('test_future2.py', enabled=False, dumbtest=1),
+    RegrTest('test_future3.py', enabled=True),
+    RegrTest('test_gc.py', enabled=False, dumbtest=1),
+    RegrTest('test_gdbm.py', enabled=False, dumbtest=1),
+    RegrTest('test_generators.py', enabled=False),
         #rev 10840: 30 of 152 tests fail
 
-    'test_getargs.py'        : TestDecl(False, SimpleRunModule),
-    'test_getargs2.py'       : TestDecl(False, UTTestMainModule),
+    RegrTest('test_getargs.py', enabled=False, dumbtest=1),
+    RegrTest('test_getargs2.py', enabled=False),
         #rev 10840: ImportError: _testcapi
 
-    'test_getopt.py'         : TestDecl(False, SimpleRunModule),
-    'test_gettext.py'        : TestDecl(False, UTTestMainModule),
+    RegrTest('test_getopt.py', enabled=False, dumbtest=1),
+    RegrTest('test_gettext.py', enabled=False),
         #rev 10840: 28 of 28 tests fail
 
-    'test_gl.py'             : TestDecl(False, SimpleRunModule),
-    'test_glob.py'           : TestDecl(True, UTTestMainModule),
-    'test_global.py'         : TestDecl(False, OutputTestModule),
-    'test_grammar.py'        : TestDecl(False, OutputTestModule),
-    'test_grp.py'            : TestDecl(False, UTTestMainModule),
+    RegrTest('test_gl.py', enabled=False, dumbtest=1),
+    RegrTest('test_glob.py', enabled=True),
+    RegrTest('test_global.py', enabled=False),
+    RegrTest('test_grammar.py', enabled=False),
+    RegrTest('test_grp.py', enabled=False),
         #rev 10840: ImportError: grp
 
-    'test_gzip.py'           : TestDecl(False, SimpleRunModule),
-    'test_hash.py'           : TestDecl(True,  UTTestMainModule),
-    'test_heapq.py'          : TestDecl(True,  UTTestMainModule),
-    'test_hexoct.py'         : TestDecl(True,  UTTestMainModule),
-    'test_hmac.py'           : TestDecl(True, UTTestMainModule),
-    'test_hotshot.py'        : TestDecl(False, UTTestMainModule),
+    RegrTest('test_gzip.py', enabled=False, dumbtest=1),
+    RegrTest('test_hash.py', enabled=True),
+    RegrTest('test_heapq.py', enabled=True),
+    RegrTest('test_hexoct.py', enabled=True),
+    RegrTest('test_hmac.py', enabled=True),
+    RegrTest('test_hotshot.py', enabled=False),
         #rev 10840: ImportError: _hotshot
 
-    'test_htmllib.py'        : TestDecl(True,  UTTestMainModule),
-    'test_htmlparser.py'     : TestDecl(True,  UTTestMainModule),
-    'test_httplib.py'        : TestDecl(False, OutputTestModule),
-    'test_imageop.py'        : TestDecl(False, SimpleRunModule),
-    'test_imaplib.py'        : TestDecl(False, SimpleRunModule),
-    'test_imgfile.py'        : TestDecl(False, SimpleRunModule),
-    'test_imp.py'            : TestDecl(False, UTTestMainModule),
-    'test_import.py'         : TestDecl(False, SimpleRunModule),
-    'test_importhooks.py'    : TestDecl(False, UTTestMainModule),
-    'test_inspect.py'        : TestDecl(False, SimpleRunModule),
-    'test_ioctl.py'          : TestDecl(False, UTTestMainModule),
-    'test_isinstance.py'     : TestDecl(True,  UTTestMainModule),
-    'test_iter.py'           : TestDecl(False, UTTestMainModule),
+    RegrTest('test_htmllib.py', enabled=True),
+    RegrTest('test_htmlparser.py', enabled=True),
+    RegrTest('test_httplib.py', enabled=False),
+    RegrTest('test_imageop.py', enabled=False, dumbtest=1),
+    RegrTest('test_imaplib.py', enabled=False, dumbtest=1),
+    RegrTest('test_imgfile.py', enabled=False, dumbtest=1),
+    RegrTest('test_imp.py', enabled=False),
+    RegrTest('test_import.py', enabled=False, dumbtest=1),
+    RegrTest('test_importhooks.py', enabled=False),
+    RegrTest('test_inspect.py', enabled=False, dumbtest=1),
+    RegrTest('test_ioctl.py', enabled=False),
+    RegrTest('test_isinstance.py', enabled=True),
+    RegrTest('test_iter.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
-    'test_itertools.py'      : TestDecl(True, UTTestMainModule, modified=True),
+    RegrTest('test_itertools.py', enabled=True),
         # modified version in pypy/lib/test2
 
-    'test_largefile.py'      : TestDecl(False, SimpleRunModule),
-    'test_linuxaudiodev.py'  : TestDecl(False, OutputTestModule),
-    'test_locale.py'         : TestDecl(False, SimpleRunModule),
-    'test_logging.py'        : TestDecl(False, OutputTestModule),
-    'test_long.py'           : TestDecl(True,  SimpleRunModule), # takes hours 
-    'test_long_future.py'    : TestDecl(False, SimpleRunModule),
-    'test_longexp.py'        : TestDecl(False, OutputTestModule),
-    'test_macfs.py'          : TestDecl(False, UTTestMainModule),
-    'test_macostools.py'     : TestDecl(False, UTTestMainModule),
-    'test_macpath.py'        : TestDecl(False, UTTestMainModule),
-    'test_mailbox.py'        : TestDecl(True, UTTestMainModule),
-    'test_marshal.py'        : TestDecl(False, SimpleRunModule),
-    'test_math.py'           : TestDecl(False, OutputTestModule),
-    'test_md5.py'            : TestDecl(False, OutputTestModule),
-    'test_mhlib.py'          : TestDecl(True, UTTestMainModule),
-    'test_mimetools.py'      : TestDecl(True, UTTestMainModule),
-    'test_mimetypes.py'      : TestDecl(True, UTTestMainModule),
-    'test_minidom.py'        : TestDecl(False, SimpleRunModule),
-    'test_mmap.py'           : TestDecl(False, OutputTestModule),
-    'test_module.py'         : TestDecl(False, SimpleRunModule),
-    'test_mpz.py'            : TestDecl(False, SimpleRunModule),
-    'test_multifile.py'      : TestDecl(True, UTTestMainModule),
-    'test_mutants.py'        : TestDecl(False, SimpleRunModule),
-    'test_netrc.py'          : TestDecl(True, UTTestMainModule),
-    'test_new.py'            : TestDecl(False, OutputTestModule),
-    'test_nis.py'            : TestDecl(False, OutputTestModule),
-    'test_normalization.py'  : TestDecl(False, UTTestMainModule),
-    'test_ntpath.py'         : TestDecl(False, SimpleRunModule),
-    'test_opcodes.py'        : TestDecl(False, OutputTestModule),
-    'test_openpty.py'        : TestDecl(False, OutputTestModule),
-    'test_operations.py'     : TestDecl(False, OutputTestModule),
-    'test_operator.py'       : TestDecl(True,  UTTestMainModule),
-    'test_optparse.py'       : TestDecl(False, UTTestMainModule),
-    'test_os.py'             : TestDecl(True, UTTestMainModule),
-    'test_ossaudiodev.py'    : TestDecl(False, OutputTestModule),
-    'test_parser.py'         : TestDecl(True,  UTTestMainModule),
+    RegrTest('test_largefile.py', enabled=False, dumbtest=1),
+    RegrTest('test_linuxaudiodev.py', enabled=False),
+    RegrTest('test_locale.py', enabled=False, dumbtest=1),
+    RegrTest('test_logging.py', enabled=False),
+    RegrTest('test_long.py', enabled=True, dumbtest=1),
+    RegrTest('test_long_future.py', enabled=False, dumbtest=1),
+    RegrTest('test_longexp.py', enabled=False),
+    RegrTest('test_macfs.py', enabled=False),
+    RegrTest('test_macostools.py', enabled=False),
+    RegrTest('test_macpath.py', enabled=False),
+    RegrTest('test_mailbox.py', enabled=True),
+    RegrTest('test_marshal.py', enabled=False, dumbtest=1),
+    RegrTest('test_math.py', enabled=False),
+    RegrTest('test_md5.py', enabled=False),
+    RegrTest('test_mhlib.py', enabled=True),
+    RegrTest('test_mimetools.py', enabled=True),
+    RegrTest('test_mimetypes.py', enabled=True),
+    RegrTest('test_MimeWriter.py', enabled=False),
+    RegrTest('test_minidom.py', enabled=False, dumbtest=1),
+    RegrTest('test_mmap.py', enabled=False),
+    RegrTest('test_module.py', enabled=False, dumbtest=1),
+    RegrTest('test_mpz.py', enabled=False, dumbtest=1),
+    RegrTest('test_multifile.py', enabled=True),
+    RegrTest('test_mutants.py', enabled=False, dumbtest=1),
+    RegrTest('test_netrc.py', enabled=True),
+    RegrTest('test_new.py', enabled=False),
+    RegrTest('test_nis.py', enabled=False),
+    RegrTest('test_normalization.py', enabled=False),
+    RegrTest('test_ntpath.py', enabled=False, dumbtest=1),
+    RegrTest('test_opcodes.py', enabled=False),
+    RegrTest('test_openpty.py', enabled=False),
+    RegrTest('test_operations.py', enabled=False),
+    RegrTest('test_operator.py', enabled=True),
+    RegrTest('test_optparse.py', enabled=False),
+    RegrTest('test_os.py', enabled=True),
+    RegrTest('test_ossaudiodev.py', enabled=False),
+    RegrTest('test_parser.py', enabled=True),
         #rev 10840: 18 of 18 tests fail
 
-    'test_pep247.py'         : TestDecl(False, SimpleRunModule),
-    'test_pep263.py'         : TestDecl(False, SimpleRunModule),
-    'test_pep277.py'         : TestDecl(False, UTTestMainModule),
+    RegrTest('test_pep247.py', enabled=False, dumbtest=1),
+    RegrTest('test_pep263.py', enabled=False, dumbtest=1),
+    RegrTest('test_pep277.py', enabled=False),
         # XXX this test is _also_ an output test, damn it 
         #     seems to be the only one that invokes run_unittest 
         #     and is an unittest 
-    'test_pickle.py'         : TestDecl(False, UTTestMainModule),
-    'test_pickletools.py'    : TestDecl(False, SimpleRunModule),
-    'test_pkg.py'            : TestDecl(False, OutputTestModule),
-    'test_pkgimport.py'      : TestDecl(True, UTTestMainModule),
-    'test_plistlib.py'       : TestDecl(False, UTTestMainModule),
-    'test_poll.py'           : TestDecl(False, OutputTestModule),
-    'test_popen.py'          : TestDecl(False, OutputTestModule),
-    'test_popen2.py'         : TestDecl(False, OutputTestModule),
-    'test_posix.py'          : TestDecl(True, UTTestMainModule),
-    'test_posixpath.py'      : TestDecl(True, UTTestMainModule),
-    'test_pow.py'            : TestDecl(True, UTTestMainModule),
-    'test_pprint.py'         : TestDecl(True,  UTTestMainModule),
-    'test_profile.py'        : TestDecl(True, OutputTestModule),
-    'test_profilehooks.py'   : TestDecl(True,  UTTestMainModule),
-    'test_pty.py'            : TestDecl(False, OutputTestModule),
-    'test_pwd.py'            : TestDecl(False, UTTestMainModule),
+    RegrTest('test_pickle.py', enabled=False),
+    RegrTest('test_pickletools.py', enabled=False, dumbtest=1),
+    RegrTest('test_pkg.py', enabled=False),
+    RegrTest('test_pkgimport.py', enabled=True),
+    RegrTest('test_plistlib.py', enabled=False),
+    RegrTest('test_poll.py', enabled=False),
+    RegrTest('test_popen.py', enabled=False),
+    RegrTest('test_popen2.py', enabled=False),
+    RegrTest('test_posix.py', enabled=True),
+    RegrTest('test_posixpath.py', enabled=True),
+    RegrTest('test_pow.py', enabled=True),
+    RegrTest('test_pprint.py', enabled=True),
+    RegrTest('test_profile.py', enabled=True),
+    RegrTest('test_profilehooks.py', enabled=True),
+    RegrTest('test_pty.py', enabled=False),
+    RegrTest('test_pwd.py', enabled=False),
         #rev 10840: ImportError: pwd
 
-    'test_pyclbr.py'         : TestDecl(False, UTTestMainModule),
-    'test_pyexpat.py'        : TestDecl(False, OutputTestModule),
-    'test_queue.py'          : TestDecl(False, SimpleRunModule),
-    'test_quopri.py'         : TestDecl(False, UTTestMainModule),
-    'test_random.py'         : TestDecl(False, UTTestMainModule),
+    RegrTest('test_pyclbr.py', enabled=False),
+    RegrTest('test_pyexpat.py', enabled=False),
+    RegrTest('test_queue.py', enabled=False, dumbtest=1),
+    RegrTest('test_quopri.py', enabled=False),
+    RegrTest('test_random.py', enabled=False),
         #rev 10840: Uncaught app-level exception:
         #class WichmannHill_TestBasicOps(TestBasicOps):
         #File "test_random.py", line 125 in WichmannHill_TestBasicOps
         #gen = random.WichmannHill()
         #AttributeError: 'module' object has no attribute 'WichmannHill'
 
-    'test_re.py'             : TestDecl(False, UTTestMainModule),
+    RegrTest('test_re.py', enabled=False),
         #rev 10840: 7 of 47 tests fail
 
-    'test_regex.py'          : TestDecl(False, OutputTestModule),
-    'test_repr.py'           : TestDecl(False, UTTestMainModule),
+    RegrTest('test_regex.py', enabled=False),
+    RegrTest('test_repr.py', enabled=False),
         #rev 10840: 6 of 12 tests fail. Always minor stuff like
         #'<function object at 0x40db3e0c>' != '<built-in function hash>'
 
-    'test_resource.py'       : TestDecl(False, OutputTestModule),
-    'test_rfc822.py'         : TestDecl(True, UTTestMainModule),
-    'test_rgbimg.py'         : TestDecl(False, OutputTestModule),
-    'test_richcmp.py'        : TestDecl(False, UTTestMainModule),
+    RegrTest('test_resource.py', enabled=False),
+    RegrTest('test_rfc822.py', enabled=True),
+    RegrTest('test_rgbimg.py', enabled=False),
+    RegrTest('test_richcmp.py', enabled=False),
         #rev 10840: 1 of 11 test fails. The failing one had an infinite recursion.
 
-    'test_robotparser.py'    : TestDecl(True, UTTestMainModule),
-    'test_rotor.py'          : TestDecl(False, OutputTestModule),
-    'test_sax.py'            : TestDecl(False, SimpleRunModule),
-    'test_scope.py'          : TestDecl(False, OutputTestModule),
-    'test_scriptpackages.py' : TestDecl(False, UTTestMainModule),
-    'test_select.py'         : TestDecl(False, SimpleRunModule),
-    'test_sets.py'           : TestDecl(True, UTTestMainModule),
-    'test_sgmllib.py'        : TestDecl(True,  UTTestMainModule),
-    'test_sha.py'            : TestDecl(True, UTTestMainModule, modified=True),
+    RegrTest('test_robotparser.py', enabled=True),
+    RegrTest('test_rotor.py', enabled=False),
+    RegrTest('test_sax.py', enabled=False, dumbtest=1),
+    RegrTest('test_scope.py', enabled=False),
+    RegrTest('test_scriptpackages.py', enabled=False),
+    RegrTest('test_select.py', enabled=False, dumbtest=1),
+    RegrTest('test_sets.py', enabled=True),
+    RegrTest('test_sgmllib.py', enabled=True),
+    RegrTest('test_sha.py', enabled=True),
         # one test is taken out (too_slow_test_case_3), rest passses 
-    'test_shelve.py'         : TestDecl(True, UTTestMainModule),
-    'test_shlex.py'          : TestDecl(True, UTTestMainModule),
-    'test_shutil.py'         : TestDecl(True, UTTestMainModule),
-    'test_signal.py'         : TestDecl(False, OutputTestModule),
-    'test_slice.py'          : TestDecl(False, SimpleRunModule),
-    'test_socket.py'         : TestDecl(False, UTTestMainModule),
+    RegrTest('test_shelve.py', enabled=True),
+    RegrTest('test_shlex.py', enabled=True),
+    RegrTest('test_shutil.py', enabled=True),
+    RegrTest('test_signal.py', enabled=False),
+    RegrTest('test_slice.py', enabled=False, dumbtest=1),
+    RegrTest('test_socket.py', enabled=False),
         #rev 10840: ImportError: thread
 
-    'test_socket_ssl.py'     : TestDecl(False, UTTestMainModule),
-    'test_socketserver.py'   : TestDecl(False, UTTestMainModule),
+    RegrTest('test_socket_ssl.py', enabled=False),
+    RegrTest('test_socketserver.py', enabled=False),
         #rev 10840: ImportError: thread
 
-    'test_softspace.py'      : TestDecl(False, SimpleRunModule),
-    'test_sort.py'           : TestDecl(False, SimpleRunModule),
-    'test_str.py'            : TestDecl(False, UTTestMainModule),
+    RegrTest('test_softspace.py', enabled=False, dumbtest=1),
+    RegrTest('test_sort.py', enabled=False, dumbtest=1),
+    RegrTest('test_str.py', enabled=False),
         #rev 10840: at least two tests fail, after several hours I gave up waiting for the rest
 
-    'test_strftime.py'       : TestDecl(False, SimpleRunModule),
-    'test_string.py'         : TestDecl(True,  UTTestMainModule),
-    'test_stringprep.py'     : TestDecl(False, SimpleRunModule),
-    'test_strop.py'          : TestDecl(False, UTTestMainModule),
+    RegrTest('test_strftime.py', enabled=False, dumbtest=1),
+    RegrTest('test_string.py', enabled=True),
+    RegrTest('test_StringIO.py', enabled=True),
+    RegrTest('test_stringprep.py', enabled=False, dumbtest=1),
+    RegrTest('test_strop.py', enabled=False),
         #rev 10840: ImportError: strop
 
-    'test_strptime.py'       : TestDecl(False, UTTestMainModule),
+    RegrTest('test_strptime.py', enabled=False),
         #rev 10840: 1 of 42 test fails: seems to be some regex problem
 
-    'test_struct.py'         : TestDecl(False, SimpleRunModule),
-    'test_structseq.py'      : TestDecl(False, SimpleRunModule),
-    'test_sunaudiodev.py'    : TestDecl(False, SimpleRunModule),
-    'test_sundry.py'         : TestDecl(False, SimpleRunModule),
+    RegrTest('test_struct.py', enabled=False, dumbtest=1),
+    RegrTest('test_structseq.py', enabled=False, dumbtest=1),
+    RegrTest('test_sunaudiodev.py', enabled=False, dumbtest=1),
+    RegrTest('test_sundry.py', enabled=False, dumbtest=1),
     # test_support is not a test
-    'test_symtable.py'       : TestDecl(False, SimpleRunModule),
-    'test_syntax.py'         : TestDecl(True, UTTestMainModule),
-    'test_sys.py'            : TestDecl(True,  UTTestMainModule),
-    'test_tarfile.py'        : TestDecl(False, UTTestMainModule),
+    RegrTest('test_symtable.py', enabled=False, dumbtest=1),
+    RegrTest('test_syntax.py', enabled=True),
+    RegrTest('test_sys.py', enabled=True),
+    RegrTest('test_tarfile.py', enabled=False),
         #rev 10840: 13 of 13 test fail
 
-    'test_tempfile.py'       : TestDecl(False, UTTestMainModule),
+    RegrTest('test_tempfile.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
-    'test_textwrap.py'       : TestDecl(True,  UTTestMainModule),
-    'test_thread.py'         : TestDecl(False, OutputTestModule),
-    'test_threaded_import.py': TestDecl(False, UTTestMainModule),
-    'test_threadedtempfile.py': TestDecl(False, OutputTestModule),
+    RegrTest('test_textwrap.py', enabled=True),
+    RegrTest('test_thread.py', enabled=False),
+    RegrTest('test_threaded_import.py', enabled=False),
+    RegrTest('test_threadedtempfile.py', enabled=False),
         #rev 10840: ImportError: thread
 
-    'test_threading.py'      : TestDecl(False, SimpleRunModule),
+    RegrTest('test_threading.py', enabled=False, dumbtest=1),
         #rev 10840: ImportError: thread
 
-    'test_time.py'           : TestDecl(True, UTTestMainModule),
-    'test_timeout.py'        : TestDecl(False, UTTestMainModule),
+    RegrTest('test_time.py', enabled=True),
+    RegrTest('test_timeout.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
-    'test_timing.py'         : TestDecl(False, SimpleRunModule),
-    'test_tokenize.py'       : TestDecl(False, OutputTestModule),
-    'test_trace.py'          : TestDecl(True,  UTTestMainModule),
-    'test_traceback.py'      : TestDecl(False, UTTestMainModule),
+    RegrTest('test_timing.py', enabled=False, dumbtest=1),
+    RegrTest('test_tokenize.py', enabled=False),
+    RegrTest('test_trace.py', enabled=True),
+    RegrTest('test_traceback.py', enabled=False),
         #rev 10840: 2 of 2 tests fail
 
-    'test_types.py'          : TestDecl(True, OutputTestModule, modified=True),
+    RegrTest('test_types.py', enabled=True),
         #rev 11598: one of the mod related to dict iterators is questionable
         # and questions whether how we implement them is meaningful in the
         # long run
         
-    'test_ucn.py'            : TestDecl(False, UTTestMainModule),
-    'test_unary.py'          : TestDecl(True, UTTestMainModule),
-    'test_unicode.py'        : TestDecl(False, UTTestMainModule),
-    'test_unicode_file.py'   : TestDecl(False, OutputTestModule),
-    'test_unicodedata.py'    : TestDecl(False, UTTestMainModule),
-    'test_univnewlines.py'   : TestDecl(True, UTTestMainModule),
-    'test_unpack.py'         : TestDecl(False, SimpleRunModule),
-    'test_urllib.py'         : TestDecl(True, UTTestMainModule),
+    RegrTest('test_ucn.py', enabled=False),
+    RegrTest('test_unary.py', enabled=True),
+    RegrTest('test_unicode.py', enabled=False),
+    RegrTest('test_unicode_file.py', enabled=False),
+    RegrTest('test_unicodedata.py', enabled=False),
+    RegrTest('test_univnewlines.py', enabled=True),
+    RegrTest('test_unpack.py', enabled=False, dumbtest=1),
+    RegrTest('test_urllib.py', enabled=True),
         #rev 10840: 10 of 10 tests fail
 
-    'test_urllib2.py'        : TestDecl(False, SimpleRunModule),
-    'test_urllibnet.py'      : TestDecl(False, UTTestMainModule),
-    'test_urlparse.py'       : TestDecl(True,  UTTestMainModule),
-    'test_userdict.py'       : TestDecl(True, UTTestMainModule),
+    RegrTest('test_urllib2.py', enabled=False, dumbtest=1),
+    RegrTest('test_urllibnet.py', enabled=False),
+    RegrTest('test_urlparse.py', enabled=True),
+    RegrTest('test_userdict.py', enabled=True),
         #rev 10840: 5 of 25 tests fail
 
-    'test_userlist.py'       : TestDecl(False, UTTestMainModule),
+    RegrTest('test_userlist.py', enabled=False),
         #rev 10840: at least two tests fail, after several hours I gave up waiting for the rest
 
-    'test_userstring.py'     : TestDecl(False, UTTestMainModule),
-    'test_uu.py'             : TestDecl(False, UTTestMainModule),
+    RegrTest('test_userstring.py', enabled=False),
+    RegrTest('test_uu.py', enabled=False),
         #rev 10840: 1 of 9 test fails
 
-    'test_warnings.py'       : TestDecl(True, UTTestMainModule),
-    'test_wave.py'           : TestDecl(False, SimpleRunModule),
-    'test_weakref.py'        : TestDecl(False, UTTestMainModule),
+    RegrTest('test_warnings.py', enabled=True),
+    RegrTest('test_wave.py', enabled=False, dumbtest=1),
+    RegrTest('test_weakref.py', enabled=False),
         #rev 10840: ImportError: _weakref
 
-    'test_whichdb.py'        : TestDecl(False, UTTestMainModule),
-    'test_winreg.py'         : TestDecl(False, OutputTestModule),
-    'test_winsound.py'       : TestDecl(False, UTTestMainModule),
-    'test_xmllib.py'         : TestDecl(False, UTTestMainModule),
-    'test_xmlrpc.py'         : TestDecl(False, UTTestMainModule),
+    RegrTest('test_whichdb.py', enabled=False),
+    RegrTest('test_winreg.py', enabled=False),
+    RegrTest('test_winsound.py', enabled=False),
+    RegrTest('test_xmllib.py', enabled=False),
+    RegrTest('test_xmlrpc.py', enabled=False),
         #rev 10840: 2 of 5 tests fail
 
-    'test_xpickle.py'        : TestDecl(False, UTTestMainModule),
-    'test_xreadline.py'      : TestDecl(False, OutputTestModule),
-    'test_zipfile.py'        : TestDecl(False, SimpleRunModule),
-    'test_zipimport.py'      : TestDecl(False, UTTestMainModule),
+    RegrTest('test_xpickle.py', enabled=False),
+    RegrTest('test_xreadline.py', enabled=False),
+    RegrTest('test_zipfile.py', enabled=False, dumbtest=1),
+    RegrTest('test_zipimport.py', enabled=False),
         #rev 10840: ImportError: zlib
 
-    'test_zlib.py'           : TestDecl(False, UTTestMainModule),
+    RegrTest('test_zlib.py', enabled=False),
         #rev 10840: ImportError: zlib
-}
+]
 
 class RegrDirectory(py.test.collect.Directory): 
     """ The central hub for gathering CPython's compliance tests
@@ -708,23 +662,24 @@ class RegrDirectory(py.test.collect.Directory):
         please correct them! 
     """ 
     testmap = testmap
+
+    def get(self, name, cache={}): 
+        if not cache: 
+            for x in testmap: 
+                cache[x.basename] = x
+        return cache.get(name, None)
+        
     def run(self): 
-        l = []
-        items = self.testmap.items() 
-        items.sort(lambda x,y: cmp(x[0].lower(), y[0].lower()))
-        for name, testdecl in items: 
-            if option.withdisabled or testdecl.enabled: 
-                l.append(name) 
-        return l 
+        return [x.basename for x in self.testmap 
+                    if x.enabled or pypy_option.withdisabled]
 
     def join(self, name): 
-        if name in self.testmap: 
-            testdecl = self.testmap[name]
-            fspath = self.fspath.join(name) 
-            if option.extracttests:  
-                return testdecl.testclass(fspath, parent=self, testdecl=testdecl) 
+        regrtest = self.get(name) 
+        if regrtest is not None: 
+            if not option.extracttests:  
+                return RunFileExternal(name, parent=self, regrtest=regrtest) 
             else: 
-                return RunFileExternal(fspath, parent=self, testdecl=testdecl) 
+                return InterceptedRunModule(name, self, regrtest) 
 
 Directory = RegrDirectory
 
@@ -735,19 +690,24 @@ def getrev(path):
     except: 
         return 'unknown'  # on windows people not always have 'svn' in their path
 
-class RunFileExternal(OpErrorModule): 
-    # a Module shows more nicely with the session reporting 
-    # (i know this needs to become nicer) 
+class RunFileExternal(py.test.collect.Module): 
+    def __init__(self, name, parent, regrtest): 
+        super(RunFileExternal, self).__init__(name, parent) 
+        self.regrtest = regrtest 
+
     def tryiter(self, stopitems=()): 
+        # shortcut pre-counting of items 
         return []
+
     def run(self): 
-        return ['pypy-ext']
+        if self.regrtest.ismodified(): 
+            return ['modified']
+        return ['unmodified']
+
     def join(self, name): 
-        if name == 'pypy-ext': 
-            return ReallyRunFileExternal(name, parent=self, fspath=self.fspath) 
+        return ReallyRunFileExternal(name, parent=self) 
 
-class ReallyRunFileExternal(RunAppFileItem): 
-
+class ReallyRunFileExternal(py.test.Item): 
     def run(self): 
         """ invoke a subprocess running the test file via PyPy. 
             record its output into the 'result/user@host' subdirectory. 
@@ -760,13 +720,14 @@ class ReallyRunFileExternal(RunAppFileItem):
         import time
         import socket
         import getpass
-        fspath = self.getfspath() 
+        regrtest = self.parent.regrtest
+        fspath = regrtest.getfspath() 
         python = sys.executable 
         pypy_dir = py.path.local(pypy.__file__).dirpath()
         pypy_script = pypy_dir.join('interpreter', 'py.py')
         alarm_script = pypy_dir.join('tool', 'alarm.py')
         pypy_options = []
-        if self.testdecl.oldstyle: 
+        if regrtest.oldstyle or pypy_option.oldstyle: 
             pypy_options.append('--oldstyle') 
         sopt = " ".join(pypy_options) 
         TIMEOUT = option.timeout 
@@ -787,7 +748,7 @@ class ReallyRunFileExternal(RunAppFileItem):
         resultdir.ensure(dir=1)
         resultfilename = resultdir.join(fspath.new(ext='.txt').basename)
         resultfile = resultfilename.open('w')
-        if issubclass(self.testdecl.testclass, OutputTestModule):
+        if regrtest.getoutputpath(): 
             outputfilename = resultfilename.new(ext='.out')
             outputfile = outputfilename.open('w')
             print >> outputfile, self.fspath.purebasename
@@ -805,7 +766,7 @@ class ReallyRunFileExternal(RunAppFileItem):
             print >>resultfile, "cpu model:", info['model name']
             print >>resultfile, "cpu mhz:", info['cpu mhz']
 
-        print >> resultfile, "oldstyle:", self.testdecl.oldstyle and 'yes' or 'no'
+        print >> resultfile, "oldstyle:", regrtest.oldstyle and 'yes' or 'no'
         print >> resultfile, 'pypy-revision:', getrev(pypydir)
         print >> resultfile, "startdate:", time.ctime()
             
@@ -831,12 +792,12 @@ class ReallyRunFileExternal(RunAppFileItem):
         failure = None
         resultfile = resultfilename.open('a')
         if outputfilename:
-            expectedfilename = mydir.join('output', self.fspath.purebasename)
+            expectedfilename = regrtest.getoutputpath() 
             expected = expectedfilename.read(mode='r')
             result = outputfilename.read(mode='r')
             if result != expected: 
                 reportdiff(expected, result) 
-                failure = "output check failed: %s" % (self.fspath.basename,)
+                failure = "output check failed: %s" % (fspath.basename,)
                 print >> resultfile, 'FAILED: test output differs'
             else:
                 print >> resultfile, 'OK'
