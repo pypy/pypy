@@ -345,6 +345,7 @@ def __str__(self):
     if type(self.msg) is not str:
         return self.msg
 
+    buffer = self.msg
     have_filename = type(self.filename) is str
     have_lineno = type(self.lineno) is int
     if have_filename or have_lineno:
