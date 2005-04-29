@@ -2,25 +2,6 @@
 
 from test.test_support import TestFailed
 
-# HACK BEGIN
-
-# After this implementation is complete and
-# incorporated into the core after translation,
-# this test file should really vanish!
-
-import pypy, os, new
-prefix = os.path.dirname(pypy.__file__)
-libdir = os.path.join(prefix, "lib")
-fname = "_classobj.py"
-fpath = os.path.join(libdir, fname)
-mod = new.module("_classobj")
-mod.__file__ = fpath
-execfile(fpath, mod.__dict__)
-
-__metaclass__ = mod.classobj
-
-# HACK END
-
 testmeths = [
 
 # Binary operations
@@ -214,7 +195,8 @@ else:
 -testme
 +testme
 abs(testme)
-if sys.platform[:4] != 'java':
+# PyPy enforces the same rule as Jython and CPython 2.4
+if 0:  # sys.platform[:4] != 'java':
     int(testme)
     long(testme)
     float(testme)
