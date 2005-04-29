@@ -34,23 +34,8 @@ option = py.test.Config.addoptions("compliance testing options",
            help="timeout running of a test module (default 15*60 seconds)"), 
     ) 
 
-
 mydir = py.magic.autopath().dirpath()
 pypydir = py.path.local(pypy.__file__).dirpath()
-
-def make_module(space, dottedname, filepath): 
-    #print "making module", dottedname, "from", filepath 
-    w_dottedname = space.wrap(dottedname) 
-    mod = PyPyModule(space, w_dottedname) 
-    w_globals = mod.w_dict 
-    w_filename = space.wrap(str(filepath)) 
-    w_execfile = space.builtin.get('execfile') 
-    print "calling execfile", w_filename
-    space.call_function(w_execfile, w_filename, w_globals, w_globals)
-    w_mod = space.wrap(mod) 
-    w_modules = space.sys.get('modules') 
-    space.setitem(w_modules, w_dottedname, w_mod) 
-    return w_mod 
 
 def callex(space, func, *args, **kwargs): 
     try: 
@@ -97,6 +82,10 @@ app = ApplevelClass('''
             raise TypeError, "expected TestSuite or TestClass, got %r"  %(suite_or_class) 
         return res 
 
+    #
+    # exported API 
+    #
+
     def intercept_test_support(suites=[], doctestmodules=[]): 
         """ intercept calls to test_support.run_doctest and run_suite. 
             Return doctestmodules, suites which will hold collected
@@ -111,12 +100,7 @@ app = ApplevelClass('''
         test_support.run_suite = hack_run_suite 
         return suites, doctestmodules 
 
-    #
-    # exported API 
-    #
-    def collect_test_main(mod): 
-        suites, doctestmodules = intercept_test_support()
-        mod.test_main() 
+    def collect_intercepted(suites, doctestmodules): 
         namemethodlist = []
         for method in getmethods(suites): 
             name = (method.__class__.__name__ + '.' + 
@@ -138,9 +122,17 @@ app = ApplevelClass('''
         sys.argv[:] = ['python', filename]
 ''') 
 
-collect_test_main = app.interphook('collect_test_main')
+intercept_test_support = app.interphook('intercept_test_support')
+collect_intercepted = app.interphook('collect_intercepted')
 run_testcase_method = app.interphook('run_testcase_method')
 set_argv = app.interphook('set_argv')
+
+def intercepted_run_file(space, fspath): 
+    w_suites, w_doctestmodules = space.unpacktuple(intercept_test_support(space))
+    callex(space, run_file, str(fspath), space)
+    w_result = callex(space, collect_intercepted, space, w_suites, w_doctestmodules)
+    w_namemethods, w_doctestlist = space.unpacktuple(w_result) 
+    return w_namemethods, w_doctestlist 
 
 class OpErrorModule(py.test.collect.Module): 
     # wraps some methods around a py.test Module in order
@@ -268,12 +260,10 @@ class UTTestMainModule(OpErrorModule):
         if self.testdecl.oldstyle or pypy_option.oldstyle: 
             space.enable_old_style_classes_as_default_metaclass() 
         try:  
-            self.w_mod = make_module(space, name, fspath) 
+            w_namemethods, w_doctestlist = intercepted_run_file(space, fspath)
         finally: 
             if not pypy_option.oldstyle: 
                 space.enable_new_style_classes_as_default_metaclass() 
-        w_result = callex(space, collect_test_main, space, self.w_mod)
-        w_namemethods, w_doctestlist = space.unpacktuple(w_result) 
 
         # setup {name -> wrapped testcase method}
         self.name2w_method = {}
@@ -424,7 +414,7 @@ testmap = {
     'test_dircache.py'       : TestDecl(True, UTTestMainModule),
     'test_dis.py'            : TestDecl(True,  UTTestMainModule),
     'test_dl.py'             : TestDecl(False, SimpleRunModule),
-    'test_doctest.py'        : TestDecl(False, SimpleRunModule),
+    'test_doctest.py'        : TestDecl(True, UTTestMainModule), 
     'test_doctest2.py'       : TestDecl(True, UTTestMainModule),
     'test_dumbdbm.py'        : TestDecl(False, UTTestMainModule),
         #rev 10840: 5 of 7 tests fail
