@@ -782,7 +782,7 @@ class ReallyRunFileExternal(RunAppFileItem):
             py.test.skip("""'result' subdirectory not found.
             To run tests in reporting mode (without -E), you first have to
             check it out as follows into the current directory:
-            svn co http://codespeak.net/svn/pypy/testresult""")
+            svn co http://codespeak.net/svn/pypy/testresult result""")
         resultdir = mydir.join('result', userhost)
         resultdir.ensure(dir=1)
         resultfilename = resultdir.join(fspath.new(ext='.txt').basename)
