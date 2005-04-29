@@ -101,13 +101,14 @@ class UTTestCase(py.test.collect.Class):
         super(UTTestCase, self).__init__(name, parent) 
         self._obj = cls 
 
-TestDecl = libconftest.TestDecl 
-
-testmap = {
-    'test_itertools.py' : TestDecl(True, UTModuleOnCPython), 
-    'test_sha.py'        : TestDecl(True, UTModuleOnCPython), 
-}
+#testmap = {
+#    'test_itertools.py' : TestDecl(True, UTModuleOnCPython), 
+#    'test_sha.py'        : TestDecl(True, UTModuleOnCPython), 
+#}
 
 class Directory(libconftest.Directory): 
-    testmap = testmap 
+
+    def run(self): 
+        py.test.skip("running modified tests on native cpython not supported currently.")
+
 
