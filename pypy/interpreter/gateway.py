@@ -253,7 +253,7 @@ class BuiltinFrame(eval.Frame):
             raise OperationError(self.space.w_MemoryError, self.space.w_None) 
         except RuntimeError, e: 
             raise OperationError(self.space.w_RuntimeError, 
-                                 self.space.wrap("internal error" + str(e))) 
+                                 self.space.wrap("internal error: " + str(e))) 
         if w_result is None:
             w_result = self.space.w_None
         return w_result
