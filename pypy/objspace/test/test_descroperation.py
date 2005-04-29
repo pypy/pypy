@@ -1,5 +1,19 @@
 
 
+class Test_DescrOperation:
+
+    def test_nonzero(self):
+        space = self.space
+        assert space.nonzero(space.w_True) is space.w_True
+        assert space.nonzero(space.w_False) is space.w_False
+        assert space.nonzero(space.wrap(42)) is space.w_True
+        assert space.nonzero(space.wrap(0)) is space.w_False
+        l = space.newlist([])
+        assert space.nonzero(l) is space.w_False
+        space.call_method(l, 'append', space.w_False)
+        assert space.nonzero(l) is space.w_True
+
+
 class AppTest_Descroperation:
 
     def test_getslice(self):
@@ -77,3 +91,11 @@ class AppTest_Descroperation:
         x = 2
         x **= 5
         assert x == 32
+
+    def test_typechecks(self):
+        class myint(int):
+            pass
+        class X(object):
+            def __nonzero__(self):
+                return myint(1)
+        raises(TypeError, "not X()")

@@ -154,14 +154,28 @@ class DescrOperation:
         if w_obj == space.w_None:
             return False
         w_descr = space.lookup(w_obj, '__nonzero__')
-        if w_descr is not None:
-            w_res = space.get_and_call_function(w_descr, w_obj)
+        if w_descr is None:
+            w_descr = space.lookup(w_obj, '__len__')
+            if w_descr is None:
+                return True
+        w_res = space.get_and_call_function(w_descr, w_obj)
+        w_restype = space.type(w_res)
+        if (space.is_w(w_restype, space.w_bool) or
+            space.is_w(w_restype, space.w_int)):
             return space.is_true(w_res)
-        w_descr = space.lookup(w_obj, '__len__')
-        if w_descr is not None:
-            w_res = space.get_and_call_function(w_descr, w_obj)
-            return space.is_true(w_res)
-        return True
+        else:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap('__nonzero__ should return '
+                                            'bool or int'))
+
+    def nonzero(self, w_obj):
+        if self.is_true(w_obj):
+            return self.w_True
+        else:
+            return self.w_False
+
+##    def len(self, w_obj):
+##        XXX needs to check that the result is an int (or long?) >= 0
 
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
