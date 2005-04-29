@@ -10,6 +10,7 @@ from pypy.interpreter.main import run_string, run_file
 # the following adds command line options as a side effect! 
 from pypy.conftest import gettestobjspace, option as pypy_option 
 from test.regrtest import reportdiff
+from test import pystone
 
 # 
 # Interfacing/Integrating with py.test's collection process 
@@ -29,10 +30,21 @@ option = py.test.Config.addoptions("compliance testing options",
     Option('-E', '--extracttests', action="store_true", 
            default=False, dest="extracttests", 
            help="try to extract single tests and run them via py.test/PyPy"), 
-    Option('-T', '--timeout', action="store", type="int", 
-           default=15*60, dest="timeout", 
-           help="timeout running of a test module (default 15*60 seconds)"), 
+    Option('-T', '--timeout', action="store", type="string", 
+           default="100mp", dest="timeout", 
+           help="fail a test module after the given timeout. "
+                "specify in seconds or 'XXXmp' aka Mega-Pystones")
     ) 
+
+def gettimeout(): 
+    timeout = option.timeout.lower()
+    if timeout.endswith('mp'): 
+        megapystone = float(timeout[:-2])
+        t, stone = pystone.Proc0(10000)
+        pystonetime = t/stone 
+        seconds = megapystone  * 1000000 * pystonetime 
+        return seconds 
+    return float(timeout) 
 
 mydir = py.magic.autopath().dirpath()
 pypydir = py.path.local(pypy.__file__).dirpath()
@@ -732,9 +744,9 @@ class ReallyRunFileExternal(py.test.Item):
         if regrtest.oldstyle or pypy_option.oldstyle: 
             pypy_options.append('--oldstyle') 
         sopt = " ".join(pypy_options) 
-        TIMEOUT = option.timeout 
-        cmd = "%s %s %d %s %s %s" %(python, alarm_script, TIMEOUT, pypy_script, sopt, fspath)
 
+        TIMEOUT = gettimeout()
+        cmd = "%s %s %d %s %s %s" %(python, alarm_script, TIMEOUT, pypy_script, sopt, fspath)
         try:
             username = getpass.getuser()
         except:
@@ -771,6 +783,7 @@ class ReallyRunFileExternal(py.test.Item):
         print >> resultfile, "oldstyle:", regrtest.oldstyle and 'yes' or 'no'
         print >> resultfile, 'pypy-revision:', getrev(pypydir)
         print >> resultfile, "startdate:", time.ctime()
+        print >> resultfile, "timeout: %s seconds" %(TIMEOUT,) 
             
         print >> resultfile
         if outputfilename:
