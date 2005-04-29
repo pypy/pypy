@@ -86,11 +86,13 @@ app = ApplevelClass('''
     # exported API 
     #
 
-    def intercept_test_support(suites=[], doctestmodules=[]): 
+    def intercept_test_support(): 
         """ intercept calls to test_support.run_doctest and run_suite. 
             Return doctestmodules, suites which will hold collected
             items from these test_support invocations. 
         """
+        suites = []
+        doctestmodules = []
         def hack_run_doctest(module, verbose=None): 
             doctestmodules.append(module) 
         test_support.run_doctest = hack_run_doctest 
