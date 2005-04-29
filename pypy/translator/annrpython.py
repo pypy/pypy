@@ -397,7 +397,9 @@ class RPythonAnnotator:
                                   if link.exitcase == s_exitswitch.const]
         knownvars, knownvarvalue = getattr(self.bindings.get(block.exitswitch),
                                           "knowntypedata", (None, None))
-        
+
+        # filter out those exceptions which cannot
+        # occour for this specific, typed operation.
         if block.exitswitch == Constant(last_exception):
             op = block.operations[-1]
             if op.opname in annmodel.BINARY_OPERATIONS:
@@ -416,12 +418,6 @@ class RPythonAnnotator:
                          for link in exits
                          if link.exitcase is None
                          or link.exitcase in can_only_throw ]
-                print can_only_throw
-                print exits
-                print len(exits)
-                for link in exits:
-                    print link, link.exitcase
-                print 100*"*"
 
         for link in exits:
             self.links_followed[link] = True
