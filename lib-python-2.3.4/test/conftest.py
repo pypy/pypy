@@ -324,7 +324,7 @@ testmap = [
 
     RegrTest('test_binop.py', enabled=True),
     RegrTest('test_bisect.py', enabled=True),
-    RegrTest('test_bool.py', enabled=False),
+    RegrTest('test_bool.py', enabled=True),
         #rev 10840: Infinite recursion in DescrOperation.is_true
 
     RegrTest('test_bsddb.py', enabled=False),
@@ -445,9 +445,9 @@ testmap = [
 
     RegrTest('test_htmllib.py', enabled=True),
     RegrTest('test_htmlparser.py', enabled=True),
-    RegrTest('test_httplib.py', enabled=False),
+    RegrTest('test_httplib.py', enabled=True),
     RegrTest('test_imageop.py', enabled=False, dumbtest=1),
-    RegrTest('test_imaplib.py', enabled=False, dumbtest=1),
+    RegrTest('test_imaplib.py', enabled=True, dumbtest=1),
     RegrTest('test_imgfile.py', enabled=False, dumbtest=1),
     RegrTest('test_imp.py', enabled=False),
     RegrTest('test_import.py', enabled=False, dumbtest=1),
@@ -470,9 +470,9 @@ testmap = [
     RegrTest('test_longexp.py', enabled=True),
     RegrTest('test_macfs.py', enabled=False),
     RegrTest('test_macostools.py', enabled=False),
-    RegrTest('test_macpath.py', enabled=False),
+    RegrTest('test_macpath.py', enabled=True),
     RegrTest('test_mailbox.py', enabled=True),
-    RegrTest('test_marshal.py', enabled=False, dumbtest=1),
+    RegrTest('test_marshal.py', enabled=True, dumbtest=1),
     RegrTest('test_math.py', enabled=False),
     RegrTest('test_md5.py', enabled=False),
     RegrTest('test_mhlib.py', enabled=True),
@@ -489,7 +489,7 @@ testmap = [
     RegrTest('test_new.py', enabled=False),
     RegrTest('test_nis.py', enabled=False),
     RegrTest('test_normalization.py', enabled=False),
-    RegrTest('test_ntpath.py', enabled=False, dumbtest=1),
+    RegrTest('test_ntpath.py', enabled=True, dumbtest=1),
     RegrTest('test_opcodes.py', enabled=True),
     RegrTest('test_openpty.py', enabled=False),
     RegrTest('test_operations.py', enabled=False),
@@ -527,7 +527,7 @@ testmap = [
     RegrTest('test_pyclbr.py', enabled=False),
     RegrTest('test_pyexpat.py', enabled=False),
     RegrTest('test_queue.py', enabled=False, dumbtest=1),
-    RegrTest('test_quopri.py', enabled=False),
+    RegrTest('test_quopri.py', enabled=True),
     RegrTest('test_random.py', enabled=False),
         #rev 10840: Uncaught app-level exception:
         #class WichmannHill_TestBasicOps(TestBasicOps):
@@ -563,7 +563,7 @@ testmap = [
     RegrTest('test_shlex.py', enabled=True),
     RegrTest('test_shutil.py', enabled=True),
     RegrTest('test_signal.py', enabled=False),
-    RegrTest('test_slice.py', enabled=False, dumbtest=1),
+    RegrTest('test_slice.py', enabled=True, dumbtest=1),
     RegrTest('test_socket.py', enabled=False),
         #rev 10840: ImportError: thread
 
@@ -571,7 +571,7 @@ testmap = [
     RegrTest('test_socketserver.py', enabled=False),
         #rev 10840: ImportError: thread
 
-    RegrTest('test_softspace.py', enabled=False, dumbtest=1),
+    RegrTest('test_softspace.py', enabled=True, dumbtest=1),
     RegrTest('test_sort.py', enabled=False, dumbtest=1),
     RegrTest('test_str.py', enabled=False),
         #rev 10840: at least two tests fail, after several hours I gave up waiting for the rest
@@ -579,7 +579,7 @@ testmap = [
     RegrTest('test_strftime.py', enabled=False, dumbtest=1),
     RegrTest('test_string.py', enabled=True),
     RegrTest('test_StringIO.py', enabled=True),
-    RegrTest('test_stringprep.py', enabled=False, dumbtest=1),
+    RegrTest('test_stringprep.py', enabled=True, dumbtest=1),
     RegrTest('test_strop.py', enabled=False),
         #rev 10840: ImportError: strop
 
@@ -630,19 +630,13 @@ testmap = [
     RegrTest('test_unicode_file.py', enabled=False),
     RegrTest('test_unicodedata.py', enabled=False),
     RegrTest('test_univnewlines.py', enabled=True),
-    RegrTest('test_unpack.py', enabled=False, dumbtest=1),
+    RegrTest('test_unpack.py', enabled=True, dumbtest=1),
     RegrTest('test_urllib.py', enabled=True),
-        #rev 10840: 10 of 10 tests fail
-
-    RegrTest('test_urllib2.py', enabled=False, dumbtest=1),
+    RegrTest('test_urllib2.py', enabled=True, dumbtest=1),
     RegrTest('test_urllibnet.py', enabled=False),
     RegrTest('test_urlparse.py', enabled=True),
     RegrTest('test_userdict.py', enabled=True),
-        #rev 10840: 5 of 25 tests fail
-
-    RegrTest('test_userlist.py', enabled=False),
-        #rev 10840: at least two tests fail, after several hours I gave up waiting for the rest
-
+    RegrTest('test_userlist.py', enabled=True),
     RegrTest('test_userstring.py', enabled=False),
     RegrTest('test_uu.py', enabled=False),
         #rev 10840: 1 of 9 test fails
@@ -652,7 +646,7 @@ testmap = [
     RegrTest('test_weakref.py', enabled=False),
         #rev 10840: ImportError: _weakref
 
-    RegrTest('test_whichdb.py', enabled=False),
+    RegrTest('test_whichdb.py', enabled=True),
     RegrTest('test_winreg.py', enabled=False),
     RegrTest('test_winsound.py', enabled=False),
     RegrTest('test_xmllib.py', enabled=False),
