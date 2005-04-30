@@ -71,6 +71,87 @@ def transform_slice(self):
                                         op2.result)
                 block.operations[i+1:i+2] = [new_op]
 
+# try:
+#     z = ovfcheck(x <op> y)
+# except OverflowError:
+# # and in some cases also
+# except ZeroDivisionError:
+# -->
+# z = <op>(x, y)
+# <exception handling>
+# v = ovfcheck(z)
+# <exception handling>
+# -->
+# z = <op>_ovf(x, y)
+# <exception handling>
+
+def transform_ovfcheck(self):
+    """Transforms ovfcheck(x <op> y) to <op>_ofv(x, y)."""
+    from pypy.tool.rarithmetic import ovfcheck, ovfcheck_lshift
+    from pypy.objspace.flow.objspace import op_appendices
+    covf = Constant(ovfcheck), Constant(ovfcheck_lshift)
+    covfExc = Constant(OverflowError)
+    def is_ovfcheck(bl):
+        ops = bl.operations
+        return (ops and ops[-1].opname == "simple_call"
+                and ops[-1].args[0] in covf)
+    def is_single(bl):
+        return is_ovfcheck(bl) and len(bl.operations) > 1
+    def is_paired(bl):
+        return bl.exits and is_ovfcheck(bl.exits[0].target)
+    def rename(v):
+        return renaming.get(v, v)
+    for block in fully_annotated_blocks(self):
+        renaming = {}
+        if is_single(block):
+            print 100*"*"
+            print block.operations[-2]
+            delop = block.operations.pop()
+            op = block.operations[-1]
+            assert len(delop.args) == 2
+            renaming[delop.result] = delop.args[1]
+            exits = []
+            for exit in block.exits:
+                args = [rename(a) for a in exit.args]
+                exits.append(Link(args, exit.target, exit.exitcase))
+        elif is_paired(block):
+            print 100*"+"
+            print block.operations[-1]
+            ovfblock = block.exits[0].target
+            assert len(ovfblock.operations) == 1
+            op = block.operations[-1]
+            exits = list(block.exits)
+            # shortcut the "no exception" path
+            exits[0].target = ovfblock.exits[0].target
+            if len(ovfblock.exits) > 1:
+                # merge the exception link
+                assert len(ovfblock.exits) == 2
+                ovexp = ovfblock.exits[1]
+                # space from block, last_ from ovfblock
+                args = exits[0].args[:1] + ovexp.args[1:]
+                exits.append(Link(args, ovexp.target, ovexp.exitcase))
+            block.exitswitch = ovfblock.exitswitch
+        else:
+            continue
+        # replace the generic exception handler by the direct case
+        for exit in exits:
+            if exit.exitcase is Exception:
+                bl = exit.target
+                while len(bl.exits) == 2:
+                    if bl.operations[0].args[-1] == covfExc:
+                        exit.exitcase = OverflowError
+                        exit.target = bl.exits[1].target
+                        assert len(exit.target.inputargs) == 1
+                        del exit.args[1:] # space only
+                        break
+                    else:
+                        bl = bl.exits[0].target
+        block.exits = []
+        block.recloseblock(*exits)
+        # finally, mangle the operation name
+        apps = [op_appendices[exit.exitcase] for exit in block.exits[1:]]
+        apps.sort()
+        op.opname = '_'.join([op.opname]+apps)
 # a(*b)
 # -->
 # c = newtuple(*b)
@@ -310,12 +391,17 @@ def cutoff_alwaysraising_block(self, block):
 def transform_graph(ann):
     """Apply set of transformations available."""
     # WARNING: this produces incorrect results if the graph has been
-    #          modified by t.simplify() after is had been annotated.
+    #          modified by t.simplify() after it had been annotated.
     if ann.translator:
         ann.translator.checkgraphs()
     transform_dead_code(ann)
     transform_allocate(ann)
     transform_slice(ann)
+    # testing the is_single case:
+    #from pypy.translator.simplify import join_blocks
+    #for graph in ann.translator.flowgraphs.values():
+    #    join_blocks(graph)
+    transform_ovfcheck(ann)
     ##transform_listextend(ann)
     # do this last, after the previous transformations had a
     # chance to remove dependency on certain variables
