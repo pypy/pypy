@@ -238,7 +238,7 @@ def issubtype__Type_Type(space, w_type1, w_type2):
     return space.newbool(w_type2 in w_type1.mro_w)
 
 def repr__Type(space, w_obj):
-    return space.wrap("<pypy type '%s'>" % w_obj.name)  # XXX remove 'pypy'
+    return space.wrap("<type '%s'>" % w_obj.name)
 
 def getattr__Type_ANY(space, w_type, w_name):
     name = space.str_w(w_name)
