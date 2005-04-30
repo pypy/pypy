@@ -552,7 +552,7 @@ testmap = [
     RegrTest('test_robotparser.py', enabled=True),
     RegrTest('test_rotor.py', enabled=False),
     RegrTest('test_sax.py', enabled=False, dumbtest=1),
-    RegrTest('test_scope.py', enabled=False),
+    RegrTest('test_scope.py', enabled=True),
     RegrTest('test_scriptpackages.py', enabled=False),
     RegrTest('test_select.py', enabled=False, dumbtest=1),
     RegrTest('test_sets.py', enabled=True),
