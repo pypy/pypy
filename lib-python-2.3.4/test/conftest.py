@@ -346,7 +346,7 @@ testmap = [
     RegrTest('test_cgi.py', enabled=False),
     RegrTest('test_charmapcodec.py', enabled=True),
     RegrTest('test_cl.py', enabled=False, dumbtest=1),
-    RegrTest('test_class.py', enabled=False),
+    RegrTest('test_class.py', enabled=False, oldstyle=True),
     RegrTest('test_cmath.py', enabled=True, dumbtest=1),
     RegrTest('test_codeccallbacks.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
