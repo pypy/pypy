@@ -167,6 +167,9 @@ def math_fmod(x, y):
 def math_floor(x):
     return SomeFloat()
 
+def math_any(*args):
+    return SomeFloat()
+
 def rarith_intmask(s_obj):
     return SomeInteger()
 
@@ -208,6 +211,7 @@ BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[AssertionError.__init__.im_func] = exception_init
 BUILTIN_ANALYZERS[math.fmod] = math_fmod
 BUILTIN_ANALYZERS[math.floor] = math_floor
+BUILTIN_ANALYZERS[math.exp] = math_any
 
 BUILTIN_ANALYZERS[sys.getrefcount] = count
 BUILTIN_ANALYZERS[sys.getdefaultencoding] = conf

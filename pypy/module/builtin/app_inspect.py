@@ -24,6 +24,7 @@ def _recursive_issubclass(cls, klass_or_tuple):
 
 def _issubclass(cls, klass_or_tuple, check_cls, depth):
     if depth == 0:
+        # XXX overzealous test compliance hack
         raise RuntimeError,"maximum recursion depth excedeed"
     if _issubtype(type(klass_or_tuple), tuple):
         for klass in klass_or_tuple:
