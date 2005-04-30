@@ -397,14 +397,18 @@ def transform_graph(ann):
     transform_dead_code(ann)
     transform_allocate(ann)
     transform_slice(ann)
+    from pypy.translator.simplify import join_blocks
     # testing the is_single case:
-    #from pypy.translator.simplify import join_blocks
-    #for graph in ann.translator.flowgraphs.values():
-    #    join_blocks(graph)
+    #if ann.translator:
+    #    for graph in ann.translator.flowgraphs.values():
+    #        join_blocks(graph)
     transform_ovfcheck(ann)
     ##transform_listextend(ann)
     # do this last, after the previous transformations had a
     # chance to remove dependency on certain variables
     transform_dead_op_vars(ann)
     if ann.translator:
+        # see again if we caused trivial blocks
+        for graph in ann.translator.flowgraphs.values():
+            join_blocks(graph)
         ann.translator.checkgraphs()
