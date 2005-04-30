@@ -271,5 +271,12 @@ class AppTestTypeObject:
         raises(TypeError, A.__dict__['x'].__get__, z)
         raises(TypeError, A.__dict__['x'].__set__, z, 1)
         raises(TypeError, A.__dict__['x'].__delete__, z)
+
+    def test_repr(self):
+        globals()['__name__'] = 'a'
+        class A(object):
+            pass
+        assert repr(A) == "<class 'a.A'>"
+        assert repr(type(type)) == "<type 'type'>" 
         
         

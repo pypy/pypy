@@ -218,6 +218,14 @@ class W_TypeObject(W_Object):
     def is_heaptype(w_self):
         return w_self.__flags__&_HEAPTYPE
 
+    def get_module(w_self):
+        space = w_self.space
+        if '__module__' in w_self.dict_w:
+            return w_self.dict_w['__module__']
+        else:
+            return space.wrap('__builtin__')
+        
+
 def call__Type(space, w_type, __args__):
     # special case for type(x)
     if space.is_true(space.is_(w_type, space.w_type)):
@@ -240,7 +248,19 @@ def issubtype__Type_Type(space, w_type1, w_type2):
     return space.newbool(w_type2 in w_type1.mro_w)
 
 def repr__Type(space, w_obj):
-    return space.wrap("<type '%s'>" % w_obj.name)
+    w_mod = w_obj.get_module()
+    if not space.is_true(space.isinstance(w_mod, space.w_str)):
+        mod = None
+    else:
+        mod = space.str_w(w_mod)
+    if w_obj.is_heaptype():
+        kind = 'class'
+    else:
+        kind = 'type'
+    if mod is not None and mod !='__builtin__':
+        return space.wrap("<%s '%s.%s'>" % (kind, mod, w_obj.name))
+    else:
+        return space.wrap("<%s '%s'>" % (kind, w_obj.name))
 
 def getattr__Type_ANY(space, w_type, w_name):
     name = space.str_w(w_name)

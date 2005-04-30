@@ -114,11 +114,8 @@ def defunct_descr_get__module(space, w_type):
 # therefore, we use the module attribute whenever it exists.
 
 def descr_get__module(space, w_type):
-    w_type = _check(space, w_type)    
-    if '__module__' in w_type.dict_w:
-        return w_type.dict_w['__module__']
-    else:
-        return space.wrap('__builtin__')
+    w_type = _check(space, w_type)
+    return w_type.get_module()
 
 def descr_set__module(space, w_type, w_value):
     w_type = _check(space, w_type)    
