@@ -1,24 +1,37 @@
 
 import traceback 
 
-def _main_with_alarm():
+def _main_with_alarm(finished):
     import sys, os
     import time
     import thread
 
 
-    def timeout_thread(timeout):
+    def timeout_thread(timeout, finished):
         stderr = sys.stderr
         interrupt_main = thread.interrupt_main
-        time.sleep(timeout)
-        stderr.write("="*26 + "timeout" + "="*26 + "\n")
-        interrupt_main()
+        sleep = time.sleep
+        now = time.time
+        while now() < timeout and not finished:
+            sleep(1.65123)
+        if not finished:
+            stderr.write("="*26 + "timeout" + "="*26 + "\n")
+            while not finished:
+                # send KeyboardInterrupt repeatedly until the main
+                # thread dies.  Then quit (in case we are on a system
+                # where exiting the main thread doesn't kill us too).
+                interrupt_main()
+                sleep(0.031416)
 
 
-    timeout = float(sys.argv[1])
-    thread.start_new_thread(timeout_thread, (timeout,))
+    timeout = time.time() + float(sys.argv[1])
+    thread.start_new_thread(timeout_thread, (timeout, finished))
     del sys.argv[:2]
     sys.path.insert(0, os.path.dirname(sys.argv[0]))
     return sys.argv[0]
 
-execfile(_main_with_alarm())
+finished = []
+try:
+    execfile(_main_with_alarm(finished))
+finally:
+    finished.append(True)
