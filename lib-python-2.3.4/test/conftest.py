@@ -303,19 +303,19 @@ class RegrTest:
 
 testmap = [
     RegrTest('test___all__.py', enabled=False),
-    RegrTest('test___future__.py', enabled=False, dumbtest=1),
+    RegrTest('test___future__.py', enabled=True, dumbtest=1),
     RegrTest('test_aepack.py', enabled=False),
     RegrTest('test_al.py', enabled=False, dumbtest=1),
-    RegrTest('test_anydbm.py', enabled=False),
+    RegrTest('test_anydbm.py', enabled=True),
     RegrTest('test_array.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
     RegrTest('test_asynchat.py', enabled=False),
     RegrTest('test_atexit.py', enabled=False, dumbtest=1),
     RegrTest('test_audioop.py', enabled=False, dumbtest=1),
-    RegrTest('test_augassign.py', enabled=False),
+    RegrTest('test_augassign.py', enabled=True),
     RegrTest('test_base64.py', enabled=True),
-    RegrTest('test_bastion.py', enabled=False, dumbtest=1),
+    RegrTest('test_bastion.py', enabled=True, dumbtest=1),
     RegrTest('test_binascii.py', enabled=False),
         #rev 10840: 2 of 8 tests fail
 
@@ -343,7 +343,7 @@ testmap = [
         #raise UnwrapError('calling %s: %s' % (self.code.cpy_callable, e))
         #pypy.objspace.std.model.UnwrapError: calling <built-in function backslashreplace_errors>: cannot unwrap <UserW_ObjectObject() instance of <W_TypeObject(UnicodeError)>>
 
-    RegrTest('test_cgi.py', enabled=False),
+    RegrTest('test_cgi.py', enabled=True),
     RegrTest('test_charmapcodec.py', enabled=True),
     RegrTest('test_cl.py', enabled=False, dumbtest=1),
     RegrTest('test_class.py', enabled=False, oldstyle=True),
@@ -363,7 +363,7 @@ testmap = [
     RegrTest('test_complex.py', enabled=False),
         #rev 10840: at least one test fails, after several hours I gave up waiting for the rest
 
-    RegrTest('test_contains.py', enabled=False, dumbtest=1),
+    RegrTest('test_contains.py', enabled=True, dumbtest=1),
     RegrTest('test_cookie.py', enabled=False),
     RegrTest('test_copy.py', enabled=True),
     RegrTest('test_copy_reg.py', enabled=True),
@@ -379,17 +379,17 @@ testmap = [
     RegrTest('test_descrtut.py', enabled=False),
         #rev 10840: 19 of 96 tests fail
 
-    RegrTest('test_difflib.py', enabled=False, dumbtest=1),
+    RegrTest('test_difflib.py', enabled=True, dumbtest=1),
     RegrTest('test_dircache.py', enabled=True),
     RegrTest('test_dis.py', enabled=True),
     RegrTest('test_dl.py', enabled=False, dumbtest=1),
     RegrTest('test_doctest.py', enabled=True),
     RegrTest('test_doctest2.py', enabled=True),
-    RegrTest('test_dumbdbm.py', enabled=False),
+    RegrTest('test_dumbdbm.py', enabled=True),
         #rev 10840: 5 of 7 tests fail
 
     RegrTest('test_dummy_thread.py', enabled=True),
-    RegrTest('test_dummy_threading.py', enabled=False, dumbtest=1),
+    RegrTest('test_dummy_threading.py', enabled=True, dumbtest=1),
     RegrTest('test_email.py', enabled=False),
         #rev 10840: Uncaught interp-level exception
 
@@ -398,22 +398,22 @@ testmap = [
     RegrTest('test_eof.py', enabled=False),
         #rev 10840: some error strings differ slightly XXX
 
-    RegrTest('test_errno.py', enabled=False, dumbtest=1),
+    RegrTest('test_errno.py', enabled=True, dumbtest=1),
     RegrTest('test_exceptions.py', enabled=False),
     RegrTest('test_extcall.py', enabled=False),
     RegrTest('test_fcntl.py', enabled=False, dumbtest=1),
     RegrTest('test_file.py', enabled=False, dumbtest=1),
-    RegrTest('test_filecmp.py', enabled=False),
-    RegrTest('test_fileinput.py', enabled=False, dumbtest=1),
+    RegrTest('test_filecmp.py', enabled=True),
+    RegrTest('test_fileinput.py', enabled=True, dumbtest=1),
     RegrTest('test_fnmatch.py', enabled=True),
     RegrTest('test_fork1.py', enabled=False, dumbtest=1),
     RegrTest('test_format.py', enabled=False, dumbtest=1),
     RegrTest('test_fpformat.py', enabled=True),
     RegrTest('test_frozen.py', enabled=False),
-    RegrTest('test_funcattrs.py', enabled=False, dumbtest=1),
-    RegrTest('test_future.py', enabled=False),
-    RegrTest('test_future1.py', enabled=False, dumbtest=1),
-    RegrTest('test_future2.py', enabled=False, dumbtest=1),
+    RegrTest('test_funcattrs.py', enabled=True, dumbtest=1),
+    RegrTest('test_future.py', enabled=True),
+    RegrTest('test_future1.py', enabled=True, dumbtest=1),
+    RegrTest('test_future2.py', enabled=True, dumbtest=1),
     RegrTest('test_future3.py', enabled=True),
     RegrTest('test_gc.py', enabled=False, dumbtest=1),
     RegrTest('test_gdbm.py', enabled=False, dumbtest=1),
@@ -424,7 +424,7 @@ testmap = [
     RegrTest('test_getargs2.py', enabled=False),
         #rev 10840: ImportError: _testcapi
 
-    RegrTest('test_getopt.py', enabled=False, dumbtest=1),
+    RegrTest('test_getopt.py', enabled=True, dumbtest=1),
     RegrTest('test_gettext.py', enabled=False),
         #rev 10840: 28 of 28 tests fail
 
@@ -461,13 +461,13 @@ testmap = [
     RegrTest('test_itertools.py', enabled=True),
         # modified version in pypy/lib/test2
 
-    RegrTest('test_largefile.py', enabled=False, dumbtest=1),
+    RegrTest('test_largefile.py', enabled=True, dumbtest=1),
     RegrTest('test_linuxaudiodev.py', enabled=False),
     RegrTest('test_locale.py', enabled=False, dumbtest=1),
     RegrTest('test_logging.py', enabled=False),
     RegrTest('test_long.py', enabled=True, dumbtest=1),
     RegrTest('test_long_future.py', enabled=False, dumbtest=1),
-    RegrTest('test_longexp.py', enabled=False),
+    RegrTest('test_longexp.py', enabled=True),
     RegrTest('test_macfs.py', enabled=False),
     RegrTest('test_macostools.py', enabled=False),
     RegrTest('test_macpath.py', enabled=False),
@@ -478,7 +478,7 @@ testmap = [
     RegrTest('test_mhlib.py', enabled=True),
     RegrTest('test_mimetools.py', enabled=True),
     RegrTest('test_mimetypes.py', enabled=True),
-    RegrTest('test_MimeWriter.py', enabled=False),
+    RegrTest('test_MimeWriter.py', enabled=True),
     RegrTest('test_minidom.py', enabled=False, dumbtest=1),
     RegrTest('test_mmap.py', enabled=False),
     RegrTest('test_module.py', enabled=False, dumbtest=1),
@@ -490,7 +490,7 @@ testmap = [
     RegrTest('test_nis.py', enabled=False),
     RegrTest('test_normalization.py', enabled=False),
     RegrTest('test_ntpath.py', enabled=False, dumbtest=1),
-    RegrTest('test_opcodes.py', enabled=False),
+    RegrTest('test_opcodes.py', enabled=True),
     RegrTest('test_openpty.py', enabled=False),
     RegrTest('test_operations.py', enabled=False),
     RegrTest('test_operator.py', enabled=True),
@@ -501,7 +501,7 @@ testmap = [
         #rev 10840: 18 of 18 tests fail
 
     RegrTest('test_pep247.py', enabled=False, dumbtest=1),
-    RegrTest('test_pep263.py', enabled=False, dumbtest=1),
+    RegrTest('test_pep263.py', enabled=True, dumbtest=1),
     RegrTest('test_pep277.py', enabled=False),
         # XXX this test is _also_ an output test, damn it 
         #     seems to be the only one that invokes run_unittest 
@@ -512,8 +512,8 @@ testmap = [
     RegrTest('test_pkgimport.py', enabled=True),
     RegrTest('test_plistlib.py', enabled=False),
     RegrTest('test_poll.py', enabled=False),
-    RegrTest('test_popen.py', enabled=False),
-    RegrTest('test_popen2.py', enabled=False),
+    RegrTest('test_popen.py', enabled=True),
+    RegrTest('test_popen2.py', enabled=True),
     RegrTest('test_posix.py', enabled=True),
     RegrTest('test_posixpath.py', enabled=True),
     RegrTest('test_pow.py', enabled=True),
