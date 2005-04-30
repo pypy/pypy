@@ -394,9 +394,7 @@ testmap = [
         #rev 10840: Uncaught interp-level exception
 
     RegrTest('test_email_codecs.py', enabled=False, dumbtest=1),
-    RegrTest('test_enumerate.py', enabled=False),
-        #rev 10840: fails because enumerate is a type in CPy: the test tries to subclass it
-
+    RegrTest('test_enumerate.py', enabled=True),
     RegrTest('test_eof.py', enabled=False),
         #rev 10840: some error strings differ slightly XXX
 
