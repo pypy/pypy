@@ -396,22 +396,39 @@ class FlowObjSpace(ObjSpace):
 
 # ______________________________________________________________________
 
-implicit_exceptions = {
-    'getitem': [IndexError, KeyError],
-    'delitem': [IndexError, KeyError],
-    # no implicit exceptions for setitem
-    'getattr': [AttributeError],
-    'delattr': [AttributeError],
-    'iter'   : [TypeError],
-    'coerce' : [TypeError],
-    }
-# continuing like above, but in a more programmatic style.
+op_appendices = {}
+for _name, _exc in(
+    ('ovf', OverflowError),
+    ('idx', IndexError),
+    ('key', KeyError),
+    ('att', AttributeError),
+    ('typ', TypeError),
+    ('zer', ZeroDivisionError),
+    ('val', ValueError),
+    ('flo', FloatingPointError)
+    ):
+    op_appendices[_exc] = _name
+del _name, _exc
+
+implicit_exceptions = {}
+
 def _add_exceptions(names, exc):
     for name in names.split():
         lis = implicit_exceptions.setdefault(name, [])
         if exc in lis:
             raise ValueError, "your list is causing duplication!"
         lis.append(exc)
+        assert exc in op_appendices
+
+for _err in IndexError, KeyError:
+    _add_exceptions("""getitem""", _err)
+    _add_exceptions("""delitem""", _err)
+    # no implicit exceptions for setitem
+for _name in 'getattr', 'delattr':
+    _add_exceptions(_name, AttributeError)
+for _name in 'iter', 'coerce':
+    _add_exceptions(_name, TypeError)
+del _name, _err
 
 _add_exceptions("""div mod divmod truediv floordiv pow
                    inplace_div inplace_mod inplace_divmod inplace_truediv
