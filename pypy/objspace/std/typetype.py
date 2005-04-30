@@ -2,8 +2,6 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.dictproxyobject import descr_get_dictproxy
 
-from copy_reg import _HEAPTYPE
-
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
     "This is used to create user-defined classes only."
     from pypy.objspace.std.typeobject import W_TypeObject
@@ -104,7 +102,7 @@ def descr__flags(space, w_type):
     return space.wrap(w_type.__flags__)
 
 def defunct_descr_get__module(space, w_type):
-    if w_type.__flags__ & _HEAPTYPE:
+    if w_type.is_heaptype():
         return w_type.dict_w['__module__']
     else:
         # here CPython checks for a module.name in the type description.
@@ -124,7 +122,7 @@ def descr_get__module(space, w_type):
 
 def descr_set__module(space, w_type, w_value):
     w_type = _check(space, w_type)    
-    if not (w_type.__flags__ & _HEAPTYPE):
+    if not w_type.is_heaptype():
         raise OperationError(space.w_TypeError, 
                              space.wrap("can't set %s.__module__" %
                                         w_type.name))

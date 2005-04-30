@@ -215,6 +215,8 @@ class W_TypeObject(W_Object):
         from pypy.objspace.std.model import UnwrapError
         raise UnwrapError(w_self)
 
+    def is_heaptype(w_self):
+        return w_self.__flags__&_HEAPTYPE
 
 def call__Type(space, w_type, __args__):
     # special case for type(x)
