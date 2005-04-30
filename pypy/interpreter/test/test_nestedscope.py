@@ -41,7 +41,7 @@ class AppTestNestedScope:
                 return locals()
             return g()
         d = f()
-        assert d == {'i':3}
+        assert d == {'i':3, 'x':3}
 
     def test_deeply_nested_scope_locals(self):
         def f():
@@ -53,5 +53,7 @@ class AppTestNestedScope:
                 return locals(), h()
             return g()
         outer_locals, inner_locals = f()
-        assert inner_locals == {'i':3}
-        assert len(outer_locals) == 1, "len!=1 for %r" % (outer_locals,)
+        assert inner_locals == {'i':3, 'x':3}
+        keys = outer_locals.keys()
+        keys.sort()
+        assert keys == ['h', 'x']
