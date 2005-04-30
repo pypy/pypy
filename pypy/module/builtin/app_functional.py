@@ -230,15 +230,25 @@ def max(*arr):
             max = i
     return max
 
-def enumerate(collection):
-    'Generates an indexed series:  (0,coll[0]), (1,coll[1]) ...'
-    it = iter(collection)   # raises a TypeError early
-    def do_enumerate(it):
-        index = 0
-        for value in it:
-            yield index, value
-            index += 1
-    return do_enumerate(it)
+class enumerate(object):
+    def __init__(self, collection):
+        self._iter = iter(collection)
+        self._index = 0
+    
+    def next(self):
+        try:
+            result = self._index, self._iter.next()
+        except AttributeError:
+            # CPython raises a TypeError when next() is not defined
+            raise TypeError('%s has no next() method' % \
+                            (self._iter))
+
+        self._index += 1
+        return result
+    
+    def __iter__(self):
+        return self
+
 
 # ____________________________________________________________
 
