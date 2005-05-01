@@ -279,4 +279,10 @@ class AppTestTypeObject:
         assert repr(A) == "<class 'a.A'>"
         assert repr(type(type)) == "<type 'type'>" 
         
-        
+    def test_invalid_mro(self):
+        class A(object):
+            pass
+        raises(TypeError, "class B(A, A): pass")
+        class C(A):
+            pass
+        raises(TypeError, "class D(A, C): pass")

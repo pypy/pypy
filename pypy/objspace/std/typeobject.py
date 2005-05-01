@@ -350,7 +350,7 @@ def mro_blockinglist(candidate, orderlists):
     return GOODCANDIDATE # good candidate
 
 def _getname(space, w_cls):
-    return space.getattr(w_cls, space.wrap('__name__'))
+    return space.str_w(space.getattr(w_cls, space.wrap('__name__')))
 
 def mro_error(space, orderlists):
     cycle = []
