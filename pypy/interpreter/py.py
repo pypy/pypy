@@ -65,6 +65,8 @@ def main_(argv=None):
             "running py.py should not import pypy.tool.udir, which is\n"
             "only for testing or translating purposes.")
         go_interactive = Options.interactive
+        if Options.verbose:
+            error.RECORD_INTERPLEVEL_TRACEBACK = True
         banner = ''
         space.setitem(space.sys.w_dict,space.wrap('executable'),space.wrap(argv[0]))
         if Options.command:

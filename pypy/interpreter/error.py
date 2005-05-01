@@ -2,6 +2,7 @@ import autopath
 import os, sys
 
 AUTO_DEBUG = os.getenv('PYPY_DEBUG')
+RECORD_INTERPLEVEL_TRACEBACK = False
 
 
 class OperationError(Exception):
@@ -64,10 +65,11 @@ class OperationError(Exception):
             return None
 
     def record_interpreter_traceback(self):
-        """NOT_RPYTHON: Records the current traceback inside the interpreter.
+        """Records the current traceback inside the interpreter.
         This traceback is only useful to debug the interpreter, not the
         application."""
-        self.debug_excs.append(sys.exc_info())
+        if RECORD_INTERPLEVEL_TRACEBACK:
+            self.debug_excs.append(sys.exc_info())
 
     def print_application_traceback(self, space, file=None):
         "NOT_RPYTHON: Dump a standard application-level traceback."
