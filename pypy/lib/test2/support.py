@@ -13,9 +13,9 @@ def cleanup_path():
     # after the standard library!
     sys.path[:] = [p for p in sys.path
                      if os.path.normpath(os.path.abspath(p)) != lib_dir]
-    sys.path.append(lib_dir)
 
 cleanup_path()
+sys.path.append(lib_dir)
 
 
 def libmodule(modname):
@@ -25,9 +25,14 @@ def libmodule(modname):
     # forces the real CPython module to be imported first, to avoid strange
     # interactions later
     cleanup_path()
-    cpython_mod = __import__(modname)
-    if hasattr(cpython_mod, '__file__'):
-        assert os.path.dirname(cpython_mod.__file__) != lib_dir
+    try:
+        cpython_mod = __import__(modname)
+        if hasattr(cpython_mod, '__file__'):
+            assert os.path.dirname(cpython_mod.__file__) != lib_dir
+    except ImportError:
+        pass
+    cleanup_path()
+    sys.path.append(lib_dir)
     filename = os.path.join(lib_dir, modname + '.py')
     mod = new.module(modname)
     mod.__file__ = filename

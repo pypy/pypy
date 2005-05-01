@@ -1,10 +1,14 @@
 """Unit tests for sio (new standard I/O)."""
 
+import support
 import os
 import time
 from pypy.tool.udir import udir
 
-class TestSource(object):
+sio = support.libmodule("_sio")
+
+
+class TSource(object):
 
     def __init__(self, packets):
         for x in packets:
@@ -46,7 +50,7 @@ class TestSource(object):
     def close(self):
         pass
 
-class TestReader(object):
+class TReader(object):
 
     def __init__(self, packets):
         for x in packets:
@@ -90,7 +94,8 @@ class TestReader(object):
 
     def flush(self):
         pass
-class TestWriter(object):
+
+class TWriter(object):
 
     def __init__(self, data=''):
         self.buf = data
@@ -135,7 +140,7 @@ class TestWriter(object):
     def flush(self):
         pass
             
-class TestReaderWriter(TestWriter):
+class TReaderWriter(TWriter):
 
     def read(self, n=-1):
         if n < 1:
@@ -154,7 +159,7 @@ class TestBufferingInputStreamTests:
     lines = ["ab\n", "def\n", "xy\n", "pq\n", "uvwx"]
 
     def makeStream(self, tell=False, seek=False, bufsize=None):
-        base = TestSource(self.packets)
+        base = TSource(self.packets)
         if not tell:
             base.tell = None
         if not seek:
@@ -356,7 +361,7 @@ class TestBufferingInputStreamTests:
 class TestBufferingOutputStream: 
 
     def test_write(self):
-        base = TestWriter()
+        base = TWriter()
         filter = sio.BufferingOutputStream(base, 4)
         filter.write("123")
         assert base.buf == ""
@@ -372,7 +377,7 @@ class TestBufferingOutputStream:
         assert base.buf == "123456789ABCDEF0123"
 
     def test_write_seek(self):
-        base = TestWriter()
+        base = TWriter()
         filter = sio.BufferingOutputStream(base, 4)
         filter.write("x"*6)
         filter.seek(3)
@@ -382,7 +387,7 @@ class TestBufferingOutputStream:
 
     def test_write_seek_beyond_end(self):
         "Linux behaviour. May be different on other platforms."
-        base = TestWriter()
+        base = TWriter()
         filter = sio.BufferingOutputStream(base, 4)
         filter.seek(3)
         filter.write("y"*2)
@@ -391,7 +396,7 @@ class TestBufferingOutputStream:
 
     def test_truncate(self):
         "Linux behaviour. May be different on other platforms."
-        base = TestWriter()
+        base = TWriter()
         filter = sio.BufferingOutputStream(base, 4)
         filter.write('x')
         filter.truncate(4)
@@ -401,7 +406,7 @@ class TestBufferingOutputStream:
 
     def test_truncate2(self):
         "Linux behaviour. May be different on other platforms."
-        base = TestWriter()
+        base = TWriter()
         filter = sio.BufferingOutputStream(base, 4)
         filter.write('12345678')
         filter.truncate(4)
@@ -412,7 +417,7 @@ class TestBufferingOutputStream:
 class TestLineBufferingOutputStreamTests: 
 
     def test_write(self):
-        base = TestWriter()
+        base = TWriter()
         filter = sio.LineBufferingOutputStream(base)
         filter.bufsize = 4 # More handy for testing than the default
         filter.write("123")
@@ -429,7 +434,7 @@ class TestLineBufferingOutputStreamTests:
         assert base.buf == "123456789ABCDEF\n0123"
 
     def xtest_write_seek(self):
-        base = TestWriter()
+        base = TWriter()
         filter = sio.BufferingOutputStream(base, 4)
         filter.write("x"*6)
         filter.seek(3)
@@ -440,7 +445,7 @@ class TestLineBufferingOutputStreamTests:
 class TestBufferingInputOutputStreamTests: 
 
     def test_write(self):
-        base = TestReaderWriter()
+        base = TReaderWriter()
         filter = sio.BufferingInputOutputStream(base, 4)
         filter.write("123456789")
         assert base.buf == "12345678"
@@ -457,7 +462,7 @@ class TestBufferingInputOutputStreamTests:
         
     def test_write_seek_beyond_end(self):
         "Linux behaviour. May be different on other platforms."
-        base = TestReaderWriter()
+        base = TReaderWriter()
         filter = sio.BufferingInputOutputStream(base, 4)
         filter.seek(3)
         filter.write("y"*2)
@@ -469,7 +474,7 @@ class TestCRLFFilter:
     def test_filter(self):
         packets = ["abc\ndef\rghi\r\nxyz\r", "123\r", "\n456"]
         expected = ["abc\ndef\nghi\nxyz\n", "123\n", "456"]
-        crlf = sio.CRLFFilter(TestSource(packets))
+        crlf = sio.CRLFFilter(TSource(packets))
         blocks = []
         while 1:
             block = crlf.read(100)
@@ -562,13 +567,13 @@ class TestTextInputFilter:
         ]
 
     def test_read(self):
-        base = TestReader(self.packets)
+        base = TReader(self.packets)
         filter = sio.TextInputFilter(base)
         for data, pos in self.expected:
             assert filter.read(100) == data
 
     def test_read_tell(self):
-        base = TestReader(self.packets)
+        base = TReader(self.packets)
         filter = sio.TextInputFilter(base)
         for data, pos in self.expected_with_tell:
             assert filter.read(100) == data
@@ -576,7 +581,7 @@ class TestTextInputFilter:
             assert filter.tell() == pos # Repeat the tell() !
 
     def test_seek(self):
-        base = TestReader(self.packets)
+        base = TReader(self.packets)
         filter = sio.TextInputFilter(base)
         sofar = ""
         pairs = []
@@ -605,7 +610,7 @@ class TestTextInputFilter:
     def test_newlines_attribute(self):
 
         for packets, expected in self.expected_newlines:
-            base = TestReader(packets)
+            base = TReader(packets)
             filter = sio.TextInputFilter(base)
             for e in expected:
                 filter.read(100)
@@ -614,7 +619,7 @@ class TestTextInputFilter:
 class TestTextOutputFilter: 
 
     def test_write_nl(self):
-        base = TestWriter()
+        base = TWriter()
         filter = sio.TextOutputFilter(base, linesep="\n")
         filter.write("abc")
         filter.write("def\npqr\nuvw")
@@ -622,7 +627,7 @@ class TestTextOutputFilter:
         assert base.buf == "abcdef\npqr\nuvw\n123\n"
 
     def test_write_cr(self):
-        base = TestWriter()
+        base = TWriter()
         filter = sio.TextOutputFilter(base, linesep="\r")
         filter.write("abc")
         filter.write("def\npqr\nuvw")
@@ -630,7 +635,7 @@ class TestTextOutputFilter:
         assert base.buf == "abcdef\rpqr\ruvw\r123\r"
 
     def test_write_crnl(self):
-        base = TestWriter()
+        base = TWriter()
         filter = sio.TextOutputFilter(base, linesep="\r\n")
         filter.write("abc")
         filter.write("def\npqr\nuvw")
@@ -638,7 +643,7 @@ class TestTextOutputFilter:
         assert base.buf == "abcdef\r\npqr\r\nuvw\r\n123\r\n"
 
     def test_write_tell_nl(self):
-        base = TestWriter()
+        base = TWriter()
         filter = sio.TextOutputFilter(base, linesep="\n")
         filter.write("xxx")
         assert filter.tell() == 3
@@ -646,7 +651,7 @@ class TestTextOutputFilter:
         assert filter.tell() == 8
 
     def test_write_tell_cr(self):
-        base = TestWriter()
+        base = TWriter()
         filter = sio.TextOutputFilter(base, linesep="\r")
         filter.write("xxx")
         assert filter.tell() == 3
@@ -654,7 +659,7 @@ class TestTextOutputFilter:
         assert filter.tell() == 8
 
     def test_write_tell_crnl(self):
-        base = TestWriter()
+        base = TWriter()
         filter = sio.TextOutputFilter(base, linesep="\r\n")
         filter.write("xxx")
         assert filter.tell() == 3
@@ -662,7 +667,7 @@ class TestTextOutputFilter:
         assert filter.tell() == 10
 
     def test_write_seek(self):
-        base = TestWriter()
+        base = TWriter()
         filter = sio.TextOutputFilter(base, linesep="\n")
         filter.write("x"*100)
         filter.seek(50)
@@ -674,7 +679,7 @@ class TestDecodingInputFilter:
     def test_read(self):
         chars = u"abc\xff\u1234\u4321\x80xyz"
         data = chars.encode("utf8")
-        base = TestReader([data])
+        base = TReader([data])
         filter = sio.DecodingInputFilter(base)
         bufs = []
         for n in range(1, 11):
@@ -692,7 +697,7 @@ class TestEncodingOutputFilterTests:
         chars = u"abc\xff\u1234\u4321\x80xyz"
         data = chars.encode("utf8")
         for n in range(1, 11):
-            base = TestWriter()
+            base = TWriter()
             filter = sio.EncodingOutputFilter(base)
             pos = 0
             while 1:
