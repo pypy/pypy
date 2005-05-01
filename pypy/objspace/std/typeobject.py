@@ -253,10 +253,10 @@ def repr__Type(space, w_obj):
         mod = None
     else:
         mod = space.str_w(w_mod)
-    if w_obj.is_heaptype():
-        kind = 'class'
-    else:
+    if not w_obj.is_heaptype() or (mod is not None and mod == '__builtin__'):
         kind = 'type'
+    else:
+        kind = 'class'
     if mod is not None and mod !='__builtin__':
         return space.wrap("<%s '%s.%s'>" % (kind, mod, w_obj.name))
     else:
