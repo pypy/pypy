@@ -19,6 +19,7 @@ still happens.
 from __future__ import generators
 import autopath, os, sys, exceptions, inspect, types
 import cPickle as pickle, __builtin__
+from copy_reg import _HEAPTYPE
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import last_exception, last_exc_value
@@ -41,7 +42,7 @@ from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
 import pypy # __path__
 import py.path
 
-GI_VERSION = '1.0.3'  # bump this for substantial changes
+GI_VERSION = '1.0.5'  # bump this for substantial changes
 # ____________________________________________________________
 
 def eval_helper(self, typename, expr):
@@ -576,10 +577,10 @@ class GenRpy:
                     break
             else:
                 raise Exception, '%r not found in any built-in module' % (func,)
-            if modname == '__builtin__':
-                # be lazy
-                return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
-            elif modname == 'sys':
+            #if modname == '__builtin__':
+            #    # be lazy
+            #    return "(space.builtin.get(space.str_w(%s)))" % self.nameof(func.__name__)
+            if modname == 'sys':
                 # be lazy
                 return "(space.sys.get(space.str_w(%s)))" % self.nameof(func.__name__)                
             else:
@@ -729,7 +730,7 @@ class GenRpy:
             if type(ret) is tuple:
                 ret = ret[0](self, ret[1], ret[2])
             return ret
-        assert cls.__module__ != '__builtin__', (
+        assert cls.__module__ != '__builtin__' or cls.__flags__&_HEAPTYPE, (
             "built-in class %r not found in typename_mapping "
             "while compiling %s" % (cls, self.currentfunc and
                                     self.currentfunc.__name__ or "*no function at all*"))

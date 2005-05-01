@@ -532,6 +532,7 @@ class ApplevelClass:
         "NOT_RPYTHON"
         code = self._buildcode(space, self.code)
         w_glob = space.newdict([])
+        space.setitem(w_glob, space.wrap('__name__'), space.wrap('__builtin__'))
         space.exec_(code, w_glob, w_glob)
         return w_glob
 
@@ -569,7 +570,7 @@ class ApplevelInterpClass(ApplevelClass):
     """
     NOT_RPYTHON_ATTRIBUTES = ['cache_path', 'known_source']
 
-    def __init__(self, source, filename = None, modname = 'applevelinterp', do_imports=False):
+    def __init__(self, source, filename = None, modname = '__builtin__', do_imports=False):
         "NOT_RPYTHON"
         self.filename = filename
         self.source = source
@@ -686,7 +687,7 @@ del harakiri
     _setup = classmethod(_setup)
 
 def applevel(source, filename = None,
-                   modname = 'applevelinterp', do_imports=False):
+                   modname = '__builtin__', do_imports=False):
     # look at the first three lines
     first = source.split("\n", 3)[:3]
     klass = ApplevelInterpClass
