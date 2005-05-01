@@ -787,7 +787,15 @@ app = gateway.applevel(r'''
         except AttributeError:
             pass
         return softspace
+''', filename=__file__)
 
+sys_stdout      = app.interphook('sys_stdout')
+print_expr      = app.interphook('print_expr')
+print_item_to   = app.interphook('print_item_to')
+print_newline_to= app.interphook('print_newline_to')
+file_softspace  = app.interphook('file_softspace')
+
+app = gateway.applevel(r'''
     def find_metaclass(bases, namespace, globals, builtin):
         if '__metaclass__' in namespace:
             return namespace['__metaclass__']
@@ -804,7 +812,11 @@ app = gateway.applevel(r'''
                 return builtin.__metaclass__ 
             except AttributeError: 
                 return type
+''', filename=__file__)
 
+find_metaclass  = app.interphook('find_metaclass')
+
+app = gateway.applevel(r'''
     def import_all_from(module, into_locals):
         try:
             all = module.__all__
@@ -822,7 +834,11 @@ app = gateway.applevel(r'''
             if skip_leading_underscores and name[0]=='_':
                 continue
             into_locals[name] = getattr(module, name)
+''', filename=__file__)
 
+import_all_from = app.interphook('import_all_from')
+
+app = gateway.applevel(r'''
     def prepare_exec(f, prog, globals, locals, compile_flags, builtin, codetype):
         """Manipulate parameters to exec statement to (codeobject, dict, dict).
         """
@@ -864,14 +880,6 @@ app = gateway.applevel(r'''
                                     "or code object")
             prog = compile(prog, filename, 'exec', compile_flags, 1)
         return (prog, globals, locals)
-
 ''', filename=__file__)
 
-sys_stdout      = app.interphook('sys_stdout')
-print_expr      = app.interphook('print_expr')
-print_item_to   = app.interphook('print_item_to')
-print_newline_to= app.interphook('print_newline_to')
-file_softspace  = app.interphook('file_softspace')
-find_metaclass  = app.interphook('find_metaclass')
-import_all_from = app.interphook('import_all_from')
 prepare_exec    = app.interphook('prepare_exec')
