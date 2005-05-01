@@ -22,22 +22,6 @@ class W_TypeObject(W_Object):
         w_self.nslots = 0
         w_self.w_bestbase = None
 
-        # initialize __module__ in the dict
-        if '__module__' not in dict_w:
-            try:
-                caller = space.getexecutioncontext().framestack.top()
-            except IndexError:
-                w_globals = w_locals = space.newdict([])
-            else:
-                w_globals = caller.w_globals
-                w_str_name = space.wrap('__name__')
-                try:
-                    w_name = space.getitem(w_globals, w_str_name)
-                except OperationError:
-                    pass
-                else:
-                    dict_w['__module__'] = w_name
-
         if overridetypedef is not None:
             w_self.instancetypedef = overridetypedef
             w_self.hasdict = overridetypedef.hasdict
@@ -46,6 +30,21 @@ class W_TypeObject(W_Object):
                 w_self.w_bestbase = space.gettypeobject(overridetypedef.base)
         else:
             w_self.__flags__ = _HEAPTYPE
+            # initialize __module__ in the dict
+            if '__module__' not in dict_w:
+                try:
+                    caller = space.getexecutioncontext().framestack.top()
+                except IndexError:
+                    w_globals = w_locals = space.newdict([])
+                else:
+                    w_globals = caller.w_globals
+                    w_str_name = space.wrap('__name__')
+                    try:
+                        w_name = space.getitem(w_globals, w_str_name)
+                    except OperationError:
+                        pass
+                    else:
+                        dict_w['__module__'] = w_name
             # find the most specific typedef
             instancetypedef = object_typedef
             for w_base in bases_w:
