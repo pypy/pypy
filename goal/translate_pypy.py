@@ -120,7 +120,7 @@ def find_someobjects(translator, quiet=False):
     if not quiet:
         print "=" * 70
         percent = int(num and (100.0*someobjnum / num) or 0)
-        print "somobjectness: %2d percent" % (percent)
+        print "someobjectness: %2d percent" % (percent)
         print "(%d out of %d functions get or return SomeObjects" % (
             someobjnum, num) 
         print "=" * 70
