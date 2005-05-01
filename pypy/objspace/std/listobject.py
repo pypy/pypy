@@ -288,14 +288,15 @@ def _setitem_slice_helper(space, w_list, w_slice, sequence2, len2):
         oldsize = w_list.ob_size
         delta = len2 - slicelength
         newsize = oldsize + delta
-        _list_resize(w_list, newsize)
-        w_list.ob_size = newsize
-        r = range(start+len2, newsize)
-        if delta > 0:
-            r.reverse()
-        items = w_list.ob_item
-        for i in r:
-            items[i] = items[i-delta]
+        if delta >= 0:
+            _list_resize(w_list, newsize)
+            w_list.ob_size = newsize
+            items = w_list.ob_item
+            for i in range(newsize-1, start+len2-1, -1):
+                items[i] = items[i-delta]
+        else:
+            # shrinking requires the careful memory management of _del_slice()
+            _del_slice(w_list, start, start-delta)
     elif len2 != slicelength:  # No resize for extended slices
         raise OperationError(space.w_ValueError, space.wrap("attempt to "
               "assign sequence of size %d to extended slice of size %d" %
@@ -453,7 +454,11 @@ def _del_slice(w_list, ilow, ihigh):
     for i in range(ilow, w_list.ob_size - d):
         items[i] = items[i+d]
         items[i+d] = None
+    # make sure entries after ob_size-d are None, to avoid keeping references
+    # (the above loop already set to None all items[ilow+d:old_style])
     w_list.ob_size -= d
+    for i in range(w_list.ob_size, ilow + d):
+        items[i] = None
     # now we can destruct recycle safely, regardless of
     # side-effects to the list
     del recycle[:]

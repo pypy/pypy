@@ -266,6 +266,27 @@ class TestW_ListObject:
         assert self.space.eq_w(self.space.le(w_list4, w_list3),
                            self.space.w_True)
 
+    def test_no_unneeded_refs(self):
+        space = self.space
+        w = space.wrap
+        w_empty = W_ListObject(space, [])
+
+        w_list = W_ListObject(space, [w(5), w(3), w(99)])
+        space.setitem(w_list, space.newslice(w(0), w(3), w(None)), w_empty)
+        assert w_list.ob_item == [None]*len(w_list.ob_item)
+
+        w_list = W_ListObject(space, [w(5), w(3), w(99)])
+        space.delitem(w_list, space.newslice(w(0), w(3), w(None)))
+        assert w_list.ob_item == [None]*len(w_list.ob_item)
+
+        w_list = W_ListObject(space, [w(5), w(3), w(99)])
+        space.call_method(w_list, 'pop')
+        assert w_list.ob_item[2] is None
+        space.call_method(w_list, 'pop')
+        assert w_list.ob_item[1] is None
+        space.call_method(w_list, 'pop')
+        assert w_list.ob_item == [None]*len(w_list.ob_item)
+
 class AppTestW_ListObject:
     def test_explicit_new_init(self):
         l = l0 = list.__new__(list)
