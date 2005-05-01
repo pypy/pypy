@@ -85,8 +85,10 @@ class TestStrUtil:
             raises(ParseStringError, string_to_int, space, '-'+s)
 
     def test_string_to_int_overflow(self):
+        import sys
         space = self.space
-        raises(ParseStringOverflowError, string_to_int, space,'1891234174197319')
+        raises(ParseStringOverflowError, string_to_int, space,
+               str(sys.maxint*17))
 
     def test_string_to_int_base_error(self):
         space = self.space        

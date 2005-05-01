@@ -333,6 +333,7 @@ class AppTestInt:
         assert int("10000000000") == 10000000000L
 
     def test_int_subclass_ctr(self):
+        import sys
         class j(int):
             pass
         assert j(100) == 100
@@ -341,8 +342,8 @@ class AppTestInt:
         assert j("100") == 100
         assert j("100",2) == 4
         assert isinstance(j("100",2),j)
-        raises(OverflowError,j,10000000000)
-        raises(OverflowError,j,"10000000000")
+        raises(OverflowError,j,sys.maxint+1)
+        raises(OverflowError,j,str(sys.maxint+1))
 
     def test_special_int(self):
         class a:
