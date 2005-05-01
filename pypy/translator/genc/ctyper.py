@@ -35,12 +35,20 @@ class GenCSpecializer(Specializer):
             typematches = [TNone, TInt],
 
             specializationtable = [
-                ## op         specialized op   arg types   concrete return type
-                ('add',         'int_add',     TInt, TInt,   TInt),
-                ('inplace_add', 'int_add',     TInt, TInt,   TInt),
-                ('sub',         'int_sub',     TInt, TInt,   TInt),
-                ('inplace_sub', 'int_sub',     TInt, TInt,   TInt),
-                ('is_true',     'int_is_true', TInt,         TInt),
+                ## op               specialized op   arg types   concrete return type
+                ('add',             'int_add',     TInt, TInt,   TInt),
+                ('inplace_add',     'int_add',     TInt, TInt,   TInt),
+                ('add_ovf',         'int_add_ovf', TInt, TInt,   TInt),
+                ('inplace_add_ovf', 'int_add_ovf', TInt, TInt,   TInt),
+                ('sub',             'int_sub',     TInt, TInt,   TInt),
+                ('inplace_sub',     'int_sub',     TInt, TInt,   TInt),
+                ('sub_ovf',         'int_sub_ovf', TInt, TInt,   TInt),
+                ('inplace_sub_ovf', 'int_sub_ovf', TInt, TInt,   TInt),
+                ('mul',             'int_mul',     TInt, TInt,   TInt),
+                ('inplace_mul',     'int_mul',     TInt, TInt,   TInt),
+                ('mul_ovf',         'int_mul_ovf', TInt, TInt,   TInt),
+                ('inplace_mul_ovf', 'int_mul_ovf', TInt, TInt,   TInt),
+                ('is_true',         'int_is_true', TInt,         TInt),
                 ],
             )
 

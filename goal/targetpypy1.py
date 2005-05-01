@@ -6,13 +6,16 @@ from pypy.objspace.std import stdtypedef
 # __________  Entry point  __________
 
 def entry_point():
-    w_a = W_IntObject(space, -6)
-    w_b = W_IntObject(space, -7)
-    return mmentrypoint(space, w_a, w_b)
+    w_a = W_IntObject(space, -7)
+    w_b = W_IntObject(space, -6)
+    ret_mul = mmentrypoints["mul"](space, w_a, w_b)
+    ret_add = mmentrypoints["add"](space, w_a, w_b)
+    ret_sub = mmentrypoints["sub"](space, w_a, w_b)
+    return ret_mul, ret_add, ret_sub
 
 # _____ Define and setup target _____
 def target():
-    global space, mmentrypoint
+    global space, mmentrypoints
     # disable translation of the whole of classobjinterp.py
     StdObjSpace.setup_old_style_classes = lambda self: None
     space = StdObjSpace()
@@ -20,14 +23,15 @@ def target():
     buildcache2.buildcache(space)
 
     # ------------------------------------------------------------
-    name = 'mul'
-    mm = space.MM.mul
-    exprargs, expr, miniglobals, fallback = (
-        mm.install_not_sliced(space.model.typeorder, baked_perform_call=False))
-    func = stdtypedef.make_perform_trampoline('__mm_'+name,
-                                              exprargs, expr, miniglobals,
-                                              mm)
-    mmentrypoint = func
+    mmentrypoints = {}
+    for name in "mul add sub".split():
+        mm = getattr(space.MM, name)
+        exprargs, expr, miniglobals, fallback = (
+            mm.install_not_sliced(space.model.typeorder, baked_perform_call=False))
+        func = stdtypedef.make_perform_trampoline('__mm_'+name,
+                                                  exprargs, expr, miniglobals,
+                                                  mm)
+        mmentrypoints[name] = func
     # ------------------------------------------------------------
 
     # further call the entry_point once to trigger building remaining
@@ -39,7 +43,8 @@ def target():
 # _____ Run translated _____
 
 def run(c_entry_point):
-    w_result = c_entry_point()
-    print w_result
-    print w_result.intval
-    assert w_result.intval == 42
+    res_w = c_entry_point()
+    res = tuple([each.intval for each in res_w])
+    print res
+    assert res == (-7 * -6, -7 + -6, -7 - -6)
+    
