@@ -39,6 +39,8 @@ def wrap_exception(space):
             if not key.startswith('_'):
                 space.setattr(w_value, space.wrap(key), space.wrap(value))
     else:
+        debug_print('likely crashes because of faked exception %s: %s' % (
+            exc.__name__, value))
         w_exc = space.wrap(exc)
         w_value = space.wrap(value)
     raise OperationError, OperationError(w_exc, w_value), tb
