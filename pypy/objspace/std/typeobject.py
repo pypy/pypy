@@ -358,7 +358,7 @@ def mro_error(space, orderlists):
     if candidate in orderlists[-1][1:]:
         # explicit error message for this specific case
         raise OperationError(space.w_TypeError,
-            space.wrap("duplicate base class " + _getname(space, candidate)))
+            space.wrap("duplicate base class " + candidate.getname(space,"?")))
     while candidate not in cycle:
         cycle.append(candidate)
         nextblockinglist = mro_blockinglist(candidate, orderlists)
@@ -366,7 +366,7 @@ def mro_error(space, orderlists):
     del cycle[:cycle.index(candidate)]
     cycle.append(candidate)
     cycle.reverse()
-    names = [_getname(space, cls) for cls in cycle]
+    names = [cls.getname(space, "?") for cls in cycle]
     raise OperationError(space.w_TypeError,
         space.wrap("cycle among base classes: " + ' < '.join(names)))
 

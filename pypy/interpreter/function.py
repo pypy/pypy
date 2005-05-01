@@ -121,6 +121,13 @@ class Function(Wrappable):
             w_res = space.w_None
         return w_res
 
+def _getclass(space, w_obj):
+    try:
+        return space.abstract_getclass(w_obj)
+    except OperationError, e:
+        if e.match(space, space.w_AttributeError):
+            return space.type(w_obj)
+        raise
 
 class Method(Wrappable): 
     """A method is a function bound to a specific instance or class."""
@@ -146,21 +153,33 @@ class Method(Wrappable):
         return "%s method %s" % (pre, self.w_function.name)
 
     def call_args(self, args):
+        space = self.space
         if self.w_instance is not None:
             # bound method
             args = args.prepend(self.w_instance)
         else:
             # unbound method
             w_firstarg = args.firstarg()
-            if w_firstarg is not None and self.space.is_true(
-                    self.space.abstract_isinstance(w_firstarg, self.w_class)):
+            if w_firstarg is not None and space.is_true(
+                    space.abstract_isinstance(w_firstarg, self.w_class)):
                 pass  # ok
             else:
-                msg = ("unbound method must be called with "
-                       "instance as first argument")     # XXX fix error msg
-                raise OperationError(self.space.w_TypeError,
-                                     self.space.wrap(msg))
-        return self.space.call_args(self.w_function, args)
+                myname = self.getname(space,"")
+                clsdescr = self.w_class.getname(space,"")
+                if clsdescr:
+                    clsdescr+=" "
+                if w_firstarg is None:
+                    instdescr = "nothing"
+                else:
+                    instname = _getclass(space, w_firstarg).getname(space,"")
+                    if instname:
+                        instname += " "
+                    instdescr = "%sinstance" %instname
+                msg = ("unbound method %s() must be called with %s"
+                       "instance as first argument (got %s instead)")  % (myname, clsdescr, instdescr) 
+                raise OperationError(space.w_TypeError,
+                                     space.wrap(msg))
+        return space.call_args(self.w_function, args)
 
     def descr_method_get(self, w_obj, w_cls=None):
         space = self.space

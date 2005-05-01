@@ -23,10 +23,18 @@ class W_Root:
                 if not e.match(space, space.w_KeyError):
                     raise
         return None
-
     
     def getclass(self, space):
         return space.gettypeobject(self.typedef)
+
+    def getname(self, space, default):
+        try:
+            return space.str_w(space.getattr(self, space.wrap('__name__')))
+        except OperationError, e:
+            if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
+                return default
+            raise
+                            
 
 class BaseWrappable(W_Root):
     """A subclass of BaseWrappable is an internal, interpreter-level class
@@ -285,7 +293,6 @@ class ObjSpace(object):
 
     def abstract_getclass(self, w_obj):
         return self.getattr(w_obj, self.wrap('__class__'))
-
 
     def eval(self, expression, w_globals, w_locals):
         "NOT_RPYTHON: For internal debugging."
