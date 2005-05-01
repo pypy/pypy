@@ -57,11 +57,16 @@ class State:
         from pypy.interpreter import autopath
         srcdir = os.path.dirname(autopath.pypydir)
         python_std_lib = os.path.normpath(
-                os.path.join(autopath.pypydir, os.pardir,'lib-python-2.3.4'))
-        pypy_override_lib = os.path.join(autopath.pypydir, 'lib') 
+                os.path.join(autopath.pypydir, os.pardir,'lib-python', '2.3.4'))
+        python_std_lib_modified = os.path.normpath(
+                os.path.join(autopath.pypydir, os.pardir,'lib-python', 'modified-2.3.4'))
+
+        pypy_lib = os.path.join(autopath.pypydir, 'lib') 
         assert os.path.exists(python_std_lib) 
+        assert os.path.exists(python_std_lib_modified)
         self.w_path = space.newlist([space.wrap(''), 
-                               space.wrap(pypy_override_lib), 
+                               space.wrap(pypy_lib), 
+                               space.wrap(python_std_lib_modified),
                                space.wrap(python_std_lib), 
                                ] +
                                [space.wrap(p) for p in sys.path if p!= srcdir])

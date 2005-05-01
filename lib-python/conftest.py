@@ -46,8 +46,10 @@ def gettimeout():
         return seconds 
     return float(timeout) 
 
-mydir = py.magic.autopath().dirpath()
 pypydir = py.path.local(pypy.__file__).dirpath()
+libpythondir = pypydir.dirpath('lib-python')
+testdir = libpythondir.join('2.3.4', 'test') 
+modtestdir = libpythondir.join('modified-2.3.4', 'test') 
 
 def callex(space, func, *args, **kwargs): 
     try: 
@@ -268,7 +270,6 @@ class AppTestCaseMethod(py.test.Item):
 
 class RegrTest: 
     """ Regression Test Declaration.""" 
-    modifiedtestdir = pypydir.join('lib', 'test2') 
     def __init__(self, basename, enabled=False, dumbtest=False, oldstyle=False): 
         self.basename = basename 
         self.enabled = enabled 
@@ -276,17 +277,17 @@ class RegrTest:
         self.oldstyle = oldstyle 
 
     def ismodified(self): 
-        return self.modifiedtestdir.join(self.basename).check() 
+        return modtestdir.join(self.basename).check() 
 
     def getfspath(self): 
-        fn = self.modifiedtestdir.join(self.basename)
+        fn = modtestdir.join(self.basename)
         if fn.check(): 
             return fn 
-        fn = mydir.join(self.basename)
+        fn = testdir.join(self.basename)
         return fn 
 
     def getoutputpath(self): 
-        p = mydir.join('output', self.basename).new(ext='')
+        p = testdir.join('output', self.basename).new(ext='')
         if p.check(file=1): 
             return p 
 
@@ -695,7 +696,7 @@ Directory = RegrDirectory
 
 def getrev(path): 
     try: 
-        return py.path.svnwc(mydir).info().rev
+        return py.path.svnwc(testdir).info().rev
     except: 
         return 'unknown'  # on windows people not always have 'svn' in their path
 
@@ -749,12 +750,14 @@ class ReallyRunFileExternal(py.test.Item):
             username = 'unknown'
         userhost = '%s@%s' % (username, socket.gethostname())
 
-        if not mydir.join('result').check(dir=1):
-            py.test.skip("""'result' subdirectory not found.
+        testresultdir = pypydir.dirpath('testresult')
+        if not testresultdir.check(dir=1): 
+            py.test.skip("""'testresult' directory not found.
             To run tests in reporting mode (without -E), you first have to
-            check it out as follows into the current directory:
-            svn co http://codespeak.net/svn/pypy/testresult result""")
-        resultdir = mydir.join('result', userhost)
+            check it out as follows: 
+            svn co http://codespeak.net/svn/pypy/testresult %s""" % (
+                testresultdir, ))
+        resultdir = testresultdir.join(userhost)
         resultdir.ensure(dir=1)
         resultfilename = resultdir.join(fspath.new(ext='.txt').basename)
         resultfile = resultfilename.open('w')
