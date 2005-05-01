@@ -22,6 +22,8 @@ option = py.test.Config.addoptions("pypy options",
                help="object space to run tests on."),
         Option('--oldstyle', action="store_true",dest="oldstyle", default=False,
                help="enable oldstyle classes as default metaclass (std objspace only)"),
+        Option('--file', action="store_true",dest="uselibfile", default=False,
+               help="enable our custom file implementation"),
         Option('--allpypy', action="store_true",dest="allpypy", default=False, 
                help="run everything possible on top of PyPy."),
     )
@@ -61,6 +63,11 @@ def getobjspace(name=None, _spacecache={}):
         _spacecache[name] = space
         if name == 'std' and option.oldstyle: 
             space.enable_old_style_classes_as_default_metaclass()
+        if option.uselibfile:
+            space.appexec([], '''():
+                from _file import file
+                __builtins__.file = __builtins__.open = file
+            ''')
         if name != 'flow': # not sensible for flow objspace case
             space.setitem(space.builtin.w_dict, space.wrap('AssertionError'), 
                           pytestsupport.build_pytest_assertion(space))

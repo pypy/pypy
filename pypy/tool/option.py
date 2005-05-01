@@ -6,6 +6,7 @@ class Options:
     showwarning = 0
     spaces = []
     oldstyle = 0
+    uselibfile = 0
 
 def run_tb_server(option, opt, value, parser):
     from pypy.tool import tb_server
@@ -25,6 +26,9 @@ def get_standard_options():
     options.append(make_option(
         '--oldstyle', action="store_true",dest="oldstyle",
         help="enable oldstyle classes as default metaclass (std objspace only)"))    
+    options.append(make_option(
+        '--file', action="store_true",dest="uselibfile",
+        help="enable our custom file implementation"))
     options.append(make_option(
         '-w', action="store_true", dest="showwarning",
         help="enable warnings (disabled by default)"))
@@ -63,4 +67,9 @@ def objspace(name='', _spacecache={}):
         space = Space()
         if name == 'std' and Options.oldstyle:
             space.enable_old_style_classes_as_default_metaclass()
+        if Options.uselibfile:
+            space.appexec([], '''():
+                from _file import file
+                __builtins__.file = __builtins__.open = file
+            ''')
         return _spacecache.setdefault(name, space)

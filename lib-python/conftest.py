@@ -270,12 +270,14 @@ class AppTestCaseMethod(py.test.Item):
 
 class RegrTest: 
     """ Regression Test Declaration.""" 
-    def __init__(self, basename, enabled=False, dumbtest=False, oldstyle=False, core=False): 
+    def __init__(self, basename, enabled=False, dumbtest=False,
+                                 oldstyle=False, core=False, uselibfile=False): 
         self.basename = basename 
         self.enabled = enabled 
         self.dumbtest = dumbtest 
         self.oldstyle = oldstyle 
         self.core = core
+        self.uselibfile = uselibfile
 
     def ismodified(self): 
         return modtestdir.join(self.basename).check() 
@@ -297,11 +299,22 @@ class RegrTest:
         assert fspath.check()
         if self.oldstyle or pypy_option.oldstyle: 
             space.enable_old_style_classes_as_default_metaclass() 
+        if self.uselibfile or pypy_option.uselibfile:
+            w_original_faked_file = space.appexec([], '''():
+                from _file import file
+                prev = __builtins__.file
+                __builtins__.file = __builtins__.open = file
+                return prev
+            ''')
         try: 
             callex(space, run_file, str(fspath), space)
         finally: 
             if not pypy_option.oldstyle: 
                 space.enable_new_style_classes_as_default_metaclass() 
+            if self.uselibfile and not pypy_option.uselibfile:
+                space.appexec([w_original_faked_file], '''(prev):
+                    __builtins__.file = __builtins__.open = prev
+                ''')
 
 testmap = [
     RegrTest('test___all__.py', enabled=False, core=True),
@@ -455,7 +468,7 @@ testmap = [
     RegrTest('test_inspect.py', enabled=False, dumbtest=1, core="maybe"),
     RegrTest('test_ioctl.py', enabled=False),
     RegrTest('test_isinstance.py', enabled=True, core=True),
-    RegrTest('test_iter.py', enabled=False, core=True),
+    RegrTest('test_iter.py', enabled=False, core=True, uselibfile=True),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
     RegrTest('test_itertools.py', enabled=True, core=True),
@@ -741,6 +754,8 @@ class ReallyRunFileExternal(py.test.Item):
         pypy_options = []
         if regrtest.oldstyle or pypy_option.oldstyle: 
             pypy_options.append('--oldstyle') 
+        if regrtest.uselibfile or pypy_option.uselibfile: 
+            pypy_options.append('--file') 
         sopt = " ".join(pypy_options) 
 
         TIMEOUT = gettimeout()
@@ -781,6 +796,7 @@ class ReallyRunFileExternal(py.test.Item):
             print >>resultfile, "cpu mhz:", info['cpu mhz']
 
         print >> resultfile, "oldstyle:", regrtest.oldstyle and 'yes' or 'no'
+        print >> resultfile, "uselibfile:", regrtest.uselibfile and 'yes' or 'no'
         print >> resultfile, 'pypy-revision:', getrev(pypydir)
         print >> resultfile, "startdate:", time.ctime()
         print >> resultfile, "timeout: %s seconds" %(TIMEOUT,) 
