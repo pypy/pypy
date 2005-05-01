@@ -187,7 +187,7 @@ class TestW_LongObject:
             self.space.raises_w(self.space.w_OverflowError,
                                 lobj.rshift__Long_Long, self.space, f1,
                                 big)                                
-            for y in [0L, 1L, 2304L, 11233L, 3 ** 9]:
+            for y in [0L, 1L, 32L, 2304L, 11233L, 3 ** 9]:
                 f2 = lobj.W_LongObject(self.space, *lobj.args_from_long(y))
                 res1 = lobj.lshift__Long_Long(self.space, f1, f2).longval()
                 res2 = lobj.rshift__Long_Long(self.space, f1, f2).longval()

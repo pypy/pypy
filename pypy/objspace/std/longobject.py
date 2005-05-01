@@ -15,6 +15,9 @@ SIGN_BIT = LONG_BIT-1
 SIGN_MASK = r_uint(1) << SIGN_BIT
 NONSIGN_MASK = ~SIGN_MASK
 
+# XXX some operations below return one of their input arguments
+#     without checking that it's really of type long (and not a subclass).
+
 class W_LongObject(W_Object):
     """This is a reimplementation of longs using a list of r_uints."""
     #All functions that still rely on the underlying Python's longs are marked
@@ -448,7 +451,7 @@ def rshift__Long_Long(space, w_long1, w_long2): #YYYYYY
     accum = r_uint(0)
     i = newsize - 1
     j = oldsize - 1
-    while j >= 0:
+    while i >= 0:
         digit = w_long1.digits[j]
         w_result.digits[i] = (accum | (digit >> remshift))
         accum = (digit & LOWER_MASK) << leftshift
