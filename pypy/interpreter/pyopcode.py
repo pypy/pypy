@@ -347,8 +347,10 @@ class PyInterpFrame(pyframe.PyFrame):
         w_globals = f.valuestack.pop()
         w_prog    = f.valuestack.pop()
         w_compile_flags = f.space.wrap(f.get_compile_flags())
-        w_resulttuple = prepare_exec(f.space, f.space.wrap(f), w_prog, w_globals, w_locals,
-                                       w_compile_flags, f.space.wrap(f.builtin))
+        w_resulttuple = prepare_exec(f.space, f.space.wrap(f), w_prog,
+                                     w_globals, w_locals,
+                                     w_compile_flags, f.space.wrap(f.builtin),
+                                     f.space.gettypeobject(PyCode.typedef))
         w_prog, w_globals, w_locals = f.space.unpacktuple(w_resulttuple, 3)
 
         plain = f.space.is_true(f.space.is_(w_locals, f.w_locals))
@@ -821,10 +823,9 @@ app = gateway.applevel(r'''
                 continue
             into_locals[name] = getattr(module, name)
 
-    def prepare_exec(f, prog, globals, locals, compile_flags, builtin):
+    def prepare_exec(f, prog, globals, locals, compile_flags, builtin, codetype):
         """Manipulate parameters to exec statement to (codeobject, dict, dict).
         """
-        # XXX INCOMPLETE
         if (globals is None and locals is None and
             isinstance(prog, tuple) and
             (len(prog) == 2 or len(prog) == 3)):
@@ -838,27 +839,32 @@ app = gateway.applevel(r'''
                 locals = f.f_locals
         if locals is None:
             locals = globals
+
         if not isinstance(globals, dict):
-            raise TypeError("exec: arg 2 must be a dictionary or None")
-        elif not globals.has_key('__builtins__'):
+            if not (hasattr(globals, '__getitem__') and
+                    hasattr(globals, 'keys')):
+                raise TypeError("exec: arg 2 must be a dictionary or None")
+        if '__builtins__' not in globals:
             globals['__builtins__'] = builtin
         if not isinstance(locals, dict):
-            raise TypeError("exec: arg 3 must be a dictionary or None")
-        # XXX - HACK to check for code object
-        co = compile('1','<string>','eval')
-        if isinstance(prog, type(co)):
-            return (prog, globals, locals)
-        if not isinstance(prog, str):
-    ##     if not (isinstance(prog, types.StringTypes) or
-    ##             isinstance(prog, types.FileType)):
-            raise TypeError("exec: arg 1 must be a string, file, "
-                            "or code object")
-    ##     if isinstance(prog, types.FileType):
-    ##         co = compile(prog.read(),prog.name,'exec',comple_flags,1)
-    ##         return (co,globals,locals)
-        else: # prog is a string
-            co = compile(prog,'<string>','exec', compile_flags, 1)
-            return (co, globals, locals)
+            if not (hasattr(locals, '__getitem__') and
+                    hasattr(locals, 'keys')):
+                raise TypeError("exec: arg 3 must be a dictionary or None")
+
+        if not isinstance(prog, codetype):
+            filename = '<string>'
+            if not isinstance(prog, str):
+                if isinstance(prog, basestring):
+                    prog = str(prog)
+                elif isinstance(prog, file):
+                    filename = prog.name
+                    prog = prog.read()
+                else:
+                    raise TypeError("exec: arg 1 must be a string, file, "
+                                    "or code object")
+            prog = compile(prog, filename, 'exec', compile_flags, 1)
+        return (prog, globals, locals)
+
 ''', filename=__file__)
 
 sys_stdout      = app.interphook('sys_stdout')

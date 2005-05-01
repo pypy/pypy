@@ -689,6 +689,7 @@ class GenRpy:
         type:   'space.w_type',
         complex:'space.wrap(types.ComplexType)',
         unicode:'space.w_unicode',
+        basestring: (eval_helper, 'basestring', 'basestring'),
         file:   (eval_helper, 'file', 'file'),
         type(None): (eval_helper, 'NoneType', 'type(None)'),
         CodeType: (eval_helper, 'code', 'type((lambda:42).func_code)'),

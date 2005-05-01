@@ -4,6 +4,17 @@ New for PyPy - Could be incorporated into CPython regression tests.
 """
 import autopath
 
+
+def test_file(space):
+    space.appexec([space.wrap(__file__)], '''
+        (filename):
+            fo = open(filename, 'r')
+            g = {}
+            exec fo in g
+            assert 'test_file' in g
+    ''')
+
+
 class AppTestExecStmt: 
 
     def test_string(self):
@@ -38,15 +49,7 @@ class AppTestExecStmt:
         l = {}
         exec co in g, l
         assert l['a'] == 3
-        
-##    # Commented out as PyPy give errors using open()
-##    #     ["Not availible in restricted mode"]
-##    def test_file(self):
-##        fo = open("test_exec.py", 'r')
-##        g = {}
-##        exec fo in g
-##        self.failUnless(g.has_key('TestExecStmt'))
-        
+
     def test_implicit(self):
         a = 4
         exec "a = 3"
