@@ -68,7 +68,7 @@ class ComplexTest(unittest.TestCase):
             self.assertClose(q, x)
 
     def test_div(self):
-        simple_real = [-2.0, 0.0, 1.0, 5.0]
+        simple_real = [-2.0, 0.0, 1.0]
         simple_complex = [complex(x, y) for x in simple_real for y in simple_real]
         for x in simple_complex:
             for y in simple_complex:
