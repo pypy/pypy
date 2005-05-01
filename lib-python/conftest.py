@@ -24,9 +24,9 @@ from test import pystone
 
 Option = py.test.Config.Option 
 option = py.test.Config.addoptions("compliance testing options", 
-    Option('-D', '--withdisabled', action="store_true", 
-           default=False, dest="withdisabled", 
-           help="include all disabled tests in the test run."), 
+    Option('-A', '--all', action="store_true", 
+           default=False, dest="withall", 
+           help="include all tests (instead of just core tests)."), 
     Option('-E', '--extracttests', action="store_true", 
            default=False, dest="extracttests", 
            help="try to extract single tests and run them via py.test/PyPy"), 
@@ -345,7 +345,7 @@ testmap = [
         #raise UnwrapError('calling %s: %s' % (self.code.cpy_callable, e))
         #pypy.objspace.std.model.UnwrapError: calling <built-in function backslashreplace_errors>: cannot unwrap <UserW_ObjectObject() instance of <W_TypeObject(UnicodeError)>>
 
-    RegrTest('test_cgi.py', enabled=True, , core=True),
+    RegrTest('test_cgi.py', enabled=True, core=True),
     RegrTest('test_charmapcodec.py', enabled=True),
     RegrTest('test_cl.py', enabled=False, dumbtest=1),
     RegrTest('test_class.py', enabled=False, oldstyle=True, core=True),
@@ -449,7 +449,7 @@ testmap = [
     RegrTest('test_imageop.py', enabled=False, dumbtest=1),
     RegrTest('test_imaplib.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_imgfile.py', enabled=False, dumbtest=1),
-    RegrTest('test_imp.py', enabled=False, , core="maybe"),
+    RegrTest('test_imp.py', enabled=False, core="maybe"),
     RegrTest('test_import.py', enabled=False, dumbtest=1, core="possibly"),
     RegrTest('test_importhooks.py', enabled=False, core="possibly"),
     RegrTest('test_inspect.py', enabled=False, dumbtest=1, core="maybe"),
@@ -597,7 +597,7 @@ testmap = [
     RegrTest('test_tarfile.py', enabled=False, core="possibly"),
         #rev 10840: 13 of 13 test fail
 
-    RegrTest('test_tempfile.py', enabled=False, core=True)
+    RegrTest('test_tempfile.py', enabled=False, core=True),
         # tempfile does: class ...         unlink = _os.unlink!!!
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
@@ -682,7 +682,7 @@ class RegrDirectory(py.test.collect.Directory):
         
     def run(self): 
         return [x.basename for x in self.testmap 
-                    if x.enabled or pypy_option.withdisabled]
+                    if x.core or pypy_option.withall]
 
     def join(self, name): 
         regrtest = self.get(name) 
