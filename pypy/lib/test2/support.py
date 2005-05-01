@@ -26,7 +26,8 @@ def libmodule(modname):
     # interactions later
     cleanup_path()
     cpython_mod = __import__(modname)
-    assert os.path.dirname(cpython_mod.__file__) != lib_dir
+    if hasattr(cpython_mod, '__file__'):
+        assert os.path.dirname(cpython_mod.__file__) != lib_dir
     filename = os.path.join(lib_dir, modname + '.py')
     mod = new.module(modname)
     mod.__file__ = filename

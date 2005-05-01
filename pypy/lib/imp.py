@@ -9,9 +9,14 @@ __import__ function.  Undocumented functions are obsolete.
 
 import sys, os
 
-PY_SOURCE = 1
-PKG_DIRECTORY = 5
-C_BUILTIN = 6
+PY_SOURCE       = 1
+PY_COMPILED     = 2
+C_EXTENSION     = 3
+PY_RESOURCE     = 4
+PKG_DIRECTORY   = 5
+C_BUILTIN       = 6
+PY_FROZEN       = 7
+PY_CODERESOURCE = 8
 
 def get_magic():
     return '\x3b\xf2\x0d\x0a'
@@ -70,3 +75,12 @@ def load_module(name, file, filename, description):
         return module
 
     raise ValueError, 'invalid description argument: %r' % (description,)
+
+
+# XXX needs to be implemented when we have threads
+def lock_held():
+    return False
+def acquire_lock():
+    pass
+def release_lock():
+    pass
