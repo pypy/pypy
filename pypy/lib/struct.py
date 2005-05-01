@@ -105,14 +105,14 @@ def pack_int(number,size,le):
     return ''.join(res) 
     
 def pack_signed_int(number,size,le):
-    if type(number) not in [int,long]:
+    if not isinstance(number, (int,long)):
         raise StructError,"argument for i,I,l,L,q,Q,h,H must be integer"
     if number > 2**(8*size-1)-1 or number < -1*2**(8*size-1):
         raise OverflowError,"Number:%i to large to convert" % number
     return pack_int(number,size,le)
 
 def pack_unsigned_int(number,size,le):
-    if type(number) not in [int,long]:
+    if not isinstance(number, (int,long)):
         raise StructError,"argument for i,I,l,L,q,Q,h,H must be integer"
     if number < 0:
         raise TypeError,"can't convert negative long to unsigned"
@@ -241,7 +241,7 @@ def calcsize(fmt):
 def pack(fmt,*args):
     """pack(fmt, v1, v2, ...) -> string 
        Return string containing values v1, v2, ... packed according to fmt. 
-       See struct.__doc__ for more on format strings."""    
+       See struct.__doc__ for more on format strings."""
     formatdef,endianness,i = getmode(fmt)
     args = list(args)
     n_args = len(args)
@@ -262,17 +262,14 @@ def pack(fmt,*args):
         if cur == 'x':
             result += ['\0'*num]
         elif cur == 's':
-            if type(args[0]) == str:
+            if isinstance(args[0], str):
                 padding = num - len(args[0])
-                if padding >=0:
-                    result += [args[0][:num] + '\0'*padding]
-                else:
-                    result += [args[0][:num]]
-                args.pop()
+                result += [args[0][:num] + '\0'*padding]
+                args.pop(0)
             else:
                 raise StructError,"arg for string format not a string"
         elif cur == 'p':
-            if type(args[0]) == str:
+            if isinstance(args[0], str):
                 padding = num - len(args[0]) - 1
                 
                 if padding > 0:
@@ -282,7 +279,7 @@ def pack(fmt,*args):
                         result += [chr(num-1) + args[0][:num-1]]
                     else:
                         result += [chr(255) + args[0][:num-1]]
-                args.pop()
+                args.pop(0)
             else:
                 raise StructError,"arg for string format not a string"
             
