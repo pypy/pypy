@@ -1,4 +1,4 @@
-import sys
+import sys, operator
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -256,7 +256,7 @@ def truediv__Long_Long(space, w_long1, w_long2): #YYYYYY
     if not y:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("long division"))
-    z = x / y
+    z = operator.truediv(x, y)
     return space.newfloat(float(z))
 
 def floordiv__Long_Long(space, w_long1, w_long2): #YYYYYY
