@@ -3,15 +3,19 @@
 New for PyPy - Could be incorporated into CPython regression tests.
 """
 import autopath
+from pypy.tool.udir import udir
 
 
 def test_file(space):
-    space.appexec([space.wrap(__file__)], '''
+    fn = udir.join('test_exec_file')
+    fn.write('abc=1\ncba=2\n')
+    space.appexec([space.wrap(str(fn))], '''
         (filename):
             fo = open(filename, 'r')
             g = {}
             exec fo in g
-            assert 'test_file' in g
+            assert 'abc' in g
+            assert 'cba' in g
     ''')
 
 
