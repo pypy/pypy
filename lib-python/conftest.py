@@ -270,11 +270,12 @@ class AppTestCaseMethod(py.test.Item):
 
 class RegrTest: 
     """ Regression Test Declaration.""" 
-    def __init__(self, basename, enabled=False, dumbtest=False, oldstyle=False): 
+    def __init__(self, basename, enabled=False, dumbtest=False, oldstyle=False, core=False): 
         self.basename = basename 
         self.enabled = enabled 
         self.dumbtest = dumbtest 
         self.oldstyle = oldstyle 
+        self.core = core
 
     def ismodified(self): 
         return modtestdir.join(self.basename).check() 
@@ -303,18 +304,20 @@ class RegrTest:
                 space.enable_new_style_classes_as_default_metaclass() 
 
 testmap = [
-    RegrTest('test___all__.py', enabled=False),
-    RegrTest('test___future__.py', enabled=True, dumbtest=1),
+    RegrTest('test___all__.py', enabled=False, core=True),
+        # fixable
+    RegrTest('test___future__.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_aepack.py', enabled=False),
     RegrTest('test_al.py', enabled=False, dumbtest=1),
-    RegrTest('test_anydbm.py', enabled=True),
+    RegrTest('test_anydbm.py', enabled=True, core=True),
     RegrTest('test_array.py', enabled=False),
-        #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
+       # c-extension 
+       #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
     RegrTest('test_asynchat.py', enabled=False),
-    RegrTest('test_atexit.py', enabled=False, dumbtest=1),
+    RegrTest('test_atexit.py', enabled=False, dumbtest=1, core=True),
     RegrTest('test_audioop.py', enabled=False, dumbtest=1),
-    RegrTest('test_augassign.py', enabled=True),
+    RegrTest('test_augassign.py', enabled=True, core=True),
     RegrTest('test_base64.py', enabled=True),
     RegrTest('test_bastion.py', enabled=True, dumbtest=1),
     RegrTest('test_binascii.py', enabled=False),
@@ -323,182 +326,178 @@ testmap = [
     RegrTest('test_binhex.py', enabled=False),
         #rev 10840: 1 of 1 test fails
 
-    RegrTest('test_binop.py', enabled=True),
-    RegrTest('test_bisect.py', enabled=True),
-    RegrTest('test_bool.py', enabled=True),
-        #rev 10840: Infinite recursion in DescrOperation.is_true
-
+    RegrTest('test_binop.py', enabled=True, core=True),
+    RegrTest('test_bisect.py', enabled=True, core=True),
+    RegrTest('test_bool.py', enabled=True, core=True),
     RegrTest('test_bsddb.py', enabled=False),
     RegrTest('test_bsddb185.py', enabled=False),
     RegrTest('test_bsddb3.py', enabled=False),
-    RegrTest('test_bufio.py', enabled=False, dumbtest=1),
-    RegrTest('test_builtin.py', enabled=True),
+    RegrTest('test_bufio.py', enabled=False, dumbtest=1, core=True),
+    RegrTest('test_builtin.py', enabled=True, core=True),
     RegrTest('test_bz2.py', enabled=False),
-    RegrTest('test_calendar.py', enabled=True),
-    RegrTest('test_call.py', enabled=True),
+    RegrTest('test_calendar.py', enabled=True, core=True),
+    RegrTest('test_call.py', enabled=True, core=True),
     RegrTest('test_capi.py', enabled=False, dumbtest=1),
     RegrTest('test_cd.py', enabled=False, dumbtest=1),
-    RegrTest('test_cfgparser.py', enabled=False),
+    RegrTest('test_cfgparser.py', enabled=False, core=True),
         #rev 10840: Uncaught interp-level exception:
         #File "pypy/objspace/std/fake.py", line 133, in setfastscope
         #raise UnwrapError('calling %s: %s' % (self.code.cpy_callable, e))
         #pypy.objspace.std.model.UnwrapError: calling <built-in function backslashreplace_errors>: cannot unwrap <UserW_ObjectObject() instance of <W_TypeObject(UnicodeError)>>
 
-    RegrTest('test_cgi.py', enabled=True),
+    RegrTest('test_cgi.py', enabled=True, , core=True),
     RegrTest('test_charmapcodec.py', enabled=True),
     RegrTest('test_cl.py', enabled=False, dumbtest=1),
-    RegrTest('test_class.py', enabled=False, oldstyle=True),
-    RegrTest('test_cmath.py', enabled=True, dumbtest=1),
+    RegrTest('test_class.py', enabled=False, oldstyle=True, core=True),
+    RegrTest('test_cmath.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_codeccallbacks.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
     RegrTest('test_codecs.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
-    RegrTest('test_codeop.py', enabled=True),
-    RegrTest('test_coercion.py', enabled=False, oldstyle=True),
+    RegrTest('test_codeop.py', enabled=True, core=True),
+    RegrTest('test_coercion.py', enabled=False, oldstyle=True, core=True),
         # needed changes because our exceptions are new-style and so have a different str(.) behavior
     RegrTest('test_commands.py', enabled=True),
-    RegrTest('test_compare.py', enabled=True, oldstyle=True),
-    RegrTest('test_compile.py', enabled=True),
-    RegrTest('test_complex.py', enabled=False),
+    RegrTest('test_compare.py', enabled=True, oldstyle=True, core=True),
+    RegrTest('test_compile.py', enabled=True, core=True),
+    RegrTest('test_complex.py', enabled=False, core=True),
         #rev 10840: at least one test fails, after several hours I gave up waiting for the rest
 
-    RegrTest('test_contains.py', enabled=True, dumbtest=1),
-    RegrTest('test_cookie.py', enabled=False),
-    RegrTest('test_copy.py', enabled=True),
-    RegrTest('test_copy_reg.py', enabled=True),
-    RegrTest('test_cpickle.py', enabled=False),
+    RegrTest('test_contains.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_cookie.py', enabled=False, core=True),
+    RegrTest('test_copy.py', enabled=True, core=True),
+    RegrTest('test_copy_reg.py', enabled=True, core=True),
+    RegrTest('test_cpickle.py', enabled=False, core=True),
     RegrTest('test_crypt.py', enabled=False, dumbtest=1),
     RegrTest('test_csv.py', enabled=False),
         #rev 10840: ImportError: _csv
 
     RegrTest('test_curses.py', enabled=False, dumbtest=1),
-    RegrTest('test_datetime.py', enabled=True),
+    RegrTest('test_datetime.py', enabled=True, core=True),
     RegrTest('test_dbm.py', enabled=False, dumbtest=1),
-    RegrTest('test_descr.py', enabled=False),
-    RegrTest('test_descrtut.py', enabled=False),
+    RegrTest('test_descr.py', enabled=False, core=True),
+    RegrTest('test_descrtut.py', enabled=False, core=True),
         #rev 10840: 19 of 96 tests fail
 
-    RegrTest('test_difflib.py', enabled=True, dumbtest=1),
-    RegrTest('test_dircache.py', enabled=True),
+    RegrTest('test_difflib.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_dircache.py', enabled=True, core=True),
     RegrTest('test_dis.py', enabled=True),
     RegrTest('test_dl.py', enabled=False, dumbtest=1),
-    RegrTest('test_doctest.py', enabled=True),
-    RegrTest('test_doctest2.py', enabled=True),
-    RegrTest('test_dumbdbm.py', enabled=True),
-        #rev 10840: 5 of 7 tests fail
-
-    RegrTest('test_dummy_thread.py', enabled=True),
-    RegrTest('test_dummy_threading.py', enabled=True, dumbtest=1),
+    RegrTest('test_doctest.py', enabled=True, core=True),
+    RegrTest('test_doctest2.py', enabled=True, core=True),
+    RegrTest('test_dumbdbm.py', enabled=True, core=True),
+    RegrTest('test_dummy_thread.py', enabled=True, core=True),
+    RegrTest('test_dummy_threading.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_email.py', enabled=False),
         #rev 10840: Uncaught interp-level exception
 
     RegrTest('test_email_codecs.py', enabled=False, dumbtest=1),
-    RegrTest('test_enumerate.py', enabled=True),
-    RegrTest('test_eof.py', enabled=False),
+    RegrTest('test_enumerate.py', enabled=True, core=True),
+    RegrTest('test_eof.py', enabled=False, core=True),
         #rev 10840: some error strings differ slightly XXX
 
     RegrTest('test_errno.py', enabled=True, dumbtest=1),
-    RegrTest('test_exceptions.py', enabled=False),
-    RegrTest('test_extcall.py', enabled=False),
+    RegrTest('test_exceptions.py', enabled=False, core=True),
+    RegrTest('test_extcall.py', enabled=False, core=True),
     RegrTest('test_fcntl.py', enabled=False, dumbtest=1),
-    RegrTest('test_file.py', enabled=False, dumbtest=1),
-    RegrTest('test_filecmp.py', enabled=True),
-    RegrTest('test_fileinput.py', enabled=True, dumbtest=1),
-    RegrTest('test_fnmatch.py', enabled=True),
+    RegrTest('test_file.py', enabled=False, dumbtest=1, core=True),
+    RegrTest('test_filecmp.py', enabled=True, core=True),
+    RegrTest('test_fileinput.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_fnmatch.py', enabled=True, core=True),
     RegrTest('test_fork1.py', enabled=False, dumbtest=1),
-    RegrTest('test_format.py', enabled=False, dumbtest=1),
-    RegrTest('test_fpformat.py', enabled=True),
+    RegrTest('test_format.py', enabled=False, dumbtest=1, core=True),
+    RegrTest('test_fpformat.py', enabled=True, core=True),
     RegrTest('test_frozen.py', enabled=False),
-    RegrTest('test_funcattrs.py', enabled=True, dumbtest=1),
-    RegrTest('test_future.py', enabled=True),
-    RegrTest('test_future1.py', enabled=True, dumbtest=1),
-    RegrTest('test_future2.py', enabled=True, dumbtest=1),
-    RegrTest('test_future3.py', enabled=True),
+    RegrTest('test_funcattrs.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_future.py', enabled=True, core=True),
+    RegrTest('test_future1.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_future2.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_future3.py', enabled=True, core=True),
     RegrTest('test_gc.py', enabled=False, dumbtest=1),
     RegrTest('test_gdbm.py', enabled=False, dumbtest=1),
-    RegrTest('test_generators.py', enabled=False),
+    RegrTest('test_generators.py', enabled=False, core=True),
         #rev 10840: 30 of 152 tests fail
 
     RegrTest('test_getargs.py', enabled=False, dumbtest=1),
     RegrTest('test_getargs2.py', enabled=False),
         #rev 10840: ImportError: _testcapi
 
-    RegrTest('test_getopt.py', enabled=True, dumbtest=1),
+    RegrTest('test_getopt.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_gettext.py', enabled=False),
         #rev 10840: 28 of 28 tests fail
 
     RegrTest('test_gl.py', enabled=False, dumbtest=1),
-    RegrTest('test_glob.py', enabled=True),
-    RegrTest('test_global.py', enabled=False),
-    RegrTest('test_grammar.py', enabled=False),
+    RegrTest('test_glob.py', enabled=True, core=True),
+    RegrTest('test_global.py', enabled=False, core=True),
+    RegrTest('test_grammar.py', enabled=False, core=True),
     RegrTest('test_grp.py', enabled=False),
         #rev 10840: ImportError: grp
 
     RegrTest('test_gzip.py', enabled=False, dumbtest=1),
-    RegrTest('test_hash.py', enabled=True),
-    RegrTest('test_heapq.py', enabled=True),
-    RegrTest('test_hexoct.py', enabled=True),
-    RegrTest('test_hmac.py', enabled=True),
+    RegrTest('test_hash.py', enabled=True, core=True),
+    RegrTest('test_heapq.py', enabled=True, core=True),
+    RegrTest('test_hexoct.py', enabled=True, core=True),
+    RegrTest('test_hmac.py', enabled=True, core=True),
     RegrTest('test_hotshot.py', enabled=False),
         #rev 10840: ImportError: _hotshot
 
-    RegrTest('test_htmllib.py', enabled=True),
-    RegrTest('test_htmlparser.py', enabled=True),
-    RegrTest('test_httplib.py', enabled=True),
+    RegrTest('test_htmllib.py', enabled=True, core=True),
+    RegrTest('test_htmlparser.py', enabled=True, core=True),
+    RegrTest('test_httplib.py', enabled=True, core=True),
     RegrTest('test_imageop.py', enabled=False, dumbtest=1),
-    RegrTest('test_imaplib.py', enabled=True, dumbtest=1),
+    RegrTest('test_imaplib.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_imgfile.py', enabled=False, dumbtest=1),
-    RegrTest('test_imp.py', enabled=False),
-    RegrTest('test_import.py', enabled=False, dumbtest=1),
-    RegrTest('test_importhooks.py', enabled=False),
-    RegrTest('test_inspect.py', enabled=False, dumbtest=1),
+    RegrTest('test_imp.py', enabled=False, , core="maybe"),
+    RegrTest('test_import.py', enabled=False, dumbtest=1, core="possibly"),
+    RegrTest('test_importhooks.py', enabled=False, core="possibly"),
+    RegrTest('test_inspect.py', enabled=False, dumbtest=1, core="maybe"),
     RegrTest('test_ioctl.py', enabled=False),
-    RegrTest('test_isinstance.py', enabled=True),
-    RegrTest('test_iter.py', enabled=False),
+    RegrTest('test_isinstance.py', enabled=True, core=True),
+    RegrTest('test_iter.py', enabled=False, core=True),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
-    RegrTest('test_itertools.py', enabled=True),
+    RegrTest('test_itertools.py', enabled=True, core=True),
         # modified version in pypy/lib/test2
 
     RegrTest('test_largefile.py', enabled=True, dumbtest=1),
     RegrTest('test_linuxaudiodev.py', enabled=False),
     RegrTest('test_locale.py', enabled=False, dumbtest=1),
     RegrTest('test_logging.py', enabled=False),
-    RegrTest('test_long.py', enabled=True, dumbtest=1),
-    RegrTest('test_long_future.py', enabled=False, dumbtest=1),
-    RegrTest('test_longexp.py', enabled=True),
+    RegrTest('test_long.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_long_future.py', enabled=False, dumbtest=1, core=True),
+    RegrTest('test_longexp.py', enabled=True, core=True),
     RegrTest('test_macfs.py', enabled=False),
     RegrTest('test_macostools.py', enabled=False),
     RegrTest('test_macpath.py', enabled=True),
     RegrTest('test_mailbox.py', enabled=True),
-    RegrTest('test_marshal.py', enabled=True, dumbtest=1),
-    RegrTest('test_math.py', enabled=False),
+    RegrTest('test_marshal.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_math.py', enabled=False, core=True),
     RegrTest('test_md5.py', enabled=False),
     RegrTest('test_mhlib.py', enabled=True),
-    RegrTest('test_mimetools.py', enabled=True),
-    RegrTest('test_mimetypes.py', enabled=True),
-    RegrTest('test_MimeWriter.py', enabled=True),
+    RegrTest('test_mimetools.py', enabled=True, core=True),
+    RegrTest('test_mimetypes.py', enabled=True, core=True),
+    RegrTest('test_MimeWriter.py', enabled=True, core=True),
     RegrTest('test_minidom.py', enabled=False, dumbtest=1),
     RegrTest('test_mmap.py', enabled=False),
-    RegrTest('test_module.py', enabled=False, dumbtest=1),
+    RegrTest('test_module.py', enabled=False, dumbtest=1, core=True),
     RegrTest('test_mpz.py', enabled=False, dumbtest=1),
-    RegrTest('test_multifile.py', enabled=True),
-    RegrTest('test_mutants.py', enabled=False, dumbtest=1),
-    RegrTest('test_netrc.py', enabled=True),
-    RegrTest('test_new.py', enabled=False),
+    RegrTest('test_multifile.py', enabled=True, core=True),
+    RegrTest('test_mutants.py', enabled=False, dumbtest=1, core="possibly"),
+    RegrTest('test_netrc.py', enabled=True, core=True),
+    RegrTest('test_new.py', enabled=False, core=True),
     RegrTest('test_nis.py', enabled=False),
     RegrTest('test_normalization.py', enabled=False),
     RegrTest('test_ntpath.py', enabled=True, dumbtest=1),
-    RegrTest('test_opcodes.py', enabled=True),
+    RegrTest('test_opcodes.py', enabled=True, core=True),
     RegrTest('test_openpty.py', enabled=False),
-    RegrTest('test_operations.py', enabled=False),
-    RegrTest('test_operator.py', enabled=True),
-    RegrTest('test_optparse.py', enabled=False),
-    RegrTest('test_os.py', enabled=True),
+    RegrTest('test_operations.py', enabled=False, core=True),
+    RegrTest('test_operator.py', enabled=True, core=True),
+    RegrTest('test_optparse.py', enabled=False, core="maybe"),
+    RegrTest('test_os.py', enabled=True, core=True),
     RegrTest('test_ossaudiodev.py', enabled=False),
-    RegrTest('test_parser.py', enabled=True),
+    RegrTest('test_parser.py', enabled=False),
         #rev 10840: 18 of 18 tests fail
 
     RegrTest('test_pep247.py', enabled=False, dumbtest=1),
@@ -507,25 +506,25 @@ testmap = [
         # XXX this test is _also_ an output test, damn it 
         #     seems to be the only one that invokes run_unittest 
         #     and is an unittest 
-    RegrTest('test_pickle.py', enabled=False),
-    RegrTest('test_pickletools.py', enabled=False, dumbtest=1),
-    RegrTest('test_pkg.py', enabled=False),
-    RegrTest('test_pkgimport.py', enabled=True),
+    RegrTest('test_pickle.py', enabled=False, core=True),
+    RegrTest('test_pickletools.py', enabled=False, dumbtest=1, core=True),
+    RegrTest('test_pkg.py', enabled=False, core=True),
+    RegrTest('test_pkgimport.py', enabled=True, core=True),
     RegrTest('test_plistlib.py', enabled=False),
     RegrTest('test_poll.py', enabled=False),
     RegrTest('test_popen.py', enabled=True),
     RegrTest('test_popen2.py', enabled=True),
     RegrTest('test_posix.py', enabled=True),
     RegrTest('test_posixpath.py', enabled=True),
-    RegrTest('test_pow.py', enabled=True),
-    RegrTest('test_pprint.py', enabled=True),
-    RegrTest('test_profile.py', enabled=True),
-    RegrTest('test_profilehooks.py', enabled=True),
+    RegrTest('test_pow.py', enabled=True, core=True),
+    RegrTest('test_pprint.py', enabled=True, core=True),
+    RegrTest('test_profile.py', enabled=True, core="maybe"),
+    RegrTest('test_profilehooks.py', enabled=True, core=True),
     RegrTest('test_pty.py', enabled=False),
     RegrTest('test_pwd.py', enabled=False),
         #rev 10840: ImportError: pwd
 
-    RegrTest('test_pyclbr.py', enabled=False),
+    RegrTest('test_pyclbr.py', enabled=False, core="maybe"),
     RegrTest('test_pyexpat.py', enabled=False),
     RegrTest('test_queue.py', enabled=False, dumbtest=1),
     RegrTest('test_quopri.py', enabled=True),
@@ -540,31 +539,31 @@ testmap = [
         #rev 10840: 7 of 47 tests fail
 
     RegrTest('test_regex.py', enabled=False),
-    RegrTest('test_repr.py', enabled=False),
+    RegrTest('test_repr.py', enabled=False, core="ill-defined"),
         #rev 10840: 6 of 12 tests fail. Always minor stuff like
         #'<function object at 0x40db3e0c>' != '<built-in function hash>'
 
     RegrTest('test_resource.py', enabled=False),
-    RegrTest('test_rfc822.py', enabled=True),
+    RegrTest('test_rfc822.py', enabled=True, core=True),
     RegrTest('test_rgbimg.py', enabled=False),
-    RegrTest('test_richcmp.py', enabled=False),
+    RegrTest('test_richcmp.py', enabled=False, core=True),
         #rev 10840: 1 of 11 test fails. The failing one had an infinite recursion.
 
-    RegrTest('test_robotparser.py', enabled=True),
+    RegrTest('test_robotparser.py', enabled=True, core=True),
     RegrTest('test_rotor.py', enabled=False),
     RegrTest('test_sax.py', enabled=False, dumbtest=1),
-    RegrTest('test_scope.py', enabled=True),
+    RegrTest('test_scope.py', enabled=True, core=True),
     RegrTest('test_scriptpackages.py', enabled=False),
     RegrTest('test_select.py', enabled=False, dumbtest=1),
-    RegrTest('test_sets.py', enabled=True),
-    RegrTest('test_sgmllib.py', enabled=True),
+    RegrTest('test_sets.py', enabled=True, core=True),
+    RegrTest('test_sgmllib.py', enabled=True, core=True),
     RegrTest('test_sha.py', enabled=True),
         # one test is taken out (too_slow_test_case_3), rest passses 
-    RegrTest('test_shelve.py', enabled=True),
-    RegrTest('test_shlex.py', enabled=True),
-    RegrTest('test_shutil.py', enabled=True),
+    RegrTest('test_shelve.py', enabled=True, core=True),
+    RegrTest('test_shlex.py', enabled=True, core=True),
+    RegrTest('test_shutil.py', enabled=True, core=True),
     RegrTest('test_signal.py', enabled=False),
-    RegrTest('test_slice.py', enabled=True, dumbtest=1),
+    RegrTest('test_slice.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_socket.py', enabled=False),
         #rev 10840: ImportError: thread
 
@@ -572,14 +571,14 @@ testmap = [
     RegrTest('test_socketserver.py', enabled=False),
         #rev 10840: ImportError: thread
 
-    RegrTest('test_softspace.py', enabled=True, dumbtest=1),
-    RegrTest('test_sort.py', enabled=False, dumbtest=1),
-    RegrTest('test_str.py', enabled=False),
+    RegrTest('test_softspace.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_sort.py', enabled=False, dumbtest=1, core=True),
+    RegrTest('test_str.py', enabled=False, core=True),
         #rev 10840: at least two tests fail, after several hours I gave up waiting for the rest
 
     RegrTest('test_strftime.py', enabled=False, dumbtest=1),
-    RegrTest('test_string.py', enabled=True),
-    RegrTest('test_StringIO.py', enabled=True),
+    RegrTest('test_string.py', enabled=True, core=True),
+    RegrTest('test_StringIO.py', enabled=True, core=True),
     RegrTest('test_stringprep.py', enabled=True, dumbtest=1),
     RegrTest('test_strop.py', enabled=False),
         #rev 10840: ImportError: strop
@@ -593,15 +592,16 @@ testmap = [
     RegrTest('test_sundry.py', enabled=False, dumbtest=1),
     # test_support is not a test
     RegrTest('test_symtable.py', enabled=False, dumbtest=1),
-    RegrTest('test_syntax.py', enabled=True),
-    RegrTest('test_sys.py', enabled=True),
-    RegrTest('test_tarfile.py', enabled=False),
+    RegrTest('test_syntax.py', enabled=True, core=True),
+    RegrTest('test_sys.py', enabled=True, core=True),
+    RegrTest('test_tarfile.py', enabled=False, core="possibly"),
         #rev 10840: 13 of 13 test fail
 
-    RegrTest('test_tempfile.py', enabled=False),
+    RegrTest('test_tempfile.py', enabled=False, core=True)
+        # tempfile does: class ...         unlink = _os.unlink!!!
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
-    RegrTest('test_textwrap.py', enabled=True),
+    RegrTest('test_textwrap.py', enabled=True, core=True),
     RegrTest('test_thread.py', enabled=False),
     RegrTest('test_threaded_import.py', enabled=False),
     RegrTest('test_threadedtempfile.py', enabled=False),
@@ -610,44 +610,45 @@ testmap = [
     RegrTest('test_threading.py', enabled=False, dumbtest=1),
         #rev 10840: ImportError: thread
 
-    RegrTest('test_time.py', enabled=True),
+    RegrTest('test_time.py', enabled=True, core=True),
     RegrTest('test_timeout.py', enabled=False),
         #rev 10840: Uncaught interp-level exception: Same place as test_cfgparser
 
     RegrTest('test_timing.py', enabled=False, dumbtest=1),
-    RegrTest('test_tokenize.py', enabled=False),
-    RegrTest('test_trace.py', enabled=True),
-    RegrTest('test_traceback.py', enabled=False),
+    RegrTest('test_tokenize.py', enabled=False, core=True),
+    RegrTest('test_trace.py', enabled=True, core=True),
+    RegrTest('test_traceback.py', enabled=False, core=True),
         #rev 10840: 2 of 2 tests fail
 
-    RegrTest('test_types.py', enabled=True),
+    RegrTest('test_types.py', enabled=True, core=True),
         #rev 11598: one of the mod related to dict iterators is questionable
         # and questions whether how we implement them is meaningful in the
         # long run
         
     RegrTest('test_ucn.py', enabled=False),
-    RegrTest('test_unary.py', enabled=True),
+    RegrTest('test_unary.py', enabled=True, core=True),
     RegrTest('test_unicode.py', enabled=False),
     RegrTest('test_unicode_file.py', enabled=False),
     RegrTest('test_unicodedata.py', enabled=False),
-    RegrTest('test_univnewlines.py', enabled=True),
-    RegrTest('test_unpack.py', enabled=True, dumbtest=1),
-    RegrTest('test_urllib.py', enabled=True),
-    RegrTest('test_urllib2.py', enabled=True, dumbtest=1),
+    RegrTest('test_univnewlines.py', enabled=True, core=True),
+    RegrTest('test_unpack.py', enabled=True, dumbtest=1, core=True),
+    RegrTest('test_urllib.py', enabled=True, core=True),
+    RegrTest('test_urllib2.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_urllibnet.py', enabled=False),
-    RegrTest('test_urlparse.py', enabled=True),
-    RegrTest('test_userdict.py', enabled=True),
-    RegrTest('test_userlist.py', enabled=True),
-    RegrTest('test_userstring.py', enabled=False),
+        # try to understand failure!!!
+    RegrTest('test_urlparse.py', enabled=True, core=True),
+    RegrTest('test_userdict.py', enabled=True, core=True),
+    RegrTest('test_userlist.py', enabled=True, core=True),
+    RegrTest('test_userstring.py', enabled=False, core=True),
     RegrTest('test_uu.py', enabled=False),
         #rev 10840: 1 of 9 test fails
 
-    RegrTest('test_warnings.py', enabled=True),
+    RegrTest('test_warnings.py', enabled=True, core=True),
     RegrTest('test_wave.py', enabled=False, dumbtest=1),
     RegrTest('test_weakref.py', enabled=False),
         #rev 10840: ImportError: _weakref
 
-    RegrTest('test_whichdb.py', enabled=True),
+    RegrTest('test_whichdb.py', enabled=True, core=True),
     RegrTest('test_winreg.py', enabled=False),
     RegrTest('test_winsound.py', enabled=False),
     RegrTest('test_xmllib.py', enabled=False),
