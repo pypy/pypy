@@ -3,6 +3,7 @@ from pypy.objspace.std.strutil import string_to_w_long, ParseStringError
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.inttype import int_typedef
 from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.tool.rarithmetic import r_uint
 
 def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
     from pypy.objspace.std.longobject import W_LongObject, args_from_long
@@ -22,9 +23,9 @@ def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
             # 'long(x)' should return whatever x.__long__() returned
             if space.is_true(space.is_(w_longtype, space.w_long)):
                 return w_obj
-            if space.is_true(space.isinstance(w_obj, w_long)):
+            if space.is_true(space.isinstance(w_obj, space.w_long)):
                 w_value = w_obj
-            elif space.is_true(space.isinstance(w_obj, w_int)):
+            elif space.is_true(space.isinstance(w_obj, space.w_int)):
                 intval = space.int_w(w_obj)
                 # xxx this logic needs to be put in 1 place                
                 if intval < 0:
