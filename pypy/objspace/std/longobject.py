@@ -256,7 +256,11 @@ def truediv__Long_Long(space, w_long1, w_long2): #YYYYYY
     if not y:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("long division"))
-    z = operator.truediv(x, y)
+    try:
+        z = operator.truediv(x, y)
+    except OverflowError:
+        raise OperationError(space.w_OverflowError,
+                             space.wrap("long/long too large for a float"))
     return space.newfloat(float(z))
 
 def floordiv__Long_Long(space, w_long1, w_long2): #YYYYYY
