@@ -19,14 +19,9 @@ from pypy.conftest import gettestobjspace, option as pypy_option
 from test.regrtest import reportdiff
 from test import pystone
 
-pypydir = py.path.local(pypy.__file__).dirpath()
-libpythondir = pypydir.dirpath('lib-python')
-testdir = libpythondir.join('2.3.4', 'test') 
-modtestdir = libpythondir.join('modified-2.3.4', 'test') 
-
-result = libpythondir.join('result.py').pyimport('result')
-from result import Result, ResultFromMime
-
+from pypy.tool.pytest.confpath import pypydir, libpythondir, \
+                                      regrtestdir, modregrtestdir, testresultdir
+from pypy.tool.pytest.result import Result, ResultFromMime
 
 # 
 # Interfacing/Integrating with py.test's collection process 
@@ -303,17 +298,17 @@ class RegrTest:
         return l 
 
     def ismodified(self): 
-        return modtestdir.join(self.basename).check() 
+        return modregrtestdir.join(self.basename).check() 
 
     def getfspath(self): 
-        fn = modtestdir.join(self.basename)
+        fn = modregrtestdir.join(self.basename)
         if fn.check(): 
             return fn 
-        fn = testdir.join(self.basename)
+        fn = regrtestdir.join(self.basename)
         return fn 
 
     def getoutputpath(self): 
-        p = testdir.join('output', self.basename).new(ext='')
+        p = regrtestdir.join('output', self.basename).new(ext='')
         if p.check(file=1): 
             return p 
 
@@ -772,7 +767,6 @@ class RunFileExternal(py.test.collect.Module):
 
 
 def ensuretestresultdir(): 
-    testresultdir = pypydir.dirpath('testresult')
     if not testresultdir.check(dir=1): 
         py.test.skip("""'testresult' directory not found.
         To run tests in reporting mode (without -E), you first have to

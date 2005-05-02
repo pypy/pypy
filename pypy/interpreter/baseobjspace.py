@@ -337,7 +337,7 @@ def buildappexecfunc(source, space):
     """ NOT_RPYTHON """ 
     # XXX will change once we have our own compiler 
     from pypy.interpreter.pycode import PyCode
-    from pypy.tool.pytestsupport import py  # aehem
+    from pypy.tool.getpy import py  # aehem
     source = source.lstrip()
     assert source.startswith('('), "incorrect header in:\n%s" % (source,)
     source = py.code.Source("def anonymous%s\n" % source)

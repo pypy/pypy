@@ -1,7 +1,7 @@
 import py
 from pypy.interpreter.gateway import app2interp_temp 
 from pypy.interpreter.error import OperationError
-from pypy.tool import pytestsupport
+from pypy.tool.pytest import appsupport 
 from inspect import isclass
 
 rootdir = py.magic.autopath().dirpath()
@@ -70,13 +70,13 @@ def getobjspace(name=None, _spacecache={}):
             ''')
         if name != 'flow': # not sensible for flow objspace case
             space.setitem(space.builtin.w_dict, space.wrap('AssertionError'), 
-                          pytestsupport.build_pytest_assertion(space))
+                          appsupport.build_pytest_assertion(space))
             space.setitem(space.builtin.w_dict, space.wrap('raises'),
-                          space.wrap(pytestsupport.app_raises))
+                          space.wrap(appsupport.app_raises))
             space.setitem(space.builtin.w_dict, space.wrap('skip'),
-                          space.wrap(pytestsupport.app_skip))
-            space.raises_w = pytestsupport.raises_w.__get__(space)
-            space.eq_w = pytestsupport.eq_w.__get__(space) 
+                          space.wrap(appsupport.app_skip))
+            space.raises_w = appsupport.raises_w.__get__(space)
+            space.eq_w = appsupport.eq_w.__get__(space) 
         return space
 
 # 
@@ -133,9 +133,9 @@ class PyPyTestFunction(py.test.Function):
         except OperationError, e:
             if e.match(space, space.w_KeyboardInterrupt): 
                 raise KeyboardInterrupt 
-            appexcinfo = pytestsupport.AppExceptionInfo(space, e) 
+            appexcinfo = appsupport.AppExceptionInfo(space, e) 
             if appexcinfo.traceback: 
-                raise self.Failed(excinfo=pytestsupport.AppExceptionInfo(space, e))
+                raise self.Failed(excinfo=appsupport.AppExceptionInfo(space, e))
             raise 
 
 class IntTestFunction(PyPyTestFunction):

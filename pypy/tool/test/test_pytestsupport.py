@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pyframe import PyFrame
-from pypy.tool.pytestsupport import AppFrame, build_pytest_assertion, AppExceptionInfo
+from pypy.tool.pytest.appsupport import AppFrame, build_pytest_assertion, AppExceptionInfo
 
 
 def somefunc(x):
