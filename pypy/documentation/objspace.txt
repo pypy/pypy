@@ -247,6 +247,8 @@ Data Members
    List of names of exception classes.
 
 
+.. _`standard object space`: 
+
 The Standard Object Space
 =========================
 

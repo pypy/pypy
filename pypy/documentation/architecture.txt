@@ -43,9 +43,9 @@ Higher level picture
 -------------------------------------
 
 The various parts of PyPy have always been under more or less heavy
-refactoring during our five one-week sprints in 2003.  However, the
-higher level architecture remains rather simple and unchanged.  There
-are two independent basic subsystems:
+refactoring since its inception. However, the higher level architecture
+remains rather simple and unchanged.  There are two independent basic
+subsystems:
 
 - the *standard interpreter* which implements the Python language 
   and is composed out of two components:
@@ -98,6 +98,8 @@ how to create a *frame* object which has the responsibility to
 *interpret* a code object's bytecode.  Each bytecode is implemented by a
 python function, which, in turn, delegates operations on
 application-level objects to an object space. 
+
+.. _`objectspace`: 
 
 The Object Space
 ================
@@ -302,7 +304,7 @@ Restricted Python, also known as 'RPython'.
 
 The Flow Object Space then, with the help of our plain interpreter,
 works through those initialized "RPython" code objects.  The result of
-this *abstract interpretation* is a flow graph: yet another
+this `abstract interpretation`_ is a flow graph: yet another
 representation of a python program, but one which is suitable for
 applying translation and type inference techniques.  The nodes of the
 graph are basic blocks consisting of Object Space operations, flowing
@@ -328,6 +330,8 @@ a Pyrex-producing backend, and a Lisp-producing backend.  We use (a
 slightly hacked version of) Pyrex to generate C libraries.  Since Pyrex
 also accepts plain non-typed python code, we can test translation even
 though type annotation is not complete.  
+
+.. _`abstract interpretation`: theory.html#abstract-interpretation
 
 Trace Object Space 
 ==================

@@ -392,12 +392,14 @@ basically two types of unit tests:
 - **Application Level tests**. They run at application level which means
   that they look like straight python code but they are interpreted by PyPy.
 
-Both types of tests need an objectspace they can run with (the interpreter
+Both types of tests need an `objectspace`_ they can run with (the interpreter
 dispatches operations on objects to an objectspace).  If you run a test you
 can usually give the '-o' switch to select an object space.  E.g. '-o thunk' 
-will select the thunk object space. The default is the "Standard Object Space" 
+will select the thunk object space. The default is the `Standard Object Space`_ 
 which aims to implement unmodified Python semantics. 
 
+.. _`standard object space`: objspace.html#standard-object-space
+.. _`objectspace`: architecture.html#objectspace 
 .. _`py.test`: http://codespeak.net/py/current/doc/test.html 
 
 Interpreter level tests 
