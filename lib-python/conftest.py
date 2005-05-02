@@ -792,6 +792,7 @@ class ReallyRunFileExternal(py.test.Item):
         python = sys.executable 
         pypy_script = pypydir.join('interpreter', 'py.py')
         alarm_script = pypydir.join('tool', 'alarm.py')
+        regr_script = pypydir.join('tool', 'pytest', 'regrverbose.py')
         pypy_options = []
         if regrtest.oldstyle or pypy_option.oldstyle: 
             pypy_options.append('--oldstyle') 
@@ -799,8 +800,13 @@ class ReallyRunFileExternal(py.test.Item):
             pypy_options.append('--file') 
         sopt = " ".join(pypy_options) 
 
+        if regrtest.getoutputpath(): 
+            wrap = str(regr_script)
+        else: 
+            wrap = ""
         TIMEOUT = gettimeout()
-        cmd = "%s %s %d %s %s %s" %(python, alarm_script, TIMEOUT, pypy_script, sopt, fspath)
+        cmd = "%s %s %d %s %s %s %s" %(python, alarm_script, TIMEOUT, 
+                pypy_script, wrap, sopt, fspath)
         return cmd 
 
     def run(self): 
