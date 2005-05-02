@@ -39,7 +39,6 @@ from pypy.lib.unicodecodec import *
 #/* --- Registry ----------------------------------------------------------- */
 codec_search_path = []
 codec_search_cache = {}
-codec_error_registry = {}
 
 def codec_register( search_function ):
     """register(search_function)
@@ -64,37 +63,13 @@ def codec_lookup(encoding):
     if not result:
         for search in codec_search_path:
             result=search(encoding)
-            if result : break
+            if result :
+                codec_search_cache[encoding] = result 
+                break
     return result
 
 lookup = codec_lookup
 
-def lookup_error(errors):
-    """lookup_error(errors) -> handler
-
-    Return the error handler for the specified error handling name
-    or raise a LookupError, if no handler exists under this name.
-    """
-    try:
-        err_handler = codec_error_registry[errors]
-    except KeyError:
-        raise LookupError("unknown error handler name %s"%errors)
-    return err_handler
-
-def register_error(errors, handler):
-    """register_error(errors, handler)
-
-    Register the specified error handler under the name
-    errors. handler must be a callable object, that
-    will be called with an exception instance containing
-    information about the location of the encoding/decoding
-    error and must return a (replacement, new position) tuple.
-    """
-    if callable(handler):
-        codec_error_registry[errors] = handler
-    else:
-        raise TypeError("handler must be callable")
-    
 def encode(v, encoding='defaultencoding',errors='strict'):
     """encode(obj, [encoding[,errors]]) -> object
     
@@ -126,10 +101,11 @@ def decode(obj,encoding='defaultencoding',errors='strict'):
         res = decoder(obj,errors)
     return res[0]
 
-def latin_1_encode(inst,obj,errors='strict'):
+def latin_1_encode( obj,errors='strict'):
     """None
     """
     res = PyUnicode_EncodeLatin1(obj,len(obj),errors)
+    #print res
     return res, len(res)
 # XXX MBCS codec might involve ctypes ?
 def mbcs_decode():
@@ -137,56 +113,56 @@ def mbcs_decode():
     """
     pass
 
-def readbuffer_encode(inst,obj,errors='strict'):
+def readbuffer_encode( obj,errors='strict'):
     """None
     """
     res = str(obj)
     return res,len(res)
 
-def escape_encode(inst,obj,errors='strict'):
+def escape_encode( obj,errors='strict'):
     """None
     """
     s = repr(obj)
     v = s[1:-1]
     return v,len(v)
 # XXX
-def utf_8_decode(inst,data,errors='strict'):
+def utf_8_decode( data,errors='strict'):
     """None
     """
     pass
 # XXX
-def raw_unicode_escape_decode(inst,data,errors='strict'):
+def raw_unicode_escape_decode( data,errors='strict'):
     """None
     """
     pass
 
-def utf_7_decode(inst,data,errors='strict'):
+def utf_7_decode( data,errors='strict'):
     """None
     """
     unistr = PyUnicode_DecodeUTF7(data,errors='strict')
     return unistr,len(unistr)
 # XXX
-def unicode_escape_encode(inst,obj,errors='strict'):
+def unicode_escape_encode( obj,errors='strict'):
     """None
     """
     pass
 # XXX
-def latin_1_decode(inst,data,errors='strict'):
+def latin_1_decode( data,errors='strict'):
     """None
     """
     pass
 # XXX
-def utf_16_decode(inst,data,errors='strict'):
+def utf_16_decode( data,errors='strict'):
     """None
     """
     pass
 # XXX
-def unicode_escape_decode(inst,data,errors='strict'):
+def unicode_escape_decode( data,errors='strict'):
     """None
     """
     pass
 
-def ascii_decode(inst,data,errors='strict'):
+def ascii_decode( data,errors='strict'):
     """None
     """
     res = PyUnicode_DecodeASCII(data,len(data),errors)
@@ -198,7 +174,7 @@ def charmap_encode(obj,errors='strict',mapping='latin-1'):
     res = PyUnicode_EncodeCharmap(obj,len(obj),mapping,errors)
     return res,len(res)
 
-def unicode_internal_encode(inst,obj,errors='strict'):
+def unicode_internal_encode( obj,errors='strict'):
     """None
     """
     if type(obj) == unicode:
@@ -206,7 +182,7 @@ def unicode_internal_encode(inst,obj,errors='strict'):
     else:
         return PyUnicode_FromUnicode(obj,size),size
 # XXX
-def utf_16_ex_decode(inst,data,errors='strict'):
+def utf_16_ex_decode( data,errors='strict'):
     """None
     """
     pass
@@ -216,18 +192,18 @@ def escape_decode(data,errors='strict'):
     """
     return data,len(data)
 
-def charbuffer_encode(inst,obj,errors='strict'):
+def charbuffer_encode( obj,errors='strict'):
     """None
     """
     res = str(obj)
     return res,len(res)
 # XXX
-def charmap_decode(inst,data,errors='strict'):
+def charmap_decode( data,errors='strict'):
     """None
     """
     pass
 
-def utf_7_encode(inst,obj,errors='strict'):
+def utf_7_encode( obj,errors='strict'):
     """None
     """
     obj = PyUnicode_FromObject(obj)
@@ -238,7 +214,7 @@ def utf_7_encode(inst,obj,errors='strict'):
 					 errors),
 		    PyUnicode_GET_SIZE(obj))
 
-def mbcs_encode(inst,obj,errors='strict'):
+def mbcs_encode( obj,errors='strict'):
     """None
     """
     return (PyUnicode_EncodeMBCS(
@@ -248,43 +224,46 @@ def mbcs_encode(inst,obj,errors='strict'):
 		    PyUnicode_GET_SIZE(obj));
     
 
-def ascii_encode(inst,obj,errors='strict'):
+def ascii_encode( obj,errors='strict'):
     """None
     """
-    return (PyUnicode_EncodeASCII(
-			       PyUnicode_AS_UNICODE(obj), 
-			       PyUnicode_GET_SIZE(obj),
-			       errors),
-                PyUnicode_GET_SIZE(obj))
+    res = PyUnicode_EncodeASCII(obj,len(obj),errors)
+    return res,len(res)
+##(PyUnicode_EncodeASCII(
+##			       PyUnicode_AS_UNICODE(obj), 
+##			       PyUnicode_GET_SIZE(obj),
+##			       errors),
+##                PyUnicode_GET_SIZE(obj))
 
-def utf_16_encode(inst,obj,errors='strict'):
+def utf_16_encode( obj,errors='strict'):
     """None
     """
     u = PyUnicode_EncodeUTF16(obj,len(obj),errors)
     return u,len(u)
 
-def raw_unicode_escape_encode(inst,obj,errors='strict'):
+def raw_unicode_escape_encode( obj,errors='strict'):
     """None
     """
     res = PyUnicode_EncodeRawUnicodeEscape(obj,len(obj))
     return res,len(res)
+
+def utf_8_encode( obj,errors='strict'):
+    """None
+    """
+    res = PyUnicode_EncodeUTF8(obj,len(obj),errors)
+    return res,len(res)
 # XXX
-def utf_8_encode(inst,obj,errors='strict'):
+def utf_16_le_encode( obj,errors='strict'):
     """None
     """
     pass
 # XXX
-def utf_16_le_encode(inst,obj,errors='strict'):
-    """None
-    """
-    pass
-# XXX
-def utf_16_be_encode(inst,obj,errors='strict'):
+def utf_16_be_encode( obj,errors='strict'):
     """None
     """
     pass
 
-def unicode_internal_decode(inst,unistr,errors='strict'):
+def unicode_internal_decode( unistr,errors='strict'):
     """None
     """
     if type(unistr) == unicode:
@@ -292,12 +271,12 @@ def unicode_internal_decode(inst,unistr,errors='strict'):
     else:
         return unicode(unistr),len(unistr)
 # XXX
-def utf_16_le_decode(inst,data,errors='strict'):
+def utf_16_le_decode( data,errors='strict'):
     """None
     """
     pass
 # XXX
-def utf_16_be_decode(inst,data,errors='strict'):
+def utf_16_be_decode( data,errors='strict'):
     """None
     """
     pass
@@ -309,27 +288,33 @@ def strict_errors(exc):
         raise TypeError("codec must pass exception instance")
     
 def ignore_errors(exc):
-    if type(exc) in [UnicodeEncodeError,UnicodeDecodeError,UnicodeTranslateError]:
+    if isinstance(exc,(UnicodeEncodeError,UnicodeDecodeError,UnicodeTranslateError)):
         return u'',exc.end
     else:
-        raise TypeError("don't know how to handle %.400s in error callback"%type(exc))
-# XXX
+        raise TypeError("don't know how to handle %.400s in error callback"%exc)
+
 def replace_errors(exc):
-    if isinstance(exc,Exception):
-        raise exc
+    if isinstance(exc,(UnicodeDecodeError,UnicodeEncodeError)):
+        return u'?'*(exc.end-exc.start),exc.end
     else:
-        raise TypeError("codec must pass exception instance")
-# XXX    
+        raise TypeError("don't know how to handle %.400s in error callback"%exc)
+
 def xmlcharrefreplace_errors(exc):
-    if isinstance(exc,Exception):
-        raise exc
+    if isinstance(exc,UnicodeEncodeError):
+        res = [u'&#']
+        for ch in exc.object[exc.start:exc.end]:
+            res.append(str(ord(ch)))
+        res.append(';')
+        return u''.join(res),exc.end
     else:
-        raise TypeError("codec must pass exception instance")
+        raise TypeError("don't know how to handle %.400s in error callback"%type(exc))
     
 def backslashreplace_errors(exc):
     if isinstance(exc,UnicodeEncodeError):
-        p=['\\']
+        p=[]
+        #print exc.start,exc.end
         for c in exc.object[exc.start:exc.end]:
+            p.append('\\')
             oc = ord(c)
             if (oc >= 0x00010000):
                 p.append('U')
