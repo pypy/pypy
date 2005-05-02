@@ -731,7 +731,6 @@ class RegrDirectory(py.test.collect.Directory):
     def run(self): 
         l = []
         for x in self.testmap: 
-            print x.core
             if ((not not x.core) ^ (pypy_option.noncore)) or pypy_option.withall: 
                 l.append(x.basename) 
         return l 

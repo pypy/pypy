@@ -33,6 +33,13 @@ class Result(object):
     def getnamedtext(self, name): 
         return self._blocks[name]
 
+    def repr_short_error(self): 
+        if not self.isok(): 
+            text = self.getnamedtext('stderr') 
+            lines = text.strip().split('\n')
+            if lines: 
+                return lines[-1]
+
     def repr_mimemessage(self): 
         from email.MIMEMultipart  import MIMEMultipart 
         from email.MIMEText  import MIMEText
