@@ -576,9 +576,17 @@ def delta(expl1, expl2, modnames):
     rep.navig = navig
         
     for modname in modnames:
-
-        mod1 = expl1.get_module(modname)
-        mod2 = expl2.get_module(modname)
+        try:  
+            mod1 = expl1.get_module(modname)
+            mod2 = expl2.get_module(modname)
+        except: 
+            print "traceback while getting modules" 
+            print "modname", modname 
+            print "expl1", expl1
+            print "expl2", expl2
+            import traceback
+            traceback.print_exc()
+            continue
 
         mod_rep = mod_delta(modname, expl1, mod1, expl2, mod2)
 
