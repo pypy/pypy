@@ -297,30 +297,66 @@ CPython.  That means, we can run all of PyPy with all exception
 handling enabled, so we might catch cases where we failed to
 adhere to our implicit assertions.
 
-Naming and development conventions 
-================================== 
+Naming and directory layout 
+===========================
 
-Naming
-------
+Modifying/Hacking PyPy's standard library 
+--------------------------------------------
+
+PyPy reuses the Python implementations of CPython's standard 
+library, currently from version 2.3.4. Sometimes 
+we need to modify modules and - more often - 
+regression tests because they rely on implementation
+details of CPython.  Therefore we have a strict scheme on
+how to deal with these issues.  Here is the order
+in which PyPy looks up Python modules: 
+
+*pypy/lib/*
+
+    Used ONLY for complete pure Python reimplementation of modules.
+    The test2 subdirectory contains regular tests for these.
+    These tests run on top of CPython, i.e. at PyPy interpreter 
+    level and are meant to *quickly* check that the reimplementations 
+    are correct, independently of PyPy.
+
+*lib-python/modified-2.3.4/*
+
+    The files and tests that we have modified from the CPython library.
+
+*lib-python/2.3.4/*
+
+    The unmodified CPython library. **Never checkin anything here**. 
+
+If you e.g. need to change a standard module or package then 
+you would issue:: 
+
+    svn cp lib-python/2.3.4/standardmodule.py lib-python/modified-2.3.4 
+
+and subsequently edit and commit ``lib-python/modified-2.3.4/somemodule.py``. 
+
+Directory and File Naming 
+-------------------------
 
 - directories/modules/namespaces are always **lowercase**
 
-- classes are **CamelCase**
-
 - never use plural names in directory and file names
 
-- ``__init__.py`` is always empty except for ``pypy/objspace/*``
-  and ``pypy/module/*``. 
+- ``__init__.py`` is usually empty except for 
+  ``pypy/objspace/*`` and ``pypy/module/*/__init__.py``. 
 
-- functions/methods are lowercase and ``'_'-separated`` (if
-  you need to separate at all)
+- don't use more than 4 directory nesting levels
 
-- not more than 4 directory nesting levels
+- keep filenames concise and completion-friendly. 
 
-- it's appreciated if you manage to name files in a directory
-  so that tab-completion on the shell level is as easy as possible. 
 
-- objectspace classes are always spelled "ObjSpace". e.g.
+Naming of python objects
+------------------------
+
+- class names are **CamelCase**
+
+- functions/methods are lowercase and ``_`` separated  
+
+- objectspace classes are spelled ``XyzObjSpace``. e.g.
 
   - StdObjSpace
   - FlowObjSpace
@@ -330,11 +366,10 @@ Naming
   includes w_self.  Don't use ``w_`` in application level
   python only code.
 
-
 Committing
 ----------
 
-- it's nice to write good log messages because several people
+- write good log messages because several people
   are reading the diffs. 
 
 - if you add (text/py) files to the repository then please run
@@ -389,7 +424,7 @@ For testing the conformance and well-behavedness of PyPy it
 is often sufficient to write "normal" application-level 
 Python code that doesn't need to be aware of any particular
 coding style or restrictions.  If we have a choice we often
-use application level tests which usually look like this: 
+use application level tests which usually look like this::
 
     def app_test_something():
         # application level test code 
