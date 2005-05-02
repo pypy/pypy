@@ -435,7 +435,7 @@ testmap = [
     RegrTest('test_exceptions.py', enabled=False, core=True),
     RegrTest('test_extcall.py', enabled=False, core=True),
     RegrTest('test_fcntl.py', enabled=False, dumbtest=1),
-    RegrTest('test_file.py', enabled=False, dumbtest=1, core=True),
+    RegrTest('test_file.py', enabled=False, dumbtest=1, core=True, uselibfile=True),
     RegrTest('test_filecmp.py', enabled=True, core=True),
     RegrTest('test_fileinput.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_fnmatch.py', enabled=True, core=True),
@@ -805,7 +805,6 @@ class ReallyRunFileExternal(py.test.Item):
         resultdir = testresultdir.join(result['userhost'])
         assert resultdir.check(dir=1)
 
-        # XXX on timeout failures only write if prev test did not timeout 
         fn = resultdir.join(regrtest.basename).new(ext='.txt') 
         if result.istimeout(): 
             if fn.check(file=1): 
