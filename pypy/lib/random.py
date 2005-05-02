@@ -81,7 +81,7 @@ __all__ = ["Random","seed","random","uniform","randint","choice",
            "randrange","shuffle","normalvariate","lognormvariate",
            "cunifvariate","expovariate","vonmisesvariate","gammavariate",
            "stdgamma","gauss","betavariate","paretovariate","weibullvariate",
-           "getstate","setstate","jumpahead","whseed"]
+           "getstate","setstate","jumpahead","whseed","WichmannHill"]
 
 def _verify(name, computed, expected):
     if abs(computed - expected) > 1e-7:
@@ -774,6 +774,8 @@ getstate = _inst.getstate
 setstate = _inst.setstate
 jumpahead = _inst.jumpahead
 whseed = _inst.whseed
+
+WichmannHill = Random   # for compatibility with >= 2.3
 
 if __name__ == '__main__':
     _test()
