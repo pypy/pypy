@@ -307,7 +307,8 @@ class DescrOperation:
         try:
             # Try to do some magic to compare cyclic constructs.
             if (_compare_nesting > space._NESTING_LIMIT and
-                (space.lookup(w_v, '__getitem__') is not None) and
+                # dont't be subtle the corresponding condition in CPython is always true for heaptypes                
+                # (space.lookup(w_v, '__getitem__') is not None) and
                 not (space.is_w(w_vt, space.w_str) or
                      space.is_w(w_vt, space.w_tuple))):
                 try:
@@ -490,7 +491,8 @@ def _make_comparison_impl(symbol, specialnames):
         try:
             # Try to do some magic to compare cyclic constructs.
             if (_compare_nesting > space._NESTING_LIMIT and
-                (space.lookup(w_obj1, '__getitem__') is not None) and
+                # dont't be subtle the corresponding condition in CPython is always true for heaptypes
+                # (space.lookup(w_obj1, '__getitem__') is not None) and
                 not (space.is_w(w_typ1, space.w_str) or
                      space.is_w(w_typ1, space.w_tuple))):
                 i1 = space.int_w(space.id(w_obj1))
