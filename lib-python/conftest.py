@@ -529,7 +529,7 @@ testmap = [
     RegrTest('test_multifile.py', enabled=True, core=True),
     RegrTest('test_mutants.py', enabled=False, dumbtest=1, core="possibly"),
     RegrTest('test_netrc.py', enabled=True, core=True),
-    RegrTest('test_new.py', enabled=False, core=True),
+    RegrTest('test_new.py', enabled=False, core=True, oldstyle=True),
     RegrTest('test_nis.py', enabled=False),
     RegrTest('test_normalization.py', enabled=False),
     RegrTest('test_ntpath.py', enabled=True, dumbtest=1),
