@@ -9,7 +9,6 @@ import sys
 import pypy
 from pypy.interpreter.gateway import ApplevelClass 
 from pypy.interpreter.error import OperationError
-from pypy.tool import pytestsupport
 from pypy.interpreter.module import Module as PyPyModule 
 from pypy.interpreter.main import run_string, run_file
 from py.__.misc.simplecapture import callcapture
@@ -19,6 +18,7 @@ from pypy.conftest import gettestobjspace, option as pypy_option
 from test.regrtest import reportdiff
 from test import pystone
 
+from pypy.tool.pytest import appsupport 
 from pypy.tool.pytest.confpath import pypydir, libpythondir, \
                                       regrtestdir, modregrtestdir, testresultdir
 from pypy.tool.pytest.result import Result, ResultFromMime
@@ -67,7 +67,7 @@ def callex(space, func, *args, **kwargs):
         ilevelinfo = py.code.ExceptionInfo()
         if e.match(space, space.w_KeyboardInterrupt): 
             raise KeyboardInterrupt 
-        appexcinfo=pytestsupport.AppExceptionInfo(space, e) 
+        appexcinfo = appsupport.AppExceptionInfo(space, e) 
         if appexcinfo.traceback: 
             print "appexcinfo.traceback:"
             py.std.pprint.pprint(appexcinfo.traceback)
