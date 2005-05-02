@@ -24,7 +24,8 @@ libpythondir = pypydir.dirpath('lib-python')
 testdir = libpythondir.join('2.3.4', 'test') 
 modtestdir = libpythondir.join('modified-2.3.4', 'test') 
 
-from result import Result 
+result = libpythondir.join('result.py').pyimport('result')
+from result import Result, ResultFromMime
 
 
 # 
@@ -806,6 +807,17 @@ class ReallyRunFileExternal(py.test.Item):
 
         # XXX on timeout failures only write if prev test did not timeout 
         fn = resultdir.join(regrtest.basename).new(ext='.txt') 
+        if result.istimeout(): 
+            if fn.check(file=1): 
+               try: 
+                    oldresult = ResultFromMime(fn)
+               except TypeError: 
+                    pass
+               else: 
+                   if not oldresult.istimeout(): 
+                        py.test.skip("timed out, not overwriting "
+                                     "more interesting non-timeout outcome")
+            
         fn.write(result.repr_mimemessage().as_string(unixfrom=False))
         if result['exit status']:  
              time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
