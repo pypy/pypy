@@ -76,7 +76,7 @@ zfill             OK
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
-from pypy.tool.rarithmetic import intmask
+from pypy.tool.rarithmetic import intmask, ovfcheck
 from pypy.objspace.std.intobject   import W_IntObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std import slicetype
@@ -927,7 +927,7 @@ def mul_string_times(space, w_str, w_times):
         return space.wrap("")
     input_len = len(input)
     try:
-        buffer = [' '] * (mul*input_len)
+        buffer = [' '] * ovfcheck(mul*input_len)
     except (MemoryError,OverflowError):
         raise OperationError( space.w_OverflowError, space.wrap("repeated string is too long: %d %d" % (input_len,mul) ))
 
