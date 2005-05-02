@@ -43,6 +43,9 @@ option = py.test.Config.addoptions("compliance testing options",
     Option('-A', '--all', action="store_true", 
            default=False, dest="withall", 
            help="include all tests (instead of just core tests)."), 
+    Option('-N', '--noncore', action="store_true", 
+           default=False, dest="noncore", 
+           help="include only non-core tests"), 
     Option('-E', '--extracttests', action="store_true", 
            default=False, dest="extracttests", 
            help="try to extract single tests and run them via py.test/PyPy"), 
@@ -314,7 +317,19 @@ class RegrTest:
         if p.check(file=1): 
             return p 
 
+    def _prepare(self, space): 
+        # output tests sometimes depend on not running in
+        # verbose mode 
+        if not hasattr(self, '_prepared'): 
+            if self.getoutputpath(): 
+                space.appexec([], """(): 
+                    from test import test_support
+                    test_support.verbose = False
+            """)
+            self._prepared = True
+            
     def run_file(self, space): 
+        self._prepare(space)
         fspath = self.getfspath()
         assert fspath.check()
         if self.oldstyle or pypy_option.oldstyle: 
@@ -714,8 +729,12 @@ class RegrDirectory(py.test.collect.Directory):
         return cache.get(name, None)
         
     def run(self): 
-        return [x.basename for x in self.testmap 
-                    if x.core or pypy_option.withall]
+        l = []
+        for x in self.testmap: 
+            print x.core
+            if ((not not x.core) ^ (pypy_option.noncore)) or pypy_option.withall: 
+                l.append(x.basename) 
+        return l 
 
     def join(self, name): 
         regrtest = self.get(name) 
