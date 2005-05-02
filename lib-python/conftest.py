@@ -743,7 +743,7 @@ Directory = RegrDirectory
 
 def getrev(path): 
     try: 
-        return py.path.svnwc(testdir).info().rev
+        return py.path.svnwc(pypydir).info().rev
     except: 
         return 'unknown'  # on windows people not always have 'svn' in their path
 
