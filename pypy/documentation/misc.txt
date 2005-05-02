@@ -95,7 +95,7 @@ More detailed layout (work in progress)
 
 The idea is that developers can use a simple url::
     
-    svn co https://codespeak.net/svn/pypy/dist dist-pypy 
+    svn co https://codespeak.net/svn/pypy/dist pypy-dist 
 
 in order to get everything neccessary for sourcecode, documentation
 and test development.  Obviously, if you care about the EU-funding 
