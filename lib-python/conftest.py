@@ -1,3 +1,9 @@
+"""
+
+test configuration(s) for running CPython's regression
+test suite on top of PyPy 
+
+"""
 import py
 import sys
 import pypy
@@ -6,11 +12,20 @@ from pypy.interpreter.error import OperationError
 from pypy.tool import pytestsupport
 from pypy.interpreter.module import Module as PyPyModule 
 from pypy.interpreter.main import run_string, run_file
+from py.__.misc.simplecapture import callcapture
 
 # the following adds command line options as a side effect! 
 from pypy.conftest import gettestobjspace, option as pypy_option 
 from test.regrtest import reportdiff
 from test import pystone
+
+pypydir = py.path.local(pypy.__file__).dirpath()
+libpythondir = pypydir.dirpath('lib-python')
+testdir = libpythondir.join('2.3.4', 'test') 
+modtestdir = libpythondir.join('modified-2.3.4', 'test') 
+
+from result import Result 
+
 
 # 
 # Interfacing/Integrating with py.test's collection process 
@@ -33,7 +48,7 @@ option = py.test.Config.addoptions("compliance testing options",
     Option('-T', '--timeout', action="store", type="string", 
            default="100mp", dest="timeout", 
            help="fail a test module after the given timeout. "
-                "specify in seconds or 'XXXmp' aka Mega-Pystones")
+                "specify in seconds or 'NUMmp' aka Mega-Pystones")
     ) 
 
 def gettimeout(): 
@@ -45,11 +60,6 @@ def gettimeout():
         seconds = megapystone  * 1000000 * pystonetime 
         return seconds 
     return float(timeout) 
-
-pypydir = py.path.local(pypy.__file__).dirpath()
-libpythondir = pypydir.dirpath('lib-python')
-testdir = libpythondir.join('2.3.4', 'test') 
-modtestdir = libpythondir.join('modified-2.3.4', 'test') 
 
 def callex(space, func, *args, **kwargs): 
     try: 
@@ -275,9 +285,18 @@ class RegrTest:
         self.basename = basename 
         self.enabled = enabled 
         self.dumbtest = dumbtest 
+        if pypy_option.oldstyle: 
+            oldstyle = True 
         self.oldstyle = oldstyle 
         self.core = core
         self.uselibfile = uselibfile
+
+    def getoptions(self): 
+        l = []
+        for name in 'oldstyle', 'core', 'uselibfile': 
+            if getattr(self, name): 
+                l.append(name)
+        return l 
 
     def ismodified(self): 
         return modtestdir.join(self.basename).check() 
@@ -732,25 +751,34 @@ class RunFileExternal(py.test.collect.Module):
     def join(self, name): 
         return ReallyRunFileExternal(name, parent=self) 
 
+
+def ensuretestresultdir(): 
+    testresultdir = pypydir.dirpath('testresult')
+    if not testresultdir.check(dir=1): 
+        py.test.skip("""'testresult' directory not found.
+        To run tests in reporting mode (without -E), you first have to
+        check it out as follows: 
+        svn co http://codespeak.net/svn/pypy/testresult %s""" % (
+            testresultdir, ))
+    return testresultdir 
+
+
+#
+# testmethod: 
+# invoking in a seprate process: py.py TESTFILE
+#
+import os
+import time
+import socket
+import getpass
+
 class ReallyRunFileExternal(py.test.Item): 
-    def run(self): 
-        """ invoke a subprocess running the test file via PyPy. 
-            record its output into the 'result/user@host' subdirectory. 
-            (we might want to create subdirectories for 
-            each user, because we will probably all produce 
-            such result runs and they will not be the same
-            i am afraid. 
-        """ 
-        import os
-        import time
-        import socket
-        import getpass
-        regrtest = self.parent.regrtest
+
+    def getinvocation(self, regrtest): 
         fspath = regrtest.getfspath() 
         python = sys.executable 
-        pypy_dir = py.path.local(pypy.__file__).dirpath()
-        pypy_script = pypy_dir.join('interpreter', 'py.py')
-        alarm_script = pypy_dir.join('tool', 'alarm.py')
+        pypy_script = pypydir.join('interpreter', 'py.py')
+        alarm_script = pypydir.join('tool', 'alarm.py')
         pypy_options = []
         if regrtest.oldstyle or pypy_option.oldstyle: 
             pypy_options.append('--oldstyle') 
@@ -760,100 +788,78 @@ class ReallyRunFileExternal(py.test.Item):
 
         TIMEOUT = gettimeout()
         cmd = "%s %s %d %s %s %s" %(python, alarm_script, TIMEOUT, pypy_script, sopt, fspath)
-        try:
-            username = getpass.getuser()
-        except:
-            username = 'unknown'
-        userhost = '%s@%s' % (username, socket.gethostname())
+        return cmd 
 
-        testresultdir = pypydir.dirpath('testresult')
-        if not testresultdir.check(dir=1): 
-            py.test.skip("""'testresult' directory not found.
-            To run tests in reporting mode (without -E), you first have to
-            check it out as follows: 
-            svn co http://codespeak.net/svn/pypy/testresult %s""" % (
-                testresultdir, ))
-        resultdir = testresultdir.join(userhost)
-        resultdir.ensure(dir=1)
-        resultfilename = resultdir.join(fspath.new(ext='.txt').basename)
-        resultfile = resultfilename.open('w')
-        if regrtest.getoutputpath(): 
-            outputfilename = resultfilename.new(ext='.out')
-            outputfile = outputfilename.open('w')
-            print >> outputfile, self.fspath.purebasename
-            outputfile.close()
-        else:
-            outputfilename = None
+    def run(self): 
+        """ invoke a subprocess running the test file via PyPy. 
+            record its output into the 'result/user@host' subdirectory. 
+            (we might want to create subdirectories for 
+            each user, because we will probably all produce 
+            such result runs and they will not be the same
+            i am afraid. 
+        """ 
+        regrtest = self.parent.regrtest
+        testresultdir = ensuretestresultdir() 
+        result = self.getresult(regrtest) 
+        resultdir = testresultdir.join(result['userhost'])
+        assert resultdir.check(dir=1)
 
-        print >> resultfile, "testreport-version: 1.0"
-        print >> resultfile, "command:", cmd
-        print >> resultfile, "run by: %s" % userhost
-        print >> resultfile, "sys.platform:", sys.platform 
-        print >> resultfile, "sys.version_info:", sys.version_info 
-        info = try_getcpuinfo() 
-        if info is not None:
-            print >>resultfile, "cpu model:", info['model name']
-            print >>resultfile, "cpu mhz:", info['cpu mhz']
+        # XXX on timeout failures only write if prev test did not timeout 
+        fn = resultdir.join(regrtest.basename).new(ext='.txt') 
+        fn.write(result.repr_mimemessage().as_string(unixfrom=False))
+        if result['exit status']:  
+             time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
+             py.test.fail(result['outcome'])
 
-        print >> resultfile, "oldstyle:", regrtest.oldstyle and 'yes' or 'no'
-        print >> resultfile, "uselibfile:", regrtest.uselibfile and 'yes' or 'no'
-        print >> resultfile, 'pypy-revision:', getrev(pypydir)
-        print >> resultfile, "startdate:", time.ctime()
-        print >> resultfile, "timeout: %s seconds" %(TIMEOUT,) 
-            
-        print >> resultfile
-        if outputfilename:
-            print >> resultfile, "OUTPUT TEST"
-            print >> resultfile, "see output in:", str(outputfilename)
-        print >> resultfile, '='*60
-        print "executing", cmd 
-        starttime = time.time()
-        resultfile.close()
-
-        if outputfilename:
-            status = os.system("%s >>%s 2>>%s" %(cmd, outputfilename,
-                                                 resultfilename) )
-        else:
-            status = os.system("%s >>%s 2>&1" %(cmd, resultfilename) )
+    def getstatusouterr(self, cmd): 
+        tempdir = py.test.ensuretemp('regrtest') 
+        stdout = tempdir.join(self.fspath.basename) + '.out'
+        stderr = tempdir.join(self.fspath.basename) + '.err'
+        
+        status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
         if os.WIFEXITED(status):
             status = os.WEXITSTATUS(status)
         else:
             status = 'abnormal termination 0x%x' % status
+        return status, stdout.read(), stderr.read()
 
-        failure = None
-        resultfile = resultfilename.open('a')
-        if outputfilename:
-            expectedfilename = regrtest.getoutputpath() 
-            expected = expectedfilename.read(mode='r')
-            result = outputfilename.read(mode='r')
-            if result != expected: 
-                reportdiff(expected, result) 
-                failure = "output check failed: %s" % (fspath.basename,)
-                print >> resultfile, 'FAILED: test output differs'
-            else:
-                print >> resultfile, 'OK'
-        print >> resultfile, '='*26, 'closed', '='*26
-        print >> resultfile, 'execution time:', time.time() - starttime, 'seconds'
-        print >> resultfile, 'exit status:', status
-        resultfile.close()
-        if status != 0:
-            failure = "exitstatus is %d" %(status,)
-        #print output 
-        if failure:
-             time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
-             py.test.fail(failure)
+    def getresult(self, regrtest): 
+        cmd = self.getinvocation(regrtest) 
+        result = Result()
+        fspath = regrtest.getfspath() 
+        result['fspath'] = str(fspath)  
+        result['options'] = regrtest.getoptions() 
+        result['pypy-revision'] = getrev(pypydir) 
+        result['timeout'] = gettimeout()
+        result['startdate'] = time.ctime()
+        starttime = time.time() 
 
+        # really run the test in a sub process
+        exit_status, test_stdout, test_stderr = self.getstatusouterr(cmd) 
 
-#
-#
-#
-def try_getcpuinfo(): 
-    if sys.platform.startswith('linux'): 
-        cpuinfopath = py.path.local('/proc/cpuinfo')
-        d = {}
-        for line in cpuinfopath.readlines(): 
-            if line.strip(): 
-               name, value = line.split(':', 1)
-               name = name.strip().lower()
-               d[name] = value.strip()
-        return d 
+        timedout = test_stderr.rfind(26*"=" + "timedout" + 26*"=") != -1 
+        if not timedout: 
+            timedout = test_stderr.rfind("KeyboardInterrupt") != -1
+        result['execution-time'] = time.time() - starttime
+        result.addnamedtext('stdout', test_stdout)
+        result.addnamedtext('stderr', test_stderr)
+
+        outcome = 'OK'
+        expectedpath = regrtest.getoutputpath()
+        if not exit_status: 
+            if expectedpath is not None: 
+                expected = expectedpath.read(mode='r')
+                test_stdout = "%s\n%s" % (self.fspath.purebasename, test_stdout)     
+                if test_stdout != expected: 
+                    exit_status = 2  
+                    res, out, err = callcapture(reportdiff, expected, test_stdout)
+                    outcome = 'ERROUT' 
+                    result.addnamedtext('reportdiff', out)
+        elif timedout: 
+            outcome = "T/O"    
+        else: 
+            outcome = "ERR"
+        
+        result['exit status'] = exit_status 
+        result['outcome'] = outcome 
+        return result

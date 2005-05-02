@@ -15,7 +15,7 @@ def _main_with_alarm(finished):
         while now() < timeout and not finished:
             sleep(1.65123)
         if not finished:
-            stderr.write("="*26 + "timeout" + "="*26 + "\n")
+            stderr.write("="*26 + "timedout" + "="*26 + "\n")
             while not finished:
                 # send KeyboardInterrupt repeatedly until the main
                 # thread dies.  Then quit (in case we are on a system
