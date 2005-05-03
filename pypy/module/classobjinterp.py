@@ -1937,8 +1937,49 @@ def initclassobj(space):
 
 ##SECTION##
 ## filename    'lib/_classobj.py'
-## function    '__setattr__'
+## function    '__del__'
 ## firstlineno 278
+##SECTION##
+  def __del__(space, __args__):
+    funcname = "__del__"
+    signature = ['self'], None, None
+    defaults_w = []
+    w_self, = __args__.parse(funcname, signature, defaults_w)
+    return fastf_instance___del__(space, w_self)
+
+  f_instance___del__ = __del__
+
+  def __del__(space, w_self):
+    goto = 1 # startblock
+    while True:
+
+        if goto == 1:
+            _args = gateway.Arguments.fromshape(space, (2, ('exc',), False, False), [w_self, gs___del__, space.w_False])
+            w_0 = space.call_args(gfunc_instance_getattr1, _args)
+            w_1 = space.is_(w_0, space.w_None)
+            v0 = space.is_true(w_1)
+            if v0 == True:
+                w_2 = space.w_None
+                goto = 3
+            else:
+                assert v0 == False
+                w_3 = w_0
+                goto = 2
+
+        if goto == 2:
+            w_4 = space.call_function(w_3, )
+            w_2 = space.w_None
+            goto = 3
+
+        if goto == 3:
+            return w_2
+
+  fastf_instance___del__ = __del__
+
+##SECTION##
+## filename    'lib/_classobj.py'
+## function    '__setattr__'
+## firstlineno 283
 ##SECTION##
 # global declarations
 # global object gs___dict___must_be_set_to_a_dictio
@@ -2093,7 +2134,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__delattr__'
-## firstlineno 294
+## firstlineno 299
 ##SECTION##
 # global declarations
 # global object g2tuple_2
@@ -2198,7 +2239,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__repr__'
-## firstlineno 310
+## firstlineno 315
 ##SECTION##
 # global declaration
 # global object gs___s__s_instance_at_0x_x_
@@ -2277,7 +2318,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__str__'
-## firstlineno 319
+## firstlineno 324
 ##SECTION##
   def __str__(space, __args__):
     funcname = "__str__"
@@ -2348,7 +2389,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__hash__'
-## firstlineno 326
+## firstlineno 331
 ##SECTION##
 # global declarations
 # global object gs_unhashable_instance
@@ -2493,7 +2534,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__len__'
-## firstlineno 340
+## firstlineno 345
 ##SECTION##
 # global declarations
 # global object gs___len_____should_return____0
@@ -2595,7 +2636,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__getitem__'
-## firstlineno 349
+## firstlineno 354
 ##SECTION##
   def __getitem__(space, __args__):
     funcname = "__getitem__"
@@ -2624,7 +2665,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__setitem__'
-## firstlineno 352
+## firstlineno 357
 ##SECTION##
   def __setitem__(space, __args__):
     funcname = "__setitem__"
@@ -2653,7 +2694,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__delitem__'
-## firstlineno 355
+## firstlineno 360
 ##SECTION##
   def __delitem__(space, __args__):
     funcname = "__delitem__"
@@ -2682,7 +2723,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__getslice__'
-## firstlineno 358
+## firstlineno 363
 ##SECTION##
   def __getslice__(space, __args__):
     funcname = "__getslice__"
@@ -2727,7 +2768,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__setslice__'
-## firstlineno 365
+## firstlineno 370
 ##SECTION##
   def __setslice__(space, __args__):
     funcname = "__setslice__"
@@ -2772,7 +2813,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__delslice__'
-## firstlineno 372
+## firstlineno 377
 ##SECTION##
   def __delslice__(space, __args__):
     funcname = "__delslice__"
@@ -2817,7 +2858,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__contains__'
-## firstlineno 379
+## firstlineno 384
 ##SECTION##
   def __contains__(space, __args__):
     funcname = "__contains__"
@@ -2886,7 +2927,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__abs__'
-## firstlineno 394
+## firstlineno 399
 ##SECTION##
   def __abs__(space, __args__):
     funcname = "__abs__"
@@ -2915,7 +2956,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__float__'
-## firstlineno 394
+## firstlineno 399
 ##SECTION##
   def __float__(space, __args__):
     funcname = "__float__"
@@ -2944,7 +2985,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__hex__'
-## firstlineno 394
+## firstlineno 399
 ##SECTION##
   def __hex__(space, __args__):
     funcname = "__hex__"
@@ -2973,7 +3014,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__int__'
-## firstlineno 394
+## firstlineno 399
 ##SECTION##
   def __int__(space, __args__):
     funcname = "__int__"
@@ -3002,7 +3043,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__invert__'
-## firstlineno 394
+## firstlineno 399
 ##SECTION##
   def __invert__(space, __args__):
     funcname = "__invert__"
@@ -3031,7 +3072,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__long__'
-## firstlineno 394
+## firstlineno 399
 ##SECTION##
   def __long__(space, __args__):
     funcname = "__long__"
@@ -3060,7 +3101,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__neg__'
-## firstlineno 394
+## firstlineno 399
 ##SECTION##
   def __neg__(space, __args__):
     funcname = "__neg__"
@@ -3089,7 +3130,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__oct__'
-## firstlineno 394
+## firstlineno 399
 ##SECTION##
   def __oct__(space, __args__):
     funcname = "__oct__"
@@ -3118,7 +3159,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__pos__'
-## firstlineno 394
+## firstlineno 399
 ##SECTION##
   def __pos__(space, __args__):
     funcname = "__pos__"
@@ -3147,7 +3188,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__coerce__'
-## firstlineno 400
+## firstlineno 405
 ##SECTION##
   def __coerce__(space, __args__):
     funcname = "__coerce__"
@@ -3186,7 +3227,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__add__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __add__(space, __args__):
     funcname = "__add__"
@@ -3261,7 +3302,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__and__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __and__(space, __args__):
     funcname = "__and__"
@@ -3336,7 +3377,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__div__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __div__(space, __args__):
     funcname = "__div__"
@@ -3411,7 +3452,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__divmod__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __divmod__(space, __args__):
     funcname = "__divmod__"
@@ -3486,7 +3527,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__floordiv__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __floordiv__(space, __args__):
     funcname = "__floordiv__"
@@ -3561,7 +3602,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__lshift__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __lshift__(space, __args__):
     funcname = "__lshift__"
@@ -3636,7 +3677,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__mod__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __mod__(space, __args__):
     funcname = "__mod__"
@@ -3711,7 +3752,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__mul__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __mul__(space, __args__):
     funcname = "__mul__"
@@ -3786,7 +3827,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__or__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __or__(space, __args__):
     funcname = "__or__"
@@ -3861,7 +3902,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rshift__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __rshift__(space, __args__):
     funcname = "__rshift__"
@@ -3936,7 +3977,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__sub__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __sub__(space, __args__):
     funcname = "__sub__"
@@ -4011,7 +4052,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__truediv__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
   def __truediv__(space, __args__):
     funcname = "__truediv__"
@@ -4086,7 +4127,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__xor__'
-## firstlineno 417
+## firstlineno 422
 ##SECTION##
 # global declaration
 # global object gfunc__coerce
@@ -4164,7 +4205,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__radd__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __radd__(space, __args__):
     funcname = "__radd__"
@@ -4239,7 +4280,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rand__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __rand__(space, __args__):
     funcname = "__rand__"
@@ -4314,7 +4355,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rdiv__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __rdiv__(space, __args__):
     funcname = "__rdiv__"
@@ -4389,7 +4430,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rdivmod__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __rdivmod__(space, __args__):
     funcname = "__rdivmod__"
@@ -4464,7 +4505,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rfloordiv__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __rfloordiv__(space, __args__):
     funcname = "__rfloordiv__"
@@ -4539,7 +4580,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rlshift__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __rlshift__(space, __args__):
     funcname = "__rlshift__"
@@ -4614,7 +4655,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rmod__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __rmod__(space, __args__):
     funcname = "__rmod__"
@@ -4689,7 +4730,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rmul__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __rmul__(space, __args__):
     funcname = "__rmul__"
@@ -4764,7 +4805,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__ror__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __ror__(space, __args__):
     funcname = "__ror__"
@@ -4839,7 +4880,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rrshift__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __rrshift__(space, __args__):
     funcname = "__rrshift__"
@@ -4914,7 +4955,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rsub__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __rsub__(space, __args__):
     funcname = "__rsub__"
@@ -4989,7 +5030,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rtruediv__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __rtruediv__(space, __args__):
     funcname = "__rtruediv__"
@@ -5064,7 +5105,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rxor__'
-## firstlineno 427
+## firstlineno 432
 ##SECTION##
   def __rxor__(space, __args__):
     funcname = "__rxor__"
@@ -5139,7 +5180,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__iadd__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __iadd__(space, __args__):
     funcname = "__iadd__"
@@ -5178,7 +5219,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__iand__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __iand__(space, __args__):
     funcname = "__iand__"
@@ -5217,7 +5258,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__idiv__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __idiv__(space, __args__):
     funcname = "__idiv__"
@@ -5256,7 +5297,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__ifloordiv__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __ifloordiv__(space, __args__):
     funcname = "__ifloordiv__"
@@ -5295,7 +5336,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__ilshift__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __ilshift__(space, __args__):
     funcname = "__ilshift__"
@@ -5334,7 +5375,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__imod__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __imod__(space, __args__):
     funcname = "__imod__"
@@ -5373,7 +5414,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__imul__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __imul__(space, __args__):
     funcname = "__imul__"
@@ -5412,7 +5453,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__ior__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __ior__(space, __args__):
     funcname = "__ior__"
@@ -5451,7 +5492,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__ipow__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __ipow__(space, __args__):
     funcname = "__ipow__"
@@ -5490,7 +5531,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__irshift__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __irshift__(space, __args__):
     funcname = "__irshift__"
@@ -5529,7 +5570,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__isub__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __isub__(space, __args__):
     funcname = "__isub__"
@@ -5568,7 +5609,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__itruediv__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __itruediv__(space, __args__):
     funcname = "__itruediv__"
@@ -5607,7 +5648,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__ixor__'
-## firstlineno 445
+## firstlineno 450
 ##SECTION##
   def __ixor__(space, __args__):
     funcname = "__ixor__"
@@ -5646,7 +5687,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__pow__'
-## firstlineno 454
+## firstlineno 459
 ##SECTION##
   def __pow__(space, __args__):
     funcname = "__pow__"
@@ -5749,7 +5790,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__rpow__'
-## firstlineno 472
+## firstlineno 477
 ##SECTION##
   def __rpow__(space, __args__):
     funcname = "__rpow__"
@@ -5852,7 +5893,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__nonzero__'
-## firstlineno 490
+## firstlineno 495
 ##SECTION##
 # global declarations
 # global object gs___nonzero_____should_return____0
@@ -5980,7 +6021,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__call__'
-## firstlineno 505
+## firstlineno 510
 ##SECTION##
 # global declaration
 # global object gs__s_instance_has_no___call___meth
@@ -6063,7 +6104,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__eq__'
-## firstlineno 516
+## firstlineno 521
 ##SECTION##
   def __eq__(space, __args__):
     funcname = "__eq__"
@@ -6135,7 +6176,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__ge__'
-## firstlineno 516
+## firstlineno 521
 ##SECTION##
   def __ge__(space, __args__):
     funcname = "__ge__"
@@ -6207,7 +6248,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__gt__'
-## firstlineno 516
+## firstlineno 521
 ##SECTION##
   def __gt__(space, __args__):
     funcname = "__gt__"
@@ -6279,7 +6320,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__le__'
-## firstlineno 516
+## firstlineno 521
 ##SECTION##
   def __le__(space, __args__):
     funcname = "__le__"
@@ -6351,7 +6392,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__lt__'
-## firstlineno 516
+## firstlineno 521
 ##SECTION##
   def __lt__(space, __args__):
     funcname = "__lt__"
@@ -6423,7 +6464,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__ne__'
-## firstlineno 516
+## firstlineno 521
 ##SECTION##
   def __ne__(space, __args__):
     funcname = "__ne__"
@@ -6495,7 +6536,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__iter__'
-## firstlineno 525
+## firstlineno 530
 ##SECTION##
 # global declarations
 # global object gs___iter___returned_non_iterator_o
@@ -6606,7 +6647,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    'next'
-## firstlineno 540
+## firstlineno 545
 ##SECTION##
 # global declaration
 # global object gs_instance_has_no_next___method
@@ -6656,7 +6697,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    '__cmp__'
-## firstlineno 546
+## firstlineno 551
 ##SECTION##
 # global declarations
 # global object gi_minus_1
@@ -6849,7 +6890,7 @@ def initclassobj(space):
 ##SECTION##
 ## filename    'lib/_classobj.py'
 ## function    'purify'
-## firstlineno 584
+## firstlineno 589
 ##SECTION##
 # global declarations
 # global object g3tuple
@@ -6915,6 +6956,8 @@ def initclassobj(space):
 # global object gfunc_instance___coerce__
 # global object gs___contains__
 # global object gfunc_instance___contains__
+# global object gs___del__
+# global object gfunc_instance___del__
 # global object gs___delattr__
 # global object gfunc_instance___delattr__
 # global object gs___delitem__
@@ -7115,6 +7158,9 @@ def initclassobj(space):
   gs___contains__ = space.wrap('__contains__')
   gfunc_instance___contains__ = space.wrap(gateway.interp2app(f_instance___contains__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
   space.setattr(gcls_instance, gs___contains__, gfunc_instance___contains__)
+  gs___del__ = space.wrap('__del__')
+  gfunc_instance___del__ = space.wrap(gateway.interp2app(f_instance___del__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
+  space.setattr(gcls_instance, gs___del__, gfunc_instance___del__)
   gs___delattr__ = space.wrap('__delattr__')
   gfunc_instance___delattr__ = space.wrap(gateway.interp2app(f_instance___delattr__, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
   space.setattr(gcls_instance, gs___delattr__, gfunc_instance___delattr__)
