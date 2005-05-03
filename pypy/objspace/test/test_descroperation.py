@@ -28,10 +28,12 @@ class AppTest_Descroperation:
         sq = Sq()
 
         assert sq[1:3] == (1,3)
-        import sys
-        assert sq[1:] == (1, sys.maxint)
+        slice_min, slice_max = sq[:]
+        assert slice_min == 0
+        assert slice_max >= 2**31-1
+        assert sq[1:] == (1, slice_max)
         assert sq[:3] == (0, 3)
-        assert sq[:] == (0, sys.maxint)
+        assert sq[:] == (0, slice_max)
         # negative indices
         assert sq[-1:3] == (99, 3)
         assert sq[1:-3] == (1, 97)
@@ -54,13 +56,14 @@ class AppTest_Descroperation:
         sq[12:] = 'world'
         sq[:-1] = 'spam'
         sq[:] = 'egg'
+        slice_max = ops[-1][1]
+        assert slice_max >= 2**31-1
 
-        import sys
         assert ops == [
             (95, 3,          'hello'),
-            (12, sys.maxint, 'world'),
+            (12, slice_max, 'world'),
             (0,  99,         'spam'),
-            (0,  sys.maxint, 'egg'),
+            (0,  slice_max, 'egg'),
             ]
 
     def test_delslice(self):
@@ -78,13 +81,14 @@ class AppTest_Descroperation:
         del sq[-12:]
         del sq[:1]
         del sq[:]
+        slice_max = ops[-1][1]
+        assert slice_max >= 2**31-1
 
-        import sys
         assert ops == [
             (5,   97),
-            (88,  sys.maxint),
+            (88,  slice_max),
             (0,   1),
-            (0,   sys.maxint),
+            (0,   slice_max),
             ]
 
     def test_ipow(self):

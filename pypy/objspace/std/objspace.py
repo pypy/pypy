@@ -366,6 +366,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
         pow.extras['defaults'] = (None,)
 
 
+# what is the maximum value slices can get on CPython?
+# we need to stick to that value, because fake.py etc.
+class Temp:
+    def __getslice__(self, i, j):
+        return j
+slice_max = Temp()[:]
+del Temp
+
 
 def old_slice_range(space, w_obj, w_start, w_stop):
     """Only for backward compatibility for __getslice__()&co methods."""
@@ -377,7 +385,7 @@ def old_slice_range(space, w_obj, w_start, w_stop):
         # behavior when w_obj doesn't implement __len__(), so we just
         # ignore this case.
     if space.is_w(w_stop, space.w_None):
-        w_stop = space.wrap(sys.maxint)
+        w_stop = space.wrap(slice_max)
     elif space.is_true(space.lt(w_stop, space.wrap(0))):
         w_stop = space.add(w_stop, space.len(w_obj))
     return w_start, w_stop
