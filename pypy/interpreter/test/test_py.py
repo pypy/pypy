@@ -64,3 +64,28 @@ def test_scripts():
                                  (sys.executable, pypath, tmpfilepath) )
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
     
+
+TB_NORMALIZATION_CHK= """
+class K(object):
+  def __repr__(self):
+     return "<normalized>"
+  def __str__(self):
+     return "-not normalized-"
+
+{}[K()]
+"""
+
+def test_tb_normalization():
+    tmpfilepath = str(udir.join("test_py_script.py"))
+    tmpfile = file( tmpfilepath, "w" )
+    tmpfile.write(TB_NORMALIZATION_CHK)
+    tmpfile.close()
+
+    e = None
+    try:
+        output = py.process.cmdexec( '''"%s" "%s" "%s" ''' %
+                                     (sys.executable, pypath, tmpfilepath) )
+    except py.process.cmdexec.Error, e:
+        pass
+    assert e," expected failure"
+    assert e.err.splitlines()[-1] == 'KeyError: <normalized>'
