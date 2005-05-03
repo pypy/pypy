@@ -47,12 +47,8 @@ class complex(object):
                 re = co.real
                 im = co.imag
             else:
-                try:
-                    re = float(real)
-                except ValueError:
-                    raise ValueError, "complex() argument must be a string or a number"
+                re = float(real)
                 im = 0.0
-
         if isinstance(imag, (str, unicode)): 
             msg = "complex() second arg can't be a string"
             raise TypeError, msg
@@ -60,11 +56,7 @@ class complex(object):
             re -= imag.imag
             im += imag.real
         elif imag is not None:
-            try:
-                im += float(imag)
-            except ValueError:
-                raise ValueError, "complex() argument must be a string or a number"
-
+            im += float(imag)
         real_slot.__set__(self, re)
         imag_slot.__set__(self, im)
 
@@ -89,9 +81,15 @@ class complex(object):
             y = y[:-1]
             if len(y) <= 1:
                 y += "1"
-            return 0, float(y)
+            f = float(y)
+            if abs(f) == float("inf"):
+                raise ValueError, "float() out of range: %s" % y
+            return 0, f
         if y == "":
-            return float(x), 0
+            f = float(x)
+            if abs(f) == float("inf"):
+                raise ValueError, "float() out of range: %s" % x
+            return f, 0
         if y[-1] != "j":
             raise ValueError, "complex() arg is a malformed string"
         assert y[-1] == "j"
@@ -99,10 +97,17 @@ class complex(object):
         if y == "":
             if x in "+-":
                 x += "1.0"
-            return 0, float(x)
+            f = float(x)
+            if abs(f) == float("inf"):
+                raise ValueError, "float() out of range: %s" % x
+            return 0, f
         if y in "+-":
             y += "1.0"
-        return float(x), float(y)
+        x = float(x)
+        y = float(y)
+        if abs(x) == float("inf") or abs(y) == float("inf"):
+            raise ValueError, "float() out of range: %s" % y
+        return x, y
 
     def __description(self, precision):
         if self.real != 0.:
