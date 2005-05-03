@@ -61,7 +61,7 @@ class Arguments:
             # maybe we could allow general mappings?
             if not space.is_true(space.isinstance(w_starstararg, space.w_dict)):
                 raise OperationError(space.w_TypeError,
-                                     space.wrap("the keywords must be "
+                                     space.wrap("argument after ** must be "
                                                 "a dictionary"))
             d = self.kwds_w.copy()   # don't change the original yet,
                                      # in case something goes wrong
@@ -181,7 +181,7 @@ class Arguments:
                     raise ArgErrMultipleValues(name)
 
         remainingkwds_w = kwds_w.copy()
-        not_enough = False
+        missing = 0
         if input_argcount < co_argcount:
             # not enough args, fill in kwargs or defaults if exists
             def_first = co_argcount - len(defaults_w)
@@ -195,8 +195,8 @@ class Arguments:
                 else:
                     # error: not enough arguments.  Don't signal it immediately
                     # because it might be related to a problem with */** or
-                    # keyword arguments, will be checked for below.
-                    not_enough = True
+                    # keyword arguments, which will be checked for below.
+                    missing += 1
 
         # collect extra positional arguments into the *vararg
         if varargname is not None:
@@ -205,7 +205,7 @@ class Arguments:
             else:      # shortcut for the non-unpack() case above
                 scope_w.append(self.w_stararg)
         elif len(args_w) > co_argcount:
-            raise ArgErrCount(signature, defaults_w, True)
+            raise ArgErrCount(signature, defaults_w, 0)
 
         # collect extra keyword arguments into the **kwarg
         if kwargname is not None:
@@ -216,8 +216,8 @@ class Arguments:
         elif remainingkwds_w:
             raise ArgErrUnknownKwds(remainingkwds_w)
 
-        if not_enough:
-            raise ArgErrCount(signature, defaults_w, False)
+        if missing:
+            raise ArgErrCount(signature, defaults_w, missing)
         return scope_w
 
     ### Argument <-> list of w_objects together with "shape" information
@@ -267,20 +267,23 @@ class ArgErr(Exception):
 
 class ArgErrCount(ArgErr):
 
-    def __init__(self, signature, defaults_w, too_many):
-        self.signature  = signature
-        self.defaults_w = defaults_w
-        self.too_many   = too_many
+    def __init__(self, signature, defaults_w, missing_args):
+        self.signature    = signature
+        self.defaults_w   = defaults_w
+        self.missing_args = missing_args
 
     def getmsg(self, args, fnname):
         argnames, varargname, kwargname = self.signature
         args_w, kwds_w = args.unpack()
-        nargs = len(args_w)
         if kwargname is not None or (kwds_w and self.defaults_w):
             msg2 = "non-keyword "
+            if self.missing_args:
+                nargs = len(argnames) - self.missing_args
+            else:
+                nargs = len(args_w)
         else:
             msg2 = ""
-            nargs += len(kwds_w)
+            nargs = len(args_w) + len(kwds_w)
         n = len(argnames)
         if n == 0:
             msg = "%s() takes no %sargument (%d given)" % (
@@ -291,7 +294,7 @@ class ArgErrCount(ArgErr):
             defcount = len(self.defaults_w)
             if defcount == 0 and varargname is None:
                 msg1 = "exactly"
-            elif self.too_many:
+            elif not self.missing_args:
                 msg1 = "at most"
             else:
                 msg1 = "at least"
