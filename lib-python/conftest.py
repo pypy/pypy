@@ -744,7 +744,7 @@ Directory = RegrDirectory
 def getrev(path): 
     try: 
         return py.path.svnwc(pypydir).info().rev
-    except: 
+    except py.process.cmdexec.Error: 
         return 'unknown'  # on windows people not always have 'svn' in their path
 
 class RunFileExternal(py.test.collect.Module): 
