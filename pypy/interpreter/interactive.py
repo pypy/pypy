@@ -159,52 +159,11 @@ class PyPyConsole(code.InteractiveConsole):
 
     def runcode(self, code):
         # 'code' is a CPython code object
-        from pypy.interpreter.pycode import PyCode
-        pycode = PyCode(self.space)._from_code(code)
-        try:
-            self.settrace()
-            pycode.exec_code(self.space, self.w_globals, self.w_globals)
-            self.checktrace()
-            
-        except error.OperationError, operationerr:
-            space = self.space
-            try:
-                if operationerr.match(space, space.w_SystemExit):
-                    w_exitcode = space.getattr(operationerr.w_value,
-                                               space.wrap('code'))
-                    if space.is_w(w_exitcode, space.w_None):
-                        exitcode = 0
-                    else:
-                        try:
-                            exitcode = space.int_w(w_exitcode)
-                        except error.OperationError:
-                            # not an integer: print it to stderr
-                            msg = space.str_w(space.str(w_exitcode))
-                            print >> sys.stderr, msg
-                            exitcode = 1
-                    raise SystemExit(exitcode)
-                space.setitem(space.sys.w_dict, space.wrap('last_type'),
-                              operationerr.w_type)
-                space.setitem(space.sys.w_dict, space.wrap('last_value'),
-                              operationerr.w_value)
-                space.setitem(space.sys.w_dict, space.wrap('last_traceback'),
-                              space.wrap(operationerr.application_traceback))
-            except error.OperationError, operationerr:
-                pass   # let the code below print any error we get above
-            if self.verbose:
-                operationerr.print_detailed_traceback(space)
-            else:
-                operationerr.print_application_traceback(space)
-            # for debugging convenience we also insert the exception into
-            # the interpreter-level sys.last_xxx
-            sys.last_type, sys.last_value, sys.last_traceback = sys.exc_info()
-        else:
-            try:
-                if sys.stdout.softspace:
-                    print
-            except AttributeError:
-                # Don't crash if user defined stdout doesn't have softspace
-                pass
+        self.settrace()
+        main.run_toplevel_program(self.space, code,
+                                  w_globals=self.w_globals,
+                                  verbose=self.verbose)
+        self.checktrace()
 
     def runsource(self, source, ignored_filename="<input>", symbol="single"):
         hacked_filename = '<inline>' + source

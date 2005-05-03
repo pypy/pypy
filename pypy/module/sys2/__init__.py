@@ -64,7 +64,7 @@ class Module(LazyModule):
         #'displayhook'           : 'app.displayhook', 
         #'__displayhook__'       : 'app.__displayhook__', 
         'excepthook'            : 'app.excepthook', 
-        '__excepthook__'        : 'app.__excepthook__', 
+        '__excepthook__'        : 'app.excepthook', 
         'exit'                  : 'app.exit', 
         'getfilesystemencoding' : 'app.getfilesystemencoding', 
         'callstats'             : 'app.callstats',

@@ -7,12 +7,9 @@ The 'sys' module.
 
 import sys 
 
-# XXX not called by the core yet
 def excepthook(exctype, value, traceback):
     from traceback import print_exception
     print_exception(exctype, value, traceback)
-
-__excepthook__ = excepthook  # this is exactly like in CPython
 
 def exit(exitcode=0):
     # note that we cannot use SystemExit(exitcode) here.
