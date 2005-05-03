@@ -275,6 +275,11 @@ class instance(object):
         obj_setattr(inst, '__dict__', dic)
         return inst
 
+    def __del__(self):
+        func = instance_getattr1(self, '__del__', exc=False)
+        if func is not None:
+            func()
+
     def __setattr__(self, name, value):
         if name == '__dict__':
             if not isinstance(value, dict):
