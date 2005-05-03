@@ -35,12 +35,6 @@ from pypy.tool.pytest.result import Result, ResultFromMime
 
 Option = py.test.Config.Option 
 option = py.test.Config.addoptions("compliance testing options", 
-    Option('-A', '--all', action="store_true", 
-           default=False, dest="withall", 
-           help="include all tests (instead of just core tests)."), 
-    Option('-N', '--noncore', action="store_true", 
-           default=False, dest="noncore", 
-           help="include only non-core tests"), 
     Option('-E', '--extracttests', action="store_true", 
            default=False, dest="extracttests", 
            help="try to extract single tests and run them via py.test/PyPy"), 
@@ -715,8 +709,6 @@ class RegrDirectory(py.test.collect.Directory):
         type.  XXX If you find errors in the classification 
         please correct them! 
     """ 
-    testmap = testmap
-
     def get(self, name, cache={}): 
         if not cache: 
             for x in testmap: 
@@ -724,11 +716,7 @@ class RegrDirectory(py.test.collect.Directory):
         return cache.get(name, None)
         
     def run(self): 
-        l = []
-        for x in self.testmap: 
-            if ((not not x.core) ^ (pypy_option.noncore)) or pypy_option.withall: 
-                l.append(x.basename) 
-        return l 
+        return [x.basename for x in testmap]
 
     def join(self, name): 
         regrtest = self.get(name) 
@@ -786,6 +774,19 @@ import socket
 import getpass
 
 class ReallyRunFileExternal(py.test.Item): 
+    _resultcache = None
+    def haskeyword(self, keyword): 
+        if keyword == 'core': 
+            return self.parent.regrtest.core 
+        if keyword not in ('error', 'ok', 'timeout'): 
+            return super(ReallyRunFileExternal, self).haskeyword(keyword)
+        if self._resultcache is None: 
+            from pypy.tool.pytest.overview import ResultCache
+            self.__class__._resultcache = rc = ResultCache() 
+            rc.parselatest()
+        result = self._resultcache.getlatest(self.fspath.purebasename, 
+                                             **{keyword:True})
+        return result is not None 
 
     def getinvocation(self, regrtest): 
         fspath = regrtest.getfspath() 
