@@ -59,13 +59,13 @@ def really_build_fake_type(cpy_type, ignored):
         import __builtin__
         p = re.compile("foo")
         for meth_name in p.__methods__:
-            kw[meth_name] = __builtin__.eval("lambda p,*args,**kwds: p.%s(*args,**kwds)" % meth_name)
+            kw[meth_name] = EvenMoreObscureWrapping(__builtin__.eval("lambda p,*args,**kwds: p.%s(*args,**kwds)" % meth_name))
     elif cpy_type.__name__ == 'SRE_Match':
         import re
         import __builtin__
         m = re.compile("foo").match('foo')
         for meth_name in m.__methods__:
-            kw[meth_name] = __builtin__.eval("lambda m,*args,**kwds: m.%s(*args,**kwds)" % meth_name)
+            kw[meth_name] = EvenMoreObscureWrapping(__builtin__.eval("lambda m,*args,**kwds: m.%s(*args,**kwds)" % meth_name))
     else:
         for s, v in cpy_type.__dict__.items():
             if not (cpy_type is unicode and s in ['__add__', '__contains__']):
@@ -144,6 +144,12 @@ class CPythonFakeFrame(eval.Frame):
         except:
             wrap_exception(self.space)
         return self.space.wrap(result)
+
+class EvenMoreObscureWrapping(baseobjspace.BaseWrappable):
+    def __init__(self, val):
+        self.val = val
+    def __spacebind__(self, space):
+        return fake_builtin_callable(space, self.val)
 
 def fake_builtin_callable(space, val):
     return Function(space, CPythonFakeCode(val))
