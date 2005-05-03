@@ -7,6 +7,44 @@ from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter.gateway import NoneNotWrapped
 import __builtin__ as cpy_builtin
+import warnings
+
+def setup_warn_explicit(space): 
+    """ NOT_RPYTHON 
+   
+    this is a hack until we have our own parsing/compiling 
+    in place: we bridge certain warnings to the applevel 
+    warnings module to let it decide what to do with
+    a syntax warning ... 
+    """ 
+    def warn_explicit(message, category, filename, lineno,
+                      module=None, registry=None):
+        if hasattr(category, '__bases__') and \
+           issubclass(category, SyntaxWarning): 
+            assert isinstance(message, str) 
+            w_mod = space.sys.getmodule('warnings')
+            if w_mod is not None: 
+                w_dict = w_mod.getdict() 
+                w_reg = space.call_method(w_dict, 'setdefault', 
+                                          space.wrap("__warningregistry__"),     
+                                          space.newdict([]))
+                try: 
+                    space.call_method(w_mod, 'warn_explicit', 
+                                      space.wrap(message), 
+                                      space.w_SyntaxWarning, 
+                                      space.wrap(filename), 
+                                      space.wrap(lineno), 
+                                      space.w_None, 
+                                      space.w_None) 
+                except OperationError, e: 
+                    if e.match(space, space.w_SyntaxWarning): 
+                        raise OperationError(
+                                space.w_SyntaxError, 
+                                space.wrap(message))
+                    raise 
+    old_warn_explicit = warnings.warn_explicit 
+    warnings.warn_explicit = warn_explicit 
+    return old_warn_explicit 
 
 def compile(space, w_str_, filename, startstr,
             supplied_flags=0, dont_inherit=0):
@@ -28,7 +66,12 @@ def compile(space, w_str_, filename, startstr,
             if isinstance(caller, pyframe.PyFrame): 
                 supplied_flags |= caller.get_compile_flags()
     try:
-        c = cpy_builtin.compile(str_, filename, startstr, supplied_flags, 1)
+        old = setup_warn_explicit(space)
+        try: 
+            c = cpy_builtin.compile(str_, filename, startstr, supplied_flags, 1)
+        finally: 
+            warnings.warn_explicit = old 
+            
     # It would be nice to propagate all exceptions to app level,
     # but here we only propagate the 'usual' ones, until we figure
     # out how to do it generically.
