@@ -10,6 +10,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.eval import Code
+from pypy.interpreter.gateway import NoneNotWrapped
 
 class Function(Wrappable):
     """A function is a code object captured with some environment:
@@ -49,6 +50,43 @@ class Function(Wrappable):
         self.w_func_dict = w_dict
 
     # unwrapping is done through unwrap_specs in typedef.py
+
+    def descr_method__new__(space, w_subtype, w_code, w_globals, w_name=None, w_argdefs=None, w_closure=NoneNotWrapped):
+        code = space.interpclass_w(w_code)
+        if code is None or not isinstance(code, Code):
+            raise OperationError(space.w_TypeError, space.wrap("expected code"))
+        if not space.is_true(space.isinstance(w_globals, space.w_dict)):
+            raise OperationError(space.w_TypeError, space.wrap("expected dict"))
+        if not space.is_w(w_name, space.w_None):
+            name = space.str_w(w_name)
+        else:
+            name = None
+        if not space.is_w(w_argdefs, space.w_None):
+            defs_w = space.unpackiterable(w_argdefs)
+        else:
+            defs_w = []
+        if w_closure is None:
+            closure = None
+        elif not space.is_w(space.type(w_closure), space.w_tuple):
+            raise OperationError(space.w_TypeError, space.wrap("invalid closure"))
+        else:
+            from pypy.interpreter.pycode import PyCode
+            from pypy.interpreter.nestedscope import Cell
+            closure_w = space.unpackiterable(w_closure)
+            n = len(closure_w)
+            if not isinstance(code, PyCode) or len(code.co_freevars) == 0:
+                raise OperationError(space.w_ValueError, space.wrap("no closure needed"))
+            elif len(code.co_freevars) != n:
+                raise OperationError(space.w_ValueError, space.wrap("closure is wrong size"))                
+            closure = []
+            for w_cell in closure_w:
+                cell = space.interpclass_w(w_cell)
+                if not isinstance(cell, Cell):
+                    raise OperationError(space.w_TypeError, space.wrap("non-cell in closure"))
+                closure.append(cell)
+        func = space.allocate_instance(Function, w_subtype)
+        func.__init__(space, code, w_globals, defs_w, closure, name)
+        return space.wrap(func)
 
     def descr_function_get(self, w_obj, w_cls=None):
         space = self.space

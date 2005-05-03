@@ -9,6 +9,8 @@ Gateway between app-level and interpreter-level:
 
 import types, sys, md5, os
 
+NoneNotWrapped = object()
+
 from pypy.tool import hack
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter import eval
@@ -21,8 +23,6 @@ from pypy.tool.sourcetools import NiceCompile
 
 # internal non-translatable parts: 
 from pypy.tool.getpy import py  # XXX from interpreter/ we get py.py 
-
-NoneNotWrapped = object()
 
 class Signature:
     "NOT_RPYTHON"
