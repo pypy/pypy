@@ -56,9 +56,10 @@ class HtmlReport(object):
             maxresult = None
             for res in resultlist: 
                 resrev = res['pypy-revision']
-                if resrev > maxrev: 
-                    maxrev = resrev 
-                    maxresult = res 
+                if resrev != 'unknown': 
+                    if resrev > maxrev: 
+                        maxrev = resrev 
+                        maxresult = res 
             assert maxresult 
             if not checkerfunc or checkerfunc(maxresult): 
                 l.append(maxresult) 
