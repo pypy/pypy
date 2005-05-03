@@ -21,6 +21,7 @@ def try_import_mod(space, w_modulename, f, w_parent, w_name, pkgdir=None):
         w_mod = space.wrap(Module(space, w_modulename))
         space.sys.setmodule(w_mod)
         space.setattr(w_mod, w('__file__'), w(f))
+        space.setattr(w_mod, w('__doc__'), space.w_None)        
         if pkgdir is not None:
             space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
         w_dict = space.getattr(w_mod, w('__dict__'))
@@ -137,9 +138,15 @@ def absolute_import(space, modulename, baselevel, w_fromlist, tentative):
 
     if w_fromlist is not None and space.is_true(w_fromlist):
         if w_path is not None:
-            for w_name in space.unpackiterable(w_fromlist):
-                load_part(space, w_path, prefix, space.str_w(w_name), w_mod,
-                          tentative=1)
+            fromlist_w = space.unpackiterable(w_fromlist)
+            if len(fromlist_w) == 1 and space.eq_w(fromlist_w[0],w('*')):
+                w_all = try_getattr(space, w_mod, w('__all__'))
+                if w_all is not None:
+                    fromlist_w = space.unpackiterable(w_all)
+            for w_name in fromlist_w:
+                if try_getattr(space, w_mod, w_name) is None:
+                    load_part(space, w_path, prefix, space.str_w(w_name), w_mod,
+                              tentative=1)
         return w_mod
     else:
         return first

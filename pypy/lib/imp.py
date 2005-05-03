@@ -51,7 +51,6 @@ def load_module(name, file, filename, description):
         co = compile(source, filename, 'exec')
         if module is None:
             sys.modules[name] = module = new_module(name)
-        module.__dict__.clear()
         module.__name__ = name
         module.__doc__ = None
         module.__file__ = filename
@@ -62,7 +61,6 @@ def load_module(name, file, filename, description):
         initfilename = os.path.join(filename, '__init__.py')
         if module is None:
             sys.modules[name] = module = new_module(name)
-        module.__dict__.clear()
         module.__name__ = name
         module.__doc__ = None
         module.__file__ = initfilename
