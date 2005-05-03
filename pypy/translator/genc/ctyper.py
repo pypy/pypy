@@ -26,6 +26,52 @@ class GenCSpecializer(Specializer):
         self.TNone     = TNone     = t.getconcretetype(CNoneType)
         self.TPyObject = TPyObject = t.getconcretetype(CPyObjectType)
 
+        specializationtable = [
+            ## op               specialized op   arg types   concrete return type
+            ('is_true',         'int_is_true',   TInt,       TInt),
+        ]
+        ii_i = (TInt, TInt, TInt)
+        for op in "eq ne le gt lt ge cmp".split():
+            specializationtable.extend([
+                ('%s' % op,             'int_%s' % op) + ii_i,
+            ])
+        for op in "add sub mul".split():
+            specializationtable.extend([
+                ('%s' % op,             'int_%s' % op) + ii_i,
+                ('inplace_%s' % op,     'int_%s' % op) + ii_i,
+                ('%s_ovf' % op,         'int_%s_ovf' % op) + ii_i,
+                ('inplace_%s_ovf' % op, 'int_%s_ovf' % op) + ii_i,
+            ])
+        for op in "rshift".split():
+            specializationtable.extend([
+                ('%s' % op,             'int_%s' % op) + ii_i,
+                ('inplace_%s' % op,     'int_%s' % op) + ii_i,
+                ('%s_val' % op,         'int_%s_val' % op) + ii_i,
+                ('inplace_%s_val' % op, 'int_%s_val' % op) + ii_i,
+            ])
+        for op in "lshift".split():
+            specializationtable.extend([
+                ('%s' % op,                 'int_%s' % op) + ii_i,
+                ('inplace_%s' % op,         'int_%s' % op) + ii_i,
+                ('%s_ovf' % op,             'int_%s_ovf' % op) + ii_i,
+                ('inplace_%s_ovf' % op,     'int_%s_ovf' % op) + ii_i,
+                ('%s_val' % op,             'int_%s_val' % op) + ii_i,
+                ('inplace_%s_val' % op,     'int_%s_val' % op) + ii_i,
+                ('%s_ovf_val' % op,         'int_%s_ovf_val' % op) + ii_i,
+                ('inplace_%s_ovf_val' % op, 'int_%s_ovf_val' % op) + ii_i,
+            ])
+        for op in "floordiv mod".split():
+            specializationtable.extend([
+                ('%s' % op,                 'int_%s' % op) + ii_i,
+                ('inplace_%s' % op,         'int_%s' % op) + ii_i,
+                ('%s_ovf' % op,             'int_%s_ovf' % op) + ii_i,
+                ('inplace_%s_ovf' % op,     'int_%s_ovf' % op) + ii_i,
+                ('%s_zer' % op,             'int_%s_zer' % op) + ii_i,
+                ('inplace_%s_zer' % op,     'int_%s_zer' % op) + ii_i,
+                ('%s_ovf_zer' % op,         'int_%s_ovf_zer' % op) + ii_i,
+                ('inplace_%s_ovf_zer' % op, 'int_%s_ovf_zer' % op) + ii_i,
+            ])
+
         # initialization
         Specializer.__init__(
             self, annotator,
@@ -34,22 +80,7 @@ class GenCSpecializer(Specializer):
             # in more-specific-first, more-general-last order
             typematches = [TNone, TInt],
 
-            specializationtable = [
-                ## op               specialized op   arg types   concrete return type
-                ('add',             'int_add',     TInt, TInt,   TInt),
-                ('inplace_add',     'int_add',     TInt, TInt,   TInt),
-                ('add_ovf',         'int_add_ovf', TInt, TInt,   TInt),
-                ('inplace_add_ovf', 'int_add_ovf', TInt, TInt,   TInt),
-                ('sub',             'int_sub',     TInt, TInt,   TInt),
-                ('inplace_sub',     'int_sub',     TInt, TInt,   TInt),
-                ('sub_ovf',         'int_sub_ovf', TInt, TInt,   TInt),
-                ('inplace_sub_ovf', 'int_sub_ovf', TInt, TInt,   TInt),
-                ('mul',             'int_mul',     TInt, TInt,   TInt),
-                ('inplace_mul',     'int_mul',     TInt, TInt,   TInt),
-                ('mul_ovf',         'int_mul_ovf', TInt, TInt,   TInt),
-                ('inplace_mul_ovf', 'int_mul_ovf', TInt, TInt,   TInt),
-                ('is_true',         'int_is_true', TInt,         TInt),
-                ],
+            specializationtable = specializationtable,
             )
 
     def annotation2concretetype(self, s_value):

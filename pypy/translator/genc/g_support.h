@@ -17,6 +17,7 @@
 		FAIL(err) \
 	}
 #define FAIL_OVF(err, msg) FAIL_EXCEPTION(err, PyExc_OverflowError, msg)
+#define FAIL_VAL(err, msg) FAIL_EXCEPTION(err, PyExc_ValueError, msg)
 #define FAIL_ZER(err, msg) FAIL_EXCEPTION(err, PyExc_ZeroDivisionError, msg)
 
 /* we need a subclass of 'builtin_function_or_method' which can be used
