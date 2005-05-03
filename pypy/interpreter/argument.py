@@ -278,7 +278,8 @@ class ArgErrCount(ArgErr):
         if kwargname is not None or (kwds_w and self.defaults_w):
             msg2 = "non-keyword "
             if self.missing_args:
-                nargs = len(argnames) - self.missing_args
+                required_args = len(argnames) - len(self.defaults_w)
+                nargs = required_args - self.missing_args
             else:
                 nargs = len(args_w)
         else:
