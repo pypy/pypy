@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter import baseobjspace
 from pypy.interpreter import eval
-from pypy.interpreter.function import Function
+from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.objspace import W_Object, StdObjSpace
 from pypy.objspace.std.model import UnwrapError
@@ -148,7 +148,13 @@ class CPythonFakeFrame(eval.Frame):
 def fake_builtin_callable(space, val):
     return Function(space, CPythonFakeCode(val))
 
-_fake_type_cache.content[type(len)] = fake_builtin_callable
+def fake_builtin_function(space, fn):
+    func = fake_builtin_callable(space, fn)
+    if fn.__self__ is None:
+        func = BuiltinFunction(func)
+    return func
+
+_fake_type_cache.content[type(len)] = fake_builtin_function
 _fake_type_cache.content[type(list.append)] = fake_builtin_callable
 _fake_type_cache.content[type(type(None).__repr__)] = fake_builtin_callable
 
