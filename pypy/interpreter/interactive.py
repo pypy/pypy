@@ -159,11 +159,13 @@ class PyPyConsole(code.InteractiveConsole):
 
     def runcode(self, code):
         # 'code' is a CPython code object
-        self.settrace()
-        main.run_toplevel_program(self.space, code,
-                                  w_globals=self.w_globals,
-                                  verbose=self.verbose)
-        self.checktrace()
+        from pypy.interpreter.pycode import PyCode
+        pycode = PyCode(self.space)._from_code(code)
+        def doit():
+            self.settrace()
+            pycode.exec_code(self.space, self.w_globals, self.w_globals)
+            self.checktrace()
+        main.run_toplevel(self.space, doit, verbose=self.verbose)
 
     def runsource(self, source, ignored_filename="<input>", symbol="single"):
         hacked_filename = '<inline>' + source

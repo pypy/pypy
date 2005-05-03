@@ -73,33 +73,42 @@ def main_(argv=None):
     for arg in args:
         space.call_method(space.sys.get('argv'), 'append', space.wrap(arg))
 
-    # compile the program given as command-line argument
+    # load the source of the program given as command-line argument
     if Options.command:
-        filename = '<string>'
-        fullsource = Options.command[0]
+        def doit():
+            main.run_string(Options.command[0], space=space)
     elif args:
-        filename = args[0]
-        fullsource = open(filename).read()
+        def doit():
+            main.run_file(args[0], space=space)
     else:
-        filename = fullsource = None
+        def doit():
+            pass
         space.call_method(space.sys.get('argv'), 'append', space.wrap(''))
         go_interactive = 1
         banner = None
 
-    # run it
-    if fullsource is not None:
-        exit_status = main.run_toplevel_program(space, fullsource, filename,
-                                                verbose=Options.verbose)
+    try:
+        # compile and run it
+        if not main.run_toplevel(space, doit, verbose=Options.verbose):
+            exit_status = 1
 
-    # start the interactive console
-    if go_interactive:
-        con = interactive.PyPyConsole(space, verbose=Options.verbose,
-                                             completer=Options.completer)
-        if banner == '':
-            banner = '%s / %s'%(con.__class__.__name__,
-                                repr(space))
-        con.interact(banner)
-        exit_status = 0
+        # start the interactive console
+        if go_interactive:
+            con = interactive.PyPyConsole(space, verbose=Options.verbose,
+                                                 completer=Options.completer)
+            if banner == '':
+                banner = '%s / %s'%(con.__class__.__name__,
+                                    repr(space))
+            con.interact(banner)
+            exit_status = 0
+    finally:
+        # call the sys.exitfunc()
+        w_exitfunc = space.sys.getdictvalue(space, 'exitfunc')
+        if w_exitfunc is not None:
+            def doit():
+                space.call_function(w_exitfunc)
+            main.run_toplevel(space, doit, verbose=Options.verbose)
+
     return exit_status
 
 ##def main_(argv=None):

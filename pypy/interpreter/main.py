@@ -17,13 +17,10 @@ def ensure__main__(space):
     return mainmodule
 
 def compilecode(space, source, filename, cmd='exec'):
-    if isinstance(source, types.CodeType):
-        pycode = PyCode(space)._from_code(source)
-    else:
-        w = space.wrap
-        w_code = space.builtin.call('compile', 
-                 w(source), w(filename), w(cmd), w(0), w(0))
-        pycode = space.interpclass_w(w_code)
+    w = space.wrap
+    w_code = space.builtin.call('compile', 
+             w(source), w(filename), w(cmd), w(0), w(0))
+    pycode = space.interpclass_w(w_code)
     assert isinstance(pycode, eval.Code)
     return pycode
 
@@ -72,24 +69,16 @@ def run_file(filename, space=None):
 
 # ____________________________________________________________
 
-def run_toplevel_program(space, source, filename='<program>',
-                         w_globals=None, verbose=False):
-    """Run the given source code in the given globals (or __main__ by default).
+def run_toplevel(space, f, verbose=False):
+    """Calls f() and handle all OperationErrors.
     Intended use is to run the main program or one interactive statement.
-    It handles details like forwarding exceptions to sys.excepthook(),
-    catching SystemExit, printing a newline after sys.stdout if needed, etc.
+    run_protected() handles details like forwarding exceptions to
+    sys.excepthook(), catching SystemExit, printing a newline after
+    sys.stdout if needed, etc.
     """
     try:
-        # build a valid w_globals
-        if w_globals is None:
-            w_globals = ensure__main__(space).w_dict
-        w1 = space.wrap('__builtins__')
-        if not space.is_true(space.contains(w_globals, w1)):
-            space.setitem(w_globals, w1, space.builtin)
-
-        # compile and execute the code
-        pycode = compilecode(space, source, filename)
-        pycode.exec_code(space, w_globals, w_globals)
+        # run it
+        f()
 
         # we arrive here if no exception is raised.  stdout cosmetics...
         try:
@@ -145,7 +134,7 @@ def run_toplevel_program(space, source, filename='<program>',
                 w_original = space.sys.getdictvalue(space, '__excepthook__')
                 if w_original is None or not space.is_w(w_hook, w_original):
                     space.call_function(w_hook, w_type, w_value, w_traceback)
-                    return 1   # done
+                    return False   # done
 
         except OperationError, err2:
             # XXX should we go through sys.get('stderr') ?
@@ -159,6 +148,6 @@ def run_toplevel_program(space, source, filename='<program>',
             operationerr.print_detailed_traceback(space)
         else:
             operationerr.print_application_traceback(space)
-        return 1
+        return False
 
-    return 0   # success
+    return True   # success
