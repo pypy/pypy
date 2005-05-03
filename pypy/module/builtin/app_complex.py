@@ -17,7 +17,7 @@ class complex(object):
 
     # provide __new__to prevent the default which has no parameters
     def __new__(typ, real=0.0, imag=None):
-        if real.__class__ == complex and imag is None:
+        if real.__class__ == complex and imag is None and typ is complex:
             return real
         ret = object.__new__(typ)
         ret._init(real, imag)

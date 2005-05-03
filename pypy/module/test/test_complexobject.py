@@ -265,3 +265,12 @@ class TestComplex:
         ours = pycomplex(10, pycomplex(100,1000))
         cpy = complex(10, complex(100,1000))
         self.assertAEqual(ours, cpy)
+
+    def test_subclassing(self):
+        class cx(pycomplex):
+            pass
+        _1_j = pycomplex(0,1)
+        assert pycomplex(_1_j) is _1_j
+        assert type(cx(_1_j)) is cx
+        assert cx(_1_j) == _1_j
+        
