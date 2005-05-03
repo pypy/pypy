@@ -33,7 +33,7 @@ def compile(space, w_str_, filename, startstr,
     # but here we only propagate the 'usual' ones, until we figure
     # out how to do it generically.
     except SyntaxError,e:
-        raise OperationError(space.w_SyntaxError,space.wrap(str(e)))
+        raise OperationError(space.w_SyntaxError,space.wrap(e.args))
     except ValueError,e:
         raise OperationError(space.w_ValueError,space.wrap(str(e)))
     except TypeError,e:
@@ -48,10 +48,21 @@ def eval(space, w_code, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
 
     if (space.is_true(space.isinstance(w_code, space.w_str)) or
         space.is_true(space.isinstance(w_code, space.w_unicode))):
-        w_code = compile(space,
-                           space.call_method(w_code, 'lstrip',
-                                             space.wrap(' \t')),
-                           "<string>", "eval")
+        try:
+            w_code = compile(space,
+                             space.call_method(w_code, 'lstrip',
+                                               space.wrap(' \t')),
+                             "<string>", "eval")
+        except OperationError, e:
+            if e.match(space, space.w_SyntaxError):
+                e_value_w = space.unpacktuple(e.w_value)
+                e_loc_w = space.unpacktuple(e_value_w[1])
+                e.w_value = space.newtuple([e_value_w[0],
+                                            space.newtuple([space.w_None]+
+                                                           e_loc_w[1:])])
+                raise e
+            else:
+                raise
 
     codeobj = space.interpclass_w(w_code)
     if not isinstance(codeobj, PyCode):
