@@ -3,10 +3,7 @@ from pypy.interpreter import module
 from pypy.interpreter.lazymodule import LazyModule 
 
 class Module(LazyModule):
-    """Built-in functions, exceptions, and other objects.
-
-Noteworthy: None is the `nil' object; Ellipsis represents `...' in slices.
-"""
+    """Built-in functions, exceptions, and other objects."""
 
     appleveldefs = {
         'quit'          : 'app_help.exit',
