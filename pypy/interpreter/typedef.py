@@ -396,6 +396,7 @@ Function.typedef = TypeDef("function",
     __call__ = interp2app(Function.descr_function_call,
                           unwrap_spec=['self', Arguments]),
     __get__ = interp2app(Function.descr_function_get),
+    __repr__ = interp2app(Function.descr_function_repr),
     func_code = getset_func_code, 
     func_doc = getset_func_doc,
     func_name = interp_attrproperty('name', cls=Function), 
@@ -434,7 +435,8 @@ def always_none(self, obj):
 BuiltinFunction.typedef = TypeDef("builtin_function",**Function.typedef.rawdict)
 BuiltinFunction.typedef.rawdict.update({
     '__new__': interp2app(BuiltinFunction.descr_method__new__.im_func),
-    '__self__': GetSetProperty(always_none, cls=BuiltinFunction)
+    '__self__': GetSetProperty(always_none, cls=BuiltinFunction),
+    '__repr__': interp2app(BuiltinFunction.descr_function_repr),
     })
 del BuiltinFunction.typedef.rawdict['__get__']
 

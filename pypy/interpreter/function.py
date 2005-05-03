@@ -104,6 +104,9 @@ class Function(Wrappable):
     def descr_function_call(self, __args__):
         return self.call_args(__args__)
 
+    def descr_function_repr(self):
+        return self.getrepr(self.space, 'function %s' % (self.name,))
+
     def fget_func_defaults(space, self):
         values_w = self.defs_w
         if not values_w:
@@ -282,3 +285,6 @@ class BuiltinFunction(Function):
         bltin = space.allocate_instance(BuiltinFunction, w_subtype)
         bltin.__init__(func)
         return space.wrap(bltin)
+
+    def descr_function_repr(self):
+        return self.space.wrap('<built-in function %s>' % (self.name,))

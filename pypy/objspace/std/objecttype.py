@@ -3,15 +3,12 @@ from pypy.objspace.descroperation import Object
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.objspace import StdObjSpace
-from pypy.tool.rarithmetic import r_uint
 
 
 def descr__repr__(space, w_obj):
     w = space.wrap
     classname = space.str_w(space.getattr(space.type(w_obj), w("__name__")))
-    id = space.int_w(space.id(w_obj))# xxx ids could be long
-    id = r_uint(id) # XXX what about sizeof(void*) > sizeof(long) !!
-    return w("<%s object at 0x%x>" % (classname, id))
+    return w_obj.getrepr(space, '%s object' % (classname,))
 
 def descr__str__(space, w_obj):
     return space.repr(w_obj)

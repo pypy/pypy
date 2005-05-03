@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.miscutils import getthreadlocals
 from pypy.interpreter.argument import Arguments
 from pypy.tool.cache import Cache 
+from pypy.tool.rarithmetic import r_uint
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable',
            'W_Root']
@@ -34,7 +35,11 @@ class W_Root:
             if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
                 return default
             raise
-                            
+
+    def getrepr(self, space, info):
+        id = space.int_w(space.id(self)) # xxx ids could be long
+        id = r_uint(id) # XXX what about sizeof(void*) > sizeof(long) !!
+        return space.wrap("<%s at 0x%x>" % (info, id))
 
 class BaseWrappable(W_Root):
     """A subclass of BaseWrappable is an internal, interpreter-level class
