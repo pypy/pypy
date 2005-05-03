@@ -468,6 +468,10 @@ testmap = [
     RegrTest('test_gl.py', enabled=False, dumbtest=1),
     RegrTest('test_glob.py', enabled=True, core=True),
     RegrTest('test_global.py', enabled=False, core=True),
+        # this fails because it relies on the warnings module 
+        # turning a warning into an exception, but PyPy's
+        # interplevel doesn't call into the app-level warnings
+        # module 
     RegrTest('test_grammar.py', enabled=False, core=True),
     RegrTest('test_grp.py', enabled=False),
         #rev 10840: ImportError: grp
@@ -532,6 +536,10 @@ testmap = [
     RegrTest('test_operations.py', enabled=False, core=True),
     RegrTest('test_operator.py', enabled=True, core=True),
     RegrTest('test_optparse.py', enabled=False, core="maybe"),
+        # this test fails because it expects that PyPy's builtin
+        # functions act as if they are staticmethods that can be put 
+        # on classes and don't get bound etc.pp. 
+
     RegrTest('test_os.py', enabled=True, core=True),
     RegrTest('test_ossaudiodev.py', enabled=False),
     RegrTest('test_parser.py', enabled=False),
