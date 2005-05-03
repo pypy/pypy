@@ -16,3 +16,23 @@ class UnpickleableError(PicklingError):
 
 class BadPickleGet(UnpicklingError):
     pass
+
+# ____________________________________________________________
+# XXX some temporary dark magic to produce pickled dumps that are
+#     closer to the ones produced by cPickle in CPython
+
+from pickle import StringIO
+
+PythonPickler = Pickler
+class Pickler(PythonPickler):
+    def memoize(self, obj):
+        self.memo[None] = None   # cPickle starts counting at one
+        return PythonPickler.memoize(self, obj)
+
+def dump(obj, file, protocol=None, bin=None):
+    Pickler(file, protocol, bin).dump(obj)
+
+def dumps(obj, protocol=None, bin=None):
+    file = StringIO()
+    Pickler(file, protocol, bin).dump(obj)
+    return file.getvalue()
