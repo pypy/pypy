@@ -76,7 +76,7 @@ class DescrOperation:
     def get_and_call_args(space, w_descr, w_obj, args):
         descr = space.interpclass_w(w_descr)
         # a special case for performance and to avoid infinite recursion
-        if isinstance(descr, Function):
+        if type(descr) is Function:
             return descr.call_args(args.prepend(w_obj))
         else:
             w_impl = space.get(w_descr, w_obj)
@@ -88,7 +88,7 @@ class DescrOperation:
 
     def call_args(space, w_obj, args):
         # a special case for performance
-        if type(w_obj) is Function:
+        if isinstance(w_obj, Function):
             return w_obj.call_args(args)
         w_descr = space.lookup(w_obj, '__call__')
         if w_descr is None:

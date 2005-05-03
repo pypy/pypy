@@ -270,6 +270,7 @@ from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame, ControlFlowException
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, Method, StaticMethod
+from pypy.interpreter.function import BuiltinFunction
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator 
 from pypy.interpreter.nestedscope import Cell
@@ -427,6 +428,15 @@ StaticMethod.typedef = TypeDef("staticmethod",
     __get__ = interp2app(StaticMethod.descr_staticmethod_get),
     # XXX getattribute etc.pp
     )
+
+def always_none(self, obj):
+    return None
+BuiltinFunction.typedef = TypeDef("builtin_function",**Function.typedef.rawdict)
+BuiltinFunction.typedef.rawdict.update({
+    '__new__': interp2app(BuiltinFunction.descr_method__new__.im_func),
+    '__self__': GetSetProperty(always_none, cls=BuiltinFunction)
+    })
+del BuiltinFunction.typedef.rawdict['__get__']
 
 PyTraceback.typedef = TypeDef("traceback",
     tb_frame  = interp_attrproperty('frame', cls=PyTraceback),

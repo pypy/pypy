@@ -263,3 +263,22 @@ class StaticMethod(Wrappable):
 
     def descr_staticmethod_get(self, w_obj, w_cls=None):
         return self.w_function
+
+class BuiltinFunction(Function):
+
+    def __init__(self, func):
+        assert isinstance(func, Function)
+        Function.__init__(self, func.space, func.code, func.w_func_globals,
+                          func.defs_w, func.closure, func.name)
+        self.w_doc = func.w_doc
+        self.w_func_dict = func.w_func_dict
+        self.w_module = func.w_module
+
+    def descr_method__new__(space, w_subtype, w_func):
+        func = space.interpclass_w(w_func)
+        if func is None or not isinstance(func, Function):
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("expected a function object"))
+        bltin = space.allocate_instance(BuiltinFunction, w_subtype)
+        bltin.__init__(func)
+        return space.wrap(bltin)

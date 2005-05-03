@@ -1,4 +1,5 @@
-from pypy.interpreter.module import Module 
+from pypy.interpreter.module import Module
+from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.tool.cache import Cache
 from pypy.interpreter import gateway 
 from pypy.interpreter.error import OperationError 
@@ -42,6 +43,11 @@ class LazyModule(Module):
                 #print "trying to load", name
                 w_value = loader(space) 
                 #print "loaded", w_value 
+                # obscure
+                func = space.interpclass_w(w_value)
+                if type(func) is Function:
+                    func = BuiltinFunction(func)
+                    w_value = space.wrap(func)
                 space.setitem(self.w_dict, space.wrap(name), w_value) 
                 return w_value 
 
