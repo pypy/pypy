@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     print "traversing", mydir 
     rep = htmlreport.HtmlReport()
-    rep.parse_all(testresultdir)
+    rep.parselatest()
 
     print "making html files"
     rep.makeindex(testresultdir.join('index.html'))

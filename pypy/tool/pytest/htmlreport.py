@@ -7,6 +7,7 @@ the html test reporter
 import sys, os, re
 import py 
 from pypy.tool.pytest import result
+from pypy.tool.pytest.overview import ResultCache 
 
 # 
 # various interesting path objects 
@@ -16,62 +17,13 @@ html = py.xml.html
 
 class HtmlReport(object): 
     def __init__(self): 
-        self.results = []
-        self.name2result = {}
-
-    def parse_all(self, testresultdir): 
-        def filefilter(p): 
-            return p.check(fnmatch='test_*.txt', file=1)
-        def rec(p): 
-            return p.check(dotfile=0)
-        for x in testresultdir.visit(filefilter, rec): 
-            self.parse_one(x)
-    
-    def parse_one(self, resultpath): 
-        try: 
-            res = result.ResultFromMime(resultpath) 
-            ver = res['testreport-version']
-            if ver != "1.1":
-                raise TypeError
-        except TypeError: 
-            return
-        #else: 
-        #    print "sucess", resultpath 
-        self.results.append(res) 
-        name = res.fspath.purebasename 
-        self.name2result.setdefault(name, []).append(res) 
-        return res 
+        self.resultcache = ResultCache()
+    def parselatest(self): 
+        self.resultcache.parselatest()
 
     # 
     # rendering 
     # 
-
-    def get_latest_results(self, checkerfunc=None): 
-        names = self.name2result.keys()
-        names.sort(lambda x,y: cmp(x.lower(), y.lower()))
-        l = []
-        for name in names: 
-            resultlist = self.name2result[name]
-            maxrev = 0
-            maxresult = None
-            for res in resultlist: 
-                resrev = res['pypy-revision']
-                if resrev != 'unknown' and not res.istimeout(): 
-                    if resrev > maxrev: 
-                        maxrev = resrev 
-                        maxresult = res 
-            if not maxresult: 
-                for res in resultlist: 
-                    resrev = res['pypy-revision']
-                    if resrev != 'unknown': 
-                        if resrev > maxrev: 
-                            maxrev = resrev
-                            maxresult = res 
-            assert maxresult
-
-            if not checkerfunc or checkerfunc(maxresult): 
-                l.append(maxresult) 
-        return l 
 
     def render_latest_table(self, results): 
         table = html.table(
@@ -137,11 +89,14 @@ class HtmlReport(object):
             return 'core' in result.get('options', []) 
         coretests = []
         noncoretests = [] 
-        for x in self.get_latest_results() : 
-            if iscore(x): 
-                coretests.append(x)
+        for name in self.resultcache.getnames(): 
+            result = self.resultcache.getlatest(name, error=1, ok=1)
+            if not result: 
+                result = self.resultcache.getlatest(name) 
+            if iscore(result): 
+                coretests.append(result)
             else: 
-                noncoretests.append(x) 
+                noncoretests.append(result) 
         return coretests, noncoretests 
     
     # generate html files 
@@ -155,7 +110,7 @@ class HtmlReport(object):
                        "core tests"))
 
         ok = len([x for x in coretests if x.isok()])
-        err = len([x for x in coretests if x.iserr()])
+        err = len([x for x in coretests if x.iserror()])
         to = len([x for x in coretests if x.istimeout()])
         sum = ok + err + to
         sum100 = sum / 100.0
@@ -191,7 +146,7 @@ class Document(object):
 def getresultcolor(result): 
     if result.isok(): 
         color = "#00ee00"
-    elif result.iserr(): 
+    elif result.iserror(): 
         color = "#ee0000" 
     elif result.istimeout: 
         color = "#0000ee"

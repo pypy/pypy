@@ -66,7 +66,7 @@ class Result(object):
 
     def isok(self): 
         return self['outcome'].lower() == 'ok'
-    def iserr(self): 
+    def iserror(self): 
         return self['outcome'].lower()[:3] == 'err'
     def istimeout(self): 
         return self['outcome'].lower() == 't/o'
@@ -96,6 +96,11 @@ class ResultFromMime(Result):
                 fn = submsg.get_filename() 
                 assert fn
                 self.addnamedtext(fn, submsg.get_payload())
+    def __repr__(self): 
+        return '<%s (%s) %r rev=%s>' %(self.__class__.__name__, 
+                                  self['outcome'], 
+                                  self.fspath.purebasename, 
+                                  self['pypy-revision'])
 
 def stdinit(result): 
     import getpass
