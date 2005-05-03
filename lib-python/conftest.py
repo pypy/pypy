@@ -842,16 +842,19 @@ class ReallyRunFileExternal(py.test.Item):
              py.test.fail(result['outcome'])
 
     def getstatusouterr(self, cmd): 
-        tempdir = py.test.ensuretemp('regrtest') 
-        stdout = tempdir.join(self.fspath.basename) + '.out'
-        stderr = tempdir.join(self.fspath.basename) + '.err'
-        
-        status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
-        if os.WIFEXITED(status):
-            status = os.WEXITSTATUS(status)
-        else:
-            status = 'abnormal termination 0x%x' % status
-        return status, stdout.read(), stderr.read()
+        tempdir = py.path.local.mkdtemp() 
+        try: 
+            stdout = tempdir.join(self.fspath.basename) + '.out'
+            stderr = tempdir.join(self.fspath.basename) + '.err'
+            
+            status = os.system("%s >>%s 2>>%s" %(cmd, stdout, stderr))
+            if os.WIFEXITED(status):
+                status = os.WEXITSTATUS(status)
+            else:
+                status = 'abnormal termination 0x%x' % status
+            return status, stdout.read(), stderr.read()
+        finally: 
+            tempdir.remove()
 
     def getresult(self, regrtest): 
         cmd = self.getinvocation(regrtest) 
