@@ -847,7 +847,8 @@ class ReallyRunFileExternal(py.test.Item):
         fn.write(result.repr_mimemessage().as_string(unixfrom=False))
         if result['exit status']:  
              time.sleep(0.5)   # time for a Ctrl-C to reach us :-)
-             py.test.fail(result['outcome'])
+             print >>sys.stderr, result.getnamedtext('stderr') 
+             py.test.fail("running test failed, see stderr output below") 
 
     def getstatusouterr(self, cmd): 
         tempdir = py.path.local.mkdtemp() 
