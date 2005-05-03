@@ -14,7 +14,7 @@ class LazyModule(Module):
         """ NOT_RPYTHON """ 
         Module.__init__(self, space, w_name) 
         self.lazy = True 
-        self.__class__.buildloaders() 
+        self.__class__.buildloaders()
 
     def get(self, name):
         space = self.space
@@ -46,8 +46,12 @@ class LazyModule(Module):
                 # obscure
                 func = space.interpclass_w(w_value)
                 if type(func) is Function:
-                    func = BuiltinFunction(func)
-                    w_value = space.wrap(func)
+                    try:
+                        bltin = func._builtinversion_
+                    except AttributeError:
+                        bltin = BuiltinFunction(func)
+                        func._builtinversion_ = bltin
+                    w_value = space.wrap(bltin)
                 space.setitem(self.w_dict, space.wrap(name), w_value) 
                 return w_value 
 
