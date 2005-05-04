@@ -190,12 +190,18 @@ class W_TypeObject(W_Object):
                     w_self.name, w_subtype.name, w_subtype.name)))
         return w_subtype
 
-    def getdict(w_self):
-        # XXX should return a <dictproxy object>
-        if w_self.lazyloaders:
+    def _freeze_(w_self):
+        "NOT_RPYTHON.  Forces the lazy attributes to be computed."
+        if 'lazyloaders' in w_self.__dict__:
             for attr in w_self.lazyloaders.keys():
                 w_self.getdictvalue(w_self.space, attr)
             del w_self.lazyloaders
+        return False
+
+    def getdict(w_self):
+        # XXX should return a <dictproxy object>
+        if w_self.lazyloaders:
+            w_self._freeze_()    # force un-lazification
         space = w_self.space
         dictspec = []
         for key, w_value in w_self.dict_w.items():
@@ -286,7 +292,7 @@ def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
 
 def delattr__Type_ANY(space, w_type, w_name):
     if w_type.lazyloaders:
-        w_type.getdict()    # force un-lazification
+        w_type._freeze_()    # force un-lazification
     name = space.str_w(w_name)
     w_descr = space.lookup(w_type, name)
     if w_descr is not None:
