@@ -3,6 +3,14 @@ from pypy.objspace.std.strutil import string_to_int, string_to_w_long, ParseStri
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 
+def retry_to_w_long(space, parser, base=0):
+    parser.rewind()
+    try:
+        return string_to_w_long(space, None, base=base, parser=parser)
+    except ParseStringError, e:
+        raise OperationError(space.w_ValueError,
+                             space.wrap(e.msg))
+    
 def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
     from pypy.objspace.std.intobject import W_IntObject
     w_longval = None
@@ -17,8 +25,7 @@ def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
                 raise OperationError(space.w_ValueError,
                                      space.wrap(e.msg))
             except ParseStringOverflowError, e:
-                e.parser.rewind()                
-                w_longval = string_to_w_long(space, None, base=0, parser=e.parser)                
+                 w_longval = retry_to_w_long(space, e.parser)                
         else:
             # otherwise, use the __int__() method
             w_obj = space.int(w_value)
@@ -54,8 +61,7 @@ def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
         except ParseStringOverflowError, e:
-            e.parser.rewind()
-            w_longval = string_to_w_long(space, None, base, parser=e.parser)                        
+            w_longval = retry_to_w_long(space, e.parser, base)                        
 
     if w_longval is not None:
         if not space.is_true(space.is_(w_inttype, space.w_int)):

@@ -330,7 +330,9 @@ class AppTestInt:
 
     def test_int_w_long_arg(self):
         assert int(10000000000) == 10000000000L
-        assert int("10000000000") == 10000000000L
+        assert int("10000000000") == 10000000000l
+        raises(ValueError, int, "10000000000JUNK")
+        raises(ValueError, int, "10000000000JUNK", 10)
 
     def test_int_subclass_ctr(self):
         import sys
