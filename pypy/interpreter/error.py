@@ -101,6 +101,7 @@ class OperationError(Exception):
                 if l:
                     if l.endswith('\n'):
                         l = l[:-1]
+                    l = "    " + l.lstrip()
                     print >> file, l
                 tb = tb.next
 
