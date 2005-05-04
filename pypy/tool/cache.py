@@ -1,41 +1,38 @@
+"""
+Caches that can freeze when the annotator needs it.
+"""
 
-# hacks += 1
+#
+# _freeze_() protocol:
+#     user-defined classes can define a method _freeze_(), which
+#     is called when a prebuilt instance is found.  If the method
+#     returns True, the instance is considered immutable and becomes
+#     a SomePBC().  Otherwise it's just SomeInstance().  The method
+#     should force away any laziness that remains in the instance.
+#
+# Cache class:
+#     a cache meant to map a finite number of keys to values.
+#     It is normally extended lazily, until it contains all possible
+#     keys.  The _specialize_ attribute of the getorbuild() method
+#     forces the annotator to decode the argument's annotations,
+#     which must be constants or SomePBCs, actually call the
+#     method with all possible combinations, and gather the results.
+#     The idea is to completely fill the cache at annotation-time,
+#     using the information collected by the annotator itself about
+#     what the keys can actually be.
+#
+
+
 class Cache:
-    frozen = True 
-
     def __init__(self):
         self.content = {}
-        self.frozen = False
-
-    def __hash__(self):
-        if not self.frozen: 
-            #raise TypeError, "cannot get hash of un-frozen cache"
-            self.freeze()
-        return id(self)
-
-    def clear(self):
-        if self.frozen:
-            raise TypeError, "cannot clear frozen cache"
-        self.content.clear()
 
     def getorbuild(self, key, builder, stuff):
         try:
             return self.content[key]
         except KeyError:
-            assert not self.frozen, "cannot build %r, cache already frozen" % key
             result = builder(key, stuff)
             #assert key not in self.content, "things messed up"
             self.content[key] = result
             return result
-    # note to annotator: we want loadfromcache() to be 
-    # specialized for the different cache types 
-    getorbuild._specialize_ = "location"
-
-    def freeze(self):
-        try:
-            del self.frozen
-        except AttributeError:
-            pass
-        return True
-
-    _freeze_ = freeze
+    getorbuild._specialize_ = "memo"

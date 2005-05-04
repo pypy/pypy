@@ -2,6 +2,7 @@
 The Bookkeeper class.
 """
 
+from __future__ import generators
 from types import FunctionType, ClassType, MethodType
 from types import BuiltinMethodType
 from pypy.tool.ansi_print import ansi_print
@@ -319,6 +320,16 @@ class Bookkeeper:
             elif specialize == "location":
                 # fully specialize: create one version per call position
                 func = self.specialize_by_key(func, self.position_key)
+            elif specialize == "memo":
+                # call the function now, and collect possible results
+                arglist_s, kwds_s = args.unpack()
+                assert not kwds_s, ("no ** args in call to function "
+                                    "marked specialize='concrete'")
+                possible_results = []
+                for arglist in possible_arguments(arglist_s):
+                    result = func(*arglist)
+                    possible_results.append(self.immutablevalue(result))
+                return unionof(*possible_results)
             else:
                 raise Exception, "unsupported specialization type '%s'"%(specialize,)
 
@@ -412,7 +423,7 @@ class Bookkeeper:
                 raise Exception, "specializing %r?? why??"%thing
             self.cachespecializations[key] = thing
         return thing
-        
+
 
 def getbookkeeper():
     """Get the current Bookkeeper.
@@ -440,3 +451,24 @@ def short_type_name(args):
             name = x.__class__.__name__
         l.append(name)
     return "__".join(l)
+
+def possible_arguments(args):
+    # enumerate all tuples (x1,..xn) of concrete values that are contained
+    # in a tuple args=(s1,..sn) of SomeXxx.  Requires that each s be either
+    # a constant or SomePBC.
+    if not args:
+        yield ()
+        return
+    s = args[0]
+    if s.is_constant():
+        possible_values = [s.const]
+    elif isinstance(s, SomePBC):
+        for value in s.prebuiltinstances.values():
+            assert value is True, ("concrete call with a method bound "
+                                   "on a non-constant instance")
+        possible_values = s.prebuiltinstances.keys()
+    else:
+        raise AssertionError, "concrete call with a non-constant arg %r" % (s,)
+    for tuple_tail in possible_arguments(args[1:]):
+        for value in possible_values:
+            yield (value,) + tuple_tail
