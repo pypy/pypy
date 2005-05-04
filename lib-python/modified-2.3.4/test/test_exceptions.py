@@ -29,7 +29,7 @@ def test_raise_catch(exc):
 
 def r(thing):
     test_raise_catch(thing)
-    if isinstance(thing, ClassType):
+    if isinstance(thing, (type, ClassType)):
         print thing.__name__
     else:
         print thing
