@@ -209,7 +209,7 @@ def test_capi2():
     else:
         print "Expected exception"
 
-if not sys.platform.startswith('java'):
+if 0 and not sys.platform.startswith('java'): # switched off hard for PyPy
     test_capi1()
     test_capi2()
 
