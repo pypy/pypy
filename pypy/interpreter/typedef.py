@@ -20,6 +20,9 @@ class TypeDef:
         self.rawdict = rawdict
         self.acceptable_as_base_class = True
 
+    def _freeze_(self):
+        # hint for the annotator: track individual constant instances of TypeDef
+        return True
 
 unique_interplevel_subclass_cache = Cache()
 def get_unique_interplevel_subclass(cls, hasdict, wants_slots):

@@ -36,3 +36,9 @@ class Cache:
             self.content[key] = result
             return result
     getorbuild._specialize_ = "memo"
+
+    def _freeze_(self):
+        # needs to be SomePBC, but otherwise we can't really freeze the
+        # cache because more getorbuild() calls might be discovered later
+        # during annotation.
+        return True
