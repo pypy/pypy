@@ -103,7 +103,6 @@ W_ANY = W_Root
 
 class W_Object(W_Root, object):
     "Parent base class for wrapped objects."
-    typedef = None
 
     def __init__(w_self, space):
         w_self.space = space     # XXX not sure this is ever used any more
