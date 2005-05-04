@@ -178,13 +178,12 @@ def _truediv(space, w_int1, w_int2):
     y = w_int2.intval
     try:
         z = ovfcheck(x // y)
-        t = ovfcheck(x % y)
     except ZeroDivisionError:
         raise OperationError(space.w_ZeroDivisionError,
                              space.wrap("integer division by zero"))
     except OverflowError:
         return space.div(space.newfloat(float(x)), w_int2)
-    if t != 0:   # gives a float
+    if x % y != 0:   # gives a float
         return space.div(space.newfloat(float(x)), w_int2)
     return W_IntObject(space, z)
 

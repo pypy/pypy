@@ -275,7 +275,13 @@ def floordiv__Long_Long(space, w_long1, w_long2): #YYYYYY
     z = x // y
     return W_LongObject(space, *args_from_long(z))
 
-div__Long_Long = floordiv__Long_Long #YYYYYY
+old_style_div = 1 / 2 == 1 // 2
+def div__Long_Long(space, w_long1, w_long2): #YYYYYY
+    # Select the proper div
+    if old_style_div:
+        return floordiv__Long_Long(space, w_long1, w_long2)
+    else:
+        return truediv__Long_Long(space, w_long1, w_long2)
 
 
 def mod__Long_Long(space, w_long1, w_long2): #YYYYYY
