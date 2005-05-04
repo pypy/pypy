@@ -1,8 +1,6 @@
-import support
-imp = support.libmodule('imp')
 
+from pypy.lib import imp 
 import os
-
 
 def test_find_module():
     file, pathname, description = imp.find_module('StringIO')

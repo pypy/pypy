@@ -1,3 +1,5 @@
+import py
+py.test.skip("this test module doesn't belong here") 
 import autopath
 import test.test_support, unittest
 import sys,  htmlentitydefs, unicodedata

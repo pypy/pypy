@@ -1,6 +1,5 @@
 import os
-import support
-_file = support.libmodule("_file")
+from pypy.lib import _file 
 from pypy.tool.udir import udir 
 import py 
 

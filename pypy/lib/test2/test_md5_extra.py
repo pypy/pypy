@@ -4,9 +4,8 @@ A note about performance: the pure Python MD5 takes roughly
 160 sec. per MB of data on a 233 MHz Intel Pentium CPU.
 """
 
-import support
 import md5                              # CPython's implementation in C.
-pymd5 = support.libmodule("md5")        # The pure Python implementation.
+from pypy.lib import md5 as pymd5  
 
 
 # Helpers...

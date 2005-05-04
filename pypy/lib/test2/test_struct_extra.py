@@ -1,6 +1,4 @@
-import support
-struct = support.libmodule('struct')
-
+from pypy.lib import struct 
 
 def test_simple():
     morezeros = '\x00' * (struct.calcsize('l')-4)

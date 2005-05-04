@@ -5,7 +5,7 @@ import os
 import time
 from pypy.tool.udir import udir
 
-sio = support.libmodule("_sio")
+from pypy.lib import _sio as sio
 
 
 class TSource(object):

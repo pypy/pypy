@@ -1,6 +1,5 @@
-import support
-binascii = support.libmodule('binascii')
 
+from pypy.lib import binascii
 
 def test_uu():
     assert binascii.b2a_uu('1234567') == "',3(S-#4V-P  \n"

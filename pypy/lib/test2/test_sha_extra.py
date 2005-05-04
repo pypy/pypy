@@ -4,8 +4,7 @@
 # Publication 180-1, Secure Hash Standard,  1995 April 17
 # http://www.itl.nist.gov/div897/pubs/fip180-1.htm
 
-import support
-sha = support.libmodule("sha")
+from pypy.lib import sha 
 
 class TestSHA: 
     def check(self, data, digest):
