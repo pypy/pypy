@@ -35,10 +35,13 @@ class Result(object):
 
     def repr_short_error(self): 
         if not self.isok(): 
-            text = self.getnamedtext('stderr') 
-            lines = text.strip().split('\n')
-            if lines: 
-                return lines[-1]
+            if 'reportdiff' in self._blocks: 
+                return "output comaprison failed, see reportdiff"
+            else: 
+                text = self.getnamedtext('stderr') 
+                lines = text.strip().split('\n')
+                if lines: 
+                    return lines[-1]
 
     def repr_mimemessage(self): 
         from email.MIMEMultipart  import MIMEMultipart 
