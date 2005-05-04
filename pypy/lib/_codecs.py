@@ -99,6 +99,8 @@ def decode(obj,encoding='defaultencoding',errors='strict'):
     decoder = lookup(encoding)[1]
     if decoder:
         res = decoder(obj,errors)
+    else:
+        raise LookupError("No such encoding")
     return res[0]
 
 def latin_1_encode( obj,errors='strict'):
@@ -125,11 +127,12 @@ def escape_encode( obj,errors='strict'):
     s = repr(obj)
     v = s[1:-1]
     return v,len(v)
-# XXX
-def utf_8_decode( data,errors='strict'):
+
+def utf_8_decode( data,errors='strict',final=None):
     """None
     """
-    pass
+    res = PyUnicode_DecodeUTF8Stateful(data, size, errors, final)
+    return res,len(res)
 # XXX
 def raw_unicode_escape_decode( data,errors='strict'):
     """None
@@ -156,11 +159,13 @@ def utf_16_decode( data,errors='strict'):
     """None
     """
     pass
-# XXX
+
 def unicode_escape_decode( data,errors='strict'):
     """None
     """
-    pass
+    unistr = PyUnicode_DecodeUnicodeEscape(data,len(data),errors)
+    return unistr,len(unistr)
+
 
 def ascii_decode( data,errors='strict'):
     """None
@@ -197,22 +202,19 @@ def charbuffer_encode( obj,errors='strict'):
     """
     res = str(obj)
     return res,len(res)
-# XXX
-def charmap_decode( data,errors='strict'):
+
+def charmap_decode( data,errors='strict',mapping=None):
     """None
     """
-    pass
+    res = PyUnicode_DecodeCharmap(data, len(data), mapping, errors)
+    return res,len(res)
+
 
 def utf_7_encode( obj,errors='strict'):
     """None
     """
-    obj = PyUnicode_FromObject(obj)
-    return (PyUnicode_EncodeUTF7(PyUnicode_AS_UNICODE(obj),
-					 PyUnicode_GET_SIZE(obj),
-                     0,
-                     0,
-					 errors),
-		    PyUnicode_GET_SIZE(obj))
+    res = PyUnicode_EncodeUTF7(obj,len(obj),0,0,errors)
+    return res,len(res)
 
 def mbcs_encode( obj,errors='strict'):
     """None
@@ -301,11 +303,11 @@ def replace_errors(exc):
 
 def xmlcharrefreplace_errors(exc):
     if isinstance(exc,UnicodeEncodeError):
-        res = [u'&#']
+        res = ['&#']
         for ch in exc.object[exc.start:exc.end]:
             res.append(str(ord(ch)))
         res.append(';')
-        return u''.join(res),exc.end
+        return ''.join(res),exc.end
     else:
         raise TypeError("don't know how to handle %.400s in error callback"%type(exc))
     
