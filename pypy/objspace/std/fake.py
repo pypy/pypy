@@ -5,7 +5,6 @@ from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.objspace.std.stdtypedef import *
 from pypy.objspace.std.objspace import W_Object, StdObjSpace
 from pypy.objspace.std.model import UnwrapError
-from pypy.tool.cache import Cache 
 
 # this file automatically generates non-reimplementations of CPython
 # types that we do not yet implement in the standard object space
@@ -22,7 +21,7 @@ def fake_object(space, x):
 
 import sys
 
-_fake_type_cache = Cache()
+_fake_type_cache = {}
 
 # real-to-wrapped exceptions
 def wrap_exception(space):
@@ -47,9 +46,14 @@ def wrap_exception(space):
 
 def fake_type(cpy_type):
     assert type(cpy_type) is type
-    return _fake_type_cache.getorbuild(cpy_type, really_build_fake_type, None)
+    try:
+        return _fake_type_cache[cpy_type]
+    except KeyError:
+        faked_type = really_build_fake_type(cpy_type)
+        _fake_type_cache[cpy_type] = faked_type
+        return faked_type
 
-def really_build_fake_type(cpy_type, ignored):
+def really_build_fake_type(cpy_type):
     "NOT_RPYTHON (not remotely so!)."
     debug_print('faking %r'%(cpy_type,))
     kw = {}
@@ -160,9 +164,9 @@ def fake_builtin_function(space, fn):
         func = BuiltinFunction(func)
     return func
 
-_fake_type_cache.content[type(len)] = fake_builtin_function
-_fake_type_cache.content[type(list.append)] = fake_builtin_callable
-_fake_type_cache.content[type(type(None).__repr__)] = fake_builtin_callable
+_fake_type_cache[type(len)] = fake_builtin_function
+_fake_type_cache[type(list.append)] = fake_builtin_callable
+_fake_type_cache[type(type(None).__repr__)] = fake_builtin_callable
 
 
 from pypy.interpreter.baseobjspace import Wrappable
@@ -212,5 +216,5 @@ class W_FakeDescriptor(Wrappable):
         __delete__ = interp2app(descr_descriptor_del),
         )
 
-_fake_type_cache.content[type(file.softspace)] = W_FakeDescriptor
-_fake_type_cache.content[type(type.__dict__['__dict__'])] = W_FakeDescriptor
+_fake_type_cache[type(file.softspace)] = W_FakeDescriptor
+_fake_type_cache[type(type.__dict__['__dict__'])] = W_FakeDescriptor

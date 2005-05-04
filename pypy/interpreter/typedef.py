@@ -24,11 +24,18 @@ class TypeDef:
         # hint for the annotator: track individual constant instances of TypeDef
         return True
 
-unique_interplevel_subclass_cache = Cache()
+subclass_cache = {}
 def get_unique_interplevel_subclass(cls, hasdict, wants_slots):
-    return unique_interplevel_subclass_cache.getorbuild((cls, hasdict, wants_slots), _buildusercls, None)
+    key = (cls, hasdict, wants_slots)
+    try:
+        return subclass_cache[key]
+    except KeyError:
+        subcls = _buildusercls(cls, hasdict, wants_slots)
+        subclass_cache[key] = subcls
+        return subcls
+get_unique_interplevel_subclass._specialize_ = "memo"
 
-def _buildusercls((cls, hasdict, wants_slots), ignored):
+def _buildusercls(cls, hasdict, wants_slots):
     "NOT_RPYTHON: initialization-time only"
     typedef = cls.typedef
     name = ['User']

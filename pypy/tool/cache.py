@@ -21,18 +21,20 @@ Caches that can freeze when the annotator needs it.
 #     using the information collected by the annotator itself about
 #     what the keys can actually be.
 #
+#     Cache must be subclassed, and a _build() method provided.
+#     Be sure to call the parent __init__() if you override it.
+#
 
 
-class Cache:
+class Cache(object):
     def __init__(self):
         self.content = {}
 
-    def getorbuild(self, key, builder, stuff):
+    def getorbuild(self, key):
         try:
             return self.content[key]
         except KeyError:
-            result = builder(key, stuff)
-            #assert key not in self.content, "things messed up"
+            result = self._build(key)
             self.content[key] = result
             return result
     getorbuild._specialize_ = "memo"

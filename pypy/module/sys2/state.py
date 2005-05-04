@@ -3,7 +3,6 @@ Implementation of interpreter-level 'sys' routines.
 """
 #from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
-from pypy.tool.cache import Cache
 
 import sys, os 
 
@@ -41,7 +40,7 @@ for fn in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
 builtin_module_names.sort() 
 
 class State: 
-    def __init__(self, space, stuff=None): 
+    def __init__(self, space): 
         self.space = space 
         self.w_builtin_module_names = space.newtuple(
             [space.wrap(fn) for fn in builtin_module_names])
@@ -71,9 +70,8 @@ class State:
                                ] +
                                [space.wrap(p) for p in sys.path if p!= srcdir])
 
-statecache = Cache()
 def get(space): 
-    return space.loadfromcache(space, State, statecache) 
+    return space.fromcache(State)
 
 def pypy_getudir(space):
     """NOT_RPYTHON"""

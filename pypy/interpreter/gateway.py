@@ -15,9 +15,9 @@ from pypy.tool import hack
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, BaseWrappable, Wrappable
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, BaseWrappable
+from pypy.interpreter.baseobjspace import Wrappable, SpaceCache
 from pypy.interpreter.argument import Arguments
-from pypy.tool.cache import Cache 
 from pypy.tool.compile import compile2
 from pypy.tool.sourcetools import NiceCompile
 
@@ -457,12 +457,10 @@ class interp2app(Wrappable):
         return self.get_function(space)
 
     def get_function(self, space):
-        return space.loadfromcache(self, 
-                                   interp2app.build_function, 
-                                   self.getcache(space))
+        return self.getcache(space).getorbuild(self)
 
     def getcache(self, space):
-        return space._gatewaycache 
+        return space.fromcache(GatewayCache)
 
     def get_method(self, obj):
         # to bind this as a method out of an instance, we build a
@@ -479,17 +477,15 @@ class interp2app(Wrappable):
                       w_obj, space.type(w_obj))
 
 
-    def build_function(self, space):
+class GatewayCache(SpaceCache):
+    def build(cache, gateway):
         "NOT_RPYTHON"
-        cache = self.getcache(space) 
-        try: 
-            return cache.content[self] 
-        except KeyError: 
-            defs = self._getdefaults(space)  # needs to be implemented by subclass
-            code = self._code
-            fn = Function(space, code, None, defs, forcename = self.name)
-            cache.content[self] = fn 
-            return fn
+        space = cache.space
+        defs = gateway._getdefaults(space) # needs to be implemented by subclass
+        code = gateway._code
+        fn = Function(space, code, None, defs, forcename = gateway.name)
+        return fn
+
 
 # 
 # the next gateways are to be used only for 
@@ -498,7 +494,7 @@ class interp2app(Wrappable):
 class interp2app_temp(interp2app): 
     "NOT_RPYTHON"
     def getcache(self, space): 
-        return self.__dict__.setdefault(space, Cache())
+        return self.__dict__.setdefault(space, GatewayCache(space))
 
 
 # and now for something completely different ... 
@@ -521,8 +517,7 @@ class ApplevelClass:
             self.code = NiceCompile(filename)(source)
         
     def getwdict(self, space):
-        return space.loadfromcache(self, self.__class__._builddict,
-                                   space._gatewaycache)
+        return space.fromcache(ApplevelCache).getorbuild(self)
 
     def buildmodule(self, space, name='applevel'):
         from pypy.interpreter.module import Module
@@ -563,6 +558,10 @@ class ApplevelClass:
 
     def _freeze_(self):
         return True  # hint for the annotator: applevel instances are constants
+
+class ApplevelCache(SpaceCache):
+    def build(cache, app):
+        return app._builddict(cache.space)
 
 class ApplevelInterpClass(ApplevelClass):
     """ similar to applevel, but using translation to interp-level.

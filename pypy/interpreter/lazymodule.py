@@ -1,6 +1,5 @@
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, BuiltinFunction
-from pypy.tool.cache import Cache
 from pypy.interpreter import gateway 
 from pypy.interpreter.error import OperationError 
 
@@ -106,7 +105,7 @@ def getinterpevalloader(pkgroot, spec):
                 return value 
     return ifileloader 
         
-applevelcache = Cache()
+applevelcache = {}
 def getappfileloader(pkgroot, spec):
     """ NOT_RPYTHON """ 
     # hum, it's a bit more involved, because we usually 
@@ -114,15 +113,16 @@ def getappfileloader(pkgroot, spec):
     modname, attrname = spec.split('.')
     impbase = pkgroot + '.' + modname 
     mod = __import__(impbase, None, None, ['attrname'])
-    app = applevelcache.getorbuild(mod, buildapplevelfrommodule, None)
+    try:
+        app = applevelcache[mod]
+    except KeyError:
+        source = inspect.getsource(mod) 
+        fn = mod.__file__
+        if fn.endswith('.pyc') or fn.endswith('.pyo'):
+            fn = fn[:-1]
+        app = gateway.applevel(source, filename=fn)
+        applevelcache[mod] = app
+
     def afileloader(space): 
         return app.wget(space, attrname)
     return afileloader 
-
-def buildapplevelfrommodule(mod, _):
-    """ NOT_RPYTHON """ 
-    source = inspect.getsource(mod) 
-    fn = mod.__file__
-    if fn.endswith('.pyc'): 
-        fn = fn[:-1]
-    return gateway.applevel(source, filename=fn) 

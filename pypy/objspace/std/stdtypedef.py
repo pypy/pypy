@@ -1,6 +1,7 @@
 from pypy.interpreter import eval, function, gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
+from pypy.interpreter.baseobjspace import SpaceCache
 from pypy.objspace.std.model import MultiMethod, FailedToImplement
 from pypy.tool.compile import compile2
 
@@ -51,43 +52,45 @@ def newmethod(descr_new, unwrap_spec=None):
 # the descriptors to put into the W_TypeObjects.
 #
 
-def buildtypeobject(typedef, space):
-    "NOT_RPYTHON: initialization-time only."
-    # build a W_TypeObject from this StdTypeDef
-    from pypy.objspace.std.typeobject import W_TypeObject
-    from pypy.objspace.std.objecttype import object_typedef
+class TypeCache(SpaceCache):
+    def build(cache, typedef):
+        "NOT_RPYTHON: initialization-time only."
+        # build a W_TypeObject from this StdTypeDef
+        from pypy.objspace.std.typeobject import W_TypeObject
+        from pypy.objspace.std.objecttype import object_typedef
 
-    w = space.wrap
-    rawdict = typedef.rawdict
-    lazyloaders = {}
+        space = cache.space
+        w = space.wrap
+        rawdict = typedef.rawdict
+        lazyloaders = {}
 
-    if isinstance(typedef, StdTypeDef):
-        # get all the sliced multimethods
-        multimethods = slicemultimethods(space, typedef)
-        for name, loader in multimethods.items():
-            if name in rawdict:
-                # the name specified in the rawdict has priority
-                continue
-            assert name not in lazyloaders, (
-                'name clash: %s in %s.lazyloaders' % (name, typedef.name))
-            lazyloaders[name] = loader
+        if isinstance(typedef, StdTypeDef):
+            # get all the sliced multimethods
+            multimethods = slicemultimethods(space, typedef)
+            for name, loader in multimethods.items():
+                if name in rawdict:
+                    # the name specified in the rawdict has priority
+                    continue
+                assert name not in lazyloaders, (
+                    'name clash: %s in %s.lazyloaders' % (name, typedef.name))
+                lazyloaders[name] = loader
 
-    # compute the bases
-    if typedef is object_typedef:
-        bases_w = []
-    else:
-        base = typedef.base or object_typedef
-        bases_w = [space.gettypeobject(base)]
+        # compute the bases
+        if typedef is object_typedef:
+            bases_w = []
+        else:
+            base = typedef.base or object_typedef
+            bases_w = [space.gettypeobject(base)]
 
-    # wrap everything
-    dict_w = {}
-    for descrname, descrvalue in rawdict.items():
-        dict_w[descrname] = w(descrvalue)
+        # wrap everything
+        dict_w = {}
+        for descrname, descrvalue in rawdict.items():
+            dict_w[descrname] = w(descrvalue)
 
-    w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
-                          overridetypedef=typedef)
-    w_type.lazyloaders = lazyloaders
-    return w_type
+        w_type = W_TypeObject(space, typedef.name, bases_w, dict_w,
+                              overridetypedef=typedef)
+        w_type.lazyloaders = lazyloaders
+        return w_type
 
 def hack_out_multimethods(ns):
     "NOT_RPYTHON: initialization-time only."

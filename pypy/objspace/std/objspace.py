@@ -168,9 +168,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def gettypeobject(self, typedef):
         # types_w maps each StdTypeDef instance to its
         # unique-for-this-space W_TypeObject instance
-        return self.loadfromcache(typedef, 
-                                  stdtypedef.buildtypeobject,
-                                  self._typecache)
+        return self.fromcache(stdtypedef.TypeCache).getorbuild(typedef)
 
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."

@@ -63,20 +63,18 @@ class FlowObjSpace(ObjSpace):
         #self.make_builtins()
         #self.make_sys()
 
-    def loadfromcache(self, key, builder, cache):
+    def enter_cache_building_mode(self):
         # when populating the caches, the flow space switches to
         # "concrete mode".  In this mode, only Constants are allowed
         # and no SpaceOperation is recorded.
-        def my_builder(key, stuff):
-            previous_recorder = self.executioncontext.recorder
-            self.executioncontext.recorder = flowcontext.ConcreteNoOp()
-            self.concrete_mode += 1
-            try:
-                return builder(key, stuff)
-            finally:
-                self.executioncontext.recorder = previous_recorder
-                self.concrete_mode -= 1
-        return super(FlowObjSpace, self).loadfromcache(key, my_builder, cache)
+        previous_recorder = self.executioncontext.recorder
+        self.executioncontext.recorder = flowcontext.ConcreteNoOp()
+        self.concrete_mode += 1
+        return previous_recorder
+
+    def leave_cache_building_mode(self, previous_recorder):
+        self.executioncontext.recorder = previous_recorder
+        self.concrete_mode -= 1
 
     def newdict(self, items_w):
         if self.concrete_mode:

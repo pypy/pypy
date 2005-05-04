@@ -51,6 +51,31 @@ class Wrappable(BaseWrappable, object):
     """Same as BaseWrappable, just new-style instead."""
 
 
+class InternalSpaceCache(Cache):
+    """A generic cache for an object space.  Arbitrary information can
+    be attached to the space by defining a function or class 'f' which
+    can be called as 'f(space)'.  Its result is stored in this
+    ObjSpaceCache.
+    """
+    def __init__(self, space):
+        Cache.__init__(self)
+        self.space = space
+    def _build(self, callable):
+        return callable(self.space)
+
+class SpaceCache(Cache):
+    """A base class for all our concrete caches."""
+    def __init__(self, space):
+        Cache.__init__(self)
+        self.space = space
+    def _build(self, key):
+        val = self.space.enter_cache_building_mode()
+        try:
+            return self.build(key)
+        finally:
+            self.space.leave_cache_building_mode(val)
+
+
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
     http://codespeak.net/moin/pypy/moin.cgi/ObjectSpace"""
@@ -59,8 +84,7 @@ class ObjSpace(object):
 
     def __init__(self):
         "NOT_RPYTHON: Basic initialization of objects."
-        self._gatewaycache = Cache()
-        self._codecache = Cache()
+        self.fromcache = InternalSpaceCache(self).getorbuild
         # set recursion limit
         # sets all the internal descriptors
         self.initialize()
@@ -112,10 +136,10 @@ class ObjSpace(object):
         """NOT_RPYTHON: Abstract method that should put some minimal
         content into the w_builtins."""
 
-    def loadfromcache(self, key, builder, cache):
-        return cache.getorbuild(key, builder, self) 
-    loadfromcache._specialize_ = "location" 
-
+    def enter_cache_building_mode(self):
+        "hook for the flow object space"
+    def leave_cache_building_mode(self, val):
+        "hook for the flow object space"
 
     def get_ec_state_dict(self):
         "Return the 'state dict' from the active execution context."
@@ -334,21 +358,23 @@ class ObjSpace(object):
                        return result
                '''
         """
-        w_func = self.loadfromcache(source, buildappexecfunc, self._codecache)
+        w_func = self.fromcache(AppExecCache).getorbuild(source)
         args = Arguments(self, posargs_w)
         return self.call_args(w_func, args)
 
-def buildappexecfunc(source, space):
-    """ NOT_RPYTHON """ 
-    # XXX will change once we have our own compiler 
-    from pypy.interpreter.pycode import PyCode
-    from pypy.tool.getpy import py  # aehem
-    source = source.lstrip()
-    assert source.startswith('('), "incorrect header in:\n%s" % (source,)
-    source = py.code.Source("def anonymous%s\n" % source)
-    w_glob = space.newdict([])
-    space.exec_(source.compile(), w_glob, w_glob)
-    return space.getitem(w_glob, space.wrap('anonymous'))
+class AppExecCache(SpaceCache):
+    def build(cache, source):
+        """ NOT_RPYTHON """
+        space = cache.space
+        # XXX will change once we have our own compiler 
+        from pypy.interpreter.pycode import PyCode
+        from pypy.tool.getpy import py  # aehem
+        source = source.lstrip()
+        assert source.startswith('('), "incorrect header in:\n%s" % (source,)
+        source = py.code.Source("def anonymous%s\n" % source)
+        w_glob = space.newdict([])
+        space.exec_(source.compile(), w_glob, w_glob)
+        return space.getitem(w_glob, space.wrap('anonymous'))
 
 ## Table describing the regular part of the interface of object spaces,
 ## namely all methods which only take w_ arguments and return a w_ result
