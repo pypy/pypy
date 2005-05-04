@@ -4,6 +4,7 @@ from pythonlexer import PythonSource
 from ebnfparse import parse_grammar
 import sys
 import pythonutil
+import symbol
 
 def parse_python_source( textsrc, gram, goal ):
     """Parse a python source according to goal"""
@@ -43,7 +44,8 @@ def pypy_parse(filename):
         root_node = builder.stack[-1]
         nested_tuples = root_node.totuple()
         if hasattr(builder, '_source_encoding'):
-            return (323, nested_tuples, builder._source_encoding)
+            # XXX: maybe the parser could fix that instead ?
+            return ( symbol.encoding_decl, nested_tuples, builder._source_encoding)
         else:
             return nested_tuples
     return None # XXX raise an exception instead
