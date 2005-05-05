@@ -830,7 +830,7 @@ class ReallyRunFileExternal(py.test.Item):
         testresultdir = ensuretestresultdir() 
         result = self.getresult(regrtest) 
         resultdir = testresultdir.join(result['userhost'])
-        assert resultdir.check(dir=1)
+        assert resultdir.ensure(dir=1)
 
         fn = resultdir.join(regrtest.basename).new(ext='.txt') 
         if result.istimeout(): 
