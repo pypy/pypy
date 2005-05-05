@@ -187,6 +187,7 @@ class W_FakeDescriptor(Wrappable):
         else:
             name = space.unwrap(w_descriptor).name
             obj = space.unwrap(w_obj)
+            val = None
             try:
                 val = getattr(obj, name)  # this gives a "not RPython" warning
             except:
