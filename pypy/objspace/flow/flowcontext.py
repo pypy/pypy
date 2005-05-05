@@ -324,7 +324,7 @@ class FlowExecutionContext(ExecutionContext):
         currentblock.closeblock(Link(outputargs, newblock))
         # phew
         if not finished:
-            if block is not None and block.exits:
+            if block is not None:
                 # to simplify the graph, we patch the old block to point
                 # directly at the new block which is its generalization
                 block.dead = True
@@ -332,6 +332,7 @@ class FlowExecutionContext(ExecutionContext):
                 block.exitswitch = None
                 outputargs = block.framestate.getoutputargs(newstate)
                 block.recloseblock(Link(outputargs, newblock))
+                candidates.remove(block)
             candidates.insert(0, newblock)
             self.pendingblocks.append(newblock)
 
