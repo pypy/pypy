@@ -2,6 +2,7 @@ import os, sys
 from pypy.objspace.std.objspace import StdObjSpace
 from pypy.annotation.model import *
 from pypy.annotation.listdef import ListDef
+from pypy.interpreter import gateway
 
 # WARNING: this requires the annotator.
 # There is no easy way to build all caches manually,
@@ -22,6 +23,10 @@ def target():
     global space, w_entry_point
     # disable translation of the whole of classobjinterp.py
     StdObjSpace.setup_old_style_classes = lambda self: None
+    # disable geninterp for now -- we have faaar toooo much interp-level code
+    # for the poor translator already
+    gateway.ApplevelClass.use_geninterp = False
+
     space = StdObjSpace()
 
     # manually imports app_main.py
