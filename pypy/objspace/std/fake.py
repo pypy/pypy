@@ -84,6 +84,7 @@ def really_build_fake_type(cpy_type):
             r = cpy_type.__new__(cpy_type, *args)
         except:
             wrap_exception(space)
+            raise
         w_obj = space.allocate_instance(W_Fake, w_type)
         w_obj.__init__(space, r)
         return w_obj
@@ -147,6 +148,7 @@ class CPythonFakeFrame(eval.Frame):
             result = apply(fn, self.unwrappedargs, self.unwrappedkwds)
         except:
             wrap_exception(self.space)
+            raise
         return self.space.wrap(result)
 
 class EvenMoreObscureWrapping(baseobjspace.BaseWrappable):
@@ -187,11 +189,11 @@ class W_FakeDescriptor(Wrappable):
         else:
             name = space.unwrap(w_descriptor).name
             obj = space.unwrap(w_obj)
-            val = None
             try:
                 val = getattr(obj, name)  # this gives a "not RPython" warning
             except:
                 wrap_exception(space)
+                raise
             return space.wrap(val)
 
     def descr_descriptor_set(space, w_descriptor, w_obj, w_value):
