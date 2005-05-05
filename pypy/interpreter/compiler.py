@@ -78,17 +78,16 @@ class Compiler:
 # faked compiler
 
 import __future__
-feature_compiler_flags = 0
+compiler_flags = 0
 for fname in __future__.all_feature_names:
-    feature = getattr(__future__, fname)
-    feature_compiler_flags |= feature.compiler_flag
-    del feature, fname
+    compiler_flags |= getattr(__future__, fname).compiler_flag
 
 
 class CPythonCompiler(Compiler):
     """Faked implementation of a compiler, using the underlying compile()."""
 
     def compile(self, source, filename, mode, flags):
+        flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
         space = self.space
         try:
             # hack to make the flow space happy: 'warnings' should not look
@@ -114,8 +113,10 @@ class CPythonCompiler(Compiler):
 
     def getcodeflags(self, code):
         from pypy.interpreter.pycode import PyCode
-        assert isinstance(code, PyCode)
-        return code.co_flags & feature_compiler_flags
+        if isinstance(code, PyCode):
+            return code.co_flags & compiler_flags
+        else:
+            return 0
 
     def _warn_explicit(self, message, category, filename, lineno,
                        module=None, registry=None):

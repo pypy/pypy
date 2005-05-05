@@ -14,11 +14,6 @@ POP_BLOCK END_FINALLY'''.split():
     g[op] = opcode.opmap[op]
 HAVE_ARGUMENT = opcode.HAVE_ARGUMENT
 
-import __future__
-compiler_flags = 0
-for fname in __future__.all_feature_names:
-    compiler_flags |= getattr(__future__, fname).compiler_flag
-
 
 def cpython_tb():
    """NOT_RPYTHON"""
@@ -75,9 +70,6 @@ class PyFrame(eval.Frame):
         
     def getclosure(self):
         return None
-
-    def get_compile_flags(self):
-        return self.code.co_flags & compiler_flags
 
     def eval(self, executioncontext):
         "Interpreter main loop!"

@@ -92,6 +92,7 @@ class PyPyConsole(code.InteractiveConsole):
         self.verbose = verbose
         space = self.space
         self.ec = space.createexecutioncontext()
+        self.console_compiler_flags = 0
 
         mainmodule = main.ensure__main__(space)
         self.w_globals = mainmodule.w_dict
@@ -158,26 +159,32 @@ class PyPyConsole(code.InteractiveConsole):
             raise
 
     def runcode(self, code):
-        # 'code' is a CPython code object
-        from pypy.interpreter.pycode import PyCode
-        pycode = PyCode(self.space)._from_code(code)
-        def doit():
-            self.settrace()
-            pycode.exec_code(self.space, self.w_globals, self.w_globals)
-            self.checktrace()
-        main.run_toplevel(self.space, doit, verbose=self.verbose)
+        raise NotImplementedError
 
     def runsource(self, source, ignored_filename="<input>", symbol="single"):
         hacked_filename = '<inline>' + source
+        compiler = self.space.getexecutioncontext().compiler
+        
+        def doit():
+            # compile the provided input
+            code = compiler.compile_command(source, hacked_filename, symbol,
+                                            self.console_compiler_flags)
+            if code is None:
+                raise IncompleteInput
+            self.console_compiler_flags |= compiler.getcodeflags(code)
+
+            # execute it
+            self.settrace()
+            code.exec_code(self.space, self.w_globals, self.w_globals)
+            self.checktrace()
+
+        # run doit() in an exception-catching box
         try:
-            code = self.compile(source, hacked_filename, symbol)
-        except (OverflowError, SyntaxError, ValueError):
-            self.showsyntaxerror(self.filename)
-            return 0
-        if code is None:
+            main.run_toplevel(self.space, doit, verbose=self.verbose)
+        except IncompleteInput:
             return 1
-        self.runcode(code)
-        return 0
+        else:
+            return 0
 
     def settrace(self):
         if self.tracelevel:
@@ -215,6 +222,10 @@ class PyPyConsole(code.InteractiveConsole):
             print self.get_banner()
 
         self.tracelevel = tracelevel
+
+
+class IncompleteInput(Exception):
+    pass
 
 if __name__ == '__main__':
     try:

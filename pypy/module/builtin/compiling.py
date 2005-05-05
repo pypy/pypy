@@ -6,82 +6,24 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter.gateway import NoneNotWrapped
-import __builtin__ as cpy_builtin
-import warnings
 
-def setup_warn_explicit(space): 
-    """ NOT_RPYTHON 
-   
-    this is a hack until we have our own parsing/compiling 
-    in place: we bridge certain warnings to the applevel 
-    warnings module to let it decide what to do with
-    a syntax warning ... 
-    """ 
-    def warn_explicit(message, category, filename, lineno,
-                      module=None, registry=None):
-        if hasattr(category, '__bases__') and \
-           issubclass(category, SyntaxWarning): 
-            assert isinstance(message, str) 
-            w_mod = space.sys.getmodule('warnings')
-            if w_mod is not None: 
-                w_dict = w_mod.getdict() 
-                w_reg = space.call_method(w_dict, 'setdefault', 
-                                          space.wrap("__warningregistry__"),     
-                                          space.newdict([]))
-                try: 
-                    space.call_method(w_mod, 'warn_explicit', 
-                                      space.wrap(message), 
-                                      space.w_SyntaxWarning, 
-                                      space.wrap(filename), 
-                                      space.wrap(lineno), 
-                                      space.w_None, 
-                                      space.w_None) 
-                except OperationError, e: 
-                    if e.match(space, space.w_SyntaxWarning): 
-                        raise OperationError(
-                                space.w_SyntaxError, 
-                                space.wrap(message))
-                    raise 
-    old_warn_explicit = warnings.warn_explicit 
-    warnings.warn_explicit = warn_explicit 
-    return old_warn_explicit 
-
-def compile(space, w_str_, filename, startstr,
-            supplied_flags=0, dont_inherit=0):
-    if space.is_true(space.isinstance(w_str_, space.w_unicode)):
-        str_ = space.unwrap(w_str_) # xxx generic unwrap
+def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
+    if space.is_true(space.isinstance(w_source, space.w_unicode)):
+        str_ = space.unwrap(w_source) # xxx generic unwrap
     else:
-        str_ = space.str_w(w_str_)
-    #print (str_, filename, startstr, supplied_flags, dont_inherit)
-    # XXX we additionally allow GENERATORS because compiling some builtins
-    #     requires it. doesn't feel quite right to do that here.
-    supplied_flags |= 4096 
+        str_ = space.str_w(w_source)
+
+    ec = space.getexecutioncontext()
     if not dont_inherit:
         try:
-            caller = space.getexecutioncontext().framestack.top()
+            caller = ec.framestack.top()
         except IndexError:
-            caller = None
+            pass
         else:
-            from pypy.interpreter import pyframe
-            if isinstance(caller, pyframe.PyFrame): 
-                supplied_flags |= caller.get_compile_flags()
-    try:
-        old = setup_warn_explicit(space)
-        try: 
-            c = cpy_builtin.compile(str_, filename, startstr, supplied_flags, 1)
-        finally: 
-            warnings.warn_explicit = old 
-            
-    # It would be nice to propagate all exceptions to app level,
-    # but here we only propagate the 'usual' ones, until we figure
-    # out how to do it generically.
-    except SyntaxError,e:
-        raise OperationError(space.w_SyntaxError,space.wrap(e.args))
-    except ValueError,e:
-        raise OperationError(space.w_ValueError,space.wrap(str(e)))
-    except TypeError,e:
-        raise OperationError(space.w_TypeError,space.wrap(str(e)))
-    return space.wrap(PyCode(space)._from_code(c))
+            flags |= ec.compiler.getcodeflags(caller.code)
+
+    code = ec.compiler.compile(str_, filename, mode, flags)
+    return space.wrap(code)
 #
 compile.unwrap_spec = [ObjSpace,W_Root,str,str,int,int]
 

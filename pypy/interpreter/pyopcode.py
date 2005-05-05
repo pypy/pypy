@@ -346,7 +346,8 @@ class PyInterpFrame(pyframe.PyFrame):
         w_locals  = f.valuestack.pop()
         w_globals = f.valuestack.pop()
         w_prog    = f.valuestack.pop()
-        w_compile_flags = f.space.wrap(f.get_compile_flags())
+        flags = f.space.getexecutioncontext().compiler.getcodeflags(f.code)
+        w_compile_flags = f.space.wrap(flags)
         w_resulttuple = prepare_exec(f.space, f.space.wrap(f), w_prog,
                                      w_globals, w_locals,
                                      w_compile_flags, f.space.wrap(f.builtin),
