@@ -278,11 +278,22 @@ class RegrTest:
         self.basename = basename 
         self.enabled = enabled 
         self.dumbtest = dumbtest 
-        if pypy_option.oldstyle: 
-            oldstyle = True 
-        self.oldstyle = oldstyle 
+        # we have to determine oldstyle and uselibfile values
+        # lazily because at RegrTest() call time the command
+        # line options haven't been parsed!
+        self._oldstyle = oldstyle 
+        self._uselibfile = uselibfile
         self.core = core
-        self.uselibfile = uselibfile
+
+    def oldstyle(self): 
+        return self._oldstyle or pypy_option.oldstyle 
+    oldstyle = property(oldstyle)
+
+    def uselibfile(self): 
+        return self._uselibfile or pypy_option.uselibfile 
+    uselibfile = property(uselibfile)
+
+        
 
     def getoptions(self): 
         l = []
@@ -321,9 +332,9 @@ class RegrTest:
         self._prepare(space)
         fspath = self.getfspath()
         assert fspath.check()
-        if self.oldstyle or pypy_option.oldstyle: 
+        if self.oldstyle: 
             space.enable_old_style_classes_as_default_metaclass() 
-        if self.uselibfile or pypy_option.uselibfile:
+        if self.uselibfile: 
             w_original_faked_file = space.appexec([], '''():
                 from _file import file
                 prev = __builtins__.file
@@ -333,9 +344,8 @@ class RegrTest:
         try: 
             callex(space, run_file, str(fspath), space)
         finally: 
-            if not pypy_option.oldstyle: 
-                space.enable_new_style_classes_as_default_metaclass() 
-            if self.uselibfile and not pypy_option.uselibfile:
+            space.enable_new_style_classes_as_default_metaclass() 
+            if self.uselibfile: 
                 space.appexec([w_original_faked_file], '''(prev):
                     __builtins__.file = __builtins__.open = prev
                 ''')
@@ -803,9 +813,9 @@ class ReallyRunFileExternal(py.test.Item):
         alarm_script = pypydir.join('tool', 'alarm.py')
         regr_script = pypydir.join('tool', 'pytest', 'regrverbose.py')
         pypy_options = []
-        if regrtest.oldstyle or pypy_option.oldstyle: 
+        if regrtest.oldstyle: 
             pypy_options.append('--oldstyle') 
-        if regrtest.uselibfile or pypy_option.uselibfile: 
+        if regrtest.uselibfile: 
             pypy_options.append('--file') 
         sopt = " ".join(pypy_options) 
 
