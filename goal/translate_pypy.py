@@ -159,16 +159,14 @@ def run_async_server():
     options['-text'] = True
 
 def worstblocks_topten(ann, n=10):
-    import heapq
-    h = [(-count, block) for block, count in ann.reflowcounter.iteritems()]
-    heapq.heapify(h)
+    h = [(count, block) for block, count in ann.reflowcounter.iteritems()]
+    h.sort()
     print
     ansi_print(',-----------------------  Top %d Most Reflown Blocks  -----------------------.' % n, 36)
     for i in range(n):
         if not h:
             break
-        count, block = heapq.heappop(h)
-        count = -count
+        count, block = h.pop()
         ansi_print('                                                      #%3d: reflown %d times  |' % (i+1, count), 36)
         about(block)
     ansi_print("`----------------------------------------------------------------------------'", 36)
