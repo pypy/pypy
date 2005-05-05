@@ -306,7 +306,7 @@ class GenCL:
         target = link.target.inputargs
         print "(psetq", # parallel assignment
         for s, t in zip(source, target):
-            if s != t and s != Constant(undefined_value):
+            if s != t:  # and s != Constant(undefined_value):
                 print self.str(t), self.str(s),
         print ")"
         self.emit_jump(link.target)

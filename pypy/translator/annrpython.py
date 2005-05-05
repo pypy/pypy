@@ -5,7 +5,7 @@ from pypy.tool.ansi_print import ansi_print
 from pypy.annotation import model as annmodel
 from pypy.annotation.model import pair
 from pypy.annotation.bookkeeper import Bookkeeper
-from pypy.objspace.flow.model import Variable, Constant, undefined_value
+from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
 from pypy.objspace.flow.model import last_exception, last_exc_value
 
@@ -172,8 +172,8 @@ class RPythonAnnotator:
                 else:
                     raise
         elif isinstance(arg, Constant):
-            if arg.value is undefined_value:   # undefined local variables
-                return annmodel.SomeImpossibleValue()
+            #if arg.value is undefined_value:   # undefined local variables
+            #    return annmodel.SomeImpossibleValue()
             assert not arg.value is last_exception and not arg.value is last_exc_value
             return self.bookkeeper.immutablevalue(arg.value)
         else:

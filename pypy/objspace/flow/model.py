@@ -218,7 +218,6 @@ class Atom(object):
         return self.name
 last_exception = Atom('last_exception')
 last_exc_value = Atom('last_exc_value')
-undefined_value= Atom('*undefined*')
 # if Block().exitswitch == Constant(last_exception), it means that we are
 # interested in catching the exception that the *last operation* of the
 # block could raise.  The exitcases of the links are None for no exception

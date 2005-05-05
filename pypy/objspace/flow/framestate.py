@@ -8,13 +8,8 @@ class FrameState:
 
     def __init__(self, state):
         if isinstance(state, PyFrame):
-            data = []
-            for w in state.getfastscope():
-                if w is None:
-                    data.append(Constant(undefined_value))
-                else:
-                    data.append(w)
-            data.extend(state.valuestack.items)
+            # getfastscope() can return real None, for undefined locals
+            data = state.getfastscope() + state.valuestack.items
             if state.last_exception is None:
                 data.append(Constant(None))
                 data.append(Constant(None))
@@ -35,7 +30,7 @@ class FrameState:
                             state.__class__.__name__)
         self.next_instr = self.nonmergeable[1]
         for w1 in self.mergeable:
-            assert isinstance(w1, (Variable, Constant)), (
+            assert isinstance(w1, (Variable, Constant)) or w1 is None, (
                 '%r found in frame state' % w1)
 
     def restoreframe(self, frame):
@@ -43,13 +38,7 @@ class FrameState:
             fastlocals = len(frame.fastlocals_w)
             data = self.mergeable[:]
             recursively_unflatten(frame.space, data)
-            fastscope = []
-            for w in data[:fastlocals]:
-                if isinstance(w, Constant) and w.value is undefined_value:
-                    fastscope.append(None)
-                else:
-                    fastscope.append(w)
-            frame.setfastscope(fastscope)
+            frame.setfastscope(data[:fastlocals])  # Nones == undefined locals
             frame.valuestack.items[:] = data[fastlocals:-2]
             if data[-2] == Constant(None):
                 assert data[-1] == Constant(None)
@@ -121,6 +110,9 @@ class UnionError(Exception):
 
 def union(w1, w2):
     "Union of two variables or constants."
+    if w1 is None or w2 is None:
+        return None  # if w1 or w2 is an undefined local, we "kill" the value
+                     # coming from the other path and return an undefined local
     if isinstance(w1, Variable) or isinstance(w2, Variable):
         return Variable()  # new fresh Variable
     if isinstance(w1, Constant) and isinstance(w2, Constant):
