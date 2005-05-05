@@ -1,11 +1,12 @@
 import sys
 from pypy.interpreter.miscutils import getthreadlocals, Stack
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.compiler import CPythonCompiler
 
 class ExecutionContext:
     """An ExecutionContext holds the state of an execution thread
     in the Python interpreter."""
-    
+
     def __init__(self, space):
         self.space = space
         self.framestack = Stack()
@@ -13,6 +14,7 @@ class ExecutionContext:
         self.w_tracefunc = None
         self.w_profilefunc = None
         self.is_tracing = 0
+        self.compiler = CPythonCompiler(space)
 
     def enter(self, frame):
         if self.framestack.depth() > self.space.sys.recursionlimit:
