@@ -235,8 +235,7 @@ class ClassDef:
     def check_attr_here(self, name):
         if name in self.cls.__dict__:
             # oups! new attribute showed up
-            value = self.cls.__dict__[name]
-            self.add_source_for_attribute(name, value, self)
+            self.add_source_for_attribute(name, self.cls, self)
             # maybe it also showed up in some subclass?
             for subdef in self.getallsubdefs():
                 if subdef is not self:
