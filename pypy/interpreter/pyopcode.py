@@ -74,7 +74,7 @@ class PyInterpFrame(pyframe.PyFrame):
     def getconstant_w(self, index):
         return self.code.co_consts_w[index]
 
-    def getname(self, index):
+    def getname_u(self, index):
         return self.code.co_names[index]
 
     def getname_w(self, index):
@@ -460,7 +460,7 @@ class PyInterpFrame(pyframe.PyFrame):
             if not e.match(f.space, f.space.w_KeyError):
                 raise
             # we got a KeyError, now look in the built-ins
-            varname = f.getname(nameindex)
+            varname = f.getname_u(nameindex)
             w_value = f.builtin.getdictvalue(f.space, varname)
             if w_value is None:
                 message = "global name '%s' is not defined" % varname
