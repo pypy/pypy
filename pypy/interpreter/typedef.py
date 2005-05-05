@@ -280,7 +280,7 @@ from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame, ControlFlowException
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, Method, StaticMethod
-from pypy.interpreter.function import BuiltinFunction
+from pypy.interpreter.function import BuiltinFunction, descr_function_get
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator 
 from pypy.interpreter.nestedscope import Cell
@@ -405,7 +405,7 @@ Function.typedef = TypeDef("function",
     __new__ = interp2app(Function.descr_method__new__.im_func),                           
     __call__ = interp2app(Function.descr_function_call,
                           unwrap_spec=['self', Arguments]),
-    __get__ = interp2app(Function.descr_function_get),
+    __get__ = interp2app(descr_function_get),
     __repr__ = interp2app(Function.descr_function_repr),
     func_code = getset_func_code, 
     func_doc = getset_func_doc,

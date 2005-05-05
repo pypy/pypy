@@ -88,19 +88,6 @@ class Function(Wrappable):
         Function.__init__(func, space, code, w_globals, defs_w, closure, name)
         return space.wrap(func)
 
-    def descr_function_get(self, w_obj, w_cls=None):
-        space = self.space
-        wrap = space.wrap
-        asking_for_bound = (w_cls == space.w_None or
-                      not space.is_true(space.is_(w_obj, space.w_None)) or
-                      space.is_true(space.is_(w_cls, space.type(space.w_None))))
-        if asking_for_bound:
-            #if w_cls == space.w_None:
-            #    w_cls = space.type(w_obj)
-            return wrap(Method(space, wrap(self), w_obj, w_cls))
-        else:
-            return wrap(Method(space, wrap(self), None, w_cls))
-
     def descr_function_call(self, __args__):
         return self.call_args(__args__)
 
@@ -162,6 +149,20 @@ class Function(Wrappable):
             w_res = space.w_None
         return w_res
 
+def descr_function_get(space, w_function, w_obj, w_cls=None):
+    # this is not defined as a method on Function because it's generally
+    # useful logic: w_function can be any callable.  It is used by Method too.
+    asking_for_bound = (space.is_w(w_cls, space.w_None) or
+                        not space.is_w(w_obj, space.w_None) or
+                        space.is_w(w_cls, space.type(space.w_None)))
+    if asking_for_bound:
+        #if w_cls == space.w_None:
+        #    w_cls = space.type(w_obj)
+        return space.wrap(Method(space, w_function, w_obj, w_cls))
+    else:
+        return space.wrap(Method(space, w_function, None, w_cls))
+
+
 def _getclass(space, w_obj):
     try:
         return space.abstract_getclass(w_obj)
@@ -191,7 +192,7 @@ class Method(Wrappable):
             pre = "bound"
         else:
             pre = "unbound"
-        return "%s method %s" % (pre, self.w_function.name)
+        return "%s method %s" % (pre, self.w_function.getname(self.space, '?'))
 
     def call_args(self, args):
         space = self.space
@@ -233,8 +234,9 @@ class Method(Wrappable):
             if (w_cls is not None and
                 not space.is_w(w_cls, space.w_None) and
                 not space.is_true(space.abstract_issubclass(w_cls, self.w_class))):
-                return space.wrap(self)   # subclass test failed
-            return space.get(self.w_function, w_obj, w_cls)
+                return space.wrap(self)    # subclass test failed
+            else:
+                return descr_function_get(space, self.w_function, w_obj, w_cls)
 
     def descr_method_call(self, __args__):
         return self.call_args(__args__)
