@@ -64,6 +64,7 @@ def parse_fmt(fmtiter, valueiter, valuedict):
     """return (char, flags, width, prec, value)
     partially consumes fmtiter & valueiter"""
     c = fmtiter.next()
+    value = None
     gotvalue = False
     if c == '(':
         n = ''
