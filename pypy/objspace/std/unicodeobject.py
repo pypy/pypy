@@ -88,6 +88,7 @@ def int__Unicode(space, w_uni):
         s = unicode_to_decimal_w(space, w_uni)
     except:
         wrap_exception(space)
+        raise
     return space.call_function(space.w_int, space.wrap(s))
 
 # xxx unicode.__long__ should not exist
