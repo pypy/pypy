@@ -11,6 +11,11 @@ class Attribute:
     # readonly-ness
     # SomeThing-ness
     # more potential sources (pbcs or classes) of information
+    # NB. the laziness of 'sources' was required for two reasons:
+    #     * some strange attributes exist on classes but are never touched,
+    #       immutablevalue() wouldn't be happy with them
+    #     * there is an infinite recursion between immutablevalue() and
+    #       add_source_for_attribute() for cyclic constant structures.
 
     def __init__(self, name, bookkeeper):
         self.name = name

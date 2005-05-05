@@ -29,7 +29,7 @@ Some functions are provided for the benefit of interactive testing.
 Try dir(test) for list of current snippets.
 """
 
-import autopath, os
+import autopath, os, sys
 
 from pypy.objspace.flow.model import *
 from pypy.annotation.model import *
@@ -78,7 +78,8 @@ class Translator:
                 print 'getflowgraph (%s:%d) %s' % (
                     func.func_globals.get('__name__', '?'),
                     func.func_code.co_firstlineno,
-                    func.__name__)
+                    func.__name__),
+                sys.stdout.flush()
             assert not self.frozen
             space = FlowObjSpace()
             space.builtins_can_raise_exceptions = self.builtins_can_raise_exceptions
@@ -86,6 +87,8 @@ class Translator:
             graph = space.build_flow(func)
             if self.simplifying:
                 simplify_graph(graph)
+            if self.verbose:
+                print 'done'
             self.flowgraphs[func] = graph
             self.functions.append(func)
             try:
