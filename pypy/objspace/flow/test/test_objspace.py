@@ -1,5 +1,6 @@
 import autopath
 from pypy.objspace.flow.model import Constant, Block, Link, Variable, traverse
+from pypy.objspace.flow.model import flatten
 from pypy.interpreter.argument import Arguments
 from pypy.translator.simplify import simplify_graph
 
@@ -423,6 +424,55 @@ class TestFlowObjSpace:
                 for op in node.operations:
                     assert op.opname != 'mul', "mul should have disappeared"
         traverse(visitor, x)
+
+    #__________________________________________________________
+    def highly_branching_example(a,b,c,d,e,f,g,h,i,j):
+        if a:
+            x1 = 1
+        else:
+            x1 = 2
+        if b:
+            x2 = 1
+        else:
+            x2 = 2
+        if c:
+            x3 = 1
+        else:
+            x3 = 2
+        if d:
+            x4 = 1
+        else:
+            x4 = 2
+        if e:
+            x5 = 1
+        else:
+            x5 = 2
+        if f:
+            x6 = 1
+        else:
+            x6 = 2
+        if g:
+            x7 = 1
+        else:
+            x7 = 2
+        if h:
+            x8 = 1
+        else:
+            x8 = 2
+        if i:
+            x9 = 1
+        else:
+            x9 = 2
+        if j:
+            x10 = 1
+        else:
+            x10 = 2
+        return (x1, x2, x3, x4, x5, x6, x7, x8, x9, x10)
+
+    def test_highly_branching_example(self):
+        x = self.codetest(self.highly_branching_example)
+        self.show(x)
+        assert len(flatten(x)) < 60   # roughly 20 blocks + 30 links
 
     #__________________________________________________________
     def test_unfrozen_user_class1(self):
