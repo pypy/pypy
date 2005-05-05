@@ -507,35 +507,25 @@ class ApplevelClass:
     name at app-level."""
 
     hidden_applevel = True
-    NOT_RPYTHON_ATTRIBUTES = ['code']
+    use_geninterp = True    # change this to disable geninterp globally
 
-    def __init__(self, source, filename=None, *args, **kwds):
-        "NOT_RPYTHON"
-        if filename is None: 
-            self.code = py.code.Source(source).compile()
-        else:
-            self.code = NiceCompile(filename)(source)
-        
+    def __init__(self, source, filename = None, modname = '__builtin__', do_imports=False):
+        self.filename = filename
+        self.source = source
+        self.modname = modname
+        self.do_imports = do_imports
+        # look at the first three lines for a NOT_RPYTHON tag
+        first = source.split("\n", 3)[:3]
+        for line in first:
+            if "NOT_RPYTHON" in line:
+                self.use_geninterp = False
+
     def getwdict(self, space):
         return space.fromcache(ApplevelCache).getorbuild(self)
 
     def buildmodule(self, space, name='applevel'):
         from pypy.interpreter.module import Module
         return Module(space, space.wrap(name), self.getwdict(space))
-
-    def _builddict(self, space):
-        "NOT_RPYTHON"
-        code = self._buildcode(space, self.code)
-        w_glob = space.newdict([])
-        space.setitem(w_glob, space.wrap('__name__'), space.wrap('__builtin__'))
-        space.exec_(code, w_glob, w_glob)
-        return w_glob
-
-    def _buildcode(cls, space, code):
-        "NOT_RPYTHON"
-        from pypy.interpreter.pycode import PyCode
-        return PyCode(space)._from_code(code, hidden_applevel=cls.hidden_applevel)
-    _buildcode = classmethod(_buildcode) 
 
     def wget(self, space, name): 
         w_globals = self.getwdict(space) 
@@ -559,32 +549,52 @@ class ApplevelClass:
     def _freeze_(self):
         return True  # hint for the annotator: applevel instances are constants
 
+
 class ApplevelCache(SpaceCache):
-    def build(cache, app):
-        return app._builddict(cache.space)
+    """The cache mapping each applevel instance to its lazily built w_dict"""
 
-class ApplevelInterpClass(ApplevelClass):
-    """ similar to applevel, but using translation to interp-level.
-        This version maintains a cache folder with single files.
-    """
-    NOT_RPYTHON_ATTRIBUTES = ['cache_path', 'known_source']
+    def build(self, app):
+        "NOT_RPYTHON.  Called indirectly by Applevel.getwdict()."
+        if app.use_geninterp:
+            return PyPyCacheDir.build_applevelinterp_dict(app, self.space)
+        else:
+            return build_applevel_dict(app, self.space)
 
-    def __init__(self, source, filename = None, modname = '__builtin__', do_imports=False):
+
+# __________ pure applevel version __________
+
+def build_applevel_dict(self, space):
+    "NOT_RPYTHON"
+    if self.filename is None:
+        code = py.code.Source(self.source).compile()
+    else:
+        code = NiceCompile(self.filename)(self.source)
+
+    from pypy.interpreter.pycode import PyCode
+    pycode = PyCode(space)._from_code(code, hidden_applevel=self.hidden_applevel)
+    w_glob = space.newdict([])
+    space.setitem(w_glob, space.wrap('__name__'), space.wrap('__builtin__'))
+    space.exec_(pycode, w_glob, w_glob)
+    return w_glob
+
+# __________ geninterplevel version __________
+
+class PyPyCacheDir:
+    # similar to applevel, but using translation to interp-level.
+    # This version maintains a cache folder with single files.
+
+    def build_applevelinterp_dict(cls, self, space):
         "NOT_RPYTHON"
-        self.filename = filename
-        self.source = source
-        self.modname = modname
-        self.do_imports = do_imports
+        # N.B. 'self' is the ApplevelInterp; this is a class method,
+        # just so that we have a convenient place to store the global state.
+        if not cls._setup_done:
+            cls._setup()
 
-    def _builddict(self, space):
-        "NOT_RPYTHON"
-        if not self._setup_done:
-            self._setup()
         from pypy.translator.geninterplevel import translate_as_module
-        scramble = md5.new(self.seed)
+        scramble = md5.new(cls.seed)
         scramble.update(self.source)
         key = scramble.hexdigest()
-        initfunc = self.known_source.get(key)
+        initfunc = cls.known_source.get(key)
         if not initfunc:
             # try to get it from file
             name = key
@@ -599,12 +609,12 @@ class ApplevelInterpClass(ApplevelClass):
                 # print x
                 pass
             else:
-                initfunc = self.known_source[key]
+                initfunc = cls.known_source[key]
         if not initfunc:
             # build it and put it into a file
             initfunc, newsrc = translate_as_module(
                 self.source, self.filename, self.modname, self.do_imports)
-            fname = self.cache_path.join(name+".py").strpath
+            fname = cls.cache_path.join(name+".py").strpath
             f = file(fname, "w")
             print >> f, """\
 # self-destruct on double-click:
@@ -623,9 +633,10 @@ if __name__ == "__main__":
             print >> f, "known_source[%r] = %s" % (key, initfunc.__name__)
         w_glob = initfunc(space)
         return w_glob
+    build_applevelinterp_dict = classmethod(build_applevelinterp_dict)
 
     _setup_done = False
-    
+
     def _setup(cls):
         """NOT_RPYTHON"""
         from pypy.tool.getpy import py
@@ -685,18 +696,7 @@ del harakiri
         cls._setup_done = True
     _setup = classmethod(_setup)
 
-def applevel(source, filename = None,
-                   modname = '__builtin__', do_imports=False):
-    # look at the first three lines
-    first = source.split("\n", 3)[:3]
-    klass = ApplevelInterpClass
-    for line in first:
-        if "NOT_RPYTHON" in line:
-            klass = ApplevelClass
-    return klass(source, filename, modname, do_imports)
-
-# uncomment this to check against applevel without translation
-##ApplevelInterpClass = ApplevelClass
+# ____________________________________________________________
 
 def appdef(source, applevel=ApplevelClass):
     """ NOT_RPYTHON: build an app-level helper function, like for example:
@@ -715,18 +715,22 @@ def appdef(source, applevel=ApplevelClass):
     source = source[p:]
     return applevel("def %s%s\n" % (funcname, source)).interphook(funcname)
 
+applevel = ApplevelClass   # backward compatibility
 app2interp = appdef   # backward compatibility
 
 
 class applevel_temp(ApplevelClass):
     hidden_applevel = False
-    def getwdict(self, space):
-        return self._builddict(space)   # no cache
+    def getwdict(self, space):    # no cache
+        return build_applevel_dict(self, space)
 
-class applevelinterp_temp(ApplevelInterpClass):
-    hidden_applevel = False
-    def getwdict(self, space):
-        return self._builddict(space)   # no cache
+if ApplevelClass.use_geninterp:
+    class applevelinterp_temp(ApplevelClass):
+        hidden_applevel = False
+        def getwdict(self, space):   # no cache
+            return PyPyCacheDir.build_applevelinterp_dict(self, space)
+else:
+    applevelinterp_temp = applevel_temp
 
 # app2interp_temp is used for testing mainly
 def app2interp_temp(func, applevel_temp=applevel_temp):
