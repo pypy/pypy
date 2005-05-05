@@ -91,8 +91,15 @@ class ClassDef:
     def add_source_for_attribute(self, attr, source, clsdef=None):
         attrdef = self.find_attribute(attr)
         attrdef.sources[source] = clsdef
-        for position in attrdef.read_locations:
-            self.bookkeeper.annotator.reflowfromposition(position)
+        if attrdef.read_locations:
+            # we should reflow from all the reader's position,
+            # but as an optimization we try to see if the attribute
+            # has really been generalized
+            s_prev_value = attrdef.s_value
+            s_next_value = attrdef.getvalue()
+            if s_prev_value != s_next_value:
+                for position in attrdef.read_locations:
+                    self.bookkeeper.annotator.reflowfromposition(position)
 
     def locate_attribute(self, attr):
         for cdef in self.getmro():
