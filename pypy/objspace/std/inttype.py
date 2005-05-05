@@ -14,6 +14,7 @@ def retry_to_w_long(space, parser, base=0):
 def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
     from pypy.objspace.std.intobject import W_IntObject
     w_longval = None
+    value = 0
     if w_base is None:
         # check for easy cases
         if isinstance(w_value, W_IntObject):
