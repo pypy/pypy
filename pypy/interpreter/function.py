@@ -85,7 +85,7 @@ class Function(Wrappable):
                     raise OperationError(space.w_TypeError, space.wrap("non-cell in closure"))
                 closure.append(cell)
         func = space.allocate_instance(Function, w_subtype)
-        func.__init__(space, code, w_globals, defs_w, closure, name)
+        Function.__init__(space, code, w_globals, defs_w, closure, name)
         return space.wrap(func)
 
     def descr_function_get(self, w_obj, w_cls=None):
