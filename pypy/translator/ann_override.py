@@ -7,6 +7,8 @@ from pypy.interpreter import pyframe
 from pypy.objspace.std import fake
 from pypy.module.sys2 import state as sys_state
 import pypy.interpreter.typedef as itypedef
+import pypy.interpreter.pycode as pycode
+import pypy.interpreter.compiler as icompiler
 from pypy.objspace.std.objspace import StdObjSpace
 
 def ignore(*args):
@@ -32,6 +34,10 @@ def fake_object(space, x):
     clsdef = getbookkeeper().getclassdef(itypedef.W_Root)
     return annmodel.SomeInstance(clsdef)    
 
+def cpy_compile(self, source, filename, mode, flags):
+    clsdef = getbookkeeper().getclassdef(pycode.PyCode)
+    return annmodel.SomeInstance(clsdef)    
+
 pypy_overrides = {}
 
 def install(tgt, override):
@@ -46,3 +52,4 @@ install(fake.wrap_exception, ignore)
 install(fake.fake_object, fake_object)
 install(itypedef.instantiate, instantiate)
 install(StdObjSpace.wrap_exception_cls, wrap_exception_cls)
+install(icompiler.CPythonCompiler.compile, cpy_compile)
