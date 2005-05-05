@@ -882,10 +882,11 @@ app = gateway.applevel(r'''
             try:
                 prog = compile(prog, filename, 'exec', compile_flags, 1)
             except SyntaxError, e: # exec SyntaxErrors have filename==None
-               msg, loc = e.args
-               loc1 = (None,) + loc[1:]
-               e.args = msg, loc1
-               e.filename = None
+               if len(e.args) == 2:
+                   msg, loc = e.args
+                   loc1 = (None,) + loc[1:]
+                   e.args = msg, loc1
+                   e.filename = None
                raise e
         return (prog, globals, locals)
 ''', filename=__file__)

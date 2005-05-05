@@ -41,10 +41,11 @@ def eval(space, w_code, w_globals=NoneNotWrapped, w_locals=NoneNotWrapped):
         except OperationError, e:
             if e.match(space, space.w_SyntaxError):
                 e_value_w = space.unpacktuple(e.w_value)
-                e_loc_w = space.unpacktuple(e_value_w[1])
-                e.w_value = space.newtuple([e_value_w[0],
-                                            space.newtuple([space.w_None]+
-                                                           e_loc_w[1:])])
+                if len(e_value_w) == 2:
+                    e_loc_w = space.unpacktuple(e_value_w[1])
+                    e.w_value = space.newtuple([e_value_w[0],
+                                                space.newtuple([space.w_None]+
+                                                               e_loc_w[1:])])
                 raise e
             else:
                 raise
