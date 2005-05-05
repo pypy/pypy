@@ -49,6 +49,7 @@ class LazyModule(Module):
                         bltin = func._builtinversion_
                     except AttributeError:
                         bltin = BuiltinFunction(func)
+                        bltin.w_module = self.w_name
                         func._builtinversion_ = bltin
                     w_value = space.wrap(bltin)
                 space.setitem(self.w_dict, space.wrap(name), w_value) 
