@@ -77,6 +77,7 @@ class Compiler:
 # ____________________________________________________________
 # faked compiler
 
+import warnings
 import __future__
 compiler_flags = 0
 for fname in __future__.all_feature_names:
@@ -90,15 +91,11 @@ class CPythonCompiler(Compiler):
         flags |= __future__.generators.compiler_flag   # always on (2.2 compat)
         space = self.space
         try:
-            # hack to make the flow space happy: 'warnings' should not look
-            # like a Constant
-            warnings = __import__('warnings')
-            old_warn_explicit = warnings.warn_explicit 
-            warnings.warn_explicit = self._warn_explicit
+            old = self.setup_warn_explicit(warnings)
             try:
                 c = compile(source, filename, mode, flags, True)
             finally:
-                warnings.warn_explicit = old_warn_explicit
+                self.restore_warn_explicit(warnings, old)
         # It would be nice to propagate all exceptions to app level,
         # but here we only propagate the 'usual' ones, until we figure
         # out how to do it generically.
@@ -145,11 +142,18 @@ class CPythonCompiler(Compiler):
                                 space.wrap(message))
                     raise 
 
-    def setup_warn_explicit(self, warnings, prev=None):
+    def setup_warn_explicit(self, warnings):
         """
         this is a hack until we have our own parsing/compiling 
         in place: we bridge certain warnings to the applevel 
         warnings module to let it decide what to do with
         a syntax warning ... 
         """ 
+        # there is a hack to make the flow space happy:
+        # 'warnings' should not look like a Constant
+        old_warn_explicit = warnings.warn_explicit 
+        warnings.warn_explicit = self._warn_explicit
         return old_warn_explicit 
+
+    def restore_warn_explicit(self, warnings, old_warn_explicit):
+        warnings.warn_explicit = old_warn_explicit
