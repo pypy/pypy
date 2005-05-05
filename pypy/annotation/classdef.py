@@ -178,6 +178,8 @@ class ClassDef:
             self._generalize_attr(attr, s_value)
 
     def about_attribute(self, name):
+        """This is the interface for the code generators to ask about
+           the annotation given to a attribute."""
         for cdef in self.getmro():
             if name in cdef.attrs:
                 s_result = cdef.attrs[name].s_value
@@ -187,7 +189,7 @@ class ClassDef:
                     return None
         return None
 
-    def matching(self, pbc, name=None):
+    def matching(self, pbc, name):
         d = {}
         uplookup = None
         upfunc = None
@@ -210,13 +212,38 @@ class ClassDef:
         if uplookup is not None:
             d[upfunc] = uplookup
         elif meth:
-            if name is None:
-                name = '???'
-            self.bookkeeper.warning("demoting method %s to base class %s" % (name,self))
+            if not self.check_missing_attribute_update(name):
+                self.bookkeeper.warning("demoting method %s to base class %s" % (name,self))
         if d:
             return SomePBC(d)
         else:
             return SomeImpossibleValue()
+
+    def check_missing_attribute_update(self, name):
+        # haaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaack
+        # sometimes, new methods can show up on classes, added
+        # e.g. by W_TypeObject._freeze_() -- the multimethod
+        # implementations.  Check that here...
+        found = False
+        parents = list(self.getmro())
+        parents.reverse()
+        for base in parents:
+            if base.check_attr_here(name):
+                found = True
+        return found
+
+    def check_attr_here(self, name):
+        if name in self.cls.__dict__:
+            # oups! new attribute showed up
+            value = self.cls.__dict__[name]
+            self.add_source_for_attribute(name, value, self)
+            # maybe it also showed up in some subclass?
+            for subdef in self.getallsubdefs():
+                if subdef is not self:
+                    subdef.check_attr_here(name)
+            return True
+        else:
+            return False
 
 def isclassdef(x):
     return isinstance(x, ClassDef)

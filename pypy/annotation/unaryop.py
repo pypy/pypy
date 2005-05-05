@@ -291,6 +291,8 @@ class __extend__(SomeInstance):
             # XXX do it more nicely
             if isinstance(s_result, SomePBC):
                 s_result = ins.classdef.matching(s_result, attr)
+            elif isinstance(s_result, SomeImpossibleValue):
+                ins.classdef.check_missing_attribute_update(attr)
             return s_result
         return SomeObject()
 
