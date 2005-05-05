@@ -467,6 +467,8 @@ def possible_arguments(args):
             assert value is True, ("concrete call with a method bound "
                                    "on a non-constant instance")
         possible_values = s.prebuiltinstances.keys()
+    elif isinstance(s, SomeBool):
+        possible_values = [False, True]
     else:
         raise AssertionError, "concrete call with a non-constant arg %r" % (s,)
     for tuple_tail in possible_arguments(args[1:]):
