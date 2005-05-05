@@ -37,6 +37,7 @@ class RPythonAnnotator:
         self.binding_cause_history = {} # map Variables to lists of positions
                 # history of binding_caused_by, kept in sync with
                 # bindingshistory
+        self.reflowcounter = {}
         self.return_bindings = {} # map return Variables to functions
         # user-supplied annotation logic for functions we don't want to flow into
         self.overrides = overrides
@@ -293,6 +294,9 @@ class RPythonAnnotator:
         #      input variables).
 
         #print '* processblock', block, cells
+        if annmodel.DEBUG:
+            self.reflowcounter.setdefault(block, 0)
+            self.reflowcounter[block] += 1
         self.annotated[block] = fn or True
         try:
             self.flowin(fn, block)

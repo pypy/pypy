@@ -34,8 +34,7 @@ from pypy.annotation import model as annmodel
 from pypy.tool.cache import Cache
 from pypy.annotation.model import SomeObject
 from pypy.tool.udir import udir 
-
-
+from pypy.tool.ansi_print import ansi_print
 
 
 # XXX this tries to make compiling faster
@@ -56,7 +55,10 @@ def analyse(target):
     if listen_port:
         run_async_server()
     if not options['-no-a']:
-        a = t.annotate(inputtypes, overrides=pypy_overrides)
+        try:
+            a = t.annotate(inputtypes, overrides=pypy_overrides)
+        finally:
+            worstblocks_topten(t.annotator)
         if not options['-no-s']:
             a.simplify()
         if not options['-no-t']:
@@ -155,6 +157,22 @@ def run_async_server():
     homepage = graphpage.TranslatorPage(t)
     graphserver.run_server(homepage, port=listen_port, background=True)
     options['-text'] = True
+
+def worstblocks_topten(ann, n=10):
+    import heapq
+    h = [(-count, block) for block, count in ann.reflowcounter.iteritems()]
+    heapq.heapify(h)
+    print
+    ansi_print(',-----------------------  Top %d Most Reflown Blocks  -----------------------.' % n, 36)
+    for i in range(n):
+        if not h:
+            break
+        count, block = heapq.heappop(h)
+        count = -count
+        ansi_print('                                                      #%3d: reflown %d times  |' % (i+1, count), 36)
+        about(block)
+    ansi_print("`----------------------------------------------------------------------------'", 36)
+    print
 
 
 if __name__ == '__main__':
