@@ -173,9 +173,9 @@ class Bookkeeper:
                 
                 if x not in self.seen_mutable: # avoid circular reflowing, 
                                                # see for example test_circular_mutable_getattr
+                    self.seen_mutable[x] = True
                     for attr in x.__dict__:
                         clsdef.add_source_for_attribute(attr, x) # can trigger reflowing
-                    self.seen_mutable[x] = True
                 return SomeInstance(clsdef)
         elif x is None:
             return self.getpbc(None)
