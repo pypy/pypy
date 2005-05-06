@@ -96,7 +96,7 @@ def transform_ovfcheck(self):
         return (ops and ops[-1].opname == "simple_call"
                 and ops[-1].args[0] in covf)
     def is_single(bl):
-        return is_ovfcheck(bl) and len(bl.operations) > 1
+        return is_ovfcheck(bl)## and len(bl.operations) > 1
     def is_paired(bl):
         return bl.exits and is_ovfcheck(bl.exits[0].target)
     def rename(v):
@@ -104,8 +104,15 @@ def transform_ovfcheck(self):
     for block in fully_annotated_blocks(self):
         renaming = {}
         if is_single(block):
-            print 100*"*"
-            print block.operations[-2]
+            print 79*"*"
+            print block.operations
+            if block.operations[-1].args[0] == covf[-1]: # rewrite it
+                op = block.operations[-1]
+                op.opname = "lshift_ovf" # XXX
+                op.args = op.args[1:]
+                continue
+            if len(block.operations) < 2:
+                continue
             delop = block.operations.pop()
             op = block.operations[-1]
             assert len(delop.args) == 2
@@ -115,9 +122,14 @@ def transform_ovfcheck(self):
                 args = [rename(a) for a in exit.args]
                 exits.append(Link(args, exit.target, exit.exitcase))
         elif is_paired(block):
-            print 100*"+"
-            print block.operations[-1]
+            print 79*"+"
+            print block.operations
             ovfblock = block.exits[0].target
+            if ovfblock.operations[0].args[0] == covf[-1]: # rewrite it
+                op = ovfblock.operations[0]
+                op.opname = "lshift_ovf" # XXX
+                op.args = op.args[1:]
+                continue
             assert len(ovfblock.operations) == 1
             op = block.operations[-1]
             exits = list(block.exits)
@@ -128,7 +140,7 @@ def transform_ovfcheck(self):
                 assert len(ovfblock.exits) == 2
                 ovexp = ovfblock.exits[1]
                 # space from block, last_ from ovfblock
-                args = exits[0].args[:1] + ovexp.args[1:]
+                args = exits[0].args[:len(ovexp.args)-2] + ovexp.args[-2:]
                 exits.append(Link(args, ovexp.target, ovexp.exitcase))
             block.exitswitch = ovfblock.exitswitch
         else:
@@ -138,20 +150,75 @@ def transform_ovfcheck(self):
             if exit.exitcase is Exception:
                 bl = exit.target
                 while len(bl.exits) == 2:
-                    if bl.operations[0].args[-1] == covfExc:
+                    lastoparg = bl.operations[0].args[-1]
+                    del bl.operations[:]
+                    bl.exitswitch = None
+                    if lastoparg == covfExc:
                         exit.exitcase = OverflowError
-                        exit.target = bl.exits[1].target
-                        assert len(exit.target.inputargs) == 1
-                        del exit.args[1:] # space only
+                        bl.exits = [bl.exits[1]]
+                        bl.exits[0].exitcase = None
                         break
                     else:
+                        bl.exits = [bl.exits[0]]
                         bl = bl.exits[0].target
         block.exits = []
         block.recloseblock(*exits)
         # finally, mangle the operation name
-        apps = [op_appendices[exit.exitcase] for exit in block.exits[1:]]
-        apps.sort()
-        op.opname = '_'.join([op.opname]+apps)
+        #apps = [op_appendices[exit.exitcase] for exit in block.exits[1:]]
+        #apps.sort()
+        #if apps.count("ovf") == 2: apps.remove("ovf") # XXX HACK
+        op.opname += '_ovf' # .join([op.opname]+apps)
+
+def xxx_transform_ovfcheck(self):
+    """removes ovfcheck and ovfcheck_lshift calls"""
+    from pypy.tool.rarithmetic import ovfcheck, ovfcheck_lshift
+    covf       = Constant(ovfcheck)
+    covflshift = Constant(ovfcheck_lshift)
+    covf_tests = covf, covflshift
+    
+    def get_ovfcheck(bl):
+        ops = bl.operations
+        if ops:
+            op = ops[-1]
+            if (op.opname == "simple_call" and op.args[0] in covf_tests):
+                return op.args[0]
+        return None
+
+    def rename(v):
+        return renaming.get(v, v)
+
+    for block in fully_annotated_blocks(self):
+        renaming = {}
+        func = get_ovfcheck(block)
+        if not func:
+            continue
+        if func == covf:
+            print 30*"*", "ovfcheck"
+            # it is considered a programming error if ovfcheck is
+            # called on an operation that cannot raise.
+            # That means ovfcheck must be the blocks's only operation
+            assert len(block.operations) == 1, """ovfcheck is called on
+an operation that cannot raise an exception"""
+            # we remove the operation and error exits.
+            delop = block.operations.pop()
+            assert len(delop.args) == 2
+            renaming[delop.result] = delop.args[1]
+            exits = []
+            # leave the default exit, only
+            for exit in block.exits[:1]:
+                args = [rename(a) for a in exit.args]
+                exits.append(Link(args, exit.target, exit.exitcase))
+            block.exits = exits
+            block.exitswitch = None
+        else:
+            print 30*"+", "ovfcheck_lshift"
+            # the only thing we have to do here is to replace
+            # the function call by an lshift operator
+            op = block.operations[-1]
+            op.opname = "lshift"
+            op.args = op.args[1:] # drop the function
+
+
 # a(*b)
 # -->
 # c = newtuple(*b)

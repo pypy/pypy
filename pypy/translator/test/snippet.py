@@ -84,6 +84,46 @@ def sieve_of_eratosthenes():
 def simple_func(i=numtype):
     return i + 1
 
+from pypy.tool.rarithmetic import ovfcheck, ovfcheck_lshift
+
+def add_func(i=numtype):
+    try:
+        return ovfcheck(i + 1)
+    except OverflowError:
+        raise
+
+from sys import maxint
+
+def div_func(i=numtype):
+    try:
+        return ovfcheck((-maxint-1) // i)
+    except OverflowError:
+        raise
+    except ZeroDivisionError:
+        raise
+    
+def mod_func(i=numtype):
+    try:
+        return ovfcheck((-maxint-1) % i)
+    except OverflowError:
+        raise
+    except ZeroDivisionError:
+        raise
+
+def rshift_func(i=numtype):
+    try:
+        return (-maxint-1) >> i
+    except ValueError:
+        raise
+
+def lshift_func(i=numtype):
+    try:
+        return ovfcheck_lshift((-maxint-1), i)
+    except OverflowError:
+        raise
+    except ValueError:
+        raise
+
 def while_func(i=numtype):
     total = 0
     while i > 0:

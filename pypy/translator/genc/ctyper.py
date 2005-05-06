@@ -44,32 +44,22 @@ class GenCSpecializer(Specializer):
             ])
         for op in "rshift".split():
             specializationtable.extend([
-                ('%s' % op,             'int_%s' % op) + ii_i,
-                ('inplace_%s' % op,     'int_%s' % op) + ii_i,
-                ('%s_val' % op,         'int_%s_val' % op) + ii_i,
-                ('inplace_%s_val' % op, 'int_%s_val' % op) + ii_i,
+                ('%s' % op,             'int_%s_val' % op) + ii_i,
+                ('inplace_%s' % op,     'int_%s_val' % op) + ii_i,
             ])
         for op in "lshift".split():
             specializationtable.extend([
-                ('%s' % op,                 'int_%s' % op) + ii_i,
-                ('inplace_%s' % op,         'int_%s' % op) + ii_i,
-                ('%s_ovf' % op,             'int_%s_ovf' % op) + ii_i,
-                ('inplace_%s_ovf' % op,     'int_%s_ovf' % op) + ii_i,
-                ('%s_val' % op,             'int_%s_val' % op) + ii_i,
-                ('inplace_%s_val' % op,     'int_%s_val' % op) + ii_i,
-                ('%s_ovf_val' % op,         'int_%s_ovf_val' % op) + ii_i,
-                ('inplace_%s_ovf_val' % op, 'int_%s_ovf_val' % op) + ii_i,
+                ('%s' % op,             'int_%s_val' % op) + ii_i,
+                ('inplace_%s' % op,     'int_%s_val' % op) + ii_i,
+                ('%s_ovf' % op,         'int_%s_ovf_val' % op) + ii_i,
+                ('inplace_%s_ovf' % op, 'int_%s_ovf_val' % op) + ii_i,
             ])
         for op in "floordiv mod".split():
             specializationtable.extend([
-                ('%s' % op,                 'int_%s' % op) + ii_i,
-                ('inplace_%s' % op,         'int_%s' % op) + ii_i,
-                ('%s_ovf' % op,             'int_%s_ovf' % op) + ii_i,
-                ('inplace_%s_ovf' % op,     'int_%s_ovf' % op) + ii_i,
-                ('%s_zer' % op,             'int_%s_zer' % op) + ii_i,
-                ('inplace_%s_zer' % op,     'int_%s_zer' % op) + ii_i,
-                ('%s_ovf_zer' % op,         'int_%s_ovf_zer' % op) + ii_i,
-                ('inplace_%s_ovf_zer' % op, 'int_%s_ovf_zer' % op) + ii_i,
+                ('%s' % op,             'int_%s_zer' % op) + ii_i,
+                ('inplace_%s' % op,     'int_%s_zer' % op) + ii_i,
+                ('%s_ovf' % op,         'int_%s_ovf_zer' % op) + ii_i,
+                ('inplace_%s_ovf' % op, 'int_%s_ovf_zer' % op) + ii_i,
             ])
 
         # initialization
