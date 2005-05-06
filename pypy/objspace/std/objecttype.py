@@ -31,7 +31,7 @@ def descr__new__(space, w_type, __args__):
                                  space.wrap("default __new__ takes "
                                             "no parameters"))
     w_obj = space.allocate_instance(W_ObjectObject, w_type)
-    w_obj.__init__(space)
+    W_ObjectObject.__init__(w_obj, space)
     return w_obj
 
 def descr__hash__(space, w_obj):

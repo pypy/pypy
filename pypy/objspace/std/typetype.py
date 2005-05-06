@@ -41,7 +41,8 @@ def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
         key = space.str_w(w_key)
         dict_w[key] = space.getitem(w_dict, w_key)
     w_type = space.allocate_instance(W_TypeObject, w_typetype)
-    w_type.__init__(space, name, bases_w or [space.w_object], dict_w)
+    W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
+                          dict_w)
     return w_type
 
 def _precheck_for_new(space, w_type):

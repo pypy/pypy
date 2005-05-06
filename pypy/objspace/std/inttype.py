@@ -72,7 +72,7 @@ def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
         return w_longval
     else:
         w_obj = space.allocate_instance(W_IntObject, w_inttype)
-        w_obj.__init__(space, value)
+        W_IntObject.__init__(w_obj, space, value)
         return w_obj
 
 # ____________________________________________________________

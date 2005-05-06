@@ -181,10 +181,10 @@ class Method(Wrappable):
         self.w_class = w_class         # possibly space.w_None
         
     def descr_method__new__(space, w_subtype, w_function, w_instance, w_class=None):
-        method = space.allocate_instance(Method, w_subtype)
         if space.is_w( w_instance, space.w_None ):
             w_instance = None
-        method.__init__(space, w_function, w_instance, w_class)
+        method = space.allocate_instance(Method, w_subtype)
+        Method.__init__(method, space, w_function, w_instance, w_class)
         return space.wrap(method)
 
     def __repr__(self):
@@ -285,7 +285,7 @@ class BuiltinFunction(Function):
             raise OperationError(space.w_TypeError,
                                  space.wrap("expected a function object"))
         bltin = space.allocate_instance(BuiltinFunction, w_subtype)
-        bltin.__init__(func)
+        BuiltinFunction.__init__(bltin, func)
         return space.wrap(bltin)
 
     def descr_function_repr(self):

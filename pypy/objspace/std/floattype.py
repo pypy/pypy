@@ -16,7 +16,7 @@ def descr__new__(space, w_floattype, w_value=0.0):
                           # whatever x.__float__() returned
         value = space.float_w(w_obj)
     w_obj = space.allocate_instance(W_FloatObject, w_floattype)
-    w_obj.__init__(space, value)
+    W_FloatObject.__init__(w_obj, space, value)
     return w_obj
 
 # ____________________________________________________________

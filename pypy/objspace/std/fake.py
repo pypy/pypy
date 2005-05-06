@@ -86,7 +86,7 @@ def really_build_fake_type(cpy_type):
             wrap_exception(space)
             raise
         w_obj = space.allocate_instance(W_Fake, w_type)
-        w_obj.__init__(space, r)
+        W_Fake.__init__(w_obj, space, r)
         return w_obj
 
     kw['__new__'] = gateway.interp2app(fake__new__,

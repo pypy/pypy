@@ -239,7 +239,7 @@ class PyCode(eval.Code):
                           lnotab, w_freevars=NoneNotWrapped,
                           w_cellvars=NoneNotWrapped):
         code = space.allocate_instance(PyCode, w_subtype)
-        code.__init__(space)
+        PyCode.__init__(code, space)
         code.co_argcount   = argcount 
         code.co_nlocals    = nlocals 
         code.co_stacksize  = stacksize 

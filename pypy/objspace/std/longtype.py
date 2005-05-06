@@ -58,7 +58,7 @@ def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
                                  space.wrap(e.msg))
 
     w_obj = space.allocate_instance(W_LongObject, w_longtype)
-    w_obj.__init__(space, w_value.digits, w_value.sign)
+    W_LongObject.__init__(w_obj, space, w_value.digits, w_value.sign)
     return w_obj
 
 # ____________________________________________________________
