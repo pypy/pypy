@@ -152,6 +152,9 @@ class AppTestStringObject:
         assert "bro!wn fox".title() == "Bro!Wn Fox"
 
     def test_istitle(self):
+        assert "".istitle() == False
+        assert "!".istitle() == False
+        assert "!!".istitle() == False
         assert "brown fox".istitle() == False
         assert "!brown fox".istitle() == False
         assert "bROWN fOX".istitle() == False

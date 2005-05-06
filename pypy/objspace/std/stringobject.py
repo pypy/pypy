@@ -131,18 +131,29 @@ at least one cased character in S, False otherwise."""
     return space.newbool(cased)
 
 def str_istitle__String(space, w_self):
+    """Return True if S is a titlecased string and there is at least one
+character in S, i.e. uppercase characters may only follow uncased
+characters and lowercase characters only cased ones. Return False
+otherwise."""
     input = w_self._value
-    prev_letter='!'
+    cased = False
+    previous_is_cased = False
 
     for pos in range(0, len(input)):
         ch = input[pos]
-        if _isalpha(ch):
-            if (_isalpha(prev_letter) and _isupper(ch)) or \
-               (not _isalpha(prev_letter) and  _islower(ch)):
-                    return space.w_False
-        prev_letter = ch
+        if _isupper(ch):
+            if previous_is_cased:
+                return space.w_False
+            previous_is_cased = True
+            cased = True
+        elif _islower(ch):
+            if not previous_is_cased:
+                return space.w_False
+            cased = True
+        else:
+            previous_is_cased = False
 
-    return space.w_True
+    return space.newbool(cased)
 
 def str_upper__String(space, w_self):
     self = w_self._value
