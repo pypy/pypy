@@ -67,7 +67,6 @@ def _is_generic(w_self, fun):
         c = v[0]
         return space.newbool(fun(c))
     else:
-        res = 1
         for idx in range(len(v)):
             if not fun(v[idx]):
                 return space.w_False
@@ -100,10 +99,36 @@ def str_isalnum__String(space, w_self):
     return _is_generic(w_self, _isalnum)
 
 def str_isupper__String(space, w_self):
-    return _is_generic(w_self, _isupper)
+    """Return True if all cased characters in S are uppercase and there is
+at least one cased character in S, False otherwise."""
+    space = w_self.space   
+    v = w_self._value
+    if len(v) == 1:
+        c = v[0]
+        return space.newbool(_isupper(c))
+    cased = False
+    for idx in range(len(v)):
+        if _islower(v[idx]):
+            return space.w_False
+        elif not cased and _isupper(v[idx]):
+            cased = True
+    return space.newbool(cased)
 
 def str_islower__String(space, w_self):
-    return _is_generic(w_self, _islower)
+    """Return True if all cased characters in S are lowercase and there is
+at least one cased character in S, False otherwise."""
+    space = w_self.space   
+    v = w_self._value
+    if len(v) == 1:
+        c = v[0]
+        return space.newbool(_islower(c))
+    cased = False
+    for idx in range(len(v)):
+        if _isupper(v[idx]):
+            return space.w_False
+        elif not cased and _islower(v[idx]):
+            cased = True
+    return space.newbool(cased)
 
 def str_istitle__String(space, w_self):
     input = w_self._value

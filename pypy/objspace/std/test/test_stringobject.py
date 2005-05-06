@@ -468,7 +468,7 @@ class AppTestStringObject:
         assert "\t\t\b\b\n".islower() == False
         assert "b".islower() == True
         assert "bbb".islower() == True
-        assert "!bbb".islower() == False
+        assert "!bbb".islower() == True
         assert "BBB".islower() == False
         assert "bbbBBB".islower() == False
 
@@ -478,7 +478,7 @@ class AppTestStringObject:
         assert "\t\t\b\b\n".isupper() == False
         assert "B".isupper() == True
         assert "BBB".isupper() == True
-        assert "!BBB".isupper() == False
+        assert "!BBB".isupper() == True
         assert "bbb".isupper() == False
         assert "BBBbbb".isupper() == False
                           
