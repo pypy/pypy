@@ -3,7 +3,7 @@ Built-in functions.
 """
 
 import types
-import sys, math, os
+import sys, math, os, time
 from pypy.tool.ansi_print import ansi_print
 from pypy.annotation.model import SomeInteger, SomeObject, SomeChar, SomeBool
 from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
@@ -192,6 +192,9 @@ def test(*args):
 def pathpart(*args):
     return SomeString()
 
+def time_func():
+    return SomeFloat()
+
 # collect all functions
 import __builtin__
 BUILTIN_ANALYZERS = {}
@@ -224,3 +227,7 @@ BUILTIN_ANALYZERS[os.path.normpath] = pathpart
 BUILTIN_ANALYZERS[os.path.join] = pathpart
 BUILTIN_ANALYZERS[os.path.exists] = test
 BUILTIN_ANALYZERS[os.path.isdir] = test
+
+# time stuff
+BUILTIN_ANALYZERS[time.time] = time_func
+BUILTIN_ANALYZERS[time.clock] = time_func
