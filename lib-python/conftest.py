@@ -424,9 +424,8 @@ testmap = [
     RegrTest('test_curses.py', enabled=False, dumbtest=1),
     RegrTest('test_datetime.py', enabled=True, core=True),
     RegrTest('test_dbm.py', enabled=False, dumbtest=1),
-    RegrTest('test_descr.py', enabled=False, core=True),
+    RegrTest('test_descr.py', enabled=False, core=True, oldstyle=True),
     RegrTest('test_descrtut.py', enabled=False, core=True, oldstyle=True),
-        #rev 10840: 19 of 96 tests fail
 
     RegrTest('test_difflib.py', enabled=True, dumbtest=1, core=True),
     RegrTest('test_dircache.py', enabled=True, core=True),
