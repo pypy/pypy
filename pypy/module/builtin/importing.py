@@ -33,8 +33,8 @@ def try_import_mod(space, w_modulename, f, w_parent, w_name, pkgdir=None):
                 w_mods = space.sys.get('modules')
                 try:
                     space.delitem(w_mods, w_modulename)
-                except OperationError, e:
-                    if not e.match(space, space.w_KeyError):
+                except OperationError, kerr:
+                    if not kerr.match(space, space.w_KeyError):
                         raise
         w_mod = check_sys_modules(space, w_modulename)
         if w_mod is not None and w_parent is not None:
