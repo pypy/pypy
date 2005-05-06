@@ -351,6 +351,9 @@ class AppTestStringObject:
         s="\none\n\two\nthree\n\n"
         assert s.splitlines() ==['', 'one', '\two', 'three', '']
         assert s.splitlines(1) ==['\n', 'one\n', '\two\n', 'three\n', '\n']
+        # Split on \r and \r\n too
+        assert '12\r34\r\n56'.splitlines() == ['12', '34', '56']
+        assert '12\r34\r\n56'.splitlines(1) == ['12\r', '34\r\n', '56']
     
     def test_find(self):
         assert 'abcdefghiabc'.find('abc') == 0

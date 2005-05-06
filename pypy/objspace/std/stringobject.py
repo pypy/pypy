@@ -679,25 +679,29 @@ def str_expandtabs__String_ANY(space, w_self, w_tabsize):
  
  
 def str_splitlines__String_ANY(space, w_self, w_keepends):
-    u_self = w_self._value
+    data = w_self._value
     u_keepends  = space.int_w(w_keepends)  # truth value, but type checked
-    selflen = len(u_self)
+    selflen = len(data)
     
     L = []
-    pos = 0
-    while 1:
-        oldpos = pos
-        pos = _find(u_self, '\n', pos, selflen, 1) + 1
-        if pos  > oldpos:
-            w_item = space.wrap(u_self[oldpos:pos])
-            if not u_keepends:
-                w_item = _strip(space, w_item, W_StringObject(space,'\n'), left=0, right=1)
-            L.append(w_item)
-        else:
-            if oldpos < selflen:
-                w_item = space.wrap(u_self[oldpos:])
-                L.append(w_item)
-            break
+    i = j = 0
+    while i < selflen:
+        # Find a line and append it
+        while i < selflen and data[i] != '\n' and data[i] != '\r':
+            i += 1
+        # Skip the line break reading CRLF as one line break
+        eol = i
+        i += 1
+        if i < selflen and data[i-1] == '\r' and data[i] == '\n':
+            i += 1
+        if u_keepends:
+            eol = i
+        L.append(W_StringObject(space, data[j:eol]))
+        j = i
+
+    if j < selflen:
+        L.append(W_StringObject(space, data[j:]))
+
     return W_ListObject(space, L)
 
 def str_zfill__String_ANY(space, w_self, w_width):
