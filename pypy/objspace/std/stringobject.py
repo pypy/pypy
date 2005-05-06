@@ -898,7 +898,9 @@ def mul_string_times(space, w_str, w_times):
     input_len = len(input)
     try:
         buffer = [' '] * ovfcheck(mul*input_len)
-    except (MemoryError,OverflowError):
+    except (MemoryError,OverflowError,ValueError):
+        # ugh. ValueError is what you get on 64-bit machines for
+        # integers in range(2**31, 2**63).
         raise OperationError( space.w_OverflowError, space.wrap("repeated string is too long: %d %d" % (input_len,mul) ))
 
     pos = 0
