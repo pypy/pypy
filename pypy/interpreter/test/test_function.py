@@ -1,7 +1,7 @@
 
 import autopath
 import unittest
-from pypy.interpreter.function import Function, Method
+from pypy.interpreter.function import Function, Method, descr_function_get
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.argument import Arguments
 
@@ -202,20 +202,20 @@ class TestMethod:
         
     def test_get(self):
         space = self.space
-        w_meth = self.fn.descr_function_get(space.wrap(5), space.type(space.wrap(5)))
+        w_meth = descr_function_get(space, self.fn, space.wrap(5), space.type(space.wrap(5)))
         meth = space.unwrap(w_meth)
         assert isinstance(meth, Method)
 
     def test_call(self):
         space = self.space
-        w_meth = self.fn.descr_function_get(space.wrap(5), space.type(space.wrap(5)))
+        w_meth = descr_function_get(space, self.fn, space.wrap(5), space.type(space.wrap(5)))
         meth = space.unwrap(w_meth)
         w_result = meth.call_args(Arguments(space, [space.wrap(42)]))
         assert space.unwrap(w_result) == 42
 
     def test_fail_call(self):
         space = self.space
-        w_meth = self.fn.descr_function_get(space.wrap(5), space.type(space.wrap(5)))
+        w_meth = descr_function_get(space, self.fn, space.wrap(5), space.type(space.wrap(5)))
         meth = space.unwrap(w_meth)
         args = Arguments(space, [space.wrap("spam"), space.wrap("egg")])
         self.space.raises_w(self.space.w_TypeError, meth.call_args, args)
@@ -231,7 +231,7 @@ class TestMethod:
         obj2 = space.wrap(42)
         args = Arguments(space, [])
         # Check method returned from func.__get__()
-        w_meth1 = func.descr_function_get(obj1, space.type(obj1))
+        w_meth1 = descr_function_get(space, func, obj1, space.type(obj1))
         meth1 = space.unwrap(w_meth1)
         assert isinstance(meth1, Method)
         assert meth1.call_args(args) == obj1
@@ -242,7 +242,7 @@ class TestMethod:
         assert isinstance(meth2, Method)
         assert meth2.call_args(args) == obj1
         # Check method returned from unbound_method.__get__()
-        w_meth3 = func.descr_function_get(None, space.type(obj2))
+        w_meth3 = descr_function_get(space, func, None, space.type(obj2))
         meth3 = space.unwrap(w_meth3)
         w_meth4 = meth3.descr_method_get(obj2, space.w_None)
         meth4 = space.unwrap(w_meth4)
