@@ -7,6 +7,11 @@ from types import FunctionType, CodeType, InstanceType, ClassType
 
 from pypy.tool.rarithmetic import r_int, r_uint
 
+# XXX maybe this can be done more elegantly:
+# needed to convince should_translate_attr
+# to fill the space instance.
+# Should this be registered with the annotator?
+from pypy.interpreter.baseobjspace import ObjSpace
 
 class CPyObjectType(CType):
     """The PyObject* C type.
@@ -19,7 +24,7 @@ class CPyObjectType(CType):
 
     def __init__(self, translator):
         super(CPyObjectType, self).__init__(translator)
-        self.namespace= NameManager()
+        self.namespace = NameManager()
         # keywords cannot be reused.  This is the C99 draft's list.
         self.namespace.make_reserved_names('''
            auto      enum      restrict  unsigned
@@ -199,7 +204,7 @@ class CPyObjectType(CType):
 
     def should_translate_attr(self, pbc, attr):
         ann = self.translator.annotator
-        if ann is None:
+        if ann is None or isinstance(pbc, ObjSpace):
             ignore = getattr(pbc.__class__, 'NOT_RPYTHON_ATTRIBUTES', [])
             if attr in ignore:
                 return False
