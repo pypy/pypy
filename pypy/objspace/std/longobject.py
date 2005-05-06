@@ -103,10 +103,7 @@ def delegate_Long2Float(w_longobj): #YYYYYY
 # a derived long object, where it should return
 # an exact one.
 def long__Long(space, w_long1):
-    # don't trigger a descr operation.
-    # XXX let's consider to change space.is_ to plain bool
-    #if space.is_true(space.is_(space.type(w_long1), space.w_long)):
-    if space.w_True is space.is_(space.type(w_long1), space.w_long):
+    if space.is_w(space.type(w_long1), space.w_long):
         return w_long1
     digits = w_long1.digits
     sign = w_long1.sign

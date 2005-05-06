@@ -309,6 +309,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.w_True
         return self.w_False
 
+    # short-cut
+    def is_w(self, w_one, w_two):
+        return w_one is w_two
+
     def is_true(self, w_obj):
         # XXX don't look!
         if isinstance(w_obj, W_DictObject):

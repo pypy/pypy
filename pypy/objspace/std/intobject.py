@@ -390,10 +390,7 @@ def or__Int_Int(space, w_int1, w_int2):
 # a derived integer object, where it should return
 # an exact one.
 def int__Int(space, w_int1):
-    # don't trigger a descr operation.
-    # XXX let's consider to change space.is_ to plain bool
-    #if space.is_true(space.is_(space.type(w_int1), space.w_int)):
-    if space.w_True is space.is_(space.type(w_int1), space.w_int):
+    if space.is_w(space.type(w_int1), space.w_int):
         return w_int1
     a = w_int1.intval
     return W_IntObject(space, a)

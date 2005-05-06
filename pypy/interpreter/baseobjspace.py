@@ -526,6 +526,7 @@ ObjSpace.IrregularOpTable = [
     'interpclass_w',
     'unwrap',
     'is_true',
+    'is_w',
     'newtuple',
     'newlist',
     'newstring',

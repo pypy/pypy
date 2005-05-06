@@ -42,10 +42,7 @@ def delegate_Int2Float(w_intobj):
 # a derived float object, where it should return
 # an exact one.
 def float__Float(space, w_float1):
-    # don't trigger a descr operation.
-    # XXX let's consider to change space.is_ to plain bool
-    #if space.is_true(space.is_(space.type(w_float1), space.w_float)):
-    if space.w_True is space.is_(space.type(w_float1), space.w_float):
+    if space.is_w(space.type(w_float1), space.w_float):
         return w_float1
     a = w_float1.floatval
     return W_FloatObject(space, a)
