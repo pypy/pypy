@@ -34,7 +34,7 @@ Written by Marc-Andre Lemburg (mal@lemburg.com).
 Copyright (c) Corporation for National Research Initiatives.
 
 """
-from pypy.lib.unicodecodec import *
+from unicodecodec import *
 
 #/* --- Registry ----------------------------------------------------------- */
 codec_search_path = []
@@ -107,7 +107,6 @@ def latin_1_encode( obj,errors='strict'):
     """None
     """
     res = PyUnicode_EncodeLatin1(obj,len(obj),errors)
-    #print res
     return res, len(res)
 # XXX MBCS codec might involve ctypes ?
 def mbcs_decode():
@@ -131,30 +130,31 @@ def escape_encode( obj,errors='strict'):
 def utf_8_decode( data,errors='strict',final=None):
     """None
     """
-    res = PyUnicode_DecodeUTF8Stateful(data, size, errors, final)
+    res = PyUnicode_DecodeUTF8Stateful(data, len(data), errors, final)
     return res,len(res)
-# XXX
+
 def raw_unicode_escape_decode( data,errors='strict'):
     """None
     """
-    pass
+    res = PyUnicode_DecodeRawUnicodeEscape(data, len(data), errors)
+    return res,len(res)
 
 def utf_7_decode( data,errors='strict'):
     """None
     """
     unistr = PyUnicode_DecodeUTF7(data,errors='strict')
     return unistr,len(unistr)
-# XXX
+# XXX unicode_escape_encode
 def unicode_escape_encode( obj,errors='strict'):
     """None
     """
     pass
-# XXX
+# XXX latin_1_decode
 def latin_1_decode( data,errors='strict'):
     """None
     """
     pass
-# XXX
+# XXX utf_16_decode
 def utf_16_decode( data,errors='strict'):
     """None
     """
@@ -186,12 +186,12 @@ def unicode_internal_encode( obj,errors='strict'):
         return obj, len(obj)
     else:
         return PyUnicode_FromUnicode(obj,size),size
-# XXX
+# XXX utf_16_ex_decode
 def utf_16_ex_decode( data,errors='strict'):
     """None
     """
     pass
-# XXX Check if this is right
+# XXX escape_decode Check if this is right
 def escape_decode(data,errors='strict'):
     """None
     """
@@ -254,12 +254,12 @@ def utf_8_encode( obj,errors='strict'):
     """
     res = PyUnicode_EncodeUTF8(obj,len(obj),errors)
     return res,len(res)
-# XXX
+# XXX utf_16_le_encode
 def utf_16_le_encode( obj,errors='strict'):
     """None
     """
     pass
-# XXX
+# XXX utf_16_be_encode
 def utf_16_be_encode( obj,errors='strict'):
     """None
     """
@@ -272,12 +272,12 @@ def unicode_internal_decode( unistr,errors='strict'):
         return unistr,len(unistr)
     else:
         return unicode(unistr),len(unistr)
-# XXX
+# XXX utf_16_le_decode
 def utf_16_le_decode( data,errors='strict'):
     """None
     """
     pass
-# XXX
+# XXX utf_16_be_decode
 def utf_16_be_decode( data,errors='strict'):
     """None
     """
@@ -295,18 +295,23 @@ def ignore_errors(exc):
     else:
         raise TypeError("don't know how to handle %.400s in error callback"%exc)
 
+Py_UNICODE_REPLACEMENT_CHARACTER = u"\ufffd"
+
 def replace_errors(exc):
-    if isinstance(exc,(UnicodeDecodeError,UnicodeEncodeError)):
+    if isinstance(exc,UnicodeEncodeError):
         return u'?'*(exc.end-exc.start),exc.end
+    elif isinstance(exc,(UnicodeTranslateError,UnicodeDecodeError)):
+        return Py_UNICODE_REPLACEMENT_CHARACTER*(exc.end-exc.start),exc.end
     else:
         raise TypeError("don't know how to handle %.400s in error callback"%exc)
 
 def xmlcharrefreplace_errors(exc):
     if isinstance(exc,UnicodeEncodeError):
-        res = ['&#']
+        res = []
         for ch in exc.object[exc.start:exc.end]:
-            res.append(str(ord(ch)))
-        res.append(';')
+            res += '&#'
+            res += str(ord(ch))
+            res += ';'
         return ''.join(res),exc.end
     else:
         raise TypeError("don't know how to handle %.400s in error callback"%type(exc))
@@ -314,7 +319,6 @@ def xmlcharrefreplace_errors(exc):
 def backslashreplace_errors(exc):
     if isinstance(exc,UnicodeEncodeError):
         p=[]
-        #print exc.start,exc.end
         for c in exc.object[exc.start:exc.end]:
             p.append('\\')
             oc = ord(c)
