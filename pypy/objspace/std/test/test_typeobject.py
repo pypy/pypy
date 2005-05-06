@@ -288,3 +288,29 @@ class AppTestTypeObject:
         class C(A):
             pass
         raises(TypeError, "class D(A, C): pass")
+
+    def test_user_defined_mro_cls_access(self):
+        d = []
+        class T(type):
+            def mro(cls):
+                d.append(cls.__dict__)
+                return type.mro(cls)
+        class C:
+            __metaclass__ = T
+        assert d
+        assert sorted(d[0].keys()) == ['__dict__','__metaclass__','__module__']
+        d = []
+        class T(type):
+            def mro(cls):
+                try:
+                    cls.x()
+                except AttributeError:
+                    d.append('miss')
+                return type.mro(cls)
+        class C:
+            def x(cls):
+                return 1
+            x = classmethod(x)
+            __metaclass__ = T
+        assert d == ['miss']
+        assert C.x() == 1

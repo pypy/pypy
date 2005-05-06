@@ -122,6 +122,7 @@ class W_TypeObject(W_Object):
                
             w_type = space.type(w_self)
             if not space.is_true(space.is_(w_type, space.w_type)):
+                w_self.mro_w = []
                 mro_func = w_type.lookup('mro')
                 mro_func_args = Arguments(space, [w_self])
                 w_mro = space.call_args(mro_func, mro_func_args)
