@@ -39,5 +39,7 @@ class CFuncPtrType(CType):
     def spec_simple_call(self, typer, op):
         argtypes = [self]
         argtypes += self.argtypes
+        if len(argtypes) != len(op.args):
+            raise NotImplementedError   # XXX default arguments, probably
         yield typer.typed_op(op, argtypes, self.returntype,
                              newopname='direct_call')
