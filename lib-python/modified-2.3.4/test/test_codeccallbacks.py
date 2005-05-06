@@ -1,5 +1,19 @@
+
 import test.test_support, unittest
-import sys, codecs, htmlentitydefs, unicodedata
+import sys,  htmlentitydefs, unicodedata
+sys.path.insert(0,r'd:\projects\pypy_co')
+sys.path.insert(0,r'd:\projects\pypy_co\pypy\lib')
+sys.path.insert(0,r'd:\projects\pypy_co\lib-python\modified-2.3.4')
+sys.path.insert(0,r'd:\projects\pypy_co\lib-python\2.3.4')
+from pypy.lib import _codecs
+sys.modules['_codecs'] = _codecs
+from pypy.lib import encodings
+sys.modules['encodings'] = encodings
+from pypy.lib import codecs
+sys.modules['codecs'] = codecs
+reload(encodings)
+reload(codecs)
+assert codecs == encodings.codecs
 
 class PosReturn:
     # this can be used for configurable callbacks
@@ -26,11 +40,11 @@ class CodecCallbackTest(unittest.TestCase):
         # in C and should be reasonably fast.
         s = u"\u30b9\u30d1\u30e2 \xe4nd eggs"
         self.assertEqual(
-            s.encode("ascii", "xmlcharrefreplace"),
+            codecs.encode(s,"ascii", "xmlcharrefreplace"),
             "&#12473;&#12497;&#12514; &#228;nd eggs"
         )
         self.assertEqual(
-            s.encode("latin-1", "xmlcharrefreplace"),
+            codecs.encode(s,"latin-1", "xmlcharrefreplace"),
             "&#12473;&#12497;&#12514; \xe4nd eggs"
         )
 
@@ -79,14 +93,14 @@ class CodecCallbackTest(unittest.TestCase):
 
         codecs.register_error(
             "test.uninamereplace", uninamereplace)
-
+            
         sin = u"\xac\u1234\u20ac\u8000"
         sout = "\033[1mNOT SIGN, ETHIOPIC SYLLABLE SEE, EURO SIGN, CJK UNIFIED IDEOGRAPH-8000\033[0m"
         self.assertEqual(codecs.encode(sin,"ascii", "test.uninamereplace"), sout)
 
         sout = "\xac\033[1mETHIOPIC SYLLABLE SEE, EURO SIGN, CJK UNIFIED IDEOGRAPH-8000\033[0m"
-        self.assertEqual(codecs.encode(sin,"latin-1", "test.uninamereplace"), sout)
-
+        tout = codecs.encode(sin,"latin-1", "test.uninamereplace")
+        self.assertEqual(tout, sout)
         sout = "\xac\033[1mETHIOPIC SYLLABLE SEE\033[0m\xa4\033[1mCJK UNIFIED IDEOGRAPH-8000\033[0m"
         self.assertEqual(codecs.encode(sin,"iso-8859-15", "test.uninamereplace"), sout)
 
@@ -163,6 +177,7 @@ class CodecCallbackTest(unittest.TestCase):
             if not isinstance(exc, UnicodeEncodeError) \
                and not isinstance(exc, UnicodeDecodeError):
                 raise TypeError("don't know how to handle %r" % exc)
+            
             l = [u"<%d>" % ord(exc.object[pos]) for pos in xrange(exc.start, exc.end)]
             return (u"[%s]" % u"".join(l), exc.end)
 
@@ -631,6 +646,7 @@ class CodecCallbackTest(unittest.TestCase):
         # enhance coverage of:
         # Objects/unicodeobject.c::unicode_encode_call_errorhandler()
         # and callers
+        
         self.assertRaises(LookupError, codecs.decode,u"\xff", "ascii", "test.unknown")
 
         def badencodereturn1(exc):
@@ -648,27 +664,27 @@ class CodecCallbackTest(unittest.TestCase):
 
         # Valid negative position
         handler.pos = -1
-        self.assertEquals(u"\xff0".encode("ascii", "test.posreturn"), "<?>0")
+        self.assertEquals(codecs.encode(u"\xff0","ascii", "test.posreturn"), "<?>0")
 
         # Valid negative position
         handler.pos = -2
-        self.assertEquals(u"\xff0".encode("ascii", "test.posreturn"), "<?><?>")
+        self.assertEquals(codecs.encode(u"\xff0","ascii", "test.posreturn"), "<?><?>")
 
         # Negative position out of bounds
         handler.pos = -3
-        self.assertRaises(IndexError, u"\xff0".encode, "ascii", "test.posreturn")
+        self.assertRaises(IndexError, codecs.encode,u"\xff0", "ascii", "test.posreturn")
 
         # Valid positive position
         handler.pos = 1
-        self.assertEquals(u"\xff0".encode("ascii", "test.posreturn"), "<?>0")
+        self.assertEquals(codecs.encode(u"\xff0","ascii", "test.posreturn"), "<?>0")
 
         # Largest valid positive position (one beyond end of input
         handler.pos = 2
-        self.assertEquals(u"\xff0".encode("ascii", "test.posreturn"), "<?>")
+        self.assertEquals(codecs.encode(u"\xff0","ascii", "test.posreturn"), "<?>")
 
         # Invalid positive position
         handler.pos = 3
-        self.assertRaises(IndexError, u"\xff0".encode, "ascii", "test.posreturn")
+        self.assertRaises(IndexError, codecs.encode,u"\xff0", "ascii", "test.posreturn")
 
         handler.pos = 0
 
