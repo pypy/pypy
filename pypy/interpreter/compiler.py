@@ -100,7 +100,12 @@ class CPythonCompiler(Compiler):
         # but here we only propagate the 'usual' ones, until we figure
         # out how to do it generically.
         except SyntaxError,e:
-            raise OperationError(space.w_SyntaxError,space.wrap(e.args))
+            w_synerr = space.newtuple([space.wrap(e.msg),
+                                       space.newtuple([space.wrap(e.filename),
+                                                       space.wrap(e.lineno),
+                                                       space.wrap(e.offset),
+                                                       space.wrap(e.text)])])
+            raise OperationError(space.w_SyntaxError, w_synerr)
         except ValueError,e:
             raise OperationError(space.w_ValueError,space.wrap(str(e)))
         except TypeError,e:

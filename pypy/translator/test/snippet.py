@@ -172,6 +172,7 @@ def greet(target=str):
 def choose_last():
     """For loop test"""
     set = ["foo", "bar", "spam", "egg", "python"]
+    choice = ""
     for choice in set:
         pass
     return choice
