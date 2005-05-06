@@ -88,7 +88,7 @@ class Translator:
             if self.simplifying:
                 simplify_graph(graph)
             if self.verbose:
-                print 'done'
+                print
             self.flowgraphs[func] = graph
             self.functions.append(func)
             try:
