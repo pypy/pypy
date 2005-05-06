@@ -181,6 +181,8 @@ class AppTestStringObject:
         assert 'abc'.rjust(6) == '   abc'
         assert 'abc'.rjust(3) == 'abc'
         assert 'abc'.rjust(2) == 'abc'
+        assert 'abc'.rjust(5, '*') == '**abc'     # Python 2.4
+        raises(TypeError, 'abc'.rjust, 5, 'xx')
 
     def test_ljust(self):
         s = "abc"
@@ -192,6 +194,8 @@ class AppTestStringObject:
         assert 'abc'.ljust(6) == 'abc   '
         assert 'abc'.ljust(3) == 'abc'
         assert 'abc'.ljust(2) == 'abc'
+        assert 'abc'.ljust(5, '*') == 'abc**'     # Python 2.4
+        raises(TypeError, 'abc'.ljust, 6, '')
 
     def test_replace(self):
         assert 'one!two!three!'.replace('!', '@', 1) == 'one@two!three!'
@@ -253,6 +257,8 @@ class AppTestStringObject:
         assert 'abc'.center(6) == ' abc  '
         assert 'abc'.center(3) == 'abc'
         assert 'abc'.center(2) == 'abc'
+        assert 'abc'.center(5, '*') == '*abc*'     # Python 2.4
+        raises(TypeError, 'abc'.center, 4, 'cba')
 
         
     def test_count(self):
@@ -282,6 +288,8 @@ class AppTestStringObject:
         assert 'ab'.startswith('a', 0) is True
         assert 'ab'.startswith('a', 1) is False
         assert 'ab'.startswith('b', 1) is True
+        assert 'abc'.startswith('bc', 1, 2) is False
+        assert 'abc'.startswith('c', -1, 4) is True
 
     def test_endswith(self):
         assert 'ab'.endswith('ab') is True
@@ -293,6 +301,12 @@ class AppTestStringObject:
         assert ''.endswith('a') is False
         assert 'x'.endswith('xx') is False
         assert 'y'.endswith('xx') is False
+
+    def test_endswith_more(self):
+        assert 'abc'.endswith('ab', 0, 2) is True
+        assert 'abc'.endswith('bc', 1) is True
+        assert 'abc'.endswith('bc', 2) is False
+        assert 'abc'.endswith('b', -3, -1) is True
       
     def test_expandtabs(self):
         assert 'abc\rab\tdef\ng\thi'.expandtabs() ==    'abc\rab      def\ng       hi'

@@ -1,78 +1,4 @@
 # -*- Coding: Latin-1 -*-
-"""
-stringobject.py
-
-this is here:
-    to not confuse python-mode
-
-Synopsis of implemented methods (* marks work in progress)
-
-Py                PyPy
-
-                  def _is_generic(w_self, fun):
-                  def mod__String_ANY(space, w_str, w_item):def mod__String_Tuple(space, w_str, w_tuple):def mod_str_tuple(space, w_format, w_args):
-                  def ord__String(space, w_str):
-                  def string_richcompare(space, w_str1, w_str2, op):
-                  def str_w__String(space, w_str):
-__add__           def add__String_String(space, w_left, w_right):
-__class__
-__contains__
-__delattr__
-__doc__
-__eq__            def eq__String_String(space, w_str1, w_str2):
-__ge__            def ge__String_String(space, w_str1, w_str2):
-__getattribute__
-__getitem__       def getitem__String_ANY(space, w_str, w_int): def getitem__String_Slice(space, w_str, w_slice):
-__getslice__
-__gt__            def gt__String_String(space, w_str1, w_str2):
-__hash__          def hash__String(space, w_str):
-__init__
-__le__            def le__String_String(space, w_str1, w_str2):
-__len__           def len__String(space, w_str):
-__lt__            def lt__String_String(space, w_str1, w_str2):
-__mul__
-__ne__            def ne__String_String(space, w_str1, w_str2):
-__new__
-__reduce__
-__repr__          def repr__String(space, w_str):
-__rmul__
-__setattr__
-__str__           def str__String(space, w_str):
-capitalize        def str_capitalize__String(space, w_self):
-center            def str_center__String_ANY(space, w_self):
-count             def str_count__String_String_ANY_ANY(space, w_self): [optional arguments not supported now]
-decode            !Unicode not supported now
-encode            !Unicode not supported now
-endswith          str_endswith__String_String    [optional arguments not supported now]
-expandtabs        str_expandtabs__String_ANY
-find              OK
-index             OK
-isalnum           def str_isalnum__String(space, w_self): def _isalnum(ch):
-isalpha           def str_isalpha__String(space, w_self): def _isalpha(ch):
-isdigit           def str_isdigit__String(space, w_self): def _isdigit(ch):
-islower           def str_islower__String(space, w_self): def _islower(ch):
-isspace           def str_isspace__String(space, w_self): def _isspace(ch):
-istitle           def str_istitle(space, w_self):
-isupper           def str_isupper__String(space, w_self): def _isupper(ch):
-join              def str_join__String_ANY(space, w_self, w_list):
-ljust             def str_ljust__String_ANY(space, w_self, w_arg):
-lower             OK
-lstrip            def str_lstrip__String_String(space, w_self, w_chars):
-replace           OK
-rfind             OK
-rindex            OK
-rjust             def str_rjust__String_ANY(space, w_self, w_arg):
-rstrip            def str_rstrip__String_String(space, w_self, w_chars):
-split             def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
-splitlines        def str_splitlines__String_String(space, w_self, w_keepends):
-startswith        str_startswith__String_String    [optional arguments not supported now]
-strip             def str_strip__String_String(space, w_self, w_chars):
-swapcase          OK
-title             def str_title__String(space, w_self):
-translate         OK
-upper             def str_upper__String(space, w_self):
-zfill             OK
-"""
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
@@ -376,26 +302,35 @@ def str_join__String_ANY(space, w_self, w_list):
         return space.wrap("")
 
 
-def str_rjust__String_ANY(space, w_self, w_arg):
+def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
     u_arg = space.int_w(w_arg)
     u_self = w_self._value
+    fillchar = space.str_w(w_fillchar)
+    if len(fillchar) != 1:
+        raise OperationError(space.w_TypeError,
+            space.wrap("rjust() argument 2 must be a single character"))
+
     
     d = u_arg - len(u_self)
     if d>0:
-        u_self = d * ' ' + u_self
+        u_self = d * fillchar + u_self
         
     return space.wrap(u_self)
 
 
-def str_ljust__String_ANY(space, w_self, w_arg):
+def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
     u_self = w_self._value
     u_arg = space.int_w(w_arg)
+    fillchar = space.str_w(w_fillchar)
+    if len(fillchar) != 1:
+        raise OperationError(space.w_TypeError,
+            space.wrap("ljust() argument 2 must be a single character"))
 
     d = u_arg - len(u_self)
     if d>0:
-        u_self += d * ' '
+        u_self += d * fillchar
         
     return space.wrap(u_self)
 
@@ -601,14 +536,18 @@ def str_lstrip__String_None(space, w_self, w_chars):
     return _strip_none(space, w_self, left=1, right=0)
 
 
-def str_center__String_ANY(space, w_self, w_arg):
+def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     u_self = w_self._value
     u_arg  = space.int_w(w_arg)
+    fillchar = space.str_w(w_fillchar)
+    if len(fillchar) != 1:
+        raise OperationError(space.w_TypeError,
+            space.wrap("center() argument 2 must be a single character"))
 
     d = u_arg - len(u_self) 
     if d>0:
         offset = d//2
-        u_centered = offset * ' ' + u_self + (d - offset) * ' ' 
+        u_centered = offset * fillchar + u_self + (d - offset) * fillchar
     else:
         u_centered = u_self
 
@@ -636,36 +575,28 @@ def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
     return W_IntObject(space, count)
 
 
-#[optional arguments not supported now]    
-def str_endswith__String_String(space, w_self, w_end): 
-    u_self = w_self._value
-    u_end  = w_end._value
-    
-    found = 0
-    if u_end:
-        endlen = len(u_end)
-        if endlen <= len(u_self):
-           found = (u_end == u_self[-endlen:]) 
-    else:
-        found = 1
-        
-    return space.newbool(found)
+def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
+    (u_self, suffix, start, end) = _convert_idx_params(space, w_self,
+                                                       w_suffix, w_start, w_end)
+    begin = end - len(suffix)
+    if begin < start:
+        return space.w_False
+    for i in range(len(suffix)):
+        if u_self[begin+i] != suffix[i]:
+            return space.w_False
+    return space.w_True
     
     
-def str_startswith__String_String_ANY(space, w_self, w_prefix, w_start):
-    u_self = w_self._value
-    u_prefix  = w_prefix._value
-    u_start = space.int_w(w_start)
-    
-    found = 0
-    if u_prefix:
-        plen = len(u_prefix)
-        if u_start + plen <= len(u_self):
-           found = (u_prefix == u_self[u_start:u_start+plen])
-    else:
-        found = 1
-        
-    return space.newbool(found)    
+def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
+    (u_self, prefix, start, end) = _convert_idx_params(space, w_self,
+                                                       w_prefix, w_start, w_end)
+    stop = start + len(prefix)
+    if stop > end:
+        return space.w_False
+    for i in range(len(prefix)):
+        if u_self[start+i] != prefix[i]:
+            return space.w_False
+    return space.w_True
     
     
 def _tabindent(u_token, u_tabsize):
@@ -739,8 +670,6 @@ def str_zfill__String_ANY(space, w_self, w_width):
 
     if len(input) >= width:
         return w_self
-
-    b = width - len(input)
 
     buf = [' '] * width
     if len(input) > 0 and (input[0] == '+' or input[0] == '-'):
@@ -981,8 +910,6 @@ def getnewargs__String(space, w_str):
 
    
 app = gateway.applevel(r'''
-    import codecs
-    
     def str_translate__String_ANY_ANY(s, table, deletechars=''):
         """charfilter - unicode handling is not implemented
         
@@ -1017,6 +944,7 @@ app = gateway.applevel(r'''
         return repr
 
     def str_decode__String_ANY_ANY(str, encoding=None, errors=None):
+        import codecs
         if encoding is None and errors is None:
             return unicode(str)
         elif errors is None:
