@@ -560,3 +560,26 @@ class AppTestStringObject:
 
     def test_getnewargs(self):
         assert  "foo".__getnewargs__() == ("foo",)
+
+    def test_subclass(self):
+        class S(str):
+            pass
+        s = S('abc')
+        assert type(''.join([s])) is str
+        assert type(s.join([])) is str
+        assert type(s.split('x')[0]) is str
+        assert type(s.ljust(3)) is str
+        assert type(s.rjust(3)) is str
+        assert type(S('A').upper()) is str
+        assert type(S('a').lower()) is str
+        assert type(S('A').capitalize()) is str
+        assert type(S('A').title()) is str
+        assert type(s.replace(s, s)) is str
+        assert type(s.replace('x', 'y')) is str
+        assert type(s.replace('x', 'y', 0)) is str
+        assert type(s.zfill(3)) is str
+        assert type(s.strip()) is str
+        assert type(s.rstrip()) is str
+        assert type(s.lstrip()) is str
+        assert type(s.center(3)) is str
+        assert type(s.splitlines()[0]) is str
