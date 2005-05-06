@@ -34,14 +34,15 @@ class Specializer:
                 self.specialize_block(block)
 
     def settype(self, a, concretetype):
-        """Set the concretetype of a Variable or Constant."""
+        """Set the concretetype of a Variable."""
+        assert isinstance(a, Variable)
         if hasattr(a, 'concretetype') and a.concretetype != concretetype:
             raise TyperError, "inconsitent type for %r: %r != %r" % (
                 a, a.concretetype, concretetype)
         a.concretetype = concretetype
 
     def setbesttype(self, a):
-        """Set the best concretetype for a Variable or Constant according to
+        """Set the best concretetype for a Variable according to
         the annotations."""
         try:
             return a.concretetype
@@ -64,12 +65,9 @@ class Specializer:
         """Get the operation(s) needed to convert 'v' to the given type."""
         ops = []
         if isinstance(v, Constant):
-            try:
-                # mark the concrete type of the Constant
-                self.settype(v, concretetype)
-            except TyperError:
-                v = Constant(v.value)   # need a copy of the Constant
-                self.settype(v, concretetype)
+            # we should never modify a Constant in-place
+            v = Constant(v.value)
+            v.concretetype = concretetype
 
         elif v.concretetype != concretetype:
             # XXX do we need better conversion paths?
