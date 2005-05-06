@@ -8,12 +8,14 @@
 #define CONV_TO_OBJ_int           PyInt_FromLong
 #define CONV_FROM_OBJ_int         PyInt_AS_LONG
 
-#define OP_INT_IS_TRUE(x,r,err)   r = ((long)(x) != 0);
 #define OP_INT_EQ(x,y,r,err)	  r = ((long)(x) == (long)(y));
+#define OP_INT_NE(x,y,r,err)	  r = ((long)(x) != (long)(y));
 #define OP_INT_LE(x,y,r,err)	  r = ((long)(x) <= (long)(y));
 #define OP_INT_GT(x,y,r,err)	  r = ((long)(x) >  (long)(y));
 #define OP_INT_LT(x,y,r,err)	  r = ((long)(x) <  (long)(y));
 #define OP_INT_GE(x,y,r,err)	  r = ((long)(x) >= (long)(y));
+
+#define OP_INT_IS_TRUE(x,r,err)   OP_INT_NE(x,0,r,err)
 
 #define OP_INT_CMP(x,y,r,err) \
 	r = (((long)(x) > (long)(y)) - ((long)(x) < (long)(y)))
