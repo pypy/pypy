@@ -42,7 +42,10 @@ def delegate_Int2Float(w_intobj):
 # a derived float object, where it should return
 # an exact one.
 def float__Float(space, w_float1):
-    if space.is_true(space.is_(space.type(w_float1), space.w_float)):
+    # don't trigger a descr operation.
+    # XXX let's consider to change space.is_ to plain bool
+    #if space.is_true(space.is_(space.type(w_float1), space.w_float)):
+    if space.w_True is space.is_(space.type(w_float1), space.w_float):
         return w_float1
     a = w_float1.floatval
     return W_FloatObject(space, a)
@@ -157,9 +160,14 @@ def div__Float_Float(space, w_float1, w_float2):
 
 truediv__Float_Float = div__Float_Float
 
+# avoid space.getitem for a basic operation
+##def floordiv__Float_Float(space, w_float1, w_float2):
+##    w_t = divmod__Float_Float(space, w_float1, w_float2)
+##    return space.getitem(w_t, space.wrap(0))
+
 def floordiv__Float_Float(space, w_float1, w_float2):
-    w_t = divmod__Float_Float(space, w_float1, w_float2)
-    return space.getitem(w_t, space.wrap(0))
+    w_div, w_mod = _divmod_w(space, w_float1, w_float2)
+    return w_div
 
 def mod__Float_Float(space, w_float1, w_float2):
     x = w_float1.floatval
@@ -176,7 +184,7 @@ def mod__Float_Float(space, w_float1, w_float2):
 
     return W_FloatObject(space, mod)
 
-def divmod__Float_Float(space, w_float1, w_float2):
+def _divmod_w(space, w_float1, w_float2):
     x = w_float1.floatval
     y = w_float2.floatval
     if y == 0.0:
@@ -203,8 +211,10 @@ def divmod__Float_Float(space, w_float1, w_float2):
     except FloatingPointError:
         raise FailedToImplement(space.w_FloatingPointError, space.wrap("float division"))
 
-    return space.newtuple([W_FloatObject(space, floordiv),
-                           W_FloatObject(space, mod)])
+    return [W_FloatObject(space, floordiv), W_FloatObject(space, mod)]
+
+def divmod__Float_Float(space, w_float1, w_float2):
+    return space.newtuple(_divmod_w(space, w_float1, w_float2))
 
 def pow__Float_Float_ANY(space, w_float1, w_float2, thirdArg):
     if not space.is_w(thirdArg, space.w_None):

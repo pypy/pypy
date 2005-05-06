@@ -174,18 +174,12 @@ def _floordiv(space, w_int1, w_int2):
     return W_IntObject(space, z)
 
 def _truediv(space, w_int1, w_int2):
-    x = w_int1.intval
-    y = w_int2.intval
-    try:
-        z = ovfcheck(x // y)
-    except ZeroDivisionError:
-        raise OperationError(space.w_ZeroDivisionError,
-                             space.wrap("integer division by zero"))
-    except OverflowError:
-        return space.div(space.newfloat(float(x)), w_int2)
-    if x % y != 0:   # gives a float
-        return space.div(space.newfloat(float(x)), w_int2)
-    return W_IntObject(space, z)
+    # XXX how to do delegation to float elegantly?
+    # avoiding a general space.div operation which pulls
+    # the whole interpreter in.
+    # Instead, we delegate to long for now.
+    raise FailedToImplement(space.w_TypeError,
+                            space.wrap("integer division"))
 
 def mod__Int_Int(space, w_int1, w_int2):
     x = w_int1.intval
@@ -396,7 +390,10 @@ def or__Int_Int(space, w_int1, w_int2):
 # a derived integer object, where it should return
 # an exact one.
 def int__Int(space, w_int1):
-    if space.is_true(space.is_(space.type(w_int1), space.w_int)):
+    # don't trigger a descr operation.
+    # XXX let's consider to change space.is_ to plain bool
+    #if space.is_true(space.is_(space.type(w_int1), space.w_int)):
+    if space.w_True is space.is_(space.type(w_int1), space.w_int):
         return w_int1
     a = w_int1.intval
     return W_IntObject(space, a)
