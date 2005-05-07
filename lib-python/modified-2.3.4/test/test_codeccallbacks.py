@@ -240,6 +240,7 @@ class CodecCallbackTest(unittest.TestCase):
             for enc in ("ascii", "latin-1", "iso-8859-1", "iso-8859-15", "utf-8", "utf-7", "utf-16"):
                 for err in errors:
                     try:
+                        print uni[0],enc,err
                         codecs.encode(uni,enc, err)
                     except UnicodeError:
                         pass
@@ -598,19 +599,19 @@ class CodecCallbackTest(unittest.TestCase):
         self.assertRaises(TypeError, codecs.decode, "\\x0y", "unicode-escape", "test.baddecodereturn1")
         self.assertRaises(TypeError, codecs.decode, "\\Uffffeeee", "unicode-escape", "test.baddecodereturn1")
         self.assertRaises(TypeError, codecs.decode, "\\uyyyy", "raw-unicode-escape", "test.baddecodereturn1")
-
+        
         def baddecodereturn2(exc):
             return (u"?", None)
         codecs.register_error("test.baddecodereturn2", baddecodereturn2)
         self.assertRaises(TypeError, codecs.decode, "\xff", "ascii", "test.baddecodereturn2")
-
+        
         handler = PosReturn()
         codecs.register_error("test.posreturn", handler.handle)
 
         # Valid negative position
         handler.pos = -1
         self.assertEquals(codecs.decode( "\xff0","ascii", "test.posreturn"), u"<?>0")
-
+        
         # Valid negative position
         handler.pos = -2
         self.assertEquals(codecs.decode("\xff0","ascii", "test.posreturn"), u"<?><?>")

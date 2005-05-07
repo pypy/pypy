@@ -312,7 +312,7 @@ def xmlcharrefreplace_errors(exc):
             res += '&#'
             res += str(ord(ch))
             res += ';'
-        return ''.join(res),exc.end
+        return u''.join(res),exc.end
     else:
         raise TypeError("don't know how to handle %.400s in error callback"%type(exc))
     
