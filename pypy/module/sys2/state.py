@@ -24,10 +24,10 @@ for fn in builtin_module_names:
 # The following built-in modules are not written in PyPy, so we
 # steal them from Python.
 for fn in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
-           'math', '_codecs', 'array', 'select',
+           'math', 'array', 'select',
            '_random', '_sre', 'time', '_socket', 'errno',
-           'binascii', 'unicodedata',
-           'parser'
+           'unicodedata',
+           'parser', 'fcntl', #'_codecs', 'binascii'
            ]: 
     if fn not in builtin_modules:
         try:
