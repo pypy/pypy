@@ -252,43 +252,57 @@ class enumerate(object):
 
 # ____________________________________________________________
 
+def get_len_of_range(lo, hi, step): 
+    n = 0
+    if lo < hi: 
+        diff = hi - lo - 1
+        n = diff // step + 1
+    return n 
+    
 class xrange(object):
     def __init__(self, start, stop=None, step=1):
         if not isinstance(start, (int, long, float)):
             raise TypeError('an integer is required')
         start = int(start)
         if stop is None:
-            self.start = 0
-            self.stop = start
+            stop = start 
+            start = 0 
         else:
             if not isinstance(stop, (int, long, float)):
                 raise TypeError('an integer is required')
             stop = int(stop)
-            self.start = start
-            self.stop = stop
         if not isinstance(step, (int, long, float)):
             raise TypeError('an integer is required')
         step = int(step)
         if step == 0:
             raise ValueError, 'xrange() step-argument (arg 3) must not be zero'
-        self.step = step
+        if  step > 0: 
+            n = get_len_of_range(start, stop, step) 
+        else: 
+            n = get_len_of_range(stop, start, -step) 
+        self.start = start
+        self.len = n 
+        self.step = step 
+
+    def __str__(self): 
+        stop = self.start + self.len * self.step 
+        if self.start == 0 and self.step == 1: 
+            s = "xrange(%d)" % (stop,) 
+        elif self.step == 1: 
+            s = "xrange(%d, %d)" % (self.start, stop) 
+        else: 
+            s = "xrange(%d, %d, %d)" %(self.start, stop, self.step)
+        return s 
+    __repr__ = __str__
 
     def __len__(self):
-        if not hasattr(self, '_len'):
-            slicelength = self.stop - self.start
-            lengthsign = cmp(slicelength, 0)
-            stepsign = cmp(self.step, 0)
-            if stepsign == lengthsign:
-                self._len = (slicelength - lengthsign) // self.step + 1
-            else:
-                self._len = 0
-        return self._len
+        return self.len 
 
     def __getitem__(self, index):
         # xrange does NOT support slicing
         if not isinstance(index, int):
             raise TypeError, "sequence index must be integer"
-        len = self.__len__()
+        len = self.len 
         if index<0:
             index += len
         if 0 <= index < len:
@@ -296,16 +310,10 @@ class xrange(object):
         raise IndexError, "xrange object index out of range"
 
     def __iter__(self):
-        start, stop, step = self.start, self.stop, self.step
-        i = start
-        if step > 0:
-            while i < stop:
-                yield i
-                i+=step
-        else:
-            while i > stop:
-                yield i
-                i+=step
+        i = 0
+        while i < self.len:   
+            yield self.start + i * self.step 
+            i += 1 
 
 # ____________________________________________________________
 

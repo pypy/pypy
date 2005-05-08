@@ -146,6 +146,11 @@ class AppTestBuiltinApp:
 
         raises(ValueError, xrange, 0, 1, 0)
 
+    def test_xrange_repr(self): 
+        assert repr(xrange(1)) == 'xrange(1)'
+        assert repr(xrange(1,2)) == 'xrange(1, 2)'
+        assert repr(xrange(1,2,3)) == 'xrange(1, 4, 3)'
+
     def test_xrange_up(self):
         x = xrange(2)
         iter_x = iter(x)
