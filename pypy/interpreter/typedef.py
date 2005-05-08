@@ -432,6 +432,7 @@ Method.typedef = TypeDef("method",
     __getattribute__ = interp2app(Method.descr_method_getattribute),
     __eq__ = interp2app(Method.descr_method_eq),
     __ne__ = descr_generic_ne,
+    __repr__ = interp2app(Method.descr_method_repr),  
     # XXX getattribute/setattribute etc.pp 
     )
 

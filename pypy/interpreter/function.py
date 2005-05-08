@@ -11,6 +11,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.eval import Code
 from pypy.interpreter.gateway import NoneNotWrapped
+from pypy.tool.uid import uid 
 
 class Function(Wrappable):
     """A function is a code object captured with some environment:
@@ -240,6 +241,22 @@ class Method(Wrappable):
 
     def descr_method_call(self, __args__):
         return self.call_args(__args__)
+
+    def descr_method_repr(self): 
+        space = self.space
+        name = self.w_function.getname(self.space, '?')
+        # XXX do we handle all cases sanely here? 
+        if space.is_w(self.w_class, space.w_None): 
+            w_class = space.type(self.w_instance) 
+        else: 
+            w_class = self.w_class 
+        typename = w_class.name 
+        if self.w_instance is None: 
+            s = "<method '%s' of '%s' objects>" %(name, typename) 
+        else:
+            s = "<method %s of %s object at 0x%x>" %(
+                name, typename, uid(self.w_instance))
+        return space.wrap(s) 
 
     def descr_method_getattribute(self, w_attr):
         space = self.space

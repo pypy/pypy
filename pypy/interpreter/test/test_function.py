@@ -193,6 +193,15 @@ class AppTestMethod:
         assert (c.m != c2.m) is True
         assert (c.m != c.m) is False
 
+    def test_method_repr(self): 
+        assert repr(dict.items) == "<method 'items' of 'dict' objects>"
+        class A(object): 
+            def f(self): 
+                pass 
+        assert repr(A.f) == "<method 'f' of 'A' objects>"
+        assert repr(A().f).startswith("<method f of A object at") 
+        assert repr(A.f.__get__(None)).startswith("<method f")
+
 class TestMethod: 
     def setup_method(self, method):
         def c(self, bar):
