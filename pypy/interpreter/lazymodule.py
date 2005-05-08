@@ -2,6 +2,7 @@ from pypy.interpreter.module import Module
 from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.interpreter import gateway 
 from pypy.interpreter.error import OperationError 
+from pypy.interpreter.baseobjspace import W_Root
 
 import inspect
 
@@ -102,7 +103,9 @@ def getinterpevalloader(pkgroot, spec):
                 #print spec, "->", value
                 if hasattr(value, 'func_code'):  # semi-evil 
                     return space.wrap(gateway.interp2app(value))
-                assert value is not None 
+                assert isinstance(value, W_Root), (
+                    "interpleveldef %s.%s must return a wrapped object "
+                    "(got %r instead)" % (pkgroot, spec, value))
                 return value 
     return ifileloader 
         
