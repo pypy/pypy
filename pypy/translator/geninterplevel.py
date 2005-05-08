@@ -1539,9 +1539,10 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
         tmpname = 'nada'
     out = _file(tmpname, 'w')
     gen.f = out
+    hold = sys.path[:]
     sys.path.insert(0, libdir)
     gen.gen_source(tmpname, file=_file)
-    sys.path.remove(libdir)
+    sys.path[:] = hold
     out.close()
     newsrc = _file(tmpname).read()
     code = py.code.Source(newsrc).compile()
