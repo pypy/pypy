@@ -48,3 +48,7 @@ class ResultCache:
             maxrev = resrev 
             maxresult = res 
         return maxresult 
+
+    def getlatestrelevant(self, name):
+        # get the latest revision that did not time out.
+        return self.getlatest(name, error=1, ok=1) or self.getlatest(name)

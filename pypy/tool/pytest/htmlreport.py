@@ -90,9 +90,7 @@ class HtmlReport(object):
         coretests = []
         noncoretests = [] 
         for name in self.resultcache.getnames(): 
-            result = self.resultcache.getlatest(name, error=1, ok=1)
-            if not result: 
-                result = self.resultcache.getlatest(name) 
+            result = self.resultcache.getlatestrelevant(name)
             if iscore(result): 
                 coretests.append(result)
             else: 

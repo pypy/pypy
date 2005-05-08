@@ -801,9 +801,12 @@ class ReallyRunFileExternal(py.test.Item):
             from pypy.tool.pytest.overview import ResultCache
             self.__class__._resultcache = rc = ResultCache() 
             rc.parselatest()
-        result = self._resultcache.getlatest(self.fspath.purebasename, 
-                                             **{keyword:True})
-        return result is not None 
+        result = self._resultcache.getlatestrelevant(self.fspath.purebasename)
+        if not result: return False
+        if keyword == 'timeout': return result.istimeout()
+        if keyword == 'error': return result.iserror()
+        if keyword == 'ok': return result.isok()
+        assert False, "should not be there" 
 
     def getinvocation(self, regrtest): 
         fspath = regrtest.getfspath() 
