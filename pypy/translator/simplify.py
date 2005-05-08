@@ -74,7 +74,7 @@ def transform_ovfcheck(graph):
     """
     # General assumption:
     # empty blocks have been eliminated.
-    # ovfcheck can appear in the same blcok with its operation.
+    # ovfcheck can appear in the same block with its operation.
     # this is the case if no exception handling was provided.
     # Otherwise, we have a block ending in the operation,
     # followed by a block with a single ovfcheck call.
@@ -105,7 +105,10 @@ def transform_ovfcheck(graph):
     def is_single(bl):
         return is_ovfcheck(bl) and len(bl.operations) > 1
     def is_paired(bl):
-        return bl.exits and is_ovfcheck(bl.exits[0].target)
+        if bl.exits:
+            ovfblock = bl.exits[0].target
+        return (bl.exits and is_ovfcheck(ovfblock) and
+                len(ovfblock.operations) == 1)
     def rename(v):
         return renaming.get(v, v)
     def remove_last_op(bl):
@@ -119,7 +122,6 @@ def transform_ovfcheck(graph):
     def check_syntax(ovfblock, block=None):
         """check whether ovfblock is reachable more than once
         or if they cheated about the argument"""
-        return # still a bug
         if block:
             link = block.exits[0]
             for lprev, ltarg in zip(link.args, ovfblock.inputargs):
@@ -132,12 +134,14 @@ def transform_ovfcheck(graph):
             res = ovfblock.operations[-2].result
             opname = ovfblock.operations[-2].opname
         if rename(arg) != rename(res) or ovfblock in seen_ovfblocks:
+            import __main__
+            __main__.problem = graph
             raise SyntaxError("ovfcheck: The checked operation %s is misplaced"
-                              % opname)
+                              " - see __main__.problem.view()" % opname)
         exlis = implicit_exceptions.get("%s_%s" % (opname, appendix), [])
         if OverflowError not in exlis:
             raise SyntaxError("ovfcheck: Operation %s has no overflow variant"
-                              % opname)
+                              " - see __main__.problem.view()" % opname)
 
     blocks_to_join = False
     for block in blocks:
