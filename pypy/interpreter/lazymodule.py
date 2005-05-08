@@ -103,6 +103,14 @@ def getinterpevalloader(pkgroot, spec):
                 #print spec, "->", value
                 if hasattr(value, 'func_code'):  # semi-evil 
                     return space.wrap(gateway.interp2app(value))
+
+                try:
+                    is_type = issubclass(value, W_Root)  # pseudo-evil
+                except TypeError:
+                    is_type = False
+                if is_type:
+                    return space.gettypeobject(value.typedef)
+
                 assert isinstance(value, W_Root), (
                     "interpleveldef %s.%s must return a wrapped object "
                     "(got %r instead)" % (pkgroot, spec, value))
