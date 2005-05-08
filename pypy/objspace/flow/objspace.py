@@ -418,6 +418,13 @@ def _add_exceptions(names, exc):
         lis.append(exc)
         assert exc in op_appendices
 
+def _add_except_ovf(names):
+    # duplicate exceptions and add OverflowError
+    for name in names.split():
+        lis = implicit_exceptions.setdefault(name, [])[:]
+        lis.append(OverflowError)
+        implicit_exceptions[name+"_ovf"] = lis
+
 for _err in IndexError, KeyError:
     _add_exceptions("""getitem""", _err)
     _add_exceptions("""delitem""", _err)
@@ -431,18 +438,18 @@ del _name, _err
 _add_exceptions("""div mod divmod truediv floordiv pow
                    inplace_div inplace_mod inplace_divmod inplace_truediv
                    inplace_floordiv inplace_pow""", ZeroDivisionError)
-_add_exceptions("""pos neg abs invert add sub mul truediv
-                   floordiv div mod divmod pow lshift
-                   inplace_add inplace_sub inplace_mul inplace_truediv
-                   inplace_floordiv inplace_div inplace_mod inplace_pow
-                   inplace_lshift""", OverflowError)
 _add_exceptions("""pow inplace_pow lshift inplace_lshift rshift
                    inplace_rshift""", ValueError)
 _add_exceptions("""add sub mul truediv floordiv div mod divmod pow
                    inplace_add inplace_sub inplace_mul inplace_truediv
                    inplace_floordiv inplace_div inplace_mod inplace_divmod
                    inplace_pow""", FloatingPointError)
-del _add_exceptions
+_add_except_ovf("""pos neg abs invert add sub mul truediv
+                   floordiv div mod divmod pow lshift
+                   inplace_add inplace_sub inplace_mul inplace_truediv
+                   inplace_floordiv inplace_div inplace_mod inplace_pow
+                   inplace_lshift""")
+del _add_exceptions, _add_except_ovf
 
 def extract_cell_content(c):
     """Get the value contained in a CPython 'cell', as read through

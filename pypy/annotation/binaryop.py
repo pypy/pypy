@@ -30,7 +30,14 @@ BINARY_OPERATIONS = set(['add', 'sub', 'mul', 'div', 'mod',
                          'inplace_and', 'inplace_or', 'inplace_xor',
                          'lt', 'le', 'eq', 'ne', 'gt', 'ge', 'is_', 'cmp',
                          'union', 'coerce',
-                         ])
+                         ]
+                        +[opname+'_ovf' for opname in
+                          """add sub mul truediv
+                           floordiv div mod divmod pow lshift
+                           inplace_add inplace_sub inplace_mul inplace_truediv
+                           inplace_floordiv inplace_div inplace_mod inplace_pow
+                           inplace_lshift""".split()
+                          ])
 
 for opname in BINARY_OPERATIONS:
     missing_operation(pairtype(SomeObject, SomeObject), opname)
@@ -162,19 +169,21 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         unsigned = int1.unsigned or int2.unsigned
         return SomeInteger(nonneg = unsigned or (int1.nonneg and int2.nonneg),
                            unsigned=unsigned)
-                           
 
-    or_ = xor = _clone(union, [])
-    add = mul = _clone(union, [OverflowError])
-    div = floordiv = mod = _clone(union, [ZeroDivisionError, OverflowError])
+    or_ = xor = add = mul = _clone(union, [])
+    add_ovf = mul_ovf = _clone(union, [OverflowError])
+    div = floordiv = mod = _clone(union, [ZeroDivisionError])
+    div_ovf= floordiv_ovf = mod_ovf = _clone(union, [ZeroDivisionError, OverflowError])
 
     def truediv((int1, int2)):
         return SomeFloat()
-    truediv.can_only_throw = [ZeroDivisionError, OverflowError]
+    truediv.can_only_throw = [ZeroDivisionError]
+    truediv_ovf = _clone(truediv, [ZeroDivisionError, OverflowError])
 
     def sub((int1, int2)):
         return SomeInteger(unsigned = int1.unsigned or int2.unsigned)
-    sub.can_only_throw = [OverflowError]
+    sub.can_only_throw = []
+    sub_ovf = _clone(sub, [OverflowError])
 
     def and_((int1, int2)):
         unsigned = int1.unsigned or int2.unsigned
@@ -194,7 +203,8 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
         if int1.unsigned or int2.unsigned or getattr(obj3, 'unsigned', False):
             return SomeInteger(unsigned=True)
         return SomeInteger()
-    pow.can_only_throw = [ZeroDivisionError, OverflowError]
+    pow.can_only_throw = [ZeroDivisionError]
+    pow_ovf = _clone(pow, [ZeroDivisionError, OverflowError])
 
 class __extend__(pairtype(SomeBool, SomeBool)):
 
