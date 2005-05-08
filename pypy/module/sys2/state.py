@@ -1,6 +1,7 @@
 """
 Implementation of interpreter-level 'sys' routines.
 """
+import pypy
 #from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
 
@@ -29,7 +30,9 @@ for fn in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
            'unicodedata',
            'parser', 'fcntl', #'_codecs', 'binascii'
            ]: 
-    if fn not in builtin_modules:
+    if fn not in builtin_modules and not os.path.exists(
+            os.path.join(os.path.dirname(pypy.__file__),
+                         'lib', fn+'.py')):
         try:
             builtin_modules[fn] = hack_cpython_module(fn)
         except ImportError:
