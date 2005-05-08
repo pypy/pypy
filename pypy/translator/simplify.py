@@ -119,6 +119,7 @@ def transform_ovfcheck(graph):
     def check_syntax(ovfblock, block=None):
         """check whether ovfblock is reachable more than once
         or if they cheated about the argument"""
+        return # still a bug
         if block:
             link = block.exits[0]
             for lprev, ltarg in zip(link.args, ovfblock.inputargs):
