@@ -28,7 +28,7 @@ for fn in ['posix', 'nt', 'os2', 'mac', 'ce', 'riscos',
            'math', 'array', 'select',
            '_random', '_sre', 'time', '_socket', 'errno',
            'unicodedata',
-           'parser', 'fcntl', #'_codecs', 'binascii'
+           'parser', 'fcntl', '_codecs', 'binascii'
            ]: 
     if fn not in builtin_modules and not os.path.exists(
             os.path.join(os.path.dirname(pypy.__file__),
