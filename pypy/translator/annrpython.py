@@ -417,11 +417,16 @@ class RPythonAnnotator:
                 can_only_throw = getattr(unop, "can_only_throw", None)
             else:
                 can_only_throw = None
+
             if can_only_throw is not None:
-                exits = [link
-                         for link in exits
-                         if link.exitcase is None
-                         or link.exitcase in can_only_throw ]
+                candidates = can_only_throw
+                exits = [block.exits[0]]
+                for link in block.exits[1:]:
+                    case = link.exitcase
+                    covered = [c for c in candidates if issubclass(c, case)]
+                    if covered:
+                        exits.append(link)
+                        candidates = [c for c in candidates if c not in covered]
 
         for link in exits:
             self.links_followed[link] = True
