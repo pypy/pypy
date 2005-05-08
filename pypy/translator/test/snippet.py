@@ -97,9 +97,7 @@ from sys import maxint
 def div_func(i=numtype):
     try:
         return ovfcheck((-maxint-1) // i)
-    except OverflowError:
-        raise
-    except ZeroDivisionError:
+    except (OverflowError, ZeroDivisionError):
         raise
     
 def mod_func(i=numtype):
@@ -116,12 +114,15 @@ def rshift_func(i=numtype):
     except ValueError:
         raise
 
+class hugelmugel(OverflowError):pass
+
+def hugo(a, b, c):pass
+
 def lshift_func(i=numtype):
     try:
+        hugo(2, 3, 5)
         return ovfcheck_lshift((-maxint-1), i)
-    except OverflowError:
-        raise
-    except ValueError:
+    except (hugelmugel, OverflowError, StandardError, ValueError):
         raise
 
 def while_func(i=numtype):

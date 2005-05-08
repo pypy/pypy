@@ -5,7 +5,10 @@
 simplify_graph() applies all simplifications defined in this file.
 """
 
-from pypy.objspace.flow.model import *
+from pypy.objspace.flow.model import SpaceOperation
+from pypy.objspace.flow.model import Variable, Constant, Block, Link
+from pypy.objspace.flow.model import last_exception
+from pypy.objspace.flow.model import checkgraph, traverse, mkentrymap
 
 def simplify_graph(graph):
     """inplace-apply all the existing optimisations to the graph."""
@@ -15,6 +18,9 @@ def simplify_graph(graph):
     join_blocks(graph)
     transform_dead_op_vars(graph)
     remove_identical_vars(graph)
+    transform_ovfcheck(graph)
+    simplify_exceptions(graph)
+    remove_dead_exceptions(graph)
     checkgraph(graph)
 
 # ____________________________________________________________
@@ -41,6 +47,209 @@ def eliminate_empty_blocks(graph):
                 link.args = outputargs
                 link.target = exit.target
                 # the while loop above will simplify recursively the new link
+    traverse(visit, graph)
+
+def transform_ovfcheck(graph):
+    """The special function calls ovfcheck and ovfcheck_lshift need to
+    be translated into primitive operations. ovfcheck is called directly
+    after an operation that should be turned into an overflow-checked
+    version. It is considered a syntax error if the resulting <op>-ovf
+    is not defined in baseobjspace.py .
+    ovfcheck_lshift is special because there is no preceding operation.
+    Instead, it will be replaced by an OP_LSHIFT_OVF operation.
+
+    The exception handling of the original operation is completely
+    ignored. Only exception handlers for the ovfcheck function call
+    are taken into account. This gives us the best possible control
+    over situations where we want exact contol over certain operations.
+    Example:
+
+    try:
+        ovfcheck(array1[idx-1] += array2[idx+1])
+    except OverflowError:
+        ...
+
+    assuming two integer arrays, we are only checking the element addition
+    for overflows, but the indexing is not checked.
+    """
+    # General assumption:
+    # empty blocks have been eliminated.
+    # ovfcheck can appear in the same blcok with its operation.
+    # this is the case if no exception handling was provided.
+    # Otherwise, we have a block ending in the operation,
+    # followed by a block with a single ovfcheck call.
+    from pypy.tool.rarithmetic import ovfcheck, ovfcheck_lshift
+    from pypy.objspace.flow.objspace import op_appendices
+    from pypy.objspace.flow.objspace import implicit_exceptions
+    covf = Constant(ovfcheck)
+    covfls = Constant(ovfcheck_lshift)
+    appendix = op_appendices[OverflowError]
+    renaming = {}
+    seen_ovfblocks = {}
+
+    # get all blocks
+    blocks = {}
+    def visit(block):
+        if isinstance(block, Block):
+            blocks[block] = True
+    traverse(visit, graph)
+
+    def is_ovfcheck(bl):
+        ops = bl.operations
+        return (ops and ops[-1].opname == "simple_call"
+                and ops[-1].args[0] == covf)
+    def is_ovfshiftcheck(bl):
+        ops = bl.operations
+        return (ops and ops[-1].opname == "simple_call"
+                and ops[-1].args[0] == covfls)
+    def is_single(bl):
+        return is_ovfcheck(bl) and len(bl.operations) > 1
+    def is_paired(bl):
+        return bl.exits and is_ovfcheck(bl.exits[0].target)
+    def rename(v):
+        return renaming.get(v, v)
+    def remove_last_op(bl):
+        delop = bl.operations.pop()
+        assert delop.opname == "simple_call"
+        assert len(delop.args) == 2
+        renaming[delop.result] = rename(delop.args[1])
+        for exit in bl.exits:
+            exit.args = [rename(a) for a in exit.args]
+            
+    def check_syntax(ovfblock, block=None):
+        """check whether ovfblock is reachable more than once
+        or if they cheated about the argument"""
+        if block:
+            link = block.exits[0]
+            for lprev, ltarg in zip(link.args, ovfblock.inputargs):
+                renaming[ltarg] = rename(lprev)
+            arg = ovfblock.operations[0].args[-1]
+            res = block.operations[-1].result
+            opname = block.operations[-1].opname
+        else:
+            arg = ovfblock.operations[-1].args[-1]
+            res = ovfblock.operations[-2].result
+            opname = ovfblock.operations[-2].opname
+        if rename(arg) != rename(res) or ovfblock in seen_ovfblocks:
+            raise SyntaxError("ovfcheck: The checked operation %s is misplaced"
+                              % opname)
+        exlis = implicit_exceptions.get("%s_%s" % (opname, appendix), [])
+        if OverflowError not in exlis:
+            raise SyntaxError("ovfcheck: Operation %s has no overflow variant")
+
+    blocks_to_join = False
+    for block in blocks:
+        if is_ovfshiftcheck(block):
+            # ovfcheck_lshift:
+            # simply rewrite the operation
+            op = block.operations[-1]
+            op.opname = "lshift" # augmented later
+            op.args = op.args[1:]
+        elif is_single(block):
+            # remove the call to ovfcheck and keep the exceptions
+            check_syntax(block)
+            remove_last_op(block)
+            seen_ovfblocks[block] = True
+        elif is_paired(block):
+            # remove the block's exception links
+            link = block.exits[0]
+            ovfblock = link.target
+            check_syntax(ovfblock, block)
+            block.exits = [link]
+            block.exitswitch = None
+            # remove the ovfcheck call from the None target
+            remove_last_op(ovfblock)
+            seen_ovfblocks[ovfblock] = True
+            blocks_to_join = True
+        else:
+            continue
+        op = block.operations[-1]
+        op.opname = "%s_%s" % (op.opname, appendix)
+    if blocks_to_join:
+        join_blocks(graph)
+
+def simplify_exceptions(graph):
+    """The exception handling caused by non-implicit exceptions
+    starts with an exitswitch on Exception, followed by a lengthy
+    chain of is_/issubtype tests. We collapse them all into
+    the block's single list of exits and also remove unreachable
+    cases.
+    """
+    clastexc = Constant(last_exception)
+    renaming = {}
+    def rename(v):
+        return renaming.get(v, v)
+
+    def visit(block):
+        if not (isinstance(block, Block)
+                and block.exitswitch == clastexc and len(block.exits) == 2
+                and block.exits[1].exitcase is Exception):
+            return
+        seen = []
+        norm, exc = block.exits
+        query = exc.target
+        switches = [ (None, norm) ]
+        # collect the targets
+        while len(query.exits) == 2:
+            for lprev, ltarg in zip(exc.args, query.inputargs):
+                renaming[ltarg] = rename(lprev)
+            op = query.operations[0]
+            if not (op.opname in ("is_", "issubtype") and
+                    rename(op.args[0]) == clastexc):
+                break
+            case = query.operations[0].args[-1].value
+            assert issubclass(case, Exception)
+            lno, lyes = query.exits
+            if case not in seen:
+                switches.append( (case, lyes) )
+                seen.append(case)
+            exc = lno
+            query = exc.target
+        if Exception not in seen:
+            switches.append( (Exception, exc) )
+        # construct the block's new exits
+        exits = []
+        for case, oldlink in switches:
+            args = [rename(arg) for arg in oldlink.args]
+            link = Link(args, oldlink.target, case)
+            link.prevblock = block
+            exits.append(link)
+        block.exits = tuple(exits)
+
+    traverse(visit, graph)
+
+def remove_dead_exceptions(graph):
+    """Exceptions can be removed if they are unreachable"""
+
+    clastexc = Constant(last_exception)
+
+    def issubclassofmember(cls, seq):
+        for member in seq:
+            if member and issubclass(cls, member):
+                return True
+        return False
+
+    def visit(block):
+        if not (isinstance(block, Block) and block.exitswitch == clastexc):
+            return
+        exits = []
+        seen = []
+        for link in block.exits:
+            case = link.exitcase
+            # check whether exceptions are shadowed
+            if issubclassofmember(case, seen):
+                continue
+            # see if the previous case can be merged
+            while len(exits) > 1:
+                prev = exits[-1]
+                if not (issubclass(prev.exitcase, link.exitcase) and
+                    prev.target is link.target and prev.args == link.args):
+                    break
+                exits.pop()
+            exits.append(link)
+            seen.append(case)
+        block.exits = tuple(exits)
+
     traverse(visit, graph)
 
 def join_blocks(graph):
