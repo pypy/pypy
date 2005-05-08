@@ -135,7 +135,8 @@ def transform_ovfcheck(graph):
                               % opname)
         exlis = implicit_exceptions.get("%s_%s" % (opname, appendix), [])
         if OverflowError not in exlis:
-            raise SyntaxError("ovfcheck: Operation %s has no overflow variant")
+            raise SyntaxError("ovfcheck: Operation %s has no overflow variant"
+                              % opname)
 
     blocks_to_join = False
     for block in blocks:
