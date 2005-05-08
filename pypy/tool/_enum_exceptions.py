@@ -4,8 +4,8 @@
 # The idea is to use it once to create
 # a template for a re-birth of exceptions.py
 
+import autopath 
 import types
-
 from pypy.tool.sourcetools import render_docstr
 
 def classOfAttribute(klass, attname):
@@ -358,8 +358,18 @@ def __str__(self):
         elif have_lineno:
             buffer = "%s (line %ld)" % (self.msg, self.lineno)
     return buffer
-
 known__str__[SyntaxError] = __str__
+
+# EnvironmentError 
+def __str__(self): 
+    if self.filename is not None: 
+        return  "[Errno %s] %s: %s" % (self.errno, 
+                                       self.strerror,   
+                                       self.filename)
+    if self.errno and self.strerror: 
+        return "[Errno %s] %s" % (self.errno, self.strerror)
+    return StandardError.__str__(self) 
+known__str__[EnvironmentError] =  __str__
 
 if __name__ == "__main__":
     import pypy, os

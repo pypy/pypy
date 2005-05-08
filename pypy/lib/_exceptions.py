@@ -191,16 +191,15 @@ class EnvironmentError(StandardError):
             self.filename = args[2]
             self.args = (args[0], args[1])
 
-    # auto-generated code, please check carefully!
-    def __str__(self):
-        # this is a bad hack, please supply an implementation
-        res = ' '.join([
-           'errno=' + str(getattr(self, 'errno', None)),
-           'args=' + str(getattr(self, 'args', None)),
-           'strerror=' + str(getattr(self, 'strerror', None)),
-           'filename=' + str(getattr(self, 'filename', None)),
-        ])
-        return res
+    def __str__(self): 
+        if self.filename is not None: 
+            return  "[Errno %s] %s: %s" % (self.errno, 
+                                           self.strerror,   
+                                           self.filename)
+        if self.errno and self.strerror: 
+            return "[Errno %s] %s" % (self.errno, self.strerror)
+        return StandardError.__str__(self) 
+    
 
 class OSError(EnvironmentError):
     """OS system call failed."""

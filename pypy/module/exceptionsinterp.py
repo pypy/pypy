@@ -157,7 +157,7 @@ Exception
 # global object gs_EOFError
 # global object gcls_EOFError
 # global object gs___file__
-# global object gs__u_pedronis_PyPy_dist_pypy_lib__
+# global object gs__home_hpk_pypy_dist_pypy_lib__ex
 # global object gs_TabError
 # global object gcls_TabError
 # global object gs_UnicodeEncodeError
@@ -724,14 +724,13 @@ Exception
 ##SECTION##
 ## filename    'lib/_exceptions.py'
 ## function    '__str__'
-## firstlineno 195
+## firstlineno 194
 ##SECTION##
 # global declarations
 # global object gs_errno
-# global object gs_errno_
 # global object gs_strerror
-# global object gs_strerror_
-# global object gs_filename_
+# global object gs__Errno__s___s___s
+# global object gs__Errno__s___s
 
   def __str__(space, __args__):
     funcname = "__str__"
@@ -747,32 +746,74 @@ Exception
     while True:
 
         if goto == 1:
-            w_0 = space.call_function((space.builtin.get(space.str_w(gs_getattr))), w_self, gs_errno, space.w_None)
-            w_1 = space.str(w_0)
-            w_2 = space.add(gs_errno_, w_1)
-            w_3 = space.call_function((space.builtin.get(space.str_w(gs_getattr))), w_self, gs_args, space.w_None)
-            w_4 = space.str(w_3)
-            w_5 = space.add(gs_args_, w_4)
-            w_6 = space.call_function((space.builtin.get(space.str_w(gs_getattr))), w_self, gs_strerror, space.w_None)
-            w_7 = space.str(w_6)
-            w_8 = space.add(gs_strerror_, w_7)
-            w_9 = space.call_function((space.builtin.get(space.str_w(gs_getattr))), w_self, gs_filename, space.w_None)
-            w_10 = space.str(w_9)
-            w_11 = space.add(gs_filename_, w_10)
-            w_12 = space.newlist([w_2, w_5, w_8, w_11])
-            w_13 = space.call_function(gbltinmethod_join, w_12)
-            w_14 = w_13
-            goto = 2
+            w_0 = space.getattr(w_self, gs_filename)
+            w_1 = space.is_(w_0, space.w_None)
+            v0 = space.is_true(w_1)
+            if v0 == True:
+                w_self_1 = w_self
+                goto = 3
+            else:
+                assert v0 == False
+                w_self_2 = w_self
+                goto = 2
 
         if goto == 2:
-            return w_14
+            w_2 = space.getattr(w_self_2, gs_errno)
+            w_3 = space.getattr(w_self_2, gs_strerror)
+            w_4 = space.getattr(w_self_2, gs_filename)
+            w_5 = space.newtuple([w_2, w_3, w_4])
+            w_6 = space.mod(gs__Errno__s___s___s, w_5)
+            w_7 = w_6
+            goto = 8
+
+        if goto == 3:
+            w_8 = space.getattr(w_self_1, gs_errno)
+            v1 = space.is_true(w_8)
+            if v1 == True:
+                w_self_3 = w_self_1
+                goto = 4
+            else:
+                assert v1 == False
+                w_self_4, w_9 = w_self_1, w_8
+                goto = 5
+
+        if goto == 4:
+            w_10 = space.getattr(w_self_3, gs_strerror)
+            w_self_4, w_9 = w_self_3, w_10
+            goto = 5
+
+        if goto == 5:
+            v2 = space.is_true(w_9)
+            if v2 == True:
+                w_self_5 = w_self_4
+                goto = 6
+            else:
+                assert v2 == False
+                w_11 = w_self_4
+                goto = 7
+
+        if goto == 6:
+            w_12 = space.getattr(w_self_5, gs_errno)
+            w_13 = space.getattr(w_self_5, gs_strerror)
+            w_14 = space.newtuple([w_12, w_13])
+            w_15 = space.mod(gs__Errno__s___s, w_14)
+            w_7 = w_15
+            goto = 8
+
+        if goto == 7:
+            w_16 = fastf_Exception___str__(space, w_11)
+            w_7 = w_16
+            goto = 8
+
+        if goto == 8:
+            return w_7
 
   fastf_EnvironmentError___str__ = __str__
 
 ##SECTION##
 ## filename    'lib/_exceptions.py'
 ## function    '__init__'
-## firstlineno 239
+## firstlineno 238
 ##SECTION##
   def __init__(space, __args__):
     funcname = "__init__"
@@ -841,11 +882,11 @@ Exception
 ##SECTION##
 ## filename    'lib/_exceptions.py'
 ## function    '__str__'
-## firstlineno 250
+## firstlineno 249
 ##SECTION##
 # global declarations
-# global object gfunc_basename
 # global object gs____
+# global object gfunc_basename
 # global object gs__s___s__line__ld_
 # global object gs__s___s_
 # global object gs__s__line__ld_
@@ -879,7 +920,7 @@ Exception
         if goto == 2:
             w_4 = space.getattr(w_3, gs_msg)
             w_5 = w_4
-            goto = 15
+            goto = 13
 
         if goto == 3:
             w_6 = space.getattr(w_self_1, gs_msg)
@@ -910,7 +951,7 @@ Exception
             else:
                 assert v2 == False
                 w_5 = w_buffer
-                goto = 15
+                goto = 13
 
         if goto == 5:
             w_14 = space.getattr(w_self_3, gs_filename)
@@ -919,99 +960,86 @@ Exception
                 (w_self_4, w_buffer_2, w_have_lineno_2, w_have_filename_2,
                  w_15) = (w_self_3, w_buffer_1, w_have_lineno_1,
                  w_have_filename_1, w_14)
-                goto = 7
+                goto = 6
             else:
                 assert v3 == False
-                (w_self_5, w_buffer_3, w_have_lineno_3,
-                 w_have_filename_3) = (w_self_3, w_buffer_1, w_have_lineno_1,
-                 w_have_filename_1)
+                (w_self_4, w_buffer_2, w_have_lineno_2, w_have_filename_2,
+                 w_15) = (w_self_3, w_buffer_1, w_have_lineno_1,
+                 w_have_filename_1, gs____)
                 goto = 6
 
         if goto == 6:
-            w_16 = fastf_basename(space, gs____)
-            (w_self_6, w_fname, w_buffer_4, w_have_lineno_4,
-             w_have_filename_4) = (w_self_5, w_16, w_buffer_3,
-             w_have_lineno_3, w_have_filename_3)
-            goto = 8
-
-        if goto == 7:
-            w_17 = fastf_basename(space, w_15)
-            (w_self_6, w_fname, w_buffer_4, w_have_lineno_4,
-             w_have_filename_4) = (w_self_4, w_17, w_buffer_2,
-             w_have_lineno_2, w_have_filename_2)
-            goto = 8
-
-        if goto == 8:
-            v4 = space.is_true(w_have_filename_4)
+            w_16 = fastf_basename(space, w_15)
+            v4 = space.is_true(w_have_filename_2)
             if v4 == True:
-                (w_self_7, w_fname_1, w_buffer_5, w_have_lineno_5,
-                 w_have_filename_5, w_18) = (w_self_6, w_fname, w_buffer_4,
-                 w_have_lineno_4, w_have_filename_4, w_have_lineno_4)
-                goto = 9
+                (w_self_5, w_fname, w_buffer_3, w_have_lineno_3,
+                 w_have_filename_3, w_17) = (w_self_4, w_16, w_buffer_2,
+                 w_have_lineno_2, w_have_filename_2, w_have_lineno_2)
+                goto = 7
             else:
                 assert v4 == False
-                (w_self_7, w_fname_1, w_buffer_5, w_have_lineno_5,
-                 w_have_filename_5, w_18) = (w_self_6, w_fname, w_buffer_4,
-                 w_have_lineno_4, w_have_filename_4, w_have_filename_4)
-                goto = 9
+                (w_self_5, w_fname, w_buffer_3, w_have_lineno_3,
+                 w_have_filename_3, w_17) = (w_self_4, w_16, w_buffer_2,
+                 w_have_lineno_2, w_have_filename_2, w_have_filename_2)
+                goto = 7
 
-        if goto == 9:
-            v5 = space.is_true(w_18)
+        if goto == 7:
+            v5 = space.is_true(w_17)
             if v5 == True:
-                w_self_8, w_fname_2 = w_self_7, w_fname_1
-                goto = 10
+                w_self_6, w_fname_1 = w_self_5, w_fname
+                goto = 8
             else:
                 assert v5 == False
-                (w_self_9, w_fname_3, w_buffer_6, w_have_lineno_6,
-                 w_19) = (w_self_7, w_fname_1, w_buffer_5, w_have_lineno_5,
-                 w_have_filename_5)
+                (w_self_7, w_fname_2, w_buffer_4, w_have_lineno_4,
+                 w_18) = (w_self_5, w_fname, w_buffer_3, w_have_lineno_3,
+                 w_have_filename_3)
+                goto = 9
+
+        if goto == 8:
+            w_19 = space.getattr(w_self_6, gs_msg)
+            w_20 = space.getattr(w_self_6, gs_lineno)
+            w_21 = space.newtuple([w_19, w_fname_1, w_20])
+            w_22 = space.mod(gs__s___s__line__ld_, w_21)
+            w_5 = w_22
+            goto = 13
+
+        if goto == 9:
+            v6 = space.is_true(w_18)
+            if v6 == True:
+                w_fname_3, w_23 = w_fname_2, w_self_7
+                goto = 10
+            else:
+                assert v6 == False
+                (w_self_8, w_buffer_5, w_24) = (w_self_7, w_buffer_4,
+                 w_have_lineno_4)
                 goto = 11
 
         if goto == 10:
-            w_20 = space.getattr(w_self_8, gs_msg)
-            w_21 = space.getattr(w_self_8, gs_lineno)
-            w_22 = space.newtuple([w_20, w_fname_2, w_21])
-            w_23 = space.mod(gs__s___s__line__ld_, w_22)
-            w_5 = w_23
-            goto = 15
+            w_25 = space.getattr(w_23, gs_msg)
+            w_26 = space.newtuple([w_25, w_fname_3])
+            w_27 = space.mod(gs__s___s_, w_26)
+            w_5 = w_27
+            goto = 13
 
         if goto == 11:
-            v6 = space.is_true(w_19)
-            if v6 == True:
-                w_fname_4, w_24 = w_fname_3, w_self_9
+            v7 = space.is_true(w_24)
+            if v7 == True:
+                w_self_9 = w_self_8
                 goto = 12
             else:
-                assert v6 == False
-                (w_self_10, w_buffer_7, w_25) = (w_self_9, w_buffer_6,
-                 w_have_lineno_6)
+                assert v7 == False
+                w_5 = w_buffer_5
                 goto = 13
 
         if goto == 12:
-            w_26 = space.getattr(w_24, gs_msg)
-            w_27 = space.newtuple([w_26, w_fname_4])
-            w_28 = space.mod(gs__s___s_, w_27)
-            w_5 = w_28
-            goto = 15
+            w_28 = space.getattr(w_self_9, gs_msg)
+            w_29 = space.getattr(w_self_9, gs_lineno)
+            w_30 = space.newtuple([w_28, w_29])
+            w_31 = space.mod(gs__s__line__ld_, w_30)
+            w_5 = w_31
+            goto = 13
 
         if goto == 13:
-            v7 = space.is_true(w_25)
-            if v7 == True:
-                w_self_11 = w_self_10
-                goto = 14
-            else:
-                assert v7 == False
-                w_5 = w_buffer_7
-                goto = 15
-
-        if goto == 14:
-            w_29 = space.getattr(w_self_11, gs_msg)
-            w_30 = space.getattr(w_self_11, gs_lineno)
-            w_31 = space.newtuple([w_29, w_30])
-            w_32 = space.mod(gs__s__line__ld_, w_31)
-            w_5 = w_32
-            goto = 15
-
-        if goto == 15:
             return w_5
 
   fastf_SyntaxError___str__ = __str__
@@ -1019,7 +1047,7 @@ Exception
 ##SECTION##
 ## filename    'lib/_exceptions.py'
 ## function    '__init__'
-## firstlineno 276
+## firstlineno 275
 ##SECTION##
 # global declaration
 # global object gs_code
@@ -1096,7 +1124,7 @@ Exception
 ##SECTION##
 ## filename    'lib/_exceptions.py'
 ## function    '__init__'
-## firstlineno 311
+## firstlineno 310
 ##SECTION##
   def __init__(space, __args__):
     funcname = "__init__"
@@ -1146,7 +1174,7 @@ Exception
 ##SECTION##
 ## filename    'lib/_exceptions.py'
 ## function    '__str__'
-## firstlineno 322
+## firstlineno 321
 ##SECTION##
   def __str__(space, __args__):
     funcname = "__str__"
@@ -1193,7 +1221,7 @@ Exception
 ##SECTION##
 ## filename    'lib/_exceptions.py'
 ## function    '__init__'
-## firstlineno 371
+## firstlineno 370
 ##SECTION##
 # global declaration
 # global object gi_5
@@ -1246,7 +1274,7 @@ Exception
 ##SECTION##
 ## filename    'lib/_exceptions.py'
 ## function    '__str__'
-## firstlineno 382
+## firstlineno 381
 ##SECTION##
 # global declarations
 # global object gs_encoding
@@ -1550,9 +1578,9 @@ Exception
   space.setitem(g46dict, gs_EOFError, gcls_EOFError)
   space.setitem(g46dict, gs_StandardError, gcls_StandardError)
   gs___file__ = space.wrap('__file__')
-  gs__u_pedronis_PyPy_dist_pypy_lib__ = space.wrap(
-"""/u/pedronis/PyPy/dist/pypy/lib/_exceptions.py""")
-  space.setitem(g46dict, gs___file__, gs__u_pedronis_PyPy_dist_pypy_lib__)
+  gs__home_hpk_pypy_dist_pypy_lib__ex = space.wrap(
+"""/home/hpk/pypy-dist/pypy/lib/_exceptions.py""")
+  space.setitem(g46dict, gs___file__, gs__home_hpk_pypy_dist_pypy_lib__ex)
   gs_TabError = space.wrap('TabError')
   _dic = space.newdict([])
   space.setitem(_dic, gs___module__, gs__exceptions)
@@ -1764,12 +1792,11 @@ the Python version, and the hardware/OS platform and version.""")
   gi_2 = space.wrap(2)
   gi_3 = space.wrap(3)
   gs_errno = space.wrap('errno')
-  gs_errno_ = space.wrap('errno=')
   gs_strerror = space.wrap('strerror')
-  gs_strerror_ = space.wrap('strerror=')
-  gs_filename_ = space.wrap('filename=')
-  gfunc_basename = space.wrap(gateway.interp2app(f_basename, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
+  gs__Errno__s___s___s = space.wrap('[Errno %s] %s: %s')
+  gs__Errno__s___s = space.wrap('[Errno %s] %s')
   gs____ = space.wrap('???')
+  gfunc_basename = space.wrap(gateway.interp2app(f_basename, unwrap_spec=[gateway.ObjSpace, gateway.Arguments]))
   gs__s___s__line__ld_ = space.wrap('%s (%s, line %ld)')
   gs__s___s_ = space.wrap('%s (%s)')
   gs__s__line__ld_ = space.wrap('%s (line %ld)')
