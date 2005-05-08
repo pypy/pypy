@@ -72,21 +72,23 @@ class STType (Wrappable):
 ASTType = STType
 
 app = applevel(""" 
-    import compiler 
     def mycompile(tup, filename): 
+        import compiler 
         transformer = compiler.transformer.Transformer()
         compileAST = transformer.compile_node(tup) 
         compiler.misc.set_filename(filename, compileAST)
         return compileAST 
 
     def exprcompile(compileAST): 
+        import compiler
         gen = compiler.pycodegen.ExpressionCodeGenerator(compileAST)
         return gen.getCode()
 
     def modcompile(compileAST): 
+        import compiler
         gen = compiler.pycodegen.ModuleCodeGenerator(compileAST)
         return gen.getCode() 
-""", filename=__file__)
+""", filename=__file__, do_imports=False)
 
 mycompile = app.interphook("mycompile")
 exprcompile = app.interphook("exprcompile")
