@@ -24,23 +24,23 @@ class STType (Wrappable):
         self.space = space 
         self.node = syntaxnode
 
-    def totuple (self, line_info = 0):
+    def totuple (self, line_info = False ):
         """STType.totuple()
         Convert the ST object into a tuple representation.
         """
         # lineinfo is ignored for now
-        return self.node.totuple()
+        return self.node.totuple( line_info )
 
-    def descr_totuple(self, line_info = 0): 
+    def descr_totuple(self, line_info = False): 
         return self.space.wrap(self.totuple(line_info))
        
     descr_totuple.unwrap_spec=['self', int]
 
-    def tolist (self, line_info = 0):
+    def tolist (self, line_info = False):
         """STType.tolist()
         Convert the ST object into a list representation.
         """
-        return self.node.tolist()
+        return self.node.tolist( line_info )
 
     def isexpr (self):
         """STType.isexpr()

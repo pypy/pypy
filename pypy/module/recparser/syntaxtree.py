@@ -61,7 +61,12 @@ TOKEN_MAP = {
     "|=" : token.VBAREQUAL,
     }
     
-
+SYMBOLS = {}
+# copies the numerical mapping between symbol name and symbol value
+# into SYMBOLS
+for k,v in symbol.__dict__.items():
+    if type(v)==int:
+        SYMBOLS[k] = v
 
 
 class SyntaxNode(object):
@@ -108,8 +113,9 @@ class SyntaxNode(object):
     def expand(self):
         return [ self ]
 
-    def totuple(self):
-        l = [getattr(symbol, self.name, (0,self.name) )]
+    def totuple(self, lineno=False ):
+        symvalue = SYMBOLS.get( self.name, (0,self.name) )
+        l = [ symvalue ]
         l += [node.totuple() for node in self.nodes]
         return tuple(l)
     
@@ -137,7 +143,7 @@ class TokenNode(SyntaxNode):
         else:
             return "<%s!>" % (self.name,)
 
-    def totuple(self):
+    def totuple(self, lineno=False):
         num = TOKEN_MAP.get(self.name, -1)
         if num == -1:
             print "Unknown", self.name, self.value
@@ -148,4 +154,7 @@ class TokenNode(SyntaxNode):
                 val = self.name
             else:
                 val = self.value or ''
-        return (num, val)
+        if lineno:
+            return (num, val, self.lineno)
+        else:
+            return (num, val)
