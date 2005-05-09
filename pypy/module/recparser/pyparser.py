@@ -111,4 +111,9 @@ def expr( space, source ):
 
 expr.unwrap_spec = [ObjSpace, str]
 
+def ast2tuple(space, node, line_info=False):
+    """Quick dummy implementation of parser.ast2tuple(tree) function"""
+    tuples = node.totuple(line_info)
+    return space.wrap(tuples)
 
+ast2tuple.unwrap_spec = [ObjSpace, STType, bool]

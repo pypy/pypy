@@ -116,7 +116,7 @@ class SyntaxNode(object):
     def totuple(self, lineno=False ):
         symvalue = SYMBOLS.get( self.name, (0,self.name) )
         l = [ symvalue ]
-        l += [node.totuple() for node in self.nodes]
+        l += [node.totuple(lineno) for node in self.nodes]
         return tuple(l)
     
 
