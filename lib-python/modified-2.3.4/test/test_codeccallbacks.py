@@ -1,20 +1,8 @@
 
 import test.test_support, unittest
 import sys,  htmlentitydefs, unicodedata
-sys.path.insert(0,r'd:\projects\pypy_co')
-sys.path.insert(0,r'd:\projects\pypy_co\pypy\lib')
-sys.path.insert(0,r'd:\projects\pypy_co\lib-python\modified-2.3.4')
-sys.path.insert(0,r'd:\projects\pypy_co\lib-python\2.3.4')
-from pypy.lib import _codecs
-sys.modules['_codecs'] = _codecs
-from pypy.lib import encodings
-sys.modules['encodings'] = encodings
-from pypy.lib import codecs
-sys.modules['codecs'] = codecs
-reload(encodings)
-reload(codecs)
-assert codecs == encodings.codecs
-
+import codecs
+print sys.modules['codecs'],sys.modules['_codecs']#,sys.modules['encodings']
 class PosReturn:
     # this can be used for configurable callbacks
 
