@@ -4,14 +4,13 @@ import sets, inspect
 from types import FunctionType, MethodType
 
 from pypy.objspace.flow.model import Variable, Constant, Block, Link
-from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.objspace.flow.model import traverse, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.annotation.builtin import BUILTIN_ANALYZERS
 from pypy.translator.llvm import llvmbc
 from pypy.translator.unsimplify import remove_double_links
 
-from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError
+from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError, last_exception, last_exc_value
 from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
 
 debug = False

@@ -2,7 +2,10 @@ import autopath
 import sets
 
 from pypy.objspace.flow.model import Variable, Constant
-from pypy.objspace.flow.model import last_exception, last_exc_value
+# xxx tweak just so that unrelated tests can work
+from pypy.objspace.flow.model import last_exception # this one is only used for the exitswitch now!!!
+last_exc_value = object()
+
 from pypy.annotation import model as annmodel
 from pypy.translator.llvm.lazyattribute import MetaLazyRepr
 LLVM_SIMPLE_TYPES = {annmodel.SomeChar: "sbyte",

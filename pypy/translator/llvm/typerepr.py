@@ -4,7 +4,6 @@ import sets
 from types import ClassType
 
 from pypy.objspace.flow.model import Variable, Constant
-from pypy.objspace.flow.model import last_exception, last_exc_value
 from pypy.annotation import model as annmodel
 from pypy.annotation.listdef import ListDef
 

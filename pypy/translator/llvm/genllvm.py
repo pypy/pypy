@@ -5,7 +5,7 @@ Generate a llvm .ll file from an annotated flowgraph.
 import autopath
 import sets, StringIO
 
-from pypy.objspace.flow.model import Constant, last_exception, last_exc_value
+from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.translator import transform
 from pypy.translator.translator import Translator
