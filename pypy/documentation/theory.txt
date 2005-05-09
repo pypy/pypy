@@ -23,7 +23,7 @@ As an example of more abstract object spaces you have the ones with finite domai
 In PyPy, the FlowObjSpace_ uses the abstract interpretation technique to generate a control flow graph of the functions of RPython_ programs.
 
 .. _FlowObjSpace: objspace.html#the-flow-object-space
-.. _RPython:      coding-style.html#restricted-python
+.. _RPython:      coding-guide.html#restricted-python
 
 
 Multimethods

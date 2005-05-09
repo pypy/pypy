@@ -1,7 +1,7 @@
 [
     'getting_started.html', 
     'architecture.html', 
-    'coding-style.html', 
+    'coding-guide.html', 
     'objspace.html',
     'translation.html',
     'misc.html', 

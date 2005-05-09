@@ -1,7 +1,7 @@
 # please make sure this is evaluatable 
 {
-    'restrictedpy.html': 'coding-style.html#restricted-python', 
-    'testdesign.html'  : 'coding-style.html#test-design',
+    'restrictedpy.html': 'coding-guide.html#restricted-python', 
+    'testdesign.html'  : 'coding-guide.html#test-design',
 
     'stdobjspace.html'      : 'objspace.html#the-standard-object-space',
     'objspaceinterface.html': 'objspace.html#object-space-interface',
@@ -12,8 +12,8 @@
 
     'howtopypy.html'        : 'getting_started.html#howtopypy',
     'howtosvn.html'         : 'getting_started.html#howtosvn',
-    'checking_ReST.html'    : 'coding-style.html#pypy-documentation', 
-    'optionaltools.html'    : 'coding-style.html#optionaltool', 
+    'checking_ReST.html'    : 'coding-guide.html#pypy-documentation', 
+    'optionaltools.html'    : 'coding-guide.html#optionaltool', 
 
     'newrepolayout.html'    : 'misc.html#newrepolayout', 
     'goals.html'            : 'misc.html#goals', 
@@ -23,5 +23,7 @@
 
     'annotation.html'       : 'translation.html#annotator',
     'basicblock.asc'        : 'objspace.html#the-flow-model',
+
+    'coding-style.html'     : 'coding-guide.html',
 }
 

@@ -9,7 +9,7 @@ This document describes the tool chain that we developed to analyze and
 "compile" RPython_ programs (like PyPy itself) to various lower-level
 languages.
 
-.. _RPython: coding-style.html#restricted-python
+.. _RPython: coding-guide.html#restricted-python
 
 
 Overview

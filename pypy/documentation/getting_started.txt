@@ -42,7 +42,7 @@ to refactor things all the time (without proper automated
 testing this would become very hard and fragile).  
 
 For an overview of how we organize our codebase please look at our 
-`coding-style document`_.   
+`coding-guide document`_.   
 
 For running all PyPy tests you can issue:: 
 
@@ -67,7 +67,7 @@ of our pypy-subversion repository.  Go to the `documentation start page`_
 and look around.   
 
 .. _`documentation start page`: index.html 
-.. _`coding-style document`: coding-style.html 
+.. _`coding-guide document`: coding-guide.html 
 .. _`py.test`: http://codespeak.net/py/current/doc/test.html 
 
 .. _`detailed version`: 
@@ -398,7 +398,7 @@ In order to get the sourcecode and docs downloaded onto your drive, open a shell
 
 If you are behind a dump proxy this may or may not work; see below.
 
-Once you've got the files checked out to your own system, you can use your favorite text editor to change to files. Be sure to read the coding-style_ and other documentation files before doing a lot of work on the source code. Before doing any work, make sure you're using the most recent update with::
+Once you've got the files checked out to your own system, you can use your favorite text editor to change to files. Be sure to read the coding-guide_ and other documentation files before doing a lot of work on the source code. Before doing any work, make sure you're using the most recent update with::
 
   $ svn up
 
@@ -427,7 +427,7 @@ You'll see something like the following::
 
 or::
 
- Sending        coding-style.txt
+ Sending        coding-guide.txt
  Transmitting file data .
  Committed revision 631.
 
@@ -501,7 +501,7 @@ and add a line for .py files.
 .. _guide: http://svnbook.red-bean.com/book.html#svn-ch-1
 .. _archives: http://codespeak.net/pipermail/pypy-svn/
 .. _online: http://codespeak.net/svn/pypy/dist/
-.. _coding-style: coding-style.html 
+.. _coding-guide: coding-guide.html 
 .. _HowToInstallServer: http://codespeak.net/moin/pypy/moin.cgi/HowToInstallServer
 .. _backports: http://www.backports.org
 

@@ -12,7 +12,7 @@ Here are some good entry points into PyPy's world:
  * `getting started`_ provides hands-on instructions 
    including a two-liner to run PyPy on your computer. 
 
- * objspace_ and coding-style_ provide more in-depth 
+ * objspace_ and coding-guide_ provide more in-depth 
    implementation level information. 
 
  * translation_ offers the beginnings of documentation 
@@ -24,7 +24,7 @@ Here are some good entry points into PyPy's world:
 
 .. _`objspace`: objspace.html 
 .. _`translation`: translation.html 
-.. _`coding-style`: coding-style.html 
+.. _`coding-guide`: coding-guide.html 
 .. _`architecture`: architecture.html 
 .. _`revision report`: http://codespeak.net/pypy/rev/current 
 .. _`getting started`: getting_started.html 
