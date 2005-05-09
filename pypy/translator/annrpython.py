@@ -7,7 +7,7 @@ from pypy.annotation.model import pair
 from pypy.annotation.bookkeeper import Bookkeeper
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.objspace.flow.model import SpaceOperation, FunctionGraph
-from pypy.objspace.flow.model import last_exception, last_exc_value
+from pypy.objspace.flow.model import last_exception
 
 class AnnotatorError(Exception):
     pass
@@ -174,7 +174,7 @@ class RPythonAnnotator:
         elif isinstance(arg, Constant):
             #if arg.value is undefined_value:   # undefined local variables
             #    return annmodel.SomeImpossibleValue()
-            assert not arg.value is last_exception and not arg.value is last_exc_value
+            assert not arg.value is last_exception
             return self.bookkeeper.immutablevalue(arg.value)
         else:
             raise TypeError, 'Variable or Constant expected, got %r' % (arg,)
@@ -432,6 +432,10 @@ class RPythonAnnotator:
             self.links_followed[link] = True
             import types
             in_except_block = False
+
+            last_exception_var = link.last_exception # may be None for non-exception link
+            last_exc_value_var = link.last_exc_value # may be None for non-exception link
+            
             if isinstance(link.exitcase, (types.ClassType, type)) \
                    and issubclass(link.exitcase, Exception):
                 last_exception_object = annmodel.SomeObject()
@@ -441,16 +445,19 @@ class RPythonAnnotator:
                     last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
                 last_exc_value_vars = []
                 in_except_block = True
+                # not needed!
+                #self.setbinding(last_exception_var, last_exception_object)
+                #self.setbinding(last_exc_value_var, last_exc_value_object)
 
             cells = []
             renaming = {}
             for a,v in zip(link.args,link.target.inputargs):
                 renaming.setdefault(a, []).append(v)
             for a,v in zip(link.args,link.target.inputargs):
-                if a == Constant(last_exception):
+                if a == last_exception_var:
                     assert in_except_block
                     cells.append(last_exception_object)
-                elif a == Constant(last_exc_value):
+                elif a == last_exc_value_var:
                     assert in_except_block
                     cells.append(last_exc_value_object)
                     last_exc_value_vars.append(v)

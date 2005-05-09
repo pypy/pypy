@@ -107,21 +107,29 @@ class BlockRecorder(Recorder):
     def guessbool(self, ec, w_condition, cases=[False,True],
                   replace_last_variable_except_in_first_case = None):
         block = self.crnt_block
-        vars = vars2 = block.getvariables()
+        bvars = vars = vars2 = block.getvariables()
         links = []
+        first = True
+        attach = {}
         for case in cases:
+            if first:
+                first = False
+            elif replace_last_variable_except_in_first_case is not None:
+                assert block.operations[-1].result is bvars[-1]
+                vars = bvars[:-1]
+                for name in replace_last_variable_except_in_first_case:
+                    newvar = Variable(name)
+                    attach[name] = newvar
+                    vars.append(newvar)
+                vars2 = bvars[:-1]
+                while len(vars2) < len(vars):
+                    vars2.append(Variable())
             egg = EggBlock(vars2, block, case)
             ec.pendingblocks.append(egg)
             link = Link(vars, egg, case)
+            link.__dict__.update(attach)
             links.append(link)
-            if replace_last_variable_except_in_first_case is not None:
-                assert block.operations[-1].result is vars[-1]
-                vars = vars[:-1]
-                vars.extend(replace_last_variable_except_in_first_case)
-                vars2 = vars2[:-1]
-                while len(vars2) < len(vars):
-                    vars2.append(Variable())
-                replace_last_variable_except_in_first_case = None
+
         block.exitswitch = w_condition
         block.closeblock(*links)
         # forked the graph. Note that False comes before True by default
@@ -212,8 +220,8 @@ class FlowExecutionContext(ExecutionContext):
         outcome = self.guessbool(Constant(last_exception),
                                  cases = [None] + list(classes),
                                  replace_last_variable_except_in_first_case = [
-                                     Constant(last_exception),   # exc. class
-                                     Constant(last_exc_value)])  # exc. value
+                                     'last_exception',   # exc. class
+                                     'last_exc_value'])  # exc. value
         if outcome is None:
             w_exc_cls, w_exc_value = None, None
         else:

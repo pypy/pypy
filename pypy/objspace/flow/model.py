@@ -54,6 +54,18 @@ class Link:
         self.exitcase = exitcase   # this is a concrete value
         self.prevblock = None      # the block this Link is an exit of
 
+        # exception passing vars
+        self.last_exception = None
+        self.last_exc_value = None
+
+    def copy(self, rename=lambda x: x):
+        newargs = [rename(a) for a in self.args]
+        newlink = Link(newargs, self.target, self.exitcase)
+        newlink.prevblock = self.prevblock
+        newlink.last_exception = rename(self.last_exception)
+        newlink.last_exc_value = rename(self.last_exc_value)
+        return newlink
+
     def __repr__(self):
         return "link from %s to %s" % (str(self.prevblock), str(self.target))
 
@@ -217,7 +229,6 @@ class Atom(object):
     def __repr__(self):
         return self.name
 last_exception = Atom('last_exception')
-last_exc_value = Atom('last_exc_value')
 # if Block().exitswitch == Constant(last_exception), it means that we are
 # interested in catching the exception that the *last operation* of the
 # block could raise.  The exitcases of the links are None for no exception
@@ -333,7 +344,7 @@ def checkgraph(graph):
                             assert v in vars
                         else:
                             assert v.value != last_exception
-                            assert v.value != last_exc_value
+                            #assert v.value != last_exc_value
                 exc_links = {}
                 if block.exitswitch is None:
                     assert len(block.exits) <= 1
@@ -356,13 +367,13 @@ def checkgraph(graph):
                     for v in link.args:
                         assert isinstance(v, (Constant, Variable))
                         if isinstance(v, Variable):
-                            assert v in vars
+                            assert v in vars or (exc_link and v in (link.last_exception, link.last_exc_value))
                             if exc_link:
                                 assert v != block.operations[-1].result
                         else:
                             if not exc_link:
                                 assert v.value != last_exception
-                                assert v.value != last_exc_value
+                                #assert v.value != last_exc_value
                 vars_previous_blocks.update(vars)
 
         try:

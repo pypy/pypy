@@ -203,8 +203,8 @@ def simplify_exceptions(graph):
         # construct the block's new exits
         exits = []
         for case, oldlink in switches:
-            args = [rename(arg) for arg in oldlink.args]
-            link = Link(args, oldlink.target, case)
+            link = oldlink.copy(rename)
+            link.exitcase = case
             link.prevblock = block
             exits.append(link)
         block.exits = tuple(exits)
@@ -269,8 +269,8 @@ def join_blocks(graph):
                     link.prevblock.operations.append(op)
                 exits = []
                 for exit in link.target.exits:
-                    args = [rename(a) for a in exit.args]
-                    exits.append(Link(args, exit.target, exit.exitcase))
+                    newexit = exit.copy(rename)
+                    exits.append(newexit)
                 link.prevblock.exitswitch = rename(link.target.exitswitch)
                 link.prevblock.recloseblock(*exits)
                 # simplify recursively the new links

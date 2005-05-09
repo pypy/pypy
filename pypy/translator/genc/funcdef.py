@@ -3,7 +3,7 @@ from pypy.objspace.flow import FlowObjSpace
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
-from pypy.objspace.flow.model import last_exception, last_exc_value
+from pypy.objspace.flow.model import last_exception
 from pypy.translator.simplify import simplify_graph
 from pypy.translator.unsimplify import remove_direct_loops
 from pypy.translator.genc.inttype import CIntType
@@ -490,8 +490,8 @@ class FunctionDef:
                     yield '\t}'
                     yield '\tPy_XDECREF(exc_tb);'
                     for op in gen_link(link, {
-                                Constant(last_exception): 'exc_cls',
-                                Constant(last_exc_value): 'exc_value'}):
+                                link.last_exception: 'exc_cls',
+                                link.last_exc_value: 'exc_value'}):
                         yield '\t' + op
                     yield '}'
                 err_reachable = True

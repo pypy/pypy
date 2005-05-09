@@ -144,6 +144,8 @@ class Specializer:
         for link in block.exits:
             for i in range(len(link.args)):
                 a1 = link.args[i]
+                if a1 in (link.last_exception, link.last_exc_value):# treated specially in gen_link
+                    continue
                 a2 = link.target.inputargs[i]
                 a2type = self.setbesttype(a2)
                 a1, convops = self.convertvar(a1, a2type)

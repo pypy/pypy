@@ -22,7 +22,7 @@ import cPickle as pickle, __builtin__
 from copy_reg import _HEAPTYPE
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
-from pypy.objspace.flow.model import last_exception, last_exc_value
+from pypy.objspace.flow.model import last_exception
 from pypy.objspace.flow.model import traverse, uniqueitems, checkgraph
 from pypy.interpreter.pycode import CO_VARARGS, CO_VARKEYWORDS
 from pypy.annotation import model as annmodel
@@ -1169,8 +1169,8 @@ class GenRpy:
                                             self.nameof(link.exitcase))
                     q = "elif"
                     for op in self.gen_link(link, localscope, blocknum, block, {
-                                Constant(last_exception): 'e.w_type',
-                                Constant(last_exc_value): 'e.w_value'}):
+                                link.last_exception: 'e.w_type',
+                                link.last_exc_value: 'e.w_value'}):
                         yield "        %s" % op
                 yield "    else:raise # unhandled case, should not happen"
             else:
