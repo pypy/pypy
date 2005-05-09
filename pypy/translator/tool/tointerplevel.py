@@ -6,7 +6,7 @@ import new
 
 from pypy.objspace.flow.objspace import FlowObjSpace
 from pypy.translator.translator import Translator
-from pypy.translator.geninterplevel import GenRpy
+from pypy.translator.geninterplevel import GenRpy, needed_passes as genrpy_needed_passes
 
 # change default
 FlowObjSpace.builtins_can_raise_exceptions = True
@@ -54,7 +54,7 @@ def main():
     else:
         entrypoint = tuple(objs)
 
-    t = Translator(None, verbose=False, simplifying=True, builtins_can_raise_exceptions=True)
+    t = Translator(None, verbose=False, simplifying=genrpy_needed_passes, builtins_can_raise_exceptions=True)
     gen = GenRpy(t, entrypoint, modname, mod.__dict__)
 
     output = options.output or modname + "interp.py"

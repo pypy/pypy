@@ -10,19 +10,6 @@ from pypy.objspace.flow.model import Variable, Constant, Block, Link
 from pypy.objspace.flow.model import last_exception
 from pypy.objspace.flow.model import checkgraph, traverse, mkentrymap
 
-def simplify_graph(graph):
-    """inplace-apply all the existing optimisations to the graph."""
-    checkgraph(graph)
-    eliminate_empty_blocks(graph)
-    remove_assertion_errors(graph)
-    join_blocks(graph)
-    transform_dead_op_vars(graph)
-    remove_identical_vars(graph)
-    transform_ovfcheck(graph)
-    simplify_exceptions(graph)
-    remove_dead_exceptions(graph)
-    checkgraph(graph)
-
 # ____________________________________________________________
 
 def eliminate_empty_blocks(graph):
@@ -479,3 +466,26 @@ def remove_identical_vars(graph):
                     for link in block.exits:
                         consider_blocks[link.target] = True
                     break
+
+# ____ all passes & simplify_graph
+
+all_passes = [
+    eliminate_empty_blocks,
+    remove_assertion_errors,
+    join_blocks,
+    transform_dead_op_vars,
+    remove_identical_vars,
+    transform_ovfcheck,
+    simplify_exceptions,
+    remove_dead_exceptions,
+    ]
+
+def simplify_graph(graph, passes=True): # can take a list of passes to apply, True meaning all
+    """inplace-apply all the existing optimisations to the graph."""
+    if passes is True:
+        passes = all_passes
+    checkgraph(graph)
+    for pass_ in passes:
+        pass_(graph)
+    checkgraph(graph)
+

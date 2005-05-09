@@ -86,7 +86,7 @@ class Translator:
             space.do_imports_immediately = self.do_imports_immediately
             graph = space.build_flow(func)
             if self.simplifying:
-                simplify_graph(graph)
+                simplify_graph(graph, self.simplifying)
             if self.verbose:
                 print
             self.flowgraphs[func] = graph
@@ -130,15 +130,15 @@ class Translator:
         from pypy.translator.tool.graphpage import TranslatorPage
         TranslatorPage(self).display()
 
-    def simplify(self, func=None):
+    def simplify(self, func=None, passes=True):
         """Simplifies the control flow graph (default: for all functions)."""
         if func is None:
             for func in self.flowgraphs.keys():
                 self.simplify(func)
         else:
             graph = self.getflowgraph(func)
-            simplify_graph(graph)
-
+            simplify_graph(graph, passes)
+            
     def annotate(self, input_args_types, func=None, overrides={}):
         """annotate(self, input_arg_types[, func]) -> Annotator
 

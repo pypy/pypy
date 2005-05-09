@@ -39,6 +39,13 @@ from pypy.tool.sourcetools import render_docstr, NiceCompile
 from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
      c_string, uniquemodulename, C_IDENTIFIER, NameManager
 
+
+# list of simplifcation passes needed by geninterp
+from pypy.translator.simplify import transform_ovfcheck, all_passes as needed_passes
+
+needed_passes.remove(transform_ovfcheck)
+
+
 import pypy # __path__
 import py.path
 
@@ -1433,7 +1440,7 @@ if False and __name__ == "__main__":
     # extract certain stuff like a general module maker
     # and put this into tools/compile_exceptions, maybe???
     dic, entrypoint = exceptions_helper()
-    t = Translator(None, verbose=False, simplifying=True,
+    t = Translator(None, verbose=False, simplifying=needed_passes,
                    builtins_can_raise_exceptions=True,
                    do_imports_immediately=False)
     gen = GenRpy(t, entrypoint)
@@ -1452,7 +1459,7 @@ if False and __name__ == "__main__":
     dic = None
     if entrypoint.__name__.endswith("_helper"):
         dic, entrypoint = entrypoint()
-    t = Translator(entrypoint, verbose=False, simplifying=True, builtins_can_raise_exceptions=True)
+    t = Translator(entrypoint, verbose=False, simplifying=needed_passes, builtins_can_raise_exceptions=True)
     gen = GenRpy(t)
     gen.use_fast_call = True
     if dic: gen.moddict = dic
@@ -1472,7 +1479,7 @@ def crazy_test():
     def test():
         entrypoint()
         
-    t = Translator(test, verbose=False, simplifying=True,
+    t = Translator(test, verbose=False, simplifying=needed_passes,
                    builtins_can_raise_exceptions=True,
                    do_imports_immediately=False)
     gen2 = GenRpy(t)
@@ -1526,7 +1533,7 @@ def translate_as_module(sourcetext, filename=None, modname="app2interpexec",
     exec code in dic
     #del dic['__builtins__']
     entrypoint = dic
-    t = Translator(None, verbose=False, simplifying=True,
+    t = Translator(None, verbose=False, simplifying=needed_passes,
                    builtins_can_raise_exceptions=True,
                    do_imports_immediately=do_imports)
     hold = sys.path
