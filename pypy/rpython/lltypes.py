@@ -2,6 +2,13 @@ import weakref
 import py
 from pypy.rpython.rarithmetic import r_uint
 
+class frozendict(dict):
+
+    def __hash__(self):
+        items = self.items()
+        items.sort()
+        return hash(tuple(items))
+
 
 class LowLevelType(object):
     def __eq__(self, other):
@@ -23,6 +30,9 @@ class LowLevelType(object):
     def _defl(self, parent=None):
         raise NotImplementedError
 
+    def _freeze_(self):
+        return True
+
 
 class ContainerType(LowLevelType):
     pass
@@ -31,8 +41,8 @@ class ContainerType(LowLevelType):
 class Struct(ContainerType):
     def __init__(self, name, *fields):
         self._name = name
-        self._flds = flds = {}
-        self._names = names = []
+        flds = {}
+        names = []
         self._arrayfld = None
         for name, typ in fields:
             if name.startswith('_'):
@@ -50,6 +60,8 @@ class Struct(ContainerType):
             name, typ = fields[-1]
             if isinstance(typ, Array):
                 self._arrayfld = name
+        self._flds = frozendict(flds)
+        self._names = tuple(names)
 
     def __getattr__(self, name):
         try:
@@ -68,6 +80,12 @@ class Struct(ContainerType):
     def _defl(self, parent=None):
         return _struct(self, parent=parent)
 
+    def _example(self):
+        if self._arrayfld is None:
+            n = None
+        else:
+            n = 1
+        return _struct(self, n)
 
 class Array(ContainerType):
     def __init__(self, *fields):
@@ -77,6 +95,9 @@ class Array(ContainerType):
 
     def __str__(self):
         return "Array of { %s }" % (self.OF._str_fields(),)
+
+    def _example(self):
+        return _array(self, 1)
 
 
 class Primitive(LowLevelType):
@@ -104,7 +125,7 @@ class _PtrType(LowLevelType):
             raise TypeError, ("can only point to a Struct or an Array, "
                               "not to %s" % (TO,))
         self.TO = TO
-        self.flags = flags
+        self.flags = frozendict(flags)
 
     def _str_flags(self):
         flags = self.flags.keys()
@@ -121,6 +142,11 @@ class _PtrType(LowLevelType):
 
     def _defl(self, parent=None):
         return _ptr(self, None)
+
+    def _example(self):
+        o = self.TO._example()
+        return _ptr(self, o)
+        
 
 def GcPtr(TO, **flags):
     return _PtrType(TO, gc=True, **flags)

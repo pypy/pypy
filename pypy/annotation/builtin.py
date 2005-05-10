@@ -231,3 +231,21 @@ BUILTIN_ANALYZERS[os.path.isdir] = test
 # time stuff
 BUILTIN_ANALYZERS[time.time] = time_func
 BUILTIN_ANALYZERS[time.clock] = time_func
+
+
+# annotation of low-level types
+from pypy.annotation.model import SomePtr
+from pypy.rpython import lltypes
+
+def malloc(T, n=None):
+    assert n is None or n.knowntype == int
+    assert T.is_constant()
+    if n is not None:
+        n = 1
+    p = lltypes.malloc(T.const, n)
+    r = SomePtr(lltypes.typeOf(p))
+    print r
+    return r
+
+BUILTIN_ANALYZERS[lltypes.malloc] = malloc
+

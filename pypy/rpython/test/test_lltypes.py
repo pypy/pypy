@@ -187,3 +187,24 @@ def test_best_effort_gced_parent_for_arrays():
     gc.collect()
     py.test.raises(RuntimeError, "p1_5.v")        
 
+def test_examples():
+    A1 = Array(('v', Signed))
+    S = Struct("s", ('v', Signed))
+    St = Struct("st", ('v', Signed),('trail', A1))
+
+    PA1 = GcPtr(A1)
+    PS = GcPtr(S)
+    PSt = GcPtr(St)
+
+    ex_pa1 = PA1._example()
+    ex_ps  = PS._example()
+    ex_pst = PSt._example()
+
+    assert typeOf(ex_pa1) == PA1
+    assert typeOf(ex_ps) == PS
+    assert typeOf(ex_pst) == PSt
+
+    assert ex_pa1[0].v == 0
+    assert ex_ps.v == 0
+    assert ex_pst.v == 0
+    assert ex_pst.trail[0].v == 0

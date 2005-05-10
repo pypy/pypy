@@ -267,6 +267,14 @@ class SomeImpossibleValue(SomeObject):
     """The empty set.  Instances are placeholders for objects that
     will never show up at run-time, e.g. elements of an empty list."""
 
+#____________________________________________________________
+# annotation of low-level types
+
+class SomePtr(SomeObject):
+    def __init__(self, ll_ptrtype):
+        self.ll_ptrtype = ll_ptrtype
+
+# ____________________________________________________________
 
 def unionof(*somevalues):
     "The most precise SomeValue instance that contains all the values."

@@ -451,3 +451,23 @@ class __extend__(pairtype(SomeString, SomePBC)):
 class __extend__(pairtype(SomePBC, SomeString    )):
     def union((pbc, s)):
         return pair(s, pbc).union()
+
+# annotation of low-level types
+from pypy.rpython import lltypes
+from pypy.annotation.model import SomePtr
+
+class __extend__(SomePtr, SomePtr):
+    def union((p1, p2)):
+        assert p1.ll_ptrtype == p2.ll_prttype,("mixing of incompatible pointer types: %r, %r" %
+                                               (p1.ll_prttype, p2.ll_prttype))
+        return SomePtr(p1.ll_ptrtype)
+
+class __extend__(SomePtr, SomeObject):
+    def union((p1, obj)):
+        assert False, ("mixing pointer type %r with something else %r" % (p1.ll_ptrtype, obj))
+
+class __extend__(SomeObject, SomePtr):
+    def union((obj, p2)):
+        return pair(p2, obj).union()
+
+
