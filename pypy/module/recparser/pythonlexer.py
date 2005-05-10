@@ -263,7 +263,11 @@ class PythonSource(TokenSource):
         if not hasattr(self, '_lines'):
             # split lines only once
             self._lines = self.input.splitlines()
-        return 'line %s : %s' % (self.line, self._lines[self.line-1])
+        if self.line > len(self._lines):
+            lineno = len(self._lines)
+        else:
+            lineno = self.line
+        return 'line %s : %s' % (lineno, self._lines[lineno-1])
 
     ## ONLY refactor ideas ###########################################
 ##     def _mynext(self):

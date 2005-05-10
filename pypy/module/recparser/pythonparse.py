@@ -17,7 +17,6 @@ def parse_python_source( textsrc, gram, goal ):
         builder._source_encoding = src.encoding
     # </HACK>
     if not result:
-        print src.debug()
         raise SyntaxError("at %s" % src.debug() )
     return builder
 
