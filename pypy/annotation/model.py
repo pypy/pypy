@@ -118,7 +118,7 @@ class SomeInteger(SomeFloat):
     knowntype = int
     def __init__(self, nonneg=False, unsigned=False):
         self.nonneg = unsigned or nonneg
-        self.unsigned = unsigned  # pypy.tool.rarithmetic.r_uint
+        self.unsigned = unsigned  # pypy.rpython.rarithmetic.r_uint
 
 
 class SomeBool(SomeInteger):

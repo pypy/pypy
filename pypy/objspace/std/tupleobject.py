@@ -1,6 +1,6 @@
 from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.tool.rarithmetic import intmask
+from pypy.rpython.rarithmetic import intmask
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway

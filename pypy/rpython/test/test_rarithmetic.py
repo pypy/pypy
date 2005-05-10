@@ -1,6 +1,4 @@
-import unittest
-import autopath
-from pypy.tool.rarithmetic import *
+from pypy.rpython.rarithmetic import *
 import sys
 
 

@@ -5,7 +5,7 @@ from pypy.translator.gensupp import builtin_base, NameManager
 from pypy.translator.genc.basetype import CType
 from types import FunctionType, CodeType, InstanceType, ClassType
 
-from pypy.tool.rarithmetic import r_int, r_uint
+from pypy.rpython.rarithmetic import r_int, r_uint
 
 # XXX maybe this can be done more elegantly:
 # needed to convince should_translate_attr

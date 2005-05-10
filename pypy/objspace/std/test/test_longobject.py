@@ -3,7 +3,7 @@ import sys
 from random import random, randint
 from pypy.objspace.std import longobject as lobj
 from pypy.objspace.std.objspace import FailedToImplement
-from pypy.tool.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint
 
 objspacename = 'std'
 

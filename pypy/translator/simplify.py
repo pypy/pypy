@@ -65,7 +65,7 @@ def transform_ovfcheck(graph):
     # this is the case if no exception handling was provided.
     # Otherwise, we have a block ending in the operation,
     # followed by a block with a single ovfcheck call.
-    from pypy.tool.rarithmetic import ovfcheck, ovfcheck_lshift
+    from pypy.rpython.rarithmetic import ovfcheck, ovfcheck_lshift
     from pypy.objspace.flow.objspace import op_appendices
     from pypy.objspace.flow.objspace import implicit_exceptions
     covf = Constant(ovfcheck)

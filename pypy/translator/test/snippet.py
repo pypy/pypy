@@ -84,7 +84,7 @@ def sieve_of_eratosthenes():
 def simple_func(i=numtype):
     return i + 1
 
-from pypy.tool.rarithmetic import ovfcheck, ovfcheck_lshift
+from pypy.rpython.rarithmetic import ovfcheck, ovfcheck_lshift
 
 def add_func(i=numtype):
     try:

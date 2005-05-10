@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.miscutils import getthreadlocals
 from pypy.interpreter.argument import Arguments
 from pypy.tool.cache import Cache 
-from pypy.tool.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'BaseWrappable',
            'W_Root']

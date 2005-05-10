@@ -8,7 +8,7 @@ from pypy.translator.translator import Translator
 from pypy.annotation.listdef import ListDef
 from pypy.annotation.dictdef import DictDef
 from pypy.objspace.flow.model import *
-from pypy.tool.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint
 
 from pypy.translator.test import snippet
 
@@ -801,7 +801,6 @@ class TestAnnonateTestCase:
         py.test.raises(KeyError, "access_sets[object()]")
         
     def test_isinstance_usigned(self):
-        from pypy.tool.rarithmetic import r_uint
         def f(x):
             return isinstance(x, r_uint)
         def g():

@@ -10,7 +10,7 @@ from pypy.annotation.model import SomeList, SomeString, SomeTuple, SomeSlice
 from pypy.annotation.model import SomeFloat, unionof
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.objspace.flow.model import Constant
-import pypy.tool.rarithmetic
+import pypy.rpython.rarithmetic
 
 # convenience only!
 def immutablevalue(x):
@@ -53,7 +53,7 @@ def builtin_isinstance(s_obj, s_type, variables=None):
     r = SomeBool() 
     if s_type.is_constant():
         typ = s_type.const
-        if typ == pypy.tool.rarithmetic.r_uint:
+        if typ == pypy.rpython.rarithmetic.r_uint:
             if s_obj.is_constant():
                 r.const = isinstance(s_obj.const, typ)
             else:
@@ -203,10 +203,10 @@ for name, value in globals().items():
         original = getattr(__builtin__, name[8:])
         BUILTIN_ANALYZERS[original] = value
 
-BUILTIN_ANALYZERS[pypy.tool.rarithmetic.r_uint] = restricted_uint
-BUILTIN_ANALYZERS[pypy.tool.rarithmetic.ovfcheck] = rarith_ovfcheck
-BUILTIN_ANALYZERS[pypy.tool.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
-BUILTIN_ANALYZERS[pypy.tool.rarithmetic.intmask] = rarith_intmask
+BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.r_uint] = restricted_uint
+BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck] = rarith_ovfcheck
+BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
+BUILTIN_ANALYZERS[pypy.rpython.rarithmetic.intmask] = rarith_intmask
 
 BUILTIN_ANALYZERS[Exception.__init__.im_func] = exception_init
 # this one is needed otherwise when annotating assert in a test we may try to annotate 

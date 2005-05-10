@@ -14,7 +14,7 @@ from pypy.tool.hack import func_with_new_name
 from pypy.interpreter.pycode import CO_VARARGS
 from pypy.interpreter.pycode import cpython_code_signature
 from pypy.interpreter.argument import ArgErr
-from pypy.tool.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint
 from pypy.tool.unionfind import UnionFind
 
 import inspect, new

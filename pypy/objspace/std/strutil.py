@@ -2,7 +2,7 @@
 Pure Python implementation of string utilities.
 """
 
-from pypy.tool.rarithmetic import r_uint, ovfcheck
+from pypy.rpython.rarithmetic import r_uint, ovfcheck
 
 # XXX factor more functions out of stringobject.py.
 # This module is independent from PyPy.

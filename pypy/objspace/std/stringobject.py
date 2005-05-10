@@ -2,7 +2,7 @@
 
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
-from pypy.tool.rarithmetic import intmask, ovfcheck
+from pypy.rpython.rarithmetic import intmask, ovfcheck
 from pypy.objspace.std.intobject   import W_IntObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std import slicetype

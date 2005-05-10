@@ -3,8 +3,8 @@ from pypy.objspace.std.objspace import *
 from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.tool.rarithmetic import intmask, r_uint, LONG_MASK
-from pypy.tool.rarithmetic import LONG_BIT
+from pypy.rpython.rarithmetic import intmask, r_uint, LONG_MASK
+from pypy.rpython.rarithmetic import LONG_BIT
 
 import math
 

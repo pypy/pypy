@@ -8,7 +8,7 @@ for order comparisons.
 from pypy.objspace.std.objspace import *
 from pypy.interpreter import gateway
 
-from pypy.tool.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint
 
 class Entry:
     def __init__(self):
