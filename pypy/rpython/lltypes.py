@@ -299,7 +299,7 @@ class _struct(object):
             if isinstance(typ, Struct):
                 value = _struct(typ, parent=self)
             elif fld == TYPE._arrayfld:
-                value = _array(typ, n)
+                value = _array(typ, n, parent=self)
             else:
                 value = typ._defl()
             setattr(self, fld, value)

@@ -158,3 +158,18 @@ def test_cast_parent():
     assert p3 == p1
     py.test.raises(TypeError, "cast_parent(GcPtr(S1), p1.sub2)")
     py.test.raises(TypeError, "cast_parent(_TmpPtr(S1), p1.sub2)")
+
+def test_best_effort_gced_parent_detection():
+    S2 = Struct("s2", ('a', Signed))
+    S1 = Struct("s1", ('sub1', S2), ('sub2', S2), ('tail', Array(('e', Signed))))
+    p1 = malloc(S1, 1)
+    p2 = p1.sub2
+    assert p2.a == 0
+    p3 = p1.tail
+    p3[0].e = 1
+    assert p3[0].e == 1
+    del p1
+    import gc
+    gc.collect()
+    py.test.raises(RuntimeError, "p2.a")
+    py.test.raises(RuntimeError, "p3[0]")
