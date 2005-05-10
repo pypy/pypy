@@ -20,7 +20,7 @@ class LowLevelType(object):
     def __str__(self):
         return self.__class__.__name__
 
-    def _defl(self):
+    def _defl(self, parent=None):
         raise NotImplementedError
 
 
@@ -65,8 +65,8 @@ class Struct(ContainerType):
     def __str__(self):
         return "Struct %s { %s }" % (self._name, self._str_fields())
 
-    def _defl(self):
-        return _struct(self)
+    def _defl(self, parent=None):
+        return _struct(self, parent=parent)
 
 
 class Array(ContainerType):
@@ -87,7 +87,7 @@ class Primitive(LowLevelType):
     def __str__(self):
         return self._name
 
-    def _defl(self):
+    def _defl(self, parent=None):
         return self._default
 
 
@@ -119,7 +119,7 @@ class _PtrType(LowLevelType):
     def __str__(self):
         return 'ptr(%s) to %s' % (self._str_flags(), self.TO)
 
-    def _defl(self):
+    def _defl(self, parent=None):
         return _ptr(self, None)
 
 def GcPtr(TO, **flags):
@@ -309,10 +309,13 @@ class _struct(object):
 
     def _check(self):
         if self._wrparent is not None:
-            if self._wrparent() is None:
+            parent = self._wrparent()
+            if parent is None:
                 raise RuntimeError("accessing substructure %r,\n"
                                    "but already garbage collected parent %r"
                                    % (self, self._wrparent_type))
+            else:
+                parent._check()
 
     def __repr__(self):
         return '<%s>' % (self,)
@@ -341,17 +344,20 @@ class _array(object):
         if n < 0:
             raise ValueError, "negative array length"
         self._TYPE = TYPE
-        self.items = [TYPE.OF._defl() for j in range(n)]
+        self.items = [TYPE.OF._defl(parent=self) for j in range(n)]
         if parent is not None:
             self._wrparent_type = typeOf(parent)
             self._wrparent = weakref.ref(parent)
 
     def _check(self):
         if self._wrparent is not None:
-            if self._wrparent() is None:
+            parent = self._wrparent()
+            if parent is None:
                 raise RuntimeError("accessing subarray %r,\n"
                                    "but already garbage collected parent %r"
                                    % (self, self._wrparent_type))
+            else:
+                parent._check()
 
     def __repr__(self):
         return '<%s>' % (self,)

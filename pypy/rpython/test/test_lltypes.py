@@ -173,3 +173,17 @@ def test_best_effort_gced_parent_detection():
     gc.collect()
     py.test.raises(RuntimeError, "p2.a")
     py.test.raises(RuntimeError, "p3[0]")
+
+def test_best_effort_gced_parent_for_arrays():
+    A1 = Array(('v', Signed))
+    p1 = malloc(A1, 10)
+    p1[5].v=3
+    assert p1[0].v == 0
+    assert p1[9].v == 0
+    assert p1[5].v == 3
+    p1_5 = p1[5]
+    del p1
+    import gc
+    gc.collect()
+    py.test.raises(RuntimeError, "p1_5.v")        
+
