@@ -1,6 +1,6 @@
 import weakref
 import py
-from pypy.tool.rarithmetic import r_uint
+from pypy.rpython.rarithmetic import r_uint
 
 
 class LowLevelType(object):
