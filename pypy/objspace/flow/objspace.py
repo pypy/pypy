@@ -444,7 +444,7 @@ _add_exceptions("""add sub mul truediv floordiv div mod divmod pow
                    inplace_add inplace_sub inplace_mul inplace_truediv
                    inplace_floordiv inplace_div inplace_mod inplace_divmod
                    inplace_pow""", FloatingPointError)
-_add_except_ovf("""pos neg abs invert add sub mul truediv
+_add_except_ovf("""neg abs invert add sub mul truediv
                    floordiv div mod divmod pow lshift
                    inplace_add inplace_sub inplace_mul inplace_truediv
                    inplace_floordiv inplace_div inplace_mod inplace_pow

@@ -50,4 +50,10 @@ class TestTypedTestCase(_TestAnnotatedTestCase):
         fn = self.getcompiled(snippet.lshift_func)
         raises(ValueError, fn, -1)
         raises(OverflowError, fn, 1)
-        
+
+    def test_int_unary_ovf(self):
+        fn = self.getcompiled(snippet.unary_func)
+        for i in range(-3,3):
+            assert fn(i) == (-(i), abs(i-1))
+        raises (OverflowError, fn, -sys.maxint-1)
+        raises (OverflowError, fn, -sys.maxint)

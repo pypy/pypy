@@ -2,11 +2,34 @@
 /************************************************************/
  /***  C header subsection: operations between ints        ***/
 
+/*** unary operations ***/
 
 #define OP_INCREF_int(x)          /* nothing */
 #define OP_DECREF_int(x)          /* nothing */
 #define CONV_TO_OBJ_int           PyInt_FromLong
 #define CONV_FROM_OBJ_int         PyInt_AS_LONG
+
+#define OP_INT_IS_TRUE(x,r,err)   OP_INT_NE(x,0,r,err)
+
+#define OP_INT_INVERT(x,r,err)    r = ~((long)(x));
+
+#define OP_INT_POS(x,r,err)    r = x;
+
+#define OP_INT_NEG(x,r,err)    r = -((long)x);
+
+#define OP_INT_NEG_OVF(x,r,err) \
+	OP_INT_NEG(x,r,err) \
+	if ((long)(x) >= 0 || (long)(x) != -(long)(x)); \
+	else FAIL_OVF(err, "integer negate")
+
+#define OP_INT_ABS(x,r,err)    r = (long)(x) >= 0 ? x : -((long)x);
+
+#define OP_INT_ABS_OVF(x,r,err) \
+	OP_INT_ABS(x,r,err) \
+	if ((long)(x) >= 0 || (long)(x) != -(long)(x)); \
+	else FAIL_OVF(err, "integer absolute")
+
+/***  binary operations ***/
 
 #define OP_INT_EQ(x,y,r,err)	  r = ((long)(x) == (long)(y));
 #define OP_INT_NE(x,y,r,err)	  r = ((long)(x) != (long)(y));
@@ -14,8 +37,6 @@
 #define OP_INT_GT(x,y,r,err)	  r = ((long)(x) >  (long)(y));
 #define OP_INT_LT(x,y,r,err)	  r = ((long)(x) <  (long)(y));
 #define OP_INT_GE(x,y,r,err)	  r = ((long)(x) >= (long)(y));
-
-#define OP_INT_IS_TRUE(x,r,err)   OP_INT_NE(x,0,r,err)
 
 #define OP_INT_CMP(x,y,r,err) \
 	r = (((long)(x) > (long)(y)) - ((long)(x) < (long)(y)))
@@ -26,7 +47,7 @@
 
 #define OP_INT_ADD_OVF(x,y,r,err) \
 	OP_INT_ADD(x,y,r,err) \
-	if ((r^(x)) >= 0 || (r^(y)) >= 0); \
+	if ((r^((long)x)) >= 0 || (r^((long)y)) >= 0); \
 	else FAIL_OVF(err, "integer addition")
 
 #define OP_INT_SUB(x,y,r,err)     r = (long)(x) - (long)(y);

@@ -125,6 +125,13 @@ def lshift_func(i=numtype):
     except (hugelmugel, OverflowError, StandardError, ValueError):
         raise
 
+def unary_func(i=numtype):
+    try:
+        return ovfcheck(-i), ovfcheck(abs(i-1))
+    except: raise
+    # XXX it would be nice to get it right without an exception
+    # handler at all, but then we need to do much harder parsing
+
 def while_func(i=numtype):
     total = 0
     while i > 0:

@@ -30,8 +30,14 @@ class GenCSpecializer(Specializer):
         self.TPyObject = TPyObject = t.getconcretetype(CPyObjectType)
 
         specializationtable = [
-            ## op               specialized op   arg types   concrete return type
-            ('is_true',         'int_is_true',   TInt,       TInt),
+            ## op               specialized op      arg types   concrete return type
+            ('is_true',         'int_is_true',      TInt,       TInt),
+            ('invert',          'int_invert',       TInt,       TInt),
+            ('pos',             'int_pos',          TInt,       TInt),
+            ('neg',             'int_neg',          TInt,       TInt),
+            ('neg_ovf',         'int_neg_ovf',      TInt,       TInt),
+            ('abs',             'int_abs',          TInt,       TInt),
+            ('abs_ovf',         'int_abs_ovf',      TInt,       TInt),
         ]
         ii_i = (TInt, TInt, TInt)
         for op in "eq ne le gt lt ge cmp".split():

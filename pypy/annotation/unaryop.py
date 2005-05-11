@@ -15,6 +15,8 @@ from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
 from pypy.annotation import builtin
 
+from pypy.annotation.binaryop import _clone ## XXX where to put this?
+
 # convenience only!
 def immutablevalue(x):
     return getbookkeeper().immutablevalue(x)
@@ -23,7 +25,8 @@ UNARY_OPERATIONS = set(['len', 'is_true', 'getattr', 'setattr', 'hash',
                         'simple_call', 'call_args', 'str', 'repr',
                         'iter', 'next', 'invert', 'type', 'issubtype',
                         'pos', 'neg', 'nonzero', 'abs', 'hex', 'oct',
-                        'ord', 'int', 'float', 'long', 'id']) 
+                        'ord', 'int', 'float', 'long', 'id',
+                        'neg_ovf', 'abs_ovf'])
 
 for opname in UNARY_OPERATIONS:
     missing_operation(SomeObject, opname)
@@ -139,20 +142,31 @@ class __extend__(SomeInteger):
             return SomeInteger(unsigned=True)
         return SomeInteger()
 
+    invert.can_only_throw = []
+
     def pos(self):
         return self
 
+    pos.can_only_throw = []
     int = pos
+
+    # these are the only ones which can overflow:
 
     def neg(self):
         if self.unsigned:
             return SomeInteger(unsigned=True)
         return SomeInteger()
 
+    neg.can_only_throw = []
+    neg_ovf = _clone(neg, [OverflowError])
+
     def abs(self):
         if self.unsigned:
             return self
         return SomeInteger(nonneg=True)
+
+    abs.can_only_throw = []
+    abs_ovf = _clone(abs, [OverflowError])
 
 
 class __extend__(SomeBool):
