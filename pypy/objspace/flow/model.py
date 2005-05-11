@@ -5,6 +5,12 @@
 # a discussion in Berlin, 4th of october 2003
 from __future__ import generators
 
+## the switch to slotted objects reduces annotation of
+## targetpypymain from 321 MB down to 205 MB
+## including genc, we go from 442 to 325.
+
+__metaclass__ = type
+
 class FunctionGraph:
     def __init__(self, name, startblock, return_var=None):
         self.name        = name    # function name (possibly mangled already)
@@ -47,6 +53,11 @@ class FunctionGraph:
         SingleGraphPage(self).display()
 
 class Link:
+    ##
+    ## __slots__ = """args target exitcase prevblock
+    ##               last_exception last_exc_value""".split()
+    # collision with flowcontext.py which wants to use update
+    
     def __init__(self, args, target, exitcase=None):
         assert len(args) == len(target.inputargs), "output args mismatch"
         self.args = list(args)     # mixed list of var/const
@@ -138,12 +149,14 @@ class Block:
 
 
 class Variable:
+    __slots__ = ["renamed", "name", "concretetype"]
+    
     counter = 0
     instances = {}
-    renamed = False
 
     def __init__(self, name=None):
         self.name = 'v%d' % Variable.counter
+        self.renamed = False
         Variable.instances[self.name] = self
         Variable.counter += 1
         if name is not None:
@@ -172,6 +185,8 @@ class Variable:
 
 
 class Constant:
+    __slots__ = ["key", "value", "concretetype"]
+    
     def __init__(self, value):
         self.value = value     # a concrete value
         # try to be smart about constant mutable or immutable values
@@ -202,6 +217,8 @@ class Constant:
         return '(%s)' % (r,)
 
 class SpaceOperation:
+    __slots__ = "opname args result offset".split()
+    
     def __init__(self, opname, args, result):
         self.opname = opname      # operation name
         self.args   = list(args)  # mixed list of var/const
