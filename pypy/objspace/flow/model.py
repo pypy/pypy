@@ -5,9 +5,17 @@
 # a discussion in Berlin, 4th of october 2003
 from __future__ import generators
 
-## the switch to slotted objects reduces annotation of
-## targetpypymain from 321 MB down to 205 MB
-## including genc, we go from 442 to 325.
+"""
+    memory size before and after introduction of __slots__
+    using targetpypymain
+
+    slottified          annotation  ann+genc
+    -------------------------------------------
+    nothing             321 MB      442 MB
+    Var/Const/SpaceOp   205 MB      325 MB
+    + Link              189 MB      311 MB
+    + Block             185 MB      304 MB
+"""
 
 __metaclass__ = type
 
@@ -54,8 +62,9 @@ class FunctionGraph:
 
 class Link:
 
-    __slots__ = """args target exitcase prevblock last_exception last_exc_value""".split()
-    
+    __slots__ = """args target exitcase prevblock
+                last_exception last_exc_value""".split()
+
     def __init__(self, args, target, exitcase=None):
         assert len(args) == len(target.inputargs), "output args mismatch"
         self.args = list(args)     # mixed list of var/const
@@ -84,9 +93,11 @@ class Link:
         return "link from %s to %s" % (str(self.prevblock), str(self.target))
 
 class Block:
-    isstartblock = False
+    __slots__ = """isstartblock inputargs operations exitswitch
+                exits exc_handler""".split()
     
     def __init__(self, inputargs):
+        self.isstartblock = False
         self.inputargs = list(inputargs)  # mixed list of variable/const 
         self.operations = []              # list of SpaceOperation(s)
         self.exitswitch = None            # a variable or
