@@ -53,10 +53,8 @@ class FunctionGraph:
         SingleGraphPage(self).display()
 
 class Link:
-    ##
-    ## __slots__ = """args target exitcase prevblock
-    ##               last_exception last_exc_value""".split()
-    # collision with flowcontext.py which wants to use update
+
+    __slots__ = """args target exitcase prevblock last_exception last_exc_value""".split()
     
     def __init__(self, args, target, exitcase=None):
         assert len(args) == len(target.inputargs), "output args mismatch"
@@ -68,6 +66,11 @@ class Link:
         # exception passing vars
         self.last_exception = None
         self.last_exc_value = None
+
+    # right now only exception handling needs to introduce new variables on the links
+    def extravars(self, last_exception=None, last_exc_value=None):
+        self.last_exception = last_exception
+        self.last_exc_value = last_exc_value
 
     def copy(self, rename=lambda x: x):
         newargs = [rename(a) for a in self.args]

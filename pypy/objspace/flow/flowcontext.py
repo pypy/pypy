@@ -127,7 +127,8 @@ class BlockRecorder(Recorder):
             egg = EggBlock(vars2, block, case)
             ec.pendingblocks.append(egg)
             link = Link(vars, egg, case)
-            link.__dict__.update(attach)
+            if attach:
+                link.extravars(**attach)
             links.append(link)
 
         block.exitswitch = w_condition
