@@ -125,6 +125,7 @@ class GenCSpecializer(Specializer):
             s_binding = self.annotator.binding(op.result, True)
         elif op.opname == 'simple_call' and isinstance(op.args[0], Constant):
             # XXX move me elsewhere
+            s_binding = None
             func = op.args[0].value
             if func is lltypes.malloc:
                 assert len(op.args) == 2   # for now
