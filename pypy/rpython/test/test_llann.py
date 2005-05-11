@@ -1,8 +1,7 @@
 from pypy.rpython.lltypes import *
-from pypy.translator import annrpython
 
 
-class TestAnnonateTestCase:
+class TestLowLevelAnnonateTestCase:
     objspacename = 'flow'
 
     from pypy.translator.annrpython import RPythonAnnotator
