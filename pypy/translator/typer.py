@@ -132,8 +132,7 @@ class Specializer:
         self.settype(op.result, restype)
 
         # store the possibly modified SpaceOperation
-        if newopname is not None or args != op.args:
-            op = SpaceOperation(newopname or op.opname, args, op.result)
+        op = SpaceOperation(newopname or op.opname, args, op.result)
         result.append(op)
         return result
 
