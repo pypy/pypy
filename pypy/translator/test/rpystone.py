@@ -1,5 +1,21 @@
 #! /usr/bin/env python
 
+def setslow(X):
+    global XF1, XF2, XF3, XP1, XP2, XP3, XP4, XP5, XP6, XP7, XP8
+    XF1 = True
+    XF2 = X
+    XF3 = True
+    XP1 = X
+    XP2 = X
+    XP3 = True
+    XP4 = X
+    XP5 = True
+    XP6 = True
+    XP7 = True
+    XP8 = X
+
+setslow(True)
+
 """
 "PYSTONE" Benchmark Program
 
@@ -115,28 +131,28 @@ def Proc0(loops=LOOPS):
     starttime = clock()
 
     for i in range(loops):
-        Proc5()
-        Proc4()
+        if XP5:Proc5()
+        if XP4:Proc4()
         IntLoc1 = 2
         IntLoc2 = 3
         String2Loc = "DHRYSTONE PROGRAM, 2'ND STRING"
         EnumLoc = Ident2
-        g.BoolGlob = not Func2(String1Loc, String2Loc)
+        if XF2:g.BoolGlob = not Func2(String1Loc, String2Loc)
         while IntLoc1 < IntLoc2:
             IntLoc3 = 5 * IntLoc1 - IntLoc2
             IntLoc3 = Proc7(IntLoc1, IntLoc2)
             IntLoc1 = IntLoc1 + 1
-        Proc8(g.Array1Glob, g.Array2Glob, IntLoc1, IntLoc3)
-        g.PtrGlb = Proc1(g.PtrGlb)
+        if XP8:Proc8(g.Array1Glob, g.Array2Glob, IntLoc1, IntLoc3)
+        if XP1:g.PtrGlb = Proc1(g.PtrGlb)
         CharIndex = 'A'
         while CharIndex <= g.Char2Glob:
-            if EnumLoc == Func1(CharIndex, 'C'):
-                EnumLoc = Proc6(Ident1)
+            if XF1 and EnumLoc == Func1(CharIndex, 'C'):
+                if XP6:EnumLoc = Proc6(Ident1)
             CharIndex = chr(ord(CharIndex)+1)
         IntLoc3 = IntLoc2 * IntLoc1
         IntLoc2 = IntLoc3 / IntLoc1
         IntLoc2 = 7 * (IntLoc3 - IntLoc2) - IntLoc1
-        IntLoc1 = Proc2(IntLoc1)
+        if XP2:IntLoc1 = Proc2(IntLoc1)
 
     benchtime = clock() - starttime - nulltime
     return benchtime, (loops / benchtime)
@@ -146,12 +162,12 @@ def Proc1(PtrParIn):
     PtrParIn.IntComp = 5
     NextRecord.IntComp = PtrParIn.IntComp
     NextRecord.PtrComp = PtrParIn.PtrComp
-    NextRecord.PtrComp = Proc3(NextRecord.PtrComp)
+    if XP3:NextRecord.PtrComp = Proc3(NextRecord.PtrComp)
     if NextRecord.Discr == Ident1:
         NextRecord.IntComp = 6
-        NextRecord.EnumComp = Proc6(PtrParIn.EnumComp)
+        if XP6:NextRecord.EnumComp = Proc6(PtrParIn.EnumComp)
         NextRecord.PtrComp = g.PtrGlb.PtrComp
-        NextRecord.IntComp = Proc7(NextRecord.IntComp, 10)
+        if XP7:NextRecord.IntComp = Proc7(NextRecord.IntComp, 10)
     else:
         PtrParIn = NextRecord.copy()
     NextRecord.PtrComp = None
@@ -176,7 +192,7 @@ def Proc3(PtrParOut):
         PtrParOut = g.PtrGlb.PtrComp
     else:
         g.IntGlob = 100
-    g.PtrGlb.IntComp = Proc7(10, g.IntGlob)
+    if XP7:g.PtrGlb.IntComp = Proc7(10, g.IntGlob)
     return PtrParOut
 
 def Proc4():
@@ -195,7 +211,7 @@ def Proc5():
 
 def Proc6(EnumParIn):
     EnumParOut = EnumParIn
-    if not Func3(EnumParIn):
+    if XF3 and not Func3(EnumParIn):
         EnumParOut = Ident4
     if EnumParIn == Ident1:
         EnumParOut = Ident1
@@ -241,7 +257,7 @@ def Func1(CharPar1, CharPar2):
 def Func2(StrParI1, StrParI2):
     IntLoc = 1
     while IntLoc <= 1:
-        if Func1(StrParI1[IntLoc], StrParI2[IntLoc+1]) == Ident1:
+        if XF1 and Func1(StrParI1[IntLoc], StrParI2[IntLoc+1]) == Ident1:
             CharLoc = 'A'
             IntLoc = IntLoc + 1
     if CharLoc >= 'W' and CharLoc <= 'Z':

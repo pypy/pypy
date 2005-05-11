@@ -4,9 +4,9 @@ from pypy.translator.test import rpystone
 
 # __________  Entry point  __________
 
-LOOPS = 150000
+LOOPS = 1000000
 
-# rpystone.setslow(False)
+rpystone.setslow(False)
 
 def entry_point():
     rpystone.entrypoint(LOOPS)
