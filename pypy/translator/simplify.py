@@ -121,14 +121,12 @@ def transform_ovfcheck(graph):
             res = ovfblock.operations[-2].result
             opname = ovfblock.operations[-2].opname
         if rename(arg) != rename(res) or ovfblock in seen_ovfblocks:
-            import __main__
-            __main__.problem = graph
-            raise SyntaxError("ovfcheck: The checked operation %s is misplaced"
-                              " - see __main__.problem.view()" % opname)
+            raise SyntaxError("ovfcheck in %s: The checked operation %s"
+                              " is misplaced" % (graph.name, opname))
         exlis = implicit_exceptions.get("%s_%s" % (opname, appendix), [])
         if OverflowError not in exlis:
-            raise SyntaxError("ovfcheck: Operation %s has no overflow variant"
-                              " - see __main__.problem.view()" % opname)
+            raise SyntaxError("ovfcheck in %s: Operation %s has no"
+                              " overflow variant" % (graph.name, opname))
 
     blocks_to_join = False
     for block in blocks:
@@ -165,8 +163,7 @@ def simplify_exceptions(graph):
     """The exception handling caused by non-implicit exceptions
     starts with an exitswitch on Exception, followed by a lengthy
     chain of is_/issubtype tests. We collapse them all into
-    the block's single list of exits and also remove unreachable
-    cases.
+    the block's single list of exits.
     """
     clastexc = Constant(last_exception)
     renaming = {}
