@@ -125,14 +125,20 @@ class GenC:
         # the footer proper: the module init function */
         print >> f, self.C_FOOTER % info
 
+    def need_typedecl_now(self, ct):
+        if ct not in self.ctypes_alreadyseen:
+            self.ctypes_alreadyseen[ct] = True
+            return ct.init_globals(self)
+        else:
+            return []
+
     def gen_global_declarations(self):
         # collect more of the latercode between the functions,
         # and produce the corresponding global declarations
         insert_first = []
         for ct in self.translator.ctlist:
             if ct not in self.ctypes_alreadyseen:
-                insert_first += list(ct.init_globals(self))
-                self.ctypes_alreadyseen[ct] = True
+                insert_first += list(self.need_typedecl_now(ct))
         self.globaldecl[:0] = insert_first
         for ct in self.translator.ctlist:
             self.globaldecl += list(ct.collect_globals(self))

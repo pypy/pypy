@@ -6,6 +6,7 @@ from __future__ import generators
 from pypy.translator.typer import Specializer
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.annotation.model import SomeInteger, SomePBC, SomeTuple, SomeList
+from pypy.annotation.model import SomePtr
 from pypy.translator.genc.pyobjtype import CPyObjectType
 from pypy.translator.genc.inttype import CIntType
 from pypy.translator.genc.nonetype import CNoneType
@@ -14,6 +15,8 @@ from pypy.translator.genc.tupletype import CTupleType
 from pypy.translator.genc.listtype import CListType
 from pypy.translator.genc.classtype import CClassPtrType
 from pypy.translator.genc.instancetype import CInstanceType
+from pypy.translator.genc.lltype import CPtrType, CLiteralTypeName
+from pypy.rpython import lltypes
 import types
 from pypy.interpreter.pycode import CO_VARARGS
 
@@ -110,12 +113,28 @@ class GenCSpecializer(Specializer):
             #    besttype = self.annotator.translator.getconcretetype(
             #        CListType, item_ct)
 
+            elif isinstance(s_value, SomePtr):
+                besttype = self.annotator.translator.getconcretetype(
+                    CPtrType, s_value.ll_ptrtype)
+
         return besttype
 
     def specialized_op(self, op, bindings):
         if op.opname in ('newtuple', 'newlist'):
             # operations that are controlled by their return type
             s_binding = self.annotator.binding(op.result, True)
+        elif op.opname == 'simple_call' and isinstance(op.args[0], Constant):
+            # XXX move me elsewhere
+            func = op.args[0].value
+            if func is lltypes.malloc:
+                assert len(op.args) == 2   # for now
+                s_result = self.annotator.binding(op.result)
+                ct = self.annotator.translator.getconcretetype(CLiteralTypeName)
+                return [
+                    self.typed_op(SpaceOperation('malloc', [op.args[1]],
+                                                 op.result),
+                                  [ct], self.annotation2concretetype(s_result))
+                    ]
         elif bindings:
             # operations are by default controlled by their 1st arg
             s_binding = bindings[0]
