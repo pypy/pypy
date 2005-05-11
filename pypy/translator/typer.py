@@ -69,7 +69,7 @@ class Specializer:
             v = Constant(v.value)
             v.concretetype = concretetype
 
-        elif v.concretetype != concretetype:
+        elif hasattr(v, 'concretetype') and v.concretetype != concretetype:
             # XXX do we need better conversion paths?
 
             # 1) convert to the generic type
