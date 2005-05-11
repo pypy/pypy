@@ -109,7 +109,7 @@ detailed steps
    modules will not run yet, and others will run too slowly to be
    worth waiting for, but a few are fun to run::
    
-        >>>> from test2 import pystone 
+        >>>> from test import pystone 
         >>>> pystone.main(10)
 
    Note that this is a slightly modified version of pystone -- the
@@ -126,15 +126,12 @@ detailed steps
 
    As an example of using PyPy from the command line, you could type::
 
-        python py.py -c "from test2 import pystone; pystone.main(10)"
+        python py.py -c "from test import pystone; pystone.main(10)"
 
    Alternatively, as with regular Python, you can simply give a
    script name on the command line::
 
-        python py.py ../lib/test2/pystone.py
-
-   (Note that this will run "forever" -- actually, "just" for many
-   hours, with the current implementation of PyPy.)
+        python py.py ../../lib-python/modified-2.3.4/test/pystone.py 10
 
 
 6. The PyPy project uses test-driven-development.  Right now, there are
