@@ -132,14 +132,32 @@ class GenCSpecializer(Specializer):
             # XXX move me elsewhere
             func = op.args[0].value
             if func is lltypes.malloc:
-                assert len(op.args) == 2   # for now
                 s_result = self.annotator.binding(op.result)
-                ct = self.annotator.translator.getconcretetype(CLiteralTypeName)
-                return [
-                    self.typed_op(SpaceOperation('malloc', [op.args[1]],
-                                                 op.result),
-                                  [ct], self.annotation2concretetype(s_result))
-                    ]
+                ctliteral = self.annotator.translator.getconcretetype(
+                    CLiteralTypeName)
+                ct = op.args[1]
+                if len(op.args) == 2:
+                    return [
+                        self.typed_op(SpaceOperation('malloc', [ct], op.result),
+                            [ctliteral], self.annotation2concretetype(s_result))
+                        ]
+                else:
+                    if isinstance(ct, lltypes.Struct):
+                        assert ct._arrayfld is not None
+                        sizefield = ct._arrayfld + '.size'
+                        varstruct = ct._flds[ct._arrayfld].OF
+                    else:
+                        assert isinstance(ct, lltypes.Array)
+                        sizefield = 'size'
+                        varstruct = ct.OF
+                        
+                    return [
+                        self.typed_op(SpaceOperation('malloc_varsize',
+                            [ct, varstruct, Constant(sizefield), op.args[2]],
+                                                     op.result),
+                            [ctliteral, ctliteral, ctliteral, self.TInt],
+                                      self.annotation2concretetype(s_result))
+                        ]
         if op.opname in ('newtuple', 'newlist'):
             # operations that are controlled by their return type
             s_binding = self.annotator.binding(op.result, True)
