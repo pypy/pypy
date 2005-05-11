@@ -128,12 +128,8 @@ class GenCSpecializer(Specializer):
         return besttype
 
     def specialized_op(self, op, bindings):
-        if op.opname in ('newtuple', 'newlist'):
-            # operations that are controlled by their return type
-            s_binding = self.annotator.binding(op.result, True)
-        elif op.opname == 'simple_call' and isinstance(op.args[0], Constant):
+        if op.opname == 'simple_call' and isinstance(op.args[0], Constant):
             # XXX move me elsewhere
-            s_binding = None
             func = op.args[0].value
             if func is lltypes.malloc:
                 assert len(op.args) == 2   # for now
@@ -144,6 +140,9 @@ class GenCSpecializer(Specializer):
                                                  op.result),
                                   [ct], self.annotation2concretetype(s_result))
                     ]
+        if op.opname in ('newtuple', 'newlist'):
+            # operations that are controlled by their return type
+            s_binding = self.annotator.binding(op.result, True)
         elif bindings:
             # operations are by default controlled by their 1st arg
             s_binding = bindings[0]
