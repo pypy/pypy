@@ -243,6 +243,8 @@ class Translator:
         """Returns compiled function, compiled using the C generator.
         """
         from pypy.tool.udir import udir
+        if self.annotator is not None:
+            self.frozen = True
         name = uniquemodulename(self.entrypoint.func_name)
         cfile = udir.join('%s.c' % name)
         f = cfile.open('w')
