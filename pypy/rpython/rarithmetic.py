@@ -177,8 +177,16 @@ def ovfcheck(r):
         raise OverflowError, "signed integer expression did overflow"
     return r
 
+def _local_ovfcheck(r):
+    # a copy of the above, because we cannot call ovfcheck
+    # in a context where no primitiveoperator is involved.
+    assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
+    if isinstance(r, long):
+        raise OverflowError, "signed integer expression did overflow"
+    return r
+
 def ovfcheck_lshift(a, b):
-    return ovfcheck(int(long(a) << b))
+    return _local_ovfcheck(int(long(a) << b))
 
 class r_uint(long):
     """ fake unsigned integer implementation """
