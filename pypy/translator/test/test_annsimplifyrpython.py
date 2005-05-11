@@ -1,9 +1,9 @@
 import autopath
 import pypy.translator.test.test_annrpython
-parent = pypy.translator.test.test_annrpython.TestAnnonateTestCase
+parent = pypy.translator.test.test_annrpython.TestAnnotateTestCase
 
 
-class TestAnnonateAndSimplifyTestCase(parent):
+class TestAnnotateAndSimplifyTestCase(parent):
     """Same tests as test_annrpython.TestAnnotateTestCase, but automatically
     running the simplify() method of the annotator after the annotation phase.
     """

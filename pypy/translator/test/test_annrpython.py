@@ -31,7 +31,7 @@ def somedict(s_key=annmodel.SomeObject(), s_value=annmodel.SomeObject()):
     return annmodel.SomeDict(DictDef(None, s_key, s_value))
 
 
-class TestAnnonateTestCase:
+class TestAnnotateTestCase:
     objspacename = 'flow'
 
     from pypy.translator.annrpython import RPythonAnnotator
