@@ -244,8 +244,28 @@ def malloc(T, n=None):
         n = 1
     p = lltypes.malloc(T.const, n)
     r = SomePtr(lltypes.typeOf(p))
-    print r
+    #print "MALLOC", r
     return r
 
+def cast_flags(PtrT, s_p):
+    #print "CAST", s_p
+    assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
+    assert PtrT.is_constant()
+    return SomePtr(ll_ptrtype=lltypes.typeOf(lltypes.cast_flags(PtrT.const, s_p.ll_ptrtype._example())))
+
+def cast_parent(PtrT, s_p):
+    assert isinstance(s_p, SomePtr), "casting of non-pointer: %r" % s_p
+    assert PtrT.is_constant()
+    PtrT = PtrT.const
+    parent_example_p = PtrT._example()
+    first_p = parent_example_p._first()
+    if s_p.ll_ptrtype == lltypes.typeOf(first_p):
+        candidate_p = first_p
+    else:
+        candidate_p = s_p.ll_ptrtype._example()
+    return SomePtr(ll_ptrtype=lltypes.typeOf(lltypes.cast_parent(PtrT, candidate_p)))
+
 BUILTIN_ANALYZERS[lltypes.malloc] = malloc
+BUILTIN_ANALYZERS[lltypes.cast_flags] = cast_flags
+BUILTIN_ANALYZERS[lltypes.cast_parent] = cast_parent
 

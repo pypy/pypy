@@ -1,4 +1,5 @@
 from pypy.rpython.lltypes import *
+from pypy.annotation import model as annmodel
 
 
 class TestLowLevelAnnotateTestCase:
@@ -33,4 +34,29 @@ class TestLowLevelAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(llf, [])
         assert s.knowntype == int
-    
+
+    def test_cast_flags(self):
+        S1 = Struct("s1", ('a', Signed), ('b', Unsigned))
+        NGCPS1 = NonGcPtr(S1)
+        def llf():
+            p1 = malloc(S1)
+            p2 = cast_flags(NGCPS1, p1)
+            return p2
+        a = self.RPythonAnnotator()
+        s = a.build_types(llf, [])
+        assert isinstance(s, annmodel.SomePtr)
+        assert s.ll_ptrtype == NGCPS1
+        
+    def test_cast_parent(self):
+        S2 = Struct("s2", ('a', Signed))
+        S1 = Struct("s1", ('sub1', S2), ('sub2', S2))
+        GCPS1 = GcPtr(S1)
+        def llf():
+            p1 = malloc(S1)
+            p2 = p1.sub1
+            p3 = cast_parent(GCPS1, p2)
+            return p3
+        a = self.RPythonAnnotator()
+        s = a.build_types(llf, [])
+        assert isinstance(s, annmodel.SomePtr)
+        assert s.ll_ptrtype == GCPS1

@@ -272,6 +272,11 @@ class _ptr(object):
         raise AttributeError("%r instance has no field %r" % (self._T,
                                                               field_name))
 
+    def _first(self):
+        if isinstance(self._T, Struct) and self._T._names:
+            return self.__getattr__(self._T._names[0])
+        raise AttributeError("%r instance has no first field" % (self._T,))
+
     def __setattr__(self, field_name, val):
         if isinstance(self._T, Struct):
             if field_name in self._T._flds:
