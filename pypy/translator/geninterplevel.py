@@ -43,6 +43,7 @@ from pypy.translator.gensupp import ordered_blocks, UniqueList, builtin_base, \
 # list of simplifcation passes needed by geninterp
 from pypy.translator.simplify import transform_ovfcheck, all_passes as needed_passes
 
+needed_passes = needed_passes[:]
 needed_passes.remove(transform_ovfcheck)
 
 
