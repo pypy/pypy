@@ -14,7 +14,7 @@ class TestLowLevelType:
         a.simplify()
         GenCSpecializer(a).specialize()
         t.checkgraphs()
-        t.view()
+        #t.view()
         return skip_missing_compiler(t.ccompile)
 
     def test_simple(self):

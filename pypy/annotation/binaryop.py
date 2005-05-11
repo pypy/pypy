@@ -454,19 +454,31 @@ class __extend__(pairtype(SomePBC, SomeString    )):
 
 # annotation of low-level types
 from pypy.rpython import lltypes
-from pypy.annotation.model import SomePtr
+from pypy.annotation.model import SomePtr, ll_to_annotation
 
-class __extend__(SomePtr, SomePtr):
+class __extend__(pairtype(SomePtr, SomePtr)):
     def union((p1, p2)):
-        assert p1.ll_ptrtype == p2.ll_prttype,("mixing of incompatible pointer types: %r, %r" %
-                                               (p1.ll_prttype, p2.ll_prttype))
+        assert p1.ll_ptrtype == p2.ll_ptrtype,("mixing of incompatible pointer types: %r, %r" %
+                                               (p1.ll_ptrtype, p2.ll_ptrtype))
         return SomePtr(p1.ll_ptrtype)
 
-class __extend__(SomePtr, SomeObject):
-    def union((p1, obj)):
-        assert False, ("mixing pointer type %r with something else %r" % (p1.ll_ptrtype, obj))
+class __extend__(pairtype(SomePtr, SomeInteger)):
 
-class __extend__(SomeObject, SomePtr):
+    def getitem((p, int1)):
+        v = p.ll_ptrtype._example()[0]
+        return ll_to_annotation(v)
+
+class __extend__(pairtype(SomePtr, SomeObject)):
+    def union((p, obj)):
+        assert False, ("mixing pointer type %r with something else %r" % (p.ll_ptrtype, obj))
+
+    def gettitem((p, obj)):
+        assert False,"ptr %r getitem index not an int: %r" % (p.ll_ptrtype, obj)
+
+    def settitem((p, obj)):
+        assert False,"ptr setitem is not a valid operation"
+
+class __extend__(pairtype(SomeObject, SomePtr)):
     def union((obj, p2)):
         return pair(p2, obj).union()
 

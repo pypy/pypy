@@ -426,25 +426,7 @@ class CallPatternTooComplex(Exception):
 
 # annotation of low-level types
 from pypy.rpython import lltypes
-from pypy.annotation.model import SomePtr
-
-ll_to_annotation_map = {
-    lltypes.Signed: SomeInteger(),
-    lltypes.Unsigned: SomeInteger(nonneg=True, unsigned=True),
-    lltypes.Char: SomeChar(),
-    lltypes.Bool: SomeBool(),
-}
-
-def ll_to_annotation(v):
-       if v is None:
-            assert False, "cannot retrieve Void low-level type value"
-       typ = lltypes.typeOf(v)
-       s = ll_to_annotation_map.get(typ)
-       if s is None:
-           return SomePtr(typ)
-       else:
-           return s
-
+from pypy.annotation.model import SomePtr, ll_to_annotation, annotation_to_lltype
 class __extend__(SomePtr):
 
     def getattr(p, s_attr):
@@ -452,3 +434,8 @@ class __extend__(SomePtr):
         v = getattr(p.ll_ptrtype._example(), s_attr.const)
         return ll_to_annotation(v)
 
+    def setattr(p, s_attr, s_value): # just doing checking
+        assert s_attr.is_constant(), "getattr on ptr %r with non-constant field-name" % p.ll_ptrtype
+        v_lltype = annotation_to_lltype(s_value)
+        setattr(p.ll_ptrtype._example(), s_attr.const,
+                v_lltype._example())

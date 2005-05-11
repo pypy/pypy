@@ -24,3 +24,13 @@ class TestLowLevelAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(llf, [])
         assert s.knowntype == int
+
+    def test_array(self):
+        A = Array(('v', Signed))
+        def llf():
+            a = malloc(A, 1)
+            return a[0].v
+        a = self.RPythonAnnotator()
+        s = a.build_types(llf, [])
+        assert s.knowntype == int
+    

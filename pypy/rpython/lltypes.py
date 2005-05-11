@@ -80,7 +80,7 @@ class Struct(ContainerType):
     def _defl(self, parent=None):
         return _struct(self, parent=parent)
 
-    def _example(self):
+    def _container_example(self):
         if self._arrayfld is None:
             n = None
         else:
@@ -96,7 +96,7 @@ class Array(ContainerType):
     def __str__(self):
         return "Array of { %s }" % (self.OF._str_fields(),)
 
-    def _example(self):
+    def _container_example(self):
         return _array(self, 1)
 
 
@@ -110,6 +110,8 @@ class Primitive(LowLevelType):
 
     def _defl(self, parent=None):
         return self._default
+    
+    _example = _defl
 
 
 Signed   = Primitive("Signed", 0)
@@ -144,7 +146,7 @@ class _PtrType(LowLevelType):
         return _ptr(self, None)
 
     def _example(self):
-        o = self.TO._example()
+        o = self.TO._container_example()
         return _ptr(self, o)
         
 

@@ -274,6 +274,37 @@ class SomePtr(SomeObject):
     def __init__(self, ll_ptrtype):
         self.ll_ptrtype = ll_ptrtype
 
+from pypy.rpython import lltypes
+
+annotation_to_ll_map = [
+    (SomeBool(), lltypes.Bool),
+    (SomeInteger(), lltypes.Signed),
+    (SomeInteger(nonneg=True, unsigned=True), lltypes.Unsigned),    
+    (SomeChar(), lltypes.Char),
+]
+
+def annotation_to_lltype(s_val):
+    if isinstance(s_val, SomePtr):
+        return s_val.ll_ptrtype
+    for witness, lltype in annotation_to_ll_map:
+        if witness.contains(s_val):
+            return lltype
+    raise AssertionError("trying find a matching low-level type for unexpected"
+                         "%r" % s_val)
+
+ll_to_annotation_map = dict([(ll, ann) for ann,ll in annotation_to_ll_map])
+
+def ll_to_annotation(v):
+       if v is None:
+            assert False, "cannot retrieve Void low-level type value"
+       typ = lltypes.typeOf(v)
+       s = ll_to_annotation_map.get(typ)
+       if s is None:
+           return SomePtr(typ)
+       else:
+           return s
+
+
 # ____________________________________________________________
 
 def unionof(*somevalues):

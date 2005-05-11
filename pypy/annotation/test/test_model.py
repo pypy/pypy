@@ -1,5 +1,6 @@
 
 import autopath
+import py
 from pypy.annotation.model import *
 from pypy.annotation.listdef import ListDef, MOST_GENERAL_LISTDEF
 
@@ -101,7 +102,72 @@ def test_list_contains():
     assert not s1.contains(s2)
     assert s1 != s2
 
+def test_ll_to_annotation():
+    s_z = ll_to_annotation(lltypes.Signed._defl())
+    s_s = SomeInteger()
+    s_u = SomeInteger(nonneg=True, unsigned=True)
+    assert s_z.contains(s_s)
+    assert not s_z.contains(s_u)
+    s_uz = ll_to_annotation(lltypes.Unsigned._defl())
+    assert s_uz.contains(s_u)
+    assert ll_to_annotation(lltypes.Bool._defl()).contains(SomeBool())
+    assert ll_to_annotation(lltypes.Char._defl()).contains(SomeChar())
+    S = lltypes.Struct('s')
+    A = lltypes.Array()
+    s_p = ll_to_annotation(lltypes.malloc(S))
+    assert isinstance(s_p, SomePtr) and s_p.ll_ptrtype == lltypes.GcPtr(S)
+    s_p = ll_to_annotation(lltypes.malloc(A, 0))
+    assert isinstance(s_p, SomePtr) and s_p.ll_ptrtype == lltypes.GcPtr(A)
+
+def test_annotation_to_lltype():
+    from pypy.rpython.rarithmetic import r_uint
+    s_i = SomeInteger()
+    s_pos = SomeInteger(nonneg=True)
+    s_1 = SomeInteger(nonneg=True); s_1.const = 1
+    s_m1 = SomeInteger(nonneg=False); s_m1.const = -1
+    s_u = SomeInteger(nonneg=True, unsigned=True); 
+    s_u1 = SomeInteger(nonneg=True, unsigned=True); 
+    s_u1.const = r_uint(1)
+    assert annotation_to_lltype(s_i) == lltypes.Signed
+    assert annotation_to_lltype(s_pos) == lltypes.Signed
+    assert annotation_to_lltype(s_1) == lltypes.Signed
+    assert annotation_to_lltype(s_m1) == lltypes.Signed
+    assert annotation_to_lltype(s_u) == lltypes.Unsigned
+    assert annotation_to_lltype(s_u1) == lltypes.Unsigned
+    assert annotation_to_lltype(SomeBool()) == lltypes.Bool
+    assert annotation_to_lltype(SomeChar()) == lltypes.Char
+    PS = lltypes.GcPtr(lltypes.Struct('s'))
+    s_p = SomePtr(ll_ptrtype=PS)
+    assert annotation_to_lltype(s_p) == PS
+    py.test.raises(AssertionError, "annotation_to_lltype(si0)")
+    
+def test_ll_union():
+    PS1 = lltypes.GcPtr(lltypes.Struct('s'))
+    PS2 = lltypes.GcPtr(lltypes.Struct('s'))
+    PS3 = lltypes.GcPtr(lltypes.Struct('s3'))
+    PA1 = lltypes.GcPtr(lltypes.Array())
+    PA2 = lltypes.GcPtr(lltypes.Array())
+
+    assert unionof(SomePtr(PS1),SomePtr(PS1)) == SomePtr(PS1)
+    assert unionof(SomePtr(PS1),SomePtr(PS2)) == SomePtr(PS2)
+    assert unionof(SomePtr(PS1),SomePtr(PS2)) == SomePtr(PS1)
+
+    assert unionof(SomePtr(PA1),SomePtr(PA1)) == SomePtr(PA1)
+    assert unionof(SomePtr(PA1),SomePtr(PA2)) == SomePtr(PA2)
+    assert unionof(SomePtr(PA1),SomePtr(PA2)) == SomePtr(PA1)
+
+    assert unionof(SomePtr(PS1),SomeImpossibleValue()) == SomePtr(PS1)
+    assert unionof(SomeImpossibleValue(), SomePtr(PS1)) == SomePtr(PS1)
+
+    py.test.raises(AssertionError, "unionof(SomePtr(PA1), SomePtr(PS1))")
+    py.test.raises(AssertionError, "unionof(SomePtr(PS1), SomePtr(PS3))")
+    py.test.raises(AssertionError, "unionof(SomePtr(PS1), SomeInteger())")
+    py.test.raises(AssertionError, "unionof(SomePtr(PS1), SomeObject())")
+    py.test.raises(AssertionError, "unionof(SomeInteger(), SomePtr(PS1))")
+    py.test.raises(AssertionError, "unionof(SomeObject(), SomePtr(PS1))")
+
 if __name__ == '__main__':
     for name, value in globals().items():
         if name.startswith('test_'):
             value()
+

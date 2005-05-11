@@ -83,6 +83,11 @@ class GenCSpecializer(Specializer):
             )
 
     def annotation2concretetype(self, s_value):
+        if isinstance(s_value, SomePtr): # XXX moved here to avoid contains failures
+            besttype = self.annotator.translator.getconcretetype(
+                CPtrType, s_value.ll_ptrtype)
+            return besttype
+
         besttype = Specializer.annotation2concretetype(self, s_value)
         if besttype == self.defaultconcretetype:
 
@@ -119,9 +124,6 @@ class GenCSpecializer(Specializer):
             #    besttype = self.annotator.translator.getconcretetype(
             #        CListType, item_ct)
 
-            elif isinstance(s_value, SomePtr):
-                besttype = self.annotator.translator.getconcretetype(
-                    CPtrType, s_value.ll_ptrtype)
 
         return besttype
 
