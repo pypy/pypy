@@ -442,3 +442,8 @@ class __extend__(SomePtr):
         v_lltype = annotation_to_lltype(s_value)
         setattr(p.ll_ptrtype._example(), s_attr.const,
                 v_lltype._example())
+
+    def simple_call(p, *args_s):
+        llargs = [annotation_to_lltype(arg_s)._example() for arg_s in args_s]
+        v = p.ll_ptrtype._example()(*llargs)
+        return ll_to_annotation(v)

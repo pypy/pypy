@@ -69,3 +69,13 @@ class TestLowLevelAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(llf, [])
         assert s.knowntype == int
+
+    def test_funcptr(self):
+        F = FuncType((Signed,), Signed)
+        PF = NonGcPtr(F)
+        def llf(p):
+            return p(0)
+        a = self.RPythonAnnotator()
+        s = a.build_types(llf, [PF])
+        assert s.knowntype == int
+ 
