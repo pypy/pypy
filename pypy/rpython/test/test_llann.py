@@ -60,3 +60,12 @@ class TestLowLevelAnnotateTestCase:
         s = a.build_types(llf, [])
         assert isinstance(s, annmodel.SomePtr)
         assert s.ll_ptrtype == GCPS1
+
+    def test_array_length(self):
+        A = Array(('v', Signed))
+        def llf():
+            a = malloc(A, 1)
+            return len(a)
+        a = self.RPythonAnnotator()
+        s = a.build_types(llf, [])
+        assert s.knowntype == int

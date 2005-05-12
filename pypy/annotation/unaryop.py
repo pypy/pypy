@@ -434,6 +434,9 @@ class __extend__(SomePtr):
         v = getattr(p.ll_ptrtype._example(), s_attr.const)
         return ll_to_annotation(v)
 
+    def len(p):
+        return ll_to_annotation(len(p.ll_ptrtype._example()))
+
     def setattr(p, s_attr, s_value): # just doing checking
         assert s_attr.is_constant(), "getattr on ptr %r with non-constant field-name" % p.ll_ptrtype
         v_lltype = annotation_to_lltype(s_value)
