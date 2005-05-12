@@ -42,7 +42,7 @@ def builtin_long(s_obj):
 def builtin_chr(s_int):
     return SomeChar()
 
-def builtin_unicode(s_obj): 
+def builtin_unicode(s_obj): # XXX
     return SomeString() 
 
 def our_issubclass(cls1, cls2):
