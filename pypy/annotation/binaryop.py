@@ -228,6 +228,10 @@ class __extend__(pairtype(SomeString, SomeString)):
     def add((str1, str2)):
         return SomeString()
 
+class __extend__(pairtype(SomeChar, SomeChar)):
+
+    def union((chr1, chr2)):
+        return SomeChar()
 
 class __extend__(pairtype(SomeString, SomeObject)):
 

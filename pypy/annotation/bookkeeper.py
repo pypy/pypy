@@ -132,7 +132,10 @@ class Bookkeeper:
         elif tp is r_uint:
             result = SomeInteger(nonneg = True, unsigned = True)
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
-            result = SomeString()
+            if len(x) == 1:
+                result = SomeChar()
+            else:
+                result = SomeString()
         elif tp is tuple:
             result = SomeTuple(items = [self.immutablevalue(e) for e in x])
         elif tp is float:
@@ -145,8 +148,6 @@ class Bookkeeper:
             values_s = [self.immutablevalue(e) for e in x.values()]
             result = SomeDict(DictDef(self, unionof(*keys_s),
                                             unionof(*values_s)))
-        elif isinstance(x, lltypes.LowLevelType):
-            result = ll_to_annotation(x._example())
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             result = SomeBuiltin(BUILTIN_ANALYZERS[x])
         elif callable(x) or isinstance(x, staticmethod): # XXX
