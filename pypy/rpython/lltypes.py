@@ -52,6 +52,9 @@ class Struct(ContainerType):
             if name in flds:
                 raise TypeError("%s: repeated field name" % self._name)
             flds[name] = typ
+            if isinstance(typ, Struct) and typ._arrayfld:
+                raise TypeError("cannot inline a var-sized struct "
+                                "inside another struct")
         # look if we have an inlined variable-sized array as the last field
         if fields:
             for name, typ in fields[:-1]:

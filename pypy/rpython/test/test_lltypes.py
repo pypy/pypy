@@ -105,6 +105,7 @@ def test_varsizestruct():
     assert s1.rest[3].v == 5
 
     py.test.raises(TypeError, "Struct('invalid', ('rest', Array(('v', Signed))), ('a', Signed))")
+    py.test.raises(TypeError, "Struct('invalid', ('x', S1))")
 
 def test_substructure_ptr():
     S2 = Struct("s2", ('a', Signed))
