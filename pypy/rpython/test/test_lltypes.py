@@ -209,3 +209,14 @@ def test_examples():
     assert ex_ps.v == 0
     assert ex_pst.v == 0
     assert ex_pst.trail[0].v == 0
+
+def test_functions():
+    F = FuncType((Signed,), Signed)
+    py.test.raises(TypeError, "Struct('x', ('x', F))")
+
+    PF = NonGcPtr(F)
+    pf = PF._example()
+    assert pf(0) == 0
+    py.test.raises(TypeError, pf, 0, 0)
+    py.test.raises(TypeError, pf, 'a')
+

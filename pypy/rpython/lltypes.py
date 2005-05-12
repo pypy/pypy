@@ -33,9 +33,13 @@ class LowLevelType(object):
     def _freeze_(self):
         return True
 
+    def _inline_is_varsize(self, last):
+        return False
+
 
 class ContainerType(LowLevelType):
-    pass
+    def _inline_is_varsize(self, last):
+        raise TypeError, "%r cannot be inlined in structure" % self
 
 
 class Struct(ContainerType):
@@ -52,19 +56,22 @@ class Struct(ContainerType):
             if name in flds:
                 raise TypeError("%s: repeated field name" % self._name)
             flds[name] = typ
-            if isinstance(typ, Struct) and typ._arrayfld:
-                raise TypeError("cannot inline a var-sized struct "
-                                "inside another struct")
+ 
         # look if we have an inlined variable-sized array as the last field
         if fields:
             for name, typ in fields[:-1]:
-                if isinstance(typ, Array):
-                    raise TypeError("%s: array field must be last")
+                typ._inline_is_varsize(False)
             name, typ = fields[-1]
-            if isinstance(typ, Array):
+            if typ._inline_is_varsize(True):
                 self._arrayfld = name
         self._flds = frozendict(flds)
         self._names = tuple(names)
+
+    def _inline_is_varsize(self, last):
+        if self._arrayfld:
+            raise TypeError("cannot inline a var-sized struct "
+                            "inside another struct")
+        return False
 
     def __getattr__(self, name):
         try:
@@ -96,12 +103,36 @@ class Array(ContainerType):
         if self.OF._arrayfld is not None:
             raise TypeError("array cannot contain an inlined array")
 
+    def _inline_is_varsize(self, last):
+        if not last:
+            raise TypeError("array field must be last")
+        return True
+
     def __str__(self):
         return "Array of { %s }" % (self.OF._str_fields(),)
 
     def _container_example(self):
         return _array(self, 1)
 
+class FuncType(ContainerType):
+    def __init__(self, args, result):
+        for arg in args:
+            if isinstance(arg, ContainerType):
+                raise TypeError, "function arguments can only be primitives or pointers"
+        self.ARGS = tuple(args)
+        if isinstance(result, ContainerType):
+            raise TypeError, "function result can only be primitive or pointer"
+        self.RESULT = result
+
+    def __str__(self):
+        args = ', '.join(map(str, self.ARGS))
+        return "Func ( %s ) -> %s" % (args, self.RESULT)
+
+    def _container_example(self):
+        def ex(*args):
+            return self.RESULT._example()
+        return _func(self, _callable=ex)
+       
 
 class Primitive(LowLevelType):
     def __init__(self, name, default):
@@ -127,10 +158,12 @@ Void     = Primitive("Void", None)
 class _PtrType(LowLevelType):
     def __init__(self, TO, **flags):
         if not isinstance(TO, ContainerType):
-            raise TypeError, ("can only point to a Struct or an Array, "
+            raise TypeError, ("can only point to a Struct or an Array or a FuncType, "
                               "not to %s" % (TO,))
         self.TO = TO
         self.flags = frozendict(flags)
+        if isinstance(TO, FuncType) and 'gc' in self.flags:
+            raise TypeError, "function pointers are not gc-able"
 
     def _str_flags(self):
         flags = self.flags.keys()
@@ -231,6 +264,7 @@ def _expose(val, can_have_gc=False):
     """XXX A nice docstring here"""
     T = typeOf(val)
     if isinstance(T, ContainerType):
+        assert not isinstance(T, FuncType), "functions cannot be substructures"
         if can_have_gc and isinstance(T, Struct):
             val = _ptr(GcPtr(T), val)
         else:
@@ -321,6 +355,17 @@ class _ptr(object):
     def __str__(self):
         return '%s to %s' % (self._TYPE.__class__.__name__.lower(), self._obj)
 
+    def __call__(self, *args):
+        if isinstance(self._T, FuncType):
+            self._check()
+            if len(args) != len(self._T.ARGS):
+                raise TypeError,"calling %r with wrong argument number: %r" % (self._T, args)
+            for a, ARG in zip(args, self._T.ARGS):
+                if typeOf(a) != ARG:
+                    raise TypeError,"calling %r with wrong argument types: %r" % (self._T, args)
+            return self._obj._callable(*args)
+        raise TypeError("%r instance is not a function" % (self._T,))
+            
 
 class _struct(object):
     _wrparent = None
@@ -402,6 +447,22 @@ class _array(object):
         return 'array [ %s ]' % (', '.join(['{%s}' % item._str_fields()
                                             for item in self.items]),)
 
+class _func(object):
+    def __init__(self, TYPE, **attrs):
+        self._TYPE = TYPE
+        self._name = "?"
+        self._callable = None
+        self.__dict__.update(attrs)
+
+    def _check(self):
+        if self._callable is None:
+            raise RuntimeError,"calling undefined function"
+
+    def __repr__(self):
+        return '<%s>' % (self,)
+
+    def __str__(self):
+        return "func %s" % self._name
 
 def malloc(T, n=None):
     if isinstance(T, Struct):
