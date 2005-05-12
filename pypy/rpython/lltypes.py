@@ -132,7 +132,17 @@ class FuncType(ContainerType):
         def ex(*args):
             return self.RESULT._example()
         return _func(self, _callable=ex)
-       
+
+class PyObjectType(ContainerType):
+    def __str__(self):
+        return "PyObject"
+PyObject = PyObjectType()
+
+class ForwardReference(ContainerType):
+    def become(self, realcontainertype):
+        self.__class__ = realcontainertype.__class__
+        self.__dict__ = realcontainertype.__dict__
+
 
 class Primitive(LowLevelType):
     def __init__(self, name, default):

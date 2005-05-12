@@ -283,14 +283,18 @@ annotation_to_ll_map = [
     (SomeChar(), lltypes.Char),
 ]
 
-def annotation_to_lltype(s_val):
+def annotation_to_lltype(s_val, info=None):
     if isinstance(s_val, SomePtr):
         return s_val.ll_ptrtype
     for witness, lltype in annotation_to_ll_map:
         if witness.contains(s_val):
             return lltype
-    raise AssertionError("trying find a matching low-level type for unexpected"
-                         "%r" % s_val)
+    if info is None:
+        info = ''
+    else:
+        info = '%s: ' % info
+    raise ValueError("%sshould return a low-level type,\ngot instead %r" % (
+        info, s_val))
 
 ll_to_annotation_map = dict([(ll, ann) for ann,ll in annotation_to_ll_map])
 

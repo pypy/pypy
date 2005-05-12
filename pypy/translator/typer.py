@@ -29,9 +29,18 @@ class Specializer:
         self.specializationdict = d
 
     def specialize(self):
-        for block in self.annotator.annotated:
-            if block.operations != ():
-                self.specialize_block(block)
+        """Main entry point: specialize all annotated blocks of the program."""
+        # new blocks can be created as a result of specialize_block(), so
+        # we need to be careful about the loop here.
+        already_seen = {}
+        pending = self.annotator.annotated.keys()
+        while pending:
+            for block in pending:
+                if block.operations != ():
+                    self.specialize_block(block)
+                already_seen[block] = True
+            pending = [block for block in self.annotator.annotated
+                             if block not in already_seen]
 
     def settype(self, a, concretetype):
         """Set the concretetype of a Variable."""

@@ -10,6 +10,9 @@ class CType(object):
     def debugname(self):
         return self.typename
 
+    def __str__(self):
+        return self.debugname()
+
     def genc():
         """A hack to get at the currently running GenC instance."""
         from pypy.translator.genc.genc import TLS
