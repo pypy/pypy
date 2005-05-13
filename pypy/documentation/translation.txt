@@ -316,9 +316,6 @@ the process (that means that union for lists and dicts is a not
 reversible operation).  If the new item type is more general reflowing
 from all the read positions is also scheduled.
 
-
-XXX THE REST NEEDS REVIEW AND TO BE COMPLETED
-
 User-defined Classes and Instances
 ++++++++++++++++++++++++++++++++++
 
@@ -365,10 +362,42 @@ unrelated annotations if they are not used in a general way through the
 parent class.
 
 
-Prebuilt Constants
-++++++++++++++++++
+Prebuilt Constants and instance methods
++++++++++++++++++++++++++++++++++++++++
 
-(to be completed)
+Constants in the flowgraph are annotated with a corresponding
+``SomeXxx`` instance with 'const' attribute set to the their value.
+
+Constant instances of user-defined classes, callables (which include
+functions but also class types themself) and staticmethod are treated
+specially.  Constant user-defined class instances can declare themself
+immutable by having a '_freeze_' method returning true, otherwise they
+will be assumed mutable and be annotated with usual ``SomeInstance``
+annotation without 'const' set.
+
+For user-defined constant instances that declared themself immutable,
+staticmethods and other callables ``SomePBC`` is used (PBC = pre-built
+constant). Its instances contain a 'prebuiltinstances' dictionary. For
+the normal case and single value ``x`` this will be set to ``{x :
+True}``. For a single value the 'const' attribute will also be set.
+
+The union of ``SomePBC`` instances will result in an instance with the
+merge of the original dictionaries.  So for example a dictionary
+pointing to functions, will usually have as its value annotation such
+a ``SomePBC`` with a 'prebuiltinstances' dict having all the functions
+as keys.
+
+For a large part of operations when encountering ``SomeXxx`` with
+'const' set the annotator will do constant propagation and produce
+results with also 'const' set. This also means that based on 'const'
+truth values the annotator will not flow into code that is not
+reachable given global constant values. A later graph transformation
+will remove such dead code.
+
+XXX None, how methods annotation storage work
+
+
+XXX complete
 
 
 Built-in functions and methods
