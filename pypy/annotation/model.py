@@ -300,7 +300,7 @@ ll_to_annotation_map = dict([(ll, ann) for ann,ll in annotation_to_ll_map])
 
 def ll_to_annotation(v):
        if v is None:
-            assert False, "cannot retrieve Void low-level type value"
+            raise ValueError, "cannot retrieve Void low-level type value"
        typ = lltypes.typeOf(v)
        s = ll_to_annotation_map.get(typ)
        if s is None:

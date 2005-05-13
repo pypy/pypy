@@ -139,7 +139,7 @@ def test_annotation_to_lltype():
     PS = lltypes.GcPtr(lltypes.Struct('s'))
     s_p = SomePtr(ll_ptrtype=PS)
     assert annotation_to_lltype(s_p) == PS
-    py.test.raises(AssertionError, "annotation_to_lltype(si0)")
+    py.test.raises(ValueError, "annotation_to_lltype(si0)")
     
 def test_ll_union():
     PS1 = lltypes.GcPtr(lltypes.Struct('s'))
