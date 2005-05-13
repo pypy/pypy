@@ -1,6 +1,7 @@
 import py
 from pypy.annotation.model import *
 from pypy.rpython.lltypes import *
+from pypy.tool.template import compile_template
 
 
 def substitute_newlist(typer, op):
@@ -14,19 +15,19 @@ def substitute_newlist(typer, op):
     except KeyError:
         # Make an implementation of newlist(x1,..,xn) which allocates
         # a list with n elements and initialize them.
- 
-        args = ', '.join(['arg%d' % i for i in range(n)])
-        lines = []
-        lines.append(    'def newlist(%s):' % args)
-        lines.append(    '    l = malloc(List_typ)')
-        lines.append(    '    l.items = malloc(List_typ.items.TO, %d)' % n)
-        for i in range(n):
-            lines.append('    l.items[%d].item = arg%d' % (i, i))
-        lines.append(    '    return l')
-        lines.append(    '')
-        miniglobal = {'List_typ': LIST.TO, 'malloc': malloc}
-        exec py.code.Source('\n'.join(lines)).compile() in miniglobal
-        newlist = typer.newlistcache[LIST, n] = miniglobal['newlist']
+        List_typ = LIST.TO
+
+        def template():
+            args = ', '.join(['arg%d' % i for i in range(n)])
+            yield     'def newlist(%s):' % args
+            yield     '    l = malloc(List_typ)'
+            yield     '    l.items = malloc(List_typ.items.TO, %d)' % n
+            for i in range(n):
+                yield '    l.items[%d].item = arg%d' % (i, i)
+            yield     '    return l'
+
+        newlist = compile_template(template(), 'newlist')
+        typer.newlistcache[LIST, n] = newlist
     return typer.substitute_op(op, (newlist,) + inputsignature +  (LIST,))
 
 def getlisttype(typer, s_list):
