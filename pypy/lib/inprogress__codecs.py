@@ -34,7 +34,7 @@ Written by Marc-Andre Lemburg (mal@lemburg.com).
 Copyright (c) Corporation for National Research Initiatives.
 
 """
-from unicodecodec import *
+from unicodecodec_ import *
 
 #/* --- Registry ----------------------------------------------------------- */
 codec_search_path = []
@@ -107,6 +107,7 @@ def latin_1_encode( obj,errors='strict'):
     """None
     """
     res = PyUnicode_EncodeLatin1(obj,len(obj),errors)
+    res = ''.join(res)
     return res, len(res)
 # XXX MBCS codec might involve ctypes ?
 def mbcs_decode():
@@ -131,53 +132,65 @@ def utf_8_decode( data,errors='strict',final=None):
     """None
     """
     res = PyUnicode_DecodeUTF8Stateful(data, len(data), errors, final)
+    res = ''.join(res)
     return res,len(res)
 
 def raw_unicode_escape_decode( data,errors='strict'):
     """None
     """
     res = PyUnicode_DecodeRawUnicodeEscape(data, len(data), errors)
+    res = ''.join(res)
     return res,len(res)
 
 def utf_7_decode( data,errors='strict'):
     """None
     """
-    unistr = PyUnicode_DecodeUTF7(data,errors='strict')
-    return unistr,len(unistr)
-# XXX unicode_escape_encode
+    res = PyUnicode_DecodeUTF7(data,errors='strict')
+    res = ''.join(res)
+    return res,len(res)
+
 def unicode_escape_encode( obj,errors='strict'):
     """None
     """
-    pass
-# XXX latin_1_decode
+    res = PyUnicode_EncodeUnicodeEscape(data,len(data),errors)
+    res = ''.join(res)
+    return res, len(res)
+
 def latin_1_decode( data,errors='strict'):
     """None
     """
-    pass
-# XXX utf_16_decode
-def utf_16_decode( data,errors='strict'):
+    res = PyUnicode_DecodeLatin1(data,len(data),errors)
+    res = ''.join(res)
+    return res, len(res)
+
+def utf_16_decode( data,errors='strict',final=None):
     """None
     """
-    pass
+    res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors)
+    res = ''.join(res)
+    return res, len(res)
 
 def unicode_escape_decode( data,errors='strict'):
     """None
     """
-    unistr = PyUnicode_DecodeUnicodeEscape(data,len(data),errors)
-    return unistr,len(unistr)
+    res = PyUnicode_DecodeUnicodeEscape(data,len(data),errors)
+    res = ''.join(res)
+    return res, len(res)
 
 
 def ascii_decode( data,errors='strict'):
     """None
     """
     res = PyUnicode_DecodeASCII(data,len(data),errors)
-    return res,len(res)
+    res = ''.join(res)
+    return res, len(res)
 
 def charmap_encode(obj,errors='strict',mapping='latin-1'):
     """None
     """
     res = PyUnicode_EncodeCharmap(obj,len(obj),mapping,errors)
-    return res,len(res)
+    res = ''.join(res)
+    return res, len(res)
 
 def unicode_internal_encode( obj,errors='strict'):
     """None
@@ -185,12 +198,14 @@ def unicode_internal_encode( obj,errors='strict'):
     if type(obj) == unicode:
         return obj, len(obj)
     else:
-        return PyUnicode_FromUnicode(obj,size),size
-# XXX utf_16_ex_decode
+        return ''.join(PyUnicode_FromUnicode(obj,size),size)
+
 def utf_16_ex_decode( data,errors='strict'):
     """None
     """
-    pass
+    res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'native')
+    res = ''.join(res)
+    return res, len(res)
 # XXX escape_decode Check if this is right
 def escape_decode(data,errors='strict'):
     """None
@@ -201,20 +216,23 @@ def charbuffer_encode( obj,errors='strict'):
     """None
     """
     res = str(obj)
-    return res,len(res)
+    res = ''.join(res)
+    return res, len(res)
 
 def charmap_decode( data,errors='strict',mapping=None):
     """None
     """
     res = PyUnicode_DecodeCharmap(data, len(data), mapping, errors)
-    return res,len(res)
+    res = ''.join(res)
+    return res, len(res)
 
 
 def utf_7_encode( obj,errors='strict'):
     """None
     """
     res = PyUnicode_EncodeUTF7(obj,len(obj),0,0,errors)
-    return res,len(res)
+    res = ''.join(res)
+    return res, len(res)
 
 def mbcs_encode( obj,errors='strict'):
     """None
@@ -230,40 +248,43 @@ def ascii_encode( obj,errors='strict'):
     """None
     """
     res = PyUnicode_EncodeASCII(obj,len(obj),errors)
-    return res,len(res)
-##(PyUnicode_EncodeASCII(
-##			       PyUnicode_AS_UNICODE(obj), 
-##			       PyUnicode_GET_SIZE(obj),
-##			       errors),
-##                PyUnicode_GET_SIZE(obj))
+    res = ''.join(res)
+    return res, len(res)
 
 def utf_16_encode( obj,errors='strict'):
     """None
     """
-    u = PyUnicode_EncodeUTF16(obj,len(obj),errors)
-    return u,len(u)
+    res = PyUnicode_EncodeUTF16(obj,len(obj),errors)
+    res = ''.join(res)
+    return res, len(res)
 
 def raw_unicode_escape_encode( obj,errors='strict'):
     """None
     """
     res = PyUnicode_EncodeRawUnicodeEscape(obj,len(obj))
-    return res,len(res)
+    res = ''.join(res)
+    return res, len(res)
 
 def utf_8_encode( obj,errors='strict'):
     """None
     """
     res = PyUnicode_EncodeUTF8(obj,len(obj),errors)
-    return res,len(res)
-# XXX utf_16_le_encode
+    res = ''.join(res)
+    return res, len(res)
+
 def utf_16_le_encode( obj,errors='strict'):
     """None
     """
-    pass
-# XXX utf_16_be_encode
+    res = PyUnicode_EncodeUTF16(obj,len(obj),errors,'little')
+    res = ''.join(res)
+    return res, len(res)
+
 def utf_16_be_encode( obj,errors='strict'):
     """None
     """
-    pass
+    res = PyUnicode_EncodeUTF16(obj,len(obj),errors,'big')
+    res = ''.join(res)
+    return res, len(res)
 
 def unicode_internal_decode( unistr,errors='strict'):
     """None
@@ -272,16 +293,20 @@ def unicode_internal_decode( unistr,errors='strict'):
         return unistr,len(unistr)
     else:
         return unicode(unistr),len(unistr)
-# XXX utf_16_le_decode
+
 def utf_16_le_decode( data,errors='strict'):
     """None
     """
-    pass
-# XXX utf_16_be_decode
+    res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'little')
+    res = ''.join(res)
+    return res, len(res)
+
 def utf_16_be_decode( data,errors='strict'):
     """None
     """
-    pass
+    res = PyUnicode_DecodeUTF16Stateful(data,len(data),errors,'big')
+    res = ''.join(res)
+    return res, len(res)
 
 def strict_errors(exc):
     if isinstance(exc,Exception):
