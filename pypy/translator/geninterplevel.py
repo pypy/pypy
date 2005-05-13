@@ -1088,7 +1088,6 @@ class GenRpy:
         if not self.translator.frozen:
             # this is only to keep the RAM consumption under control
             del self.translator.flowgraphs[func]
-            Variable.instances.clear()
 
     def rpyfunction_body(self, func, localscope):
         try:

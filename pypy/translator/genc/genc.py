@@ -171,7 +171,6 @@ class GenC:
                 del self.translator.flowgraphs[funcdef.func]
             except KeyError:
                 pass
-            Variable.instances.clear()
 
     def loadincludefile(basename):
         filename = os.path.join(autopath.this_dir, basename)
