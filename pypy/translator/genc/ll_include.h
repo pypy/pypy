@@ -16,7 +16,8 @@
 #define OP_MALLOC(typename, r, err)  {                                  \
     typename##_gc *__block = (typename##_gc*) PyObject_Malloc(          \
                                                 sizeof(typename##_gc)); \
-    printf("allocated %d bytes at %p\n", sizeof(typename##_gc), __block); \
+    /* printf("allocated %d bytes at %p\n", */                          \
+    /*        sizeof(typename##_gc), __block); */                       \
     if (__block == NULL) { PyErr_NoMemory(); FAIL(err) }                \
     __block->refcount = 1;                                              \
     r = GCSTRUCT_TO_STRUCT(typename, __block);                          \
@@ -26,16 +27,16 @@
 #define OP_MALLOC_VARSIZE(typename, vartypename, sizefield, nsize, r, err)  {  \
     size_t memsize = sizeof(typename##_gc) + (nsize-1)*sizeof(vartypename);    \
     typename##_gc *__block = (typename##_gc*) PyObject_Malloc(memsize);        \
-    printf("var-allocated %d bytes at %p\n", memsize, __block); \
+    /* printf("var-allocated %d bytes at %p\n", memsize, __block); */          \
     if (__block == NULL) { PyErr_NoMemory(); FAIL(err) }                       \
     memset((void*) __block, 0, memsize);                                       \
     __block->refcount = 1;                                                     \
     r = GCSTRUCT_TO_STRUCT(typename, __block);                                 \
     r->sizefield = nsize;                                                      \
   }
-#define STRUCTFREE(typename, p) {                               \
-    printf("freeing %p\n", STRUCT_TO_GCSTRUCT(typename, p));    \
-    PyObject_Free(STRUCT_TO_GCSTRUCT(typename, p));             \
+#define STRUCTFREE(typename, p) {                                       \
+    /* printf("freeing %p\n", STRUCT_TO_GCSTRUCT(typename, p)); */      \
+    PyObject_Free(STRUCT_TO_GCSTRUCT(typename, p));                     \
   }
 
 
