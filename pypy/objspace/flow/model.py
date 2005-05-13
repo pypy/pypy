@@ -16,8 +16,13 @@ from __future__ import generators
     + Link              189 MB      311 MB
     + Block             185 MB      304 MB
     
-    Dropping Variable.instances brought
+    Dropping Variable.instances and using
+    just an instancenames dict brought
     annotation down to 160 MB.
+    Computing the Variable.renamed attribute
+    and dropping Variable.instancenames
+    got annotation down to 109 MB.
+    Probably an effect of less fragmentation.
 """
 
 __metaclass__ = type
@@ -166,19 +171,25 @@ class Block:
 
 
 class Variable:
-    __slots__ = ["renamed", "name", "concretetype"]
+    __slots__ = ["_name", "concretetype"]
     
     countall = 0
     countmax = 0
     countcurr = 0
-    instancenames = {}
-    # change this to a weakvalue dict if you want
-    # to track all alive instances
 
+    def name(self):
+        name = self._name
+        if type(name) is int:
+            name = 'v%d' % name
+        return name
+    name = property(name)
+
+    def renamed(self):
+        return isinstance(self._name, str)
+    renamed = property(renamed)
+    
     def __init__(self, name=None):
-        self.name = 'v%d' % Variable.countall
-        self.renamed = False
-        Variable.instancenames[self.name] = True
+        self._name = Variable.countall
         Variable.countall += 1
         Variable.countcurr += 1
         Variable.countmax = max(Variable.countmax, Variable.countcurr)
@@ -204,10 +215,7 @@ class Variable:
             return
         if '0' <= name[0] <= '9':
             name = '_' + name
-        del Variable.instancenames[self.name]
-        self.renamed = True
-        self.name = name + '_' + self.name[1:]
-        Variable.instancenames[self.name] = True
+        self._name = name + '_' + self.name[1:]
 
 
 class Constant:
