@@ -29,16 +29,16 @@ Here are the steps we follow to translate a given program:
 
 3. Optionally, the Annotator_ performs global type inference on the control flow graphs.  Each variable gets annotated with an inferred type.
 
-4. One of the Code Generators (XXX not documented yet) turns the optionally annotated flow graphs and produces a source file in a lower-level language: C_, LLVM_, `Common Lisp`_, Pyrex_, Java_, or `Python again`_ (this is used in PyPy to turn sufficiently RPythonic app-level code into interp-level code).
+4. The `RPython typer`_ can use the high-level types inferred by the Annotator to turn the operations in the control flow graphs into low-level operations over low-level types (close to the C types: struct, array, pointer...).
 
-5. This lower-level source file is compiled to produce an executable.
+5. One of the Code Generators (XXX not documented yet) turns the optionally annotated/typed flow graphs and produces a source file in a lower-level language: C_, LLVM_, `Common Lisp`_, Pyrex_, Java_, or `Python again`_ (this is used in PyPy to turn sufficiently RPythonic app-level code into interp-level code).
+
+6. This lower-level source file is compiled to produce an executable.
 
 .. _`translator.py`: http://codespeak.net/svn/pypy/dist/pypy/translator/translator.py
 .. _`play around`: getting_started.html#trying-out-the-translator
 .. _`Flow Object Space`: objspace.html#the-flow-object-space
 .. _`control flow graph`: objspace.html#the-flow-model
-.. _C: http://codespeak.net/svn/pypy/dist/pypy/translator/genc/
-.. _LLVM: http://codespeak.net/svn/pypy/dist/pypy/translator/llvm/
 .. _`Common Lisp`: http://codespeak.net/svn/pypy/dist/pypy/translator/gencl.py
 .. _Pyrex: http://codespeak.net/svn/pypy/dist/pypy/translator/genpyrex.py
 .. _Java: http://codespeak.net/svn/pypy/dist/pypy/translator/java/
@@ -414,20 +414,20 @@ Others
 
 
 
-The C Back-End
-==============
+.. _`RPython typer`:
+
+The RPython Typer
+=================
+
+http://codespeak.net/svn/pypy/dist/pypy/rpython/
 
 
 Overview
 --------
 
-The task of GenC is to convert a flow graph into C code.  By itself, GenC does not use the annotations in the graph.  It can actually convert unannotated graphs to C.  However, to make use of the annotations if they are present, an extra pass is needed: the C typer, whose task is to modify the flow graph according to the annotations, replacing operations with lower-level C-ish equivalents.
+The RPython Typer is the bridge between the _Annotator and the low-level code generators.  The annotator computes types (or "annotations") that are high-level, in the sense that they describe RPython types like lists or instances of user-defined classes.  In general, though, to emit code we need to represent these high-level annotations into the low-level model of the target language; for C, this means structures and pointers and arrays.  The Typer both determines the appropriate low-level type for each annotation, and tries to replace *all* operations in the control flow graphs with one or a few low-level operations.  Just like low-level types, there is only a fairly restricted set of low-level operations, along the lines of reading or writing from or to a field of a structure.
 
-The C typer first replaces all Variables that have constant annotations with real Constants in the flow graph.
-
-For the time being, we assume that each SomeXxx annotation has a canonical C-level representation.  For example, all variables annotated with SomeInteger() will correspond to the C ``int`` type.  This allows an attribute ``concretetype`` to be attached to each Variable.  Constants also get such an attribute ``concretetype``, but they are computed based on the usage that is made of the particular Constant; for example, a Constant(5) will be a C ``int`` when used in an integer addition but a C ``PyObject*`` when inserted into a CPython list.
-
-The C typer considers each operation in turn and, based on its annotations, replaces it by C-level operations if possible.
+In theory, this step is optional; some code generators might be able to read directly the high-level types.  However, we expect that case to be the exception.  "Compiling" high-level types into low-level ones is rather more messy than one would expect.  This was the motivation for making this step explicit and isolated in a single place.  After Typing, the graphs can only contain very few operations, which makes the job of the code generators much simpler.
 
 
 Example: Integer operations
@@ -445,99 +445,149 @@ annotated::
 
 then obviously we want to type it and replace it with::
 
-    int v1, v2, v3;
     v3 = int_add(v1, v2)
 
-The typing notation in C syntax means that the Variables (which might actually be Constants) are given the ``concretetype`` corresponding to the C ``int``.
+where -- in C notation -- all three variables v1, v2 and v3 are typed ``int``.  This is done by attaching an attribute ``concretetype`` to v1, v2 and v3 (which might be instances of Variable or possibly Constant).  In our model, this ``concretetype`` is ``pypy.rpython.lltypes.Signed``.  Of course, the purpose of replacing the operation called ``int`` with ``int_add`` is that code generators no longer have to worry about what kind of addition (or concatenation maybe?) it means.
 
 
-Memory model
-------------
+The process in more details
+---------------------------
 
-For more complicated examples we need to choose a memory model.  We will assume a simple model: local Variables store primitive values only (integers, pointers), and the heap stores structs.
+The RPython Typer does the following transformations for each block of all the annotated flow graphs (each block is processed independently, by assuming that the already-computed annotations are globally correct):
 
-We support this model using the following new graph operations (the result Variable is omitted when meaningless)::
+* We first replace all Variables that have constant annotations with real Constants in the flow graph.
 
-    v2 = malloc()
-    v2 = malloc(v1)
-    incref(v3)
-    decref(v3)
+* For the time being, we assume that each SomeXxx annotation has a canonical low-level representation.  For example, all variables annotated with SomeInteger() will correspond to the ``Signed`` low-level type.  Each input argument of the block are tagged with the canonical low-level representation (this is done by attaching an attribute ``concretetype`` to each Variable).
 
-v2=malloc() allocates some bytes of heap memory, zero it, and returns a pointer to it.  The number of bytes is suitable for the type of v2.  For now, there is always a reference counter in a hidden header, initialized to 1.
+* Each operation, with its argument's annotation, is looked up in a table which specifies with which low-level operation(s) it should be substituted.  If needed, the arguments are first converted (with extra operations) from their current ``concretetype`` to the required low-level types.  For constant arguments, we just attach the ``concretetype`` to the Constant instance; as for Variables, this tells the code generator of which type the constant really is.  Finally, the substitution rules specify the ``concretetype`` of the result.  It is attached to the result Variable, and will be used further down the block to detect when conversions are needed.
 
-incref() and decref() allow each value to be tracked.  The decref(v3) operation is used when the content of the value ``v3`` is about to be deleted.  GenC inserts an operation decref(v3) whenever the value in a local variable v3 is about to be forgotten (it isn't passed to the next basic block).  In addition, incref(v3) is inserted when a local Variable is about to be duplicated (it is passed several times to the next basic block).
+* When a block has been transformed in this way, all the links are considered; if the concrete types of the Variables that exit do not match the canonical low-level types expected by the target block, conversions are inserted.
 
-The exact operations performed by incref(v3) and decref(v3) depend on the type of v3.  For pointer types, they increment and decrement the reference counter of whatever they point to.  For integers, they have no effect.
-
-When decref() is applied on a pointer and the reference counter drops to zero, the destructor of the appropriate type is called; its action depends on the type, but (as in CPython) what it typically does is call decref() on each member of the structure and then release the occupied memory.
-
-Note that for now malloc() returns memory initialized to zero.  This allows our destructors to cope with partially initialized data structures, should an error occur while they are constructed.
-
-In C, it is common to see a struct definition whose last member is a variable-sized array.  For this case, v2=malloc(v1) allocates an amount of memory which is enough to store the fixed part of the struct plus ``v1`` items in the variable-sized part.
+This may look like flowing, similar to what the annotator does, but it is limited to a single block; for global coherency it trusts the more involved fixpoint-based algorithm run by the annotator.
 
 
-CType
------
+Low-Level Types
+---------------
 
-Each C type is represented by an instance of a concrete subclass of CType_.  Each instance has the following interface:
+For now, the RPython Typer uses a standard low-level model which we believe can correspond rather directly to various target languages from C to LLVM to Java.  This model is implemented in the first part of `lltypes.py`_.
 
-* a ``typename`` attribute: the name given to this type in C.
+The second part of `lltypes.py`_ is a runnable implementation of these types, for testing purposes.  It allows us to write and test plain Python code using a malloc() function to obtain and manipulate structures and arrays.  This is useful for example to implement RPython types like 'list' with its operations and methods.
 
-* nameof(obj): method returning a C expression representing the constant ``obj`` in this C type.
+The basic assumption is that Variables (i.e. local variables and function arguments and return value) all contain "simple" values: basically, just integers or pointers.  All the "container" data structures (struct and array) are allocated in the heap, and they are always manipulated via pointers.  (There is no equivalent to the C notion of local variable of a ``struct`` type.)
 
-* init_globals(): called the first time genc sees this particular CType instance.  It generates C code that declares the type.
-
-* collect_globals(): called from time to time -- more precisely, before each function body is written to the C file.  It can generate more C code related to this type, if needed (e.g. declaration of static variables of this type).
+.. _`lltypes.py`: http://codespeak.net/svn/pypy/dist/pypy/rpython/lltypes.py
 
 
-.. _CType: http://codespeak.net/svn/pypy/dist/pypy/translator/genc/basetype.py
+Primitive Types
++++++++++++++++
+
+Signed
+    a signed integer in one machine word (a ``long``, in C)
+
+Unsigned
+    a non-signed integer in one machine word (``unsigned long``)
+
+Char
+    a single character (``char``)
+
+Bool
+    a boolean value (could be ``char`` as well in C)
+
+Void
+    a constant.  Meant for variables and function arguments that should
+    disappear from the generated code.
 
 
-C-level operations
-------------------
+Structure Types
++++++++++++++++
 
-Here are the new operations that the C typer introduces in flow graphs.  Ideally, a completely typed graph should only contain these operations, and no longer any of the original operations.
+Structure types are built as instances of ``pypy.rpython.lltypes.Struct``::
 
-Integer arithmetic operations (see complete list in `ctyper.py`_)::
+    MyStructType = Struct('somename',  ('field1', Type1), ('field2', Type2)...)
 
-    v3 = int_add(v1, v2)              # v3 = v1+v2;   // int v1, v2, v3
-    v3 = int_sub(v1, v2)              # v3 = v1-v2;   // int v1, v2, v3
-    v3 = int_mul(v1, v2)              # v3 = v1*v2;   // int v1, v2, v3
-    v3 = int_is_true(v1)              # v3 = v1?1:0;  // int v1, v3
-    etc.
+This declares a structure (or a Pascal ``record``) containing the specified named fields with the given types.  The field names cannot start with an underscope.  As noted above, you cannot directly manipulate structure objects, but only pointer to structures living in the heap.
 
-Function call::
+By contrast, the fields themselves can be of primitive, pointer or container type.  When a structure contains another structure as a field we say that the latter is "inlined" in the former: the bigger structure contains the smaller one as part of its memory layout.
 
-    v3 = direct_call(v1, v2, ...)     # v3 = v1(v2, ...);
-
-Memory management (see `Memory model`_)::
-
-    v2 = malloc()                     # for T* v2, alloc and zero sizeof(T) bytes of memory
-    v2 = malloc(v1)                   # same, but allocates sizeof(T) + v1*sizeof(T_item)
-    incref(v3)                        # for T* v3, details depend on T
-    decref(v3)                        # for T* v3, details depend on T
-
-Pointer operations::
-
-    v3 = arrow(v1, 'fieldname')       # v3 = v1->fieldname;   // if fieldname is a primitive
-    v3 = substruct(v1, 'fieldname')   # v3 = &v1->fieldname;  // if fieldname is a struct
-    v3 = subarray(v1, 'fieldname')    # v3 = v1->fieldname;   // if fieldname is an array
-    arrow_set(v1, 'fieldname', v2)    # v1->fieldname = v2;
-    v3 = ptr_add(v1, v2)              # v3 = v1+v2;    // T* v1, int v2, T* v3
-    v3 = ptr_cast(v1)                 # v3 = (T*) v1;  // S* v1, T* v3
-
-For regularity, all pointers should point to struct types.  Casting should follow the C99 aliasing rules: in our case, we should only use it when we have got a pointer ``S* v1``, and we discover (by inspecting what v1 points to) that it is actually just the first field of a larger structure of type T.
-
-If you are confused by the three variants of the ``->`` operator, note that only arrow() reads the content of a field.  The substruct() operation returns a pointer to a substructure of the parent structure.  The subarray() operation does the same for arrays in the parent structure -- which is essentially the same as substruct(), and not as arrow().  Blame C syntax.
+A structure can also contain an inlined array (see below), but only as its last field: in this case it is a "variable-sized" structure, whose memory layout starts with the non-variable fields and ends with a variable number of array items.  This number is determined when a structure is allocated in the heap.  Variable-sized structures cannot be inlined in other structures.
 
 
-.. _`ctyper.py`: http://codespeak.net/svn/pypy/dist/pypy/translator/genc/ctyper.py
+Array Types
++++++++++++
+
+An array type is built as an instance of ``pypy.rpython.lltypes.Array``::
+
+    MyArrayType = Array(('field1', Type1), ('field2', Type2)...)
+
+The items of an array are always structures; the arguments to Array() give the fields of these structures (it can of course be a single field).  The allowed field types follow the same rules as for Struct(), but this particular structure cannot be variable-sized.
+
+For now, each array stores its length explicitely in a header.  An array can never be resized: it occupies a fixed amount of bytes determined when it is allocated.
+
+
+Pointer Types
++++++++++++++
+
+As in C, pointers provide the indirection needed to make a reference modifiable or sharable.  Pointers can only point to a structure, an array, a function (see below) or a PyObject (see below).  Pointers to primitive types, if needed, must be done by pointing to a structure with a single field of the required type.  Pointer types are declared using one of::
+
+   GcPtr(T, **flags)
+   NonGcPtr(T, **flags)
+
+The so-called GC pointers are the ones that hold a reference to the object they point to.  Typically, the malloc() operation allocates and returns a GcPtr to a new structure or array.  In a refcounting implementation, malloc() would allocate enough space for a reference counter before the actual structure, and initialize it to 1.  Actually, GC pointers can only point to a malloc()ed structure or array.  Non-GC pointers are used when you know that a pointer doesn't hold a (counted) reference to an object, usually because the object has no reference counter at all: for example, functions don't have one; more importantly, inlined substructures don't have one either.  For them, care must be taken to ensure that the bigger structure of which they are part of isn't freed while the NonGcPtr to the substructure is still in use.
+
+All pointer types can also have additional flags, whose meaning is unspecified at this level (apart from the flag ``gc=True`` which GcPtrs have and NonGcPtrs miss).  Types with different flags are incompatible, but the cast_flags() operation is provided to perform explicit casts.  The intention is for example to represent the high-level object "the method append() of this list" as the type ``GcPtr(ListType, method='append')`` -- i.e. a pointer to the list in question with an additional flag specifying that the pointer represents the method append() of that list, as opposed to the list itself.
+
+
+Function Types
+++++++++++++++
+
+The declaration::
+
+    MyFuncType = FuncType([Type1, Type2, ...], ResultType)
+
+declares a function type taking arguments of the given types and returning a result of the given type.  All these types must be primitives or pointers.  The function type itself is considered to be a "container" type: if you wish, a function contains the bytes that make up its executable code.  As with structures and arrays, they can only be manipulated through pointers.  More precisely, the only thing you can do -- more or less -- with MyFuncType is to embbed it in a NonGcPtr.
+
+
+The PyObject Type
++++++++++++++++++
+
+This is a special type, for compatibility with CPython: it stands for a structure compatible with PyObject.  It should be manipulated via GcPtr or NonGcPtr, depending on whether the CPython reference counter should be updated or not.  A typed graph can still contain generic space operations (add, getitem, etc.) provided they are applied on objects whose low-level type is a pointer to ``PyObject``.  In fact, code generators that support this should consider that the default type of a variable, if none is specified, is ``GcPtr(PyObject)``.  In this way, they can generate the correct code for fully-untyped flow graphs.
+
+
+Implementing RPython types
+--------------------------
+
+As hinted above, the RPython types (e.g. 'list') are implemented in some "restricted-restricted Python" format by manipulating only low-level types, as provided by the "testing" concrete implementation of malloc() and friends.  What occurs then is that the same (tested!) very-low-level Python code -- which looks really just like C -- is then transformed into a flow graph and integrated with the rest of the user program.  In other words, we replace an operation like ``add`` between two variables annotated as SomeList, with a ``simple_call`` operation invoking this very-low-level list concatenation.
+
+This list concatenation flow graph is then annotated as usual, with one difference: the annotator has to be taught about malloc() and the way the pointer thus obtained can be manipulated.  This generates a flow graph which is hopefully completely annotated with the SomePtr annotation.  Introduced just for this case, SomePtr maps directly to a low-level pointer type.  This is the only change needed to the Annotator to allow it to perform type inferrence of our very-low-level snippets of code.
+
+See for example http://codespeak.net/svn/pypy/dist/pypy/rpython/rlist.py.
 
 
 
+.. _C:
+
+The C Back-End
+==============
+
+http://codespeak.net/svn/pypy/dist/pypy/translator/genc/
+
+
+Overview
+--------
+
+The task of GenC is to convert a flow graph into C code.  By itself, GenC does not use the annotations in the graph.  It can actually convert unannotated graphs to C.  However, to make use of the annotations if they are present, an extra pass is needed: the `RPython Typer`_, whose task is to modify the flow graph according to the annotations, replacing operations with lower-level C-ish equivalents.
+
+XXX GenC is currently in the process of being updated to use the RPython Typer. more documentation needed when this is done.
+
+
+
+.. _LLVM:
 
 The LLVM Back-End
 =================
+
+http://codespeak.net/svn/pypy/dist/pypy/translator/llvm/
+
 
 Overview
 --------
