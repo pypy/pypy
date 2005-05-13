@@ -15,6 +15,9 @@ from __future__ import generators
     Var/Const/SpaceOp   205 MB      325 MB
     + Link              189 MB      311 MB
     + Block             185 MB      304 MB
+    
+    Dropping Variable.instances brought
+    annotation down to 160 MB.
 """
 
 __metaclass__ = type
@@ -165,16 +168,25 @@ class Block:
 class Variable:
     __slots__ = ["renamed", "name", "concretetype"]
     
-    counter = 0
-    instances = {}
+    countall = 0
+    countmax = 0
+    countcurr = 0
+    instancenames = {}
+    # change this to a weakvalue dict if you want
+    # to track all alive instances
 
     def __init__(self, name=None):
-        self.name = 'v%d' % Variable.counter
+        self.name = 'v%d' % Variable.countall
         self.renamed = False
-        Variable.instances[self.name] = self
-        Variable.counter += 1
+        Variable.instancenames[self.name] = True
+        Variable.countall += 1
+        Variable.countcurr += 1
+        Variable.countmax = max(Variable.countmax, Variable.countcurr)
         if name is not None:
             self.rename(name)
+
+    def __del__(self):
+        Variable.countcurr -= 1
 
     def __repr__(self):
         return '%s' % self.name
@@ -192,10 +204,10 @@ class Variable:
             return
         if '0' <= name[0] <= '9':
             name = '_' + name
-        del Variable.instances[self.name]
+        del Variable.instancenames[self.name]
         self.renamed = True
         self.name = name + '_' + self.name[1:]
-        Variable.instances[self.name] = self
+        Variable.instancenames[self.name] = True
 
 
 class Constant:
