@@ -231,63 +231,93 @@ handle tuples of varying length (the program should use lists instead).
 Lists and Dictionaries
 ++++++++++++++++++++++
 
-``SomeList`` stands for a list of homogenous type (i.e. all the elements 
-of the list are represented by a single common ``SomeXxx`` annotation).
+``SomeList`` stands for a list of homogeneous type (i.e. all the
+elements of the list are represented by a single common ``SomeXxx``
+annotation).
 
-``SomeDict`` stands for a homogenous dictionary (i.e. all keys have the 
-same ``SomeXxx`` annotation, and so have all values).
+``SomeDict`` stands for a homogeneous dictionary (i.e. all keys have
+the same ``SomeXxx`` annotation, and so have all values).
 
-These types are mutable, which requires special support for the 
+These types are mutable, which requires special support for the
 annotator.  The problem is that in code like::
 
    lst = [42]
    update_list(lst)
    value = lst[0]
 
-the annotation given to ``value`` depends on the order in which the 
-annotator progresses.  As ``lst`` is originally considered as a list of 
-``SomeInteger(const=42)``, it is possible that ``value`` becomes 
-``SomeInteger(const=42)`` as well if the analysis of ``update_list()`` 
-is not completed by the time the third operation is first considered.  
-To solve this problem, each ``SomeList`` or ``SomeDict`` is linked to a 
-set of so-called *factories*.  Each creation point, i.e. each 'newlist' 
-or 'newdict' operation, gets its associated factory.  The factory 
-remembers what kind of object it really needs to build.  For example, in 
-code like::
+the annotation given to ``value`` depends on the order in which the
+annotator progresses.  As ``lst`` is originally considered as a list
+of ``SomeInteger(const=42)``, it is possible that ``value`` becomes
+``SomeInteger(const=42)`` as well if the analysis of ``update_list()``
+is not completed by the time the third operation is first considered.
+
+
+To solve this problem, each ``SomeList`` or ``SomeDict`` is linked to
+so-called *list-definition* or *dict-definition*
+(``pypy.annotation.listdef.ListDef``,
+``pypy.annotation.dictdef.DictDef``).  The list definitions and dict
+definitions contain information about the type of list items, dict
+keys and values respectively.
+
+At each creation point, i.e. each 'newlist' or 'newdict', a
+``SomeList`` or ``SomeDict`` is created with a fresh definition object
+if its the first time we annotate this operation, otherwise the
+definition setup (which has been cached) the first time is reused.
+While proceeding the annotator also records on the definition objects
+all flow graph positions where values are read from the list or dict.
+
+For example, in code like::
 
    lst = [42]
+   f(lst[0])
    lst.append(43)
 
-the factory associated with the first line originally builds a list 
-whose items are all constants equal to 42; when the ``append(43)`` call 
-is then found, the factory is updated to build a more general list of 
-integers, and the annotator restarts its analysis from the factory 
-position.  Our model is not sensitive to timing: it doesn't know that 
-the same list object may contain different items at different times.  It 
-only computes how general the items in the list must be to cover all 
-cases.
+the definition associated with the list at creation time (first line)
+represents list whose items are all constants equal to 42; when a
+value is read from the list (second line) this position is recorded on
+the definition; when the ``append(43)`` call is then found, the item
+type information in the definition is generalized (in this case to
+general list of integers) and the annotator schedule all the so far
+recorded read positions for reflowing, in order to keep the
+annotations consistent.
 
-For initially empty lists, as created by ``lst = []``, we build a list 
-whose items have the annotation ``SomeImpossibleValue``.  This is an 
-annotation that denotes that no Python object at all can possibly appear 
-here at run-time.  It is the least general annotation.  The rationale is 
-that::
+Our model is not sensitive to timing: it doesn't know that the same
+list object may contain different items at different times.  It only
+computes how general the items in the list must be to cover all cases.
+
+For initially empty lists, as created by ``lst = []``, we build a list
+whose items have the annotation ``SomeImpossibleValue``.  This is an
+annotation that denotes that no Python object at all can possibly
+appear here at run-time.  It is the least general annotation.  The
+rationale is that::
 
    lst = []
    oups = lst[0]
 
-will give the variable ``oups`` the annotation ``SomeImpossibleValue``, 
-which is reasonable given that no concrete Python object can ever be put 
-in ``oups`` at run-time.  In a more usual example::
+will give the variable ``oups`` the annotation
+``SomeImpossibleValue``, which is reasonable given that no concrete
+Python object can ever be put in ``oups`` at run-time.  In a more
+usual example::
 
    lst = []
    lst.append(42)
 
-the list is first built with ``SomeImpossibleValue`` items, and then the 
-factory is generalized to produce a list of ``SomeInteger(const=42)``.  
-With this "impossible object" trick we don't have to do anything special 
-about empty lists.
+the list is first built with ``SomeImpossibleValue`` items, and then
+the factory is generalized to produce a list of
+``SomeInteger(const=42)``.  With this "impossible object" trick we
+don't have to do anything special about empty lists.
 
+When the annotator has to unify different list or dict annotations it
+effectively unifies the corresponding definitions, the item types are
+generalized as necessary and the union of the read position sets is
+used, also things are internally setup in such a way that the involved
+definitions now are considered interchangeably the same for the rest of
+the process (that means that union for lists and dicts is a not
+reversible operation).  If the new item type is more general reflowing
+from all the read positions is also scheduled.
+
+
+XXX THE REST NEEDS REVIEW AND TO BE COMPLETED
 
 User-defined Classes and Instances
 ++++++++++++++++++++++++++++++++++
