@@ -34,17 +34,35 @@ from pypy.annotation.pairtype import pair, extendabletype
 from pypy.objspace.flow.model import Constant
 from pypy.tool.tls import tlsobject
 import inspect
-
+import copy
 
 DEBUG = True    # set to False to disable recording of debugging information
 TLS = tlsobject()
 
+"""
+Some history (Chris):
+
+As a first approach to break this thing down, I slottified
+all of these objects. The result was not overwhelming:
+A savingof 5MB,but four percent of slowdown, since object
+comparison got much more expensive, by lacking a __dict__.
+
+So I trashed 8 hours of work, without a check-in. (Just
+writing this here to leave *some* trace of work).
+
+Then I tried to make allinstances unique and wrote a lot
+of attribute tracking code here, locked write access
+outside of __init__, and patched manz modules and serveral
+hundred lines of code.
+
+"""
 
 class SomeObject:
     """The set of all objects.  Each instance stands
     for an arbitrary object about which nothing is known."""
     __metaclass__ = extendabletype
     knowntype = object
+
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
                 self.__dict__  == other.__dict__)
@@ -88,6 +106,7 @@ class SomeObject:
     def __new__(cls, *args, **kw):
         self = super(SomeObject, cls).__new__(cls, *args, **kw)
         if DEBUG:
+            so = SomeObject
             try:
                 bookkeeper = pypy.annotation.bookkeeper.getbookkeeper()
                 position_key = bookkeeper.position_key
@@ -96,15 +115,20 @@ class SomeObject:
             else:
                 SomeObject._coming_from[id(self)] = position_key, None
         return self
+
     def origin(self):
         return SomeObject._coming_from.get(id(self), (None, None))[0]
     origin = property(origin)
+
     def caused_by_merge(self):
         return SomeObject._coming_from.get(id(self), (None, None))[1]
     def set_caused_by_merge(self, nvalue):
         SomeObject._coming_from[id(self)] = self.origin, nvalue
     caused_by_merge = property(caused_by_merge, set_caused_by_merge)
     del set_caused_by_merge
+
+    def __setattr__(self, key, value):
+        object.__setattr__(self, key, value)
 
 
 class SomeFloat(SomeObject):
@@ -273,6 +297,7 @@ class SomeImpossibleValue(SomeObject):
 class SomePtr(SomeObject):
     def __init__(self, ll_ptrtype):
         self.ll_ptrtype = ll_ptrtype
+
 
 from pypy.rpython import lltypes
 
