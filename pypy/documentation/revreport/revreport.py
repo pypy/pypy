@@ -4,12 +4,13 @@ import autopath
 import py
 from pypy.documentation.revreport import delta 
 from pypy.tool.pypyrev import pypyrev 
-from py.__.test.tool.outerrcapture import SimpleOutErrCapture 
+from py.__.misc.simplecapture import SimpleOutErrCapture 
 
 BASE = py.path.local(delta.__file__).dirpath() 
 DEST = BASE.join('revdata') 
 
 assert DEST.dirpath().check() 
+
 
 def updatecurrent(revdir):
     l = []
@@ -41,17 +42,6 @@ if __name__ == '__main__':
     if py.std.sys.stdout.isatty(): 
         delta.genreport(revdir) 
     else: 
-        capture = SimpleOutErrCapture() 
-        try: 
-            delta.genreport(revdir) 
-        except: 
-            out, err = capture.reset()  
-            print "stdout", out 
-            print "stderr", err 
-            raise 
-        else: 
-            out, err = capture.reset() 
-            print "stdout"
-            print out 
+        res, out, err = callcapture(delta.genreport, revdir) 
     print "generated into", revdir 
     updatecurrent(revdir)
