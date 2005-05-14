@@ -234,8 +234,17 @@ def captureAssignments(exc, args):
             names[obj] = "%r # default, hopefully" % obj
         return names[obj]
     res = []
-    for name, obj in assigned:
-        res.append("self.%s = %s" % (name, nameof(obj)))
+    for i,(name, obj) in enumerate(assigned):
+        if isinstance(obj,ProbeObject) or name == 'args':
+            res.append("self.%s = %s" % (name, nameof(obj)))
+        else:
+            res.append("if type(%s) == %s:"%(nameof(obj),repr(type(obj))[7:-2]))
+            res.append("    self.%s = %s" % (name, nameof(obj)))
+            res.append("else:")
+            reason ="argument %i must be %s, not %s"%(i-1,repr(type(obj))[7:-2],'%s')
+            reason2=''.join(["%type(","%s"%nameof(obj),")"])
+            reason = "'"+ reason+"'" +reason2
+            res.append("    raise TypeError(%s)"%(reason))
     return tuple(res)
 
 def tryGenerate__init__(exc, maxprobe=20):
@@ -266,6 +275,7 @@ def tryGenerate__init__(exc, maxprobe=20):
         yield "    argc = len(args)"
     for argcounts, ordered_statements in cases:
         ordered_statements.sort()
+        trailer = None
         if len(argcounts) == maxprobe:
             # all counts, no condition
             indent = 1
@@ -274,6 +284,8 @@ def tryGenerate__init__(exc, maxprobe=20):
             dense = tuple(range(argcounts[0], argcounts[-1]+1)) == argcounts
             if len(argcounts) == 1:
                 yield "    if argc == %d:" % argcounts
+                trailer = ["    else:"]
+                trailer += ["        raise TypeError('function takes exactly 5 arguments (%d given)'%argc)"]
             elif dense and argcounts[0] == 0:
                 yield "    if argc <= %d:" % argcounts[-1]
             elif dense and argcounts[-1] == maxprobe-1:
@@ -284,6 +296,8 @@ def tryGenerate__init__(exc, maxprobe=20):
                 yield "    if argc in %r:" % (argcounts, )
         for order, line in ordered_statements:
             yield indent * "    " + line
+        if trailer:
+            for line in trailer : yield line
 
 def tryGenerate__str__(exc, maxprobe=20):
     if exc in known__str__:
