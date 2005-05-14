@@ -4,19 +4,25 @@ import py
 
 
 def compile_template(source, resultname):
-    """Compiles the source code (a py.code.Source or a list/generator of lines)
+    """Compiles the source code (a string or a list/generator of lines)
     which should be a definition for a function named 'resultname'.
     The caller's global dict and local variable bindings are captured.
     """
     if not isinstance(source, py.code.Source):
-        lines = list(source)
+        if isinstance(source, str):
+            lines = [source]
+        else:
+            lines = list(source)
         lines.append('')
         source = py.code.Source('\n'.join(lines))
 
     caller = sys._getframe(1)
     locals = caller.f_locals
-    localnames = locals.keys()
-    localnames.sort()
+    if locals is caller.f_globals:
+        localnames = []
+    else:
+        localnames = locals.keys()
+        localnames.sort()
     values = [locals[key] for key in localnames]
     
     source = source.putaround(

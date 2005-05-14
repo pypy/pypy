@@ -6,7 +6,11 @@ from pypy.translator.unsimplify import insert_empty_block
 
 
 class TyperError(Exception):
-    pass
+    def __str__(self):
+        result = Exception.__str__(self)
+        if hasattr(self, 'where'):
+            result += '\n.. %r\n.. %r' % self.where
+        return result
 
 
 class Specializer:
@@ -120,7 +124,11 @@ class Specializer:
 
             # make a specialized version of the current operation
             # (which may become several operations)
-            flatten_ops(self.specialized_op(op, bindings), newops)
+            try:
+                flatten_ops(self.specialized_op(op, bindings), newops)
+            except TyperError, e:
+                e.where = (block, op)
+                raise
 
         block.operations[:] = newops
         self.insert_link_conversions(block)
@@ -150,24 +158,28 @@ class Specializer:
         # insert the needed conversions on the links
         can_insert_here = block.exitswitch is None and len(block.exits) == 1
         for link in block.exits:
-            for i in range(len(link.args)):
-                a1 = link.args[i]
-                if a1 in (link.last_exception, link.last_exc_value):# treated specially in gen_link
-                    continue
-                a2 = link.target.inputargs[i]
-                a2type = self.setbesttype(a2)
-                a1, convops = self.convertvar(a1, a2type)
-                if convops and not can_insert_here:
-                    # cannot insert conversion operations around a single
-                    # link, unless it is the only exit of this block.
-                    # create a new block along the link...
-                    newblock = insert_empty_block(self.annotator.translator,
-                                                  link)
-                    # ...and do the conversions there.
-                    self.insert_link_conversions(newblock)
-                    break   # done with this link
-                flatten_ops(convops, block.operations)
-                link.args[i] = a1
+            try:
+                for i in range(len(link.args)):
+                    a1 = link.args[i]
+                    if a1 in (link.last_exception, link.last_exc_value):# treated specially in gen_link
+                        continue
+                    a2 = link.target.inputargs[i]
+                    a2type = self.setbesttype(a2)
+                    a1, convops = self.convertvar(a1, a2type)
+                    if convops and not can_insert_here:
+                        # cannot insert conversion operations around a single
+                        # link, unless it is the only exit of this block.
+                        # create a new block along the link...
+                        newblock = insert_empty_block(self.annotator.translator,
+                                                      link)
+                        # ...and do the conversions there.
+                        self.insert_link_conversions(newblock)
+                        break   # done with this link
+                    flatten_ops(convops, block.operations)
+                    link.args[i] = a1
+            except TyperError, e:
+                e.where = (block, link)
+                raise
 
 
     def specialized_op(self, op, bindings):
