@@ -120,6 +120,7 @@ class Bookkeeper:
             dictdef.generalize_value(s_value)
         return SomeDict(dictdef)
 
+    immutable_cache = {}
 
     def immutablevalue(self, x):
         """The most precise SomeValue instance that contains the
@@ -141,13 +142,21 @@ class Bookkeeper:
         elif tp is float:
             result = SomeFloat()
         elif tp is list:
-            items_s = [self.immutablevalue(e) for e in x]
-            result = SomeList(ListDef(self, unionof(*items_s)))
+            try:
+                return self.immutable_cache[id(x)]
+            except KeyError:
+                items_s = [self.immutablevalue(e) for e in x]
+                result = SomeList(ListDef(self, unionof(*items_s)))
+                self.immutable_cache[id(x)] = result
         elif tp is dict:   # exactly a dict
-            keys_s   = [self.immutablevalue(e) for e in x.keys()]
-            values_s = [self.immutablevalue(e) for e in x.values()]
-            result = SomeDict(DictDef(self, unionof(*keys_s),
-                                            unionof(*values_s)))
+            try:
+                return self.immutable_cache[id(x)]
+            except KeyError:
+                keys_s   = [self.immutablevalue(e) for e in x.keys()]
+                values_s = [self.immutablevalue(e) for e in x.values()]
+                result = SomeDict(DictDef(self, unionof(*keys_s),
+                                          unionof(*values_s)))
+                self.immutable_cache[id(x)] = result
         elif ishashable(x) and x in BUILTIN_ANALYZERS:
             result = SomeBuiltin(BUILTIN_ANALYZERS[x])
         elif callable(x) or isinstance(x, staticmethod): # XXX
