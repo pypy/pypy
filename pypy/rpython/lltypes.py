@@ -194,7 +194,11 @@ class _PtrType(LowLevelType):
     def _example(self):
         o = self.TO._container_example()
         return _ptr(self, o)
-        
+
+    def withflags(self, **flags):
+        newflags = self.flags.copy()
+        newflags.update(flags)
+        return _PtrType(self.TO, **newflags)
 
 def GcPtr(TO, **flags):
     return _PtrType(TO, gc=True, **flags)

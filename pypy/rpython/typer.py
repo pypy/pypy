@@ -45,6 +45,32 @@ class RPythonTyper(Specializer):
         # items inserted last have higher priority
         patternlist.insert(0, (pattern[1:], substitution))
 
+    def registermethod(self, pattern, substitution):
+        # method calls are decomposed in two operations that must be
+        # handled separately:
+        #
+        #  v1 = getattr(self, 'method_name') --> v1 = cast_flags(self)
+        #  v2 = simple_call(v1, ...)         --> v2 = simple_call(meth, v1, ...)
+        #
+        # where 'v1' becomes a pointer with the (method='method_name') flag.
+        # It points to 'self', but the flag modifies its meaning to
+        # "pointer to the method 'method_name' of self" instead of just
+        # "pointer to self".
+        #
+        method_name = pattern[0]
+        s_self      = pattern[1]
+        method      = substitution[0]
+        SELFPTR     = substitution[1]
+        METHODPTR   = SELFPTR.withflags(method=method_name)
+        s_method_name = self.annotator.bookkeeper.immutablevalue(method_name)
+
+        self['getattr',    s_self,  s_method_name] = (
+             'cast_flags', SELFPTR,     None,     METHODPTR)
+
+        s_method = s_self.find_method(method_name)
+        self[('simple_call', s_method) + pattern[2:]] = (
+               method,       SELFPTR)  + substitution[2:]
+
     def maketype(self, cls, s_annotation):
         try:
             return self.typecache[cls, s_annotation]

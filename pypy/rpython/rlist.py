@@ -16,27 +16,30 @@ class ListType:
 
     def define(self, typer):
         self.ITEM = typer.annotation2concretetype(self.s_item)
-        self.LIST.become(Struct("list",
-                                ("items", GcPtr(Array(('item', self.ITEM))))))
+        LISTPTR = self.LISTPTR
+        LIST    = self.LIST
+        ITEM    = self.ITEM
+        LIST.become(Struct("list",
+                           ("items", GcPtr(Array(('item', ITEM))))))
 
         def getitem(l, i):
             return l.items[i].item
 
         typer['getitem', self.s_list, SomeInteger()] = (
-            getitem, self.LISTPTR, Signed, self.ITEM)
+               getitem,  LISTPTR,     Signed,       ITEM)
 
-    ##    def append(l, newitem):
-    ##        length = len(l.items)
-    ##        newitems = malloc(List_typ.items.TO, length+1)
-    ##        i = 0
-    ##        while i<length:
-    ##          newitems[i].item = l.items[i].item
-    ##          i += 1
-    ##        newitems[length].item = newitem
-    ##        l.items = newitems
+        def append(l, newitem):
+            length = len(l.items)
+            newitems = malloc(LIST.items.TO, length+1)
+            i = 0
+            while i<length:
+                newitems[i].item = l.items[i].item
+                i += 1
+            newitems[length].item = newitem
+            l.items = newitems
 
-    ##    Registry['getattr', ...
-
+        typer.registermethod(('append', self.s_list, self.s_item),
+                             ( append,  LISTPTR,     ITEM,       Void))
 
 
 def substitute_newlist(typer, op):
