@@ -3,13 +3,19 @@ from pypy.rpython.lltypes import *
 from pypy.annotation.model import *
 from pypy.objspace.flow.model import Variable, Constant, SpaceOperation
 from pypy.translator.typer import Specializer, flatten_ops, TyperError
-from pypy.rpython.rlist import substitute_newlist, getlisttype
+from pypy.rpython.rlist import ListType, substitute_newlist
 
 
 PyObjPtr = GcPtr(PyObject)
 
+class Retry(Exception):
+    """Raised by substitute_*() after they have inserted new patterns
+    in the typer's registry.  This asks the typer to try again from
+    scratch to specialize the current operation."""
+
 
 class RPythonTyper(Specializer):
+    Retry = Retry
 
     def __init__(self, annotator):
         # initialization
@@ -17,6 +23,7 @@ class RPythonTyper(Specializer):
                              typematches = [], specializationtable = [],
                              )
         self.registry = {}
+        self.typecache = {}
         SINT = SomeInteger()
         self['add', SINT, SINT] = 'int_add', Signed, Signed, Signed
         #self['add', UINT, UINT] = 'int_add', Unsigned, Unsigned, Unsigned
@@ -25,8 +32,6 @@ class RPythonTyper(Specializer):
         self['simple_call', s_malloc, ...] = substitute_malloc
         
         # ____________________ lists ____________________
-        self.listtypecache = {}
-        self.newlistcache = {}
         self['newlist', ...] = substitute_newlist
 
         # ____________________ conversions ____________________
@@ -37,14 +42,24 @@ class RPythonTyper(Specializer):
 
     def __setitem__(self, pattern, substitution):
         patternlist = self.registry.setdefault(pattern[0], [])
-        patternlist.append((pattern[1:], substitution))
+        # items inserted last have higher priority
+        patternlist.insert(0, (pattern[1:], substitution))
+
+    def maketype(self, cls, s_annotation):
+        try:
+            return self.typecache[cls, s_annotation]
+        except KeyError:
+            newtype = cls(s_annotation)
+            self.typecache[cls, s_annotation] = newtype
+            newtype.define(self)
+            return newtype
 
     def annotation2concretetype(self, s_value):
         try:
             return annotation_to_lltype(s_value)
         except ValueError:
             if isinstance(s_value, SomeList):
-                return getlisttype(self, s_value)
+                return self.maketype(ListType, s_value).LISTPTR
             return PyObjPtr
 
     def convertvar(self, v, concretetype):
@@ -125,7 +140,11 @@ class RPythonTyper(Specializer):
                     break
             else:
                 # match!
-                return self.substitute_op(op, substitution)
+                try:
+                    return self.substitute_op(op, substitution)
+                except Retry:
+                    return self.specialized_op(op, bindings)
+
         # specialization not found
         argtypes = [self.defaultconcretetype] * len(op.args)
         return self.typed_op(op, argtypes, self.defaultconcretetype)
