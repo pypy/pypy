@@ -461,7 +461,7 @@ The RPython Typer does the following transformations for each block of all the a
 
 * Each operation, with its argument's annotation, is looked up in a table which specifies with which low-level operation(s) it should be substituted.  If needed, the arguments are first converted (with extra operations) from their current ``concretetype`` to the required low-level types.  For constant arguments, we just attach the ``concretetype`` to the Constant instance; as for Variables, this tells the code generator of which type the constant really is.  Finally, the substitution rules specify the ``concretetype`` of the result.  It is attached to the result Variable, and will be used further down the block to detect when conversions are needed.
 
-* When a block has been transformed in this way, all the links are considered; if the concrete types of the Variables that exit do not match the canonical low-level types expected by the target block, conversions are inserted.
+* When a block has been transformed in this way, all the links are considered; if the concrete types of the Variables that exit do not match the canonical low-level types expected by the target block, conversions are inserted -- they are put in a new block inserted along the link, as they are of no concern to the other exit links.
 
 This may look like flowing, similar to what the annotator does, but it is limited to a single block; for global coherency it trusts the more involved fixpoint-based algorithm run by the annotator.
 
