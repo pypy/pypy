@@ -1,4 +1,5 @@
-from pypy.annotation.model import SomeObject, SomeImpossibleValue, tracking_unionof
+from pypy.annotation.model import SomeObject, SomeImpossibleValue
+from pypy.annotation.model import tracking_unionof, TLS, UnionError
 
 
 class ListItem:
@@ -11,6 +12,8 @@ class ListItem:
 
     def merge(self, other):
         if self is not other:
+            if getattr(TLS, 'no_side_effects_in_union', 0):
+                raise UnionError("merging list/dict items")
             self.itemof.update(other.itemof)
             self.read_locations.update(other.read_locations)
             self.patch()    # which should patch all refs to 'other'

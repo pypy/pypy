@@ -95,7 +95,19 @@ class SomeObject:
         return t.__name__
     
     def contains(self, other):
-        return self == other or pair(self, other).union() == self
+        if self == other:
+            return True
+        try:
+            TLS.no_side_effects_in_union += 1
+        except AttributeError:
+            TLS.no_side_effects_in_union = 1
+        try:
+            try:
+                return pair(self, other).union() == self
+            except UnionError:
+                return False
+        finally:
+            TLS.no_side_effects_in_union -= 1
 
     def is_constant(self):
         return hasattr(self, 'const')
@@ -306,6 +318,7 @@ annotation_to_ll_map = [
     (SomeInteger(), lltypes.Signed),
     (SomeInteger(nonneg=True, unsigned=True), lltypes.Unsigned),    
     (SomeChar(), lltypes.Char),
+    (SomePBC({None: True}), lltypes.Void),
 ]
 
 def annotation_to_lltype(s_val, info=None):
@@ -335,6 +348,10 @@ def ll_to_annotation(v):
 
 
 # ____________________________________________________________
+
+class UnionError(Exception):
+    """Signals an suspicious attempt at taking the union of
+    deeply incompatible SomeXxx instances."""
 
 def unionof(*somevalues):
     "The most precise SomeValue instance that contains all the values."

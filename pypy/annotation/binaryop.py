@@ -8,7 +8,7 @@ from pypy.annotation.model import SomeString, SomeChar, SomeList, SomeDict
 from pypy.annotation.model import SomeTuple, SomeImpossibleValue
 from pypy.annotation.model import SomeInstance, SomeBuiltin, SomeIterator
 from pypy.annotation.model import SomePBC, SomeSlice, SomeFloat
-from pypy.annotation.model import unionof, set, setunion, missing_operation
+from pypy.annotation.model import unionof, UnionError, set, missing_operation
 from pypy.annotation.bookkeeper import getbookkeeper
 from pypy.annotation.classdef import isclassdef
 from pypy.objspace.flow.model import Constant
@@ -379,8 +379,7 @@ class __extend__(pairtype(SomeBuiltin, SomeBuiltin)):
 
     def union((bltn1, bltn2)):
         if bltn1.analyser != bltn2.analyser:
-            assert False, "merging incompatible builtins == BAD!"
-            return SomeObject()
+            raise UnionError("merging incompatible builtins == BAD!")
         else:
             s_self = unionof(bltn1.s_self, bltn2.s_self)
             return SomeBuiltin(bltn1.analyser, s_self)
@@ -393,7 +392,7 @@ class __extend__(pairtype(SomePBC, SomePBC)):
         for x, classdef in pbc2.prebuiltinstances.items():
             if x in d:
                 if bool(isclassdef(classdef)) ^ bool(isclassdef(d[x])):
-                    raise Exception(
+                    raise UnionError(
                         "union failed for %r with classdefs %r and %r" % 
                         (x, classdef, d[x]))
                 if isclassdef(classdef):
@@ -404,9 +403,10 @@ class __extend__(pairtype(SomePBC, SomePBC)):
                             if x in cand.cls.__dict__.values():
                                 break
                         else:
-                            assert False, ("confused pbc union trying unwarranted"
-                                           "moving up of method %s from pair %s %s" %
-                                           (x, d[x], classdef2))
+                            raise UnionError(
+                                "confused pbc union trying unwarranted"
+                                "moving up of method %s from pair %s %s" %
+                                (x, d[x], classdef2))
             d[x] = classdef
         result =  SomePBC(d)
         return result
