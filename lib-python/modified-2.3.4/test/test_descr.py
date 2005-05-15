@@ -2204,7 +2204,7 @@ def inherits():
     vereq(a, (1,2,3,4,5,6,7,8,9,0))
     vereq(a.rev(), madtuple((0,9,8,7,6,5,4,3,2,1)))
     vereq(a.rev().rev(), madtuple((1,2,3,4,5,6,7,8,9,0)))
-    for i in range(512):
+    for i in range(10):
         t = madtuple(range(i))
         u = t.rev()
         v = u.rev()
@@ -2239,7 +2239,7 @@ def inherits():
     vereq(s, "abcdefghijklmnopqrstuvwxyz")
     vereq(s.rev(), madstring("zyxwvutsrqponmlkjihgfedcba"))
     vereq(s.rev().rev(), madstring("abcdefghijklmnopqrstuvwxyz"))
-    for i in range(256):
+    for i in range(10):
         s = madstring("".join(map(chr, range(i))))
         t = s.rev()
         u = t.rev()
