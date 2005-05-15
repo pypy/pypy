@@ -279,6 +279,7 @@ class Translator:
 ##            return impossiblevalue
 
     def getconcretetype(self, cls, *args):
+        "DEPRECATED.  To be removed"
         # Return a (cached) 'concrete type' object attached to this translator.
         # Concrete types are what is put in the 'concretetype' attribute of
         # the Variables and Constants of the flow graphs by typer.py to guide
