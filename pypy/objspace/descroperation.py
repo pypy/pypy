@@ -21,7 +21,7 @@ class Object:
         if w_descr is not None:
             if space.is_data_descr(w_descr):
                 return space.get(w_descr, w_obj)
-        w_value = space.getdictvalue(w_obj, name)
+        w_value = w_obj.getdictvalue(space, name)
         if w_value is not None:
             return w_value
         if w_descr is not None:
@@ -33,10 +33,12 @@ class Object:
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
-                return space.set(w_descr, w_obj, w_value)
-        w_dict = space.getdict(w_obj)
+                space.set(w_descr, w_obj, w_value)
+                return
+        w_dict = w_obj.getdict()
         if w_dict is not None:
-            return space.setitem(w_dict, w_name, w_value)
+            space.setitem(w_dict, w_name, w_value)
+            return
         raiseattrerror(space, w_obj, name, w_descr)
 
     def descr__delattr__(space, w_obj, w_name):
@@ -45,17 +47,18 @@ class Object:
         if w_descr is not None:
             if space.is_data_descr(w_descr):
                 return space.delete(w_descr, w_obj)
-        w_dict = space.getdict(w_obj)
+        w_dict = w_obj.getdict()
         if w_dict is not None:
             try:
-                return space.delitem(w_dict, w_name)
+                space.delitem(w_dict, w_name)
+                return
             except OperationError, ex:
                 if not ex.match(space, space.w_KeyError):
                     raise
         raiseattrerror(space, w_obj, name, w_descr)
 
     def descr__init__(space, w_obj, __args__):
-        pass   # XXX some strange checking maybe
+        pass
 
 class DescrOperation:
     _mixin_ = True
@@ -63,12 +66,6 @@ class DescrOperation:
     def setup_ec(space, ec):
         ec._compare_nesting = 0
         ec._cmp_state = {}
-
-    def getdict(space, w_obj):
-        return w_obj.getdict()
-
-    def getdictvalue(space, w_obj, attr):
-        return w_obj.getdictvalue(space, attr)
 
     def is_data_descr(space, w_obj):
         return space.lookup(w_obj, '__set__') is not None

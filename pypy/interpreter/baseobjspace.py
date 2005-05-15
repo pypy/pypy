@@ -25,7 +25,7 @@ class W_Root:
                     raise
         return None
 
-    def setdict(self, space):
+    def setdict(self, space, w_dict):
         typename = space.type(self).getname(space, '?')
         raise OperationError(space.w_TypeError,
                              space.wrap("attribute '__dict__' of %s objects "

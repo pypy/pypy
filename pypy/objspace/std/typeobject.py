@@ -204,7 +204,7 @@ class W_TypeObject(W_Object):
         # note that this doesn't call __get__ on the result at all
         space = w_self.space
         for w_class in w_self.mro_w:
-            w_value = space.getdictvalue(w_class, key)
+            w_value = w_class.getdictvalue(space, key)
             if w_value is not None:
                 return w_value
         return None
@@ -214,7 +214,7 @@ class W_TypeObject(W_Object):
         # attribute was found
         space = w_self.space
         for w_class in w_self.mro_w:
-            w_value = space.getdictvalue(w_class, key)
+            w_value = w_class.getdictvalue(space, key)
             if w_value is not None:
                 return w_class, w_value
         return None, None

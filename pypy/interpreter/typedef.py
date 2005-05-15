@@ -306,12 +306,6 @@ def descr_get_dict(space, obj):
                                         " '%s' objects" % typename))
     return w_dict
 
-def descr_get_dict_may_be_None(space, obj):
-    w_dict = obj.getdict()
-    if w_dict is None:
-        return space.w_None
-    return w_dict
-
 def descr_set_dict(space, obj, w_dict):
     obj.setdict(space, w_dict)
 
@@ -391,7 +385,7 @@ Module.typedef = TypeDef("module",
     __new__ = interp2app(Module.descr_module__new__.im_func,
                          unwrap_spec=[ObjSpace, W_Root, Arguments]),
     __init__ = interp2app(Module.descr_module__init__),
-    __dict__ = GetSetProperty(descr_get_dict_may_be_None, cls=Module), # module dictionaries are readonly attributes
+    __dict__ = GetSetProperty(descr_get_dict, cls=Module), # module dictionaries are readonly attributes
     __doc__ = 'module(name[, doc])\n\nCreate a module object.\nThe name must be a string; the optional doc argument can have any type.'
     )
 
