@@ -214,18 +214,18 @@ This small object space, meant as a nice example, wraps another object space (e.
 Example usage::
 
     $ python interpreter/py.py -o thunk
-    >>> def f():
+    >>>> def f():
     ...     print 'computing...'
     ...     return 6*7
     ...
-    >>> x = thunk(f)
-    >>> x
+    >>>> x = thunk(f)
+    >>>> x
     computing...
     42
-    >>> x
+    >>>> x
     42
-    >>> y = thunk(f)
-    >>> type(y)
+    >>>> y = thunk(f)
+    >>>> type(y)
     computing...
     <pypy type 'int'>
 
