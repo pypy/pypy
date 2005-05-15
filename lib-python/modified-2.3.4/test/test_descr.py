@@ -3956,9 +3956,9 @@ class NotRun(Exception):
     pass
 
 def placeholder(func,msg):
-    def plh():
-        raise NotRun,"Not run: %s!" % msg
-    return plh
+    def not_run():
+        raise NotRun,"'%s' test not run: %s!" % (func.__name__, msg)
+    return not_run
     
 def test_main():
     testfuncs = [
