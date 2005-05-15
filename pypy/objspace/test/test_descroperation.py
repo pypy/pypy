@@ -16,6 +16,67 @@ class Test_DescrOperation:
 
 class AppTest_Descroperation:
 
+    def test_special_methods(self):
+        class A(object):
+            def __lt__(self, other):
+                return "lt"
+            def __imul__(self, other):
+                return "imul"
+            def __sub__(self, other):
+                return "sub"
+            def __rsub__(self, other):
+                return "rsub"
+            def __pow__(self, other):
+                return "pow"
+            def __rpow__(self, other):
+                return "rpow"
+            def __neg__(self):
+                return "neg"
+        a = A()
+        assert (a < 5) == "lt"
+        assert (object() > a) == "lt"
+        a1 = a
+        a1 *= 4
+        assert a1 == "imul"
+        assert a - 2 == "sub"
+        assert object() - a == "rsub"
+        assert a ** 2 == "pow"
+        assert object() ** a == "rpow"
+        assert -a == "neg"
+
+        class B(A):
+            def __lt__(self, other):
+                return "B's lt"
+            def __imul__(self, other):
+                return "B's imul"
+            def __sub__(self, other):
+                return "B's sub"
+            def __rsub__(self, other):
+                return "B's rsub"
+            def __pow__(self, other):
+                return "B's pow"
+            def __rpow__(self, other):
+                return "B's rpow"
+            def __neg__(self):
+                return "B's neg"
+
+        b = B()
+        assert (a < b) == "lt"
+        assert (b > a) == "lt"
+        b1 = b
+        b1 *= a
+        assert b1 == "B's imul"
+        a1 = a
+        a1 *= b
+        assert a1 == "imul"
+        assert a - b == "B's rsub"
+        assert b - a == "B's sub"
+        assert b - b == "B's sub"
+        assert a ** b == "B's rpow"
+        assert b ** a == "B's pow"
+        assert b ** b == "B's pow"
+        assert -b == "B's neg"
+
     def test_getslice(self):
         class Sq(object):
             def __getslice__(self, start, stop):
