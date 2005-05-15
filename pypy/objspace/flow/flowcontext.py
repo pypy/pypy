@@ -20,11 +20,13 @@ class MergeBlock(Exception):
 
 
 class SpamBlock(Block):
-    dead = False
-      
+    
+    __slots__ = "dead framestate".split()
+
     def __init__(self, framestate):
         Block.__init__(self, framestate.getvariables())
         self.framestate = framestate
+        self.dead = False
 
     def patchframe(self, frame):
         if self.dead:
@@ -34,6 +36,8 @@ class SpamBlock(Block):
 
 
 class EggBlock(Block):
+
+    __slots__ = "prevblock booloutcome last_exception".split()
 
     def __init__(self, inputargs, prevblock, booloutcome):
         Block.__init__(self, inputargs)
@@ -54,6 +58,9 @@ class EggBlock(Block):
             recorder = Replayer(block, prevblock.booloutcome, recorder)
             prevblock = block
         return recorder
+
+    def extravars(self, last_exception=None, last_exc_value=None):
+        self.last_exception = last_exception
 
 # ____________________________________________________________
 
@@ -117,18 +124,17 @@ class BlockRecorder(Recorder):
             elif replace_last_variable_except_in_first_case is not None:
                 assert block.operations[-1].result is bvars[-1]
                 vars = bvars[:-1]
-                for name in replace_last_variable_except_in_first_case:
-                    newvar = Variable(name)
+                vars2 = bvars[:-1]
+                for name, newvar in replace_last_variable_except_in_first_case(case):
                     attach[name] = newvar
                     vars.append(newvar)
-                vars2 = bvars[:-1]
-                while len(vars2) < len(vars):
                     vars2.append(Variable())
             egg = EggBlock(vars2, block, case)
             ec.pendingblocks.append(egg)
             link = Link(vars, egg, case)
             if attach:
                 link.extravars(**attach)
+                egg.extravars(**attach) # xxx
             links.append(link)
 
         block.exitswitch = w_condition
@@ -218,15 +224,23 @@ class FlowExecutionContext(ExecutionContext):
         return self.recorder.guessbool(self, w_condition, **kwds)
 
     def guessexception(self, *classes):
+        def replace_exc_values(case):
+            if case is not Exception:
+                yield 'last_exception', Constant(case)
+                yield 'last_exc_value', Variable('last_exc_value')
+            else:
+                yield 'last_exception', Variable('last_exception')
+                yield 'last_exc_value', Variable('last_exc_value')
         outcome = self.guessbool(Constant(last_exception),
                                  cases = [None] + list(classes),
-                                 replace_last_variable_except_in_first_case = [
-                                     'last_exception',   # exc. class
-                                     'last_exc_value'])  # exc. value
+                                 replace_last_variable_except_in_first_case = replace_exc_values)
         if outcome is None:
             w_exc_cls, w_exc_value = None, None
         else:
-            w_exc_cls, w_exc_value = self.recorder.crnt_block.inputargs[-2:]
+            egg = self.recorder.crnt_block
+            w_exc_cls, w_exc_value = egg.inputargs[-2:]
+            if isinstance(egg.last_exception, Constant):
+                w_exc_cls = egg.last_exception
         return outcome, w_exc_cls, w_exc_value
 
     def build_flow(self):
@@ -263,6 +277,7 @@ class FlowExecutionContext(ExecutionContext):
                 self.recorder.crnt_block.closeblock(link)
 
             except OperationError, e:
+                print "OE", e.w_type, e.w_value
                 link = Link([e.w_type, e.w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 

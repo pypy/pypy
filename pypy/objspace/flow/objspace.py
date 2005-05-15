@@ -284,7 +284,9 @@ class FlowObjSpace(ObjSpace):
             w_len = self.len(w_iterable)
             w_correct = self.eq(w_len, self.wrap(expected_length))
             if not self.is_true(w_correct):
-                raise OperationError(self.w_ValueError, self.w_None)
+                e = OperationError(self.w_ValueError, self.w_None)
+                e.normalize_exception(self)
+                raise e
             return [self.do_operation('getitem', w_iterable, self.wrap(i)) 
                         for i in range(expected_length)]
         return ObjSpace.unpackiterable(self, w_iterable, expected_length)
@@ -313,7 +315,7 @@ class FlowObjSpace(ObjSpace):
         context = self.getexecutioncontext()
         outcome, w_exc_cls, w_exc_value = context.guessexception(StopIteration)
         if outcome is StopIteration:
-            raise OperationError(self.w_StopIteration, self.w_None)
+            raise OperationError(self.w_StopIteration, w_exc_value)
         else:
             return w_item
 
@@ -387,9 +389,10 @@ class FlowObjSpace(ObjSpace):
                 # we assume that the caught exc_cls will be exactly the
                 # one specified by 'outcome', and not a subclass of it,
                 # unless 'outcome' is Exception.
-                if outcome is not Exception:
-                    w_exc_cls = Constant(outcome)
-                raise flowcontext.ImplicitOperationError(w_exc_cls,
+                #if outcome is not Exception:
+                    #w_exc_cls = Constant(outcome) Now done by guessexception itself
+                    #pass
+                 raise flowcontext.ImplicitOperationError(w_exc_cls,
                                                          w_exc_value)
 
 # ______________________________________________________________________
