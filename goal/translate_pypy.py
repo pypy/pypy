@@ -10,7 +10,7 @@ Command-line options for translate_pypy:
               targetspec.py is a python file defining
               what is the translation target and setting things up for it,
               it should have a target function returning an entry_point ...;
-              defaults to targetpypy
+              defaults to targetpypy. The .py suffix is optional.
    -text      Don't start the Pygame viewer
    -no-a      Don't infer annotations, just translate everything
    -no-s      Don't simplify the graph after annotation
@@ -198,7 +198,11 @@ if __name__ == '__main__':
             listen_port = int(arg)
         except ValueError:
             if os.path.isfile(arg+'.py'):
+                assert not os.path.isfile(arg), (
+                    "ambiguous file naming, please rename %s" % arg)
                 targetspec = arg
+            elif os.path.isfile(arg) and arg.endswith('.py'):
+                targetspec = arg[:-3]
             elif arg.startswith('-huge='):
                 huge = int(arg[6:])
             else:                
