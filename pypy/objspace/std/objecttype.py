@@ -16,6 +16,21 @@ def descr__str__(space, w_obj):
 def descr__class__(space, w_obj):
     return space.type(w_obj)
 
+def descr_set___class__(space, w_obj, w_newcls):
+    from pypy.objspace.std.typeobject import W_TypeObject
+    if not isinstance(w_newcls, W_TypeObject):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("__class__ must be set to new-style class, not '%s' object" % 
+                                        space.type(w_newcls).getname(space, '?')))
+    w_oldcls = space.type(w_obj)
+    if w_oldcls.get_layout() == w_newcls.get_layout() and w_oldcls.hasdict == w_newcls.hasdict:
+        w_obj.setclass(space, w_newcls)
+    else:
+        raise OperationError(space.w_TypeError,
+                             space.wrap("__class__ assignment: '%s' object layout differs from '%s'" %
+                                        (w_oldcls.getname(space, '?'), w_newcls.getname(space, '?'))))
+    
+
 def descr__new__(space, w_type, __args__):
     from pypy.objspace.std.objectobject import W_ObjectObject
     from pypy.objspace.std.typetype import _precheck_for_new
@@ -139,7 +154,7 @@ object_typedef = StdTypeDef("object",
     __delattr__ = gateway.interp2app(Object.descr__delattr__.im_func),
     __str__ = gateway.interp2app(descr__str__),
     __repr__ = gateway.interp2app(descr__repr__),
-    __class__ = GetSetProperty(descr__class__),
+    __class__ = GetSetProperty(descr__class__, descr_set___class__),
     __new__ = newmethod(descr__new__,
                         unwrap_spec = [gateway.ObjSpace,gateway.W_Root,gateway.Arguments]),
     __hash__ = gateway.interp2app(descr__hash__),

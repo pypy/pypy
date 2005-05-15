@@ -164,6 +164,17 @@ class W_TypeObject(W_Object):
 
         w_self.mro_w = w_self.compute_mro()
 
+    # compute the most parent class with the same layout as us
+    def get_layout(w_self):
+        w_bestbase = w_self.w_bestbase
+        if w_bestbase is None: # object
+            return w_self
+        if w_self.instancetypedef is not w_bestbase.instancetypedef:
+            return w_self
+        if w_self.nslots == w_bestbase.nslots:
+            return w_bestbase.get_layout()
+        return w_self
+
     def compute_mro(w_self):
         return compute_C3_mro(w_self.space, w_self)
 

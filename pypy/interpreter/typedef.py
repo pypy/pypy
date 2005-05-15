@@ -56,8 +56,8 @@ def _buildusercls(cls, hasdict, wants_slots):
         def getclass(self, space):
             return self.w__class__
 
-        def setclass(self, w_subtype):
-            # XXX sanity checks here
+        def setclass(self, space, w_subtype):
+            # only used by descr_set___class__
             self.w__class__ = w_subtype
 
         def __del__(self):

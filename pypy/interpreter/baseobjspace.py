@@ -28,6 +28,10 @@ class W_Root:
     def getclass(self, space):
         return space.gettypeobject(self.typedef)
 
+    def setclass(self, space, w_subtype):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("__class__ assignment: only for heap types"))
+
     def getname(self, space, default):
         try:
             return space.str_w(space.getattr(self, space.wrap('__name__')))

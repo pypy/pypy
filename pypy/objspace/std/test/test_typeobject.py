@@ -343,3 +343,88 @@ class AppTestTypeObject:
         class C:
             __metaclass__ = _classobj
         raises(TypeError, type, 'D', (C,), {})
+
+    def test_set___class__(self):
+        raises(TypeError, "1 .__class__ = int")
+        raises(TypeError, "1 .__class__ = bool")
+        class A(object):
+            pass
+        class B(object):
+            pass
+        a = A()
+        a.__class__ = B
+        assert a.__class__ == B
+        class A(object):
+            __slots__ = ('a',)
+        class B(A):
+            pass
+        class C(B):
+            pass
+        class D(A):
+            pass
+        d = D()
+        d.__class__ = C
+        assert d.__class__ == C
+        d.__class__ = B
+        assert d.__class__ == B
+        raises(TypeError, "d.__class__ = A")
+        d.__class__ = C
+        assert d.__class__ == C
+        d.__class__ = D
+        assert d.__class__ == D
+        class AA(object):
+            __slots__ = ('a',)
+        aa = AA()
+        raises(TypeError, "aa.__class__ = A")
+        raises(TypeError, "aa.__class__ = object")
+        class Z1(A):
+            pass
+        class Z2(A):
+            __slots__ = ['__dict__']
+        z1 = Z1()
+        z1.__class__ = Z2
+        assert z1.__class__ == Z2
+        z2 = Z2()
+        z2.__class__ = Z1
+        assert z2.__class__ == Z1
+        
+        class I(int):
+            pass
+        class F(float):
+            pass
+        f = F()
+        raises(TypeError, "f.__class__ = I")
+        i = I()
+        raises(TypeError, "i.__class__ = F")
+        raises(TypeError, "i.__class__ = int")
+
+        class I2(int):
+            pass
+        class I3(I2):
+            __slots__ = ['a']
+        class I4(I3):
+            pass
+
+        i = I()
+        i2 = I()
+        i.__class__ = I2
+        i2.__class__ = I
+        assert i.__class__ ==  I2
+        assert i2.__class__ == I
+        
+        i3 = I3()
+        raises(TypeError, "i3.__class__ = I2")
+        i3.__class__ = I4
+        assert i3.__class__ == I4
+        i3.__class__ = I3
+        assert i3.__class__ == I3
+
+        class X(object):
+            pass
+        class Y(object):
+            __slots__ = ()
+        raises(TypeError, "X().__class__ = Y")
+        raises(TypeError, "Y().__class__ = X")
+
+        raises(TypeError, "X().__class__ = object")
+        raises(TypeError, "X().__class__ = 1")
