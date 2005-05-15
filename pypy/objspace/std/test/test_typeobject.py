@@ -338,3 +338,8 @@ class AppTestTypeObject:
             __metaclass__ = T
         assert d == ['miss']
         assert C.x() == 1
+
+    def test_only_classic_bases_fails(self):
+        class C:
+            __metaclass__ = _classobj
+        raises(TypeError, type, 'D', (C,), {})

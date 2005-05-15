@@ -92,10 +92,12 @@ class W_TypeObject(W_Object):
             w_self.hasdict = False
             hasoldstylebase = False
             w_most_derived_base_with_slots = None
+            newstyle = False
             for w_base in bases_w:
                 if not isinstance(w_base, W_TypeObject):
                     hasoldstylebase = True
                     continue
+                newstyle = True
                 if w_base.nslots != 0:
                     if w_most_derived_base_with_slots is None:
                         w_most_derived_base_with_slots = w_base
@@ -107,6 +109,10 @@ class W_TypeObject(W_Object):
                                                  space.wrap("instance layout conflicts in "
                                                             "multiple inheritance"))
                 w_self.hasdict = w_self.hasdict or w_base.hasdict
+            if not newstyle: # only classic bases
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("a new-style class can't have only classic bases"))
+
             if w_most_derived_base_with_slots:
                 nslots = w_most_derived_base_with_slots.nslots
                 w_self.w_bestbase = w_most_derived_base_with_slots
