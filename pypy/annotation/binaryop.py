@@ -49,10 +49,24 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             return obj1
         else:
             result = SomeObject()
+            if obj1.knowntype == obj2.knowntype and obj1.knowntype != object:
+                result.knowntype = obj1.knowntype
             is_type_of1 = getattr(obj1, 'is_type_of', None)
             is_type_of2 = getattr(obj2, 'is_type_of', None)
-            if is_type_of1 and is_type_of1 == is_type_of2:
-                result.is_type_of = is_type_of1
+            if obj1.is_constant() and obj2.is_constant() and obj1.const == obj2.const:
+                result.const = obj1.const
+                is_type_of = {}
+                if is_type_of1:
+                    for v in is_type_of1:
+                        is_type_of[v] = True
+                if is_type_of2:
+                    for v in is_type_of2:
+                        is_type_of[v] = True
+                if is_type_of:
+                    result.is_type_of = is_type_of
+            else:
+                if is_type_of1 and is_type_of1 == is_type_of2:
+                    result.is_type_of = is_type_of1
             # try to preserve the origin of SomeObjects
             if obj1 == result:
                 return obj1

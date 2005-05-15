@@ -130,7 +130,10 @@ class SomeObject:
 
     def origin(self):
         return SomeObject._coming_from.get(id(self), (None, None))[0]
-    origin = property(origin)
+    def set_origin(self, nvalue):
+        SomeObject._coming_from[id(self)] = nvalue, self.caused_by_merge
+    origin = property(origin, set_origin)
+    del set_origin
 
     def caused_by_merge(self):
         return SomeObject._coming_from.get(id(self), (None, None))[1]
@@ -260,6 +263,8 @@ class SomePBC(SomeObject):
                                     [new_or_old_class(x)
                                      for x in prebuiltinstances
                                      if x is not None])
+            if self.knowntype == type(Exception):
+                self.knowntype = type
         if prebuiltinstances.values() == [True]:
             # hack for the convenience of direct callers to SomePBC():
             # only if there is a single object in prebuiltinstances and
@@ -364,7 +369,11 @@ def unionof(*somevalues):
     return s1
 
 def tracking_unionof(ctxt, *somevalues):
-    return unionof(*somevalues)
+    s1 = unionof(*somevalues)
+    if not s1.origin and type(ctxt) is tuple:
+        s1.origin = ctxt+(0,)
+    return s1
+        
     
 
 # ____________________________________________________________

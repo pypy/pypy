@@ -41,6 +41,7 @@ class __extend__(SomeObject):
             r = immutablevalue(obj.knowntype)
         else:
             r = SomeObject()
+            r.knowntype = type
         bk = getbookkeeper()
         fn, block, i = bk.position_key
         annotator = bk.annotator
