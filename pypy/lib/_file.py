@@ -144,17 +144,29 @@ Note:  open() is an alias for file().
                 self.stream = _sio.TextOutputFilter(self.stream)
             if reading:
                 self.stream = _sio.TextInputFilter(self.stream)
-                self.getnewlines = self.stream.getnewlines
 
     def getnewlines(self):
-        return None    # can be overridden in the instance
+        "end-of-line convention used in this file"
+        if isinstance(self.stream, _sio.TextInputFilter):
+            return self.stream.getnewlines()
+        else:
+            return None
 
-    mode     = property(lambda self: self._mode)
-    name     = property(lambda self: self._name)
-    closed   = property(lambda self: self._closed)
-    newlines = property(lambda self: self.getnewlines())
+    mode     = property(lambda self: self._mode,
+                        doc = "file mode ('r', 'U', 'w', 'a', "
+                              "possibly with 'b' or '+' added)")
+    name     = property(lambda self: self._name, doc = "file name")
+    closed   = property(lambda self: self._closed,
+                        doc = "True if the file is closed")
+    newlines = property(lambda self: self.getnewlines(),
+                        doc = "end-of-line convention used in this file")
 
     def read(self, n=-1):
+        """read([size]) -> read at most size bytes, returned as a string.
+
+If the size argument is negative or omitted, read until EOF is reached.
+Notice that when in non-blocking mode, less data than what was requested
+may be returned, even if no size parameter was given."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
         if n < 0:
@@ -169,54 +181,101 @@ Note:  open() is an alias for file().
                 result.append(data)
             return ''.join(result)
 
-    def readall(self):
-        if self._closed:
-            raise ValueError('I/O operation on closed file')
-        return self.stream.readall()
+    def readline(self, size=-1):
+        """readline([size]) -> next line from the file, as a string.
 
-    def readline(self):
+Retain newline.  A non-negative size argument limits the maximum
+number of bytes to return (an incomplete line may be returned then).
+Return an empty string at EOF."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
-        return self.stream.readline()
+        if size < 0:
+            return self.stream.readline()
+        else:
+            # XXX slow
+            chars = []
+            for i in xrange(size):
+                char = self.stream.read(1)
+                chars.append(char)
+                if char == '' or char == '\n':
+                    break
+            return ''.join(chars)
 
-    def readlines(self, sizehint=0):
+    def readlines(self, size=-1):
+        """readlines([size]) -> list of strings, each a line from the file.
+
+Call readline() repeatedly and return a list of the lines so read.
+The optional size argument, if given, is an approximate bound on the
+total number of bytes in the lines returned."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
-        return list(iter(self.stream.readline, ""))
+        if size < 0:
+            return list(iter(self.stream.readline, ""))
+        else:
+            result = []
+            while size > 0:
+                line = self.stream.readline()
+                if not line:
+                    break
+                result.append(line)
+                size -= len(line)
+            return result
 
     def write(self, data):
+        """write(str) -> None.  Write string str to file.
+
+Note that due to buffering, flush() or close() may be needed before
+the file on disk reflects the data written."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
         if not isinstance(data, str):
             raise TypeError('write() argument must be a string (for now)')
         return self.stream.write(data)
 
-    def writelines(self, lines):
+    def writelines(self, sequence_of_strings):
+        """writelines(sequence_of_strings) -> None.  Write the strings to the file.
+
+Note that newlines are not added.  The sequence can be any iterable object
+producing strings. This is equivalent to calling write() for each string."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
-        for line in lines:
+        for line in sequence_of_strings:
             if not isinstance(line, str):
                 raise TypeError('writelines() argument must be a list '
                                 'of strings')
             self.stream.write(line)
 
     def tell(self):
+        """tell() -> current file position, an integer (may be a long integer)."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
         return self.stream.tell()
     
     def seek(self, offset, whence=0):
+        """seek(offset[, whence]) -> None.  Move to new file position.
+
+Argument offset is a byte count.  Optional argument whence defaults to
+0 (offset from start of file, offset should be >= 0); other values are 1
+(move relative to current position, positive or negative), and 2 (move
+relative to end of file, usually negative, although many platforms allow
+seeking beyond the end of a file).  If the file is opened in text mode,
+only offsets returned by tell() are legal.  Use of other offsets causes
+undefined behavior.
+Note that not all file objects are seekable."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
         self.stream.seek(offset, whence)
 
     def __iter__(self):
+        """Iterating over files, as in 'for line in f:', returns each line of
+the file one by one."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
         return self
     xreadlines = __iter__
     
     def next(self):
+        """next() -> the next line in the file, or raise StopIteration"""
         if self._closed:
             raise ValueError('I/O operation on closed file')
         line = self.stream.readline()
@@ -225,6 +284,9 @@ Note:  open() is an alias for file().
         return line
 
     def truncate(self, size=None):
+        """truncate([size]) -> None.  Truncate the file to at most size bytes.
+
+Size defaults to the current file position, as returned by tell()."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
         if size is None:
@@ -232,11 +294,18 @@ Note:  open() is an alias for file().
         self.stream.truncate(size)
 
     def flush(self):
+        """flush() -> None.  Flush the internal I/O buffer."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
         self.stream.flush()
 
     def close(self):
+        """close() -> None or (perhaps) an integer.  Close the file.
+
+Sets data attribute .closed to True.  A closed file cannot be used for
+further I/O operations.  close() may be called more than once without
+error.  Some kinds of file objects (for example, opened by popen())
+may return an exit status upon closing."""
         if not self._closed:
             self._closed = True
             self.stream.close()
@@ -244,7 +313,7 @@ Note:  open() is an alias for file().
     __del__ = close
 
     def readinto(self, a):
-        'Obsolete method, do not use it.'
+        """readinto() -> Undocumented.  Don't use this; it may go away."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
         from array import array
@@ -257,11 +326,15 @@ Note:  open() is an alias for file().
         return len(data)
 
     def fileno(self):
+        '''fileno() -> integer "file descriptor".
+
+This is needed for lower-level file interfaces, such os.read().'''
         if self._closed:
             raise ValueError('I/O operation on closed file')
         return self.fd
 
     def isatty(self):
+        """isatty() -> true or false.  True if the file is connected to a tty device."""
         if self._closed:
             raise ValueError('I/O operation on closed file')
         return os.isatty(self.fd)

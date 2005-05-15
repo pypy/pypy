@@ -26,3 +26,21 @@ class TestFile:
         data1 = self.fd.read()
         data2 = open(__file__, 'r').read()
         assert data1 == data2
+
+    def test_readline(self):
+        cpyfile = open(__file__, 'r')
+        assert self.fd.readline() == cpyfile.readline()
+        for i in range(-1, 10):
+            assert self.fd.readline(i) == cpyfile.readline(i)
+
+    def test_readlines(self):
+        fn = str(udir.join('temptestfile'))
+        lines = ['line%d\n' % i for i in range(10000)]
+        f=_file.file(fn, 'w')
+        f.writelines(lines)
+        f.close()
+        assert open(fn, 'r').readlines() == lines
+        assert _file.file(fn, 'r').readlines() == lines
+        somelines = _file.file(fn, 'r').readlines(20000)
+        assert len(somelines) > 2000
+        assert somelines == lines[:len(somelines)]
