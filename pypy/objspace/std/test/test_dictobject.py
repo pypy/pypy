@@ -322,8 +322,10 @@ class FakeSpace:
         return x
     def is_(self, x, y):
         return x is y
+    is_w = is_
     def eq(self, x, y):
         return x == y
+    eq_w = eq
     def newlist(self, l):
         return []
 

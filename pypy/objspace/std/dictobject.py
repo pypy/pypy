@@ -70,14 +70,12 @@ class W_DictObject(W_Object):
         i = lookup_hash % len(self.data)
 
         entry = self.data[i]
-        if entry.w_key is None or \
-           space.is_true(space.is_(w_lookup, entry.w_key)):
+        if entry.w_key is None or space.is_w(w_lookup, entry.w_key):
             return entry
         if entry.w_key is self.w_dummy:
             freeslot = entry
         else:
-            if entry.hash == lookup_hash and space.is_true(
-                space.eq(entry.w_key, w_lookup)):
+            if entry.hash == lookup_hash and space.eq_w(entry.w_key, w_lookup):
                 return entry
             freeslot = None
 
@@ -91,8 +89,7 @@ class W_DictObject(W_Object):
                 else:
                     return entry
             if entry.hash == lookup_hash and entry.w_key is not self.w_dummy \
-                   and space.is_true(
-                space.eq(entry.w_key, w_lookup)):
+                   and space.eq_w(entry.w_key, w_lookup):
                 return entry
             if entry.w_key is self.w_dummy and freeslot is None:
                 freeslot = entry
