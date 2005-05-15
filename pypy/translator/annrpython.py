@@ -439,10 +439,13 @@ class RPythonAnnotator:
             if isinstance(link.exitcase, (types.ClassType, type)) \
                    and issubclass(link.exitcase, Exception):
                 last_exception_object = annmodel.SomeObject()
-                if link.exitcase is Exception:
-                    last_exc_value_object = annmodel.SomeObject()
-                else:
-                    last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
+                last_exception_object.knowntype = type
+                if isinstance(last_exception_var, Constant):
+                    last_exception_object.const = last_exception_var.value
+                #if link.exitcase is Exception:
+                #    last_exc_value_object = annmodel.SomeObject()
+                #else:
+                last_exc_value_object = self.bookkeeper.valueoftype(link.exitcase)
                 last_exc_value_vars = []
                 in_except_block = True
                 # not needed!
@@ -454,10 +457,10 @@ class RPythonAnnotator:
             for a,v in zip(link.args,link.target.inputargs):
                 renaming.setdefault(a, []).append(v)
             for a,v in zip(link.args,link.target.inputargs):
-                if a == last_exception_var:
+                if a is last_exception_var:
                     assert in_except_block
                     cells.append(last_exception_object)
-                elif a == last_exc_value_var:
+                elif a is last_exc_value_var:
                     assert in_except_block
                     cells.append(last_exc_value_object)
                     last_exc_value_vars.append(v)
@@ -471,7 +474,12 @@ class RPythonAnnotator:
                         for v in cell.is_type_of:
                             new_vs = renaming.get(v,[])
                             renamed_is_type_of += new_vs
-                        cell = annmodel.SomeObject()
+                        newcell = annmodel.SomeObject()
+                        if cell.knowntype == type:
+                            newcell.knowntype = type
+                        if cell.is_constant():
+                            newcell.const = cell.const
+                        cell = newcell
                         cell.is_type_of = renamed_is_type_of
                     cells.append(cell)
 

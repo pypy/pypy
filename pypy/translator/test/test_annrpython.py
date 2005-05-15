@@ -933,6 +933,75 @@ class TestAnnotateTestCase:
                           [int])
         assert s == a.bookkeeper.immutablevalue(None)
 
+    def test_reraiseKeyError(self):
+        def f(dic):
+            try:
+                dic[5]
+            except KeyError:
+                raise
+        a = self.RPythonAnnotator()
+        a.build_types(f, [dict])
+        fg = a.translator.getflowgraph(f)
+        et, ev = fg.exceptblock.inputargs
+        t = annmodel.SomeObject()
+        t.knowntype = type
+        t.const = KeyError
+        t.is_type_of = [ev]
+        assert a.binding(et) == t
+        assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef.cls == KeyError
+
+    def test_reraiseAnything(self):
+        def f(dic):
+            try:
+                dic[5]
+            except:
+                raise
+        a = self.RPythonAnnotator()
+        a.build_types(f, [dict])
+        fg = a.translator.getflowgraph(f)
+        et, ev = fg.exceptblock.inputargs
+        t = annmodel.SomeObject()
+        t.knowntype = type
+        t.is_type_of = [ev]
+        assert a.binding(et) == t
+        assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef.cls == LookupError
+
+    def test_exception_mixing(self):
+        def h():
+            pass
+
+        def g():
+            pass
+
+        class X(Exception):
+            def __init__(self, x=0):
+                self.x = x
+
+        def f(a, l):
+            if a==1:
+                raise X
+            elif a==2:
+                raise X(1)
+            elif a==3:
+                raise X,4
+            else:
+                try:
+                    l[0]
+                    x,y = l
+                    g()
+                finally:
+                    h()
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int, list])
+        fg = a.translator.getflowgraph(f)
+        et, ev = fg.exceptblock.inputargs
+        t = annmodel.SomeObject()
+        t.knowntype = type
+        t.is_type_of = [ev]
+        assert a.binding(et) == t
+        assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef.cls == Exception
+
+
 
 def g(n):
     return [0,1,2,n]
