@@ -151,19 +151,20 @@ back to already-seen blocks, as in::
         while n:
             i = i + n
             n = n - 1
+        return i
 
 whose flow graph is::
 
-    start -----.           ,-----------------.
-               | n1 0      | m3 j3           |
-               V           v                 |
-           +-------------------+             |
-           |   input: n2 i2    |             |
-           |  v2 = is_true(n2) |             |
-           +-------------------+             |
+    start -----.
+               | n1 0
+               V
+           +-------------------+
+           |   input: n2 i2    |
+           |  v2 = is_true(n2) | <-----------.
+           +-------------------+       m3 j3 |
                |             |               |
                |ifFalse      |ifTrue         |
-    return <---'             | n2 i2         |
+    return <---' i2          | n2 i2         |
                              V               |
                     +--------------------+   |
                     |   input: n3 i3     |   |
