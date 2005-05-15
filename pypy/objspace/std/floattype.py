@@ -1,8 +1,9 @@
 from pypy.objspace.std.stdtypedef import *
 from pypy.interpreter.error import OperationError
 
-def descr__new__(space, w_floattype, w_value=0.0):
+def descr__new__(space, w_floattype, w_x=0.0):
     from pypy.objspace.std.floatobject import W_FloatObject
+    w_value = w_x     # 'x' is the keyword argument name in CPython
     if space.is_true(space.isinstance(w_value, space.w_str)):
         try:
             value = float(space.str_w(w_value))

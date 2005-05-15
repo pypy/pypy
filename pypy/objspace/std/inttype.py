@@ -11,9 +11,10 @@ def retry_to_w_long(space, parser, base=0):
         raise OperationError(space.w_ValueError,
                              space.wrap(e.msg))
     
-def descr__new__(space, w_inttype, w_value=0, w_base=NoneNotWrapped):
+def descr__new__(space, w_inttype, w_x=0, w_base=NoneNotWrapped):
     from pypy.objspace.std.intobject import W_IntObject
     w_longval = None
+    w_value = w_x     # 'x' is the keyword argument name in CPython
     value = 0
     if w_base is None:
         # check for easy cases

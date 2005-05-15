@@ -78,10 +78,13 @@ def really_build_fake_type(cpy_type):
 
     kw['__module__'] = cpy_type.__module__
 
-    def fake__new__(space, w_type, args_w):
+    def fake__new__(space, w_type, __args__):
+        args_w, kwds_w = __args__.unpack()
         args = [space.unwrap(w_arg) for w_arg in args_w]
+        kwds = dict([(key, space.unwrap(w_value))
+                     for (key, w_value) in kwds_w.items()])
         try:
-            r = cpy_type.__new__(cpy_type, *args)
+            r = cpy_type.__new__(cpy_type, *args, **kwds)
         except:
             wrap_exception(space)
             raise
@@ -92,7 +95,7 @@ def really_build_fake_type(cpy_type):
     kw['__new__'] = gateway.interp2app(fake__new__,
                          unwrap_spec = [baseobjspace.ObjSpace,
                                         baseobjspace.W_Root,
-                                        'args_w'])
+                                        gateway.Arguments])
     if cpy_type.__base__ is not object:
         assert cpy_type.__base__ is basestring
         from pypy.objspace.std.basestringtype import basestring_typedef

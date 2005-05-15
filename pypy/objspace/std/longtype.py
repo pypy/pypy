@@ -5,8 +5,9 @@ from pypy.objspace.std.inttype import int_typedef
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.rpython.rarithmetic import r_uint
 
-def descr__new__(space, w_longtype, w_value=0, w_base=NoneNotWrapped):
+def descr__new__(space, w_longtype, w_x=0, w_base=NoneNotWrapped):
     from pypy.objspace.std.longobject import W_LongObject, args_from_long
+    w_value = w_x     # 'x' is the keyword argument name in CPython
     if w_base is None:
         # check for easy cases
         if isinstance(w_value, W_LongObject):
