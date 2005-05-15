@@ -277,6 +277,25 @@ class AppTestTypeObject:
         raises(TypeError, A.__dict__['x'].__set__, z, 1)
         raises(TypeError, A.__dict__['x'].__delete__, z)
 
+    def test_slot_mangling(self):
+        class A(object):
+            __slots__ = ('x', '__x','__xxx__','__','__dict__')
+        a = A()
+        assert '__dict__' in A.__dict__
+        assert '__' in A.__dict__
+        assert '__xxx__' in A.__dict__
+        assert 'x' in A.__dict__
+        assert '_A__x' in A.__dict__
+        a.x = 1
+        a._A__x = 2
+        a.__xxx__ = 3
+        a.__ = 4
+        assert a.x == 1
+        assert a._A__x == 2
+        assert a.__xxx__ == 3
+        assert a.__ == 4
+        assert a.__dict__ == {}
+
     def test_repr(self):
         globals()['__name__'] = 'a'
         class A(object):

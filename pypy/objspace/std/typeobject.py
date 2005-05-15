@@ -7,6 +7,31 @@ from pypy.objspace.std.objecttype import object_typedef
 
 from copy_reg import _HEAPTYPE
 
+# from compiler/misc.py
+
+MANGLE_LEN = 256 # magic constant from compile.c
+
+def _mangle(name, klass):
+    if not name.startswith('__'):
+        return name
+    if len(name) + 2 >= MANGLE_LEN:
+        return name
+    if name.endswith('__'):
+        return name
+    try:
+        i = 0
+        while klass[i] == '_':
+            i = i + 1
+    except IndexError:
+        return name
+    klass = klass[i:]
+
+    tlen = len(klass) + len(name)
+    if tlen > MANGLE_LEN:
+        klass = klass[:MANGLE_LEN-tlen]
+
+    return "_%s%s" % (klass, name)
+
 class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
 
@@ -109,6 +134,7 @@ class W_TypeObject(W_Object):
                         wantdict = True
                     else:
                         # create member
+                        slot_name = _mangle(slot_name, name)
                         w_self.dict_w[slot_name] = space.wrap(Member(nslots, slot_name, w_self))
                         nslots += 1
 
