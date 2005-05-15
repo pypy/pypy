@@ -256,6 +256,16 @@ class AppTest_DictObject:
         bool = d1 < d4
         assert bool == False
 
+    def test_lt2(self):
+        assert {'a': 1 } < { 'a': 2 }
+        assert not {'a': 1 } > { 'a': 2 }
+        assert not {'a': 1, 'b': 0 } > { 'a': 2, 'b': 0 }
+        assert {'a': 1, 'b': 0 } < { 'a': 2, 'b': 0 }
+        assert {'a': 1, 'b': 0 } < { 'a': 1, 'b': 2 }
+        assert not {'a': 1, 'b': 0 } < { 'a': 1, 'b': -2 }
+        assert {'a': 1 } < { 'b': 1}
+        assert {'a': 1, 'x': 2 } < { 'b': 1, 'x': 2}
+
     def test_str_repr(self):
         assert '{}' == str({})
         assert '{1: 2}' == str({1: 2})

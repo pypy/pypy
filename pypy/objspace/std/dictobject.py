@@ -177,14 +177,44 @@ def eq__Dict_Dict(space, w_left, w_right):
     if len(dataleft) != len(dataright):
         return space.w_False
     for entry in dataleft:
+        w_val = entry.w_value
+        if w_val is None:
+            continue
+        w_key = entry.w_key
         try:
-            w_rightval = space.getitem(w_right, entry.w_key)
-        except OperationError:
-            return space.w_False
-        if not space.is_true(space.eq(entry.w_value, w_rightval)):
+            w_rightval = space.getitem(w_right, w_key)
+        except OperationError, e:
+            if e.match(space, space.w_KeyError):
+                return space.w_False
+            raise
+        if not space.is_true(space.eq(w_val, w_rightval)):
             return space.w_False
     return space.w_True
-        
+
+def characterize(space, adata, w_b):
+    """ (similar to CPython) 
+    returns the smallest key in adata for which b's value is different or absent and this value """
+    w_smallest_diff_a_key = None
+    w_its_value = None
+    for entry in adata:
+        w_val = entry.w_value
+        if w_val is None:
+            continue
+        w_key = entry.w_key
+        if w_smallest_diff_a_key is None or space.is_true(space.lt(w_key, w_smallest_diff_a_key)):
+            try:
+                w_b_value = space.getitem(w_b, w_key)
+            except OperationError, e:
+                if not e.match(space, space.w_KeyError):
+                    raise
+                w_its_value = w_val
+                w_smallest_diff_a_key = w_key
+            else:
+                if not space.eq_w(w_val, w_b_value):
+                    w_its_value = w_val
+                    w_smallest_diff_a_key = w_key
+    return w_smallest_diff_a_key, w_its_value
+
 def lt__Dict_Dict(space, w_left, w_right):
     # Different sizes, no problem
     dataleft = w_left.non_empties()
@@ -195,18 +225,17 @@ def lt__Dict_Dict(space, w_left, w_right):
         return space.w_False
 
     # Same size
-    for entry in dataleft:
-        # This is incorrect, but we need to decide what comparisons on
-        # dictionaries of equal size actually means
-        # The Python language specification is silent on the subject
-        try:
-            w_rightval = space.getitem(w_right, entry.w_key)
-        except OperationError:
-            return space.w_True
-        if space.is_true(space.lt(entry.w_value, w_rightval)):
-            return space.w_True
-    # The dictionaries are equal. This is correct.
-    return space.w_False
+    w_leftdiff, w_leftval = characterize(space, dataleft, w_right)
+    if w_leftdiff is None:
+        return space.w_False
+    w_rightdiff, w_rightval = characterize(space, dataright, w_left)
+    w_res = space.w_False
+    if w_rightdiff is not None:
+        w_res = space.lt(w_leftdiff, w_rightdiff)
+    if space.is_w(w_res, space.w_False) and space.eq_w(w_leftdiff, w_rightdiff) and w_rightval is not None:
+        w_res = space.lt(w_leftval, w_rightval)
+    return w_res
+
 
 def hash__Dict(space,w_dict):
     raise OperationError(space.w_TypeError,space.wrap("dict objects are unhashable"))
