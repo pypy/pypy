@@ -505,7 +505,7 @@ Structure types are built as instances of ``pypy.rpython.lltypes.Struct``::
 
     MyStructType = Struct('somename',  ('field1', Type1), ('field2', Type2)...)
 
-This declares a structure (or a Pascal ``record``) containing the specified named fields with the given types.  The field names cannot start with an underscope.  As noted above, you cannot directly manipulate structure objects, but only pointer to structures living in the heap.
+This declares a structure (or a Pascal ``record``) containing the specified named fields with the given types.  The field names cannot start with an underscore.  As noted above, you cannot directly manipulate structure objects, but only pointer to structures living in the heap.
 
 By contrast, the fields themselves can be of primitive, pointer or container type.  When a structure contains another structure as a field we say that the latter is "inlined" in the former: the bigger structure contains the smaller one as part of its memory layout.
 
