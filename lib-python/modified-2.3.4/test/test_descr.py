@@ -4023,7 +4023,7 @@ def test_main():
     kwdargs,
     delhook,
     hashinherit,
-    placeholder(strops,"PyPy starts mem trashing with this one"),
+    strops,
     deepcopyrecursive,
     modules,
     dictproxyiterkeys,
