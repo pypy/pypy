@@ -263,6 +263,8 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     value = w_self._value
     by = w_by._value
     bylen = len(by)
+    if bylen == 0:
+        raise OperationError(space.w_ValueError, space.wrap("empty separator"))
     maxsplit = space.int_w(w_maxsplit)
 
     #if maxsplit is default, then you have no limit

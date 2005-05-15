@@ -140,6 +140,7 @@ class AppTestStringObject:
         assert 'a b c d '.split() == ['a', 'b', 'c', 'd']
         assert 'a//b//c//d'.split('//') == ['a', 'b', 'c', 'd']
         assert 'endcase test'.split('test') == ['endcase ', '']
+        raises(ValueError, 'abc'.split, '')
 
     def test_split_splitchar(self):
         assert "/a/b/c".split('/') == ['','a','b','c']
