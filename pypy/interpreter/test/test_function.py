@@ -197,10 +197,17 @@ class AppTestMethod:
         assert repr(dict.items) == "<method 'items' of 'dict' objects>"
         class A(object): 
             def f(self): 
-                pass 
+                pass
         assert repr(A.f) == "<method 'f' of 'A' objects>"
         assert repr(A().f).startswith("<method f of A object at") 
         assert repr(A.f.__get__(None)).startswith("<method f")
+        class B:
+            __metaclass__ = _classobj
+            def f(self):
+                pass
+        assert repr(B.f) == "<method 'f' of 'B' objects>"
+        assert repr(B().f).startswith("<method f of B object at") 
+        assert repr(B.f.__get__(None)).startswith("<method f")
 
 class TestMethod: 
     def setup_method(self, method):
