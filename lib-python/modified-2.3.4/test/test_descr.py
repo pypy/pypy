@@ -20,7 +20,7 @@ def testunop(a, res, expr="len(a)", meth="__len__"):
     m = getattr(t, meth)
     while meth not in t.__dict__:
         t = t.__bases__[0]
-    vereq(m, t.__dict__[meth])
+    vereq(t.__dict__[meth](a), res)
     vereq(m(a), res)
     bm = getattr(a, meth)
     vereq(bm(), res)
@@ -38,7 +38,7 @@ def testbinop(a, b, res, expr="a+b", meth="__add__"):
     m = getattr(t, meth)
     while meth not in t.__dict__:
         t = t.__bases__[0]
-    vereq(m, t.__dict__[meth])
+    vereq(t.__dict__[meth](a, b), res)
     vereq(m(a, b), res)
     bm = getattr(a, meth)
     vereq(bm(b), res)
@@ -362,8 +362,8 @@ def test_dir():
         pass
 
     # Two essentially featureless objects, just inheriting stuff from
-    # object.
-    vereq(dir(None), dir(Ellipsis))
+    # object.  NB. in PyPy, dir(None) additionally contains '__nonzero__'.
+    vereq(dir(object()), dir(Ellipsis))
 
     # Nasty test case for proxied objects
     class Wrapper(object):
