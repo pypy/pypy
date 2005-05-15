@@ -322,25 +322,16 @@ def getattr__Type_ANY(space, w_type, w_name):
     raise OperationError(space.w_AttributeError, space.wrap(msg))
 
 def setattr__Type_ANY_ANY(space, w_type, w_name, w_value):
+    # Note. This is exactly the same thing as descroperation.descr__setattr__,
+    # but it is needed at bootstrap to avoid a call to w_type.getdict() which
+    # would un-lazify the whole type.
     name = space.str_w(w_name)
     w_descr = space.lookup(w_type, name)
     if w_descr is not None:
         if space.is_data_descr(w_descr):
-            space.set(w_descr,w_type,space.type(w_type))
+            space.set(w_descr, w_type, w_value)
+            return
     w_type.dict_w[name] = w_value
-
-def delattr__Type_ANY(space, w_type, w_name):
-    if w_type.lazyloaders:
-        w_type._freeze_()    # force un-lazification
-    name = space.str_w(w_name)
-    w_descr = space.lookup(w_type, name)
-    if w_descr is not None:
-        if space.is_data_descr(w_descr):
-            space.delete(w_descr, space.type(w_type))
-    del w_type.dict_w[name]
-    
-# XXX __delattr__
-# XXX __hash__ ??
 
 # ____________________________________________________________
 

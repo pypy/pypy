@@ -46,7 +46,8 @@ class Object:
         w_descr = space.lookup(w_obj, name)
         if w_descr is not None:
             if space.is_data_descr(w_descr):
-                return space.delete(w_descr, w_obj)
+                space.delete(w_descr, w_obj)
+                return
         w_dict = w_obj.getdict()
         if w_dict is not None:
             try:

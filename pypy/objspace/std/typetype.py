@@ -64,6 +64,14 @@ def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
     return space.wrap(w_type.name)
 
+def descr_set__name__(space, w_type, w_value):
+    w_type = _check(space, w_type)    
+    if not w_type.is_heaptype():
+        raise OperationError(space.w_TypeError, 
+                             space.wrap("can't set %s.__name__" %
+                                        w_type.name))
+    w_type.name = space.str_w(w_value)
+
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
     # XXX this should be inside typeobject.py
@@ -124,17 +132,13 @@ def descr_set__module(space, w_type, w_value):
         raise OperationError(space.w_TypeError, 
                              space.wrap("can't set %s.__module__" %
                                         w_type.name))
-    if w_value is None:
-        raise OperationError(space.w_TypeError, 
-                             space.wrap("can't delete %s.__module__" %
-                                        w_type.name))
     w_type.dict_w['__module__'] = w_value
 
 # ____________________________________________________________
 
 type_typedef = StdTypeDef("type",
     __new__ = newmethod(descr__new__),
-    __name__ = GetSetProperty(descr_get__name__),
+    __name__ = GetSetProperty(descr_get__name__, descr_set__name__),
     __bases__ = GetSetProperty(descr__bases),
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),

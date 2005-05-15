@@ -428,3 +428,11 @@ class AppTestTypeObject:
 
         raises(TypeError, "X().__class__ = object")
         raises(TypeError, "X().__class__ = 1")
+
+    def test_name(self):
+        class Abc(object):
+            pass
+        assert Abc.__name__ == 'Abc'
+        Abc.__name__ = 'Def'
+        assert Abc.__name__ == 'Def'
+        raises(TypeError, "Abc.__name__ = 42")
