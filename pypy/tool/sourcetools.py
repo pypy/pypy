@@ -58,7 +58,11 @@ class NiceCompile(object):
             Indentation is automatically corrected.
         """
         if self.srctext:
-            p = self.srctext.index(src)
+            try:
+                p = self.srctext.index(src)
+            except ValueError, e:
+                e.args = "Source text not found in %s - use a raw string" % self.srcname
+                raise
             prelines = self.srctext[:p].count("\n") + 1
         else:
             prelines = 0
