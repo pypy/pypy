@@ -39,8 +39,12 @@ class AppTest_Descroperation:
         a1 *= 4
         assert a1 == "imul"
         assert a - 2 == "sub"
+        assert a - object() == "sub"
+        assert 2 - a == "rsub"
         assert object() - a == "rsub"
         assert a ** 2 == "pow"
+        assert a ** object() == "pow"
+        assert 2 ** a == "rpow"
         assert object() ** a == "rpow"
         assert -a == "neg"
 
