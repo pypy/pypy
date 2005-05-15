@@ -134,10 +134,10 @@ class super(object):
         self.__self__ = obj
         self.__self_class__ = objcls
     def __get__(self, obj, type=None):
-        if super.__self__.__get__(self) is None and obj is not None:
-            return super(super.__thisclass__.__get__(self), obj)
-        else:
+        if obj is None or super.__self__.__get__(self) is not None:
             return self
+        else:
+            return self.__class__(super.__thisclass__.__get__(self), obj)
     def __getattribute__(self, attr):
         _self_class_ = super.__self_class__.__get__(self)
         if (attr != '__class__' # we want super().__class__ to be the real class
