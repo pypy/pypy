@@ -2699,7 +2699,7 @@ def setclass():
             raise TestFailed, "shouldn't allow %r.__class__ = %r" % (x, C)
         try:
             delattr(x, "__class__")
-        except TypeError:
+        except (TypeError, AttributeError):
             pass
         else:
             raise TestFailed, "shouldn't allow del %r.__class__" % x
@@ -3236,7 +3236,7 @@ def modules():
     vereq(hasattr(m, "__name__"), 0)
     vereq(hasattr(m, "__file__"), 0)
     vereq(hasattr(m, "foo"), 0)
-    vereq(m.__dict__, None)
+    vereq(bool(m.__dict__), False)
     m.foo = 1
     vereq(m.__dict__, {"foo": 1})
 
