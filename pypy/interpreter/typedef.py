@@ -183,7 +183,7 @@ class GetSetProperty(Wrappable):
         fset = property.fset
         if fset is None:
             raise OperationError(space.w_TypeError,
-                                 space.wrap("read-only attribute"))
+                                 space.wrap("readonly attribute"))
         fset(space, w_obj, w_value)
 
     def descr_property_del(space, property, w_obj):
