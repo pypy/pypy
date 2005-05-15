@@ -1,5 +1,5 @@
 """
-Build a pyrex module out of llvmfile
+Build a Python module out of llvmfile and a Pyrex wrapper file.
 """
 
 import autopath

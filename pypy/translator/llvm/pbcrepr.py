@@ -1,3 +1,8 @@
+"""
+The representations of prebuilt constants. This implementation is still rather
+limited.
+"""
+
 import autopath
 import sets
 

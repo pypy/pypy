@@ -1,5 +1,6 @@
 """
-Some simple classes that output LLVM-assembler.
+Some simple classes that output LLVM-assembler. Most functions here take
+subclases of LLVMRepr as arguments.
 """
 
 import autopath

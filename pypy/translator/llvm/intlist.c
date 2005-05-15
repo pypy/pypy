@@ -1,3 +1,5 @@
+/* implementation of range. This file is transformed to int_list.ll by
+make_runtime.py */
 #include <stdio.h>
 
 struct list_int {

@@ -1,3 +1,8 @@
+"""
+The representations of classes and Exceptions live here. Classes are
+implemented as structs.
+"""
+
 import autopath
 import sets
 

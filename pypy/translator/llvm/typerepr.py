@@ -1,3 +1,8 @@
+"""
+The representations of objects that can be the type of other objects.
+"""
+
+
 import autopath
 import sets
 

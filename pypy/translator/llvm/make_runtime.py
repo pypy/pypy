@@ -1,3 +1,9 @@
+"""
+This file produces the .ll files with the implementations of lists and the
+implementations of simple space operations (like add, mul, sub, div for float,
+bool, int).
+"""
+
 import autopath
 
 import os

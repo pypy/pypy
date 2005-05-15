@@ -1,3 +1,7 @@
+"""
+The representations of lists and tuples.
+"""
+
 import autopath
 import sets
 

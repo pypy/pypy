@@ -1,3 +1,8 @@
+"""
+The MemoryLayout class helps with the layouting structs in memory.
+"""
+
+
 import autopath
 import sets
 
@@ -7,6 +12,8 @@ from pypy.translator.llvm.representation import debug, LLVMRepr
 from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
 
 debug = False
+
+#XXX This is all mostly experimental
 
 class MemoryLayout(object):
     def __init__(self, attrs, l_types, gen):

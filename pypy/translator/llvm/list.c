@@ -1,3 +1,5 @@
+/* implementation of list methods. This file is transformed to list_template.ll
+   by make_runtime.py */
 #include <stdio.h>
 
 signed char unwind();

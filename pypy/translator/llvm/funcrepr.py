@@ -1,3 +1,7 @@
+"""
+The representations of Functions/Methods/Builtin Functions.
+"""
+
 import autopath
 import sets, inspect
 
@@ -10,7 +14,9 @@ from pypy.annotation.builtin import BUILTIN_ANALYZERS
 from pypy.translator.llvm import llvmbc
 from pypy.translator.unsimplify import remove_double_links
 
-from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError, last_exception, last_exc_value
+from pypy.translator.llvm.representation import debug, LLVMRepr, CompileError
+from pypy.translator.llvm.representation import last_exception, last_exc_value
+from pypy.translator.llvm.representation import SimpleRepr
 from pypy.translator.llvm.typerepr import TypeRepr, PointerTypeRepr
 
 debug = False
@@ -348,8 +354,8 @@ class ExceptBlockRepr(BlockRepr):
         pass
 
     def create_terminator_instr(self):
-        l_exc = self.gen.get_repr(self.pyblock.inputargs[0])
-        l_val = self.gen.get_repr(self.pyblock.inputargs[1])
+        l_exc = self.l_args[0]
+        l_val = self.l_args[1]
         l_last_exception = self.gen.get_repr(last_exception)
         l_last_exc_value = self.gen.get_repr(last_exc_value)
         self.l_func.dependencies.update([l_exc, l_val, l_last_exception,
@@ -381,7 +387,13 @@ class LinkRepr(object):
         self.link = link
         self.l_func = l_func
         self.gen = gen
-        self.l_args = [self.gen.get_repr(a) for a in self.link.args]
+        if link.exitcase == Exception:
+            self.l_args = [SimpleRepr("%std.class**",
+                                      "%std.last_exception.type", gen),
+                            SimpleRepr("%std.exception**",
+                                       "%std.last_exception.value", gen)]
+        else:
+            self.l_args = [self.gen.get_repr(a) for a in self.link.args]
         self.l_targetargs = [self.gen.get_repr(a)
                              for a in self.link.target.inputargs]
         self.l_func.dependencies.update(self.l_args)
