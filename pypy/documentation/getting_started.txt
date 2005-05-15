@@ -13,7 +13,8 @@ Just the facts
 Checking out & running PyPy as a two-liner 
 ------------------------------------------ 
 
-There is no public release yet, but you can easily do:: 
+The public releases are avaiable on the `download page`_. If you want the
+bleeding edge development version you can also do:: 
 
     svn co http://codespeak.net/svn/pypy/dist pypy-dist 
 
@@ -33,6 +34,7 @@ You can `browse the pypy source code`_ directly via http.
 And here is some information to `install a subversion client`_. 
 
 .. _`browse the pypy source code`: http://codespeak.net/svn/pypy/dist 
+.. _`download page`: http://codespeak.net/pypy/XXX_download_page_XXX
 
 coding style and testing 
 ------------------------ 
@@ -42,7 +44,7 @@ to refactor things all the time (without proper automated
 testing this would become very hard and fragile).  
 
 For an overview of how we organize our codebase please look at our 
-`coding-guide document`_.   
+`coding-guide document`_.
 
 For running all PyPy tests you can issue:: 
 
@@ -54,10 +56,10 @@ tool working from the current directory unless you specify
 filename/directory arguments. 
 
 If you want to have write access to the codespeak respository
-please send a mail to <b>jum at anubis han de</b> or <b>hpk at merlinux de</b>
+please send a mail to *jum at anubis han de* or *hpk at merlinux de*
 in order to ask for a username and password.  Please mention what you want to do
-within the pypy project. Even better, come to our next sprint so that we can get
-to know you.  
+within the pypy project. Even better, come to our next sprint so that we can
+get to know you.  
 
 Viewing documentation 
 ---------------------
@@ -83,7 +85,7 @@ Once you are ready to download and try PyPy out,
 follow these instructions, which assume that you
 are working in a DOS box (Windows) or terminal (MacOS/X or Linux).
 
-detailed steps 
+detailed steps
 --------------
 
 1. Download and install subversion_ if you do not already have it.
@@ -186,16 +188,18 @@ sufficiently static Python programs into low-level code.
    ``test/snippet.py``.  For example::
 
         >>> t = Translator(test.is_perfect_number)
-        >>> t.simplify()
         >>> t.view()
 
 4. We have a type annotator that can completely infer types for functions like
    ``is_perfect_number``::
 
-        >>> t.annotate([int])
+        >>> a = t.annotate([int])
         >>> t.view()
 
-   Move the mouse over variable names (in red) to see their inferred types.
+   Move the mouse over variable names (in red) to see their inferred types. To
+   perform simplifications based on the annotation you can do::
+
+        >>> a.simplify()
 
 5. The graph can be turned into Pyrex code, with types if ``annotate()`` was
    called::
@@ -209,6 +213,29 @@ sufficiently static Python programs into low-level code.
    Python source code.  This is because the Pyrex code is generated from the
    graph only, without reference to the original source.
 
+6. In the same manner the graph can be compiled to C code::
+
+       >>> a.specialize()
+       >>> f = t.ccompile()
+
+   The first command replaces operations with variables of types that are
+   avaiable in C (e.g. int) with low level version. This can be ommited if no
+   annotation (step 4) has been performed.
+
+7. If you feel adventureous (and have LLVM installed and on your path) you can
+   also try to compile the graph with LLVM. This is still quite experimental
+   and only works with some functions: One of the most visible restriction is
+   that return type of the entry function has to be and int, float or bool. To
+   try it do::
+
+       >>> from pypy.translator.llvm.genllvm import llvmcompile
+       >>> f = llvmcompile(t, optimize=True)
+       >>> f(28)
+       1
+
+   This works only with fully annotated graphs.
+
+   
 
 Where to start reading the sources
 ---------------------------------- 
@@ -250,8 +277,7 @@ To learn more
    read the archives online) or show up irc.freenode.net:6667, channel #pypy.
 
 *  To help PyPy become Python-the-next-generation, you may write some 
-   `unit tests`_ and file some `bug reports`_ (although we are not really 
-   actively using the issue tracker yet, watch out :-) 
+   `unit tests`_ and file some `bug reports`_.
 
 .. _optionaltool: 
 
@@ -283,7 +309,7 @@ Optional tools
 
 * llvm: 
     One of our backends uses the `low level virtual machine`_ to generate
-    processor independant machine level code. 
+    processor independant machine level code.
 
 * CLISP::
 
