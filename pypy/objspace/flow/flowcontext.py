@@ -277,7 +277,7 @@ class FlowExecutionContext(ExecutionContext):
                 self.recorder.crnt_block.closeblock(link)
 
             except OperationError, e:
-                print "OE", e.w_type, e.w_value
+                #print "OE", e.w_type, e.w_value
                 link = Link([e.w_type, e.w_value], self.graph.exceptblock)
                 self.recorder.crnt_block.closeblock(link)
 
