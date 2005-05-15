@@ -3,6 +3,10 @@
 Plain Python definition of the 'complex' type.
 """
 
+
+#XXX Hack: This float is supposed to overflow to inf
+OVERFLOWED_FLOAT = float("1e10000000000000000000000000000000")
+
 class complex(object):
     """complex(real[, imag]) -> complex number
 
@@ -82,12 +86,12 @@ class complex(object):
             if len(y) <= 1:
                 y += "1"
             f = float(y)
-            if abs(f) == float("inf"):
+            if abs(f) == OVERFLOWED_FLOAT:
                 raise ValueError, "float() out of range: %s" % y
             return 0, f
         if y == "":
             f = float(x)
-            if abs(f) == float("inf"):
+            if abs(f) == OVERFLOWED_FLOAT:
                 raise ValueError, "float() out of range: %s" % x
             return f, 0
         if y[-1] != "j":
@@ -98,14 +102,16 @@ class complex(object):
             if x in "+-":
                 x += "1.0"
             f = float(x)
-            if abs(f) == float("inf"):
+            if abs(f) == OVERFLOWED_FLOAT:
                 raise ValueError, "float() out of range: %s" % x
             return 0, f
         if y in "+-":
             y += "1.0"
         x = float(x)
         y = float(y)
-        if abs(x) == float("inf") or abs(y) == float("inf"):
+        if abs(x) == OVERFLOWED_FLOAT:
+            raise ValueError, "float() out of range: %s" % x
+        if abs(y) == OVERFLOWED_FLOAT:
             raise ValueError, "float() out of range: %s" % y
         return x, y
 
