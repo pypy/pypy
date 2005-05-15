@@ -1,6 +1,7 @@
 from pypy.interpreter import eval, function, gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
+from pypy.interpreter.typedef import descr_get_dict, descr_set_dict
 from pypy.interpreter.baseobjspace import SpaceCache
 from pypy.objspace.std.model import MultiMethod, FailedToImplement
 from pypy.tool.compile import compile2
@@ -31,15 +32,10 @@ def issubtypedef(a, b):
         a = a.base
     return True
 
-def descr_get_dict(space, w_obj): # xxx typecheck
-    w_dict = w_obj.getdict()
-    assert w_dict is not None, repr(w_obj)
-    return w_dict
+def descr_del_dict(space, w_obj): # blame CPython for the existence of this one
+    w_obj.setdict(space, space.newdict([]))
 
-def descr_set_dict(space, w_obj, w_dict): # xxx typecheck
-    w_obj.setdict(w_dict)
-
-std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict)
+std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict)
 
 def newmethod(descr_new, unwrap_spec=None):
     "NOT_RPYTHON: initialization-time only."

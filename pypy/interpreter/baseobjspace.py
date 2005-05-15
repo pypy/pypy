@@ -24,7 +24,13 @@ class W_Root:
                 if not e.match(space, space.w_KeyError):
                     raise
         return None
-    
+
+    def setdict(self, space):
+        typename = space.type(self).getname(space, '?')
+        raise OperationError(space.w_TypeError,
+                             space.wrap("attribute '__dict__' of %s objects "
+                                        "is not writable" % typename))
+
     def getclass(self, space):
         return space.gettypeobject(self.typedef)
 

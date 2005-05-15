@@ -253,12 +253,6 @@ class W_TypeObject(W_Object):
             dictspec.append((space.wrap(key), w_value))
         return space.newdict(dictspec)
 
-    def setdict(w_self, w_dict):
-        space = w_self.space
-        raise OperationError(space.w_TypeError,
-                             space.wrap("attribute '__dict__' of type objects "
-                                        "is not writable"))
-
     def unwrap(w_self):
         if hasattr(w_self.instancetypedef, 'fakedcpytype'):
             return w_self.instancetypedef.fakedcpytype

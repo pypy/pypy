@@ -43,8 +43,7 @@ class Function(Wrappable):
     def getdict(self):
         return self.w_func_dict
 
-    def setdict(self, w_dict):
-        space = self.space
+    def setdict(self, space, w_dict):
         if not space.is_true(space.isinstance( w_dict, space.w_dict )):
             raise OperationError( space.w_TypeError, space.wrap("setting function's dictionary to a non-dict") )
         self.w_func_dict = w_dict

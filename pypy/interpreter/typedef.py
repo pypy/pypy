@@ -80,8 +80,7 @@ def _buildusercls(cls, hasdict, wants_slots):
             def getdict(self):
                 return self.w__dict__
 
-            def setdict(self, w_dict):
-                space = self.space
+            def setdict(self, space, w_dict):
                 if not space.is_true(space.isinstance(w_dict, space.w_dict)):
                     raise OperationError(space.w_TypeError,
                             space.wrap("setting dictionary to a non-dict"))
@@ -300,7 +299,11 @@ from pypy.interpreter.special import NotImplemented, Ellipsis
 
 def descr_get_dict(space, obj):
     w_dict = obj.getdict()
-    assert w_dict is not None, repr(obj)
+    if w_dict is None:
+        typename = space.type(w_obj).getname(space, '?')
+        raise OperationError(space.w_TypeError,
+                             space.wrap("descriptor '__dict__' doesn't apply to"
+                                        " '%s' objects" % typename))
     return w_dict
 
 def descr_get_dict_may_be_None(space, obj):
@@ -310,7 +313,7 @@ def descr_get_dict_may_be_None(space, obj):
     return w_dict
 
 def descr_set_dict(space, obj, w_dict):
-    obj.setdict(w_dict)
+    obj.setdict(space, w_dict)
 
 def generic_ne(space, w_obj1, w_obj2):
     if space.eq_w(w_obj1, w_obj2):
