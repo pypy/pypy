@@ -188,7 +188,7 @@ sufficiently static Python programs into low-level code.
    ``test/snippet.py``.  For example::
 
         >>> t = Translator(test.is_perfect_number)
-        >>> t.view()
+        >>> #t.view()
         
 .. >>> from pypy.translator.translator import Translator 
 .. >>> from pypy.translator.test import snippet as test 
@@ -197,7 +197,7 @@ sufficiently static Python programs into low-level code.
    ``is_perfect_number``::
 
         >>> a = t.annotate([int])
-        >>> t.view()
+        >>> #t.view()
 
    Move the mouse over variable names (in red) to see their inferred types. To
    perform simplifications based on the annotation you can do::
