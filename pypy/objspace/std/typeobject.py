@@ -310,13 +310,15 @@ def delattr__Type_ANY(space, w_type, w_name):
 abstract_mro = gateway.applevel("""
     def abstract_mro(klass):
         # abstract/classic mro
-        mro = [klass]
-        for klass in mro:
-            if not isinstance(klass.__bases__, tuple):
-                raise TypeError, '__bases__ must be a tuple'
-            for base in klass.__bases__:
-                if base not in mro:
-                    mro.append(base)
+        mro = []
+        stack = [klass]
+        while stack:
+            klass = stack.pop()
+            if klass not in mro:
+                mro.append(klass)
+                if not isinstance(klass.__bases__, tuple):
+                    raise TypeError, '__bases__ must be a tuple'
+                stack += klass.__bases__[::-1]
         return mro
 """, filename=__file__).interphook("abstract_mro")
 

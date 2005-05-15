@@ -158,11 +158,16 @@ class AppTestTypeObject:
     def test_abstract_mro(self):
         class A1:
             __metaclass__ = _classobj
-        class A2(A1):
+        class B1(A1):
             pass
-        class A3(A2, object):
+        class C1(A1):
+            pass
+        class D1(B1, C1):
+            pass
+        class E1(D1, object):
             __metaclass__ = type
-        assert A3.__mro__ == (A3, A2, A1, object)
+        # old-style MRO in the classical part of the parent hierarchy
+        assert E1.__mro__ == (E1, D1, B1, A1, C1, object)
 
     def test_nodoc(self):
         class NoDoc(object):
