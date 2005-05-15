@@ -350,7 +350,7 @@ Optional tools
 .. _documentation:          http://codespeak.net/pypy/index.cgi?doc
 .. _wiki:                   http://codespeak.net/moin/pypy/moin.cgi/FrontPage?action=show
 .. _unit tests:             http://codespeak.net/pypy/index.cgi?doc/testdesign.html
-.. _bug reports:            https://codespeak.net/issues/pypy-dev/
+.. _bug reports:            https://codespeak.net/issue/pypy-dev/
 
 
 
