@@ -172,6 +172,8 @@ class GetSetProperty(Wrappable):
         self.doc = doc
 
     def descr_property_get(space, property, w_obj, w_cls=None):
+        """property.__get__(obj[, type]) -> value
+        Read the value of the property of the given obj."""
         # XXX HAAAAAAAAAAAACK (but possibly a good one)
         if w_obj == space.w_None and not space.is_true(space.is_(w_cls, space.type(space.w_None))):
             #print property, w_obj, w_cls
@@ -180,6 +182,8 @@ class GetSetProperty(Wrappable):
             return property.fget(space, w_obj)
 
     def descr_property_set(space, property, w_obj, w_value):
+        """property.__set__(obj, value)
+        Change the value of the property of the given obj."""
         fset = property.fset
         if fset is None:
             raise OperationError(space.w_TypeError,
@@ -187,6 +191,8 @@ class GetSetProperty(Wrappable):
         fset(space, w_obj, w_value)
 
     def descr_property_del(space, property, w_obj):
+        """property.__delete__(obj)
+        Delete the value of the property from the given obj."""
         fdel = property.fdel
         if fdel is None:
             raise OperationError(space.w_AttributeError,
@@ -237,6 +243,8 @@ class Member(Wrappable):
                                             (self.name, self.w_cls.name, space.type(w_obj).name)))
 
     def descr_member_get(space, member, w_obj, w_w_cls=None):
+        """member.__get__(obj[, type]) -> value
+        Read the slot 'member' of the given 'obj'."""
         if space.is_w(w_obj, space.w_None):
             return space.wrap(member)
         else:
@@ -249,11 +257,15 @@ class Member(Wrappable):
             return w_result
 
     def descr_member_set(space, member, w_obj, w_value):
+        """member.__set__(obj, value)
+        Write into the slot 'member' of the given 'obj'."""
         self = member
         self.typecheck(space, w_obj)
         w_obj.slots_w[self.index] = w_value
 
     def descr_member_del(space, member, w_obj):
+        """member.__delete__(obj)
+        Delete the value of the slot 'member' from the given 'obj'."""
         self = member
         self.typecheck(space, w_obj)
         w_obj.slots_w[self.index] = None

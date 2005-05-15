@@ -151,6 +151,7 @@ class Function(Wrappable):
         return w_res
 
 def descr_function_get(space, w_function, w_obj, w_cls=None):
+    """functionobject.__get__(obj[, type]) -> method"""
     # this is not defined as a method on Function because it's generally
     # useful logic: w_function can be any callable.  It is used by Method too.
     asking_for_bound = (space.is_w(w_cls, space.w_None) or
@@ -284,6 +285,7 @@ class StaticMethod(Wrappable):
         self.w_function = w_function
 
     def descr_staticmethod_get(self, w_obj, w_cls=None):
+        """staticmethod(x).__get__(obj[, type]) -> x"""
         return self.w_function
 
 class BuiltinFunction(Function):

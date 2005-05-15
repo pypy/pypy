@@ -44,9 +44,11 @@ class GeneratorIterator(Wrappable):
         self.exhausted = False
 
     def descr__iter__(self):
+        """x.__iter__() <==> iter(x)"""
         return self.space.wrap(self)
 
     def descr_next(self):
+        """x.next() -> the next value, or raise StopIteration"""
         space = self.space
         if self.running:
             raise OperationError(space.w_ValueError,
