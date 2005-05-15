@@ -121,7 +121,7 @@ class super(object):
     def __init__(self, typ, obj=None):
         if obj is None:
             objcls = None        # unbound super object
-        elif _issubtype(type(obj), type) and _issubtype(obj, type):
+        elif _issubtype(type(obj), type) and _issubtype(obj, typ):
             objcls = obj         # special case for class methods
         elif _issubtype(type(obj), typ):
             objcls = type(obj)   # normal case
@@ -134,9 +134,8 @@ class super(object):
         self.__self__ = obj
         self.__self_class__ = objcls
     def __get__(self, obj, type=None):
-        ga = object.__getattribute__
-        if ga(self, '__self__') is None and obj is not None:
-            return super(ga(self, '__thisclass__'), obj)
+        if super.__self__.__get__(self) is None and obj is not None:
+            return super(super.__thisclass__.__get__(self), obj)
         else:
             return self
     def __getattribute__(self, attr):
@@ -157,6 +156,8 @@ class super(object):
                     continue
                 if hasattr(x, '__get__'):
                     _self_ = super.__self__.__get__(self)
-                    x = x.__get__(_self_, type(_self_))
+                    if _self_ is _self_class_:
+                        _self_ = None   # performs an unbound __get__
+                    x = x.__get__(_self_, _self_class_)
                 return x
         return object.__getattribute__(self, attr)     # fall-back

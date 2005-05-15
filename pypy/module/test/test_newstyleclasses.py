@@ -69,3 +69,14 @@ class AppTestBuiltinApp:
         assert isinstance(A, xtype)
         a = A()
         assert isinstance(a, A)
+
+    def test_super_classmethod(self):
+        class A(object):
+            def f(cls):
+                return cls
+            f = classmethod(f)
+        class B(A):
+            def f(cls):
+                return [cls, super(B, cls).f()]
+            f = classmethod(f)
+        assert B().f() == [B, B]
