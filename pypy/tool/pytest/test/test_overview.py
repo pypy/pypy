@@ -1,9 +1,12 @@
 
 import py
+from pypy.tool.pytest.confpath import testresultdir 
 from pypy.tool.pytest.overview import ResultCache 
 
 class TestResultCache: 
     def setup_class(cls): 
+        if not testresultdir.check(dir=1):
+            py.test.skip("testresult directory not checked out")
         cls.rc = ResultCache() 
         cls.rc.parselatest()
 
