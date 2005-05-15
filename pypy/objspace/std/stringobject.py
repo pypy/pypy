@@ -916,6 +916,9 @@ def mul_string_times(space, w_str, w_times):
 def mul__String_ANY(space, w_str, w_times):
     return mul_string_times(space, w_str, w_times)
 
+def mul__String_String(space, w_str, w_times):
+    raise OperationError( space.w_TypeError, space.wrap("an integer is required"))
+
 def mul__ANY_String(space, w_times, w_str):
     return mul_string_times(space, w_str, w_times)
 
