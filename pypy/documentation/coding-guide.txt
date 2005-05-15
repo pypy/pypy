@@ -485,6 +485,53 @@ Committing
   allows checkin/checkout in native line-ending format.
 
 
+Using the development bug/feature tracker
+=========================================
+
+We have a `development tracker`_, based on Richard Jones' 
+`roundup`_ application.  You can file bugs, 
+feature requests or see what's going on 
+for the next milestone, both from an E-Mail and from a 
+web interface.   
+
+use your codespeak login or register
+------------------------------------ 
+
+If you already committed to the PyPy source code, chances
+are that you can simply use your codespeak login that
+you use for subversion or for shell access.   
+
+If you are not a commiter then you can still `register with
+the tracker`_ easily. 
+
+modifying Issues from svn commit messages
+----------------------------------------- 
+
+If you are committing something related to  
+an issue in the development tracker you 
+can correlate your login message to a tracker 
+item by following these rules: 
+
+- put the content of ``issueN STATUS`` on a single 
+  new line 
+
+- `N` must be an existing issue number from the `development tracker`_. 
+
+- STATUS is one of:: 
+
+    unread
+    chatting
+    need-eg   (jargon for "need example")
+    in-progress
+    testing
+    done-cbb  (jargon for 'done, could-be-better')
+    resolved
+
+.. _`register with the tracker`: https://codespeak.net/issue/pypy-dev/user?@template=register
+.. _`development tracker`: http://codespeak.net/issue/pypy-dev/
+.. _`roundup`: http://roundup.sf.net
+
+
 Test Design
 =============
 
