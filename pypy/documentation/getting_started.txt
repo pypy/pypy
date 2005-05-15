@@ -189,6 +189,9 @@ sufficiently static Python programs into low-level code.
 
         >>> t = Translator(test.is_perfect_number)
         >>> t.view()
+        
+.. >>> from pypy.translator.translator import Translator 
+.. >>> from pypy.translator.test import snippet as test 
 
 4. We have a type annotator that can completely infer types for functions like
    ``is_perfect_number``::
