@@ -1,0 +1,19 @@
+
+Download and install PyPy 
+========================= 
+
+XXX merge with getting_started somehow? 
+
+There are currently two ways to install PyPy.  If you have a subversion
+client we recommend that you just follow the `getting started`_
+information on how to checkout and play around. 
+
+Otherwise you can download and unpack one of the following files: 
+
+*pypy-0.6* 
+    `pypy-0.6.tar.gz`_ 
+    `pypy-0.6.zip`_ 
+
+.. _`pypy-0.6.tar.gz`: http://codespeak.net/download/pypy/pypy-0.6.tar.gz
+.. _`pypy-0.6.zip`: http://codespeak.net/download/pypy/pypy-0.6.zip
+.. _`getting started`: ../getting_started.html 

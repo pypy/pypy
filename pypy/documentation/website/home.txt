@@ -1,0 +1,37 @@
+Implementing Python in Python
+============================= 
+
+The PyPy project aims at producing a simple runtime-system for the Python
+language.  We want to express the basic abstractions within the
+Python Language itself.  We later want to have a minimal
+core which is not written in Python and doesn't need CPython anymore.
+We want to take care that technologies such as `Psyco`_ and `Stackless`_
+will easily integrate.  Simplicity and Flexibilty are the foremost goals. 
+Rumors have it that the secret goal is being faster-than-C which is 
+nonsense, isn't it? 
+
+.. _Psyco: http://psyco.sf.net
+.. _Stackless: http://stackless.com 
+
+
+(May 4th 2005) Next Sprint(s) around EuroPython 2005
+===================================================== 
+
+The next sprint is scheduled right after EuroPython 2005 in Götheborg, Sweden. 
+We take a day of break after the conference and do the sprint from 1st-7th 
+of July 2005.  Additionally there will be a four day Pre-EuroPython sprint
+for people who already are familiar with the PyPy code base. 
+
+(March 28th 2005) Pycon 2005 Sprint in Washington finished
+========================================================== 
+
+Our `Pycon 2005 Sprint`_ finished and was a good success.  In our new 
+`revision report`_ we track information on compliancy with CPython.  During the 
+conferences we made good contacts with other Python implementors and look 
+forward to closer cooperation.  
+<small><i> 28 March. 2005</i></small>
+</div>
+
+.. _`revision report`: http://codespeak.net/pypy/rev/current/ 
+.. _`Pycon 2005 Sprint`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/pycon2005-announcement.txt
+
