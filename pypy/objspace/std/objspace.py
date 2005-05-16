@@ -81,6 +81,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # dummy old-style classes types
         self.w_classobj = W_TypeObject(self, 'classobj', [self.w_object], {})
         self.w_instance = W_TypeObject(self, 'instance', [self.w_object], {})
+        self.setup_old_style_classes()
 
         # fix up a problem where multimethods apparently don't 
         # like to define this at interp-level 
@@ -93,8 +94,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     return r
                 dict.fromkeys = classmethod(fromkeys)
         """) 
-        # old-style classes
-        self.setup_old_style_classes()
 
     def enable_old_style_classes_as_default_metaclass(self):
         self.setitem(self.builtin.w_dict, self.wrap('__metaclass__'), self.w_classobj)
@@ -112,6 +111,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         from pypy.module import classobjinterp
         # sanity check that this approach is working and is not too late
         assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_classobj'))),"app-level code has seen dummy old style classes"
+        assert not self.is_true(self.contains(self.builtin.w_dict,self.wrap('_instance'))),"app-level code has seen dummy old style classes"
         w_setup = classobjinterp.initclassobj(self)
         w_classobj, w_instance, w_purify = self.unpackiterable(w_setup)
         self.call_function(w_purify)
