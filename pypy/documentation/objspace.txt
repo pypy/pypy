@@ -298,8 +298,12 @@ Link
     :target:     the target Block to which this Link points to.
     :args:       a list of Variables and Constants, of the same size as the target Block's inputargs, which gives all the values passed into the next block.  (Note that each Variable used in the prevblock may appear zero, one or more times in the ``args`` list.)
     :exitcase:   see above.
+    :last_exception: None or a Variable; see below.
+    :last_exc_value: None or a Variable; see below.
 
     Note that ``args`` uses Variables from the prevblock, which are matched to the target block's ``inputargs`` by position, as in a tuple assignment or function call would do.
+
+    If the link is an exception-catching one, the ``last_exception`` and ``last_exc_value`` are set to two fresh Variables that are considered to be created when the link is entered; at run-time, they will hold the exception class and value, respectively.  These two new variables can only be used in the same link's ``args`` list, to be passed to the next block (as usual, they may actually not appear at all, or appear several times in ``args``).
 
 
 SpaceOperation
@@ -325,9 +329,6 @@ Constant
     :key:    a hashable object representing the value.
 
     A Constant can occasionally store a mutable Python object.  It represents a static, pre-initialized, read-only version of that object.  The flow graph should not attempt to actually mutate such Constants.
-
-
-XXX talk about implicit exceptions
 
 
 How the FlowObjSpace works
