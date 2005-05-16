@@ -22,6 +22,8 @@ class classmethod(object):
     __slots__ = ['_f']
 
     def __init__(self, f):
+        if not callable(f):
+            raise TypeError, "'%s' object is not callable" % type(f).__name__
         self._f = f
 
     def __get__(self, obj, klass=None):
