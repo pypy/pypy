@@ -381,8 +381,6 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
         if basedef is None:
             # print warning?
             return SomeObject()
-        assert '_specialize_' not in basedef.cls.__dict__, (
-            "instance union degenerating to unspecialized version: %s" %  basedef)
         return SomeInstance(basedef, can_be_None=ins1.can_be_None or ins2.can_be_None)
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):
