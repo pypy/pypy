@@ -173,7 +173,7 @@ class FlowObjSpace(ObjSpace):
         return None
 
     def getexecutioncontext(self):
-        return self.executioncontext
+        return getattr(self, 'executioncontext', None)
 
     def setup_executioncontext(self, ec):
         self.executioncontext = ec

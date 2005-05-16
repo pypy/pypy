@@ -1,6 +1,5 @@
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.miscutils import getthreadlocals
 from pypy.interpreter.argument import Arguments
 from pypy.tool.cache import Cache 
 from pypy.rpython.rarithmetic import r_uint
@@ -98,6 +97,7 @@ class ObjSpace(object):
         # set recursion limit
         # sets all the internal descriptors
         self.initialize()
+        self.getexecutioncontext()  # force its creation, if not already done
         
     def __repr__(self):
         return self.__class__.__name__
@@ -157,10 +157,15 @@ class ObjSpace(object):
     
     def getexecutioncontext(self):
         "Return what we consider to be the active execution context."
-        ec = getthreadlocals().executioncontext
-        if ec is None:
-            ec = self.createexecutioncontext()
-        return ec
+        # XXX as long as we have no threads, just store the execution context
+        #     in an attribute made private to prevent outside access.  When
+        #     we have threads, this should create a new execution context
+        #     if we haven't seen one in the current thread yet.
+        try:
+            return self.__current_ec
+        except AttributeError:
+            self.__current_ec = ec = self.createexecutioncontext()
+            return ec
 
     def createexecutioncontext(self):
         "Factory function for execution contexts."

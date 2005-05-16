@@ -1,5 +1,5 @@
 import autopath
-from pypy.interpreter import executioncontext, module, eval
+from pypy.interpreter import module, eval
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pycode import PyCode
 import sys, types

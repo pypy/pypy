@@ -76,7 +76,7 @@ class SYieldValue(ControlFlowException):
     def __init__(self, w_yieldvalue):
         self.w_yieldvalue = w_yieldvalue
 
-    def action(self, frame, last_instr, executioncontext):
+    def action(self, frame):
         raise ExitFrame(self.w_yieldvalue)
 
 class SGeneratorReturn(ControlFlowException):

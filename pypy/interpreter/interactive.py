@@ -1,7 +1,7 @@
 import autopath
 
 from pypy.interpreter import error
-from pypy.interpreter import executioncontext, baseobjspace, module, main
+from pypy.interpreter import baseobjspace, module, main
 import sys
 import code
 import time
@@ -91,7 +91,6 @@ class PyPyConsole(code.InteractiveConsole):
         self.space = objspace
         self.verbose = verbose
         space = self.space
-        self.ec = space.createexecutioncontext()
         self.console_compiler_flags = 0
 
         mainmodule = main.ensure__main__(space)
@@ -102,10 +101,6 @@ class PyPyConsole(code.InteractiveConsole):
 
         space.exec_("__pytrace__ = 0", self.w_globals, self.w_globals) 
         self.tracelevel = 0
-
-    def get_ec(self):
-        # XXX Wont handle threads
-        return self.ec
 
     def enable_command_line_completer(self):
         try:

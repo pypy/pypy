@@ -113,7 +113,7 @@ class PyFrame(eval.Frame):
                 except ControlFlowException, ctlflowexc:
                     # we have a reason to change the control flow
                     # (typically unroll the stack)
-                    ctlflowexc.action(self, self.last_instr, executioncontext)
+                    ctlflowexc.action(self)
             
         except ExitFrame, e:
             # leave that frame
@@ -436,7 +436,7 @@ class ControlFlowException(Exception, baseobjspace.BaseWrappable):
                 WHY_YIELD       SYieldValue
 
     """
-    def action(self, frame, last_instr, executioncontext):
+    def action(self, frame):
         "Default unroller implementation."
         while not frame.blockstack.empty():
             block = frame.blockstack.pop()
@@ -464,10 +464,9 @@ class SApplicationException(ControlFlowException):
     def __init__(self, operr):
         self.operr = operr
 
-    def action(self, frame, last_instr, executioncontext):
+    def action(self, frame):
         frame.last_exception = self.operr
-        ControlFlowException.action(self, frame,
-                                    last_instr, executioncontext)
+        ControlFlowException.action(self, frame)
 
     def emptystack(self, frame):
         # propagate the exception to the caller

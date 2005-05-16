@@ -65,11 +65,11 @@ class Frame(Wrappable):
     def resume(self):
         "Resume the execution of the frame from its current state."
         executioncontext = self.space.getexecutioncontext()
-        previous = executioncontext.enter(self)
+        executioncontext.enter(self)
         try:
             result = self.eval(executioncontext)
         finally:
-            executioncontext.leave(previous, self)
+            executioncontext.leave(self)
         return result
 
     # running a frame is usually the same as resuming it from its

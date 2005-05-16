@@ -1,5 +1,5 @@
 import sys
-from pypy.interpreter.miscutils import getthreadlocals, Stack
+from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.compiler import CPythonCompiler
 
@@ -20,10 +20,6 @@ class ExecutionContext:
         if self.framestack.depth() > self.space.sys.recursionlimit:
             raise OperationError(self.space.w_RuntimeError,
                                  self.space.wrap("maximum recursion depth exceeded"))
-        locals = getthreadlocals()
-        previous_ec = locals.executioncontext
-        locals.executioncontext = self
-
         try:
             frame.f_back = self.framestack.top()
         except:
@@ -31,17 +27,13 @@ class ExecutionContext:
 
         if not frame.code.hidden_applevel:
             self.framestack.push(frame)
-        return previous_ec
-    
-    def leave(self, previous_ec, frame):
+
+    def leave(self, frame):
         if self.w_profilefunc:
             self._trace(frame, 'leaveframe', None)
                 
         if not frame.code.hidden_applevel:
             self.framestack.pop()
-
-        locals = getthreadlocals()
-        locals.executioncontext = previous_ec
 
     def get_builtin(self):
         try:

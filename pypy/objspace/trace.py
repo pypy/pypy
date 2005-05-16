@@ -109,12 +109,12 @@ class ExecutionContextTracer(object):
     def enter(self, frame):
         """ called just before (continuing to) evaluating a frame. """
         self.result.append(EnterFrame(frame))
-        return self.ec.enter(frame)
+        self.ec.enter(frame)
 
-    def leave(self, previous_ec, frame):
+    def leave(self, frame):
         """ called just after evaluating of a frame is suspended/finished. """
         self.result.append(LeaveFrame(frame))
-        return self.ec.leave(previous_ec, frame)
+        self.ec.leave(frame)
 
     def bytecode_trace(self, frame):
         """ called just before execution of a bytecode. """

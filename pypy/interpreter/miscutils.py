@@ -77,15 +77,3 @@ class RwDictProxy(object):
 
     def items(self):
         return self.cls.__dict__.items()
-
-
-class ThreadLocals:
-    """Thread-local storage."""
-
-    def __init__(self):
-        self.executioncontext = None
-
-# XXX no thread support yet, so this is easy :-)
-_locals = ThreadLocals()
-def getthreadlocals():
-    return _locals
