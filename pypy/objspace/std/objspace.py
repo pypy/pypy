@@ -28,9 +28,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     PACKAGE_PATH = 'objspace.std'
 
-    def _freeze_(self): 
-        return True 
-
     def initialize(self):
         "NOT_RPYTHON: only for initializing the space."
         self._typecache = Cache()
