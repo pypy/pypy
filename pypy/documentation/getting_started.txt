@@ -10,11 +10,36 @@ Getting started with PyPy
 Just the facts 
 ============== 
 
-Checking out & running PyPy as a two-liner 
------------------------------------------- 
+getting & running the PyPy 0.6 release 
+---------------------------------------
 
-The public releases are avaiable on the `download page`_. If you want the
-bleeding edge development version you can also do:: 
+Download one of the following release files and unpack it: 
+
+*pypy-0.6 (not released yet)*
+    
+    * download `pypy-0.6.zip` or `pypy-0.6.tar.gz` and unpack it 
+    
+    * alternatively run ``svn co http://codespeak.net/svn/pypy/tag/0.6 pypy-0.6`` 
+
+then change to the ``pypy-0.6`` directory
+and execute the following command line:: 
+
+    python pypy/interpreter/py.py 
+
+This will give you a PyPy prompt, i.e. a very compliant 
+Python interpreter implemented in Python.  Because this version
+of PyPy still runs on top of CPython, it runs around 3000-4000
+times slower than the original CPython.  The 0.6 release focus 
+really was on compliancy: PyPy passes around `90% of CPythons core 
+language regression tests`_. 
+
+.. _`90% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
+
+Svn-check out & run the latest PyPy as a two-liner (with svn)
+-------------------------------------------------------------
+
+If you want to play with the ongoing development version 
+of PyPy you can simply do:: 
 
     svn co http://codespeak.net/svn/pypy/dist pypy-dist 
 
@@ -24,74 +49,42 @@ and after checkout you can get a PyPy interpreter via::
 
 have fun :-) 
 
-You can also go the more `detailed version`_ of this two-liner. 
+You may go to the more `detailed version`_ of this two-liner. 
 
-Browsing via HTTP and getting an svn client
--------------------------------------------
+Understanding PyPy's architecture
+---------------------------------
 
-You can `browse the pypy source code`_ directly via http.
-(sorry, viewcvs is still not stable enough with subversion).
-And here is some information to `install a subversion client`_. 
+For in-depth information about architecture and coding style head over 
+to the `documentation section`_ where you'll find lots of interesting 
+information.  Additionally, in true hacker spirit, you may just 
+`start reading sources`_ . 
 
-.. _`browse the pypy source code`: http://codespeak.net/svn/pypy/dist 
-.. _`download page`: http://codespeak.net/pypy/XXX_download_page_XXX
+.. _`documentation section`: index.html 
 
-coding style and testing 
------------------------- 
+running all of PyPy's tests  
+---------------------------
 
-We keep a strong focus on testing because we want to be able
-to refactor things all the time (without proper automated 
-testing this would become very hard and fragile).  
+If you want to see if PyPy works on your machine/platform 
+you can simply run PyPy's large test suite with:: 
 
-For an overview of how we organize our codebase please look at our 
-`coding-guide document`_.
+    python pypy/test_all.py 
 
-For running all PyPy tests you can issue:: 
+test_all.py is just another name for `py.test`_ which is the
+testing tool that we are using and enhancing for PyPy.   
 
-    cd pypy-dist/pypy/
-    python test_all.py 
-
-test_all.py really is another name for `py.test`_ which is a testing
-tool working from the current directory unless you specify 
-filename/directory arguments. 
-
-If you want to have write access to the codespeak respository
-please send a mail to *jum at anubis han de* or *hpk at merlinux de*
-in order to ask for a username and password.  Please mention what you want to do
-within the pypy project. Even better, come to our next sprint so that we can
-get to know you.  
-
-Viewing documentation 
----------------------
-
-PyPy documentation is generated from reST textfiles in the pypy/documentation directory 
-of our pypy-subversion repository.  Go to the `documentation start page`_  
-and look around.   
-
-.. _`documentation start page`: index.html 
-.. _`coding-guide document`: coding-guide.html 
 .. _`py.test`: http://codespeak.net/py/current/doc/test.html 
-
 .. _`detailed version`: 
 
-The long'n detailed version 
-===========================
+The long'n detailed version (using subversion)
+==============================================
 
-PyPy sources can be browsed on the web at:
-
-    http://codespeak.net/svn/pypy/dist 
-
-Once you are ready to download and try PyPy out,
-follow these instructions, which assume that you
-are working in a DOS box (Windows) or terminal (MacOS/X or Linux).
-
-detailed steps
---------------
+The following instructions are supposed to work from
+a DOS box (Win32) or from a terminal (MacOSX/Linux/Unix). 
 
 1. Download and install subversion_ if you do not already have it.
 
 2. Change to the directory where you wish to install the source tree,
-   and use subversion to download the source::
+   and use subversion to checkout the source::
 
         svn co http://codespeak.net/svn/pypy/dist pypy-dist 
 
@@ -134,7 +127,6 @@ detailed steps
    script name on the command line::
 
         python py.py ../../lib-python/modified-2.3.4/test/pystone.py 10
-
 
 6. The PyPy project uses test-driven-development.  Right now, there are
    a couple of different categories of tests which you can run.
@@ -238,8 +230,9 @@ sufficiently static Python programs into low-level code.
 
    This works only with fully annotated graphs.
 
-   
 
+.. _`start reading sources`: 
+   
 Where to start reading the sources
 ---------------------------------- 
 
