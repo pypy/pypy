@@ -35,8 +35,8 @@ language regression tests`_.
 
 .. _`90% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
 
-Svn-check out & run the latest PyPy as a two-liner (with svn)
--------------------------------------------------------------
+Svn-check out & run the latest PyPy as a two-liner
+--------------------------------------------------
 
 If you want to play with the ongoing development version 
 of PyPy you can simply do:: 
