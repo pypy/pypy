@@ -281,38 +281,37 @@ Additional Tools for running (and hacking) PyPy
 -----------------------------------------------
 
 We use some optional tools for working on pypy. They are not required to run 
-all the tests or to get an interactive PyPy prompt but they help to understand 
-and debug PyPy.  
+the basic tests or to get an interactive PyPy prompt but they help to understand 
+and debug PyPy especially for the ongoing translation work.  
 
 Recommended tools 
 +++++++++++++++++
 
-* graphviz::
+*graphviz* 
 
 	(used for visualizing the control-flow)
-	http://www.research.att.com/sw/tools/graphviz/download.html_
+	http://www.research.att.com/sw/tools/graphviz/download.html 
 
-* pygame::
+*pygame*
 
 	(to visualize control flow and annotation analysis of python programs)
-	http://www.pygame.org/download.shtml_
-
-	- on MAC OSX:  XXX  (please provide help on how to sanely
-      install pygame on OSX) 
+	http://www.pygame.org/download.shtml
 
 Optional tools 
 ++++++++++++++ 
 
-* llvm: 
+*llvm* 
+
+    (used for the optional LLVM translation backend)
     One of our backends uses the `low level virtual machine`_ to generate
     processor independant machine level code.
 
-* CLISP::
+*CLISP* 
 
+    (used for the optional Lisp translation backend)
 	http://clisp.cons.org/_
 
 .. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
-
 
 --------------------------------------------------------------------------------
 
