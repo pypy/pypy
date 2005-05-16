@@ -16,7 +16,7 @@ def test_simple():
     assert "did not crash"
 
 
-def test_append():
+def NOT_READY_test_append():
     def dummyfn():
         l = []
         l.append(5)
