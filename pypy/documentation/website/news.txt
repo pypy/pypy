@@ -1,3 +1,18 @@
+
+
+    The PyPy project aims at producing a simple runtime-system for the Python
+    language.  We want to express the basic abstractions within the
+    Python Language itself.  We later want to have a minimal
+    core which is not written in Python and doesn't need CPython anymore.
+    We want to take care that technologies such as `Psyco`_ and `Stackless`_
+    will easily integrate.  Simplicity and Flexibilty are the foremost goals. 
+    Rumors have it that the secret goal is being faster-than-C which is 
+    nonsense, isn't it?
+
+.. _Psyco: http://psyco.sf.net
+.. _Stackless: http://stackless.com 
+
+
 Next Sprint after EuroPython 2005 1st-7th July 
 ======================================================
 
@@ -20,4 +35,5 @@ forward to closer cooperation.
 
 .. _`revision report`: http://codespeak.net/pypy/rev/current/ 
 .. _`Pycon 2005 Sprint`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/pycon2005-announcement.txt
+
 
