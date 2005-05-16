@@ -128,7 +128,7 @@ subversion).
 
         python py.py ../../lib-python/modified-2.3.4/test/pystone.py 10
 
-3. The PyPy project uses test-driven-development.  Right now, there are
+4. The PyPy project uses test-driven-development.  Right now, there are
    a couple of different categories of tests which you can run.
    To run all the unit tests::
 
