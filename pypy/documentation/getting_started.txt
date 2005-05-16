@@ -33,17 +33,25 @@ times slower than the original CPython.  The 0.6 release focus
 really was on compliancy: PyPy passes around `90% of CPythons core 
 language regression tests`_. 
 
+You may go to the more `detailed version`_ of this two-liner. 
+
 .. _`90% of CPythons core language regression tests`: http://codespeak.net/~hpk/pypy-testresult/ 
 
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
 
 If you want to play with the ongoing development version 
-of PyPy you can simply do:: 
+of PyPy you can check out it out from repository using subversion. To do this
+download and install subversion_ if you don't allready have it. Then you can
+simply do on the command line (DOS box or terminal)::
 
     svn co http://codespeak.net/svn/pypy/dist pypy-dist 
 
-and after checkout you can get a PyPy interpreter via:: 
+This will create a directory named ``pypy-dist``, and will get you the PyPy
+source in ``pypy-dist/pypy`` and documentation files in
+``pypy-dist/pypy/documentation``.
+
+After checkout you can get a PyPy interpreter via:: 
 
     python pypy-dist/pypy/interpreter/py.py 
 
@@ -75,32 +83,24 @@ testing tool that we are using and enhancing for PyPy.
 .. _`py.test`: http://codespeak.net/py/current/doc/test.html 
 .. _`detailed version`: 
 
-The long'n detailed version (using subversion)
+The long'n detailed version of how to use PyPy
 ==============================================
 
-The following instructions are supposed to work from
-a DOS box (Win32) or from a terminal (MacOSX/Linux/Unix). 
+The following assumes that you have successfully downloaded and exctracted the
+PyPy release or have checked out PyPy using svn. It assumes that you are in
+the top level directory of the PyPy source tree, e.g. pypy-x.x (if you
+got a release) or pypy-dist (if you checked out the most recent version using
+subversion).
 
-1. Download and install subversion_ if you do not already have it.
+1. To start interpreting Python with PyPy, use Python 2.3 or greater::
 
-2. Change to the directory where you wish to install the source tree,
-   and use subversion to checkout the source::
-
-        svn co http://codespeak.net/svn/pypy/dist pypy-dist 
-
-   This will create a directory named ``pypy-dist``, and will get
-   you the PyPy source in ``pypy-dist/pypy`` and documentation
-   files in ``pypy-dist/pypy/documentation``. 
-   
-3. To start interpreting Python with PyPy, use Python 2.3 or greater::
-
-        cd pypy-dist/pypy/interpreter 
+        cd pypy/interpreter 
         python py.py
 
    After a few seconds, you should be at the PyPy prompt, which is
    the same as the Python prompt, but with an extra ">".
 
-4. Now you are ready to start running Python code.  Some real Python
+2. Now you are ready to start running Python code.  Some real Python
    modules will not run yet, and others will run too slowly to be
    worth waiting for, but a few are fun to run::
    
@@ -114,9 +114,9 @@ a DOS box (Win32) or from a terminal (MacOSX/Linux/Unix).
    on the current PyPy implementation.
 
 
-5. To list the PyPy interpreter command line options, type::
+3. To list the PyPy interpreter command line options, type::
 
-        cd pypy-dist/pypy/interpreter 
+        cd pypy/interpreter 
         python py.py --help
 
    As an example of using PyPy from the command line, you could type::
@@ -128,17 +128,16 @@ a DOS box (Win32) or from a terminal (MacOSX/Linux/Unix).
 
         python py.py ../../lib-python/modified-2.3.4/test/pystone.py 10
 
-6. The PyPy project uses test-driven-development.  Right now, there are
+3. The PyPy project uses test-driven-development.  Right now, there are
    a couple of different categories of tests which you can run.
    To run all the unit tests::
 
-        cd pypy-dist/pypy
+        cd pypy
         python test_all.py
 
    Alternatively, you may run subtests by going to the correct subdirectory
    and running them individually::
 
-        cd pypy-dist/pypy
         python test_all.py module/test/test_builtin.py
 
    ``test_all.py`` is actually just a synonym for `py.test`_ which is 
@@ -150,12 +149,12 @@ a DOS box (Win32) or from a terminal (MacOSX/Linux/Unix).
    Finally, there are standard regression tests which you can 
    run like this::
 
-        cd pypy-dist/lib-python-2.3.4/test 
-        python ../../pypy/test_all.py 
+        cd lib-python-2.3.4/test 
+        python ../../pypy/test_all.py -E
 
    or if you have `installed py.test`_ then you simply say::
 
-        py.test 
+        py.test -E
 
    from the lib-python-2.3.4/test directory. 
 
@@ -173,7 +172,7 @@ sufficiently static Python programs into low-level code.
 
 3. Type::
 
-        cd pypy-dist/pypy/translator
+        cd pypy/translator
         python -i translator.py
 
    Test snippets of translatable code are provided in the file
@@ -237,31 +236,32 @@ Where to start reading the sources
 ---------------------------------- 
 
 PyPy is made from parts that are relatively independent from each other.
-You should start looking at the part that attracts you most:
+You should start looking at the part that attracts you most (all parts are
+relative to the PyPy toplevel directory):
 
-*  `pypy-dist/pypy/interpreter`_ contains the basic interpreter: bytecode dispatcher
+*  `pypy/interpreter`_ contains the basic interpreter: bytecode dispatcher
    in pyopcode.py_, frame and code objects in eval.py_ and pyframe.py_,
    function objects and argument passing in function.py_ and argument.py_,
    the object space interface definition in baseobjspace.py_, modules in
    module.py_ and lazymodule.py_.  Core types supporting the interpreter are
    defined in typedef.py_.
 
-*  `pypy-dist/pypy/objspace/std`_ contains the `Standard object space`_.  The main file
+*  `pypy/objspace/std`_ contains the `Standard object space`_.  The main file
    is objspace.py_.  For each type, the files ``xxxtype.py`` and
    ``xxxobject.py`` contain respectively the definition of the type and its
    (default) implementation.
 
-*  `pypy-dist/pypy/objspace`_ contains a few other object spaces: the thunk_
+*  `pypy/objspace`_ contains a few other object spaces: the thunk_
    one, the trace_ one, the flow_ one.  The latter is a relatively short piece
    of  code that builds the control flow graphs when the interpreter runs in it.
 
-*  `pypy-dist/pypy/translator`_ contains the code analysis and generation stuff.
+*  `pypy/translator`_ contains the code analysis and generation stuff.
    Start reading from translator.py_, from which it should be easy to follow
    the pieces of code involved in the various translation phases.
 
-*  `pypy-dist/pypy/annotation`_ contains the data model for the type annotation that
+*  `pypy/annotation`_ contains the data model for the type annotation that
    can be inferred about a graph.  The graph "walker" that uses this is in
-   `pypy-dist/pypy/translator/annrpython.py`_.
+   `pypy/translator/annrpython.py`_.
 
 
 To learn more
@@ -271,6 +271,7 @@ To learn more
    read around in the documentation_ and the wiki_, and consider 
    subscribing to the `mailing lists`_ (or simply
    read the archives online) or show up irc.freenode.net:6667, channel #pypy.
+   The logs of the channel can be found at http://nimrod.terra-link.net/pypy/_.
 
 *  To help PyPy become Python-the-next-generation, you may write some 
    `unit tests`_ and file some `bug reports`_.
@@ -281,8 +282,8 @@ Additional Tools for running (and hacking) PyPy
 -----------------------------------------------
 
 We use some optional tools for working on pypy. They are not required to run 
-the basic tests or to get an interactive PyPy prompt but they help to understand 
-and debug PyPy especially for the ongoing translation work.  
+the basic tests or to get an interactive PyPy prompt but they help to
+understand  and debug PyPy especially for the ongoing translation work.  
 
 Recommended tools 
 +++++++++++++++++
@@ -317,7 +318,7 @@ Optional tools
 
 .. _Dot Graphviz:           http://www.research.att.com/sw/tools/graphviz/
 .. _Pygame:                 http://www.pygame.org/
-.. _pypy-dist/pypy/interpreter:   http://codespeak.net/svn/pypy/dist/pypy/interpreter/
+.. _pypy/interpreter:   http://codespeak.net/svn/pypy/dist/pypy/interpreter/
 .. _pyopcode.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyopcode.py
 .. _eval.py:                http://codespeak.net/svn/pypy/dist/pypy/interpreter/eval.py
 .. _pyframe.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/pyframe.py
@@ -327,17 +328,17 @@ Optional tools
 .. _module.py:              http://codespeak.net/svn/pypy/dist/pypy/interpreter/module.py
 .. _lazymodule.py:          http://codespeak.net/svn/pypy/dist/pypy/interpreter/lazymodule.py
 .. _typedef.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/typedef.py
-.. _pypy-dist/pypy/objspace/std:  http://codespeak.net/svn/pypy/dist/pypy/objspace/std/
+.. _pypy/objspace/std:  http://codespeak.net/svn/pypy/dist/pypy/objspace/std/
 .. _Standard object space:  http://codespeak.net/pypy/index.cgi?doc/stdobjspace.html
 .. _objspace.py:            http://codespeak.net/svn/pypy/dist/pypy/objspace/std/objspace.py
-.. _pypy-dist/pypy/objspace:      http://codespeak.net/svn/pypy/dist/pypy/objspace/
+.. _pypy/objspace:      http://codespeak.net/svn/pypy/dist/pypy/objspace/
 .. _thunk:                  http://codespeak.net/svn/pypy/dist/pypy/objspace/thunk.py
 .. _trace:                  http://codespeak.net/svn/pypy/dist/pypy/objspace/trace.py
 .. _flow:                   http://codespeak.net/svn/pypy/dist/pypy/objspace/flow/
-.. _pypy-dist/pypy/translator:    http://codespeak.net/svn/pypy/dist/pypy/translator/
+.. _pypy/translator:    http://codespeak.net/svn/pypy/dist/pypy/translator/
 .. _translator.py:          http://codespeak.net/svn/pypy/dist/pypy/translator/translator.py
-.. _pypy-dist/pypy/annotation:    http://codespeak.net/svn/pypy/dist/pypy/annotation/
-.. _pypy-dist/pypy/translator/annrpython.py: http://codespeak.net/svn/pypy/dist/pypy/translator/annrpython.py
+.. _pypy/annotation:    http://codespeak.net/svn/pypy/dist/pypy/annotation/
+.. _pypy/translator/annrpython.py: http://codespeak.net/svn/pypy/dist/pypy/translator/annrpython.py
 .. _mailing lists:          http://codespeak.net/pypy/index.cgi?lists
 .. _documentation:          http://codespeak.net/pypy/index.cgi?doc
 .. _wiki:                   http://codespeak.net/moin/pypy/moin.cgi/FrontPage?action=show
