@@ -64,22 +64,28 @@ class W_DictObject(W_Object):
     def lookdict(self, lookup_hash, w_lookup):
         assert isinstance(lookup_hash, r_uint)
         space = self.space
-        i = lookup_hash % len(self.data)
+        data = self.data
+        i = lookup_hash % len(data)
 
-        entry = self.data[i]
+        entry = data[i]
         if entry.w_key is None or space.is_w(w_lookup, entry.w_key):
             return entry
         if entry.w_key is self.w_dummy:
             freeslot = entry
         else:
             if entry.hash == lookup_hash and space.eq_w(entry.w_key, w_lookup):
+                if self.data is not data:
+                    # the eq_w() modified the dict sufficiently to have it
+                    # switch to another table.  Can't return 'entry', which
+                    # belongs to the old table.  Start over...
+                    return self.lookdict(lookup_hash, w_lookup)
                 return entry
             freeslot = None
 
         perturb = lookup_hash
         while 1:
             i = (i << 2) + i + perturb + 1
-            entry = self.data[i%len(self.data)]
+            entry = data[i%len(data)]
             if entry.w_key is None:
                 if freeslot:
                     return freeslot
@@ -87,6 +93,11 @@ class W_DictObject(W_Object):
                     return entry
             if entry.hash == lookup_hash and entry.w_key is not self.w_dummy \
                    and space.eq_w(entry.w_key, w_lookup):
+                if self.data is not data:
+                    # the eq_w() modified the dict sufficiently to have it
+                    # switch to another table.  Can't return 'entry', which
+                    # belongs to the old table.  Start over...
+                    return self.lookdict(lookup_hash, w_lookup)
                 return entry
             if entry.w_key is self.w_dummy and freeslot is None:
                 freeslot = entry
