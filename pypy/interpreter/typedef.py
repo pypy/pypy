@@ -297,8 +297,8 @@ from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
-def descr_get_dict(space, obj):
-    w_dict = obj.getdict()
+def descr_get_dict(space, w_obj):
+    w_dict = w_obj.getdict()
     if w_dict is None:
         typename = space.type(w_obj).getname(space, '?')
         raise OperationError(space.w_TypeError,
@@ -306,8 +306,8 @@ def descr_get_dict(space, obj):
                                         " '%s' objects" % typename))
     return w_dict
 
-def descr_set_dict(space, obj, w_dict):
-    obj.setdict(space, w_dict)
+def descr_set_dict(space, w_obj, w_dict):
+    w_obj.setdict(space, w_dict)
 
 def generic_ne(space, w_obj1, w_obj2):
     if space.eq_w(w_obj1, w_obj2):
