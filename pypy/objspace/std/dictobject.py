@@ -61,9 +61,6 @@ class W_DictObject(W_Object):
             if entry.w_value is not None:
                 self.insert(entry.hash, entry.w_key, entry.w_value)
 
-    def non_empties(self):
-        return [entry for entry in self.data if entry.w_value is not None]
-        
     def lookdict(self, lookup_hash, w_lookup):
         assert isinstance(lookup_hash, r_uint)
         space = self.space
@@ -98,9 +95,10 @@ class W_DictObject(W_Object):
     def unwrap(w_dict):
         space = w_dict.space
         result = {}
-        for entry in w_dict.non_empties():
-            # XXX generic mixed types unwrap
-            result[space.unwrap(entry.w_key)] = space.unwrap(entry.w_value)
+        for entry in w_dict.data:
+            if entry.w_value is not None:
+                # XXX generic mixed types unwrap
+                result[space.unwrap(entry.w_key)] = space.unwrap(entry.w_value)
         return result
 
 registerimplementation(W_DictObject)
@@ -169,22 +167,16 @@ def eq__Dict_Dict(space, w_left, w_right):
     if space.is_true(space.is_(w_left, w_right)):
         return space.w_True
 
-    dataleft = w_left.non_empties()
-    dataright = w_right.non_empties()
-    if len(dataleft) != len(dataright):
+    if w_left.used != w_right.used:
         return space.w_False
-    for entry in dataleft:
+    for entry in w_left.data:
         w_val = entry.w_value
         if w_val is None:
             continue
-        w_key = entry.w_key
-        try:
-            w_rightval = space.getitem(w_right, w_key)
-        except OperationError, e:
-            if e.match(space, space.w_KeyError):
-                return space.w_False
-            raise
-        if not space.is_true(space.eq(w_val, w_rightval)):
+        rightentry = w_right.lookdict(entry.hash, entry.w_key)
+        if rightentry.w_value is None:
+            return space.w_False
+        if not space.eq_w(w_val, rightentry.w_value):
             return space.w_False
     return space.w_True
 
@@ -199,33 +191,28 @@ def characterize(space, adata, w_b):
             continue
         w_key = entry.w_key
         if w_smallest_diff_a_key is None or space.is_true(space.lt(w_key, w_smallest_diff_a_key)):
-            try:
-                w_b_value = space.getitem(w_b, w_key)
-            except OperationError, e:
-                if not e.match(space, space.w_KeyError):
-                    raise
+            b_entry = w_b.lookdict(entry.hash, w_key)
+            if b_entry.w_value is None:
                 w_its_value = w_val
                 w_smallest_diff_a_key = w_key
             else:
-                if not space.eq_w(w_val, w_b_value):
+                if not space.eq_w(w_val, b_entry.w_value):
                     w_its_value = w_val
                     w_smallest_diff_a_key = w_key
     return w_smallest_diff_a_key, w_its_value
 
 def lt__Dict_Dict(space, w_left, w_right):
     # Different sizes, no problem
-    dataleft = w_left.non_empties()
-    dataright = w_right.non_empties()
-    if len(dataleft) < len(dataright):
+    if w_left.used < w_right.used:
         return space.w_True
-    if len(dataleft) > len(dataright):
+    if w_left.used > w_right.used:
         return space.w_False
 
     # Same size
-    w_leftdiff, w_leftval = characterize(space, dataleft, w_right)
+    w_leftdiff, w_leftval = characterize(space, w_left.data, w_right)
     if w_leftdiff is None:
         return space.w_False
-    w_rightdiff, w_rightval = characterize(space, dataright, w_left)
+    w_rightdiff, w_rightval = characterize(space, w_right.data, w_left)
     w_res = space.w_False
     if w_rightdiff is not None:
         w_res = space.lt(w_leftdiff, w_rightdiff)
