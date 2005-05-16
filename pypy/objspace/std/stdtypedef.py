@@ -8,7 +8,7 @@ from pypy.tool.compile import compile2
 
 __all__ = ['StdTypeDef', 'newmethod', 'gateway',
            'GetSetProperty', 'Member',
-           'MultiMethod']
+           'MultiMethod', 'descr_get_dict']
 
 
 class StdTypeDef(TypeDef):

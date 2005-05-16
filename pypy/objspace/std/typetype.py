@@ -1,6 +1,5 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.stdtypedef import *
-from pypy.objspace.std.dictproxyobject import descr_get_dictproxy
 
 def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
     "This is used to create user-defined classes only."
@@ -142,7 +141,7 @@ type_typedef = StdTypeDef("type",
     __bases__ = GetSetProperty(descr__bases),
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
-    __dict__ = GetSetProperty(descr_get_dictproxy),
+    __dict__ = GetSetProperty(descr_get_dict),
     __doc__ = GetSetProperty(descr__doc),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),

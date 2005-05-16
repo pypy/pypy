@@ -4,6 +4,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
+from pypy.objspace.std.dictproxyobject import W_DictProxyObject
 
 from copy_reg import _HEAPTYPE
 
@@ -243,15 +244,14 @@ class W_TypeObject(W_Object):
             del w_self.lazyloaders
         return False
 
-    def getdict(w_self):
-        # XXX should return a <dictproxy object>
+    def getdict(w_self): # returning a dict-proxy!
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
         space = w_self.space
         dictspec = []
         for key, w_value in w_self.dict_w.items():
             dictspec.append((space.wrap(key), w_value))
-        return space.newdict(dictspec)
+        return W_DictProxyObject(space, space.newdict(dictspec))
 
     def unwrap(w_self):
         if hasattr(w_self.instancetypedef, 'fakedcpytype'):
