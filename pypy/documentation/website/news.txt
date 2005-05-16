@@ -16,7 +16,7 @@
 Next Sprint after EuroPython 2005 1st-7th July 
 ======================================================
 
-The next sprint is scheduled right after EuroPython 2005 in Götheborg, Sweden. 
+The next sprint is scheduled right after EuroPython 2005 in Göteborg, Sweden. 
 We take a day of break after the conference and start sprinting from 1st-7th 
 of July 2005.   The sprint theme is likely to be related strongly to 
 translation and working towards getting a first self-contained PyPy 
