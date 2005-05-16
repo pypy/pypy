@@ -1,0 +1,23 @@
+Next Sprint after EuroPython 2005 1st-7th July 
+======================================================
+
+The next sprint is scheduled right after EuroPython 2005 in Götheborg, Sweden. 
+We take a day of break after the conference and start sprinting from 1st-7th 
+of July 2005.   The sprint theme is likely to be related strongly to 
+translation and working towards getting a first self-contained PyPy 
+version.  Additionally there will be a four day Pre-EuroPython sprint
+for people who already are familiar with the PyPy code base. 
+*(05/04/2005)*
+
+Pycon 2005 Sprint in Washington finished
+========================================================== 
+
+Our `Pycon 2005 Sprint`_ finished and was a good success.  In our new 
+`revision report`_ we track information on compliancy with CPython.  During the 
+conferences we made good contacts with other Python implementors and look 
+forward to closer cooperation.  
+*(03/28/2005)* 
+
+.. _`revision report`: http://codespeak.net/pypy/rev/current/ 
+.. _`Pycon 2005 Sprint`: http://codespeak.net/svn/pypy/extradoc/sprintinfo/pycon2005-announcement.txt
+

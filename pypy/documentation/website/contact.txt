@@ -1,13 +1,13 @@
 PyPy mailing lists
 ==================
 
-`development mailing list`_ for conceptual and coding discussions (low to medium traffic). 
+* `development mailing list`_ for conceptual and coding discussions (low to medium traffic). 
 
-`subversion commit mailing list`_ all updates to the trunk/branch source and documentation tree. 
+* `subversion commit mailing list`_ all updates to the trunk/branch source and documentation tree. 
 
-`sprint mailing list`_ for people (interested in) attending upcoming sprints. 
+* `sprint mailing list`_ for people (interested in) attending upcoming sprints. 
 
-`EU partner mailing list`_ for people involved with EU administrative details 
+* `EU partner mailing list`_ for people involved with EU administrative details 
 
 .. _`sprint mailing list`: http://codespeak.net/mailman/listinfo/pypy-sprint 
 .. _`subversion commit mailing list`: http://codespeak.net/mailman/listinfo/pypy-svn
@@ -18,10 +18,12 @@ PyPy mailing lists
 PyPy issue trackers 
 =================== 
 
-`development bug/feature tracker`_ for filing bugs and feature requests. 
-`EU milestone/issue tracking`_ for organizing work on EU-project milestones and deliverables 
+* `development bug/feature tracker`_ for filing bugs and feature requests. 
+
+* `EU milestone/issue tracking`_ for organizing work on EU-project milestones and deliverables 
 
 .. _`EU milestone/issue tracking`: https://codespeak.net/issue/pypy-eu/ 
+
 .. _`development bug/feature tracker`: https://codespeak.net/issue/pypy-dev/ 
 
 IRC Channel #pypy on freenode
@@ -30,4 +32,3 @@ IRC Channel #pypy on freenode
 Many of the core developers are hanging out at #pypy on irc.freenode.net. 
 You are welcome to join and ask questions even more so if you are interested
 in participating in some parts of the PyPy project. 
-

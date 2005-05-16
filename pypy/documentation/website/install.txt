@@ -1,7 +1,7 @@
-
 Download and install PyPy 
 ========================= 
 
+XXX CAUTION: this page does not contain correct information yet 
 XXX merge with getting_started somehow? 
 
 There are currently two ways to install PyPy.  If you have a subversion
@@ -12,6 +12,7 @@ Otherwise you can download and unpack one of the following files:
 
 *pypy-0.6* 
     `pypy-0.6.tar.gz`_ 
+
     `pypy-0.6.zip`_ 
 
 .. _`pypy-0.6.tar.gz`: http://codespeak.net/download/pypy/pypy-0.6.tar.gz
