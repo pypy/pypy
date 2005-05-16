@@ -81,10 +81,11 @@ def really_build_fake_type(cpy_type):
     def fake__new__(space, w_type, __args__):
         args_w, kwds_w = __args__.unpack()
         args = [space.unwrap(w_arg) for w_arg in args_w]
-        kwds = dict([(key, space.unwrap(w_value))
-                     for (key, w_value) in kwds_w.items()])
+        kwds = {}
+        for (key, w_value) in kwds_w.items():
+            kwds[key] = space.unwrap(w_value)
         try:
-            r = cpy_type.__new__(cpy_type, *args, **kwds)
+            r = apply(cpy_type.__new__, [cpy_type]+args, kwds)
         except:
             wrap_exception(space)
             raise
