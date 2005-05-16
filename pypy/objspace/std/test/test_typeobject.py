@@ -406,6 +406,7 @@ class AppTestTypeObject:
             pass
 
         i = I()
+        
         i2 = I()
         i.__class__ = I2
         i2.__class__ = I
@@ -428,6 +429,10 @@ class AppTestTypeObject:
 
         raises(TypeError, "X().__class__ = object")
         raises(TypeError, "X().__class__ = 1")
+
+        class Int(int): __slots__ = []
+
+        raises(TypeError, "Int().__class__ = int")
 
     def test_name(self):
         class Abc(object):

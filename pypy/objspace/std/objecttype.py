@@ -22,6 +22,9 @@ def descr_set___class__(space, w_obj, w_newcls):
         raise OperationError(space.w_TypeError,
                              space.wrap("__class__ must be set to new-style class, not '%s' object" % 
                                         space.type(w_newcls).getname(space, '?')))
+    if not w_newcls.is_heaptype():
+        raise OperationError(space.w_TypeError,
+                             space.wrap("__class__ assignment: only for heap types"))
     w_oldcls = space.type(w_obj)
     if w_oldcls.get_layout() == w_newcls.get_layout() and w_oldcls.hasdict == w_newcls.hasdict:
         w_obj.setclass(space, w_newcls)
