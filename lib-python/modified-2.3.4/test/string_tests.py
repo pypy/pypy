@@ -2,7 +2,7 @@
 Common tests shared by test_str, test_unicode, test_userstring and test_string.
 """
 
-import unittest, string, sys
+import unittest, string, sys, operator
 from test import test_support
 from UserList import UserList
 
@@ -64,6 +64,16 @@ class CommonTest(unittest.TestCase):
             realresult = getattr(object, methodname)(*args)
             self.assert_(object is not realresult)
 
+    # check that op(*args) returns result
+    def checkop(self, result, op, *args):
+        result = self.fixtype(result)
+        args = self.fixtype(args)
+        realresult = op(*args)
+        self.assertEqual(
+            result,
+            realresult
+        )
+
     # check that object.method(*args) raises exc
     def checkraises(self, exc, object, methodname, *args):
         object = self.fixtype(object)
@@ -74,11 +84,25 @@ class CommonTest(unittest.TestCase):
             *args
         )
 
+    # check that op(*args) raises exc
+    def checkopraises(self, exc, op, *args):
+        args = self.fixtype(args)
+        self.assertRaises(
+            exc,
+            op,
+            *args
+        )
+
     # call object.method(*args) without any checks
     def checkcall(self, object, methodname, *args):
         object = self.fixtype(object)
         args = self.fixtype(args)
         getattr(object, methodname)(*args)
+
+    # call op(*args) without any checks
+    def checkopcall(self, op, *args):
+        args = self.fixtype(args)
+        op(*args)
 
     def test_capitalize(self):
         self.checkequal(' hello ', ' hello ', 'capitalize')
@@ -460,50 +484,50 @@ class MixinStrUnicodeUserStringTest:
         self.checkraises(TypeError, 'hello', 'endswith', 42)
 
     def test___contains__(self):
-        self.checkequal(True, '', '__contains__', '')         # vereq('' in '', True)
-        self.checkequal(True, 'abc', '__contains__', '')      # vereq('' in 'abc', True)
-        self.checkequal(False, 'abc', '__contains__', '\0')   # vereq('\0' in 'abc', False)
-        self.checkequal(True, '\0abc', '__contains__', '\0')  # vereq('\0' in '\0abc', True)
-        self.checkequal(True, 'abc\0', '__contains__', '\0')  # vereq('\0' in 'abc\0', True)
-        self.checkequal(True, '\0abc', '__contains__', 'a')   # vereq('a' in '\0abc', True)
-        self.checkequal(True, 'asdf', '__contains__', 'asdf') # vereq('asdf' in 'asdf', True)
-        self.checkequal(False, 'asd', '__contains__', 'asdf') # vereq('asdf' in 'asd', False)
-        self.checkequal(False, '', '__contains__', 'asdf')    # vereq('asdf' in '', False)
+        self.checkop(True, operator.contains, '', '')         # vereq('' in '', True)
+        self.checkop(True, operator.contains, 'abc', '')      # vereq('' in 'abc', True)
+        self.checkop(False, operator.contains, 'abc', '\0')   # vereq('\0' in 'abc', False)
+        self.checkop(True, operator.contains, '\0abc', '\0')  # vereq('\0' in '\0abc', True)
+        self.checkop(True, operator.contains, 'abc\0', '\0')  # vereq('\0' in 'abc\0', True)
+        self.checkop(True, operator.contains, '\0abc', 'a')   # vereq('a' in '\0abc', True)
+        self.checkop(True, operator.contains, 'asdf', 'asdf') # vereq('asdf' in 'asdf', True)
+        self.checkop(False, operator.contains, 'asd', 'asdf') # vereq('asdf' in 'asd', False)
+        self.checkop(False, operator.contains, '', 'asdf')    # vereq('asdf' in '', False)
 
     def test_subscript(self):
-        self.checkequal(u'a', 'abc', '__getitem__', 0)
-        self.checkequal(u'c', 'abc', '__getitem__', -1)
-        self.checkequal(u'a', 'abc', '__getitem__', 0L)
-        self.checkequal(u'abc', 'abc', '__getitem__', slice(0, 3))
-        self.checkequal(u'abc', 'abc', '__getitem__', slice(0, 1000))
-        self.checkequal(u'a', 'abc', '__getitem__', slice(0, 1))
-        self.checkequal(u'', 'abc', '__getitem__', slice(0, 0))
+        self.checkop(u'a', operator.getitem, 'abc', 0)
+        self.checkop(u'c', operator.getitem, 'abc', -1)
+        self.checkop(u'a', operator.getitem, 'abc', 0L)
+        self.checkop(u'abc', operator.getitem, 'abc', slice(0, 3))
+        self.checkop(u'abc', operator.getitem, 'abc', slice(0, 1000))
+        self.checkop(u'a', operator.getitem, 'abc', slice(0, 1))
+        self.checkop(u'', operator.getitem, 'abc', slice(0, 0))
         # FIXME What about negative indizes? This is handled differently by [] and __getitem__(slice)
 
-        self.checkraises(TypeError, 'abc', '__getitem__', 'def')
+        self.checkopraises(TypeError, operator.getitem, 'abc', 'def')
 
     def test_slice(self):
-        self.checkequal('abc', 'abc', '__getslice__', 0, 1000)
-        self.checkequal('abc', 'abc', '__getslice__', 0, 3)
-        self.checkequal('ab', 'abc', '__getslice__', 0, 2)
-        self.checkequal('bc', 'abc', '__getslice__', 1, 3)
-        self.checkequal('b', 'abc', '__getslice__', 1, 2)
-        self.checkequal('', 'abc', '__getslice__', 2, 2)
-        self.checkequal('', 'abc', '__getslice__', 1000, 1000)
-        self.checkequal('', 'abc', '__getslice__', 2000, 1000)
-        self.checkequal('', 'abc', '__getslice__', 2, 1)
+        self.checkop('abc', operator.getslice, 'abc', 0, 1000)
+        self.checkop('abc', operator.getslice, 'abc', 0, 3)
+        self.checkop('ab', operator.getslice, 'abc', 0, 2)
+        self.checkop('bc', operator.getslice, 'abc', 1, 3)
+        self.checkop('b', operator.getslice, 'abc', 1, 2)
+        self.checkop('', operator.getslice, 'abc', 2, 2)
+        self.checkop('', operator.getslice, 'abc', 1000, 1000)
+        self.checkop('', operator.getslice, 'abc', 2000, 1000)
+        self.checkop('', operator.getslice, 'abc', 2, 1)
         # FIXME What about negative indizes? This is handled differently by [] and __getslice__
 
-        self.checkraises(TypeError, 'abc', '__getslice__', 'def')
+        self.checkopraises(TypeError, operator.getslice, 'abc', 'def')
 
     def test_mul(self):
-        self.checkequal('', 'abc', '__mul__', -1)
-        self.checkequal('', 'abc', '__mul__', 0)
-        self.checkequal('abc', 'abc', '__mul__', 1)
-        self.checkequal('abcabcabc', 'abc', '__mul__', 3)
-        self.checkraises(TypeError, 'abc', '__mul__')
-        self.checkraises(TypeError, 'abc', '__mul__', '')
-        self.checkraises(OverflowError, 10000*'abc', '__mul__', 2000000000)
+        self.checkop('', operator.mul, 'abc', -1)
+        self.checkop('', operator.mul, 'abc', 0)
+        self.checkop('abc', operator.mul, 'abc', 1)
+        self.checkop('abcabcabc', operator.mul, 'abc', 3)
+        self.checkopraises(TypeError, operator.mul, 'abc')
+        self.checkopraises(TypeError, operator.mul, 'abc', '')
+        self.checkopraises(OverflowError, operator.mul, 10000*'abc', 2000000000)
 
     def test_join(self):
         # join now works with any sequence type
@@ -535,39 +559,39 @@ class MixinStrUnicodeUserStringTest:
         self.checkraises(TypeError, ' ', 'join', Sequence([7, 'hello', 123L]))
 
     def test_formatting(self):
-        self.checkequal('+hello+', '+%s+', '__mod__', 'hello')
-        self.checkequal('+10+', '+%d+', '__mod__', 10)
-        self.checkequal('a', "%c", '__mod__', "a")
-        self.checkequal('a', "%c", '__mod__', "a")
-        self.checkequal('"', "%c", '__mod__', 34)
-        self.checkequal('$', "%c", '__mod__', 36)
-        self.checkequal('10', "%d", '__mod__', 10)
-        self.checkequal('\x7f', "%c", '__mod__', 0x7f)
+        self.checkop('+hello+', operator.mod, '+%s+', 'hello')
+        self.checkop('+10+', operator.mod, '+%d+', 10)
+        self.checkop('a', operator.mod, "%c", "a")
+        self.checkop('a', operator.mod, "%c", "a")
+        self.checkop('"', operator.mod, "%c", 34)
+        self.checkop('$', operator.mod, "%c", 36)
+        self.checkop('10', operator.mod, "%d", 10)
+        self.checkop('\x7f', operator.mod, "%c", 0x7f)
 
         for ordinal in (-100, 0x200000):
             # unicode raises ValueError, str raises OverflowError
-            self.checkraises((ValueError, OverflowError), '%c', '__mod__', ordinal)
+            self.checkopraises((ValueError, OverflowError), operator.mod, '%c', ordinal)
 
-        self.checkequal(' 42', '%3ld', '__mod__', 42)
-        self.checkequal('0042.00', '%07.2f', '__mod__', 42)
-        self.checkequal('0042.00', '%07.2F', '__mod__', 42)
+        self.checkop(' 42', operator.mod, '%3ld', 42)
+        self.checkop('0042.00', operator.mod, '%07.2f', 42)
+        self.checkop('0042.00', operator.mod, '%07.2F', 42)
 
-        self.checkraises(TypeError, 'abc', '__mod__')
-        self.checkraises(TypeError, '%(foo)s', '__mod__', 42)
-        self.checkraises(TypeError, '%s%s', '__mod__', (42,))
-        self.checkraises(TypeError, '%c', '__mod__', (None,))
-        self.checkraises(ValueError, '%(foo', '__mod__', {})
-        self.checkraises(TypeError, '%(foo)s %(bar)s', '__mod__', ('foo', 42))
+        self.checkopraises(TypeError, operator.mod, 'abc')
+        self.checkopraises(TypeError, operator.mod, '%(foo)s', 42)
+        self.checkopraises(TypeError, operator.mod, '%s%s', (42,))
+        self.checkopraises(TypeError, operator.mod, '%c', (None,))
+        self.checkopraises(ValueError, operator.mod, '%(foo', {})
+        self.checkopraises(TypeError, operator.mod, '%(foo)s %(bar)s', ('foo', 42))
 
         # argument names with properly nested brackets are supported
-        self.checkequal('bar', '%((foo))s', '__mod__', {'(foo)': 'bar'})
+        self.checkop('bar', operator.mod, '%((foo))s', {'(foo)': 'bar'})
 
         # 100 is a magic number in PyUnicode_Format, this forces a resize
-        self.checkequal(103*'a'+'x', '%sx', '__mod__', 103*'a')
+        self.checkop(103*'a'+'x', operator.mod, '%sx', 103*'a')
 
-        self.checkraises(TypeError, '%*s', '__mod__', ('foo', 'bar'))
-        self.checkraises(TypeError, '%10.*f', '__mod__', ('foo', 42.))
-        self.checkraises(ValueError, '%10', '__mod__', (42,))
+        self.checkopraises(TypeError, operator.mod, '%*s', ('foo', 'bar'))
+        self.checkopraises(TypeError, operator.mod, '%10.*f', ('foo', 42.))
+        self.checkopraises(ValueError, operator.mod, '%10', (42,))
 
     def test_floatformatting(self):
         # float formatting
@@ -582,7 +606,7 @@ class MixinStrUnicodeUserStringTest:
                             (99, 123)]:
             format = '%%.%if' % prec
             try:
-                self.checkcall(format, "__mod__", value)
+                self.checkopcall(operator.mod, format, value)
             except OverflowError:
                 self.failUnless(abs(value) < 1e25 and prec >= 67,
                                 "OverflowError on small examples")
