@@ -189,7 +189,7 @@ class Bookkeeper:
                     self.seen_mutable[x] = True
                     for attr in x.__dict__:
                         clsdef.add_source_for_attribute(attr, x) # can trigger reflowing
-                return SomeInstance(clsdef)
+                result = SomeInstance(clsdef)
         elif x is None:
             return self.getpbc(None)
         else:
