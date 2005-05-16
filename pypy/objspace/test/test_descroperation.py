@@ -81,6 +81,19 @@ class AppTest_Descroperation:
         assert b ** b == "B's pow"
         assert -b == "B's neg"
 
+        class C(B):
+            pass
+        c = C()
+        assert c - 1 == "B's sub"
+        assert 1 - c == "B's rsub"
+        assert c - b == "B's sub"
+        assert b - c == "B's sub"
+
+        assert c ** 1 == "B's pow"
+        assert 1 ** c == "B's rpow"
+        assert c ** b == "B's pow"
+        assert b ** c == "B's pow"
+
     def test_getslice(self):
         class Sq(object):
             def __getslice__(self, start, stop):

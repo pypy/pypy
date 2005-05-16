@@ -216,12 +216,12 @@ class DescrOperation:
     def pow(space, w_obj1, w_obj2, w_obj3):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
-        w_left_impl = space.lookup(w_obj1, '__pow__')
+        w_left_src, w_left_impl = space.lookup_where(w_obj1, '__pow__')
         if space.is_true(space.is_(w_typ1, w_typ2)):
             w_right_impl = None
         else:
-            w_right_impl = space.lookup(w_obj2, '__rpow__')
-            if space.is_true(space.issubtype(w_typ2, w_typ1)):
+            w_right_src, w_right_impl = space.lookup_where(w_obj2, '__rpow__')
+            if space.is_true(space.issubtype(w_typ2, w_typ1)) and not space.is_w(w_left_src, w_right_src):
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
         if w_left_impl is not None:
@@ -351,12 +351,12 @@ class DescrOperation:
     def coerce(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
-        w_left_impl = space.lookup(w_obj1, '__coerce__')
+        w_left_src, w_left_impl = space.lookup_where(w_obj1, '__coerce__')
         if space.is_true(space.is_(w_typ1, w_typ2)):
             w_right_impl = None
         else:
-            w_right_impl = space.lookup(w_obj2, '__coerce__')
-            if space.is_true(space.issubtype(w_typ2, w_typ1)):
+            w_right_src, w_right_impl = space.lookup_where(w_obj2, '__coerce__')
+            if space.is_true(space.issubtype(w_typ2, w_typ1)) and not space.is_w(w_left_src, w_right_src):
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
@@ -406,14 +406,14 @@ def _conditional_neg(space, w_obj, flag):
 def _cmp(space, w_obj1, w_obj2):
     w_typ1 = space.type(w_obj1)
     w_typ2 = space.type(w_obj2)
-    w_left_impl = space.lookup(w_obj1, '__cmp__')
+    w_left_src, w_left_impl = space.lookup_where(w_obj1, '__cmp__')
     do_neg1 = False
     do_neg2 = True
     if space.is_true(space.is_(w_typ1, w_typ2)):
         w_right_impl = None
     else:
-        w_right_impl = space.lookup(w_obj2, '__cmp__')
-        if space.is_true(space.issubtype(w_typ2, w_typ1)):
+        w_right_src, w_right_impl = space.lookup_where(w_obj2, '__cmp__')
+        if space.is_true(space.issubtype(w_typ2, w_typ1)) and not space.is_w(w_right_src, w_left_src):
             w_obj1, w_obj2 = w_obj2, w_obj1
             w_left_impl, w_right_impl = w_right_impl, w_left_impl
             do_neg1, do_neg2 = do_neg2, do_neg1
@@ -451,12 +451,12 @@ def _make_binop_impl(symbol, specialnames):
     def binop_impl(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
-        w_left_impl = space.lookup(w_obj1, left)
+        w_left_src, w_left_impl = space.lookup_where(w_obj1, left)
         if space.is_true(space.is_(w_typ1, w_typ2)):
             w_right_impl = None
         else:
-            w_right_impl = space.lookup(w_obj2, right)
-            if space.is_true(space.issubtype(w_typ2, w_typ1)):
+            w_right_src, w_right_impl = space.lookup_where(w_obj2, right)
+            if space.is_true(space.issubtype(w_typ2, w_typ1)) and not space.is_w(w_right_src, w_left_src):
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
@@ -476,7 +476,7 @@ def _make_comparison_impl(symbol, specialnames):
     def comparison_impl(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
-        w_left_impl = space.lookup(w_obj1, left)
+        w_left_src, w_left_impl = space.lookup_where(w_obj1, left)
         w_first = w_obj1
         w_second = w_obj2
         
@@ -516,8 +516,8 @@ def _make_comparison_impl(symbol, specialnames):
             if space.is_true(space.is_(w_typ1, w_typ2)):
                 w_right_impl = None
             else:
-                w_right_impl = space.lookup(w_obj2, right)
-                if space.is_true(space.issubtype(w_typ2, w_typ1)):
+                w_right_src, w_right_impl = space.lookup_where(w_obj2, right)
+                if space.is_true(space.issubtype(w_typ2, w_typ1)) and not space.is_w(w_right_src, w_left_src):
                     w_obj1, w_obj2 = w_obj2, w_obj1
                     w_left_impl, w_right_impl = w_right_impl, w_left_impl
 

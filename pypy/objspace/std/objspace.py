@@ -279,6 +279,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         w_type = w_obj.getclass(self)
         return w_type.lookup(name)
 
+    def lookup_where(self, w_obj, name):
+        w_type = w_obj.getclass(self)
+        return w_type.lookup_where(name)
+
     def allocate_instance(self, cls, w_subtype):
         """Allocate the memory needed for an instance of an internal or
         user-defined type, without actually __init__ializing the instance."""
