@@ -1557,7 +1557,7 @@ def classic():
     class E: # *not* subclassing from C
         foo = C.foo
     vereq(E().foo, C.foo) # i.e., unbound
-    verify(repr(C.foo.__get__(C())).startswith("<bound method "))
+    verify(C.foo.__get__(C()).im_self is not None)
 
 def compattr():
     if verbose: print "Testing computed attributes..."
