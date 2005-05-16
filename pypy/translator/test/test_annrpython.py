@@ -703,7 +703,8 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(lambda: myobj, [])
         assert myobj.called
-        assert s == annmodel.SomeInstance(a.bookkeeper.getclassdef(Stuff))
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.classdef is a.bookkeeper.getclassdef(Stuff)
 
     def test_circular_mutable_getattr(self):
         class C:
