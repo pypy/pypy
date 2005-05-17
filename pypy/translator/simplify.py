@@ -177,19 +177,24 @@ def simplify_exceptions(graph):
             return
         seen = []
         norm, exc = block.exits
+        last_exception = exc.last_exception
+        last_exc_value = exc.last_exc_value
         query = exc.target
         switches = [ (None, norm) ]
         # collect the targets
         while len(query.exits) == 2:
+            newrenaming = {}
             for lprev, ltarg in zip(exc.args, query.inputargs):
-                renaming[ltarg] = rename(lprev)
+                newrenaming[ltarg] = rename(lprev)
             op = query.operations[0]
             if not (op.opname in ("is_", "issubtype") and
-                    rename(op.args[0]) == clastexc):
+                    newrenaming.get(op.args[0]) == last_exception):
                 break
+            renaming.update(newrenaming)
             case = query.operations[0].args[-1].value
             assert issubclass(case, Exception)
             lno, lyes = query.exits
+            assert lno.exitcase == False and lyes.exitcase == True
             if case not in seen:
                 switches.append( (case, lyes) )
                 seen.append(case)
@@ -201,6 +206,9 @@ def simplify_exceptions(graph):
         exits = []
         for case, oldlink in switches:
             link = oldlink.copy(rename)
+            if case is not None:
+                link.last_exception = last_exception
+                link.last_exc_value = last_exc_value
             link.exitcase = case
             link.prevblock = block
             exits.append(link)
