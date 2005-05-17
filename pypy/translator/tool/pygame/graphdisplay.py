@@ -481,17 +481,10 @@ class GraphDisplay(Display):
                     self.look_at_node(edge.tail)
 
     def sethighlight(self, word=None, obj=None):
-        # The initialization of self.viewer.highlightwords should probably be
-        # moved to setlayout()
-        self.viewer.highlightwords = {}
-        for name in self.layout.links:
-            self.viewer.highlightwords[name] = ((128,0,0), None)
-        if word:
-            self.viewer.highlightwords[word] = ((255,255,80), (128,0,0))
-
-        if word == self.highlight_obj and obj is self.highlight_obj:
+        if word == self.highlight_word and obj is self.highlight_obj:
             return # Nothing has changed, so there's no need to redraw
 
+        self.viewer.highlight_word = word
         if self.highlight_obj is not None:
             self.highlight_obj.sethighlight(False)
         if obj is not None:

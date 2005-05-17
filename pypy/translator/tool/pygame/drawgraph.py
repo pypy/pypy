@@ -207,7 +207,14 @@ class GraphRenderer:
         self.setoffset(0, 0)
         self.screen = screen
         self.textzones = []
-        self.highlightwords = {}
+        self.highlightwords = graphlayout.links
+        self.highlight_word = None
+
+    def wordcolor(self, word):
+        if word == self.highlight_word:
+            return ((255,255,80), (128,0,0))
+        else:
+            return ((128,0,0), None)
 
     def setscale(self, scale):
         scale = max(min(scale, self.SCALEMAX), self.SCALEMIN)
@@ -507,7 +514,7 @@ class TextSnippet:
             if not word:
                 continue
             if word in renderer.highlightwords:
-                fg, bg = renderer.highlightwords[word]
+                fg, bg = renderer.wordcolor(word)
                 bg = bg or bgcolor
             else:
                 fg, bg = fgcolor, bgcolor
