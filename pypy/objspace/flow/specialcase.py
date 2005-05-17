@@ -14,14 +14,13 @@ def unspecialize(obj):
 
 def sc_import(space, fn, args):
     w_name, w_glob, w_loc, w_frm = args.fixedunpack(4)
-    name = space.unwrap(w_name)
-    if name == 'sys':
+    mod = __import__(space.unwrap(w_name), space.unwrap(w_glob),
+                     space.unwrap(w_loc), space.unwrap(w_frm))
+    if mod is sys:
         return space.do_operation('simple_call', Constant(unspecialize),
                                   Constant(sys))
-    return space.wrap(__import__(name,
-                                 space.unwrap(w_glob),
-                                 space.unwrap(w_loc),
-                                 space.unwrap(w_frm)))
+    else:
+        return space.wrap(mod)
 
 def sc_write(space, fn, args):
     args_w, kwds_w = args.unpack()
