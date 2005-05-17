@@ -64,6 +64,7 @@ class AppTestStringObject:
         assert '23.456' == '%s' % 23.456
         # for 'r' use a float that has an exact decimal rep:
         assert '23.125' == '%r' % 23.125
+        # XXX rounding: assert '0.028' == '%.3f' % 0.0276
 
     def test_format_int(self):
         assert '23' == '%d' % 23
