@@ -1,17 +1,9 @@
 
-subversion
-========== 
+Installing subversion for PyPy 
+============================== 
 
-
-The PyPy codebase, documentation and web pages are controlled by subversion.
-If you already know how to use it here is the URL you need to interact
-with subversion:
-
-``http://codespeak.net/svn/pypy/dist``
-
-If you don't know what to do then Jens-Uwe Mager has prepared some 
-installation files which should help you to install subversion on
-your computer. 
+Jens-Uwe Mager has prepared some installation files which should 
+help you to install subversion on your computer. 
 
 + Download Unix source tarball or prepackaged versions_ for MacOS, Windows, FreeBSD and Linux
 
@@ -27,8 +19,6 @@ your computer.
   (This requires at least OS X 10.3)
 
 + Debian instructions below...
-
-btw, HowToInstallServer_ sketches how to install a subversion server on Linux (not as easy as the client install). You don't need to install server side files to get your client going. 
 
 Getting started
 -----------------

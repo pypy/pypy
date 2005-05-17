@@ -489,6 +489,8 @@ Committing
 .. _`this document`: svn-help.html
 
 
+.. _`using development tracker`: 
+
 Using the development bug/feature tracker
 =========================================
 
@@ -536,8 +538,10 @@ item by following these rules:
 .. _`roundup`: http://roundup.sf.net
 
 
-Test Design
-=============
+.. _`testing in PyPy`: 
+
+Testing in PyPy
+=============== 
 
 Our tests are based on the new `py.test`_ tool which lets you write
 unittests without boilerplate.  All tests of modules
@@ -625,57 +629,24 @@ Test conventions
   upon import will make sure that sys.path contains the directory
   where 'pypy' is in. 
 
-PyPy Documentation
-==================
+.. _`change documentation and website`: 
 
-Adding documentation 
--------------------- 
+Changing documentation and website 
+================================== 
 
-Please add new or updated documentation by checking it in to the appropriate 
-directory in subversion, usually under 
-http://codespeak.net/svn/pypy/dist/pypy/documentation 
+documentation/website files in your local checkout 
+---------------------------------------------------
 
-+ Remember to run ``svn up`` **before** doing any commit.
-+ All filenames should be lowercase, and documentation should be .txt files.
-+ Mark-up the documentation with reST so it can generate a pretty html version.
-+ On the server side a commit on the doc-subtree will immediately update the webpage. 
+Most of the PyPy's documentation and website is kept in 
+`pypy/documentation` and `pypy/documentation/website` respectively. 
+You can simply edit or add '.txt' files which contain ReST-markuped 
+files.  Here is a `ReST quickstart`_ but you can also just look
+at the existing documentation and see how things work. 
 
-*Note*  If you don't markup the textfile, it'll still be checked in, but when docutils 
-runs the parser, it'll look ugly on the website. So run docutils yourself before you commit it. 
+.. _`ReST quickstart`: http://docutils.sourceforge.net/docs/rst/quickref.html
 
-Some reST basics:
------------------
-
-There should be a title on your page. Do it like this::
-
- Here is my Title
- ==================
-
- Here is a section title
- -------------------------
-
-Make sure you have a blank line after your = or - lines or it will give you an error.
-For marking a block of code so it'll look right, you can::
-
- Put a line of text ending with ::
-  indent your code at least one space
-  my code
-    more code
-      even more code
-  still more code
-
-End of the "block" occurs whenever you unindent back to the same level as the
-text with the ``::`` at the end.
-
-Using an underscore after a word like ``this_`` will make reST think you want a hyperlink.
-To avoid that (especially with things like ``wrap_``), you can use the `` back quote ``
-to mark it as plain text.
-
-You can get more info on reST markup at http://docutils.sourceforge.net/docs/rst/quickref.html
-
-
-Automatically testing documentation changes
-------------------------------------------- 
+Automatically test documentation/website changes
+------------------------------------------------
 
 .. _`docutils home page`: 
 .. _`docutils`: http://docutils.sourceforge.net/ 
@@ -688,7 +659,7 @@ of the documentation directory and run the tests::
     python ../test_all.py 
 
 If you see no failures chances are high that your modifications at least 
-don't produce ReST-errors or wron local references.  A side effect of running
+don't produce ReST-errors or wrong local references.  A side effect of running
 the tests is that you have `.html` files in the documentation directory 
 which you can point your browser to! 
 
@@ -698,4 +669,5 @@ the documentation issue::
     python ../test_all.py --checkremote 
 
 which will check that remote URLs are reachable.  
+
 
