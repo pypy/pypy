@@ -31,4 +31,7 @@ IRC Channel #pypy on freenode
 
 Many of the core developers are hanging out at #pypy on irc.freenode.net. 
 You are welcome to join and ask questions even more so if you are interested
-in participating in some parts of the PyPy project. 
+in participating in some parts of the PyPy project. You can find the logs of
+the channel here_.
+
+.. _here: http://nimrod.terra-link.net/pypy
