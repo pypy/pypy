@@ -679,6 +679,8 @@ class TextInputFilter(Stream):
            of a tell() that moves beyond a newline character may in the
            same way give the wrong result.
         """
+        if whence == 1:
+            offset -= len(self.buf)   # correct for already-read-ahead character
         self.base.seek(offset, whence)
         self.atcr = False
         self.buf = ""
@@ -705,7 +707,7 @@ class TextInputFilter(Stream):
                 self.buf = ""
         if self.buf:
             try:
-                self.do_seek(-len(self.buf), 1)
+                self.base.seek(-len(self.buf), 1)
             except NotImplementedError:
                 pass
             else:
