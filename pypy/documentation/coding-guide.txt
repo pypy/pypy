@@ -484,6 +484,10 @@ Committing
   that the property 'svn:eol-style' is set to native which 
   allows checkin/checkout in native line-ending format.
 
+- To learn more about how to use subversion read `this document`_.
+
+.. _`this document`: svn-help.html
+
 
 Using the development bug/feature tracker
 =========================================
