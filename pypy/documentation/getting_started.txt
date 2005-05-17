@@ -129,7 +129,44 @@ subversion).
    on the current PyPy implementation.
 
 
-3. To list the PyPy interpreter command line options, type::
+3. There are a few useful tricks for the PyPy console: If you press <Ctrl-C> on
+   the console you enter the interpreter-level console, a CPython
+   console. There you can access internal objects of PyPy (e.g. the object
+   space) and the PyPy variables if you affix ``w_``::
+
+        >>>> a = 123
+        >>>> <Ctrl-C>
+        *** Entering interpreter-level console ***
+        >>> dir()
+        ['__builtins__', 'buffer', 'compile', 'ec', 'filename', 'locals', 'space', 'tracelevel', 'verbose', 'w___builtins__', 'w___name__', 'w___pytrace__', 'w_a', 'w_globals'] 
+        >>> w_a
+        W_IntObject(123)
+
+   Note that the prompt of the interpreter-level console is only '>>>' since
+   it runs on CPython level. To return to PyPy, press <Ctrl-D>.
+
+4. You can also use the trace object space to trace the the work of the
+   interpreter. To enable it, do (on the PyPy console)::
+
+        >>>> __pytrace__ = 1
+        Tracing enabled
+        >>>> a = 1 + 2
+        |-<<<<<enter <inline>a = 1 + 2 @ 1>>>>>>>
+        |- 0    LOAD_CONST    0 (W_IntObject(1))
+        |- 3    LOAD_CONST    1 (W_IntObject(2))
+        |- 6    BINARY_ADD
+          |-                 >> add(W_IntObject(1), W_IntObject(2))
+          |-                    add =: W_IntObject(3)
+        |- 7    STORE_NAME    0 (a)
+          |-                 >> setitem(globals(), W_StringObject('a'), W_IntObject(3))
+          |-                    setitem =: <W_NoneObject()>
+        |-10    LOAD_CONST    2 (<W_NoneObject()>)
+        |-13    RETURN_VALUE
+        |-<<<<<leave <inline>a = 1 + 2 @ 1>>>>>>>
+
+
+
+5. To list the PyPy interpreter command line options, type::
 
         cd pypy/interpreter 
         python py.py --help
@@ -143,7 +180,7 @@ subversion).
 
         python py.py ../../lib-python/modified-2.3.4/test/pystone.py 10
 
-4. The PyPy project uses test-driven-development.  Right now, there are
+6. The PyPy project uses test-driven-development.  Right now, there are
    a couple of different categories of tests which you can run.
    To run all the unit tests::
 
@@ -211,28 +248,16 @@ sufficiently static Python programs into low-level code.
 
         >>> a.simplify()
 
-5. The graph can be turned into Pyrex code, with types if ``annotate()`` was
-   called::
-
-        >>> print t.pyrex()
-        >>> f = t.compile()
-        >>> f(28)
-        1
-
-   Note how the strange-looking Pyrex code is unrelated to the original
-   Python source code.  This is because the Pyrex code is generated from the
-   graph only, without reference to the original source.
-
-6. In the same manner the graph can be compiled to C code::
+5. The graph can be turned into C code::
 
        >>> a.specialize()
        >>> f = t.ccompile()
 
    The first command replaces operations with variables of types that are
-   avaiable in C (e.g. int) with low level version. This can be ommited if no
+   avaiable in C (e.g. int) with low level versions. This can be ommited if no
    annotation (step 4) has been performed.
 
-7. If you feel adventureous (and have LLVM installed and on your path) you can
+6. If you feel adventureous (and have LLVM installed and on your path) you can
    also try to compile the graph with LLVM. This is still quite experimental
    and only works with some functions: One of the most visible restriction is
    that return type of the entry function has to be and int, float or bool. To
@@ -326,14 +351,24 @@ Optional tools
     One of our backends uses the `low level virtual machine`_ to generate
     processor independant machine level code.
 
+    LLVM can be quite annoying to install: you need a fairly recent version of
+    GCC to compile it and there can be severe problems under windows. There are
+    detailed instructions on `how to install LLVM`_. To use the LLVM backend
+    you don't need the GCC front end of LLVM, only LLVM itself. If you run
+    into problems with the installation the `LLVM mailing list`_ is very
+    helpful and friendly.
+
 *CLISP* 
 
     (used for the optional Lisp translation backend)
 	http://clisp.cons.org/_
 
-.. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
+------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
+.. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
+.. _`how to install LLVM`: http://llvm.cs.uiuc.edu/docs/GettingStarted.html
+.. _`LLVM mailing list`: http://mail.cs.uiuc.edu/mailman/listinfo/llvmdev
+
 
 .. _Dot Graphviz:           http://www.research.att.com/sw/tools/graphviz/
 .. _Pygame:                 http://www.pygame.org/
