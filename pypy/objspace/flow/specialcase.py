@@ -1,17 +1,34 @@
-import types, operator
+import types, operator, sys
 from pypy.interpreter import pyframe, baseobjspace
 from pypy.interpreter.error import OperationError
 from pypy.objspace.flow.objspace import UnwrapException
 from pypy.objspace.flow.model import Constant
 from pypy.objspace.flow.operation import OperationName, Arity
 
+def unspecialize(obj):
+    # turn a constant into SomeObject
+    # XXX this may become harder when the annotator gets smarter
+    # maybe we need to add a special function like ovfcheck.
+    if id(0) != id(None):
+        return obj
 
 def sc_import(space, fn, args):
     w_name, w_glob, w_loc, w_frm = args.fixedunpack(4)
-    return space.wrap(__import__(space.unwrap(w_name),
+    name = space.unwrap(w_name)
+    if name == 'sys':
+        return space.do_operation('simple_call', Constant(unspecialize),
+                                  Constant(sys))
+    return space.wrap(__import__(name,
                                  space.unwrap(w_glob),
                                  space.unwrap(w_loc),
                                  space.unwrap(w_frm)))
+
+def sc_write(space, fn, args):
+    args_w, kwds_w = args.unpack()
+    assert kwds_w == {}, "should not call %r with keyword arguments" % (fn,)
+    # make sure that we write to the basic sys.__stdout__
+    syswrite = sys.__stdout__.write
+    return space.do_operation('simple_call', Constant(syswrite), *args_w)
 
 def sc_operator(space, fn, args):
     args_w, kwds_w = args.unpack()
@@ -42,6 +59,9 @@ def setup(space):
     # space.specialcases[fn] = sc_normalize_exception
     if space.do_imports_immediately:
         space.specialcases[__import__] = sc_import
+    # support sys.stdout
+    space.specialcases[sys.stdout.write] = sc_write
+    space.specialcases[sys.__stdout__.write] = sc_write
     # turn calls to built-in functions to the corresponding operation,
     # if possible
     for fn in OperationName:
