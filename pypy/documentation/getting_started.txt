@@ -40,10 +40,10 @@ You may go to the more `detailed version`_ of this two-liner.
 Svn-check out & run the latest PyPy as a two-liner
 --------------------------------------------------
 
-If you want to play with the ongoing development version 
-of PyPy you can check out it out from repository using subversion. To do this
-download and install subversion_ if you don't allready have it. Then you can
-simply do on the command line (DOS box or terminal)::
+If you want to play with the ongoing development PyPy version 
+you can check it out from the repository using subversion. Download 
+and install subversion_ if you don't allready have it. Then you can
+issue on the command line (DOS box or terminal)::
 
     svn co http://codespeak.net/svn/pypy/dist pypy-dist 
 
@@ -57,8 +57,9 @@ After checkout you can get a PyPy interpreter via::
 
 have fun :-) 
 
-If you want to know more about our subversion read this_. You may also want to
-go to more `detailed version`_ of this two-liner below.
+If you want to know more how to get started with subversion read this_. 
+You may also want to go to more `detailed version`_ of this 
+two-liner below.
 
 Understanding PyPy's architecture
 ---------------------------------
