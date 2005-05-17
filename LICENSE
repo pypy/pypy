@@ -1,0 +1,96 @@
+License for files in the pypy and py directory 
+============================================== 
+
+Except when otherwise stated (look for LICENSE files in directories or
+information at the beginning of each file) all software and
+documentation in the 'pypy' and 'py' directories is licensed as follows: 
+
+    The MIT License
+
+    Permission is hereby granted, free of charge, to any person 
+    obtaining a copy of this software and associated documentation 
+    files (the "Software"), to deal in the Software without 
+    restriction, including without limitation the rights to use, 
+    copy, modify, merge, publish, distribute, sublicense, and/or 
+    sell copies of the Software, and to permit persons to whom the 
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included 
+    in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS 
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL 
+    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+    DEALINGS IN THE SOFTWARE.
+
+
+PyPy Copyright holders 2003-2005
+====================================================
+
+Except when otherwise stated (look for LICENSE files or information at
+the beginning of each file) the files in the 'pypy' directory are each
+copyrighted by one or more of the following people and organizations:    
+
+    Armin Rigo <arigo@tunes.org>
+    Samuele Pedroni <pedronis@strakt.com>
+    Holger Krekel <hpk@trillke.net>
+    Michael Hudson <mwh@python.net>
+    Christian Tismer <tismer@tismer.com>
+    Seo Sanghyeon <sanxiyn@gmail.com>
+    Alex Martelli <aleaxit@yahoo.com>
+    Stefan Schwarzer <sschwarzer@sschwarzer.de>
+    Patrick Maupin <pmaupin@speakeasy.net>
+    Carl Friedrich Bolz <cfbolz@gmx.de>
+    Bob Ippolito <bob@redivi.com>
+    Anders Chrigstrom <ac@strakt.com>
+    Jacob Hallen <jacob@strakt.com>
+    Marius Gedminas <mgedmin@b4net.lt>
+    Laura Creighton <lac@strakt.com>
+    Guido Van Rossum <guido@python.org>
+    Richard Emslie <rxe@ukshells.co.uk>
+    Ludovic Aubry <ludovic.aubry@logilab.fr>
+    Adrien Di Mascio <adim@logilab.fr>
+    Stephan Diehl <>
+    Dinu Gherman <gherman@darwin.in-berlin.de>
+    Guenter Jantzen <Guenter.Jantzen@t-mobile.de>
+    Anders Lehmann <serendipity-soft@get2net.dk>
+    Rocco Moretti <roccomoretti@hotpop.com>
+    Olivier Dormond <olivier.dormond@gmail.com>
+    Brian Dorsey <briandorsey@gmail.com>
+    Jonathan David Riehl <jriehl@spaceship.com>
+    Andreas Friedge <andreas@trillke.net>
+    Jens-Uwe Mager <jum@anubis.han.de>
+    Alan McIntyre <alan.mcintyre@esrgtech.com>
+    Lutz Paelike <lutz_p@gmx.net>
+    Jacek Generowicz <jacek.generowicz@cern.ch>
+    Ben Young <ben@transversal.com>
+    Michael Chermside <mcherm@mcherm.com>
+
+    Heinrich-Heine University, Germany 
+    AB Strakt, Sweden  
+    merlinux GmbH, Germany 
+    tismerysoft GmbH, Germany 
+    Logilab Paris, France 
+    DFKI GmbH, Germany 
+
+ 
+py lib Copyright holders, 2003-2005 
+========================================== 
+
+Except when otherwise stated (look for LICENSE files or information at
+the beginning of each file) the files in the 'py' directory are
+copyrighted by one or more of the following people and organizations:    
+
+    Holger Krekel <hpk@trillke.net>
+    merlinux GmbH, Germany <office@merlinux.de>
+    Armin Rigo <arigo@tunes.org>
+    Jan Balster <jan@balster.info>
+
+Contributors include:: 
+
+    Ian Bicking <ianb@colorstudy.com>
+    Grig Gheorghiu <grig@gheorghiu.net>
+    Bob Ippolito <bob@redivi.com>
