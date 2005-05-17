@@ -19,9 +19,11 @@ Here are some good entry points into PyPy's world:
    about our low level code generator backends. 
 
  * recently-modified_ shows a list of recently modified 
-   documentation while `revision report`_ shows status 
-   information about ongoing pypy development
+   documentation while `revision report`_ and the automated 
+   `compliance test report`_ shows status 
+   information about ongoing pypy development. 
 
+.. _`compliance test report`: http://codespeak.net/~hpk/pypy-testresult/
 .. _`objspace`: objspace.html 
 .. _`translation`: translation.html 
 .. _`coding-guide`: coding-guide.html 
