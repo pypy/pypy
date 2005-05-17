@@ -28,7 +28,7 @@ documentation in the 'pypy' and 'py' directories is licensed as follows:
 
 
 PyPy Copyright holders 2003-2005
-====================================================
+----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
 the beginning of each file) the files in the 'pypy' directory are each
@@ -78,7 +78,7 @@ copyrighted by one or more of the following people and organizations:
 
  
 py lib Copyright holders, 2003-2005 
-========================================== 
+----------------------------------- 
 
 Except when otherwise stated (look for LICENSE files or information at
 the beginning of each file) the files in the 'py' directory are
@@ -94,3 +94,14 @@ Contributors include::
     Ian Bicking <ianb@colorstudy.com>
     Grig Gheorghiu <grig@gheorghiu.net>
     Bob Ippolito <bob@redivi.com>
+
+
+License for 'lib-python/2.3.4' and 'lib-python/2.3.4-modified'
+============================================================== 
+
+Except when otherwise stated (look for LICENSE files or information at
+the beginning of each file) the files in the 'lib-python/2.3.4' 
+and 'lib-python/2.3.4-modified' directories are all copyrighted
+by the Python Software Foundation and licensed under the Python 
+Software License of which you can find a copy here:  
+http://www.python.org/doc/Copyright.html 
