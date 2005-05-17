@@ -58,7 +58,7 @@ After checkout you can get a PyPy interpreter via::
 have fun :-) 
 
 If you want to know more how to get started with subversion read this_. 
-You may also want to go to more `detailed version`_ of this 
+You may also want to go to the more `detailed version`_ of this 
 two-liner below.
 
 Understanding PyPy's architecture
