@@ -1,0 +1,16 @@
+
+* intro...
+
+* what it is 
+
+* what's working/ caveats (speed...)
+
+* links to download etc
+
+* audience,
+
+*  interesting bits
+
+* on-going work, near future goals
+
+* Team acks...
