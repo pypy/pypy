@@ -757,7 +757,7 @@ use application level tests which usually look like this::
 These application level test functions will run on top
 of PyPy, i.e. they have no access to interpreter details. 
 You cannot use imported modules from global level because
-they are imported at intepreter-level while you test code
+they are imported at interpreter-level while you test code
 runs at application level. If you need to use modules
 you have to import them within the test function. 
 
