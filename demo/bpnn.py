@@ -191,7 +191,7 @@ if __name__ == '__main__':
     print 'Annotating...'
     a = t.annotate([])
     a.simplify()
-    #a.specialize()
+    #a.specialize()   # enable this to see (some) lower-level Cish operations
     print 'Displaying the call graph and the class hierarchy.'
     t.viewcg()
     print 'Compiling...'
