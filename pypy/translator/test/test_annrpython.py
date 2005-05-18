@@ -1002,6 +1002,28 @@ class TestAnnotateTestCase:
         assert a.binding(et) == t
         assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef.cls == Exception
 
+    def test_try_except_raise_finally1(self):
+        def h(): pass
+        def g(): pass
+        class X(Exception): pass
+        def f():
+            try:
+                try:
+                    g()
+                except X:
+                    h()
+                    raise
+            finally:
+                h()
+        a = self.RPythonAnnotator()
+        a.build_types(f, [])
+        fg = a.translator.getflowgraph(f)
+        et, ev = fg.exceptblock.inputargs
+        t = annmodel.SomeObject()
+        t.knowntype = type
+        t.is_type_of = [ev]
+        assert a.binding(et) == t
+        assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef.cls == Exception
 
 
 def g(n):
