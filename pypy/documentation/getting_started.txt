@@ -490,10 +490,12 @@ Optional tools
 .. _bug reports:            https://codespeak.net/issue/pypy-dev/
 
 
-Annotated PyPy directory structure of PyPy 
-========================================================
+.. _`directory reference`: 
 
-Here is a fully annotated alphabetical two-level deep 
+PyPy directory reference 
+======================================================
+
+Here is a fully referenced alphabetical two-level deep 
 directory overview of PyPy: 
 
 ============================   =========================================== 
