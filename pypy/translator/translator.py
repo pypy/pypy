@@ -11,8 +11,9 @@ Example:
     t.view()                           # control flow graph
 
     print t.source()                   # original source
-    print t.pyrex()                    # pyrex translation
+    print t.c()                        # C translation
     print t.cl()                       # common lisp translation
+    print t.llvm()                     # LLVM translation
 
     t.simplify()                       # flow graph simplification
     a = t.annotate([int])              # pass the list of args types
@@ -22,7 +23,9 @@ Example:
     t.call(arg)                        # call original function
     t.dis()                            # bytecode disassemble
 
-    f = t.compile()                    # pyrex compilation
+    t.specialize()                     # use low level operations (for C only)
+    f = t.ccompile()                   # C compilation
+    f = t.llvmcompile()                # LLVM compilation
     assert f(arg) == t.call(arg)       # sanity check
 
 Some functions are provided for the benefit of interactive testing.
@@ -192,6 +195,17 @@ class Translator:
         out = StringIO()
         genc = GenC(out, self)
         return out.getvalue()
+
+    def llvm(self):
+        """llvm(self) -> LLVM translation
+        
+        Returns LLVM translation.
+        """
+        from pypy.translator.llvm import genllvm
+        if self.annotator is None:
+            raise genllvm.CompileError, "function has to be annotated."
+        gen = genllvm.LLVMGenerator(self)
+        return str(gen)
     
     def generatecode(self, gencls, input_arg_types, func):
         if input_arg_types is None:
@@ -257,6 +271,17 @@ class Translator:
         mod = make_module_from_c(cfile,
             include_dirs=[os.path.join(autopath.this_dir, 'genc')])
         return getattr(mod, self.entrypoint.func_name)
+
+    def llvmcompile(self, optimize=True):
+        """llvmcompile(self, optimize=True) -> LLVM translation
+        
+        Returns LLVM translation with or without optimization.
+        """
+        from pypy.translator.llvm import genllvm
+        if self.annotator is None:
+            raise genllvm.CompileError, "function has to be annotated."
+        gen = genllvm.LLVMGenerator(self)
+        return gen.compile(optimize)
 
     def call(self, *args):
         """Calls underlying Python function."""
