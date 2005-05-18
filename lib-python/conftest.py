@@ -811,7 +811,7 @@ class ReallyRunFileExternal(py.test.Item):
     def getinvocation(self, regrtest): 
         fspath = regrtest.getfspath() 
         python = sys.executable 
-        pypy_script = pypydir.join('interpreter', 'py.py')
+        pypy_script = pypydir.join('bin', 'py.py')
         alarm_script = pypydir.join('tool', 'alarm.py')
         regr_script = pypydir.join('tool', 'pytest', 'regrverbose.py')
         pypy_options = []
