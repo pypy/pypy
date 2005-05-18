@@ -4,39 +4,39 @@ from pypy.tool.udir import udir
 import py
 import sys
 
-pypath = str(py.path.local(pypy.interpreter.py.__file__).new(basename='py.py'))
+pypypath = str(py.path.local(pypy.interpreter.py.__file__).new(basename='py.py'))
 
 def test_executable():
     """Ensures sys.executable points to the py.py script"""
-    # TODO : watch out for spaces/special chars in pypath
+    # TODO : watch out for spaces/special chars in pypypath
     output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.executable" ''' %
-                                 (sys.executable, pypath) )
-    assert output.splitlines()[-1] == pypath
+                                 (sys.executable, pypypath) )
+    assert output.splitlines()[-1] == pypypath
 
 def test_prefix():
     """Make sure py.py sys.prefix and exec_prefix are the same as C Python's"""
     output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.prefix" ''' %
-                                 (sys.executable, pypath) )
+                                 (sys.executable, pypypath) )
     assert output.splitlines()[-1] == sys.prefix
     output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.exec_prefix" ''' %
-                                 (sys.executable, pypath) )
+                                 (sys.executable, pypypath) )
     assert output.splitlines()[-1] == sys.exec_prefix
 
 def test_argv_command():
     """Some tests on argv"""
     # test 1 : no arguments
     output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.argv" ''' %
-                                 (sys.executable, pypath) )
+                                 (sys.executable, pypypath) )
     assert output.splitlines()[-1] == str(['-c'])
 
     # test 2 : some arguments after
     output = py.process.cmdexec( '''"%s" "%s" -c "import sys;print sys.argv" hello''' %
-                                 (sys.executable, pypath) )
+                                 (sys.executable, pypypath) )
     assert output.splitlines()[-1] == str(['-c','hello'])
     
     # test 3 : additionnal pypy parameters
     output = py.process.cmdexec( '''"%s" "%s" -O -c "import sys;print sys.argv" hello''' %
-                                 (sys.executable, pypath) )
+                                 (sys.executable, pypypath) )
     assert output.splitlines()[-1] == str(['-c','hello'])
 
 SCRIPT_1 = """
@@ -51,17 +51,17 @@ def test_scripts():
 
     # test 1 : no arguments
     output = py.process.cmdexec( '''"%s" "%s" "%s" ''' %
-                                 (sys.executable, pypath, tmpfilepath) )
+                                 (sys.executable, pypypath, tmpfilepath) )
     assert output.splitlines()[-1] == str([tmpfilepath])
     
     # test 2 : some arguments after
     output = py.process.cmdexec( '''"%s" "%s" "%s" hello''' %
-                                 (sys.executable, pypath, tmpfilepath) )
+                                 (sys.executable, pypypath, tmpfilepath) )
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
     
     # test 3 : additionnal pypy parameters
     output = py.process.cmdexec( '''"%s" "%s" -O "%s" hello''' %
-                                 (sys.executable, pypath, tmpfilepath) )
+                                 (sys.executable, pypypath, tmpfilepath) )
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
     
 
@@ -84,7 +84,7 @@ def test_tb_normalization():
     e = None
     try:
         output = py.process.cmdexec( '''"%s" "%s" "%s" ''' %
-                                     (sys.executable, pypath, tmpfilepath) )
+                                     (sys.executable, pypypath, tmpfilepath) )
     except py.process.cmdexec.Error, e:
         pass
     assert e," expected failure"

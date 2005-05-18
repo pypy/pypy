@@ -66,12 +66,12 @@ class State:
         pypy_lib = os.path.join(autopath.pypydir, 'lib') 
         assert os.path.exists(python_std_lib) 
         assert os.path.exists(python_std_lib_modified)
-        self.w_path = space.newlist([space.wrap(''), 
-                               space.wrap(pypy_lib), 
-                               space.wrap(python_std_lib_modified),
-                               space.wrap(python_std_lib), 
-                               ] +
-                               [space.wrap(p) for p in sys.path if p!= srcdir])
+        importlist = ['']
+        for p in os.environ.get('PYTHONPATH', '').split(':'): 
+            if p: 
+                importlist.append(p) 
+        importlist.extend([pypy_lib, python_std_lib_modified, python_std_lib])
+        self.w_path = space.newlist([space.wrap(x) for x in importlist])
 
 def get(space): 
     return space.fromcache(State)

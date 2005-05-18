@@ -1,6 +1,7 @@
-import autopath
+import py
 from pypy.interpreter import gateway
-import os
+from pypy.tool.udir import udir 
+import sys, os
 
 def _setup(space): 
     dn=os.path.abspath(os.path.join(os.path.dirname(__file__), 'impsubdir'))
@@ -151,4 +152,17 @@ class AppTestImport:
         def imp_b():
             import pkg.pkg2.b
         raises(ImportError,imp_b)
-        
+       
+def test_PYTHONPATH_takes_precedence(space): 
+    from pypy.interpreter.test.test_py import pypypath 
+    extrapath = udir.ensure("pythonpath", dir=1) 
+    extrapath.join("urllib.py").write("print 42\n")
+    old = os.environ.get('PYTHONPATH', None)
+    try: 
+        os.environ['PYTHONPATH'] = str(extrapath)
+        output = py.process.cmdexec('''"%s" "%s" -c "import urllib"''' % 
+                                 (sys.executable, pypypath) )
+        assert output.strip() == '42' 
+    finally: 
+        if old: 
+            os.environ['PYTHONPATH'] = old 

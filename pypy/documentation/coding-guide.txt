@@ -461,13 +461,15 @@ Here is the order in which PyPy looks up Python modules:
     mixed interpreter/app-level builtin modules, such as 
     the sys and builtin module. 
 
+*contents of PYTHONPATH* 
+    
+    lookup application level modules in each of the ``:`` separated 
+    list of directories, specified in the ``PYTHONPATH`` environment 
+    variable. 
+
 *pypy/lib/*
 
-    Used ONLY for complete pure Python reimplementation of modules.
-    The test2 subdirectory contains regular tests for these.
-    These tests run on top of CPython, i.e. at PyPy interpreter 
-    level and are meant to *quickly* check that the reimplementations 
-    are correct, independently of PyPy.
+    contains pure Python reimplementation of modules.
 
 *lib-python/modified-2.3.4/*
 
