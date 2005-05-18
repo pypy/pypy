@@ -11,9 +11,6 @@ try:
 except ImportError:
     pass
 
-from pypy.tool.getpy import py
-#py.magic.invoke(compile=1)
-
 from pypy.tool import option
 from pypy.tool.optik import make_option
 from pypy.interpreter import main, interactive, error

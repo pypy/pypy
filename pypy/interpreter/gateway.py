@@ -22,7 +22,7 @@ from pypy.tool.compile import compile2
 from pypy.tool.sourcetools import NiceCompile
 
 # internal non-translatable parts: 
-from pypy.tool.getpy import py  # XXX from interpreter/ we get py.py 
+import py
 
 class Signature:
     "NOT_RPYTHON"
@@ -639,7 +639,6 @@ if __name__ == "__main__":
 
     def _setup(cls):
         """NOT_RPYTHON"""
-        from pypy.tool.getpy import py
         lp = py.path.local
         import pypy, os
         p = lp(pypy.__file__).new(basename='_cache').ensure(dir=1)
@@ -679,7 +678,7 @@ known_source = {}
 # self-destruct on double-click:
 def harakiri():
     import pypy._cache as _c
-    from pypy.tool.getpy import py
+    import py
     lp = py.path.local
     for pth in lp(_c.__file__).dirpath().listdir():
         try:
