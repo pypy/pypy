@@ -86,7 +86,6 @@ test_all.py is just another name for `py.test`_ which is the
 testing tool that we are using and enhancing for PyPy.   
 
 .. _`py.test`: http://codespeak.net/py/current/doc/test.html 
-.. _`interesting starting points`: 
 
 Filing bugs or feature requests 
 -------------------------------
@@ -97,6 +96,8 @@ the PyPy website.  `using the development tracker`_ has
 more detailed information on specific features of the tracker. 
 
 .. _`using the development tracker`: coding-guide.html#using-development-tracker
+
+.. _`interesting starting points`: 
 
 Interesting Starting Points in PyPy 
 ===================================
@@ -183,7 +184,35 @@ Main entry point / special PyPy features
 
         python py.py ../../lib-python/modified-2.3.4/test/pystone.py 10
 
-6. The PyPy project uses test-driven-development.  Right now, there are
+
+6. One of the original features provided by the py.py interpreter that are
+   without equivalent in CPython is the "thunk" object space, providing
+   lazily-computed objects::
+
+        cd pypy/bin
+        python py.py -o thunk
+
+        >>>> def longcomputation(lst):
+        ....     print "computing..."
+        ....     return sum(lst)
+        .... 
+        >>>> x = thunk(longcomputation, range(5))
+        >>>> y = thunk(longcomputation, range(10))
+        >>>> d = {5: x, 10: y}
+        >>>> result = d[5]
+        >>>> result
+        computing...
+        10
+        >>>> type(d[10])
+        computing...
+        <type 'int'>
+        >>>> d[10]
+        45
+
+   You will find more examples in the directory ``demo``.
+
+
+7. The PyPy project uses test-driven-development.  Right now, there are
    a couple of different categories of tests which you can run.
    To run all the unit tests::
 
