@@ -589,7 +589,8 @@ against CPython.
 Testing modules in ``pypy/module``
 ----------------------------------
 
-Simply change to ``pypy/module`` and `run the tests as usual`_. 
+Simply change to ``pypy/module`` or to a subdirectory and `run the 
+tests as usual`_. 
 
 
 Testing modules in ``lib-python``
@@ -598,8 +599,7 @@ Testing modules in ``lib-python``
 In order to let CPython's regression tests run against PyPy 
 you can switch to the `lib-python`_ directory and run 
 the testing tool in order to start compliance tests. 
-(XXX ensure windows compatibility for producing test 
-reports). 
+(XXX check windows compatibility for producing test reports). 
 
 Naming conventions and directory layout 
 ===========================================
