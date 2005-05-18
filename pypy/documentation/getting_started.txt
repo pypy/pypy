@@ -107,17 +107,23 @@ the top level directory of the PyPy source tree, e.g. pypy-x.x (if you
 got a release) or pypy-dist (if you checked out the most recent version using
 subversion).
 
+Main entry point / special PyPy features 
+------------------------------------------
+
 1. To start interpreting Python with PyPy, use Python 2.3 or greater::
 
         cd pypy/interpreter 
         python py.py
 
-   After a few seconds, you should be at the PyPy prompt, which is
-   the same as the Python prompt, but with an extra ">".
+   After a few seconds (remember: this is running on top of CPython), 
+   you should be at the PyPy prompt, which is the same as the Python 
+   prompt, but with an extra ">".
 
-2. Now you are ready to start running Python code.  Some real Python
-   modules will not run yet, and others will run too slowly to be
-   worth waiting for, but a few are fun to run::
+2. Now you are ready to start running Python code.  Most Python
+   modules should run if they don't involve CPython extension 
+   modules.  They will run relatively slow because the PyPy 
+   is still running on top of CPython at this point. Here is an 
+   example of determining PyPy's performance in pystones:: 
    
         >>>> from test import pystone 
         >>>> pystone.main(10)
@@ -129,24 +135,23 @@ subversion).
    on the current PyPy implementation.
 
 
-3. There are a few useful tricks for the PyPy console: If you press <Ctrl-C> on
-   the console you enter the interpreter-level console, a CPython
-   console. There you can access internal objects of PyPy (e.g. the object
-   space) and the PyPy variables if you affix ``w_``::
+3. There are a few extra features of the PyPy console: If you press
+   <Ctrl-C> on the console you enter the interpreter-level console, a
+   usual CPython console.  You can then access internal objects of PyPy
+   (e.g. the object space) and any variables you have created on the PyPy
+   prompt with the affix ``w_``:: 
 
         >>>> a = 123
         >>>> <Ctrl-C>
         *** Entering interpreter-level console ***
-        >>> dir()
-        ['__builtins__', 'buffer', 'compile', 'ec', 'filename', 'locals', 'space', 'tracelevel', 'verbose', 'w___builtins__', 'w___name__', 'w___pytrace__', 'w_a', 'w_globals'] 
         >>> w_a
         W_IntObject(123)
 
    Note that the prompt of the interpreter-level console is only '>>>' since
    it runs on CPython level. To return to PyPy, press <Ctrl-D>.
 
-4. You can also use the trace object space to trace the the work of the
-   interpreter. To enable it, do (on the PyPy console)::
+4. You can also use the trace object space to trace the work of the
+   interpreter. To enable it, do on the PyPy console::
 
         >>>> __pytrace__ = 1
         Tracing enabled
@@ -163,7 +168,6 @@ subversion).
         |-10    LOAD_CONST    2 (<W_NoneObject()>)
         |-13    RETURN_VALUE
         |-<<<<<leave <inline>a = 1 + 2 @ 1>>>>>>>
-
 
 
 5. To list the PyPy interpreter command line options, type::
