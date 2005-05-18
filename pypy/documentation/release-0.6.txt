@@ -1,16 +1,81 @@
 
-* intro...
 
-* what it is 
+The PyPy Development Team is happy to announce the release 0.6 of PyPy
+interpreter and technology.  This is the first public release and is
+eminently a preview release.
 
-* what's working/ caveats (speed...)
+PyPy is a reimplementation of Python written in Python itself.
 
-* links to download etc
+The long term goals are an implementation that is flexible and easy to
+experiment with and retarget to different platforms (also non-C ones)
+and such that high performance can be achieved through high-level
+implementations of especially dynamic optimisation techniques.
 
-* audience,
+The interpreter and object model implementations shipped with 0.6 can
+be run on top of CPython and implement the core language features of
+Python as of CPython 2.3. They pass a substantial part (~90%) of
+CPython test-suite tests not depending on C extension modules. Some of
+that functionality is still made available by PyPy piggy-backing on
+the host CPython interpreter.  Double interpretation and abstractions
+in the code-base make it so that PyPy running on CPython is quite slow
+(around 2000x slower than CPython ), this is to be expected.
 
-*  interesting bits
+This release is intended for people that want to look and get a feel
+into what we are doing, playing with interpreter and perusing the
+codebase.  Possibly to join in the fun and efforts.
 
-* on-going work, near future goals
+For download links and further information see 
+(most of PyPy is realeased under the MIT license):
 
-* Team acks...
+**xxx LINKS to codespeak/pypy, getting started and the download**
+
+
+The release is also a snap-shot of our ongoing efforts, interesting
+things and highlights included, related to the interpreter and beyond:
+
+* In PyPy bytecode interpretation and the implementation of objects
+  semantics (as a library of objects) are separated, apart the
+  standard implementation of those (what we call the standard object
+  space) PyPy comes with experimental object spaces augmenting the
+  standard one through delegation:
+
+    - an experimental object space that does extensive tracing of
+      object operations;
+
+    - an object space that implements lazy values and a 'become'
+      operation that can exchange object identities.
+
+* The core of PyPy only implements new-style classes, old-style
+  classes are basically implemented, apart some hooks, as what is in
+  principle user-level code (what we call app-level), and then
+  integrated with rest (there's an interpreter option --old-style to
+  make them the default metaclass).
+
+* PyPy is intended to be translated to low-level languages to regain
+  speed, for that we have developed what we call the annotator, which
+  is capable of reconstructing type information for our code-base,
+  which is written respecting some restrictions, and similarly written
+  code.  The annotator right now is already capable of type annotating
+  basically *all* of PyPy code-base, and is included with 0.6.
+
+* From type annotated code low-level code needs to be generated,
+  backends for various targets (C, LLVM,...) are included, they are
+  all somehow incomplete and have been and are quite in flux. What is
+  shipped with 0.6 is able to deal with more or less small example
+  functions.
+
+Generating low-level target code is the main area we are working right
+now, our near term efforts aiming August/September of this year are
+focused on producing a stand-alone and low-level translated version of
+PyPy with speed much nearer to CPython range.
+
+
+The PyPy Development Team
+
+**xxx all contributor names in some order (?)**
+
+
+PyPy development and activities happens as open source source project under the codespeak
+(xxx link) umbrella and through a consortium funded by a EU IST research grant:
+
+**(xxx consortium partners?? )**
