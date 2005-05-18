@@ -1,3 +1,8 @@
+"""
+Of historical interest: we computed the food bill of our first Gothenburg
+sprint with PyPy :-)
+"""
+
 slips=[(1, 'Kals MatMarkn', 6150, 'Chutney for Curry', 'dinner Saturday'),
        (2, 'Kals MatMarkn', 32000, 'Spaghetti, Beer', 'dinner Monday'),
        (2, 'Kals MatMarkn', -810, 'Deposit on Beer Bottles', 'various'),

@@ -1,6 +1,6 @@
 """Example usage:
 
-    $ python interpreter/py.py -o thunk
+    $ py.py -o thunk
     >>> def f():
     ...     print 'computing...'
     ...     return 6*7

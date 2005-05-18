@@ -1,4 +1,4 @@
-#
+#! /usr/bin/env python
 #  
 #
 """
@@ -10,7 +10,7 @@ Command-line options for translate_pypy:
               targetspec.py is a python file defining
               what is the translation target and setting things up for it,
               it should have a target function returning an entry_point ...;
-              defaults to targetpypy. The .py suffix is optional.
+              defaults to targetpypymain. The .py suffix is optional.
    -text      Don't start the Pygame viewer
    -no-a      Don't infer annotations, just translate everything
    -no-s      Don't simplify the graph after annotation
@@ -175,7 +175,7 @@ def worstblocks_topten(ann, n=10):
 
 if __name__ == '__main__':
 
-    targetspec = 'targetpypy'
+    targetspec = 'targetpypymain'
     huge = 100
 
     options = {'-text': False,

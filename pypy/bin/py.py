@@ -1,5 +1,11 @@
 #!/usr/bin/env python 
 
+"""Main entry point into the PyPy interpreter.  For a list of options, type
+
+      py.py --help
+
+"""
+
 try:
     import autopath
 except ImportError:

@@ -1,10 +1,10 @@
 
-import pypy.interpreter.py
+import autopath
 from pypy.tool.udir import udir
 import py
 import sys
 
-pypypath = str(py.path.local(pypy.interpreter.py.__file__).new(basename='py.py'))
+pypypath = str(py.path.local(autopath.pypydir).join('bin', 'py.py'))
 
 def test_executable():
     """Ensures sys.executable points to the py.py script"""
