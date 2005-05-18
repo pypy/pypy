@@ -24,15 +24,7 @@ import math
 import cmath
 import sys
 import types
-#import unittest
 
-#from pypy.tool import testit
-#from pypy.appspace.complexobject import complex as pycomplex
-
-#from pypy.module.test.applevel_in_cpython import applevel_in_cpython
-#our_own_builtin = applevel_in_cpython('__builtin__')
-#pycomplex = our_own_builtin.complex
-    
 from pypy.module.builtin.app_complex import complex as pycomplex
 
 try:
