@@ -24,7 +24,7 @@ Download one of the following release files and unpack it:
 then change to the ``pypy-0.6`` directory
 and execute the following command line:: 
 
-    python pypy/interpreter/py.py 
+    python pypy/bin/py.py 
 
 This will give you a PyPy prompt, i.e. a very compliant 
 Python interpreter implemented in Python.  Because this version
@@ -54,7 +54,7 @@ source in ``pypy-dist/pypy`` and documentation files in
 
 After checkout you can get a PyPy interpreter via:: 
 
-    python pypy-dist/pypy/interpreter/py.py 
+    python pypy-dist/pypy/bin/py.py
 
 have fun :-) 
 
@@ -112,7 +112,7 @@ Main entry point / special PyPy features
 
 1. To start interpreting Python with PyPy, use Python 2.3 or greater::
 
-        cd pypy/interpreter 
+        cd pypy/bin
         python py.py
 
    After a few seconds (remember: this is running on top of CPython), 
@@ -171,7 +171,7 @@ Main entry point / special PyPy features
 
 5. To list the PyPy interpreter command line options, type::
 
-        cd pypy/interpreter 
+        cd pypy/bin
         python py.py --help
 
    As an example of using PyPy from the command line, you could type::
