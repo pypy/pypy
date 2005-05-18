@@ -229,7 +229,7 @@ without triggering the computation::
     45
 
 It is interesting to note that this lazy-computing Python extension 
-is solely implemented in a small `objspace/thunk.py` file consisting 
+is solely implemented in a small `objspace/thunk.py`_ file consisting 
 of around 100 lines of code. 
 
 Running the tests
