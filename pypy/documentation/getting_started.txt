@@ -111,7 +111,10 @@ subversion).
 Main entry point / special PyPy features 
 ------------------------------------------
 
-1. To start interpreting Python with PyPy, use Python 2.3 or greater::
+The py.py interpreter
++++++++++++++++++++++
+
+   To start interpreting Python with PyPy, use Python 2.3 or greater::
 
         cd pypy/bin
         python py.py
@@ -120,7 +123,7 @@ Main entry point / special PyPy features
    you should be at the PyPy prompt, which is the same as the Python 
    prompt, but with an extra ">".
 
-2. Now you are ready to start running Python code.  Most Python
+   Now you are ready to start running Python code.  Most Python
    modules should work if they don't involve CPython extension 
    modules.  Here is an example of determining PyPy's performance 
    in pystones:: 
@@ -134,8 +137,27 @@ Main entry point / special PyPy features
    default is 50000, which is far too many to run in a reasonable time
    on the current PyPy implementation.
 
+py.py options
++++++++++++++
 
-3. There are a few extra features of the PyPy console: If you press
+   To list the PyPy interpreter command line options, type::
+
+        cd pypy/bin
+        python py.py --help
+
+   As an example of using PyPy from the command line, you could type::
+
+        python py.py -c "from test import pystone; pystone.main(10)"
+
+   Alternatively, as with regular Python, you can simply give a
+   script name on the command line::
+
+        python py.py ../../lib-python/modified-2.3.4/test/pystone.py 10
+
+Interpreter-level console
++++++++++++++++++++++++++
+
+   There are a few extra features of the PyPy console: If you press
    <Ctrl-C> on the console you enter the interpreter-level console, a
    usual CPython console.  You can then access internal objects of PyPy
    (e.g. the object space) and any variables you have created on the PyPy
@@ -150,7 +172,10 @@ Main entry point / special PyPy features
    Note that the prompt of the interpreter-level console is only '>>>' since
    it runs on CPython level. To return to PyPy, press <Ctrl-D>.
 
-4. You can also use the trace object space to trace the work of the
+Tracing
++++++++
+
+   You can also use the trace object space to trace the work of the
    interpreter. To enable it, do on the PyPy console::
 
         >>>> __pytrace__ = 1
@@ -169,23 +194,10 @@ Main entry point / special PyPy features
         |-13    RETURN_VALUE
         |-<<<<<leave <inline>a = 1 + 2 @ 1>>>>>>>
 
+Thunk object space (lazy objects)
++++++++++++++++++++++++++++++++++
 
-5. To list the PyPy interpreter command line options, type::
-
-        cd pypy/bin
-        python py.py --help
-
-   As an example of using PyPy from the command line, you could type::
-
-        python py.py -c "from test import pystone; pystone.main(10)"
-
-   Alternatively, as with regular Python, you can simply give a
-   script name on the command line::
-
-        python py.py ../../lib-python/modified-2.3.4/test/pystone.py 10
-
-
-6. One of the original features provided by the py.py interpreter that are
+   One of the original features provided by the py.py interpreter that are
    without equivalent in CPython is the "thunk" object space, providing
    lazily-computed objects::
 
@@ -209,10 +221,10 @@ Main entry point / special PyPy features
         >>>> d[10]
         45
 
-   You will find more examples in the directory ``demo``.
+Running the tests
++++++++++++++++++
 
-
-7. The PyPy project uses test-driven-development.  Right now, there are
+   The PyPy project uses test-driven-development.  Right now, there are
    a couple of different categories of tests which you can run.
    To run all the unit tests::
 
@@ -244,6 +256,16 @@ Main entry point / special PyPy features
 
 .. _`installed py.test`: http://codespeak.net/py/current/doc/getting_started.html
 
+Demos
++++++
+
+   The directory ``demo`` contains examples of various aspects of PyPy,
+   from regular Python programs that we used as goals while developing
+   the interpreter to applications of the thunk object space to an
+   example allowing you to `try out the translator`_.
+
+
+.. _`try out the translator`:
 
 Trying out the translator
 ------------------------- 
@@ -257,11 +279,12 @@ sufficiently static Python programs into low-level code.
 
 3. Type::
 
-        cd pypy/translator
-        python -i translator.py
+        cd pypy/bin
+        python translator.py
 
    Test snippets of translatable code are provided in the file
-   ``test/snippet.py``.  For example::
+   ``pypy/translator/test/snippet.py``, which is imported under the name
+   ``test``.  For example::
 
         >>> t = Translator(test.is_perfect_number)
         >>> t.view()
@@ -270,7 +293,7 @@ sufficiently static Python programs into low-level code.
 .. >>> from pypy.translator.test import snippet as test 
 
 4. We have a type annotator that can completely infer types for functions like
-   ``is_perfect_number``::
+   ``is_perfect_number`` (as well as for much larger examples)::
 
         >>> a = t.annotate([int])
         >>> t.view()
@@ -301,6 +324,41 @@ sufficiently static Python programs into low-level code.
        1
 
    This works only with fully annotated graphs.
+
+7. There is a small-to-medium demo showing the translator and the annotator::
+
+       cd demo
+       python bpnn.py
+
+   This causes ``bpnn.py`` to display itself as a call graph and class
+   hierarchy.  Clicking on functions shows the flow graph of the particular
+   function.  Clicking on a class shows the attributes of its instances.  All
+   this information (call graph, local variables' types, attributes of
+   instances) is computed by the annotator.
+
+8. Not for the faint of heart nor the owner of a very old machine: you can
+   run the annotator over the whole PyPy interpreter itself.  This is the
+   largest and ultimate example of source that our annotator can (very
+   successfully!) process::
+
+       cd pypy/translator/goal
+       python translate_pypy.py -no-t -no-c
+
+   Moving around is difficult because of the sheer size of the result.
+   For this reason, the debugger prompt you get at the end has been
+   enhanced with commands to facilitate locating functions and classes.
+   Type ``help graphs`` for a list of the new commands.  Help is also
+   available on each of these new commands.
+
+   The ``translate_pypy`` script itself takes a number of options controlling
+   what to translate and how.  See ``translate_pypy.py -h``.  Try out::
+
+       cd pypy/translator/goal
+       python translate_pypy.py targetrpystone
+
+   or a simplified, scaled-down version::
+
+       python translate_pypy.py targetrpystone2
 
 
 .. _`start reading sources`: 
