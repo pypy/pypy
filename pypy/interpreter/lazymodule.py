@@ -3,6 +3,7 @@ from pypy.interpreter.function import Function, BuiltinFunction
 from pypy.interpreter import gateway 
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter.baseobjspace import W_Root
+import os
 
 import inspect
 
@@ -82,7 +83,30 @@ class LazyModule(Module):
                 loaders[name] = getinterpevalloader(pkgroot, spec) 
             for name, spec in cls.appleveldefs.items(): 
                 loaders[name] = getappfileloader(pkgroot, spec) 
+            assert '__file__' not in loaders 
+            loaders['__file__'] = cls.get__file__
+
     buildloaders = classmethod(buildloaders) 
+
+    def get__file__(cls, space): 
+        """ NOT_RPYTHON. 
+        return the __file__ attribute of a LazyModule 
+        which is the root-directory for the various 
+        applevel and interplevel snippets that make
+        up the module. 
+        """ 
+        try: 
+            fname = cls._fname 
+        except AttributeError: 
+            pkgroot = cls.__module__
+            mod = __import__(pkgroot, None, None, ['__doc__'])
+            fname = mod.__file__ 
+            assert os.path.basename(fname).startswith('__init__.py') 
+            cls._fname = fname 
+        return space.wrap(fname) 
+
+    get__file__ = classmethod(get__file__) 
+
 
 def getinterpevalloader(pkgroot, spec):
     """ NOT_RPYTHON """     

@@ -46,3 +46,9 @@ class AppTest_ModuleObject:
         assert foo.__doc__ is None
         bar = type(sys)('bar','docstring')
         assert bar.__doc__ == 'docstring'
+
+    def test___file__(self): 
+        import sys, os
+        assert sys.__file__ 
+        assert os.path.basename(sys.__file__).startswith('__init__.py') 
+        
