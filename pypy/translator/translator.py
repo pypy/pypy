@@ -270,6 +270,7 @@ class Translator:
             return cfile
         mod = make_module_from_c(cfile,
             include_dirs=[os.path.join(autopath.this_dir, 'genc')])
+        self.concretetypes.clear()
         return getattr(mod, self.entrypoint.func_name)
 
     def llvmcompile(self, optimize=True):
