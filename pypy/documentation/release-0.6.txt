@@ -1,8 +1,11 @@
 
 
-The PyPy Development Team is happy to announce the release 0.6 of PyPy
+*The PyPy Development Team is happy to announce the release 0.6 of PyPy
 interpreter and technology.  This is the first public release and is
-eminently a preview release.
+eminently a preview release.*
+
+What is is, download and links
+-------------------------------
 
 PyPy is a reimplementation of Python written in Python itself.
 
@@ -30,6 +33,9 @@ For download links and further information see
 **xxx LINKS to codespeak/pypy, getting started and the download**
 
 
+Interesting bits and highlights
+---------------------------------
+
 The release is also a snap-shot of our ongoing efforts, interesting
 things and highlights included, related to the interpreter and beyond:
 
@@ -44,6 +50,8 @@ things and highlights included, related to the interpreter and beyond:
 
     - an object space that implements lazy values and a 'become'
       operation that can exchange object identities.
+  
+  *These spaces already give a glimpse in the flexibility potential of PyPy*.
 
 * The core of PyPy only implements new-style classes, old-style
   classes are basically implemented, apart some hooks, as what is in
@@ -63,6 +71,9 @@ things and highlights included, related to the interpreter and beyond:
   all somehow incomplete and have been and are quite in flux. What is
   shipped with 0.6 is able to deal with more or less small example
   functions.
+
+Ongoing work and near term goals
+---------------------------------
 
 Generating low-level target code is the main area we are working right
 now, our near term efforts aiming August/September of this year are
