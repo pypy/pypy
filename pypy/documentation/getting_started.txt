@@ -120,10 +120,9 @@ Main entry point / special PyPy features
    prompt, but with an extra ">".
 
 2. Now you are ready to start running Python code.  Most Python
-   modules should run if they don't involve CPython extension 
-   modules.  They will run relatively slow because the PyPy 
-   is still running on top of CPython at this point. Here is an 
-   example of determining PyPy's performance in pystones:: 
+   modules should work if they don't involve CPython extension 
+   modules.  Here is an example of determining PyPy's performance 
+   in pystones:: 
    
         >>>> from test import pystone 
         >>>> pystone.main(10)
