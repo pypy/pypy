@@ -3,7 +3,7 @@ import autopath
 import py
 from pypy.tool.udir import udir
 
-from pypy.translator.genpyrex import GenPyrex
+from pypy.translator.pyrex.genpyrex import GenPyrex
 from pypy.objspace.flow.model import *
 
 from pypy.translator.tool.buildpyxmodule import make_module_from_pyxstring

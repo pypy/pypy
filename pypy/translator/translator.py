@@ -10,7 +10,7 @@ from pypy.objspace.flow.model import *
 from pypy.annotation.model import *
 from pypy.translator.annrpython import RPythonAnnotator
 from pypy.translator.simplify import simplify_graph
-from pypy.translator.genpyrex import GenPyrex
+from pypy.translator.pyrex.genpyrex import GenPyrex
 from pypy.translator.gencl import GenCL
 from pypy.translator.genc.genc import GenC
 from pypy.translator.gensupp import uniquemodulename
@@ -216,7 +216,7 @@ class Translator:
             g.setannotator(ann)
         return g.globaldeclarations()
 
-    def compile(self):
+    def pyrexcompile(self):
         """Returns compiled function, compiled using Pyrex.
         """
         from pypy.tool.udir import udir

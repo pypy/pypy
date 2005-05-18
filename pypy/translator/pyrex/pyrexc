@@ -4,6 +4,5 @@
 #   Pyrex -- Main Program, Unix
 #
 
-import autopath
 from Pyrex.Compiler.Main import main
 main(command_line = 1)

@@ -10,7 +10,7 @@ from py.process import cmdexec
 from py import path 
 
 from pypy.tool.udir import udir
-from pypy.translator.genpyrex import GenPyrex
+from pypy.translator.pyrex.genpyrex import GenPyrex
 from pypy.translator.tool.buildpyxmodule import make_c_from_pyxfile
 from pypy.translator.tool import stdoutcapture
 

@@ -1,7 +1,7 @@
 import autopath
 import py
 from pypy.tool.udir import udir
-from pypy.translator.genpyrex import GenPyrex
+from pypy.translator.pyrex.genpyrex import GenPyrex
 from pypy.objspace.flow.model import *
 from pypy.translator.tool.buildpyxmodule import build_cfunc
 from pypy.translator.tool.buildpyxmodule import skip_missing_compiler

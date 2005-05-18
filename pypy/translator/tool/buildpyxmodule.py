@@ -1,7 +1,6 @@
 import autopath
 
 import py
-from pypy.translator.genpyrex import GenPyrex
 
 import os, sys, inspect, re
 from pypy.translator.tool import stdoutcapture
@@ -122,6 +121,10 @@ def make_module_from_c(cfile, include_dirs=None):
     return testmodule
 
 def make_c_from_pyxfile(pyxfile):
+    from pypy.translator.pyrex import genpyrex
+    pyrexdir = os.path.dirname(genpyrex.__file__)
+    if pyrexdir not in sys.path:
+        sys.path.append(pyrexdir)
     from Pyrex.Compiler.Main import CompilationOptions, Context, PyrexError
     try:
         options = CompilationOptions(show_version = 0, 
@@ -180,6 +183,7 @@ def build_cfunc(func, simplify=1, dot=1, inputargtypes=None):
         name += '_s'
 
     # get the pyrex generator
+    from pypy.translator.pyrex.genpyrex import GenPyrex
     genpyrex = GenPyrex(funcgraph)
 
     # generate pyrex (without type inference)
