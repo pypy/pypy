@@ -120,7 +120,7 @@ class TestTypedTestCase:
                     spec = spec[0] # use the first type only for the tests
                 argstypelist.append(spec)
         t.annotate(argstypelist) 
-        return skip_missing_compiler(t.compile)
+        return skip_missing_compiler(t.pyrexcompile)
 
     def test_set_attr(self):
         set_attr = self.getcompiled(snippet.set_attr)
