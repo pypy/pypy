@@ -12,16 +12,19 @@ Here are some good entry points into PyPy's world:
  * `getting started`_ provides hands-on instructions 
    including a two-liner to run PyPy on your computer. 
 
- * objspace_ and coding-guide_ provide more in-depth 
-   implementation level information. 
+ * coding-guide_ helps you to write code for PyPy. 
+
+ * objspace_ discusses the object space interface 
+   and several implementations. 
 
  * translation_ offers the beginnings of documentation 
    about our low level code generator backends. 
 
  * recently-modified_ shows a list of recently modified 
-   documentation while `revision report`_ and the automated 
-   `compliance test report`_ shows status 
-   information about ongoing pypy development. 
+   documentation 
+
+ * `compliance test report`_ shows status information 
+   about recent runs of CPython's regression tests against PyPy. 
 
 .. _`compliance test report`: http://codespeak.net/~hpk/pypy-testresult/
 .. _`objspace`: objspace.html 
@@ -32,17 +35,11 @@ Here are some good entry points into PyPy's world:
 .. _`getting started`: getting_started.html 
 .. _`theory`: theory.html
 
-Before doing pypy coding, you might also take a look at these 
-developer-specific instructions: 
-
- * oscon2003-paper_ is a paper we presented at Oscon 2003 describing 
-   what the pypy project is about and why you should care
-
- * testdesign_ describes a bit of PyPy's testing approaches 
-
-
 Further reading / related projects 
 ----------------------------------
+
+* oscon2003-paper_ is a paper we presented at Oscon 2003 describing 
+  what the pypy project is about and why you should care
 
 * An interesting thread on an HP tech report that may be proof the pypy is feasible_ . (We already knew that...)
 
