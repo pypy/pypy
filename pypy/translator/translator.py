@@ -23,7 +23,6 @@ Example:
     t.call(arg)                        # call original function
     t.dis()                            # bytecode disassemble
 
-    t.specialize()                     # use low level operations (for C only)
     f = t.ccompile()                   # C compilation
     f = t.llvmcompile()                # LLVM compilation
     assert f(arg) == t.call(arg)       # sanity check
