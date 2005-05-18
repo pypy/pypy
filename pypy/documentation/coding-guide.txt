@@ -518,7 +518,7 @@ application level definitions
 
 Application level specifiations are found in the `appleveldefs` 
 dictionary found in ``__init__.py`` files of directories in ``pypy/module``. 
-For example, in ``pypy/module/builtin/__init__.py``_ you find the following 
+For example, in `pypy/module/builtin/__init__.py`_ you find the following 
 entry specifying where ``__builtin__.locals`` comes from:: 
 
      ...
@@ -536,7 +536,7 @@ interpreter level definitions
 
 Interpreter level specifiations are found in the ``interpleveldefs`` 
 dictionary found in ``__init__.py`` files of directories in ``pypy/module``. 
-For example, in ``pypy/module/builtin/__init__.py``_ the following 
+For example, in `pypy/module/builtin/__init__.py`_ the following 
 entry specifies where ``__builtin__.len`` comes from:: 
 
      ...
