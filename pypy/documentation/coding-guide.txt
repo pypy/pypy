@@ -583,7 +583,7 @@ against CPython.
 Testing modules in ``pypy/module``
 ----------------------------------
 
-Simply change to ``pypy/module`` and run the tests as usual. 
+Simply change to ``pypy/module`` and `run the tests as usual`_. 
 
 
 Testing modules in ``lib-python``
@@ -761,6 +761,8 @@ they are imported at intepreter-level while you test code
 runs at application level. If you need to use modules
 you have to import them within the test function. 
 
+.. _`run the tests as usual`: 
+
 Command line tool test_all
 --------------------------
 
@@ -768,8 +770,9 @@ You can run almost all of PyPy's tests by invoking::
 
   python test_all.py
 
-which is a synonym for the general `py.test`_ utility. 
-For switches to modify test execution invoke "python test_all.py -h".
+which is a synonym for the general `py.test`_ utility 
+located in the ``pypy`` directory.  For switches to 
+modify test execution pass the ``-h`` option. 
 
 Test conventions
 ----------------
