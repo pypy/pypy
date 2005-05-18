@@ -1,20 +1,11 @@
 """
-This is the entry point of genllvm. This file can also be used with python -i
-to interactively test genllvm.
-
-The class LLVMGenerator coordinates the creation of LLVM representations and
-drives the creation of the .ll file and the compilation:
-The methods get_repr loops over all Repr classes and calls there static get
-method. If this method returns None, it continues searching, else it returns
-the object. It caches representations so that only one is generated for a given
-object.
-
+Generate a llvm .ll file from an annotated flowgraph.
 """
 
 import autopath
 import sets, StringIO
 
-from pypy.objspace.flow.model import Constant
+from pypy.objspace.flow.model import Constant 
 from pypy.annotation import model as annmodel
 from pypy.translator import transform
 from pypy.translator.translator import Translator
@@ -142,7 +133,7 @@ class LLVMGenerator(object):
                 return g
         raise CompileError, "Can't get repr of %s, %s" % (obj, obj.__class__)
 
-    def write(self, f):
+    def write(self, f, include=True):
         self.unlazyify()
         seen_reprs = sets.Set()
         remove_loops(self.l_entrypoint, seen_reprs)
@@ -150,7 +141,10 @@ class LLVMGenerator(object):
         init_block = self.l_entrypoint.init_block
         for l_repr in traverse_dependencies(self.l_entrypoint, seen_reprs):
             l_repr.collect_init_code(init_block, self.l_entrypoint)
-        include_files = ["operations.ll", "class.ll"]
+        if include == True:
+            include_files = ["operations.ll", "class.ll"]
+        else:
+            include_files = []
         for i, fn in enumerate(include_files):
             f1 = file(autopath.this_dir + "/" + fn)
             s = f1.read()
@@ -189,7 +183,7 @@ class LLVMGenerator(object):
 
     def __str__(self):
         f = StringIO.StringIO()
-        self.write(f)
+        self.write(f, False)
         return f.getvalue()
 
 #traverse dependency-tree starting from the leafes upward
