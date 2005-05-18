@@ -490,9 +490,9 @@ often due to the fact that PyPy works with all new-style classes
 by default and CPython has a number of places where it relies 
 on some classes being old-style.  
 
-If you want to change a module or test contained in `lib-python/2.3.4`
-then make sure that you copy the file to our `lib-python/modified-2.3.4` 
-directory first.  In subversion commandline terms this reads: 
+If you want to change a module or test contained in ``lib-python/2.3.4``
+then make sure that you copy the file to our ``lib-python/modified-2.3.4`` 
+directory first.  In subversion commandline terms this reads:: 
 
     svn cp lib-python/2.3.4/somemodule.py lib-python/modified-2.3.4/ 
 
@@ -517,16 +517,16 @@ application level definitions
 .............................
 
 Application level specifiations are found in the `appleveldefs` 
-dictionary found in `__init__.py` files of directories in `pypy/module`. 
-For example, in `pypy/module/builtin/__init__.py`_ you find the following 
-entry specifying where `__builtin__.locals` comes from:: 
+dictionary found in ``__init__.py`` files of directories in ``pypy/module``. 
+For example, in ``pypy/module/builtin/__init__.py``_ you find the following 
+entry specifying where ``__builtin__.locals`` comes from:: 
 
      ...
      'locals'        : 'app_inspect.locals',
      ...
 
-The `app_` prefix indicates that the submodule `app_inspect` is 
-interpreted at application level and the function value for `locals` 
+The ``app_`` prefix indicates that the submodule ``app_inspect`` is 
+interpreted at application level and the function value for ``locals`` 
 will be extracted accordingly. 
 
 .. _`pypy/module/builtin/__init__.py`: http://codespeak.net/svn/pypy/dist/pypy/module/builtin/__init__.py
@@ -534,27 +534,27 @@ will be extracted accordingly.
 interpreter level definitions
 .............................
 
-Interpreter level specifiations are found in the `interpleveldefs` 
-dictionary found in `__init__.py` files of directories in `pypy/module`. 
-For example, in `pypy/module/builtin/__init__.py`_ the following 
-entry specifies where `__builtin__.len` comes from:: 
+Interpreter level specifiations are found in the ``interpleveldefs`` 
+dictionary found in ``__init__.py`` files of directories in ``pypy/module``. 
+For example, in ``pypy/module/builtin/__init__.py``_ the following 
+entry specifies where ``__builtin__.len`` comes from:: 
 
      ...
      'len'       : 'operation.len',
      ...
 
-The `operation` submodule lives at interpreter level and `len` 
+The ``operation`` submodule lives at interpreter level and ``len`` 
 is expected to be exposable to application level.  Here is
-the definition for `operation.len()`:: 
+the definition for ``operation.len()``:: 
 
     def len(space, w_obj):
         "len(object) -> integer\n\nReturn the number of items of a sequence or mapping."
         return space.len(w_obj)
 
-Exposed interpreter level functions usually take a `space` argument
+Exposed interpreter level functions usually take a ``space`` argument
 and some wrapped values (see `wrapping rules`_) .   
 
-You can also use a convenient shortcut in `interpleveldefs` dictionaries: 
+You can also use a convenient shortcut in ``interpleveldefs`` dictionaries: 
 namely an expression in parentheses to specify an interpreter level 
 expression directly (instead of pulling it indirectly from a file):: 
 
@@ -563,18 +563,18 @@ expression directly (instead of pulling it indirectly from a file)::
     'False'         : '(space.w_False)',
     ... 
 
-The interpreter level expression has a `space` binding when
+The interpreter level expression has a ``space`` binding when
 it is executed. 
 
 
-Testing modules in `pypy/lib`
------------------------------
+Testing modules in ``pypy/lib``
+--------------------------------
 
 You can go to the `pypy/lib/test2`_ directory and invoke the testing tool
 ("py.test" or "python ../../test_all.py") to run tests against the
 pypy/lib hierarchy.  Note, that tests in `pypy/lib/test2`_ are allowed
 and encouraged to let their tests run at interpreter level although
-`pypy/lib` modules eventually live at PyPy's application level.  
+``pypy/lib`` modules eventually live at PyPy's application level.  
 This allows us to quickly test our python-coded reimplementations 
 against CPython.   
 
@@ -583,10 +583,10 @@ against CPython.
 Testing modules in `pypy/module`
 ----------------------------------
 
-Simply change to `pypy/module` and run the tests as usual. 
+Simply change to ``pypy/module`` and run the tests as usual. 
 
 
-Testing modules in `lib-python`
+Testing modules in ``lib-python``
 -----------------------------------
 
 In order to let CPython's regression tests run against PyPy 
