@@ -51,9 +51,9 @@ things and highlights included, related to the interpreter and beyond:
     - the 'thunk' object space that implements lazy values and a 'become'
       operation that can exchange object identities.
   
-  *These spaces already give a glimpse in the flexibility potential of PyPy*.
-  (see demo/fibonacci.py and demo/sharedref.py for examples about the 'thunk'
-  object space)
+  *These spaces already give a glimpse in the flexibility potential of
+  PyPy*.  (See demo/fibonacci.py and demo/sharedref.py for examples
+  about the 'thunk' object space.)
 
 * The core of PyPy only implements new-style classes, old-style
   classes are basically implemented, apart some hooks, as what is in
