@@ -526,7 +526,7 @@ entry specifying where ``__builtin__.locals`` comes from::
      ...
 
 The ``app_`` prefix indicates that the submodule ``app_inspect`` is 
-interpreted at application level and the function value for ``locals`` 
+interpreted at application level and the wrapped function value for ``locals`` 
 will be extracted accordingly. 
 
 .. _`pypy/module/builtin/__init__.py`: http://codespeak.net/svn/pypy/dist/pypy/module/builtin/__init__.py
@@ -580,7 +580,7 @@ against CPython.
 
 .. _`pypy/lib/test2`: http://codespeak.net/svn/pypy/dist/pypy/lib/test2
 
-Testing modules in `pypy/module`
+Testing modules in ``pypy/module``
 ----------------------------------
 
 Simply change to ``pypy/module`` and run the tests as usual. 
