@@ -114,145 +114,146 @@ Main entry point / special PyPy features
 The py.py interpreter
 +++++++++++++++++++++
 
-   To start interpreting Python with PyPy, use Python 2.3 or greater::
+To start interpreting Python with PyPy, use Python 2.3 or greater::
 
-        cd pypy/bin
-        python py.py
+    cd pypy/bin
+    python py.py
 
-   After a few seconds (remember: this is running on top of CPython), 
-   you should be at the PyPy prompt, which is the same as the Python 
-   prompt, but with an extra ">".
+After a few seconds (remember: this is running on top of CPython), 
+you should be at the PyPy prompt, which is the same as the Python 
+prompt, but with an extra ">".
 
-   Now you are ready to start running Python code.  Most Python
-   modules should work if they don't involve CPython extension 
-   modules.  Here is an example of determining PyPy's performance 
-   in pystones:: 
-   
-        >>>> from test import pystone 
-        >>>> pystone.main(10)
+Now you are ready to start running Python code.  Most Python
+modules should work if they don't involve CPython extension 
+modules.  Here is an example of determining PyPy's performance 
+in pystones:: 
 
-   Note that this is a slightly modified version of pystone -- the
-   original version does not accept the parameter to main().  The
-   parameter is the number of loops to run through the test, and the
-   default is 50000, which is far too many to run in a reasonable time
-   on the current PyPy implementation.
+    >>>> from test import pystone 
+    >>>> pystone.main(10)
+
+Note that this is a slightly modified version of pystone -- the
+original version does not accept the parameter to main().  The
+parameter is the number of loops to run through the test, and the
+default is 50000, which is far too many to run in a reasonable time
+on the current PyPy implementation.
 
 py.py options
 +++++++++++++
 
-   To list the PyPy interpreter command line options, type::
+To list the PyPy interpreter command line options, type::
 
-        cd pypy/bin
-        python py.py --help
+    cd pypy/bin
+    python py.py --help
 
-   As an example of using PyPy from the command line, you could type::
+As an example of using PyPy from the command line, you could type::
 
-        python py.py -c "from test import pystone; pystone.main(10)"
+    python py.py -c "from test import pystone; pystone.main(10)"
 
-   Alternatively, as with regular Python, you can simply give a
-   script name on the command line::
+Alternatively, as with regular Python, you can simply give a
+script name on the command line::
 
-        python py.py ../../lib-python/modified-2.3.4/test/pystone.py 10
+    python py.py ../../lib-python/modified-2.3.4/test/pystone.py 10
 
 Interpreter-level console
 +++++++++++++++++++++++++
 
-   There are a few extra features of the PyPy console: If you press
-   <Ctrl-C> on the console you enter the interpreter-level console, a
-   usual CPython console.  You can then access internal objects of PyPy
-   (e.g. the object space) and any variables you have created on the PyPy
-   prompt with the affix ``w_``:: 
+There are a few extra features of the PyPy console: If you press
+<Ctrl-C> on the console you enter the interpreter-level console, a
+usual CPython console.  You can then access internal objects of PyPy
+(e.g. the object space) and any variables you have created on the PyPy
+prompt with the affix ``w_``:: 
 
-        >>>> a = 123
-        >>>> <Ctrl-C>
-        *** Entering interpreter-level console ***
-        >>> w_a
-        W_IntObject(123)
+    >>>> a = 123
+    >>>> <Ctrl-C>
+    *** Entering interpreter-level console ***
+    >>> w_a
+    W_IntObject(123)
 
-   Note that the prompt of the interpreter-level console is only '>>>' since
-   it runs on CPython level. To return to PyPy, press <Ctrl-D>.
+Note that the prompt of the interpreter-level console is only '>>>' since
+it runs on CPython level. To return to PyPy, press <Ctrl-D>.
 
 Tracing
 +++++++
 
-   You can also use the trace object space to trace the work of the
-   interpreter. To enable it, do on the PyPy console::
+You can use the trace object space to monitor the interpretation
+of bytecodes in connection with object space operations.  To enable 
+it, set ``__pytrace__=1`` on the interactive PyPy console:: 
 
-        >>>> __pytrace__ = 1
-        Tracing enabled
-        >>>> a = 1 + 2
-        |-<<<<<enter <inline>a = 1 + 2 @ 1>>>>>>>
-        |- 0    LOAD_CONST    0 (W_IntObject(1))
-        |- 3    LOAD_CONST    1 (W_IntObject(2))
-        |- 6    BINARY_ADD
-          |-                 >> add(W_IntObject(1), W_IntObject(2))
-          |-                    add =: W_IntObject(3)
-        |- 7    STORE_NAME    0 (a)
-          |-                 >> setitem(globals(), W_StringObject('a'), W_IntObject(3))
-          |-                    setitem =: <W_NoneObject()>
-        |-10    LOAD_CONST    2 (<W_NoneObject()>)
-        |-13    RETURN_VALUE
-        |-<<<<<leave <inline>a = 1 + 2 @ 1>>>>>>>
+    >>>> __pytrace__ = 1
+    Tracing enabled
+    >>>> a = 1 + 2
+    |-<<<<<enter <inline>a = 1 + 2 @ 1>>>>>>>
+    |- 0    LOAD_CONST    0 (W_IntObject(1))
+    |- 3    LOAD_CONST    1 (W_IntObject(2))
+    |- 6    BINARY_ADD
+      |-                 >> add(W_IntObject(1), W_IntObject(2))
+      |-                    add =: W_IntObject(3)
+    |- 7    STORE_NAME    0 (a)
+      |-                 >> setitem(globals(), W_StringObject('a'), W_IntObject(3))
+      |-                    setitem =: <W_NoneObject()>
+    |-10    LOAD_CONST    2 (<W_NoneObject()>)
+    |-13    RETURN_VALUE
+    |-<<<<<leave <inline>a = 1 + 2 @ 1>>>>>>>
 
 Thunk object space (lazy objects)
 +++++++++++++++++++++++++++++++++
 
-   One of the original features provided by the py.py interpreter that are
-   without equivalent in CPython is the "thunk" object space, providing
-   lazily-computed objects::
+One of the original features provided by the py.py interpreter that are
+without equivalent in CPython is the "thunk" object space, providing
+lazily-computed objects::
 
-        cd pypy/bin
-        python py.py -o thunk
+    cd pypy/bin
+    python py.py -o thunk
 
-        >>>> def longcomputation(lst):
-        ....     print "computing..."
-        ....     return sum(lst)
-        .... 
-        >>>> x = thunk(longcomputation, range(5))
-        >>>> y = thunk(longcomputation, range(10))
-        >>>> d = {5: x, 10: y}
-        >>>> result = d[5]
-        >>>> result
-        computing...
-        10
-        >>>> type(d[10])
-        computing...
-        <type 'int'>
-        >>>> d[10]
-        45
+    >>>> def longcomputation(lst):
+    ....     print "computing..."
+    ....     return sum(lst)
+    .... 
+    >>>> x = thunk(longcomputation, range(5))
+    >>>> y = thunk(longcomputation, range(10))
+    >>>> d = {5: x, 10: y}
+    >>>> result = d[5]
+    >>>> result
+    computing...
+    10
+    >>>> type(d[10])
+    computing...
+    <type 'int'>
+    >>>> d[10]
+    45
 
 Running the tests
 +++++++++++++++++
 
-   The PyPy project uses test-driven-development.  Right now, there are
-   a couple of different categories of tests which you can run.
-   To run all the unit tests::
+The PyPy project uses test-driven-development.  Right now, there are
+a couple of different categories of tests which you can run.
+To run all the unit tests::
 
-        cd pypy
-        python test_all.py
+    cd pypy
+    python test_all.py
 
-   Alternatively, you may run subtests by going to the correct subdirectory
-   and running them individually::
+Alternatively, you may run subtests by going to the correct subdirectory
+and running them individually::
 
-        python test_all.py module/test/test_builtin.py
+    python test_all.py module/test/test_builtin.py
 
-   ``test_all.py`` is actually just a synonym for `py.test`_ which is 
-   our external testing tool. If you have installed that then you 
-   can as well just issue ``py.test DIRECTORY_OR_FILE`` in order 
-   to perform test runs or simply start it without arguments to 
-   run all tests below the current directory. 
+``test_all.py`` is actually just a synonym for `py.test`_ which is 
+our external testing tool. If you have installed that then you 
+can as well just issue ``py.test DIRECTORY_OR_FILE`` in order 
+to perform test runs or simply start it without arguments to 
+run all tests below the current directory. 
 
-   Finally, there are standard regression tests which you can 
-   run like this::
+Finally, there are standard regression tests which you can 
+run like this::
 
-        cd lib-python-2.3.4/test 
-        python ../../pypy/test_all.py -E
+    cd lib-python-2.3.4/test 
+    python ../../pypy/test_all.py -E
 
-   or if you have `installed py.test`_ then you simply say::
+or if you have `installed py.test`_ then you simply say::
 
-        py.test -E
+    py.test -E
 
-   from the lib-python-2.3.4/test directory. 
+from the lib-python-2.3.4/test directory. 
 
 .. _`installed py.test`: http://codespeak.net/py/current/doc/getting_started.html
 
@@ -453,7 +454,6 @@ Optional tools
     (used for the optional Lisp translation backend)
 	http://clisp.cons.org/_
 
-------------------------------------------------------------------------------
 
 .. _`low level virtual machine`: http://llvm.cs.uiuc.edu/
 .. _`how to install LLVM`: http://llvm.cs.uiuc.edu/docs/GettingStarted.html
