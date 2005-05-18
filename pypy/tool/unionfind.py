@@ -1,3 +1,4 @@
+# This is a general algorithm used by the annotator.
 
 # union-find impl, a info object is attached to the roots
 

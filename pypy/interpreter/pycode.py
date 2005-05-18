@@ -58,7 +58,7 @@ def setup_frame_classes():
 
     def fresh_GeneratorFrame_methods():
         import types
-        from pypy.tool.hack import func_with_new_name
+        from pypy.tool.sourcetools import func_with_new_name
         dic = GeneratorFrame.__dict__.copy()
         for n in dic:
             x = dic[n]

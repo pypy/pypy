@@ -4,7 +4,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty, Member
 from pypy.interpreter.typedef import descr_get_dict, descr_set_dict
 from pypy.interpreter.baseobjspace import SpaceCache
 from pypy.objspace.std.model import MultiMethod, FailedToImplement
-from pypy.tool.compile import compile2
+from pypy.tool.sourcetools import compile2
 
 __all__ = ['StdTypeDef', 'newmethod', 'gateway',
            'GetSetProperty', 'Member',

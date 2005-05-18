@@ -1,5 +1,5 @@
 import autopath
-from pypy.tool.template import compile_template
+from pypy.tool.sourcetools import compile_template
 
 
 some_global = 5

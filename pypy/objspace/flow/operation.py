@@ -4,7 +4,7 @@ built-in functions (or type constructors) implementing them.
 """
 from pypy.interpreter.baseobjspace import ObjSpace
 import operator, types, __future__
-from pypy.tool.compile import compile2
+from pypy.tool.sourcetools import compile2
 
 FunctionByName = {}   # dict {"operation_name": <built-in function>}
 OperationName  = {}   # dict {<built-in function>: "operation_name"}

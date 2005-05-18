@@ -1,7 +1,13 @@
 # a couple of support functions which
 # help with generating Python source.
 
-import sys, os, inspect
+# XXX This module provides a similar, but subtly different, functionality
+# XXX several times over, which used to be scattered over four modules.
+# XXX We should try to generalize and single out one approach to dynamic
+# XXX code compilation.
+
+import sys, os, inspect, new
+import autopath, py
 
 def render_docstr(func, indent_str='', closing_str=''):
     """ Render a docstring as a string of lines.
@@ -143,3 +149,77 @@ def newcode_withfilename(co, co_filename):
     return newcode(co, co_consts = tuple(newconstlist),
                        co_filename = co_filename)
 
+# ____________________________________________________________
+
+import __future__
+
+def compile2(source, filename='', mode='exec', flags=
+             __future__.generators.compiler_flag, dont_inherit=0):
+    """
+    A version of compile() that caches the code objects it returns.
+    It uses py.code.compile() to allow the source to be displayed in tracebacks.
+    """
+    key = (source, filename, mode, flags)
+    try:
+        co = compile2_cache[key]
+        #print "***** duplicate code ******* "
+        #print source 
+    except KeyError: 
+        #if DEBUG: 
+        co = py.code.compile(source, filename, mode, flags) 
+        #else: 
+        #    co = compile(source, filename, mode, flags) 
+        compile2_cache[key] = co 
+    return co 
+
+compile2_cache = {}
+
+# ____________________________________________________________
+
+def compile_template(source, resultname):
+    """Compiles the source code (a string or a list/generator of lines)
+    which should be a definition for a function named 'resultname'.
+    The caller's global dict and local variable bindings are captured.
+    """
+    if not isinstance(source, py.code.Source):
+        if isinstance(source, str):
+            lines = [source]
+        else:
+            lines = list(source)
+        lines.append('')
+        source = py.code.Source('\n'.join(lines))
+
+    caller = sys._getframe(1)
+    locals = caller.f_locals
+    if locals is caller.f_globals:
+        localnames = []
+    else:
+        localnames = locals.keys()
+        localnames.sort()
+    values = [locals[key] for key in localnames]
+    
+    source = source.putaround(
+        before = "def container(%s):" % (', '.join(localnames),),
+        after  = "# no unindent\n    return %s" % resultname)
+
+    d = {}
+    exec source.compile() in caller.f_globals, d
+    container = d['container']
+    return container(*values)
+
+# ____________________________________________________________
+
+if (sys.version_info >= (2, 3) and
+    not hasattr(sys, 'pypy_objspaceclass')):
+    def func_with_new_name(func, newname):
+        """Make a renamed copy of a function."""
+        f = new.function(func.func_code, func.func_globals,
+                            newname, func.func_defaults,
+                            func.func_closure)
+        if func.func_dict: 
+            f.func_dict = {}
+            f.func_dict.update(func.func_dict) 
+        return f 
+else:
+    def func_with_new_name(func, newname):
+        return func

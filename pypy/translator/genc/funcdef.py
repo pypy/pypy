@@ -11,7 +11,7 @@ from pypy.translator.genc.nonetype import CNoneType
 from pypy.translator.genc.functype import CFuncPtrType
 from pypy.translator.genc.pyobjtype import CBorrowedPyObjectType
 from pypy.interpreter.pycode import CO_VARARGS
-from pypy.tool.compile import compile2
+from pypy.tool.sourcetools import compile2
 from types import FunctionType
 
 from pypy.translator.gensupp import c_string

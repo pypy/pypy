@@ -1,3 +1,6 @@
+# This is where the options for py.py are defined.
+# XXX needs clean-up and reorganization.
+
 import os
 from pypy.tool import optik
 make_option = optik.make_option

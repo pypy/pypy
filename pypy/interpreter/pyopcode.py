@@ -10,7 +10,7 @@ from pypy.interpreter import pyframe, pytraceback
 from pypy.interpreter.miscutils import InitializedClass
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
-from pypy.tool import hack
+from pypy.tool.sourcetools import func_with_new_name
 
 def unaryoperation(operationname):
     """NOT_RPYTHON"""
@@ -20,7 +20,7 @@ def unaryoperation(operationname):
         w_result = operation(w_1)
         f.valuestack.push(w_result)
 
-    return hack.func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
+    return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)
 
 def binaryoperation(operationname):
     """NOT_RPYTHON"""    
@@ -31,7 +31,7 @@ def binaryoperation(operationname):
         w_result = operation(w_1, w_2)
         f.valuestack.push(w_result)
 
-    return hack.func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)        
+    return func_with_new_name(opimpl, "opcode_impl_for_%s" % operationname)        
 
 
 class PyInterpFrame(pyframe.PyFrame):

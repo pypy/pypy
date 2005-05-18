@@ -11,15 +11,14 @@ import types, sys, md5, os
 
 NoneNotWrapped = object()
 
-from pypy.tool import hack
+from pypy.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import OperationError 
 from pypy.interpreter import eval
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, BaseWrappable
 from pypy.interpreter.baseobjspace import Wrappable, SpaceCache
 from pypy.interpreter.argument import Arguments
-from pypy.tool.compile import compile2
-from pypy.tool.sourcetools import NiceCompile
+from pypy.tool.sourcetools import NiceCompile, compile2
 
 # internal non-translatable parts: 
 import py
@@ -542,7 +541,7 @@ class ApplevelClass:
         def get_function(space):
             w_func = self.wget(space, name) 
             return space.unwrap(w_func)
-        appcaller = hack.func_with_new_name(appcaller, name)
+        appcaller = func_with_new_name(appcaller, name)
         appcaller.get_function = get_function
         return appcaller
 

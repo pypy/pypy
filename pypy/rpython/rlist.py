@@ -1,7 +1,7 @@
 import py
 from pypy.annotation.model import *
 from pypy.rpython.lltypes import *
-from pypy.tool.template import compile_template
+from pypy.tool.sourcetools import compile_template
 
 
 class ListType:

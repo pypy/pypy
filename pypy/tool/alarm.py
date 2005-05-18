@@ -1,3 +1,11 @@
+"""
+Usage:
+
+    python alarm.py <timeout> <scriptname> <args...>
+
+Run the given script.  If the timeout elapses, trying interrupting it by
+sending KeyboardInterrupts.
+"""
 
 import traceback 
 

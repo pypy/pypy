@@ -1,3 +1,7 @@
+"""
+A color print.
+"""
+
 import sys
 
 def ansi_print(text, esc, file=None):

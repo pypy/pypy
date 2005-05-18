@@ -1,3 +1,6 @@
+#
+# support code for the trace object space
+#
 from __future__ import generators
 
 import autopath

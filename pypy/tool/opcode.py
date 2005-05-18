@@ -1,3 +1,5 @@
+# XXX this is a (hopefully temporary) copy of the 2.3 module of CPython.
+#     See pydis.py.
 
 """
 opcode module - potentially shared between dis and other modules which

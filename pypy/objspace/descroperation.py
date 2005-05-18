@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, W_Root, BaseWrappable
 from pypy.interpreter.function import Function
 from pypy.interpreter.gateway import BuiltinCode
 from pypy.interpreter.argument import Arguments
-from pypy.tool.compile import compile2 
+from pypy.tool.sourcetools import compile2, func_with_new_name
 
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
@@ -443,8 +443,6 @@ def _cmp(space, w_obj1, w_obj2):
         return space.wrap(1)
 
 # regular methods def helpers
-
-from pypy.tool.hack import func_with_new_name
 
 def _make_binop_impl(symbol, specialnames):
     left, right = specialnames

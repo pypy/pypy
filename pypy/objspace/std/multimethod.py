@@ -1,5 +1,5 @@
 
-from pypy.tool.compile import compile2
+from pypy.tool.sourcetools import compile2
 
 class FailedToImplement(Exception):
     def __init__(self, w_type=None, w_value=None):

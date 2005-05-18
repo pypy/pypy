@@ -1,4 +1,12 @@
 #! /usr/bin/env python
+"""
+This script walks over the files and subdirs of the specified directories
+('.' by default), and changes the svn properties to match the PyPy guidelines:
+
+ svn:ignore      includes '*.pyc' and '*.pyo' for all directories
+ svn:eol-style   is 'native' for *.py and *.txt files
+
+"""
 
 import sys, os
 import autopath 
