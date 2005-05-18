@@ -48,10 +48,12 @@ things and highlights included, related to the interpreter and beyond:
     - an experimental object space that does extensive tracing of
       object operations;
 
-    - an object space that implements lazy values and a 'become'
+    - the 'thunk' object space that implements lazy values and a 'become'
       operation that can exchange object identities.
   
   *These spaces already give a glimpse in the flexibility potential of PyPy*.
+  (see demo/fibonacci.py and demo/sharedref.py for examples about the 'thunk'
+  object space)
 
 * The core of PyPy only implements new-style classes, old-style
   classes are basically implemented, apart some hooks, as what is in
@@ -63,14 +65,19 @@ things and highlights included, related to the interpreter and beyond:
   speed, for that we have developed what we call the annotator, which
   is capable of reconstructing type information for our code-base,
   which is written respecting some restrictions, and similarly written
-  code.  The annotator right now is already capable of type annotating
-  basically *all* of PyPy code-base, and is included with 0.6.
+  code.  The annotator right now is already capable of successfully
+  type annotating basically *all* of PyPy code-base, and is included
+  with 0.6.
 
 * From type annotated code low-level code needs to be generated,
   backends for various targets (C, LLVM,...) are included, they are
   all somehow incomplete and have been and are quite in flux. What is
-  shipped with 0.6 is able to deal with more or less small example
-  functions.
+  shipped with 0.6 is able to deal with more or less small/medium examples.
+
+`Getting started`_ has more information about how to try out these features
+and tools.
+
+.. _`Getting started`: getting_started.html
 
 Ongoing work and near term goals
 ---------------------------------
