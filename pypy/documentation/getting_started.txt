@@ -263,8 +263,8 @@ sufficiently static Python programs into low-level code.
    that return type of the entry function has to be and int, float or bool. To
    try it do::
 
-       >>> from pypy.translator.llvm.genllvm import llvmcompile
-       >>> f = llvmcompile(t, optimize=True)
+       >>> print t.llvm()
+       >>> f = t.llvmcompile(optimize=True)
        >>> f(28)
        1
 
