@@ -1,5 +1,13 @@
 """
-Generate a llvm .ll file from an annotated flowgraph.
+This is the entry point of genllvm. This file can also be used with python -i
+to interactively test genllvm.
+
+The class LLVMGenerator coordinates the creation of LLVM representations and
+drives the creation of the .ll file and the compilation:
+The methods get_repr loops over all Repr classes and calls there static get
+method. If this method returns None, it continues searching, else it returns
+the object. It caches representations so that only one is generated for a given
+object.
 """
 
 import autopath
