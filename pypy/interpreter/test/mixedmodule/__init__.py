@@ -1,6 +1,6 @@
-from pypy.interpreter.lazymodule import LazyModule 
+from pypy.interpreter.mixedmodule import MixedModule 
 
-class Module(LazyModule): 
+class Module(MixedModule): 
     interpleveldefs = {
         '__name__' : '(space.wrap("mixedmodule"))',
         '__doc__'  : '(space.wrap("mixedmodule doc"))',

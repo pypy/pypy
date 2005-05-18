@@ -9,10 +9,10 @@
    allows us to do so one piece at a time.
 """
 
-from pypy.interpreter.lazymodule import LazyModule 
+from pypy.interpreter.mixedmodule import MixedModule 
 
 
-class Module(LazyModule):
+class Module(MixedModule):
     """_sre_pypy module"""
     
     appleveldefs = {

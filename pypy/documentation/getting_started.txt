@@ -284,7 +284,7 @@ relative to the PyPy toplevel directory):
    in pyopcode.py_, frame and code objects in eval.py_ and pyframe.py_,
    function objects and argument passing in function.py_ and argument.py_,
    the object space interface definition in baseobjspace.py_, modules in
-   module.py_ and lazymodule.py_.  Core types supporting the interpreter are
+   module.py_ and mixedmodule.py_.  Core types supporting the interpreter are
    defined in typedef.py_.
 
 *  `pypy/objspace/std`_ contains the `Standard object space`_.  The main file
@@ -380,7 +380,7 @@ Optional tools
 .. _argument.py:            http://codespeak.net/svn/pypy/dist/pypy/interpreter/argument.py
 .. _baseobjspace.py:        http://codespeak.net/svn/pypy/dist/pypy/interpreter/baseobjspace.py
 .. _module.py:              http://codespeak.net/svn/pypy/dist/pypy/interpreter/module.py
-.. _lazymodule.py:          http://codespeak.net/svn/pypy/dist/pypy/interpreter/lazymodule.py
+.. _mixedmodule.py:          http://codespeak.net/svn/pypy/dist/pypy/interpreter/mixedmodule.py
 .. _typedef.py:             http://codespeak.net/svn/pypy/dist/pypy/interpreter/typedef.py
 .. _pypy/objspace/std:  http://codespeak.net/svn/pypy/dist/pypy/objspace/std/
 .. _Standard object space:  http://codespeak.net/pypy/index.cgi?doc/stdobjspace.html

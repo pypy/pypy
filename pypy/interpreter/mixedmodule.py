@@ -7,7 +7,7 @@ import os
 
 import inspect
 
-class LazyModule(Module):
+class MixedModule(Module):
 
     NOT_RPYTHON_ATTRIBUTES = ['loaders']
     
@@ -90,7 +90,7 @@ class LazyModule(Module):
 
     def get__file__(cls, space): 
         """ NOT_RPYTHON. 
-        return the __file__ attribute of a LazyModule 
+        return the __file__ attribute of a MixedModule 
         which is the root-directory for the various 
         applevel and interplevel snippets that make
         up the module. 

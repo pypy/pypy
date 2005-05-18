@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError, debug_print
 from pypy.interpreter import module
-from pypy.interpreter.lazymodule import LazyModule 
+from pypy.interpreter.mixedmodule import MixedModule 
 
 
 import pythonutil
@@ -8,7 +8,7 @@ import pythonutil
 debug_print( "Loading grammar %s" % pythonutil.PYTHON_GRAMMAR ) 
 PYTHON_PARSER = pythonutil.python_grammar()
 
-class Module(LazyModule):
+class Module(MixedModule):
     """The builtin parser module. 
     """ 
 

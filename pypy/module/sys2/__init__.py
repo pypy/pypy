@@ -1,7 +1,7 @@
-from pypy.interpreter.lazymodule import LazyModule 
+from pypy.interpreter.mixedmodule import MixedModule 
 from pypy.interpreter.error import OperationError 
 
-class Module(LazyModule):
+class Module(MixedModule):
     """Sys Builtin Module. """
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
@@ -93,7 +93,7 @@ class Module(LazyModule):
 
     def getdictvalue(self, space, attr): 
         """ specialize access to dynamic exc_* attributes. """ 
-        value = LazyModule.getdictvalue(self, space, attr) 
+        value = MixedModule.getdictvalue(self, space, attr) 
         if value is not None: 
             return value 
         if attr == 'exc_type':

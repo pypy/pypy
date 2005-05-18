@@ -1,8 +1,8 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import module
-from pypy.interpreter.lazymodule import LazyModule 
+from pypy.interpreter.mixedmodule import MixedModule 
 
-class Module(LazyModule):
+class Module(MixedModule):
     """The builtin parser module. 
     """ 
     appleveldefs = {
