@@ -124,7 +124,7 @@ def make_c_from_pyxfile(pyxfile):
     from pypy.translator.pyrex import genpyrex
     pyrexdir = os.path.dirname(genpyrex.__file__)
     if pyrexdir not in sys.path:
-        sys.path.append(pyrexdir)
+        sys.path.insert(0, pyrexdir)
     from Pyrex.Compiler.Main import CompilationOptions, Context, PyrexError
     try:
         options = CompilationOptions(show_version = 0, 
