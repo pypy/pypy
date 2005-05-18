@@ -30,16 +30,11 @@ codebase.  Possibly to join in the fun and efforts.
 For download links and further information and documentation see 
 (most of PyPy is realeased under the MIT license):
 
-- `Download PyPy 0.6`: _
-- `Getting started`_
-- `PyPy Documentation`
-- `PyPy Homepage`_
-
-.. _`Download PyPy 0.6`: xxx
-.. _`Getting started`: http://codespeak.net/pypy/index.cgi?doc/getting_started.html
-.. _`PyPy Documentation`: http://codespeak.net/pypy/index.cgi?doc
-.. _`PyPy Homepage`: http://codespeak.net/pypy/
-
+- Download PyPy 0.6: http://xxx
+- Getting started: http://codespeak.net/pypy/index.cgi?doc/getting_started.html
+- PyPy Documentation: http://codespeak.net/pypy/index.cgi?doc
+- PyPy Homepage: http://codespeak.net/pypy/
+- PyPy 0.6 License: http://xxx
 
 Interesting bits and highlights
 ---------------------------------
@@ -82,10 +77,9 @@ things and highlights included, related to the interpreter and beyond:
   all somehow incomplete and have been and are quite in flux. What is
   shipped with 0.6 is able to deal with more or less small/medium examples.
 
-`Getting started`_ has more information about how to try out these features
+Getting started <http://codespeak.net/pypy/index.cgi?doc/getting_started.html> has more information about how to try out these features
 and tools.
 
-.. _`Getting started`: http://codespeak.net/pypy/index.cgi?doc/getting_started.html
 
 Ongoing work and near term goals
 ---------------------------------
@@ -101,8 +95,6 @@ The PyPy Development Team
 **xxx all contributor names in some order (?)**
 
 
-PyPy development and activities happens as open source source project under the codespeak_ umbrella and through a consortium funded by a EU IST research grant:
+PyPy development and activities happens as open source source project under the http://codespeak.net/ umbrella and through a consortium funded by a EU IST research grant:
 
 **(xxx consortium partners?? )**
-
-.. _codespeak: http://codespeak.net/
