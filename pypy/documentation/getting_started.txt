@@ -172,8 +172,8 @@ prompt with the affix ``w_``::
 Note that the prompt of the interpreter-level console is only '>>>' since
 it runs on CPython level. To return to PyPy, press <Ctrl-D>.
 
-Tracing
-+++++++
+Tracing bytecode and operations on objects
+++++++++++++++++++++++++++++++++++++++++++ 
 
 You can use the trace object space to monitor the interpretation
 of bytecodes in connection with object space operations.  To enable 
@@ -195,12 +195,12 @@ it, set ``__pytrace__=1`` on the interactive PyPy console::
     |-13    RETURN_VALUE
     |-<<<<<leave <inline>a = 1 + 2 @ 1>>>>>>>
 
-Thunk object space (lazy objects)
-+++++++++++++++++++++++++++++++++
+lazily computed objects 
++++++++++++++++++++++++
 
 One of the original features provided by the py.py interpreter that are
 without equivalent in CPython is the "thunk" object space, providing
-lazily-computed objects::
+lazily-computed objects in a transparent manner::
 
     cd pypy/bin
     python py.py -o thunk
@@ -211,6 +211,12 @@ lazily-computed objects::
     .... 
     >>>> x = thunk(longcomputation, range(5))
     >>>> y = thunk(longcomputation, range(10))
+
+from the application perspective, ``x`` and ``y`` represent 
+exactly the objects being returned by the ``longcomputation()``
+invocations.  You can put these objects into a dictionary 
+without triggering the computation:: 
+
     >>>> d = {5: x, 10: y}
     >>>> result = d[5]
     >>>> result
@@ -221,6 +227,10 @@ lazily-computed objects::
     <type 'int'>
     >>>> d[10]
     45
+
+It is interesting to note that this lazy-computing Python extension 
+is solely implemented in a small `objspace/thunk.py` file consisting 
+of around 100 lines of code. 
 
 Running the tests
 +++++++++++++++++
