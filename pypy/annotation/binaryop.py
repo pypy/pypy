@@ -63,7 +63,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
                     for v in is_type_of2:
                         is_type_of[v] = True
                 if is_type_of:
-                    result.is_type_of = is_type_of
+                    result.is_type_of = is_type_of.keys()
             else:
                 if is_type_of1 and is_type_of1 == is_type_of2:
                     result.is_type_of = is_type_of1
