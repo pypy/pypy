@@ -27,7 +27,7 @@ This release is intended for people that want to look and get a feel
 into what we are doing, playing with interpreter and perusing the
 codebase.  Possibly to join in the fun and efforts.
 
-For download links and further information see 
+For download links and further information and documentation see 
 (most of PyPy is realeased under the MIT license):
 
 **xxx LINKS to codespeak/pypy, getting started and the download**
