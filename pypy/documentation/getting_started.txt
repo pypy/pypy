@@ -484,12 +484,107 @@ Optional tools
 .. _pypy/annotation:    http://codespeak.net/svn/pypy/dist/pypy/annotation/
 .. _pypy/translator/annrpython.py: http://codespeak.net/svn/pypy/dist/pypy/translator/annrpython.py
 .. _mailing lists:          http://codespeak.net/pypy/index.cgi?lists
-.. _documentation:          http://codespeak.net/pypy/index.cgi?doc
+.. _documentation:          index.html 
 .. _wiki:                   http://codespeak.net/moin/pypy/moin.cgi/FrontPage?action=show
 .. _unit tests:             http://codespeak.net/pypy/index.cgi?doc/testdesign.html
 .. _bug reports:            https://codespeak.net/issue/pypy-dev/
 
 
+Annotated PyPy directory structure of PyPy 
+========================================================
 
+Here is a fully annotated alphabetical two-level deep 
+directory verview of PyPy: 
+
+============================   =========================================== 
+Directory                      explanation/links
+============================   =========================================== 
+`annotation/`_                 `type inferencing code`_ for `RPython`_ programs 
+
+`documentation/`_              text versions of PyPy `documentation`_ files shown on the website 
+
+`documentation/revreport/`_    the source code for the `revision report`_ 
+
+`documentation/website/`_      text versions of the navigation webpages 
+
+`interpreter/`_                bytecode interpreter and related objects (frames, functions, modules,...) 
+
+`lib/`_                        PyPy's wholesale reimplementations of CPython modules_
+
+`lib/test2/`_                  tests running at interp-level against the reimplementations 
+
+`module/`_                     contains `mixed modules`_ implementing core modules with 
+                               both application and interpreter level code 
+
+`module/_sre_pypy/`_           an experimental approach wrapping CPython's ``_sre`` module 
+                               without using faking 
+
+`module/builtin/`_             full implementation of CPython's ``__builtin__`` module. 
+
+`module/parser/`_              parser package from Jonathan David Riehl's `basil`_ package
+
+`module/recparser/`_           parser package from Logilab 
+
+`module/sys2/`_                implementation of CPython's ``sys`` module.  
+
+`objspace/`_                   `object space`_ implementations
+
+`objspace/trace.py`_           the `trace object space`_ monitoring bytecode and space operations
+
+`objspace/thunk.py`_           the `thunk object space`_, providing unique object features 
+
+`objspace/flow/`_              the FlowObjSpace_ implementing `abstract interpretation`
+
+`objspace/std/`_               the StdObjSpace_ implementing CPython's objects and types
+
+`rpython/`_                    the `RPython Typer`_ 
+
+`tool/`_                       various utilities and hacks used from various places 
+
+`tool/pytest/`_                support code for our `testing methods`_
+
+`tool/tb_server/`_             a somewhat outdated http-server for presenting 
+                               tracebacks in a helpful manner 
+
+`translator/`_                 translation_ backends and support code
+
+`translator/genc/`_            the `GenC backend`_ producing a CPython C-extension 
+                               module from a given RPython program. 
+
+`translator/java/`_            experimental code to utilize Java for annotation 
+
+`translator/llvm/`_            contains the `LLVM backend`_ producing LLVM assembler 
+                               from fully annotated RPython programs 
+
+`translator/tool/`_            helper tools for translation 
+
+``*/test/``                    many directories have a test subdirectory containing test 
+                               modules (see `Testing in PyPy`_) 
+
+``_cache/``                    holds cache files from internally translating application 
+                               level to interpreterlevel code.  (XXXM0.5 insert link here 
+                               when geninterp documentation is there). 
+============================   =========================================== 
+
+.. _`Testing in PyPy`: coding-guide.html#testing-in-pypy 
+.. _`mixed modules`: coding-guide.html#mixed-modules 
+.. _`modules`: coding-guide.html#modules 
+.. _`basil`: http://people.cs.uchicago.edu/~jriehl/BasilTalk.pdf
+.. _`object space`: objspace.html
+.. _FlowObjSpace: objspace.html#the-flow-object-space 
+.. _`trace object space`: objspace.html#the-trace-object-space 
+.. _`thunk object space`: objspace.html#the-thunk-object-space 
+.. _StdObjSpace: objspace.html#the-standard-object-space 
+.. _`abstract interpretation`: theory.html#abstract-interpretation
+.. _`rpython`: coding-guide#rpython 
+.. _`type inferencing code`: translation#the-annotation-pass 
+.. _`RPython Typer`: translation.html#rpython-typer 
+.. _`testing methods`: coding-guide.html#testing-in-pypy
+.. _`translation`: translation.html 
+.. _`GenC backend`: translation.html#genc 
+.. _`LLVM backend`: translation.html#llvm 
+.. _`revision report`: http://codespeak.net/pypy/rev/current 
 
 .. _subversion: svn-help.html
+
+.. include:: _ref.txt
